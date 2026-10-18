@@ -121,8 +121,15 @@ function isRuntimeParameters(
   return Object.values(value).every(isJsonValue);
 }
 
-/** The invocation a call stands for, run under a signal and, when prompts are routed, the call's driver id. */
-type TCallWork = (signal: AbortSignal, driverId: TDriverId | undefined) => Promise<CallToolResult>;
+/** How a call whose prompts are routed back to its caller is attributed and followed. */
+interface ICallRoute {
+  readonly driverId: TDriverId;
+  /** The call's work now holds the session (or may); check whether it drives it. */
+  readonly holding: () => void;
+}
+
+/** The invocation a call stands for, run under a signal and, when prompts are routed, its route. */
+type TCallWork = (signal: AbortSignal, route: ICallRoute | undefined) => Promise<CallToolResult>;
 
 async function prepareCall(
   session: IMcpTransportSession,
@@ -149,12 +156,14 @@ async function prepareCall(
         `${submitToolName} requires a non-empty string prompt and no other arguments`,
       );
     }
-    return async (callSignal, driverId) => {
+    return async (callSignal, route) => {
       try {
+        // The turn may wait in the queue; the route follows it from the turn's own start.
         const handle = await session.submit(prompt, undefined, undefined, {
           signal: callSignal,
-          ...(driverId !== undefined ? { driverId } : {}),
+          ...(route !== undefined ? { driverId: route.driverId } : {}),
         });
+        route?.holding();
         const result = await handle.completed;
         return { content: [{ type: 'text', text: result.response }] };
       } catch (error) {
@@ -167,13 +176,18 @@ async function prepareCall(
     return toolError(`Unknown tool: ${toolName}`);
   if (!isRuntimeParameters(parameters)) return toolError('Tool arguments must contain JSON values');
   const runtimeParameters = parameters;
-  return async (callSignal, driverId) => {
+  return async (callSignal, route) => {
     try {
-      const result = await session.invokeRuntimeTool(toolName, runtimeParameters, {
+      const invocation = session.invokeRuntimeTool(toolName, runtimeParameters, {
         signal: callSignal,
         // Only a call whose prompts are routed back to its caller may ask; any other still denies.
-        ...(driverId !== undefined ? { driverId, permissionInteraction: 'interactive' as const } : {}),
+        ...(route !== undefined
+          ? { driverId: route.driverId, permissionInteraction: 'interactive' as const }
+          : {}),
       });
+      // A direct call takes the session as it is invoked, or is refused; it asks only after that.
+      route?.holding();
+      const result = await invocation;
       return {
         content: [{ type: 'text', text: JSON.stringify(result) }],
         isError: !result.success,
@@ -200,6 +214,10 @@ export async function invokeMcpTool(
   if (caller === undefined) return prepared(signal, undefined);
   if (caller.kind === 'elicit') return runWithElicitation(session, prepared, signal, caller.elicit);
   return runRounds(session, prepared, signal, caller.pending);
+}
+
+function routeOf(prompts: McpCallPrompts): ICallRoute {
+  return { driverId: prompts.driverId, holding: () => prompts.followActiveDriver() };
 }
 
 /** Puts one prompt to the client and settles it with the answer; withdrawn if the session settles it first. */
@@ -256,7 +274,7 @@ async function runWithElicitation(
     }
   })().catch(() => undefined);
   try {
-    return await work(signal, prompts.driverId);
+    return await work(signal, routeOf(prompts));
   } finally {
     stop.abort();
     await pump;
@@ -280,7 +298,7 @@ function runRounds(
 ): Promise<CallToolResult | InputRequiredResult> {
   const abort = new AbortController();
   const prompts = new McpCallPrompts(session, mintCallDriverId());
-  const outcome = work(abort.signal, prompts.driverId).finally(() => prompts.close());
+  const outcome = work(abort.signal, routeOf(prompts)).finally(() => prompts.close());
   return nextRound({ prompts, outcome, abort }, exchangeSignal, pending);
 }
 

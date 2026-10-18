@@ -78,8 +78,9 @@ describe('canonical MCP runtime tools', () => {
       off: full.off,
       resolvePermission: full.resolvePermission,
       resolveAsk: full.resolveAsk,
+      getActiveDriverId: full.getActiveDriverId,
     };
-    expect(Object.keys(port)).toHaveLength(7);
+    expect(Object.keys(port)).toHaveLength(8);
     const client = await connect(port);
     expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual([
       schema.name,

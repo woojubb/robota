@@ -139,7 +139,9 @@ Leave it off unless you trust whoever can reach the carrier to approve the sessi
   decline, cancel or a client error keeps the permission error.
 - An ask becomes a form: options as a choice, free text as a text field. A masked ask is never sent;
   it is cancelled as before.
-- Only the prompts of the client's own call are sent; another caller's prompts never are.
+- Only prompts raised while the client's own call drives the session are sent, including a
+  background agent's request forwarded then (it names the agent); prompts raised during another
+  caller's call never are.
 - stdio asks during the call. The HTTP hosts keep no session state, so they ask only a client on the
   2026-07-28 protocol revision, through input-required rounds whose `requestState` is a single-use
   random token; a 2025-era HTTP client keeps the tool error.
@@ -167,6 +169,6 @@ observe the listener. Both HTTP hosts are stateless: there is no MCP session id 
 | `IMcpRemoteAuthorization`                                              | interface | `{ publicUrl, issuer, scopes, verifier, trustedProxies?, audit? }`                                                         |
 | `IMcpRemoteAuditRecord`, `TMcpRemoteRefusal`, `TMcpRemoteAddressClass` | type      | The audit record and its fields                                                                                            |
 | `IMcpSubmitToolIdentity`                                               | interface | `{ name, description }` of the submission tool                                                                             |
-| `IMcpTransportSession`                                                 | interface | The session capabilities used: turn submission, runtime tools, session events and prompt resolution                        |
+| `IMcpTransportSession`                                                 | interface | The session capabilities used: turn submission, runtime tools, session events, prompt resolution and the active driver     |
 
 See [docs/SPEC.md](./docs/SPEC.md) for the full contract.

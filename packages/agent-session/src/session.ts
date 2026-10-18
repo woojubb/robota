@@ -64,6 +64,7 @@ import type {
   IContextWindowState,
   IEventService,
   IToolSchema,
+  IToolExecutionContext,
   IToolExecutionResult,
   IToolWithEventService,
   TToolParameters,
@@ -448,7 +449,7 @@ export class Session extends SessionBase {
   async invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
-    options?: { signal?: AbortSignal; permissionInteraction?: 'interactive' | 'deny' },
+    options?: Pick<IToolExecutionContext, 'signal' | 'permissionInteraction'>,
   ): Promise<IToolExecutionResult> {
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
     return this.runtimeTools.invoke(

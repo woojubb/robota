@@ -32,8 +32,8 @@ reaches the caller only when the operator enabled that (see Canonical catalog an
 - Depends on `agent-interface-session` and `agent-interface-transport` contracts, not framework
   internals.
 - No other transport package depends on this one.
-- MCP consumes only the turn-submission, runtime-tool, session-event and prompt-resolution session
-  roles. The public transport
+- MCP consumes only the turn-submission, runtime-tool, session-event, prompt-resolution and
+  driver-attribution session roles. The public transport
   implements `ITransportAdapter<IMcpTransportSession>` directly, with no broader inherited signature
   or overload — a full session remains assignable structurally because it implements those roles.
 
@@ -68,10 +68,14 @@ names, permission denial, busy state, and cancellation are visible tool errors, 
 cancellation never aborts another caller's active turn. A permission or ask prompt is a tool error
 too, unless the operator enabled caller elicitation and the caller declared form-mode elicitation,
 because letting a remote caller answer the permission gate is a trust decision only the operator
-can make. Then a prompt raised by that caller's own call, and never another's, is put to it as an
+can make. Then a prompt raised while that caller's own call drives the session (including a
+background agent's request forwarded then, which names the agent), and never one raised during
+another caller's call, is put to it as an
 MCP elicitation: a permission offers allow once or deny only, so a caller can never widen a standing
 permission; a masked ask is never sent, since form elicitation may not carry a secret; and an answer
-that names nothing offered settles the prompt closed. The HTTP hosts keep no session state, so they
+that names nothing offered settles the prompt closed. A call listens for prompts only while its own
+work drives the session, because the session fails a prompt closed only when nobody listens: a
+submission waiting in the queue must not hold another caller's prompt it cannot answer. The HTTP hosts keep no session state, so they
 can ask only a 2026-07-28-era caller, through input-required rounds: the asking call waits behind a
 single-use random request state that names that call and nothing else, never becomes a session, and
 ends when the host stops. A 2025-era HTTP caller cannot be asked and keeps the tool error.

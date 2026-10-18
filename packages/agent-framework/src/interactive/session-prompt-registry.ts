@@ -96,7 +96,7 @@ export interface ISessionPromptRegistryDeps {
   emitPromptResolved: (event: IPromptResolvedEvent) => void;
   /** Live listener count for a gating event (reads the session's per-event emitter map). */
   countListeners: (event: TGatingEvent) => number;
-  /** REMOTE-014 E5: the ACTIVE turn's driver id, stamped as `requesterDriverId` on the emitted prompt. */
+  /** REMOTE-014 E5: the ACTIVE driver's id (a turn's, or a direct call's), stamped as `requesterDriverId`. */
   getActiveDriverId?: () => TDriverId | null;
   /**
    * #3288: the session's cwd — an Edit/Write permission request uses it to build the same diff

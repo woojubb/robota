@@ -5,6 +5,8 @@
  * a masked ask, or one with neither options nor free text, is not sent and keeps today's outcome.
  * An answer counts only where it names what was offered; anything else is a denial or a cancel.
  */
+import { permissionSummaryArgument } from '@robota-sdk/agent-transport';
+
 import type { IMcpTransportSession } from './mcp-session.js';
 import type { ElicitRequestFormParams, ElicitResult } from '@modelcontextprotocol/server';
 import type {
@@ -28,18 +30,8 @@ const DENY = 'deny';
 export const ASK_ANSWER_FIELD = 'answer';
 export const ASK_TEXT_FIELD = 'text';
 
-/** The arguments a person recognises a call by, in the order the tools put them first. */
-const SUMMARY_ARGS = ['command', 'filePath', 'file_path', 'path', 'url', 'pattern', 'query'] as const;
 /** Arguments longer than this are cut in the message; the client shows a form, not a viewer. */
 const MAX_ARGUMENT_CHARS = 2000;
-
-function summaryArg(args: IPermissionRequestEvent['toolArgs']): string | undefined {
-  for (const key of SUMMARY_ARGS) {
-    const value = args[key];
-    if (typeof value === 'string' && value !== '') return value;
-  }
-  return undefined;
-}
 
 function bounded(text: string): string {
   return text.length > MAX_ARGUMENT_CHARS ? `${text.slice(0, MAX_ARGUMENT_CHARS)}…` : text;
@@ -47,7 +39,7 @@ function bounded(text: string): string {
 
 /** What the person is asked to allow: the tool, who asks, what it was called with. */
 export function permissionMessage(event: IPermissionRequestEvent): string {
-  const summary = summaryArg(event.toolArgs);
+  const summary = permissionSummaryArgument(event.toolArgs);
   const title = `Allow ${event.toolName}${summary === undefined ? '' : `: ${bounded(summary)}`}?`;
   const lines = [event.requester ? `${event.requester.label} asks: ${title}` : title];
   lines.push(`Arguments: ${bounded(JSON.stringify(event.toolArgs))}`);

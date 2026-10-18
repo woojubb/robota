@@ -1,8 +1,9 @@
 /**
- * A session that asks before it acts, the way the real one does: a direct call or a turn parks a
- * permission (or an ask) stamped with the active call's driver id, settles it when a surface
- * answers, fails it closed at once when nobody listens, and settles whatever is still parked when
- * the last listener for that kind of prompt detaches.
+ * A session that asks before it acts, the way the real one does: one turn or direct call drives it
+ * at a time (turns queue, a direct call is refused while anything runs); a turn announces itself
+ * with `turn_source` once its driver is active; a prompt is stamped with the active driver's id,
+ * settles when a surface answers, fails closed at once when nobody listens, and is settled closed
+ * when the last listener for its kind detaches.
  */
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { vi } from 'vitest';
@@ -38,6 +39,11 @@ export interface IPromptingSession {
   emit(event: 'ask_request', data: IAskRequestEvent): void;
   /** Settles a parked prompt as the session itself would (a backstop, an abort). */
   settleClosed(id: string): void;
+  /**
+   * Runs a turn of another driver that, once `gate` opens, asks a permission nobody here routes;
+   * resolves with that prompt's decision.
+   */
+  foreignTurn(gate: Promise<void>): Promise<unknown>;
   listeners(event: TInteractiveEventName): number;
   readonly parkedIds: () => string[];
 }
@@ -46,6 +52,9 @@ export function createPromptingSession(): IPromptingSession {
   const listeners = new Map<string, Set<TListener>>();
   const parked = new Map<string, { kind: 'permission' | 'ask'; settle: (value: unknown) => void }>();
   let minted = 0;
+  let active: string | null = null;
+  let busy = false;
+  let turns: Promise<void> = Promise.resolve();
   const emit = (event: string, data: unknown): void => {
     for (const handler of [...(listeners.get(event) ?? [])]) (handler as (d: unknown) => void)(data);
   };
@@ -77,10 +86,43 @@ export function createPromptingSession(): IPromptingSession {
       raise(id);
     });
   };
+  const stamp = (): { requesterDriverId?: string } => (active ? { requesterDriverId: active } : {});
+  /** Turns run one at a time, in order; the driver is active from the turn's start to its end. */
+  const runTurn = <T>(driverId: string | undefined, body: () => Promise<T>): Promise<T> => {
+    const previous = turns;
+    let done!: () => void;
+    turns = new Promise<void>((resolve) => {
+      done = resolve;
+    });
+    return (async () => {
+      await previous;
+      busy = true;
+      active = driverId ?? null;
+      emit('turn_source', 'user');
+      try {
+        return await body();
+      } finally {
+        busy = false;
+        active = null;
+        done();
+      }
+    })();
+  };
+  const askPermission = (toolName: string, toolArgs: Record<string, unknown>, signal?: AbortSignal) =>
+    park<unknown>(
+      'permission',
+      (id) => emit('permission_request', { id, toolName, toolArgs, ...stamp() }),
+      signal,
+    );
   const harness: IPromptingSession = {
     ask: { title: 'Pick one', options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] },
     emit: (event: string, data: unknown) => emit(event, data),
     settleClosed,
+    foreignTurn: (gate) =>
+      runTurn('owner', async () => {
+        await gate;
+        return askPermission('Shell', { command: 'make' });
+      }),
     listeners: (event) => listeners.get(event)?.size ?? 0,
     parkedIds: () => [...parked.keys()],
     session: Object.assign(createTestInteractiveSession(), {
@@ -101,6 +143,7 @@ export function createPromptingSession(): IPromptingSession {
       resolveAsk: vi.fn((id: string, response: unknown, answererDriverId?: string) => {
         if (parked.get(id)?.kind === 'ask') settle(id, response, answererDriverId);
       }),
+      getActiveDriverId: () => active,
       listRuntimeTools: vi.fn(async () => [PERMISSION_TOOL, ASK_TOOL]),
       invokeRuntimeTool: vi.fn(
         async (
@@ -112,37 +155,34 @@ export function createPromptingSession(): IPromptingSession {
             permissionInteraction?: 'interactive' | 'deny';
           },
         ) => {
-          const requesterDriverId = options?.driverId;
-          if (name === ASK_TOOL.name) {
-            const answer = await park<unknown>(
-              'ask',
-              (id) =>
-                emit('ask_request', {
-                  id,
-                  request: { id, ...harness.ask },
-                  ...(requesterDriverId ? { requesterDriverId } : {}),
-                }),
-              options?.signal,
-            );
-            return { success: true, toolName: name, result: answer };
+          // A direct call takes the session as it is invoked, or is refused while anything runs.
+          if (busy) throw new Error('Another prompt or command is already running.');
+          busy = true;
+          active = options?.driverId ?? null;
+          const interactive = options?.permissionInteraction === 'interactive';
+          try {
+            await Promise.resolve();
+            if (name === ASK_TOOL.name) {
+              // The ask port reaches a direct call only when its caller answers its own prompts.
+              const answer = interactive
+                ? await park<unknown>(
+                    'ask',
+                    (id) => emit('ask_request', { id, request: { id, ...harness.ask }, ...stamp() }),
+                    options?.signal,
+                  )
+                : 'unavailable';
+              return { success: true, toolName: name, result: answer };
+            }
+            // A direct call denies without asking unless its caller answers its own prompts.
+            const allowed =
+              interactive && (await askPermission(name, parameters, options?.signal));
+            return allowed === true
+              ? { success: true, toolName: name, result: 'written' }
+              : { success: false, toolName: name, error: 'Permission denied' };
+          } finally {
+            busy = false;
+            active = null;
           }
-          // A direct call denies without asking unless its caller answers its own prompts.
-          const allowed =
-            options?.permissionInteraction === 'interactive' &&
-            (await park<unknown>(
-              'permission',
-              (id) =>
-                emit('permission_request', {
-                  id,
-                  toolName: name,
-                  toolArgs: parameters,
-                  ...(requesterDriverId ? { requesterDriverId } : {}),
-                }),
-              options.signal,
-            ));
-          return allowed === true
-            ? { success: true, toolName: name, result: 'written' }
-            : { success: false, toolName: name, error: 'Permission denied' };
         },
       ),
       submit: vi.fn(
@@ -152,25 +192,14 @@ export function createPromptingSession(): IPromptingSession {
           _raw?: string,
           options?: { signal?: AbortSignal; driverId?: string },
         ) => {
-        const requesterDriverId = options?.driverId;
-        const completed = (async () => {
-          const allowed = await park<unknown>(
-            'permission',
-            (id) =>
-              emit('permission_request', {
-                id,
-                toolName: 'Shell',
-                toolArgs: { command: input },
-                ...(requesterDriverId ? { requesterDriverId } : {}),
-              }),
-            options?.signal,
-          );
+        const completed = runTurn(options?.driverId, async () => {
+          const allowed = await askPermission('Shell', { command: input }, options?.signal);
           return {
             response: allowed === true ? `ran ${input}` : 'denied',
             history: [],
             toolSummaries: [],
           };
-        })();
+        });
         return { turnId: `turn-${++minted}`, completed };
         },
       ),

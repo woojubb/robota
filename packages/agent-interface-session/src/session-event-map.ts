@@ -117,7 +117,11 @@ export interface IPermissionRequestEvent {
   toolArgs: TToolArgs;
   /** Whether this session can durably persist a project-scoped approval. */
   canPersistProjectPermission?: boolean;
-  /** REMOTE-014 E5: the driver whose turn raised this prompt (display-only). */
+  /**
+   * The driver active when this prompt was raised: the turn's driver, or the driver a direct call
+   * was made for. Shown to people, and matched by a surface that answers only its own prompts;
+   * never an authorization check.
+   */
   requesterDriverId?: TDriverId;
   /** Issue #3288 §1: a background agent's own request, forwarded to the person (display-only). */
   requester?: TPermissionRequester;
@@ -137,7 +141,11 @@ export interface IPermissionRequestEvent {
 export interface IAskRequestEvent {
   id: string;
   request: IActionRequest;
-  /** REMOTE-014 E5: the driver whose turn raised this prompt (display-only). */
+  /**
+   * The driver active when this prompt was raised: the turn's driver, or the driver a direct call
+   * was made for. Shown to people, and matched by a surface that answers only its own prompts;
+   * never an authorization check.
+   */
   requesterDriverId?: TDriverId;
 }
 

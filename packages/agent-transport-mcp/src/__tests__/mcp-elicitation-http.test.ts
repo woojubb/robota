@@ -4,10 +4,13 @@
  * single-use `requestState`, and the client's retry carries the answer back to it. A 2025-era
  * client cannot be asked and keeps today's tool error.
  */
+import { request as httpRequest } from 'node:http';
+import { Readable } from 'node:stream';
+
 import { Client, StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createMcpHttpHost } from '../mcp-http-host.js';
+import { createMcpHttpHost, createMcpRemoteHttpHost } from '../mcp-http-host.js';
 import { ASK_TOOL, PERMISSION_TOOL, createPromptingSession } from './prompting-session.js';
 
 import type { ElicitRequestFormParams, ElicitResult } from '@modelcontextprotocol/client';
@@ -18,6 +21,11 @@ interface IHostOptions {
 
 interface IClientOptions {
   modern?: boolean;
+  /** `false`: the client declares no elicitation and registers no handler. */
+  elicitation?: false;
+  /** Sends every request through this instead of the global fetch. */
+  fetch?: typeof fetch;
+  bearer?: string;
   /** `false`: manual mode, an input-required result is handed back to the test. */
   autoFulfill?: boolean;
   answer?: (params: ElicitRequestFormParams) => ElicitResult;
@@ -48,22 +56,25 @@ async function connect(
   const client = new Client(
     { name: 'http-elicitation-test', version: '1' },
     {
-      capabilities: { elicitation: { form: {} } },
+      capabilities: options.elicitation === false ? {} : { elicitation: { form: {} } },
       inputRequired: { autoFulfill: options.autoFulfill ?? true },
       ...(options.modern === false ? {} : { versionNegotiation: { mode: { pin: '2026-07-28' } } }),
     },
   );
   const asked: ElicitRequestFormParams[] = [];
-  client.setRequestHandler('elicitation/create', async (request) => {
-    const params = request.params as ElicitRequestFormParams;
-    asked.push(params);
-    return (options.answer ?? (() => ({ action: 'accept', content: { decision: 'allow_once' } })))(
-      params,
-    );
-  });
+  if (options.elicitation !== false) {
+    client.setRequestHandler('elicitation/create', async (request) => {
+      const params = request.params as ElicitRequestFormParams;
+      asked.push(params);
+      return (
+        options.answer ?? (() => ({ action: 'accept', content: { decision: 'allow_once' } }))
+      )(params);
+    });
+  }
   await client.connect(
     new StreamableHTTPClientTransport(new URL(endpoint.url), {
-      requestInit: { headers: { Authorization: `Bearer ${endpoint.token}` } },
+      requestInit: { headers: { Authorization: `Bearer ${options.bearer ?? endpoint.token}` } },
+      ...(options.fetch !== undefined ? { fetch: options.fetch } : {}),
     }),
   );
   open.push(() => client.close());
@@ -121,7 +132,13 @@ describe('HTTP, 2026-07-28 era: a caller answers through input-required rounds',
 
   it('round-trips an ask as a form', async () => {
     const { fake, endpoint } = await host({ askClient: true });
-    fake.ask = { title: 'Pick one', options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] };
+    fake.ask = {
+      title: 'Pick one',
+      options: [
+        { value: 'a', label: 'A' },
+        { value: 'b', label: 'B' },
+      ],
+    };
     const { client } = await connect(endpoint, {
       answer: () => ({ action: 'accept', content: { answer: 'a' } }),
     });
@@ -129,6 +146,24 @@ describe('HTTP, 2026-07-28 era: a caller answers through input-required rounds',
     const result = await client.callTool({ name: ASK_TOOL.name, arguments: {} });
 
     expect(envelope(result).result).toEqual({ type: 'answer', values: ['a'] });
+  });
+
+  it('does not hold another driver’s prompt while its own submission waits in the queue', async () => {
+    const { fake, endpoint } = await host({ askClient: true });
+    const { client, asked } = await connect(endpoint);
+    let open!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    const foreign = fake.foreignTurn(gate);
+
+    const call = client.callTool({ name: 'agent_submit', arguments: { prompt: 'ls' } });
+    await vi.waitFor(() => expect(fake.session.submit).toHaveBeenCalledOnce());
+    open();
+
+    expect(await foreign).toBe(false);
+    expect(await call).toMatchObject({ content: [{ type: 'text', text: 'ran ls' }] });
+    expect(asked).toHaveLength(1);
   });
 
   it('accepts a request state only once, and only one it issued', async () => {
@@ -174,10 +209,97 @@ describe('HTTP, 2026-07-28 era: a caller answers through input-required rounds',
   });
 });
 
+describe('HTTP, 2026-07-28 era: what is never sent', () => {
+  it('never sends a masked ask; it is cancelled as today', async () => {
+    const { fake, endpoint } = await host({ askClient: true });
+    fake.ask = { title: 'API key', allowFreeText: true, masked: true };
+    const { client, asked } = await connect(endpoint);
+
+    const result = await client.callTool({ name: ASK_TOOL.name, arguments: {} });
+
+    expect(asked).toEqual([]);
+    expect(envelope(result).result).toEqual({ type: 'cancelled' });
+  });
+});
+
+describe('HTTP, remote host: the operator switch reaches it', () => {
+  const PUBLIC_URL = 'https://mcp.example.test/team/fixture-agent/mcp';
+
+  it('asks a client admitted by an access token', async () => {
+    const fake = createPromptingSession();
+    const served = createMcpRemoteHttpHost({
+      name: 'fixture-agent',
+      version: '1',
+      session: fake.session,
+      askClient: true,
+      authorization: {
+        publicUrl: PUBLIC_URL,
+        issuer: 'https://auth.example.test',
+        scopes: ['mcp:use'],
+        verifier: {
+          verify: async (token) =>
+            token === 'good' ? { admitted: true } : { admitted: false, refusal: 'bad-signature' },
+        },
+      },
+    });
+    const { listening } = await served.start();
+    open.push(() => served.stop());
+    const port = Number(listening.split(':').pop());
+    // The host answers its public name only; send to the listener with that name.
+    const viaListener: typeof fetch = async (input, init) => {
+      const url = new URL(input instanceof Request ? input.url : String(input));
+      const headers = Object.fromEntries(new Headers(init?.headers).entries());
+      const body = typeof init?.body === 'string' ? init.body : undefined;
+      return new Promise<Response>((resolve, reject) => {
+        const req = httpRequest(
+          {
+            host: '127.0.0.1',
+            port,
+            path: url.pathname,
+            method: init?.method ?? 'GET',
+            headers: { ...headers, host: url.host },
+          },
+          (res) => {
+            const responseHeaders = new Headers();
+            for (const [key, value] of Object.entries(res.headers)) {
+              if (typeof value === 'string') responseHeaders.set(key, value);
+            }
+            const stream = Readable.toWeb(res) as ReadableStream<Uint8Array>;
+            resolve(
+              new Response(res.statusCode === 204 ? null : stream, {
+                status: res.statusCode ?? 0,
+                headers: responseHeaders,
+              }),
+            );
+          },
+        );
+        req.on('error', reject);
+        req.end(body);
+      });
+    };
+    const { client, asked } = await connect(
+      { url: PUBLIC_URL, token: 'good' },
+      { fetch: viaListener },
+    );
+
+    expect(await client.callTool(callWrite)).toMatchObject({ isError: false });
+    expect(asked).toHaveLength(1);
+  });
+});
+
 describe('HTTP: nothing is sent where the host cannot or may not ask', () => {
   it.each<[string, IHostOptions, IClientOptions]>([
-    ['a 2025-era client, which a stateless host cannot ask', { askClient: true }, { modern: false }],
+    [
+      'a 2025-era client, which a stateless host cannot ask',
+      { askClient: true },
+      { modern: false },
+    ],
     ['the switch off, with a 2026-07-28 client', {}, {}],
+    [
+      'a 2026-07-28 client that declared no elicitation',
+      { askClient: true },
+      { elicitation: false },
+    ],
   ])('%s keeps the existing error', async (_label, hostOptions, clientOptions) => {
     const { fake, endpoint } = await host(hostOptions);
     const { client, asked } = await connect(endpoint, clientOptions);

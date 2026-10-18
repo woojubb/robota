@@ -24,7 +24,9 @@ export interface IAgentMcpOptions {
   /**
    * Put the permission and ask prompts a call raises to the client that made it, through MCP
    * elicitation, when that client declared form-mode elicitation. A permission offers allow-once
-   * and deny only. Off by default: such prompts are tool errors.
+   * and deny only. Off by default: such prompts are tool errors. `createAgentMcpServer` asks over
+   * one stateful connection; on a carrier that cannot send server-to-client requests the question
+   * fails and the prompt is denied.
    */
   askClient?: boolean;
 }

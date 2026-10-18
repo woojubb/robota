@@ -91,6 +91,7 @@ function toolSession(permission: 'allow' | 'deny' | 'ask') {
     off: () => undefined,
     resolvePermission: () => undefined,
     resolveAsk: () => undefined,
+    getActiveDriverId: () => null,
   };
   return { session, port, hooks, execute, handler };
 }

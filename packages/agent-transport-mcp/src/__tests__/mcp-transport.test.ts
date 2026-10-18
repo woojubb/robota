@@ -21,6 +21,7 @@ function createMockSession(): IMcpTransportSession {
     off: full.off,
     resolvePermission: full.resolvePermission,
     resolveAsk: full.resolveAsk,
+    getActiveDriverId: full.getActiveDriverId,
   };
 }
 
@@ -32,7 +33,7 @@ describe('createMcpTransport', () => {
       (session: IMcpTransportSession) => void
     >();
     expectTypeOf<IMcpTransportSession>().not.toHaveProperty('executeCommand');
-    expect(Object.keys(createMockSession())).toHaveLength(7);
+    expect(Object.keys(createMockSession())).toHaveLength(8);
   });
 
   it('returns an adapter with name "mcp"', () => {

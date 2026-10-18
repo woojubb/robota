@@ -581,7 +581,8 @@ fresh approval.
 `__PRODUCT_CLI_NAME__ mcp serve` turns `__PRODUCT_CLI_NAME__` into an MCP server for one session, over stdio, authenticated
 loopback HTTP (`--http-token-file`, `--http-port`), or remote HTTP as an OAuth resource server
 (`--http-public-url`, `--http-host`, `--oauth-issuer`, `--oauth-scopes`, `--oauth-allowed-subjects`,
-`--trusted-proxy`).
+`--trusted-proxy`). `--ask-client` puts the permission and ask prompts of a client's call to that
+client through MCP elicitation instead of failing them; see the [MCP guide](./mcp.md).
 
 `--external-event-grant <file>` lets a verified outside service send text events into a terminal
 session (with `--external-event-port` and `--external-event-trusted-proxy`); `/events` lists and
@@ -665,6 +666,7 @@ another session or device. All four are user-only. See [Devices, Peers and Remot
 | `--external-event-port <port>`                                                                                                                            | Loopback port for external events                                                                                                                                                                              |
 | `--external-event-trusted-proxy <ip>`                                                                                                                     | Proxy whose `X-Forwarded-For` is believed (repeatable)                                                                                                                                                         |
 | `--http-token-file`, `--http-port`, `--http-host`, `--http-public-url`, `--oauth-issuer`, `--oauth-scopes`, `--oauth-allowed-subjects`, `--trusted-proxy` | Transport options for `__PRODUCT_CLI_NAME__ mcp serve`; all but `--http-token-file` also with `--serve --http-port`                                                                                            |
+| `--ask-client`                                                                                                                                            | With `__PRODUCT_CLI_NAME__ mcp serve`, ask the calling MCP client to answer permission and ask prompts (allow once or deny)                                                                                    |
 | `--reset`                                                                                                                                                 | Delete `<user-state>/settings.json` after confirming                                                                                                                                                           |
 | `-y`, `--yes`                                                                                                                                             | Skip confirmations (required for `--reset` without a terminal)                                                                                                                                                 |
 | `--check-update`                                                                                                                                          | Check npm for a newer version and exit                                                                                                                                                                         |

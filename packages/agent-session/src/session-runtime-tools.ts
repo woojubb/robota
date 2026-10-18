@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { TurnClaim } from './turn-claim.js';
 import type {
   ConversationAgent,
+  IToolExecutionContext,
   IToolExecutionResult,
   IUserInteraction,
   TToolParameters,
@@ -27,7 +28,7 @@ export class SessionRuntimeTools {
     name: string,
     parameters: TToolParameters,
     signal: AbortSignal | undefined,
-    permissionInteraction: 'interactive' | 'deny',
+    permissionInteraction: IToolExecutionContext['permissionInteraction'],
   ): Promise<IToolExecutionResult> {
     const controller = this.claim.claim();
     const unlink = linkCancellation(controller, signal);

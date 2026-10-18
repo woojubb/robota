@@ -19,6 +19,7 @@ import type {
   IContextWindowState,
   IHistoryEntry,
   IToolSchema,
+  IToolExecutionContext,
   IToolExecutionResult,
   TToolParameters,
   TActionResponse,
@@ -131,7 +132,7 @@ export interface ISessionRuntimeTools {
     options?: {
       signal?: AbortSignal;
       driverId?: TDriverId;
-      permissionInteraction?: 'interactive' | 'deny';
+      permissionInteraction?: IToolExecutionContext['permissionInteraction'];
     },
   ): Promise<IToolExecutionResult>;
 }

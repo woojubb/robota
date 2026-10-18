@@ -1,4 +1,5 @@
 import type {
+  ISessionDriverAttribution,
   ISessionEvents,
   ISessionPromptResolution,
   ISessionRuntimeTools,
@@ -7,8 +8,14 @@ import type {
 
 /**
  * The exact session capabilities consumed by the MCP transport: turn submission and runtime tools
- * for the calls it serves, and the prompt events and resolution through which a caller's own
- * permission and ask prompts are put to the caller when the operator enabled that.
+ * for the calls it serves, and the prompt events, prompt resolution and active-driver attribution
+ * through which a caller's own permission and ask prompts are put to the caller when the operator
+ * enabled that.
  */
 export interface IMcpTransportSession
-  extends ISessionTurnSubmission, ISessionRuntimeTools, ISessionEvents, ISessionPromptResolution {}
+  extends
+    ISessionTurnSubmission,
+    ISessionRuntimeTools,
+    ISessionEvents,
+    ISessionPromptResolution,
+    ISessionDriverAttribution {}

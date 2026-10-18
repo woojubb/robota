@@ -294,6 +294,26 @@ describe('stdio: a question belongs to the call that raised it', () => {
     );
   });
 
+  it('does not hold another driver’s prompt while its own submission waits in the queue', async () => {
+    // The session parks a prompt only while someone listens; a queued call that listened would
+    // hold another caller's prompt that nobody here can answer instead of letting it fail closed.
+    const { fake, client, asked } = await serve({ askClient: true });
+    let open!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      open = resolve;
+    });
+    const foreign = fake.foreignTurn(gate);
+
+    const call = client.callTool({ name: 'agent_submit', arguments: { prompt: 'ls' } });
+    await vi.waitFor(() => expect(fake.session.submit).toHaveBeenCalledOnce());
+    open();
+
+    expect(await foreign).toBe(false);
+    expect(await call).toEqual({ content: [{ type: 'text', text: 'ran ls' }] });
+    expect(asked).toHaveLength(1);
+    expect(asked[0]?.message).toContain('Allow Shell: ls?');
+  });
+
   it('withdraws the question when the session settles the prompt first', async () => {
     const { fake, client, asked, serverFrames } = await serve({
       askClient: true,

@@ -1,12 +1,16 @@
 /**
  * The prompts one MCP call raises, held for the caller that made it.
  *
- * Every call the carrier serves runs under its own driver id, and the session stamps that id on
- * each prompt the call raises. While the call is in flight this subscribes the session's prompt
- * events and keeps only the prompts stamped with the call's id: a prompt of another caller, or of
- * nobody's turn, is never seen by this caller and is left for whoever listens for it. The session
- * parks a prompt only while someone listens, so the subscription lives exactly as long as the call
- * and, when it ends, the session's own detach reconciliation settles anything still parked.
+ * Every call the carrier serves runs under its own driver id, and the session stamps the active
+ * driver's id on each prompt. This keeps only the prompts stamped with the call's id: a prompt of
+ * another caller, or of nobody's turn, is never seen by this caller.
+ *
+ * The session parks a prompt only while someone listens for it and fails it closed at once
+ * otherwise, so listening is itself a decision about other callers' prompts. This listens only while
+ * the call's own work drives the session: a direct call from the moment it holds the session, a
+ * submission from the moment its own turn starts, not while it waits in the queue behind another
+ * caller's turn whose prompts nobody here could answer. When a turn of another driver starts, or the
+ * call ends, it stops listening, and the session's detach reconciliation settles what is still parked.
  */
 import {
   askAnswer,
@@ -70,15 +74,40 @@ export class McpCallPrompts {
   /** Prompts of this call the session raised, and those of them it has since settled. */
   private readonly seen = new Set<string>();
   private readonly settledIds = new Set<string>();
+  private listening = false;
   private closed = false;
 
   constructor(
     private readonly session: IMcpTransportSession,
     readonly driverId: TDriverId,
   ) {
-    session.on('permission_request', this.onPermissionRequest);
-    session.on('ask_request', this.onAskRequest);
+    session.on('turn_source', this.onTurnStart);
     session.on('prompt_resolved', this.onPromptResolved);
+  }
+
+  /**
+   * Listens for prompts exactly while this call drives the session. Called on every turn start and
+   * by the call's work once it holds the session.
+   */
+  followActiveDriver(): void {
+    if (this.closed) return;
+    const own = this.session.getActiveDriverId() === this.driverId;
+    if (own && !this.listening) {
+      this.listening = true;
+      this.session.on('permission_request', this.onPermissionRequest);
+      this.session.on('ask_request', this.onAskRequest);
+    } else if (!own && this.listening) {
+      this.stopListening();
+    }
+  }
+
+  private readonly onTurnStart = (): void => this.followActiveDriver();
+
+  private stopListening(): void {
+    if (!this.listening) return;
+    this.listening = false;
+    this.session.off('permission_request', this.onPermissionRequest);
+    this.session.off('ask_request', this.onAskRequest);
   }
 
   private readonly onPermissionRequest = (event: IPermissionRequestEvent): void => {
@@ -175,8 +204,8 @@ export class McpCallPrompts {
       waiter.reject(new Error('The call has ended'));
     }
     this.queue.length = 0;
-    this.session.off('permission_request', this.onPermissionRequest);
-    this.session.off('ask_request', this.onAskRequest);
+    this.session.off('turn_source', this.onTurnStart);
+    this.stopListening();
     this.session.off('prompt_resolved', this.onPromptResolved);
   }
 
