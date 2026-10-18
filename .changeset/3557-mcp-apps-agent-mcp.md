@@ -1,5 +1,5 @@
 ---
-'@robota-sdk/agent-mcp': minor
+'@robota-sdk/agent-mcp': major
 '@robota-sdk/agent-cli': minor
 ---
 
