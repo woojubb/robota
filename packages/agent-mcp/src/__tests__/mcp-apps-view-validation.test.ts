@@ -11,7 +11,7 @@ import { parseMCPToolUiMetadata } from '../catalog/ui-metadata.js';
 import type { IUniversalObjectValue } from '@robota-sdk/agent-core';
 
 const URI = 'ui://dash/view';
-const HTML = '<!doctype html><html><body>한글 view €</body></html>';
+const HTML = '<!doctype html><html><body>naïve view €</body></html>';
 
 /** Overrides may carry `undefined` or a wrong type on purpose: a server's content is foreign data. */
 function document(overrides: Record<string, unknown> = {}): IUniversalObjectValue {
