@@ -2,6 +2,8 @@
 
 import { resolve } from 'node:path';
 
+import { permissionSummaryArgument } from '@robota-sdk/agent-transport';
+
 import { acpFullToolTitle, acpToolKind } from './acp-tool-mapping.js';
 
 import type {
@@ -9,7 +11,6 @@ import type {
   RequestPermissionOutcome,
   ToolCallUpdate,
 } from '@agentclientprotocol/sdk';
-import type { TToolArgs } from '@robota-sdk/agent-core';
 import type {
   IDiffLine,
   IPermissionRequestEvent,
@@ -22,9 +23,6 @@ const OPTION = {
   allowProject: 'allow-project',
   reject: 'reject',
 } as const;
-
-/** The arguments a person recognises a call by, in the order the tools put them first. */
-const SUMMARY_ARGS = ['command', 'file_path', 'path', 'url', 'pattern', 'query'] as const;
 
 export function permissionOptions(canPersistProject: boolean): PermissionOption[] {
   return [
@@ -43,16 +41,11 @@ export function permissionOptions(canPersistProject: boolean): PermissionOption[
   ];
 }
 
-function summaryArg(args: TToolArgs): string | undefined {
-  for (const key of SUMMARY_ARGS) {
-    const value = args[key];
-    if (typeof value === 'string' && value !== '') return value;
-  }
-  return undefined;
-}
-
 export function permissionTitle(event: IPermissionRequestEvent): string {
-  const title = acpFullToolTitle(event.toolName, event.diffFile ?? summaryArg(event.toolArgs));
+  const title = acpFullToolTitle(
+    event.toolName,
+    event.diffFile ?? permissionSummaryArgument(event.toolArgs),
+  );
   return event.requester ? `${event.requester.label}: ${title}` : title;
 }
 
