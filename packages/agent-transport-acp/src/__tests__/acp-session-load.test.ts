@@ -5,6 +5,7 @@ import {
   endedTurn,
   executionResult,
   openSession,
+  SESSION_ID,
   settle,
   startTransport,
   textPrompt,
@@ -305,6 +306,79 @@ describe('session/load', () => {
         prompt: textPrompt('new'),
       }),
     ).resolves.toEqual({ stopReason: 'end_turn' });
+  });
+
+  /** What a request settled with so far, so a request that is wrongly left waiting fails an assertion instead of hanging. */
+  function outcomeOf(request: Promise<unknown>): { readonly current: unknown } {
+    const box: { current: unknown } = { current: 'still waiting' };
+    request.then(
+      (value) => (box.current = value),
+      (error: unknown) => (box.current = error),
+    );
+    return box;
+  }
+
+  it('refuses a load while a session/new is still waiting for its session to start', async () => {
+    const fake = createFakeSession();
+    let started!: () => void;
+    // A session that builds itself in the background names itself only once it has started.
+    const building: Pick<IAcpTransportSession, 'whenInitialized'> = {
+      whenInitialized: () => new Promise<void>((resolve) => (started = resolve)),
+    };
+    Object.assign(fake.session, building);
+    const loadSession = loadable(fake);
+    const { editor } = await start(fake, { loadSession });
+    const { agent } = editor.connection;
+    await agent.request('initialize', { protocolVersion: 1 });
+    const creating = agent.request('session/new', { cwd: WORKSPACE, mcpServers: [] });
+    await settle();
+    const loading = outcomeOf(
+      agent.request('session/load', { sessionId: 'stored-1', cwd: WORKSPACE, mcpServers: [] }),
+    );
+    try {
+      await vi.waitFor(() =>
+        expect(loading.current).toMatchObject({
+          code: -32602,
+          message: expect.stringContaining('already being opened'),
+        }),
+      );
+      // The refused load reached neither the host nor the session the new request is about to name.
+      expect(loadSession).not.toHaveBeenCalled();
+    } finally {
+      started();
+    }
+    await expect(creating).resolves.toEqual({ sessionId: SESSION_ID });
+    expect(loadSession).not.toHaveBeenCalled();
+  });
+
+  it('refuses a load while another load is still in progress, and asks the host only once', async () => {
+    const fake = createFakeSession();
+    let finish!: () => void;
+    const held = new Promise<void>((resolve) => (finish = resolve));
+    const loadSession = vi.fn(async () => {
+      await held;
+      return { loaded: true as const };
+    });
+    const { editor } = await start(fake, { loadSession });
+    const { agent } = editor.connection;
+    await agent.request('initialize', { protocolVersion: 1 });
+    const params = { sessionId: 'stored-1', cwd: WORKSPACE, mcpServers: [] };
+    const first = agent.request('session/load', params);
+    await settle();
+    const second = outcomeOf(agent.request('session/load', params));
+    try {
+      await vi.waitFor(() =>
+        expect(second.current).toMatchObject({
+          code: -32602,
+          message: expect.stringContaining('already being opened'),
+        }),
+      );
+      expect(loadSession).toHaveBeenCalledTimes(1);
+    } finally {
+      finish();
+    }
+    await expect(first).resolves.toEqual({});
+    expect(loadSession).toHaveBeenCalledTimes(1);
   });
 
   it('refuses a prompt while a load is still settling', async () => {
