@@ -119,14 +119,20 @@ export interface ISessionWorkspaceLocation {
 export interface ISessionRuntimeTools {
   listRuntimeTools(): Promise<IToolSchema[]>;
   /**
-   * `driverId` names the server-assigned driver making the call, as `ISubmitOptions.driverId`
-   * names a turn's: a prompt the call raises is attributed to it, so the surface that made the call
-   * can tell the prompt is its own and answer it.
+   * A direct call cannot ask a person by default: a decision that would need one is denied and a
+   * question finds no one to ask. `permissionInteraction: 'interactive'` is for a caller that
+   * answers its own prompts; it lets the call ask for permission and put questions, and `driverId`
+   * names that caller as `ISubmitOptions.driverId` names a turn's driver, so each prompt the call
+   * raises carries it and the caller can tell the prompt is its own.
    */
   invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
-    options?: { signal?: AbortSignal; driverId?: TDriverId },
+    options?: {
+      signal?: AbortSignal;
+      driverId?: TDriverId;
+      permissionInteraction?: 'interactive' | 'deny';
+    },
   ): Promise<IToolExecutionResult>;
 }
 

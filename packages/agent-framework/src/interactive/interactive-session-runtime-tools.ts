@@ -1,6 +1,6 @@
 import type { SessionExecutionController } from './interactive-session-execution-controller.js';
 import type { IToolExecutionResult, IToolSchema, TToolParameters } from '@robota-sdk/agent-core';
-import type { ISessionRuntimeTools, TDriverId } from '@robota-sdk/agent-interface-session';
+import type { ISessionRuntimeTools } from '@robota-sdk/agent-interface-session';
 
 interface IRuntimeToolsDeps {
   readonly controller: () => SessionExecutionController;
@@ -24,7 +24,7 @@ export class InteractiveSessionRuntimeTools implements ISessionRuntimeTools {
   async invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
-    options?: { signal?: AbortSignal; driverId?: TDriverId },
+    options?: Parameters<ISessionRuntimeTools['invokeRuntimeTool']>[2],
   ): Promise<IToolExecutionResult> {
     this.assertOpen();
     options?.signal?.throwIfAborted();

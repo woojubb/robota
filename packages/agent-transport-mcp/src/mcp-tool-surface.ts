@@ -171,7 +171,8 @@ async function prepareCall(
     try {
       const result = await session.invokeRuntimeTool(toolName, runtimeParameters, {
         signal: callSignal,
-        ...(driverId !== undefined ? { driverId } : {}),
+        // Only a call whose prompts are routed back to its caller may ask; any other still denies.
+        ...(driverId !== undefined ? { driverId, permissionInteraction: 'interactive' as const } : {}),
       });
       return {
         content: [{ type: 'text', text: JSON.stringify(result) }],
@@ -214,7 +215,11 @@ async function askClient(
     return;
   }
   const withdraw = new AbortController();
-  const unhook = prompts.whenSettled(prompt.event.id, () => withdraw.abort());
+  let settledElsewhere = false;
+  const unhook = prompts.whenSettled(prompt.event.id, () => {
+    settledElsewhere = true;
+    withdraw.abort();
+  });
   const onCallAbort = (): void => withdraw.abort();
   callSignal.addEventListener('abort', onCallAbort, { once: true });
   let result: ElicitResult | undefined;
@@ -227,7 +232,8 @@ async function askClient(
     unhook();
     callSignal.removeEventListener('abort', onCallAbort);
   }
-  prompts.settle(prompt, result);
+  // A prompt the session already settled (another answer, its backstop, the call ending) has its answer.
+  if (!settledElsewhere) prompts.settle(prompt, result);
 }
 
 /** A stateful connection: every prompt the call raises is put to the client while the call runs. */
@@ -330,16 +336,22 @@ async function nextRound(
     for (;;) {
       const next = await Promise.race([
         call.outcome.then((result) => ({ result })),
-        call.prompts.next(waiting.signal).then((prompt) => ({ prompt })),
+        // The call's prompts close as its invocation ends, just before the outcome settles; the
+        // outcome, not that closing, answers the exchange.
+        call.prompts.next(waiting.signal).then(
+          (prompt) => ({ prompt }),
+          () => call.outcome.then((result) => ({ result })),
+        ),
       ]);
       if ('result' in next) return next.result;
       const form = promptForm(next.prompt);
-      if (form === undefined) {
+      const requestState =
+        form === undefined ? undefined : pending.park({ ...call, prompt: next.prompt });
+      if (form === undefined || requestState === undefined) {
         call.prompts.settle(next.prompt, undefined);
         continue;
       }
       exchangeSignal.removeEventListener('abort', onExchangeAbort);
-      const requestState = pending.park({ ...call, prompt: next.prompt });
       return inputRequired({
         inputRequests: { [next.prompt.event.id]: inputRequired.elicit(form) },
         requestState,

@@ -178,8 +178,15 @@ MCP frames.
 
 The server offers the session's tools under their own names, plus `__PRODUCT_MODEL_TOOL_PREFIX___submit`, which takes
 `{ "prompt": "..." }`, runs a turn and returns its response. It does not advertise MCP resources or
-prompts. There is nobody to answer a permission prompt, so a call that would ask fails as a tool
-error — allow what the client should use with [permission rules](./permissions-and-hooks.md).
+prompts. By default nobody can answer a permission or ask prompt, so a call that would ask fails as
+a tool error — allow what the client should use with [permission rules](./permissions-and-hooks.md).
+With `--ask-client`, such a prompt raised by a client's own call is put to that client through MCP
+elicitation, when the client declared form elicitation: a permission offers **allow once** or
+**deny**, never a remembered grant, and a masked question is never sent. A client that declines,
+cancels or cannot be asked leaves the tool error. Over stdio the question arrives during the call.
+The HTTP carriers keep no session state, so they can ask only a client on the 2026-07-28 protocol
+revision, through its input-required rounds; an older HTTP client still gets the tool error. On the
+remote carrier the question reaches whoever holds an admitted token.
 
 ### stdio
 
@@ -318,6 +325,7 @@ sign-in required, signed out.
 | `--oauth-scopes <a,b>`           | Remote mode: scopes every token must carry.                                      |
 | `--oauth-allowed-subjects <a,b>` | Remote mode: token subjects admitted to the one shared session.                  |
 | `--trusted-proxy <ip>`           | Remote mode: believe `X-Forwarded-For` from this proxy (literal IP; repeatable). |
+| `--ask-client`                   | Put permission and ask prompts to the calling client (allow once or deny).       |
 
 ### External-event flags
 

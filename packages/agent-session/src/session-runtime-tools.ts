@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
 
 import type { TurnClaim } from './turn-claim.js';
-import type { ConversationAgent, IToolExecutionResult, TToolParameters } from '@robota-sdk/agent-core';
+import type {
+  ConversationAgent,
+  IToolExecutionResult,
+  IUserInteraction,
+  TToolParameters,
+} from '@robota-sdk/agent-core';
 
 /** Direct calls share the session claim and retain their completion for graceful disposal. */
 export class SessionRuntimeTools {
@@ -11,12 +16,18 @@ export class SessionRuntimeTools {
     private readonly agent: ConversationAgent,
     private readonly claim: TurnClaim,
     private readonly sessionId: string,
+    private readonly ask?: IUserInteraction['ask'],
   ) {}
 
+  /**
+   * `permissionInteraction` is `'deny'` unless the caller answers its own prompts; only then may
+   * the call ask for permission or put a question through the session's ask port.
+   */
   async invoke(
     name: string,
     parameters: TToolParameters,
-    signal?: AbortSignal,
+    signal: AbortSignal | undefined,
+    permissionInteraction: 'interactive' | 'deny',
   ): Promise<IToolExecutionResult> {
     const controller = this.claim.claim();
     const unlink = linkCancellation(controller, signal);
@@ -28,7 +39,8 @@ export class SessionRuntimeTools {
         executionId: randomUUID(),
         sessionId: this.sessionId,
         signal: controller.signal,
-        permissionInteraction: 'deny',
+        permissionInteraction,
+        ...(permissionInteraction === 'interactive' && this.ask !== undefined ? { ask: this.ask } : {}),
       });
       return await this.execution;
     } finally {

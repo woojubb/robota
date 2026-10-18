@@ -187,4 +187,46 @@ describe('MCP serve startup lifecycle', () => {
     ).rejects.toThrow(/not accepted with remote authorization/);
     expect(mock.remoteOptions).not.toHaveBeenCalled();
   });
+
+  it.each([true, false])(
+    'passes the operator’s --ask-client choice (%s) to the stdio carrier and both HTTP hosts',
+    async (askClient) => {
+      // #3470: the switch belongs to the operator, so the carrier asks the client only when the
+      // operator passed it, and an unchanged run passes nothing new.
+      mock.stdioOptions.mockClear();
+      mock.loopbackOptions.mockClear();
+      mock.remoteOptions.mockClear();
+      mock.start.mockResolvedValue(undefined);
+      mock.waitForClose.mockResolvedValue(undefined);
+      mock.stop.mockResolvedValue(undefined);
+      mock.httpStart.mockResolvedValue({ url: 'http://127.0.0.1:1/mcp', token: 't', listening: 'x' });
+      mock.httpWaitForClose.mockResolvedValue(undefined);
+      mock.httpStop.mockResolvedValue(undefined);
+      mock.shutdown.mockResolvedValue(undefined);
+      const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      const root = await mkdtemp(join(tmpdir(), 'test-product-mcp-ask-'));
+      const run = (http: Parameters<typeof runMcpServeMode>[4]) =>
+        runMcpServeMode(
+          createTestProductRuntime(),
+          {} as TInteractiveSessionOptions,
+          '1',
+          new PassThrough(),
+          http,
+          askClient,
+        );
+      try {
+        await run({});
+        await run({ tokenFile: join(root, 'token') });
+        await run({ remote: REMOTE });
+      } finally {
+        stderr.mockRestore();
+        await rm(root, { recursive: true, force: true });
+      }
+      for (const factory of [mock.stdioOptions, mock.loopbackOptions, mock.remoteOptions]) {
+        const options = factory.mock.calls[0]?.[0] as Record<string, unknown>;
+        if (askClient) expect(options).toMatchObject({ askClient: true });
+        else expect(options).not.toHaveProperty('askClient');
+      }
+    },
+  );
 });

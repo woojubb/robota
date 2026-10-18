@@ -13,7 +13,8 @@ export function validateMcpServeInvocation(
     throw new Error(`Usage: ${cliName} mcp serve [options]`);
   }
   const http = resolveMcpHttpOptions(args, mcpServe);
-  if (args.mcpAskClient && !mcpServe) {
+  const askClient = args.mcpAskClient === true;
+  if (askClient && !mcpServe) {
     throw new Error('--ask-client is only valid with mcp serve');
   }
   if (
@@ -30,7 +31,7 @@ export function validateMcpServeInvocation(
       `${cliName} mcp serve cannot be combined with another process mode or setup command`,
     );
   }
-  return { mcpServe, http, askClient: args.mcpAskClient };
+  return { mcpServe, http, askClient };
 }
 
 /**

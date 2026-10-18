@@ -202,7 +202,12 @@ export class Session extends SessionBase {
       systemMessage,
       this.eventService,
     );
-    this.runtimeTools = new SessionRuntimeTools(this.agent, this.turnClaim, this.sessionId);
+    this.runtimeTools = new SessionRuntimeTools(
+      this.agent,
+      this.turnClaim,
+      this.sessionId,
+      options.ask,
+    );
     fireSessionStartHook(
       this.sessionId,
       this.cwd,
@@ -443,10 +448,15 @@ export class Session extends SessionBase {
   async invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
-    options?: { signal?: AbortSignal },
+    options?: { signal?: AbortSignal; permissionInteraction?: 'interactive' | 'deny' },
   ): Promise<IToolExecutionResult> {
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
-    return this.runtimeTools.invoke(name, parameters, options?.signal);
+    return this.runtimeTools.invoke(
+      name,
+      parameters,
+      options?.signal,
+      options?.permissionInteraction ?? 'deny',
+    );
   }
 
   /**

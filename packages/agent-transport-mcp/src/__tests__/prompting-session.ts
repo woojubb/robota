@@ -60,14 +60,20 @@ export function createPromptingSession(): IPromptingSession {
     const entry = parked.get(id);
     if (entry !== undefined) settle(id, entry.kind === 'permission' ? false : { type: 'cancelled' });
   };
-  const park = <T>(kind: 'permission' | 'ask', raise: (id: string) => void): Promise<T> => {
+  const park = <T>(
+    kind: 'permission' | 'ask',
+    raise: (id: string) => void,
+    signal?: AbortSignal,
+  ): Promise<T> => {
     const id = `${kind === 'permission' ? 'p' : 'a'}${++minted}`;
     const gating = kind === 'permission' ? 'permission_request' : 'ask_request';
-    if ((listeners.get(gating)?.size ?? 0) === 0) {
+    if ((listeners.get(gating)?.size ?? 0) === 0 || signal?.aborted === true) {
       return Promise.resolve((kind === 'permission' ? false : { type: 'cancelled' }) as T);
     }
     return new Promise<T>((resolve) => {
       parked.set(id, { kind, settle: resolve as (value: unknown) => void });
+      // A cancelled call withdraws its prompt, as the session's registry does.
+      signal?.addEventListener('abort', () => settleClosed(id), { once: true });
       raise(id);
     });
   };
@@ -97,41 +103,67 @@ export function createPromptingSession(): IPromptingSession {
       }),
       listRuntimeTools: vi.fn(async () => [PERMISSION_TOOL, ASK_TOOL]),
       invokeRuntimeTool: vi.fn(
-        async (name: string, parameters: Record<string, unknown>, options?: { driverId?: string }) => {
+        async (
+          name: string,
+          parameters: Record<string, unknown>,
+          options?: {
+            signal?: AbortSignal;
+            driverId?: string;
+            permissionInteraction?: 'interactive' | 'deny';
+          },
+        ) => {
           const requesterDriverId = options?.driverId;
           if (name === ASK_TOOL.name) {
-            const answer = await park<unknown>('ask', (id) =>
-              emit('ask_request', {
-                id,
-                request: { id, ...harness.ask },
-                ...(requesterDriverId ? { requesterDriverId } : {}),
-              }),
+            const answer = await park<unknown>(
+              'ask',
+              (id) =>
+                emit('ask_request', {
+                  id,
+                  request: { id, ...harness.ask },
+                  ...(requesterDriverId ? { requesterDriverId } : {}),
+                }),
+              options?.signal,
             );
             return { success: true, toolName: name, result: answer };
           }
-          const allowed = await park<unknown>('permission', (id) =>
-            emit('permission_request', {
-              id,
-              toolName: name,
-              toolArgs: parameters,
-              ...(requesterDriverId ? { requesterDriverId } : {}),
-            }),
-          );
+          // A direct call denies without asking unless its caller answers its own prompts.
+          const allowed =
+            options?.permissionInteraction === 'interactive' &&
+            (await park<unknown>(
+              'permission',
+              (id) =>
+                emit('permission_request', {
+                  id,
+                  toolName: name,
+                  toolArgs: parameters,
+                  ...(requesterDriverId ? { requesterDriverId } : {}),
+                }),
+              options.signal,
+            ));
           return allowed === true
             ? { success: true, toolName: name, result: 'written' }
             : { success: false, toolName: name, error: 'Permission denied' };
         },
       ),
-      submit: vi.fn(async (input: string, _d?: string, _r?: string, options?: { driverId?: string }) => {
+      submit: vi.fn(
+        async (
+          input: string,
+          _display?: string,
+          _raw?: string,
+          options?: { signal?: AbortSignal; driverId?: string },
+        ) => {
         const requesterDriverId = options?.driverId;
         const completed = (async () => {
-          const allowed = await park<unknown>('permission', (id) =>
-            emit('permission_request', {
-              id,
-              toolName: 'Shell',
-              toolArgs: { command: input },
-              ...(requesterDriverId ? { requesterDriverId } : {}),
-            }),
+          const allowed = await park<unknown>(
+            'permission',
+            (id) =>
+              emit('permission_request', {
+                id,
+                toolName: 'Shell',
+                toolArgs: { command: input },
+                ...(requesterDriverId ? { requesterDriverId } : {}),
+              }),
+            options?.signal,
           );
           return {
             response: allowed === true ? `ran ${input}` : 'denied',
@@ -140,7 +172,8 @@ export function createPromptingSession(): IPromptingSession {
           };
         })();
         return { turnId: `turn-${++minted}`, completed };
-      }),
+        },
+      ),
     }),
   };
   return harness;

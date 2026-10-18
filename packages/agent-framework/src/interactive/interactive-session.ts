@@ -147,6 +147,7 @@ import type {
   TPermissionResultValue,
   ISessionLoopState,
   ISessionProjectRead,
+  ISessionRuntimeTools,
   ISessionStatusSnapshot,
   IModelListSnapshot,
   TProjectDiffRead,
@@ -866,7 +867,7 @@ export class InteractiveSession
   invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
-    options?: { signal?: AbortSignal; driverId?: TDriverId },
+    options?: Parameters<ISessionRuntimeTools['invokeRuntimeTool']>[2],
   ): Promise<IToolExecutionResult> {
     return this.runtimeTools.invokeRuntimeTool(name, parameters, options);
   }

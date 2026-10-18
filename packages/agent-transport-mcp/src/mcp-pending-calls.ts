@@ -22,6 +22,12 @@ export interface IMcpParkedCall {
   readonly abort: AbortController;
 }
 
+/**
+ * A session runs one foreground call at a time, so in practice one call is parked at most; the
+ * bound keeps a session that admits more from holding an unbounded number of unanswered calls.
+ */
+const MAX_PARKED_CALLS = 16;
+
 export class McpPendingCalls {
   private readonly parked = new Map<string, IMcpParkedCall>();
 
@@ -29,8 +35,12 @@ export class McpPendingCalls {
     return this.parked.has(requestState);
   }
 
-  /** Keeps the call until its retry takes it or its invocation ends; returns the token for the retry. */
-  park(call: IMcpParkedCall): string {
+  /**
+   * Keeps the call until its retry takes it or its invocation ends; returns the token for the
+   * retry, or `undefined` when the bound is reached and the question cannot be put.
+   */
+  park(call: IMcpParkedCall): string | undefined {
+    if (this.parked.size >= MAX_PARKED_CALLS) return undefined;
     const requestState = randomBytes(32).toString('base64url');
     this.parked.set(requestState, call);
     const drop = (): void => {

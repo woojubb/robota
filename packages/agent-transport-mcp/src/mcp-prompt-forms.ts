@@ -29,7 +29,7 @@ export const ASK_ANSWER_FIELD = 'answer';
 export const ASK_TEXT_FIELD = 'text';
 
 /** The arguments a person recognises a call by, in the order the tools put them first. */
-const SUMMARY_ARGS = ['command', 'file_path', 'path', 'url', 'pattern', 'query'] as const;
+const SUMMARY_ARGS = ['command', 'filePath', 'file_path', 'path', 'url', 'pattern', 'query'] as const;
 /** Arguments longer than this are cut in the message; the client shows a form, not a viewer. */
 const MAX_ARGUMENT_CHARS = 2000;
 

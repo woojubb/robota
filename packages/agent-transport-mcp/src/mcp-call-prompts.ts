@@ -67,6 +67,9 @@ export class McpCallPrompts {
   private waiter: IWaiter | undefined;
   /** What to run when the session settles a prompt this caller is still being asked about. */
   private readonly settledHooks = new Map<string, Set<() => void>>();
+  /** Prompts of this call the session raised, and those of them it has since settled. */
+  private readonly seen = new Set<string>();
+  private readonly settledIds = new Set<string>();
   private closed = false;
 
   constructor(
@@ -87,6 +90,8 @@ export class McpCallPrompts {
   };
 
   private readonly onPromptResolved = (event: IPromptResolvedEvent): void => {
+    if (!this.seen.has(event.id)) return;
+    this.settledIds.add(event.id);
     const queued = this.queue.findIndex((prompt) => prompt.event.id === event.id);
     if (queued >= 0) this.queue.splice(queued, 1);
     this.runSettledHooks(event.id);
@@ -94,6 +99,7 @@ export class McpCallPrompts {
 
   private push(prompt: TMcpCallPrompt): void {
     if (this.closed) return;
+    this.seen.add(prompt.event.id);
     const waiter = this.waiter;
     if (waiter === undefined) {
       this.queue.push(prompt);
@@ -121,8 +127,15 @@ export class McpCallPrompts {
     });
   }
 
-  /** Runs `hook` once if the session settles prompt `id` before this caller answers it. */
+  /**
+   * Runs `hook` once if the session settles prompt `id` before this caller answers it — at once
+   * when that already happened between the prompt being handed out and this call.
+   */
   whenSettled(id: string, hook: () => void): () => void {
+    if (this.closed || this.settledIds.has(id)) {
+      hook();
+      return () => undefined;
+    }
     let hooks = this.settledHooks.get(id);
     if (hooks === undefined) {
       hooks = new Set();

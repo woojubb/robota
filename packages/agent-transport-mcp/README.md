@@ -26,9 +26,10 @@ also install `@robota-sdk/agent-transport` to build the access-token verifier.
 ## What the server exposes
 
 - **The session's runtime tools**, under their canonical names, descriptions and input schemas. Calls
-  go through the session's permission wrapper without interactive approval prompts: a call that would
-  need one fails as a visible tool error, as do unknown names, denial, a busy session and cancellation.
-  Results are serialized execution envelopes; failures set `isError`.
+  go through the session's permission wrapper: a call that would ask for permission or input fails as
+  a visible tool error, as do unknown names, denial, a busy session and cancellation, unless you let
+  the server [ask the client](#asking-the-client). Results are serialized execution envelopes;
+  failures set `isError`.
 - **A submission tool**, `agent_submit` by default, that takes `{ prompt: string }` and returns the
   agent's turn response. Pass `submitTool: { name, description }` to any of the factories to name it
   differently; a runtime tool with the same name fails startup.
@@ -128,6 +129,21 @@ const { listening, url } = await host.start();
   likewise refuses to build without at least one `allowedSubjects` or `allowedClients` entry, so a
   token the issuer minted for someone else is not enough.
 
+## Asking the client
+
+Pass `askClient: true` to any of the factories to put a permission or ask prompt raised by a client's
+own call to that client through MCP elicitation, when the client declared form-mode elicitation.
+Leave it off unless you trust whoever can reach the carrier to approve the session's tool calls.
+
+- A permission offers **allow once** or **deny**; no answer can grant a remembered permission. Deny,
+  decline, cancel or a client error keeps the permission error.
+- An ask becomes a form: options as a choice, free text as a text field. A masked ask is never sent;
+  it is cancelled as before.
+- Only the prompts of the client's own call are sent; another caller's prompts never are.
+- stdio asks during the call. The HTTP hosts keep no session state, so they ask only a client on the
+  2026-07-28 protocol revision, through input-required rounds whose `requestState` is a single-use
+  random token; a 2025-era HTTP client keeps the tool error.
+
 ## Lifecycle
 
 `createMcpTransport` follows the standard transport lifecycle: `start()` resolves once the server can
@@ -138,19 +154,19 @@ observe the listener. Both HTTP hosts are stateless: there is no MCP session id 
 
 ## Exports
 
-| Symbol                                                                 | Kind      | Description                                                                                                    |
-| ---------------------------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------- |
-| `createMcpTransport`                                                   | function  | `(options: IMcpTransportOptions) => IMcpTransport` (stdio)                                                     |
-| `createAgentMcpServer`                                                 | function  | `(options: IAgentMcpOptions) => Promise<Server>`                                                               |
-| `createMcpHttpHost`                                                    | function  | `(options: IMcpHttpHostOptions) => IMcpHttpHost` (loopback, bearer)                                            |
-| `createMcpRemoteHttpHost`                                              | function  | `(options: IMcpRemoteHttpHostOptions) => IMcpRemoteHttpHost` (OAuth)                                           |
-| `IMcpTransportOptions`, `IMcpTransport`                                | interface | `{ name, version, stdin?, stdout?, submitTool? }`; adds `getServer()` and `waitForClose()`                     |
-| `IAgentMcpOptions`                                                     | interface | `{ name, version, session, submitTool? }`                                                                      |
-| `IMcpHttpHostOptions`, `IMcpHttpHost`                                  | interface | `{ name, version, session, port?, host?, submitTool? }`; `start()` returns `{ url, token }`                    |
-| `IMcpRemoteHttpHostOptions`, `IMcpRemoteHttpHost`                      | interface | `{ name, version, session, authorization, host?, port?, submitTool? }`; `start()` returns `{ listening, url }` |
-| `IMcpRemoteAuthorization`                                              | interface | `{ publicUrl, issuer, scopes, verifier, trustedProxies?, audit? }`                                             |
-| `IMcpRemoteAuditRecord`, `TMcpRemoteRefusal`, `TMcpRemoteAddressClass` | type      | The audit record and its fields                                                                                |
-| `IMcpSubmitToolIdentity`                                               | interface | `{ name, description }` of the submission tool                                                                 |
-| `IMcpTransportSession`                                                 | interface | The session capabilities used: turn submission and runtime tools                                               |
+| Symbol                                                                 | Kind      | Description                                                                                                                |
+| ---------------------------------------------------------------------- | --------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `createMcpTransport`                                                   | function  | `(options: IMcpTransportOptions) => IMcpTransport` (stdio)                                                                 |
+| `createAgentMcpServer`                                                 | function  | `(options: IAgentMcpOptions) => Promise<Server>`                                                                           |
+| `createMcpHttpHost`                                                    | function  | `(options: IMcpHttpHostOptions) => IMcpHttpHost` (loopback, bearer)                                                        |
+| `createMcpRemoteHttpHost`                                              | function  | `(options: IMcpRemoteHttpHostOptions) => IMcpRemoteHttpHost` (OAuth)                                                       |
+| `IMcpTransportOptions`, `IMcpTransport`                                | interface | `{ name, version, stdin?, stdout?, submitTool?, askClient? }`; adds `getServer()` and `waitForClose()`                     |
+| `IAgentMcpOptions`                                                     | interface | `{ name, version, session, submitTool?, askClient? }`                                                                      |
+| `IMcpHttpHostOptions`, `IMcpHttpHost`                                  | interface | `{ name, version, session, port?, host?, submitTool?, askClient? }`; `start()` returns `{ url, token }`                    |
+| `IMcpRemoteHttpHostOptions`, `IMcpRemoteHttpHost`                      | interface | `{ name, version, session, authorization, host?, port?, submitTool?, askClient? }`; `start()` returns `{ listening, url }` |
+| `IMcpRemoteAuthorization`                                              | interface | `{ publicUrl, issuer, scopes, verifier, trustedProxies?, audit? }`                                                         |
+| `IMcpRemoteAuditRecord`, `TMcpRemoteRefusal`, `TMcpRemoteAddressClass` | type      | The audit record and its fields                                                                                            |
+| `IMcpSubmitToolIdentity`                                               | interface | `{ name, description }` of the submission tool                                                                             |
+| `IMcpTransportSession`                                                 | interface | The session capabilities used: turn submission, runtime tools, session events and prompt resolution                        |
 
 See [docs/SPEC.md](./docs/SPEC.md) for the full contract.

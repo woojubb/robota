@@ -64,7 +64,7 @@ export interface IParsedCliArgs {
   mcpOauthAllowedSubjects?: string[];
   mcpTrustedProxies?: string[];
   /** With `mcp serve`, put permission and ask prompts to the calling client through MCP elicitation. */
-  mcpAskClient: boolean;
+  mcpAskClient?: boolean;
   /** GUI-007: with `--serve --open`, also serve the CLI's web monitor SPA over localhost and open it. */
   open: boolean;
   continueMode: boolean;

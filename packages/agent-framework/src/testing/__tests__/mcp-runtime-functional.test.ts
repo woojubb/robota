@@ -86,6 +86,11 @@ function toolSession(permission: 'allow' | 'deny' | 'ask') {
     submit: async () => {
       throw new Error('Submission not used by the runtime policy fixture');
     },
+    // No prompt surface: the carrier is served without caller elicitation, so nothing subscribes.
+    on: () => undefined,
+    off: () => undefined,
+    resolvePermission: () => undefined,
+    resolveAsk: () => undefined,
   };
   return { session, port, hooks, execute, handler };
 }
