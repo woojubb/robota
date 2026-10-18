@@ -126,6 +126,34 @@ describe('available commands', () => {
   });
 });
 
+describe('available commands after a model turn', () => {
+  it('sends the list again after a prompt that is not a command when the turn changed it', async () => {
+    let skills = [skill('review')];
+    const fake = createFakeSession(async () => {
+      // A model turn can install or remove a skill, as a command can.
+      skills = [skill('review'), skill('deploy')];
+      return endedTurn(executionResult('installed'));
+    });
+    fake.session.listSkills = () => skills;
+    const { editor } = await start(fake);
+    const sessionId = await openSession(editor);
+    await vi.waitFor(() => expect(editor.commandLists).toHaveLength(1));
+    await editor.connection.agent.request('session/prompt', {
+      sessionId,
+      prompt: textPrompt('add the deploy skill'),
+    });
+    await vi.waitFor(() => expect(editor.commandLists).toHaveLength(2));
+    expect(editor.commandLists[1]!.map((c) => c.name)).toEqual(['review', 'deploy']);
+    // A turn that leaves the list as it is sends nothing.
+    await editor.connection.agent.request('session/prompt', {
+      sessionId,
+      prompt: textPrompt('thanks'),
+    });
+    await settle();
+    expect(editor.commandLists).toHaveLength(2);
+  });
+});
+
 describe('session/load', () => {
   const history: IHistoryDisplaySegment[] = [
     { type: 'text', role: 'user', content: 'read the probe' },

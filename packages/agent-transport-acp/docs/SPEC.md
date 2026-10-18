@@ -61,8 +61,9 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
   session that would run on its own). It is offered only when the host can load, and the editor sees
   the conversation it reopened before the load answers.
 - **The command list follows the session.** The editor learns the commands it may offer once it
-  holds the session id, so the list goes out after the reply that gives it; a command can change the
-  catalog (a plugin reload, a preset), so the list is sent again after a command when it changed.
+  holds the session id, so the list goes out after the reply that gives it. Any prompt, a command or
+  a model turn, can change the catalog (a plugin reload, a preset, a skill that installs another), so
+  the list is re-checked after every prompt and sent again only when it changed.
   Commands a client runs itself are not offered, because an editor cannot run them.
 - **`session/new` waits for the session to start.** The host builds the session in the background
   and it cannot name itself until it is ready, while an editor sends `session/new` straight after
