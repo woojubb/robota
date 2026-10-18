@@ -23,11 +23,16 @@ export interface IScriptedTurnUsage {
   outputTokens: number;
 }
 
-/** One scripted assistant turn: plain text or tool invocations, optionally reporting token usage. */
+/**
+ * One scripted assistant turn: plain text or tool invocations, optionally reporting token usage.
+ * `thinking` is reasoning text the provider streams through `onThinkingDelta` before anything else
+ * in the turn; it is never part of the returned message.
+ */
 export type TScriptedTurn =
-  | { text: string; usage?: IScriptedTurnUsage }
+  | { text: string; thinking?: string; usage?: IScriptedTurnUsage }
   | {
       toolCalls: ReadonlyArray<{ name: string; args: Record<string, unknown> }>;
+      thinking?: string;
       usage?: IScriptedTurnUsage;
     };
 
@@ -72,6 +77,9 @@ export function createScriptedProvider(turns: readonly TScriptedTurn[]): IScript
             },
           }
         : {};
+      if (turn.thinking !== undefined && turn.thinking.length > 0) {
+        options?.onThinkingDelta?.(turn.thinking);
+      }
       if ('text' in turn) {
         // CORE-042: `IChatOptions.onTextDelta` requires a provider to stream internally and call
         // this per chunk WHILE still returning the assembled message. This double returned the text

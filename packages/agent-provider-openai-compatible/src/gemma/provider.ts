@@ -345,6 +345,10 @@ export class GemmaProvider extends AbstractAIProvider {
         ),
       );
       const projector = new GemmaReasoningProjector();
+      const reportThinking = (): void => {
+        const reasoning = projector.takeReasoning();
+        if (reasoning.length > 0) options.onThinkingDelta?.(reasoning);
+      };
       const result = await assembleOpenAICompatibleStream({
         stream: observeProviderNativeRawPayloadStream(stream, {
           provider: 'gemma',
@@ -353,8 +357,18 @@ export class GemmaProvider extends AbstractAIProvider {
         }),
         onTextDelta: options.onTextDelta,
         signal: options.signal,
-        textProjector: (text) => projector.project(text),
-        textProjectorFlush: () => projector.flush(),
+        // The reasoning the projector removes from the reply text is reported before the reply
+        // text of the same chunk, which is the order the model produced them.
+        textProjector: (text) => {
+          const visible = projector.project(text);
+          reportThinking();
+          return visible;
+        },
+        textProjectorFlush: () => {
+          const visible = projector.flush();
+          reportThinking();
+          return visible;
+        },
         toolCallTextProjector: createGemmaToolCallProjector(options.tools),
       });
 

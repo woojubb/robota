@@ -6,6 +6,7 @@ import type {
   IChatOptions,
   IToolSchema,
   TTextDeltaCallback,
+  TThinkingDeltaCallback,
   TToolChoice,
 } from '../interfaces/provider';
 import type { IDeferredToolCatalog } from '../interfaces/tool-search';
@@ -165,6 +166,8 @@ export interface IExecutionContext {
   awaitProviderSettlement?: boolean;
   /** Per-run streaming text callback. */
   onTextDelta?: TTextDeltaCallback;
+  /** Per-run reasoning-text callback. */
+  onThinkingDelta?: TThinkingDeltaCallback;
   /** Per-run replay event callback for provider/tool execution boundaries. */
   onExecutionEvent?: TExecutionEventCallback;
   executionJournal?: IExecutionJournal;

@@ -90,6 +90,7 @@ export interface IInitOptions {
   /** Trusted host-only path projection for hook compatibility. */
   transcriptPath?: string;
   onTextDelta: (delta: string) => void;
+  onThinkingDelta?: (delta: string) => void;
   onContextUpdate?: (state: IContextWindowState) => void;
   onCompactEvent?: (event: ICompactEvent) => void;
   onUsageRecorded?: (entries: readonly IHistoryEntry[]) => void;

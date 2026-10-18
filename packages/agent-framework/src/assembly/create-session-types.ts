@@ -122,6 +122,8 @@ export interface ICreateSessionOptions {
   ask?: IUserInteraction['ask'];
   /** Callback for text deltas — enables streaming text to the UI in real-time */
   onTextDelta?: (delta: string) => void;
+  /** Callback for reasoning text a provider streams while it thinks; never part of the reply */
+  onThinkingDelta?: (delta: string) => void;
   /** Callback when context window usage is refreshed */
   onContextUpdate?: (state: IContextWindowState) => void;
   /** Custom prompt-for-approval function (injected from CLI) */

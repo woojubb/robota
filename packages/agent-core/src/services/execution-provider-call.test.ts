@@ -57,3 +57,83 @@ it('joins provider settlement after an idle timeout without replacing that error
   release();
   expect(await work).toMatchObject({ message: 'Provider call idle timeout after 10ms' });
 });
+
+it('treats a streamed reasoning delta as provider activity for the idle timeout', async () => {
+  vi.useFakeTimers();
+  try {
+    const seen: string[] = [];
+    const reply: TUniversalMessage = {
+      id: 'r',
+      role: 'assistant',
+      content: 'done',
+      state: 'complete',
+      timestamp: new Date(),
+    };
+    const work = callProviderWithIdleTimeout(
+      async (_messages, options) => {
+        // Six reasoning deltas, each inside the 100ms window, adding up to far more than one window.
+        for (let i = 0; i < 6; i += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 60));
+          options.onThinkingDelta?.(`thought ${i}`);
+        }
+        return reply;
+      },
+      [],
+      { onThinkingDelta: (delta) => seen.push(delta) },
+      100,
+    );
+    await vi.advanceTimersByTimeAsync(400);
+    await expect(work).resolves.toBe(reply);
+    expect(seen).toHaveLength(6);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('still times out a provider that goes silent after its last reasoning delta', async () => {
+  vi.useFakeTimers();
+  try {
+    const work = callProviderWithIdleTimeout(
+      async (_messages, options) => {
+        options.onThinkingDelta?.('one thought');
+        return new Promise<TUniversalMessage>(() => {});
+      },
+      [],
+      { onThinkingDelta: () => {} },
+      100,
+    ).catch((error: unknown) => error);
+    await vi.advanceTimersByTimeAsync(150);
+    expect(await work).toMatchObject({ message: 'Provider call idle timeout after 100ms' });
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('counts reasoning as activity even when the caller does not listen to it', async () => {
+  vi.useFakeTimers();
+  try {
+    const reply: TUniversalMessage = {
+      id: 'r',
+      role: 'assistant',
+      content: 'done',
+      state: 'complete',
+      timestamp: new Date(),
+    };
+    const work = callProviderWithIdleTimeout(
+      async (_messages, options) => {
+        for (let i = 0; i < 6; i += 1) {
+          await new Promise((resolve) => setTimeout(resolve, 60));
+          options.onThinkingDelta?.(`thought ${i}`);
+        }
+        return reply;
+      },
+      [],
+      {},
+      100,
+    );
+    await vi.advanceTimersByTimeAsync(400);
+    await expect(work).resolves.toBe(reply);
+  } finally {
+    vi.useRealTimers();
+  }
+});

@@ -284,6 +284,7 @@ export async function createSession(
     ...(options.ask ? { ask: options.ask } : {}),
     ...(onProjectAllowTool === undefined ? {} : { onProjectAllowTool }),
     onTextDelta: options.onTextDelta,
+    onThinkingDelta: options.onThinkingDelta,
     onContextUpdate: options.onContextUpdate,
     onToolExecution: options.onToolExecution,
     promptForApproval: options.promptForApproval,

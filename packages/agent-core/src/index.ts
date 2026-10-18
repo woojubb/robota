@@ -32,6 +32,7 @@ export type {
   IProviderNativeWebToolRequest,
   IProviderNativeRawPayloadEvent,
   TTextDeltaCallback,
+  TThinkingDeltaCallback,
   TProviderNativeRawPayload,
   TProviderNativeRawPayloadCallback,
   TProviderNativeRawPayloadKind,

@@ -83,6 +83,7 @@ export function buildCreateSessionOptions(
     ...(options.askHandler ? { ask: options.askHandler } : {}),
     provider: options.provider,
     onTextDelta: options.onTextDelta,
+    ...(options.onThinkingDelta !== undefined ? { onThinkingDelta: options.onThinkingDelta } : {}),
     onContextUpdate: options.onContextUpdate,
     onCompactEvent: options.onCompactEvent,
     ...(options.onUsageRecorded !== undefined ? { onUsageRecorded: options.onUsageRecorded } : {}),

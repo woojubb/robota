@@ -137,6 +137,9 @@ export async function callRoundProviderWithEvents(
       {
         signal: fullContext.signal,
         onTextDelta: wrappedOnTextDelta,
+        // Reasoning text goes to the caller only: it is not the reply, so it stays out of the
+        // conversation store, the plugin streaming hooks and the raw-delta replay events.
+        ...(fullContext.onThinkingDelta && { onThinkingDelta: fullContext.onThinkingDelta }),
         onProviderNativeRawPayload: wrappedOnProviderNativeRawPayload,
         // CORE-016/017: run-scoped model option overrides win over defaultModel.
         ...(fullContext.maxTokens !== undefined && { maxTokens: fullContext.maxTokens }),

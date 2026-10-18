@@ -135,6 +135,7 @@ export async function continueJournaledExecution(
       signal: options.signal,
       executionJournal: options.journal,
       onTextDelta: options.onTextDelta,
+      onThinkingDelta: options.onThinkingDelta,
       onExecutionEvent: options.onExecutionEvent,
       traceContext: options.traceContext,
     },

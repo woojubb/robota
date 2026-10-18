@@ -123,6 +123,7 @@ export async function forceSummaryCall(
       }),
       ...(fullContext.signal && { signal: fullContext.signal }),
       ...(fullContext.onTextDelta && { onTextDelta: fullContext.onTextDelta }),
+      ...(fullContext.onThinkingDelta && { onThinkingDelta: fullContext.onThinkingDelta }),
       executionId,
       onModelFallback: (notice) => {
         moveModelRoute(route, notice);

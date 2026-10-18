@@ -667,6 +667,7 @@ export class InteractiveSession
         ),
       askHandler: this.askHandler,
       onTextDelta: (delta) => this.execCtrl.handleTextDelta(delta),
+      onThinkingDelta: (delta) => this.emit('thinking_delta', delta),
       onContextUpdate: (state) => this.emit('context_update', state),
       onCompactEvent: (event) => this.execCtrl.handleCompactEvent(event),
       onUsageRecorded: (entries) => {
