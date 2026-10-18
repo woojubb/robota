@@ -71,3 +71,47 @@ describe('createScriptedProvider (CLI-074)', () => {
     expect(provider.supportsTools()).toBe(true);
   });
 });
+
+describe('createScriptedProvider thinking', () => {
+  const userMessage = {
+    id: 'u1',
+    role: 'user' as const,
+    content: 'hi',
+    state: 'complete' as const,
+    timestamp: new Date(),
+  };
+
+  it("streams a turn's thinking through onThinkingDelta before its text and keeps it out of the message", async () => {
+    const { provider } = createScriptedProvider([{ thinking: 'pondering', text: 'answer' }]);
+    const order: string[] = [];
+
+    const message = await provider.chat([userMessage], {
+      onThinkingDelta: (delta) => order.push(`thinking:${delta}`),
+      onTextDelta: (delta) => order.push(`text:${delta}`),
+    });
+
+    expect(order).toEqual(['thinking:pondering', 'text:answer']);
+    expect(message.content).toBe('answer');
+  });
+
+  it('streams thinking for a tool-call turn as well', async () => {
+    const { provider } = createScriptedProvider([
+      { thinking: 'need a file', toolCalls: [{ name: 'Read', args: {} }] },
+    ]);
+    const seen: string[] = [];
+
+    await provider.chat([userMessage], { onThinkingDelta: (delta) => seen.push(delta) });
+
+    expect(seen).toEqual(['need a file']);
+  });
+
+  it('streams nothing for a turn without thinking', async () => {
+    const { provider } = createScriptedProvider([{ text: 'answer' }, { thinking: '', text: 'b' }]);
+    const seen: string[] = [];
+
+    await provider.chat([userMessage], { onThinkingDelta: (delta) => seen.push(delta) });
+    await provider.chat([userMessage], { onThinkingDelta: (delta) => seen.push(delta) });
+
+    expect(seen).toEqual([]);
+  });
+});

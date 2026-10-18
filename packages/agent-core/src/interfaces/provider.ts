@@ -112,6 +112,8 @@ export interface IProviderRequest {
 
 export type TTextDeltaCallback = (delta: string) => void;
 
+export type TThinkingDeltaCallback = (delta: string) => void;
+
 export type TProviderNativeRawPayloadKind = 'request' | 'response' | 'stream_event';
 
 export type TProviderNativeRawPayload = string | number | boolean | object | null | undefined;
@@ -166,6 +168,10 @@ export interface IChatOptions extends IProviderSpecificOptions {
    *  should use streaming internally and call this for each text chunk,
    *  while still returning the complete assembled message. */
   onTextDelta?: TTextDeltaCallback;
+  /** Callback for reasoning text a provider streams while it thinks. This text is never part of the
+   *  reply: it is not in the returned message, and `onTextDelta` never receives it. A provider that
+   *  sends no reasoning text never calls it. */
+  onThinkingDelta?: TThinkingDeltaCallback;
   /** Callback for provider-owned native SDK request/response/stream payload capture. */
   onProviderNativeRawPayload?: TProviderNativeRawPayloadCallback;
   /** AbortSignal for cancelling the provider call */

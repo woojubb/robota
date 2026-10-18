@@ -187,6 +187,7 @@ export interface IAsyncInitDeps {
   askHandler: IInitOptions['askHandler'];
   /** Callbacks for handling events during initialization. */
   onTextDelta: (delta: string) => void;
+  onThinkingDelta?: (delta: string) => void;
   onContextUpdate: (state: IContextWindowState) => void;
   onCompactEvent: (event: ICompactEvent) => void;
   onUsageRecorded: (entries: readonly IHistoryEntry[]) => void;
@@ -282,6 +283,7 @@ export async function initializeInteractiveSessionAsync(
     ...(options.sessionLogSink !== undefined ? { sessionLogSink: options.sessionLogSink } : {}),
     ...(options.transcriptPath !== undefined ? { transcriptPath: options.transcriptPath } : {}),
     onTextDelta: deps.onTextDelta,
+    ...(deps.onThinkingDelta !== undefined ? { onThinkingDelta: deps.onThinkingDelta } : {}),
     onContextUpdate: deps.onContextUpdate,
     onCompactEvent: deps.onCompactEvent,
     onUsageRecorded: deps.onUsageRecorded,

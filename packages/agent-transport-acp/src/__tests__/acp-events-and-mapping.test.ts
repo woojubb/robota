@@ -13,16 +13,17 @@ import type { TInteractiveEventName } from '@robota-sdk/agent-interface-session'
 describe('session event policy', () => {
   it('decides every session event, so a new one cannot be silently dropped', () => {
     expectTypeOf<keyof typeof ACP_SESSION_EVENT_POLICY>().toEqualTypeOf<TInteractiveEventName>();
-    expect(Object.keys(ACP_SESSION_EVENT_POLICY)).toHaveLength(28);
+    expect(Object.keys(ACP_SESSION_EVENT_POLICY)).toHaveLength(29);
   });
 
   it('subscribes exactly the streamed and permission events', () => {
     expectTypeOf<TAcpSubscribedEvent>().toEqualTypeOf<
-      'text_delta' | 'tool_start' | 'tool_end' | 'permission_request'
+      'text_delta' | 'thinking_delta' | 'tool_start' | 'tool_end' | 'permission_request'
     >();
     const fake = createFakeSession();
     const unsubscribe = subscribeAcpEvents(fake.session, {
       text_delta: () => {},
+      thinking_delta: () => {},
       tool_start: () => {},
       tool_end: () => {},
       permission_request: () => {},
@@ -30,6 +31,7 @@ describe('session event policy', () => {
     expect([...fake.everSubscribed].sort()).toEqual([
       'permission_request',
       'text_delta',
+      'thinking_delta',
       'tool_end',
       'tool_start',
     ]);

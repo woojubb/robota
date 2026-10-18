@@ -117,7 +117,7 @@ round trip — a local round trip must be lossless.
   layer control whether a resumed session continues under the same persisted file or starts a
   new one.
 - A provided idle-timeout value is enforced per provider call and its timer refreshes on
-  streaming text deltas.
+  streamed reply and reasoning text, since a model that is only reasoning is still working.
 - Provider-round and permitted-tool-body completions are forwarded to the session's event bus as
   content-free observations (time, round, outcome, and a tool body's tool name — a label, never its
   arguments or output), scoped to the active run; the public

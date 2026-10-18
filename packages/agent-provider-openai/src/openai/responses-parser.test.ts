@@ -85,3 +85,54 @@ describe('OpenAI Responses usage', () => {
     expect(usageOf(message)).toMatchObject({ promptTokens: 1000, cacheReadTokens: 800 });
   });
 });
+
+describe('OpenAI Responses reasoning summary stream', () => {
+  const completed: TOpenAIResponsesStreamEvent = {
+    type: 'response.completed',
+    response: { id: 'resp-1', output_text: 'The answer.', output: [], status: 'completed' },
+  };
+
+  it('hands reasoning summary text to onThinkingDelta, in order, and keeps it out of the reply', async () => {
+    const thoughts: string[] = [];
+    const replyDeltas: string[] = [];
+
+    const message = await assembleOpenAIResponsesStream({
+      stream: eventsFrom([
+        { type: 'response.reasoning_summary_text.delta', delta: 'Weighing ' },
+        { type: 'response.reasoning_summary_text.delta', delta: 'the options.' },
+        { type: 'response.output_text.delta', delta: 'The answer.' },
+        completed,
+      ]),
+      onTextDelta: (delta) => replyDeltas.push(delta),
+      onThinkingDelta: (delta) => thoughts.push(delta),
+    });
+
+    expect(thoughts).toEqual(['Weighing ', 'the options.']);
+    expect(replyDeltas).toEqual(['The answer.']);
+    expect(message.content).toBe('The answer.');
+  });
+
+  it('does not treat reply text as reasoning', async () => {
+    const thoughts: string[] = [];
+
+    await assembleOpenAIResponsesStream({
+      stream: eventsFrom([{ type: 'response.output_text.delta', delta: 'The answer.' }, completed]),
+      onTextDelta: () => {},
+      onThinkingDelta: (delta) => thoughts.push(delta),
+    });
+
+    expect(thoughts).toEqual([]);
+  });
+
+  it('assembles a reply whose caller registered no reasoning callback', async () => {
+    const message = await assembleOpenAIResponsesStream({
+      stream: eventsFrom([
+        { type: 'response.reasoning_summary_text.delta', delta: 'thinking' },
+        { type: 'response.output_text.delta', delta: 'The answer.' },
+        completed,
+      ]),
+    });
+
+    expect(message.content).toBe('The answer.');
+  });
+});

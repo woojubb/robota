@@ -102,6 +102,12 @@ async function runStreamedTurn(
       streamed = true;
       updates.text(delta);
     },
+    // Reasoning is not the reply: it never marks the turn streamed, so a turn that showed only
+    // thoughts still gets its result text.
+    thinking_delta: (delta) => {
+      if (delta === '') return;
+      updates.thought(delta);
+    },
     tool_start: tools.start,
     tool_end: tools.end,
     permission_request: onPermissionRequest,

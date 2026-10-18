@@ -181,6 +181,11 @@ export interface IInteractiveSessionEvents {
   tool_start: (state: IToolState) => void;
   tool_end: (state: IToolState) => void;
   thinking: (isThinking: boolean) => void;
+  /**
+   * Reasoning text a provider streamed for the running turn. It is not part of the reply, and a
+   * provider that sends none never raises it.
+   */
+  thinking_delta: (delta: string) => void;
   complete: (result: IExecutionResult) => void;
   error: (error: Error) => void;
   context_update: (state: IContextWindowState) => void;

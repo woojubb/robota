@@ -27,7 +27,8 @@ export const ACP_SESSION_EVENT_POLICY = {
   text_delta: 'stream',
   tool_start: 'stream',
   tool_end: 'stream',
-  thinking: 'ignore', // carries no text, so there is nothing for agent_thought_chunk
+  thinking: 'ignore', // a busy flag with no text; the reasoning text is `thinking_delta`
+  thinking_delta: 'stream',
   complete: 'settle',
   error: 'settle',
   interrupted: 'settle',

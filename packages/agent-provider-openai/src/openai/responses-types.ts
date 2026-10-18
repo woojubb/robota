@@ -171,6 +171,15 @@ export interface IOpenAIResponsesTextDeltaEvent {
   delta: string;
 }
 
+/**
+ * Text of a reasoning summary. The API streams it only when the request asked for a summary
+ * (`reasoning.summary`); it is never part of the reply text.
+ */
+export interface IOpenAIResponsesReasoningSummaryTextDeltaEvent {
+  type: 'response.reasoning_summary_text.delta';
+  delta: string;
+}
+
 export interface IOpenAIResponsesCompletedEvent {
   type: 'response.completed';
   response: IOpenAIResponsesResponse;
@@ -190,6 +199,7 @@ export interface IOpenAIResponsesErrorEvent {
 
 export type TOpenAIResponsesStreamEvent =
   | IOpenAIResponsesTextDeltaEvent
+  | IOpenAIResponsesReasoningSummaryTextDeltaEvent
   | IOpenAIResponsesCompletedEvent
   | IOpenAIResponsesOutputItemDoneEvent
   | IOpenAIResponsesErrorEvent;

@@ -36,6 +36,7 @@ function buildRunContext(
     ...(options.signal && { signal: options.signal }),
     awaitProviderSettlement: options.awaitProviderSettlement,
     ...(options.onTextDelta && { onTextDelta: options.onTextDelta }),
+    ...(options.onThinkingDelta && { onThinkingDelta: options.onThinkingDelta }),
     ...(options.onExecutionEvent && { onExecutionEvent: options.onExecutionEvent }),
     ...(options.executionJournal && { executionJournal: options.executionJournal }),
     ...(options.maxExecutionRounds !== undefined && {

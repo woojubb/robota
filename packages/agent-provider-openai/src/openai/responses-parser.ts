@@ -17,6 +17,7 @@ import type {
   IToolCall,
   ITokenUsageWithCacheRead,
   TTextDeltaCallback,
+  TThinkingDeltaCallback,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 
@@ -27,6 +28,7 @@ type TResponsesMessageUsage = Omit<ITokenUsageWithCacheRead, 'totalTokens'> &
 interface IOpenAIResponsesStreamAssemblyOptions {
   stream: AsyncIterable<TOpenAIResponsesStreamEvent>;
   onTextDelta?: TTextDeltaCallback;
+  onThinkingDelta?: TThinkingDeltaCallback;
   signal?: AbortSignal;
 }
 
@@ -67,7 +69,7 @@ export async function assembleOpenAIResponsesStream(
   };
 
   for await (const event of streamWithAbort(options.stream, options.signal)) {
-    applyStreamEvent(state, event, options.onTextDelta);
+    applyStreamEvent(state, event, options);
   }
 
   if (state.completedResponse !== undefined) {
@@ -84,11 +86,18 @@ export async function assembleOpenAIResponsesStream(
 function applyStreamEvent(
   state: IOpenAIResponsesStreamState,
   event: TOpenAIResponsesStreamEvent,
-  onTextDelta: TTextDeltaCallback | undefined,
+  callbacks: Pick<IOpenAIResponsesStreamAssemblyOptions, 'onTextDelta' | 'onThinkingDelta'>,
 ): void {
   if (event.type === 'response.output_text.delta') {
     state.textParts.push(event.delta);
-    onTextDelta?.(event.delta);
+    callbacks.onTextDelta?.(event.delta);
+    return;
+  }
+
+  // A reasoning summary is shown as it streams and is not part of the reply, so it never joins
+  // `textParts`.
+  if (event.type === 'response.reasoning_summary_text.delta') {
+    callbacks.onThinkingDelta?.(event.delta);
     return;
   }
 

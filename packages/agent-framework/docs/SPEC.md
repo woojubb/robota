@@ -267,9 +267,10 @@ These are behaviors a caller cannot infer from a type signature alone.
   provider and model; it receives the provider-neutral messages the shared conversion step already
   produced and delegates them unchanged, so conversation, tool calls, tool results and tool schemas
   carry across vendors while the primary's prompt cache, vendor-only reasoning and hosted tools do
-  not. It moves on only for a failure the core classifies as switchable, and never once text has
-  streamed, since text the user saw cannot be withdrawn; text is the only output a provider streams,
-  tool calls arriving whole with the reply. An entry that cannot be built is passed over rather than
+  not. It moves on only for a failure the core classifies as switchable, and never once reply text
+  has streamed, since text the user saw cannot be withdrawn; tool calls arrive whole with the reply.
+  Reasoning text a provider streamed before failing does not hold it back: it is not the answer, so
+  the next model's reasoning simply follows it. An entry that cannot be built is passed over rather than
   ending the turn. A run stays on the model that accepted it and the next run starts on the primary,
   and compaction moves only to a model whose context window is known to be at least the primary's,
   since its input was sized to the primary and an unknown window on either side proves nothing. The

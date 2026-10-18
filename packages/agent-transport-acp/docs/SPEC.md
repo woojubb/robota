@@ -87,7 +87,10 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
   (a skill) streams and asks about permissions exactly like a typed message, because the person
   must be able to answer what it asks. Its output is shown as one message only when nothing
   streamed, since otherwise it repeats the reply.
-- **No thought stream.** The session's thinking event carries no text, so there is nothing to send.
+- **Reasoning streams as thoughts, apart from the reply.** A provider's reasoning text goes to the
+  editor as thought chunks while the turn runs. It never counts as the reply, so a turn that showed
+  only thoughts still sends its result once; where the provider sends no reasoning text, nothing is
+  sent and nothing is switched on to produce it.
 - **Turn failures reply with a fixed message.** Provider errors can contain request details; the
   cause goes to the host callback instead.
 - **The output is a plain sink, not a stream adapter.** Node's stream-to-Web adapter keeps

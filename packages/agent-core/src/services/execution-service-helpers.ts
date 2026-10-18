@@ -275,6 +275,7 @@ export function buildFullExecutionContext(
     ...(context?.signal && { signal: context.signal }),
     awaitProviderSettlement: context?.awaitProviderSettlement,
     ...(context?.onTextDelta && { onTextDelta: context.onTextDelta }),
+    ...(context?.onThinkingDelta && { onThinkingDelta: context.onThinkingDelta }),
     ...(context?.onExecutionEvent && { onExecutionEvent: context.onExecutionEvent }),
     ...(context?.executionJournal && { executionJournal: context.executionJournal }),
     ...(context?.maxExecutionRounds !== undefined && {
