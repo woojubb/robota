@@ -7,6 +7,7 @@
  * library hardcoding someone's workflow policy.
  */
 
+import type { IEditorFileOptions } from './editor-files.js';
 import type { ISandboxToolOptions } from '../sandbox/types.js';
 
 /** Options every builtin tool factory accepts: override the model-facing description. */
@@ -22,7 +23,8 @@ export interface IBuiltinToolDescriptionOptions {
  * root is the only boundary they can have. Splitting this out of {@link ISandboxBuiltinToolOptions}
  * keeps them from advertising a `sandboxClient` they would silently ignore.
  */
-export interface IContainedBuiltinToolOptions extends IBuiltinToolDescriptionOptions {
+export interface IContainedBuiltinToolOptions
+  extends IBuiltinToolDescriptionOptions, IEditorFileOptions {
   /**
    * The directory the tool's filesystem access is confined to. REQUIRED — ARCH-010. An out-of-root
    * search root is refused, no entry whose CANONICAL path escapes the root is enumerated, and relative
@@ -37,3 +39,9 @@ export interface IContainedBuiltinToolOptions extends IBuiltinToolDescriptionOpt
 /** Options for builtin factories that also operate on the sandbox/host filesystem. */
 export interface ISandboxBuiltinToolOptions
   extends ISandboxToolOptions, IBuiltinToolDescriptionOptions {}
+
+/**
+ * Options for the file tools (`Read`, `Write`, `Edit`). On the host they can hand the access itself
+ * to an editor; on a sandbox's own filesystem the sandbox carries it and the editor is not asked.
+ */
+export interface IFileBuiltinToolOptions extends ISandboxBuiltinToolOptions, IEditorFileOptions {}
