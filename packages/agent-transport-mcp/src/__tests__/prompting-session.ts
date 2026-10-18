@@ -50,13 +50,17 @@ export interface IPromptingSession {
 
 export function createPromptingSession(): IPromptingSession {
   const listeners = new Map<string, Set<TListener>>();
-  const parked = new Map<string, { kind: 'permission' | 'ask'; settle: (value: unknown) => void }>();
+  const parked = new Map<
+    string,
+    { kind: 'permission' | 'ask'; settle: (value: unknown) => void }
+  >();
   let minted = 0;
   let active: string | null = null;
   let busy = false;
   let turns: Promise<void> = Promise.resolve();
   const emit = (event: string, data: unknown): void => {
-    for (const handler of [...(listeners.get(event) ?? [])]) (handler as (d: unknown) => void)(data);
+    for (const handler of [...(listeners.get(event) ?? [])])
+      (handler as (d: unknown) => void)(data);
   };
   const settle = (id: string, value: unknown, answererDriverId?: string): void => {
     const entry = parked.get(id);
@@ -67,7 +71,8 @@ export function createPromptingSession(): IPromptingSession {
   };
   const settleClosed = (id: string): void => {
     const entry = parked.get(id);
-    if (entry !== undefined) settle(id, entry.kind === 'permission' ? false : { type: 'cancelled' });
+    if (entry !== undefined)
+      settle(id, entry.kind === 'permission' ? false : { type: 'cancelled' });
   };
   const park = <T>(
     kind: 'permission' | 'ask',
@@ -108,14 +113,24 @@ export function createPromptingSession(): IPromptingSession {
       }
     })();
   };
-  const askPermission = (toolName: string, toolArgs: Record<string, unknown>, signal?: AbortSignal) =>
+  const askPermission = (
+    toolName: string,
+    toolArgs: Record<string, unknown>,
+    signal?: AbortSignal,
+  ) =>
     park<unknown>(
       'permission',
       (id) => emit('permission_request', { id, toolName, toolArgs, ...stamp() }),
       signal,
     );
   const harness: IPromptingSession = {
-    ask: { title: 'Pick one', options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] },
+    ask: {
+      title: 'Pick one',
+      options: [
+        { value: 'a', label: 'A' },
+        { value: 'b', label: 'B' },
+      ],
+    },
     emit: (event: string, data: unknown) => emit(event, data),
     settleClosed,
     foreignTurn: (gate) =>
@@ -133,7 +148,12 @@ export function createPromptingSession(): IPromptingSession {
       off: vi.fn((event: string, handler: TListener) => {
         listeners.get(event)?.delete(handler);
         if ((listeners.get(event)?.size ?? 0) > 0) return;
-        const kind = event === 'permission_request' ? 'permission' : event === 'ask_request' ? 'ask' : undefined;
+        const kind =
+          event === 'permission_request'
+            ? 'permission'
+            : event === 'ask_request'
+              ? 'ask'
+              : undefined;
         if (kind === undefined) return;
         for (const [id, entry] of [...parked]) if (entry.kind === kind) settleClosed(id);
       }),
@@ -163,19 +183,18 @@ export function createPromptingSession(): IPromptingSession {
           try {
             await Promise.resolve();
             if (name === ASK_TOOL.name) {
-              // The ask port reaches a direct call only when its caller answers its own prompts.
+              // The ask port reaches a direct call only when its caller answers its own prompts. The
+              // question is asked without the call's signal, as a tool that does not pass one asks:
+              // cancelling the call does not settle it.
               const answer = interactive
-                ? await park<unknown>(
-                    'ask',
-                    (id) => emit('ask_request', { id, request: { id, ...harness.ask }, ...stamp() }),
-                    options?.signal,
+                ? await park<unknown>('ask', (id) =>
+                    emit('ask_request', { id, request: { id, ...harness.ask }, ...stamp() }),
                   )
                 : 'unavailable';
               return { success: true, toolName: name, result: answer };
             }
             // A direct call denies without asking unless its caller answers its own prompts.
-            const allowed =
-              interactive && (await askPermission(name, parameters, options?.signal));
+            const allowed = interactive && (await askPermission(name, parameters, options?.signal));
             return allowed === true
               ? { success: true, toolName: name, result: 'written' }
               : { success: false, toolName: name, error: 'Permission denied' };
@@ -192,15 +211,15 @@ export function createPromptingSession(): IPromptingSession {
           _raw?: string,
           options?: { signal?: AbortSignal; driverId?: string },
         ) => {
-        const completed = runTurn(options?.driverId, async () => {
-          const allowed = await askPermission('Shell', { command: input }, options?.signal);
-          return {
-            response: allowed === true ? `ran ${input}` : 'denied',
-            history: [],
-            toolSummaries: [],
-          };
-        });
-        return { turnId: `turn-${++minted}`, completed };
+          const completed = runTurn(options?.driverId, async () => {
+            const allowed = await askPermission('Shell', { command: input }, options?.signal);
+            return {
+              response: allowed === true ? `ran ${input}` : 'denied',
+              history: [],
+              toolSummaries: [],
+            };
+          });
+          return { turnId: `turn-${++minted}`, completed };
         },
       ),
     }),

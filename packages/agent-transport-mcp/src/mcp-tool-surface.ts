@@ -5,6 +5,8 @@ import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
 import { McpCallPrompts, mintCallDriverId, promptForm } from './mcp-call-prompts.js';
 
 import type { TMcpCallPrompt } from './mcp-call-prompts.js';
+import { abandonCall } from './mcp-pending-calls.js';
+
 import type { McpPendingCalls } from './mcp-pending-calls.js';
 import type { IMcpTransportSession } from './mcp-session.js';
 import type {
@@ -35,7 +37,10 @@ export type TMcpCaller =
   /** A stateful connection: a question goes to the client as an elicitation request and its answer comes back on the same connection. */
   | {
       readonly kind: 'elicit';
-      readonly elicit: (form: ElicitRequestFormParams, signal: AbortSignal) => Promise<ElicitResult>;
+      readonly elicit: (
+        form: ElicitRequestFormParams,
+        signal: AbortSignal,
+      ) => Promise<ElicitResult>;
     }
   /** A stateless exchange on the 2026-07-28 era: a question is returned as an input-required result and the client's retry carries the answer. */
   | {
@@ -267,9 +272,12 @@ async function runWithElicitation(
   const pump = (async () => {
     for (;;) {
       const prompt = await prompts.next(stop.signal);
-      const answer = askClient(prompts, prompt, elicit, signal).finally(() => {
-        answering.delete(answer);
-      });
+      const answer = askClient(prompts, prompt, elicit, signal)
+        // allow-fallback: askClient settles its prompt itself and swallows a failure to; nothing here may become an unhandled rejection.
+        .catch(() => undefined)
+        .finally(() => {
+          answering.delete(answer);
+        });
       answering.add(answer);
     }
   })().catch(() => undefined);
@@ -321,7 +329,9 @@ function resumeRound(
  * only form values (a string, number, boolean or list of strings) are kept, so the prompt mapping
  * reads the same shapes a connection delivers.
  */
-function answerContent(view: Extract<ReturnType<typeof inputResponse>, { kind: 'elicit' }>): ElicitResult {
+function answerContent(
+  view: Extract<ReturnType<typeof inputResponse>, { kind: 'elicit' }>,
+): ElicitResult {
   const content: NonNullable<ElicitResult['content']> = {};
   for (const [key, value] of Object.entries(view.content ?? {})) {
     if (
@@ -347,8 +357,10 @@ async function nextRound(
   exchangeSignal: AbortSignal,
   pending: McpPendingCalls,
 ): Promise<CallToolResult | InputRequiredResult> {
-  const onExchangeAbort = (): void => call.abort.abort();
+  const onExchangeAbort = (): void => abandonCall(call);
   exchangeSignal.addEventListener('abort', onExchangeAbort, { once: true });
+  // The exchange may have ended before this round began (during catalog reads or state checks).
+  if (exchangeSignal.aborted) onExchangeAbort();
   const waiting = new AbortController();
   try {
     for (;;) {

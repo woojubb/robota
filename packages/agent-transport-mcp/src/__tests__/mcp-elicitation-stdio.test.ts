@@ -89,8 +89,7 @@ type TFrames = Awaited<ReturnType<typeof serve>>['serverFrames'];
 function withdrewElicitation(frames: TFrames): boolean {
   const asked = frames.find((frame) => frame.method === 'elicitation/create');
   return frames.some(
-    (frame) =>
-      frame.method === 'notifications/cancelled' && frame.params?.requestId === asked?.id,
+    (frame) => frame.method === 'notifications/cancelled' && frame.params?.requestId === asked?.id,
   );
 }
 
@@ -144,7 +143,10 @@ describe('stdio: a caller answers its own permission prompt', () => {
     ['deny', () => ({ action: 'accept', content: { decision: 'deny' } })],
     ['decline', () => ({ action: 'decline' })],
     ['cancel', () => ({ action: 'cancel' })],
-    ['an answer that was not offered', () => ({ action: 'accept', content: { decision: 'allow_session' } })],
+    [
+      'an answer that was not offered',
+      () => ({ action: 'accept', content: { decision: 'allow_session' } }),
+    ],
     [
       'a failing client',
       () => {
@@ -161,6 +163,27 @@ describe('stdio: a caller answers its own permission prompt', () => {
       false,
       expect.stringMatching(/^mcp:/),
     );
+  });
+
+  it('survives a session whose listeners throw while the answer is recorded', async () => {
+    const { fake, client } = await serve({ askClient: true });
+    const original = vi.mocked(fake.session.resolvePermission).getMockImplementation();
+    vi.mocked(fake.session.resolvePermission).mockImplementationOnce((id, result, driverId) => {
+      original?.(id, result, driverId);
+      throw new Error('a prompt_resolved listener failed');
+    });
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown): void => {
+      unhandled.push(reason);
+    };
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      expect(await client.callTool(callWrite)).toMatchObject({ isError: false });
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
   });
 
   it('asks the submitting caller about a permission its own turn raises', async () => {
@@ -182,7 +205,13 @@ describe('stdio: a caller answers its own ask', () => {
       askClient: true,
       answer: () => ({ action: 'accept', content: { answer: 'b' } }),
     });
-    fake.ask = { title: 'Pick one', options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }] };
+    fake.ask = {
+      title: 'Pick one',
+      options: [
+        { value: 'a', label: 'A' },
+        { value: 'b', label: 'B' },
+      ],
+    };
 
     const result = await client.callTool({ name: ASK_TOOL.name, arguments: {} });
 
@@ -197,7 +226,10 @@ describe('stdio: a caller answers its own ask', () => {
     });
     multi.fake.ask = {
       title: 'Pick some',
-      options: [{ value: 'a', label: 'A' }, { value: 'b', label: 'B' }],
+      options: [
+        { value: 'a', label: 'A' },
+        { value: 'b', label: 'B' },
+      ],
       maxSelect: 2,
     };
     expect(

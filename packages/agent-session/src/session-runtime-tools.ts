@@ -41,7 +41,9 @@ export class SessionRuntimeTools {
         sessionId: this.sessionId,
         signal: controller.signal,
         permissionInteraction,
-        ...(permissionInteraction === 'interactive' && this.ask !== undefined ? { ask: this.ask } : {}),
+        ...(permissionInteraction === 'interactive' && this.ask !== undefined
+          ? { ask: this.askUnder(controller.signal) }
+          : {}),
       });
       return await this.execution;
     } finally {
@@ -49,6 +51,13 @@ export class SessionRuntimeTools {
       unlink();
       this.claim.release(controller);
     }
+  }
+
+  /** The ask port for one direct call: a question it asks is withdrawn when the call is cancelled. */
+  private askUnder(signal: AbortSignal): IUserInteraction['ask'] {
+    const ask = this.ask;
+    if (ask === undefined) throw new Error('No ask port');
+    return (request, options) => ask(request, { signal: options?.signal ?? signal });
   }
 
   async drain(): Promise<void> {

@@ -114,7 +114,10 @@ describe('createMcpTransport', () => {
         {
           name: 'fixture_echo',
           description: 'Echo',
-          parameters: { type: 'object' as const, properties: { text: { type: 'string' as const } } },
+          parameters: {
+            type: 'object' as const,
+            properties: { text: { type: 'string' as const } },
+          },
         },
       ],
       invokeRuntimeTool: async (name, parameters) => ({ success: true, name, parameters }),
@@ -142,7 +145,11 @@ describe('createMcpTransport', () => {
         content: [
           {
             type: 'text',
-            text: JSON.stringify({ success: true, name: 'fixture_echo', parameters: { text: 'hi' } }),
+            text: JSON.stringify({
+              success: true,
+              name: 'fixture_echo',
+              parameters: { text: 'hi' },
+            }),
           },
         ],
         isError: false,

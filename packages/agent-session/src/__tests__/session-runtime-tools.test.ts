@@ -236,6 +236,8 @@ describe('direct session runtime tools', () => {
     const { session } = fixture(
       async (context) => {
         seen.push(context?.ask !== undefined);
+        // Asked without a signal, as a tool may: the call's own cancellation still reaches it.
+        await context?.ask?.({ id: 'q', title: 'Proceed?' });
         return 'asked';
       },
       { permissions: { allow: ['Write'], deny: [] }, ask },
@@ -244,6 +246,10 @@ describe('direct session runtime tools', () => {
       await session.invokeRuntimeTool('Write', {});
       await session.invokeRuntimeTool('Write', {}, { permissionInteraction: 'interactive' });
       expect(seen).toEqual([false, true]);
+      expect(ask).toHaveBeenCalledExactlyOnceWith(
+        { id: 'q', title: 'Proceed?' },
+        { signal: expect.any(AbortSignal) },
+      );
     } finally {
       await session.shutdown();
     }

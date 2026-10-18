@@ -136,7 +136,8 @@ own call to that client through MCP elicitation, when the client declared form-m
 Leave it off unless you trust whoever can reach the carrier to approve the session's tool calls.
 
 - A permission offers **allow once** or **deny**; no answer can grant a remembered permission. Deny,
-  decline, cancel or a client error keeps the permission error.
+  decline, cancel or a client error keeps the permission error. In auto mode, an allow once resumes
+  a paused classifier the way a person's approval does.
 - An ask becomes a form: options as a choice, free text as a text field. A masked ask is never sent;
   it is cancelled as before.
 - Only prompts raised while the client's own call drives the session are sent, including a
@@ -144,7 +145,8 @@ Leave it off unless you trust whoever can reach the carrier to approve the sessi
   caller's call never are.
 - stdio asks during the call. The HTTP hosts keep no session state, so they ask only a client on the
   2026-07-28 protocol revision, through input-required rounds whose `requestState` is a single-use
-  random token; a 2025-era HTTP client keeps the tool error.
+  random token; a 2025-era HTTP client keeps the tool error. A client that does not retry within 30
+  minutes, or a host that stops, ends the waiting call and its open prompts settle closed.
 
 ## Lifecycle
 

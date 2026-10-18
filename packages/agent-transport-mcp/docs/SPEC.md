@@ -70,15 +70,22 @@ too, unless the operator enabled caller elicitation and the caller declared form
 because letting a remote caller answer the permission gate is a trust decision only the operator
 can make. Then a prompt raised while that caller's own call drives the session (including a
 background agent's request forwarded then, which names the agent), and never one raised during
-another caller's call, is put to it as an
-MCP elicitation: a permission offers allow once or deny only, so a caller can never widen a standing
-permission; a masked ask is never sent, since form elicitation may not carry a secret; and an answer
-that names nothing offered settles the prompt closed. A call listens for prompts only while its own
-work drives the session, because the session fails a prompt closed only when nobody listens: a
-submission waiting in the queue must not hold another caller's prompt it cannot answer. The HTTP hosts keep no session state, so they
-can ask only a 2026-07-28-era caller, through input-required rounds: the asking call waits behind a
-single-use random request state that names that call and nothing else, never becomes a session, and
-ends when the host stops. A 2025-era HTTP caller cannot be asked and keeps the tool error.
+another caller's call, is put to it as an MCP elicitation. A permission offers allow once or deny
+only, so a caller can never add a standing permission rule; in auto mode an approval resumes a
+paused classifier, as any approval does. A masked ask is never sent, since form elicitation may not
+carry a secret, and an answer that names nothing offered settles the prompt closed. A call listens
+for prompts only while its own work drives the session, because the session fails a prompt closed
+only when nobody listens: a submission waiting in the queue must not hold another caller's prompt
+it cannot answer. A call that is abandoned settles its own open prompts closed, because a question
+asked without a signal would otherwise outlive it.
+
+The HTTP hosts keep no session state, so they can ask only a 2026-07-28-era caller, through
+input-required rounds: the asking call waits behind a single-use random request state that names
+that call and nothing else and never becomes a session. A caller that does not return within the
+time a person is given to answer one prompt, or a host that stops, abandons the call, so an absent
+caller holds the session for one bounded wait rather than one per prompt; a call that ends while it
+waits keeps its result for the retry. A 2025-era HTTP caller cannot be asked and keeps the tool
+error.
 
 ## Error Taxonomy
 

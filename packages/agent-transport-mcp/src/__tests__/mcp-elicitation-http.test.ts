@@ -191,6 +191,50 @@ describe('HTTP, 2026-07-28 era: a caller answers through input-required rounds',
     expect(fake.session.invokeRuntimeTool).toHaveBeenCalledTimes(1);
   });
 
+  it('ends a call parked on a question asked without a signal when the host stops', async () => {
+    const { fake, served, endpoint } = await host({ askClient: true });
+    const { client } = await connect(endpoint, { autoFulfill: false });
+
+    const first = (await client.callTool(
+      { name: ASK_TOOL.name, arguments: {} },
+      { allowInputRequired: true },
+    )) as unknown as { resultType?: string };
+    expect(first.resultType).toBe('input_required');
+    expect(fake.parkedIds()).toEqual(['a1']);
+
+    await served.stop();
+
+    expect(fake.parkedIds()).toEqual([]);
+    expect(fake.session.resolveAsk).toHaveBeenCalledWith(
+      'a1',
+      { type: 'cancelled' },
+      expect.stringMatching(/^mcp:/),
+    );
+  });
+
+  it('still answers the retry when the call ended while it was parked', async () => {
+    const { fake, endpoint } = await host({ askClient: true });
+    const { client } = await connect(endpoint, { autoFulfill: false });
+
+    const first = (await client.callTool(callWrite, { allowInputRequired: true })) as unknown as {
+      requestState?: string;
+    };
+    fake.settleClosed('p1');
+    await vi.waitFor(() => expect(fake.parkedIds()).toEqual([]));
+
+    const retry = await client.callTool(
+      {
+        ...callWrite,
+        inputResponses: { p1: { action: 'accept', content: { decision: 'allow_once' } } },
+        requestState: first.requestState,
+      } as never,
+      { allowInputRequired: true },
+    );
+
+    expect(retry).toMatchObject({ isError: true, content: [{ text: DENIED_TEXT }] });
+    expect(fake.session.invokeRuntimeTool).toHaveBeenCalledTimes(1);
+  });
+
   it('ends a parked call when the host stops', async () => {
     const { fake, served, endpoint } = await host({ askClient: true });
     const { client } = await connect(endpoint, { autoFulfill: false });

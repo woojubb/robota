@@ -55,7 +55,9 @@ describe('permission form', () => {
   });
 
   it('allows only an accepted allow-once', () => {
-    expect(permissionDecision({ action: 'accept', content: { decision: 'allow_once' } })).toBe(true);
+    expect(permissionDecision({ action: 'accept', content: { decision: 'allow_once' } })).toBe(
+      true,
+    );
     for (const result of [
       { action: 'accept' as const, content: { decision: 'deny' } },
       { action: 'accept' as const, content: { decision: 'allow-session' } },
@@ -70,12 +72,16 @@ describe('permission form', () => {
 
 describe('ask form', () => {
   it('is not built for a masked ask or one with nothing to answer with', () => {
-    expect(askElicitation(ask({ title: 'Key', allowFreeText: true, masked: true }))).toBeUndefined();
+    expect(
+      askElicitation(ask({ title: 'Key', allowFreeText: true, masked: true })),
+    ).toBeUndefined();
     expect(askElicitation(ask({ title: 'Nothing' }))).toBeUndefined();
   });
 
   it('maps a single choice to a titled enum with its default', () => {
-    const form = askElicitation(ask({ title: 'Pick', description: 'one', options, default: { values: ['b'] } }));
+    const form = askElicitation(
+      ask({ title: 'Pick', description: 'one', options, default: { values: ['b'] } }),
+    );
     expect(form?.message).toBe('Pick\none');
     expect(form?.requestedSchema).toEqual({
       type: 'object',
@@ -105,10 +111,14 @@ describe('ask form', () => {
   });
 
   it('adds a text field where typing is allowed', () => {
-    const typed = askElicitation(ask({ title: 'Name', allowFreeText: true, placeholder: 'a name' }));
+    const typed = askElicitation(
+      ask({ title: 'Name', allowFreeText: true, placeholder: 'a name' }),
+    );
     expect(typed?.requestedSchema).toEqual({
       type: 'object',
-      properties: { text: { type: 'string', title: 'Answer', description: 'a name', minLength: 1 } },
+      properties: {
+        text: { type: 'string', title: 'Answer', description: 'a name', minLength: 1 },
+      },
       required: ['text'],
     });
     const either = askElicitation(ask({ title: 'Pick', options, allowFreeText: true }));

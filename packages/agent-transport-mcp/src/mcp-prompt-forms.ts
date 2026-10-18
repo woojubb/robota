@@ -77,7 +77,10 @@ function selectionBounds(request: TActionRequest): { min: number; max: number } 
   return { min, max };
 }
 
-function optionField(request: TActionRequest, options: readonly { value: string; label: string; description?: string }[]): TFormField {
+function optionField(
+  request: TActionRequest,
+  options: readonly { value: string; label: string; description?: string }[],
+): TFormField {
   const { min, max } = selectionBounds(request);
   const values = options.map((option) => option.value);
   const notes = options

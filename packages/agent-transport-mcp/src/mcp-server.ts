@@ -73,7 +73,12 @@ export function buildAgentMcpServer(
     if (rounds !== undefined) {
       const requestState = ctx.mcpReq.requestState<string>();
       if (requestState !== undefined) {
-        return { kind: 'rounds', pending: rounds, requestState, inputResponses: ctx.mcpReq.inputResponses };
+        return {
+          kind: 'rounds',
+          pending: rounds,
+          requestState,
+          inputResponses: ctx.mcpReq.inputResponses,
+        };
       }
     }
     if (!askClient || !clientDeclaresFormElicitation(server.getClientCapabilities())) {
@@ -82,11 +87,17 @@ export function buildAgentMcpServer(
     if (channel.kind === 'connection') {
       return {
         kind: 'elicit',
-        elicit: (form, signal) => server.elicitInput(form, { signal, timeout: ELICITATION_TIMEOUT_MS }),
+        elicit: (form, signal) =>
+          server.elicitInput(form, { signal, timeout: ELICITATION_TIMEOUT_MS }),
       };
     }
     if (rounds !== undefined) {
-      return { kind: 'rounds', pending: rounds, requestState: undefined, inputResponses: undefined };
+      return {
+        kind: 'rounds',
+        pending: rounds,
+        requestState: undefined,
+        inputResponses: undefined,
+      };
     }
     return undefined;
   };

@@ -20,7 +20,11 @@ import {
 } from './mcp-prompt-forms.js';
 
 import type { IMcpTransportSession } from './mcp-session.js';
-import type { ClientCapabilities, ElicitRequestFormParams, ElicitResult } from '@modelcontextprotocol/server';
+import type {
+  ClientCapabilities,
+  ElicitRequestFormParams,
+  ElicitResult,
+} from '@modelcontextprotocol/server';
 import type {
   IAskRequestEvent,
   IPermissionRequestEvent,
@@ -43,7 +47,9 @@ export function promptForm(prompt: TMcpCallPrompt): ElicitRequestFormParams | un
  * Whether the client declared form-mode elicitation. A bare `elicitation: {}` is the pre-mode
  * declaration and counts as form support; a declaration naming only URL mode does not.
  */
-export function clientDeclaresFormElicitation(capabilities: ClientCapabilities | undefined): boolean {
+export function clientDeclaresFormElicitation(
+  capabilities: ClientCapabilities | undefined,
+): boolean {
   const elicitation = capabilities?.elicitation;
   if (elicitation === undefined || elicitation === null || typeof elicitation !== 'object') {
     return false;
@@ -71,8 +77,9 @@ export class McpCallPrompts {
   private waiter: IWaiter | undefined;
   /** What to run when the session settles a prompt this caller is still being asked about. */
   private readonly settledHooks = new Map<string, Set<() => void>>();
-  /** Prompts of this call the session raised, and those of them it has since settled. */
+  /** Prompts of this call the session raised, those still open, and those it has since settled. */
   private readonly seen = new Set<string>();
+  private readonly open = new Map<string, TMcpCallPrompt>();
   private readonly settledIds = new Set<string>();
   private listening = false;
   private closed = false;
@@ -121,6 +128,7 @@ export class McpCallPrompts {
   private readonly onPromptResolved = (event: IPromptResolvedEvent): void => {
     if (!this.seen.has(event.id)) return;
     this.settledIds.add(event.id);
+    this.open.delete(event.id);
     const queued = this.queue.findIndex((prompt) => prompt.event.id === event.id);
     if (queued >= 0) this.queue.splice(queued, 1);
     this.runSettledHooks(event.id);
@@ -129,6 +137,7 @@ export class McpCallPrompts {
   private push(prompt: TMcpCallPrompt): void {
     if (this.closed) return;
     this.seen.add(prompt.event.id);
+    this.open.set(prompt.event.id, prompt);
     const waiter = this.waiter;
     if (waiter === undefined) {
       this.queue.push(prompt);
@@ -182,14 +191,29 @@ export class McpCallPrompts {
    * could not be asked, failed, or the ask is inexpressible) settles it closed: denied or cancelled.
    */
   settle(prompt: TMcpCallPrompt, result: ElicitResult | undefined): void {
-    if (prompt.kind === 'permission') {
-      const decision = result === undefined ? false : permissionDecision(result);
-      this.session.resolvePermission(prompt.event.id, decision, this.driverId);
-      return;
+    try {
+      if (prompt.kind === 'permission') {
+        const decision = result === undefined ? false : permissionDecision(result);
+        this.session.resolvePermission(prompt.event.id, decision, this.driverId);
+        return;
+      }
+      const answer =
+        result === undefined
+          ? { type: 'cancelled' as const }
+          : askAnswer(prompt.event.request, result);
+      this.session.resolveAsk(prompt.event.id, answer, this.driverId);
+    } catch {
+      // allow-fallback: the session settles the prompt before it tells its listeners; a listener that throws must not fail this call, and the session's backstop still bounds a prompt it did not settle.
     }
-    const answer =
-      result === undefined ? { type: 'cancelled' as const } : askAnswer(prompt.event.request, result);
-    this.session.resolveAsk(prompt.event.id, answer, this.driverId);
+  }
+
+  /**
+   * Settles every prompt of this call still open, closed: the call is being abandoned (its client
+   * left, its host stops, it waited too long) and nobody will answer them. A prompt the session
+   * would otherwise keep waiting on, such as a question asked without a signal, ends here.
+   */
+  settleOutstanding(): void {
+    for (const prompt of [...this.open.values()]) this.settle(prompt, undefined);
   }
 
   /** Stops listening. A question still out to the client is withdrawn before the session hears. */
