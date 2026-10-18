@@ -1,9 +1,9 @@
 ---
 '@robota-sdk/agent-core': minor
-'@robota-sdk/agent-interface-session': minor
+'@robota-sdk/agent-interface-session': major
 '@robota-sdk/agent-session': minor
 '@robota-sdk/agent-framework': minor
-'@robota-sdk/agent-transport': minor
+'@robota-sdk/agent-transport': major
 '@robota-sdk/agent-ui-web': minor
 ---
 
@@ -31,6 +31,8 @@ layer: nothing produces a view yet, and the GUI does not yet host one.
 - `agent-ui-web` — the two new server messages are recorded as not rendered until the app-view host
   consumes them.
 
-An implementation of `IInteractiveSession` or `IProtocolSession` outside this repository must add
-`readToolAppView` (and, for `IProtocolSession`, `listRuntimeTools` and `invokeRuntimeTool`); the
-members are required so a host cannot silently lack them.
+**`agent-interface-session` and `agent-transport` are `major` for one reason: required members.**
+`IInteractiveSession` gains `readToolAppView`, and `IProtocolSession` gains `readToolAppView`,
+`listRuntimeTools` and `invokeRuntimeTool`, so an implementation outside this repository stops
+compiling until it adds them. They are required so a host cannot silently lack them. Everything
+else here is additive.
