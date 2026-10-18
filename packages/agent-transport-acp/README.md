@@ -47,7 +47,7 @@ anything else in the process can print to it, and send logs to stderr.
 | `agentInfo`        | `{ name, version }`                                        | Reported to the editor on `initialize`.                                                                           |
 | `cwd`              | `string`                                                   | The directory the session is rooted at. `session/new` must name it.                                               |
 | `admitWorkspace`   | `() => { admitted: true } \| { admitted: false, message }` | The host's trust check, asked on `session/new`. A refusal's `message` is returned to the editor as the error.     |
-| `executeCommand`   | `(text, signal) => Promise<string>`                        | Runs a `/command` prompt and returns the text to show. Without it, a `/command` prompt is answered with a notice. |
+| `executeCommand`   | `(text, signal) => Promise<string>`                        | Runs a `/command` prompt and returns the text to show; `signal` aborts on `session/cancel` or when the editor goes away, so pass it on to the command. Without it, a `/command` prompt is answered with a notice. |
 | `driverId`         | `TDriverId`                                                | Attribution on turns and prompt answers. Default `'owner'`.                                                       |
 | `surface`          | `TUsageSurface`                                            | Usage surface recorded on turns. Default `'unknown'`.                                                             |
 | `onDeliveryError`  | `(error, context) => void`                                 | Receives errors the editor does not: a failed notification write, or the cause of a failed turn.                  |

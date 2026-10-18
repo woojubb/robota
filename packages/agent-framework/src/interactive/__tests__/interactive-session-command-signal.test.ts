@@ -40,6 +40,8 @@ const skillsModule: ICommandModule = {
     {
       name: 'skills',
       description: 'run a skill',
+      // The role lets `/audit` reach the skill by its own name, the way an editor sends it.
+      semanticRole: 'skillActivation',
       execute: async (context: ICommandHostContext, args: string) => {
         const displayInput = `/${args}`;
         return (
@@ -89,15 +91,17 @@ describe('a command cancelled before its skill submits a turn', () => {
     });
   }
 
+  const cancelled = { name: 'AbortError' };
+
   it('runs no turn when the cancel lands while the skill is being prepared', async () => {
     const { session, run } = await build();
     const controller = new AbortController();
     abortAt(session, 'started', controller);
     await expect(
-      session.executeCommand('skills', 'audit', 'remote', undefined, undefined, {
+      session.executeCommand('audit', '', 'remote', 'owner', 'local', {
         signal: controller.signal,
       }),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject(cancelled);
     expect(run).not.toHaveBeenCalled();
   });
 
@@ -105,25 +109,27 @@ describe('a command cancelled before its skill submits a turn', () => {
     const { session, run } = await build();
     const controller = new AbortController();
     abortAt(session, 'completed', controller);
-    await session.executeCommand('skills', 'audit', 'remote', undefined, undefined, {
-      signal: controller.signal,
-    });
+    await expect(
+      session.executeCommand('skills', 'audit', 'remote', undefined, undefined, {
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject(cancelled);
     expect(run).not.toHaveBeenCalled();
   });
 
   it('runs no turn for a command whose signal was already cancelled', async () => {
     const { session, run } = await build();
     await expect(
-      session.executeCommand('skills', 'audit', 'remote', undefined, undefined, {
+      session.executeCommand('audit', '', 'remote', 'owner', 'local', {
         signal: AbortSignal.abort(),
       }),
-    ).rejects.toThrow();
+    ).rejects.toMatchObject(cancelled);
     expect(run).not.toHaveBeenCalled();
   });
 
   it('still runs the skill turn when its signal is never cancelled', async () => {
     const { session, run } = await build();
-    await session.executeCommand('skills', 'audit', 'remote', undefined, undefined, {
+    await session.executeCommand('audit', '', 'remote', 'owner', 'local', {
       signal: new AbortController().signal,
     });
     await vi.waitFor(() => expect(run).toHaveBeenCalledOnce());

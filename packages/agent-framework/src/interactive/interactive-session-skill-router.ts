@@ -460,6 +460,8 @@ export class SessionSkillRouter {
         originDriverId,
         signal,
       );
+      // A cancelled command settles as cancelled, whichever step the cancel reached.
+      signal?.throwIfAborted();
       return { mode: 'inject' };
     }
 
@@ -485,6 +487,7 @@ export class SessionSkillRouter {
           Object.keys(options).length > 0 ? options : undefined,
         );
       }
+      signal?.throwIfAborted();
       return result;
     }
     await this.onApplyResult(result.result ?? '(empty response)');

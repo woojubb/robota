@@ -134,8 +134,9 @@ export interface ISessionCommands {
     /** #3282 §4 part b-2: whether this invocation is provably on this machine. Absent → `'local'`. */
     locality?: TCommandSurfaceLocality,
     /**
-     * `signal` cancels the turn a command starts (a skill), including the work it does before
-     * submitting that turn; a command that starts no turn ignores it.
+     * `signal` cancels what a skill command starts — the turn it submits or the fork it runs — and
+     * the work it does before that; a command cancelled this way rejects with the signal's reason.
+     * A command that starts neither ignores it.
      */
     options?: { readonly signal?: AbortSignal },
   ): Promise<ICommandResult | null>;

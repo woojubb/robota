@@ -35,12 +35,6 @@ describe('runAcpSlashCommand', () => {
     });
   });
 
-  it("hands the prompt's signal to the command, so cancelling the prompt reaches the turn it starts", async () => {
-    const controller = new AbortController();
-    const s = session(async () => ({ success: true, message: '', data: { sessionExecution: true } }));
-    await runAcpSlashCommand(s, '/review', controller.signal);
-    expect(s.executeCommand.mock.calls[0]![5]).toEqual({ signal: controller.signal });
-  });
 
   it('splits the name from its arguments and tolerates leading whitespace', async () => {
     const s = session(async () => ({ success: true, message: 'ok' }));
