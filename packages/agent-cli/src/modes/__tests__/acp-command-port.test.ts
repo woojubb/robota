@@ -7,7 +7,13 @@ import type { IExecutionResult } from '@robota-sdk/agent-interface-session';
 
 type TListener = (result: IExecutionResult) => void;
 
-function session(execute: (name: string, args: string) => Promise<ICommandResult | null>) {
+function session(
+  execute: (
+    name: string,
+    args: string,
+    ...rest: unknown[]
+  ) => Promise<ICommandResult | null>,
+) {
   const listeners = new Set<TListener>();
   return {
     executeCommand: vi.fn(execute),
@@ -24,8 +30,11 @@ describe('runAcpSlashCommand', () => {
   it('runs the command as a transport-origin one on this machine and returns its message', async () => {
     const s = session(async () => ({ success: true, message: 'Commands: /help' }));
     await expect(runAcpSlashCommand(s, '/help', signal)).resolves.toBe('Commands: /help');
-    expect(s.executeCommand).toHaveBeenCalledWith('help', '', 'remote', 'owner', 'local');
+    expect(s.executeCommand).toHaveBeenCalledWith('help', '', 'remote', 'owner', 'local', {
+      signal,
+    });
   });
+
 
   it('splits the name from its arguments and tolerates leading whitespace', async () => {
     const s = session(async () => ({ success: true, message: 'ok' }));
@@ -36,6 +45,7 @@ describe('runAcpSlashCommand', () => {
       'remote',
       'owner',
       'local',
+      { signal },
     );
   });
 

@@ -1,4 +1,4 @@
-import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 import { sumHistoryUsage } from '@robota-sdk/agent-core';
 import { subagentExecutionRoot } from '@robota-sdk/agent-executor';
@@ -67,6 +67,8 @@ export interface IInProcessSubagentRunnerDeps {
     toolResultData?: string;
     toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
+    /** The source's view of the result, for a surface that can host one; never model context. */
+    view?: IToolAppView;
   }) => void;
   customAgentRegistry?: (name: string) => IAgentDefinition | undefined;
   /**

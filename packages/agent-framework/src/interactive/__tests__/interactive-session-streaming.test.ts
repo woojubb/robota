@@ -93,6 +93,64 @@ it('keeps admitted mixed parts on the matching live call and summary', () => {
   });
 });
 
+const appView = { sourceId: 'files', resourceUri: 'ui://files/list' };
+
+describe('a tool call names its source view by reference', () => {
+  it('carries the reference on the finished call but never into the recorded history', () => {
+    const state = createState();
+    applyToolStart(state, { toolName: 'files__list', executionId: 'call-view' });
+    const finished = applyToolEnd(state, {
+      toolName: 'files__list',
+      executionId: 'call-view',
+      success: true,
+      toolResultData: 'listed',
+      appView,
+    });
+    expect(finished?.appView).toEqual(appView);
+    expect(state.activeTools[0]?.appView).toEqual(appView);
+    const recorded = state.history.at(-1);
+    expect(recorded?.type).toBe('tool-end');
+    expect(recorded?.data).toMatchObject({ executionId: 'call-view', toolResultData: 'listed' });
+    expect(recorded?.data).not.toHaveProperty('appView');
+    pushToolSummaryToHistory(state);
+    expect(JSON.stringify(state.history)).not.toContain('ui://files/list');
+  });
+
+  it('adds no reference to a call that had none', () => {
+    const state = createState();
+    applyToolStart(state, { toolName: 'plain', executionId: 'call-plain' });
+    const finished = applyToolEnd(state, {
+      toolName: 'plain',
+      executionId: 'call-plain',
+      success: true,
+    });
+    expect(finished).not.toHaveProperty('appView');
+  });
+
+  it('hands the reference to the live tool_end event', () => {
+    const state = createState();
+    const emit = vi.fn();
+    const commit = (tools: typeof state.activeTools) => {
+      state.activeTools = tools;
+    };
+    const callbacks = { getCwd: () => '/workspace', emit };
+    projectToolExecution(state.activeTools, state.history, callbacks, commit, {
+      type: 'start',
+      toolName: 'files__list',
+      executionId: 'call-live',
+    });
+    projectToolExecution(state.activeTools, state.history, callbacks, commit, {
+      type: 'end',
+      toolName: 'files__list',
+      executionId: 'call-live',
+      success: true,
+      appView,
+    });
+    const ended = emit.mock.calls.find(([type]) => type === 'tool_end');
+    expect(ended?.[1]).toMatchObject({ executionId: 'call-live', appView });
+  });
+});
+
 describe('interactive-session-streaming edit diffs', () => {
   let tmpDir: string | undefined;
 

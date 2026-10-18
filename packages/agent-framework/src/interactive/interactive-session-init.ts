@@ -1,4 +1,4 @@
-import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 /**
  * Session initialization helpers for InteractiveSession.
  *
@@ -199,6 +199,8 @@ export interface IAsyncInitDeps {
     denied?: boolean;
     toolResultData?: string;
     toolResultParts?: TUniversalMessagePart[];
+    /** The source's view of the result, for a surface that can host one; never model context. */
+    view?: IToolAppView;
   }) => void;
   checkpointHistory: () => void;
   executeModelCommand: (command: string, args: string) => Promise<ICommandResult | null>;

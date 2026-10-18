@@ -1,4 +1,8 @@
-import type { TUniversalMessagePart, TProviderCredentialResolver } from '@robota-sdk/agent-core';
+import type {
+  IToolAppView,
+  TUniversalMessagePart,
+  TProviderCredentialResolver,
+} from '@robota-sdk/agent-core';
 /**
  * The INTERNAL async-init option shape.
  *
@@ -98,6 +102,8 @@ export interface IInitOptions {
     denied?: boolean;
     toolResultData?: string;
     toolResultParts?: TUniversalMessagePart[];
+    /** The source's view of the result, for a surface that can host one; never model context. */
+    view?: IToolAppView;
   }) => void;
   /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
   bare?: boolean;

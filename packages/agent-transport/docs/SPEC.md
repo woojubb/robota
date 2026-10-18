@@ -27,8 +27,11 @@ transport implementations.
 - Carriers supply `TOutboundDeliver` and an `IProtocolSession`, and decide each connection's role;
   no carrier implementation is registered inside this package. An observing connection reads only its own
   session's conversation and state, plus the host's list of sessions: it cannot submit, answer,
-  control, switch sessions, or read another session's records, and it never listens for prompts, so a
-  session watched only by observers still fails its prompts closed at once. A connection that
+  control, invoke a tool, switch sessions, or read another session's records, and it never listens for
+  prompts, so a session watched only by observers still fails its prompts closed at once. A driving
+  connection may invoke one runtime tool for a hosted app view only through the session's permission
+  gate, with any prompt attributed to that connection's driver, and reads a view's document on demand:
+  a tool event names the view by reference, so the document reaches only the surface that asked. A connection that
   answers prompts can ask for the ones already open; they are kept only from what was forwarded to
   such connections, so keeping them never holds a prompt open that nobody can answer.
 - A file crosses only after the receiver accepts its offer, and is kept only when the whole content

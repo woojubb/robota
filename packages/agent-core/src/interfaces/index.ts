@@ -190,6 +190,7 @@ export type {
   IFunctionTool,
   IToolRegistry,
   IToolResult,
+  IToolAppView,
   IToolProvenance,
   IToolCallScheduling,
   IToolExecutionPolicy,

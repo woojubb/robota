@@ -30,12 +30,15 @@ export async function runAcpSlashCommand(
   };
   session.on('complete', onComplete);
   try {
+    // The prompt's signal reaches the turn a skill starts, so `session/cancel` stops it even while
+    // the skill is still being prepared and no turn exists for `abort()` to reach.
     const result = await session.executeCommand(
       name,
       args.join(' '),
       'remote',
       OWNER_DRIVER_ID,
       'local',
+      { signal },
     );
     if (result === null) return `Unknown command "/${name}".`;
     return result.data?.['sessionExecution'] === true ? turnReply : result.message;

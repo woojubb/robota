@@ -74,19 +74,24 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
   provider without deltas) is sent once from the result.
 - **Tool calls are keyed by the session's execution id when it has one, otherwise by a counter.**
   The editor keeps earlier calls and identifies them by id, so ids must not repeat across turns; the
-  counter lives as long as the connection. The session asks permission before it reports a call and
-  the permission event names none, so the request carries an id derived from the request and that
-  row becomes the call's row: the next call of the same tool reported after the editor answered
-  takes it, or its refusal closes it. The match is by tool name in the order asked because nothing
-  else links them. A row nothing claimed by the end of the turn is closed rather than left pending.
+  counter lives as long as the connection. The session asks permission before it reports a call,
+  and the request names the call by that same execution id, so the request's row is the call's row:
+  its start and its end, or its refusal, address the row the editor already holds, and a denial the
+  session decides on its own while the editor's dialog is still open closes that one row. A request
+  that names no call gets a row of its own that closes with the answer, since nothing could match it
+  without guessing. A row whose call never came by the end of the turn is closed rather than left
+  pending: as failed for this session's own call, which the ended turn will not run, and with the
+  answer for a background agent's, which may still run after the prompt the editor is watching.
 - **A permission request shows what the terminal shows.** The person answers in the editor's dialog
   alone, so the request carries the arguments whole, an edit's diff and the file it touches, and a
   title that is never shortened; approving a summary would approve what was not seen.
 - **Slash commands arrive as prompt text.** A prompt whose text starts with `/` goes to the host's
   command port; the editor's own command list is not advertised. A command that runs a model turn
-  (a skill) streams and asks about permissions exactly like a typed message, because the person
-  must be able to answer what it asks. Its output is shown as one message only when nothing
-  streamed, since otherwise it repeats the reply.
+  (a skill) streams, asks about permissions and is cancelled exactly like a typed message, because
+  the person must be able to answer what it asks and stop what it does; the prompt's signal goes
+  with the command, so a cancel that lands while the skill is still being prepared stops its turn
+  from starting. Its output is shown as one message only when nothing streamed, since otherwise it
+  repeats the reply.
 - **Reasoning streams as thoughts, apart from the reply.** A provider's reasoning text goes to the
   editor as thought chunks while the turn runs. It never counts as the reply, so a turn that showed
   only thoughts still sends its result once; where the provider sends no reasoning text, nothing is

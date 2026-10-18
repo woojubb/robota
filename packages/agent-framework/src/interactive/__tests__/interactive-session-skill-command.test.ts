@@ -373,3 +373,101 @@ describe('InteractiveSession skill activation common API', () => {
     expect(session.getMessages().map((message) => message.content)).toContain('fork result');
   });
 });
+
+describe('a fork skill run as a command with a cancel signal', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.forkRun.mockResolvedValue('fork result');
+    mocks.createSubagentSession.mockReturnValue({ run: mocks.forkRun });
+  });
+
+  /** The product's `/skills` routing, so `/audit` reaches the skill by its own name as an editor sends it. */
+  const skillsModule = {
+    name: 'skills-test',
+    systemCommands: [
+      {
+        name: 'skills',
+        description: 'run a skill',
+        semanticRole: 'skillActivation',
+        execute: async (
+          context: {
+            executeSkillCommandByName: InteractiveSession['executeSkillCommandByName'];
+            getCommandInvocationSource: InteractiveSession['getCommandInvocationSource'];
+          },
+          args: string,
+        ) => {
+          const [name = '', ...rest] = args.split(' ');
+          const displayInput = `/${args}`;
+          return (
+            (await context.executeSkillCommandByName(name, rest.join(' '), {
+              invocationSource: context.getCommandInvocationSource(),
+              displayInput,
+              rawInput: displayInput,
+            })) ?? { success: false, message: 'unknown skill' }
+          );
+        },
+      },
+    ],
+  };
+
+  async function forkSession() {
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-fork-skill-signal-')));
+    createTempSkill(cwd, 'audit', ['context: fork']);
+    const parentSession = makeParentSession(cwd);
+    const session = new InteractiveSession({
+      session: parentSession as never,
+      cwd,
+      ...skillHostOptions(cwd),
+      projectAccess: await createTrustedProjectAccessFixture(cwd),
+      commandModules: [skillsModule as never],
+    });
+    storeAgentToolDeps(parentSession, {
+      config: makeConfig(),
+      context: makeContext(),
+      tools: [makeTool('Read')],
+      terminal: makeTerminal(),
+      provider: {} as IAIProvider,
+    });
+    const errors = vi.fn();
+    session.on('error', errors);
+    return { session, errors };
+  }
+
+  it("hands the command's signal to the fork's run", async () => {
+    const { session } = await forkSession();
+    const signal = new AbortController().signal;
+    await session.executeCommand('audit', 'src', 'remote', 'owner', 'local', { signal });
+    expect(mocks.forkRun).toHaveBeenCalledWith(expect.stringContaining('Audit src'), undefined, {
+      signal,
+    });
+  });
+
+  it('settles a fork cancelled while it runs as cancelled, not as an error', async () => {
+    const { session, errors } = await forkSession();
+    const controller = new AbortController();
+    mocks.forkRun.mockImplementation(async (_content: string, _options: unknown, run?: { signal?: AbortSignal }) => {
+      controller.abort();
+      run?.signal?.throwIfAborted();
+      return 'fork result';
+    });
+    await expect(
+      session.executeCommand('audit', 'src', 'remote', 'owner', 'local', {
+        signal: controller.signal,
+      }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(errors).not.toHaveBeenCalled();
+    const contents = session.getMessages().map((message) => String(message.content));
+    expect(contents.some((content) => content.startsWith('Error:'))).toBe(false);
+  });
+
+  it('starts no fork and records nothing for a command already cancelled', async () => {
+    const { session } = await forkSession();
+    await expect(
+      session.executeCommand('audit', 'src', 'remote', 'owner', 'local', {
+        signal: AbortSignal.abort(),
+      }),
+    ).rejects.toMatchObject({ name: 'AbortError' });
+    expect(mocks.createSubagentSession).not.toHaveBeenCalled();
+    expect(session.getMessages().map((message) => message.content)).not.toContain('/audit src');
+  });
+});
