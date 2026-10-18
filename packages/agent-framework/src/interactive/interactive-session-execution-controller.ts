@@ -1,7 +1,7 @@
 import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 /** InteractiveSession execution lifecycle, queue, streaming, and tool state. */
 
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import {
   createUserMessage,
@@ -33,7 +33,7 @@ import {
 import { PendingInputQueue } from './interactive-session-pending-queue.js';
 import { capturePostTurnMemory } from './interactive-session-post-turn-memory.js';
 import { executePromptTurn, promptTurnAttribution } from './interactive-session-prompt.js';
-import { ToolAppViewStore } from './interactive-session-app-views.js';
+import { ToolAppViewStore, pickToolAppView } from './interactive-session-app-views.js';
 import { STREAMING_FLUSH_INTERVAL_MS } from './interactive-session-streaming.js';
 import {
   attributeTurnModels,
@@ -107,6 +107,8 @@ export class SessionExecutionController {
   activeTools: IToolState[] = [];
   /** The views of this session's finished model calls, read by a surface on demand. */
   readonly appViews = new ToolAppViewStore();
+  /** The ids of direct calls running now: their events carry no view, whatever else is running. */
+  readonly directCallIds = new Set<string>();
   /** REMOTE-014 E5: co-drive input queue (same-driver coalesces to the tail, cross-driver appends). */
   readonly pending = new PendingInputQueue({
     refuse: (turnId, reason) => this.turns.refuse(turnId, reason),
@@ -239,17 +241,43 @@ export class SessionExecutionController {
 
   /**
    * Keeps the view of a finished model call for a surface to read on demand and returns the
-   * reference the live `tool_end` carries instead of the document. A direct call has no view: its
-   * result goes back to whoever made it (an app view calling its server, `mcp serve`).
+   * reference the live `tool_end` carries instead of the document; undefined when nothing is kept.
+   *
+   * A direct call has no view: its result goes back to whoever made it (an app view calling its
+   * server, `mcp serve`), and it is recognised by the id it was started with, not by which claim is
+   * held, because a model's call can end while a direct call holds the claim. A view is kept only
+   * for a call that is running here, so a stray end event occupies no slot, and a view that is not
+   * well formed or does not fit is dropped. Best effort: it must never become a tool failure.
    */
   private keepAppView(
     event: { type: 'start' | 'end'; executionId?: string },
-    view: IToolAppView | undefined,
+    view: unknown,
   ): IToolAppViewRef | undefined {
-    if (view === undefined || event.type !== 'end' || typeof event.executionId !== 'string') return;
-    if (this.executionClaim.activeKind === 'runtime-tool') return;
-    this.appViews.put(event.executionId, view);
-    return { sourceId: view.sourceId, resourceUri: view.resourceUri };
+    if (view === undefined || event.type !== 'end') return undefined;
+    const { executionId } = event;
+    if (typeof executionId !== 'string' || this.directCallIds.has(executionId)) return undefined;
+    try {
+      if (!this.activeTools.some((tool) => tool.executionId === executionId && tool.isRunning)) {
+        return undefined;
+      }
+      const kept = pickToolAppView(view);
+      if (kept === undefined) return undefined;
+      const viewId = randomUUID();
+      if (!this.appViews.put(viewId, kept)) return undefined;
+      return { viewId, sourceId: kept.sourceId, resourceUri: kept.resourceUri };
+    } catch {
+      // Keeping a view is best effort and must never become a tool failure.
+      return undefined;
+    }
+  }
+
+  /**
+   * Ends a direct call's claim and starts the input that queued up behind it, as the end of a turn
+   * does: a submission or wake that arrived while the call held the claim is not left waiting for
+   * the next unrelated turn.
+   */
+  completeRuntimeTool(claim: IExecutionClaim, resumeQueuedTurn: TResumeQueuedTurnFn): void {
+    this.executionClaim.complete(claim, () => this.drainPendingQueue(resumeQueuedTurn));
   }
 
   /** Opt-in content of one of the running turn's own calls; never throws into the tool wrapper. */

@@ -13,6 +13,7 @@ import {
   handleAppViewMessage,
   isAppToolMessage,
   isAppViewMessage,
+  type IAppMessageOptions,
 } from './app-tool-messages.js';
 import {
   handleBackgroundControlMessage,
@@ -99,6 +100,13 @@ export interface ISessionMessageHandlerOptions {
    * command that runs code from outside the session (installing a plugin) can refuse a remote device.
    */
   commandSurfaceLocality?: TCommandSurfaceLocality;
+  /**
+   * The most bytes one frame answering an app tool call or view read may take, for a carrier whose
+   * channel carries less than the inbound limit (a WebRTC data channel). An answer over it is
+   * replaced by a `protocol_error` before it reaches any buffer. Defaults to the inbound limit less
+   * a margin for a carrier that stamps frames afterwards.
+   */
+  maxFrameBytes?: number;
 }
 
 /**
@@ -125,10 +133,17 @@ export function createSessionMessageHandler(options: ISessionMessageHandlerOptio
   cleanup: () => void;
 } {
   const role = options.role ?? 'drive';
-  const cleanup = subscribeSessionEvents(options.session, options.deliver, {
+  const unsubscribe = subscribeSessionEvents(options.session, options.deliver, {
     getSurfaceDriverId: () => options.driverId,
     receivePrompts: role === 'drive',
   });
+  // One per connection: when the connection goes, work it started for a hosted app view (a tool call
+  // waiting on its permission prompt) is cancelled, so the prompt is withdrawn instead of left open.
+  const connection = new AbortController();
+  const cleanup = (): void => {
+    connection.abort();
+    unsubscribe();
+  };
   const onMessage = createMessageHandler(
     options.session,
     options.deliver,
@@ -143,6 +158,10 @@ export function createSessionMessageHandler(options: ISessionMessageHandlerOptio
     options.sessionDirectory,
     options.settingsReporter,
     options.commandSurfaceLocality,
+    {
+      signal: connection.signal,
+      ...(options.maxFrameBytes !== undefined ? { maxFrameBytes: options.maxFrameBytes } : {}),
+    },
   );
 
   return { onMessage, cleanup };
@@ -158,6 +177,7 @@ function createMessageHandler(
   sessionDirectory?: ISessionDirectory,
   settingsReporter?: ISettingsReporter,
   commandSurfaceLocality?: TCommandSurfaceLocality,
+  appMessages?: IAppMessageOptions,
 ): (data: string) => void {
   return (data: string): void => {
     const msg = parseClientMessage(data, deliver);
@@ -176,6 +196,7 @@ function createMessageHandler(
       sessionDirectory,
       settingsReporter,
       commandSurfaceLocality,
+      appMessages,
     );
   };
 }
@@ -200,6 +221,7 @@ export function handleClientMessage(
   sessionDirectory?: ISessionDirectory,
   settingsReporter?: ISettingsReporter,
   commandSurfaceLocality?: TCommandSurfaceLocality,
+  appMessages?: IAppMessageOptions,
 ): void {
   if (handleUsageQueryMessage(session, deliver, msg, reporters)) {
     return;
@@ -237,11 +259,11 @@ export function handleClientMessage(
     return;
   }
   if (isAppToolMessage(msg)) {
-    handleAppToolMessage(session, deliver, msg, driverId);
+    handleAppToolMessage(session, deliver, msg, driverId, appMessages);
     return;
   }
   if (isAppViewMessage(msg)) {
-    handleAppViewMessage(session, deliver, msg);
+    handleAppViewMessage(session, deliver, msg, appMessages);
     return;
   }
   if (isBackgroundQueryMessage(msg)) {

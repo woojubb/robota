@@ -36,7 +36,7 @@ export class SessionRuntimeTools {
       this.execution = this.agent.invokeRuntimeTool(name, parameters, {
         toolName: name,
         parameters,
-        executionId: randomUUID(),
+        executionId: options?.executionId ?? randomUUID(),
         sessionId: this.sessionId,
         signal: controller.signal,
         // A caller nobody is watching must not park on a prompt, so asking is the caller's choice;

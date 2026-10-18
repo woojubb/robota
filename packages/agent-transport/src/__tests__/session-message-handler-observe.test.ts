@@ -82,8 +82,8 @@ const MUTATING: readonly TClientMessage[] = [
   { type: 'ask-response', id: 'a1', response: { type: 'answer', values: ['React'] } } as TClientMessage,
   { type: 'get-personal-usage-report', requestId: 'r1', period: '7d', timezone: 'UTC' },
   { type: 'get-stored-session-usage-report', requestId: 'r2', sessionId: 'other' },
-  { type: 'call-app-tool', requestId: 'r3', name: 'Write', arguments: {} },
-  { type: 'read-app-view', requestId: 'r4', executionId: 'call-1' },
+  { type: 'call-app-tool', requestId: 'r3', viewId: 'view-1', name: 'Write', arguments: {} },
+  { type: 'read-app-view', requestId: 'r4', viewId: 'view-1' },
 ];
 
 describe('observe role', () => {

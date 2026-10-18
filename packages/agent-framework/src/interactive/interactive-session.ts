@@ -226,6 +226,7 @@ export class InteractiveSession
     controller: () => this.execCtrl,
     ensureInitialized: () => this.ensureInitialized(),
     session: () => this.getSessionOrThrow(),
+    resumeQueuedTurn: (entry) => this.resumeQueuedTurn(entry),
   });
   private shutdownPromise: Promise<void> | null = null;
   private externalEventIngress?: ExternalEventIngress;
@@ -869,8 +870,8 @@ export class InteractiveSession
     return this.runtimeTools.listRuntimeTools();
   }
 
-  readToolAppView(executionId: string): IToolAppView | undefined {
-    return this.execCtrl.appViews.get(executionId);
+  readToolAppView(viewId: string): IToolAppView | undefined {
+    return this.execCtrl.appViews.get(viewId);
   }
 
   invokeRuntimeTool(

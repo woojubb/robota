@@ -126,17 +126,27 @@ export interface IRuntimeToolInvokeOptions {
    * hands the tools the session's ask port, for a surface that can show the prompt and answer it.
    */
   permissionInteraction?: 'interactive' | 'deny';
-  /** The driver the call acts for; a prompt it raises names this driver as its requester. */
+  /**
+   * The driver the call acts for. A host that attributes prompts names this driver as the requester
+   * of a prompt the call raises; a session that does not attribute (agent-session's `Session`)
+   * ignores it.
+   */
   driverId?: TDriverId;
+  /**
+   * The id the call's tool events carry, so a host that kept it can tell this call's events from a
+   * model call's. The session mints one when absent.
+   */
+  executionId?: string;
 }
 
 /** Reads the view a finished model call's source declared, for a surface that hosts one. */
 export interface ISessionToolAppViews {
   /**
-   * The view of the call `executionId` named in a `tool_end` reference, or undefined once the
-   * session no longer holds it (evicted, cleared, or the call had none).
+   * The view a `tool_end` reference named by `viewId`, or undefined once the session no longer holds
+   * it (evicted, cleared, or never kept). A `viewId` names one kept view, so it is never confused
+   * with another call that reused the same provider tool-call id.
    */
-  readToolAppView(executionId: string): IToolAppView | undefined;
+  readToolAppView(viewId: string): IToolAppView | undefined;
 }
 
 /** Direct execution uses the same permission-wrapped runtime as model tool calls. */

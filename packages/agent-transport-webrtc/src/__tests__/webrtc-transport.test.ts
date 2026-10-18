@@ -8,6 +8,7 @@ import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transpo
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
+import { HISTORY_PAGE_MAX_BYTES } from '@robota-sdk/agent-transport';
 import { WebRtcTransport } from '../webrtc-transport.js';
 import { createInMemorySignalingPair, type ISignalingClient } from '../signaling.js';
 import { WebRtcDeliveryLifecycle } from '../webrtc-delivery-lifecycle.js';
@@ -30,7 +31,10 @@ function createStubSession(): IInteractiveSession {
  * The remote peer (answerer): consumes the host's offer via the injected signaling, opens the data channel,
  * and speaks the `TClientMessage`/`TServerMessage` protocol. Resolves with the first `TServerMessage` received.
  */
-function connectRemote(signaling: ISignalingClient): Promise<Record<string, unknown>> {
+function connectRemote(
+  signaling: ISignalingClient,
+  request: Record<string, unknown> = { type: 'get-messages' },
+): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
     const peer = new RtcPeer();
     peer.onLocalCandidate((c) =>
@@ -51,7 +55,7 @@ function connectRemote(signaling: ISignalingClient): Promise<Record<string, unkn
         .catch(reject);
     });
     peer.onDataChannel((channel) => {
-      const ask = (): void => channel.send(JSON.stringify({ type: 'get-messages' }));
+      const ask = (): void => channel.send(JSON.stringify(request));
       if (channel.readyState === 'open') ask();
       else channel.onStateChange((state) => state === 'open' && ask());
       channel.onMessage((text) => resolve(JSON.parse(text) as Record<string, unknown>));
@@ -307,4 +311,39 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
 
     await host.stop();
   }, 15000);
+
+  it('refuses an app view larger than a history page on the open path, before the data channel is asked to carry it', async () => {
+    const [hostSig, remoteSig] = createInMemorySignalingPair();
+    const session = Object.assign(createStubSession(), {
+      readToolAppView: vi.fn().mockReturnValue({
+        sourceId: 'files',
+        resourceUri: 'ui://files/list',
+        mimeType: 'text/html;profile=mcp-app',
+        html: 'x'.repeat(HISTORY_PAGE_MAX_BYTES),
+        callableTools: {},
+      }),
+    });
+    const host = new WebRtcTransport({
+      cryptoContext: testIdentity,
+      signaling: hostSig,
+      open: true,
+      openReason: 'SEC-008: loopback — this case is about the frame limit, not pairing',
+    });
+    host.attach(session);
+
+    const remoteReply = connectRemote(remoteSig, {
+      type: 'read-app-view',
+      requestId: 'v1',
+      viewId: 'view-1',
+    });
+    await host.start();
+
+    expect(await remoteReply).toEqual({
+      type: 'protocol_error',
+      message: 'This app view is too large to send.',
+      requestId: 'v1',
+    });
+    await host.stop();
+  }, 15000);
 });
+
