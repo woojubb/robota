@@ -4,6 +4,7 @@ import { createAcpTransport } from '@robota-sdk/agent-transport-acp';
 import { runAcpSlashCommand } from './acp-command-port.js';
 import { shutdownSession } from './session-shutdown.js';
 
+import type { IEditorFileSlot } from '../product/editor-file-slot.js';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 import type { TAcpWorkspaceAdmission } from '@robota-sdk/agent-transport-acp';
@@ -19,6 +20,8 @@ export interface IAcpModeOptions {
   readonly input: Readable;
   readonly output: Writable;
   readonly admitWorkspace: () => TAcpWorkspaceAdmission;
+  /** Where the session's file tools look for the editor's file system; the transport fills it. */
+  readonly editorFiles?: IEditorFileSlot;
 }
 
 /** One product session, one ACP carrier; process signals and exit policy belong to this shell. */
@@ -34,6 +37,7 @@ export async function runAcpMode(options: IAcpModeOptions): Promise<void> {
     cwd: options.cwd,
     admitWorkspace: options.admitWorkspace,
     executeCommand: (text, signal) => runAcpSlashCommand(session, text, signal),
+    ...(options.editorFiles !== undefined ? { onEditorFileAccess: options.editorFiles.set } : {}),
     // stdout carries the protocol; what the editor does not receive goes where logs go.
     onDeliveryError: (error, context) => {
       process.stderr.write(`ACP ${context}: ${error.message}\n`);

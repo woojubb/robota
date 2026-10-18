@@ -32,10 +32,11 @@ vi.mock('@robota-sdk/agent-transport-acp', () => ({
 }));
 
 import { runAcpMode } from '../acp-mode.js';
+import { createEditorFileSlot } from '../../product/editor-file-slot.js';
 
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 
-function setup() {
+function setup(extra: Partial<Parameters<typeof runAcpMode>[0]> = {}) {
   mock.session = {
     shutdown: mock.shutdown,
     on: vi.fn(),
@@ -56,6 +57,7 @@ function setup() {
       input,
       output,
       admitWorkspace,
+      ...extra,
     });
   return { input, output, admitWorkspace, run };
 }
@@ -97,6 +99,27 @@ describe('ACP mode', () => {
     expect(mock.executeCommand).toHaveBeenCalledWith('help', '', 'remote', 'owner', 'local', {
       signal,
     });
+  });
+
+  it("fills the session's editor file slot with what the transport hands over", async () => {
+    mock.start.mockResolvedValue(undefined);
+    mock.waitForClose.mockResolvedValue(undefined);
+    const editorFiles = createEditorFileSlot();
+    await setup({ editorFiles }).run();
+
+    const hand = mock.options!['onEditorFileAccess'] as (access: unknown) => void;
+    const access = { readTextFile: async () => 'BUFFER' };
+    hand(access);
+    expect(editorFiles.current()).toBe(access);
+    hand(undefined);
+    expect(editorFiles.current()).toBeUndefined();
+  });
+
+  it('asks the transport for no editor file system when the session has no slot for it', async () => {
+    mock.start.mockResolvedValue(undefined);
+    mock.waitForClose.mockResolvedValue(undefined);
+    await setup().run();
+    expect(mock.options).not.toHaveProperty('onEditorFileAccess');
   });
 
   it('reports errors the editor does not receive on stderr, never stdout', async () => {

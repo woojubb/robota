@@ -87,6 +87,7 @@ import {
   OS_SANDBOX_TYPE,
   createProductSubagentRunnerFactory,
 } from './product/subagent-composition.js';
+import { createEditorFileSlot } from './product/editor-file-slot.js';
 import { reloadPluginCommandSource } from './plugins/default-plugin-command-source-loader.js';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js';
@@ -485,9 +486,12 @@ async function runCliCore(
     }
   }
   const sandboxClient = sandbox.client;
+  // Only an ACP editor can carry the file tools' reads and writes; it connects after they are built.
+  const editorFiles = acp ? createEditorFileSlot() : undefined;
   const { packContext, packs, packCommandModules } = createProductPackSet(cwd, productRuntime, {
     shellExecutable,
     ...(sandboxClient !== undefined ? { sandboxClient, sandboxType: OS_SANDBOX_TYPE } : {}),
+    ...(editorFiles !== undefined ? { editorFiles: editorFiles.current } : {}),
   });
   const tuiSources =
     presentation === undefined
@@ -1082,6 +1086,7 @@ async function runCliCore(
           cwd,
           input: process.stdin,
           output: protocolStdout,
+          ...(editorFiles !== undefined ? { editorFiles } : {}),
           admitWorkspace: () =>
             admitAcpWorkspace({
               access: workspaceComposition.projectAccess,
