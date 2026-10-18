@@ -166,6 +166,20 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     await expect(pending).resolves.toBe(true);
   });
 
+  it('carries the execution id of the call the ask is about onto the emitted `permission_request`', async () => {
+    const h = harness();
+    const pending = h.registry.requestPermission('Bash', { command: 'ls' }, false, {
+      executionId: 'call-4',
+    });
+    expect(h.permissionEvents[0]).toMatchObject({ toolName: 'Bash', executionId: 'call-4' });
+    h.registry.resolvePermission(h.permissionEvents[0]!.id, true);
+    await expect(pending).resolves.toBe(true);
+
+    // A request that names no call carries no id, rather than an empty one.
+    void h.registry.requestPermission('Bash', { command: 'ls' });
+    expect(h.permissionEvents[1]).not.toHaveProperty('executionId');
+  });
+
   it('issue #3288 §1: aborting the ask signal denies it and emits `prompt_resolved` (dismissed on every surface)', async () => {
     const h = harness();
     const controller = new AbortController();

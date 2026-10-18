@@ -110,6 +110,7 @@ describe('a command that runs a model turn', () => {
         id: 'perm-1',
         toolName: 'Shell',
         toolArgs: { command: 'ls' },
+        executionId: 'call-1',
       });
       await answered;
       fake.emit('tool_start', shell);
@@ -131,17 +132,17 @@ describe('a command that runs a model turn', () => {
 
     expect(started.editor.permissionRequests).toHaveLength(1);
     expect(started.editor.permissionRequests[0]!.toolCall).toMatchObject({
-      toolCallId: 'permission-perm-1',
+      toolCallId: 'call-1',
       title: 'Shell: ls',
     });
     expect(fake.resolvePermission).toHaveBeenCalledWith('perm-1', true, 'owner');
     expect(started.editor.updates).toEqual([
       expect.objectContaining({
         sessionUpdate: 'tool_call_update',
-        toolCallId: 'permission-perm-1',
+        toolCallId: 'call-1',
         status: 'in_progress',
       }),
-      { sessionUpdate: 'tool_call_update', toolCallId: 'permission-perm-1', status: 'completed' },
+      { sessionUpdate: 'tool_call_update', toolCallId: 'call-1', status: 'completed' },
       { sessionUpdate: 'agent_message_chunk', content: { type: 'text', text: 'Reviewed.' } },
     ]);
     expect(fake.submit).not.toHaveBeenCalled();

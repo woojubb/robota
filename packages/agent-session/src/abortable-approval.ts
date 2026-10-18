@@ -1,4 +1,4 @@
-import type { TPermissionResult } from './permission-types.js';
+import type { TPermissionHandler, TPermissionResult } from './permission-types.js';
 import type { ITerminalOutput, TToolArgs } from '@robota-sdk/agent-core';
 
 /**
@@ -86,7 +86,7 @@ export interface IApprovalRequest {
   toolArgs: TToolArgs;
   alreadyAllowed: boolean;
   /** A consumer-supplied handler. Takes precedence over `injectedPrompt`, as it always did. */
-  handler?: (toolName: string, toolArgs: TToolArgs) => Promise<TPermissionResult>;
+  handler?: TPermissionHandler;
   injectedPrompt?: (
     terminal: ITerminalOutput,
     toolName: string,
@@ -94,6 +94,8 @@ export interface IApprovalRequest {
   ) => Promise<TPermissionResult>;
   terminal?: ITerminalOutput;
   signal?: AbortSignal;
+  /** The tool call being decided, handed to `handler` so the prompt it raises can name the call. */
+  executionId?: string;
 }
 
 export async function decideApproval(request: IApprovalRequest): Promise<IApprovalOutcome> {
@@ -111,7 +113,12 @@ export async function decideApproval(request: IApprovalRequest): Promise<IApprov
   // Which prompt to run is this module's business too: the enforcer supplies the approvers it has
   // and does not decide between them.
   const prompt = request.handler
-    ? (): Promise<TPermissionResult> => request.handler!(request.toolName, request.toolArgs)
+    ? (): Promise<TPermissionResult> =>
+        request.handler!(
+          request.toolName,
+          request.toolArgs,
+          request.executionId !== undefined ? { executionId: request.executionId } : undefined,
+        )
     : request.injectedPrompt && request.terminal
       ? (): Promise<TPermissionResult> =>
           request.injectedPrompt!(request.terminal!, request.toolName, request.toolArgs)

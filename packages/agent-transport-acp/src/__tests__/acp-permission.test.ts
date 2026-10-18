@@ -54,6 +54,7 @@ async function askPermission(
       toolName: 'Shell',
       toolArgs: { command: 'rm -rf build' },
       canPersistProjectPermission: true,
+      executionId: 'call-9',
       ...request,
     });
     await wasAnswered;
@@ -103,13 +104,13 @@ describe('permission requests', () => {
     );
   });
 
-  it('asks with a call of its own and the options the session can honour', async () => {
+  it('asks about the call it names and offers the options the session can honour', async () => {
     const { editor, sessionId } = await askPermission(() => select('allow-once'));
     expect(editor.permissionRequests).toEqual([
       {
         sessionId,
         toolCall: {
-          toolCallId: 'permission-perm-1',
+          toolCallId: 'call-9',
           title: 'Shell: rm -rf build',
           kind: 'execute',
           status: 'pending',
@@ -293,17 +294,17 @@ describe('the call a permission request asks about', () => {
         fake.emit('tool_end', shellEnded('success'));
       },
     });
-    expect(editor.permissionRequests[0]!.toolCall.toolCallId).toBe('permission-perm-1');
+    expect(editor.permissionRequests[0]!.toolCall.toolCallId).toBe('call-9');
     expect(editor.updates).toEqual([
       {
         sessionUpdate: 'tool_call_update',
-        toolCallId: 'permission-perm-1',
+        toolCallId: 'call-9',
         status: 'in_progress',
         title: 'Shell: rm -rf build',
         kind: 'execute',
         rawInput: { command: 'rm -rf build' },
       },
-      { sessionUpdate: 'tool_call_update', toolCallId: 'permission-perm-1', status: 'completed' },
+      { sessionUpdate: 'tool_call_update', toolCallId: 'call-9', status: 'completed' },
     ]);
   });
 
@@ -312,34 +313,91 @@ describe('the call a permission request asks about', () => {
       after: (fake) => fake.emit('tool_end', shellEnded('denied')),
     });
     expect(editor.updates).toEqual([
-      { sessionUpdate: 'tool_call_update', toolCallId: 'permission-perm-1', status: 'failed' },
+      { sessionUpdate: 'tool_call_update', toolCallId: 'call-9', status: 'failed' },
     ]);
   });
 
-  it('does not attach a second same-named call to one that is still running', async () => {
-    const { editor } = await askPermission(() => select('allow-once'), {
-      request: { id: 'perm-2' },
-      before: (fake) => fake.emit('tool_start', { ...shell, executionId: 'first' }),
-      after: (fake) => {
-        fake.emit('tool_end', shellEnded('success', 'first'));
-        fake.emit('tool_start', { ...shell, executionId: 'second' });
-        fake.emit('tool_end', shellEnded('success', 'second'));
+  it('is closed once when the session denies the call on its own while the dialog is still open', async () => {
+    let open!: () => void;
+    const gate = new Promise<void>((resolve) => (open = resolve));
+    const { editor, fake } = await askPermission(
+      async () => {
+        await gate;
+        return select('allow-once');
       },
-    });
-    expect(editor.permissionRequests[0]!.toolCall.toolCallId).toBe('permission-perm-2');
+      {
+        before: (fake) => {
+          // The session's backstop denies the call before the editor answers.
+          setTimeout(() => {
+            fake.emit('tool_end', shellEnded('denied'));
+            open();
+          }, 5);
+        },
+      },
+    );
+    // The late answer reaches the session, which has nothing left to decide; the editor got one row.
+    expect(fake.resolvePermission).toHaveBeenCalledWith('perm-1', true, 'owner');
     expect(editor.updates).toEqual([
-      row({ sessionUpdate: 'tool_call', toolCallId: 'first', status: 'in_progress' }),
-      { sessionUpdate: 'tool_call_update', toolCallId: 'first', status: 'completed' },
-      row({
-        sessionUpdate: 'tool_call_update',
-        toolCallId: 'permission-perm-2',
-        status: 'in_progress',
-      }),
-      { sessionUpdate: 'tool_call_update', toolCallId: 'permission-perm-2', status: 'completed' },
+      { sessionUpdate: 'tool_call_update', toolCallId: 'call-9', status: 'failed' },
     ]);
   });
 
-  it('is not taken by a same-named call that starts before the request was answered', async () => {
+  it('follows its own call when two same-named requests are answered out of order', async () => {
+    const answers = new Map<string, () => void>();
+    const answered = (id: string) => new Promise<void>((resolve) => answers.set(id, resolve));
+    const fake: IFakeSession = createFakeSession(async () => {
+      const first = answered('perm-1');
+      const second = answered('perm-2');
+      fake.emit('permission_request', {
+        id: 'perm-1',
+        toolName: 'Shell',
+        toolArgs: { command: 'rm -rf build' },
+        executionId: 'call-a',
+      });
+      fake.emit('permission_request', {
+        id: 'perm-2',
+        toolName: 'Shell',
+        toolArgs: { command: 'rm -rf dist' },
+        executionId: 'call-b',
+      });
+      await Promise.all([first, second]);
+      // The allowed call runs; the refused one ends without starting.
+      fake.emit('tool_start', { ...shell, firstArg: 'rm -rf dist', executionId: 'call-b' });
+      fake.emit('tool_end', shellEnded('success', 'call-b'));
+      fake.emit('tool_end', shellEnded('denied', 'call-a'));
+      return endedTurn();
+    });
+    fake.resolvePermission.mockImplementation((id) => answers.get(id)?.());
+    const fixture = await startTransport(fake.session);
+    open.push(fixture);
+    // The editor answers the second request first, allowing it, then refuses the first.
+    let firstAnswer!: () => void;
+    const firstGate = new Promise<void>((resolve) => (firstAnswer = resolve));
+    fixture.editor.answerPermission(async (request) => {
+      if (request.toolCall.toolCallId === 'call-b') {
+        setTimeout(firstAnswer, 5);
+        return select('allow-once');
+      }
+      await firstGate;
+      return select('reject');
+    });
+    const sessionId = await openSession(fixture.editor);
+    await fixture.editor.connection.agent.request('session/prompt', {
+      sessionId,
+      prompt: textPrompt('clean up'),
+    });
+    expect(fake.resolvePermission.mock.calls.map(([id, decision]) => [id, decision])).toEqual([
+      ['perm-2', true],
+      ['perm-1', false],
+    ]);
+    expect(fixture.editor.updates).toEqual([
+      row({ sessionUpdate: 'tool_call_update', toolCallId: 'call-b', status: 'in_progress' }),
+      { sessionUpdate: 'tool_call_update', toolCallId: 'call-b', status: 'completed' },
+      { sessionUpdate: 'tool_call_update', toolCallId: 'call-a', status: 'failed' },
+    ]);
+  });
+
+  it('is not taken by an unasked same-named call that starts while the dialog is open', async () => {
     let open!: () => void;
     const gate = new Promise<void>((resolve) => (open = resolve));
     const { editor } = await askPermission(
@@ -357,8 +415,8 @@ describe('the call a permission request asks about', () => {
           }, 5);
         },
         after: (fake) => {
-          fake.emit('tool_start', { ...shell, executionId: 'asked' });
-          fake.emit('tool_end', shellEnded('success', 'asked'));
+          fake.emit('tool_start', shell);
+          fake.emit('tool_end', shellEnded('success'));
         },
       },
     );
@@ -367,27 +425,8 @@ describe('the call a permission request asks about', () => {
     ).toEqual([
       ['tool_call', 'unasked'],
       ['tool_call_update', 'unasked'],
-      ['tool_call_update', 'permission-perm-1'],
-      ['tool_call_update', 'permission-perm-1'],
-    ]);
-  });
-
-  it('is told apart from a same-named call by a different tool name', async () => {
-    const { editor } = await askPermission(() => select('allow-once'), {
-      after: (fake) => {
-        fake.emit('tool_start', { ...shell, toolName: 'Read', executionId: 'read-1' });
-        fake.emit('tool_start', shell);
-        fake.emit('tool_end', shellEnded('success'));
-      },
-    });
-    expect(editor.updates).toEqual([
-      row({ sessionUpdate: 'tool_call', toolCallId: 'read-1', kind: 'read' }),
-      row({
-        sessionUpdate: 'tool_call_update',
-        toolCallId: 'permission-perm-1',
-        status: 'in_progress',
-      }),
-      { sessionUpdate: 'tool_call_update', toolCallId: 'permission-perm-1', status: 'completed' },
+      ['tool_call_update', 'call-9'],
+      ['tool_call_update', 'call-9'],
     ]);
   });
 
@@ -395,7 +434,7 @@ describe('the call a permission request asks about', () => {
     const { editor, response } = await askPermission(() => select('allow-once'));
     expect(response).toEqual({ stopReason: 'end_turn' });
     expect(editor.updates).toEqual([
-      { sessionUpdate: 'tool_call_update', toolCallId: 'permission-perm-1', status: 'failed' },
+      { sessionUpdate: 'tool_call_update', toolCallId: 'call-9', status: 'failed' },
     ]);
   });
 
@@ -405,7 +444,23 @@ describe('the call a permission request asks about', () => {
     });
     expect(response).toEqual({ stopReason: 'cancelled' });
     expect(editor.updates).toEqual([
-      { sessionUpdate: 'tool_call_update', toolCallId: 'permission-perm-1', status: 'failed' },
+      { sessionUpdate: 'tool_call_update', toolCallId: 'call-9', status: 'failed' },
+    ]);
+  });
+
+  it('is closed with the answer when the request names no call, and a later call of the tool gets its own row', async () => {
+    const { editor } = await askPermission(() => select('allow-once'), {
+      request: { executionId: undefined },
+      after: (fake) => {
+        fake.emit('tool_start', shell);
+        fake.emit('tool_end', shellEnded('success'));
+      },
+    });
+    expect(editor.permissionRequests[0]!.toolCall.toolCallId).toBe('permission-perm-1');
+    expect(editor.updates).toEqual([
+      { sessionUpdate: 'tool_call_update', toolCallId: 'permission-perm-1', status: 'completed' },
+      row({ sessionUpdate: 'tool_call', toolCallId: 'call-9', status: 'in_progress' }),
+      { sessionUpdate: 'tool_call_update', toolCallId: 'call-9', status: 'completed' },
     ]);
   });
 

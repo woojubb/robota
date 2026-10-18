@@ -667,17 +667,18 @@ describe('WebSocket Transport Handler', () => {
 
   // ── REMOTE-007: transport-neutral permission/ask over the wire (TC-06) ──
 
-  it('forwards a permission_request session event to the client', () => {
+  it('forwards a permission_request session event to the client, with the call id it names', () => {
     const { session, sent } = setup();
     session._emit('permission_request', {
       id: 'p1',
       toolName: 'Bash',
       toolArgs: { command: 'ls' },
+      executionId: 'call-1',
     });
     const msg = sent.find((m) => m.type === 'permission_request');
     expect(msg).toEqual({
       type: 'permission_request',
-      event: { id: 'p1', toolName: 'Bash', toolArgs: { command: 'ls' } },
+      event: { id: 'p1', toolName: 'Bash', toolArgs: { command: 'ls' }, executionId: 'call-1' },
     });
   });
 

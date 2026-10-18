@@ -123,7 +123,9 @@ export class SessionPromptRegistry {
    * Request a permission decision. Resolves deny (`false`) when no surface can answer (fail-closed).
    *
    * Issue #3288 §1: `context.requester` names who is asking when it is not the person's own turn (a
-   * background agent's forwarded tool call), carried on the emitted event for display. `context.signal`
+   * background agent's forwarded tool call), carried on the emitted event for display, and
+   * `context.executionId` names the call itself (the id its `tool_start`/`tool_end` carry), so a
+   * surface can hold one row from the request to the call's end. `context.signal`
    * lets the CALLER cancel the ask itself: aborting it settles this prompt denied and emits
    * `prompt_resolved` on every surface, exactly as if the person had denied it — a background task
    * that stops or crashes while its request is still parked must not leave it hanging forever.
@@ -171,6 +173,7 @@ export class SessionPromptRegistry {
           ...(context?.requester ? { requester: context.requester } : {}),
           ...(diffLines ? { diffLines, diffFile } : {}),
           ...(shellCwd ? { cwd: shellCwd } : {}),
+          ...(context?.executionId !== undefined ? { executionId: context.executionId } : {}),
         }),
       );
     });

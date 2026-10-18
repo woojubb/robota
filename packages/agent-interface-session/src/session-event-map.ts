@@ -131,6 +131,12 @@ export interface IPermissionRequestEvent {
   diffFile?: string;
   /** #3288 §2: a Shell request's working directory, present only when it differs from the workspace. */
   cwd?: string;
+  /**
+   * The id of the tool call this request concerns: the same `executionId` the call's `tool_start`
+   * and `tool_end` carry, so a surface can hold one row from the request to the call's end. Absent
+   * when the asker has no call in this session (a background agent's forwarded request).
+   */
+  executionId?: string;
 }
 
 /** An "ask the user" request (command- or tool-issued) awaiting an answer. Serializable. */
