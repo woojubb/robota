@@ -111,8 +111,14 @@ behind what looks like a routine queue decision.
 
 A session exposes a canonical runtime-tool capability (list + invoke, with schemas and abortable
 execution) as its own surface. The session owns permission, hooks, execution/audit events, result
-admission, cancellation and shutdown for it. Transports may neither synthesize a parallel command
-catalog nor execute commands directly.
+admission, cancellation and shutdown for it. A caller chooses whether a permission decision the call
+needs may be put to a person — by default it fails closed, which is right for a caller nobody is
+watching — and may name the driver a prompt is attributed to. Transports may neither synthesize a
+parallel command catalog nor execute commands directly.
+
+A finished model call's tool event names the view its source declared by reference, and a driving
+surface reads the document on demand, so a view's document never fans out to every surface or
+into a replay; a direct call carries no view.
 
 ## Non-goals
 

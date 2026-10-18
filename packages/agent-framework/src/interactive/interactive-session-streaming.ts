@@ -17,6 +17,7 @@ import type { IDiffLine, IToolState } from './types.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
+import type { IToolAppViewRef } from '@robota-sdk/agent-interface-session';
 
 /** Max chars to display from first tool argument. */
 const TOOL_ARG_DISPLAY_MAX = 80;
@@ -74,6 +75,8 @@ interface IToolEndEvent {
   toolResultData?: string;
   toolResultParts?: TUniversalMessagePart[];
   executionId?: string;
+  /** Names the view this call has: live display data, never part of the persisted history. */
+  appView?: IToolAppViewRef;
 }
 
 /** #3288 §2: exported so the history-replay projector can extract a path arg the same way live does. */
@@ -423,6 +426,14 @@ export function applyToolStart(
   return toolState;
 }
 
+/** The same record without its live-only view reference: it is display data, never recorded. */
+export function withoutAppView<T extends { appView?: IToolAppViewRef }>(
+  record: T,
+): Omit<T, 'appView'> {
+  const { appView: _appView, ...rest } = record;
+  return rest;
+}
+
 /** Process a tool-end event: mark the tool finished and push to history. Returns updated tool or null. */
 export function applyToolEnd(
   state: IStreamingState,
@@ -453,16 +464,19 @@ export function applyToolEnd(
     result,
     toolResultData: event.toolResultData,
     toolResultParts: event.toolResultParts,
+    ...(event.appView ? { appView: event.appView } : {}),
   };
   state.activeTools[idx] = finished;
   state.activeTools = trimCompletedTools(state.activeTools);
 
+  // The full history is persisted and forked; the view reference is live-only, so the entry keeps
+  // the call's outcome and leaves the reference with the live `tool_end` state.
   state.history.push({
     id: randomUUID(),
     timestamp: new Date(),
     category: 'event',
     type: 'tool-end',
-    data: { ...finished },
+    data: withoutAppView(finished),
   });
 
   return finished;

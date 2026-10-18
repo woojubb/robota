@@ -3,11 +3,11 @@ import { randomUUID } from 'node:crypto';
 import type { TurnClaim } from './turn-claim.js';
 import type {
   ConversationAgent,
-  IToolExecutionContext,
   IToolExecutionResult,
   IUserInteraction,
   TToolParameters,
 } from '@robota-sdk/agent-core';
+import type { IRuntimeToolInvokeOptions } from '@robota-sdk/agent-interface-session';
 
 /** Direct calls share the session claim and retain their completion for graceful disposal. */
 export class SessionRuntimeTools {
@@ -27,11 +27,10 @@ export class SessionRuntimeTools {
   async invoke(
     name: string,
     parameters: TToolParameters,
-    signal: AbortSignal | undefined,
-    permissionInteraction: IToolExecutionContext['permissionInteraction'],
+    options?: IRuntimeToolInvokeOptions,
   ): Promise<IToolExecutionResult> {
     const controller = this.claim.claim();
-    const unlink = linkCancellation(controller, signal);
+    const unlink = linkCancellation(controller, options?.signal);
     try {
       controller.signal.throwIfAborted();
       this.execution = this.agent.invokeRuntimeTool(name, parameters, {
@@ -40,8 +39,10 @@ export class SessionRuntimeTools {
         executionId: randomUUID(),
         sessionId: this.sessionId,
         signal: controller.signal,
-        permissionInteraction,
-        ...(permissionInteraction === 'interactive' && this.ask !== undefined
+        // A caller nobody is watching must not park on a prompt, so asking is the caller's choice;
+        // a caller that answers its own prompts also gets the session's ask port.
+        permissionInteraction: options?.permissionInteraction ?? 'deny',
+        ...(options?.permissionInteraction === 'interactive' && this.ask !== undefined
           ? { ask: this.askUnder(controller.signal) }
           : {}),
       });

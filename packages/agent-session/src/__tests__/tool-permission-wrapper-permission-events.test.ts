@@ -145,3 +145,16 @@ describe('tool-permission-wrapper — permission decision events', () => {
     await expect(wrapped.execute({}, context)).resolves.toMatchObject({ success: true, data: 'ok' });
   });
 });
+
+describe('tool-permission-wrapper — the call id reaches the gate', () => {
+  it('passes the context execution id to checkPermission, so a prompt can name the call', async () => {
+    const checkPermission = vi.fn<IToolWrapperDeps['checkPermission']>().mockResolvedValue(true);
+    const wrapped = wrapToolWithPermission(
+      makeTool(async () => ({ success: true, data: 'ok' })),
+      makeDeps({ checkPermission }),
+    );
+    await wrapped.execute({}, { toolName: 'demo', parameters: {}, executionId: 'call-7' });
+    expect(checkPermission).toHaveBeenCalledTimes(1);
+    expect(checkPermission.mock.calls[0]![7]).toBe('call-7');
+  });
+});

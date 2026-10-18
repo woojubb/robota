@@ -79,6 +79,8 @@ export interface IToolWrapperDeps {
     hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
     continuation?: IToolExecutionContext['continuation'],
     hookDecision?: TPreToolHookDecision,
+    /** The call's id (`context.executionId`), so a prompt raised for it can name the call. */
+    executionId?: string,
   ): Promise<boolean | IPermissionRefusal>;
 }
 
@@ -171,6 +173,7 @@ export function wrapToolWithPermission(
         context?.hookTraceEnv,
         context?.continuation,
         gate.decision,
+        context?.executionId,
       );
       if (verdict !== true) {
         enforcer.log('tool_denied', { tool: toolName, reason: 'permission' });
@@ -247,6 +250,7 @@ export function wrapToolWithPermission(
             context?.hookTraceEnv,
             context?.continuation,
             nextGate.decision,
+            context?.executionId,
           );
           if (effectiveVerdict !== true)
             throw new DeferredPermissionRefusal(
@@ -327,6 +331,8 @@ export function wrapToolWithPermission(
             : JSON.stringify(truncatedResult.data),
         toolResultParts: truncatedResult.parts,
         executionId: context?.executionId,
+        // Display data for a surface only: it never joins `toolResultData`, which is what is logged.
+        ...(truncatedResult.view ? { view: truncatedResult.view } : {}),
       });
 
       const dataSize =

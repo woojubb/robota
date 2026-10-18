@@ -176,6 +176,54 @@ describe('direct session runtime tools', () => {
     await expect(session.listRuntimeTools()).rejects.toThrow('shutting down');
   });
 
+  it('puts a permission decision to the handler only when the caller asks for interaction', async () => {
+    const execute = vi.fn(async () => 'ran');
+    const handler = vi.fn(async () => false);
+    const { session } = fixture(execute, { permissionHandler: handler });
+    try {
+      const unwatched = await session.invokeRuntimeTool('Write', {});
+      expect(unwatched.success).toBe(false);
+      expect(handler).not.toHaveBeenCalled();
+
+      const refused = await session.invokeRuntimeTool(
+        'Write',
+        {},
+        { permissionInteraction: 'interactive' },
+      );
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(refused.success).toBe(false);
+      expect(execute).not.toHaveBeenCalled();
+
+      const explicitDeny = await session.invokeRuntimeTool(
+        'Write',
+        {},
+        { permissionInteraction: 'deny' },
+      );
+      expect(explicitDeny.success).toBe(false);
+      expect(handler).toHaveBeenCalledTimes(1);
+    } finally {
+      await session.shutdown();
+    }
+  });
+
+  it('runs the tool when the person answering the interactive prompt approves', async () => {
+    const execute = vi.fn(async () => 'ran');
+    const handler = vi.fn(async () => true);
+    const { session } = fixture(execute, { permissionHandler: handler });
+    try {
+      const result = await session.invokeRuntimeTool(
+        'Write',
+        {},
+        { permissionInteraction: 'interactive' },
+      );
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(result).toMatchObject({ success: true });
+      expect(execute).toHaveBeenCalledTimes(1);
+    } finally {
+      await session.shutdown();
+    }
+  });
+
   it('refuses interactive approval but invokes explicit allows through truncation and audit without a model call', async () => {
     const execute = vi.fn(async () => 'x'.repeat(40000));
     const denied = fixture(execute);

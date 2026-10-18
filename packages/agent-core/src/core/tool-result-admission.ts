@@ -133,10 +133,13 @@ export async function admitToolResult(
     if (!OPAQUE_REFERENCE.test(reference) || reference.length > hardChars) {
       throw new ToolResultAdmissionError('invalid-reference');
     }
+    // The view is display data beside the replaced text: it neither counts toward the size nor
+    // leaves with the body, so the spill replaces what the model reads and nothing a surface shows.
+    const view = result.view ? { view: result.view } : {};
     return markAdmitted(
       result.success
-        ? { success: true, data: reference }
-        : { success: false, error: `Tool failure details: ${reference}` },
+        ? { success: true, data: reference, ...view }
+        : { success: false, error: `Tool failure details: ${reference}`, ...view },
     );
   }
   return markAdmitted(result);
