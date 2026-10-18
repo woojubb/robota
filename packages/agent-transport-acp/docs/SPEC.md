@@ -15,8 +15,9 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
 - Depends on `agent-transport` (shared stdio carrier helper), the `agent-interface-*` contracts,
   `agent-core` types and the ACP SDK. It imports no sibling transport, no `agent-framework` and no
   CLI. Carrier mechanics shared with MCP live in `agent-transport/node`, not here and not copied.
-- Does not delegate file reads, writes or terminals to the editor, replay history (`session/load`),
-  or advertise MCP capability, and speaks no ACP version other than 1.
+- Does not delegate terminals or searches to the editor, decide which tools use its file system,
+  replay history (`session/load`), or advertise MCP capability, and speaks no ACP version other
+  than 1.
 - Is not Robota's own surface protocol. The WebSocket wire protocol serves session listing and
   switching, history paging, background work, status frames and pairing that ACP v1 has no
   counterpart for; this adapter sits beside it over the same session.
@@ -37,7 +38,8 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
 - **The editor widens nothing.** `session/new` must name the served directory and carry no MCP
   servers or extra roots; the host's trust check runs before the session id is returned. A
   permission answer grants only an option that request listed, and anything cancelled, failed or
-  unrecognised denies.
+  unrecognised denies. The editor's file system reaches the host only as the editor offered it and
+  only carries an access the host's tools have already checked and been allowed.
 - **Questions fail closed.** ACP v1 has no free-form question, so the transport never listens for
   one and the session answers it as cancelled.
 - **Every session event has a decision.** The event policy is exhaustive over the shared vocabulary
@@ -85,6 +87,14 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
 - **A permission request shows what the terminal shows.** The person answers in the editor's dialog
   alone, so the request carries the arguments whole, an edit's diff and the file it touches, and a
   title that is never shortened; approving a summary would approve what was not seen.
+- **The editor's file system goes to the host, not to the session.** An editor that offers `fs`
+  lets the agent read what it shows, unsaved changes included, and write into it, where it can show
+  and undo the change. The paths, the permission and the limits belong to the host's file tools,
+  which this package may not import, so it hands the host an access bound to the served session and
+  the host decides which tools use it. It is handed over once `session/new` binds the session,
+  because every `fs` request names the session, and withdrawn when the transport stops so the tools
+  return to the disk. Terminals are not delegated: an editor terminal runs outside the agent's
+  command sandbox.
 - **Slash commands arrive as prompt text.** A prompt whose text starts with `/` goes to the host's
   command port; the editor's own command list is not advertised. A command that runs a model turn
   (a skill) streams, asks about permissions and is cancelled exactly like a typed message, because

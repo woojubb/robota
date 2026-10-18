@@ -604,8 +604,10 @@ in the terminal: in a folder that is not trusted yet the editor's new-session re
 the instruction to run `__PRODUCT_CLI_NAME__ trust --yes`, then start the agent again. The session is
 rooted in the folder the agent was started in; a different folder, MCP servers or extra roots sent by
 the editor are refused, so configure MCP servers in the settings files. An ACP agent serves one
-session per connection, and reading or writing files and running terminals are not delegated to the
-editor. Questions the agent would ask you are answered as cancelled, because ACP has no equivalent.
+session per connection. When the editor offers its file system, reading and writing files go through
+the editor after the same path checks and approvals, so the agent sees changes you have not saved and
+the editor shows its edits; searches still read the files on disk and say so, and commands never run
+in the editor's terminal. Questions the agent would ask you are answered as cancelled, because ACP has no equivalent.
 
 ## Devices and remote control
 
