@@ -113,6 +113,25 @@ describe('interactive session usage summaries', () => {
     expect(result.usage?.costUsd).toBeUndefined();
   });
 
+  it('keeps verified gateway snapshot usage exact while leaving an unregistered cost unknown', () => {
+    const model = 'deepseek/deepseek-v4.1-flash-1017';
+    const stamp = new Date().toISOString();
+    const result = buildResult('done', [{
+      id: 'assistant', role: 'assistant', content: 'done', state: 'complete', timestamp: new Date(),
+      metadata: { inputTokens: 1_591, outputTokens: 117 },
+    }], [], 0, CONTEXT_STATE, undefined, model, [{
+      callId: '123e4567-e89b-42d3-a456-426614174000', round: 1,
+      startedAt: stamp, endedAt: stamp, outcome: 'success', disposition: 'invoked',
+      modelId: model, usageProvenance: 'complete', promptTokens: 1_591,
+      completionTokens: 117, totalTokens: 1_708,
+    }]);
+    expect(result.usage).toMatchObject({
+      kind: 'exact', promptTokens: 1_591, completionTokens: 117,
+      totalTokens: 1_708, costStatus: 'unknown',
+    });
+    expect(result.usage).not.toHaveProperty('costUsd');
+  });
+
   it('TC-06: leaves costUsd absent + costStatus unknown for an unpriced model', () => {
     const sessionHistory: TUniversalMessage[] = [
       { id: 'u1', role: 'user', content: 'hi', state: 'complete', timestamp: new Date() },
