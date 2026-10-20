@@ -46,9 +46,10 @@ If the session composes model-invocable commands, they appear among the runtime 
 `command_<name>` (set `modelCommandToolPrefix` on the session to change the prefix). Resources and
 prompts are not offered.
 
-Tool calls go through the session's permission checks, but an MCP client cannot answer a permission
-prompt: a call that would ask comes back as a tool error. Give the session the `permissionMode` (and
-`allowedTools`) its MCP clients need.
+Tool calls go through the session's permission checks. By default an MCP client cannot answer a
+permission prompt: a call that would ask comes back as a tool error, so give the session the
+`permissionMode` (and `allowedTools`) its MCP clients need. Pass `askClient: true` to put such a
+prompt to a client that declared form-mode elicitation instead, as allow once or deny.
 
 ## Advanced: direct MCP server
 
@@ -57,7 +58,7 @@ carrier yourself:
 
 ```typescript
 import { createAgentMcpServer } from '@robota-sdk/agent-transport-mcp';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
 import type { IMcpTransportSession } from '@robota-sdk/agent-transport-mcp';
 
 declare const session: IMcpTransportSession; // for example an InteractiveSession

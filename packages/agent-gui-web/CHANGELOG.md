@@ -1,5 +1,12 @@
 # @robota-sdk/agent-cli-web
 
+## 3.0.0-beta.95
+### Patch Changes
+
+- Updated dependencies [09e7e21]
+- Updated dependencies [0ba247b]
+  - @robota-sdk/agent-ui-web@3.0.0-beta.95
+
 ## 3.0.0-beta.94
 ### Patch Changes
 

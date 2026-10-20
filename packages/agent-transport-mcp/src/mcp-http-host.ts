@@ -7,20 +7,21 @@ import { createServer } from 'node:http';
 import { isIP } from 'node:net';
 
 import { toNodeHandler } from '@modelcontextprotocol/node';
-import { createMcpHandler, Server } from '@modelcontextprotocol/server';
+import { createMcpHandler } from '@modelcontextprotocol/server';
 import {
   bearerCredential,
   credentialMatches,
   mintTransportToken,
 } from '@robota-sdk/agent-transport/node';
 
+import { McpPendingCalls } from './mcp-pending-calls.js';
 import { createMcpRemoteGate } from './mcp-remote-authorization.js';
-import { invokeMcpTool, readCatalog, resolveSubmitTool } from './mcp-tool-surface.js';
+import { buildAgentMcpServer } from './mcp-server.js';
+import { readCatalog, resolveSubmitTool } from './mcp-tool-surface.js';
 
 import type { IMcpRemoteAuthorization } from './mcp-remote-authorization.js';
 import type { IMcpTransportSession } from './mcp-session.js';
 import type { IMcpSubmitToolIdentity } from './mcp-tool-surface.js';
-import type { Tool as ModernTool } from '@modelcontextprotocol/server';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 
@@ -42,6 +43,13 @@ export interface IMcpHttpHostOptions {
   host?: string;
   /** Host-owned identity for the submission extension. */
   submitTool?: IMcpSubmitToolIdentity;
+  /**
+   * Put the permission and ask prompts a call raises to the client that made it, through MCP
+   * elicitation; allow-once and deny only. A stateless host can ask only a client on the
+   * 2026-07-28 era, through input-required rounds; a legacy-era client keeps the tool error. Off
+   * by default.
+   */
+  askClient?: boolean;
 }
 
 export interface IMcpHttpHost {
@@ -62,6 +70,8 @@ export interface IMcpRemoteHttpHostOptions {
   authorization: IMcpRemoteAuthorization;
   /** Host-owned identity for the submission extension. */
   submitTool?: IMcpSubmitToolIdentity;
+  /** As on the loopback host; here the question reaches whoever holds an admitted token. */
+  askClient?: boolean;
 }
 
 export interface IMcpRemoteHttpHost {
@@ -96,6 +106,7 @@ function createHostCore(
   gate: TRequestGate,
 ): IHostCore {
   const submitTool = resolveSubmitTool(options.submitTool);
+  const pending = new McpPendingCalls();
   let listener: ReturnType<typeof createServer> | undefined;
   let handler: ReturnType<typeof createMcpHandler> | undefined;
   let stopPromise: Promise<void> | undefined;
@@ -117,32 +128,12 @@ function createHostCore(
       await readCatalog(options.session, submitTool.name);
       if (stoppingRequested) throw new Error('MCP HTTP host stopped during startup');
       handler = createMcpHandler(
-        () => {
-          const server = new Server(
-            { name: options.name, version: options.version },
-            { capabilities: { tools: {} } },
-          );
-          server.setRequestHandler('tools/list', async () => ({
-            // The v1 catalog validator returns a wider schema type than SDK v2's JSON-only Tool.
-            // Normalize at this SDK boundary while keeping one canonical runtime catalog owner.
-            tools: JSON.parse(
-              JSON.stringify([
-                ...(await readCatalog(options.session, submitTool.name)),
-                submitTool,
-              ]),
-            ) as ModernTool[],
-          }));
-          server.setRequestHandler('tools/call', async (request, ctx) =>
-            invokeMcpTool(
-              options.session,
-              request.params.name,
-              request.params.arguments ?? {},
-              ctx.mcpReq.signal,
-              submitTool.name,
-            ),
-          );
-          return server;
-        },
+        (ctx) =>
+          buildAgentMcpServer(
+            options,
+            submitTool,
+            ctx.era === 'modern' ? { kind: 'rounds', pending } : { kind: 'none' },
+          ),
         { maxSubscriptions: 0 },
       );
       const nodeHandler = toNodeHandler(handler);
@@ -241,6 +232,7 @@ function createHostCore(
       stopPromise = (async () => {
         const currentHandler = handler;
         const currentListener = listener;
+        pending.abortAll();
         if (!currentListener) {
           await currentHandler?.close();
           resolveClose?.();

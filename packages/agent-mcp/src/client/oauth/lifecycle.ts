@@ -12,14 +12,14 @@
  *   endpoint the stored issuer advertises. Its outcome is reported by a fixed reason only.
  */
 
-import { selectClientAuthMethod } from '@modelcontextprotocol/sdk/client/auth.js';
+import { selectClientAuthMethod } from '@modelcontextprotocol/client';
 
 import { fetchIssuerMetadata } from './discovery.js';
 import { MCPOAuthError, asOAuthError } from './errors.js';
 import { createOAuthFetch } from './network.js';
 import { oauthCredentialKey } from './store.js';
 
-import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
+import type { FetchLike } from '@modelcontextprotocol/client';
 import type { TMCPOAuthFailure } from './errors.js';
 import type { IMCPOAuthNetwork } from './network.js';
 import type { IMCPOAuthRefreshLock } from './refresh-lock.js';

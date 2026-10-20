@@ -1,7 +1,7 @@
-import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 /** InteractiveSession execution lifecycle, queue, streaming, and tool state. */
 
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 
 import {
   createUserMessage,
@@ -33,6 +33,7 @@ import {
 import { PendingInputQueue } from './interactive-session-pending-queue.js';
 import { capturePostTurnMemory } from './interactive-session-post-turn-memory.js';
 import { executePromptTurn, promptTurnAttribution } from './interactive-session-prompt.js';
+import { ToolAppViewStore, pickToolAppView } from './interactive-session-app-views.js';
 import { STREAMING_FLUSH_INTERVAL_MS } from './interactive-session-streaming.js';
 import {
   attributeTurnModels,
@@ -72,7 +73,7 @@ import type {
   TDriverId,
   TTurnSource,
 } from '@robota-sdk/agent-interface-session';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
+import type { ICompactEvent, IToolAppViewRef } from '@robota-sdk/agent-interface-session';
 
 export type { TTurnSource };
 
@@ -104,12 +105,19 @@ export class SessionExecutionController {
   streamingText = '';
   flushTimer: ReturnType<typeof setTimeout> | null = null;
   activeTools: IToolState[] = [];
+  /** The views of this session's finished model calls, read by a surface on demand. */
+  readonly appViews = new ToolAppViewStore();
+  /** The ids of direct calls running now: their events carry no view, whatever else is running. */
+  readonly directCallIds = new Set<string>();
   /** REMOTE-014 E5: co-drive input queue (same-driver coalesces to the tail, cross-driver appends). */
   readonly pending = new PendingInputQueue({
     refuse: (turnId, reason) => this.turns.refuse(turnId, reason),
     releaseWake: (wakeTaskId) => this.wakeTaskIds.delete(wakeTaskId),
   });
-  /** REMOTE-014 E5: the driver id of the ACTIVE turn (null when idle) — read at event-emit time for attribution. */
+  /**
+   * REMOTE-014 E5: the driver id of the ACTIVE turn or direct runtime-tool call (null when idle) —
+   * read at event-emit time for attribution, and by a surface routing a prompt to its own caller.
+   */
   activeDriverId: TDriverId | null = null;
   /** The ACTIVE peer turn's reply route (undefined outside one) — what `peer_reply` answers. */
   activePeerTurn: IPeerTurnContext | undefined = undefined;
@@ -197,7 +205,7 @@ export class SessionExecutionController {
   handleCompactEvent(event: ICompactEvent): void {
     projectCompactEvent(this.histTracker, this.callbacks, event);
   }
-  handleToolExecution(event: {
+  handleToolExecution(rawEvent: {
     type: 'start' | 'end';
     toolName: string;
     toolArgs?: TToolArgs;
@@ -206,7 +214,10 @@ export class SessionExecutionController {
     toolResultData?: string;
     toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
+    view?: IToolAppView;
   }): void {
+    const { view, ...event } = rawEvent;
+    const appView = this.keepAppView(event, view);
     if (event.type === 'end') {
       this.completedToolExecutions.push({
         name: event.toolName,
@@ -220,12 +231,53 @@ export class SessionExecutionController {
       this.histTracker.getHistory(),
       this.callbacks,
       (activeTools) => void (this.activeTools = activeTools),
-      event,
+      appView ? { ...event, appView } : event,
       event.type === 'start'
         ? advisorToolLineLabel(event.toolName, this.callbacks.getSession()?.getToolSchemas() ?? [])
         : undefined,
       event.type === 'start' ? this.callbacks.checkpointHistory : undefined,
     );
+  }
+
+  /**
+   * Keeps the view of a finished model call for a surface to read on demand and returns the
+   * reference the live `tool_end` carries instead of the document; undefined when nothing is kept.
+   *
+   * A direct call has no view: its result goes back to whoever made it (an app view calling its
+   * server, `mcp serve`), and it is recognised by the id it was started with, not by which claim is
+   * held, because a model's call can end while a direct call holds the claim. A view is kept only
+   * for a call that is running here, so a stray end event occupies no slot, and a view that is not
+   * well formed or does not fit is dropped. Best effort: it must never become a tool failure.
+   */
+  private keepAppView(
+    event: { type: 'start' | 'end'; executionId?: string },
+    view: unknown,
+  ): IToolAppViewRef | undefined {
+    if (view === undefined || event.type !== 'end') return undefined;
+    const { executionId } = event;
+    if (typeof executionId !== 'string' || this.directCallIds.has(executionId)) return undefined;
+    try {
+      if (!this.activeTools.some((tool) => tool.executionId === executionId && tool.isRunning)) {
+        return undefined;
+      }
+      const kept = pickToolAppView(view);
+      if (kept === undefined) return undefined;
+      const viewId = randomUUID();
+      if (!this.appViews.put(viewId, kept)) return undefined;
+      return { viewId, sourceId: kept.sourceId, resourceUri: kept.resourceUri };
+    } catch {
+      // Keeping a view is best effort and must never become a tool failure.
+      return undefined;
+    }
+  }
+
+  /**
+   * Ends a direct call's claim and starts the input that queued up behind it, as the end of a turn
+   * does: a submission or wake that arrived while the call held the claim is not left waiting for
+   * the next unrelated turn.
+   */
+  completeRuntimeTool(claim: IExecutionClaim, resumeQueuedTurn: TResumeQueuedTurnFn): void {
+    this.executionClaim.complete(claim, () => this.drainPendingQueue(resumeQueuedTurn));
   }
 
   /** Opt-in content of one of the running turn's own calls; never throws into the tool wrapper. */
@@ -754,10 +806,14 @@ export class SessionExecutionController {
     qualifiedName: string | undefined,
     invocation: ISkillActivationEvent['invocation'],
     resumeQueuedTurn: TResumeQueuedTurnFn,
+    /** The command's own cancellation, so cancelling it stops the fork it runs. */
+    signal?: AbortSignal,
   ): Promise<ISkillExecutionResult> {
     if (this.executing) {
       throw new Error('Cannot execute fork skill while another prompt is running.');
     }
+    // A command cancelled before its fork starts leaves no trace in the conversation.
+    signal?.throwIfAborted();
     const executionClaim = this.executionClaim.acquire('fork-skill');
 
     try {
@@ -773,10 +829,13 @@ export class SessionExecutionController {
         args,
         invocation,
         qualifiedName,
+        signal,
       );
       await this.applyForkSkillResult(result.result ?? '(empty response)');
       return result;
     } catch (err) {
+      // The caller cancelled: that is the command's outcome, not a failure to report as an error.
+      if (signal?.aborted === true) throw signal.reason;
       // allow-fallback: fork-skill errors must not crash the main execution thread
       const error = err instanceof Error ? err : new Error(String(err));
       this.histTracker.append(

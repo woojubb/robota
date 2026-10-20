@@ -1,4 +1,4 @@
-import type { TTextDeltaCallback, TToolChoice } from './provider';
+import type { TTextDeltaCallback, TThinkingDeltaCallback, TToolChoice } from './provider';
 import type { IRunTraceContext } from './trace-context';
 import type { TMetadata } from './types';
 import type { TStructuredOutputSchema } from '../schema/structured-output';
@@ -79,6 +79,8 @@ export interface IRunOptions {
   awaitProviderSettlement?: boolean;
   /** Per-run streaming text callback. Prefer this over mutating provider callback state. */
   onTextDelta?: TTextDeltaCallback;
+  /** Per-run reasoning-text callback. Reasoning is never part of the reply or the history. */
+  onThinkingDelta?: TThinkingDeltaCallback;
   /** Per-run replay event callback for provider/tool execution boundaries. */
   onExecutionEvent?: TExecutionEventCallback;
   /** Awaited model/tool admission and result records. Failures terminate this run. */

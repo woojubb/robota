@@ -81,6 +81,8 @@ transports share one session at the same time.
   [Sessions, Background Sessions and the Daemon](./sessions-and-daemon.md).
 - **`__PRODUCT_CLI_NAME__ mcp serve`** serves one session to MCP clients (`@robota-sdk/agent-transport-mcp`). See
   [Model Context Protocol (MCP)](./mcp.md).
+- **`__PRODUCT_CLI_NAME__ acp`** serves one session to an editor as an Agent Client Protocol agent over stdio
+  (`@robota-sdk/agent-transport-acp`). See [Editors](./cli.md#editors-agent-client-protocol).
 - **Remote control** attaches a pairing-gated WebRTC transport to the running session. See
   [Devices, Peers and Remote Control](./devices-and-remote.md).
 

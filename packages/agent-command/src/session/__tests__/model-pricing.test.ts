@@ -23,10 +23,12 @@ describe('calculateCost', () => {
     expect(cost).toBeCloseTo(3, 5);
   });
 
-  it('falls back to pattern matching for deepseek variant', () => {
-    const cost = calculateCost('deepseek-v3-turbo', 1_000_000, 0);
-    expect(cost).toBeDefined();
-  });
+  it.each(['deepseek-v3-turbo', 'deepseek/deepseek-v4.1-flash-1017'])(
+    'leaves the cost of unregistered model %s unknown',
+    (model) => {
+      expect(calculateCost(model, 1_000_000, 0)).toBeUndefined();
+    },
+  );
 
   it('returns undefined for completely unknown model', () => {
     const cost = calculateCost('unknown-model-xyz-123', 1_000, 1_000);

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport-mcp",
-  "version": "3.0.0-beta.94",
+  "version": "3.0.0-beta.95",
   "description": "Model Context Protocol (MCP) server transport for the Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
@@ -51,7 +51,6 @@
   },
   "dependencies": {
     "@modelcontextprotocol/node": "^2.0.0",
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "@modelcontextprotocol/server": "^2.0.0",
     "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",

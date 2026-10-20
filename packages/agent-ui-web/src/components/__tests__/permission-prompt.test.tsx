@@ -1101,3 +1101,238 @@ describe('#3282 §2: profile delete is confirmed on ConfirmDialog', () => {
     expect(onAnswerAsk).toHaveBeenCalledWith('confirm-1', { type: 'answer', values: ['yes'] });
   });
 });
+
+/**
+ * An ask whose `maxSelect` is above 1 lets the person tick several options and answer once. Each
+ * option is a toggle (it never answers by itself), Submit answers with the ticked values in option
+ * order, and the dock's digits toggle while Enter submits — the same rules the terminal checklist
+ * (`MultiSelectList`) follows: `minSelect` gates the submit, `maxSelect` caps the ticks.
+ */
+describe("the ask prompt's multi-select", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+  });
+
+  function multiAsk(id: string, request: Record<string, unknown> = {}): TPendingPrompt {
+    return {
+      kind: 'ask',
+      id,
+      request: {
+        title: 'Pick tools',
+        maxSelect: 3,
+        options: [
+          { value: 'read', label: 'Read' },
+          { value: 'write', label: 'Write' },
+          { value: 'bash', label: 'Bash' },
+        ],
+        ...request,
+      },
+    } as unknown as TPendingPrompt;
+  }
+  /** A mouse click reports its click count in `detail`; a keyboard-activated click reports 0. */
+  const click = (element: Element): void => {
+    fireEvent.click(element, { detail: 1 });
+  };
+  const option = (name: string): HTMLElement => screen.getByRole('button', { name });
+  const pressed = (name: string): string | null => option(name).getAttribute('aria-pressed');
+  const submitButton = (): HTMLButtonElement =>
+    screen.getByRole('button', { name: /^Submit/ }) as HTMLButtonElement;
+
+  it('toggles two options without answering, and Submit answers with both in option order', () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface prompts={[multiAsk('m1')]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />,
+    );
+
+    // Ticked out of order on purpose: the answer follows the options, not the clicks.
+    click(option('Write'));
+    click(option('Read'));
+    expect(onAnswerAsk).not.toHaveBeenCalled();
+    expect(pressed('Read')).toBe('true');
+    expect(pressed('Write')).toBe('true');
+    expect(pressed('Bash')).toBe('false');
+
+    click(submitButton());
+    expect(onAnswerAsk).toHaveBeenCalledTimes(1);
+    expect(onAnswerAsk).toHaveBeenCalledWith('m1', { type: 'answer', values: ['read', 'write'] });
+  });
+
+  it('a second click on a ticked option unticks it', () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface prompts={[multiAsk('m1')]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />,
+    );
+
+    click(option('Read'));
+    click(option('Bash'));
+    click(option('Read'));
+    expect(pressed('Read')).toBe('false');
+
+    click(submitButton());
+    expect(onAnswerAsk).toHaveBeenCalledWith('m1', { type: 'answer', values: ['bash'] });
+  });
+
+  it('blocks Submit while fewer than minSelect options are ticked', () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface
+        prompts={[multiAsk('m1', { minSelect: 2 })]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+
+    expect(submitButton().disabled).toBe(true);
+    click(option('Read'));
+    expect(submitButton().disabled).toBe(true);
+    click(submitButton());
+    expect(onAnswerAsk).not.toHaveBeenCalled();
+
+    click(option('Bash'));
+    expect(submitButton().disabled).toBe(false);
+    click(submitButton());
+    expect(onAnswerAsk).toHaveBeenCalledWith('m1', { type: 'answer', values: ['read', 'bash'] });
+  });
+
+  it('ignores a toggle beyond maxSelect, so the answer never carries more than the cap', () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface
+        prompts={[multiAsk('m1', { maxSelect: 2 })]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+
+    click(option('Read'));
+    click(option('Write'));
+    click(option('Bash'));
+    expect(pressed('Bash')).toBe('false');
+    expect(pressed('Read')).toBe('true');
+    expect(pressed('Write')).toBe('true');
+
+    // Unticking one frees a slot for the option that was turned away.
+    click(option('Read'));
+    click(option('Bash'));
+    expect(pressed('Bash')).toBe('true');
+
+    click(submitButton());
+    expect(onAnswerAsk).toHaveBeenCalledWith('m1', { type: 'answer', values: ['write', 'bash'] });
+  });
+
+  it('pre-selects the request defaults, in option order, and drops a default that is no option', () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface
+        prompts={[multiAsk('m1', { default: { values: ['bash', 'ghost', 'write'] } })]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+
+    expect(pressed('Read')).toBe('false');
+    expect(pressed('Write')).toBe('true');
+    expect(pressed('Bash')).toBe('true');
+    expect(submitButton().disabled).toBe(false);
+
+    click(submitButton());
+    expect(onAnswerAsk).toHaveBeenCalledWith('m1', { type: 'answer', values: ['write', 'bash'] });
+  });
+
+  it('starts every prompt from its own defaults, never from what the prompt before it had ticked', () => {
+    const onAnswerAsk = vi.fn();
+    const view = render(
+      <Surface prompts={[multiAsk('m1')]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />,
+    );
+    click(option('Read'));
+    click(option('Write'));
+    expect(pressed('Read')).toBe('true');
+
+    view.rerender(
+      <Surface
+        prompts={[multiAsk('m2', { default: { values: ['bash'] } })]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+    expect(pressed('Read')).toBe('false');
+    expect(pressed('Write')).toBe('false');
+    expect(pressed('Bash')).toBe('true');
+    click(submitButton());
+    expect(onAnswerAsk).toHaveBeenCalledWith('m2', { type: 'answer', values: ['bash'] });
+  });
+
+  it('in the dock a digit toggles instead of answering, and Enter submits once the prompt is armed', () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface prompts={[multiAsk('m1')]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />,
+    );
+    const dialog = screen.getByRole('dialog', { name: 'pending question' });
+
+    // Still arming: a digit, a keyboard click and Enter are all dropped, like any other key.
+    fireEvent.keyDown(dialog, { key: '1' });
+    fireEvent.click(option('Read'), { detail: 0 });
+    fireEvent.keyDown(dialog, { key: 'Enter' });
+    expect(pressed('Read')).toBe('false');
+    expect(onAnswerAsk).not.toHaveBeenCalled();
+
+    act(() => {
+      vi.advanceTimersByTime(PROMPT_ARM_DELAY_MS);
+    });
+    expect(document.activeElement).toBe(dialog);
+    expect(screen.getByText('1–9 toggle · Enter submit · Esc cancel')).toBeTruthy();
+
+    // Enter with nothing ticked does not submit (minSelect defaults to 1).
+    fireEvent.keyDown(dialog, { key: 'Enter' });
+    expect(onAnswerAsk).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(dialog, { key: '3' });
+    fireEvent.keyDown(dialog, { key: '1' });
+    expect(onAnswerAsk).not.toHaveBeenCalled();
+    expect(pressed('Read')).toBe('true');
+    expect(pressed('Bash')).toBe('true');
+
+    // A second press on a ticked digit unticks it again.
+    fireEvent.keyDown(dialog, { key: '3' });
+    expect(pressed('Bash')).toBe('false');
+    fireEvent.keyDown(dialog, { key: '2' });
+
+    fireEvent.keyDown(dialog, { key: 'Enter' });
+    expect(onAnswerAsk).toHaveBeenCalledTimes(1);
+    expect(onAnswerAsk).toHaveBeenCalledWith('m1', { type: 'answer', values: ['read', 'write'] });
+  });
+
+  it("Enter on a focused button is that button's own click: it never submits the selection as well", () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface prompts={[multiAsk('m1')]} onAnswerPermission={vi.fn()} onAnswerAsk={onAnswerAsk} />,
+    );
+    act(() => {
+      vi.advanceTimersByTime(PROMPT_ARM_DELAY_MS);
+    });
+    click(option('Read'));
+
+    // The keydown of an Enter pressed on a focused button bubbles up to the prompt.
+    fireEvent.keyDown(option('Write'), { key: 'Enter' });
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Cancel' }), { key: 'Enter' });
+    expect(onAnswerAsk).not.toHaveBeenCalled();
+  });
+
+  it('Esc in the dock still cancels the question', () => {
+    const onAnswerAsk = vi.fn();
+    render(
+      <Surface
+        prompts={[multiAsk('m1', { default: { values: ['read'] } })]}
+        onAnswerPermission={vi.fn()}
+        onAnswerAsk={onAnswerAsk}
+      />,
+    );
+
+    fireEvent.keyDown(screen.getByRole('dialog', { name: 'pending question' }), { key: 'Escape' });
+    expect(onAnswerAsk).toHaveBeenCalledWith('m1', { type: 'cancelled' });
+  });
+});

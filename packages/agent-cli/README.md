@@ -391,6 +391,12 @@ A client that submits with `receivePrompts: true` answers the permission and ask
 raises; without it, a question no other client answers is denied, so choose the permission mode and
 rules the server runs under.
 
+`robota acp` serves the agent to an editor (Zed, JetBrains and other
+[Agent Client Protocol](https://agentclientprotocol.com/) clients) over stdio. Configure the editor to
+run `robota acp` with the project folder as its working directory. Workspace trust, permissions and
+the sandbox apply as in the terminal, and the editor asks you to approve each tool call the terminal
+would. See [Editors](../../content/guide/cli.md#editors-agent-client-protocol).
+
 ### Reach other sessions and your other devices
 
 `/peers` lists the other live `robota` sessions on this machine, and `/peers send <session-id>

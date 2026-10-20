@@ -37,6 +37,7 @@ import type {
   TSessionExecutionResult,
 } from './session-recoverable.js';
 import { SessionRuntimeTools, linkCancellation } from './session-runtime-tools.js';
+import type { IRuntimeToolInvokeOptions } from '@robota-sdk/agent-interface-session';
 
 import type { CompactionOrchestrator } from './compaction-orchestrator.js';
 import type { ContextWindowTracker } from './context-window-tracker.js';
@@ -114,6 +115,7 @@ export class Session extends SessionBase {
   private readonly hooks?: Record<string, unknown>;
   private readonly hookTypeExecutors?: IHookTypeExecutor[];
   private readonly onTextDeltaCallback?: (delta: string) => void;
+  private readonly onThinkingDeltaCallback?: (delta: string) => void;
   private readonly onContextUpdateCallback?: (state: IContextWindowState) => void;
   private readonly onToolExecutionCallback?: ISessionOptions['onToolExecution'];
   private readonly onCompactCallback?: (summary: string) => void;
@@ -150,6 +152,7 @@ export class Session extends SessionBase {
     this.hooks = options.hooks;
     this.hookTypeExecutors = options.hookTypeExecutors;
     this.onTextDeltaCallback = options.onTextDelta;
+    this.onThinkingDeltaCallback = options.onThinkingDelta;
     this.onContextUpdateCallback = options.onContextUpdate;
     this.onToolExecutionCallback = options.onToolExecution;
     this.onCompactCallback = options.onCompact;
@@ -202,7 +205,12 @@ export class Session extends SessionBase {
       systemMessage,
       this.eventService,
     );
-    this.runtimeTools = new SessionRuntimeTools(this.agent, this.turnClaim, this.sessionId);
+    this.runtimeTools = new SessionRuntimeTools(
+      this.agent,
+      this.turnClaim,
+      this.sessionId,
+      options.ask,
+    );
     fireSessionStartHook(
       this.sessionId,
       this.cwd,
@@ -443,10 +451,10 @@ export class Session extends SessionBase {
   async invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
-    options?: { signal?: AbortSignal },
+    options?: IRuntimeToolInvokeOptions,
   ): Promise<IToolExecutionResult> {
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
-    return this.runtimeTools.invoke(name, parameters, options?.signal);
+    return this.runtimeTools.invoke(name, parameters, options);
   }
 
   /**
@@ -593,6 +601,7 @@ export class Session extends SessionBase {
       transcriptPath: this.transcriptPath,
       maxTurns: this.maxTurns,
       onTextDelta: this.onTextDeltaCallback,
+      onThinkingDelta: this.onThinkingDeltaCallback,
       onContextUpdate: this.onContextUpdateCallback,
       onToolExecution: this.onToolExecutionCallback,
       emitProviderCallCompleted: (observation) =>

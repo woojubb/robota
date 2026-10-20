@@ -54,7 +54,7 @@ const SRC = path.resolve(import.meta.dirname, '..');
 
 /** Modules that can start a process or open a connection. */
 const FORBIDDEN =
-  /^(node:)?(child_process|net|tls|http|https|http2|dgram|worker_threads|cluster|dns|undici|ws|node-fetch|axios|@modelcontextprotocol\/sdk)/;
+  /^(node:)?(child_process|net|tls|http|https|http2|dgram|worker_threads|cluster|dns|undici|ws|node-fetch|axios|@modelcontextprotocol\/(client|core|sdk))/;
 
 function sourceFiles(dir: string): string[] {
   // RECURSIVE. A non-recursive listing left a future `definition/<subdir>/` uncovered while the
@@ -103,6 +103,8 @@ describe('the pure pipeline imports nothing that can connect or spawn', () => {
     expect(FORBIDDEN.test('node:child_process')).toBe(true);
     expect(FORBIDDEN.test('undici')).toBe(true);
     expect(FORBIDDEN.test('@modelcontextprotocol/sdk/client/index.js')).toBe(true);
+    expect(FORBIDDEN.test('@modelcontextprotocol/client')).toBe(true);
+    expect(FORBIDDEN.test('@modelcontextprotocol/core')).toBe(true);
     expect(FORBIDDEN.test('./types.js')).toBe(false);
     expect(FORBIDDEN.test('node:crypto')).toBe(false);
   });

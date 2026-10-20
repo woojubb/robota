@@ -8,9 +8,9 @@ from external MCP servers. It keeps three concerns separate:
   identity and fingerprint an approval is tied to. Pure; nothing here connects or spawns.
 - **Activation** — whether a definition may be used: a deny-by-default admission port, exact identity
   matching, and a replaceable approval and audit store. The host decides workspace trust.
-- **Client, catalog and supervision** — the official `@modelcontextprotocol/sdk` client behind an
-  admit-then-construct transport seam, the canonical catalog of discovered tools, prompts and resources,
-  and a supervisor for the connection and catalog lifecycle.
+- **Client, catalog and supervision** — the official `@modelcontextprotocol/client`, one client for both
+  protocol eras, behind an admit-then-construct transport seam, the canonical catalog of discovered
+  tools, prompts and resources, and a supervisor for the connection and catalog lifecycle.
 
 Transports are Streamable HTTP and host-authorized stdio. Discovered tools enter the agent through the
 ordinary tool slot, so there is no MCP-specific runtime path. The agent runtime CLI uses this package for its
@@ -37,21 +37,29 @@ grant process/network authority or fall back to replay a mutation on another pro
 
 The wire contract is pinned to the [official schema at revision
 046fa30](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/046fa30efd374370afb87ef830bd788eac5f217e/schema/2026-07-28/schema.ts).
-The locked v1 SDK supplies framing and existing result validators; its `Client` initialization is
-bypassed for this path. Review of SDK 1.31.0 confirms its latest protocol remains 2025-11-25, so an SDK
-version upgrade alone would not implement this wire change.
+One `@modelcontextprotocol/client` serves both eras. This path pins it to `2026-07-28`: a server that
+does not offer that revision is refused by name and never retried over the legacy handshake, while
+omitting the version negotiates the legacy era. A result without its `resultType` is refused rather than
+assumed complete. An invalid freshness hint on `server/discover` is read as the safest one (`ttlMs` 0,
+`cacheScope` private) instead of rejecting the server; a list page or resource read with one is refused.
 
-Discovery validates and exposes each page's `ttlMs`, `cacheScope` and host receive time, plus the
-server discovery hint. These values are freshness hints, not integrity or authority. Retained catalog
+Discovery validates and exposes each page's `ttlMs`, `cacheScope` and host receive time, and exposes
+the server discovery hint as the client read it. These values are freshness hints, not integrity or authority. Retained catalog
 identity includes a fresh carrier generation, preventing private data reuse across reconnects.
 If optional server information is absent, the configured server ID labels the source and the version
 is empty with `serverInfoProvided: false`; no external revision is invented.
 
 This initial SDK surface supports declared tools, prompts and resources discovery plus completed
-tool calls. `compatibilityDiagnostics` identifies unavailable MRTR client input, subscription watches
-and unselected optional extensions. Unsupported result types close the carrier and require operation inspection;
-they never become successful tool observations or cause automatic replay. A deadline or abort also
-closes uncertain execution. Hosts must refresh lists explicitly; this does not implement automatic
+tool calls. A host that opens the session with `elicitation: true` lets a server's form-mode
+elicitation during a tool call reach a person as ask prompts through that call's `ask` port, titled
+with the configured server id; the answer continues the same call, and the prompt is withdrawn when
+the call ends (when the last in-flight call to that server ends, if there are several). Otherwise `compatibilityDiagnostics` names the unavailable MRTR client input, as it
+does subscription watches and unselected optional extensions. Unsupported result types close the
+carrier and require operation inspection; so does an embedded request this surface does not answer
+(sampling, roots, more rounds than the client allows), while an embedded elicitation the client
+refuses on its face (URL mode, a malformed form) fails the call with the carrier open; none ever
+becomes a successful tool observation or causes automatic replay. A deadline or abort also closes
+uncertain execution. Hosts must refresh lists explicitly; this does not implement automatic
 TTL-based catalog refresh. Reading a generic resource cannot activate a skill.
 
 ### Opt-in Skills wire view
@@ -195,9 +203,10 @@ it is never connected with its static headers alone.
 
 ## Where it sits
 
-Depends only on `@robota-sdk/agent-core` (peer) and `@modelcontextprotocol/sdk`. It owns no tool
-registry and no product identity: the composition root (for example the CLI) chooses the client identity
-and wires the discovered tools in.
+Depends only on `@robota-sdk/agent-core` (peer) and the MCP client packages
+(`@modelcontextprotocol/client` and `@modelcontextprotocol/core`). It owns no tool registry and no
+product identity: the composition root (for example the CLI) chooses the client identity and wires the
+discovered tools in.
 
 ## Documentation
 

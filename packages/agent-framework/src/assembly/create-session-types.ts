@@ -1,4 +1,4 @@
-import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
@@ -122,6 +122,8 @@ export interface ICreateSessionOptions {
   ask?: IUserInteraction['ask'];
   /** Callback for text deltas — enables streaming text to the UI in real-time */
   onTextDelta?: (delta: string) => void;
+  /** Callback for reasoning text a provider streams while it thinks; never part of the reply */
+  onThinkingDelta?: (delta: string) => void;
   /** Callback when context window usage is refreshed */
   onContextUpdate?: (state: IContextWindowState) => void;
   /** Custom prompt-for-approval function (injected from CLI) */
@@ -202,6 +204,8 @@ export interface ICreateSessionOptions {
     toolResultData?: string;
     toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
+    /** The source's view of the result, for a surface that can host one; never model context. */
+    view?: IToolAppView;
   }) => void;
   /** Callback when context is compacted */
   onCompact?: (summary: string) => void;

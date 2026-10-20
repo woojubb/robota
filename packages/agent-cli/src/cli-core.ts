@@ -121,6 +121,11 @@ import {
   mcpServeProtocolArgs,
   validateMcpServeInvocation,
 } from './startup/mcp-serve-invocation.js';
+import {
+  acpProtocolArgs,
+  admitAcpWorkspace,
+  validateAcpInvocation,
+} from './startup/acp-invocation.js';
 import { resolveServeHttpOptions } from './utils/serve-http-args.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { providerHasOwnCredential } from './handoff/handoff-host-adapter.js';
@@ -131,6 +136,7 @@ import {
 import { runPrintMode } from './modes/print-mode.js';
 import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
 import { createServeSessionDirectory } from './modes/serve-session-directory.js';
+import { runAcpMode } from './modes/acp-mode.js';
 import { runMcpServeMode } from './modes/mcp-serve-mode.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
 import { composeMcpClientForStartup, mcpStartupModelNotice } from './startup/mcp-startup.js';
@@ -210,20 +216,22 @@ export async function startCliCore(
   const launch = await applyLaunchInvocation(productRuntime);
   if (launch.kind === 'refused') return;
   const initialInput = launch.kind === 'launched' ? launch.initialInput : undefined;
-  const parsedMcpArgs = mcpServeProtocolArgs(process.argv.slice(2));
-  const mcpOutput = parsedMcpArgs === undefined ? undefined : reserveMcpStdout();
+  // `mcp serve` and `acp` speak a protocol on stdout: reserve it before startup can print anything.
+  const parsedProtocolArgs =
+    mcpServeProtocolArgs(process.argv.slice(2)) ?? acpProtocolArgs(process.argv.slice(2));
+  const protocolOutput = parsedProtocolArgs === undefined ? undefined : reserveMcpStdout();
   try {
     await runCliCore(
       options,
       createBackgroundTaskRunners,
       presentation,
       initialInput,
-      mcpOutput?.protocol,
-      parsedMcpArgs,
+      protocolOutput?.protocol,
+      parsedProtocolArgs,
       telemetryEnvironment,
     );
   } finally {
-    mcpOutput?.restore();
+    protocolOutput?.restore();
   }
 }
 
@@ -232,7 +240,7 @@ async function runCliCore(
   createBackgroundTaskRunners: (shellExecutable?: string) => IBackgroundTaskRunner[],
   presentation?: ICliPresentation,
   initialInput?: string,
-  mcpProtocolStdout?: Writable,
+  protocolStdout?: Writable,
   preParsedArgs?: IParsedCliArgs,
   telemetryEnvironment: Readonly<Record<string, string>> = {},
 ): Promise<void> {
@@ -273,10 +281,11 @@ async function runCliCore(
     process.exit(1);
   }
   const version = runtimeVersion(productRuntime);
-  const { mcpServe, http: mcpHttp } = validateMcpServeInvocation(
+  const { mcpServe, http: mcpHttp, askClient: mcpAskClient } = validateMcpServeInvocation(
     args,
     productRuntime.config.identity.cliName,
   );
+  const { acp } = validateAcpInvocation(args, productRuntime.config.identity.cliName);
   const serveHttp = resolveServeHttpOptions(args, productRuntime.environment);
   // Held by the serve options from here on. Left in the environment, every tool subprocess this
   // runtime starts would inherit the bearer that admits an HTTP client.
@@ -330,6 +339,8 @@ async function runCliCore(
     return;
   }
 
+  // `acp` is deliberately not gated here: refusing at startup would show the editor a crashed agent
+  // with no reason. Its trust check runs when the editor creates the session (`admitAcpWorkspace`).
   if (
     (args.printMode || args.goal !== undefined || args.serve || mcpServe) &&
     // Safe mode, and a Restricted start a person chose (a background session started Restricted from
@@ -385,7 +396,7 @@ async function runCliCore(
   }
 
   if (
-    (args.printMode || args.goal !== undefined || args.serve || mcpServe) &&
+    (args.printMode || args.goal !== undefined || args.serve || mcpServe || acp) &&
     projectAccess.status === 'restricted'
   ) {
     process.stderr.write(
@@ -482,7 +493,7 @@ async function runCliCore(
     presentation === undefined
       ? undefined
       : createTuiPresentationSources(presentation, {
-          enabled: !(args.printMode || args.goal !== undefined || args.serve || mcpServe),
+          enabled: !(args.printMode || args.goal !== undefined || args.serve || mcpServe || acp),
           cwd,
           productRuntime,
           projectAccess,
@@ -493,7 +504,10 @@ async function runCliCore(
   const keybindingsSource = tuiSources?.keybindingsSource;
   const theme = tuiSources?.theme;
   const mcpStartupMode: TMcpStartupMode =
-    args.printMode || args.goal ? 'print' : args.serve || mcpServe ? 'serve' : 'interactive';
+    args.printMode || args.goal ? 'print' : args.serve || mcpServe || acp ? 'serve' : 'interactive';
+  // Robota as an MCP server and the ACP editor agent run the serve runtime without a surface that
+  // answers asks; a server's elicitation there could only be declined.
+  const mcpAskSurface = !(args.printMode || args.goal || mcpServe || acp);
   const mcp =
     options.mcpActivationAdapter === undefined && !safeMode
       ? await composeMcpClientForStartup({
@@ -504,6 +518,7 @@ async function runCliCore(
           cwd,
           env: productRuntime.environment,
           mode: mcpStartupMode,
+          askSurface: mcpAskSurface,
           ...(options.mcpStdioAuthorities === undefined
             ? {}
             : { stdioAuthorities: options.mcpStdioAuthorities }),
@@ -946,7 +961,7 @@ async function runCliCore(
     {
       serviceVersion: version,
       telemetryServiceName: productRuntime.config.identity.telemetryServiceName,
-      surface: resolveLiveTelemetrySurface(args, mcpServe),
+      surface: resolveLiveTelemetrySurface(args, mcpServe, acp),
     },
     (message) => process.stderr.write(`${message}\n`),
     createCliLiveContentRedaction({
@@ -1014,8 +1029,8 @@ async function runCliCore(
     return;
   }
 
-  if (mcpServe) {
-    if (mcpProtocolStdout === undefined) throw new Error('MCP protocol stdout was not reserved');
+  if (mcpServe || acp) {
+    if (protocolStdout === undefined) throw new Error('Protocol stdout was not reserved');
     const sessionOptions = buildServeSessionOptions({
       productRuntime,
       cwd,
@@ -1059,7 +1074,33 @@ async function runCliCore(
       memorySessionOptions,
     });
     try {
-      await runMcpServeMode(productRuntime, sessionOptions, version, mcpProtocolStdout, mcpHttp);
+      if (acp) {
+        await runAcpMode({
+          productRuntime,
+          sessionOptions,
+          version,
+          cwd,
+          input: process.stdin,
+          output: protocolStdout,
+          admitWorkspace: () =>
+            admitAcpWorkspace({
+              access: workspaceComposition.projectAccess,
+              cwd,
+              cliName: productRuntime.config.identity.cliName,
+              restrictedByChoice:
+                safeMode || optionArgv(process.argv).includes(RESTRICTED_WORKSPACE_FLAG),
+            }),
+        });
+      } else {
+        await runMcpServeMode(
+          productRuntime,
+          sessionOptions,
+          version,
+          protocolStdout,
+          mcpHttp,
+          mcpAskClient,
+        );
+      }
     } finally {
       providerConnectionHost.shutdown();
       await livePromptTracePort?.shutdown();

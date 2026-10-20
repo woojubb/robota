@@ -65,6 +65,14 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   'project-status': { type: 'project-status', requestId: 'project-status-1' },
   'project-diff': { type: 'project-diff', requestId: 'project-diff-1', path: 'a.txt' },
   'project-memory': { type: 'project-memory', requestId: 'project-memory-1' },
+  'call-app-tool': {
+    type: 'call-app-tool',
+    requestId: 'app-tool-1',
+    viewId: 'view-1',
+    name: 'mcp__files__list_files',
+    arguments: { path: 'src' },
+  },
+  'read-app-view': { type: 'read-app-view', requestId: 'app-view-1', viewId: 'view-1' },
   'get-background-tasks': {
     type: 'get-background-tasks',
     filter: { kind: 'agent', includeClosed: true },
@@ -257,6 +265,25 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     requestId: 'project-memory-1',
     result: { kind: 'memory', content: '# Memory', path: '.fixture-state/memory/MEMORY.md', truncated: false },
   },
+  app_tool_result: {
+    type: 'app_tool_result',
+    requestId: 'app-tool-1',
+    success: true,
+    data: { rows: 3 },
+    parts: [{ type: 'text', text: 'three rows' }],
+    error: 'ignored on success',
+  },
+  app_view: {
+    type: 'app_view',
+    requestId: 'app-view-1',
+    view: {
+      sourceId: 'files',
+      resourceUri: 'ui://files/list',
+      mimeType: 'text/html;profile=mcp-app',
+      html: '<main>rows</main>',
+      callableTools: { list_files: 'mcp__files__list_files' },
+    },
+  },
   background_task_event: { type: 'background_task_event', event: {} as never },
   background_job_group_event: { type: 'background_job_group_event', event: {} as never },
   plan_event: { type: 'plan_event', event: {} as never },
@@ -292,6 +319,41 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
 
 const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
   ['null', null],
+  [
+    'call-app-tool without requestId',
+    { type: 'call-app-tool', viewId: 'v', name: 'n', arguments: {} },
+  ],
+  [
+    'call-app-tool with an empty requestId',
+    { type: 'call-app-tool', requestId: '', viewId: 'v', name: 'n', arguments: {} },
+  ],
+  [
+    'call-app-tool without a viewId',
+    { type: 'call-app-tool', requestId: 'r', name: 'n', arguments: {} },
+  ],
+  [
+    'call-app-tool with an empty viewId',
+    { type: 'call-app-tool', requestId: 'r', viewId: '', name: 'n', arguments: {} },
+  ],
+  [
+    'call-app-tool without a name',
+    { type: 'call-app-tool', requestId: 'r', viewId: 'v', arguments: {} },
+  ],
+  [
+    'call-app-tool with a string argument bag',
+    { type: 'call-app-tool', requestId: 'r', viewId: 'v', name: 'n', arguments: 'x' },
+  ],
+  [
+    'call-app-tool with an array argument bag',
+    { type: 'call-app-tool', requestId: 'r', viewId: 'v', name: 'n', arguments: [] },
+  ],
+  [
+    'call-app-tool without arguments',
+    { type: 'call-app-tool', requestId: 'r', viewId: 'v', name: 'n' },
+  ],
+  ['read-app-view without requestId', { type: 'read-app-view', viewId: 'v' }],
+  ['read-app-view without viewId', { type: 'read-app-view', requestId: 'r' }],
+  ['read-app-view with a numeric viewId', { type: 'read-app-view', requestId: 'r', viewId: 1 }],
   ['an array', [{ type: 'abort' }]],
   ['a string', 'abort'],
   ['no type', { prompt: 'x' }],
@@ -465,6 +527,20 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
 
 const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
   ['null', null],
+  ['app_tool_result without requestId', { type: 'app_tool_result', success: true }],
+  ['app_tool_result with a string flag', { type: 'app_tool_result', requestId: 'r', success: 'yes' }],
+  ['app_tool_result without a flag', { type: 'app_tool_result', requestId: 'r' }],
+  [
+    'app_tool_result with non-record parts',
+    { type: 'app_tool_result', requestId: 'r', success: true, parts: ['x'] },
+  ],
+  [
+    'app_tool_result with a numeric error',
+    { type: 'app_tool_result', requestId: 'r', success: false, error: 1 },
+  ],
+  ['app_view without requestId', { type: 'app_view', view: {} }],
+  ['app_view with a string view', { type: 'app_view', requestId: 'r', view: '<main/>' }],
+  ['app_view without a view', { type: 'app_view', requestId: 'r' }],
   ['an array', [{ type: 'resume_gap' }]],
   ['an unknown type', { type: 'nope' }],
   ['text_delta without delta', { type: 'text_delta' }],
@@ -639,6 +715,31 @@ describe('decodeClientMessage (issue #2045)', () => {
       ok: true,
       message,
     });
+  });
+});
+
+describe('the app tool and app view frames', () => {
+  it('accepts an app tool result whatever JSON the tool returned, and one without data', () => {
+    for (const data of [null, 0, 'text', [1, 2], { nested: { ok: true } }]) {
+      expect(
+        decodeServerMessage({ type: 'app_tool_result', requestId: 'r', success: true, data }).ok,
+      ).toBe(true);
+    }
+    expect(decodeServerMessage({ type: 'app_tool_result', requestId: 'r', success: false }).ok).toBe(
+      true,
+    );
+  });
+
+  it('keeps an app tool call with no arguments as an empty bag, not as a missing one', () => {
+    expect(
+      decodeClientMessage({
+        type: 'call-app-tool',
+        requestId: 'r',
+        viewId: 'v',
+        name: 'n',
+        arguments: {},
+      }).ok,
+    ).toBe(true);
   });
 });
 

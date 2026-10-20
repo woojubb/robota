@@ -126,6 +126,7 @@ import type {
   IProviderDefinition,
   IUserInteraction,
   TActionResponse,
+  IToolAppView,
   IToolSchema,
   IToolExecutionResult,
   TToolArgs,
@@ -139,6 +140,7 @@ import type {
 } from '@robota-sdk/agent-interface-execution';
 import type {
   IGoalState,
+  IRuntimeToolInvokeOptions,
   ITurnHandle,
   IPlanArtifact,
   ISubmitOptions,
@@ -224,6 +226,7 @@ export class InteractiveSession
     controller: () => this.execCtrl,
     ensureInitialized: () => this.ensureInitialized(),
     session: () => this.getSessionOrThrow(),
+    resumeQueuedTurn: (entry) => this.resumeQueuedTurn(entry),
   });
   private shutdownPromise: Promise<void> | null = null;
   private externalEventIngress?: ExternalEventIngress;
@@ -436,7 +439,7 @@ export class InteractiveSession
       (result) => this.execCtrl.applyForkSkillResult(result),
       (event, appendHistory) => this.histTracker.recordSkillActivationEvent(event, appendHistory),
       (content, forkOptions) => runSkillInFork(content, forkOptions, this.getSessionOrThrow()),
-      (skill, args, displayInput, qualifiedName, invocation) =>
+      (skill, args, displayInput, qualifiedName, invocation, signal) =>
         this.execCtrl.executeForkSkillCommand(
           skill,
           args,
@@ -444,16 +447,18 @@ export class InteractiveSession
           qualifiedName,
           invocation,
           (entry) => this.resumeQueuedTurn(entry),
+          signal,
         ),
       (execute) =>
         this.execCtrl.executeForegroundCommand(execute, (entry) => this.resumeQueuedTurn(entry)),
       shellExec,
       remoteCommandPolicy,
       this.pluginSkills,
-      async (preparePrompt, displayInput, rawInput, originDriverId) => {
+      async (preparePrompt, displayInput, rawInput, originDriverId, signal) => {
         await this.submitNewTurn(displayInput ?? rawInput ?? '', displayInput, rawInput, {
           preparePrompt,
           ...(originDriverId !== undefined ? { driverId: originDriverId } : {}),
+          ...(signal !== undefined ? { signal } : {}),
         });
       },
     );
@@ -650,9 +655,10 @@ export class InteractiveSession
       pendingRestoreMessages: this.pendingRestoreMessages,
       restoredSystemPrompt: this.restoredSystemPrompt,
       // Issue #3288 §1: `context` is optional here so this stays assignable to the narrower
-      // `TInteractivePermissionHandler` this deps field is typed as (2 args) — the caller that
-      // actually supplies a `requester`/`signal` (the child-process subagent runner) holds this same
-      // function through the session-layer's own, wider `TPermissionHandler` and calls it with three.
+      // `TInteractivePermissionHandler` this deps field is typed as (2 args). The callers that supply
+      // one — the session's approval path (the call's `executionId`) and the subagent runners (a
+      // `requester`, a `signal`) — hold this same function through the session layer's wider
+      // `TPermissionHandler` and call it with three.
       permissionHandler: (toolName: string, toolArgs: TToolArgs, context?: IPermissionAskContext) =>
         this.promptRegistry.requestPermission(
           toolName,
@@ -662,6 +668,7 @@ export class InteractiveSession
         ),
       askHandler: this.askHandler,
       onTextDelta: (delta) => this.execCtrl.handleTextDelta(delta),
+      onThinkingDelta: (delta) => this.emit('thinking_delta', delta),
       onContextUpdate: (state) => this.emit('context_update', state),
       onCompactEvent: (event) => this.execCtrl.handleCompactEvent(event),
       onUsageRecorded: (entries) => {
@@ -863,10 +870,14 @@ export class InteractiveSession
     return this.runtimeTools.listRuntimeTools();
   }
 
+  readToolAppView(viewId: string): IToolAppView | undefined {
+    return this.execCtrl.appViews.get(viewId);
+  }
+
   invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
-    options?: { signal?: AbortSignal },
+    options?: IRuntimeToolInvokeOptions,
   ): Promise<IToolExecutionResult> {
     return this.runtimeTools.invokeRuntimeTool(name, parameters, options);
   }
@@ -1589,6 +1600,7 @@ export class InteractiveSession
       // REMOTE-007 D3: drain before dropping listeners so any prompt still parked at shutdown settles
       // fail-closed (the awaiting checkPermission/tool unblocks) rather than hanging on a cleared emitter.
       this.promptRegistry.drain();
+      this.execCtrl.appViews.clear();
       this.listeners.clear();
       if (moduleShutdownErrors.length > 0) {
         throw new AggregateError(moduleShutdownErrors, 'Command module shutdown failed');
@@ -1815,6 +1827,7 @@ export class InteractiveSession
   clearConversationHistory(): void {
     this.getSessionOrThrow().clearHistory();
     this.histTracker.clearHistory();
+    this.execCtrl.appViews.clear();
     this.persistCurrentSession();
     this.emit('context_update', this.getContextState());
     this.emit('history_cleared'); // CMD-004 Stage E: broadcast — every surface refreshes its transcript
@@ -2151,6 +2164,7 @@ export class InteractiveSession
     source: TCommandInvocationSource = 'user',
     originDriverId?: TDriverId,
     locality?: TCommandSurfaceLocality,
+    options?: { readonly signal?: AbortSignal },
   ): Promise<ICommandResult | null> {
     if (this.orgPolicy?.blockedCommands?.includes(name)) {
       return {
@@ -2189,8 +2203,8 @@ export class InteractiveSession
     // turn running, keeps the unchanged path.
     const bypassMidTurnGate = name === 'loop' && isLoopStopVerb(args) && this.execCtrl.executing;
     const result = bypassMidTurnGate
-      ? await this.skillRouter.executeCommand(name, args, source, originDriverId, locality)
-      : await super.executeCommand(name, args, source, originDriverId, locality);
+      ? await this.skillRouter.executeCommand(name, args, source, originDriverId, locality, options)
+      : await super.executeCommand(name, args, source, originDriverId, locality, options);
     if (result === null) return null;
     if (result.data?.['pluginRegistryReloaded'] === true && source !== 'model') {
       this.pluginSkills = this.loadPluginSkills();

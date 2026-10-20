@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-export type TLiveTelemetrySurface = 'interactive' | 'print' | 'serve' | 'mcp-serve';
+export type TLiveTelemetrySurface = 'interactive' | 'print' | 'serve' | 'mcp-serve' | 'acp';
 
 /** The same opaque-ID shape the framework's live-prompt-trace boundary allows through. */
 const OPAQUE_ID = /^[A-Za-z0-9_-]{1,128}$/u;
@@ -18,9 +18,11 @@ export function safeLiveProviderRequestId(value: unknown): string | undefined {
 export function resolveLiveTelemetrySurface(
   args: { readonly printMode: boolean; readonly goal: string | undefined; readonly serve: boolean },
   mcpServe: boolean,
+  acp = false,
 ): TLiveTelemetrySurface {
   if (args.printMode || args.goal) return 'print';
   if (mcpServe) return 'mcp-serve';
+  if (acp) return 'acp';
   return args.serve ? 'serve' : 'interactive';
 }
 
@@ -40,7 +42,7 @@ export interface ILiveTelemetryResource {
 export function createLiveTelemetryResource(host?: ILiveTelemetryHostResource): ILiveTelemetryResource {
   if (host && (
     !/^[A-Za-z0-9][A-Za-z0-9.+-]{0,63}$/u.test(host.serviceVersion) ||
-    !['interactive', 'print', 'serve', 'mcp-serve'].includes(host.surface) ||
+    !['interactive', 'print', 'serve', 'mcp-serve', 'acp'].includes(host.surface) ||
     !/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/u.test(host.telemetryServiceName)
   )) {
     throw new Error('Invalid telemetry resource identity.');

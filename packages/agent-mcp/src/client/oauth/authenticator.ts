@@ -22,10 +22,11 @@
  */
 
 import {
+  OAuthError,
+  OAuthErrorCode,
   extractWWWAuthenticateParams,
   refreshAuthorization,
-} from '@modelcontextprotocol/sdk/client/auth.js';
-import { InvalidGrantError } from '@modelcontextprotocol/sdk/server/auth/errors.js';
+} from '@modelcontextprotocol/client';
 
 import { MCPSingleFlightCache } from '../single-flight.js';
 import { discoverMCPOAuthServer, sameUrl } from './discovery.js';
@@ -34,7 +35,7 @@ import { credentialFromTokens } from './login.js';
 import { createOAuthFetch } from './network.js';
 import { oauthCredentialKey } from './store.js';
 
-import type { OAuthClientInformation, OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
+import type { OAuthClientInformation, OAuthTokens } from '@modelcontextprotocol/client';
 import type { IMCPOAuthConfig } from '../../definition/types.js';
 import type {
   IMCPAuthorizationRejection,
@@ -176,7 +177,9 @@ export function createOAuthAuthenticator(
         fetchFn: createOAuthFetch(options.network, signal),
       });
     } catch (error) {
-      if (!(error instanceof InvalidGrantError)) throw asOAuthError(error, 'refresh-failed');
+      // By code, not class: the SDK parses the server's `error` member into an `OAuthError`.
+      if (!(error instanceof OAuthError && error.code === OAuthErrorCode.InvalidGrant))
+        throw asOAuthError(error, 'refresh-failed');
       // Still under the lock. A holder that outlived its lock may have rotated the token meanwhile:
       // the refresh token refused is then not the stored one, and the stored one is not cleared.
       const current = await options.store.get(key);

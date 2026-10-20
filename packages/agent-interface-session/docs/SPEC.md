@@ -100,6 +100,12 @@ consumer would write a dead branch for.
 An aborted turn may resolve with a partial result marked interrupted. That partial response is
 for local history, not a completed answer to an external sender.
 
+A skill command takes its caller's cancellation, and it reaches the work the command does before it
+submits its turn or runs its fork as well as that turn or fork. Until the turn exists a session-wide
+abort has nothing to stop, so without the caller's signal a cancel landing while the skill is
+prepared would let its turn start anyway. A command cancelled this way rejects with the signal's
+reason whichever step the cancel reached, so its caller never waits for a turn that will not come.
+
 A consumer narrows a rejection with the exported predicate rather than `instanceof`, because the
 error is declared here as a shape but constructed in a package this one does not depend on. The
 distinction that predicate draws matters at a transport boundary: a "turn did not run" rejection is
@@ -111,8 +117,15 @@ behind what looks like a routine queue decision.
 
 A session exposes a canonical runtime-tool capability (list + invoke, with schemas and abortable
 execution) as its own surface. The session owns permission, hooks, execution/audit events, result
-admission, cancellation and shutdown for it. Transports may neither synthesize a parallel command
-catalog nor execute commands directly.
+admission, cancellation and shutdown for it. A caller chooses whether a permission decision the call
+needs may be put to a person — by default it fails closed, which is right for a caller nobody is
+watching — and may name the driver a prompt is attributed to; cancelling the call withdraws a prompt
+it opened. Transports may neither synthesize a
+parallel command catalog nor execute commands directly.
+
+A finished model call's tool event names the view its source declared by reference, and a driving
+surface reads the document on demand, so a view's document never fans out to every surface or
+into a replay; a direct call carries no view.
 
 ## Non-goals
 

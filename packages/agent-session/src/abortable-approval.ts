@@ -1,4 +1,8 @@
-import type { TPermissionResult } from './permission-types.js';
+import type {
+  IPermissionAskContext,
+  TPermissionHandler,
+  TPermissionResult,
+} from './permission-types.js';
 import type { ITerminalOutput, TToolArgs } from '@robota-sdk/agent-core';
 
 /**
@@ -86,7 +90,7 @@ export interface IApprovalRequest {
   toolArgs: TToolArgs;
   alreadyAllowed: boolean;
   /** A consumer-supplied handler. Takes precedence over `injectedPrompt`, as it always did. */
-  handler?: (toolName: string, toolArgs: TToolArgs) => Promise<TPermissionResult>;
+  handler?: TPermissionHandler;
   injectedPrompt?: (
     terminal: ITerminalOutput,
     toolName: string,
@@ -94,6 +98,8 @@ export interface IApprovalRequest {
   ) => Promise<TPermissionResult>;
   terminal?: ITerminalOutput;
   signal?: AbortSignal;
+  /** The tool call being decided, handed to `handler` so the prompt it raises can name the call. */
+  executionId?: string;
 }
 
 export async function decideApproval(request: IApprovalRequest): Promise<IApprovalOutcome> {
@@ -110,8 +116,20 @@ export async function decideApproval(request: IApprovalRequest): Promise<IApprov
   if (request.signal?.aborted === true) return denied;
   // Which prompt to run is this module's business too: the enforcer supplies the approvers it has
   // and does not decide between them.
+  // The handler is given the same signal the wait observes, so it can withdraw the prompt itself:
+  // racing the abort ends this wait, but only the handler can take the question off a screen. A call
+  // with neither a signal nor an id asks exactly as before (two arguments), so a handler that counts
+  // them sees no change.
+  const context: IPermissionAskContext = {
+    ...(request.signal ? { signal: request.signal } : {}),
+    ...(request.executionId !== undefined ? { executionId: request.executionId } : {}),
+  };
+  const hasContext = request.signal !== undefined || request.executionId !== undefined;
   const prompt = request.handler
-    ? (): Promise<TPermissionResult> => request.handler!(request.toolName, request.toolArgs)
+    ? (): Promise<TPermissionResult> =>
+        hasContext
+          ? request.handler!(request.toolName, request.toolArgs, context)
+          : request.handler!(request.toolName, request.toolArgs)
     : request.injectedPrompt && request.terminal
       ? (): Promise<TPermissionResult> =>
           request.injectedPrompt!(request.terminal!, request.toolName, request.toolArgs)

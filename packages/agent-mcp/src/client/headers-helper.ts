@@ -95,6 +95,8 @@ const FORBIDDEN_HEADERS: ReadonlySet<string> = new Set([
   'accept',
   'mcp-session-id',
   'mcp-protocol-version',
+  'mcp-method',
+  'mcp-name',
   'traceparent',
 ]);
 

@@ -17,6 +17,7 @@ import type {
 import type {
   IMCPDiscoverOptions,
   IMCPSession,
+  IMCPToolCallOptions,
   IMCPToolCallResult,
   TMCPListChangedListener,
 } from '../client/session.js';
@@ -73,7 +74,7 @@ export interface IFakeSessionConfig {
   callTool?(
     name: string,
     args: TToolParameters,
-    options?: { readonly signal?: AbortSignal; readonly timeoutMs?: number },
+    options?: IMCPToolCallOptions,
   ): Promise<IMCPToolCallResult>;
   close?(): Promise<void>;
 }
@@ -89,6 +90,7 @@ export class FakeMcpSession implements IMCPSession {
     name: string;
     args: TToolParameters;
     timeoutMs?: number;
+    ask?: IMCPToolCallOptions['ask'];
   }[] = [];
   closeCalls = 0;
 
@@ -117,9 +119,9 @@ export class FakeMcpSession implements IMCPSession {
   async callTool(
     name: string,
     args: TToolParameters,
-    options?: { readonly signal?: AbortSignal; readonly timeoutMs?: number },
+    options?: IMCPToolCallOptions,
   ): Promise<IMCPToolCallResult> {
-    this.callToolCalls.push({ name, args, timeoutMs: options?.timeoutMs });
+    this.callToolCalls.push({ name, args, timeoutMs: options?.timeoutMs, ask: options?.ask });
     if (this.config.callTool) {
       return this.config.callTool(name, args, options);
     }

@@ -164,6 +164,7 @@ never drags in these defaults.
 | `agent-transport-http`   | HTTP, built on Hono                                             |
 | `agent-transport-ws`     | WebSocket                                                       |
 | `agent-transport-mcp`    | Exposes a session as an MCP server (stdio and Streamable HTTP)  |
+| `agent-transport-acp`    | Serves a session to an editor as an ACP agent over stdio        |
 | `agent-transport-webrtc` | Peer-to-peer WebRTC data channels (remote control, device mesh) |
 
 A transport is a thin adapter: it turns protocol messages into session calls (submit, abort,

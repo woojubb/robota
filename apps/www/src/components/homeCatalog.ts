@@ -78,7 +78,7 @@ export type PermissionMode = (typeof permissionModes)[number];
 export const architectureLayers = [
   { id: 'interface', packages: ['agent-cli'] },
   { id: 'composition', packages: ['agent-product', 'pack-coding', 'agent-command', 'agent-preset'] },
-  { id: 'surfaces', packages: ['agent-ui-terminal', 'agent-transport-ws', 'agent-transport-http', 'agent-transport-mcp', 'agent-transport-webrtc'] },
+  { id: 'surfaces', packages: ['agent-ui-terminal', 'agent-transport-ws', 'agent-transport-http', 'agent-transport-mcp', 'agent-transport-acp', 'agent-transport-webrtc'] },
   { id: 'assembly', packages: ['agent-framework'] },
   { id: 'runtime', packages: ['agent-session', 'agent-executor', 'agent-tools', 'agent-tool-defaults', 'agent-mcp', 'agent-plugin'] },
   { id: 'providers', packages: ['agent-provider-*'] },
@@ -100,7 +100,7 @@ export const packageGroups = [
   { id: 'composition', packages: ['agent-product', 'agent-capability-pack', 'pack-coding', 'agent-command', 'agent-preset'] },
   {
     id: 'transports',
-    packages: ['agent-transport', 'agent-transport-ws', 'agent-transport-http', 'agent-transport-mcp', 'agent-transport-webrtc', 'agent-remote-pairing', 'agent-ui-terminal'],
+    packages: ['agent-transport', 'agent-transport-ws', 'agent-transport-http', 'agent-transport-mcp', 'agent-transport-acp', 'agent-transport-webrtc', 'agent-remote-pairing', 'agent-ui-terminal'],
   },
   {
     id: 'contracts',

@@ -1,9 +1,10 @@
 import { MCPSkillError, parseSkillEntry, verifySkillResource } from './manifest.js';
 import { statelessCacheHint } from '../client/stateless-result.js';
-import type { Result } from '@modelcontextprotocol/sdk/types.js';
+import type { Result } from '@modelcontextprotocol/client';
 import type { IMCPServerIdentity } from '../catalog/types.js';
 import type { IMCPSkillEntry, IMCPSkillRequestOptions, IMCPSkillsSession } from './types.js';
 
+/** Resolves only with a result the carrier's client has already admitted as complete. */
 type TRequest = (
   method: string,
   params: Record<string, unknown>,
@@ -24,8 +25,7 @@ export function createSkillsSession(
     observed.delete(uri);
   };
   const complete = (result: Result): void => {
-    if (result.resultType !== undefined && result.resultType !== 'complete')
-      throw new MCPSkillError('invalid-manifest');
+    if (result.resultType !== 'complete') throw new MCPSkillError('invalid-manifest');
     statelessCacheHint(result);
   };
   return {
@@ -103,7 +103,7 @@ export function createSkillsSession(
       try {
         const result = await request('resources/read', { uri }, options);
         if (
-          (result.resultType !== undefined && result.resultType !== 'complete') ||
+          result.resultType !== 'complete' ||
           !Array.isArray(result.contents) ||
           result.contents.length !== 1
         )

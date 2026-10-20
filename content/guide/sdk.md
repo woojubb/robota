@@ -104,6 +104,7 @@ are exported from `@robota-sdk/agent-interface-session` (`IContextWindowState` f
 | `tool_start`         | `IToolState`              | A tool call started (`toolName`, `firstArg`, …)                                   |
 | `tool_end`           | `IToolState`              | A tool call ended; `result` is `'success'`, `'error'` or `'denied'`               |
 | `thinking`           | `boolean`                 | `true` while the session is waiting on the model, `false` when it stops           |
+| `thinking_delta`     | `string`                  | A chunk of reasoning text, from a provider that streams it; never part of the reply |
 | `context_update`     | `IContextWindowState`     | Token usage changed                                                               |
 | `compact`            | `ICompactEvent`           | The conversation was compacted (`trigger`, `before`, `after`)                     |
 | `complete`           | `IExecutionResult`        | A turn finished normally                                                          |
@@ -436,7 +437,8 @@ directory the host chooses (`new MarketplaceClient({ pluginsDir, exec })`; marke
 ## Transports
 
 A transport exposes a session over a protocol. `agent-transport-http` (Hono), `agent-transport-ws`
-(WebSocket) and `agent-transport-mcp` (MCP server over stdio or Streamable HTTP) are separate
+(WebSocket), `agent-transport-mcp` (MCP server over stdio or Streamable HTTP) and
+`agent-transport-acp` (Agent Client Protocol agent over stdio, for editors) are separate
 packages; each implements `ITransportAdapter` from `agent-interface-transport` and translates
 protocol messages into session calls and session events back into messages. `agent-framework` itself
 provides the non-interactive runner (`createHeadlessRunner`, with `text`, `json` or `stream-json`

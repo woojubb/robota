@@ -10,35 +10,16 @@ import {
   createMcpTransport,
 } from '@robota-sdk/agent-transport-mcp';
 
+import { shutdownSession } from './session-shutdown.js';
+
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 import type { TAccessTokenAlgorithm } from '@robota-sdk/agent-interface-transport';
 import type { IMcpRemoteAuditRecord } from '@robota-sdk/agent-transport-mcp';
 import type { Writable } from 'node:stream';
 
-const SHUTDOWN_TIMEOUT_MS = 5000;
 /** Every signature algorithm the verifier supports; each is still bound to its own key shape. */
 export const ACCESS_TOKEN_ALGORITHMS: readonly TAccessTokenAlgorithm[] = ['RS256', 'ES256', 'EdDSA'];
 function productSubmitTool(runtime: ICliRuntimeContext) { return { name: `${runtime.config.identity.cliName}_submit`, description: 'Submit a prompt to the agent and await its own turn' }; }
-
-async function shutdownSession(
-  session: ReturnType<typeof buildRuntimeSession>,
-  message: string,
-): Promise<void> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  try {
-    await Promise.race([
-      session.shutdown({ reason: 'other', message }),
-      new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(
-          () => reject(new Error('MCP session shutdown timed out')),
-          SHUTDOWN_TIMEOUT_MS,
-        );
-      }),
-    ]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
-}
 
 /** Remote resource-server settings for `the product mcp serve`; the bearer file never applies here. */
 export interface IMcpServeRemoteOptions {
@@ -91,7 +72,7 @@ async function serveHttpCarrier<T>(
       try {
         await release();
       } finally {
-        await shutdownSession(session, 'MCP HTTP carrier closed');
+        await shutdownSession(session, 'MCP HTTP carrier closed', 'MCP');
       }
     }
   }
@@ -110,6 +91,7 @@ export async function runMcpServeMode(
   version: string,
   stdout: Writable,
   http: IMcpServeHttpOptions = {},
+  askClient = false,
 ): Promise<void> {
   if (http.remote !== undefined) {
     if (http.tokenFile !== undefined) {
@@ -133,6 +115,7 @@ export async function runMcpServeMode(
         host: remote.host,
         port: http.port,
         submitTool: productSubmitTool(productRuntime),
+        ...(askClient ? { askClient: true } : {}),
         authorization: {
           publicUrl: remote.publicUrl,
           issuer: remote.issuer,
@@ -143,7 +126,7 @@ export async function runMcpServeMode(
         },
       });
     } catch (error) {
-      await shutdownSession(session, 'MCP HTTP carrier refused its configuration');
+      await shutdownSession(session, 'MCP HTTP carrier refused its configuration', 'MCP');
       throw error;
     }
     return serveHttpCarrier(
@@ -172,6 +155,7 @@ export async function runMcpServeMode(
       session,
       port: http.port,
       submitTool: productSubmitTool(productRuntime),
+      ...(askClient ? { askClient: true } : {}),
     });
     let createdFile: { dev: number; ino: number } | undefined;
     await serveHttpCarrier(
@@ -209,6 +193,7 @@ export async function runMcpServeMode(
     version,
     stdout,
     submitTool: productSubmitTool(productRuntime),
+    ...(askClient ? { askClient: true } : {}),
   });
   transport.attach(session);
   let onStop: (() => void) | undefined;
@@ -229,7 +214,7 @@ export async function runMcpServeMode(
     try {
       await transport.stop();
     } finally {
-      await shutdownSession(session, 'MCP stdio carrier closed');
+      await shutdownSession(session, 'MCP stdio carrier closed', 'MCP');
     }
   }
 }

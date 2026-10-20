@@ -1,4 +1,4 @@
-import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 /**
  * Subagent session factory — assembles an isolated child Session for subagent execution.
@@ -157,6 +157,8 @@ export interface ISubagentOptions {
     toolResultData?: string;
     toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
+    /** The source's view of the result, for a surface that can host one; never model context. */
+    view?: IToolAppView;
   }) => void;
   /** Selected command semantic roles inherited from the parent session. */
   commandSemanticRoles?: ISystemCommandSemanticRoles;

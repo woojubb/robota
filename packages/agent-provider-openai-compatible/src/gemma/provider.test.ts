@@ -300,6 +300,62 @@ describe('GemmaProvider', () => {
     expect(result.metadata?.['gemmaReasoningFiltered']).toBe(true);
   });
 
+  it('reports the thought channel to onThinkingDelta in order across chunks and leaves the reply unchanged', async () => {
+    const provider = new GemmaProvider({ apiKey: 'lm-studio' });
+    const client = (
+      provider as unknown as {
+        client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+      }
+    ).client;
+    client.chat.completions.create.mockResolvedValue(
+      asyncIterableFrom([
+        createChunk('<|cha'),
+        createChunk('nnel>thought\nI should '),
+        createChunk('check <chan'),
+        createChunk('nel|>Visible'),
+        createChunk(' answer', 'stop'),
+      ]),
+    );
+    const order: string[] = [];
+
+    const result = await provider.chat([createUserMessage('Hello')], {
+      model: 'supergemma4',
+      onTextDelta: (delta) => order.push(`text:${delta}`),
+      onThinkingDelta: (delta) => order.push(`thinking:${delta}`),
+    });
+
+    expect(order).toEqual([
+      'thinking:I should ',
+      'thinking:check ',
+      'text:Visible',
+      'text: answer',
+    ]);
+    expect(result.content).toBe('Visible answer');
+    expect(result.metadata?.['gemmaReasoningFiltered']).toBe(true);
+  });
+
+  it('does not call onThinkingDelta for a reply without a thought channel', async () => {
+    const provider = new GemmaProvider({ apiKey: 'lm-studio' });
+    const client = (
+      provider as unknown as {
+        client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+      }
+    ).client;
+    client.chat.completions.create.mockResolvedValue(
+      asyncIterableFrom([createChunk('Plain'), createChunk(' answer', 'stop')]),
+    );
+    const onThinkingDelta = vi.fn();
+
+    const result = await provider.chat([createUserMessage('Hello')], {
+      model: 'supergemma4',
+      onTextDelta: vi.fn(),
+      onThinkingDelta,
+    });
+
+    expect(result.content).toBe('Plain answer');
+    expect(onThinkingDelta).not.toHaveBeenCalled();
+  });
+
   it('emits ordered native Chat Completions stream chunks before Gemma projection', async () => {
     const provider = new GemmaProvider({ apiKey: 'lm-studio' });
     const client = (

@@ -112,6 +112,7 @@ describe('the actual CLI passes its captured request to the hosted execution own
     ['headless', ['-p', 'task marker', '--safe-mode']],
     ['serve', ['--serve', '--safe-mode']],
     ['mcp', ['mcp', 'serve', '--safe-mode']],
+    ['acp', ['acp', '--safe-mode']],
     ['headless', ['-p', 'task marker', '--serve', '--safe-mode']],
     ['interactive', ['--goal=', '--safe-mode']],
     ['serve', ['--goal=', '--serve', '--safe-mode']],
@@ -159,6 +160,9 @@ describe('the actual CLI passes its captured request to the hosted execution own
 
   it.each([
     [['mcp', 'bad'], 'Usage:'],
+    [['acp', 'extra'], 'Usage:'],
+    [['acp', '-p', 'task'], 'Usage:'],
+    [['acp', '-p'], 'cannot be combined'],
     [['mcp', 'serve', '-p', 'task'], 'Usage:'],
     [['mcp', 'serve', '-p'], 'cannot be combined'],
     [['mcp', 'serve', '--http-port=8443'], 'only valid for mcp serve HTTP mode'],

@@ -61,6 +61,23 @@ export interface IToolState {
   commandName?: string;
   /** #3288: true for an internal signal tool (e.g. the goal-status tool) — surfaces should not show it as a call. */
   internal?: boolean;
+  /**
+   * A finished model call's result has a view its source declared (an MCP app) that a surface able
+   * to host one may read with `readToolAppView(viewId)`. A reference only: the document never
+   * rides the event to every surface. Carried by the live `tool_end` alone — not by a replay or the
+   * persisted history — so a surface without a frame, and every surface after a reload, shows the
+   * text result.
+   */
+  appView?: IToolAppViewRef;
+}
+
+/** Names the view a finished call has; the document itself is read on demand. */
+export interface IToolAppViewRef {
+  /** Names the kept view; minted by the session, so it is unique even when tool-call ids repeat. */
+  readonly viewId: string;
+  readonly sourceId: string;
+  /** The `ui://` resource the source declared for the call. */
+  readonly resourceUri: string;
 }
 
 /**
@@ -77,10 +94,14 @@ export type IHistoryDisplaySegment =
   | { type: 'text'; role: 'user' | 'assistant'; content: string }
   | { type: 'tool'; tool: IToolState };
 
-/** Permission handler delegate — clients provide their own UI. */
+/**
+ * Permission handler delegate — clients provide their own UI. `options.signal` is the caller's own
+ * cancellation: aborting it withdraws the prompt, which settles denied.
+ */
 export type TInteractivePermissionHandler = (
   toolName: string,
   toolArgs: TToolArgs,
+  options?: { signal?: AbortSignal },
 ) => Promise<TPermissionResultValue>;
 
 /**
@@ -117,7 +138,11 @@ export interface IPermissionRequestEvent {
   toolArgs: TToolArgs;
   /** Whether this session can durably persist a project-scoped approval. */
   canPersistProjectPermission?: boolean;
-  /** REMOTE-014 E5: the driver whose turn raised this prompt (display-only). */
+  /**
+   * The driver active when this prompt was raised: the turn's driver, or the driver a direct call
+   * was made for. Shown to people, and matched by a surface that answers only its own prompts;
+   * never an authorization check.
+   */
   requesterDriverId?: TDriverId;
   /** Issue #3288 §1: a background agent's own request, forwarded to the person (display-only). */
   requester?: TPermissionRequester;
@@ -131,13 +156,24 @@ export interface IPermissionRequestEvent {
   diffFile?: string;
   /** #3288 §2: a Shell request's working directory, present only when it differs from the workspace. */
   cwd?: string;
+  /**
+   * The id of the tool call this request concerns: the same `executionId` the call's `tool_start`
+   * and `tool_end` carry, so a surface can hold one row from the request to the call's end. Present
+   * whenever this session reports that call (its own, or an in-process background agent's); absent
+   * when it does not (a child-process agent's forwarded request).
+   */
+  executionId?: string;
 }
 
 /** An "ask the user" request (command- or tool-issued) awaiting an answer. Serializable. */
 export interface IAskRequestEvent {
   id: string;
   request: IActionRequest;
-  /** REMOTE-014 E5: the driver whose turn raised this prompt (display-only). */
+  /**
+   * The driver active when this prompt was raised: the turn's driver, or the driver a direct call
+   * was made for. Shown to people, and matched by a surface that answers only its own prompts;
+   * never an authorization check.
+   */
   requesterDriverId?: TDriverId;
 }
 
@@ -181,6 +217,11 @@ export interface IInteractiveSessionEvents {
   tool_start: (state: IToolState) => void;
   tool_end: (state: IToolState) => void;
   thinking: (isThinking: boolean) => void;
+  /**
+   * Reasoning text a provider streamed for the running turn. It is not part of the reply, and a
+   * provider that sends none never raises it.
+   */
+  thinking_delta: (delta: string) => void;
   complete: (result: IExecutionResult) => void;
   error: (error: Error) => void;
   context_update: (state: IContextWindowState) => void;

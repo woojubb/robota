@@ -5,15 +5,15 @@
  * The adapter owns carrier readiness and teardown; the product shell owns process policy.
  */
 
-import { PassThrough } from 'node:stream';
-
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import { StdioServerTransport } from '@modelcontextprotocol/server/stdio';
+import { attachStdioCarrier } from '@robota-sdk/agent-transport/node';
 
 import { createAgentMcpServer } from './mcp-server.js';
 
 import type { IMcpTransportSession } from './mcp-session.js';
 import type { IMcpSubmitToolIdentity } from './mcp-tool-surface.js';
-import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import type { Server } from '@modelcontextprotocol/server';
+import type { IStdioCarrier } from '@robota-sdk/agent-transport/node';
 import type {
   ITransportAdapter,
   ITransportLifecycleError,
@@ -21,6 +21,8 @@ import type {
 import type { Readable, Writable } from 'node:stream';
 
 const STARTUP_TIMEOUT_MS = 15000;
+/** One stdio frame above this bound is a carrier failure, not a served request. */
+const STDIO_MAX_FRAME_BYTES = 10 * 1024 * 1024;
 
 export interface IMcpTransportOptions {
   /** Name for the MCP server. */
@@ -32,6 +34,12 @@ export interface IMcpTransportOptions {
   stdout?: Writable;
   /** Host-owned identity for the submission extension. */
   submitTool?: IMcpSubmitToolIdentity;
+  /**
+   * Put the permission and ask prompts a call raises to the client, through MCP elicitation, when
+   * the client declared form-mode elicitation; allow-once and deny only. Off by default: such
+   * prompts are tool errors.
+   */
+  askClient?: boolean;
 }
 
 export interface IMcpTransport extends ITransportAdapter<IMcpTransportSession> {
@@ -45,7 +53,7 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
   let server: Server | null = null;
   let starting: Promise<void> | null = null;
   let stopping: Promise<void> | null = null;
-  let inputBridge: PassThrough | null = null;
+  let carrier: IStdioCarrier | null = null;
   let cancelStart: ((error: Error) => void) | null = null;
   const stdin = options.stdin ?? process.stdin;
   const stdout = options.stdout ?? process.stdout;
@@ -73,16 +81,9 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
     rejectClose?.(error);
     cancelStart?.(error);
   };
-  const removeInputListeners = (): void => {
-    stdin.off('end', onInputClose);
-    stdin.off('close', onInputClose);
-    stdout.off('close', onOutputClose);
-    stdout.off('error', onOutputError);
-    if (inputBridge) {
-      stdin.unpipe(inputBridge);
-      inputBridge.destroy();
-      inputBridge = null;
-    }
+  const releaseCarrier = (): void => {
+    carrier?.release();
+    carrier = null;
   };
   const lifecycleError = (code: ITransportLifecycleError['code']): ITransportLifecycleError =>
     Object.assign(new Error(`MCP transport ${code}.`), {
@@ -106,15 +107,14 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
       const cancelled = new Promise<never>((_resolve, reject) => {
         cancelStart = reject;
       });
-      const bridge = new PassThrough();
-      inputBridge = bridge;
-      stdin.once('end', onInputClose);
-      stdin.once('close', onInputClose);
-      stdout.once('close', onOutputClose);
-      stdout.on('error', onOutputError);
       // Preserve early frames with backpressure while the canonical tool catalog is validated.
-      // Piping also exposes EOF before the SDK begins reading.
-      stdin.pipe(bridge);
+      // The bridge also exposes EOF before the SDK begins reading.
+      const attached = attachStdioCarrier(stdin, stdout, {
+        onInputClose,
+        onOutputClose,
+        onOutputError,
+      });
+      carrier = attached;
       starting = (async () => {
         let candidate: Server | null = null;
         const timeout = setTimeout(
@@ -128,17 +128,20 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
               version: options.version,
               session: attachedSession,
               ...(options.submitTool !== undefined ? { submitTool: options.submitTool } : {}),
+              ...(options.askClient !== undefined ? { askClient: options.askClient } : {}),
             }),
             cancelled,
           ]);
-          const nextCarrier = new StdioServerTransport(bridge, stdout);
+          const nextCarrier = new StdioServerTransport(attached.bridge, stdout, {
+            maxBufferSize: STDIO_MAX_FRAME_BYTES,
+          });
           nextCarrier.onclose = () => resolveClose?.();
           nextCarrier.onerror = (error) => rejectClose?.(error);
           await candidate.connect(nextCarrier);
           server = candidate;
           candidate = null;
         } catch (error) {
-          removeInputListeners();
+          releaseCarrier();
           // allow-fallback: the startup error is already being thrown; a failed best-effort close must not replace it.
           if (candidate) await candidate.close().catch(() => undefined);
           throw error;
@@ -162,7 +165,7 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
           if (starting) await starting.catch(() => undefined);
           if (server) await server.close();
         } finally {
-          removeInputListeners();
+          releaseCarrier();
           server = null;
           session = null;
           resolveClose?.();

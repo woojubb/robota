@@ -1,5 +1,4 @@
-import { CallToolResultSchema, ListToolsResultSchema, ToolSchema } from '@modelcontextprotocol/sdk/types.js';
-import type { Result } from '@modelcontextprotocol/sdk/types.js';
+import type { Result, StandardSchemaV1 } from '@modelcontextprotocol/client';
 import type { IMCPResponseCacheHint } from '../catalog/types.js';
 
 /** Permanent wire incompatibility; labels never include arbitrary peer text. */
@@ -21,15 +20,18 @@ export function statelessCacheHint(result: Result): IMCPResponseCacheHint {
   return { ttlMs: result.ttlMs, cacheScope: result.cacheScope, receivedAtMs: Date.now() };
 }
 
-/** Pinned stateless output accepts any JSON value; content remains mandatory. */
-export const StatelessToolResultSchema = CallToolResultSchema.omit({ structuredContent: true }).extend({
-  content: CallToolResultSchema.shape.content.removeDefault(),
-});
-
-/** The new wire permits arbitrary JSON Schema output roots and boolean property schemas. */
-export const StatelessToolsListSchema = ListToolsResultSchema.extend({
-  tools: ToolSchema.extend({
-    inputSchema: ToolSchema.shape.inputSchema.omit({ properties: true }),
-    outputSchema: ToolSchema.shape.outputSchema.unwrap().omit({ type: true, properties: true, required: true }).optional(),
-  }).array(),
-});
+/**
+ * Accepts any JSON object as the result of a method the SDK does not define (`skills/list`,
+ * `skills/get`). The SDK has already required the completion discriminator; the shape of the body
+ * is the caller's to verify.
+ */
+export const OBJECT_RESULT_SCHEMA: StandardSchemaV1<Record<string, unknown>> = {
+  '~standard': {
+    version: 1,
+    vendor: 'robota-agent-mcp',
+    validate: (value) =>
+      typeof value === 'object' && value !== null && !Array.isArray(value)
+        ? { value: value as Record<string, unknown> }
+        : { issues: [{ message: 'expected a result object' }] },
+  },
+};

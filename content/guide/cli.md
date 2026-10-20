@@ -84,6 +84,7 @@ there instead of refusing, and the desktop app asks in its window before it star
 | `__PRODUCT_CLI_NAME__ --attach`                   | Full terminal UI on this folder's running daemon                        |
 | `__PRODUCT_CLI_NAME__ session start --background` | A supervised session that outlives the terminal                         |
 | `__PRODUCT_CLI_NAME__ mcp serve`                  | Serve one session to an MCP client                                      |
+| `__PRODUCT_CLI_NAME__ acp`                        | Run as an agent for an editor over the Agent Client Protocol            |
 
 ### Print mode
 
@@ -580,13 +581,33 @@ fresh approval.
 `__PRODUCT_CLI_NAME__ mcp serve` turns `__PRODUCT_CLI_NAME__` into an MCP server for one session, over stdio, authenticated
 loopback HTTP (`--http-token-file`, `--http-port`), or remote HTTP as an OAuth resource server
 (`--http-public-url`, `--http-host`, `--oauth-issuer`, `--oauth-scopes`, `--oauth-allowed-subjects`,
-`--trusted-proxy`).
+`--trusted-proxy`). `--ask-client` puts the permission and ask prompts of a client's call to that
+client through MCP elicitation instead of failing them; see the [MCP guide](./mcp.md).
 
 `--external-event-grant <file>` lets a verified outside service send text events into a terminal
 session (with `--external-event-port` and `--external-event-trusted-proxy`); `/events` lists and
 revokes the grants.
 
 See [Model Context Protocol (MCP)](./mcp.md).
+
+## Editors (Agent Client Protocol)
+
+`__PRODUCT_CLI_NAME__ acp` runs `__PRODUCT_CLI_NAME__` as an [Agent Client Protocol](https://agentclientprotocol.com/)
+agent, so an editor that can launch an ACP agent (Zed, JetBrains, and other ACP clients) can use it
+for the folder it opened. Configure the editor to run `__PRODUCT_CLI_NAME__ acp` with the project folder as
+its working directory. The editor sends prompts, shows streamed replies, tool calls and the model's
+reasoning when the provider streams it, asks you to
+approve a tool call through its own dialog (which shows the whole command or the edit's diff, as the
+terminal does), and can cancel a turn; a prompt that starts with `/` runs that command, and a skill
+command streams its reply and asks for approval like a typed prompt.
+
+The editor answers prompts and widens nothing. Permissions, the sandbox and workspace trust work as
+in the terminal: in a folder that is not trusted yet the editor's new-session request is refused with
+the instruction to run `__PRODUCT_CLI_NAME__ trust --yes`, then start the agent again. The session is
+rooted in the folder the agent was started in; a different folder, MCP servers or extra roots sent by
+the editor are refused, so configure MCP servers in the settings files. An ACP agent serves one
+session per connection, and reading or writing files and running terminals are not delegated to the
+editor. Questions the agent would ask you are answered as cancelled, because ACP has no equivalent.
 
 ## Devices and remote control
 
@@ -646,6 +667,7 @@ another session or device. All four are user-only. See [Devices, Peers and Remot
 | `--external-event-port <port>`                                                                                                                            | Loopback port for external events                                                                                                                                                                              |
 | `--external-event-trusted-proxy <ip>`                                                                                                                     | Proxy whose `X-Forwarded-For` is believed (repeatable)                                                                                                                                                         |
 | `--http-token-file`, `--http-port`, `--http-host`, `--http-public-url`, `--oauth-issuer`, `--oauth-scopes`, `--oauth-allowed-subjects`, `--trusted-proxy` | Transport options for `__PRODUCT_CLI_NAME__ mcp serve`; all but `--http-token-file` also with `--serve --http-port`                                                                                            |
+| `--ask-client`                                                                                                                                            | With `__PRODUCT_CLI_NAME__ mcp serve`, ask the calling MCP client to answer permission and ask prompts (allow once or deny)                                                                                    |
 | `--reset`                                                                                                                                                 | Delete `<user-state>/settings.json` after confirming                                                                                                                                                           |
 | `-y`, `--yes`                                                                                                                                             | Skip confirmations (required for `--reset` without a terminal)                                                                                                                                                 |
 | `--check-update`                                                                                                                                          | Check npm for a newer version and exit                                                                                                                                                                         |
@@ -677,6 +699,7 @@ another session or device. All four are user-only. See [Devices, Peers and Remot
 | `__PRODUCT_CLI_NAME__ mcp serve [options]`                                                                       | Serve one session as an MCP server                                                                                                             |
 | `__PRODUCT_CLI_NAME__ mcp login <name> [--client-secret] [--no-browser]`                                         | Sign in to an OAuth MCP server                                                                                                                 |
 | `__PRODUCT_CLI_NAME__ mcp logout <name>`                                                                         | Sign out and revoke its tokens                                                                                                                 |
+| `__PRODUCT_CLI_NAME__ acp`                                                                                       | Run as an Agent Client Protocol agent for an editor, over stdio                                                                                |
 | `__PRODUCT_CLI_NAME__ eval <definition> [--threshold <0..1>]`                                                    | Run an eval definition; exit 1 below the threshold                                                                                             |
 | `__PRODUCT_CLI_NAME__ user-local storage list \| memory ...`                                                     | The `/user-local` command outside a session                                                                                                    |
 

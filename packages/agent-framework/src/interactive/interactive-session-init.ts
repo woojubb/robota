@@ -1,4 +1,4 @@
-import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 /**
  * Session initialization helpers for InteractiveSession.
  *
@@ -187,6 +187,7 @@ export interface IAsyncInitDeps {
   askHandler: IInitOptions['askHandler'];
   /** Callbacks for handling events during initialization. */
   onTextDelta: (delta: string) => void;
+  onThinkingDelta?: (delta: string) => void;
   onContextUpdate: (state: IContextWindowState) => void;
   onCompactEvent: (event: ICompactEvent) => void;
   onUsageRecorded: (entries: readonly IHistoryEntry[]) => void;
@@ -198,6 +199,8 @@ export interface IAsyncInitDeps {
     denied?: boolean;
     toolResultData?: string;
     toolResultParts?: TUniversalMessagePart[];
+    /** The source's view of the result, for a surface that can host one; never model context. */
+    view?: IToolAppView;
   }) => void;
   checkpointHistory: () => void;
   executeModelCommand: (command: string, args: string) => Promise<ICommandResult | null>;
@@ -282,6 +285,7 @@ export async function initializeInteractiveSessionAsync(
     ...(options.sessionLogSink !== undefined ? { sessionLogSink: options.sessionLogSink } : {}),
     ...(options.transcriptPath !== undefined ? { transcriptPath: options.transcriptPath } : {}),
     onTextDelta: deps.onTextDelta,
+    ...(deps.onThinkingDelta !== undefined ? { onThinkingDelta: deps.onThinkingDelta } : {}),
     onContextUpdate: deps.onContextUpdate,
     onCompactEvent: deps.onCompactEvent,
     onUsageRecorded: deps.onUsageRecorded,

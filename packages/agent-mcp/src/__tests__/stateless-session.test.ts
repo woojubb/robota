@@ -29,6 +29,7 @@ async function openModern(
     method: string,
     result: Record<string, unknown>,
   ) => Record<string, unknown> | Promise<Record<string, unknown>> = (_method, result) => result,
+  elicitation = false,
 ) {
   listener = createServer(async (request, response) => {
     let body = '';
@@ -121,6 +122,7 @@ async function openModern(
     transport: constructStreamableHttpTransport(admitted.admitted),
     timeouts: { startupMs: 1000, perCallMs: 1000 },
     clientInfo: { name: 'fixture-client', version: '7' },
+    ...(elicitation ? { elicitation: true } : {}),
   };
   session = await openMcpSession(options);
   return session;
@@ -197,22 +199,191 @@ describe('explicit stateless MCP session', () => {
     expect(sameCatalogIdentity(first, later)).toBe(false);
   });
 
-  it('rejects malformed freshness metadata rather than treating discovery as an unlimited cache entry', async () => {
-    await expect(openModern((_method, result) => ({ ...result, ttlMs: -1 }))).rejects.toThrow(
-      /metadata/i,
-    );
-    expect(requests.map((request) => request.method)).toEqual(['server/discover']);
-  });
+  it.each([
+    [{ ttlMs: -1, cacheScope: 'public' }, { ttlMs: 0, cacheScope: 'public' }],
+    [{ ttlMs: 1.5, cacheScope: 'public' }, { ttlMs: 0, cacheScope: 'public' }],
+    [{ ttlMs: 60_000, cacheScope: 'everyone' }, { ttlMs: 60_000, cacheScope: 'private' }],
+    [{ ttlMs: -1, cacheScope: 'everyone' }, { ttlMs: 0, cacheScope: 'private' }],
+  ])(
+    'coerces invalid discovery freshness %j field by field to the safest value, not a refusal',
+    async (hint, expected) => {
+      const client = await openModern((method, result) =>
+        method === 'server/discover' ? { ...result, ...hint } : result,
+      );
+      expect(client.discoveryCacheHint).toMatchObject(expected);
+      expect(requests.map((request) => request.method)).toEqual(['server/discover']);
+    },
+  );
 
   it('does not turn input_required into a completed tool result or retry the effect', async () => {
     const client = await openModern((method, result) =>
-      method === 'tools/call' ? { ...result, resultType: 'input_required' } : result,
+      method === 'tools/call'
+        ? {
+            ...result,
+            resultType: 'input_required',
+            inputRequests: {
+              ask: { method: 'elicitation/create', params: { message: 'Which one?' } },
+            },
+            requestState: 'opaque-state',
+          }
+        : result,
     );
     await expect(client.callTool('echo', { value: 'input' })).rejects.toThrow(
       /unsupported.*input_required/i,
     );
     await expect(client.callTool('echo', { value: 'input' })).rejects.toThrow(/closed/);
+    // No automatic round: the SDK's input_required loop is off, so nothing follows the one call.
+    expect(requests.map((request) => request.method)).toEqual(['server/discover', 'tools/call']);
+  });
+
+  it('closes the carrier without a retry when the server embeds a request the elicitation bridge cannot answer', async () => {
+    const client = await openModern(
+      (method, result) =>
+        method === 'tools/call'
+          ? {
+              ...result,
+              resultType: 'input_required',
+              inputRequests: {
+                model: {
+                  method: 'sampling/createMessage',
+                  params: {
+                    messages: [{ role: 'user', content: { type: 'text', text: 'hi' } }],
+                    maxTokens: 1,
+                  },
+                },
+              },
+              requestState: 'opaque-state',
+            }
+          : result,
+      true,
+    );
+    const asked: unknown[] = [];
+    const ask = async () => {
+      asked.push(true);
+      return { type: 'cancelled' as const };
+    };
+    await expect(client.callTool('echo', { value: 'input' }, { ask })).rejects.toThrow(
+      /input_required/,
+    );
+    await expect(client.callTool('echo', { value: 'input' }, { ask })).rejects.toThrow(/closed/);
+    expect(asked).toEqual([]);
+    // The elicitation capability was declared, and still nothing was sent twice.
+    const meta = requests.at(-1)?.params._meta as Record<string, unknown>;
+    expect(meta['io.modelcontextprotocol/clientCapabilities']).toEqual({
+      elicitation: { form: {} },
+    });
+    expect(requests.map((request) => request.method)).toEqual(['server/discover', 'tools/call']);
+  });
+
+  it('closes the carrier once a server keeps asking past the round cap, and never sends more', async () => {
+    const client = await openModern(
+      (method, result) =>
+        method === 'tools/call'
+          ? {
+              ...result,
+              resultType: 'input_required',
+              inputRequests: {
+                again: {
+                  method: 'elicitation/create',
+                  params: { message: 'Again?', requestedSchema: { type: 'object', properties: {} } },
+                },
+              },
+              requestState: 'round',
+            }
+          : result,
+      true,
+    );
+    let asked = 0;
+    const ask = async () => {
+      asked += 1;
+      return { type: 'answer' as const, values: ['respond'] };
+    };
+    await expect(client.callTool('echo', { value: 'input' }, { ask })).rejects.toThrow(
+      /input_required/,
+    );
+    await expect(client.callTool('echo', { value: 'input' }, { ask })).rejects.toThrow(/closed/);
+    const legs = requests.filter((request) => request.method === 'tools/call');
+    // The SDK's cap: one originating leg plus ten rounds, each answered by a person once.
+    expect(legs).toHaveLength(11);
+    expect(asked).toBe(10);
+    expect(legs.slice(1).every((leg) => leg.params['requestState'] === 'round')).toBe(true);
+  });
+
+  it('fails the call, asks nothing and sends nothing more when the server embeds a URL-mode elicitation', async () => {
+    let calls = 0;
+    const client = await openModern(
+      (method, result) =>
+        method === 'tools/call' && ++calls === 1
+          ? {
+              ...result,
+              resultType: 'input_required',
+              inputRequests: {
+                link: {
+                  method: 'elicitation/create',
+                  params: { mode: 'url', message: 'Sign in', url: 'https://example.com/sign-in', elicitationId: 'e1' },
+                },
+              },
+            }
+          : result,
+      true,
+    );
+    const asked: unknown[] = [];
+    const ask = async () => {
+      asked.push(true);
+      return { type: 'cancelled' as const };
+    };
+    // The client refuses the mode it never declared before anything is asked; the server learns it
+    // from the failed call. The carrier stays open: a later call still completes.
+    await expect(client.callTool('echo', { value: 'input' }, { ask })).rejects.toThrow(
+      /URL-mode/,
+    );
+    expect(asked).toEqual([]);
     expect(requests.filter((request) => request.method === 'tools/call')).toHaveLength(1);
+    expect(await client.callTool('echo', { value: 'input' }, { ask })).toMatchObject({
+      isError: false,
+    });
+  });
+
+  it('names an unknown completion discriminator and closes the carrier without replay', async () => {
+    const client = await openModern((method, result) =>
+      method === 'tools/call' ? { ...result, resultType: 'future_kind' } : result,
+    );
+    await expect(client.callTool('echo', {})).rejects.toThrow(/unknown-result/);
+    await expect(client.callTool('echo', {})).rejects.toThrow(/closed/);
+    expect(requests.filter((request) => request.method === 'tools/call')).toHaveLength(1);
+  });
+
+  it('refuses an input_required result that carries neither input requests nor state', async () => {
+    const client = await openModern((method, result) =>
+      method === 'tools/call' ? { ...result, resultType: 'input_required' } : result,
+    );
+    await expect(client.callTool('echo', {})).rejects.toThrow(/invalid-tool-result/);
+    await expect(client.callTool('echo', {})).rejects.toThrow(/closed/);
+    expect(requests.filter((request) => request.method === 'tools/call')).toHaveLength(1);
+  });
+
+  it('refuses a result without resultType on the pinned era instead of treating it as complete', async () => {
+    const client = await openModern((method, result) => {
+      if (method !== 'tools/call') return result;
+      const { resultType: _resultType, ...rest } = result;
+      return rest;
+    });
+    const error = await client.callTool('echo', {}).catch((error) => error);
+    expect(error.message).toMatch(/invalid-tool-result/);
+    expect(classifyMcpFailure(error)).toBe('config');
+    await expect(client.callTool('echo', {})).rejects.toThrow(/closed/);
+    expect(requests.filter((request) => request.method === 'tools/call')).toHaveLength(1);
+  });
+
+  it('refuses a list page without resultType rather than returning a partial catalog', async () => {
+    const client = await openModern((method, result) => {
+      if (method !== 'tools/list') return result;
+      const { resultType: _resultType, ...rest } = result;
+      return rest;
+    });
+    await expect(client.discover({ maxPages: 2, perRequestTimeoutMs: 1000 })).rejects.toMatchObject(
+      { failure: { kind: 'protocol', domain: 'tools' } },
+    );
   });
 
   it('rejects malformed tool results with a permanent, value-free error', async () => {
@@ -265,14 +436,17 @@ describe('explicit stateless MCP session', () => {
     await expect(client.callTool('echo', {})).rejects.toThrow(/closed/);
   });
 
-  it('rejects invalid page metadata rather than returning a partial catalog', async () => {
-    const client = await openModern((method, result) =>
-      method === 'tools/list' ? { ...result, cacheScope: 'unknown' } : result,
-    );
-    await expect(client.discover({ maxPages: 2, perRequestTimeoutMs: 1000 })).rejects.toMatchObject(
-      { failure: { kind: 'protocol', domain: 'tools' } },
-    );
-  });
+  it.each([{ cacheScope: 'unknown' }, { ttlMs: -1 }, { ttlMs: 0.5 }])(
+    'rejects invalid page metadata %j rather than returning a partial catalog',
+    async (hint) => {
+      const client = await openModern((method, result) =>
+        method === 'tools/list' ? { ...result, ...hint } : result,
+      );
+      await expect(
+        client.discover({ maxPages: 2, perRequestTimeoutMs: 1000 }),
+      ).rejects.toMatchObject({ failure: { kind: 'protocol', domain: 'tools' } });
+    },
+  );
 
   it('bounds startup even when an admitted transport never finishes starting', async () => {
     let closed = false;

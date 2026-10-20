@@ -10,7 +10,7 @@
  * them (TC-09, TC-10, TC-13 … TC-17, TC-22).
  */
 
-import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
+import { UnauthorizedError } from '@modelcontextprotocol/client';
 
 import { catalogIdentityOf, sameCatalogIdentity } from '../catalog/types.js';
 import { MCPAuthenticationError } from '../client/authentication.js';
@@ -32,7 +32,11 @@ import type {
   TMCPCapabilityDomain,
 } from '../catalog/types.js';
 import type { IMCPSession, IMCPToolCallResult } from '../client/session.js';
-import type { IOutboundTraceContext, TToolParameters } from '@robota-sdk/agent-core';
+import type {
+  IOutboundTraceContext,
+  IUserInteraction,
+  TToolParameters,
+} from '@robota-sdk/agent-core';
 
 /** Default page bound for a `discover`/`refresh` call that does not override `options.discovery`. */
 const DEFAULT_DISCOVERY_MAX_PAGES = 50;
@@ -162,8 +166,12 @@ function extractErrorMessage(error: unknown): string {
   return String(error);
 }
 
-/** HTTP status, whether reported as `.status`, `.statusCode`, or the SDK's `StreamableHTTPError.code`. */
+/** HTTP status, whether reported as `.status` (the SDK's `SdkHttpError` getter included), `.statusCode` or a session failure's details. */
 function extractHttpStatus(error: unknown): number | undefined {
+  if (error instanceof MCPSessionError) {
+    const detail = error.details?.status;
+    return typeof detail === 'number' ? detail : undefined;
+  }
   const status = readUnknownProperty(error, 'status');
   if (typeof status === 'number') {
     return status;
@@ -455,6 +463,7 @@ export class MCPConnectionSupervisor {
     options?: {
       readonly signal?: AbortSignal;
       readonly outboundTraceContext?: IOutboundTraceContext;
+      readonly ask?: IUserInteraction['ask'];
     },
   ): Promise<IMCPToolCallResult> {
     return this.withDefaultBudget(options?.signal, async (effectiveSignal) => {
@@ -469,6 +478,7 @@ export class MCPConnectionSupervisor {
           ...(options?.outboundTraceContext
             ? { outboundTraceContext: options.outboundTraceContext }
             : {}),
+          ...(options?.ask ? { ask: options.ask } : {}),
         });
       } catch (error) {
         this.retireSelfClosedStdioSession(session, error);

@@ -25,7 +25,7 @@ import {
   exchangeAuthorization,
   registerClient,
   startAuthorization,
-} from '@modelcontextprotocol/sdk/client/auth.js';
+} from '@modelcontextprotocol/client';
 
 import {
   DEFAULT_CALLBACK_TIMEOUT_MS,
@@ -38,10 +38,7 @@ import { discoverMCPOAuthServer } from './discovery.js';
 import { MCPOAuthError, asOAuthError } from './errors.js';
 import { createOAuthFetch } from './network.js';
 
-import type {
-  OAuthClientInformationMixed,
-  OAuthTokens,
-} from '@modelcontextprotocol/sdk/shared/auth.js';
+import type { OAuthClientInformationMixed, OAuthTokens } from '@modelcontextprotocol/client';
 import type { IMCPOAuthConfig } from '../../definition/types.js';
 import type { IMCPOAuthCallbackServer } from './callback.js';
 import type { IMCPOAuthServerInfo } from './discovery.js';
@@ -260,6 +257,7 @@ export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCP
         metadata: server.metadata,
         clientInformation: client,
         authorizationCode: redirect.code,
+        ...(redirect.iss === undefined ? {} : { iss: redirect.iss }),
         codeVerifier: authorization.codeVerifier,
         redirectUri: callback.redirectUri,
         resource,

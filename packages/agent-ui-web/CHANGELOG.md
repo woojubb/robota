@@ -1,5 +1,90 @@
 # @robota-sdk/agent-ui-web
 
+## 3.0.0-beta.95
+### Minor Changes
+
+- 0ba247b: A tool result can now carry a view its source declared (an MCP app), and a surface can invoke a
+  runtime tool through the session's permission gate with a prompt. This is the contract and wiring
+  layer: nothing produces a view yet, and the GUI does not yet host one.
+
+  - `agent-core` — `IToolResult.view` carries an `IToolAppView` (source, `ui://` resource, mime type,
+    HTML, structured content, callable tools, the call's input). `view` is now a typed key of
+    `IToolResult`, so an extension that already used a `view` key with another type must rename it.
+    The view is display data: it never enters model context or the size that decides a spill, and a
+    result replaced by its reference keeps it.
+  - `agent-interface-session` — `invokeRuntimeTool` takes `permissionInteraction` (`'interactive'` or
+    the default `'deny'`), a `driverId` (a host that attributes prompts names it as the requester) and
+    an `executionId` its events carry. A finished model call's `tool_end` names its view with
+    `IToolState.appView` (`viewId`, source, resource), and the new
+    `ISessionToolAppViews.readToolAppView(viewId)` reads the document. A permission handler may take
+    `{ signal }`, and aborting it withdraws the prompt.
+  - `agent-session` — a direct call asks a person only when its caller says so, and the handler is
+    given the call's own signal; the tool end event carries the view, never in the logged result data.
+  - `agent-framework` — the view of a model's call is kept under a `viewId` the session mints, in a
+    bounded per-session store (16 views, 4 MiB each, 16 MiB in all, measured on the whole serialized
+    view), and read on demand, so the document never rides `tool_end` to every surface, never enters
+    the recorded history, and a repeated provider tool-call id cannot overwrite another turn's view.
+    A malformed view is dropped. A direct call keeps and names no view, recognised by the id it was
+    started with. A submission or agent wakeup that arrives while a direct call holds the session is
+    queued behind it, as during a turn, instead of refused. A direct call acting for a driver
+    attributes its permission prompt and tool events to that driver, and aborting its signal withdraws
+    an open prompt from every surface.
+  - `agent-transport` — a driving connection sends `call-app-tool` (answered by `app_tool_result`) and
+    `read-app-view` (answered by `app_view`). A call names its view and reaches only the tools that
+    view's source declared; a call or read that decodes but cannot be served answers `protocol_error`
+    echoing the `requestId`, while an observer's attempt is refused like any non-read. A call still
+    waiting on its prompt is cancelled when its connection goes away (for the resume bridge, when the
+    bridge is disposed). `maxFrameBytes` bounds an app answer to what a carrier's channel carries;
+    the WebRTC carrier uses a history page's worth. `IProtocolSession` now includes the runtime-tool
+    and app-view roles.
+  - `agent-ui-web` — the two new server messages are recorded as not rendered until the app-view host
+    consumes them.
+
+  An implementation of `IInteractiveSession` or `IProtocolSession` outside this repository must add
+  `readToolAppView` (and, for `IProtocolSession`, `listRuntimeTools` and `invokeRuntimeTool`); the
+  members are required so a host cannot silently lack them.
+
+### Patch Changes
+
+- 09e7e21: **An MCP server's form-mode elicitation during a tool call becomes a Robota ask prompt.**
+
+  `@robota-sdk/agent-mcp` opens a session with `elicitation: true` to declare form-mode elicitation and
+  answer it: a request the server raises while a tool call is in flight (a server→client
+  `elicitation/create` on the legacy era, an `input_required` round on 2026-07-28) is put to a person
+  through that call's ask port (`IMCPToolCallOptions.ask`, which the discovered tool fills from
+  `IToolExecutionContext.ask`) as one question titled with the configured server id and carrying the
+  server's message as one bounded line, with Respond and Decline, then one question per field
+  (choices, multi-select, yes/no, or free text validated against the field and re-asked once). The
+  answer continues the same call; the re-sent `tools/call` that carries it is the protocol's
+  continuation, not a replay, and a prompt is withdrawn when its call ends (an abort, or the call's
+  own timeout) — when the last in-flight call to that server ends, if there are several, since a
+  request names none of them. A request outside an in-flight call, or during a call that has no ask port, is
+  declined; a dismissal, a failing port or a second rejected answer cancels; a field named like a
+  credential is shown unmasked with a warning. URL mode is not offered. Without the opt-in nothing
+  changes: no capability is declared and an `input_required` result still closes the carrier. An
+  embedded request of another kind (sampling, roots) or more rounds than the client allows closes the
+  carrier as `input_required` does; an embedded elicitation the client refuses on its face (URL mode,
+  a malformed form) fails the call and leaves the carrier open.
+
+  `@robota-sdk/agent-cli` turns the opt-in on for the interactive terminal and the serve host driven by
+  the desktop app or the web GUI, which show the prompt, and leaves it off for print mode and for the
+  two serve-runtime hosts with no prompt surface, `mcp serve` and the ACP editor agent.
+
+  `@robota-sdk/agent-ui-web` renders an ask with `maxSelect` above 1 as a multi-select: options toggle
+  (click or 1–9), Submit answers with the ticked values once `minSelect` is met, and a toggle beyond
+  `maxSelect` is ignored, as in the terminal.
+- Updated dependencies [c967c57]
+- Updated dependencies [60f3965]
+- Updated dependencies [115e104]
+- Updated dependencies [04719a9]
+- Updated dependencies [04a6de4]
+- Updated dependencies [0ba247b]
+  - @robota-sdk/agent-transport@3.0.0-beta.95
+  - @robota-sdk/agent-interface-session@3.0.0-beta.95
+  - @robota-sdk/agent-interface-command@3.0.0-beta.95
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.95
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.95
+
 ## 3.0.0-beta.94
 ### Patch Changes
 

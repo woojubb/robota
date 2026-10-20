@@ -83,6 +83,8 @@ interface IDecisionScope {
   readonly sandboxed?: boolean;
   /** What the call's PreToolUse hooks decided, applied after the rules and mode. */
   readonly hookDecision?: TPreToolHookDecision;
+  /** The tool call's id, so a prompt raised for it can name the call its `tool_start` will report. */
+  readonly executionId?: string;
 }
 
 export class PermissionEnforcer {
@@ -262,10 +264,12 @@ export class PermissionEnforcer {
         hookTraceEnv,
         continuation,
         hookDecision,
+        executionId,
       ) =>
         this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv, {
           continuation,
           ...(hookDecision !== undefined ? { hookDecision } : {}),
+          ...(executionId !== undefined ? { executionId } : {}),
         }),
     };
 
@@ -469,14 +473,7 @@ export class PermissionEnforcer {
     // A hook's `ask` reaches a person whatever the mode or a remembered consent would allow, since
     // the hook asks again on every call.
     if (scope.hookDecision === 'ask') {
-      return this.promptForApproval(
-        toolName,
-        toolArgs,
-        signal,
-        interaction,
-        true,
-        scope.continuation,
-      );
+      return this.promptForApproval(toolName, toolArgs, signal, interaction, true, scope);
     }
     if (decision === 'auto') return true;
 
@@ -499,14 +496,7 @@ export class PermissionEnforcer {
     // A hook's `allow` answers the person's prompt, not the classifier and not an ask that must
     // reach a person.
     if (scope.hookDecision === 'allow' && !fresh && policy?.askAll !== true) return true;
-    return this.promptForApproval(
-      toolName,
-      toolArgs,
-      signal,
-      interaction,
-      fresh,
-      scope.continuation,
-    );
+    return this.promptForApproval(toolName, toolArgs, signal, interaction, fresh, scope);
   }
 
   private async decideInAutoMode(
@@ -526,14 +516,7 @@ export class PermissionEnforcer {
       return true;
     }
     if (gate.isPaused()) {
-      const allowed = await this.promptForApproval(
-        toolName,
-        toolArgs,
-        signal,
-        interaction,
-        true,
-        scope.continuation,
-      );
+      const allowed = await this.promptForApproval(toolName, toolArgs, signal, interaction, true, scope);
       if (allowed && !this.checkpointedApprovals && !hasCheckpointedApproval(scope.continuation))
         gate.resume();
       return allowed;
@@ -557,10 +540,10 @@ export class PermissionEnforcer {
   private async promptForApproval(
     toolName: string,
     toolArgs: TToolArgs,
-    signal?: AbortSignal,
+    signal: AbortSignal | undefined,
     interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
     fresh = false,
-    continuation?: IToolExecutionContext['continuation'],
+    { continuation, executionId }: IDecisionScope = {},
   ): Promise<boolean> {
     const alreadyAllowed =
       !fresh && matchesAnyPattern(toolName, toolArgs, [...this.sessionAllowedTools]);
@@ -590,6 +573,7 @@ export class PermissionEnforcer {
         : {}),
       toolArgs,
       ...(signal ? { signal } : {}),
+      ...(executionId !== undefined ? { executionId } : {}),
     });
     // A turn cancelled before anyone was asked is not a refusal of this call.
     if (!outcome.allowed && !cancelledBeforeAsking) {

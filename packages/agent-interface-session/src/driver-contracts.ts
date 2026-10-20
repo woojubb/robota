@@ -10,8 +10,9 @@ import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
 
 /**
- * REMOTE-014 E5 co-drive attribution: a stable, SERVER-ASSIGNED id for the driver of an input/turn. It is
- * DISPLAY/ATTRIBUTION ONLY — never an authorization input (the OWNER PRINCIPLE, REMOTE-006, governs
+ * REMOTE-014 E5 co-drive attribution: a stable, SERVER-ASSIGNED id for the driver of an input/turn. It
+ * attributes and routes: surfaces show it, and a surface that answers only its own prompts matches it
+ * against a prompt's requester. It is never an authorization input (the OWNER PRINCIPLE, REMOTE-006, governs
  * authorization; remote == local). Remote = the E3 `deviceId`; local = {@link OWNER_DRIVER_ID}; an
  * agent-wakeup/goal turn = {@link AGENT_DRIVER_ID}.
  */

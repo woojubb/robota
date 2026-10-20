@@ -1,4 +1,4 @@
-import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 /**
  * Permission types — interfaces and type aliases for permission enforcement.
@@ -53,11 +53,14 @@ export type TPermissionResult = TPermissionResultValue;
  * that is stopped or whose child process exits while a person has not yet answered must not leave
  * that answer parked forever, so aborting it here settles the parked prompt denied and dismisses it
  * on every attached surface — the same fail-closed direction `checkPermission`'s own `signal` denies
- * on. Both fields are optional so every existing 2-arg handler stays a valid implementation.
+ * on. `executionId` names the tool call the ask is about — the id its `tool_start`/`tool_end`
+ * carry — so a surface can hold one row from the request to the call's end. Every field is
+ * optional so every existing 2-arg handler stays a valid implementation.
  */
 export interface IPermissionAskContext {
   readonly requester?: TPermissionRequester;
   readonly signal?: AbortSignal;
+  readonly executionId?: string;
 }
 
 /**
@@ -114,6 +117,8 @@ export interface IPermissionEnforcerOptions {
     toolResultData?: string;
     toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
+    /** The source's view of the result, for a surface that can host one; never model context. */
+    view?: IToolAppView;
   }) => void;
   /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
   hookTypeExecutors?: IHookTypeExecutor[];

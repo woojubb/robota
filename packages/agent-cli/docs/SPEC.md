@@ -7,7 +7,8 @@ line. The CLI is a **thin shell** over `@robota-sdk/agent-framework`'s `Interact
 session lifecycle, slash-command execution, tool orchestration, and abort handling live in the SDK.
 The CLI resolves inputs (args, settings, env), assembles a product via `assembleProduct`, and binds
 one of several presentations: interactive TUI (default), print/headless (`-p`/`--goal`), the
-headless runtime host (`--serve`), or an MCP server process (`__PRODUCT_CLI_NAME__ mcp serve`).
+headless runtime host (`--serve`), an MCP server process (`__PRODUCT_CLI_NAME__ mcp serve`), or an
+Agent Client Protocol agent process for editors (`__PRODUCT_CLI_NAME__ acp`).
 
 **Product shell, not a composition root.** `__PRODUCT_CLI_NAME__`'s product identity — branding,
 provider surface, presets, capability packs, base command modules, and injected
@@ -393,6 +394,19 @@ nonzero runner outcome without waiting for unrelated runners, and serve mode ass
 code. A rejected runner wait assigns exit 1; no runners, all-success, or stop-abandonment leave the
 service alive.
 
+### `__PRODUCT_CLI_NAME__ acp`
+
+A separate headless process mode: one normally assembled session plus one `agent-transport-acp`
+service on stdio, for an editor that launches the process. It uses the caller's working directory,
+which `session/new` must name. Unlike the other headless modes it does not exit at startup for want
+of workspace trust: the same decision is asked when the editor creates the session and answered as a
+protocol error naming the trust command, because an exit before any protocol traffic reads as a
+crashed agent. A Restricted start a person chose is admitted as it is elsewhere. From entry until
+shutdown, all product notices use stderr while stdout is reserved for ACP frames. SIGINT, SIGTERM,
+stdin close, startup failure and carrier failure enter one idempotent cleanup path. An editor's
+`/command` prompt runs as a transport-origin command on this machine, so the remote command policy
+applies to it as it does to a WebSocket client. No WebSocket or TUI transport starts in this mode.
+
 ### `__PRODUCT_CLI_NAME__ mcp serve`
 
 A separate headless process mode: one normally assembled session plus one `agent-transport-mcp`
@@ -564,6 +578,7 @@ __PRODUCT_CLI_NAME__ eval ./my-eval.mjs            # Run an evals-as-code defini
 __PRODUCT_CLI_NAME__ -p "prompt"                   # Print mode (one-shot, headless)
 __PRODUCT_CLI_NAME__ --serve                       # Headless runtime host
 __PRODUCT_CLI_NAME__ mcp serve [--http-token-file <path> | --http-public-url <https> --oauth-*] [--http-port <port>]  # MCP server process
+__PRODUCT_CLI_NAME__ acp                           # Agent Client Protocol agent process, for editors
 __PRODUCT_CLI_NAME__ -c | --continue                       # Continue the most recent session for this cwd
 __PRODUCT_CLI_NAME__ -r <id> | --resume [id]               # Resume a session by id/name, or show a picker
 __PRODUCT_CLI_NAME__ -c --fork-session                     # Fork from the last session (new id, restored context)

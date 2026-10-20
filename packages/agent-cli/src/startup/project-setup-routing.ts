@@ -82,7 +82,10 @@ export async function routeProjectSetup(
       promptInput,
       terminal,
       providerDefinitions,
-      subcommandWord(args) === 'mcp' && args.positional[1] === 'serve' ? false : undefined,
+      (subcommandWord(args) === 'mcp' && args.positional[1] === 'serve') ||
+        subcommandWord(args) === 'acp'
+        ? false
+        : undefined,
       settingsAccess,
     );
   } catch (error) {

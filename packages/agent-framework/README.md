@@ -134,6 +134,7 @@ path; an omitted location means that feature is off.
 | ---------------------------------------------------------- | ------------------------------------------------------------------------------------ |
 | `text_delta`                                               | A streamed text chunk                                                                |
 | `thinking`                                                 | `true` when a turn starts, `false` when it ends                                      |
+| `thinking_delta`                                           | A chunk of reasoning text a provider streamed; never part of the reply               |
 | `tool_start`, `tool_end`                                   | `IToolState` (`toolName`, `firstArg`, `isRunning`, `result`, …)                      |
 | `complete`, `interrupted`                                  | `IExecutionResult` (`response`, `history`, `toolSummaries`, `contextState`, `usage`) |
 | `error`                                                    | `Error`                                                                              |

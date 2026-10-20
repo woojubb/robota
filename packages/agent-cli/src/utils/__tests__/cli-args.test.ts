@@ -99,7 +99,14 @@ describe('parseCliArgs', () => {
       ]).externalEventGrantFiles,
     ).toEqual(['a.json', 'b.json']);
     expect(parseCliArgs([]).externalEventGrantFiles).toEqual([]);
-    for (const extra of [['-p', 'hello'], ['--serve'], ['--reset'], ['session'], ['mcp']]) {
+    for (const extra of [
+      ['-p', 'hello'],
+      ['--serve'],
+      ['--reset'],
+      ['session'],
+      ['mcp'],
+      ['acp'],
+    ]) {
       expect(() => parseCliArgs(['--external-event-grant', 'a.json', ...extra])).toThrow(
         /--external-event-grant is available only in the interactive TUI/,
       );
@@ -510,7 +517,9 @@ describe('printHelp flag coverage', () => {
   });
 
   it('TC-04: describes --dry-run as a plan-mode alias', () => {
-    expect(printHelp(createTestProductRuntime())).toMatch(/--dry-run\s+Alias for --permission-mode plan/);
+    expect(printHelp(createTestProductRuntime())).toMatch(
+      /--dry-run\s+Alias for --permission-mode plan/,
+    );
   });
 
   it('TC-04: lists tool filter flags', () => {

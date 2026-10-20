@@ -1,6 +1,5 @@
 /** SEC-008 / MCP-006: the peer can reach only canonical, policy-wrapped tools. */
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { Client, InMemoryTransport } from '@modelcontextprotocol/client';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAgentMcpServer } from '../mcp-server.js';

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-cli",
-  "version": "3.0.0-beta.94",
+  "version": "3.0.0-beta.95",
   "description": "robota — a coding-capable terminal agent built from the same foundation as the Robota SDK",
   "type": "module",
   "bin": {
@@ -93,11 +93,15 @@
   },
   "comment:dependencies": "INFRA-028: agent-cli publishes as a SELF-CONTAINED bundle. ALL @robota-sdk workspace code (incl. the /workflows + dag-* chain) is bundled into dist (see devDependencies + tsdown.config.ts). Runtime `dependencies` therefore contain ONLY the third-party npm packages that the bundled closure imports — kept external so npm installs them from the public registry. Do NOT add any @robota-sdk edge here.",
   "dependencies": {
+    "@agentclientprotocol/sdk": "1.9.0",
     "@anthropic-ai/sdk": "^0.114.0",
     "@google/genai": "^1.52.0",
     "@hono/node-server": "^2.0.11",
     "@marcbachmann/cel-js": "^7.5.3",
-    "@modelcontextprotocol/sdk": "^1.29.0",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/core": "^2.0.0",
+    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "^0.222.0",
     "@opentelemetry/core": "^2.11.0",
@@ -164,6 +168,7 @@
     "@robota-sdk/agent-tool-defaults": "workspace:*",
     "@robota-sdk/agent-tools": "workspace:*",
     "@robota-sdk/agent-transport": "workspace:*",
+    "@robota-sdk/agent-transport-acp": "workspace:*",
     "@robota-sdk/agent-transport-http": "workspace:*",
     "@robota-sdk/agent-transport-mcp": "workspace:*",
     "@robota-sdk/agent-transport-webrtc": "workspace:*",

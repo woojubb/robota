@@ -2,7 +2,11 @@ import { rmSync } from 'node:fs';
 import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
-import type { IToolExecutionContext, IToolWithEventService } from '@robota-sdk/agent-core';
+import type {
+  IToolAppView,
+  IToolExecutionContext,
+  IToolWithEventService,
+} from '@robota-sdk/agent-core';
 
 // A private home made by mkdtemp before any module that reads `homedir()` loads.
 const isolatedHome = await vi.hoisted(async () => {
@@ -123,9 +127,14 @@ describe('canonical runtime tools through real InteractiveSession', () => {
     const signal = await started.promise;
     abort.abort();
     expect(signal.aborted).toBe(true);
-    await expect(harness.session.submit('blocked')).rejects.toThrow(/runtime tool/i);
+    // Input is queued behind the call rather than refused; shutdown settles it as never run.
+    const queued = await harness.session.submit('queued behind the call');
+    const queuedOutcome = queued.completed.then(
+      () => 'ran',
+      (error: unknown) => (error as { reason?: string }).reason,
+    );
     await expect(harness.session.invokeRuntimeTool('Bash', { command: 'true' })).rejects.toThrow(
-      /already running/i,
+      /queued/i,
     );
     let shutDown = false;
     const shutdown = harness.session.shutdown().then(() => {
@@ -136,7 +145,48 @@ describe('canonical runtime tools through real InteractiveSession', () => {
     finish.resolve();
     await expect(invocation).resolves.toMatchObject({ success: false });
     await shutdown;
+    expect(await queuedOutcome).not.toBe('ran');
+    expect(harness.requests).toHaveLength(0);
     await expect(harness.session.listRuntimeTools()).rejects.toThrow(/shutting down/i);
+  }, 20_000);
+
+  it('queues a turn submitted during a direct call and runs it once the call ends', async () => {
+    const started = deferred<AbortSignal>();
+    const finish = deferred<void>();
+    harness = scriptedSession({
+      turns: [{ text: 'after the call' }],
+      additionalTools: [blockingTool(started, finish.promise)],
+    });
+    const invocation = harness.session.invokeRuntimeTool('BlockingTool', {});
+    await started.promise;
+
+    const handle = await harness.session.submit('while the call runs');
+    expect(harness.session.getPendingCount()).toBe(1);
+    expect(harness.requests).toHaveLength(0);
+    finish.resolve();
+
+    await expect(invocation).resolves.toMatchObject({ success: true });
+    await expect(handle.completed).resolves.toMatchObject({ response: 'after the call' });
+    expect(harness.session.getPendingCount()).toBe(0);
+  }, 20_000);
+
+  it('does not lose an agent wakeup that arrives during a direct call', async () => {
+    const started = deferred<AbortSignal>();
+    const finish = deferred<void>();
+    harness = scriptedSession({
+      turns: [{ text: 'woke up' }],
+      additionalTools: [blockingTool(started, finish.promise)],
+    });
+    const invocation = harness.session.invokeRuntimeTool('BlockingTool', {});
+    await started.promise;
+
+    const handle = await harness.session.submit('wake', undefined, undefined, {
+      turnSource: 'agent-wakeup',
+    });
+    finish.resolve();
+
+    await invocation;
+    await expect(handle.completed).resolves.toMatchObject({ response: 'woke up' });
   }, 20_000);
 
   it('cancels a submitted turn without cancelling another driver waiting behind it', async () => {
@@ -169,5 +219,147 @@ describe('canonical runtime tools through real InteractiveSession', () => {
     expect(harness.session.getPendingCount()).toBe(0);
     // An abort after this owned turn has settled cannot interrupt a later caller.
     abort.abort();
+  }, 20_000);
+});
+
+function viewTool(view: IToolAppView): IToolWithEventService {
+  const schema = {
+    name: 'ViewTool',
+    description: 'Returns a result with a source view',
+    parameters: { type: 'object' as const, properties: {} },
+  };
+  return {
+    schema,
+    getName: () => schema.name,
+    getDescription: () => schema.description,
+    validate: () => true,
+    validateParameters: () => ({ isValid: true, errors: [] }),
+    setEventService: () => {},
+    execute: async () => ({ success: true, data: 'listed', view }),
+  };
+}
+
+describe('a source view and the driver of a direct call through real InteractiveSession', () => {
+  const view: IToolAppView = {
+    sourceId: 'files',
+    resourceUri: 'ui://files/list',
+    mimeType: 'text/html;profile=mcp-app',
+    html: '<main id="private-view-html">rows</main>',
+    callableTools: { list_files: 'ViewTool' },
+  };
+
+  it("names the view of the model's call only, reads it on demand, and keeps it out of context and history", async () => {
+    harness = scriptedSession({
+      turns: [{ toolCalls: [{ name: 'ViewTool', args: {} }] }, { text: 'done' }],
+      additionalTools: [viewTool(view)],
+    });
+    await harness.submit('list files');
+    const modelCall = harness.emittedEvents('tool_end').map(([state]) => state);
+    expect(modelCall).toHaveLength(1);
+    expect(modelCall[0]).toMatchObject({
+      toolName: 'ViewTool',
+      appView: { sourceId: 'files', resourceUri: 'ui://files/list' },
+    });
+    expect(JSON.stringify(modelCall[0])).not.toContain('private-view-html');
+    const { viewId } = modelCall[0]!.appView!;
+    expect(harness.session.readToolAppView(viewId)).toEqual(view);
+
+    const direct = await harness.session.invokeRuntimeTool('ViewTool', {});
+    expect(direct).toMatchObject({ success: true });
+    const ended = harness.emittedEvents('tool_end').map(([state]) => state);
+    expect(ended).toHaveLength(2);
+    expect(ended[1]).toMatchObject({ toolName: 'ViewTool', result: 'success' });
+    expect(ended[1]).not.toHaveProperty('appView');
+
+    expect(JSON.stringify(harness.requests)).not.toContain('private-view-html');
+    expect(JSON.stringify(harness.history())).not.toContain('private-view-html');
+    const recorded = JSON.stringify(harness.session.getFullHistory());
+    expect(recorded).not.toContain('private-view-html');
+    expect(recorded).not.toContain('ui://files/list');
+
+    harness.session.clearConversationHistory();
+    expect(harness.session.readToolAppView(viewId)).toBeUndefined();
+  }, 20_000);
+
+  it('forgets the views of a session that shut down', async () => {
+    harness = scriptedSession({
+      turns: [{ toolCalls: [{ name: 'ViewTool', args: {} }] }, { text: 'done' }],
+      additionalTools: [viewTool(view)],
+    });
+    await harness.submit('list files');
+    const { viewId } = harness.emittedEvents('tool_end')[0]![0].appView!;
+    expect(harness.session.readToolAppView(viewId)).toEqual(view);
+    await harness.session.shutdown();
+    expect(harness.session.readToolAppView(viewId)).toBeUndefined();
+  }, 20_000);
+
+  it('puts an interactive direct call to the person and names the driver it acts for', async () => {
+    harness = scriptedSession({ turns: [{ text: 'unused' }], permissionMode: 'default' });
+    const session = harness.session;
+    const requests: Array<{ requesterDriverId?: string; activeDriver: string | null }> = [];
+    session.on('permission_request', (request) => {
+      requests.push({
+        ...(request.requesterDriverId ? { requesterDriverId: request.requesterDriverId } : {}),
+        activeDriver: session.getActiveDriverId(),
+      });
+      session.resolvePermission(request.id, false);
+    });
+
+    const refused = await session.invokeRuntimeTool(
+      'Bash',
+      { command: 'printf shown > shown.txt' },
+      { permissionInteraction: 'interactive', driverId: 'drv-1' },
+    );
+
+    expect(refused.success).toBe(false);
+    expect(requests).toEqual([{ requesterDriverId: 'drv-1', activeDriver: 'drv-1' }]);
+    expect(harness.exists('shown.txt')).toBe(false);
+    expect(session.getActiveDriverId()).toBeNull();
+  }, 20_000);
+
+  it('withdraws the prompt of a direct call whose own signal aborts, from every surface', async () => {
+    harness = scriptedSession({ turns: [{ text: 'unused' }], permissionMode: 'default' });
+    const session = harness.session;
+    const opened = deferred<string>();
+    const resolved: string[] = [];
+    session.on('permission_request', (request) => opened.resolve(request.id));
+    session.on('prompt_resolved', (event) => resolved.push(event.id));
+    const abort = new AbortController();
+
+    const call = session.invokeRuntimeTool(
+      'Bash',
+      { command: 'printf ran > ran.txt' },
+      { permissionInteraction: 'interactive', signal: abort.signal },
+    );
+    const promptId = await opened.promise;
+    expect(resolved).toEqual([]);
+    abort.abort();
+
+    await expect(call).resolves.toMatchObject({ success: false });
+    expect(resolved).toEqual([promptId]);
+    expect(harness.exists('ran.txt')).toBe(false);
+    expect(session.getActiveDriverId()).toBeNull();
+  }, 20_000);
+
+  it('settles an open prompt of a direct call when the session shuts down', async () => {
+    harness = scriptedSession({ turns: [{ text: 'unused' }], permissionMode: 'default' });
+    const session = harness.session;
+    const opened = deferred<string>();
+    session.on('permission_request', (request) => opened.resolve(request.id));
+
+    const call = session.invokeRuntimeTool(
+      'Bash',
+      { command: 'printf ran > ran.txt' },
+      { permissionInteraction: 'interactive' },
+    );
+    await opened.promise;
+
+    const settled = await Promise.race([
+      Promise.all([call, session.shutdown()]).then(() => 'settled'),
+      new Promise<string>((resolve) => setTimeout(() => resolve('hung'), 5_000)),
+    ]);
+    expect(settled).toBe('settled');
+    await expect(call).resolves.toMatchObject({ success: false });
+    expect(harness.exists('ran.txt')).toBe(false);
   }, 20_000);
 });

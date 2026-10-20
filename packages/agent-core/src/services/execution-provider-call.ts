@@ -75,6 +75,7 @@ export async function callProviderWithIdleTimeout(
   upstreamSignal?.addEventListener('abort', handleUpstreamAbort, { once: true });
 
   const originalOnTextDelta = options.onTextDelta;
+  const originalOnThinkingDelta = options.onThinkingDelta;
   const guardedOptions: IChatOptions = {
     ...options,
     signal: controller.signal,
@@ -86,6 +87,12 @@ export async function callProviderWithIdleTimeout(
           },
         }
       : {}),
+    // A model that is only thinking is still working: its reasoning text keeps the call alive
+    // whether or not anyone listens to it, as reply text does.
+    onThinkingDelta: (delta: string): void => {
+      resetIdleTimer();
+      originalOnThinkingDelta?.(delta);
+    },
   };
 
   resetIdleTimer();

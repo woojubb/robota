@@ -116,7 +116,6 @@
   },
   "packageManager": "pnpm@8.15.4",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
     "zod": "^3.25.76"
   },
   "pnpm": {

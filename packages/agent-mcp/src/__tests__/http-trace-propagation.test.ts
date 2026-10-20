@@ -24,7 +24,7 @@ import { MCPConnectionSupervisor } from '../supervisor/connection.js';
 
 import type { IMCPCatalogToolEntry, IMCPDiscovery } from '../catalog/types.js';
 import type { IMCPSession, IMCPToolCallResult } from '../client/session.js';
-import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
+import type { Transport } from '@modelcontextprotocol/client';
 import type { IOutboundTraceContext } from '@robota-sdk/agent-core';
 import type { IncomingHttpHeaders, IncomingMessage, Server, ServerResponse } from 'node:http';
 

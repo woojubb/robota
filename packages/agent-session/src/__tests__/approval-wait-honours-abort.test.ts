@@ -251,3 +251,83 @@ describe('Session abort releases a turn parked on approval (RUNTIME-005)', () =>
     expect(executeTool).not.toHaveBeenCalled();
   });
 });
+
+describe('the human-approval prompt names the call it is about', () => {
+  it('hands the handler the execution id the wrapper carried', async () => {
+    const handler = vi.fn<TPermissionHandler>().mockResolvedValue(true);
+    const enforcer = makeEnforcer({ permissionHandler: handler });
+    const tool = {
+      getName: () => 'Bash',
+      execute: vi.fn().mockResolvedValue({ success: true, data: 'ran' }),
+    } as unknown as IToolWithEventService;
+    const [wrapped] = enforcer.wrapTools([tool]);
+    await wrapped!.execute(ARGS as never, {
+      toolName: 'Bash',
+      parameters: ARGS as never,
+      executionId: 'call-3',
+    });
+    expect(handler).toHaveBeenCalledWith('Bash', expect.anything(), { executionId: 'call-3' });
+  });
+
+  it('hands the handler no context when the call has no id', async () => {
+    const handler = vi.fn<TPermissionHandler>().mockResolvedValue(true);
+    const enforcer = makeEnforcer({ permissionHandler: handler });
+    await enforcer.checkPermission('Bash', ARGS);
+    expect(handler).toHaveBeenCalledWith('Bash', ARGS);
+    expect(handler.mock.calls[0]).toHaveLength(2);
+  });
+});
+
+describe("the handler is given the caller's own cancellation", () => {
+  it('passes the signal so the prompt itself can be withdrawn', async () => {
+    const controller = new AbortController();
+    const seen: Array<AbortSignal | undefined> = [];
+    const enforcer = makeEnforcer({
+      permissionHandler: async (_toolName, _toolArgs, context) => {
+        seen.push(context?.signal);
+        return true;
+      },
+    });
+
+    await enforcer.checkPermission('Bash', ARGS, controller.signal);
+
+    expect(seen).toEqual([controller.signal]);
+  });
+
+  it('passes no context when the call has no signal to give', async () => {
+    const seen: unknown[] = [];
+    const enforcer = makeEnforcer({
+      permissionHandler: async (...args) => {
+        seen.push(args[2]);
+        return true;
+      },
+    });
+
+    await enforcer.checkPermission('Bash', ARGS);
+
+    expect(seen).toEqual([undefined]);
+  });
+
+  it('passes the signal together with the call id when the call has both', async () => {
+    const controller = new AbortController();
+    const handler = vi.fn<TPermissionHandler>().mockResolvedValue(true);
+    const enforcer = makeEnforcer({ permissionHandler: handler });
+    const tool = {
+      getName: () => 'Bash',
+      execute: vi.fn().mockResolvedValue({ success: true, data: 'ran' }),
+    } as unknown as IToolWithEventService;
+    const [wrapped] = enforcer.wrapTools([tool]);
+
+    await wrapped!.execute(ARGS as never, {
+      toolName: 'Bash',
+      parameters: ARGS as never,
+      executionId: 'call-4',
+      signal: controller.signal,
+    });
+
+    expect(handler).toHaveBeenCalledWith('Bash', expect.anything(), {
+      executionId: 'call-4',
+      signal: controller.signal,
+    });
+  });
+});

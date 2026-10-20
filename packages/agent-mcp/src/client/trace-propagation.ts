@@ -51,6 +51,10 @@ export class MCPCallTraceRegistry {
   }
 
   record(requestId: TJsonRpcId, scope: IMCPCallTraceScope): void {
+    // A call the SDK continues with another leg (an answered `input_required` round) is recorded
+    // again under the new id; the leg already answered has nothing left to cancel.
+    if (scope.requestId !== undefined && this.byRequestId.get(scope.requestId) === scope)
+      this.byRequestId.delete(scope.requestId);
     scope.requestId = requestId;
     this.byRequestId.set(requestId, scope);
   }

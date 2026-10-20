@@ -11,12 +11,18 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { promptInput } from '../../cli-input.js';
 import { routeProjectSetup } from '../project-setup-routing.js';
 import { createCliWorkspaceComposition } from '../workspace-project-composition.js';
 
 import type { IStartCliOptions } from '../cli-options-types.js';
 import type { IParsedCliArgs } from '../../utils/cli-args.js';
 import type { ITerminalOutput, ISpinner } from '@robota-sdk/agent-core';
+
+vi.mock('../../cli-input.js', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('../../cli-input.js')>()),
+  promptInput: vi.fn(() => Promise.resolve('')),
+}));
 
 const NOOP_TERMINAL: ITerminalOutput = {
   write: () => {},
@@ -45,11 +51,11 @@ function baseArgs(overrides: Partial<IParsedCliArgs> = {}): IParsedCliArgs {
 }
 
 /** A fresh project + user home with no provider ever configured, and no interactive terminal. */
-function emptyWorkspace(name: string) {
+function emptyWorkspace(name: string, { tty = false }: { tty?: boolean } = {}) {
   const project = join(TMP_BASE, `${name}-project`);
   const home = join(TMP_BASE, `${name}-home`);
-  Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true });
-  Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true });
+  Object.defineProperty(process.stdin, 'isTTY', { value: tty, configurable: true });
+  Object.defineProperty(process.stdout, 'isTTY', { value: tty, configurable: true });
   const productRuntime = createTestProductRuntime('test-product', { HOME: home });
   const workspace = createCliWorkspaceComposition({productRuntime,  cwd: project, userHome: home });
   return { cwd: project, workspace, productRuntime };
@@ -102,6 +108,35 @@ describe('routeProjectSetup — #3282 §3 setup mode', () => {
       // The mocked exit does not actually stop execution, so the function still returns — its value
       // is not what the real (exited) process would have used; only the exit call matters here.
       void result;
+    } finally {
+      exit.mockRestore();
+      stderr.mockRestore();
+    }
+  });
+
+  it('the ACP agent never walks a person through provider setup on its terminal, even when one is attached', async () => {
+    // stdout is the protocol channel, so a prompt there would corrupt it; the editor sees the error instead.
+    const { cwd, workspace, productRuntime } = emptyWorkspace('acp', { tty: true });
+    const exit = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const prompt = vi.fn(() => Promise.resolve(''));
+    const select = vi.fn(() => Promise.resolve(0));
+    try {
+      await routeProjectSetup({
+        cwd,
+        args: baseArgs({ positional: ['acp'] }),
+        startOptions: { productRuntime } as IStartCliOptions,
+        terminal: { ...NOOP_TERMINAL, prompt, select },
+        providerDefinitions: [],
+        workspace,
+      });
+      expect(prompt).not.toHaveBeenCalled();
+      expect(select).not.toHaveBeenCalled();
+      expect(vi.mocked(promptInput)).not.toHaveBeenCalled();
+      expect(exit).toHaveBeenCalledWith(1);
+      expect(
+        stderr.mock.calls.some((call) => String(call[0]).includes('No provider configuration found')),
+      ).toBe(true);
     } finally {
       exit.mockRestore();
       stderr.mockRestore();

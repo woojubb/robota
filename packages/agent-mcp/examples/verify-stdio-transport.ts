@@ -14,7 +14,7 @@ const {
   openMcpSession,
   MCPStdioError,
 } = await import('../src/index.js');
-const { StdioClientTransport } = await import('@modelcontextprotocol/sdk/client/stdio.js');
+const { StdioClientTransport } = await import('@modelcontextprotocol/client/stdio');
 
 const fixturePath = fileURLToPath(new URL('./stdio-fixture-server.mjs', import.meta.url));
 const definition = {

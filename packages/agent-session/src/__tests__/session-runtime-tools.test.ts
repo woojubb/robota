@@ -176,6 +176,78 @@ describe('direct session runtime tools', () => {
     await expect(session.listRuntimeTools()).rejects.toThrow('shutting down');
   });
 
+  it('puts a permission decision to the handler only when the caller asks for interaction', async () => {
+    const execute = vi.fn(async () => 'ran');
+    const handler = vi.fn(async () => false);
+    const { session } = fixture(execute, { permissionHandler: handler });
+    try {
+      const unwatched = await session.invokeRuntimeTool('Write', {});
+      expect(unwatched.success).toBe(false);
+      expect(handler).not.toHaveBeenCalled();
+
+      const refused = await session.invokeRuntimeTool(
+        'Write',
+        {},
+        { permissionInteraction: 'interactive' },
+      );
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(refused.success).toBe(false);
+      expect(execute).not.toHaveBeenCalled();
+
+      const explicitDeny = await session.invokeRuntimeTool(
+        'Write',
+        {},
+        { permissionInteraction: 'deny' },
+      );
+      expect(explicitDeny.success).toBe(false);
+      expect(handler).toHaveBeenCalledTimes(1);
+    } finally {
+      await session.shutdown();
+    }
+  });
+
+  it('runs the tool when the person answering the interactive prompt approves', async () => {
+    const execute = vi.fn(async () => 'ran');
+    const handler = vi.fn(async () => true);
+    const { session } = fixture(execute, { permissionHandler: handler });
+    try {
+      const result = await session.invokeRuntimeTool(
+        'Write',
+        {},
+        { permissionInteraction: 'interactive' },
+      );
+      expect(handler).toHaveBeenCalledTimes(1);
+      expect(result).toMatchObject({ success: true });
+      expect(execute).toHaveBeenCalledTimes(1);
+    } finally {
+      await session.shutdown();
+    }
+  });
+
+  it('labels the call\'s tool events with the id its caller names, and mints one otherwise', async () => {
+    const onToolExecution = vi.fn();
+    const { session } = fixture(async () => 'ran', {
+      permissions: { allow: ['Write'], deny: [] },
+      onToolExecution,
+    });
+    const executionIds = (): Array<string | undefined> =>
+      onToolExecution.mock.calls.map(([event]) => event.executionId);
+    try {
+      await session.invokeRuntimeTool('Write', {}, { executionId: 'direct-call-1' });
+      expect(executionIds()).toEqual(['direct-call-1', 'direct-call-1']);
+
+      onToolExecution.mockClear();
+      await session.invokeRuntimeTool('Write', {});
+      const minted = executionIds();
+      expect(minted).toHaveLength(2);
+      expect(minted[0]).toEqual(expect.any(String));
+      expect(minted[0]).not.toBe('direct-call-1');
+      expect(minted[1]).toBe(minted[0]);
+    } finally {
+      await session.shutdown();
+    }
+  });
+
   it('refuses interactive approval but invokes explicit allows through truncation and audit without a model call', async () => {
     const execute = vi.fn(async () => 'x'.repeat(40000));
     const denied = fixture(execute);
@@ -201,6 +273,57 @@ describe('direct session runtime tools', () => {
       expect(allowed.chat).not.toHaveBeenCalled();
     } finally {
       await Promise.all([denied.session.shutdown(), allowed.session.shutdown()]);
+    }
+  });
+
+  it('asks the permission handler only for a caller that answers its own prompts', async () => {
+    // #3470: an MCP caller that can answer passes `interactive`; every other direct call still
+    // denies without asking, which the case above pins.
+    const execute = vi.fn(async () => 'written');
+    const allowing = fixture(execute);
+    const refusing = fixture(execute);
+    refusing.handler.mockResolvedValue(false);
+    try {
+      expect(
+        await allowing.session.invokeRuntimeTool('Write', {}, { permissionInteraction: 'interactive' }),
+      ).toMatchObject({ success: true });
+      expect(allowing.handler).toHaveBeenCalledOnce();
+      expect(
+        await refusing.session.invokeRuntimeTool('Write', {}, { permissionInteraction: 'interactive' }),
+      ).toMatchObject({ success: false });
+      expect(refusing.handler).toHaveBeenCalledOnce();
+      expect(execute).toHaveBeenCalledTimes(1);
+      expect(
+        await allowing.session.invokeRuntimeTool('Write', {}, { permissionInteraction: 'deny' }),
+      ).toMatchObject({ success: false });
+      expect(allowing.handler).toHaveBeenCalledOnce();
+    } finally {
+      await Promise.all([allowing.session.shutdown(), refusing.session.shutdown()]);
+    }
+  });
+
+  it('hands the session’s ask port only to a call whose caller answers its own prompts', async () => {
+    const ask = vi.fn(async () => ({ type: 'answer' as const, values: ['yes'] }));
+    const seen: boolean[] = [];
+    const { session } = fixture(
+      async (context) => {
+        seen.push(context?.ask !== undefined);
+        // Asked without a signal, as a tool may: the call's own cancellation still reaches it.
+        await context?.ask?.({ id: 'q', title: 'Proceed?' });
+        return 'asked';
+      },
+      { permissions: { allow: ['Write'], deny: [] }, ask },
+    );
+    try {
+      await session.invokeRuntimeTool('Write', {});
+      await session.invokeRuntimeTool('Write', {}, { permissionInteraction: 'interactive' });
+      expect(seen).toEqual([false, true]);
+      expect(ask).toHaveBeenCalledExactlyOnceWith(
+        { id: 'q', title: 'Proceed?' },
+        { signal: expect.any(AbortSignal) },
+      );
+    } finally {
+      await session.shutdown();
     }
   });
 });

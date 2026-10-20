@@ -130,7 +130,8 @@ A runner fixture also supplies `completeRunner`, which releases the runner's pen
 
 - Depends on `@robota-sdk/agent-core` (types only) and on no other `agent-interface-*` package.
 - Adapters: `@robota-sdk/agent-transport-http`, `@robota-sdk/agent-transport-ws`,
-  `@robota-sdk/agent-transport-mcp`, `@robota-sdk/agent-transport-webrtc`, and the headless runner
+  `@robota-sdk/agent-transport-mcp`, `@robota-sdk/agent-transport-acp`,
+  `@robota-sdk/agent-transport-webrtc`, and the headless runner
   in `@robota-sdk/agent-framework` (`createHeadlessTransport`). Each runs the conformance suite.
 - `@robota-sdk/agent-framework`'s `TransportRegistry` implements the registry views;
   `@robota-sdk/agent-transport` implements admission and the payload-channel wire codec.

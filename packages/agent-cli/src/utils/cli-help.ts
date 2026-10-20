@@ -113,6 +113,10 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --oauth-allowed-subjects <a,b>
                              Token subjects admitted to the one shared session
   --trusted-proxy <ip>       Believe X-Forwarded-For from this proxy address (repeatable)
+  --ask-client               With mcp serve, ask the calling MCP client to answer permission and ask
+                             prompts through MCP elicitation (allow once or deny), when the client
+                             declared form elicitation; over HTTP only 2026-07-28 clients can be
+                             asked. Off: such prompts are tool errors
   --check-update             Check for CLI updates
   --disable-update-check     Skip the startup update check
   --version                  Show version number
@@ -166,6 +170,8 @@ Commands:
                                   Sign in to a remote MCP server that declares oauth
                                   (--no-browser: print the URL, paste the redirect back)
   {{cli}} mcp logout <name>         Sign out of an OAuth MCP server and revoke its tokens
+  {{cli}} acp                       Run {{name}} as an Agent Client Protocol agent over stdio, for
+                                  an editor to launch (Zed, JetBrains and other ACP clients)
   {{cli}} eval <definition> [--threshold <0..1>]
                                   Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 

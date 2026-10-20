@@ -154,6 +154,7 @@ const COLLECTED_EVENTS: readonly TInteractiveEventName[] = [
   'tool_start',
   'tool_end',
   'thinking',
+  'thinking_delta',
   'complete',
   'interrupted',
   'error',
@@ -313,6 +314,7 @@ export class ScriptedSessionHarness {
     return turns.map((turn) => {
       if (!('toolCalls' in turn)) return turn;
       return {
+        ...turn,
         toolCalls: turn.toolCalls.map((call) => ({
           name: call.name,
           args: JSON.parse(JSON.stringify(call.args).split('{{cwd}}').join(this.cwd)) as Record<

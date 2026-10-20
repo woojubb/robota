@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { MODEL_EFFORT_VALUES } from '@robota-sdk/agent-core';
 
 import { CLI_OPTION_NAMES } from '../cli-args.js';
-import { printHelp, subcommandHelpFor } from '../cli-help.js';
+import { isSubcommandName, printHelp, subcommandHelpFor } from '../cli-help.js';
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
 
 /**
@@ -75,6 +75,16 @@ describe('test-product <subcommand> --help', () => {
     expect(subcommandHelpFor(['mcp', 'serve', '--help'], createTestProductRuntime())).toContain('--http-token-file');
   });
 
+  it('lists acp as a command and prints only its entry for acp --help', () => {
+    const runtime = createTestProductRuntime();
+    expect(printHelp(runtime)).toContain('test-product acp');
+    const acp = subcommandHelpFor(['acp', '--help'], runtime);
+    expect(acp).toContain('test-product acp');
+    expect(acp).toContain('Agent Client Protocol');
+    expect(acp).not.toContain('test-product mcp');
+    expect(isSubcommandName('acp')).toBe(true);
+  });
+
   it('leaves --help to a command that prints fuller help of its own', () => {
     for (const args of [
       ['usage', '--help'],
@@ -107,6 +117,7 @@ describe('test-product <subcommand> --help', () => {
       ['init'],
       ['open'],
       ['mcp', 'serve'],
+      ['acp'],
       ['daemon'],
       ['eval'],
     ])(

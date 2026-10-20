@@ -1,7 +1,7 @@
 /**
  * Finding a remote MCP server's authorization server — done here rather than by the SDK's
  * `discoverOAuthServerInfo`, which silently falls back to treating the server's root as its
- * authorization server and never checks that the metadata it fetched describes the issuer it asked.
+ * authorization server.
  *
  * Every link in the chain is checked against the one before it:
  * - the protected-resource metadata must describe this server (its `resource` is the canonical
@@ -15,22 +15,23 @@
  */
 
 import {
+  IssuerMismatchError,
+  LATEST_PROTOCOL_VERSION,
   buildDiscoveryUrls,
   discoverAuthorizationServerMetadata,
-} from '@modelcontextprotocol/sdk/client/auth.js';
+} from '@modelcontextprotocol/client';
 import {
   OAuthMetadataSchema,
   OAuthProtectedResourceMetadataSchema,
-} from '@modelcontextprotocol/sdk/shared/auth.js';
-import { LATEST_PROTOCOL_VERSION } from '@modelcontextprotocol/sdk/types.js';
+} from '@modelcontextprotocol/core';
 
 import { MCPOAuthError, asOAuthError } from './errors.js';
 
-import type { FetchLike } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type {
   AuthorizationServerMetadata,
+  FetchLike,
   OAuthProtectedResourceMetadata,
-} from '@modelcontextprotocol/sdk/shared/auth.js';
+} from '@modelcontextprotocol/client';
 import type { IMCPOAuthConfig } from '../../definition/types.js';
 
 /** What sign-in and refresh need to know about a server's authorization server. */
@@ -160,7 +161,11 @@ async function authorizationServerMetadata(
   try {
     metadata = await discoverAuthorizationServerMetadata(authorizationServer, { fetchFn: fetch });
   } catch (error) {
-    throw asOAuthError(error, 'discovery-failed');
+    // The SDK checks the issuer a well-known document names (RFC 8414 §3.3) before returning it.
+    throw asOAuthError(
+      error,
+      error instanceof IssuerMismatchError ? 'issuer-mismatch' : 'discovery-failed',
+    );
   }
   if (metadata === undefined) throw new MCPOAuthError('discovery-failed');
   if (!sameUrl(metadata.issuer, authorizationServer.href)) {

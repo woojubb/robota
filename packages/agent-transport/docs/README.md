@@ -7,7 +7,7 @@ socket, listener or UI.
 
 The root and `./client` entry points run in the browser; Node-only admission, access-token
 verification, file transfer and handoff integrity helpers are under `./node`. The carriers themselves
-are separate packages: `@robota-sdk/agent-transport-ws`, `-http`, `-mcp` and `-webrtc`.
+are separate packages: `@robota-sdk/agent-transport-ws`, `-http`, `-mcp`, `-acp` and `-webrtc`.
 
 ```typescript
 // Shared session-message handling (browser and Node)

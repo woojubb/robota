@@ -1,19 +1,20 @@
 /**
  * Caller-owned pagination driver for MCP discovery (MCP-002, TC-02, TC-04, TC-19).
  *
- * For each domain the server never declared, the corresponding `list<Domain>` method is NEVER
- * called — the domain surfaces as `{ state: { kind: 'unsupported' }, items: [], pages: 0 }` (TC-04).
+ * For each domain the server never declared, the corresponding list request is NEVER sent — the
+ * domain surfaces as `{ state: { kind: 'unsupported' }, items: [], pages: 0 }` (TC-04).
  * For a declared domain, pages are drained by following `nextCursor` until it is ABSENT
  * (`undefined`); a present-but-empty cursor is treated as invalid, never as "no more pages". A
  * catalog is never returned partial: any failure throws `MCPDiscoveryError` instead of resolving
  * with what was gathered so far.
  */
 
-import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
+import { ProtocolError, ProtocolErrorCode } from '@modelcontextprotocol/client';
 
 import { parseMCPResultSizeMetadata } from '../catalog/result-size-metadata.js';
 import { MCPDiscoveryError } from '../catalog/types.js';
 import { toUniversalObject } from '../catalog/universal-value.js';
+import { isRequestTimeout } from './session-protocol.js';
 import { statelessCacheHint } from './stateless-result.js';
 
 import type { IMCPDiscoverOptions } from './session-types.js';
@@ -27,23 +28,35 @@ import type {
   IMCPServerIdentity,
   TMCPCapabilityDomain,
 } from '../catalog/types.js';
-import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import type { ResultTypeMap, Tool } from '@modelcontextprotocol/client';
 import type { IParameterSchema } from '@robota-sdk/agent-core';
 
 type TDeclaredCapabilities = Readonly<
   Record<TMCPCapabilityDomain, { readonly listChanged: boolean } | undefined>
 >;
 
-type TLegacyToolPage = Awaited<ReturnType<Client['listTools']>>;
-type TRawTool = Omit<TLegacyToolPage['tools'][number], 'inputSchema' | 'outputSchema'> & {
+type TRawTool = Omit<Tool, 'inputSchema' | 'outputSchema'> & {
   readonly inputSchema: Readonly<Record<string, unknown>>;
   readonly outputSchema?: Readonly<Record<string, unknown>>;
 };
-type TDiscoveryClient = Pick<Client, 'listPrompts' | 'listResources'> & {
-  listTools(...args: Parameters<Client['listTools']>): Promise<{ tools: TRawTool[]; nextCursor?: string; _meta?: TLegacyToolPage['_meta']; [key: string]: unknown }>;
-};
-type TRawPrompt = Awaited<ReturnType<Client['listPrompts']>>['prompts'][number];
-type TRawResource = Awaited<ReturnType<Client['listResources']>>['resources'][number];
+type TRawPrompt = ResultTypeMap['prompts/list']['prompts'][number];
+type TRawResource = ResultTypeMap['resources/list']['resources'][number];
+
+type TListMethod = 'tools/list' | 'prompts/list' | 'resources/list';
+
+/**
+ * The one request seam discovery needs. Pages are fetched one `request` at a time — never through
+ * the SDK's aggregating `listTools()` — so the page bound, cursor validation and the no-partial
+ * catalog rule stay this module's. The two-argument form validates each page with the negotiated
+ * era's own result schema — the one the SDK applies to a single `listTools({ cursor })` page — so
+ * no era-blind schema stands between a server and the catalog.
+ */
+export interface IMCPDiscoveryClient {
+  request<TMethod extends TListMethod>(
+    request: { readonly method: TMethod; readonly params: { readonly cursor?: string } },
+    options: { readonly timeout: number; readonly signal?: AbortSignal },
+  ): Promise<ResultTypeMap[TMethod]>;
+}
 
 interface IListPage<TRaw> {
   readonly items: readonly TRaw[];
@@ -91,30 +104,21 @@ function toDiscoveryError(
   error: unknown,
   pagesSeen: number,
 ): MCPDiscoveryError {
-  if (error instanceof McpError) {
-    if (error.code === ErrorCode.InvalidParams) {
-      return new MCPDiscoveryError({
-        kind: 'invalid-cursor',
-        domain,
-        message: error.message,
-        code: error.code,
-        pagesSeen,
-      });
-    }
-    if (error.code === ErrorCode.RequestTimeout) {
-      return new MCPDiscoveryError({
-        kind: 'timeout',
-        domain,
-        message: error.message,
-        code: error.code,
-        pagesSeen,
-      });
-    }
+  if (error instanceof ProtocolError) {
     return new MCPDiscoveryError({
-      kind: 'protocol',
+      kind: error.code === ProtocolErrorCode.InvalidParams ? 'invalid-cursor' : 'protocol',
       domain,
       message: error.message,
       code: error.code,
+      pagesSeen,
+    });
+  }
+  // The SDK reports an aborted request as a timeout too; the caller's signal tells them apart.
+  if (isRequestTimeout(error)) {
+    return new MCPDiscoveryError({
+      kind: 'timeout',
+      domain,
+      message: error instanceof Error ? error.message : String(error),
       pagesSeen,
     });
   }
@@ -221,7 +225,7 @@ async function discoverDomain<TRaw, TItem>(
 
 /** Paginated discovery over every domain the server declared; never reports a partial catalog. */
 export async function discoverAll(
-  client: TDiscoveryClient,
+  client: IMCPDiscoveryClient,
   declaredCapabilities: TDeclaredCapabilities,
   identity: IMCPServerIdentity,
   instructions: string | undefined,
@@ -232,8 +236,8 @@ export async function discoverAll(
     declaredCapabilities.tools,
     options,
     async (cursor, requestOptions) => {
-      const result = await client.listTools(
-        cursor === undefined ? undefined : { cursor },
+      const result = await client.request(
+        { method: 'tools/list', params: cursor === undefined ? {} : { cursor } },
         requestOptions,
       );
       return {
@@ -252,8 +256,8 @@ export async function discoverAll(
     declaredCapabilities.prompts,
     options,
     async (cursor, requestOptions) => {
-      const result = await client.listPrompts(
-        cursor === undefined ? undefined : { cursor },
+      const result = await client.request(
+        { method: 'prompts/list', params: cursor === undefined ? {} : { cursor } },
         requestOptions,
       );
       return {
@@ -272,8 +276,8 @@ export async function discoverAll(
     declaredCapabilities.resources,
     options,
     async (cursor, requestOptions) => {
-      const result = await client.listResources(
-        cursor === undefined ? undefined : { cursor },
+      const result = await client.request(
+        { method: 'resources/list', params: cursor === undefined ? {} : { cursor } },
         requestOptions,
       );
       return {

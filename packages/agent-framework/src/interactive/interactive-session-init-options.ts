@@ -1,4 +1,8 @@
-import type { TUniversalMessagePart, TProviderCredentialResolver } from '@robota-sdk/agent-core';
+import type {
+  IToolAppView,
+  TUniversalMessagePart,
+  TProviderCredentialResolver,
+} from '@robota-sdk/agent-core';
 /**
  * The INTERNAL async-init option shape.
  *
@@ -86,6 +90,7 @@ export interface IInitOptions {
   /** Trusted host-only path projection for hook compatibility. */
   transcriptPath?: string;
   onTextDelta: (delta: string) => void;
+  onThinkingDelta?: (delta: string) => void;
   onContextUpdate?: (state: IContextWindowState) => void;
   onCompactEvent?: (event: ICompactEvent) => void;
   onUsageRecorded?: (entries: readonly IHistoryEntry[]) => void;
@@ -97,6 +102,8 @@ export interface IInitOptions {
     denied?: boolean;
     toolResultData?: string;
     toolResultParts?: TUniversalMessagePart[];
+    /** The source's view of the result, for a surface that can host one; never model context. */
+    view?: IToolAppView;
   }) => void;
   /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
   bare?: boolean;

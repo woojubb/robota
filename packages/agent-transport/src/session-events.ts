@@ -45,6 +45,7 @@ export const PROTOCOL_SESSION_EVENT_CLASSIFICATION = {
   tool_start: 'forwarded',
   tool_end: 'forwarded',
   thinking: 'forwarded',
+  thinking_delta: 'non-surface',
   complete: 'forwarded',
   error: 'forwarded',
   context_update: 'forwarded',

@@ -27,8 +27,13 @@ transport implementations.
 - Carriers supply `TOutboundDeliver` and an `IProtocolSession`, and decide each connection's role;
   no carrier implementation is registered inside this package. An observing connection reads only its own
   session's conversation and state, plus the host's list of sessions: it cannot submit, answer,
-  control, switch sessions, or read another session's records, and it never listens for prompts, so a
-  session watched only by observers still fails its prompts closed at once. A connection that
+  control, invoke a tool, switch sessions, or read another session's records, and it never listens for
+  prompts, so a session watched only by observers still fails its prompts closed at once. A driving
+  connection may invoke one runtime tool for a hosted app view only through the session's permission
+  gate and only among the tools that view's own source declared, with any prompt attributed to that
+  connection's driver and withdrawn when the connection goes. It reads a view's document on demand:
+  a tool event names the view by reference, so the document reaches only the surface that asked, and
+  no answer is sent that the carrier's channel cannot carry. A connection that
   answers prompts can ask for the ones already open; they are kept only from what was forwarded to
   such connections, so keeping them never holds a prompt open that nobody can answer.
 - A file crosses only after the receiver accepts its offer, and is kept only when the whole content
@@ -44,6 +49,9 @@ transport implementations.
   hand-rolled crypto, and key discovery goes through the shared egress boundary rather than a
   private fetch, so one policy governs every outbound request.
 - Owns no socket, HTTP listener, WebRTC, terminal, framework-host, registry, or settings lifecycle.
+  The one process-stream helper it does own, the stdio carrier bridge, only attaches and detaches: it
+  gives a protocol SDK a bridge to read instead of the process input, so stopping a carrier can never
+  destroy the input, and reports either end closing. What a close means stays with each carrier.
 - Session mobility owns handoff authority, offer refusal, and inventory classification; this package
   frames, seals, verifies, and assembles the payload that crosses a carrier.
 - Does not forward another workspace package.

@@ -11,7 +11,7 @@
  * are refusals surfaced in the catalog, not adapters.
  */
 
-import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { rejectDestination } from '@robota-sdk/agent-core/node';
 
 import { MCPAuthenticationError, type IMCPBoundAuthenticator } from './authentication.js';
@@ -32,11 +32,7 @@ import {
   toolsCallRequestId,
 } from './trace-propagation.js';
 
-import type {
-  Transport,
-  TransportSendOptions,
-} from '@modelcontextprotocol/sdk/shared/transport.js';
-import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
+import type { JSONRPCMessage, Transport, TransportSendOptions } from '@modelcontextprotocol/client';
 import type { IEgressPolicy, TEgressLookup } from '@robota-sdk/agent-core/node';
 
 export type TMCPTransportKind = 'streamable-http' | 'stdio';
@@ -132,6 +128,19 @@ function originOf(url: string, base?: string): string {
     // allow-fallback: an unparseable location is named without its text
     return 'an unparseable location';
   }
+}
+
+/** An HTTP answer outside 2xx: what the carrier saw when the SDK's probe verdict cannot say. */
+export interface IMCPHttpAnswer {
+  readonly status: number;
+  readonly contentType: string | undefined;
+}
+
+const lastHttpAnswers = new WeakMap<Transport, IMCPHttpAnswer>();
+
+/** The last non-2xx answer the carrier received, for a session reading a probe verdict the SDK left unexplained. */
+export function lastHttpAnswerOf(transport: Transport): IMCPHttpAnswer | undefined {
+  return lastHttpAnswers.get(transport);
 }
 
 export class MCPTransportRedirectRefusedError extends Error {
@@ -408,6 +417,12 @@ export function constructStreamableHttpTransport(
         response.headers.get('location') ?? undefined,
         admittedUrl,
       );
+    }
+    if (!response.ok) {
+      lastHttpAnswers.set(transport, {
+        status: response.status,
+        contentType: response.headers.get('content-type') ?? undefined,
+      });
     }
     const resourceRead =
       typeof init?.body === 'string' && JSON.parse(init.body).method === 'resources/read';

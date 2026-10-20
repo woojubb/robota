@@ -18,6 +18,7 @@ import type { ITurnHandle } from './turn-contracts.js';
 import type {
   IContextWindowState,
   IHistoryEntry,
+  IToolAppView,
   IToolSchema,
   IToolExecutionResult,
   TToolParameters,
@@ -115,13 +116,46 @@ export interface ISessionWorkspaceLocation {
   getCwd(): string;
 }
 
+/** How one direct runtime-tool call is admitted and attributed. */
+export interface IRuntimeToolInvokeOptions {
+  signal?: AbortSignal;
+  /**
+   * Whether a permission decision this call needs may be put to a person. `deny` (the default) fails
+   * such a decision closed, and a question the call's tools put finds no one to ask, which is right
+   * for a caller nobody is watching; `interactive` asks through the session's prompt events, and
+   * hands the tools the session's ask port, for a surface that can show the prompt and answer it.
+   */
+  permissionInteraction?: 'interactive' | 'deny';
+  /**
+   * The driver the call acts for. A host that attributes prompts names this driver as the requester
+   * of a prompt the call raises; a session that does not attribute (agent-session's `Session`)
+   * ignores it.
+   */
+  driverId?: TDriverId;
+  /**
+   * The id the call's tool events carry, so a host that kept it can tell this call's events from a
+   * model call's. The session mints one when absent.
+   */
+  executionId?: string;
+}
+
+/** Reads the view a finished model call's source declared, for a surface that hosts one. */
+export interface ISessionToolAppViews {
+  /**
+   * The view a `tool_end` reference named by `viewId`, or undefined once the session no longer holds
+   * it (evicted, cleared, or never kept). A `viewId` names one kept view, so it is never confused
+   * with another call that reused the same provider tool-call id.
+   */
+  readToolAppView(viewId: string): IToolAppView | undefined;
+}
+
 /** Direct execution uses the same permission-wrapped runtime as model tool calls. */
 export interface ISessionRuntimeTools {
   listRuntimeTools(): Promise<IToolSchema[]>;
   invokeRuntimeTool(
     name: string,
     parameters: TToolParameters,
-    options?: { signal?: AbortSignal },
+    options?: IRuntimeToolInvokeOptions,
   ): Promise<IToolExecutionResult>;
 }
 
@@ -133,6 +167,12 @@ export interface ISessionCommands {
     originDriverId?: TDriverId,
     /** #3282 §4 part b-2: whether this invocation is provably on this machine. Absent → `'local'`. */
     locality?: TCommandSurfaceLocality,
+    /**
+     * `signal` cancels what a skill command starts — the turn it submits or the fork it runs — and
+     * the work it does before that; a command cancelled this way rejects with the signal's reason.
+     * A command that starts neither ignores it.
+     */
+    options?: { readonly signal?: AbortSignal },
   ): Promise<ICommandResult | null>;
   listCommands(): ICommandListEntry[];
   /** The skills a client can offer beside the commands (`/<skill>` activates one). */
@@ -261,6 +301,7 @@ export interface ISessionCapabilityMap {
   commands: ISessionCommands;
   statusRead: ISessionStatusRead;
   runtimeTools: ISessionRuntimeTools;
+  toolAppViews: ISessionToolAppViews;
   events: ISessionEvents;
   promptResolution: ISessionPromptResolution;
   backgroundTasks: ISessionBackgroundTasks;
@@ -289,6 +330,7 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
   commands: Object.freeze(['executeCommand', 'listCommands', 'listSkills', 'listModels'] as const),
   statusRead: Object.freeze(['getStatusSnapshot'] as const),
   runtimeTools: Object.freeze(['listRuntimeTools', 'invokeRuntimeTool'] as const),
+  toolAppViews: Object.freeze(['readToolAppView'] as const),
   events: Object.freeze(['on', 'off'] as const),
   promptResolution: Object.freeze(['resolvePermission', 'resolveAsk'] as const),
   backgroundTasks: Object.freeze([

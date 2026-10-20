@@ -5,7 +5,8 @@
 Model Context Protocol (MCP) server transport for the Robota SDK — stdio, authenticated loopback
 Streamable HTTP, and OAuth-authorized remote Streamable HTTP, all served from the same exact runtime
 session port. Split out of the consolidated `agent-transport` package so MCP SDK dependencies remain
-isolated.
+isolated. Every carrier is served from one generation of the official MCP server package, so a
+protocol change is carried once.
 
 ## Transport Admission
 
@@ -20,8 +21,8 @@ Origin — comes from the public URL rather than the listener, because the publi
 ever sees; a proxy in front must forward the path unchanged and preserve Host. It verifies before it
 counts and counts only failures, so a valid token is never throttled by failures sharing its address
 (a NAT, a proxy), and it believes a forwarded address only from a configured proxy. All carriers
-admit only the canonical runtime catalog and use the session permission wrapper without interactive
-approval prompts.
+admit only the canonical runtime catalog and use the session permission wrapper; a prompt it raises
+reaches the caller only when the operator enabled that (see Canonical catalog and invocation).
 
 ## Boundaries
 
@@ -31,7 +32,8 @@ approval prompts.
 - Depends on `agent-interface-session` and `agent-interface-transport` contracts, not framework
   internals.
 - No other transport package depends on this one.
-- MCP consumes only the turn-submission and runtime-tool session roles. The public transport
+- MCP consumes only the turn-submission, runtime-tool, session-event, prompt-resolution and
+  driver-attribution session roles. The public transport
   implements `ITransportAdapter<IMcpTransportSession>` directly, with no broader inherited signature
   or overload — a full session remains assignable structurally because it implements those roles.
 
@@ -40,7 +42,8 @@ approval prompts.
 - `createMcpTransport` is a frozen `service` lifecycle: `start()` validates the canonical catalog,
   connects the carrier, and resolves only when it can serve requests; a pending start is cancellable
   and bounded to 15 seconds. Start-before-attach and a repeated active start reject; repeated stop is
-  safe; restart requires a new attach.
+  safe; restart requires a new attach. The stdio carrier bounds one frame: a frame above the bound
+  is a carrier failure, not a served request.
 - Both HTTP hosts validate the canonical catalog and their bind before listening. They follow the
   SDK's stateless request/response model — no `Mcp-Session-Id` table, GET stream, expiry sweep, or
   resumption process — so a remote peer has no session identifier to guess or enumerate. One
@@ -61,8 +64,28 @@ have no compatibility route. The submission extension uses a host-selected ident
 default; a runtime-tool name collision with that identity fails startup, and a later catalog
 collision fails listing/calling visibly.
 Resources and prompts are not advertised. MCP tool calls delegate to `invokeRuntimeTool`; unknown
-names, permission denial, interactive permission requirements, busy state, and cancellation are all
-visible tool errors, and submission cancellation never aborts another caller's active turn.
+names, permission denial, busy state, and cancellation are visible tool errors, and submission
+cancellation never aborts another caller's active turn. A permission or ask prompt is a tool error
+too, unless the operator enabled caller elicitation and the caller declared form-mode elicitation,
+because letting a remote caller answer the permission gate is a trust decision only the operator
+can make. Then a prompt raised while that caller's own call drives the session (including a
+background agent's request forwarded then, which names the agent), and never one raised during
+another caller's call, is put to it as an MCP elicitation. A permission offers allow once or deny
+only, so a caller can never add a standing permission rule; in auto mode an approval resumes a
+paused classifier, as any approval does. A masked ask is never sent, since form elicitation may not
+carry a secret, and an answer that names nothing offered settles the prompt closed. A call listens
+for prompts only while its own work drives the session, because the session fails a prompt closed
+only when nobody listens: a submission waiting in the queue must not hold another caller's prompt
+it cannot answer. A call that is abandoned settles its own open prompts closed, because a question
+asked without a signal would otherwise outlive it.
+
+The HTTP hosts keep no session state, so they can ask only a 2026-07-28-era caller, through
+input-required rounds: the asking call waits behind a single-use random request state that names
+that call and nothing else and never becomes a session. A caller that does not return within the
+time a person is given to answer one prompt, or a host that stops, abandons the call, so an absent
+caller holds the session for one bounded wait rather than one per prompt; a call that ends while it
+waits keeps its result for the retry. A 2025-era HTTP caller cannot be asked and keeps the tool
+error.
 
 ## Error Taxonomy
 

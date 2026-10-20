@@ -17,7 +17,7 @@ import type { IExecutionControllerCallbacks } from './interactive-session-execut
 import type { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import type { IToolState } from './types.js';
 import type { TToolArgs } from '@robota-sdk/agent-core';
-import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
+import type { ICompactEvent, IToolAppViewRef } from '@robota-sdk/agent-interface-session';
 
 export function projectCompactEvent(
   histTracker: SessionHistoryTracker,
@@ -51,6 +51,8 @@ export function projectToolExecution(
     toolResultData?: string;
     toolResultParts?: TUniversalMessagePart[];
     executionId?: string;
+    /** Names the view this call has; the document is read on demand, never carried here. */
+    appView?: IToolAppViewRef;
   },
   startLabel?: string,
   beforeToolStart?: () => void,

@@ -41,3 +41,5 @@ export type {
   TFileSendOutcome,
   TFileTransferRefusal,
 } from './file-transfer.js';
+export { attachStdioCarrier } from './stdio-carrier.js';
+export type { IStdioCarrier, IStdioCarrierHandlers } from './stdio-carrier.js';

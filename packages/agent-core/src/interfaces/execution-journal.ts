@@ -148,6 +148,7 @@ export interface IResumeToolCallsOptions {
  */
 export interface IResumeExecutionOptions extends Omit<IResumeToolCallsOptions, 'callId'> {
   onTextDelta?: IChatOptions['onTextDelta'];
+  onThinkingDelta?: IChatOptions['onThinkingDelta'];
   traceContext?: IRunTraceContext;
 }
 

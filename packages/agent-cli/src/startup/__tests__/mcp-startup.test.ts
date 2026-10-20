@@ -141,6 +141,65 @@ describe('composeMcpClientForStartup', () => {
     }
   });
 
+  it.each([
+    ['interactive', undefined, true],
+    ['serve', undefined, true],
+    ['print', undefined, false],
+    ['serve', false, false],
+  ] as const)(
+    'declares elicitation to a server in %s mode (askSurface %s) → %s',
+    async (mode, askSurface, declared) => {
+      const cwd = tempRoot('test-product-mcp-startup-elicit-');
+      const userHome = tempRoot('test-product-mcp-startup-elicit-home-');
+      const fixture = fileURLToPath(
+        new URL('../../../../agent-mcp/examples/stdio-fixture-server.mjs', import.meta.url),
+      );
+      const args = [fixture, 'client-capabilities'];
+      mkdirSync(join(userHome, '.test-product'), { recursive: true });
+      writeFileSync(
+        join(userHome, '.test-product', 'settings.json'),
+        JSON.stringify({
+          mcpServers: { local: { type: 'stdio', command: process.execPath, args, cwd } },
+        }),
+      );
+      const mcp = await composeMcpClientForStartup({
+        productRuntime: createTestProductRuntime(),
+        settingsSources: createProductUserSettingsSources(
+          createTestProductRuntime('test-product', { HOME: userHome }),
+        ),
+        projectAccess: await trustedAccessFor(cwd),
+        cwd,
+        env: {},
+        mode,
+        ...(askSurface === undefined ? {} : { askSurface }),
+        inspectTrust: async () => ({ state: 'trusted', generation: 1 }),
+        reportDiagnostic: () => undefined,
+        stdioAuthorities: {
+          local: {
+            allowedRoot: cwd,
+            generation: 'host-1',
+            executables: [{ command: process.execPath, args: [args] }],
+            environment: { HOME: userHome },
+          },
+        },
+      });
+      await mcp.activationAdapter.approve('local');
+      try {
+        const [tool] = await mcp.connect();
+        if (tool === undefined) throw new Error('Expected admitted stdio tool');
+        const result = await tool.execute({}, { toolName: 'local__ping', parameters: {} });
+        expect(result.success).toBe(true);
+        const capabilities = JSON.parse(
+          (result as { data: string }).data,
+        ) as Record<string, unknown>;
+        if (declared) expect(capabilities['elicitation']).toEqual({ form: {} });
+        else expect(capabilities).not.toHaveProperty('elicitation');
+      } finally {
+        await mcp.shutdown();
+      }
+    },
+  );
+
   it.each(['interactive', 'serve', 'print'] as const)(
     'revalidates a live settings source before dispatch in %s mode',
     async (mode) => {
