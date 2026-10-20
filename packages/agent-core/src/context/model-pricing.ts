@@ -53,7 +53,6 @@ const PATTERN_PRICES: Array<{ pattern: RegExp; price: IModelPrice }> = [
   { pattern: /claude-haiku/i, price: { inputPerMillion: 0.8, outputPerMillion: 4 } },
   { pattern: /gpt-4o-mini/i, price: { inputPerMillion: 0.15, outputPerMillion: 0.6 } },
   { pattern: /gpt-4/i, price: { inputPerMillion: 2.5, outputPerMillion: 10 } },
-  { pattern: /deepseek/i, price: { inputPerMillion: 0.14, outputPerMillion: 0.28 } },
   { pattern: /gemini-2/i, price: { inputPerMillion: 0.1, outputPerMillion: 0.4 } },
   { pattern: /gemini-1/i, price: { inputPerMillion: 1.25, outputPerMillion: 5 } },
 ];

@@ -24,6 +24,29 @@ describe('lookupModelPrice', () => {
     expect(lookupModelPrice('unknown-model-xyz-123')).toBeUndefined();
     expect(lookupModelPrice('constructor')).toBeUndefined();
   });
+
+  it.each([
+    'deepseek/deepseek-v4.1-flash-1017',
+    'deepseek-v4-flash',
+    'deepseek-v4-pro',
+    'deepseek-future-model',
+    'gateway/deepseek-reasoner',
+  ])('does not borrow a legacy price for the unregistered model %s', (model) => {
+    expect(lookupModelPrice(model)).toBeUndefined();
+    expect(calculateModelCost(model, 1_591, 117)).toBeUndefined();
+    expect(estimateBlendedCostPer1000(model)).toBeUndefined();
+  });
+
+  it('preserves explicit DeepSeek model prices', () => {
+    expect(lookupModelPrice('deepseek-chat')).toEqual({
+      inputPerMillion: 0.14,
+      outputPerMillion: 0.28,
+    });
+    expect(lookupModelPrice('deepseek-reasoner')).toEqual({
+      inputPerMillion: 0.55,
+      outputPerMillion: 2.19,
+    });
+  });
 });
 
 describe('calculateModelCost', () => {
