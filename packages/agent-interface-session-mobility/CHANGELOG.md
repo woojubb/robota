@@ -1,5 +1,17 @@
 # @robota-sdk/agent-interface-session-mobility
 
+## 3.0.0-beta.95
+### Patch Changes
+
+- Updated dependencies [60f3965]
+- Updated dependencies [115e104]
+- Updated dependencies [04719a9]
+- Updated dependencies [04a6de4]
+- Updated dependencies [0ba247b]
+- Updated dependencies [02053ec]
+  - @robota-sdk/agent-interface-session@3.0.0-beta.95
+  - @robota-sdk/agent-core@3.0.0-beta.95
+
 ## 3.0.0-beta.94
 ### Patch Changes
 

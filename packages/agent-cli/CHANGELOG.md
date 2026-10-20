@@ -1,5 +1,189 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.95
+### Minor Changes
+
+- c967c57: `robota acp` runs the agent as an Agent Client Protocol (v1) agent over stdio, so an editor that launches it (Zed, JetBrains and other ACP clients) can create a session, send prompts, see streamed replies and tool calls, approve or reject permission requests, and cancel a turn. Workspace trust, permission rules and the sandbox behave as in the terminal: the editor answers prompts and widens nothing. A folder that is not trusted yet is refused at `session/new` with the `trust` command to run, a working directory other than the one the agent was started in and any editor-supplied MCP servers or extra roots are refused, and a prompt that starts with `/` runs that command.
+
+  New package `@robota-sdk/agent-transport-acp` provides `createAcpTransport`, the ACP `ITransportAdapter` the command uses.
+
+  `@robota-sdk/agent-transport/node` gains `attachStdioCarrier`, the process-input bridge and close observation a stdio protocol carrier shares. `agent-transport-mcp` now uses it for its stdio carrier; its behavior is unchanged.
+- 04a6de4: **Reasoning text a provider streams now reaches the editor as an ACP `agent_thought_chunk`, through a new `thinking_delta` session event.**
+
+  `IChatOptions.onThinkingDelta`, `IRunOptions.onThinkingDelta` and `IResumeExecutionOptions.onThinkingDelta`
+  (typed `TThinkingDeltaCallback`) carry reasoning text from a provider through the run, and the session
+  options (`ISessionOptions.onThinkingDelta`, `ICreateSessionOptions.onThinkingDelta`) hand it to the
+  session's owner. `InteractiveSession` emits it as `thinking_delta(delta)`, beside `text_delta`. The
+  text is never part of the reply: it is not appended to the conversation, not streamed through
+  `onTextDelta`, and the core adds no record of its own for it (no text-delta log entry, no
+  `provider_stream_raw_delta`); a provider's own native payload capture and response metadata keep
+  what the provider sent, as before. A reasoning delta counts as provider activity for the idle
+  timeout whether or not anyone listens to it, so a model that is only thinking is not cut off. The
+  existing `thinking(isThinking)` event is unchanged and remains the busy indicator. Where a provider
+  sends no reasoning text, nothing is emitted and nothing new is switched on.
+
+  `@robota-sdk/agent-interface-session` is a major change because a new session event name makes an
+  exhaustive map over the event names stop compiling until it classifies the event.
+
+  `@robota-sdk/agent-transport-acp` sends each non-empty `thinking_delta` to the editor as an
+  `agent_thought_chunk`, in order with the message chunks, so `robota acp` shows the model's reasoning
+  in the editor. A turn that streamed only thoughts still shows its result text, because only reply
+  text marks a turn as streamed. The WebSocket wire, the HTTP stream, headless stream-json, `query()`
+  and the terminal UI do not carry the new event in this change (`@robota-sdk/agent-transport` and
+  `@robota-sdk/agent-ui-terminal` classify it as non-surface). A forked skill and an in-process subagent
+  pass their reply text up but not their reasoning.
+
+  Two providers already receive reasoning text and now report it. `@robota-sdk/agent-provider-openai`
+  passes `response.reasoning_summary_text.delta` events of a streamed Responses call to
+  `onThinkingDelta`; the API sends them only when the provider profile asks for a reasoning summary, and
+  no request option changed; a summary streamed in several parts, and the summary of a later reasoning
+  item, each start on a new paragraph (`\n\n`) so the parts do not run together.
+  `@robota-sdk/agent-provider-openai-compatible` reports the text of Gemma's thought channel, which the
+  provider already removed from the reply, as it streams across chunk boundaries, with each later
+  channel of one reply on a new paragraph; the reply text is unchanged. No other provider reports
+  reasoning, and Anthropic thinking is not enabled. A model fallback chain still moves to the next model when only reasoning had streamed.
+
+  The scripted test provider (`@robota-sdk/agent-core/testing`) accepts an optional `thinking` string on
+  a turn and delivers it through `onThinkingDelta` before the turn's text; the scripted session harness
+  collects `thinking_delta` and now keeps a scripted tool-call turn's `usage`, which it used to drop.
+
+### Patch Changes
+
+- 09e7e21: **An MCP server's form-mode elicitation during a tool call becomes a Robota ask prompt.**
+
+  `@robota-sdk/agent-mcp` opens a session with `elicitation: true` to declare form-mode elicitation and
+  answer it: a request the server raises while a tool call is in flight (a server→client
+  `elicitation/create` on the legacy era, an `input_required` round on 2026-07-28) is put to a person
+  through that call's ask port (`IMCPToolCallOptions.ask`, which the discovered tool fills from
+  `IToolExecutionContext.ask`) as one question titled with the configured server id and carrying the
+  server's message as one bounded line, with Respond and Decline, then one question per field
+  (choices, multi-select, yes/no, or free text validated against the field and re-asked once). The
+  answer continues the same call; the re-sent `tools/call` that carries it is the protocol's
+  continuation, not a replay, and a prompt is withdrawn when its call ends (an abort, or the call's
+  own timeout) — when the last in-flight call to that server ends, if there are several, since a
+  request names none of them. A request outside an in-flight call, or during a call that has no ask port, is
+  declined; a dismissal, a failing port or a second rejected answer cancels; a field named like a
+  credential is shown unmasked with a warning. URL mode is not offered. Without the opt-in nothing
+  changes: no capability is declared and an `input_required` result still closes the carrier. An
+  embedded request of another kind (sampling, roots) or more rounds than the client allows closes the
+  carrier as `input_required` does; an embedded elicitation the client refuses on its face (URL mode,
+  a malformed form) fails the call and leaves the carrier open.
+
+  `@robota-sdk/agent-cli` turns the opt-in on for the interactive terminal and the serve host driven by
+  the desktop app or the web GUI, which show the prompt, and leaves it off for print mode and for the
+  two serve-runtime hosts with no prompt surface, `mcp serve` and the ACP editor agent.
+
+  `@robota-sdk/agent-ui-web` renders an ask with `maxSelect` above 1 as a multi-select: options toggle
+  (click or 1–9), Submit answers with the ticked values once `minSelect` is met, and a toggle beyond
+  `maxSelect` is ignored, as in the terminal.
+- 60f3965: **`robota mcp serve --ask-client` puts a caller's permission and ask prompts to the calling MCP client through elicitation instead of failing them.**
+
+  `@robota-sdk/agent-transport-mcp`: `createMcpTransport`, `createMcpHttpHost`,
+  `createMcpRemoteHttpHost` and `createAgentMcpServer` take `askClient`. Off by default, every prompt
+  is a tool error as before. On, and when the client declared form-mode elicitation, a permission or
+  ask prompt raised by that client's own call is put to it: a permission offers allow once or deny
+  only, never a remembered grant; an ask becomes a form (choice, multiple choice, free text); a masked
+  ask is never sent; deny, decline, cancel, a client error or an answer naming nothing offered keeps
+  today's outcome. stdio asks during the call. The HTTP hosts keep no session state, so they ask only
+  a client on the 2026-07-28 revision, through input-required rounds whose `requestState` is a
+  single-use random token naming one parked call; a 2025-era HTTP client keeps the tool error.
+  A call listens for prompts only while its own work drives the session, so a submission waiting
+  in the queue never holds another caller's prompt that it cannot answer.
+  Breaking for hand-written sessions: `IMcpTransportSession` now also requires `ISessionEvents`
+  (`on`/`off`), `ISessionPromptResolution` (`resolvePermission`/`resolveAsk`) and
+  `ISessionDriverAttribution` (`getActiveDriverId`), which `InteractiveSession` and the published
+  test double already implement.
+
+  `@robota-sdk/agent-interface-session` / `@robota-sdk/agent-session` / `@robota-sdk/agent-framework`:
+  `ISessionRuntimeTools.invokeRuntimeTool` (and `Session.invokeRuntimeTool`) accept
+  `options.permissionInteraction` and `options.driverId`. A direct call still denies a decision that
+  would need a person, and finds no one to ask a question, unless its caller passes
+  `permissionInteraction: 'interactive'`; then it asks the session's permission handler and its
+  tools get the session's ask port. `InteractiveSession` makes `driverId` the active driver while
+  the direct call runs, so a prompt the call raises carries it as `requesterDriverId`. With
+  `askClient` on, an MCP call runs under its own `mcp:<n>` driver id; a submission made that way is
+  attributed to it rather than to the owner.
+
+  `@robota-sdk/agent-transport`: exports `permissionSummaryArgument`, the argument a person recognises
+  a tool call by (`filePath` for the built-in file tools), for every transport that puts a permission
+  request to a person in its own wire form.
+
+  `@robota-sdk/agent-cli`: `mcp serve --ask-client` turns this on for whichever carrier the run serves.
+- 26baaa9: **`@robota-sdk/agent-mcp` opens every MCP session through one `@modelcontextprotocol/client` 2.x client, for both protocol eras.**
+
+  Legacy negotiation stays the default; `protocolVersion: '2026-07-28'` pins the same client to the
+  modern era and never falls back to the legacy handshake. The hand-written stateless framing is gone,
+  and so is the package's dependency on the `@modelcontextprotocol/sdk` 1.x runtime: the client and its
+  schema package (`@modelcontextprotocol/client`, `@modelcontextprotocol/core`) are now the package's
+  dependencies, and the 1.x SDK remains only as a test dependency for legacy-era fixture servers. The
+  guarantees are unchanged and still tested: an unsupported result (`input_required`, an unknown result
+  type) closes the carrier and is never replayed (no client input is offered, so the SDK's automatic
+  input round stays off), and the receive bound, redirect refusal, pinned sockets, authenticated retry,
+  trace propagation and stdio authority live in the package's own transport and fetch wrappers as before.
+
+  Two behaviors change on the pinned 2026-07-28 era, both following the official client:
+
+  - A result that omits `resultType` is refused (`invalid-tool-result` for a tool call) instead of being
+    treated as complete. The tolerance served peers that predate the discriminator, which legacy
+    negotiation serves.
+  - An invalid freshness hint on `server/discover` (`ttlMs` negative or fractional, `cacheScope` unknown)
+    is read as the safest value (`ttlMs` 0, `cacheScope` private) instead of rejecting the server. List
+    pages and resource reads with an invalid hint are still refused.
+  - An `input_required` result that carries neither `inputRequests` nor `requestState` is refused as
+    `invalid-tool-result` rather than reported as `input_required`; either way the carrier closes and
+    nothing is replayed.
+
+  Against a real 2026-07-28 host the pinned path now also sends the body-derived request headers the
+  revision requires (`Mcp-Method`, `Mcp-Name`), which the hand-written framing did not; a headers helper
+  may no longer set either, as it already could not set the other headers the transport owns. A pinned
+  server that answers the discovery probe with a non-protocol HTTP error (a 404 page) is reported as a
+  failed startup carrying that status, not as a server lacking the revision. On the legacy era
+  `structuredContent` is still checked against the tool's declared `outputSchema`: the schema the latest
+  discovery saw travels with each call, since the SDK's own source for it is the aggregating `listTools`
+  cache that per-page discovery never fills.
+
+  `@robota-sdk/agent-cli` adds `@modelcontextprotocol/client` and `@modelcontextprotocol/core` to its
+  external `dependencies`, and with them `@modelcontextprotocol/server` and `@modelcontextprotocol/node`,
+  which its bundled MCP serve path already imported but the bundle inlined: with `core` external, the
+  server must resolve the one `core` it pins. It keeps the 1.x SDK, which
+  `@robota-sdk/agent-transport-mcp`'s stdio server still uses, and its import-boundary test now names
+  every `@modelcontextprotocol` package.
+- b4c2572: **`@robota-sdk/agent-transport-mcp` serves stdio from `@modelcontextprotocol/server` 2.x, and the 1.x `@modelcontextprotocol/sdk` leaves the repository's runtime dependencies.**
+
+  The stdio server (`createAgentMcpServer`, `createMcpTransport`) now builds on the same v2 server
+  package the HTTP hosts already use, through its `/stdio` carrier; the catalog is validated with the
+  SDK's own `Tool` validator, so the HTTP hosts no longer re-serialize it at the SDK boundary. Client-
+  visible behavior is unchanged: the same tools, submission extension, admission, turn correlation and
+  error results, negotiated through the legacy `initialize` handshake as before. `createAgentMcpServer`
+  returns the v2 `Server` type; a consumer wiring its own carrier imports `StdioServerTransport` from
+  `@modelcontextprotocol/server/stdio`. The stdio connection is stateful, so the server can send
+  server-to-client requests such as `elicitInput` to a client that declares the capability (tested).
+  Two carrier details follow the v2 stdio transport: a single frame over 10 MiB now fails the stdio
+  carrier instead of being buffered without bound (the HTTP carriers already cap a body at 1 MiB), and
+  a line that is not JSON is skipped instead of failing the carrier. A malformed `tools/call` request
+  or result is answered with the SDK's invalid-params error, and an invalid catalog entry is reported
+  as `Invalid MCP tool: <path>: <reason>` instead of the 1.x validator's own text.
+
+  `@robota-sdk/agent-cli` drops `@modelcontextprotocol/sdk` from its external `dependencies`; nothing
+  in its bundle imports it any more. The 1.x SDK remains only as a test dependency of
+  `@robota-sdk/agent-mcp`, for its legacy-era fixture host.
+- 115e104: **A command's caller can cancel what a skill command starts, including while the skill is prepared.**
+
+  `ISessionCommands.executeCommand` takes an optional trailing `{ signal }`. For a skill command it
+  reaches the turn the skill submits or the fork it runs, and the work before them: a cancel stops the
+  skill's activation before or after its shell expressions (once they start, all of them run to the
+  end), refuses a turn not yet started and interrupts one that is, and stops a fork. A command cancelled this way
+  rejects with the signal's reason whichever step the cancel reached, and a cancelled fork is not
+  recorded as an error. Before, a cancel that landed before the skill submitted its turn found nothing
+  for `abort()` to stop, and the turn then ran; a fork skill run as a command ignored the cancel. A
+  command that starts neither a turn nor a fork ignores the signal; every existing call keeps its shape.
+
+  A fork skill now receives the signal of whatever runs it, so a fork the model starts inside a turn
+  stops when that turn is aborted instead of running on.
+
+  `robota acp` hands each `/command` prompt's signal to the command, so `session/cancel` stops a skill
+  command's turn or fork even when it lands before the turn has started.
+
 ## 3.0.0-beta.94
 ### Minor Changes
 

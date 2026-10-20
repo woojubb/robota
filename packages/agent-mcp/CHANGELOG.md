@@ -1,5 +1,82 @@
 # @robota-sdk/agent-mcp
 
+## 3.0.0-beta.95
+### Minor Changes
+
+- 09e7e21: **An MCP server's form-mode elicitation during a tool call becomes a Robota ask prompt.**
+
+  `@robota-sdk/agent-mcp` opens a session with `elicitation: true` to declare form-mode elicitation and
+  answer it: a request the server raises while a tool call is in flight (a server→client
+  `elicitation/create` on the legacy era, an `input_required` round on 2026-07-28) is put to a person
+  through that call's ask port (`IMCPToolCallOptions.ask`, which the discovered tool fills from
+  `IToolExecutionContext.ask`) as one question titled with the configured server id and carrying the
+  server's message as one bounded line, with Respond and Decline, then one question per field
+  (choices, multi-select, yes/no, or free text validated against the field and re-asked once). The
+  answer continues the same call; the re-sent `tools/call` that carries it is the protocol's
+  continuation, not a replay, and a prompt is withdrawn when its call ends (an abort, or the call's
+  own timeout) — when the last in-flight call to that server ends, if there are several, since a
+  request names none of them. A request outside an in-flight call, or during a call that has no ask port, is
+  declined; a dismissal, a failing port or a second rejected answer cancels; a field named like a
+  credential is shown unmasked with a warning. URL mode is not offered. Without the opt-in nothing
+  changes: no capability is declared and an `input_required` result still closes the carrier. An
+  embedded request of another kind (sampling, roots) or more rounds than the client allows closes the
+  carrier as `input_required` does; an embedded elicitation the client refuses on its face (URL mode,
+  a malformed form) fails the call and leaves the carrier open.
+
+  `@robota-sdk/agent-cli` turns the opt-in on for the interactive terminal and the serve host driven by
+  the desktop app or the web GUI, which show the prompt, and leaves it off for print mode and for the
+  two serve-runtime hosts with no prompt surface, `mcp serve` and the ACP editor agent.
+
+  `@robota-sdk/agent-ui-web` renders an ask with `maxSelect` above 1 as a multi-select: options toggle
+  (click or 1–9), Submit answers with the ticked values once `minSelect` is met, and a toggle beyond
+  `maxSelect` is ignored, as in the terminal.
+- 26baaa9: **`@robota-sdk/agent-mcp` opens every MCP session through one `@modelcontextprotocol/client` 2.x client, for both protocol eras.**
+
+  Legacy negotiation stays the default; `protocolVersion: '2026-07-28'` pins the same client to the
+  modern era and never falls back to the legacy handshake. The hand-written stateless framing is gone,
+  and so is the package's dependency on the `@modelcontextprotocol/sdk` 1.x runtime: the client and its
+  schema package (`@modelcontextprotocol/client`, `@modelcontextprotocol/core`) are now the package's
+  dependencies, and the 1.x SDK remains only as a test dependency for legacy-era fixture servers. The
+  guarantees are unchanged and still tested: an unsupported result (`input_required`, an unknown result
+  type) closes the carrier and is never replayed (no client input is offered, so the SDK's automatic
+  input round stays off), and the receive bound, redirect refusal, pinned sockets, authenticated retry,
+  trace propagation and stdio authority live in the package's own transport and fetch wrappers as before.
+
+  Two behaviors change on the pinned 2026-07-28 era, both following the official client:
+
+  - A result that omits `resultType` is refused (`invalid-tool-result` for a tool call) instead of being
+    treated as complete. The tolerance served peers that predate the discriminator, which legacy
+    negotiation serves.
+  - An invalid freshness hint on `server/discover` (`ttlMs` negative or fractional, `cacheScope` unknown)
+    is read as the safest value (`ttlMs` 0, `cacheScope` private) instead of rejecting the server. List
+    pages and resource reads with an invalid hint are still refused.
+  - An `input_required` result that carries neither `inputRequests` nor `requestState` is refused as
+    `invalid-tool-result` rather than reported as `input_required`; either way the carrier closes and
+    nothing is replayed.
+
+  Against a real 2026-07-28 host the pinned path now also sends the body-derived request headers the
+  revision requires (`Mcp-Method`, `Mcp-Name`), which the hand-written framing did not; a headers helper
+  may no longer set either, as it already could not set the other headers the transport owns. A pinned
+  server that answers the discovery probe with a non-protocol HTTP error (a 404 page) is reported as a
+  failed startup carrying that status, not as a server lacking the revision. On the legacy era
+  `structuredContent` is still checked against the tool's declared `outputSchema`: the schema the latest
+  discovery saw travels with each call, since the SDK's own source for it is the aggregating `listTools`
+  cache that per-page discovery never fills.
+
+  `@robota-sdk/agent-cli` adds `@modelcontextprotocol/client` and `@modelcontextprotocol/core` to its
+  external `dependencies`, and with them `@modelcontextprotocol/server` and `@modelcontextprotocol/node`,
+  which its bundled MCP serve path already imported but the bundle inlined: with `core` external, the
+  server must resolve the one `core` it pins. It keeps the 1.x SDK, which
+  `@robota-sdk/agent-transport-mcp`'s stdio server still uses, and its import-boundary test now names
+  every `@modelcontextprotocol` package.
+
+### Patch Changes
+
+- Updated dependencies [04a6de4]
+- Updated dependencies [0ba247b]
+- Updated dependencies [02053ec]
+  - @robota-sdk/agent-core@3.0.0-beta.95
+
 ## 3.0.0-beta.94
 ### Patch Changes
 
