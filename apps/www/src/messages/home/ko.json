@@ -2,7 +2,7 @@
   "beta": "공개 베타",
   "eyebrow": "TypeScript 에이전트 SDK + 코딩 CLI",
   "title": "하나의 기반으로 에이전트를 만들고 사용하세요.",
-  "lead": "TypeScript 앱에 SDK로 에이전트를 넣거나, 같은 공개 구성요소로 만든 코딩 CLI를 터미널에서 사용하세요. 작업에 맞춰 모델 엔드포인트, 도구, 권한, 세션을 설정할 수 있습니다.",
+  "lead": "{name}는 AI 에이전트를 만드는 TypeScript SDK와 같은 공개 구성요소로 만든 코딩 CLI를 제공합니다. 앱에 SDK로 에이전트를 넣거나 CLI를 터미널에서 사용하세요. 작업에 맞춰 모델 엔드포인트, 도구, 권한, 세션을 설정할 수 있습니다.",
   "sdkAction": "SDK 가이드(영문)",
   "cliAction": "CLI 사용하기",
   "heroNote": "공개 패키지 · Node.js 22.12 이상 · 모델 엔드포인트 필요",

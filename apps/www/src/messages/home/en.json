@@ -2,7 +2,7 @@
   "beta": "Public beta",
   "eyebrow": "TypeScript agent SDK + coding CLI",
   "title": "Use and build agents on the same foundation.",
-  "lead": "Build agents into your TypeScript app with the SDK, or use the coding CLI built from the same public components. Configure a model endpoint, tools, permissions, and sessions to suit your task.",
+  "lead": "{name} provides a TypeScript SDK for AI agents and a coding CLI built from the same public components. Build agents into your app or use the CLI in your terminal. Configure a model endpoint, tools, permissions, and sessions for your task.",
   "sdkAction": "Build with the SDK",
   "cliAction": "Try the CLI",
   "heroNote": "Public packages · Node.js 22.12 or later · Model endpoint required",

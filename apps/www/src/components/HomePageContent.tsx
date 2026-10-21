@@ -79,7 +79,7 @@ export function HomePageContent({ locale }: { locale: MarketingLocale }) {
         <div className="home-container home-hero-inner">
           <div className="home-eyebrow"><span className="home-status-dot" />{t.beta}<span className="home-eyebrow-divider" />{t.eyebrow}</div>
           <h1 id="home-title">{t.title}</h1>
-          <p className="home-hero-lead">{t.lead}</p>
+          <p className="home-hero-lead">{t.lead.replaceAll('{name}', identity.displayName)}</p>
           <div className="home-actions">
             <a className="home-button home-button-primary" href={sdkGuideUrl}>{t.sdkAction}<Arrow /></a>
             <a className="home-button home-button-secondary" href={cliGuideUrl}>{t.cliAction}<Arrow /></a>

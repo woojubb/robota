@@ -99,6 +99,11 @@
 main { overflow-wrap: anywhere; }
 html[lang='ko'] .homepage { word-break: keep-all; }
 
+.site-breadcrumb { max-width: 72rem; margin: 0 auto; padding: 1rem 1.5rem 0; font-size: 0.875rem; color: var(--muted-foreground); }
+.site-breadcrumb ol { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; list-style: none; }
+.site-breadcrumb li + li::before { content: '/'; margin-right: 0.5rem; }
+.site-breadcrumb a { display: inline-flex; min-height: 44px; align-items: center; text-decoration: underline; text-underline-offset: 0.2em; }
+
 .homepage { color: var(--foreground); }
 .home-container { width: min(100% - 2.5rem, 72rem); margin-inline: auto; }
 .home-hero { position: relative; overflow: hidden; border-bottom: 1px solid var(--border); background: radial-gradient(ellipse 65% 85% at 82% 28%, rgb(56 157 110 / 15%), transparent 72%), linear-gradient(155deg, #101e19 0%, var(--background) 60%); }

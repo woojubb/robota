@@ -1,0 +1,3 @@
+# Production's Pages alias should not compete with the selected canonical domain.
+https://__DEPLOY_PROJECT_NAME__.pages.dev/*
+  X-Robots-Tag: noindex
