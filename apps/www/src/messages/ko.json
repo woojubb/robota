@@ -10,7 +10,7 @@
       "cli": "CLI 가이드"
     },
     "footer": {
-      "tagline": "같은 공개 구성요소로 만든 TypeScript 에이전트 SDK와 코딩 CLI입니다. 공개 베타이며, AGPL-3.0 또는 상용 라이선스로 사용할 수 있습니다.",
+      "tagline": "같은 공개 구성 요소로 만든 TypeScript 에이전트 SDK와 코딩 CLI입니다. 현재 공개 베타이며, AGPL-3.0 또는 상용 라이선스로 사용할 수 있습니다.",
       "product": "제품",
       "developers": "개발자",
       "company": "회사",
@@ -47,33 +47,33 @@
     "badge": "공개 베타",
     "title": "__PRODUCT_DISPLAY_NAME__ 공개 베타 사용하기",
     "description": "TypeScript SDK로 에이전트를 만들거나 같은 공개 구성 요소로 만든 코딩 CLI를 사용해 보세요. 두 제품 모두 베타 패키지로 제공됩니다.",
-    "comingSoonTitle": "시작할 경로를 선택하세요",
-    "comingSoonBody": "CLI에는 Node.js 22.12 이상과 프로바이더 키 또는 실행 중인 로컬 모델이 필요합니다. SDK 준비 사항은 선택한 프로바이더와 호스트에 따라 다릅니다. 안정 버전 전에 베타 API가 바뀔 수 있습니다.",
+    "comingSoonTitle": "시작 방법을 고르세요",
+    "comingSoonBody": "CLI에는 Node.js 22.12 이상과 프로바이더 키 또는 실행 중인 로컬 모델이 필요합니다. SDK에 필요한 준비 사항은 선택한 프로바이더와 호스트에 따라 다릅니다. 정식 버전이 나오기 전에 베타 API가 바뀔 수 있습니다.",
     "ctaDocs": "CLI 설정하기 →",
     "ctaGithub": "GitHub에 의견 남기기 ↗",
     "ctaSdkDocs": "SDK로 만들기(영문 가이드) →"
   },
   "compare": {
-    "title": "왜 __PRODUCT_DISPLAY_NAME__인가?",
-    "description": "__PRODUCT_DISPLAY_NAME__는 TypeScript 에이전트 SDK와 코딩 CLI를 제공합니다. 지원되는 프로바이더를 선택하거나 호환되는 로컬 모델 서버를 연결할 수 있습니다. 설정과 외부 프로바이더 비용은 선택에 따라 달라집니다. 공개 소스는 AGPL-3.0 또는 상업용 라이선스로 제공됩니다.",
+    "title": "__PRODUCT_DISPLAY_NAME__로 무엇을 할 수 있나요?",
+    "description": "__PRODUCT_DISPLAY_NAME__는 TypeScript 에이전트 SDK와 코딩 CLI를 제공합니다. 지원하는 프로바이더를 선택하거나 호환되는 로컬 모델 서버를 연결할 수 있습니다. 필요한 설정과 외부 프로바이더 비용은 선택에 따라 달라집니다. 공개 소스는 AGPL-3.0 또는 상용 라이선스로 제공됩니다.",
     "differentiators": {
-      "title": "__PRODUCT_DISPLAY_NAME__의 활용 방식",
+      "title": "__PRODUCT_DISPLAY_NAME__ 사용 방법",
       "items": [
         {
-          "title": "1. 지원되는 프로바이더 선택",
+          "title": "1. 프로바이더 선택하기",
           "body": "Anthropic, OpenAI, DeepSeek, Gemini용 어댑터를 사용하거나 OpenAI 호환 엔드포인트를 연결하세요. 인증 정보, 모델, 비용은 프로바이더마다 다릅니다."
         },
         {
-          "title": "2. SDK로 구축",
-          "body": "@robota-sdk/agent-framework로 자체 호스트에 맞는 세션을 구성하세요. 프로바이더를 제공하고 권한, 저장소, 수명 주기를 결정하는 것은 호스트입니다."
+          "title": "2. SDK로 에이전트 만들기",
+          "body": "@robota-sdk/agent-framework로 직접 만든 호스트에 맞게 세션을 구성하세요. 호스트에서 프로바이더를 연결하고 권한, 저장소, 수명 주기를 정합니다."
         },
         {
-          "title": "3. 공개 소스와 라이선스 확인",
-          "body": "공개 소스는 AGPL-3.0 조건에 따라 검토하고 수정할 수 있습니다. 독점 애플리케이션에서 AGPL 의무를 충족할 수 없는 경우 상업용 라이선스 옵션이 있습니다."
+          "title": "3. 소스와 라이선스 확인하기",
+          "body": "공개 소스는 AGPL-3.0 조건에 따라 검토하고 수정할 수 있습니다. 독점 애플리케이션에서 AGPL 의무를 충족할 수 없다면 상용 라이선스를 선택할 수 있습니다."
         },
         {
-          "title": "4. 로컬 모델 연결",
-          "body": "Ollama 또는 LM Studio 모델 서버를 실행하고 일치하는 엔드포인트와 모델을 설정하세요. 로컬 추론을 사용해도 활성화한 도구와 네트워크 설정은 별도로 확인해야 합니다."
+          "title": "4. 로컬 모델 연결하기",
+          "body": "Ollama 또는 LM Studio 모델 서버를 실행하고 해당 서버의 엔드포인트와 모델을 설정하세요. 로컬 추론을 사용해도 활성화한 도구와 네트워크 설정은 별도로 확인해야 합니다."
         }
       ]
     },
@@ -85,11 +85,11 @@
     }
   },
   "enterprise": {
-    "title": "상업용 라이선스와 배포",
-    "description": "__PRODUCT_DISPLAY_NAME__ 도입을 검토하는 엔지니어링 팀을 위해 라이선스, 배포 옵션, 사용 전 확인할 데이터 흐름을 설명합니다.",
+    "title": "상용 라이선스와 배포",
+    "description": "__PRODUCT_DISPLAY_NAME__ 도입을 검토하는 개발팀을 위한 안내입니다. 라이선스와 배포 방법, 사용 전에 확인할 데이터 흐름을 설명합니다.",
     "contact": {
-      "title": "상업용 라이선스",
-      "description": "__PRODUCT_DISPLAY_NAME__는 AGPL-3.0 또는 AGPL 의무를 충족하기 어려운 용도를 위한 상업용 라이선스로 제공됩니다. 라이선스 질문은 GitHub Discussion에 남기세요. 인증 정보나 민감한 보안 내용은 게시하지 마세요.",
+      "title": "상용 라이선스",
+      "description": "__PRODUCT_DISPLAY_NAME__는 AGPL-3.0으로 사용할 수 있습니다. AGPL 의무를 충족하기 어려운 용도라면 상용 라이선스를 선택할 수 있습니다. 라이선스 관련 질문은 GitHub Discussions에 남겨 주세요. 인증 정보나 민감한 보안 정보는 게시하지 마세요.",
       "githubDiscussions": "GitHub에서 라이선스 문의 ↗",
       "licensingTerms": "라이선스 조건 보기(영문) ↗"
     },
@@ -97,9 +97,9 @@
       "title": "배포와 데이터 흐름",
       "dataHandling": {
         "title": "데이터 처리",
-        "description": "CLI는 사용자 머신에서, SDK는 사용자의 호스트 애플리케이션 안에서 실행됩니다.",
-        "highlight": "데이터 흐름은 설정한 프로바이더와 도구에 따라 달라집니다",
-        "descriptionSuffix": "— 배포 전에 각 연결을 검토하세요.",
+        "description": "CLI는 내 컴퓨터에서, SDK는 직접 만든 호스트 애플리케이션 안에서 실행됩니다.",
+        "highlight": "데이터 흐름은 설정한 프로바이더와 도구에 따라 달라집니다.",
+        "descriptionSuffix": "배포 전에 연결한 서비스와 도구를 확인하세요.",
         "tableHeaders": [
           "데이터",
           "확인할 사항"
@@ -111,25 +111,25 @@
           ],
           [
             "프로바이더 인증 정보",
-            "환경 또는 호스트 설정에서 제공됩니다. 저장 위치와 접근 규칙을 확인하세요."
+            "환경 변수나 호스트 설정으로 인증 정보를 전달합니다. 저장 위치와 접근 규칙을 확인하세요."
           ],
           [
             "세션 기록",
-            "CLI는 설정한 로컬 상태를 사용합니다. SDK의 지속성은 선택 사항이며 호스트가 관리합니다."
+            "CLI는 설정한 로컬 상태를 사용합니다. SDK에서는 세션을 저장할지 선택할 수 있으며, 호스트가 저장을 관리합니다."
           ],
           [
-            "도구 결과와 연동",
+            "도구 결과와 외부 연동",
             "도구 결과가 모델 문맥에 포함될 수 있으며 웹·MCP 도구는 별도 서비스에 접속할 수 있습니다."
           ]
         ]
       },
       "onPremises": {
         "title": "온프레미스 배포",
-        "description": "로컬 OpenAI 호환 모델 서버를 연결할 수 있습니다. 제한된 네트워크에서는 패키지와 모델을 내부에 준비하고 활성화한 네트워크 도구도 검토해야 합니다:",
+        "description": "로컬 OpenAI 호환 모델 서버를 연결할 수 있습니다. 네트워크를 제한한 환경에서는 패키지와 모델을 내부에 준비하고, 네트워크를 사용하는 도구도 확인해야 합니다.",
         "items": [
           {
             "name": "Ollama",
-            "body": "다운로드한 모델을 자체 네트워크에서 실행"
+            "body": "다운로드한 모델을 내부 네트워크에서 실행"
           },
           {
             "name": "LM Studio",
@@ -147,7 +147,7 @@
           "body": "배포 전에 저장소와 의존성을 검토할 수 있습니다."
         },
         {
-          "title": "설정 가능한 모델 엔드포인트",
+          "title": "모델 엔드포인트 선택",
           "body": "호스팅 프로바이더 또는 로컬 호환 서버를 선택합니다."
         },
         {
@@ -155,7 +155,7 @@
           "body": "세션 저장 여부와 위치는 SDK 호스트가 결정합니다."
         },
         {
-          "title": "명시적인 도구 권한",
+          "title": "도구 권한 설정",
           "body": "배포 환경의 권한 모드와 활성화한 연동을 검토하세요."
         }
       ]
@@ -165,19 +165,19 @@
       "items": [
         {
           "q": "프롬프트와 코드는 어디로 가나요?",
-          "a": "모델 요청은 설정한 엔드포인트로 전송됩니다. 호스팅 프로바이더에는 전송한 프롬프트와 문맥이 전달되고, 로컬 모델을 사용하면 자체 서버에서 추론할 수 있습니다. 활성화한 웹·MCP 등 도구는 별도의 네트워크 요청을 만들 수 있습니다."
+          "a": "모델 요청은 설정한 엔드포인트로 전송됩니다. 호스팅 프로바이더를 사용하면 프롬프트와 문맥이 해당 서비스로 전달됩니다. 로컬 모델을 사용하면 자체 서버에서 추론할 수 있습니다. 활성화한 웹·MCP 도구 등은 별도로 네트워크에 요청을 보낼 수 있습니다."
         },
         {
           "q": "기업 프록시에서 사용할 수 있나요?",
-          "a": "모델 엔드포인트와 활성화한 연동이 귀사의 네트워크 정책에 맞아야 합니다. 도입 전에 선택한 구성의 프록시 동작을 확인하세요."
+          "a": "모델 엔드포인트와 활성화한 연동이 회사의 네트워크 정책에 맞아야 합니다. 도입 전에 선택한 구성에서 프록시가 제대로 동작하는지 확인하세요."
         },
         {
           "q": "제한된 네트워크에서 실행할 수 있나요?",
           "a": "로컬 모델 서버와 내부에서 설치할 수 있는 npm 패키지를 준비하면 제한된 환경을 구성할 수 있습니다. 네트워크를 사용하는 도구는 정책에 맞게 끄거나 설정하세요."
         },
         {
-          "q": "상업용 라이선스가 있나요?",
-          "a": "네. 공개 소스는 AGPL-3.0으로 제공되며, AGPL 의무를 충족할 수 없는 독점·비공개 소스 용도를 위한 상업용 라이선스 옵션이 있습니다. 경로를 선택하기 전에 라이선스 조건을 확인하세요."
+          "q": "상용 라이선스가 있나요?",
+          "a": "네. 공개 소스는 AGPL-3.0으로 제공됩니다. AGPL 의무를 충족할 수 없는 독점·비공개 소스 용도라면 상용 라이선스를 선택할 수 있습니다. 사용할 라이선스를 정하기 전에 조건을 확인하세요."
         }
       ]
     }
@@ -186,8 +186,8 @@
     "title": "로드맵",
     "description": "__PRODUCT_DISPLAY_NAME__ SDK와 CLI는",
     "descriptionHighlight": "공개 베타",
-    "descriptionSuffix": "입니다. 완료된 작업, 향후 계획, 탐색 중인 아이디어를 아래에서 구분합니다.",
-    "lastUpdated": "현재 개발 상황은",
+    "descriptionSuffix": "입니다. 아래에서 완료한 작업, 앞으로의 계획, 검토 중인 아이디어를 나누어 볼 수 있습니다.",
+    "lastUpdated": "현재 개발 상황 확인:",
     "githubIssues": "GitHub Issues ↗",
     "now": {
       "title": "이전 베타에 포함된 기능",
@@ -201,7 +201,7 @@
       "statusPlanned": "예정",
       "items": [
         {
-          "feature": "컨텍스트 경고 배너 (70% / 90%)",
+          "feature": "문맥 사용량 경고 배너 (70% / 90%)",
           "status": "done",
           "release": "beta.67"
         },
@@ -216,22 +216,22 @@
           "release": "beta.67"
         },
         {
-          "feature": "__PRODUCT_CLI_NAME__ init 프로젝트 설정 명령어",
+          "feature": "__PRODUCT_CLI_NAME__ init 프로젝트 설정 명령",
           "status": "done",
           "release": "beta.67"
         },
         {
-          "feature": "플러그인 개발 가이드 + 디렉터리",
+          "feature": "플러그인 개발 가이드와 디렉터리",
           "status": "done",
           "release": "beta.67"
         },
         {
-          "feature": "변경 로그 페이지",
+          "feature": "변경 기록 페이지",
           "status": "done",
           "release": "beta.67"
         },
         {
-          "feature": "? 키 키보드 단축키 오버레이",
+          "feature": "? 키로 여는 키보드 단축키 안내",
           "status": "done",
           "release": "beta.67"
         },
@@ -243,45 +243,45 @@
       ]
     },
     "next": {
-      "title": "다음",
+      "title": "앞으로의 계획",
       "subtitle": "계획 중인 작업이며 제공 여부와 시기는 바뀔 수 있습니다.",
       "items": [
-        "릴리스 준비 — 주요 버그를 해결하고 SDK와 CLI의 핵심 사용 흐름을 검증한 뒤 정식 릴리스를 검토",
-        "공식 GitHub 액션 — 모든 워크플로에서 __PRODUCT_DISPLAY_NAME__를 CI 봇으로 실행",
-        "공식 플러그인 스타터 팩 — 커뮤니티 플러그인 템플릿: 로깅, Slack 알림, 비용 추적, Linear 통합, Datadog 메트릭",
-        "SDK 임베딩 예제 — Next.js, Express, CLI 스크립트 참조 구현"
+        "릴리스 준비: 주요 버그를 고치고 SDK와 CLI의 핵심 사용 흐름을 검증한 뒤 정식 릴리스를 검토합니다.",
+        "공식 GitHub 액션: 모든 워크플로에서 __PRODUCT_DISPLAY_NAME__를 CI 봇으로 실행할 수 있게 합니다.",
+        "공식 플러그인 스타터 팩: 로깅, Slack 알림, 비용 추적, Linear 연동, Datadog 지표를 위한 커뮤니티 플러그인 템플릿을 만듭니다.",
+        "SDK 연동 예제: Next.js, Express, CLI 스크립트에서 참고할 구현 예제를 만듭니다."
       ]
     },
     "later": {
-      "title": "나중에 — 탐색 중",
-      "subtitle": "탐색 중인 아이디어이며 제공 여부와 시기를 약속하지 않습니다.",
+      "title": "검토 중인 아이디어",
+      "subtitle": "아직 검토 중이며, 제공 여부와 시기는 정해지지 않았습니다.",
       "items": [
-        "호스팅 환경 — 관리형 세션과 팀 공유",
-        "세션 공유 링크 (대화 URL 공유)",
-        "터미널 내 멀티 에이전트 시각적 캔버스",
-        "네이티브 VS Code 확장 (현재 CLI 외)",
+        "관리형 세션과 팀 공유를 지원하는 호스팅 환경",
+        "URL로 대화를 공유하는 세션 링크",
+        "터미널 안에서 여러 에이전트를 시각적으로 보여 주는 캔버스",
+        "현재 CLI 외에 VS Code용 네이티브 확장 제공",
         "엔터프라이즈 SSO 및 감사 로그"
       ]
     },
     "vote": {
-      "title": "투표 및 제안",
-      "description": "제안은 GitHub Discussion에 남기고, 현재 결정 사항은 이슈에서 확인하세요.",
+      "title": "투표와 제안",
+      "description": "GitHub Discussions에서 제안하거나 투표할 수 있습니다. 현재 결정 사항은 이슈에서 확인하세요.",
       "githubDiscussions": "GitHub Discussions ↗",
-      "openIssues": "이슈 열기 ↗"
+      "openIssues": "이슈 보기 ↗"
     }
   },
   "showcase": {
-    "title": "__PRODUCT_DISPLAY_NAME__의 자체 제작 예시",
-    "description": "프로젝트 팀은 공개 SDK 패키지로 __PRODUCT_DISPLAY_NAME__ CLI를 만들었습니다. 소스를 통해 에이전트 인터페이스를 구성한 한 가지 방식을 살펴보고, 커뮤니티 예시는 별도로 제출하세요.",
+    "title": "공개 SDK로 만든 __PRODUCT_DISPLAY_NAME__ CLI",
+    "description": "프로젝트 팀은 공개 SDK 패키지로 __PRODUCT_DISPLAY_NAME__ CLI를 만들었습니다. 소스에서 에이전트 인터페이스를 어떻게 구성했는지 살펴보세요. 커뮤니티 프로젝트도 별도로 제출할 수 있습니다.",
     "featuredTitle": "참조 구현",
     "communityTitle": "커뮤니티 프로젝트",
-    "communityEmpty": "아직 등록된 커뮤니티 프로젝트가 없습니다. 첫 번째로 제출해보세요.",
+    "communityEmpty": "아직 등록된 커뮤니티 프로젝트가 없습니다. 직접 만든 프로젝트를 제출해 보세요.",
     "submitTitle": "프로젝트 제출",
-    "submitDescription": "@robota-sdk/*로 만든 작동하는 프로젝트가 있다면 이 페이지에 추가할 수 있도록 다음에서 PR을 열어주세요:",
+    "submitDescription": "작동하는 @robota-sdk/* 프로젝트를 이 페이지에 소개하려면 <repository>GitHub 저장소</repository>에 PR을 보내 주세요.",
     "submitRequirements": [
-      "@robota-sdk/* 패키지 중 하나 이상 사용 필수",
-      "공개 소스 코드 또는 라이브 데모 필수",
-      "PR 시점에 정상 동작해야 함"
+      "@robota-sdk/* 패키지를 하나 이상 사용해야 합니다.",
+      "소스 코드나 실행 중인 데모를 공개해야 합니다.",
+      "PR을 보낼 때 정상적으로 작동해야 합니다."
     ],
     "submitButton": "Pull Request 열기 ↗",
     "sourceLink": "CLI 소스 보기 ↗",
@@ -289,10 +289,10 @@
     "projects": [
       {
         "name": "__PRODUCT_DISPLAY_NAME__ CLI",
-        "description": "프로젝트 팀이 @robota-sdk/agent-framework와 터미널 UI 패키지로 만든 참조 구현입니다. 공개 구성 요소로 코딩 CLI를 조립한 사례이며 고객 사례는 아닙니다.",
+        "description": "프로젝트 팀이 @robota-sdk/agent-framework와 터미널 UI 패키지로 만든 참조 구현입니다. 공개 구성 요소를 조합해 코딩 CLI를 만든 사례입니다. 고객이 도입한 사례는 아닙니다.",
         "highlights": [
-          "멀티 프로바이더 전환",
-          "세션 지속성",
+          "여러 프로바이더 간 전환",
+          "세션 저장과 재개",
           "권한 시스템",
           "플러그인 라이프사이클",
           "스트리밍 TUI"
