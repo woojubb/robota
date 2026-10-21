@@ -1,0 +1,7 @@
+{
+  "settings": "분석 쿠키 설정",
+  "label": "분석 쿠키",
+  "description": "Google Analytics로 페이지 방문을 측정해 사이트를 개선합니다. 선택 사항이며 언제든 설정에서 변경할 수 있습니다.",
+  "reject": "거부",
+  "accept": "허용"
+}

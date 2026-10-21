@@ -41,3 +41,11 @@ When a docs route is renamed, update the matching rule there.
 ## Spec
 
 See [SPEC.md](./SPEC.md) for the full architectural contract.
+
+## Homepage analytics
+
+Set `SERVICE_ANALYTICS_MEASUREMENT_ID` in this Pages project's `PRODUCT_BUILD_ENV` to its GA4 web stream ID (`G-...`). The generated public configuration supplies it to the shared English/Korean document. An absent ID disables analytics and its consent controls. Do not put a measurement ID in neutral source or reuse the blog's separate stream ID.
+
+Visitors must accept the optional analytics cookies before the Google tag loads. The footer's analytics settings allow rejection or withdrawal; the choice persists locally. Advertising storage, Google signals and ad personalization stay disabled. We send one explicit `page_view` on entry and on Next.js pathname changes, without URL query strings or fragments. Keep enhanced measurement's automatic history page views **off** for this stream to avoid duplicate page views.
+
+After deployment, verify a fresh browser visit has no Google tag before acceptance; acceptance loads one tag; reload preserves the choice; internal navigation sends one view; rejection stops collection. In the matching GA property, check Realtime for the deployed page titles and paths. A script element or a successful deployment alone does not prove GA received events.

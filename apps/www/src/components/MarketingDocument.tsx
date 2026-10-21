@@ -3,6 +3,8 @@ import { IBM_Plex_Sans, IBM_Plex_Mono } from 'next/font/google';
 import { NextIntlClientProvider } from 'next-intl';
 import { Header } from './Header';
 import { Footer } from './Footer';
+import { SiteAnalytics } from './SiteAnalytics';
+import { productPublicConfig } from '../lib/product-config.generated';
 import { getMarketingHomeGraph, type MarketingLocale } from '../lib/marketing';
 import en from '../messages/en.json';
 import ko from '../messages/ko.json';
@@ -25,6 +27,7 @@ export function MarketingDocument({ locale, children }: { locale: MarketingLocal
           <Header />
           <main id="main-content">{children}</main>
           <Footer />
+          <SiteAnalytics measurementId={productPublicConfig.services?.analyticsMeasurementId} locale={locale} />
         </NextIntlClientProvider>
       </body>
     </html>
