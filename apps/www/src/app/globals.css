@@ -97,6 +97,7 @@
 .site-mobile-nav { display: none; }
 .site-mobile-nav[hidden] { display: none !important; }
 main { overflow-wrap: anywhere; }
+html[lang='ko'] .homepage { word-break: keep-all; }
 
 .homepage { color: var(--foreground); }
 .home-container { width: min(100% - 2.5rem, 72rem); margin-inline: auto; }
