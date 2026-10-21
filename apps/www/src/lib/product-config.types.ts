@@ -1,4 +1,5 @@
 export interface IProductPublicConfig {
+  readonly services?: { readonly analyticsMeasurementId?: string };
   readonly identity: {
     readonly displayName: string;
     readonly cliName: string;

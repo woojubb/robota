@@ -270,3 +270,11 @@ main a.rounded-lg { display: inline-flex; align-items: center; justify-content: 
   html { scroll-behavior: auto; }
   .home-button { transition: none; }
 }
+
+.analytics-settings { padding: 0.75rem 1.5rem; text-align: center; font-size: 0.8rem; }
+.analytics-settings button { text-decoration: underline; text-underline-offset: 3px; }
+.analytics-choice { position: fixed; bottom: 1rem; left: 1rem; right: 1rem; z-index: 50; max-width: 42rem; margin: auto; padding: 1rem 1.25rem; border: 1px solid var(--border); background: var(--background); color: var(--foreground); box-shadow: 0 8px 32px #0002; font-size: 0.9rem; }
+.analytics-choice p { margin: 0 0 0.75rem; line-height: 1.5; }
+.analytics-choice > div { display: flex; justify-content: flex-end; gap: 0.75rem; }
+.analytics-choice button { min-height: 44px; padding: 0.5rem 1rem; border: 1px solid var(--border); border-radius: 4px; }
+.analytics-choice button:focus-visible, .analytics-settings button:focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }
