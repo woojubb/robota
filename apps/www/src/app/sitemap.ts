@@ -13,8 +13,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return routing.locales.flatMap((locale) =>
     marketingPages.map((page) => ({
       url: `${BASE}${marketingPath(locale, page)}`,
-      changeFrequency: 'weekly' as const,
-      priority: page === 'home' ? 1 : 0.7,
+      alternates: { languages: {
+        en: `${BASE}${marketingPath('en', page)}`,
+        ko: `${BASE}${marketingPath('ko', page)}`,
+        'x-default': `${BASE}${marketingPath('en', page)}`,
+      } },
     })),
   );
 }

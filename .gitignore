@@ -173,3 +173,6 @@ stryker.log
 # `*.local.json` suffix is the tool's own convention for a per-clone file; the shared
 # `.claude/settings.json` stays tracked.
 .claude/*.local.json
+
+# Local SEO audit evidence and API observations.
+.seo-cache/

@@ -28,7 +28,7 @@ const metadataCopy: Record<MarketingLocale, Record<MarketingPage, { title: strin
   ko: koMetadata,
 };
 
-function marketingCopy(locale: MarketingLocale, page: MarketingPage) {
+export function marketingCopy(locale: MarketingLocale, page: MarketingPage) {
   const name = productPublicConfig.identity.displayName;
   const { title, description } = metadataCopy[locale][page];
   return { title: title.replaceAll('{name}', name), description: description.replaceAll('{name}', name) };
@@ -70,12 +70,12 @@ export function getMarketingMetadata(locale: MarketingLocale, page: MarketingPag
   };
 }
 
-export function getMarketingHomeGraph(locale: MarketingLocale) {
-  const { displayName, websiteUrl } = productPublicConfig.identity;
+export function getMarketingPageGraph(locale: MarketingLocale, page: MarketingPage = 'home') {
+  const { displayName, websiteUrl, repositoryUrl, docsUrl } = productPublicConfig.identity;
   if (!websiteUrl) return null;
   const rootUrl = new URL('/', websiteUrl).toString();
-  const pageUrl = new URL(marketingPath(locale), websiteUrl).toString();
-  const { title, description } = marketingCopy(locale, 'home');
+  const pageUrl = new URL(marketingPath(locale, page), websiteUrl).toString();
+  const { title, description } = marketingCopy(locale, page);
   return {
     '@context': 'https://schema.org',
     '@graph': [
@@ -85,13 +85,32 @@ export function getMarketingHomeGraph(locale: MarketingLocale) {
         name: title, description, inLanguage: locale,
         isPartOf: { '@id': `${rootUrl}#website` },
         about: { '@id': `${rootUrl}#software` },
+        ...(page !== 'home' ? { breadcrumb: { '@id': `${pageUrl}#breadcrumb` } } : {}),
       },
       {
         '@type': 'SoftwareApplication', '@id': `${rootUrl}#software`,
         name: displayName, url: rootUrl,
         applicationCategory: 'DeveloperApplication', operatingSystem: 'Cross-platform',
         license: 'https://www.gnu.org/licenses/agpl-3.0.html',
+        ...(repositoryUrl ? { sameAs: [repositoryUrl], isBasedOn: { '@id': `${rootUrl}#source` } } : {}),
+        ...(docsUrl ? { softwareHelp: { '@type': 'WebPage', url: docsUrl } } : {}),
       },
+      ...(repositoryUrl ? [{
+        '@type': 'SoftwareSourceCode', '@id': `${rootUrl}#source`,
+        name: displayName, codeRepository: repositoryUrl,
+        programmingLanguage: 'TypeScript', runtimePlatform: 'Node.js 22.12 or later',
+        targetProduct: { '@id': `${rootUrl}#software` },
+        license: 'https://www.gnu.org/licenses/agpl-3.0.html',
+      }] : []),
+      ...(page !== 'home' ? [{
+        '@type': 'BreadcrumbList', '@id': `${pageUrl}#breadcrumb`,
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: displayName, item: new URL(marketingPath(locale), websiteUrl).toString() },
+          { '@type': 'ListItem', position: 2, name: title, item: pageUrl },
+        ],
+      }] : []),
     ],
   };
 }
+
+export const getMarketingHomeGraph = (locale: MarketingLocale) => getMarketingPageGraph(locale);

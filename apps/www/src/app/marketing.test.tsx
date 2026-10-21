@@ -109,6 +109,7 @@ it('lists only the twelve canonical marketing URLs', () => {
   expect(urls).toHaveLength(12);
   expect(new Set(urls).size).toBe(12);
   expect(urls.sort()).toEqual(['en', 'ko'].flatMap((locale) => Object.keys(routes).map((page) => `https://example.test${path(locale, page)}`)).sort());
+  for (const entry of sitemap()) expect(entry.alternates?.languages).toHaveProperty('x-default');
 });
 
 it('links the English home and language alternative to their canonical destinations', () => {
