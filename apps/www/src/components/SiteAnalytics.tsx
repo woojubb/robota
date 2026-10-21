@@ -3,6 +3,8 @@
 import Script from 'next/script';
 import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
+import en from '../messages/analytics/en.json';
+import ko from '../messages/analytics/ko.json';
 
 type Choice = 'accepted' | 'rejected';
 type AnalyticsWindow = Window & {
@@ -67,7 +69,7 @@ export function SiteAnalytics({ measurementId, locale }: { measurementId?: strin
   }, [choice, pathname, ready, validId]);
 
   if (!validId || !loaded) return null;
-  const ko = locale === 'ko';
+  const copy = locale === 'ko' ? ko : en;
   function choose(value: Choice) {
     try { localStorage.setItem(storageKey, value); } catch { /* Session choice still applies. */ }
     setChoice(value);
@@ -77,13 +79,13 @@ export function SiteAnalytics({ measurementId, locale }: { measurementId?: strin
   return <>
     {choice === 'accepted' && <Script id="site-google-analytics" src={`https://www.googletagmanager.com/gtag/js?id=${validId}`} strategy="afterInteractive" onReady={() => setReady(true)} />}
     <div className="analytics-settings">
-      <button type="button" onClick={() => setSettingsOpen(true)}>{ko ? '분석 쿠키 설정' : 'Analytics cookie settings'}</button>
+      <button type="button" onClick={() => setSettingsOpen(true)}>{copy.settings}</button>
     </div>
-    {(choice === null || settingsOpen) && <section className="analytics-choice" aria-label={ko ? '분석 쿠키' : 'Analytics cookies'}>
-      <p>{ko ? 'Google Analytics로 페이지 방문을 측정해 사이트를 개선합니다. 선택 사항이며 언제든 설정에서 변경할 수 있습니다.' : 'We use Google Analytics to measure page visits and improve this site. It is optional, and you can change your choice at any time.'}</p>
+    {(choice === null || settingsOpen) && <section className="analytics-choice" aria-label={copy.label}>
+      <p>{copy.description}</p>
       <div>
-        <button type="button" onClick={() => choose('rejected')}>{ko ? '거부' : 'Reject'}</button>
-        <button type="button" onClick={() => choose('accepted')}>{ko ? '허용' : 'Accept'}</button>
+        <button type="button" onClick={() => choose('rejected')}>{copy.reject}</button>
+        <button type="button" onClick={() => choose('accepted')}>{copy.accept}</button>
       </div>
     </section>}
   </>;
