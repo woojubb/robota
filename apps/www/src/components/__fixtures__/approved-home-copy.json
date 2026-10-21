@@ -1,7 +1,7 @@
 {
-  "koTitle": "에이전트를 만들고 코딩 CLI로 작업하세요.",
+  "koTitle": "SDK로 에이전트를 만들고 CLI로 코딩하세요.",
   "koSdkAction": "SDK 가이드(영문)",
-  "koHeroVision": "에이전트가 자신의 시스템을 안정적으로 개선하는 것이 목표입니다.",
+  "koHeroVision": "에이전트가 자신을 구성하는 시스템을 안정적으로 개선하는 것이 목표입니다.",
   "cliExpectedReply": {
     "en": "The selected model returns a text reply",
     "ko": "선택한 모델이 텍스트로 답합니다"

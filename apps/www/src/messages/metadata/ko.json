@@ -5,7 +5,7 @@
   },
   "beta": {
     "title": "공개 베타",
-    "description": "{name} SDK와 코딩 CLI를 사용해 보고, 준비 사항을 확인한 뒤 GitHub에 의견을 남기세요."
+    "description": "준비 사항을 확인한 뒤 {name} SDK와 코딩 CLI를 사용해 보세요. 의견은 GitHub에 남겨 주세요."
   },
   "enterprise": {
     "title": "상용 라이선스와 배포",
