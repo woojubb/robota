@@ -249,7 +249,7 @@ async function selfTest() {
       ['en/guide.html', (text) => text.replace('"@type":"BreadcrumbList"', '"@type":"Thing"'), /breadcrumb/],
       ['index.html', (text) => text.replace('app/%5Blocale%5D/part.js', 'app/%5Blocale%5D/missing.js'), /missing local asset/],
       ['index.html', (text) => text.replace('#setup%26usage', '#unknown'), /broken fragment/],
-      ['index.html', (text) => text.replace('>Ready<', '>__PRODUCT_DISPLAY_NAME__<'), /unresolved/],
+      ['index.html', (text) => text.replace('>Ready<', `>${'__' + 'PRODUCT_DISPLAY_NAME__'}<`), /unresolved/],
       ['robots.txt', (text) => text.replace('Allow: /', 'Disallow: /'), /robots/],
       ['llms.txt', (text) => `${text}[Missing](${websiteUrl}missing)\n`, /missing local link/],
       ['sitemap.xml', (text) => text.replace('<url><loc>https://fixture.test/ko/guide</loc></url>', ''), /reciprocal|missing from sitemap/],
