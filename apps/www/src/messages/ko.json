@@ -277,7 +277,7 @@
     "communityTitle": "커뮤니티 프로젝트",
     "communityEmpty": "아직 등록된 커뮤니티 프로젝트가 없습니다. 직접 만든 프로젝트를 제출해 보세요.",
     "submitTitle": "프로젝트 제출",
-    "submitDescription": "작동하는 @robota-sdk/* 프로젝트를 이 페이지에 소개하려면 아래 저장소에 PR을 보내 주세요.",
+    "submitDescription": "작동하는 @robota-sdk/* 프로젝트를 이 페이지에 소개하려면 <repository>GitHub 저장소</repository>에 PR을 보내 주세요.",
     "submitRequirements": [
       "@robota-sdk/* 패키지를 하나 이상 사용해야 합니다.",
       "소스 코드나 실행 중인 데모를 공개해야 합니다.",

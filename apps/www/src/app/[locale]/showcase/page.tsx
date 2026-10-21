@@ -83,16 +83,18 @@ export default async function ShowcasePage({ params }: { params: Promise<{ local
       <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
         <h2 className="text-lg font-bold text-[var(--foreground)] mb-2">{t('submitTitle')}</h2>
         <p className="text-sm text-[var(--muted-foreground)] mb-3">
-          {t('submitDescription')}{' '}
-          <a
-            href="__PROJECT_REPOSITORY_URL__"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[var(--primary)] hover:underline"
-          >
-            GitHub
-          </a>
-          .
+          {t.rich('submitDescription', {
+            repository: (chunks) => (
+              <a
+                href="__PROJECT_REPOSITORY_URL__"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--primary)] hover:underline"
+              >
+                {chunks}
+              </a>
+            ),
+          })}
         </p>
         <ul className="mb-5 space-y-1.5">
           {submitRequirements.map((req) => (

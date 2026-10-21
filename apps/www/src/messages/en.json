@@ -277,7 +277,7 @@
     "communityTitle": "Community Projects",
     "communityEmpty": "No community projects listed yet. Be the first to submit yours.",
     "submitTitle": "Submit Your Project",
-    "submitDescription": "Have a working project built with @robota-sdk/*? Open a pull request to propose it for this page via",
+    "submitDescription": "Have a working project built with @robota-sdk/*? Open a pull request to propose it for this page via <repository>GitHub</repository>.",
     "submitRequirements": [
       "Must use at least one @robota-sdk/* package",
       "Public source code or live demo required",
