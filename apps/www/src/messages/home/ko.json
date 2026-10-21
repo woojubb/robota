@@ -16,13 +16,13 @@
     "install": "설치"
   },
   "proofEyebrow": "공통 기반",
-  "proofTitle": "구성요소를 살펴보고 첫 질문을 실행해 보세요.",
+  "proofTitle": "구성요소를 살펴보고 첫 질문을 보내세요.",
   "proofLead": "agent-framework로 세션, 도구, 권한 검사를 함께 구성할 수 있습니다. 코딩 CLI는 이 프레임워크로 만든 공식 인터페이스입니다. 프레임워크를 직접 만든 Node.js 앱에서도 사용할 수 있습니다.",
   "sdkLabel": "에이전트 프레임워크",
   "cliLabel": "코딩 CLI",
   "diagramCaption": "같은 공개 TypeScript 기반을 앱에 넣는 SDK로도, 터미널에서 실행하는 CLI로도 사용할 수 있습니다.",
   "installLabel": "SDK 패키지 설치",
-  "exampleLabel": "TypeScript로 질문 하나 실행하기",
+  "exampleLabel": "TypeScript로 질문 하나 보내기",
   "cliCodeLabel": "CLI 설정 시작하기",
   "cliPromptIntro": "프로바이더와 모델을 설정한 뒤 질문을 입력하세요:",
   "cliExpectedReply": "선택한 모델이 텍스트로 답합니다. 답변 내용과 품질은 모델에 따라 다릅니다. 프로젝트 파일에 관해 질문하기 전에 작업 공간을 신뢰할지 결정하세요.",
@@ -49,7 +49,7 @@
     }
   ],
   "featuresEyebrow": "SDK와 CLI의 기능",
-  "featuresTitle": "지금 사용할 수 있는 기능",
+  "featuresTitle": "지금 쓸 수 있는 기능",
   "featuresLead": "아래 기능은 모두 공개 SDK 패키지나 그 패키지로 만든 코딩 CLI에서 사용할 수 있습니다. 각 카드에서 관련 패키지, 클래스, 플래그, 명령 이름과 자세한 설명이 있는 가이드를 확인할 수 있습니다.",
   "guideLink": "가이드(영문)",
   "sourceLink": "패키지 README(영문)",
@@ -68,7 +68,7 @@
     },
     "extend": {
       "title": "연결과 확장",
-      "body": "런타임을 따로 수정하지 않고 서버, 스킬, 플러그인을 연결합니다."
+      "body": "런타임을 포크하지 않고 서버, 스킬, 플러그인을 연결합니다."
     },
     "interfaces": {
       "title": "인터페이스",
@@ -117,12 +117,12 @@
       "body": "AGENTS.md, CLAUDE.md 같은 프로젝트 지침은 신뢰하는 작업 공간에서만 읽습니다. 신뢰하지 않는 저장소에서는 사용자 응답 없이 실행하는 작업을 거부하거나 Restricted 모드로 시작합니다."
     },
     "sessions": {
-      "title": "대화 저장과 재개",
+      "title": "저장하고 이어가는 세션",
       "body": "대화를 이어가거나 다시 열고, 이름을 바꾸거나 복제할 수 있습니다. 문맥 사용량을 추적하고 자동으로 압축합니다. SDK에서는 호스트가 사용할 세션 저장소를 직접 제공합니다."
     },
     "daemon": {
       "title": "백그라운드 세션과 데몬",
-      "body": "supervised 세션은 터미널을 닫은 뒤에도 계속 실행됩니다. 작업 공간 데몬 하나가 여러 터미널과 데스크톱 앱에 같은 런타임을 제공합니다."
+      "body": "세션을 백그라운드로 실행하면 터미널을 닫은 뒤에도 작업을 이어갈 수 있습니다. 작업 공간 데몬 하나가 여러 터미널과 데스크톱 앱에 같은 런타임을 제공합니다."
     },
     "subagents": {
       "title": "서브에이전트와 백그라운드 작업",
@@ -190,7 +190,7 @@
     },
     "framework": {
       "title": "프레임워크 구성",
-      "body": "createQuery로 기본 도구와 권한을 갖춘 단일 질문을 실행합니다. InteractiveSession으로 전체 대화를 관리하고, createAgentRuntime으로 호스트 런타임을 구성할 수 있습니다."
+      "body": "createQuery로 기본 도구와 권한 설정을 적용해 질문 하나를 처리할 수 있습니다. InteractiveSession으로 전체 대화를 관리하고, createAgentRuntime으로 호스트 런타임을 구성할 수 있습니다."
     },
     "embedding": {
       "title": "서버, 봇, 서버리스",
@@ -227,7 +227,7 @@
     },
     {
       "title": "세션 유지하기",
-      "body": "이전 작업을 다시 열고 supervised 세션을 백그라운드로 실행하거나, 여러 세션에서 하나의 데몬을 함께 사용할 수 있습니다."
+      "body": "이전 작업을 다시 열고 세션을 백그라운드로 실행하거나, 여러 세션에서 하나의 데몬을 함께 사용할 수 있습니다."
     },
     {
       "title": "다른 화면과 서비스 연결하기",
@@ -305,7 +305,7 @@
     "interface": "제품 인터페이스: 터미널 코딩 도우미",
     "composition": "제품 구성: 프로필, 기능 팩, 명령, 프리셋",
     "surfaces": "터미널 UI와 같은 와이어 프로토콜을 사용하는 전송 계층",
-    "assembly": "조립: InteractiveSession, createQuery, createAgentRuntime",
+    "assembly": "구성: InteractiveSession, createQuery, createAgentRuntime",
     "runtime": "런타임: 세션, 백그라운드 작업, 도구, MCP 클라이언트, 플러그인",
     "providers": "벤더마다 하나의 프로바이더 패키지",
     "contracts": "계층 간에 공유하는 타입 전용 인터페이스",
@@ -400,7 +400,7 @@
       "answer": "아니요. 직접 만든 Node.js 호스트에서 agent-framework를 가져와 프로바이더를 연결하면 됩니다. CLI는 공개 구성요소로 만든 완성형 인터페이스 중 하나입니다."
     },
     {
-      "question": "모델 설정 없이 질문을 실행할 수 있나요?",
+      "question": "모델을 설정하지 않아도 질문할 수 있나요?",
       "answer": "프로바이더 엔드포인트와 사용할 모델이 필요합니다. 로컬 OpenAI 호환 예제에는 모델을 불러온 서버가 실행 중이어야 합니다. 외부 프로바이더를 사용하려면 해당 인증 정보를 준비하고 이용 조건을 따라야 합니다."
     },
     {
@@ -416,7 +416,7 @@
       "answer": "아직은 아닙니다. 패키지는 3.0.0 베타 릴리스이며 정식 릴리스 전에 API가 바뀔 수 있습니다. 업그레이드 안내는 변경 기록에서 확인할 수 있습니다."
     }
   ],
-  "closeTitle": "실제 작업 하나부터 시작하세요.",
+  "closeTitle": "실제 작업 하나로 시작하세요.",
   "closeBody": "앱에 질문 기능을 넣거나 코딩 CLI를 설정하세요. 어느 쪽이든 사용할 프로바이더와 접근 권한은 직접 정할 수 있습니다.",
   "sdkGuide": "SDK 가이드(영문)"
 }
