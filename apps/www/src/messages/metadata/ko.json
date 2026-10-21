@@ -1,7 +1,7 @@
 {
   "home": {
-    "title": "{name} — TypeScript AI 에이전트 SDK와 코딩 CLI",
-    "description": "{name}의 TypeScript SDK로 AI 에이전트를 만들거나, 같은 공개 구성 요소로 만든 코딩 CLI를 사용하세요. 공개 베타입니다."
+    "title": "{name} | TypeScript AI 에이전트 SDK와 코딩 CLI",
+    "description": "{name}의 TypeScript SDK로 AI 에이전트를 만들거나, 같은 공개 구성요소로 만든 코딩 CLI를 사용하세요. 현재 공개 베타입니다."
   },
   "beta": {
     "title": "공개 베타",

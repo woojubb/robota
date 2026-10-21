@@ -10,7 +10,7 @@
       "cli": "CLI guide"
     },
     "footer": {
-      "tagline": "TypeScript agent SDK and coding CLI built from shared public components. Public beta; AGPL-3.0 or commercial license.",
+      "tagline": "A TypeScript agent SDK and coding CLI built from the same public components. Available in public beta under AGPL-3.0 or a commercial license.",
       "product": "Product",
       "developers": "Developers",
       "company": "Company",
