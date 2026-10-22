@@ -17,10 +17,11 @@ importable library.
   host it runs in. An address the host supplies always wins over one typed into the page URL.
 - **Presentation only.** All session, command and permission logic lives in the sidecar; the app is a
   thin client over the WS transport and holds no domain logic of its own.
-- **Loopback only.** The built page's content-security policy lets it reach a loopback WebSocket and
-  nothing else, and open one frame: its own app sandbox page, whose separate policy gives an MCP app's
-  document no network, no nested frames and no way back to the page; the sidecar address carries the
-  launch token.
+- **Loopback only.** The built page limits session connections to loopback WebSockets and hosts MCP apps
+  through its own sandbox page. The sandbox admits app documents
+  only when the browser enforces native network isolation, in addition to its separate content
+  policy and opaque origin. Unsupported hosts retain the text result without executing the app;
+  the sidecar address carries the launch token.
 - Consumers take the complete built output through a copied-artifact build edge, never through an
   import.
 

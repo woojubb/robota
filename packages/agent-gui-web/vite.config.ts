@@ -12,7 +12,7 @@ import {
 import { loadProductConfig } from '@robota-sdk/product-config/node';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defaultClientConditions, defineConfig } from 'vite';
+import { defaultClientConditions, defineConfig, type ViteDevServer } from 'vite';
 
 /**
  * The GUI web app build. One static entry for every host: the desktop app loads `dist/` from disk
@@ -34,6 +34,15 @@ const CONTENT_SECURITY_POLICY = [
   // under a policy of its own (see `public/app-sandbox.html`).
   "frame-src 'self'",
 ].join('; ');
+
+function installAppSandboxNetworkPolicy(server: Pick<ViteDevServer, 'middlewares'>): void {
+  server.middlewares.use((request, response, next) => {
+    if (request.url?.split('?')[0] === '/app-sandbox.html') {
+      response.setHeader('Connection-Allowlist', '()');
+    }
+    next();
+  });
+}
 
 function selectedPublicProductConfig() {
   // The product generator writes both files in one fixed workspace location. Resolve from
@@ -84,6 +93,11 @@ export default defineConfig(({ command }) => {
         command === 'serve' ? ['source', ...defaultClientConditions] : [...defaultClientConditions],
     },
     plugins: [
+      {
+        name: 'app-sandbox-network-policy',
+        configureServer: installAppSandboxNetworkPolicy,
+        configurePreviewServer: installAppSandboxNetworkPolicy,
+      },
       {
         name: 'product-page-title',
         transformIndexHtml: (html) =>

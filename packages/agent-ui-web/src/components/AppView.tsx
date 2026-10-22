@@ -11,7 +11,6 @@ import type { IAppViewHost } from '../app-view/host-context.js';
 import type { TAppView } from '../app-view/types.js';
 import type { IActiveTool } from '../hooks/useSessionClient.js';
 
-/** The frame starts this tall; the view then asks for the height it needs (bounded by the bridge). */
 const INITIAL_HEIGHT_PX = 160;
 
 export const APP_VIEW_UNAVAILABLE_TEXT =
@@ -22,17 +21,11 @@ type TLoad =
   | { status: 'ready'; view: TAppView; host: IAppViewHost; sandboxUrl: string; signal: AbortSignal }
   | { status: 'failed'; reason: string };
 
-/**
- * The app a finished tool call's source declared, shown under the call. The document never runs in
- * this page: it is read on demand and handed to the host's sandbox page, which holds it in a frame of
- * its own under the host’s content policy. A surface that
- * supplies no sandbox page shows one plain line instead.
- */
 export function AppView({ tool }: { tool: IActiveTool }): React.ReactElement | null {
   const host = useContext(AppViewHostContext);
   if (tool.appView === undefined) return null;
   const viewKey = appViewKey(tool);
-  // Nothing is read, from the session or anywhere, unless there is a frame to show it in.
+
   if (host === null || host.sandboxUrl === undefined || viewKey === undefined) {
     return <p className="text-[13px] text-subtle">{APP_VIEW_UNAVAILABLE_TEXT}</p>;
   }
@@ -58,7 +51,7 @@ function AppViewFrame({
   tool: IActiveTool;
   host: IAppViewHost;
   sandboxUrl: string;
-  /** Opaque: what `readAppView` and every `callAppTool` of this view are keyed by. */
+
   viewKey: string;
   sourceId: string;
 }): React.ReactElement {
@@ -109,10 +102,10 @@ function AppViewFrame({
       hostInfo: current.hostInfo,
       hostContext: readAppViewHostContext(current.platform),
       // The frame's origin is opaque, so no target origin can name it; the bridge accepts replies
-      // only from this exact window.
+
       post: (message) => frame.contentWindow?.postMessage(message, '*'),
       source: () => frame.contentWindow,
-      // Every call carries the key this view was read by, so the session can tie it to the view.
+
       callAppTool: (name, args) => current.callAppTool(viewKey, name, args, ready.signal),
       onHeight: setHeight,
     });
@@ -139,7 +132,7 @@ function AppViewFrame({
       <p className="text-[12px] text-subtle">App from {sourceId}</p>
       <iframe
         ref={frameRef}
-        // Exactly one token: scripts may run, and nothing else is granted. Without
+
         // `allow-same-origin` the frame has an opaque origin, so its document cannot read this page.
         sandbox="allow-scripts"
         src={sandboxUrl}

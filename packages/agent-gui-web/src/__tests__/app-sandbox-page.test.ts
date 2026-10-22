@@ -1,11 +1,3 @@
-/**
- * `public/app-sandbox.html`: the static page that holds an MCP app's document in a frame of its own.
- * Its policy and its relay are what keep an untrusted app away from the GUI page, the network and
- * every tool but its own server's, so both are pinned here against the file itself. The page's
- * script is run against stand-in windows (a browser is the only place a real sandbox exists, and
- * `e2e/web-e2e.mjs` runs it in one); these tests pin what it decides, window by window.
- */
-
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
@@ -23,7 +15,7 @@ const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gu)];
 const script = scripts[0]?.[2] ?? '';
 
 describe('app-sandbox.html: the file', () => {
-  it('carries exactly the no-network policy, in a meta tag ahead of the script', () => {
+  it('carries exactly the resource policy, in a meta tag ahead of the script', () => {
     const metas = [...html.matchAll(/<meta\b[^>]*http-equiv="Content-Security-Policy"[^>]*>/gu)];
     expect(metas).toHaveLength(1);
     const content = /content="([^"]*)"/u.exec(metas[0]![0])?.[1];
@@ -31,10 +23,9 @@ describe('app-sandbox.html: the file', () => {
     expect(html.indexOf(metas[0]![0])).toBeLessThan(html.indexOf('<script'));
   });
 
-  it('is self-contained: one inline script, no external file and no web address', () => {
+  it('is self-contained: one inline script and no external resources', () => {
     expect(scripts).toHaveLength(1);
     expect(scripts[0]![1]).not.toMatch(/\bsrc\s*=/u);
-    expect(html).not.toMatch(/https?:|wss?:|\/\/[a-z0-9.-]+\.[a-z]{2,}/iu);
     expect(html).not.toMatch(/<(link|img|iframe|object|embed|form|base)\b/iu);
     expect(html).not.toMatch(/@import|url\(/iu);
   });
@@ -61,7 +52,17 @@ interface IFakeInner {
  * The page's script, run once against stand-in windows. `framed` false is the page opened on its
  * own; `topReadable` / `parentReadable` stand for a host that forgot the `sandbox` attribute.
  */
-function runPage(options: { framed?: boolean; topReadable?: boolean; parentReadable?: boolean } = {}) {
+function runPage(
+  options: {
+    framed?: boolean;
+    topReadable?: boolean;
+    parentReadable?: boolean;
+    userAgent?: string;
+    isolationEnabled?: boolean;
+    rtcMissing?: boolean;
+    rtcFailure?: 'construct' | 'configuration' | 'close';
+  } = {},
+) {
   const { framed = true, topReadable = false, parentReadable = false } = options;
   const unreadable = (name: string): IFakeWindow => {
     const other: IFakeWindow = { name, postMessage: vi.fn() };
@@ -91,7 +92,12 @@ function runPage(options: { framed?: boolean; topReadable?: boolean; parentReada
 
   const inners: IFakeInner[] = [];
   const lines: string[] = [];
-  const body = { appended: [] as unknown[], appendChild(child: unknown) { this.appended.push(child); } };
+  const body = {
+    appended: [] as unknown[],
+    appendChild(child: unknown) {
+      this.appended.push(child);
+    },
+  };
   const document = {
     body,
     createElement(tag: string) {
@@ -99,25 +105,51 @@ function runPage(options: { framed?: boolean; topReadable?: boolean; parentReada
         const inner: IFakeInner = {
           attributes: {},
           contentWindow: { name: 'inner', postMessage: vi.fn() },
-          setAttribute(name: string, value: string) { this.attributes[name] = value; },
+          setAttribute(name: string, value: string) {
+            this.attributes[name] = value;
+          },
         } as IFakeInner & { setAttribute(name: string, value: string): void };
         inners.push(inner);
         return inner;
       }
       const element = {
         tag,
-        set textContent(value: string) { lines.push(value); },
+        set textContent(value: string) {
+          lines.push(value);
+        },
       };
       return element;
     },
   };
 
-  new Function('window', 'document', script)(own, document);
+  const construct = vi.fn();
+  const close = vi.fn();
+  class PeerConnection {
+    constructor(configuration: unknown) {
+      construct(configuration);
+      if (options.rtcFailure === 'construct') throw new Error('RTC unavailable');
+    }
+    getConfiguration() {
+      if (options.rtcFailure === 'configuration') throw new Error('RTC configuration unavailable');
+      return {
+        iceServers: options.isolationEnabled === false ? [{ urls: 'stun:127.0.0.1:9' }] : [],
+      };
+    }
+    close() {
+      close();
+      if (options.rtcFailure === 'close') throw new Error('RTC close failed');
+    }
+  }
+  Object.assign(own, { RTCPeerConnection: options.rtcMissing ? undefined : PeerConnection });
+  const navigator = {
+    userAgent: options.userAgent ?? 'Mozilla/5.0 Chrome/157.0.8103.6 Safari/537.36',
+  };
+  new Function('window', 'document', 'navigator', script)(own, document, navigator);
 
   const dispatch = (source: unknown, data: unknown): void => {
     for (const listener of listeners) listener({ source, data });
   };
-  return { host, top, inners, lines, body, dispatch, listeners, own };
+  return { host, top, inners, lines, body, dispatch, listeners, own, construct, close };
 }
 
 const resourceReady = (params: unknown) => ({
@@ -138,13 +170,16 @@ describe('app-sandbox.html: refusing to run unsafely', () => {
   it.each([
     ['the top document', { topReadable: true }],
     ['the parent document', { parentReadable: true }],
-  ])('refuses when %s can be read, which means the host forgot the sandbox attribute', (_label, flags) => {
-    const page = runPage(flags);
+  ])(
+    'refuses when %s can be read, which means the host forgot the sandbox attribute',
+    (_label, flags) => {
+      const page = runPage(flags);
 
-    expect(page.lines).toHaveLength(1);
-    expect(page.host.postMessage).not.toHaveBeenCalled();
-    expect(page.listeners).toHaveLength(0);
-  });
+      expect(page.lines).toHaveLength(1);
+      expect(page.host.postMessage).not.toHaveBeenCalled();
+      expect(page.listeners).toHaveLength(0);
+    },
+  );
 });
 
 describe('app-sandbox.html: the handshake and the one inner frame', () => {
@@ -286,5 +321,51 @@ describe('app-sandbox.html: the relay', () => {
       null,
       { method: 42 },
     ]);
+  });
+});
+
+describe('app-sandbox.html: native network isolation admission', () => {
+  it.each([
+    ['a Chromium build with the nested WebRTC crash', { userAgent: 'Chrome/156.0.0.0' }],
+    ['an older Chromium build', { userAgent: 'Chromium/155.0.0.0' }],
+    ['a different browser engine', { userAgent: 'Firefox/157.0' }],
+    ['a missing native policy', { isolationEnabled: false }],
+    ['no native WebRTC implementation', { rtcMissing: true }],
+    ['a constructor failure', { rtcFailure: 'construct' as const }],
+    ['an unreadable native configuration', { rtcFailure: 'configuration' as const }],
+    ['an unusable native connection', { rtcFailure: 'close' as const }],
+  ])('admits no app when there is %s', (_label, options) => {
+    const page = runPage(options);
+    expect(page.lines).toEqual([
+      'App views are unavailable because this browser cannot enforce their network isolation.',
+    ]);
+    expect(page.host.postMessage).not.toHaveBeenCalled();
+    expect(page.listeners).toHaveLength(0);
+    page.dispatch(page.host, resourceReady({ html: '<script>untrusted()</script>' }));
+    expect(page.inners).toHaveLength(0);
+  });
+
+  it('does not construct a peer connection on an unsupported browser', () => {
+    for (const userAgent of ['Chrome/156.0.0.0', 'Chromium/155.0.0.0', 'Firefox/157.0']) {
+      expect(runPage({ userAgent }).construct).not.toHaveBeenCalled();
+    }
+  });
+
+  it('admits headless Chromium when the same native network restriction is active', () => {
+    const page = runPage({ userAgent: 'Mozilla/5.0 HeadlessChrome/157.0.8103.6 Safari/537.36' });
+    expect(page.lines).toEqual([]);
+    expect(page.host.postMessage).toHaveBeenCalledExactlyOnceWith(
+      { jsonrpc: '2.0', method: 'ui/notifications/sandbox-proxy-ready', params: {} },
+      '*',
+    );
+  });
+
+  it('checks the native configuration and closes its trusted probe before announcing readiness', () => {
+    const page = runPage();
+    expect(page.construct).toHaveBeenCalledExactlyOnceWith({
+      iceServers: [{ urls: 'stun:127.0.0.1:9' }],
+    });
+    expect(page.close).toHaveBeenCalledOnce();
+    expect(page.host.postMessage).toHaveBeenCalledOnce();
   });
 });

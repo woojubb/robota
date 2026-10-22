@@ -1,4 +1,7 @@
-import { cleanupTestProductRuntimes, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import {
+  cleanupTestProductRuntimes,
+  createTestProductRuntime,
+} from '../../__tests__/helpers/product-runtime.js';
 import {
   mkdtempSync,
   mkdirSync,
@@ -36,15 +39,21 @@ function rawGet(
   });
 }
 
-import { resolveProductWebRoot, servedAtMessage, startMonitorUiServer, type IMonitorUiServer } from '../serve-monitor-ui.js';
+import {
+  resolveProductWebRoot,
+  servedAtMessage,
+  startMonitorUiServer,
+  type IMonitorUiServer,
+} from '../serve-monitor-ui.js';
 
 afterAll(cleanupTestProductRuntimes);
 
 it('requires separate-product assets rather than serving the installed CLI monitor', () => {
   const runtime = createTestProductRuntime('cedar');
   expect(resolveProductWebRoot({ ...runtime, artifact: { version: '1.2.3' } })).toBeNull();
-  expect(resolveProductWebRoot({ ...runtime, artifact: { version: '1.2.3', webRoot: '/consumer/web' } }))
-    .toBe('/consumer/web');
+  expect(
+    resolveProductWebRoot({ ...runtime, artifact: { version: '1.2.3', webRoot: '/consumer/web' } }),
+  ).toBe('/consumer/web');
 });
 
 /**
@@ -66,6 +75,12 @@ describe('startMonitorUiServer (GUI-007)', () => {
       '<!DOCTYPE html><html><head><title>M</title></head><body><div id="root"></div></body></html>',
     );
     writeFileSync(join(webRoot, 'assets', 'app.js'), 'export const x = 1;');
+    writeFileSync(join(webRoot, 'app-sandbox.html'), '<html>isolated app sandbox</html>');
+    writeFileSync(
+      join(webRoot, 'assets', 'app-sandbox.html'),
+      '<html>ordinary nested asset</html>',
+    );
+    symlinkSync(join(webRoot, 'app-sandbox.html'), join(webRoot, 'sandbox-alias.html'));
     // a sensitive file OUTSIDE webRoot the traversal test tries to reach
     writeFileSync(join(webRoot, '..', 'secret.txt'), 'top-secret');
     // symlinks INSIDE webRoot that escape it — a lexical containment check cannot see through these
@@ -91,6 +106,25 @@ describe('startMonitorUiServer (GUI-007)', () => {
     expect(res.headers.get('content-type')).toContain('javascript');
     expect(await res.text()).toContain('export const x = 1;');
   });
+
+  it.each(['/app-sandbox.html', '/app-sandbox.html?view=counter', '/sandbox-alias.html'])(
+    'restricts native connections for the canonical sandbox asset at %s',
+    async (path) => {
+      const response = await fetch(`${server.url}${path}`);
+      expect(response.status).toBe(200);
+      expect(response.headers.get('connection-allowlist')).toBe('()');
+      expect(await response.text()).toBe('<html>isolated app sandbox</html>');
+    },
+  );
+
+  it.each(['/', '/index.html', '/assets/app.js', '/assets/app-sandbox.html'])(
+    'does not restrict the ordinary host asset at %s',
+    async (path) => {
+      const response = await fetch(`${server.url}${path}`);
+      expect(response.status).toBe(200);
+      expect(response.headers.has('connection-allowlist')).toBe(false);
+    },
+  );
 
   it('keeps serving the startup generation after its public pointer is replaced', async () => {
     const pointer = join(fixtureRoot, 'current');
@@ -191,6 +225,8 @@ describe('servedAtMessage (#3289 §3)', () => {
   });
 
   it('never says "web monitor"', () => {
-    expect(servedAtMessage('http://127.0.0.1:1', createTestProductRuntime()).toLowerCase()).not.toContain('monitor');
+    expect(
+      servedAtMessage('http://127.0.0.1:1', createTestProductRuntime()).toLowerCase(),
+    ).not.toContain('monitor');
   });
 });

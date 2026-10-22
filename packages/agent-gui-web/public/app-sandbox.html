@@ -2,13 +2,6 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <!--
-      The policy of every app this page holds. The app runs in a frame this page creates from `srcdoc`,
-      and such a document inherits its parent's policy, so this one tag decides what an app can do:
-      run its own inline script and style, show data: images, media and fonts, and nothing else. No
-      network, no nested frames, no plugins, no forms, no base URL. It is written in this file, not
-      taken from the host or from anything an app declares, and nothing below loosens it.
-    -->
     <meta
       http-equiv="Content-Security-Policy"
       content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; media-src data:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
@@ -25,7 +18,9 @@
       body {
         display: flex;
         flex-direction: column;
-        font: 13px/1.4 system-ui, sans-serif;
+        font:
+          13px/1.4 system-ui,
+          sans-serif;
       }
       p {
         margin: 8px;
@@ -46,7 +41,6 @@
 
         var PROXY_READY = 'ui/notifications/sandbox-proxy-ready';
         var RESOURCE_READY = 'ui/notifications/sandbox-resource-ready';
-        // Messages with this prefix are between the host and this page; they are never relayed.
         var SANDBOX_PREFIX = 'ui/notifications/sandbox-';
 
         function refuse(text) {
@@ -55,8 +49,6 @@
           document.body.appendChild(line);
         }
 
-        // Whether a window's document can be read from here: true only when it shares this page's
-        // origin, which a correctly sandboxed frame never does.
         function readable(other) {
           try {
             return Boolean(other.document);
@@ -65,14 +57,46 @@
           }
         }
 
-        // This page holds untrusted documents. It runs only framed by a host that gave the frame the
-        // `sandbox` attribute (an opaque origin), so the host's own document is out of reach.
         if (window.self === window.top) {
           refuse('This page only runs inside an app frame.');
           return;
         }
         if (readable(window.top) || readable(window.parent)) {
           refuse('This page must run in a sandboxed frame.');
+          return;
+        }
+
+        function hasNativeNetworkIsolation() {
+          // Connection-Allowlist nested WebRTC crashed in Chromium 155/156; fixed before 157.
+          // https://issues.chromium.org/issues/565837691
+          // https://chromium-review.googlesource.com/c/chromium/src/+/8485457
+          var chromium = /\b(?:Chrome|Chromium|HeadlessChrome)\/(\d+)\./.exec(navigator.userAgent);
+          if (!chromium || Number(chromium[1]) < 157) return false;
+          var connection;
+          var isolated = false;
+          try {
+            connection = new window.RTCPeerConnection({
+              iceServers: [{ urls: 'stun:127.0.0.1:9' }],
+            });
+            var servers = connection.getConfiguration().iceServers;
+            isolated = Array.isArray(servers) && servers.length === 0;
+          } catch (error) {
+            isolated = false;
+          }
+          if (connection) {
+            try {
+              connection.close();
+            } catch (error) {
+              isolated = false;
+            }
+          }
+          return isolated;
+        }
+
+        if (!hasNativeNetworkIsolation()) {
+          refuse(
+            'App views are unavailable because this browser cannot enforce their network isolation.',
+          );
           return;
         }
 
@@ -85,8 +109,6 @@
             : '';
         }
 
-        // One inner frame, once. It is sandboxed for scripts only: no same origin, no popups, no
-        // forms, no top navigation, and no `allow` attribute. Nothing the host says changes that.
         function showDocument(html) {
           if (inner !== null || typeof html !== 'string') return;
           inner = document.createElement('iframe');

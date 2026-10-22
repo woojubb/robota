@@ -1,9 +1,5 @@
 // @vitest-environment jsdom
-/**
- * The frame an MCP app view runs in. The document never runs in this page: the frame is the host's
- * own static sandbox page, scripts allowed and nothing else granted, and a view reaches the host only
- * through the bridge over `postMessage`. A host without a sandbox page shows one plain line.
- */
+
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -62,7 +58,6 @@ async function frameOf(): Promise<HTMLIFrameElement> {
   return (await screen.findByTestId('app-view-frame')) as HTMLIFrameElement;
 }
 
-/** Delivers a message to the page as if the frame's window had posted it. */
 function fromWindow(source: Window | null, data: unknown): void {
   act(() => {
     window.dispatchEvent(new MessageEvent('message', { data, source }));
@@ -81,7 +76,7 @@ describe('AppView: the frame', () => {
     expect(frame.getAttribute('title')).toBe('App from files');
     expect(frame.style.width).toBe('100%');
     expect(frame.style.height).toBe('160px');
-    // The document itself is never put in this page, nor in an attribute of the frame.
+
     expect(frame.hasAttribute('srcdoc')).toBe(false);
     expect(document.body.innerHTML).not.toContain('<main>rows</main>');
   });
@@ -221,7 +216,6 @@ describe('AppView: the bridge to the frame', () => {
       params: { name: 'list_files', arguments: { path: 'src' } },
     });
 
-    // The key the view was read by rides with every call it makes.
     expect(value.callAppTool).toHaveBeenCalledExactlyOnceWith(
       'view-1',
       'mcp__files__list_files',

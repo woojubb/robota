@@ -1,11 +1,5 @@
 // @vitest-environment jsdom
-/**
- * The app-view host's two requests to the session: the document a finished call named
- * (`read-app-view` -> `app_view`) and one tool run for a view (`call-app-tool` -> `app_tool_result`).
- * Each is a promise settled by the reply that echoes its `requestId`, a refusal (`protocol_error`
- * with that id) rejects it without becoming a toast, and a reply lost with the connection rejects
- * it, so a view never waits on an answer that cannot come.
- */
+
 
 import { renderHook } from '../../testing/product-provider.js';
 import { act } from '@testing-library/react';
@@ -54,7 +48,7 @@ const view: TAppView = {
 type TSettlement<T> =
   { state: 'pending' } | { state: 'resolved'; value: T } | { state: 'rejected'; message: string };
 
-/** Follows a promise from the moment it exists, so a rejection is never left unhandled. */
+
 function track<T>(promise: Promise<T>): { readonly current: TSettlement<T> } {
   const box: { current: TSettlement<T> } = { current: { state: 'pending' } };
   promise.then(
@@ -71,7 +65,7 @@ function track<T>(promise: Promise<T>): { readonly current: TSettlement<T> } {
   return box;
 }
 
-/** Lets the promise callbacks queued so far run. */
+
 const flush = (): Promise<void> => act(async () => {});
 
 describe('a live tool_end carrying an app view reference', () => {

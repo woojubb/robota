@@ -1,7 +1,3 @@
-/**
- * What a view is handed as a tool's result. Text and inline media carry over; a reference or an
- * embedded resource does not, because showing a contributor's URI grants no authority to read it.
- */
 import { describe, expect, it } from 'vitest';
 
 import { outcomeToCallToolResult, toCallToolResult } from '../call-tool-result.js';

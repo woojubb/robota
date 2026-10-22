@@ -307,6 +307,7 @@ const SCRIPTED_MODELS = [
  * the view tries to reach in the ways its sandbox must forbid.
  */
 const APP_VIEW_EXECUTION_ID = 'exec-app-view-1';
+const APP_VIEW_ID = `view-${randomBytes(16).toString('hex')}`;
 const APP_VIEW_SOURCE_ID = 'e2e-apps';
 const APP_VIEW_RESOURCE_URI = 'ui://e2e-apps/echo';
 const APP_VIEW_RUNTIME_TOOL = 'mcp__e2e_apps__echo';
@@ -436,9 +437,8 @@ class ScriptedSession extends EventEmitter {
   getContextState() {
     return { usedPercentage: 0, usedTokens: 0, maxTokens: 200000 };
   }
-  /** #3558: the view the "show app view" turn left, read on demand by the call's execution id. */
-  readToolAppView(executionId) {
-    if (executionId !== APP_VIEW_EXECUTION_ID) return undefined;
+  readToolAppView(viewId) {
+    if (viewId !== APP_VIEW_ID) return undefined;
     return {
       sourceId: APP_VIEW_SOURCE_ID,
       resourceUri: APP_VIEW_RESOURCE_URI,
@@ -550,7 +550,11 @@ class ScriptedSession extends EventEmitter {
       };
       this.emit('tool_end', {
         ...appEnd,
-        appView: { sourceId: APP_VIEW_SOURCE_ID, resourceUri: APP_VIEW_RESOURCE_URI },
+        appView: {
+          viewId: APP_VIEW_ID,
+          sourceId: APP_VIEW_SOURCE_ID,
+          resourceUri: APP_VIEW_RESOURCE_URI,
+        },
       });
       // A replay never carries the reference: the record keeps the text result alone.
       this.#recordToolEnd(appEnd);

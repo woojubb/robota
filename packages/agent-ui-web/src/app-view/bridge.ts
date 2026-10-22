@@ -1,14 +1,3 @@
-/**
- * The host side of the MCP Apps dialect (JSON-RPC 2.0 over `postMessage`, protocol 2026-01-26) for
- * one app view shown in a frame. Pure: no React, no window of its own. The caller hands it the
- * frame's window and a way to post to it, and feeds it every `message` event the page receives.
- *
- * The view is untrusted. A message counts only when it comes from the frame's own window and is a
- * plain JSON-RPC object; nothing the view sends is evaluated, and it reaches exactly three things:
- * the answers below, a bounded frame height, and the tools its own server declared (one call at a
- * time, each still passing the session's permission gate on the other side of `callAppTool`).
- */
-
 import { outcomeToCallToolResult, type ICallToolResult } from './call-tool-result.js';
 
 import type { TAppToolArguments, TAppToolOutcome, TAppView } from './types.js';
@@ -17,7 +6,6 @@ export const APP_VIEW_PROTOCOL_VERSION = '2026-01-26';
 export const APP_VIEW_MIN_HEIGHT_PX = 48;
 export const APP_VIEW_MAX_HEIGHT_PX = 640;
 
-/** JSON-RPC error codes this host answers with. */
 const INVALID_PARAMS = -32602;
 const METHOD_NOT_FOUND = -32601;
 const HOST_ERROR = -32000;
@@ -27,7 +15,6 @@ const SANDBOX_RESOURCE_READY = 'ui/notifications/sandbox-resource-ready';
 
 type TJsonRpcId = string | number;
 
-/** One JSON-RPC 2.0 message in either direction; which fields are present says what it is. */
 export interface IAppViewMessage {
   jsonrpc: '2.0';
   id?: TJsonRpcId;
@@ -37,7 +24,6 @@ export interface IAppViewMessage {
   error?: { code: number; message: string };
 }
 
-/** What the view is told about the place it is shown in (`McpUiInitializeResult.hostContext`). */
 export interface IAppViewHostContext {
   theme: 'light' | 'dark';
   displayMode: 'inline';
@@ -50,17 +36,17 @@ export interface IAppViewHostContext {
 
 export interface IAppViewBridgeOptions {
   view: TAppView;
-  /** What the finished call returned, handed to the view once it has initialized. */
+
   toolResult: ICallToolResult;
   hostInfo: { name: string; version: string };
   hostContext: IAppViewHostContext;
-  /** Posts one message to the frame. */
+
   post: (message: IAppViewMessage) => void;
-  /** The frame's window right now, or null once it is gone; the only source a message may have. */
+
   source: () => MessageEventSource | null;
-  /** Runs one runtime tool for the view and settles with its outcome, or rejects when refused. */
+
   callAppTool: (runtimeName: string, args: TAppToolArguments) => Promise<TAppToolOutcome>;
-  /** The frame's requested height in pixels, already bounded. */
+
   onHeight: (px: number) => void;
 }
 
@@ -69,7 +55,6 @@ export interface IAppViewBridge {
   dispose: () => void;
 }
 
-/** A structured-cloned JSON object: not an array, not a class instance, whichever realm made it. */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
   const prototype: unknown = Object.getPrototypeOf(value);

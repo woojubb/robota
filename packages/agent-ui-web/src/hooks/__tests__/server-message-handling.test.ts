@@ -14,7 +14,7 @@ describe('ARCH-2164 server-message handling contract', () => {
     expect(SERVER_MESSAGE_HANDLING.pending).toBe('reducer-state');
     // #3282 §2 part 2: the model control's pop-up menu is fed by `list-models` -> `model_list`.
     expect(SERVER_MESSAGE_HANDLING.model_list).toBe('reducer-state');
-    // The app-view host settles its own requests from both replies (`useAppViewRequests`).
+
     expect(SERVER_MESSAGE_HANDLING.app_view).toBe('reducer-state');
     expect(SERVER_MESSAGE_HANDLING.app_tool_result).toBe('reducer-state');
   });

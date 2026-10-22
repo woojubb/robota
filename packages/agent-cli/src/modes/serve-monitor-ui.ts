@@ -60,7 +60,7 @@ export function resolveWebRoot(): string | null {
 
 /** A separate product serves only assets explicitly packaged by its own entry. */
 export function resolveProductWebRoot(runtime: ICliRuntimeContext): string | null {
-  return runtime.artifact === undefined ? resolveWebRoot() : runtime.artifact.webRoot ?? null;
+  return runtime.artifact === undefined ? resolveWebRoot() : (runtime.artifact.webRoot ?? null);
 }
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '::1', '[::1]']);
@@ -77,7 +77,7 @@ function isLoopbackHostHeader(host: string | undefined): boolean {
 
 /** Inject `<meta name="ws-url" content="…">` into the served index.html so the SPA reaches the live WS. */
 function injectWsUrl(html: string, wsUrl: string, runtime: ICliRuntimeContext): string {
-  const config = JSON.stringify(publicProductConfig(runtime.config)).replaceAll("<", "\\u003c");
+  const config = JSON.stringify(publicProductConfig(runtime.config)).replaceAll('<', '\\u003c');
   const meta = `<meta name="ws-url" content="${wsUrl}" /><script id="product-config" type="application/json">${config}</script>`;
   return html.includes('</head>')
     ? html.replace('</head>', `    ${meta}\n  </head>`)
@@ -177,7 +177,12 @@ export async function startMonitorUiServer(
     } finally {
       closeSync(fd);
     }
-    res.writeHead(200, { 'content-type': contentType });
+    res.writeHead(200, {
+      'content-type': contentType,
+      ...(filePath === join(webRootReal, 'app-sandbox.html')
+        ? { 'Connection-Allowlist': '()' }
+        : {}),
+    });
     res.end(body);
   });
 

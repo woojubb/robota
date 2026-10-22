@@ -1,9 +1,5 @@
 // @vitest-environment jsdom
-/**
- * Where an MCP app view shows in the conversation: under a finished call's group line without
- * opening the group, under a live row once its call finished, never twice, and never for a call that
- * has none — which renders exactly as before.
- */
+
 import { render } from '../../testing/product-provider.js';
 import { act, cleanup, fireEvent, screen } from '@testing-library/react';
 import React from 'react';

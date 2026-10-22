@@ -129,10 +129,7 @@ export interface IActiveTool {
   commandName?: string;
   /** #3288: true for an internal signal tool (e.g. goal-status) — never rendered as a call. */
   internal?: boolean;
-  /**
-   * The finished call has a view its source declared; the document is read on demand by
-   * `readAppView(executionId)` and shown only in an isolated frame. Reference only.
-   */
+
   appView?: IToolAppViewRef;
 }
 
@@ -335,12 +332,7 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
    * session notice) — no separate error state here.
    */
   deleteSchedule: (taskId: string) => void;
-  /**
-   * The app-view host's two requests, both by the view's key (`appViewKey(tool)`, opaque): the
-   * document a finished call's `appView` names, and one runtime tool run for that view (through the
-   * session's permission gate). Each settles with the reply that echoes its request, and rejects
-   * when the session refuses it or the connection drops.
-   */
+
   readAppView: (viewKey: string, signal?: AbortSignal) => Promise<TAppView>;
   callAppTool: (
     viewKey: string,

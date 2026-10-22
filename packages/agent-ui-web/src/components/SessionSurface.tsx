@@ -34,7 +34,6 @@ import type { IWsSessionState } from '../hooks/useSessionClient.js';
 /** The column every part of the conversation shares, so messages, prompt and composer line up. */
 const COLUMN = 'mx-auto w-full max-w-[760px] px-6';
 
-/** The version this surface reports to an app view as its host (`hostInfo`) — of the host, not the product. */
 const APP_VIEW_HOST_VERSION = '1.0.0';
 
 /**
@@ -51,8 +50,8 @@ function EmptyState(): React.ReactElement {
           What are we working on?
         </h2>
         <p className="text-[15px] leading-relaxed text-muted-foreground">
-          Session connected. Send a message to start — the agent works in the host runtime and
-          asks you here before anything that needs your permission.
+          Session connected. Send a message to start — the agent works in the host runtime and asks
+          you here before anything that needs your permission.
         </p>
       </div>
     </main>
@@ -133,11 +132,7 @@ export function SessionSurface({
    * itself is hidden (only shown "if the host supports it").
    */
   onOpenMemoryInEditor?: (path: string) => void;
-  /**
-   * The static sandbox page an MCP app view runs in, served from this page's own origin. Absent
-   * (the default), a tool's app view is a plain line and its text result stays the answer — only a
-   * host whose content policy admits a same-origin frame, and which ships that page, passes it.
-   */
+
   appViewSandboxUrl?: string;
 }): React.ReactElement {
   const [view, setView] = useState<TSessionView>('chat');
@@ -400,7 +395,10 @@ export function SessionSurface({
             </div>
 
             {hasWorkInProgress && (
-              <aside aria-label="Agents" className="flex w-72 flex-shrink-0 overflow-hidden bg-sidebar">
+              <aside
+                aria-label="Agents"
+                className="flex w-72 flex-shrink-0 overflow-hidden bg-sidebar"
+              >
                 <AgentActivityPanel
                   tasks={tasks}
                   className="flex-1"
@@ -435,7 +433,11 @@ export function SessionSurface({
       <SessionNotices state={state} />
       <SettingsScreen state={state} />
       <AgentSwitcherSheet state={state} />
-      <HelpSheet open={state.helpOpen} onClose={() => state.closeHelp()} catalog={state.commandCatalog} />
+      <HelpSheet
+        open={state.helpOpen}
+        onClose={() => state.closeHelp()}
+        catalog={state.commandCatalog}
+      />
     </div>
   );
 }

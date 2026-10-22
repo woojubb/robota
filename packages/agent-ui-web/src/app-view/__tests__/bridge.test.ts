@@ -1,9 +1,3 @@
-/**
- * The host side of the MCP Apps dialect for one app view. The view is untrusted, so what these pin
- * is what it can and cannot make the host do: it is heard only from its own frame's window, it gets
- * a fixed set of answers, it reaches only the tools its own server declared (one at a time), and
- * nothing is sent to it before it says it is ready.
- */
 import { describe, expect, it, vi } from 'vitest';
 
 import { createAppViewBridge } from '../bridge.js';
@@ -11,7 +5,6 @@ import { createAppViewBridge } from '../bridge.js';
 import type { IAppViewBridgeOptions, IAppViewMessage } from '../bridge.js';
 import type { TAppToolOutcome, TAppView } from '../types.js';
 
-/** Stand-ins for windows: the bridge only ever compares them by identity. */
 const frame = { name: 'the view frame' };
 const stranger = { name: 'some other window' };
 

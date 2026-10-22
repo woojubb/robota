@@ -1,9 +1,5 @@
 // @vitest-environment jsdom
-/**
- * `SessionSurface` is where a host decides whether app views can run: it provides the app-view host
- * to the conversation from its `appViewSandboxUrl` prop. Without the prop (the remote browser
- * surface, `apps/agent-web`) a view is one plain line and nothing is read or framed.
- */
+
 import { render } from '../../testing/product-provider.js';
 import { cleanup, screen } from '@testing-library/react';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';

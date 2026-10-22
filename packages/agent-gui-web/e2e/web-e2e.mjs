@@ -6,12 +6,14 @@
  * own concerns (sidecar spawn, launch nonce, fatal state) stay in apps/agent-app's smoke test.
  *
  * Run: `pnpm --filter @robota-sdk/agent-gui-web build && pnpm --filter @robota-sdk/agent-gui-web test:e2e`
- * (`pnpm exec playwright install chromium` once, or `PLAYWRIGHT_CHANNEL=chrome` for an installed Chrome).
+ * The app-view scenarios require Chromium 157 or later. Set PLAYWRIGHT_EXECUTABLE_PATH to a compatible
+ * browser binary, or PLAYWRIGHT_CHANNEL=chrome to use an installed Chrome.
  */
 
 import { loadProductConfig } from '@robota-sdk/product-config/node';
 import { spawn } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
+import { createSocket } from 'node:dgram';
 import { createServer as createHttpServer } from 'node:http';
 import { createServer } from 'node:net';
 import { dirname, join } from 'node:path';
@@ -63,6 +65,11 @@ const canary = createHttpServer((request, response) => {
 });
 await new Promise((resolve) => canary.listen(0, '127.0.0.1', resolve));
 const canaryUrl = `http://127.0.0.1:${canary.address().port}`;
+const stunPackets = [];
+const stunCanary = createSocket('udp4');
+stunCanary.on('message', (packet) => stunPackets.push(packet.length));
+await new Promise((resolve) => stunCanary.bind(0, '127.0.0.1', resolve));
+const stunUrl = `stun:127.0.0.1:${stunCanary.address().port}`;
 
 const port = await freePort();
 const token = randomBytes(32).toString('hex');
@@ -86,16 +93,24 @@ const server = await preview({ root: packageRoot, preview: { port: 0, host: '127
 const pageUrl = new URL(server.resolvedUrls.local[0]);
 pageUrl.searchParams.set('ws', `ws://127.0.0.1:${port}?token=${token}`);
 
-// PLAYWRIGHT_CHANNEL=chrome drives an installed Chrome instead of Playwright's own Chromium build.
 const browser = await chromium.launch(
-  process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {},
+  process.env.PLAYWRIGHT_EXECUTABLE_PATH
+    ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH }
+    : process.env.PLAYWRIGHT_CHANNEL
+      ? { channel: process.env.PLAYWRIGHT_CHANNEL }
+      : {},
 );
+process.stdout.write(line(`Browser: Chromium ${browser.version()}`));
 const page = await browser.newPage({ viewport: { width: 1100, height: 780 } });
 // #3289 §2: the copy-code-block scenario reads the clipboard back to check what was copied.
 await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: pageUrl.origin });
 // The server frames the page receives, by type: a refusal must arrive as its own frame.
 const receivedFrameTypes = [];
+const sentFrames = [];
 page.on('websocket', (socket) => {
+  socket.on('framesent', ({ payload }) => {
+    sentFrames.push(JSON.parse(String(payload)));
+  });
   socket.on('framereceived', ({ payload }) => {
     const type = /"type":"([a-z_]+)"/.exec(String(payload))?.[1];
     if (type) receivedFrameTypes.push(type);
@@ -517,7 +532,7 @@ try {
     const toolRow = page.getByRole('button', { name: /pnpm test/ });
     await toolRow.waitFor();
     await toolRow.click();
-    await page.getByText(/Test Files\s+1 passed/).waitFor();
+    await page.getByText(/^Test Files\s+1 passed/u).waitFor();
     await page.getByText(/exit 0/).waitFor();
   });
 
@@ -544,7 +559,14 @@ try {
       if (!pagePolicy.includes("script-src 'self'")) {
         throw new Error(`the page policy lost script-src 'self': ${pagePolicy}`);
       }
-      const sandboxPage = await (await fetch(new URL('app-sandbox.html', appBase))).text();
+      const sandboxResponse = await fetch(new URL('app-sandbox.html?e2e=policy', appBase));
+      if (sandboxResponse.headers.get('connection-allowlist') !== '()') {
+        throw new Error('the sandbox response does not block native network connections');
+      }
+      if ((await fetch(appBase)).headers.has('connection-allowlist')) {
+        throw new Error('the app sandbox connection restriction leaked onto the host page');
+      }
+      const sandboxPage = await sandboxResponse.text();
       const sandboxPolicies = policyOf(sandboxPage);
       if (sandboxPolicies.length !== 1) {
         throw new Error(`the sandbox page has ${sandboxPolicies.length} policies, expected its own alone`);
@@ -554,6 +576,41 @@ try {
         "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; media-src data:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
       ) {
         throw new Error(`the sandbox page policy is not its own: ${sandboxPolicies[0]}`);
+      }
+    },
+  );
+
+  await scenario(
+    '#3558: an older Chromium refuses app HTML even if its host sends a resource',
+    async () => {
+      const context = await browser.newContext({
+        userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36',
+      });
+      const oldPage = await context.newPage();
+      try {
+        await oldPage.route('**/e2e-old-browser.html', (route) => route.fulfill({
+          contentType: 'text/html',
+          body: '<!doctype html><iframe id="unsupported-app" sandbox="allow-scripts" src="/app-sandbox.html"></iframe>',
+        }));
+        await oldPage.goto(new URL('e2e-old-browser.html', appBase).href);
+        const unsupported = oldPage.frameLocator('#unsupported-app');
+        await unsupported.getByText(
+          'App views are unavailable because this browser cannot enforce their network isolation.',
+          { exact: true },
+        ).waitFor();
+        await oldPage.evaluate(() => {
+          document.querySelector('#unsupported-app').contentWindow.postMessage({
+            jsonrpc: '2.0',
+            method: 'ui/notifications/sandbox-resource-ready',
+            params: { html: '<script>parent.postMessage({ escaped: true }, "*")</script>' },
+          }, '*');
+        });
+        await oldPage.waitForTimeout(100);
+        if (await unsupported.locator('iframe').count()) {
+          throw new Error('an unsupported browser admitted an app document');
+        }
+      } finally {
+        await context.close();
       }
     },
   );
@@ -586,6 +643,34 @@ try {
     canaryHits.length = 0;
   });
 
+  await scenario('#3558: a browser without the sandbox policy reaches the UDP STUN canary', async () => {
+    const control = await browser.newPage();
+    try {
+      await control.goto(`${canaryUrl}/rtc-control`);
+      await control.evaluate(async ({ url, httpControl }) => {
+        await fetch(httpControl);
+        const peer = new RTCPeerConnection({ iceServers: [{ urls: url }], iceCandidatePoolSize: 1 });
+        try {
+          peer.createDataChannel('network-control');
+          await peer.setLocalDescription(await peer.createOffer());
+          await new Promise((resolve) => setTimeout(resolve, 1500));
+        } finally {
+          peer.close();
+        }
+      }, { url: stunUrl, httpControl: `${canaryUrl}/browser-fetch-control` });
+      if (!canaryHits.includes('/browser-fetch-control')) {
+        throw new Error('the browser did not reach the HTTP canary');
+      }
+      if (stunPackets.length === 0) throw new Error('the UDP canary did not receive a browser STUN packet');
+      process.stdout.write(line(`STUN control packets: ${stunPackets.length}`));
+    } finally {
+      await control.close();
+      await page.waitForTimeout(100);
+      stunPackets.length = 0;
+      canaryHits.length = 0;
+    }
+  });
+
   await scenario('#3558: a tool call without an app view shows no frame', async () => {
     // Earlier scenarios ran tool calls (Read, Edit, Shell) that carry none.
     if ((await appFrame.count()) !== 0) throw new Error('a frame showed for a call with no app view');
@@ -595,7 +680,7 @@ try {
   });
 
   await scenario(
-    '#3558: a finished call’s app view shows in a sandboxed frame under the group line, with no network',
+    '#3558: a finished call’s app view shows below the collapsed group and blocks fetch, images and nested frames',
     async () => {
       await send('show app view');
       await page.getByText('Opened the app view.').waitFor();
@@ -641,7 +726,7 @@ try {
       // Give a stray request time to arrive, then check none did.
       await page.waitForTimeout(300);
       if (canaryHits.length !== 0) {
-        throw new Error(`the view reached the network: ${canaryHits.join(', ')}`);
+        throw new Error(`an app resource probe reached the canary: ${canaryHits.join(', ')}`);
       }
 
       // The frame follows the height the view asked for (its content, within bounds).
@@ -667,9 +752,95 @@ try {
     },
   );
 
+  await scenario('#3558: the app frame cannot send STUN through WebRTC', async () => {
+    const configurations = await appView.locator('body').evaluate(async (_body, url) => {
+      const peer = new RTCPeerConnection({ iceServers: [{ urls: url }], iceCandidatePoolSize: 1 });
+      try {
+        const created = peer.getConfiguration().iceServers;
+        peer.setConfiguration({ iceServers: [{ urls: url }], iceCandidatePoolSize: 1 });
+        const changed = peer.getConfiguration().iceServers;
+        peer.createDataChannel('network-probe');
+        await peer.setLocalDescription(await peer.createOffer());
+        await new Promise((resolve) => setTimeout(resolve, 1500));
+        return { created, changed };
+      } finally {
+        peer.close();
+      }
+    }, stunUrl);
+    if (configurations.created.length !== 0 || configurations.changed.length !== 0) {
+      throw new Error(`the browser retained forbidden ICE servers: ${JSON.stringify(configurations)}`);
+    }
+    if (stunPackets.length !== 0) {
+      throw new Error(`the app sent ${stunPackets.length} UDP packets to the STUN canary`);
+    }
+    process.stdout.write(line('STUN app packets: 0'));
+  });
+
+  await scenario(
+    '#3558: messages from the parent and a sibling cannot impersonate an app or replace its resource',
+    async () => {
+      const before = sentFrames.length;
+      const originalResult = await appView.locator('#result').textContent();
+      await page.evaluate(async () => {
+        const outer = document.querySelector('[data-testid="app-view-frame"]');
+        const sibling = document.createElement('iframe');
+        sibling.id = 'foreign-app-message-source';
+        sibling.name = 'foreign-app-message-source';
+        sibling.src = 'about:blank';
+        const loaded = new Promise((resolve) => sibling.addEventListener('load', resolve, { once: true }));
+        document.body.appendChild(sibling);
+        await loaded;
+        const forgedCall = {
+          jsonrpc: '2.0',
+          id: 'foreign-parent-call',
+          method: 'tools/call',
+          params: { name: 'echo', arguments: { text: 'forged' } },
+        };
+        window.postMessage(forgedCall, '*');
+        window.postMessage({ jsonrpc: '2.0', method: 'ui/notifications/sandbox-proxy-ready' }, '*');
+        outer.contentWindow.postMessage(forgedCall, '*');
+      });
+      try {
+        const sibling = page.frames().find((frame) => frame.name() === 'foreign-app-message-source');
+        if (!sibling) throw new Error('the foreign source frame was not created');
+        await sibling.evaluate(() => {
+          const forgedCall = {
+            jsonrpc: '2.0',
+            id: 'foreign-sibling-call',
+            method: 'tools/call',
+            params: { name: 'echo', arguments: { text: 'forged' } },
+          };
+          const outer = window.parent.document.querySelector('[data-testid="app-view-frame"]');
+          window.parent.postMessage(forgedCall, '*');
+          outer.contentWindow.postMessage(forgedCall, '*');
+          outer.contentWindow.postMessage({
+            jsonrpc: '2.0',
+            method: 'ui/notifications/sandbox-resource-ready',
+            params: { html: '<body id="foreign-resource">Replaced by a sibling</body>' },
+          }, '*');
+        });
+        await page.waitForTimeout(300);
+        const appRequests = sentFrames.slice(before).filter(
+          (frame) => frame.type === 'call-app-tool' || frame.type === 'read-app-view',
+        );
+        if (appRequests.length !== 0) {
+          throw new Error(`a foreign window triggered app requests: ${JSON.stringify(appRequests)}`);
+        }
+        if (await permissionPrompt.count()) throw new Error('a foreign window raised a permission prompt');
+        if ((await appFrame.count()) !== 1) throw new Error('a foreign window replaced the app frame');
+        if ((await appView.locator('#result').textContent()) !== originalResult) {
+          throw new Error('a foreign window changed the app document');
+        }
+      } finally {
+        await page.locator('#foreign-app-message-source').evaluate((frame) => frame.remove());
+      }
+    },
+  );
+
   await scenario(
     '#3558: a tool call from the view raises the GUI permission prompt; Deny shows the denial, Allow the result',
     async () => {
+      const before = sentFrames.length;
       await appView.getByRole('button', { name: 'Call echo' }).click();
       await permissionPrompt.waitFor();
       await permissionPrompt.getByText('mcp__e2e_apps__echo').waitFor();
@@ -685,7 +856,16 @@ try {
       await permissionPrompt.getByRole('button', { name: 'Allow', exact: true }).click();
       await appView.locator('#call-result').getByText('call: ok echo: hi').waitFor();
       await permissionPrompt.waitFor({ state: 'detached' });
-      if (canaryHits.length !== 0) throw new Error(`the view reached the network: ${canaryHits.join(', ')}`);
+      const appCalls = sentFrames.slice(before).filter((frame) => frame.type === 'call-app-tool');
+      const viewRead = sentFrames.findLast((frame) => frame.type === 'read-app-view');
+      if (!viewRead?.viewId || appCalls.length !== 2 || appCalls.some(
+        (frame) => frame.viewId !== viewRead.viewId || frame.name !== 'mcp__e2e_apps__echo',
+      )) {
+        throw new Error(`the real app did not send two view-scoped calls: ${JSON.stringify(appCalls)}`);
+      }
+      if (canaryHits.length !== 0) {
+        throw new Error(`an app resource probe reached the canary: ${canaryHits.join(', ')}`);
+      }
     },
   );
 
@@ -1173,6 +1353,7 @@ try {
   await browser.close();
   await server.close();
   await new Promise((resolve) => canary.close(resolve));
+  await new Promise((resolve) => stunCanary.close(resolve));
   sidecar.kill('SIGTERM');
 }
 

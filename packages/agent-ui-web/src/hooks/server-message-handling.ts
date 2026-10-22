@@ -62,8 +62,7 @@ export const SERVER_MESSAGE_HANDLING = {
   project_status: 'reducer-state',
   project_diff: 'reducer-state',
   project_memory: 'reducer-state',
-  // The app-view host's own correlated replies (`useAppViewRequests`): the document a finished call
-  // named, and the outcome of a tool call made for that view.
+
   app_view: 'reducer-state',
   app_tool_result: 'reducer-state',
   background_task_event: 'intentionally-not-rendered',
