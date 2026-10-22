@@ -14,6 +14,8 @@ import { describe, expect, it } from 'vitest';
 
 import { createMcpClientComposition } from '../mcp-client-composition.js';
 import {
+  mcpAppSurfaceFor,
+  mcpAppsFor,
   mcpElicitationFor,
   mcpStartupModelNotice,
   mcpUserActionSurfaceFor,
@@ -187,6 +189,29 @@ describe('MCP servers the user must act on, as the model learns of them', () => 
     expect(mcpElicitationFor('serve', false)).toBe(false);
     expect(mcpElicitationFor('interactive', true)).toBe(true);
     expect(mcpElicitationFor('print', true)).toBe(false);
+  });
+
+  it('lets servers attach app views only to the serve host a GUI drives', () => {
+    expect(mcpAppsFor('serve', true)).toBe(true);
+    expect(mcpAppsFor('serve')).toBe(false);
+    expect(mcpAppsFor('serve', false)).toBe(false);
+    expect(mcpAppsFor('interactive', true)).toBe(false);
+    expect(mcpAppsFor('interactive')).toBe(false);
+    expect(mcpAppsFor('print', true)).toBe(false);
+    expect(mcpAppsFor('print')).toBe(false);
+  });
+
+  it('counts only the plain serve invocation as a surface that can host app views', () => {
+    const none = { serve: false, mcpServe: false, acp: false };
+    // The desktop app's workspace daemon and the web GUI run `--serve`.
+    expect(mcpAppSurfaceFor({ ...none, serve: true })).toBe(true);
+    // The TUI and print/goal runs are not serve invocations at all.
+    expect(mcpAppSurfaceFor(none)).toBe(false);
+    // `mcp serve` and the ACP editor agent run the serve runtime with no such surface.
+    expect(mcpAppSurfaceFor({ ...none, mcpServe: true })).toBe(false);
+    expect(mcpAppSurfaceFor({ ...none, serve: true, mcpServe: true })).toBe(false);
+    expect(mcpAppSurfaceFor({ ...none, acp: true })).toBe(false);
+    expect(mcpAppSurfaceFor({ ...none, serve: true, acp: true })).toBe(false);
   });
 
   it('gives the startup notice only where the user can type the command it suggests', () => {

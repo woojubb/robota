@@ -139,7 +139,11 @@ import { createServeSessionDirectory } from './modes/serve-session-directory.js'
 import { runAcpMode } from './modes/acp-mode.js';
 import { runMcpServeMode } from './modes/mcp-serve-mode.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
-import { composeMcpClientForStartup, mcpStartupModelNotice } from './startup/mcp-startup.js';
+import {
+  composeMcpClientForStartup,
+  mcpAppSurfaceFor,
+  mcpStartupModelNotice,
+} from './startup/mcp-startup.js';
 import { resolveMcpApprovalStore } from './startup/mcp-approval-file-store.js';
 import { composeCliAdvisor } from './startup/advisor-composition.js';
 import type { TMcpStartupMode } from './startup/mcp-startup.js';
@@ -508,6 +512,9 @@ async function runCliCore(
   // Robota as an MCP server and the ACP editor agent run the serve runtime without a surface that
   // answers asks; a server's elicitation there could only be declined.
   const mcpAskSurface = !(args.printMode || args.goal || mcpServe || acp);
+  // Only the plain serve host is driven by a GUI (the desktop app, the web GUI) that can show an
+  // MCP app view in an isolated frame; the TUI, print, `mcp serve` and the ACP agent cannot.
+  const mcpAppSurface = mcpAppSurfaceFor({ serve: args.serve, mcpServe, acp });
   const mcp =
     options.mcpActivationAdapter === undefined && !safeMode
       ? await composeMcpClientForStartup({
@@ -519,6 +526,7 @@ async function runCliCore(
           env: productRuntime.environment,
           mode: mcpStartupMode,
           askSurface: mcpAskSurface,
+          appSurface: mcpAppSurface,
           ...(options.mcpStdioAuthorities === undefined
             ? {}
             : { stdioAuthorities: options.mcpStdioAuthorities }),

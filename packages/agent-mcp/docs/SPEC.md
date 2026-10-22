@@ -159,8 +159,19 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
   anything but form elicitation is refused by method and leaves the call to the server; none is
   replayed. Connection-local catalog identity prevents private disclosures carrying into a later
   carrier.
-  Host-selected skill disclosures remain bound to their server and current verified manifest;
-  receiving metadata or supporting files cannot authorize instructions or tool permissions.
+  Optional extensions are declared only behind a host opt-in, and a server's use of one authorizes
+  nothing: host-selected skill disclosures remain bound to their server and current verified
+  manifest, and receiving metadata or supporting files cannot authorize instructions or tool
+  permissions.
+- **A tool's app view is display data, kept only when both sides asked for it**: the UI extension is
+  declared only by a host with a surface that can show a view in an isolated frame, and a tool's
+  view reference is kept only when the server declared the extension and resources too, since an
+  undeclared capability is never called. The view is read after a successful call alone, as one
+  document of the one media type this host hosts and within a bound below the receive budget;
+  anything else leaves the text result as it was and is reported by a fixed reason, never the
+  server's words. The document travels beside the result and never enters model context, so the
+  model sees the same result with or without it. A tool the server hides from the model is refused
+  rather than offered, because this host has no model-hidden registration path.
 
 ## Design decision: one client, strict about completion on the pinned era
 

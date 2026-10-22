@@ -12,6 +12,7 @@
 import { ProtocolError, ProtocolErrorCode } from '@modelcontextprotocol/client';
 
 import { parseMCPResultSizeMetadata } from '../catalog/result-size-metadata.js';
+import { parseMCPToolUiMetadata } from '../catalog/ui-metadata.js';
 import { MCPDiscoveryError } from '../catalog/types.js';
 import { toUniversalObject } from '../catalog/universal-value.js';
 import { isRequestTimeout } from './session-protocol.js';
@@ -69,16 +70,26 @@ function toParameterSchema(schema: Readonly<Record<string, unknown>>): IParamete
   return schema as unknown as IParameterSchema;
 }
 
-function mapTool(raw: TRawTool): IMCPDiscoveredTool {
-  const resultSizeMetadata = parseMCPResultSizeMetadata(
-    (raw as TRawTool & { readonly _meta?: unknown })._meta,
-  );
+function mapTool(raw: TRawTool, apps: boolean): IMCPDiscoveredTool {
+  const rawMeta = (raw as TRawTool & { readonly _meta?: unknown })._meta;
+  const resultSizeMetadata = parseMCPResultSizeMetadata(rawMeta);
+  // A view is read only where both sides declared the extension; otherwise the key means nothing here.
+  const ui = apps ? parseMCPToolUiMetadata(rawMeta) : ({ kind: 'absent' } as const);
   return {
     name: raw.name,
     description: raw.description,
     inputSchema: toParameterSchema(raw.inputSchema),
     outputSchema: raw.outputSchema === undefined ? undefined : toUniversalObject(raw.outputSchema),
     ...(resultSizeMetadata.kind === 'absent' ? {} : { resultSizeMetadata }),
+    ...(ui.kind === 'accepted'
+      ? {
+          ui: {
+            ...(ui.resourceUri === undefined ? {} : { resourceUri: ui.resourceUri }),
+            visibility: ui.visibility,
+          },
+        }
+      : {}),
+    ...(ui.kind === 'invalid' ? { uiProblem: ui.reason } : {}),
   };
 }
 
@@ -223,13 +234,17 @@ async function discoverDomain<TRaw, TItem>(
   };
 }
 
-/** Paginated discovery over every domain the server declared; never reports a partial catalog. */
+/**
+ * Paginated discovery over every domain the server declared; never reports a partial catalog.
+ * `apps` is whether MCP Apps was negotiated, which decides if a tool's UI metadata is kept.
+ */
 export async function discoverAll(
   client: IMCPDiscoveryClient,
   declaredCapabilities: TDeclaredCapabilities,
   identity: IMCPServerIdentity,
   instructions: string | undefined,
   options: IMCPDiscoverOptions,
+  apps = false,
 ): Promise<IMCPDiscovery> {
   const tools = await discoverDomain<TRawTool, IMCPDiscoveredTool>(
     'tools',
@@ -248,7 +263,7 @@ export async function discoverAll(
           : {}),
       };
     },
-    mapTool,
+    (raw) => mapTool(raw, apps),
   );
 
   const prompts = await discoverDomain<TRawPrompt, IMCPDiscoveredPrompt>(

@@ -28,6 +28,7 @@ import {
   MCPConnectionSupervisor,
   MCPDefinitionRegistry,
   MCPOAuthError,
+  appCallableToolNames,
   buildCatalog,
   classifyMcpFailure,
   createDiscoveredTool,
@@ -58,6 +59,7 @@ import type {
   IMCPHeadersHelper,
   IMCPHeadersHelperAuthenticator,
   IMCPHttpTransportDeps,
+  IMCPReadResourceResult,
   IMCPResolvedEntry,
   IMCPSkillsSession,
   IMCPServerDefinitionResolved,
@@ -218,6 +220,12 @@ export interface IMcpClientCompositionDeps {
    * no prompt channel leaves it off, so a server is never told it may ask.
    */
   readonly elicitation?: boolean;
+  /**
+   * Whether a surface that can show an MCP app view in an isolated frame drives this host: every
+   * session then declares the UI extension and a tool's view rides its result. A surface that
+   * cannot host one leaves it off, so a server is never told it may attach a view.
+   */
+  readonly apps?: boolean;
   /** Created only for the first overflow and owned through this composition's shutdown. */
   readonly createResultSpillStore?: () => IToolResultSpillStore & {
     read(reference: string): Promise<string>;
@@ -302,6 +310,11 @@ export interface IMcpServerConnection {
     args: TToolParameters,
     options?: Pick<IMCPToolCallOptions, 'signal' | 'outboundTraceContext' | 'ask'>,
   ): Promise<IMCPToolCallResult>;
+  /** Reads a declared resource over the same connection; a tool's app view is read through it. */
+  readResource?(
+    uri: string,
+    options?: Pick<IMCPToolCallOptions, 'signal'>,
+  ): Promise<IMCPReadResourceResult>;
   shutdown(): Promise<void>;
   /** Open again after a failure that waits for the user — here, a sign-in. */
   retry?(signal?: AbortSignal): Promise<unknown>;
@@ -487,6 +500,7 @@ function buildSupervisorOptions<TInput, TAdmitted>(
           : { protocolVersion: definition.protocolVersion }),
         ...(definition.skills === true ? { skills: true } : {}),
         ...(deps.elicitation === true ? { elicitation: true } : {}),
+        ...(deps.apps === true ? { apps: true } : {}),
         transport: transportAdapter.construct(admittedEndpoint),
         timeouts: { startupMs: timeouts.startupMs, perCallMs: timeouts.perCallMs },
         ...(deps.clientInfo === undefined ? {} : { clientInfo: deps.clientInfo }),
@@ -836,6 +850,7 @@ function collectToolsFromCatalog(
   admission: IToolResultAdmissionOptions,
   authFailureNoticeByServerId: ReadonlyMap<string, string>,
   isDispatchAdmitted: (serverId: string, connection: IMcpServerConnection) => Promise<boolean>,
+  reportDiagnostic: (message: string) => void,
 ): IToolWithEventService[] {
   const tools: IToolWithEventService[] = [];
   for (const entry of [...catalog.adopted, ...catalog.adapted]) {
@@ -847,6 +862,15 @@ function collectToolsFromCatalog(
       admission,
       isDispatchAdmitted: () => isDispatchAdmitted(entry.provenance.serverId, connection),
       ...(authFailureNotice === undefined ? {} : { authFailureNotice }),
+      ...(entry.ui?.resourceUri === undefined
+        ? {}
+        : {
+            appCallableTools: appCallableToolNames(catalog, entry.provenance.serverId),
+            reportAppViewProblem: (reason: string) =>
+              reportDiagnostic(
+                `MCP server "${entry.provenance.serverId}" tool "${entry.sourceName}" app view omitted: ${reason}`,
+              ),
+          }),
     });
     tools.push(tool);
     const securityIdentity = securityIdentityByServerId.get(entry.provenance.serverId);
@@ -1127,6 +1151,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
         ? new Map<string, string>()
         : new Map([[serverId, authFailureNotice(serverId)]]),
       isDispatchAdmitted,
+      deps.reportDiagnostic,
     );
     // Recorded once the session says which of these it took.
     pendingProvenance.set(serverId, provenance);
@@ -1159,6 +1184,8 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
         ),
       reportResultSizeProblem: (reason) =>
         deps.reportDiagnostic(`MCP result-size metadata ignored (${reason})`),
+      reportUiMetadataProblem: (toolName, reason) =>
+        deps.reportDiagnostic(`MCP tool "${toolName}" UI metadata ignored (${reason})`),
     });
     for (const rejection of catalog.rejected) {
       deps.reportDiagnostic(
@@ -1222,6 +1249,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       resultAdmission,
       authFailureNoticeByServerId,
       isDispatchAdmitted,
+      deps.reportDiagnostic,
     );
     return withResultReadTool(tools);
   }
@@ -1334,6 +1362,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       resultAdmission,
       authFailureNoticeByServerId,
       isDispatchAdmitted,
+      deps.reportDiagnostic,
     );
     // Recorded once the session says which of these it took (`reloadToolsAdded`), keyed to this
     // call's own token — never committed here, so a tool name collision with one the session

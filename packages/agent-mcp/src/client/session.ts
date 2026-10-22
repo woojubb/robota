@@ -18,10 +18,12 @@ import {
   isRequestTimeout,
   MCPSessionError,
   STATELESS_PROTOCOL_VERSION,
+  toReadResourceResult,
   toToolCallResult,
 } from './session-protocol.js';
 export { MCPSessionError } from './session-protocol.js';
 
+import { hasAppsCapability } from '../catalog/app-view.js';
 import { MCPAuthenticationError } from './authentication.js';
 import { MCPTransportEgressRefusedError } from './pinned-http-fetch.js';
 import { discoverAll } from './discovery.js';
@@ -36,6 +38,8 @@ import type { Client, Implementation, Tool, Transport } from '@modelcontextproto
 import type {
   IMCPDiscoverOptions,
   IMCPOpenSessionOptions,
+  IMCPReadResourceOptions,
+  IMCPReadResourceResult,
   IMCPSession,
   IMCPToolCallOptions,
   IMCPToolCallResult,
@@ -44,6 +48,8 @@ import type {
 export type {
   IMCPDiscoverOptions,
   IMCPOpenSessionOptions,
+  IMCPReadResourceOptions,
+  IMCPReadResourceResult,
   IMCPSession,
   IMCPSessionTimeouts,
   IMCPToolCallOptions,
@@ -215,6 +221,7 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
     options.elicitation === true
       ? createElicitationHandler({ serverId: () => options.serverId, calls })
       : undefined,
+    options.apps === true,
   );
 
   await connectClient(client, options);
@@ -229,7 +236,13 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
     protocolVersion: negotiatedVersion,
   };
   const instructions = client.getInstructions();
-  const declaredCapabilities = buildDeclaredCapabilities(client.getServerCapabilities());
+  const serverCapabilities = client.getServerCapabilities();
+  const declaredCapabilities = buildDeclaredCapabilities(serverCapabilities);
+  // Both sides declared the extension, and the view can be read: an undeclared capability is never called.
+  const apps =
+    options.apps === true &&
+    hasAppsCapability(serverCapabilities?.extensions) &&
+    declaredCapabilities.resources !== undefined;
 
   const callTraces = callTraceRegistryOf(options.transport);
   const listeners = new Set<TMCPListChangedListener>();
@@ -257,7 +270,21 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
     throw new MCPStdioError('early-exit');
   };
 
+  /**
+   * A stdio failure is reported by kind only: a cancellation or timeout closes the carrier, a child
+   * that exited is its own kind, and anything else is a send failure. Never the server's words.
+   */
+  const maskStdioFailure = async (error: unknown, signal: AbortSignal | undefined): Promise<never> => {
+    if (signal?.aborted || isRequestTimeout(error)) {
+      await closeSession();
+      throw new MCPStdioError('cancelled');
+    }
+    await throwIfStdioChildExited();
+    throw new MCPStdioError('send');
+  };
+
   return {
+    ...(apps ? { apps } : {}),
     identity,
     instructions,
     declaredCapabilities,
@@ -269,6 +296,7 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
           identity,
           instructions,
           discoverOptions,
+          apps,
         );
         outputSchemas = new Map(
           discovery.tools.items.flatMap((tool) =>
@@ -327,18 +355,29 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
         const raw = traceScope ? await runInCallTraceScope(traceScope, call) : await call();
         return toToolCallResult(raw);
       } catch (error) {
-        if (sensitiveTransport(options.transport)) {
-          if (callOptions?.signal?.aborted || isRequestTimeout(error)) {
-            await closeSession();
-            throw new MCPStdioError('cancelled');
-          }
-          await throwIfStdioChildExited();
-          throw new MCPStdioError('send');
-        }
+        if (sensitiveTransport(options.transport)) return maskStdioFailure(error, callOptions?.signal);
         throw error;
       } finally {
         leave();
         if (traceScope) callTraces?.release(traceScope);
+      }
+    },
+    async readResource(
+      uri: string,
+      readOptions?: IMCPReadResourceOptions,
+    ): Promise<IMCPReadResourceResult> {
+      if (declaredCapabilities.resources === undefined)
+        throw new Error('MCP server did not declare resources');
+      try {
+        return toReadResourceResult(
+          await client.readResource(
+            { uri },
+            { timeout: readOptions?.timeoutMs, signal: readOptions?.signal },
+          ),
+        );
+      } catch (error) {
+        if (sensitiveTransport(options.transport)) return maskStdioFailure(error, readOptions?.signal);
+        throw error;
       }
     },
     onListChanged(listener: TMCPListChangedListener): () => void {
