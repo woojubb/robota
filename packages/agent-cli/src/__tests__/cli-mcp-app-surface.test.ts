@@ -1,8 +1,3 @@
-/**
- * Which invocations the CLI tells the MCP composition can host an app view: only the plain `--serve`
- * host. The composition is stubbed to throw once it has been handed its input, so what is inspected
- * is exactly what `startCliCore` derived from the command line.
- */
 import { createTestProductRuntime } from './helpers/product-runtime.js';
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';

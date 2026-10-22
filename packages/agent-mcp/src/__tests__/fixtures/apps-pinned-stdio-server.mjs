@@ -39,7 +39,6 @@ for await (const line of createInterface({ input: process.stdin })) {
     );
     continue;
   } else {
-    // The document echoes the client capabilities this request declared.
     const declared = JSON.stringify(meta['io.modelcontextprotocol/clientCapabilities'] ?? null);
     result = {
       ...common,

@@ -238,7 +238,6 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
   const instructions = client.getInstructions();
   const serverCapabilities = client.getServerCapabilities();
   const declaredCapabilities = buildDeclaredCapabilities(serverCapabilities);
-  // Both sides declared the extension, and the view can be read: an undeclared capability is never called.
   const apps =
     options.apps === true &&
     hasAppsCapability(serverCapabilities?.extensions) &&
@@ -270,10 +269,6 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
     throw new MCPStdioError('early-exit');
   };
 
-  /**
-   * A stdio failure is reported by kind only: a cancellation or timeout closes the carrier, a child
-   * that exited is its own kind, and anything else is a send failure. Never the server's words.
-   */
   const maskStdioFailure = async (error: unknown, signal: AbortSignal | undefined): Promise<never> => {
     if (signal?.aborted || isRequestTimeout(error)) {
       await closeSession();

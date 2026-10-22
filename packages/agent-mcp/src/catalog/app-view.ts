@@ -1,9 +1,3 @@
-/**
- * MCP Apps: the negotiated extension, the bounded read of a tool's declared view and the names a
- * view may call back. A view is display data for a surface that hosts it in an isolated frame; none
- * of it enters model context.
- */
-
 import type { IMCPCatalog } from './types.js';
 import type { IUniversalObjectValue } from '@robota-sdk/agent-core';
 
@@ -35,7 +29,6 @@ function normalizedMimeType(value: unknown): string | undefined {
   return typeof value === 'string' ? value.replace(/\s+/gu, '').toLowerCase() : undefined;
 }
 
-/** The decoded size of a well-formed base64 string, without decoding it. */
 function base64DecodedBytes(data: string): number {
   const padding = data.endsWith('==') ? 2 : data.endsWith('=') ? 1 : 0;
   return (data.length / 4) * 3 - padding;
@@ -45,7 +38,6 @@ function decodeUtf8(data: Uint8Array): string | undefined {
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(data);
   } catch {
-    // allow-fallback: a document that is not UTF-8 is reported as invalid content, not thrown.
     return undefined;
   }
 }
@@ -107,6 +99,5 @@ export function appCallableToolNames(
     if (entry.ui !== undefined && !entry.ui.visibility.includes('app')) continue;
     names.push([entry.sourceName, entry.canonicalName]);
   }
-  // `fromEntries` defines own properties, so a server's tool named like an object member is safe.
   return Object.fromEntries(names);
 }

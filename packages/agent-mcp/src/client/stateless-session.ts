@@ -268,7 +268,6 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
       hasSkillsCapability(capabilities.extensions)
         ? createSkillsSession(identity, skillRequest)
         : undefined;
-    // Both sides declared the extension, and the view can be read: an undeclared capability is never called.
     const apps =
       options.apps === true &&
       hasAppsCapability(capabilities.extensions) &&

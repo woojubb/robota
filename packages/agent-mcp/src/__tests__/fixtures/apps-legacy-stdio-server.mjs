@@ -28,7 +28,6 @@ server.setRequestHandler('resources/read', async (request) => {
       {
         uri: request.params.uri,
         mimeType: 'text/html;profile=mcp-app',
-        // The document echoes the client capabilities the initialize declared.
         text: JSON.stringify(server.getClientCapabilities() ?? null),
       },
     ],

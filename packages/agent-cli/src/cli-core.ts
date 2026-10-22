@@ -512,8 +512,6 @@ async function runCliCore(
   // Robota as an MCP server and the ACP editor agent run the serve runtime without a surface that
   // answers asks; a server's elicitation there could only be declined.
   const mcpAskSurface = !(args.printMode || args.goal || mcpServe || acp);
-  // Only the plain serve host is driven by a GUI (the desktop app, the web GUI) that can show an
-  // MCP app view in an isolated frame; the TUI, print, `mcp serve` and the ACP agent cannot.
   const mcpAppSurface = mcpAppSurfaceFor({ serve: args.serve, mcpServe, acp });
   const mcp =
     options.mcpActivationAdapter === undefined && !safeMode

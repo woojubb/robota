@@ -263,7 +263,6 @@ export {
   type IMCPToolInvoker,
   type TMCPAppViewOmission,
 } from './catalog/discovered-tool.js';
-// MCP Apps: the names a tool's view may call back, and the reasons a declared view is left out.
 export { appCallableToolNames } from './catalog/app-view.js';
 export type { IMCPToolUiReference, TMCPToolUiProblem } from './catalog/ui-metadata.js';
 

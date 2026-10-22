@@ -1,8 +1,3 @@
-/**
- * A tool's MCP app view crosses the composition root as display data: the callable names come from
- * the catalog the root built, and a view that cannot be attached is reported by a fixed reason.
- */
-
 import {
   InMemoryMCPActivationApprovalStore,
   MCPDefinitionRegistry,

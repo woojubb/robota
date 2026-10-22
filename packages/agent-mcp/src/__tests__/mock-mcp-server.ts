@@ -43,7 +43,6 @@ export interface IMockTool {
   _meta?: Record<string, unknown>;
 }
 
-/** One content item of a `resources/read` result, exactly as the mock should send it. */
 export type IMockResourceContent = Record<string, unknown>;
 
 export interface IMockPromptArgument {

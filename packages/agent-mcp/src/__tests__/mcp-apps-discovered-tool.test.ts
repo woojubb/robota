@@ -106,7 +106,6 @@ describe('DiscoveredMCPTool — MCP app view', () => {
     });
     expect(wasToolResultAdmitted(result)).toBe(true);
     expect(callTool).toHaveBeenCalledOnce();
-    // The read happens after the call, on the same signal, for the declared reference only.
     expect(readResource).toHaveBeenCalledExactlyOnceWith(VIEW_URI, { signal: controller.signal });
     expect(callTool.mock.invocationCallOrder[0]).toBeLessThan(
       readResource.mock.invocationCallOrder[0] ?? 0,

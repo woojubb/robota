@@ -54,7 +54,6 @@ export interface IBuildCatalogOptions {
   readonly reportUiMetadataProblem?: (toolName: string, reason: TMCPToolUiProblem) => void;
 }
 
-/** This host offers tools to the model only; a tool the server hides from it has no other way in. */
 const APP_ONLY_TOOL_REASON = 'app-only tool; this host offers tools to the model only';
 
 /**
@@ -163,10 +162,6 @@ function buildProvenance(input: IMCPCatalogInput, discovery: IMCPDiscovery): IMC
   };
 }
 
-/**
- * A tool the server withholds from the model is refused before naming: it would otherwise take a
- * canonical name from a tool that is offered.
- */
 function collectPendingTools(
   serverId: string,
   discovery: IMCPDiscovery,

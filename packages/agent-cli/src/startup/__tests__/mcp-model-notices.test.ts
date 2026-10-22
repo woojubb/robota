@@ -203,11 +203,8 @@ describe('MCP servers the user must act on, as the model learns of them', () => 
 
   it('counts only the plain serve invocation as a surface that can host app views', () => {
     const none = { serve: false, mcpServe: false, acp: false };
-    // The desktop app's workspace daemon and the web GUI run `--serve`.
     expect(mcpAppSurfaceFor({ ...none, serve: true })).toBe(true);
-    // The TUI and print/goal runs are not serve invocations at all.
     expect(mcpAppSurfaceFor(none)).toBe(false);
-    // `mcp serve` and the ACP editor agent run the serve runtime with no such surface.
     expect(mcpAppSurfaceFor({ ...none, mcpServe: true })).toBe(false);
     expect(mcpAppSurfaceFor({ ...none, serve: true, mcpServe: true })).toBe(false);
     expect(mcpAppSurfaceFor({ ...none, acp: true })).toBe(false);

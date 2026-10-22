@@ -311,8 +311,6 @@ class DiscoveredMCPTool implements IToolWithEventService {
         ? toUniversalValue(result.structuredContent)
         : joinTextContent(result.content);
 
-    // The view is display data for a surface; it rides in the envelope admission is given, where
-    // core keeps it and never counts it, so what the model sees is the same with or without it.
     const view = await this.readAppView(parameters, result, context?.signal);
     return admitToolResult(
       this.schema.name,
@@ -322,10 +320,6 @@ class DiscoveredMCPTool implements IToolWithEventService {
     );
   }
 
-  /**
-   * The view this tool declared, read after a successful call. A failed read or an invalid
-   * resource never fails the call: the text result stands and the omission is reported by reason.
-   */
   private async readAppView(
     parameters: TToolParameters,
     result: IMCPToolCallResult,
@@ -339,13 +333,11 @@ class DiscoveredMCPTool implements IToolWithEventService {
     };
     let contents: IMCPReadResourceResult;
     try {
-      // This is one more request to the server: the host's dispatch check applies to it too.
       if (this.options?.isDispatchAdmitted && !(await this.options.isDispatchAdmitted())) {
         return omit('not-admitted');
       }
       contents = await this.invoker.readResource(resourceUri, { signal });
     } catch {
-      // allow-fallback: the server's error text is never surfaced; the view is simply omitted.
       return omit('read-failed');
     }
     const document = validateAppViewResource(resourceUri, contents);
