@@ -50,6 +50,7 @@ function SessionView({ url, host }: { url: string; host: IGuiHost }): React.Reac
       pickFiles={host.pickFiles}
       getPathForFile={host.getPathForFile}
       onOpenMemoryInEditor={host.openMemoryInEditor}
+      appViewSandboxUrl={new URL('app-sandbox.html', document.baseURI).href}
     />
   );
 }

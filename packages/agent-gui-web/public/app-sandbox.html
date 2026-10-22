@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; media-src data:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <meta name="color-scheme" content="light dark" />
+    <title>App sandbox</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        background: transparent;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        font:
+          13px/1.4 system-ui,
+          sans-serif;
+      }
+      p {
+        margin: 8px;
+      }
+      iframe {
+        flex: 1 1 auto;
+        width: 100%;
+        border: 0;
+        background: transparent;
+        color-scheme: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <script>
+      (function () {
+        'use strict';
+
+        var PROXY_READY = 'ui/notifications/sandbox-proxy-ready';
+        var RESOURCE_READY = 'ui/notifications/sandbox-resource-ready';
+        var SANDBOX_PREFIX = 'ui/notifications/sandbox-';
+
+        function refuse(text) {
+          var line = document.createElement('p');
+          line.textContent = text;
+          document.body.appendChild(line);
+        }
+
+        function readable(other) {
+          try {
+            return Boolean(other.document);
+          } catch (error) {
+            return false;
+          }
+        }
+
+        if (window.self === window.top) {
+          refuse('This page only runs inside an app frame.');
+          return;
+        }
+        if (readable(window.top) || readable(window.parent)) {
+          refuse('This page must run in a sandboxed frame.');
+          return;
+        }
+
+        function hasNativeNetworkIsolation() {
+          // Chromium 157 includes builds before the nested WebRTC fix; require 158 conservatively.
+          // https://issues.chromium.org/issues/565837691
+          // https://chromium-review.googlesource.com/c/chromium/src/+/8485457
+          var chromium = /\b(?:Chrome|Chromium|HeadlessChrome)\/(\d+)\./.exec(navigator.userAgent);
+          if (!chromium || Number(chromium[1]) < 158) return false;
+          var connection;
+          var isolated = false;
+          try {
+            connection = new window.RTCPeerConnection({
+              iceServers: [{ urls: 'stun:127.0.0.1:9' }],
+            });
+            var servers = connection.getConfiguration().iceServers;
+            isolated = Array.isArray(servers) && servers.length === 0;
+          } catch (error) {
+            isolated = false;
+          }
+          if (connection) {
+            try {
+              connection.close();
+            } catch (error) {
+              isolated = false;
+            }
+          }
+          return isolated;
+        }
+
+        if (!hasNativeNetworkIsolation()) {
+          refuse(
+            'App views are unavailable because this browser cannot enforce their network isolation.',
+          );
+          return;
+        }
+
+        var host = window.parent;
+        var inner = null;
+
+        function methodOf(data) {
+          return data !== null && typeof data === 'object' && typeof data.method === 'string'
+            ? data.method
+            : '';
+        }
+
+        function showDocument(html) {
+          if (inner !== null || typeof html !== 'string') return;
+          inner = document.createElement('iframe');
+          inner.setAttribute('sandbox', 'allow-scripts');
+          inner.setAttribute('title', 'App');
+          inner.srcdoc = html;
+          document.body.appendChild(inner);
+        }
+
+        // Who sent a message is decided by `event.source`, which no other window can forge. Both
+        // peers have an opaque origin, so there is no origin to compare and the target is '*'.
+        window.addEventListener('message', function (event) {
+          var data = event.data;
+          var method = methodOf(data);
+          if (event.source === host) {
+            if (method === RESOURCE_READY) {
+              showDocument(data.params && data.params.html);
+              return;
+            }
+            if (method.indexOf(SANDBOX_PREFIX) === 0) return;
+            if (inner !== null && inner.contentWindow) inner.contentWindow.postMessage(data, '*');
+            return;
+          }
+          if (inner !== null && event.source !== null && event.source === inner.contentWindow) {
+            if (method.indexOf(SANDBOX_PREFIX) === 0) return;
+            host.postMessage(data, '*');
+          }
+        });
+
+        host.postMessage({ jsonrpc: '2.0', method: PROXY_READY, params: {} }, '*');
+      })();
+    </script>
+  </body>
+</html>
