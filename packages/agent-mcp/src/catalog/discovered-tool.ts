@@ -16,10 +16,11 @@ import { admitToolResult } from '@robota-sdk/agent-core';
 
 import { classifyMcpFailure } from '../supervisor/connection.js';
 import { ThirdPartySchemaValidator } from '../third-party-schema.js';
+import { validateAppViewResource } from './app-view.js';
 import { toUniversalValue } from './universal-value.js';
 import { additionalObservation } from './content-observations.js';
 
-import type { IMCPToolCallResult } from '../client/session.js';
+import type { IMCPReadResourceResult, IMCPToolCallResult } from '../client/session.js';
 import type { TUnenforceableSchemaReporter } from '../third-party-schema.js';
 import type { IMCPCatalogToolEntry } from './types.js';
 import type {
@@ -28,6 +29,7 @@ import type {
   IOutboundTraceContext,
   IParameterSchema,
   IParameterValidationResult,
+  IToolAppView,
   IToolExecutionContext,
   IToolResult,
   IToolProvenance,
@@ -93,7 +95,22 @@ export interface IMCPToolInvoker {
       readonly ask?: IUserInteraction['ask'];
     },
   ): Promise<IMCPToolCallResult>;
+  /**
+   * Reads a resource the server declared, under the same connection as `callTool`. Absent, no tool
+   * view is ever attached.
+   */
+  readResource?(
+    uri: string,
+    options?: { readonly signal?: AbortSignal },
+  ): Promise<IMCPReadResourceResult>;
 }
+
+/**
+ * Why a tool's declared view was not attached: a fixed word, never anything the server sent.
+ * `read-failed` is a refused or failed read; the rest are the resource's own validation reasons.
+ */
+export type TMCPAppViewOmission =
+  'read-failed' | 'not-admitted' | 'missing' | 'uri-mismatch' | 'mime-type' | 'content' | 'too-large';
 
 export interface ICreateDiscoveredToolOptions {
   /** Host revalidation immediately before transport dispatch; this never grants authority. */
@@ -114,6 +131,13 @@ export interface ICreateDiscoveredToolOptions {
    * The server's own error text never replaces it.
    */
   readonly authFailureNotice?: string;
+  /**
+   * Source tool name → runtime name for the tools of this tool's server that a view it brings may
+   * call (`appCallableToolNames`). Absent, a view may call nothing.
+   */
+  readonly appCallableTools?: Readonly<Record<string, string>>;
+  /** Told with a fixed reason when a declared view could not be attached; the text result stands. */
+  readonly reportAppViewProblem?: (reason: TMCPAppViewOmission) => void;
 }
 
 /**
@@ -287,12 +311,48 @@ class DiscoveredMCPTool implements IToolWithEventService {
         ? toUniversalValue(result.structuredContent)
         : joinTextContent(result.content);
 
+    const view = await this.readAppView(parameters, result, context?.signal);
     return admitToolResult(
       this.schema.name,
-      { success: true, data, ...(parts.length ? { parts } : {}) },
+      { success: true, data, ...(parts.length ? { parts } : {}), ...(view ? { view } : {}) },
       this.options?.admission,
       this.entry.maxResultChars,
     );
+  }
+
+  private async readAppView(
+    parameters: TToolParameters,
+    result: IMCPToolCallResult,
+    signal: AbortSignal | undefined,
+  ): Promise<IToolAppView | undefined> {
+    const resourceUri = this.entry.ui?.resourceUri;
+    if (resourceUri === undefined || this.invoker.readResource === undefined) return undefined;
+    const omit = (reason: TMCPAppViewOmission): undefined => {
+      this.options?.reportAppViewProblem?.(reason);
+      return undefined;
+    };
+    let contents: IMCPReadResourceResult;
+    try {
+      if (this.options?.isDispatchAdmitted && !(await this.options.isDispatchAdmitted())) {
+        return omit('not-admitted');
+      }
+      contents = await this.invoker.readResource(resourceUri, { signal });
+    } catch {
+      return omit('read-failed');
+    }
+    const document = validateAppViewResource(resourceUri, contents);
+    if (!document.ok) return omit(document.reason);
+    return {
+      sourceId: this.entry.provenance.serverId,
+      resourceUri,
+      mimeType: document.mimeType,
+      html: document.html,
+      ...(result.structuredContent === undefined
+        ? {}
+        : { structuredContent: toUniversalValue(result.structuredContent) }),
+      toolInput: parameters,
+      callableTools: this.options?.appCallableTools ?? {},
+    };
   }
 
   /**

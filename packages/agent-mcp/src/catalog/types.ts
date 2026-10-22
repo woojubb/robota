@@ -7,6 +7,7 @@
  */
 
 import type { TMCPResultSizeMetadata } from './result-size-metadata.js';
+import type { IMCPToolUiReference, TMCPToolUiProblem } from './ui-metadata.js';
 import type { IParameterSchema, IUniversalObjectValue } from '@robota-sdk/agent-core';
 
 export type TMCPCapabilityDomain = 'tools' | 'prompts' | 'resources';
@@ -46,6 +47,13 @@ export interface IMCPDiscoveredTool {
   readonly outputSchema?: IUniversalObjectValue;
   /** Validated projection only; the server's raw `_meta` never enters the catalog. */
   readonly resultSizeMetadata?: Exclude<TMCPResultSizeMetadata, { readonly kind: 'absent' }>;
+  /**
+   * The tool's declared view and audience, kept only when the host opted in to MCP Apps and the
+   * server declared the extension and resources. A projection; the raw `_meta` never enters.
+   */
+  readonly ui?: IMCPToolUiReference;
+  /** Why declared UI metadata was ignored, so the catalog can report it once. */
+  readonly uiProblem?: TMCPToolUiProblem;
 }
 
 export interface IMCPDiscoveredPromptArgument {
@@ -131,6 +139,8 @@ export interface IMCPCatalogToolEntry {
   readonly schema: IParameterSchema;
   /** Validated upward request; admission still enforces its configured repository cap. */
   readonly maxResultChars?: number;
+  /** The accepted view reference and audience; a tool offered to the model always includes `model`. */
+  readonly ui?: IMCPToolUiReference;
   /** Paths dropped by narrowing; empty when the whole schema is enforceable. */
   readonly unenforceablePaths: readonly string[];
   readonly provenance: IMCPCatalogProvenance;

@@ -159,8 +159,17 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
   anything but form elicitation is refused by method and leaves the call to the server; none is
   replayed. Connection-local catalog identity prevents private disclosures carrying into a later
   carrier.
-  Host-selected skill disclosures remain bound to their server and current verified manifest;
-  receiving metadata or supporting files cannot authorize instructions or tool permissions.
+  Optional extensions are declared only behind a host opt-in, and a server's use of one authorizes
+  nothing: host-selected skill disclosures remain bound to their server and current verified
+  manifest, and receiving metadata or supporting files cannot authorize instructions or tool
+  permissions.
+- **A tool's app view is untrusted display data, never model instructions or tool authority**:
+  only a host that can isolate the view opts in. Negotiation permits declared display resources;
+  it grants no additional tool authority. A missing or invalid view must not change the completed
+  model-facing tool result. Valid audience restrictions remain binding even when a view reference
+  is invalid. App callbacks stay bound to the source and authority of tools the runtime accepted;
+  a naming collision must not redirect a callback to another server. Model-hidden tools are refused
+  until the host supports a model-hidden registration path.
 
 ## Design decision: one client, strict about completion on the pinned era
 
