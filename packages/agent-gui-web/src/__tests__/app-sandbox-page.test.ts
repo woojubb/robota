@@ -142,7 +142,7 @@ function runPage(
   }
   Object.assign(own, { RTCPeerConnection: options.rtcMissing ? undefined : PeerConnection });
   const navigator = {
-    userAgent: options.userAgent ?? 'Mozilla/5.0 Chrome/157.0.8103.6 Safari/537.36',
+    userAgent: options.userAgent ?? 'Mozilla/5.0 Chrome/158.0.8104.0 Safari/537.36',
   };
   new Function('window', 'document', 'navigator', script)(own, document, navigator);
 
@@ -351,8 +351,23 @@ describe('app-sandbox.html: native network isolation admission', () => {
     }
   });
 
+  it.each(['157.0.8093.0', '157.0.8103.6', '157.0.0.0'])(
+    'refuses Chromium %s before constructing a native connection',
+    (version) => {
+      const page = runPage({ userAgent: `Mozilla/5.0 Chrome/${version} Safari/537.36` });
+      expect(page.construct).not.toHaveBeenCalled();
+      expect(page.lines).toEqual([
+        'App views are unavailable because this browser cannot enforce their network isolation.',
+      ]);
+      expect(page.host.postMessage).not.toHaveBeenCalled();
+      expect(page.listeners).toHaveLength(0);
+      page.dispatch(page.host, resourceReady({ html: '<script>untrusted()</script>' }));
+      expect(page.inners).toHaveLength(0);
+    },
+  );
+
   it('admits headless Chromium when the same native network restriction is active', () => {
-    const page = runPage({ userAgent: 'Mozilla/5.0 HeadlessChrome/157.0.8103.6 Safari/537.36' });
+    const page = runPage({ userAgent: 'Mozilla/5.0 HeadlessChrome/158.0.8104.0 Safari/537.36' });
     expect(page.lines).toEqual([]);
     expect(page.host.postMessage).toHaveBeenCalledExactlyOnceWith(
       { jsonrpc: '2.0', method: 'ui/notifications/sandbox-proxy-ready', params: {} },

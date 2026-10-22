@@ -30,8 +30,6 @@ const CONTENT_SECURITY_POLICY = [
   "img-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
   "script-src 'self'",
-  // The one frame this page opens is its own `app-sandbox.html`, which holds an MCP app's document
-  // under a policy of its own (see `public/app-sandbox.html`).
   "frame-src 'self'",
 ].join('; ');
 

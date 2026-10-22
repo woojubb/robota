@@ -67,11 +67,11 @@
         }
 
         function hasNativeNetworkIsolation() {
-          // Connection-Allowlist nested WebRTC crashed in Chromium 155/156; fixed before 157.
+          // Chromium 157 includes builds before the nested WebRTC fix; require 158 conservatively.
           // https://issues.chromium.org/issues/565837691
           // https://chromium-review.googlesource.com/c/chromium/src/+/8485457
           var chromium = /\b(?:Chrome|Chromium|HeadlessChrome)\/(\d+)\./.exec(navigator.userAgent);
-          if (!chromium || Number(chromium[1]) < 157) return false;
+          if (!chromium || Number(chromium[1]) < 158) return false;
           var connection;
           var isolated = false;
           try {

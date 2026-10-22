@@ -6,7 +6,7 @@
  * own concerns (sidecar spawn, launch nonce, fatal state) stay in apps/agent-app's smoke test.
  *
  * Run: `pnpm --filter @robota-sdk/agent-gui-web build && pnpm --filter @robota-sdk/agent-gui-web test:e2e`
- * The app-view scenarios require Chromium 157 or later. Set PLAYWRIGHT_EXECUTABLE_PATH to a compatible
+ * The app-view scenarios require Chromium 158 or later. Set PLAYWRIGHT_EXECUTABLE_PATH to a compatible
  * browser binary, or PLAYWRIGHT_CHANNEL=chrome to use an installed Chrome.
  */
 
@@ -51,12 +51,6 @@ async function scenario(label, run) {
   }
 }
 
-/**
- * #3558: a server that records every request it gets. The scripted app view tries to reach it with a
- * fetch, an image and a nested frame; the sandbox must stop all three before they leave the browser,
- * so nothing here is ever recorded (`canaryHits` stays empty). It allows any origin, so a request that
- * did go out would succeed and show up — the control for that is made below.
- */
 const canaryHits = [];
 const canary = createHttpServer((request, response) => {
   canaryHits.push(request.url);
@@ -116,8 +110,6 @@ page.on('websocket', (socket) => {
     if (type) receivedFrameTypes.push(type);
   });
 });
-// What the browser reported about content policies (every frame of the page): the app-view scenario
-// reads it back, and `E2E_DEBUG_CSP=1` prints it.
 const policyMessages = [];
 page.on('console', (message) => {
   if (/Content Security Policy|Refused to/u.test(message.text())) policyMessages.push(message.text());
@@ -536,8 +528,6 @@ try {
     await page.getByText(/exit 0/).waitFor();
   });
 
-  // #3558 — an MCP app view: the finished call's app runs in a frame inside a frame, and the real
-  // browser (not jsdom) is what proves what its sandbox lets it do.
   const appBase = new URL(server.resolvedUrls.local[0]);
   const appFrame = page.getByTestId('app-view-frame');
   const appView = page.frameLocator('[data-testid="app-view-frame"]').frameLocator('iframe');
@@ -546,7 +536,6 @@ try {
   await scenario(
     '#3558: the built page admits its own origin as a frame, and the sandbox page ships with a policy of its own',
     async () => {
-      // Vite writes the injected policy with HTML entities in the attribute; the browser reads it decoded.
       const policyOf = (documentText) =>
         [...documentText.matchAll(/<meta\b[^>]*http-equiv="Content-Security-Policy"[^>]*>/gu)].map(
           (meta) => /content="([^"]*)"/u.exec(meta[0])?.[1]?.replaceAll('&#39;', "'"),
@@ -580,40 +569,49 @@ try {
     },
   );
 
-  await scenario(
-    '#3558: an older Chromium refuses app HTML even if its host sends a resource',
-    async () => {
-      const context = await browser.newContext({
-        userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36',
-      });
-      const oldPage = await context.newPage();
-      try {
-        await oldPage.route('**/e2e-old-browser.html', (route) => route.fulfill({
-          contentType: 'text/html',
-          body: '<!doctype html><iframe id="unsupported-app" sandbox="allow-scripts" src="/app-sandbox.html"></iframe>',
-        }));
-        await oldPage.goto(new URL('e2e-old-browser.html', appBase).href);
-        const unsupported = oldPage.frameLocator('#unsupported-app');
-        await unsupported.getByText(
-          'App views are unavailable because this browser cannot enforce their network isolation.',
-          { exact: true },
-        ).waitFor();
-        await oldPage.evaluate(() => {
-          document.querySelector('#unsupported-app').contentWindow.postMessage({
-            jsonrpc: '2.0',
-            method: 'ui/notifications/sandbox-resource-ready',
-            params: { html: '<script>parent.postMessage({ escaped: true }, "*")</script>' },
-          }, '*');
+  for (const version of ['156.0.0.0', '157.0.8093.0', '157.0.8103.6', '157.0.0.0']) {
+    await scenario(
+      `#3558: Chromium ${version} refuses app HTML and never announces readiness`,
+      async () => {
+        const context = await browser.newContext({
+          userAgent: `Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${version} Safari/537.36`,
         });
-        await oldPage.waitForTimeout(100);
-        if (await unsupported.locator('iframe').count()) {
-          throw new Error('an unsupported browser admitted an app document');
+        const oldPage = await context.newPage();
+        try {
+          await oldPage.route('**/e2e-old-browser.html', (route) => route.fulfill({
+            contentType: 'text/html',
+            body: '<!doctype html><script>window.appMessages=[];addEventListener("message",event=>appMessages.push(event.data))</script><iframe id="unsupported-app" sandbox="allow-scripts" src="/app-sandbox.html"></iframe>',
+          }));
+          await oldPage.goto(new URL('e2e-old-browser.html', appBase).href);
+          const unsupported = oldPage.frameLocator('#unsupported-app');
+          await unsupported.getByText(
+            'App views are unavailable because this browser cannot enforce their network isolation.',
+            { exact: true },
+          ).waitFor();
+          await oldPage.evaluate(() => {
+            document.querySelector('#unsupported-app').contentWindow.postMessage({
+              jsonrpc: '2.0',
+              method: 'ui/notifications/sandbox-resource-ready',
+              params: { html: '<script>parent.postMessage({ escaped: true }, "*")</script>' },
+            }, '*');
+          });
+          await oldPage.waitForTimeout(100);
+          if (await unsupported.locator('iframe').count()) {
+            throw new Error('an unsupported browser admitted an app document');
+          }
+          const messages = await oldPage.evaluate(() => window.appMessages);
+          if (messages.some((message) => message?.method === 'ui/notifications/sandbox-proxy-ready')) {
+            throw new Error('an unsupported browser announced readiness');
+          }
+          if (messages.some((message) => message?.escaped === true)) {
+            throw new Error('an unsupported browser executed app HTML');
+          }
+        } finally {
+          await context.close();
         }
-      } finally {
-        await context.close();
-      }
-    },
-  );
+      },
+    );
+  }
 
   await scenario(
     '#3558: the sandbox page refuses to run on its own, and when its host forgot the sandbox attribute',
@@ -622,7 +620,6 @@ try {
       try {
         await lone.goto(new URL('app-sandbox.html', appBase).href);
         await lone.getByText('This page only runs inside an app frame.').waitFor();
-        // A host page on the same origin that frames it without `sandbox`: its document is readable.
         await lone.route('**/e2e-unsandboxed.html', (route) =>
           route.fulfill({
             contentType: 'text/html',
@@ -672,7 +669,6 @@ try {
   });
 
   await scenario('#3558: a tool call without an app view shows no frame', async () => {
-    // Earlier scenarios ran tool calls (Read, Edit, Shell) that carry none.
     if ((await appFrame.count()) !== 0) throw new Error('a frame showed for a call with no app view');
     if ((await page.getByText(/returned an app view/u).count()) !== 0) {
       throw new Error('a plain line about an app view showed for a call with none');
@@ -693,7 +689,6 @@ try {
       }
       await page.getByText('App from e2e-apps', { exact: true }).waitFor();
 
-      // Exactly what the host granted the frame.
       if ((await appFrame.getAttribute('sandbox')) !== 'allow-scripts') {
         throw new Error(`sandbox attribute is ${await appFrame.getAttribute('sandbox')}`);
       }
@@ -702,7 +697,6 @@ try {
         throw new Error('the frame leaks a referrer');
       }
 
-      // The turn has finished and the view now lives in the group; wait for it to receive its result.
       await appView.locator('body[data-ready="true"]').waitFor({ timeout: 20_000 });
       await appView.locator('#title').getByText('E2E app view').waitFor();
       await appView.locator('#input').getByText('"path":"src"').waitFor();
@@ -711,7 +705,6 @@ try {
         throw new Error(`the view got ${result}`);
       }
 
-      // What the view could not do from inside.
       await appView.locator('#probe-top').getByText('top: blocked').waitFor();
       await appView.locator('#probe-parent').getByText('parent: blocked').waitFor();
       await appView.locator('#probe-fetch').getByText('fetch: blocked').waitFor();
@@ -723,13 +716,11 @@ try {
           throw new Error(`the view's sandbox did not report ${directive}: ${violations}`);
         }
       }
-      // Give a stray request time to arrive, then check none did.
       await page.waitForTimeout(300);
       if (canaryHits.length !== 0) {
         throw new Error(`an app resource probe reached the canary: ${canaryHits.join(', ')}`);
       }
 
-      // The frame follows the height the view asked for (its content, within bounds).
       const wanted = await appView.locator('body').evaluate((body) =>
         Math.ceil(body.getBoundingClientRect().height),
       );
@@ -738,13 +729,11 @@ try {
         throw new Error(`the frame is ${shown}px tall; the view asked for ${wanted}px`);
       }
 
-      // Opening the group repeats nothing.
       await group.click();
       await page.getByRole('button', { name: /^mcp__e2e_apps__echo browse/u }).waitFor();
       if ((await appFrame.count()) !== 1) throw new Error('opening the group duplicated the frame');
       await group.click();
 
-      // The browser reported no refusal of the frames this page itself opens.
       const refusedOwnFrame = policyMessages.filter(
         (message) => /Refused to frame/u.test(message) && /app-sandbox\.html|about:srcdoc/u.test(message),
       );
@@ -956,7 +945,7 @@ try {
       const shellRow = page.getByRole('button', { name: /pnpm test/ });
       await shellRow.waitFor();
       await shellRow.click();
-      await page.getByText(/Test Files\s+1 passed/).waitFor();
+      await page.getByText(/^Test Files\s+1 passed/u).waitFor();
       await page.getByText(/exit 0/).waitFor();
 
       // The Edit turn's "Changed files" row survived too (built from the SAME replayed diff).

@@ -301,11 +301,6 @@ const SCRIPTED_MODELS = [
   { id: 'scripted-model-2', label: 'Scripted Model 2' },
 ];
 
-/**
- * #3558: the call whose result has an app view, the tool that view may call, and the view itself
- * (`app-view-fixture.html`, handwritten JSON-RPC with no SDK). `PRODUCT_E2E_CANARY_URL` is the server
- * the view tries to reach in the ways its sandbox must forbid.
- */
 const APP_VIEW_EXECUTION_ID = 'exec-app-view-1';
 const APP_VIEW_ID = `view-${randomBytes(16).toString('hex')}`;
 const APP_VIEW_SOURCE_ID = 'e2e-apps';
@@ -331,7 +326,6 @@ const scriptedAgentDefinitions = [
 
 class ScriptedSession extends EventEmitter {
   #pendingPermission = null;
-  // #3558: the permission request a tool run for an app view is waiting on.
   #pendingAppPermission = null;
   #appPermissionCount = 0;
   #pendingAsk = null;
@@ -452,10 +446,6 @@ class ScriptedSession extends EventEmitter {
   listRuntimeTools() {
     return Promise.resolve([]);
   }
-  /**
-   * #3558: a tool run for an app view goes through the same permission gate a model call does: the
-   * request is put to the surfaces that can answer, and the call waits for the answer.
-   */
   async invokeRuntimeTool(name, parameters, options = {}) {
     if (name !== APP_VIEW_RUNTIME_TOOL) {
       return { success: false, toolName: name, error: `Unknown tool: ${name}` };
@@ -525,8 +515,6 @@ class ScriptedSession extends EventEmitter {
       return;
     }
     if (lower.includes('show app view')) {
-      // #3558: a plain call, then a call whose result has an app view — the finished turn's group
-      // holds both, and only the second carries a frame. The live `tool_end` alone names the view.
       await tick();
       this.emit('tool_start', { toolName: 'Read', firstArg: 'src/a.ts', isRunning: true });
       await tick();
@@ -556,7 +544,6 @@ class ScriptedSession extends EventEmitter {
           resourceUri: APP_VIEW_RESOURCE_URI,
         },
       });
-      // A replay never carries the reference: the record keeps the text result alone.
       this.#recordToolEnd(appEnd);
       this.emit('text_delta', 'Opened the app view.');
       await tick();

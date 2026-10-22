@@ -1,8 +1,4 @@
 // @vitest-environment jsdom
-/**
- * The GUI is the host that ships `app-sandbox.html`, so it is the one that tells the session surface
- * where it is: beside the page itself, whatever the page's own query string carries.
- */
 
 import { testProduct } from './product-fixture.js';
 import { cleanup, render, screen } from '@testing-library/react';

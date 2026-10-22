@@ -1,9 +1,3 @@
-/**
- * The policy the built GUI page carries. It may reach a loopback WebSocket and nothing else, run only
- * its own scripts, and open one frame: its own app sandbox page (same origin), which is what lets an
- * MCP app's document run under the sandbox page's separate policy. The policy is what Vite injects
- * into the HTML entries it builds; read here from the same plugin the build runs.
- */
 
 import { productEnvironment } from '../../../product-config/src/__tests__/product-environment.js';
 

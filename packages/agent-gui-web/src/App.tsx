@@ -50,7 +50,6 @@ function SessionView({ url, host }: { url: string; host: IGuiHost }): React.Reac
       pickFiles={host.pickFiles}
       getPathForFile={host.getPathForFile}
       onOpenMemoryInEditor={host.openMemoryInEditor}
-      // The static page, shipped beside this one, that holds a tool's app view in a frame of its own.
       appViewSandboxUrl={new URL('app-sandbox.html', document.baseURI).href}
     />
   );

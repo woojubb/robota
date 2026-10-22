@@ -1,11 +1,4 @@
 <!doctype html>
-<!--
-  The MCP app view the scripted sidecar serves for the "show app view" turn (#3558). Handwritten JSON-RPC
-  2.0 over postMessage: no SDK, so the host is exercised by nothing but the protocol. It writes what it
-  received and what it was refused into plain elements the e2e reads back, and probes the limits of its
-  sandbox: the top window, the network, a nested frame, and a link out of the app. The sidecar replaces
-  the CANARY placeholder with the address of a server that records every request it gets.
--->
 <html>
   <head>
     <meta charset="utf-8" />
@@ -155,7 +148,6 @@
           appCapabilities: {},
         }).then(function () {
           notify('ui/notifications/initialized', {});
-          // Report the size now and whenever the content changes, as an app built with the SDK does.
           new ResizeObserver(function () {
             var box = document.body.getBoundingClientRect();
             notify('ui/notifications/size-changed', {
