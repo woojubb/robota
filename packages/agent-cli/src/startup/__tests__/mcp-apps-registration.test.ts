@@ -108,7 +108,7 @@ function collidingComposition(mode: 'reload' | 'oauth') {
     createSupervisor: (options): IMcpServerConnection => ({
       discover: async () => {
         if (options.serverId === 'my.srv' && ++attempts === 1) {
-          throw new MCPSupervisorError(mode === 'oauth' ? 'auth' : 'transport', 'unavailable');
+          throw new MCPSupervisorError(mode === 'oauth' ? 'auth' : 'transient', 'unavailable');
         }
         return discovery(
           options.serverId,
@@ -144,13 +144,18 @@ describe('MCP app callback registration authority', () => {
         const adapter = composition.activationAdapter;
         const offered = await (async () => {
           if (mode === 'reload') {
-            const result = await adapter.reload();
+            const reload = adapter.reload;
+            const acknowledge = adapter.reloadToolsAdded;
+            if (reload === undefined || acknowledge === undefined) {
+              throw new Error('Expected reload registration');
+            }
+            const result = await reload();
             const token = result.reloadToken;
             if (token === undefined) throw new Error('Expected a reload token');
             return {
               tools: result.tools,
-              acknowledge: (names: readonly string[]) => adapter.reloadToolsAdded(token, names),
-              wrongAcknowledge: () => adapter.reloadToolsAdded(`${token}-stale`, ['my_srv__show']),
+              acknowledge: (names: readonly string[]) => acknowledge(token, names),
+              wrongAcknowledge: () => acknowledge(`${token}-stale`, ['my_srv__show']),
             };
           }
           if (adapter.oauthLogin === undefined || adapter.oauthToolsAdded === undefined) {

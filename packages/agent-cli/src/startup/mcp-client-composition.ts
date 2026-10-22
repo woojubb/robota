@@ -837,16 +837,31 @@ function oauthCommandPort(
   };
 }
 
-/**
- * Every adopted/adapted tool entry whose server has a live connection, wrapped as a runtime tool.
- * `provenanceByCanonicalName` is populated as a side effect (MCP-004 S3) — one entry per returned
- * tool, keyed by the exact name `getName()` reports.
- */
+function committedAppCallableTools(
+  catalog: IMCPCatalog,
+  serverId: string,
+  securityIdentity: string | undefined,
+  committedProvenance: ReadonlyMap<string, IMcpConnectedToolProvenance>,
+): Readonly<Record<string, string>> {
+  if (securityIdentity === undefined) return {};
+  return Object.fromEntries(
+    Object.entries(appCallableToolNames(catalog, serverId)).filter(([sourceName, canonicalName]) => {
+      const committed = committedProvenance.get(canonicalName);
+      return (
+        committed?.serverId === serverId &&
+        committed.sourceName === sourceName &&
+        committed.securityIdentity === securityIdentity
+      );
+    }),
+  );
+}
+
 function collectToolsFromCatalog(
   catalog: IMCPCatalog,
   connectionByServerId: ReadonlyMap<string, IMcpServerConnection>,
   securityIdentityByServerId: ReadonlyMap<string, string>,
   provenanceByCanonicalName: Map<string, IMcpConnectedToolProvenance>,
+  committedProvenance: ReadonlyMap<string, IMcpConnectedToolProvenance>,
   admission: IToolResultAdmissionOptions,
   authFailureNoticeByServerId: ReadonlyMap<string, string>,
   isDispatchAdmitted: (serverId: string, connection: IMcpServerConnection) => Promise<boolean>,
@@ -858,22 +873,29 @@ function collectToolsFromCatalog(
     const connection = connectionByServerId.get(entry.provenance.serverId);
     if (connection === undefined) continue;
     const authFailureNotice = authFailureNoticeByServerId.get(entry.provenance.serverId);
+    const securityIdentity = securityIdentityByServerId.get(entry.provenance.serverId);
     const tool = createDiscoveredTool(entry, connection, {
       admission,
+      get appCallableTools() {
+        return committedAppCallableTools(
+          catalog,
+          entry.provenance.serverId,
+          securityIdentity,
+          committedProvenance,
+        );
+      },
       isDispatchAdmitted: () => isDispatchAdmitted(entry.provenance.serverId, connection),
       ...(authFailureNotice === undefined ? {} : { authFailureNotice }),
       ...(entry.ui?.resourceUri === undefined
         ? {}
         : {
-            appCallableTools: appCallableToolNames(catalog, entry.provenance.serverId),
             reportAppViewProblem: (reason: string) =>
               reportDiagnostic(
-                `MCP server "${entry.provenance.serverId}" tool "${entry.sourceName}" app view omitted: ${reason}`,
+                `MCP server "${entry.provenance.serverId}" tool "${entry.canonicalName}" app view omitted: ${reason}`,
               ),
           }),
     });
     tools.push(tool);
-    const securityIdentity = securityIdentityByServerId.get(entry.provenance.serverId);
     if (securityIdentity !== undefined) {
       provenanceByCanonicalName.set(tool.getName(), {
         serverId: entry.provenance.serverId,
@@ -1146,6 +1168,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       new Map([[serverId, connected.connection]]),
       new Map([[serverId, request.securityIdentity]]),
       provenance,
+      connectedToolProvenance,
       resultAdmission,
       entry.definition.oauth === undefined
         ? new Map<string, string>()
@@ -1245,6 +1268,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       catalog,
       connectionByServerId,
       securityIdentityByServerId,
+      connectedToolProvenance,
       connectedToolProvenance,
       resultAdmission,
       authFailureNoticeByServerId,
@@ -1359,6 +1383,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       connectionByServerId,
       securityIdentityByServerId,
       provenance,
+      connectedToolProvenance,
       resultAdmission,
       authFailureNoticeByServerId,
       isDispatchAdmitted,

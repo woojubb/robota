@@ -141,7 +141,7 @@ describe('MCP app views through the composition root', () => {
     });
     expect(result.success).toBe(true);
     expect(result).not.toHaveProperty('view');
-    expect(diagnostics).toEqual(['MCP server "dash" tool "show" app view omitted: read-failed']);
+    expect(diagnostics).toEqual(['MCP server "dash" tool "dash__show" app view omitted: read-failed']);
     expect(diagnostics.join('\n')).not.toContain('server-secret');
   });
 
