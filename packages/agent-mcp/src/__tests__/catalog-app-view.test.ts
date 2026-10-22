@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { appCallableToolNames } from '../catalog/app-view.js';
 import { buildCatalog } from '../catalog/build.js';
+import { parseMCPToolUiMetadata } from '../catalog/ui-metadata.js';
 
 import type { IMCPCatalogInput } from '../catalog/build.js';
 import type { IMCPDiscoveredTool, IMCPDiscovery } from '../catalog/types.js';
@@ -98,6 +99,32 @@ describe('catalog — MCP app view metadata', () => {
 });
 
 describe('appCallableToolNames', () => {
+  it('keeps a parsed model-only tool without a view out of app callbacks', () => {
+    const tools = [
+      { name: 'model_only', meta: { ui: { visibility: ['model'] } } },
+      { name: 'app_only', meta: { ui: { visibility: ['app'] } } },
+      { name: 'default_audience', meta: { ui: {} } },
+      { name: 'both_audiences', meta: { ui: { visibility: ['model', 'app'] } } },
+    ].map(({ name, meta }) => {
+      const ui = parseMCPToolUiMetadata(meta);
+      return tool(name, ui.kind === 'accepted' ? { ui } : {});
+    });
+    const catalog = buildCatalog([input('srv', tools)]);
+
+    expect([...catalog.adopted, ...catalog.adapted].map((entry) => entry.sourceName)).toEqual([
+      'model_only',
+      'default_audience',
+      'both_audiences',
+    ]);
+    expect(catalog.rejected).toEqual([
+      { kind: 'tool', serverId: 'srv', name: 'srv__app_only', reason: APP_ONLY_REASON },
+    ]);
+    expect(appCallableToolNames(catalog, 'srv')).toEqual({
+      default_audience: 'srv__default_audience',
+      both_audiences: 'srv__both_audiences',
+    });
+  });
+
   it('maps source names to runtime names for the tools a view of that server may call', () => {
     const catalog = buildCatalog([
       input('srv', [

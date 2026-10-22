@@ -100,13 +100,21 @@ describe('parseMCPToolUiMetadata', () => {
     });
   });
 
-  it('keeps a declaration that only withholds the tool from the model, and nothing else', () => {
-    expect(parseMCPToolUiMetadata({ ui: { visibility: ['app'] } })).toEqual({
+  it.each(['model', 'app'])('keeps a %s-only audience without a view resource', (audience) => {
+    expect(parseMCPToolUiMetadata({ ui: { visibility: [audience] } })).toEqual({
       kind: 'accepted',
-      visibility: ['app'],
+      visibility: [audience],
     });
-    expect(parseMCPToolUiMetadata({ ui: { visibility: ['model'] } })).toEqual({ kind: 'absent' });
-    expect(parseMCPToolUiMetadata({ ui: {} })).toEqual({ kind: 'absent' });
+  });
+
+  it.each([{}, { visibility: ['model', 'app'] }, { visibility: ['app', 'model'] }])(
+    'finds no view or audience restriction in %j',
+    (ui) => {
+      expect(parseMCPToolUiMetadata({ ui })).toEqual({ kind: 'absent' });
+    },
+  );
+
+  it('rejects an empty audience without a view resource', () => {
     expect(parseMCPToolUiMetadata({ ui: { visibility: [] } })).toEqual({
       kind: 'invalid',
       reason: 'invalid-visibility',
