@@ -15,11 +15,12 @@ export interface IAppViewHost {
    */
   sandboxUrl?: string;
   /** Both take the view's key as `appViewKey(tool)` gives it; the key is opaque to the host. */
-  readAppView: (viewKey: string) => Promise<TAppView>;
+  readAppView: (viewKey: string, signal?: AbortSignal) => Promise<TAppView>;
   callAppTool: (
     viewKey: string,
     name: string,
     args: TAppToolArguments,
+    signal?: AbortSignal,
   ) => Promise<TAppToolOutcome>;
   hostInfo: { name: string; version: string };
   platform: 'desktop' | 'web';

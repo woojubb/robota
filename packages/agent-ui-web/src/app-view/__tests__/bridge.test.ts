@@ -118,7 +118,9 @@ describe('app view bridge: the handshake', () => {
   });
 
   it('sends tool-input and then tool-result once it is initialized, and only once', () => {
-    const { posted, notify } = setup();
+    const { posted, notify, request } = setup();
+    request(0, 'ui/initialize');
+    posted.length = 0;
 
     notify('ui/notifications/initialized', {});
     notify('ui/notifications/initialized', {});
@@ -134,7 +136,9 @@ describe('app view bridge: the handshake', () => {
   });
 
   it('hands the view empty arguments when the call had none to report', () => {
-    const { posted, notify } = setup({ view: { ...view, toolInput: undefined } });
+    const { posted, notify, request } = setup({ view: { ...view, toolInput: undefined } });
+    request(0, 'ui/initialize');
+    posted.length = 0;
 
     notify('ui/notifications/initialized', {});
 
@@ -159,7 +163,7 @@ describe('app view bridge: calling a tool', () => {
   };
 
   it('runs a tool the view’s server declared, by its runtime name, and returns the result', async () => {
-    const { posted, callAppTool, request } = setup();
+    const { posted, callAppTool, request } = readySetup();
     callAppTool.mockResolvedValue(okOutcome);
 
     request(7, 'tools/call', { name: 'list_files', arguments: { path: 'src' } });
@@ -184,7 +188,7 @@ describe('app view bridge: calling a tool', () => {
   });
 
   it('passes empty arguments when the view sends none', async () => {
-    const { callAppTool, request } = setup();
+    const { callAppTool, request } = readySetup();
     callAppTool.mockResolvedValue({ success: true, data: 'done' });
 
     request(1, 'tools/call', { name: 'list_files' });
@@ -194,7 +198,7 @@ describe('app view bridge: calling a tool', () => {
   });
 
   it('returns a denied or failed call as an error result the view can show', async () => {
-    const { posted, callAppTool, request } = setup();
+    const { posted, callAppTool, request } = readySetup();
     callAppTool.mockResolvedValue({ success: false, error: 'Permission denied for save_file' });
 
     request(2, 'tools/call', { name: 'save_file', arguments: { path: 'a.txt' } });
@@ -213,7 +217,7 @@ describe('app view bridge: calling a tool', () => {
   });
 
   it('uses a string result as the text when there are no observations', async () => {
-    const { posted, callAppTool, request } = setup();
+    const { posted, callAppTool, request } = readySetup();
     callAppTool.mockResolvedValue({ success: true, data: 'plain words' });
 
     request(3, 'tools/call', { name: 'list_files' });
@@ -226,7 +230,7 @@ describe('app view bridge: calling a tool', () => {
   });
 
   it('answers a refused call (a protocol error from the session) with a JSON-RPC error', async () => {
-    const { posted, callAppTool, request } = setup();
+    const { posted, callAppTool, request } = readySetup();
     callAppTool.mockRejectedValue(new Error('The connection to the session closed.'));
 
     request(4, 'tools/call', { name: 'list_files' });
@@ -242,7 +246,7 @@ describe('app view bridge: calling a tool', () => {
   });
 
   it('answers a call that throws before it starts the same way, and can then run another', async () => {
-    const { posted, callAppTool, request } = setup();
+    const { posted, callAppTool, request } = readySetup();
     callAppTool.mockImplementationOnce(() => {
       throw new Error('arguments are not serializable');
     });
@@ -269,7 +273,7 @@ describe('app view bridge: calling a tool', () => {
     ['a prototype key', '__proto__'],
     ['an empty name', ''],
   ])('refuses %s and runs nothing', async (_label, name) => {
-    const { posted, callAppTool, request } = setup();
+    const { posted, callAppTool, request } = readySetup();
 
     request(1, 'tools/call', { name, arguments: {} });
     await flush();
@@ -290,7 +294,7 @@ describe('app view bridge: calling a tool', () => {
     ['no params at all', undefined],
     ['array params', ['list_files']],
   ])('refuses a call with %s', async (_label, params) => {
-    const { posted, callAppTool, request } = setup();
+    const { posted, callAppTool, request } = readySetup();
 
     request(1, 'tools/call', params);
     await flush();
@@ -305,17 +309,20 @@ describe('app view bridge: calling a tool', () => {
     ['a number', 7],
     ['null', null],
   ])('refuses arguments that are %s and runs nothing', async (_label, args) => {
-    const { posted, callAppTool, request } = setup();
+    const { posted, callAppTool, request } = readySetup();
 
     request(1, 'tools/call', { name: 'list_files', arguments: args });
     await flush();
 
     expect(callAppTool).not.toHaveBeenCalled();
-    expect(posted[0]?.error).toEqual({ code: -32602, message: 'Tool arguments must be an object.' });
+    expect(posted[0]?.error).toEqual({
+      code: -32602,
+      message: 'Tool arguments must be an object.',
+    });
   });
 
   it('allows one call in flight: a second is refused while the first runs, and a third is not', async () => {
-    const { posted, callAppTool, request } = setup();
+    const { posted, callAppTool, request } = readySetup();
     let finish: (outcome: TAppToolOutcome) => void = () => {};
     callAppTool.mockImplementationOnce(
       () => new Promise<TAppToolOutcome>((resolve) => (finish = resolve)),
@@ -403,7 +410,11 @@ describe('app view bridge: who is listened to', () => {
     from(stranger, { jsonrpc: '2.0', id: 1, method: 'ui/initialize' });
     from(stranger, { jsonrpc: '2.0', method: 'ui/notifications/initialized' });
     from(stranger, { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'list_files' } });
-    from(stranger, { jsonrpc: '2.0', method: 'ui/notifications/size-changed', params: { height: 99 } });
+    from(stranger, {
+      jsonrpc: '2.0',
+      method: 'ui/notifications/size-changed',
+      params: { height: 99 },
+    });
     from(null, { jsonrpc: '2.0', id: 3, method: 'ping' });
 
     expect(posted).toEqual([]);
@@ -479,6 +490,7 @@ describe('app view bridge: the frame’s height', () => {
 describe('app view bridge: teardown', () => {
   it('asks an initialized view to tear down, without waiting, and then goes quiet', async () => {
     const { posted, bridge, callAppTool, request, notify, onHeight } = setup();
+    request(0, 'ui/initialize');
     notify('ui/notifications/initialized', {});
     posted.length = 0;
     let finish: (outcome: TAppToolOutcome) => void = () => {};
@@ -516,5 +528,37 @@ describe('app view bridge: teardown', () => {
     bridge.dispose();
 
     expect(posted).toEqual([]);
+  });
+});
+
+function readySetup() {
+  const api = setup();
+  api.request(0, 'ui/initialize');
+  api.notify('ui/notifications/initialized');
+  api.posted.length = 0;
+  return api;
+}
+
+describe('app view bridge: initialization admission', () => {
+  it('refuses tools until initialize and initialized have both completed', async () => {
+    const { posted, request, notify, callAppTool } = setup();
+    callAppTool.mockResolvedValue({ success: true });
+    request(1, 'tools/call', { name: 'list_files' });
+    notify('ui/notifications/initialized');
+    expect(posted.some((message) => message.method === 'ui/notifications/tool-result')).toBe(false);
+    request(2, 'ui/initialize');
+    request(3, 'tools/call', { name: 'list_files' });
+    expect(callAppTool).not.toHaveBeenCalled();
+    expect(posted.filter((message) => message.error).map((message) => message.id)).toEqual([1, 3]);
+    notify('ui/notifications/initialized');
+    request(4, 'tools/call', { name: 'list_files' });
+    await flush();
+    expect(callAppTool).toHaveBeenCalledOnce();
+    expect(posted.find((message) => message.id === 4)?.result).toBeDefined();
+    request(5, 'ui/initialize');
+    notify('ui/notifications/initialized');
+    expect(
+      posted.filter((message) => message.method === 'ui/notifications/tool-result'),
+    ).toHaveLength(1);
   });
 });

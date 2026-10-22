@@ -52,9 +52,7 @@ const view: TAppView = {
 };
 
 type TSettlement<T> =
-  | { state: 'pending' }
-  | { state: 'resolved'; value: T }
-  | { state: 'rejected'; message: string };
+  { state: 'pending' } | { state: 'resolved'; value: T } | { state: 'rejected'; message: string };
 
 /** Follows a promise from the moment it exists, so a rejection is never left unhandled. */
 function track<T>(promise: Promise<T>): { readonly current: TSettlement<T> } {
@@ -79,11 +77,16 @@ const flush = (): Promise<void> => act(async () => {});
 describe('a live tool_end carrying an app view reference', () => {
   it('keeps the reference on the call, in the live row and in the finished group', () => {
     const { result, deliver } = setup();
-    const appView = { sourceId: 'files', resourceUri: 'ui://files/list' };
+    const appView = { viewId: 'view-1', sourceId: 'files', resourceUri: 'ui://files/list' };
 
     deliver({
       type: 'tool_start',
-      state: { toolName: 'mcp__files__browse', firstArg: '', isRunning: true, executionId: 'exec-1' },
+      state: {
+        toolName: 'mcp__files__browse',
+        firstArg: '',
+        isRunning: true,
+        executionId: 'exec-1',
+      },
     });
     deliver({
       type: 'tool_end',
@@ -119,11 +122,11 @@ describe('a live tool_end carrying an app view reference', () => {
 describe('appViewKey', () => {
   it('is what a tool row’s app view is read and called by, and nothing for a row without one', () => {
     const base = { id: 't1', name: 'mcp__files__browse', status: 'done' as const };
-    const appView = { sourceId: 'files', resourceUri: 'ui://files/list' };
+    const appView = { viewId: 'view-1', sourceId: 'files', resourceUri: 'ui://files/list' };
 
-    expect(appViewKey({ ...base, executionId: 'exec-1', appView })).toBe('exec-1');
+    expect(appViewKey({ ...base, executionId: 'exec-1', appView })).toBe('view-1');
     expect(appViewKey({ ...base, executionId: 'exec-1' })).toBeUndefined();
-    expect(appViewKey({ ...base, appView })).toBeUndefined();
+    expect(appViewKey({ ...base, appView })).toBe('view-1');
   });
 });
 
@@ -133,10 +136,10 @@ describe('readAppView', () => {
 
     let read!: ReturnType<typeof track<TAppView>>;
     act(() => {
-      read = track(result.current.readAppView('exec-1'));
+      read = track(result.current.readAppView('view-1'));
     });
     const [request] = requestsOf('read-app-view');
-    expect(request).toMatchObject({ type: 'read-app-view', executionId: 'exec-1' });
+    expect(request).toMatchObject({ type: 'read-app-view', viewId: 'view-1' });
     expect(request?.requestId).toBeTruthy();
     await flush();
     expect(read.current).toEqual({ state: 'pending' });
@@ -151,7 +154,7 @@ describe('readAppView', () => {
     const { result, deliver, requestsOf } = setup();
     let read!: ReturnType<typeof track<TAppView>>;
     act(() => {
-      read = track(result.current.readAppView('exec-1'));
+      read = track(result.current.readAppView('view-1'));
     });
     const { requestId } = requestsOf('read-app-view')[0]!;
 
@@ -166,11 +169,15 @@ describe('readAppView', () => {
     const { result, deliver, requestsOf } = setup();
     let read!: ReturnType<typeof track<TAppView>>;
     act(() => {
-      read = track(result.current.readAppView('exec-1'));
+      read = track(result.current.readAppView('view-1'));
     });
     const { requestId } = requestsOf('read-app-view')[0]!;
 
-    deliver({ type: 'protocol_error', message: 'This app view is no longer available.', requestId });
+    deliver({
+      type: 'protocol_error',
+      message: 'This app view is no longer available.',
+      requestId,
+    });
     await flush();
 
     expect(read.current).toEqual({
@@ -195,7 +202,7 @@ describe('readAppView', () => {
     let first!: ReturnType<typeof track<TAppView>>;
     let second!: ReturnType<typeof track<TAppView>>;
     act(() => {
-      first = track(result.current.readAppView('exec-1'));
+      first = track(result.current.readAppView('view-1'));
       second = track(result.current.readAppView('exec-2'));
     });
     const [one, two] = requestsOf('read-app-view');
@@ -217,11 +224,12 @@ describe('callAppTool', () => {
     const { result, deliver, requestsOf } = setup();
     let call!: ReturnType<typeof track<TAppToolOutcome>>;
     act(() => {
-      call = track(result.current.callAppTool('exec-1', 'mcp__files__list_files', { path: 'src' }));
+      call = track(result.current.callAppTool('view-1', 'mcp__files__list_files', { path: 'src' }));
     });
     const [request] = requestsOf('call-app-tool');
     expect(request).toMatchObject({
       type: 'call-app-tool',
+      viewId: 'view-1',
       name: 'mcp__files__list_files',
       arguments: { path: 'src' },
     });
@@ -245,7 +253,7 @@ describe('callAppTool', () => {
     const { result, deliver, requestsOf } = setup();
     let call!: ReturnType<typeof track<TAppToolOutcome>>;
     act(() => {
-      call = track(result.current.callAppTool('exec-1', 'mcp__files__save_file', {}));
+      call = track(result.current.callAppTool('view-1', 'mcp__files__save_file', {}));
     });
     const { requestId } = requestsOf('call-app-tool')[0]!;
 
@@ -262,7 +270,7 @@ describe('callAppTool', () => {
     const { result, deliver, requestsOf } = setup();
     let call!: ReturnType<typeof track<TAppToolOutcome>>;
     act(() => {
-      call = track(result.current.callAppTool('exec-1', 'mcp__files__list_files', {}));
+      call = track(result.current.callAppTool('view-1', 'mcp__files__list_files', {}));
     });
     const { requestId } = requestsOf('call-app-tool')[0]!;
 
@@ -279,8 +287,8 @@ describe('a request that can no longer be answered', () => {
     let read!: ReturnType<typeof track<TAppView>>;
     let call!: ReturnType<typeof track<TAppToolOutcome>>;
     act(() => {
-      read = track(result.current.readAppView('exec-1'));
-      call = track(result.current.callAppTool('exec-1', 'mcp__files__list_files', {}));
+      read = track(result.current.readAppView('view-1'));
+      call = track(result.current.callAppTool('view-1', 'mcp__files__list_files', {}));
     });
 
     setStatus('disconnected');
@@ -294,7 +302,7 @@ describe('a request that can no longer be answered', () => {
     const { result, unmount } = setup();
     let read!: ReturnType<typeof track<TAppView>>;
     act(() => {
-      read = track(result.current.readAppView('exec-1'));
+      read = track(result.current.readAppView('view-1'));
     });
 
     unmount();
@@ -307,7 +315,7 @@ describe('a request that can no longer be answered', () => {
     const { result, sent } = setup({ connected: false });
     let read!: ReturnType<typeof track<TAppView>>;
     act(() => {
-      read = track(result.current.readAppView('exec-1'));
+      read = track(result.current.readAppView('view-1'));
     });
     await flush();
 
@@ -319,7 +327,7 @@ describe('a request that can no longer be answered', () => {
     const { result, deliver, setStatus, requestsOf } = setup();
     let read!: ReturnType<typeof track<TAppView>>;
     act(() => {
-      read = track(result.current.readAppView('exec-1'));
+      read = track(result.current.readAppView('view-1'));
     });
     const { requestId } = requestsOf('read-app-view')[0]!;
     setStatus('disconnected');
@@ -329,5 +337,94 @@ describe('a request that can no longer be answered', () => {
     await flush();
 
     expect(read.current).toMatchObject({ state: 'rejected' });
+  });
+});
+
+describe('app request ownership', () => {
+  it.each(['session_switched', 'history_cleared'] as const)(
+    'rejects old requests on %s and accepts a fresh request',
+    async (type) => {
+      const { result, deliver, requestsOf } = setup();
+      const read = track(result.current.readAppView('view-old'));
+      const call = track(result.current.callAppTool('view-old', 'mcp__files__list_files', {}));
+      const oldRead = requestsOf('read-app-view')[0]!;
+      const oldCall = requestsOf('call-app-tool')[0]!;
+      deliver(type === 'session_switched' ? { type, event: { sessionId: 'next' } } : { type });
+      await flush();
+      expect(read.current.state).toBe('rejected');
+      expect(call.current.state).toBe('rejected');
+      const next = track(result.current.readAppView('view-next'));
+      deliver({ type: 'app_view', requestId: oldRead.requestId, view });
+      deliver({ type: 'app_tool_result', requestId: oldCall.requestId, success: true });
+      deliver({
+        type: 'protocol_error',
+        requestId: oldRead.requestId,
+        message: 'Old view expired.',
+      });
+      await flush();
+      expect(result.current.sessionNotices).toEqual([]);
+      expect(next.current.state).toBe('pending');
+      deliver({ type: 'app_view', requestId: requestsOf('read-app-view')[1]!.requestId, view });
+      await flush();
+      expect(next.current).toEqual({ state: 'resolved', value: view });
+    },
+  );
+
+  it('preserves a pending read when switching is refused', async () => {
+    const { result, deliver, requestsOf } = setup();
+    const read = track(result.current.readAppView('view-current'));
+    act(() => result.current.switchSession('missing'));
+    deliver({
+      type: 'session_change_failed',
+      code: 'unknown_session',
+      requestId: requestsOf('switch-session')[0]!.requestId,
+      message: 'Session not found.',
+    });
+    await flush();
+    expect(read.current.state).toBe('pending');
+    deliver({ type: 'app_view', requestId: requestsOf('read-app-view')[0]!.requestId, view });
+    await flush();
+    expect(read.current.state).toBe('resolved');
+  });
+
+  it('rejects an aborted local wait and ignores its late answer without cancelling another view', async () => {
+    const { result, deliver, requestsOf } = setup();
+    const controller = new AbortController();
+    const abandoned = track(result.current.readAppView('view-old', controller.signal));
+    const surviving = track(result.current.readAppView('view-other'));
+    controller.abort();
+    await flush();
+    expect(abandoned.current.state).toBe('rejected');
+    expect(surviving.current.state).toBe('pending');
+    deliver({ type: 'app_view', requestId: requestsOf('read-app-view')[0]!.requestId, view });
+    deliver({ type: 'app_view', requestId: requestsOf('read-app-view')[1]!.requestId, view });
+    await flush();
+    expect(abandoned.current.state).toBe('rejected');
+    expect(surviving.current.state).toBe('resolved');
+  });
+});
+
+describe('local app callback cancellation', () => {
+  it('rejects an outstanding callback when its frame closes and sends nothing for an already closed frame', async () => {
+    const { result, deliver, requestsOf } = setup();
+    const controller = new AbortController();
+    const call = track(
+      result.current.callAppTool('view-old', 'mcp__files__list_files', {}, controller.signal),
+    );
+    controller.abort();
+    const closed = track(
+      result.current.callAppTool('view-old', 'mcp__files__list_files', {}, controller.signal),
+    );
+    await flush();
+    expect(call.current.state).toBe('rejected');
+    expect(closed.current.state).toBe('rejected');
+    expect(requestsOf('call-app-tool')).toHaveLength(1);
+    deliver({
+      type: 'app_tool_result',
+      requestId: requestsOf('call-app-tool')[0]!.requestId,
+      success: true,
+    });
+    await flush();
+    expect(call.current.state).toBe('rejected');
   });
 });

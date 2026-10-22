@@ -658,6 +658,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         }
         // #3189: the host made another session current — drop what this one showed, re-read it all.
         case 'session_switched': {
+          rejectPendingAppRequests('The active session changed.');
           settleSessionChange();
           // Nothing of the old session stays on screen until the new one's answers arrive.
           sessionStatusRef.current = null;
@@ -684,6 +685,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'history_cleared': {
+          rejectPendingAppRequests('The session history was cleared.');
           streamingTextRef.current = '';
           turnSegmentsRef.current = [];
           setStreamingText('');
@@ -892,6 +894,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       requestSchedules,
       requestSessions,
       resolveSwitchResult,
+      rejectPendingAppRequests,
       send,
       setSessionSidebarOpen,
       settleSessionChange,

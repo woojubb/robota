@@ -19,13 +19,13 @@ export const APP_VIEW_UNAVAILABLE_TEXT =
 
 type TLoad =
   | { status: 'loading' }
-  | { status: 'ready'; view: TAppView }
+  | { status: 'ready'; view: TAppView; host: IAppViewHost; sandboxUrl: string; signal: AbortSignal }
   | { status: 'failed'; reason: string };
 
 /**
  * The app a finished tool call's source declared, shown under the call. The document never runs in
  * this page: it is read on demand and handed to the host's sandbox page, which holds it in a frame of
- * its own with no network, no nested frames and no way back to this document. A surface that
+ * its own under the host’s content policy. A surface that
  * supplies no sandbox page shows one plain line instead.
  */
 export function AppView({ tool }: { tool: IActiveTool }): React.ReactElement | null {
@@ -38,6 +38,7 @@ export function AppView({ tool }: { tool: IActiveTool }): React.ReactElement | n
   }
   return (
     <AppViewFrame
+      key={viewKey}
       tool={tool}
       host={host}
       sandboxUrl={host.sandboxUrl}
@@ -64,22 +65,19 @@ function AppViewFrame({
   const [load, setLoad] = useState<TLoad>({ status: 'loading' });
   const [height, setHeight] = useState(INITIAL_HEIGHT_PX);
   const frameRef = useRef<HTMLIFrameElement>(null);
-  // The latest host and tool, read when the view loads or the bridge is made — never a reason to
-  // read the document again or to rebuild a bridge whose frame is already running.
-  const hostRef = useRef(host);
-  hostRef.current = host;
   const toolRef = useRef(tool);
   toolRef.current = tool;
 
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
     setLoad({ status: 'loading' });
-    hostRef.current.readAppView(viewKey).then(
+    host.readAppView(viewKey, controller.signal).then(
       (view) => {
-        if (!cancelled) setLoad({ status: 'ready', view });
+        if (!controller.signal.aborted)
+          setLoad({ status: 'ready', view, host, sandboxUrl, signal: controller.signal });
       },
       (error: unknown) => {
-        if (!cancelled) {
+        if (!controller.signal.aborted) {
           setLoad({
             status: 'failed',
             reason: error instanceof Error ? error.message : String(error),
@@ -88,16 +86,23 @@ function AppViewFrame({
       },
     );
     return () => {
-      cancelled = true;
+      controller.abort();
     };
-  }, [viewKey]);
+  }, [viewKey, host.readAppView, host.callAppTool, sandboxUrl]);
 
-  const view = load.status === 'ready' ? load.view : null;
+  const ready =
+    load.status === 'ready' &&
+    load.host.readAppView === host.readAppView &&
+    load.host.callAppTool === host.callAppTool &&
+    load.sandboxUrl === sandboxUrl
+      ? load
+      : null;
   // A layout effect, so the teardown it posts on unmount still finds the frame in the document.
   useLayoutEffect(() => {
     const frame = frameRef.current;
-    if (view === null || frame === null) return undefined;
-    const current = hostRef.current;
+    if (ready === null || frame === null) return undefined;
+    const current = ready.host;
+    const view = ready.view;
     const bridge = createAppViewBridge({
       view,
       toolResult: toCallToolResult(toolRef.current, view),
@@ -108,7 +113,7 @@ function AppViewFrame({
       post: (message) => frame.contentWindow?.postMessage(message, '*'),
       source: () => frame.contentWindow,
       // Every call carries the key this view was read by, so the session can tie it to the view.
-      callAppTool: (name, args) => hostRef.current.callAppTool(viewKey, name, args),
+      callAppTool: (name, args) => current.callAppTool(viewKey, name, args, ready.signal),
       onHeight: setHeight,
     });
     const onMessage = (event: MessageEvent): void => bridge.handleMessage(event);
@@ -117,7 +122,7 @@ function AppViewFrame({
       window.removeEventListener('message', onMessage);
       bridge.dispose();
     };
-  }, [view, viewKey]);
+  }, [ready, viewKey]);
 
   if (load.status === 'failed') {
     return (
@@ -126,7 +131,7 @@ function AppViewFrame({
       </p>
     );
   }
-  if (load.status === 'loading') {
+  if (ready === null) {
     return <p className="text-[13px] text-subtle">Loading the app from {sourceId}…</p>;
   }
   return (

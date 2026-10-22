@@ -1,16 +1,17 @@
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 import type { TClientMessage } from '../client/ws-session-client.js';
 import type { TAppToolArguments, TAppToolOutcome, TAppView } from '../app-view/types.js';
 import type { IActiveTool } from './session-client-types.js';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
-interface IPendingRequest {
-  resolve: (value: TAppView | TAppToolOutcome) => void;
+type TPendingRequest = {
   reject: (error: Error) => void;
-  /** Which answer settles it: a view read, or the outcome of a tool call. */
-  answer: 'app_view' | 'app_tool_result';
-}
+  dispose: () => void;
+} & (
+  | { answer: 'app_view'; resolve: (value: TAppView) => void }
+  | { answer: 'app_tool_result'; resolve: (value: TAppToolOutcome) => void }
+);
 
 let requestCounter = 0;
 function nextRequestId(prefix: string): string {
@@ -26,21 +27,20 @@ const CONNECTION_CLOSED = 'The connection to the session closed.';
  * opaque string — it is read here and put on the two wire messages below, nowhere else.
  */
 export function appViewKey(tool: IActiveTool): string | undefined {
-  return tool.appView === undefined ? undefined : tool.executionId;
+  return tool.appView?.viewId;
 }
 
 function readAppViewMessage(requestId: string, viewKey: string): TClientMessage {
-  return { type: 'read-app-view', requestId, executionId: viewKey };
+  return { type: 'read-app-view', requestId, viewId: viewKey };
 }
 
-/** A tool run for the view `viewKey` names; the wire does not carry the key on a call yet. */
 function callAppToolMessage(
   requestId: string,
-  _viewKey: string,
+  viewKey: string,
   name: string,
   args: TAppToolArguments,
 ): TClientMessage {
-  return { type: 'call-app-tool', requestId, name, arguments: args };
+  return { type: 'call-app-tool', requestId, viewId: viewKey, name, arguments: args };
 }
 
 /**
@@ -54,95 +54,125 @@ export function useAppViewRequests(
   send: (msg: TClientMessage) => void,
   isConnected: () => boolean,
 ): {
-  readAppView: (viewKey: string) => Promise<TAppView>;
+  readAppView: (viewKey: string, signal?: AbortSignal) => Promise<TAppView>;
   callAppTool: (
     viewKey: string,
     name: string,
     args: TAppToolArguments,
+    signal?: AbortSignal,
   ) => Promise<TAppToolOutcome>;
   handleAppViewMessage: (msg: TServerMessage) => boolean;
   rejectPendingAppRequests: (reason?: string) => void;
 } {
-  const pendingRef = useRef(new Map<string, IPendingRequest>());
+  const pendingRef = useRef(new Map<string, TPendingRequest>());
+  const [requestOwner] = useState(() => nextRequestId('app_request'));
 
   const rejectPendingAppRequests = useCallback((reason: string = CONNECTION_CLOSED): void => {
     const pending = [...pendingRef.current.values()];
     pendingRef.current.clear();
-    for (const request of pending) request.reject(new Error(reason));
+    for (const request of pending) {
+      request.dispose();
+      request.reject(new Error(reason));
+    }
   }, []);
 
   const request = useCallback(
     <T extends TAppView | TAppToolOutcome>(
       prefix: string,
-      answer: IPendingRequest['answer'],
       message: (requestId: string) => TClientMessage,
+      pending: (
+        resolve: (value: T) => void,
+        reject: (error: Error) => void,
+        dispose: () => void,
+      ) => TPendingRequest,
+      signal?: AbortSignal,
     ): Promise<T> =>
       new Promise<T>((resolve, reject) => {
-        if (!isConnected()) {
-          reject(new Error(CONNECTION_CLOSED));
+        if (!isConnected() || signal?.aborted) {
+          reject(new Error(signal?.aborted ? 'The app view closed.' : CONNECTION_CLOSED));
           return;
         }
-        const requestId = nextRequestId(prefix);
-        pendingRef.current.set(requestId, {
-          answer,
-          resolve: (value) => resolve(value as T),
-          reject,
-        });
+        const requestId = nextRequestId(`${requestOwner}_${prefix}`);
+        const dispose = (): void => signal?.removeEventListener('abort', abort);
+        const abort = (): void => {
+          pendingRef.current.delete(requestId);
+          dispose();
+          reject(new Error('The app view closed.'));
+        };
+        pendingRef.current.set(requestId, pending(resolve, reject, dispose));
+        signal?.addEventListener('abort', abort, { once: true });
         try {
           send(message(requestId));
         } catch (error: unknown) {
           pendingRef.current.delete(requestId);
+          dispose();
           reject(error instanceof Error ? error : new Error(String(error)));
         }
       }),
-    [isConnected, send],
+    [isConnected, requestOwner, send],
   );
 
   const readAppView = useCallback(
-    (viewKey: string): Promise<TAppView> =>
-      request<TAppView>('app_view', 'app_view', (requestId) =>
-        readAppViewMessage(requestId, viewKey),
+    (viewKey: string, signal?: AbortSignal): Promise<TAppView> =>
+      request<TAppView>(
+        'app_view',
+        (requestId) => readAppViewMessage(requestId, viewKey),
+        (resolve, reject, dispose) => ({ answer: 'app_view', resolve, reject, dispose }),
+        signal,
       ),
     [request],
   );
 
   const callAppTool = useCallback(
-    (viewKey: string, name: string, args: TAppToolArguments): Promise<TAppToolOutcome> =>
-      request<TAppToolOutcome>('app_tool', 'app_tool_result', (requestId) =>
-        callAppToolMessage(requestId, viewKey, name, args),
+    (
+      viewKey: string,
+      name: string,
+      args: TAppToolArguments,
+      signal?: AbortSignal,
+    ): Promise<TAppToolOutcome> =>
+      request<TAppToolOutcome>(
+        'app_tool',
+        (requestId) => callAppToolMessage(requestId, viewKey, name, args),
+        (resolve, reject, dispose) => ({ answer: 'app_tool_result', resolve, reject, dispose }),
+        signal,
       ),
     [request],
   );
 
   /** True when the message answered one of this hook's requests; every other message is not its own. */
-  const handleAppViewMessage = useCallback((msg: TServerMessage): boolean => {
-    if (msg.type === 'app_view' || msg.type === 'app_tool_result') {
-      const pending = pendingRef.current.get(msg.requestId);
-      // A reply to a request that already settled (or never was ours) matches nothing.
-      if (pending === undefined || pending.answer !== msg.type) return true;
-      pendingRef.current.delete(msg.requestId);
-      if (msg.type === 'app_view') {
-        pending.resolve(msg.view);
-      } else {
-        const { success, data, parts, error } = msg;
-        pending.resolve({
-          success,
-          ...(data !== undefined ? { data } : {}),
-          ...(parts !== undefined ? { parts } : {}),
-          ...(error !== undefined ? { error } : {}),
-        });
+  const handleAppViewMessage = useCallback(
+    (msg: TServerMessage): boolean => {
+      if (msg.type === 'app_view' || msg.type === 'app_tool_result') {
+        const pending = pendingRef.current.get(msg.requestId);
+        // A reply to a request that already settled (or never was ours) matches nothing.
+        if (pending === undefined || pending.answer !== msg.type) return true;
+        pendingRef.current.delete(msg.requestId);
+        pending.dispose();
+        if (msg.type === 'app_view' && pending.answer === 'app_view') {
+          pending.resolve(msg.view);
+        } else if (msg.type === 'app_tool_result' && pending.answer === 'app_tool_result') {
+          const { success, data, parts, error } = msg;
+          pending.resolve({
+            success,
+            ...(data !== undefined ? { data } : {}),
+            ...(parts !== undefined ? { parts } : {}),
+            ...(error !== undefined ? { error } : {}),
+          });
+        }
+        return true;
       }
-      return true;
-    }
-    if (msg.type === 'protocol_error' && msg.requestId !== undefined) {
-      const pending = pendingRef.current.get(msg.requestId);
-      if (pending === undefined) return false;
-      pendingRef.current.delete(msg.requestId);
-      pending.reject(new Error(msg.message));
-      return true;
-    }
-    return false;
-  }, []);
+      if (msg.type === 'protocol_error' && msg.requestId !== undefined) {
+        const pending = pendingRef.current.get(msg.requestId);
+        if (pending === undefined) return msg.requestId.startsWith(`${requestOwner}_`);
+        pendingRef.current.delete(msg.requestId);
+        pending.dispose();
+        pending.reject(new Error(msg.message));
+        return true;
+      }
+      return false;
+    },
+    [requestOwner],
+  );
 
   return { readAppView, callAppTool, handleAppViewMessage, rejectPendingAppRequests };
 }

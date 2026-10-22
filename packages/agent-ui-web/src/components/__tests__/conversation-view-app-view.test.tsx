@@ -44,13 +44,19 @@ function appTool(overrides: Partial<IActiveTool> = {}): IActiveTool {
     name: 'mcp__files__browse',
     status: 'done',
     executionId: 'exec-app',
-    appView: { sourceId: 'files', resourceUri: 'ui://files/list' },
+    appView: { viewId: 'view-1', sourceId: 'files', resourceUri: 'ui://files/list' },
     ...overrides,
   };
 }
 
 function plainTool(overrides: Partial<IActiveTool> = {}): IActiveTool {
-  return { id: 'plain-tool', name: 'Read', status: 'done', executionId: 'exec-plain', ...overrides };
+  return {
+    id: 'plain-tool',
+    name: 'Read',
+    status: 'done',
+    executionId: 'exec-plain',
+    ...overrides,
+  };
 }
 
 function renderConversation(options: {
@@ -105,9 +111,17 @@ describe('a finished turn’s tool group', () => {
     renderConversation({
       messages: [
         finished([
-          appTool({ id: 'a', executionId: 'exec-a' }),
+          appTool({
+            id: 'a',
+            executionId: 'exec-a',
+            appView: { viewId: 'view-a', sourceId: 'files', resourceUri: 'ui://files/list' },
+          }),
           plainTool(),
-          appTool({ id: 'b', executionId: 'exec-b' }),
+          appTool({
+            id: 'b',
+            executionId: 'exec-b',
+            appView: { viewId: 'view-b', sourceId: 'files', resourceUri: 'ui://files/list' },
+          }),
         ]),
       ],
       value,
@@ -115,13 +129,16 @@ describe('a finished turn’s tool group', () => {
 
     await screen.findAllByTestId('app-view-frame');
     expect(screen.getAllByTestId('app-view-frame')).toHaveLength(2);
-    expect(value.readAppView).toHaveBeenCalledWith('exec-a');
-    expect(value.readAppView).toHaveBeenCalledWith('exec-b');
+    expect(value.readAppView).toHaveBeenCalledWith('view-a', expect.any(AbortSignal));
+    expect(value.readAppView).toHaveBeenCalledWith('view-b', expect.any(AbortSignal));
     expect(value.readAppView).not.toHaveBeenCalledWith('exec-plain');
   });
 
   it('shows a plain line instead of a frame when the surface has no sandbox page', () => {
-    renderConversation({ messages: [finished([appTool()])], value: host({ sandboxUrl: undefined }) });
+    renderConversation({
+      messages: [finished([appTool()])],
+      value: host({ sandboxUrl: undefined }),
+    });
 
     expect(screen.getByText(APP_VIEW_UNAVAILABLE_TEXT)).toBeTruthy();
     expect(document.querySelector('iframe')).toBeNull();

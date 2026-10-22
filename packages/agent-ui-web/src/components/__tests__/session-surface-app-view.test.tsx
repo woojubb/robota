@@ -36,7 +36,7 @@ function state(overrides: Record<string, unknown> = {}): IWsSessionState {
             name: 'mcp__files__browse',
             status: 'done',
             executionId: 'exec-app',
-            appView: { sourceId: 'files', resourceUri: 'ui://files/list' },
+            appView: { viewId: 'view-1', sourceId: 'files', resourceUri: 'ui://files/list' },
           },
         ],
       },
@@ -87,7 +87,7 @@ describe('SessionSurface and app views', () => {
     const frame = await screen.findByTestId('app-view-frame');
     expect(frame.getAttribute('src')).toBe('http://localhost/app-sandbox.html');
     expect(frame.getAttribute('sandbox')).toBe('allow-scripts');
-    expect(value.readAppView).toHaveBeenCalledExactlyOnceWith('exec-app');
+    expect(value.readAppView).toHaveBeenCalledExactlyOnceWith('view-1', expect.any(AbortSignal));
   });
 
   it('shows one plain line, reading nothing, when the host gives no sandbox page', () => {

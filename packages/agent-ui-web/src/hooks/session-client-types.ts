@@ -341,10 +341,11 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
    * session's permission gate). Each settles with the reply that echoes its request, and rejects
    * when the session refuses it or the connection drops.
    */
-  readAppView: (viewKey: string) => Promise<TAppView>;
+  readAppView: (viewKey: string, signal?: AbortSignal) => Promise<TAppView>;
   callAppTool: (
     viewKey: string,
     name: string,
     args: TAppToolArguments,
+    signal?: AbortSignal,
   ) => Promise<TAppToolOutcome>;
 }

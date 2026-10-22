@@ -84,7 +84,7 @@ export function createAppViewBridge(options: IAppViewBridgeOptions): IAppViewBri
   const { view } = options;
   let disposed = false;
   let sandboxAnswered = false;
-  let initialized = false;
+  let initialization: 'uninitialized' | 'initializing' | 'ready' = 'uninitialized';
   let callInFlight = false;
 
   const respond = (id: TJsonRpcId, result: unknown): void => {
@@ -95,6 +95,10 @@ export function createAppViewBridge(options: IAppViewBridgeOptions): IAppViewBri
   };
 
   const callTool = (id: TJsonRpcId, params: unknown): void => {
+    if (initialization !== 'ready') {
+      refuse(id, HOST_ERROR, 'This app view has not initialized.');
+      return;
+    }
     const name = isPlainObject(params) ? params['name'] : undefined;
     const runtimeName =
       typeof name === 'string' && Object.hasOwn(view.callableTools, name)
@@ -135,6 +139,7 @@ export function createAppViewBridge(options: IAppViewBridgeOptions): IAppViewBri
   const handleRequest = (id: TJsonRpcId, method: string, params: unknown): void => {
     switch (method) {
       case 'ui/initialize':
+        if (initialization === 'uninitialized') initialization = 'initializing';
         respond(id, {
           protocolVersion: APP_VIEW_PROTOCOL_VERSION,
           hostCapabilities: { serverTools: {} },
@@ -169,8 +174,8 @@ export function createAppViewBridge(options: IAppViewBridgeOptions): IAppViewBri
         });
         return;
       case 'ui/notifications/initialized':
-        if (initialized) return;
-        initialized = true;
+        if (initialization !== 'initializing') return;
+        initialization = 'ready';
         options.post({
           jsonrpc: '2.0',
           method: 'ui/notifications/tool-input',
@@ -214,7 +219,7 @@ export function createAppViewBridge(options: IAppViewBridgeOptions): IAppViewBri
     dispose() {
       if (disposed) return;
       disposed = true;
-      if (initialized) {
+      if (initialization === 'ready') {
         options.post({
           jsonrpc: '2.0',
           id: 'teardown',

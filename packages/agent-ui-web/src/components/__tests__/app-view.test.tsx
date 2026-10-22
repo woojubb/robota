@@ -33,7 +33,7 @@ function appTool(overrides: Partial<IActiveTool> = {}): IActiveTool {
     name: 'mcp__files__browse',
     status: 'done',
     executionId: 'exec-1',
-    appView: { sourceId: 'files', resourceUri: 'ui://files/list' },
+    appView: { viewId: 'view-1', sourceId: 'files', resourceUri: 'ui://files/list' },
     toolResultParts: [{ type: 'text', text: 'three rows' }],
     ...overrides,
   };
@@ -94,16 +94,18 @@ describe('AppView: the frame', () => {
     expect(caption.compareDocumentPosition(frame) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('reads the view of the call once, by its execution id', async () => {
+  it('reads the view of the call once, by its minted view id', async () => {
     const value = host();
     renderAppView(appTool(), value);
 
     await frameOf();
-    expect(value.readAppView).toHaveBeenCalledExactlyOnceWith('exec-1');
+    expect(value.readAppView).toHaveBeenCalledExactlyOnceWith('view-1', expect.any(AbortSignal));
   });
 
   it('says why when the view cannot be read, in one line and with no frame', async () => {
-    const value = host({ readAppView: vi.fn().mockRejectedValue(new Error('This app view is gone.')) });
+    const value = host({
+      readAppView: vi.fn().mockRejectedValue(new Error('This app view is gone.')),
+    });
     renderAppView(appTool(), value);
 
     await screen.findByText(/This app view is gone\./);
@@ -127,12 +129,12 @@ describe('AppView: the frame', () => {
     expect(document.querySelector('iframe')).toBeNull();
   });
 
-  it('shows the plain line when the call carries no execution id to read by', () => {
+  it('reads by the view id even when the call has no execution id', async () => {
     const value = host();
     renderAppView(appTool({ executionId: undefined }), value);
 
-    expect(screen.getByText(APP_VIEW_UNAVAILABLE_TEXT)).toBeTruthy();
-    expect(value.readAppView).not.toHaveBeenCalled();
+    await frameOf();
+    expect(value.readAppView).toHaveBeenCalledWith('view-1', expect.any(AbortSignal));
   });
 
   it('renders nothing for a tool with no app view', () => {
@@ -154,8 +156,16 @@ describe('AppView: the bridge to the frame', () => {
   it('hands the document to the sandbox page when it says it is ready, to nobody else', async () => {
     const { frameWindow, post } = await mounted();
 
-    fromWindow(null, { jsonrpc: '2.0', method: 'ui/notifications/sandbox-proxy-ready', params: {} });
-    fromWindow(window, { jsonrpc: '2.0', method: 'ui/notifications/sandbox-proxy-ready', params: {} });
+    fromWindow(null, {
+      jsonrpc: '2.0',
+      method: 'ui/notifications/sandbox-proxy-ready',
+      params: {},
+    });
+    fromWindow(window, {
+      jsonrpc: '2.0',
+      method: 'ui/notifications/sandbox-proxy-ready',
+      params: {},
+    });
     expect(post).not.toHaveBeenCalled();
 
     fromWindow(frameWindow, {
@@ -189,10 +199,9 @@ describe('AppView: the bridge to the frame', () => {
     });
 
     fromWindow(frameWindow, { jsonrpc: '2.0', method: 'ui/notifications/initialized', params: {} });
-    expect(post.mock.calls.slice(1).map(([message]) => (message as { method: string }).method)).toEqual([
-      'ui/notifications/tool-input',
-      'ui/notifications/tool-result',
-    ]);
+    expect(
+      post.mock.calls.slice(1).map(([message]) => (message as { method: string }).method),
+    ).toEqual(['ui/notifications/tool-input', 'ui/notifications/tool-result']);
     expect(post.mock.calls[1]?.[0]).toMatchObject({ params: { arguments: { path: 'src' } } });
     expect(post.mock.calls[2]?.[0]).toMatchObject({
       params: { content: [{ type: 'text', text: 'three rows' }], isError: false },
@@ -201,6 +210,9 @@ describe('AppView: the bridge to the frame', () => {
 
   it('runs a tool the view asked for through the host and returns the result to the frame', async () => {
     const { frameWindow, post, value } = await mounted();
+    fromWindow(frameWindow, { jsonrpc: '2.0', id: 0, method: 'ui/initialize' });
+    fromWindow(frameWindow, { jsonrpc: '2.0', method: 'ui/notifications/initialized' });
+    post.mockClear();
 
     fromWindow(frameWindow, {
       jsonrpc: '2.0',
@@ -210,9 +222,14 @@ describe('AppView: the bridge to the frame', () => {
     });
 
     // The key the view was read by rides with every call it makes.
-    expect(value.callAppTool).toHaveBeenCalledExactlyOnceWith('exec-1', 'mcp__files__list_files', {
-      path: 'src',
-    });
+    expect(value.callAppTool).toHaveBeenCalledExactlyOnceWith(
+      'view-1',
+      'mcp__files__list_files',
+      {
+        path: 'src',
+      },
+      expect.any(AbortSignal),
+    );
     await waitFor(() => expect(post).toHaveBeenCalledTimes(1));
     expect(post.mock.calls[0]?.[0]).toMatchObject({
       id: 5,
@@ -240,6 +257,7 @@ describe('AppView: the bridge to the frame', () => {
 
   it('asks an initialized view to tear down when it goes away, and listens no more', async () => {
     const { frame, frameWindow, post } = await mounted();
+    fromWindow(frameWindow, { jsonrpc: '2.0', id: 0, method: 'ui/initialize' });
     fromWindow(frameWindow, { jsonrpc: '2.0', method: 'ui/notifications/initialized', params: {} });
     post.mockClear();
 
@@ -252,5 +270,101 @@ describe('AppView: the bridge to the frame', () => {
     fromWindow(frameWindow, { jsonrpc: '2.0', id: 2, method: 'ping' });
     expect(post).toHaveBeenCalledTimes(1);
     expect(frame.isConnected).toBe(false);
+  });
+});
+
+describe('AppView: document ownership', () => {
+  it('removes the old frame immediately when the same tool row receives another view id', async () => {
+    const readAppView = vi
+      .fn<IAppViewHost['readAppView']>()
+      .mockResolvedValueOnce(view)
+      .mockImplementationOnce(() => new Promise(() => {}));
+    const value = host({ readAppView });
+    const rendered = render(
+      <AppViewHostContext.Provider value={value}>
+        <AppView tool={appTool()} />
+      </AppViewHostContext.Provider>,
+    );
+    const oldFrame = await frameOf();
+    const oldSignal = readAppView.mock.calls[0]?.[1];
+    rendered.rerender(
+      <AppViewHostContext.Provider value={value}>
+        <AppView
+          tool={appTool({
+            appView: { viewId: 'view-next', sourceId: 'files', resourceUri: 'ui://files/next' },
+          })}
+        />
+      </AppViewHostContext.Provider>,
+    );
+    expect(oldFrame.isConnected).toBe(false);
+    expect(screen.queryByTestId('app-view-frame')).toBeNull();
+    expect(oldSignal?.aborted).toBe(true);
+    expect(readAppView).toHaveBeenLastCalledWith('view-next', expect.any(AbortSignal));
+  });
+
+  it('aborts a never-answering document read when its row unmounts', () => {
+    const readAppView = vi
+      .fn<IAppViewHost['readAppView']>()
+      .mockImplementation(() => new Promise(() => {}));
+    const rendered = render(
+      <AppViewHostContext.Provider value={host({ readAppView })}>
+        <AppView tool={appTool()} />
+      </AppViewHostContext.Provider>,
+    );
+    const signal = readAppView.mock.calls[0]?.[1];
+    expect(signal?.aborted).toBe(false);
+    rendered.unmount();
+    expect(signal?.aborted).toBe(true);
+  });
+
+  it('does not bind a deferred old document to a replacement host', async () => {
+    let finishOld: (value: TAppView) => void = () => {};
+    let finishNext: (value: TAppView) => void = () => {};
+    const oldHost = host({
+      readAppView: vi.fn().mockImplementation(
+        () =>
+          new Promise<TAppView>((resolve) => {
+            finishOld = resolve;
+          }),
+      ),
+    });
+    const nextHost = host({
+      readAppView: vi.fn().mockImplementation(
+        () =>
+          new Promise<TAppView>((resolve) => {
+            finishNext = resolve;
+          }),
+      ),
+    });
+    const rendered = render(
+      <AppViewHostContext.Provider value={oldHost}>
+        <AppView tool={appTool()} />
+      </AppViewHostContext.Provider>,
+    );
+    rendered.rerender(
+      <AppViewHostContext.Provider value={nextHost}>
+        <AppView tool={appTool()} />
+      </AppViewHostContext.Provider>,
+    );
+    await act(async () => finishOld(view));
+    expect(screen.queryByTestId('app-view-frame')).toBeNull();
+    await act(async () => finishNext({ ...view, html: '<main>next</main>' }));
+    const frame = await frameOf();
+    const post = vi.spyOn(frame.contentWindow!, 'postMessage');
+    fromWindow(frame.contentWindow, {
+      jsonrpc: '2.0',
+      method: 'ui/notifications/sandbox-proxy-ready',
+    });
+    expect(post.mock.calls[0]?.[0]).toMatchObject({ params: { html: '<main>next</main>' } });
+    fromWindow(frame.contentWindow, { jsonrpc: '2.0', id: 1, method: 'ui/initialize' });
+    fromWindow(frame.contentWindow, { jsonrpc: '2.0', method: 'ui/notifications/initialized' });
+    fromWindow(frame.contentWindow, {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/call',
+      params: { name: 'list_files' },
+    });
+    expect(oldHost.callAppTool).not.toHaveBeenCalled();
+    expect(nextHost.callAppTool).toHaveBeenCalledOnce();
   });
 });
