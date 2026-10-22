@@ -10,7 +10,7 @@ export type TMCPToolUiProblem = 'invalid-type' | 'invalid-uri' | 'invalid-visibi
 
 /**
  * What a tool declared about its view. `resourceUri` is absent for a tool that only narrows who may
- * call it (an `app`-only helper for a view); a tool that declares neither a view nor a narrowing is
+ * call it; a tool that declares neither a view nor a narrowing is
  * `absent`, not accepted.
  */
 export interface IMCPToolUiReference {
@@ -69,8 +69,9 @@ export function parseMCPToolUiMetadata(rawMeta: unknown): TMCPToolUiMetadata {
   const visibility = parseVisibility(declared['visibility']);
   if (visibility === undefined) return { kind: 'invalid', reason: 'invalid-visibility' };
   if (resourceUri === undefined) {
-    // Nothing to show: only a declaration that withholds the tool from the model matters.
-    return visibility.includes('model') ? { kind: 'absent' } : { kind: 'accepted', visibility };
+    return visibility.includes('model') && visibility.includes('app')
+      ? { kind: 'absent' }
+      : { kind: 'accepted', visibility };
   }
   return { kind: 'accepted', resourceUri, visibility };
 }
