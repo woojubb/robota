@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { startMockMcpServer } from './mock-mcp-server.js';
+import { appCallableToolNames } from '../catalog/app-view.js';
+import { buildCatalog } from '../catalog/build.js';
 import { openMcpSession } from '../client/session.js';
 import { admitHttpEndpoint, constructStreamableHttpTransport } from '../client/transport.js';
 
@@ -113,6 +115,61 @@ describe('legacy session — MCP Apps negotiation', () => {
     expect(found).not.toHaveProperty('uiProblem');
   });
 
+  it.each([
+    ['invalid-uri', 'https://example.com/not-ui'],
+    ['invalid-type', 7],
+  ] as const)('keeps audience restrictions through discovery and catalog with %s', async (reason, resourceUri) => {
+    server = await startMockMcpServer({
+      capabilities: { tools: {}, resources: {}, extensions: UI_EXTENSION },
+      tools: [
+        {
+          name: 'app_only',
+          inputSchema: { type: 'object', properties: {} },
+          _meta: { ui: { resourceUri, visibility: ['app'] } },
+        },
+        {
+          name: 'model_only',
+          inputSchema: { type: 'object', properties: {} },
+          _meta: { ui: { resourceUri, visibility: ['model'] } },
+        },
+        {
+          name: 'default_audience',
+          inputSchema: { type: 'object', properties: {} },
+          _meta: { ui: { resourceUri } },
+        },
+      ],
+    });
+    const opened = await open(server, { apps: true });
+    const discovery = await opened.discover({ maxPages: 2, perRequestTimeoutMs: 2_000 });
+    expect(discovery.tools.items).toMatchObject([
+      { name: 'app_only', ui: { visibility: ['app'] }, uiProblem: reason },
+      { name: 'model_only', ui: { visibility: ['model'] }, uiProblem: reason },
+      { name: 'default_audience', ui: { visibility: ['model', 'app'] }, uiProblem: reason },
+    ]);
+    for (const discovered of discovery.tools.items) {
+      expect(discovered.ui).not.toHaveProperty('resourceUri');
+      expect(discovered).not.toHaveProperty('_meta');
+    }
+    const catalog = buildCatalog([
+      { serverId: 'mock-server', origin: 'fixture', transport: 'http', discovery },
+    ]);
+    expect([...catalog.adopted, ...catalog.adapted].map((entry) => entry.sourceName)).toEqual([
+      'model_only',
+      'default_audience',
+    ]);
+    expect(catalog.rejected).toEqual([
+      {
+        kind: 'tool',
+        serverId: 'mock-server',
+        name: 'mock_server__app_only',
+        reason: 'app-only tool; this host offers tools to the model only',
+      },
+    ]);
+    expect(appCallableToolNames(catalog, 'mock-server')).toEqual({
+      default_audience: 'mock_server__default_audience',
+    });
+  });
+
   it('reports a malformed declaration as a problem, only where views are negotiated', async () => {
     const broken: IMockTool = {
       name: 'broken',
@@ -128,7 +185,7 @@ describe('legacy session — MCP Apps negotiation', () => {
       await negotiated.discover({ maxPages: 2, perRequestTimeoutMs: 2_000 })
     ).tools.items[0];
     expect(negotiatedTool).toMatchObject({ name: 'broken', uiProblem: 'invalid-uri' });
-    expect(negotiatedTool).not.toHaveProperty('ui');
+    expect(negotiatedTool?.ui).toEqual({ visibility: ['model', 'app'] });
 
     await negotiated.close();
     const plain = await open(server);

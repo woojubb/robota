@@ -64,6 +64,7 @@ describe('parseMCPToolUiMetadata', () => {
     expect(parseMCPToolUiMetadata({ ui: { resourceUri } })).toEqual({
       kind: 'invalid',
       reason: 'invalid-uri',
+      visibility: ['model', 'app'],
     });
   });
 
@@ -76,7 +77,27 @@ describe('parseMCPToolUiMetadata', () => {
     expect(parseMCPToolUiMetadata({ ui: { resourceUri } })).toEqual({
       kind: 'invalid',
       reason: 'invalid-type',
+      visibility: ['model', 'app'],
     });
+  });
+
+  it.each([
+    ['invalid-uri', 'https://example.com/not-ui'],
+    ['invalid-type', 7],
+  ])('preserves valid audience restrictions with %s', (reason, resourceUri) => {
+    for (const audience of ['model', 'app']) {
+      expect(parseMCPToolUiMetadata({ ui: { resourceUri, visibility: [audience] } })).toEqual({
+        kind: 'invalid',
+        reason,
+        visibility: [audience],
+      });
+    }
+  });
+
+  it('does not preserve an invalid audience when the resource URI is also invalid', () => {
+    expect(
+      parseMCPToolUiMetadata({ ui: { resourceUri: 7, visibility: ['admin'] } }),
+    ).toEqual({ kind: 'invalid', reason: 'invalid-visibility' });
   });
 
   it.each([['a string', 'ui://dash/view'], ['null', null], ['an array', [URI]], ['a number', 1]])(
