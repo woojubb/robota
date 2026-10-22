@@ -151,7 +151,7 @@ describe('legacy session — MCP Apps negotiation', () => {
       expect(discovered).not.toHaveProperty('_meta');
     }
     const catalog = buildCatalog([
-      { serverId: 'mock-server', origin: 'fixture', transport: 'http', discovery },
+      { serverId: 'mock-server', origin: 'fixture', transport: 'streamable-http', discovery },
     ]);
     expect([...catalog.adopted, ...catalog.adapted].map((entry) => entry.sourceName)).toEqual([
       'model_only',
@@ -161,12 +161,12 @@ describe('legacy session — MCP Apps negotiation', () => {
       {
         kind: 'tool',
         serverId: 'mock-server',
-        name: 'mock_server__app_only',
+        name: 'mock-server__app_only',
         reason: 'app-only tool; this host offers tools to the model only',
       },
     ]);
     expect(appCallableToolNames(catalog, 'mock-server')).toEqual({
-      default_audience: 'mock_server__default_audience',
+      default_audience: 'mock-server__default_audience',
     });
   });
 

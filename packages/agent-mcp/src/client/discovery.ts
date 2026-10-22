@@ -73,7 +73,6 @@ function toParameterSchema(schema: Readonly<Record<string, unknown>>): IParamete
 function mapTool(raw: TRawTool, apps: boolean): IMCPDiscoveredTool {
   const rawMeta = (raw as TRawTool & { readonly _meta?: unknown })._meta;
   const resultSizeMetadata = parseMCPResultSizeMetadata(rawMeta);
-  // A view is read only where both sides declared the extension; otherwise the key means nothing here.
   const ui = apps ? parseMCPToolUiMetadata(rawMeta) : ({ kind: 'absent' } as const);
   return {
     name: raw.name,
@@ -88,7 +87,9 @@ function mapTool(raw: TRawTool, apps: boolean): IMCPDiscoveredTool {
             visibility: ui.visibility,
           },
         }
-      : {}),
+      : ui.kind === 'invalid' && ui.visibility !== undefined
+        ? { ui: { visibility: ui.visibility } }
+        : {}),
     ...(ui.kind === 'invalid' ? { uiProblem: ui.reason } : {}),
   };
 }

@@ -21,7 +21,11 @@ export interface IMCPToolUiReference {
 export type TMCPToolUiMetadata =
   | { readonly kind: 'absent' }
   | ({ readonly kind: 'accepted' } & IMCPToolUiReference)
-  | { readonly kind: 'invalid'; readonly reason: TMCPToolUiProblem };
+  | {
+      readonly kind: 'invalid';
+      readonly reason: TMCPToolUiProblem;
+      readonly visibility?: readonly TMCPToolUiAudience[];
+    };
 
 const UI_URI_PREFIX = 'ui://';
 const WHITESPACE = /\s/u;
@@ -61,13 +65,15 @@ export function parseMCPToolUiMetadata(rawMeta: unknown): TMCPToolUiMetadata {
     return { kind: 'invalid', reason: 'invalid-type' };
   }
   const declared = ui as Record<string, unknown>;
-  const resourceUri = declared['resourceUri'];
-  if (resourceUri !== undefined) {
-    if (typeof resourceUri !== 'string') return { kind: 'invalid', reason: 'invalid-type' };
-    if (!isViewUri(resourceUri)) return { kind: 'invalid', reason: 'invalid-uri' };
-  }
   const visibility = parseVisibility(declared['visibility']);
   if (visibility === undefined) return { kind: 'invalid', reason: 'invalid-visibility' };
+  const resourceUri = declared['resourceUri'];
+  if (resourceUri !== undefined) {
+    if (typeof resourceUri !== 'string') {
+      return { kind: 'invalid', reason: 'invalid-type', visibility };
+    }
+    if (!isViewUri(resourceUri)) return { kind: 'invalid', reason: 'invalid-uri', visibility };
+  }
   if (resourceUri === undefined) {
     return visibility.includes('model') && visibility.includes('app')
       ? { kind: 'absent' }
