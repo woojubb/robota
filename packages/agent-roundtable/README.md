@@ -101,6 +101,47 @@ Everything else this package exports is a type: the participant/session/selector
 `TurnServices`. `@robota-sdk/agent-roundtable-robota` implements these contracts against agent runtime; a
 host can implement them against any other runtime.
 
+## Checking a custom conversation store
+
+Backend authors can run the runner-independent storage checks through the separate testing entry:
+
+```typescript
+import { MemoryConversationStore } from '@robota-sdk/agent-roundtable';
+import { runConversationStoreConformance } from '@robota-sdk/agent-roundtable/testing';
+
+await runConversationStoreConformance((_caseName) => {
+  let now = 1_000;
+  const backend = new MemoryConversationStore({ now: () => now });
+  return {
+    clients: [backend, backend], // Replace with two clients sharing one isolated backend namespace.
+    leaseMs: 1_000,
+    advanceTo: (unixMilliseconds) => {
+      now = Math.max(now, unixMilliseconds);
+    },
+    cleanup: () => {},
+  };
+});
+```
+
+The factory runs once per named scenario with fresh storage. For a database, return independently
+constructed clients that share that scenario's namespace. `advanceTo` must await authoritative backend
+time reaching the requested UTC Unix millisecond boundary; use a controllable test clock or bounded
+waits on a disposable backend. Choose a lease with enough margin for backend calls (at least 2ms).
+Lease checks always run. The host test runner supplies its own timeout and must cancel or drain hung
+backend work before removing its namespace. The helper awaits `cleanup` in `finally` after each
+created fixture and fails fast with the scenario name. A cleanup failure also fails the run.
+
+The checks cover opaque JSON snapshots and clone isolation, shared-storage creation and revision
+races, lease renewal and fencing, release races, operation fingerprints, retained original receipts,
+and lost-reply lookup/retry. A matching known operation must return its original receipt even after
+later writes or ownership changes; an old caller expiry alone does not invalidate a renewed fence.
+No test runner, provider, Node built-in, or runtime dependency is imported by this entry. The main
+package entry does not import the helper.
+
+Passing this suite checks these storage behaviors under the supplied test clock. It does not establish
+process-death durability, production clock bounds, multi-region consistency, or exactly-once external
+effects, and it does not enable `recovery: 'durable'` for Roundtable execution.
+
 ## Run results
 
 `run()` advances until one of these results:
