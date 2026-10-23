@@ -981,12 +981,14 @@ describe('saved recovery contract and error precedence', () => {
         'corrupt',
       );
       const duplicate = structuredClone(record);
+      if (!duplicate.pendingExecution) throw new Error('Expected pending fixture');
       duplicate.pendingExecution.requests[1].requestId =
         duplicate.pendingExecution.requests[0].requestId;
       expect(
         decodeVersionedInteractiveSessionRecord({ schemaVersion: 2, record: duplicate }).status,
       ).toBe('corrupt');
       const nan = structuredClone(record);
+      if (!nan.pendingExecution) throw new Error('Expected pending fixture');
       nan.pendingExecution.requests[0].data = { invalid: Number.NaN };
       expect(
         decodeVersionedInteractiveSessionRecord({ schemaVersion: 2, record: nan }).status,
