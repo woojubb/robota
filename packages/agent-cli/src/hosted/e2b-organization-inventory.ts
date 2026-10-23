@@ -1,4 +1,4 @@
-import { Sandbox, SandboxNotFoundError } from 'e2b/dist/index.mjs';
+import { loadE2BSdk } from './e2b-sdk.js';
 import type { SandboxInfo } from 'e2b/dist/index.mjs';
 import { decodeHostedIdentity, identifier, positiveInteger } from './hosted-runtime-config.js';
 import type { IHostedOrganizationInventory, IHostedOrganizationWorker } from './hosted-organization-control.js';
@@ -29,6 +29,9 @@ export function createE2BOrganizationInventory(options: {
   }
   return {
     async list(signal) {
+      signal.throwIfAborted();
+      const { Sandbox } = await loadE2BSdk();
+      signal.throwIfAborted();
       const paginator = Sandbox.list({ ...request, query: { metadata: { organizationControlPlane: controlPlane, tenant }, state: ['running', 'paused'] }, limit: 100 });
       const workers: IHostedOrganizationWorker[] = [];
       const seen = new Set<string>();
@@ -43,6 +46,8 @@ export function createE2BOrganizationInventory(options: {
       return workers;
     },
     async terminate(worker, signal) {
+      signal.throwIfAborted();
+      const { Sandbox, SandboxNotFoundError } = await loadE2BSdk();
       signal.throwIfAborted();
       let info: SandboxInfo;
       try { info = await Sandbox.getInfo(worker.resource, { ...request, signal }); }

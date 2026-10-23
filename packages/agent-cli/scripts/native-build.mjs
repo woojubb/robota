@@ -1,5 +1,6 @@
 import { chmodSync, copyFileSync, existsSync, mkdirSync, statSync } from 'node:fs';
 import { dirname, isAbsolute } from 'node:path';
+import { createRequire } from 'node:module';
 
 import { createKoffiBunPlugin } from './koffi-bun-plugin.mjs';
 
@@ -41,6 +42,14 @@ export async function buildProductNativeBinary(options) {
   if (!Object.hasOwn(TARGETS, host)) throw new Error(`Unsupported native CLI host: ${host}.`);
   if (options.target !== undefined && options.target !== host)
     throw new Error(`Native CLI packaging requires matching host ${host}.`);
+  try {
+    createRequire(new URL('../package.json', import.meta.url)).resolve('e2b/dist/index.mjs');
+  } catch (cause) {
+    throw new Error(
+      'Native CLI packaging includes the E2B hosted capability; install e2b@2.51.0 alongside @robota-sdk/agent-cli before building.',
+      { cause },
+    );
+  }
   await import('./qualify-koffi-gc.mjs');
   mkdirSync(dirname(outfile), { recursive: true });
   const result = await Bun.build({
