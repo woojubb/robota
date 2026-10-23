@@ -1,5 +1,11 @@
 # @robota-sdk/dag-adapters-sqlite
 
+## 3.0.0-beta.62
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/dag-core@3.0.0-beta.62
+
 ## 3.0.0-beta.61
 
 ### Major Changes
