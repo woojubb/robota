@@ -1069,3 +1069,20 @@ describe('reviewed transition ownership and primary errors', () => {
     f.session.checkpoint();
   });
 });
+
+it.each(['wait data', 'nested metadata'])('preserves own JSON prototype-named keys in %s', async (target) => {
+  const f = await waiting();
+  const snapshot = f.source.session.getConversationSnapshot();
+  if (!snapshot.pendingExecution) throw new Error('Expected pending snapshot');
+  const payload = { ['__proto__']: { own: 'retained' }, constructor: 'ordinary JSON field', nested: { ['__proto__']: { deep: true } } };
+  const scores = { ['__proto__']: 42, constructor: 8 };
+  snapshot.pendingExecution.requests[0].data = payload;
+  snapshot.messages[0].metadata = { scores };
+  const record = { ...snapshot, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  const restored = deserializeSessionArtifact(serializeSessionArtifact(record));
+  const actual = target === 'wait data' ? restored.pendingExecution?.requests[0].data : restored.messages[0].metadata?.scores;
+  expect(actual).toEqual(target === 'wait data' ? payload : scores);
+  if (typeof actual !== 'object' || actual === null) throw new Error('Expected decoded map');
+  expect(Object.hasOwn(actual, '__proto__')).toBe(true);
+  expect(Object.getPrototypeOf(actual)).toBe(Object.prototype);
+});
