@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { NodeSessionStore } from '../session-store.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clearRegisteredToolProfiles, FunctionTool } from '@robota-sdk/agent-core';
+import { clearRegisteredToolProfiles, FunctionTool, createAssistantMessage } from '@robota-sdk/agent-core';
 import { createScriptedProvider, type TScriptedTurn } from '@robota-sdk/agent-core/testing';
 import type {
   IToolWaitRequest,
@@ -1021,4 +1021,51 @@ it('uses a configured checkpoint callback instead of also saving to the lower st
     expect(checkpointHistory).toHaveBeenCalled();
     expect(save).not.toHaveBeenCalled();
   } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+describe('reviewed transition ownership and primary errors', () => {
+  it('holds the turn claim throughout manual compaction so input cannot create a pending tail underneath it', async () => {
+    const f = fixture([action, { text: 'summary' }]);
+    f.session.injectMessage('user', 'old conversation');
+    let entered!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => { entered = resolve; });
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const chat = f.provider.chat.bind(f.provider);
+    f.provider.chat = async (messages, options) => {
+      if (options?.toolChoice === 'none') { entered(); await held; return createAssistantMessage('summary'); }
+      return chat(messages, options);
+    };
+    const compacting = f.session.compact();
+    await started;
+    try {
+      await expect(f.session.runRecoverable('concurrent input', { executionJournal: journalFixture().journal })).rejects.toMatchObject({ name: 'SessionBusyError' });
+      expect(f.session.getPendingExecution()).toBeUndefined();
+    } finally {
+      release();
+      await compacting;
+    }
+    expect(f.effect).not.toHaveBeenCalled();
+  });
+
+  it('preserves the exact primary journal error even when the secondary save diagnostic throws', async () => {
+    const primary = new Error('original journal failure');
+    const diagnostic = new Error('diagnostic sink failure');
+    let rejectSave = false;
+    const f = fixture([action], {
+      checkpointHistory: () => { if (rejectSave) throw new Error('secondary save failure'); },
+      sessionLogger: { log(_id, event, data) {
+        if (event === 'error' && String(data.message).startsWith('Session checkpoint failed')) throw diagnostic;
+      } },
+    });
+    const saved = journalFixture();
+    const parked = await f.session.runRecoverable('input', { executionJournal: saved.journal });
+    if (parked.status !== 'waiting') throw new Error('Expected wait');
+    rejectSave = true;
+    await expect(f.session.resumeRecoverable({ executionId: parked.requests[0].executionId, journal: { ...saved.journal, read: async () => { throw primary; } } })).rejects.toBe(primary);
+    await expect(f.session.run('other')).rejects.toThrow('checkpoint()');
+    expect(f.effect).not.toHaveBeenCalled();
+    rejectSave = false;
+    f.session.checkpoint();
+  });
 });

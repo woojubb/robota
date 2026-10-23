@@ -522,11 +522,15 @@ export class Session extends SessionBase {
       this.commitConversation();
     } catch (saveError) {
       if (error instanceof ExecutionSuspendedError) throw saveError;
-      this.log('error', {
-        message: `Session checkpoint failed while preserving the execution error: ${saveError instanceof Error ? saveError.message : String(saveError)}`,
-        stack: saveError instanceof Error ? (saveError.stack ?? '') : '',
-        historyLength: this.agent.getHistory().length,
-      });
+      try {
+        this.log('error', {
+          message: `Session checkpoint failed while preserving the execution error: ${saveError instanceof Error ? saveError.message : String(saveError)}`,
+          stack: saveError instanceof Error ? (saveError.stack ?? '') : '',
+          historyLength: this.agent.getHistory().length,
+        });
+      } catch {
+        // allow-fallback: a secondary diagnostic must never replace the original execution failure.
+      }
     }
   }
 
@@ -702,7 +706,14 @@ export class Session extends SessionBase {
     executionJournal?: IExecutionJournal,
   ): Promise<void> {
     this.assertInputAllowed();
-    await this.compactWith(instructions, trigger, signal, undefined, executionJournal);
+    const controller = this.turnClaim.claim();
+    const unlink = linkCancellation(controller, signal);
+    try {
+      await this.compactWith(instructions, trigger, controller.signal, undefined, executionJournal);
+    } finally {
+      unlink();
+      this.turnClaim.release(controller);
+    }
   }
 
   /** `hookTraceEnv` reaches PreCompact only for a compaction inside a prompt (see `executeRun`). */
