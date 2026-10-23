@@ -1,3 +1,4 @@
+import { execFileSync } from 'node:child_process';
 import { cp, mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -23,6 +24,7 @@ async function workspace(id = 'cedar', version = '3.0.0-beta.96') {
         id,
         cliName: id,
         displayName: id.toUpperCase(),
+        envPrefix: `${id.toUpperCase()}_`,
         repositoryUrl: `https://github.com/${id}/agent`,
       },
       release: { artifactPrefix: `${id}-bundle` },
@@ -52,7 +54,10 @@ describe('prepared Dev Container Feature', () => {
       version: '1.0.0',
       name: id.toUpperCase(),
       options: { version: { default: '3.0.0-beta.96' }, installMethod: { default: 'binary' } },
-      containerEnv: { PRODUCT_USER_STATE_DIR: `/var/lib/${id}/state` },
+      containerEnv: {
+        PRODUCT_USER_STATE_DIR: `/var/lib/${id}/state`,
+        [`${id.toUpperCase()}_USER_STATE_DIR`]: `/var/lib/${id}/state`,
+      },
       mounts: [
         {
           source: `${id}-state-\${devcontainerId}`,
@@ -70,8 +75,39 @@ describe('prepared Dev Container Feature', () => {
     const config = await readFile(path.join(result.directory, 'feature.env'), 'utf8');
     expect(config).toContain(`FEATURE_NPM_PACKAGE='@${id}/agent-cli'`);
     expect(config).toContain(`FEATURE_INSTALL_ROOT='/usr/local/lib/${id}'`);
+    expect(config).toContain(`FEATURE_STATE_VARIABLE='${id.toUpperCase()}_USER_STATE_DIR'`);
     expect(config).not.toContain('woojubb');
     expect(config).not.toContain('robota');
+  });
+
+  it('passes the validated state to the selected artifact environment alias', async () => {
+    const root = await workspace();
+    const state = path.join(root, 'private-state');
+    await mkdir(state, { mode: 0o700 });
+    const result = await prepareFeature({ workspace: root, out: path.join(root, 'prepared') });
+    const launcher = path.join(root, 'launch.sh');
+    const config = path.join(root, 'launcher.env');
+    const executable = path.join(root, 'cli.sh');
+    await writeFile(
+      config,
+      `FEATURE_EXECUTABLE='${executable}'\nFEATURE_STATE_ROOT='${state}'\nFEATURE_STATE_VARIABLE='CEDAR_USER_STATE_DIR'\n`,
+    );
+    await writeFile(executable, '#!/bin/sh\nprintf "%s" "$CEDAR_USER_STATE_DIR"\n', {
+      mode: 0o755,
+    });
+    await writeFile(
+      path.join(root, 'stat'),
+      '#!/bin/sh\nprintf "%s:%s 700" "$(id -u)" "$(id -g)"\n',
+      { mode: 0o755 },
+    );
+    const text = await readFile(path.join(result.directory, 'launch.sh'), 'utf8');
+    await writeFile(launcher, text.replace('/usr/local/lib/cedar/launcher.env', config));
+    expect(
+      execFileSync('sh', [launcher], {
+        env: { ...process.env, PATH: `${root}:${process.env.PATH}`, PRODUCT_USER_STATE_DIR: state },
+        encoding: 'utf8',
+      }),
+    ).toBe(state);
   });
 
   it('rejects a mutable default selector before preparing an installable artifact', async () => {

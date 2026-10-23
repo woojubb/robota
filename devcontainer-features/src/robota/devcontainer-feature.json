@@ -17,7 +17,10 @@
       "description": "Binary needs no Node; npm requires an existing supported Node/npm installation."
     }
   },
-  "containerEnv": { "PRODUCT_USER_STATE_DIR": "/var/lib/robota/state" },
+  "containerEnv": {
+    "PRODUCT_USER_STATE_DIR": "/var/lib/robota/state",
+    "ROBOTA_USER_STATE_DIR": "/var/lib/robota/state"
+  },
   "mounts": [
     {
       "source": "robota-state-${devcontainerId}",

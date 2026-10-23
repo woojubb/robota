@@ -39,7 +39,7 @@ else
   executable="$FEATURE_INSTALL_ROOT/npm/bin/$FEATURE_CLI_NAME"
 fi
 [ -x "$executable" ] || die 'selected installation did not provide the configured CLI executable'
-printf "FEATURE_EXECUTABLE='%s'\nFEATURE_STATE_ROOT='%s'\n" "$executable" "$FEATURE_STATE_ROOT" > "$FEATURE_INSTALL_ROOT/launcher.env"
+printf "FEATURE_EXECUTABLE='%s'\nFEATURE_STATE_ROOT='%s'\nFEATURE_STATE_VARIABLE='%s'\n" "$executable" "$FEATURE_STATE_ROOT" "$FEATURE_STATE_VARIABLE" > "$FEATURE_INSTALL_ROOT/launcher.env"
 chmod 644 "$FEATURE_INSTALL_ROOT/launcher.env"
 install -m 755 ./launch.sh "$command_path"
 echo "Feature installed. Workspace trust is never granted automatically; use $FEATURE_CLI_NAME trust explicitly."

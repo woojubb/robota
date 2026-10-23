@@ -9,4 +9,4 @@ if [ ! -d "$state" ] || [ "$(stat -c '%u:%g %a' "$state" 2>/dev/null || true)" !
   exit 1
 fi
 export PRODUCT_USER_STATE_DIR="$state"
-exec "$FEATURE_EXECUTABLE" "$@"
+exec env "$FEATURE_STATE_VARIABLE=$state" "$FEATURE_EXECUTABLE" "$@"

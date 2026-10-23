@@ -21,7 +21,8 @@ are supported; Alpine/musl and Windows containers are refused.
 ## State and rebuilds
 
 `PRODUCT_USER_STATE_DIR` points to `/var/lib/<product-id>/state`, a private named volume scoped to
-the dev container. Its configured remote user owns it with mode `0700`. The executable is installed
+the dev container. The selected product environment alias points to the same validated path so
+installed artifacts resolve their owned state there. Its configured remote user owns it with mode `0700`. The executable is installed
 under `/usr/local/lib/<product-id>` and exposed in `/usr/local/bin`, outside the volume, so a fresh
 volume cannot hide it. The default binary installer is the exact existing product installer bundled
 at preparation time, including its checksum verification.

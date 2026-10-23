@@ -36,6 +36,10 @@ export async function prepareFeature({ workspace, out, featureSource = source })
     throw new Error('An authored Feature semantic version is required.');
   const id = identity.identity.id.toLowerCase();
   if (!identifier.test(id)) throw new Error('Product ID must be a valid Feature identifier.');
+  const envPrefix = identity.identity.envPrefix;
+  if (!/^[A-Z][A-Z0-9_]*_$/.test(envPrefix ?? ''))
+    throw new Error('Product environment prefix is invalid.');
+  const stateVariable = `${envPrefix}USER_STATE_DIR`;
   const cliName = identity.identity.cliName;
   if (!/^[A-Za-z0-9._-]+$/u.test(cliName)) throw new Error('Product CLI name is invalid.');
   if (!/^@[a-z0-9._-]+\/[a-z0-9._-]+$/u.test(manifest.name))
@@ -53,7 +57,7 @@ export async function prepareFeature({ workspace, out, featureSource = source })
   metadata.id = id;
   metadata.name = identity.identity.displayName;
   metadata.options.version.default = manifest.version;
-  metadata.containerEnv = { PRODUCT_USER_STATE_DIR: stateRoot };
+  metadata.containerEnv = { PRODUCT_USER_STATE_DIR: stateRoot, [stateVariable]: stateRoot };
   metadata.mounts = [
     { source: `${id}-state-\${devcontainerId}`, target: stateRoot, type: 'volume' },
   ];
@@ -80,6 +84,7 @@ export async function prepareFeature({ workspace, out, featureSource = source })
     FEATURE_NPM_PACKAGE: manifest.name,
     FEATURE_ARTIFACT_PREFIX: identity.release.artifactPrefix ?? cliName,
     FEATURE_STATE_ROOT: stateRoot,
+    FEATURE_STATE_VARIABLE: stateVariable,
     FEATURE_INSTALL_ROOT: installRoot,
   };
   await writeFile(
