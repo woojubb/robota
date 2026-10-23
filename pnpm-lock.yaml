@@ -2793,9 +2793,6 @@ importers:
       zod:
         specifier: ^3.24.4
         version: 3.25.76
-      zod-to-json-schema:
-        specifier: ^3.24.6
-        version: 3.25.2(zod@3.25.76)
     devDependencies:
       eslint:
         specifier: ^8.56.0
