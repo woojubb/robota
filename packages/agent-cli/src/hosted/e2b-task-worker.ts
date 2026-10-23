@@ -1,10 +1,11 @@
-import { CommandExitError, Sandbox } from 'e2b/dist/index.mjs';
 import { E2BSandboxClient } from '@robota-sdk/agent-tools';
+import { loadE2BSdk } from './e2b-sdk.js';
 import { hostedAdmissionError, identifier } from './hosted-runtime-config.js';
 import { startE2BWorkerProcess } from './e2b-worker-process.js';
 import type { IE2BWorkerProcess, IE2BWorkerProcessOptions } from './e2b-worker-process.js';
 import type { IHostedAdmission } from './hosted-runtime-types.js';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import type { Sandbox } from 'e2b/dist/index.mjs';
 
 /** Control-plane-only inputs. Neither the SDK credential nor its client enters a worker environment. */
 export interface IE2BTaskWorkerOptions {
@@ -31,6 +32,9 @@ export async function connectE2BTaskWorker(
   const rootTask = admission.config.identity.rootTask;
   const templateId = identifier(options.templateId, 'E2B template');
   const sandboxId = admission.config.worker.resource;
+  signal.throwIfAborted();
+  if (admission.expiresAt <= Date.now()) throw hostedAdmissionError('E2B worker admission expired');
+  const { CommandExitError, Sandbox } = await loadE2BSdk();
   signal.throwIfAborted();
   if (admission.expiresAt <= Date.now()) throw hostedAdmissionError('E2B worker admission expired');
   const request = {

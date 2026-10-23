@@ -32,7 +32,10 @@ lifecycle contracts, transparent-workflow provenance/state vocabulary, baseline 
 Ink TUI components/hooks (owned by `@robota-sdk/agent-ui-terminal`). Non-UI behavior exposed through
 the CLI is owned below it first unless it is listed as CLI-owned below.
 
-The CLI owns argument parsing and process lifecycle assembly: hosted execution requires current,
+The CLI owns argument parsing and process lifecycle assembly. Local Node use remains independent
+of the stock hosted provider's installation; selecting that provider must establish availability
+before admission effects, while an injected execution owner remains independently composable.
+Hosted execution requires current,
 signed admission bound to the task and its root for a separate worker and company broker and a host-owned execution owner
 that dispatches the immutable captured invocation inside the admitted worker, projecting only
 worker product metadata and broker-issued task access rather than host environment or credentials;
@@ -563,7 +566,8 @@ Alongside the npm/Node package, `agent-cli` can be compiled to a standalone exec
 **Bun is used for build/packaging only — never at runtime**, and no Bun-specific APIs are used; the
 Node entry path is retained unconditionally. A literal build target must exactly match the current
 host tuple; every unsupported host is refused before compilation, leaving the previously selected
-binary generation unchanged.
+binary generation unchanged. Native builds require the complete provider capability at build time
+and embed it so hosted execution remains independent of adjacent packages at runtime.
 
 A subagent turn re-executes the running binary (`process.execPath`) rather than spawning an external
 `node` against a worker file, so the compiled binary needs no Node install for any path.
