@@ -60,7 +60,7 @@ export async function verifyPublished({
   await mkdir(helperBin);
   await writeFile(
     path.join(helperBin, 'docker-credential-robota-anonymous'),
-    '#!/bin/sh\nexit 1\n',
+    '#!/bin/sh\ncase "$1" in\n get) printf "%s\\n" "credentials not found in native keychain"; exit 1;;\n list) printf "%s\\n" "{}";;\n *) exit 1;;\nesac\n',
     { mode: 0o700 },
   );
   await writeFile(

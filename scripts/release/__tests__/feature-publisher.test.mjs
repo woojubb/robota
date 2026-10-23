@@ -326,7 +326,7 @@ test('failed anonymous consumer preserves complete child diagnostics and cleans 
       docker,
       '#!/bin/sh\nprintf "%s\\n" "$DOCKER_HOST $*" >> "' +
         root +
-        '/docker-calls"\ncase "$1" in context) printf "%s\\n" "unix:///tmp/fixture-docker.sock";; esac\n',
+        '/docker-calls"\ncase "$1" in context) printf "%s\\n" "unix:///tmp/fixture-docker.sock";; run) found="$(docker-credential-robota-anonymous get)"; [ "$found" = "credentials not found in native keychain" ] || exit 43; listed="$(docker-credential-robota-anonymous list)"; [ "$listed" = "{}" ] || exit 44;; esac\n',
       { mode: 0o755 },
     );
     const cli = path.join(bin, 'devcontainer');
