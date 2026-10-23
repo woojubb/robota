@@ -409,14 +409,18 @@ service alive.
 
 A separate headless process mode: one normally assembled session plus one `agent-transport-acp`
 service on stdio, for an editor that launches the process. It uses the caller's working directory,
-which `session/new` must name. Unlike the other headless modes it does not exit at startup for want
-of workspace trust: the same decision is asked when the editor creates the session and answered as a
-protocol error naming the trust command, because an exit before any protocol traffic reads as a
-crashed agent. A Restricted start a person chose is admitted as it is elsewhere. From entry until
-shutdown, all product notices use stderr while stdout is reserved for ACP frames. SIGINT, SIGTERM,
-stdin close, startup failure and carrier failure enter one idempotent cleanup path. An editor's
-`/command` prompt runs as a transport-origin command on this machine, so the remote command policy
-applies to it as it does to a WebSocket client. No WebSocket or TUI transport starts in this mode.
+which `session/new` and `session/load` must name. Unlike the other headless modes it does not exit
+at startup for want of workspace trust: the same decision is asked when the editor creates or loads
+the session and answered as a protocol error naming the trust command, because an exit before any
+protocol traffic reads as a crashed agent. When sessions are stored, the editor may load a stored
+session of the same folder in place of the one the process started, which is then shut down; a load
+is refused while that session still has work in progress, and for a stored session that would run a
+goal, loop or schedule on its own, since the editor sees only the turns it prompts. A Restricted
+start a person chose is admitted as it is elsewhere. From entry until shutdown, all product notices
+use stderr while stdout is reserved for ACP frames. SIGINT, SIGTERM, stdin close, startup failure
+and carrier failure enter one idempotent cleanup path. An editor's `/command` prompt runs as a
+transport-origin command on this machine, so the remote command policy applies to it as it does to a
+WebSocket client. No WebSocket or TUI transport starts in this mode.
 
 ### `__PRODUCT_CLI_NAME__ mcp serve`
 

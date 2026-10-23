@@ -20,8 +20,8 @@ export interface IAcpToolCallTracker {
 
 export interface IAcpToolCallDeps {
   readonly updates: IAcpUpdateStream;
-  /** Ids for tool calls the session gives no id; unique for the life of the session. */
-  readonly nextToolCallId: () => string;
+  /** Allocate a new row id, preserving a preferred execution id only when no earlier row used it. */
+  readonly nextToolCallId: (preferredId?: string) => string;
   /** The served directory, for paths the session reports relative to it. */
   readonly cwd: string;
 }
@@ -34,6 +34,7 @@ interface IOpenCall {
 
 /** A permission request's row, held until the call it names starts or is refused. */
 interface IAwaitedCall {
+  readonly id: string;
   readonly rawInput: unknown;
   /** A background agent's call can run after this prompt, so its row closes with the answer. */
   readonly background: boolean;
@@ -71,7 +72,7 @@ export function createToolCallTracker(deps: IAcpToolCallDeps): IAcpToolCallTrack
       // An internal signal tool is not a call the person made or should see.
       if (tool.internal) return;
       const asked = take(tool.executionId);
-      const id = tool.executionId ?? deps.nextToolCallId();
+      const id = asked?.id ?? deps.nextToolCallId(tool.executionId);
       open.push({ id, toolName: tool.toolName, executionId: tool.executionId });
       const call = {
         toolCallId: id,
@@ -99,14 +100,15 @@ export function createToolCallTracker(deps: IAcpToolCallDeps): IAcpToolCallTrack
         return;
       }
       // A refused call ends with no start; when its permission was asked, that row is the call.
-      if (take(tool.executionId) !== undefined) {
-        updates.send({ sessionUpdate: 'tool_call_update', toolCallId: tool.executionId!, status });
+      const asked = take(tool.executionId);
+      if (asked !== undefined) {
+        updates.send({ sessionUpdate: 'tool_call_update', toolCallId: asked.id, status });
         return;
       }
       // Otherwise give the editor the call, finished, rather than an update for nothing.
       updates.send({
         sessionUpdate: 'tool_call',
-        toolCallId: tool.executionId ?? deps.nextToolCallId(),
+        toolCallId: deps.nextToolCallId(tool.executionId),
         title: acpToolStartTitle(tool),
         kind: acpToolKind(tool.toolName),
         status,
@@ -116,14 +118,22 @@ export function createToolCallTracker(deps: IAcpToolCallDeps): IAcpToolCallTrack
     requested(event) {
       const { executionId } = event;
       if (executionId === undefined) {
-        const call = permissionToolCall(event, `permission-${event.id}`, deps.cwd);
+        const call = permissionToolCall(
+          event,
+          deps.nextToolCallId(`permission-${event.id}`),
+          deps.cwd,
+        );
         unnamed.set(event.id, call.toolCallId);
         return call;
       }
-      const call = permissionToolCall(event, executionId, deps.cwd);
-      // A call that is already running (asked again before its effect) keeps the row it has.
-      if (!open.some((running) => running.executionId === executionId)) {
+      // A repeated request and the call's own start/end keep the row allocated for this call.
+      const running = open.find((call) => call.executionId === executionId);
+      const waiting = awaited.get(executionId);
+      const id = running?.id ?? waiting?.id ?? deps.nextToolCallId(executionId);
+      const call = permissionToolCall(event, id, deps.cwd);
+      if (running === undefined && waiting === undefined) {
         awaited.set(executionId, {
+          id,
           rawInput: call.rawInput,
           background: event.requester !== undefined,
         });
@@ -147,7 +157,7 @@ export function createToolCallTracker(deps: IAcpToolCallDeps): IAcpToolCallTrack
 
     finish() {
       finished = true;
-      for (const [id, call] of awaited) close(id, call.background && call.allowed === true);
+      for (const call of awaited.values()) close(call.id, call.background && call.allowed === true);
       for (const row of unnamed.values()) close(row, false);
       awaited.clear();
       unnamed.clear();

@@ -31,8 +31,8 @@ export interface IAcpTurnContext {
   readonly surface: ISubmitOptions['surface'];
   /** The served directory; paths the session reports relative to it are made absolute for the editor. */
   readonly cwd: string;
-  /** Ids for tool calls the session gives no id; unique for the life of the session. */
-  readonly nextToolCallId: () => string;
+  /** Allocate a new row id, preserving a preferred execution id only when no earlier row used it. */
+  readonly nextToolCallId: (preferredId?: string) => string;
   /** Whether the editor sent `session/cancel` for this prompt. */
   readonly wasCancelled: () => boolean;
   readonly report: (error: Error, context: string) => void;
