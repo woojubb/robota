@@ -6,6 +6,7 @@ import { isAbsolute, resolve } from 'node:path';
 import { agent, PROTOCOL_VERSION, RequestError } from '@agentclientprotocol/sdk';
 import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 
+import { editorFileAccess } from './acp-editor-files.js';
 import { promptText } from './acp-prompt-text.js';
 import { availableCommands, replayHistory } from './acp-session-catalog.js';
 import { runCommandTurn, runModelTurn } from './acp-turn.js';
@@ -13,7 +14,13 @@ import { createUpdateStream } from './acp-updates.js';
 
 import type { IAcpTurnContext } from './acp-turn.js';
 import type { IAcpTransportOptions, IAcpTransportSession } from './acp-types.js';
-import type { AgentApp, AgentContext, McpServer, PromptResponse } from '@agentclientprotocol/sdk';
+import type {
+  AgentApp,
+  AgentContext,
+  ClientCapabilities,
+  McpServer,
+  PromptResponse,
+} from '@agentclientprotocol/sdk';
 
 /**
  * JSON-RPC server-error code for a workspace the host has not admitted. Not -32000: ACP assigns
@@ -30,6 +37,8 @@ export interface IAcpAgent {
   readonly app: AgentApp;
   /** Cancel the running prompt, if there is one. */
   cancelActive(): void;
+  /** Tell the host the editor's file system is gone, if it was handed one. */
+  withdrawEditorFiles(): void;
 }
 
 /** What `session/new` and `session/load` both carry that decides whether the editor may have the session. */
@@ -141,16 +150,31 @@ export function createAcpAgent(
     setImmediate(() => advertiseCommands(client, id));
   };
 
+  /** The file system the editor offered in `initialize`. */
+  let editorFs: ClientCapabilities['fs'];
+  let editorFilesOffered = false;
+  /** Hand the host the editor's file system for the bound session, if the editor offered one. */
+  const offerEditorFiles = (client: AgentContext): void => {
+    const access = editorFileAccess(editorFs, client, () => boundSessionId);
+    if (access === undefined) return;
+    editorFilesOffered = true;
+    options.onEditorFileAccess?.(access);
+  };
+
   const app = agent({ name: options.agentInfo.name })
-    .onRequest('initialize', () => ({
-      // Always the version this agent speaks: the client disconnects if it cannot use it.
-      protocolVersion: PROTOCOL_VERSION,
-      agentCapabilities: {
-        loadSession: options.loadSession !== undefined && session.getMessagesDisplay !== undefined,
-        promptCapabilities: { image: false, audio: false, embeddedContext: true },
-      },
-      agentInfo: { name: options.agentInfo.name, version: options.agentInfo.version },
-    }))
+    .onRequest('initialize', ({ params }) => {
+      editorFs = params.clientCapabilities?.fs;
+      return {
+        // Always the version this agent speaks: the client disconnects if it cannot use it.
+        protocolVersion: PROTOCOL_VERSION,
+        agentCapabilities: {
+          loadSession:
+            options.loadSession !== undefined && session.getMessagesDisplay !== undefined,
+          promptCapabilities: { image: false, audio: false, embeddedContext: true },
+        },
+        agentInfo: { name: options.agentInfo.name, version: options.agentInfo.version },
+      };
+    })
     .onRequest('session/new', async ({ params, client }) => {
       if (boundSessionId !== undefined || binding) {
         throw RequestError.invalidParams(undefined, 'one session per connection');
@@ -162,6 +186,7 @@ export function createAcpAgent(
       } finally {
         binding = false;
       }
+      offerEditorFiles(client);
       advertiseAfterReply(client, boundSessionId);
       return { sessionId: boundSessionId };
     })
@@ -187,6 +212,7 @@ export function createAcpAgent(
         }
         if (!outcome.loaded) throw RequestError.invalidParams(undefined, outcome.message);
         boundSessionId = await sessionId('session/load');
+        offerEditorFiles(client);
         // The editor sees the conversation it reopened before the load answers.
         const updates = createUpdateStream(client, boundSessionId, report);
         try {
@@ -252,5 +278,13 @@ export function createAcpAgent(
       if (params.sessionId === boundSessionId) active?.cancel();
     });
 
-  return { app, cancelActive: () => active?.cancel() };
+  return {
+    app,
+    cancelActive: () => active?.cancel(),
+    withdrawEditorFiles: () => {
+      if (!editorFilesOffered) return;
+      editorFilesOffered = false;
+      options.onEditorFileAccess?.(undefined);
+    },
+  };
 }

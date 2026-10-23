@@ -11,6 +11,7 @@ import { runAcpSlashCommand } from './acp-command-port.js';
 import { buildPooledSessionOptions } from './serve-mode.js';
 import { shutdownSession } from './session-shutdown.js';
 
+import type { IEditorFileSlot } from '../product/editor-file-slot.js';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type {
   EditCheckpointStore,
@@ -33,6 +34,8 @@ export interface IAcpModeOptions {
   readonly admitWorkspace: () => TAcpWorkspaceAdmission;
   /** Builds a loaded session's own edit checkpoint store, as each served session has its own. */
   readonly createEditCheckpointStore?: () => EditCheckpointStore;
+  /** Where the session's file tools look for the editor's file system; the transport fills it. */
+  readonly editorFiles?: IEditorFileSlot;
 }
 
 /** The connection's session: the one this process started, until the editor loads a stored one. */
@@ -159,6 +162,7 @@ export async function runAcpMode(options: IAcpModeOptions): Promise<void> {
     admitWorkspace: options.admitWorkspace,
     executeCommand: (text, signal) => runAcpSlashCommand(slot, text, signal),
     ...(loader !== undefined ? { loadSession: loader.load } : {}),
+    ...(options.editorFiles !== undefined ? { onEditorFileAccess: options.editorFiles.set } : {}),
     // stdout carries the protocol; what the editor does not receive goes where logs go.
     onDeliveryError: (error, context) => {
       process.stderr.write(`ACP ${context}: ${error.message}\n`);
