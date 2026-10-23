@@ -38,6 +38,7 @@ vi.mock('@robota-sdk/agent-transport-acp', () => ({
 }));
 
 import { runAcpMode } from '../acp-mode.js';
+import { createEditorFileSlot } from '../../product/editor-file-slot.js';
 
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 
@@ -85,7 +86,10 @@ function storeWith(
   };
 }
 
-function setup(sessionOptions: Partial<TInteractiveSessionOptions> = {}) {
+function setup(
+  sessionOptions: Partial<TInteractiveSessionOptions> = {},
+  extra: Partial<Parameters<typeof runAcpMode>[0]> = {},
+) {
   mock.session = { ...fakeSession('started-1'), shutdown: mock.shutdown };
   mock.next = [];
   mock.built = [];
@@ -106,6 +110,7 @@ function setup(sessionOptions: Partial<TInteractiveSessionOptions> = {}) {
       input,
       output,
       admitWorkspace,
+      ...extra,
     });
   return { input, output, admitWorkspace, run };
 }
@@ -150,6 +155,27 @@ describe('ACP mode', () => {
     expect(mock.executeCommand).toHaveBeenCalledWith('help', '', 'remote', 'owner', 'local', {
       signal,
     });
+  });
+
+  it("fills the session's editor file slot with what the transport hands over", async () => {
+    mock.start.mockResolvedValue(undefined);
+    mock.waitForClose.mockResolvedValue(undefined);
+    const editorFiles = createEditorFileSlot();
+    await setup({}, { editorFiles }).run();
+
+    const hand = mock.options!['onEditorFileAccess'] as (access: unknown) => void;
+    const access = { readTextFile: async () => 'BUFFER' };
+    hand(access);
+    expect(editorFiles.current()).toBe(access);
+    hand(undefined);
+    expect(editorFiles.current()).toBeUndefined();
+  });
+
+  it('asks the transport for no editor file system when the session has no slot for it', async () => {
+    mock.start.mockResolvedValue(undefined);
+    mock.waitForClose.mockResolvedValue(undefined);
+    await setup().run();
+    expect(mock.options).not.toHaveProperty('onEditorFileAccess');
   });
 
   it('reports errors the editor does not receive on stderr, never stdout', async () => {
@@ -222,7 +248,10 @@ describe('ACP mode', () => {
 
   it('loads only a session of this folder, replaces the served one, and shuts each down once', async () => {
     const served = await serving({
-      sessionStore: storeWith({ id: 'stored-1' }, { id: 'elsewhere-1', cwd: '/elsewhere' }) as never,
+      sessionStore: storeWith(
+        { id: 'stored-1' },
+        { id: 'elsewhere-1', cwd: '/elsewhere' },
+      ) as never,
       sessionName: 'launch',
     });
     const loaded = fakeSession('stored-1');
@@ -290,7 +319,11 @@ describe('ACP mode', () => {
           id: 'loop-1',
           sessionLoops: [{ phase: 'waiting', expiresAt: '2999-01-01T00:00:00.000Z' }],
         },
-        { id: 'done-1', goal: { status: 'satisfied' }, sessionLoops: [{ phase: 'stopped', expiresAt: '2999-01-01T00:00:00.000Z' }] },
+        {
+          id: 'done-1',
+          goal: { status: 'satisfied' },
+          sessionLoops: [{ phase: 'stopped', expiresAt: '2999-01-01T00:00:00.000Z' }],
+        },
       ) as never,
     });
     mock.next = [fakeSession('done-1')];
@@ -353,7 +386,10 @@ describe('ACP mode', () => {
           ],
         },
         { id: 'finished-wake', backgroundTasks: [scheduledTask({ status: 'completed' })] },
-        { id: 'cancelled-loop', backgroundTasks: [scheduledTask({ status: 'cancelled', metadata: liveLoop })] },
+        {
+          id: 'cancelled-loop',
+          backgroundTasks: [scheduledTask({ status: 'cancelled', metadata: liveLoop })],
+        },
         { id: 'paused-wake', backgroundTasks: [scheduledTask({ status: 'paused' })] },
       ) as never,
     });

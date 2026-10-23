@@ -610,8 +610,10 @@ session per connection. The editor can reopen an earlier conversation of the sam
 then shows again, unless the agent runs with `--no-session-persistence`; a conversation that is still
 pursuing a goal, running a loop or holding a schedule that will fire opens only in the terminal, where
 you can stop it. The editor can also offer the agent's slash commands and skills in its command list.
-Reading or writing files and running terminals are not delegated to the editor. Questions the agent
-would ask you are answered as cancelled, because ACP has no equivalent.
+When the editor offers its file system, reading and writing files go through the editor after the
+same path checks and approvals, so the agent sees changes you have not saved and the editor shows
+its edits; searches still read the files on disk and say so, and commands never run in the editor's
+terminal. Questions the agent would ask you are answered as cancelled, because ACP has no equivalent.
 
 ## Devices and remote control
 

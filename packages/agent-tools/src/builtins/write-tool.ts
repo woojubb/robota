@@ -5,11 +5,11 @@
 import { z } from 'zod';
 
 import { atomicWriteUtf8File } from './atomic-file-write.js';
+import { editorFailure, editorSignal, editorWrite } from './editor-files.js';
 import { checkPathWithinCwd, resolveHostPath } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
-import type { ISandboxBuiltinToolOptions } from './tool-options.js';
-import type { ISandboxToolOptions } from '../sandbox/types.js';
+import type { IFileBuiltinToolOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
@@ -26,7 +26,13 @@ const WriteSchema = z.object({
 
 type TWriteArgs = z.infer<typeof WriteSchema>;
 
-async function writeFileTool(args: TWriteArgs, options: ISandboxToolOptions): Promise<string> {
+async function writeFileTool(
+  args: TWriteArgs,
+  options: IFileBuiltinToolOptions,
+  callSignal?: AbortSignal,
+): Promise<string> {
+  const signal = editorSignal(options.signal, callSignal);
+  signal?.throwIfAborted();
   const { content } = args;
   // A relative path anchors to the containment root before it is confined or written (issue #2429).
   const filePath = options.sandboxClient
@@ -39,7 +45,16 @@ async function writeFileTool(args: TWriteArgs, options: ISandboxToolOptions): Pr
   }
 
   try {
-    if (options.sandboxClient) {
+    // Only a host path the guard admitted reaches an editor; the permission gate ran before this body.
+    const toEditor = options.sandboxClient ? undefined : editorWrite(options);
+    if (toEditor !== undefined) {
+      try {
+        await toEditor(filePath, content, signal);
+      } catch (err) {
+        // allow-fallback: the editor's refusal → IToolInvocationResult error
+        return editorFailure('write', filePath, err);
+      }
+    } else if (options.sandboxClient) {
       await options.sandboxClient.writeFile(filePath, content);
     } else {
       await atomicWriteUtf8File(filePath, content);
@@ -64,13 +79,13 @@ async function writeFileTool(args: TWriteArgs, options: ISandboxToolOptions): Pr
 /**
  * Create a WriteTool instance — register with agent tools registry.
  */
-export function createWriteTool(options: ISandboxBuiltinToolOptions): FunctionTool {
+export function createWriteTool(options: IFileBuiltinToolOptions): FunctionTool {
   return createZodFunctionTool(
     'Write',
     options.description ?? DEFAULT_WRITE_DESCRIPTION,
     WriteSchema,
-    async (params) => {
-      return writeFileTool(params, options);
+    async (params, context) => {
+      return writeFileTool(params, options, context?.signal);
     },
     { resultMode: 'invocation-json' },
   );

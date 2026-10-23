@@ -20,6 +20,7 @@ import { z } from 'zod';
 import { ToolExecutionError } from '@robota-sdk/agent-core';
 
 import { collectFiles } from './grep-search.js';
+import { withDiskSearchNotice } from './editor-files.js';
 import { IsolatedGrepSearch } from './isolated-grep-search.js';
 import { resolveSearchRoot } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
@@ -248,7 +249,10 @@ async function grepFileTool(args: TGrepArgs, options: IGrepToolOptions): Promise
 
   const result: IToolInvocationResult = {
     success: true,
-    output: outputLines.length > 0 ? outputLines.join('\n') : '(no matches)',
+    output: withDiskSearchNotice(
+      outputLines.length > 0 ? outputLines.join('\n') : '(no matches)',
+      options,
+    ),
   };
   return JSON.stringify(result);
 }
