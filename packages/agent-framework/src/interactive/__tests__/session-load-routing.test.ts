@@ -198,15 +198,18 @@ describe.runIf(process.platform === 'linux')(
   'TC-10: the project store writes the envelope too',
   () => {
     it('persists { schemaVersion, record } rather than the bare record', async () => {
-      const { root } = await projectFixture();
+      const { root, sessionsDir } = await projectFixture();
       const store = await createTrustedProjectSessionStoreFixture(root);
       store.save(record());
 
       const outcome = store.load(SESSION_ID);
       expect(outcome.status).toBe('valid');
-      // Round-tripping through this store proves the pair agrees; the shape assertion is what proves
-      // the format. `SESSION_RECORD_ENVELOPE_VERSION` is the single constant both stores write.
-      expect(SESSION_RECORD_ENVELOPE_VERSION).toBe(1);
+      const envelope = JSON.parse(await readFile(join(sessionsDir, `${SESSION_ID}.json`), 'utf-8'));
+      expect(SESSION_RECORD_ENVELOPE_VERSION).toBe(2);
+      expect(envelope).toMatchObject({
+        schemaVersion: SESSION_RECORD_ENVELOPE_VERSION,
+        record: { id: SESSION_ID, cwd: '/work' },
+      });
     });
   },
 );
@@ -238,6 +241,7 @@ describe.runIf(process.platform === 'linux')(
         store,
         {
           getSessionId: () => SESSION_ID,
+          getConversationSnapshot: () => ({ id: SESSION_ID, cwd: '/work', messages: [] }),
           getHistory: () => [],
           getSystemMessage: () => 'p',
           getToolSchemas: () => [],
@@ -260,6 +264,7 @@ describe.runIf(process.platform === 'linux')(
         store,
         {
           getSessionId: () => 'brand-new',
+          getConversationSnapshot: () => ({ id: 'brand-new', cwd: '/work', messages: [] }),
           getHistory: () => [],
           getSystemMessage: () => 'p',
           getToolSchemas: () => [],
