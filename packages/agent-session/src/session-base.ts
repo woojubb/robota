@@ -294,11 +294,11 @@ export abstract class SessionBase {
   }
 
   getHistory(): TUniversalMessage[] {
-    return this.agent.getHistory();
+    return structuredClone(this.agent.getHistory());
   }
 
   getFullHistory(): IHistoryEntry[] {
-    return this.agent.getFullHistory();
+    return structuredClone(this.agent.getFullHistory());
   }
 
   getSessionTokenUsage(): { inputTokens: number; outputTokens: number } | undefined {

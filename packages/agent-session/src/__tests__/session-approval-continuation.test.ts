@@ -996,3 +996,27 @@ describe('saved recovery contract and error precedence', () => {
     }
   });
 });
+
+
+it('keeps retained history reads from mutating a pending conversation', async () => {
+  const f = await waiting();
+  const before = f.source.session.getConversationSnapshot();
+  const history = f.source.session.getHistory();
+  const assistant = history.findLast((message) => message.role === 'assistant');
+  if (assistant?.role !== 'assistant' || !assistant.toolCalls) throw new Error('Expected open round');
+  assistant.toolCalls[0].function.name = 'mutated';
+  expect(f.source.session.getConversationSnapshot()).toEqual(before);
+});
+
+it('uses a configured checkpoint callback instead of also saving to the lower store', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'checkpoint-owner-'));
+  try {
+    const store = new NodeSessionStore(directory);
+    const save = vi.spyOn(store, 'save');
+    const checkpointHistory = vi.fn();
+    const f = fixture([action, { text: 'done' }], { ...allowed, sessionStore: store, checkpointHistory });
+    await expect(f.session.runRecoverable('input', { executionJournal: journalFixture().journal })).resolves.toMatchObject({ status: 'completed' });
+    expect(checkpointHistory).toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});

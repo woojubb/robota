@@ -20,6 +20,7 @@ function finiteJson(value: unknown, seen = new Set<object>()): boolean {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
   if (typeof value === 'number') return Number.isFinite(value);
   if (typeof value !== 'object' || value instanceof Date || seen.has(value)) return false;
+  if (!Array.isArray(value) && Object.getPrototypeOf(value) !== Object.prototype && Object.getPrototypeOf(value) !== null) return false;
   seen.add(value);
   const valid = (Array.isArray(value) ? value : Object.values(value)).every((child) =>
     finiteJson(child, seen),
@@ -102,6 +103,15 @@ export function validatePendingExecution(
     addIssue(issues, path, 'pending execution must match the terminal assistant round');
     return;
   }
+  const calls = new Map((assistant.toolCalls ?? []).map((call) => [call.id, call]));
+  if (calls.size !== assistant.toolCalls?.length) addIssue(issues, path, 'tool call identities must be unique within a round');
+  const receipts = messages.slice(index + 1).flatMap((message) => message.role === 'tool' ? [message] : []);
+  const receiptIds = new Set<string>();
+  for (const message of receipts) {
+    const call = calls.get(message.toolCallId);
+    if (!call || receiptIds.has(message.toolCallId) || (message.name !== undefined && message.name !== call.function.name)) addIssue(issues, path, 'terminal receipts must uniquely bind this round');
+    receiptIds.add(message.toolCallId);
+  }
   const answered = new Set(
     messages
       .slice(index + 1)
@@ -115,6 +125,7 @@ export function validatePendingExecution(
   if (open.size === 0) addIssue(issues, path, 'pending execution requires unanswered calls');
   const ids = new Set<string>();
   const actions = new Map<string, string>();
+  const callActions = new Map<string, string>();
   for (const request of pending.requests) {
     const call = open.get(request.toolCallId);
     const binding = JSON.stringify([request.parentCallId, request.toolCallId, request.toolName]);
@@ -124,11 +135,13 @@ export function validatePendingExecution(
       request.parentCallId !== assistant.metadata?.providerCallId ||
       !call ||
       call.function.name !== request.toolName ||
-      (actions.has(request.actionId) && actions.get(request.actionId) !== binding)
+      (actions.has(request.actionId) && actions.get(request.actionId) !== binding) ||
+      (callActions.has(request.toolCallId) && callActions.get(request.toolCallId) !== request.actionId)
     ) {
       addIssue(issues, path, 'wait identities must uniquely bind an open tool action');
     }
     ids.add(request.requestId);
     actions.set(request.actionId, binding);
+    callActions.set(request.toolCallId, request.actionId);
   }
 }
