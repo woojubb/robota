@@ -8,3 +8,4 @@ Allow explicitly borrowed providers to outlive agent destruction and Session shu
 owned providers as the default. Track replaced and removed provider cleanup, expose current provider
 registrations after swapping, and hold Roundtable resource leases until runtime teardown finishes.
 Borrowing does not permit concurrent provider use across leases.
+Serialize manager lifecycle transitions so reinitialization cannot admit providers during pending teardown.

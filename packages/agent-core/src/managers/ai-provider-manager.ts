@@ -43,7 +43,6 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
   protected async doDispose(): Promise<void> {
     const registrations = [...this.providers.entries()];
     this.providers.clear();
-    this.initialized = false;
     this.currentProvider = undefined;
     this.currentModel = undefined;
     for (const [name, registration] of registrations) {

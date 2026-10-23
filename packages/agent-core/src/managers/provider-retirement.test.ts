@@ -92,3 +92,50 @@ describe('provider registration retirement', () => {
     expect(provider.close).toHaveBeenCalledTimes(2);
   });
 });
+
+describe('provider disposal and reinitialization', () => {
+  it('does not admit a new owned registration until the full previous disposal ends', async () => {
+    const manager = new AIProviders();
+    let finish: () => void = () => {};
+    let started: () => void = () => {};
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    const closing = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const previous = Object.assign(client(), {
+      close: vi.fn(async () => {
+        started();
+        await pending;
+      }),
+    });
+    const later = client();
+    manager.addProvider('previous', previous);
+    const disposal = manager.dispose();
+    let reinitialized = false;
+    const initialization = manager.initialize().then(() => {
+      reinitialized = true;
+      manager.addProvider('later', later);
+    });
+    try {
+      await closing;
+      try {
+        expect(reinitialized).toBe(false);
+        expect(() => manager.addProvider('too-early', client())).toThrow();
+      } finally {
+        finish();
+        await Promise.all([disposal, initialization]);
+      }
+      expect(manager.isInitialized()).toBe(true);
+      expect(manager.getProvider('later')).toBe(later);
+      expect(previous.close).toHaveBeenCalledOnce();
+      expect(later.close).not.toHaveBeenCalled();
+    } finally {
+      finish();
+      await Promise.allSettled([disposal, initialization]);
+      await manager.dispose();
+    }
+    expect(later.close).toHaveBeenCalledOnce();
+  });
+});
