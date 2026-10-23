@@ -283,5 +283,6 @@ export function createGrepTool(options: IGrepToolOptions): FunctionTool {
     async (params) => {
       return grepFileTool(params, options);
     },
+    { resultMode: 'invocation-json' },
   );
 }

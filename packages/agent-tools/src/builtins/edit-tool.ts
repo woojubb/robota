@@ -213,5 +213,6 @@ export function createEditTool(options: ISandboxBuiltinToolOptions): FunctionToo
     async (params) => {
       return editFileTool(params, options);
     },
+    { resultMode: 'invocation-json' },
   );
 }

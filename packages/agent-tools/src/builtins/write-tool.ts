@@ -72,5 +72,6 @@ export function createWriteTool(options: ISandboxBuiltinToolOptions): FunctionTo
     async (params) => {
       return writeFileTool(params, options);
     },
+    { resultMode: 'invocation-json' },
   );
 }

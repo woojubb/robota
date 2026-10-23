@@ -142,7 +142,10 @@ never happened.
 
 ## Error handling
 
-Built-in tools report ordinary input, network, and path failures through their result envelope.
+Built-in invocation tools declare their serialized result protocol, so ordinary input, network,
+and path failures retain that JSON payload while reporting failure in the execution envelope seen
+by callers and surfaces; ordinary custom function values remain domain data regardless of their
+shape. Invalid declared results fail explicitly instead of being reported as success.
 Grep executes pattern matching outside the caller's event loop; exhaustion, worker failure, and
 cancellation are hard execution errors surfaced only after the isolated operation has stopped.
 Read admits host file bytes independent of the requested line slice and bounds formatted output;

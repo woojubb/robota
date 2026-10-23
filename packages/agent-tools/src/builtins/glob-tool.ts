@@ -213,5 +213,6 @@ export function createGlobTool(options: IContainedBuiltinToolOptions): FunctionT
     async (params) => {
       return globFileTool(params, options);
     },
+    { resultMode: 'invocation-json' },
   );
 }

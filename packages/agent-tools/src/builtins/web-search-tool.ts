@@ -82,6 +82,7 @@ export function createWebSearchTool(options: IWebSearchToolOptions = {}): Functi
     options.description ?? DEFAULT_WEB_SEARCH_DESCRIPTION,
     WebSearchSchema,
     async (params, context) => runWebSearch(params, provider, context?.signal),
+    { resultMode: 'invocation-json' },
   );
 }
 

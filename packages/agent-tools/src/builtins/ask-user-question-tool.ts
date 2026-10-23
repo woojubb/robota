@@ -165,6 +165,7 @@ export function createAskUserQuestionTool(
       const result: IToolInvocationResult = { success: true, output: JSON.stringify(output) };
       return JSON.stringify(result);
     },
+    { resultMode: 'invocation-json' },
   );
 }
 

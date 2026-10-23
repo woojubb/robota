@@ -247,5 +247,6 @@ export function createReadTool(options: ISandboxBuiltinToolOptions): FunctionToo
     async (params) => {
       return readFileTool(params, options);
     },
+    { resultMode: 'invocation-json' },
   );
 }
