@@ -348,6 +348,7 @@ function createHostShellTool(name: string, options: IShellToolOptions): Function
     async (params, context) => {
       return runShell(params, options, shell, context?.signal, context?.shellTraceEnv);
     },
+    { resultMode: 'invocation-json' },
   );
 }
 

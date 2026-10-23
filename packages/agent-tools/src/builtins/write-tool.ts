@@ -87,5 +87,6 @@ export function createWriteTool(options: IFileBuiltinToolOptions): FunctionTool 
     async (params, context) => {
       return writeFileTool(params, options, context?.signal);
     },
+    { resultMode: 'invocation-json' },
   );
 }

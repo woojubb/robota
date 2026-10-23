@@ -3,7 +3,12 @@ import { FunctionTool, ValidationError, zodToJsonSchema } from '@robota-sdk/agen
 import type { IToolExecutionContext, TToolExecutor, TToolParameters } from '@robota-sdk/agent-core';
 import type { IToolSchema } from '@robota-sdk/agent-core';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
-import type { TypeOf, ZodType } from 'zod';
+import { z, type TypeOf, type ZodType } from 'zod';
+
+const InvocationResultSchema = z.discriminatedUnion('success', [
+  z.object({ success: z.literal(true), output: z.string() }),
+  z.object({ success: z.literal(false), output: z.string(), error: z.string().min(1) }),
+]);
 
 // The concrete `FunctionTool` class is owned by @robota-sdk/agent-core (DATA-005 SSOT).
 // These factories construct core's `FunctionTool`; agent-tools owns only the factories
@@ -42,6 +47,11 @@ export interface IFunctionToolResidencyOptions {
   deferLoading?: boolean;
 }
 
+export interface IFunctionToolOptions extends IFunctionToolResidencyOptions {
+  /** Interpret only this explicitly declared protocol as an execution outcome; other values stay domain data. */
+  resultMode?: 'value' | 'invocation-json';
+}
+
 /**
  * Helper function to create a function tool from Zod schema
  */
@@ -50,7 +60,7 @@ export function createZodFunctionTool<S extends ZodType>(
   description: string,
   zodSchema: S,
   fn: TToolExecutor<TypeOf<S>>,
-  residency: IFunctionToolResidencyOptions = {},
+  options: IFunctionToolOptions = {},
 ): FunctionTool {
   // Use comprehensive Zod to JSON schema conversion
   const parameters = zodToJsonSchema(zodSchema);
@@ -61,7 +71,7 @@ export function createZodFunctionTool<S extends ZodType>(
     parameters,
     // Spread rather than assigned: an absent marker must stay ABSENT, not become `undefined`, so a
     // resident tool's schema is byte-identical to what it was before residency existed.
-    ...(residency.deferLoading !== undefined && { deferLoading: residency.deferLoading }),
+    ...(options.deferLoading !== undefined && { deferLoading: options.deferLoading }),
   };
 
   // Wrap the function with validation and ensure proper parameter handling
@@ -81,6 +91,22 @@ export function createZodFunctionTool<S extends ZodType>(
     return typeof result === 'string' ? result : JSON.stringify(result);
   };
 
+  if (options.resultMode === 'invocation-json') {
+    return FunctionTool.fromResult(schema, async (parameters, context) => {
+      const startedAt = Date.now();
+      const data = await wrappedFn(parameters, context);
+      const executionTime = Date.now() - startedAt;
+      if (typeof data !== 'string') throw new ValidationError('Expected invocation JSON output');
+      const payload: unknown = JSON.parse(data);
+      const result = InvocationResultSchema.parse(payload);
+      return {
+        success: result.success,
+        data,
+        metadata: { executionTime, toolName: name, parameters },
+        ...(result.success ? {} : { error: result.error }),
+      };
+    });
+  }
   return new FunctionTool(schema, wrappedFn);
 }
 
