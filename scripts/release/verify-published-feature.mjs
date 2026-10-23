@@ -37,12 +37,9 @@ export async function verifyPublished({
       throw new Error(`${path.basename(command)} failed: ${r.stderr?.slice(-1500)}`);
     return r.stdout.trim();
   }
-  const dockerHost = call('docker', [
-    'context',
-    'inspect',
-    '--format',
-    '{{.Endpoints.docker.Host}}',
-  ]);
+  const dockerHost =
+    process.env.DOCKER_HOST ||
+    call('docker', ['context', 'inspect', '--format', '{{.Endpoints.docker.Host}}']);
   const env = Object.fromEntries(
     ['PATH', 'TMPDIR', 'LANG', 'LC_ALL']
       .filter((k) => process.env[k] !== undefined)

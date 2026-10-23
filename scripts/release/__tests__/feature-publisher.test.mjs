@@ -317,13 +317,14 @@ import { verifyPublished } from '../verify-published-feature.mjs';
 test('failed anonymous consumer preserves complete child diagnostics and cleans its resources', async () => {
   const root = await mkdtemp(path.join(os.tmpdir(), 'feature-consumer-failure-'));
   const oldPath = process.env.PATH;
+  const oldHost = process.env.DOCKER_HOST;
   try {
     const bin = path.join(root, 'bin');
     await mkdir(bin);
     const docker = path.join(bin, 'docker');
     await writeFile(
       docker,
-      '#!/bin/sh\nprintf "%s\\n" "$*" >> "' +
+      '#!/bin/sh\nprintf "%s\\n" "$DOCKER_HOST $*" >> "' +
         root +
         '/docker-calls"\ncase "$1" in context) printf "%s\\n" "unix:///tmp/fixture-docker.sock";; esac\n',
       { mode: 0o755 },
@@ -335,6 +336,7 @@ test('failed anonymous consumer preserves complete child diagnostics and cleans 
       { mode: 0o755 },
     );
     process.env.PATH = bin + path.delimiter + oldPath;
+    process.env.DOCKER_HOST = 'unix:///tmp/feature-explicit-test.sock';
     const receiptFile = path.join(root, 'receipt.json');
     await assert.rejects(
       verifyPublished({
@@ -355,12 +357,15 @@ test('failed anonymous consumer preserves complete child diagnostics and cleans 
     expect(receipt.invocations.find((x) => x.command === cli).stderr).toContain(
       'FULL_DIAGNOSTIC_BEFORE_TRAILING_STACK',
     );
-    expect(await readFile(path.join(root, 'docker-calls'), 'utf8')).toContain(
-      'network rm feature-consumer-',
-    );
+    const calls = await readFile(path.join(root, 'docker-calls'), 'utf8');
+    expect(calls).toContain('unix:///tmp/feature-explicit-test.sock network create');
+    expect(calls).not.toContain('context inspect');
+    expect(calls).toContain('network rm feature-consumer-');
     expect((await readdir(root)).filter((x) => x.startsWith('feature-anonymous-'))).toEqual([]);
   } finally {
     process.env.PATH = oldPath;
+    if (oldHost === undefined) delete process.env.DOCKER_HOST;
+    else process.env.DOCKER_HOST = oldHost;
     await rm(root, { recursive: true, force: true });
   }
 });
