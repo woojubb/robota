@@ -112,6 +112,7 @@ export function createAcpAgent(
    * update names the session, so it goes out only once the editor holds that id.
    */
   const advertiseCommands = (client: AgentContext, id: string): void => {
+    if (session.listCommands === undefined && session.listSkills === undefined) return;
     let commands: ReturnType<typeof availableCommands>;
     try {
       commands = availableCommands(session);
@@ -139,7 +140,7 @@ export function createAcpAgent(
       // Always the version this agent speaks: the client disconnects if it cannot use it.
       protocolVersion: PROTOCOL_VERSION,
       agentCapabilities: {
-        loadSession: options.loadSession !== undefined,
+        loadSession: options.loadSession !== undefined && session.getMessagesDisplay !== undefined,
         promptCapabilities: { image: false, audio: false, embeddedContext: true },
       },
       agentInfo: { name: options.agentInfo.name, version: options.agentInfo.version },
@@ -160,7 +161,9 @@ export function createAcpAgent(
     })
     .onRequest('session/load', async ({ params, client }) => {
       const load = options.loadSession;
-      if (load === undefined) throw RequestError.methodNotFound('session/load');
+      if (load === undefined || session.getMessagesDisplay === undefined) {
+        throw RequestError.methodNotFound('session/load');
+      }
       if (binding) throw RequestError.invalidParams(undefined, 'a session is already being opened');
       // A load replaces this connection's session, so it may not pull the session out from under a turn.
       if (active !== undefined) {

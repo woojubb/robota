@@ -16,8 +16,8 @@ import type { Readable, Writable } from 'node:stream';
 
 /**
  * The session roles ACP uses: submit and abort a turn, stream its events, answer its permission
- * prompts, name the session, list the commands an editor may offer, and read the history a loaded
- * session replays. A full interactive session is assignable; nothing else is required.
+ * prompts, and name the session. Optional catalog reads let the editor offer commands; optional
+ * history reads enable a host load port to replay a stored session. A full interactive session is assignable.
  */
 export interface IAcpTransportSession
   extends
@@ -26,8 +26,8 @@ export interface IAcpTransportSession
     ISessionEvents,
     ISessionPromptResolution,
     ISessionStatusRead,
-    Pick<ISessionCommands, 'listCommands' | 'listSkills'>,
-    Pick<ISessionConversationRead, 'getMessagesDisplay'> {
+    Partial<Pick<ISessionCommands, 'listCommands' | 'listSkills'>>,
+    Partial<Pick<ISessionConversationRead, 'getMessagesDisplay'>> {
   /**
    * Resolves once the session can name itself, and rejects if it failed to start. A session that
    * builds itself in the background (`InteractiveSession`) has no id before then, so `session/new`
@@ -66,7 +66,7 @@ export interface IAcpTransportOptions {
    * answers for it from then on (the host attaches a forwarder, such as a session slot, whose current
    * session the port replaces). It must admit only a session rooted in the served directory, and may
    * refuse with a message for the editor. Supplied by the host because building a session from
-   * storage is not this package's; without it the agent does not offer `session/load`.
+   * storage is not this package's; without it or the session's history read, `session/load` is not offered.
    */
   readonly loadSession?: (sessionId: string) => Promise<TAcpSessionLoad>;
   /** Attribution recorded on turns and prompt answers submitted through this transport. Default `'owner'`. */

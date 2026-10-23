@@ -56,12 +56,14 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
   a session factory whose per-session working directory is not established, so it is refused. A
   `session/load` replaces the connection's session instead of adding one: the host's port makes the
   stored session current in what the transport was attached to, and the transport keeps serving
-  that object. A load is checked exactly like `session/new` and refused while a prompt runs, since it
+  that object. Loading requires both the host port and the attached session's history read, since a
+  host must not replace a conversation that the editor cannot replay. A load is checked exactly like
+  `session/new` and refused while a prompt runs, since it
   would take the session from under that turn; the host may refuse more (work still in progress, a
   session that would run on its own). It is offered only when the host can load, and the editor sees
   the conversation it reopened before the load answers.
-- **The command list follows the session.** The editor learns the commands it may offer once it
-  holds the session id, so the list goes out after the reply that gives it. Any prompt, a command or
+- **The command list follows the session.** When the session provides a catalog, the editor learns
+  the commands it may offer once it holds the session id, so the list goes out after the reply that gives it. Any prompt, a command or
   a model turn, can change the catalog (a plugin reload, a preset, a skill that installs another), so
   the list is re-checked after every prompt and sent again only when it changed.
   Commands a client runs itself are not offered, because an editor cannot run them.

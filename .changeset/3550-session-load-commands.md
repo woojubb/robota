@@ -13,8 +13,9 @@ editor MCP servers or extra roots, workspace trust), refuses it while a prompt r
 loaded conversation — what was typed, what the agent answered, and each finished tool call, a reused
 call id getting a row of its own — before it answers. The port makes the stored session current in
 the object the transport was attached to, so a host attaches a forwarder such as a session slot.
-`IAcpTransportSession` now also needs the session's command listing and history display reads, which
-a full interactive session has.
+The published narrow `IAcpTransportSession` contract remains supported: command listing and history
+display reads are optional capabilities. Loading is offered only with both the host port and the
+history read, so a session cannot be replaced without replaying its conversation.
 
 `robota acp` supplies the load: the editor may load a stored session of the folder it serves that
 this version can read, and the agent replaces its session with it and shuts the old one down. A load

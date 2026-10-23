@@ -4,10 +4,7 @@ import { acpToolEndStatus, acpToolKind, acpToolStartTitle } from './acp-tool-map
 
 import type { IAcpUpdateStream } from './acp-updates.js';
 import type { AvailableCommand } from '@agentclientprotocol/sdk';
-import type {
-  IHistoryDisplaySegment,
-  ISessionCommands,
-} from '@robota-sdk/agent-interface-session';
+import type { IHistoryDisplaySegment, ISessionCommands } from '@robota-sdk/agent-interface-session';
 
 /**
  * The slash commands an editor may offer: the runtime's commands, then the user-invocable skills
@@ -15,7 +12,7 @@ import type {
  * client) is not offered, because an editor cannot run it and the runtime would not.
  */
 export function availableCommands(
-  session: Pick<ISessionCommands, 'listCommands' | 'listSkills'>,
+  session: Partial<Pick<ISessionCommands, 'listCommands' | 'listSkills'>>,
 ): AvailableCommand[] {
   const offered: AvailableCommand[] = [];
   const names = new Set<string>();
@@ -24,11 +21,11 @@ export function availableCommands(
     names.add(name);
     offered.push({ name, description, ...(hint ? { input: { hint } } : {}) });
   };
-  for (const command of session.listCommands()) {
+  for (const command of session.listCommands?.() ?? []) {
     if (command.runner !== 'runtime') continue;
     offer(command.name, command.description, command.argumentHint);
   }
-  for (const skill of session.listSkills()) {
+  for (const skill of session.listSkills?.() ?? []) {
     if (skill.userInvocable) offer(skill.name, skill.description, skill.argumentHint);
   }
   return offered;

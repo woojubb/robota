@@ -16,8 +16,8 @@ import type { IFakeSession } from './acp-test-harness.js';
 import type { IAcpTransportOptions, IAcpTransportSession } from '../acp-types.js';
 import type { IHistoryDisplaySegment } from '@robota-sdk/agent-interface-session';
 
-type ICommandListEntry = ReturnType<IAcpTransportSession['listCommands']>[number];
-type ICommandSkillListEntry = ReturnType<IAcpTransportSession['listSkills']>[number];
+type ICommandListEntry = ReturnType<NonNullable<IAcpTransportSession['listCommands']>>[number];
+type ICommandSkillListEntry = ReturnType<NonNullable<IAcpTransportSession['listSkills']>>[number];
 
 const open: { stop(): Promise<void> }[] = [];
 afterEach(async () => {
@@ -37,13 +37,82 @@ const command = (name: string, extra: Partial<ICommandListEntry> = {}): ICommand
   runner: 'runtime',
   ...extra,
 });
-const skill = (name: string, extra: Partial<ICommandSkillListEntry> = {}): ICommandSkillListEntry => ({
+const skill = (
+  name: string,
+  extra: Partial<ICommandSkillListEntry> = {},
+): ICommandSkillListEntry => ({
   name,
   description: `${name} skill`,
   source: 'project',
   modelInvocable: true,
   userInvocable: true,
   ...extra,
+});
+
+describe('published narrow session compatibility', () => {
+  function narrowSession(): IAcpTransportSession {
+    const {
+      submit,
+      abort,
+      cancelQueue,
+      on,
+      off,
+      resolvePermission,
+      resolveAsk,
+      getStatusSnapshot,
+    } = createFakeSession().session;
+    return {
+      submit,
+      abort,
+      cancelQueue,
+      on,
+      off,
+      resolvePermission,
+      resolveAsk,
+      getStatusSnapshot,
+    };
+  }
+
+  it('serves prompts and slash commands without catalog or history capabilities', async () => {
+    const fixture = await startTransport(narrowSession(), {
+      executeCommand: async () => 'NARROW_COMMAND_DONE',
+    });
+    open.push(fixture);
+    const sessionId = await openSession(fixture.editor);
+    for (const text of ['ordinary prompt', '/help']) {
+      await expect(
+        fixture.editor.connection.agent.request('session/prompt', {
+          sessionId,
+          prompt: textPrompt(text),
+        }),
+      ).resolves.toEqual({ stopReason: 'end_turn' });
+    }
+    await settle();
+    expect(fixture.deliveryErrors).toEqual([]);
+    expect(fixture.editor.commandLists).toEqual([]);
+    expect(fixture.editor.updates).toContainEqual({
+      sessionUpdate: 'agent_message_chunk',
+      content: { type: 'text', text: 'NARROW_COMMAND_DONE' },
+    });
+  });
+
+  it('does not offer or invoke a load port without history capability', async () => {
+    const loadSession = vi.fn(async () => ({ loaded: true as const }));
+    const fixture = await startTransport(narrowSession(), { loadSession });
+    open.push(fixture);
+    const initialized = await fixture.editor.connection.agent.request('initialize', {
+      protocolVersion: 1,
+    });
+    expect(initialized.agentCapabilities?.loadSession).toBe(false);
+    await expect(
+      fixture.editor.connection.agent.request('session/load', {
+        sessionId: 'stored',
+        cwd: WORKSPACE,
+        mcpServers: [],
+      }),
+    ).rejects.toMatchObject({ code: -32601 });
+    expect(loadSession).not.toHaveBeenCalled();
+  });
 });
 
 describe('available commands', () => {
@@ -179,7 +248,10 @@ describe('session/load', () => {
   function loadable(fake: IFakeSession, known = 'stored-1') {
     const snapshot = fake.session.getStatusSnapshot.bind(fake.session);
     let current: string | undefined;
-    fake.session.getStatusSnapshot = () => ({ ...snapshot(), sessionId: current ?? snapshot().sessionId });
+    fake.session.getStatusSnapshot = () => ({
+      ...snapshot(),
+      sessionId: current ?? snapshot().sessionId,
+    });
     fake.session.getMessagesDisplay = () => (current === undefined ? [] : history);
     return vi.fn(async (id: string) => {
       if (id !== known) return { loaded: false as const, message: `No session ${id}` };
@@ -435,8 +507,26 @@ describe('session/load', () => {
   it('gives a replayed call a fresh row when its id already named an earlier one', async () => {
     const fake = createFakeSession();
     const repeated: IHistoryDisplaySegment[] = [
-      { type: 'tool', tool: { toolName: 'Read', firstArg: 'a', isRunning: false, result: 'success', executionId: 'call_0' } },
-      { type: 'tool', tool: { toolName: 'Read', firstArg: 'b', isRunning: false, result: 'success', executionId: 'call_0' } },
+      {
+        type: 'tool',
+        tool: {
+          toolName: 'Read',
+          firstArg: 'a',
+          isRunning: false,
+          result: 'success',
+          executionId: 'call_0',
+        },
+      },
+      {
+        type: 'tool',
+        tool: {
+          toolName: 'Read',
+          firstArg: 'b',
+          isRunning: false,
+          result: 'success',
+          executionId: 'call_0',
+        },
+      },
     ];
     fake.session.getMessagesDisplay = () => repeated;
     const { editor } = await start(fake, { loadSession: async () => ({ loaded: true }) });
@@ -462,7 +552,10 @@ describe('session/load', () => {
     const failure = await fixture.editor.connection.agent
       .request('session/load', { sessionId: 'robota-session-1', cwd: WORKSPACE, mcpServers: [] })
       .catch((error: unknown) => error);
-    expect(failure).toMatchObject({ code: -32603, message: 'The session history could not be shown' });
+    expect(failure).toMatchObject({
+      code: -32603,
+      message: 'The session history could not be shown',
+    });
     expect(fixture.deliveryErrors.map((e) => e.context)).toContain('session/load');
   });
 
@@ -479,7 +572,10 @@ describe('session/load', () => {
       .catch((error: unknown) => error);
     expect(failure).toMatchObject({ code: -32603, message: 'The session could not be loaded' });
     expect(fixture.deliveryErrors).toEqual([
-      { error: expect.objectContaining({ message: expect.stringContaining('unreadable') }), context: 'session/load' },
+      {
+        error: expect.objectContaining({ message: expect.stringContaining('unreadable') }),
+        context: 'session/load',
+      },
     ]);
   });
 });
