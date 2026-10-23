@@ -241,5 +241,6 @@ export function createEditTool(options: IFileBuiltinToolOptions): FunctionTool {
     async (params, context) => {
       return editFileTool(params, options, context?.signal);
     },
+    { resultMode: 'invocation-json' },
   );
 }

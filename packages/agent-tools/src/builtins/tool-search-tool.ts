@@ -155,6 +155,7 @@ export function createToolSearchTool(options: IBuiltinToolDescriptionOptions = {
       const result: IToolInvocationResult = { success: true, output: JSON.stringify(output) };
       return JSON.stringify(result);
     },
+    { resultMode: 'invocation-json' },
   );
 }
 

@@ -328,6 +328,7 @@ export function createWebFetchTool(options: IWebFetchToolOptions = {}): Function
     options.description ?? (llmsTxtCache ? DEFAULT_WEB_FETCH_DESCRIPTION : UNPROBED_WEB_FETCH_DESCRIPTION),
     WebFetchSchema,
     async (params, context) => runWebFetch(params, egress, options.userAgent, llmsTxtCache, context?.signal),
+    { resultMode: 'invocation-json' },
   );
 }
 

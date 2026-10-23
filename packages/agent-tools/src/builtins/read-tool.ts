@@ -289,5 +289,6 @@ export function createReadTool(options: IFileBuiltinToolOptions): FunctionTool {
     async (params, context) => {
       return readFileTool(params, options, context?.signal);
     },
+    { resultMode: 'invocation-json' },
   );
 }
