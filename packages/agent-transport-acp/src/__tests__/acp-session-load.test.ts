@@ -545,6 +545,71 @@ describe('session/load', () => {
     },
   );
 
+  it.each(['unnamed', 'explicit', 'permission'])(
+    'keeps a replayed row distinct from a later %s live call',
+    async (mode) => {
+      let answered!: () => void;
+      const wasAnswered = new Promise<void>((resolve) => (answered = resolve));
+      const fake = createFakeSession(async () => {
+        const tool = {
+          toolName: 'Read',
+          firstArg: 'new.txt',
+          isRunning: true,
+          ...(mode === 'unnamed' ? {} : { executionId: 'tool-1' }),
+        };
+        if (mode === 'permission') {
+          fake.emit('permission_request', {
+            id: 'permission-live',
+            toolName: 'Read',
+            toolArgs: { filePath: 'new.txt' },
+            executionId: 'tool-1',
+          });
+          await wasAnswered;
+        }
+        fake.emit('tool_start', tool);
+        fake.emit('tool_end', { ...tool, isRunning: false, result: 'success' });
+        return endedTurn();
+      });
+      fake.resolvePermission.mockImplementation(answered);
+      fake.session.getMessagesDisplay = () => [
+        {
+          type: 'tool',
+          tool: {
+            toolName: 'Read',
+            firstArg: 'old.txt',
+            isRunning: false,
+            result: 'success',
+            executionId: 'tool-1',
+          },
+        },
+      ];
+      const { editor } = await start(fake, { loadSession: async () => ({ loaded: true }) });
+      editor.answerPermission(() => ({ outcome: { outcome: 'selected', optionId: 'allow-once' } }));
+      await editor.connection.agent.request('initialize', { protocolVersion: 1 });
+      await editor.connection.agent.request('session/load', {
+        sessionId: SESSION_ID,
+        cwd: WORKSPACE,
+        mcpServers: [],
+      });
+      await editor.connection.agent.request('session/prompt', {
+        sessionId: SESSION_ID,
+        prompt: textPrompt('read the new file'),
+      });
+      const calls = editor.updates.flatMap((update) =>
+        update.sessionUpdate === 'tool_call' || update.sessionUpdate === 'tool_call_update'
+          ? [{ id: update.toolCallId, status: update.status }]
+          : [],
+      );
+      expect(calls).toEqual([
+        { id: 'tool-1', status: 'completed' },
+        { id: 'tool-2', status: 'in_progress' },
+        { id: 'tool-2', status: 'completed' },
+      ]);
+      if (mode === 'permission')
+        expect(editor.permissionRequests[0]?.toolCall.toolCallId).toBe('tool-2');
+    },
+  );
+
   it('answers a fixed error when the loaded history cannot be read, and keeps the cause local', async () => {
     const fake = createFakeSession();
     fake.session.getMessagesDisplay = () => {

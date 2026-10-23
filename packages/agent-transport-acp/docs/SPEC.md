@@ -87,13 +87,11 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
 - **Stop reason comes from the turn handle.** A session-wide `complete` or `interrupted` says that a
   turn ended, never which one; the handle names its own turn. A reply that was not streamed (a
   provider without deltas) is sent once from the result.
-- **Tool calls are keyed by the session's execution id when it has one, otherwise by a counter.**
-  The editor keeps earlier calls and identifies them by id, so ids must not repeat across turns; the
-  counter lives as long as the connection. The session asks permission before it reports a call,
-  and the request names the call by that same execution id, so the request's row is the call's row:
-  its start and its end, or its refusal, address the row the editor already holds, and a denial the
-  session decides on its own while the editor's dialog is still open closes that one row. A request
-  that names no call gets a row of its own that closes with the answer, since nothing could match it
+- **Tool-call rows are unique for the connection's lifetime.** Replayed and live calls share one
+  allocator; a session execution id is preferred only when no earlier row used it, because the
+  editor merges rows with the same id. A permission request and its call's start, end or refusal
+  keep the allocated row for that execution, including when a repeated request reaches an already
+  running call. A request that names no call gets a row of its own, since nothing could match it
   without guessing. A row whose call never came by the end of the turn is closed rather than left
   pending: as failed for this session's own call, which the ended turn will not run, and with the
   answer for a background agent's, which may still run after the prompt the editor is watching.

@@ -35,14 +35,13 @@ export function availableCommands(
  * A loaded session's history as the editor would have seen it live: what the person typed, what the
  * agent answered, and each finished tool call with how it ended. A call keeps its own id unless that
  * id already named a row of this replay (a provider can reuse ids across turns), because the editor
- * would merge the two rows into one.
+ * would merge the two rows into one. The connection's allocator also keeps later live calls distinct.
  */
 export function replayHistory(
   segments: readonly IHistoryDisplaySegment[],
   updates: IAcpUpdateStream,
-  nextToolCallId: () => string,
+  nextToolCallId: (preferredId?: string) => string,
 ): void {
-  const used = new Set<string>();
   for (const segment of segments) {
     if (segment.type === 'text') {
       if (segment.content === '') continue;
@@ -54,9 +53,7 @@ export function replayHistory(
     }
     const { tool } = segment;
     if (tool.internal) continue;
-    let toolCallId = tool.executionId ?? nextToolCallId();
-    while (used.has(toolCallId)) toolCallId = nextToolCallId();
-    used.add(toolCallId);
+    const toolCallId = nextToolCallId(tool.executionId);
     updates.send({
       sessionUpdate: 'tool_call',
       toolCallId,

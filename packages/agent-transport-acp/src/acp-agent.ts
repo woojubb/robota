@@ -64,7 +64,13 @@ export function createAcpAgent(
   let binding = false;
   let active: { cancel(): void } | undefined;
   let toolCalls = 0;
-  const nextToolCallId = (): string => `tool-${(toolCalls += 1)}`;
+  const usedToolCallIds = new Set<string>();
+  const nextToolCallId = (preferredId?: string): string => {
+    let id = preferredId;
+    while (id === undefined || usedToolCallIds.has(id)) id = `tool-${(toolCalls += 1)}`;
+    usedToolCallIds.add(id);
+    return id;
+  };
   /** The command list the editor last received, so an unchanged list is not sent again. */
   let advertised: string | undefined;
 
