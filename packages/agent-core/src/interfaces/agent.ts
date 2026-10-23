@@ -6,6 +6,7 @@ import type {
   IAIProvider,
   TModelEffortSelection,
   TToolChoice,
+  TProviderOwnership,
 } from './provider';
 import type { IResponseFormatConfig, ISafetySetting } from './response-format';
 import type { IRunOptions } from './run-options';
@@ -87,6 +88,8 @@ export interface IAgentConfig {
   id?: string;
   name: string;
   aiProviders: IAIProvider[];
+  /** Registration names whose close responsibility differs from the owned default. */
+  providerOwnership?: Readonly<Record<string, TProviderOwnership>>;
   defaultModel: {
     provider: string;
     model: string;

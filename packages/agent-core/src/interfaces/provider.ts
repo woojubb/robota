@@ -38,6 +38,14 @@ export {
  */
 export type TProviderConfigValue = string | number | boolean;
 
+/** Whether registration transfers responsibility for closing the provider to the agent. */
+export type TProviderOwnership = 'owned' | 'borrowed';
+
+export interface IProviderRegistrationOptions {
+  /** Defaults to owned. Borrowed providers are closed by their external owner. */
+  ownership?: TProviderOwnership;
+}
+
 export type { IProviderSpecificOptions } from './provider-specific-options';
 export type { TModelEffort, TModelEffortSelection } from './model-effort-capability';
 export { isModelEffort, MODEL_EFFORT_VALUES } from './model-effort-capability';

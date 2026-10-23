@@ -877,3 +877,58 @@ function freshJournal(): IRecoverableExecutionJournal {
     read: async () => [],
   };
 }
+
+describe('sessionParticipant borrowed provider lifetime', () => {
+  it('retains exclusive use while open, preserves the client after shutdown and after journal setup failure', async () => {
+    const scripted = createScriptedProvider([{ text: 'session borrowed response' }]);
+    const close = vi.fn(async () => {});
+    const chat = scripted.provider.chat.bind(scripted.provider);
+    const provider = Object.assign(scripted.provider, {
+      close,
+      chat: (...args: Parameters<typeof chat>) => {
+        if (close.mock.calls.length) throw new Error('provider closed');
+        return chat(...args);
+      },
+    });
+    let failJournal = false;
+    const participant = sessionParticipant({
+      id: 'p',
+      runtime: { id: 'fixture/session', version: '1' },
+      createSessionOptions: () => hostOptions(provider, { providerOwnership: 'borrowed' }),
+      journal: () => {
+        if (failJournal) throw new Error('journal unavailable');
+        return createInProcessJournal('borrowed-fixture');
+      },
+    });
+    const first = await participant.factory.openSession({
+      conversationId: 'first',
+      participantId: 'p',
+    });
+    await expect(
+      participant.factory.openSession({ conversationId: 'overlap', participantId: 'p' }),
+    ).rejects.toMatchObject({ code: 'resource-reused' });
+    await first.release();
+    expect(close).not.toHaveBeenCalled();
+    failJournal = true;
+    await expect(
+      participant.factory.openSession({ conversationId: 'failed', participantId: 'p' }),
+    ).rejects.toThrow('journal unavailable');
+    expect(close).not.toHaveBeenCalled();
+    failJournal = false;
+    const second = await participant.factory.openSession({
+      conversationId: 'second',
+      participantId: 'p',
+    });
+    try {
+      expect(await second.session.runTurn(turn(), execOptions())).toEqual({
+        kind: 'speak',
+        content: 'session borrowed response',
+      });
+    } finally {
+      await second.release();
+    }
+    expect(close).not.toHaveBeenCalled();
+    await provider.close();
+    expect(close).toHaveBeenCalledOnce();
+  });
+});

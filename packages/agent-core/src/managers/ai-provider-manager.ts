@@ -4,7 +4,11 @@ import { logger } from '../utils/logger';
 import { Validator } from '../utils/validation';
 
 import type { IAIProviderManager } from '../interfaces/manager';
-import type { IAIProvider } from '../interfaces/provider';
+import type {
+  IAIProvider,
+  IProviderRegistrationOptions,
+  TProviderOwnership,
+} from '../interfaces/provider';
 
 /**
  * AI Provider Manager - manages AI provider instances
@@ -13,7 +17,9 @@ import type { IAIProvider } from '../interfaces/provider';
  * @internal
  */
 export class AIProviders extends AbstractManager implements IAIProviderManager {
-  private providers = new Map<string, IAIProvider>();
+  private providers = new Map<string, { provider: IAIProvider; ownership: TProviderOwnership }>();
+  private retirements = new Set<Promise<void>>();
+  private closing = new WeakMap<IAIProvider, Promise<void>>();
   private currentProvider: string | undefined;
   private currentModel: string | undefined;
 
@@ -35,31 +41,44 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
    * Cleanup manager resources
    */
   protected async doDispose(): Promise<void> {
-    // Close all providers
-    for (const [name, provider] of this.providers) {
-      try {
-        if (provider.close) {
-          await provider.close();
-        }
-        logger.debug(`Closed AI provider: ${name}`);
-      } catch (error) {
+    const registrations = [...this.providers.entries()];
+    this.providers.clear();
+    this.initialized = false;
+    this.currentProvider = undefined;
+    this.currentModel = undefined;
+    for (const [name, registration] of registrations) {
+      if (registration.ownership === 'owned') this.retire(name, registration.provider);
+    }
+    await Promise.all(this.retirements);
+
+    logger.debug('AIProviders disposed');
+  }
+
+  private retire(name: string, provider: IAIProvider): void {
+    if (this.closing.has(provider)) return;
+    const retirement = Promise.resolve()
+      .then(() => provider.close?.())
+      .catch((error: unknown) => {
         logger.warn(`Failed to close AI provider ${name}`, {
           error: error instanceof Error ? error.message : String(error),
         });
-      }
-    }
-
-    this.providers.clear();
-    this.currentProvider = undefined;
-    this.currentModel = undefined;
-
-    logger.debug('AIProviders disposed');
+      })
+      .finally(() => {
+        this.retirements.delete(retirement);
+        this.closing.delete(provider);
+      });
+    this.closing.set(provider, retirement);
+    this.retirements.add(retirement);
   }
 
   /**
    * Register an AI provider
    */
-  addProvider(name: string, provider: IAIProvider): void {
+  addProvider(
+    name: string,
+    provider: IAIProvider,
+    options: IProviderRegistrationOptions = {},
+  ): void {
     this.ensureInitialized();
 
     // Validate provider name
@@ -81,15 +100,24 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
       throw new ValidationError('Provider must have a chat method');
     }
 
+    const ownership = options.ownership === undefined ? 'owned' : options.ownership;
+    if (ownership !== 'owned' && ownership !== 'borrowed') {
+      throw new ValidationError('Provider ownership must be owned or borrowed');
+    }
+
     // Check for duplicate registration
     if (this.providers.has(name)) {
       logger.warn(`Provider "${name}" is already registered, overriding`, {
         providerName: name,
-        existingProvider: this.providers.get(name)?.name,
+        existingProvider: this.providers.get(name)?.provider.name,
       });
     }
 
-    this.providers.set(name, provider);
+    const previous = this.providers.get(name);
+    this.providers.set(name, { provider, ownership });
+    if (previous?.ownership === 'owned' && previous.provider !== provider) {
+      this.retire(name, previous.provider);
+    }
     logger.debug(`AI provider "${name}" registered successfully`, {
       providerName: name,
       version: provider.version,
@@ -108,17 +136,9 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
       return;
     }
 
-    // Close provider if it has close method
-    const provider = this.providers.get(name);
-    if (provider?.close) {
-      provider.close().catch((error: Error) => {
-        logger.warn(`Failed to close provider ${name}`, {
-          error: error.message,
-        });
-      });
-    }
-
+    const registration = this.providers.get(name);
     this.providers.delete(name);
+    if (registration?.ownership === 'owned') this.retire(name, registration.provider);
 
     // Clear current selection if this was the current provider
     if (this.currentProvider === name) {
@@ -135,7 +155,7 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
    */
   getProvider(name: string): IAIProvider | undefined {
     this.ensureInitialized();
-    return this.providers.get(name);
+    return this.providers.get(name)?.provider;
   }
 
   /**
@@ -143,7 +163,7 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
    */
   getProviders(): Record<string, IAIProvider> {
     this.ensureInitialized();
-    return Object.fromEntries(this.providers);
+    return Object.fromEntries([...this.providers].map(([name, entry]) => [name, entry.provider]));
   }
 
   /**
@@ -203,7 +223,7 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
       return undefined;
     }
 
-    return this.providers.get(this.currentProvider);
+    return this.providers.get(this.currentProvider)?.provider;
   }
 
   /**
@@ -223,9 +243,9 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
     const regex = typeof pattern === 'string' ? new RegExp(pattern) : pattern;
     const result: Record<string, IAIProvider> = {};
 
-    for (const [name, provider] of this.providers) {
+    for (const [name, registration] of this.providers) {
       if (regex.test(name)) {
-        result[name] = provider;
+        result[name] = registration.provider;
       }
     }
 
@@ -243,7 +263,7 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
       return false;
     }
 
-    const provider = this.providers.get(name);
+    const provider = this.providers.get(name)?.provider;
     return !!(provider && typeof provider.chatStream === 'function');
   }
 

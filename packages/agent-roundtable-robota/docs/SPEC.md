@@ -33,9 +33,11 @@ A settled turn's checkpoint restores a fresh runtime instance to the same privat
 same construction inputs; identity or environment that no longer matches what produced the checkpoint
 is refused rather than silently accepted. A parked wait's checkpoint is a receipt naming the execution
 still held by a live session, not a substitute for one — restoring it depends on that session, or a
-durable record of the execution it names, still being reachable. A lease's session, provider and tools
-belong to it exclusively until it is released; a second lease over any of them while the first still
-holds it is refused, and releasing an already-released lease changes nothing.
+durable record of the execution it names, still being reachable. A lease holds exclusive use of its session, provider and tools until its runtime teardown finishes;
+a second lease over any of them while the first still holds it is refused even when a provider is
+borrowed, and repeated release awaits the same teardown. Borrowing leaves provider close responsibility
+with the external owner; it does not make concurrent use safe. Resources are fixed when the lease opens;
+the host must not replace them externally during a live lease.
 
 A selector backed by an agent trusts a decision only when the agent reaches it through the one
 channel offered for reaching it, unambiguously, and only when it names conversation participants that

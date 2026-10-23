@@ -59,7 +59,12 @@ export function createConfiguredProviders(config: IAgentConfig): AIProviders {
   const aiProviders = new AIProviders();
   if (config.aiProviders) {
     for (const provider of config.aiProviders) {
-      aiProviders.addProvider(provider.name, provider);
+      aiProviders.addProvider(provider.name, provider, {
+        ownership:
+          config.providerOwnership && Object.hasOwn(config.providerOwnership, provider.name)
+            ? config.providerOwnership[provider.name]
+            : 'owned',
+      });
     }
   }
   if (config.defaultModel) {
