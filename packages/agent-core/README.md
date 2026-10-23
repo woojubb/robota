@@ -250,7 +250,7 @@ needs Node). Import them from `@robota-sdk/agent-core/node` only to pass them ex
 
 | Area                   | Exports                                                                                                                                                                                                                  |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Agent**              | `ConversationAgent`, `ConversationStore`, `ConversationHistory`, `AbstractAgent`, `AgentFactory`, `AgentTemplates`                                                                                                                  |
+| **Agent**              | `ConversationAgent`, `ConversationStore`, `ConversationHistory`, `AbstractAgent`, `AgentFactory`, `AgentTemplates`                                                                                                       |
 | **Providers**          | `AbstractAIProvider`, `IAIProvider`, `IChatOptions`, `IProviderCapabilities`, `getProviderCapabilities`, `assertProviderNativeWebToolsAvailable`, `IProviderDefinition`, `createProviderFromConfig`                      |
 | **Media providers**    | `IImageGenerationProvider`, `IVideoGenerationProvider`, `isImageGenerationProvider`, `isVideoGenerationProvider`, `createImageProviderFromDefinition`, `createVideoProviderFromDefinition`, `resolveMediaProviderConfig` |
 | **Tools**              | `FunctionTool`, `ToolRegistry`, `AbstractTool`, `IToolSchema`, `IToolResult`, `zodToJsonSchema`                                                                                                                          |
@@ -262,7 +262,7 @@ needs Node). Import them from `@robota-sdk/agent-core/node` only to pass them ex
 | **Models**             | `registerModelMetadata`, `getModelContextWindow`, `getModelMaxOutput`, `getModelName`, `formatTokenCount`, `DEFAULT_CONTEXT_WINDOW`, `DEFAULT_MAX_OUTPUT`, `IModelDefinition`                                            |
 | **Context and usage**  | `estimateContextTokensFromMessages`, `estimateSerializedContextTokens`, `readTokenUsageFromMessage`, `sumMessagesUsage`, `IContextWindowState`, `IContextTokenUsage`                                                     |
 | **Messages**           | `TUniversalMessage`, `IBaseMessage`, `TMessageState`, `createUserMessage`, `createAssistantMessage`, `isAssistantMessage`, …                                                                                             |
-| **Errors**             | `AgentRuntimeError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, `StructuredOutputError`, `classifyProviderFailure`, `toProviderError`                                                     |
+| **Errors**             | `AgentRuntimeError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, `StructuredOutputError`, `classifyProviderFailure`, `toProviderError`                                               |
 
 ## Where it sits
 
@@ -317,3 +317,25 @@ its own connection policy; it does not inherit the default transport's pinning g
 ## License
 
 This package is dual-licensed under the [GNU AGPL-3.0](../../LICENSE) or a [commercial license](../../COMMERCIAL.md). See [LICENSING.md](../../LICENSING.md).
+
+## Provider lifetime
+
+Agents close their providers on destruction by default. A host that owns a longer-lived client
+can borrow it explicitly while keeping its existing provider array:
+
+```typescript
+const agent = new ConversationAgent({
+  name: 'borrower',
+  aiProviders: [provider],
+  providerOwnership: { [provider.name]: 'borrowed' },
+  defaultModel: { provider: provider.name, model: 'your-model' },
+});
+await agent.destroy(); // The host's provider remains open.
+// After every borrower finishes:
+await provider.close?.();
+```
+
+`swapDefaultProvider(provider, model, { ownership: 'borrowed' })` makes the same explicit choice
+for a replacement; omitting the option keeps the owned default. Borrowing changes who closes the
+client and does not promise concurrent-use safety. A `Session` accepts the singular
+`providerOwnership: 'borrowed'` option, including through the Roundtable session adapter.

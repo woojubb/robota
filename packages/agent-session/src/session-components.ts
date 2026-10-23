@@ -91,6 +91,9 @@ export function buildConversationAgent(
   const agentConfig: IAgentConfig = {
     name: options.agentName ?? 'agent',
     aiProviders: [provider],
+    ...(options.providerOwnership !== undefined
+      ? { providerOwnership: { [provider.name]: options.providerOwnership } }
+      : {}),
     defaultModel: {
       provider: provider.name,
       model,

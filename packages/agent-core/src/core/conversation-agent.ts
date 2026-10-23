@@ -45,7 +45,11 @@ import type {
 } from '../interfaces/agent';
 import type { IEventService, IAgentEventData } from '../interfaces/event-service';
 import type { IHistoryEntry } from '../interfaces/messages';
-import type { IAIProvider, IToolSchema } from '../interfaces/provider';
+import type {
+  IAIProvider,
+  IToolSchema,
+  IProviderRegistrationOptions,
+} from '../interfaces/provider';
 import type {
   IToolExecutionContext,
   IToolExecutionResult,
@@ -100,6 +104,11 @@ export class ConversationAgent
     this.startTime = Date.now();
 
     validateAgentConfig(config);
+    this.config = {
+      ...config,
+      aiProviders: [...config.aiProviders],
+      ...(config.providerOwnership ? { providerOwnership: { ...config.providerOwnership } } : {}),
+    };
 
     this.aiProviders = createConfiguredProviders(config); // CORE-047 — see its docblock for why here
     this.tools = createConfiguredTools(() => this.config);
@@ -363,11 +372,29 @@ export class ConversationAgent
     return this.tools.getOfferedTools();
   }
   getConfig(): IAgentConfig {
-    return { ...this.config };
+    return {
+      ...this.config,
+      aiProviders: [...this.config.aiProviders],
+      ...(this.config.providerOwnership
+        ? { providerOwnership: { ...this.config.providerOwnership } }
+        : {}),
+    };
   }
 
-  swapDefaultProvider(newProvider: IAIProvider, model: string): void {
-    this.aiProviders.addProvider(newProvider.name, newProvider);
+  swapDefaultProvider(
+    newProvider: IAIProvider,
+    model: string,
+    options: IProviderRegistrationOptions = {},
+  ): void {
+    this.aiProviders.addProvider(newProvider.name, newProvider, options);
+    this.config = {
+      ...this.config,
+      aiProviders: Object.values(this.aiProviders.getProviders()),
+      providerOwnership: {
+        ...this.config.providerOwnership,
+        [newProvider.name]: options.ownership ?? 'owned',
+      },
+    };
     this.configManager.setModel({ provider: newProvider.name, model });
   }
 

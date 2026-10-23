@@ -16,7 +16,7 @@ persistence paths that consume it (the store, the artifact envelope, the replay 
 
 ## Boundaries / Non-goals
 
-- Does not own AI provider creation — accepts a pre-constructed `IAIProvider` via injection.
+- Does not own AI provider creation — accepts a pre-constructed `IAIProvider` via injection, with explicit borrowed lifetime leaving close responsibility to its external owner and owned lifetime as the default.
 - Does not own tool implementations — accepts pre-constructed tools via injection.
 - Does not own system-prompt building — accepts a pre-built system message string. It owns
   exactly one model-facing prompt surface: the compaction summarization prompt, whose base

@@ -78,6 +78,6 @@ describe('Session.swapProvider updates getModelId() (#3282 §2)', () => {
     session.swapProvider(nextProvider as never, 'gpt-5.1');
 
     expect(session.getModelId()).toBe('gpt-5.1');
-    expect(swapDefaultProviderSpy).toHaveBeenCalledWith(nextProvider, 'gpt-5.1');
+    expect(swapDefaultProviderSpy.mock.calls[0]?.slice(0, 2)).toEqual([nextProvider, 'gpt-5.1']);
   });
 });
