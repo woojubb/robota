@@ -16,6 +16,12 @@ function createMockSession(options?: { sessionId?: string }) {
   return {
     run: vi.fn().mockResolvedValue('mock response'),
     abort: vi.fn(),
+    assertInputAllowed: vi.fn(),
+    getConversationSnapshot(
+      this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
+    ) {
+      return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
+    },
     getHistory: vi.fn().mockReturnValue([]),
     getContextState: vi.fn().mockReturnValue({
       usedTokens: 0,

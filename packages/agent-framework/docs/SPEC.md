@@ -128,14 +128,17 @@ These are behaviors a caller cannot infer from a type signature alone.
   explicit store (optionally composed from same-authority `sessions`/`session-logs` state facets); an
   omitted per-session store inherits the runtime store, an explicit store replaces it, and an
   explicit `undefined` disables persistence for that one session — all three are distinguishable
-  states, not collapsed into "no store".
+  states, not collapsed into "no store". Saved recovery discovery and conversation history share
+  one Session-owned snapshot, restored before runnable initialization; strict persistence must
+  acknowledge synchronously or refuse the transition.
 - **Fork vs. resume is exactly one bit of difference.** Resume reuses the source session id; fork
   generates a fresh id while still restoring the same messages and the parent's assembled system
   prompt verbatim — a fork inherits the parent's full assembled prompt (including any active output
   style, since that is just a section of the same string) rather than rebuilding one from current
   project files. A plain resume is not a copy and always rebuilds, so edits to AGENTS.md between
   sessions still reach it. Writing a fork's record leaves the source record byte-identical; the two
-  conversations never rejoin. Attaching a surface's view to a fork is a _view switch_, never a merge.
+  conversations never rejoin. An unresolved recovery conversation cannot be copied to another
+  session or workspace because discovery is bound to its existing owner. Attaching a surface's view to a fork is a _view switch_, never a merge.
 - **Host-action parity.** A command's host actions (language change, settings reset, session
   exit/restart/rename, …) are executed by the session through injected host adapters, so headless and
   programmatic embeddings get the same command semantics as an attached UI. An embedding with no
@@ -228,7 +231,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   classified by the provider, humanized once by this package, and rendered per-transport. A failed
   turn commits any partially streamed answer to history as an interrupted entry before stream state
   clears; a resumed tool call without a committed result keeps its original identity and receives an
-  interrupted, unknown-outcome receipt rather than being dispatched again. Errors from outside the turn boundary (background tasks, catalog refresh, uncaught promises)
+  interrupted, unknown-outcome receipt rather than being dispatched again unless its saved recovery
+  identity requires an explicit host continuation decision. Errors from outside the turn boundary (background tasks, catalog refresh, uncaught promises)
   surface through the same humanize path via `reportBackgroundError`, and the session stays usable.
 - **Self-paced loop intent is durable before admission.** Loop state transitions are strict
   session-record writes; a failed or uncertain write can never authorize another iteration, missed

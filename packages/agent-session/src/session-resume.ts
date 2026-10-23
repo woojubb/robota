@@ -18,6 +18,5 @@ export async function executeResume(
   });
   ctx.contextTracker.updateFromHistory(ctx.agent.getHistory());
   ctx.onContextUpdate?.(ctx.contextTracker.getContextState());
-  if (ctx.getSessionStore()) ctx.persistSession();
   return response;
 }

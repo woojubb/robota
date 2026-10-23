@@ -42,6 +42,12 @@ export const stubSubmit: TSubmitFn = async () => ({
 
 export function createSessionStub(overrides: Partial<Session> = {}): Session {
   return {
+    assertInputAllowed: vi.fn(),
+    getConversationSnapshot: () => ({
+      id: overrides.getSessionId?.() ?? 'session_stub',
+      cwd: overrides.getCwd?.() ?? '/workspace',
+      messages: overrides.getHistory?.() ?? [],
+    }),
     getSessionId: () => 'session_stub',
     getHistory: () => [],
     getSystemMessage: () => 'system',

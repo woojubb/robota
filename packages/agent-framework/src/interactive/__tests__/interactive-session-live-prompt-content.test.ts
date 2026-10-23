@@ -31,6 +31,12 @@ function createMockSession(
   const session = {
     run: vi.fn().mockImplementation(() => runImpl(history)),
     abort: vi.fn(),
+    assertInputAllowed: vi.fn(),
+    getConversationSnapshot(
+      this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
+    ) {
+      return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
+    },
     getHistory: vi.fn().mockImplementation(() => history),
     getContextState: vi
       .fn()
@@ -57,7 +63,11 @@ function createMockSession(
   return session;
 }
 
-const BOTH: ILivePromptContentPolicy = { userPrompts: true, assistantResponses: true, maxBytes: 2048 };
+const BOTH: ILivePromptContentPolicy = {
+  userPrompts: true,
+  assistantResponses: true,
+  maxBytes: 2048,
+};
 
 function build(
   options: {
@@ -163,8 +173,11 @@ describe('live prompt content capture', () => {
       ['peer', { turnSource: 'peer', driverId: 'peer:session_b' }],
       ['wake', { turnSource: 'agent-wakeup', driverId: 'agent' }],
     ];
-    for (const [text, submitOptions] of cases) await session.submit(text, undefined, undefined, submitOptions);
-    const captured = contents.map((batch) => batch.items.find((item) => item.kind === 'user-prompt')?.text);
+    for (const [text, submitOptions] of cases)
+      await session.submit(text, undefined, undefined, submitOptions);
+    const captured = contents.map(
+      (batch) => batch.items.find((item) => item.kind === 'user-prompt')?.text,
+    );
     expect(captured).toEqual(entries.map((entry) => entry.text));
     expect(captured).toEqual(['owner-a', 'owner-b']);
   });

@@ -18,6 +18,7 @@ import type {
 } from '@robota-sdk/agent-core';
 
 export abstract class SessionBase {
+  abstract assertInputAllowed(): void;
   protected abstract readonly agent: ConversationAgent;
   protected abstract readonly permissionEnforcer: PermissionEnforcer;
   protected abstract readonly contextTracker: ContextWindowTracker;
@@ -112,6 +113,7 @@ export abstract class SessionBase {
    * AGENTS.md/CLAUDE.md staleness refresh.
    */
   updateSystemMessage(newMessage: string): void {
+    this.assertInputAllowed();
     this.systemMessage = newMessage;
     this.agent.updateSystemPrompt(newMessage);
   }
@@ -339,6 +341,7 @@ export abstract class SessionBase {
 
   /** Add an event entry to history (not a chat message) */
   addHistoryEntry(entry: IHistoryEntry): void {
+    this.assertInputAllowed();
     this.agent.addHistoryEntry(entry);
   }
 
@@ -348,6 +351,7 @@ export abstract class SessionBase {
     content: string,
     options?: { toolCallId?: string; name?: string },
   ): void {
+    this.assertInputAllowed();
     this.agent.injectMessage(role, content, options);
   }
 
@@ -356,10 +360,12 @@ export abstract class SessionBase {
    * Used during session restore to correctly reconstruct tool_use+tool_result pairs.
    */
   injectRawMessage(msg: TUniversalMessage): void {
+    this.assertInputAllowed();
     this.agent.injectRawMessage(msg);
   }
 
   clearHistory(): void {
+    this.assertInputAllowed();
     this.agent.clearHistory();
     this.contextTracker.reset();
   }

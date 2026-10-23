@@ -1,3 +1,4 @@
+import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-session';
 import type { ICommandProductVocabulary } from '../command-api/host-context-types.js';
 import { randomUUID } from 'node:crypto';
 import { basename } from 'node:path';
@@ -211,6 +212,7 @@ export class InteractiveSession
   /** A `/cd` was handed to the host; this session is ending (issue #3081). */
   private workspaceMovePending = false;
   private pendingRestoreMessages: TUniversalMessage[] | null = null;
+  private pendingRestoreConversation: ISessionConversationSnapshot | null = null;
   /** CLI-1994: the resumed record's assembled prompt, applied when this session is a fork. */
   private restoredSystemPrompt?: string;
   private resumeSessionId?: string;
@@ -598,6 +600,14 @@ export class InteractiveSession
 
   private restoreSessionRecordIfNeeded(options: TInteractiveSessionOptions): void {
     if (!options.resumeSessionId || !this.sessionStore) return;
+    if (
+      this.startedAsFork ||
+      ('workspaceMovedFrom' in options && options.workspaceMovedFrom !== undefined)
+    ) {
+      const source = this.sessionStore.load(options.resumeSessionId);
+      if (source.status === 'valid' && source.record.pendingExecution)
+        throw new Error('Resolve the pending execution before copying its conversation');
+    }
     const restored = loadSessionRecord(this.sessionStore, options.resumeSessionId, this.session);
     this.histTracker.restoreState({
       history: restored.history,
@@ -614,6 +624,7 @@ export class InteractiveSession
       groupEvents: restored.backgroundJobGroupEvents,
     });
     this.pendingRestoreMessages = restored.pendingRestoreMessages;
+    this.pendingRestoreConversation = restored.pendingRestoreConversation;
     // CLI-1994: a fork is a copy, prompt included; the deferred path applies it after assembly.
     this.restoredSystemPrompt = restored.restoredSystemPrompt;
     if (this.session && this.startedAsFork && restored.restoredSystemPrompt !== undefined) {
@@ -653,6 +664,7 @@ export class InteractiveSession
       sandboxSnapshotId: this.sandboxSnapshotId,
       resumeSessionId: this.resumeSessionId,
       pendingRestoreMessages: this.pendingRestoreMessages,
+      pendingRestoreConversation: this.pendingRestoreConversation,
       restoredSystemPrompt: this.restoredSystemPrompt,
       // Issue #3288 §1: `context` is optional here so this stays assignable to the narrower
       // `TInteractivePermissionHandler` this deps field is typed as (2 args). The callers that supply
@@ -728,6 +740,7 @@ export class InteractiveSession
       ...result.projectNotesFileEntries,
     ]);
     this.pendingRestoreMessages = null;
+    this.pendingRestoreConversation = null;
     if (options.workspaceMovedFrom !== undefined && this.resumeSessionId !== undefined) {
       this.announceWorkspaceMove(options.workspaceMovedFrom, result.agentsFileEntries);
     }
@@ -953,6 +966,7 @@ export class InteractiveSession
       onAccepted,
       execCtrl: this.execCtrl,
       ensureInitialized: () => this.ensureInitialized(),
+      assertInputAllowed: () => this.getSessionOrThrow().assertInputAllowed(),
       executeAcceptedTurn: (entry) => this.executeAcceptedTurn(entry),
       emitDropped: (driverId, maxDepth) =>
         this.emit(
@@ -969,6 +983,16 @@ export class InteractiveSession
   }
 
   private async executeAcceptedTurn(entry: IQueuedInput): Promise<void> {
+    try {
+      this.getSessionOrThrow().assertInputAllowed();
+    } catch (error) {
+      this.execCtrl.turns.fail(
+        entry.turnId,
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      if (entry.options.wakeTaskId) this.execCtrl.wakeTaskIds.delete(entry.options.wakeTaskId);
+      throw error;
+    }
     const identity = this.parseSelfPacedWakeId(entry.options.wakeTaskId);
     const selfPaced = identity ? this.selfPacedLoops.get(identity.loopId) : undefined;
     const scheduled = entry.options.wakeTaskId
@@ -1086,6 +1110,15 @@ export class InteractiveSession
    */
   requestWakeup(instruction: string, sourceTaskId: string, displayInput?: string): boolean {
     if (this.execCtrl.shuttingDown) return false;
+    try {
+      this.getSessionOrThrow().assertInputAllowed();
+    } catch (error) {
+      this.reportBackgroundError(
+        error instanceof Error ? error : new Error(String(error)),
+        'session-loop',
+      );
+      return false;
+    }
     const task = this.getBackgroundTaskManager()?.get(sourceTaskId);
     if (task?.metadata?.['sessionLoopSelfPaced'] === true) {
       return this.admitSelfPacedWake(sourceTaskId, task.metadata);
@@ -1220,6 +1253,7 @@ export class InteractiveSession
     options: { useDefaultPrompt?: boolean } = {},
   ): Promise<ISessionLoopState> {
     await this.ensureInitialized();
+    this.getSessionOrThrow().assertInputAllowed();
     if (this.sessionLoopsDisabled) throw new Error('Session loops are disabled by the host.');
     if (!this.sessionStore) throw new Error('A session store is required for a resumable loop.');
     const fixedCount = this.listSchedules().filter(
@@ -1388,6 +1422,15 @@ export class InteractiveSession
   }
 
   private resumeSelfPacedLoops(): void {
+    try {
+      this.getSessionOrThrow().assertInputAllowed();
+    } catch (error) {
+      this.reportBackgroundError(
+        error instanceof Error ? error : new Error(String(error)),
+        'session-loop',
+      );
+      return;
+    }
     for (const state of this.selfPacedLoops.list()) {
       // A host kill switch pauses restoration; it must not erase an unexpired persisted loop.
       if (this.sessionLoopsDisabled && Date.now() < Date.parse(state.expiresAt)) continue;
@@ -1520,6 +1563,7 @@ export class InteractiveSession
   }): Promise<IBackgroundTaskState> {
     await this.ensureInitialized();
     if (!input.sessionLoop) return super.spawnScheduledWake(input);
+    this.getSessionOrThrow().assertInputAllowed();
     if (this.sessionLoopsDisabled) throw new Error('Session loops are disabled by the host.');
     if (!this.sessionStore) throw new Error('A session store is required for a resumable loop.');
     if (!input.sessionLoopId) throw new Error('A stable loop ID is required for a resumable loop.');
@@ -1748,6 +1792,7 @@ export class InteractiveSession
    */
   async forkSession(input: { name?: string } = {}): Promise<{ sessionId: string; name: string }> {
     await this.ensureInitialized();
+    this.getSessionOrThrow().assertInputAllowed();
     const session = this.getSessionOrThrow();
     if (!this.sessionStore) {
       throw new Error('Cannot fork: this session has no session store to write the copy to.');
@@ -1781,6 +1826,7 @@ export class InteractiveSession
       throw new Error('This session does not save its conversation, so it cannot move it.');
     }
     const session = this.getSessionOrThrow();
+    session.assertInputAllowed();
     const liveTasks = (this.getBackgroundTaskManager()?.list() ?? []).filter(
       (task) => !['completed', 'failed', 'cancelled'].includes(task.status),
     );

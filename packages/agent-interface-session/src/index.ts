@@ -191,3 +191,8 @@ export type {
   ISettingsSnapshot,
   TSettingsPatch,
 } from './settings-contracts.js';
+
+export type {
+  ISessionPendingExecution,
+  ISessionConversationSnapshot,
+} from './session-recovery-contracts.js';

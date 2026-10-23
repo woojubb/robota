@@ -39,6 +39,12 @@ function makeParentSession(cwd: string = process.cwd()) {
     getCwd: vi.fn().mockReturnValue(cwd),
     run: vi.fn().mockResolvedValue('parent response'),
     abort: vi.fn(),
+    assertInputAllowed: vi.fn(),
+    getConversationSnapshot(
+      this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
+    ) {
+      return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
+    },
     getHistory: vi.fn().mockReturnValue([]),
     getContextState: vi.fn().mockReturnValue({
       usedPercentage: 10,
@@ -445,11 +451,13 @@ describe('a fork skill run as a command with a cancel signal', () => {
   it('settles a fork cancelled while it runs as cancelled, not as an error', async () => {
     const { session, errors } = await forkSession();
     const controller = new AbortController();
-    mocks.forkRun.mockImplementation(async (_content: string, _options: unknown, run?: { signal?: AbortSignal }) => {
-      controller.abort();
-      run?.signal?.throwIfAborted();
-      return 'fork result';
-    });
+    mocks.forkRun.mockImplementation(
+      async (_content: string, _options: unknown, run?: { signal?: AbortSignal }) => {
+        controller.abort();
+        run?.signal?.throwIfAborted();
+        return 'fork result';
+      },
+    );
     await expect(
       session.executeCommand('audit', 'src', 'remote', 'owner', 'local', {
         signal: controller.signal,

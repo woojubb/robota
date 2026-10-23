@@ -1,3 +1,4 @@
+import { validatePendingExecution } from './pending-execution-decoder.js';
 /**
  * TRANS-005 (#2081) — the total decoder for a persisted interactive-session record, and the
  * versioned envelope that carries one.
@@ -45,7 +46,7 @@ import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-sess
  * imports this module; declaring it there and importing it back would be a module cycle. The export
  * from the package barrel is unchanged.
  */
-export const SESSION_RECORD_ENVELOPE_VERSION = 1;
+export const SESSION_RECORD_ENVELOPE_VERSION = 2;
 
 /** A persisted record with the version of the shape it was written in. */
 export interface IVersionedInteractiveSessionRecord {
@@ -67,6 +68,7 @@ export const INTERACTIVE_SESSION_RECORD_KEYS: readonly string[] = [
   'createdAt',
   'updatedAt',
   'messages',
+  'pendingExecution',
   'history',
   'systemPrompt',
   'toolSchemas',
@@ -141,10 +143,21 @@ export function decodeVersionedInteractiveSessionRecord(
   if (typeof declaredVersion !== 'number' || !Number.isFinite(declaredVersion)) {
     return { status: 'unsupported', schemaVersion: undefined, ...cwdField(peekCwd(value)) };
   }
-  if (declaredVersion !== SESSION_RECORD_ENVELOPE_VERSION) {
+  if (declaredVersion !== 1 && declaredVersion !== SESSION_RECORD_ENVELOPE_VERSION) {
     return { status: 'unsupported', schemaVersion: declaredVersion, ...cwdField(peekCwd(value)) };
   }
 
+  if (
+    declaredVersion === 1 &&
+    typeof envelope.record === 'object' &&
+    envelope.record !== null &&
+    'pendingExecution' in envelope.record
+  ) {
+    issues.push({
+      path: 'record.pendingExecution',
+      message: 'pending execution requires schema version 2',
+    });
+  }
   const record = decodeRecordInto(envelope['record'], 'record', issues);
   if (record === undefined || issues.length > 0) {
     return { status: 'corrupt', issues, ...cwdField(peekCwd(value)) };
@@ -181,5 +194,12 @@ function decodeRecordInto(
 
   const record: IInteractiveSessionRecord = { id, cwd, createdAt, updatedAt, messages };
   applyOptionalRecordMembers(record, raw, path, issues);
+  if (record.pendingExecution)
+    validatePendingExecution(
+      record.pendingExecution,
+      record.messages,
+      issues,
+      atKey(path, 'pendingExecution'),
+    );
   return record;
 }

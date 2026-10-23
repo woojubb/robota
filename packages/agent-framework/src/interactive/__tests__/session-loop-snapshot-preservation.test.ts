@@ -40,6 +40,12 @@ describe('self-paced loop snapshot preservation', () => {
     } as unknown as IInteractiveSessionStore;
     const session = {
       getSessionId: () => initial.id,
+      assertInputAllowed: vi.fn(),
+      getConversationSnapshot(
+        this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
+      ) {
+        return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
+      },
       getHistory: () => [],
       getSystemMessage: () => 'prompt',
       getToolSchemas: () => [],
