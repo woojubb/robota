@@ -16,6 +16,7 @@ import type {
 import type { ISessionLogger } from './session-logger.js';
 import type {
   IAIProvider,
+  TProviderOwnership,
   IAgentConfig,
   IExecutionJournal,
   IContextWindowState,
@@ -33,10 +34,7 @@ import type {
   IResponseFormatConfig,
   IRunTraceContext,
 } from '@robota-sdk/agent-core';
-import type {
-  ICompactEvent,
-  IInteractiveSessionStore,
-} from '@robota-sdk/agent-interface-session';
+import type { ICompactEvent, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface-session';
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
@@ -61,6 +59,8 @@ export interface ISessionOptions {
   wrapAddedTools?: (tools: IToolWithEventService[]) => IToolWithEventService[];
   /** Pre-constructed AI provider */
   provider: IAIProvider;
+  /** Defaults to owned; a borrowed provider is closed by its external owner. */
+  providerOwnership?: TProviderOwnership;
   /** Pre-built system message string */
   systemMessage: string;
   /** Terminal I/O for permission prompts */

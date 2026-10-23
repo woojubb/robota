@@ -65,6 +65,7 @@ import type {
 } from './session-types.js';
 import type {
   IAIProvider,
+  IProviderRegistrationOptions,
   IExecutionJournal,
   IContextWindowState,
   IEventService,
@@ -673,9 +674,13 @@ export class Session extends SessionBase {
     return this.shutdownPromise;
   }
 
-  swapProvider(newProvider: IAIProvider, model: string): void {
+  swapProvider(
+    newProvider: IAIProvider,
+    model: string,
+    options?: IProviderRegistrationOptions,
+  ): void {
     this.assertInputAllowed();
-    this.agent.swapDefaultProvider(newProvider, model);
+    this.agent.swapDefaultProvider(newProvider, model, options);
     newProvider.configureNativeWebTools?.({ webSearch: true });
     if ('onServerToolUse' in newProvider) {
       (
@@ -746,6 +751,7 @@ export class Session extends SessionBase {
               this.commitConversation();
             }
           : undefined,
+
       getSessionStore: () => !!this.sessionStore,
       clearSessionStartStdout: () => void (this.sessionStartStdout = ''),
       permissionMode: this.permissionMode,

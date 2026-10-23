@@ -176,14 +176,17 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
             options.journal?.({ ...openCtx, sessionId: state.sessionId }) ??
             createInProcessJournal(state.sessionId);
         } catch (error) {
-          releaseLease();
-          if (session) await session.shutdown().catch(() => {});
+          try {
+            if (session) await session.shutdown().catch(() => {});
+          } finally {
+            releaseLease();
+          }
           throw error;
         }
 
         let firstTurnDone = state.firstTurnDone;
         let pendingWait: { executionId: string; requestIds: string[] } | null = state.pending;
-        let released = false;
+        let releasePromise: Promise<void> | undefined;
 
         async function settle(
           execOptions: ParticipantExecutionOptions,
@@ -300,14 +303,15 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
         return {
           session: participantSession,
           async release() {
-            if (released) return;
-            released = true;
-            releaseLease();
-            // Free the module-level map entry itself once this lease ends, unless a wait is
-            // still parked — a resumed lease later needs exactly those records, and `settle`
-            // above never got to clear them because this execution never settled.
-            if (usingDefaultJournal && !pendingWait) forgetInProcessJournal(state.sessionId);
-            await session.shutdown();
+            releasePromise ??= (async () => {
+              try {
+                if (usingDefaultJournal && !pendingWait) forgetInProcessJournal(state.sessionId);
+                await session.shutdown();
+              } finally {
+                releaseLease();
+              }
+            })();
+            await releasePromise;
           },
         };
       },

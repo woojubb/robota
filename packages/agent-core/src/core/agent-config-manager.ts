@@ -56,6 +56,22 @@ export function validateAgentConfig(config: IAgentConfig): void {
     });
   }
 
+  if (config.providerOwnership !== undefined) {
+    if (
+      !config.providerOwnership ||
+      typeof config.providerOwnership !== 'object' ||
+      (Object.getPrototypeOf(config.providerOwnership) !== Object.prototype &&
+        Object.getPrototypeOf(config.providerOwnership) !== null)
+    ) {
+      throw new ConfigurationError('Provider ownership must be a registration-name record');
+    }
+    for (const [name, ownership] of Object.entries(config.providerOwnership)) {
+      if (!providerNames.includes(name) || (ownership !== 'owned' && ownership !== 'borrowed')) {
+        throw new ConfigurationError(`Invalid provider ownership for registration '${name}'`);
+      }
+    }
+  }
+
   if (!providerNames.includes(config.defaultModel.provider)) {
     throw new ConfigurationError(
       `Default provider '${config.defaultModel.provider}' not found in AI providers list. Available: ${providerNames.join(', ')}`,

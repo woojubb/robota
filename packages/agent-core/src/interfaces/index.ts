@@ -80,6 +80,8 @@ export type {
   ITokenUsageWithCacheRead,
   IProviderSpecificOptions,
   TProviderConfigValue,
+  TProviderOwnership,
+  IProviderRegistrationOptions,
   TProviderOptionValueBase,
 } from './provider';
 export { isModelEffort, MODEL_EFFORT_VALUES } from './provider';
