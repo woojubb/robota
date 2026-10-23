@@ -61,6 +61,7 @@ import type {
 } from './session-types.js';
 import type {
   IAIProvider,
+  IProviderRegistrationOptions,
   IExecutionJournal,
   IContextWindowState,
   IEventService,
@@ -532,8 +533,12 @@ export class Session extends SessionBase {
     return this.shutdownPromise;
   }
 
-  swapProvider(newProvider: IAIProvider, model: string): void {
-    this.agent.swapDefaultProvider(newProvider, model);
+  swapProvider(
+    newProvider: IAIProvider,
+    model: string,
+    options?: IProviderRegistrationOptions,
+  ): void {
+    this.agent.swapDefaultProvider(newProvider, model, options);
     newProvider.configureNativeWebTools?.({ webSearch: true });
     if ('onServerToolUse' in newProvider) {
       (
@@ -593,7 +598,8 @@ export class Session extends SessionBase {
       compact: (signal, hookTraceEnv, executionJournal) =>
         this.compactWith(undefined, 'auto', signal, hookTraceEnv, executionJournal),
       persistSession: () => this.persistSessionInternal(),
-      checkpointHistory: this.checkpointHistoryCallback ??
+      checkpointHistory:
+        this.checkpointHistoryCallback ??
         (this.sessionStore ? () => this.persistSessionInternal(true) : undefined),
       getSessionStore: () => !!this.sessionStore,
       clearSessionStartStdout: () => void (this.sessionStartStdout = ''),

@@ -62,13 +62,8 @@ export function runtimeParticipant(options: RuntimeParticipantOptions): AgentPar
           restoring,
         };
         const agent = await options.createAgent(openCtx);
-        // Leasing only `agent` protected two participants from driving the SAME ConversationAgent object
-        // at once, but not from sharing its providers or tools — `agent.destroy()` below closes
-        // every provider in `agent.getConfig().aiProviders`, which breaks a second participant
-        // still using that provider if a host's `createAgent` closure ever hands the same
-        // provider or tool instance to two agents.
-        // A refused claim means another open lease holds this agent or one of its resources, so
-        // destroying the agent here would close what that lease still uses.
+        // Borrowing changes close responsibility, never exclusive-use requirements.
+        // A refused claim must not destroy resources another live lease still holds.
         const config = agent.getConfig();
         const releaseLease = claimLease([agent, ...config.aiProviders, ...(config.tools ?? [])]);
         try {
@@ -77,14 +72,17 @@ export function runtimeParticipant(options: RuntimeParticipantOptions): AgentPar
             for (const message of history) agent.injectRawMessage(message);
           }
         } catch (error) {
-          releaseLease();
-          await agent.destroy().catch(() => {});
+          try {
+            await agent.destroy().catch(() => {});
+          } finally {
+            releaseLease();
+          }
           throw error;
         }
 
         let firstTurnDone = restoring;
         let currentSink: ReturnType<typeof createDeltaQueue> | undefined;
-        let released = false;
+        let releasePromise: Promise<void> | undefined;
 
         const participantSession: ParticipantSession = {
           async checkpoint() {
@@ -129,10 +127,14 @@ export function runtimeParticipant(options: RuntimeParticipantOptions): AgentPar
         return {
           session: participantSession,
           async release() {
-            if (released) return;
-            released = true;
-            releaseLease();
-            await agent.destroy();
+            releasePromise ??= (async () => {
+              try {
+                await agent.destroy();
+              } finally {
+                releaseLease();
+              }
+            })();
+            await releasePromise;
           },
         };
       },

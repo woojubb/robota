@@ -1,4 +1,4 @@
-import type { IAIProvider, IToolSchema } from './provider';
+import type { IAIProvider, IToolSchema, IProviderRegistrationOptions } from './provider';
 import type {
   ITool,
   IToolResult,
@@ -28,7 +28,7 @@ export interface IAIProviderManager {
   /**
    * Register an AI provider
    */
-  addProvider(name: string, provider: IAIProvider): void;
+  addProvider(name: string, provider: IAIProvider, options?: IProviderRegistrationOptions): void;
 
   /**
    * Remove an AI provider
