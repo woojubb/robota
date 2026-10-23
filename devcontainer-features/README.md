@@ -8,7 +8,7 @@ The proposed registry reference is **not published yet**:
 ```json
 {
   "features": {
-    "ghcr.io/<confirmed-owner>/devcontainer-features/__PRODUCT_ID__:1": {}
+    "ghcr.io/woojubb/devcontainer-features/robota:1": {}
   }
 }
 ```
@@ -78,7 +78,25 @@ Feature `1.0.0` selects CLI `3.0.0-beta.96`. Increment the authored Feature vers
 or default CLI pin changes. An identical immutable-version retry may be skipped; different content
 for an existing exact Feature version must fail with the bump instruction.
 
-Registry namespace confirmation and job-scoped package-write permission remain pending. No
-permission-bearing publish workflow is enabled by this source change. A future publisher must wait
-for the matching released Linux binaries, checksum list and npm version, then verify the pushed OCI
-artifact through anonymous pull and actual Feature use. Local tests do not establish publication.
+The release workflow publishes this Feature to the owner-confirmed
+`ghcr.io/woojubb/devcontainer-features/robota` namespace after the five native builds and binary
+publication succeed. Only its Feature publishing job receives package-write permission. The exact
+release tag must already contain the Feature, preparer and publisher; an older release cannot be
+bootstrapped with newer tooling. This source change does not start a release or publish a Feature.
+
+The publisher requires a clean same-tag checkout, a deliberately authored matching CLI pin, the
+public npm version, both released Linux binaries and their actual checksums. Public workflow/job
+metadata is read anonymously, without adding actions-read permission. Metadata or registry access
+failures stop publication. Packaging uses official Dev Container CLI 0.89.0 and ORAS 1.3.0 with a
+canonical deterministic archive; immutable version differences require a Feature version bump.
+Identical retries reconcile aliases without moving them backwards.
+
+After upload, anonymous exact-digest pull and actual normal/custom slash sessions before and after
+container rebuild must succeed. The consumer uses an empty Docker credential configuration and a
+credential-free child environment. A push alone does not establish public delivery; inaccessible
+packages require an explicit owner decision about access or visibility. No settings are changed.
+
+For controlled local verification, run `feature-publisher.integration.mjs` as documented in its
+header with pinned tools, an actual prepared bundle and a disposable loopback registry. The ordinary
+repository tests need no registry or credentials. Local OCI evidence does not establish GHCR access,
+public visibility, or native x64 runtime acceptance.
