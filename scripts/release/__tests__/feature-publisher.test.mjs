@@ -312,3 +312,55 @@ test('signed blob redirects receive neither registry bearer nor basic credential
   expect(requests[2].headers.Authorization).toBe('Bearer synthetic-bearer');
   expect(requests[3]).toEqual({ url: 'https://storage.example/signed-blob', headers: {} });
 });
+
+import { verifyPublished } from '../verify-published-feature.mjs';
+test('failed anonymous consumer preserves complete child diagnostics and cleans its resources', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'feature-consumer-failure-'));
+  const oldPath = process.env.PATH;
+  try {
+    const bin = path.join(root, 'bin');
+    await mkdir(bin);
+    const docker = path.join(bin, 'docker');
+    await writeFile(
+      docker,
+      '#!/bin/sh\nprintf "%s\\n" "$*" >> "' +
+        root +
+        '/docker-calls"\ncase "$1" in context) printf "%s\\n" "unix:///tmp/fixture-docker.sock";; esac\n',
+      { mode: 0o755 },
+    );
+    const cli = path.join(bin, 'devcontainer');
+    await writeFile(
+      cli,
+      '#!/bin/sh\nprintf "%s\\n" "FULL_DIAGNOSTIC_BEFORE_TRAILING_STACK" >&2\ncat "$DOCKER_CONFIG/config.json"\nexit 42\n',
+      { mode: 0o755 },
+    );
+    process.env.PATH = bin + path.delimiter + oldPath;
+    const receiptFile = path.join(root, 'receipt.json');
+    await assert.rejects(
+      verifyPublished({
+        reference: 'localhost:1234/fixture/robota:1.0.0',
+        digest: 'sha256:' + 'a'.repeat(64),
+        cli,
+        checkout: root,
+        tempParent: root,
+        receiptFile,
+      }),
+      /devcontainer failed/,
+    );
+    const receipt = JSON.parse(await readFile(receiptFile, 'utf8'));
+    expect(receipt.normalAndCustomSlashBeforeAndAfterRebuild).toBe(false);
+    expect(JSON.parse(receipt.invocations.find((x) => x.command === cli).stdout)).toEqual({
+      credsStore: 'robota-anonymous',
+    });
+    expect(receipt.invocations.find((x) => x.command === cli).stderr).toContain(
+      'FULL_DIAGNOSTIC_BEFORE_TRAILING_STACK',
+    );
+    expect(await readFile(path.join(root, 'docker-calls'), 'utf8')).toContain(
+      'network rm feature-consumer-',
+    );
+    expect((await readdir(root)).filter((x) => x.startsWith('feature-anonymous-'))).toEqual([]);
+  } finally {
+    process.env.PATH = oldPath;
+    await rm(root, { recursive: true, force: true });
+  }
+});

@@ -57,6 +57,21 @@ export async function verifyPublished({
   });
   await mkdir(env.HOME);
   await mkdir(env.DOCKER_CONFIG);
+  // An empty Docker config still enables the official CLI's OS-keychain fallback.
+  // Explicitly select a private helper that cannot return credentials instead.
+  const helperBin = path.join(root, 'bin');
+  await mkdir(helperBin);
+  await writeFile(
+    path.join(helperBin, 'docker-credential-robota-anonymous'),
+    '#!/bin/sh\nexit 1\n',
+    { mode: 0o700 },
+  );
+  await writeFile(
+    path.join(env.DOCKER_CONFIG, 'config.json'),
+    JSON.stringify({ credsStore: 'robota-anonymous' }),
+    { mode: 0o600 },
+  );
+  env.PATH = helperBin + path.delimiter + env.PATH;
   let result;
   try {
     call('docker', ['network', 'create', '--internal', name], env);
@@ -189,6 +204,7 @@ export async function verifyPublished({
       reference,
       exactDigestReference: exact,
       authenticatedEnvironment: false,
+      credentialHelper: 'private-refusing-helper',
       normalAndCustomSlashBeforeAndAfterRebuild: true,
       providerRequests: requests,
       providerMode: 'internal disposable synthetic OpenAI protocol fixture',
@@ -196,6 +212,25 @@ export async function verifyPublished({
     };
     if (receiptFile) await writeFile(receiptFile, JSON.stringify(result, null, 2));
     return result;
+  } catch (error) {
+    if (receiptFile)
+      await writeFile(
+        receiptFile,
+        JSON.stringify(
+          {
+            reference,
+            digest,
+            authenticatedEnvironment: false,
+            credentialHelper: 'private-refusing-helper',
+            normalAndCustomSlashBeforeAndAfterRebuild: false,
+            error: error.message,
+            invocations,
+          },
+          null,
+          2,
+        ),
+      );
+    throw error;
   } finally {
     for (const container of new Set(resources))
       spawnSync('docker', ['rm', '-f', container], { env });

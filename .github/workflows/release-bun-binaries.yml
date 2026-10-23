@@ -450,7 +450,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: node scripts/release/feature-publisher.mjs release "$RUNNER_TEMP/feature-options.json"
       - name: Execute anonymous exact-digest Feature consumer
-        # Empty Docker config and credential-free child environment are enforced by the verifier.
+        # A private refusing credential helper and credential-free child environment are enforced by the verifier.
         run: |
           node --input-type=module <<'JS'
           import { readFileSync } from 'node:fs';

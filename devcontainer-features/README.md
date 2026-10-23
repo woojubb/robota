@@ -92,8 +92,7 @@ canonical deterministic archive; immutable version differences require a Feature
 Identical retries reconcile aliases without moving them backwards.
 
 After upload, anonymous exact-digest pull and actual normal/custom slash sessions before and after
-container rebuild must succeed. The consumer uses an empty Docker credential configuration and a
-credential-free child environment. A push alone does not establish public delivery; inaccessible
+container rebuild must succeed. The consumer uses a private refusing credential helper, which prevents the packager's implicit OS-keychain fallback, and a credential-free child environment. A push alone does not establish public delivery; inaccessible
 packages require an explicit owner decision about access or visibility. No settings are changed.
 
 For controlled local verification, run `feature-publisher.integration.mjs` as documented in its
