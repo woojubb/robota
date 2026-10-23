@@ -1,33 +1,47 @@
+// @vitest-environment jsdom
+
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URL as NodeURL } from 'node:url';
 
 import { describe, expect, it, vi } from 'vitest';
 
 const html = readFileSync(
-  fileURLToPath(new URL('../../public/app-sandbox.html', import.meta.url)),
+  fileURLToPath(new NodeURL('../../public/app-sandbox.html', import.meta.url)),
   'utf8',
 );
 
 const POLICY =
   "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; media-src data:; font-src data:; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'";
 
-const scripts = [...html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gu)];
-const script = scripts[0]?.[2] ?? '';
+function readScripts(markup: string) {
+  return Array.from(new DOMParser().parseFromString(markup, 'text/html').scripts);
+}
+
+const scripts = readScripts(html);
+const script = scripts[0]?.textContent ?? '';
 
 describe('app-sandbox.html: the file', () => {
   it('carries exactly the resource policy, in a meta tag ahead of the script', () => {
-    const metas = [...html.matchAll(/<meta\b[^>]*http-equiv="Content-Security-Policy"[^>]*>/gu)];
+    const metas = scripts[0]!.ownerDocument.querySelectorAll(
+      'meta[http-equiv="Content-Security-Policy"]',
+    );
     expect(metas).toHaveLength(1);
-    const content = /content="([^"]*)"/u.exec(metas[0]![0])?.[1];
-    expect(content).toBe(POLICY);
-    expect(html.indexOf(metas[0]![0])).toBeLessThan(html.indexOf('<script'));
+    expect(metas[0]!.getAttribute('content')).toBe(POLICY);
+    expect(
+      metas[0]!.compareDocumentPosition(scripts[0]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('is self-contained: one inline script and no external resources', () => {
     expect(scripts).toHaveLength(1);
-    expect(scripts[0]![1]).not.toMatch(/\bsrc\s*=/u);
+    expect(scripts[0]!.hasAttribute('src')).toBe(false);
     expect(html).not.toMatch(/<(link|img|iframe|object|embed|form|base)\b/iu);
     expect(html).not.toMatch(/@import|url\(/iu);
+  });
+
+  it('counts a mixed-case added script as an extra executable resource', () => {
+    const extraScript = '<sCrIpT>throw new Error("extra script")</sCrIpT></body>';
+    expect(readScripts(html.replace('</body>', extraScript))).toHaveLength(2);
   });
 
   it('holds the document in a srcdoc frame, never one that would take the GUI page’s policy', () => {
