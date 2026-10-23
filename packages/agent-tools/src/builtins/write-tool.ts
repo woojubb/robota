@@ -31,6 +31,8 @@ async function writeFileTool(
   options: IFileBuiltinToolOptions,
   callSignal?: AbortSignal,
 ): Promise<string> {
+  const signal = editorSignal(options.signal, callSignal);
+  signal?.throwIfAborted();
   const { content } = args;
   // A relative path anchors to the containment root before it is confined or written (issue #2429).
   const filePath = options.sandboxClient
@@ -47,7 +49,7 @@ async function writeFileTool(
     const toEditor = options.sandboxClient ? undefined : editorWrite(options);
     if (toEditor !== undefined) {
       try {
-        await toEditor(filePath, content, editorSignal(options.signal, callSignal));
+        await toEditor(filePath, content, signal);
       } catch (err) {
         // allow-fallback: the editor's refusal → IToolInvocationResult error
         return editorFailure('write', filePath, err);

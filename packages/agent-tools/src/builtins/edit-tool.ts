@@ -60,10 +60,7 @@ class EditByteLimitError extends Error {
  * trusting stat() size) also catches a file that grows after being stat'd, or has no stable
  * size at all (a named pipe).
  */
-async function readBoundedUtf8File(
-  filePath: string,
-  maxBytes: number,
-): Promise<string> {
+async function readBoundedUtf8File(filePath: string, maxBytes: number): Promise<string> {
   const stream = createReadStream(filePath, { highWaterMark: READ_CHUNK_BYTES });
   const chunks: Buffer[] = [];
   let bytes = 0;
@@ -85,6 +82,8 @@ async function editFileTool(
   options: IFileBuiltinToolOptions,
   callSignal?: AbortSignal,
 ): Promise<string> {
+  const signal = editorSignal(options.signal, callSignal);
+  signal?.throwIfAborted();
   const { oldString, newString, replaceAll = false } = args;
   // A relative path anchors to the containment root before it is confined or edited (issue #2429).
   const filePath = options.sandboxClient
@@ -100,7 +99,6 @@ async function editFileTool(
   // what it offers, on a host path the guard admitted, after the permission gate ran.
   const fromEditor = options.sandboxClient ? undefined : editorRead(options);
   const toEditor = options.sandboxClient ? undefined : editorWrite(options);
-  const signal = editorSignal(options.signal, callSignal);
 
   let content: string;
   try {
@@ -108,20 +106,24 @@ async function editFileTool(
       try {
         content = await fromEditor(filePath, signal);
       } catch (err) {
+        signal?.throwIfAborted();
         // allow-fallback: the editor's refusal → IToolInvocationResult error
         return editorFailure('read', filePath, err);
       }
-      if (Buffer.byteLength(content, 'utf8') > MAX_EDIT_FILE_BYTES) throw new EditByteLimitError('input');
+      if (Buffer.byteLength(content, 'utf8') > MAX_EDIT_FILE_BYTES)
+        throw new EditByteLimitError('input');
     } else if (options.sandboxClient) {
       content = await options.sandboxClient.readFile(filePath);
       // This API already returns a complete string; admission here still bounds the
       // string operations below, while a streaming sandbox read API is needed to bound
       // provider memory the way the host path's stream does.
-      if (Buffer.byteLength(content, 'utf8') > MAX_EDIT_FILE_BYTES) throw new EditByteLimitError('input');
+      if (Buffer.byteLength(content, 'utf8') > MAX_EDIT_FILE_BYTES)
+        throw new EditByteLimitError('input');
     } else {
       content = await readBoundedUtf8File(filePath, MAX_EDIT_FILE_BYTES);
     }
   } catch (err) {
+    signal?.throwIfAborted();
     if (err instanceof EditByteLimitError) {
       const result: IToolInvocationResult = {
         success: false,
@@ -139,6 +141,7 @@ async function editFileTool(
     return JSON.stringify(result);
   }
 
+  signal?.throwIfAborted();
   if (!content.includes(oldString)) {
     const result: IToolInvocationResult = {
       success: false,

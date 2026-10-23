@@ -2,7 +2,15 @@
  * Issue #3550 item 4 — an editor that has the workspace open carries `Read`/`Write`/`Edit`, after the
  * tool's own path guard; `Glob`/`Grep` keep the disk and say so; without an editor nothing changes.
  */
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -43,7 +51,10 @@ async function invoke(
 }
 
 /** An editor whose buffers differ from the disk, recording every request it receives. */
-function editor(buffers: Record<string, string>, offer: { reads?: boolean; writes?: boolean } = {}) {
+function editor(
+  buffers: Record<string, string>,
+  offer: { reads?: boolean; writes?: boolean } = {},
+) {
   const reads: { path: string; signal?: AbortSignal }[] = [];
   const writes: { path: string; content: string }[] = [];
   const access: IEditorFileAccess = {
@@ -111,10 +122,17 @@ describe('Read through the editor', () => {
   });
 
   it('reads the disk when no editor is attached or it offers no reads', async () => {
-    for (const editorFiles of [undefined, () => undefined, editor({}, { reads: false }).editorFiles]) {
-      const result = await invoke(createReadTool({ cwd: root, ...(editorFiles ? { editorFiles } : {}) }), {
-        filePath: probe,
-      });
+    for (const editorFiles of [
+      undefined,
+      () => undefined,
+      editor({}, { reads: false }).editorFiles,
+    ]) {
+      const result = await invoke(
+        createReadTool({ cwd: root, ...(editorFiles ? { editorFiles } : {}) }),
+        {
+          filePath: probe,
+        },
+      );
       expect(result.output).toContain('DISK alpha');
     }
   });
@@ -251,6 +269,45 @@ describe('Edit through the editor', () => {
     expect(ed.writes).toEqual([{ path: probe, content: 'EDITED alpha\n' }]);
   });
 
+  it.each([
+    { destination: 'editor', source: 'options' },
+    { destination: 'editor', source: 'call' },
+    { destination: 'disk', source: 'options' },
+    { destination: 'disk', source: 'call' },
+  ])(
+    'does not write to $destination after $source cancellation during editor read',
+    async ({ destination, source }) => {
+      const optionsController = new AbortController();
+      const callController = new AbortController();
+      const writes = vi.fn(async () => {});
+      const access: IEditorFileAccess = {
+        readTextFile: async () => {
+          (source === 'options' ? optionsController : callController).abort();
+          return 'BUFFER alpha\n';
+        },
+        ...(destination === 'editor' ? { writeTextFile: writes } : {}),
+      };
+      const tool = createEditTool({
+        cwd: root,
+        signal: optionsController.signal,
+        editorFiles: () => access,
+      });
+      await expect(
+        invoke(
+          tool,
+          {
+            filePath: probe,
+            oldString: 'alpha',
+            newString: 'changed',
+          },
+          { signal: callController.signal },
+        ),
+      ).rejects.toThrow(/abort/i);
+      expect(writes).not.toHaveBeenCalled();
+      expect(readFileSync(probe, 'utf8')).toBe('DISK alpha\n');
+    },
+  );
+
   it('never asks the editor about a path outside the root', async () => {
     const ed = editor({});
     const result = await invoke(createEditTool({ cwd: root, editorFiles: ed.editorFiles }), {
@@ -287,6 +344,44 @@ describe('Edit through the editor', () => {
   });
 });
 
+describe('cancelled file effects', () => {
+  it.each([
+    { name: 'Write', destination: 'editor', source: 'options' },
+    { name: 'Write', destination: 'editor', source: 'call' },
+    { name: 'Write', destination: 'disk', source: 'options' },
+    { name: 'Write', destination: 'disk', source: 'call' },
+    { name: 'Edit', destination: 'editor', source: 'options' },
+    { name: 'Edit', destination: 'editor', source: 'call' },
+    { name: 'Edit', destination: 'disk', source: 'options' },
+    { name: 'Edit', destination: 'disk', source: 'call' },
+  ])(
+    'does not dispatch $name to $destination when $source is already cancelled',
+    async ({ name, destination, source }) => {
+      const optionsController = new AbortController();
+      const callController = new AbortController();
+      (source === 'options' ? optionsController : callController).abort();
+      const reads = vi.fn(async () => 'BUFFER alpha\n');
+      const writes = vi.fn(async () => {});
+      const access: IEditorFileAccess = {
+        readTextFile: reads,
+        ...(destination === 'editor' ? { writeTextFile: writes } : {}),
+      };
+      const options = { cwd: root, signal: optionsController.signal, editorFiles: () => access };
+      const tool = name === 'Edit' ? createEditTool(options) : createWriteTool(options);
+      const parameters =
+        name === 'Edit'
+          ? { filePath: probe, oldString: 'alpha', newString: 'changed' }
+          : { filePath: probe, content: 'CHANGED' };
+      await expect(invoke(tool, parameters, { signal: callController.signal })).rejects.toThrow(
+        /abort/i,
+      );
+      expect(reads).not.toHaveBeenCalled();
+      expect(writes).not.toHaveBeenCalled();
+      expect(readFileSync(probe, 'utf8')).toBe('DISK alpha\n');
+    },
+  );
+});
+
 describe('Glob and Grep with an editor attached', () => {
   const notice =
     '[Searched the files on disk. The editor may hold changes to them that are not saved yet, which this search does not see.';
@@ -296,9 +391,7 @@ describe('Glob and Grep with an editor attached', () => {
     const grep = await invoke(createGrepTool({ cwd: root, editorFiles: ed.editorFiles }), {
       pattern: 'DISK',
     });
-    expect(grep.output).toBe(
-      `${probe}\n\n${notice} Read returns a file as the editor has it.]`,
-    );
+    expect(grep.output).toBe(`${probe}\n\n${notice} Read returns a file as the editor has it.]`);
     const glob = await invoke(createGlobTool({ cwd: root, editorFiles: ed.editorFiles }), {
       pattern: '*.txt',
     });
