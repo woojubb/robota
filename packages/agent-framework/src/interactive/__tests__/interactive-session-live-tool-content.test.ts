@@ -57,26 +57,59 @@ function createMockSession(run: (driver: IDriver) => Promise<string>) {
     emit: (event, data) => listener?.(event, data),
     end: (event) => execCtrl?.handleToolExecution({ type: 'end', ...event }),
     call: ({ id, name = 'Bash', args = { command: 'ls' }, decision, output = 'out', crash }) => {
-      driver.emit(`tool.${TOOL_PERMISSION_EVENTS.DECIDED}`, { executionId: id, decidedAt: AT, decision });
+      driver.emit(`tool.${TOOL_PERMISSION_EVENTS.DECIDED}`, {
+        executionId: id,
+        decidedAt: AT,
+        decision,
+      });
       if (decision === 'hook-blocked') return;
       if (decision === 'denied') {
-        driver.end({ toolName: name, toolArgs: args, success: false, denied: true, executionId: id });
+        driver.end({
+          toolName: name,
+          toolArgs: args,
+          success: false,
+          denied: true,
+          executionId: id,
+        });
         return;
       }
-      execCtrl?.handleToolExecution({ type: 'start', toolName: name, toolArgs: args, executionId: id });
+      execCtrl?.handleToolExecution({
+        type: 'start',
+        toolName: name,
+        toolArgs: args,
+        executionId: id,
+      });
       driver.emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, {
         toolBodyId: globalThis.crypto.randomUUID(),
-        executionId: id, startedAt: AT, endedAt: AT, outcome: crash ? 'failure' : 'success',
+        executionId: id,
+        startedAt: AT,
+        endedAt: AT,
+        outcome: crash ? 'failure' : 'success',
       });
       if (crash) driver.end({ toolName: name, toolArgs: args, success: false, executionId: id });
-      else driver.end({ toolName: name, toolArgs: args, success: true, toolResultData: output, executionId: id });
+      else
+        driver.end({
+          toolName: name,
+          toolArgs: args,
+          success: true,
+          toolResultData: output,
+          executionId: id,
+        });
     },
   };
   const session = {
     run: vi.fn().mockImplementation(() => run(driver)),
     abort: vi.fn(),
+    assertInputAllowed: vi.fn(),
+    getConversationSnapshot(
+      this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
+    ) {
+      return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
+    },
     getHistory: vi.fn().mockImplementation(() => history),
-    getContextState: vi.fn().mockReturnValue({ usedPercentage: 10, usedTokens: 1000, maxTokens: 200000 }),
+    getContextState: vi
+      .fn()
+      .mockReturnValue({ usedPercentage: 10, usedTokens: 1000, maxTokens: 200000 }),
     clearHistory: vi.fn(),
     getPermissionMode: vi.fn().mockReturnValue('default'),
     setPermissionMode: vi.fn(),
@@ -100,10 +133,17 @@ function createMockSession(run: (driver: IDriver) => Promise<string>) {
 }
 
 const TOOLS: ILivePromptContentPolicy = {
-  userPrompts: false, assistantResponses: false, toolArguments: true, toolOutput: true, maxBytes: 2048,
+  userPrompts: false,
+  assistantResponses: false,
+  toolArguments: true,
+  toolOutput: true,
+  maxBytes: 2048,
 };
 
-function build(run: (driver: IDriver) => Promise<string>, policy: ILivePromptContentPolicy = TOOLS) {
+function build(
+  run: (driver: IDriver) => Promise<string>,
+  policy: ILivePromptContentPolicy = TOOLS,
+) {
   const traces: ILivePromptTraceBatch[] = [];
   const contents: ILivePromptContentBatch[] = [];
   const mock = createMockSession(run);
@@ -129,7 +169,12 @@ function toolSpan(trace: ILivePromptTraceBatch, callId: string): string | undefi
 describe('live tool content capture', () => {
   it('captures arguments and output of an allowed call, on its tool-body span', async () => {
     const { session, contents, traces } = build(async (driver) => {
-      driver.call({ id: 'call_1', args: { command: 'cat notes', password: 'hunter22' }, decision: 'allowed', output: 'file body' });
+      driver.call({
+        id: 'call_1',
+        args: { command: 'cat notes', password: 'hunter22' },
+        decision: 'allowed',
+        output: 'file body',
+      });
       return 'done';
     });
     await session.submit('go');
@@ -137,12 +182,17 @@ describe('live tool content capture', () => {
     expect(spanId).toMatch(/^[0-9a-f]{16}$/u);
     expect(contents[0]!.items).toEqual([
       {
-        kind: 'tool-arguments', text: '{"command":"cat notes","password":"[redacted]"}',
-        originalBytes: 47, truncated: false,
+        kind: 'tool-arguments',
+        text: '{"command":"cat notes","password":"[redacted]"}',
+        originalBytes: 47,
+        truncated: false,
         tool: { callId: 'call_1', name: 'Bash', outcome: 'success', spanId },
       },
       {
-        kind: 'tool-output', text: 'file body', originalBytes: 9, truncated: false,
+        kind: 'tool-output',
+        text: 'file body',
+        originalBytes: 9,
+        truncated: false,
         tool: { callId: 'call_1', name: 'Bash', outcome: 'success', spanId },
       },
     ]);
@@ -155,10 +205,15 @@ describe('live tool content capture', () => {
       return 'done';
     });
     await session.submit('go');
-    expect(contents[0]!.items).toEqual([{
-      kind: 'tool-arguments', text: '{"command":"ls"}', originalBytes: 16, truncated: false,
-      tool: { callId: 'call_d', name: 'Bash', outcome: 'denied' },
-    }]);
+    expect(contents[0]!.items).toEqual([
+      {
+        kind: 'tool-arguments',
+        text: '{"command":"ls"}',
+        originalBytes: 16,
+        truncated: false,
+        tool: { callId: 'call_d', name: 'Bash', outcome: 'denied' },
+      },
+    ]);
   });
 
   it('captures arguments and an empty output for a crashed body, as a failure', async () => {
@@ -179,7 +234,11 @@ describe('live tool content capture', () => {
       // An unknown tool never reaches the wrapper; a stray end without any event is not ours.
       driver.end({ toolName: 'Nope', toolArgs: { a: 1 }, success: false, executionId: 'call_u' });
       // Allowed, then aborted before the body ran: the crash announcement has no body behind it.
-      driver.emit(`tool.${TOOL_PERMISSION_EVENTS.DECIDED}`, { executionId: 'call_a', decidedAt: AT, decision: 'allowed' });
+      driver.emit(`tool.${TOOL_PERMISSION_EVENTS.DECIDED}`, {
+        executionId: 'call_a',
+        decidedAt: AT,
+        decision: 'allowed',
+      });
       driver.end({ toolName: 'Bash', toolArgs: { a: 1 }, success: false, executionId: 'call_a' });
       return 'done';
     });
@@ -190,13 +249,47 @@ describe('live tool content capture', () => {
   it('never captures a call whose events did not reach this turn, even under a colliding id', async () => {
     const { session, contents } = build(async (driver) => {
       // The owner call is allowed; while its body runs, another run reports a call with the same id.
-      driver.emit(`tool.${TOOL_PERMISSION_EVENTS.DECIDED}`, { executionId: 'call_1', decidedAt: AT, decision: 'allowed' });
-      driver.end({ toolName: 'Bash', toolArgs: { command: 'child secret' }, success: true, toolResultData: 'child out', executionId: 'call_1' });
-      driver.end({ toolName: 'Bash', toolArgs: { command: 'other' }, success: true, toolResultData: 'x', executionId: 'call_other' });
-      driver.emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, { executionId: 'call_1', toolBodyId: BODY_ID, startedAt: AT, endedAt: AT, outcome: 'success' });
-      driver.end({ toolName: 'Bash', toolArgs: { command: 'mine' }, success: true, toolResultData: 'my out', executionId: 'call_1' });
+      driver.emit(`tool.${TOOL_PERMISSION_EVENTS.DECIDED}`, {
+        executionId: 'call_1',
+        decidedAt: AT,
+        decision: 'allowed',
+      });
+      driver.end({
+        toolName: 'Bash',
+        toolArgs: { command: 'child secret' },
+        success: true,
+        toolResultData: 'child out',
+        executionId: 'call_1',
+      });
+      driver.end({
+        toolName: 'Bash',
+        toolArgs: { command: 'other' },
+        success: true,
+        toolResultData: 'x',
+        executionId: 'call_other',
+      });
+      driver.emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, {
+        executionId: 'call_1',
+        toolBodyId: BODY_ID,
+        startedAt: AT,
+        endedAt: AT,
+        outcome: 'success',
+      });
+      driver.end({
+        toolName: 'Bash',
+        toolArgs: { command: 'mine' },
+        success: true,
+        toolResultData: 'my out',
+        executionId: 'call_1',
+      });
       // A second end for an id already captured is not captured again.
-      driver.end({ toolName: 'Bash', toolArgs: { command: 'late' }, success: true, toolResultData: 'late', executionId: 'call_1' });
+      driver.end({
+        toolName: 'Bash',
+        toolArgs: { command: 'late' },
+        success: true,
+        toolResultData: 'late',
+        executionId: 'call_1',
+      });
       return 'done';
     });
     await session.submit('go');
@@ -250,17 +343,26 @@ describe('live tool content capture', () => {
     const item = contents[0]!.items[1]!;
     expect(item.truncated).toBe(true);
     expect(item.originalBytes).toBe(2_000_000);
-    expect(Buffer.byteLength(item.text)).toBeLessThanOrEqual(2048 + LIVE_CONTENT_PRETRUNCATE_MARGIN_BYTES);
+    expect(Buffer.byteLength(item.text)).toBeLessThanOrEqual(
+      2048 + LIVE_CONTENT_PRETRUNCATE_MARGIN_BYTES,
+    );
   });
 
   it('keeps the prompt and response when 64 allowed calls fill the tool item limit', async () => {
-    const { session, contents } = build(async (driver) => {
-      for (let index = 0; index < 65; index += 1) driver.call({ id: `call_${index}`, decision: 'allowed' });
-      return 'the answer';
-    }, { ...TOOLS, userPrompts: true, assistantResponses: true });
+    const { session, contents } = build(
+      async (driver) => {
+        for (let index = 0; index < 65; index += 1)
+          driver.call({ id: `call_${index}`, decision: 'allowed' });
+        return 'the answer';
+      },
+      { ...TOOLS, userPrompts: true, assistantResponses: true },
+    );
     await session.submit('go');
     const items = contents[0]!.items;
-    expect(items.slice(0, 2).map((item) => item.kind)).toEqual(['user-prompt', 'assistant-response']);
+    expect(items.slice(0, 2).map((item) => item.kind)).toEqual([
+      'user-prompt',
+      'assistant-response',
+    ]);
     expect(items[1]!.text).toBe('the answer');
     expect(items.slice(2)).toHaveLength(128);
     expect(items.at(-1)!.tool!.callId).toBe('call_63');
@@ -268,14 +370,18 @@ describe('live tool content capture', () => {
   });
 
   it('falls back to the root span when the trace dropped the call at its child limit', async () => {
-    const { session, contents, traces } = build(async (driver) => {
-      // 250 decisions for calls this turn never runs leave room for three owner calls' children.
-      for (let index = 0; index < 250; index += 1) {
-        driver.call({ id: `blocked_${index}`, decision: 'hook-blocked' });
-      }
-      for (let index = 0; index < 4; index += 1) driver.call({ id: `call_${index}`, decision: 'allowed' });
-      return 'done';
-    }, { ...TOOLS, toolOutput: false });
+    const { session, contents, traces } = build(
+      async (driver) => {
+        // 250 decisions for calls this turn never runs leave room for three owner calls' children.
+        for (let index = 0; index < 250; index += 1) {
+          driver.call({ id: `blocked_${index}`, decision: 'hook-blocked' });
+        }
+        for (let index = 0; index < 4; index += 1)
+          driver.call({ id: `call_${index}`, decision: 'allowed' });
+        return 'done';
+      },
+      { ...TOOLS, toolOutput: false },
+    );
     await session.submit('go');
     const items = contents[0]!.items;
     expect(traces[0]!.children).toHaveLength(256);
@@ -296,12 +402,21 @@ describe('live tool content per-turn text budget', () => {
     accumulator.addPrompt('p'.repeat(5000));
     const big = 'x'.repeat(5000);
     for (let index = 0; index < 4; index += 1) {
-      accumulator.addToolCall({ callId: `c${index}`, name: 'Read', outcome: 'success', args: { big }, output: big });
+      accumulator.addToolCall({
+        callId: `c${index}`,
+        name: 'Read',
+        outcome: 'success',
+        args: { big },
+        output: big,
+      });
     }
     accumulator.addResponse('r'.repeat(5000), false);
     const batch = accumulator.finish({ traceId: 't', spanId: 's', endedAt: AT }, new Map());
     expect(batch!.items.map((item) => item.kind)).toEqual([
-      'user-prompt', 'assistant-response', 'tool-arguments', 'tool-output',
+      'user-prompt',
+      'assistant-response',
+      'tool-arguments',
+      'tool-output',
     ]);
     expect(batch!.omitted).toEqual({ 'tool-arguments': 3, 'tool-output': 3 });
   });
@@ -316,7 +431,13 @@ describe('live tool content argument rendering failures', () => {
       },
     };
     expect(() =>
-      accumulator.addToolCall({ callId: 'c1', name: 'Bash', outcome: 'success', args, output: 'kept' }),
+      accumulator.addToolCall({
+        callId: 'c1',
+        name: 'Bash',
+        outcome: 'success',
+        args,
+        output: 'kept',
+      }),
     ).not.toThrow();
     const batch = accumulator.finish({ traceId: 't', spanId: 's', endedAt: AT });
     expect(batch!.items.map((item) => [item.kind, item.text])).toEqual([['tool-output', 'kept']]);
@@ -332,9 +453,25 @@ describe('live tool content argument rendering failures', () => {
         },
       }) as Record<string, unknown>;
       // The end event alone: the TUI's start projection reads arguments on its own path.
-      driver.emit(`tool.${TOOL_PERMISSION_EVENTS.DECIDED}`, { executionId: 'call_1', decidedAt: AT, decision: 'allowed' });
-      driver.emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, { executionId: 'call_1', toolBodyId: BODY_ID, startedAt: AT, endedAt: AT, outcome: 'success' });
-      driver.end({ toolName: 'Bash', toolArgs: args, success: true, toolResultData: 'kept', executionId: 'call_1' });
+      driver.emit(`tool.${TOOL_PERMISSION_EVENTS.DECIDED}`, {
+        executionId: 'call_1',
+        decidedAt: AT,
+        decision: 'allowed',
+      });
+      driver.emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, {
+        executionId: 'call_1',
+        toolBodyId: BODY_ID,
+        startedAt: AT,
+        endedAt: AT,
+        outcome: 'success',
+      });
+      driver.end({
+        toolName: 'Bash',
+        toolArgs: args,
+        success: true,
+        toolResultData: 'kept',
+        executionId: 'call_1',
+      });
       return 'done';
     });
     const handle = await session.submit('go');
@@ -352,12 +489,27 @@ describe('collectSpanEntries owner-call observation', () => {
       unsubscribe: () => void (listener = undefined),
     } as unknown as IEventService;
     const observed: Array<[string, string]> = [];
-    const collector = collectSpanEntries(bus, { onToolCallObserved: (id, phase) => void observed.push([id, phase]) });
-    listener!(`tool.${TOOL_PERMISSION_EVENTS.DECIDED}`, { executionId: 'a', decidedAt: AT, decision: 'allowed' });
+    const collector = collectSpanEntries(bus, {
+      onToolCallObserved: (id, phase) => void observed.push([id, phase]),
+    });
+    listener!(`tool.${TOOL_PERMISSION_EVENTS.DECIDED}`, {
+      executionId: 'a',
+      decidedAt: AT,
+      decision: 'allowed',
+    });
     listener!(`tool.${TOOL_PERMISSION_EVENTS.DECIDED}`, { executionId: 'b', decision: 'denied' });
     listener!(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, { executionId: 'a', startedAt: 'bad' });
-    listener!(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, { executionId: 7, startedAt: AT, endedAt: AT, outcome: 'success' });
-    expect(observed).toEqual([['a', 'allowed'], ['b', 'denied'], ['a', 'body-completed']]);
+    listener!(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, {
+      executionId: 7,
+      startedAt: AT,
+      endedAt: AT,
+      outcome: 'success',
+    });
+    expect(observed).toEqual([
+      ['a', 'allowed'],
+      ['b', 'denied'],
+      ['a', 'body-completed'],
+    ]);
     collector.dispose();
   });
 });

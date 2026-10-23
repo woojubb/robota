@@ -102,7 +102,7 @@ While an execution waits, `run` refuses new input. `getPendingExecution()` retur
 saved. A journaled `run`, `runRecoverable` or resume that fails (a storage failure, an unreconciled
 effect) while its tool calls are open in history also leaves the execution pending, with only the
 waits whose effect never started in `requests`; resume it once the journal is readable, or abandon
-it. A failure after its rounds settled ends it like an ordinary turn.
+it. A failure after its rounds settled ends it like an ordinary turn once its configured checkpoint accepts the settled snapshot.
 `abandonPendingExecution(executionId)` gives it up without running anything: its open tool calls
 are closed as failed in this Session's history and this Session can no longer resume it, but the
 journal is left untouched. Discard that execution's journal records yourself; otherwise a Session
@@ -114,6 +114,47 @@ still waits for them to settle. Storage failures propagate, and uncertain effect
 reconciliation error rather than being replayed. Turn-level lifecycle hooks are omitted on
 continuation because their effects lack durable receipts; structured-output recovery is unsupported.
 This API alone does not provide arbitrary-effect recovery or durable Roundtable execution.
+
+### Save and reconstruct a pending conversation
+
+Use `getConversationSnapshot()` to capture messages and pending discovery together. A configured
+`sessionStore` does this automatically; framework persistence uses the same projection. Restore the
+complete saved record into a pristine Session with the same ID and canonical workspace:
+
+```typescript
+const loaded = store.load(session.getSessionId());
+if (loaded.status === 'valid') {
+  // Construct restoredSession with loaded.record.id and loaded.record.cwd first.
+  restoredSession.restoreConversation(loaded.record);
+  const pending = restoredSession.getPendingExecution();
+  // New input is refused until the host resumes this exact execution with its journal,
+  // or calls restoredSession.abandonPendingExecution(pending.executionId).
+}
+```
+
+Saved requests are discovery only. They do not retain consent, live resolvers, provider objects or
+proof that an effect never started. Abandoning restored discovery records unknown outcomes.
+
+`checkpointHistory?: () => void` takes precedence over the lower Session store. Its successful return
+must synchronously acknowledge the complete current snapshot; store ports obey the same rule.
+Returned thenables are rejected and observed. A callback that secretly queues writes or omits pending
+discovery is incompatible with this guarantee. Without a persistence sink, journal execution remains
+process scoped; `checkpoint()` refuses to imply a saved snapshot.
+
+A failed waiting save rejects instead of returning `waiting`. A failed settled or abandonment save
+keeps admission blocked. Repair the sink and call `checkpoint(): void` to retry only the settled bytes;
+it never repeats provider calls or effects. Repeating the same abandonment can retry its failed save
+without duplicating receipts. Public conversation mutations remain blocked during unresolved recovery.
+`abandonPendingExecution` retains its synchronous `void` signature and now throws when its configured
+save cannot acknowledge closure. An original execution error remains primary if a secondary save fails.
+
+Coordinated readers accept strict v1 and v2 envelopes; all new file/workspace/artifact writes use v2.
+Older readers report v2 as unsupported and preserve its bytes, including settled records. Roll back
+these packages together or retain a compatible reader; do not strip recovery fields or downgrade the
+header. Available acknowledged snapshots carry this guarantee. Missing snapshots and history-only
+replay cannot rediscover pending identity; marker-free legacy interrupted-call repair remains unchanged.
+This does not add cross-process fencing, power-loss/fsync guarantees, arbitrary-effect recovery or
+durable Roundtable execution. Unresolved forks and workspace copies are refused before destination writes.
 
 ## Features
 
@@ -161,7 +202,7 @@ This API alone does not provide arbitrary-effect recovery or durable Roundtable 
 
 | Export                                                                                                       | Kind                | Description                                                                              |
 | ------------------------------------------------------------------------------------------------------------ | ------------------- | ---------------------------------------------------------------------------------------- |
-| `Session`                                                                                                    | Class               | Wraps `ConversationAgent` with permissions, hooks, compaction, logging and persistence              |
+| `Session`                                                                                                    | Class               | Wraps `ConversationAgent` with permissions, hooks, compaction, logging and persistence   |
 | `ISessionOptions`, `ISessionRunOptions`, `ISessionShutdownOptions`                                           | Types               | Constructor, run and shutdown options                                                    |
 | `SessionBusyError`, `TurnClaim`                                                                              | Classes             | The refusal of a concurrent turn, and the identity of the running turn                   |
 | `PermissionEnforcer`                                                                                         | Class               | Tool permission checks, hook execution and output truncation                             |

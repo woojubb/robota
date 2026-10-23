@@ -4,7 +4,11 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 
-import { ObservableEventService, spanIdFromMintedId, TOOL_BODY_EVENTS } from '@robota-sdk/agent-core';
+import {
+  ObservableEventService,
+  spanIdFromMintedId,
+  TOOL_BODY_EVENTS,
+} from '@robota-sdk/agent-core';
 
 import { collectSpanEntries } from '../interactive-session-execution.js';
 import { InteractiveSession } from '../interactive-session.js';
@@ -19,15 +23,25 @@ function createMockSession(run: (emit: TListener) => Promise<string>) {
   return {
     run: vi.fn().mockImplementation(() => run(emit)),
     abort: vi.fn(),
+    assertInputAllowed: vi.fn(),
+    getConversationSnapshot(
+      this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
+    ) {
+      return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
+    },
     getHistory: vi.fn().mockReturnValue([]),
-    getContextState: vi.fn().mockReturnValue({ usedPercentage: 10, usedTokens: 1000, maxTokens: 200000 }),
+    getContextState: vi
+      .fn()
+      .mockReturnValue({ usedPercentage: 10, usedTokens: 1000, maxTokens: 200000 }),
     clearHistory: vi.fn(),
     getPermissionMode: vi.fn().mockReturnValue('default'),
     setPermissionMode: vi.fn(),
     getProviderId: vi.fn().mockReturnValue('test-provider'),
     getModelId: vi.fn().mockReturnValue('test-model'),
     getEventService: vi.fn().mockReturnValue({
-      subscribe: vi.fn((callback: TListener) => { listener = callback; }),
+      subscribe: vi.fn((callback: TListener) => {
+        listener = callback;
+      }),
       unsubscribe: vi.fn(),
     }),
     getSessionId: vi.fn().mockReturnValue('session.1'),
@@ -49,7 +63,12 @@ describe('minted tool body spans', () => {
     const at = new Date().toISOString();
     const toolBodyId = globalThis.crypto.randomUUID();
     bus.emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, {
-      timestamp: new Date(), executionId: 'call-1', toolBodyId, startedAt: at, endedAt: at, outcome: 'success',
+      timestamp: new Date(),
+      executionId: 'call-1',
+      toolBodyId,
+      startedAt: at,
+      endedAt: at,
+      outcome: 'success',
     });
     expect(collector.toolBodies).toEqual([
       { toolCallId: 'call-1', toolBodyId, startedAt: at, endedAt: at, outcome: 'success' },
@@ -63,43 +82,69 @@ describe('minted tool body spans', () => {
       const at = new Date().toISOString();
       for (const toolBodyId of bodyIds) {
         emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, {
-          executionId: 'call_0', toolBodyId, startedAt: at, endedAt: at, outcome: 'success',
+          executionId: 'call_0',
+          toolBodyId,
+          startedAt: at,
+          endedAt: at,
+          outcome: 'success',
         });
       }
       return 'response';
     });
     const enqueue = vi.fn();
-    const session = new InteractiveSession({ session: mock as never, cwd: '/tmp', livePromptTrace: { enqueue } });
+    const session = new InteractiveSession({
+      session: mock as never,
+      cwd: '/tmp',
+      livePromptTrace: { enqueue },
+    });
 
     await session.submit('prompt');
 
     const expected = bodyIds.map((id) => spanIdFromMintedId(id));
     expect(expected[0]).not.toBe(expected[1]);
-    const persisted = session.getFullHistory()
+    const persisted = session
+      .getFullHistory()
       .filter((entry) => entry.type === 'tool-body-trace')
       .map((entry) => (entry.data as { spanId: string }).spanId);
     expect(persisted).toEqual(expected);
     expect(JSON.stringify(session.getFullHistory())).not.toContain(bodyIds[0]);
     const batch = enqueue.mock.calls[0]![0] as ILivePromptTraceBatch;
-    const exported = batch.children.flatMap((child) => (child.kind === 'tool' ? [child.trace.spanId] : []));
+    const exported = batch.children.flatMap((child) =>
+      child.kind === 'tool' ? [child.trace.spanId] : [],
+    );
     expect(exported).toEqual(expected);
   });
 
   it('counts a body without a minted ID as omitted rather than inventing its span', async () => {
     const mock = createMockSession(async (emit) => {
       const at = new Date().toISOString();
-      emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, { executionId: 'call_0', startedAt: at, endedAt: at, outcome: 'success' });
       emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, {
-        executionId: 'call_1', toolBodyId: 'not-hex-at-all', startedAt: at, endedAt: at, outcome: 'success',
+        executionId: 'call_0',
+        startedAt: at,
+        endedAt: at,
+        outcome: 'success',
+      });
+      emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, {
+        executionId: 'call_1',
+        toolBodyId: 'not-hex-at-all',
+        startedAt: at,
+        endedAt: at,
+        outcome: 'success',
       });
       return 'response';
     });
     const enqueue = vi.fn();
-    const session = new InteractiveSession({ session: mock as never, cwd: '/tmp', livePromptTrace: { enqueue } });
+    const session = new InteractiveSession({
+      session: mock as never,
+      cwd: '/tmp',
+      livePromptTrace: { enqueue },
+    });
 
     await session.submit('prompt');
 
-    expect(session.getFullHistory().filter((entry) => entry.type === 'tool-body-trace')).toHaveLength(0);
+    expect(
+      session.getFullHistory().filter((entry) => entry.type === 'tool-body-trace'),
+    ).toHaveLength(0);
     const batch = enqueue.mock.calls[0]![0] as ILivePromptTraceBatch;
     expect(batch.children.filter((child) => child.kind === 'tool')).toHaveLength(0);
     expect(batch.omittedChildren).toMatchObject({ tool: 2 });

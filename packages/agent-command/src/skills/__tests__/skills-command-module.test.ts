@@ -48,6 +48,7 @@ function makeParentSession() {
   return {
     run: vi.fn().mockResolvedValue('parent response'),
     abort: vi.fn(),
+    assertInputAllowed: vi.fn(),
     getHistory: vi.fn().mockReturnValue([]),
     getContextState: vi.fn().mockReturnValue({
       usedPercentage: 10,

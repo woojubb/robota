@@ -225,9 +225,5 @@ export async function executeRun(
     hookTraceEnv,
   ).catch((error) => logger.warn('hook failed', { error }));
 
-  if (ctx.getSessionStore()) {
-    ctx.persistSession();
-  }
-
   return response;
 }

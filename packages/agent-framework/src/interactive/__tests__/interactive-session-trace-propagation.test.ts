@@ -16,20 +16,36 @@ const CALL_ID = '123e4567-e89b-42d3-a456-426614174000';
 
 type TListener = (event: string, data: Record<string, unknown>) => void;
 
-function createMockSession(runImpl: (prompt: string, raw?: string, options?: { traceContext?: IRunTraceContext }) => Promise<string>) {
+function createMockSession(
+  runImpl: (
+    prompt: string,
+    raw?: string,
+    options?: { traceContext?: IRunTraceContext },
+  ) => Promise<string>,
+) {
   let listener: TListener | undefined;
   const session = {
     run: vi.fn().mockImplementation(runImpl),
     abort: vi.fn(),
+    assertInputAllowed: vi.fn(),
+    getConversationSnapshot(
+      this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
+    ) {
+      return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
+    },
     getHistory: vi.fn().mockReturnValue([]),
-    getContextState: vi.fn().mockReturnValue({ usedPercentage: 10, usedTokens: 1000, maxTokens: 200000 }),
+    getContextState: vi
+      .fn()
+      .mockReturnValue({ usedPercentage: 10, usedTokens: 1000, maxTokens: 200000 }),
     clearHistory: vi.fn(),
     getPermissionMode: vi.fn().mockReturnValue('default'),
     setPermissionMode: vi.fn(),
     getProviderId: vi.fn().mockReturnValue('test-provider'),
     getModelId: vi.fn().mockReturnValue('test-model'),
     getEventService: vi.fn().mockReturnValue({
-      subscribe: vi.fn((callback: TListener) => { listener = callback; }),
+      subscribe: vi.fn((callback: TListener) => {
+        listener = callback;
+      }),
       unsubscribe: vi.fn(),
     }),
     getSessionId: vi.fn().mockReturnValue('session.1'),
@@ -42,7 +58,10 @@ function createMockSession(runImpl: (prompt: string, raw?: string, options?: { t
     injectRawMessage: vi.fn(),
     syncContextFromHistory: vi.fn(),
   };
-  return { session, emit: (event: string, data: Record<string, unknown>) => listener?.(event, data) };
+  return {
+    session,
+    emit: (event: string, data: Record<string, unknown>) => listener?.(event, data),
+  };
 }
 
 describe('trusted trace context propagation', () => {
@@ -55,14 +74,21 @@ describe('trusted trace context propagation', () => {
       seenTraceparent = outboundTraceContextFor(traceContext!, CALL_ID)?.traceparent;
       const at = new Date().toISOString();
       mock.emit('provider_call_completed', {
-        startedAt: at, endedAt: at, outcome: 'success', round: 1, callId: CALL_ID,
-        disposition: 'invoked', providerId: 'anthropic', modelId: 'm',
+        startedAt: at,
+        endedAt: at,
+        outcome: 'success',
+        round: 1,
+        callId: CALL_ID,
+        disposition: 'invoked',
+        providerId: 'anthropic',
+        modelId: 'm',
       });
       return 'response';
     });
     const enqueue = vi.fn();
     const session = new InteractiveSession({
-      session: mock.session as never, cwd: '/tmp',
+      session: mock.session as never,
+      cwd: '/tmp',
       livePromptTrace: { enqueue, traceContextPropagation: { allowedOrigins: [ORIGIN] } },
     });
 
@@ -83,7 +109,9 @@ describe('trusted trace context propagation', () => {
     for (const livePromptTrace of [undefined, { enqueue: vi.fn() }]) {
       const mock = createMockSession(async () => 'response');
       const session = new InteractiveSession({
-        session: mock.session as never, cwd: '/tmp', ...(livePromptTrace ? { livePromptTrace } : {}),
+        session: mock.session as never,
+        cwd: '/tmp',
+        ...(livePromptTrace ? { livePromptTrace } : {}),
       });
       await session.submit('prompt');
       const options = mock.session.run.mock.calls[0]![2] as Record<string, unknown> | undefined;
@@ -95,8 +123,12 @@ describe('trusted trace context propagation', () => {
     const mock = createMockSession(async () => 'response');
     const enqueue = vi.fn();
     const session = new InteractiveSession({
-      session: mock.session as never, cwd: '/tmp',
-      livePromptTrace: { enqueue, traceContextPropagation: { allowedOrigins: [], subprocesses: ['shell', 'hooks'] } },
+      session: mock.session as never,
+      cwd: '/tmp',
+      livePromptTrace: {
+        enqueue,
+        traceContextPropagation: { allowedOrigins: [], subprocesses: ['shell', 'hooks'] },
+      },
     });
     await session.submit('prompt');
     const options = mock.session.run.mock.calls[0]![2] as { traceContext: IRunTraceContext };
@@ -113,8 +145,12 @@ describe('trusted trace context propagation', () => {
   it('passes no trace context for an empty origin list and no subprocess class', async () => {
     const mock = createMockSession(async () => 'response');
     const session = new InteractiveSession({
-      session: mock.session as never, cwd: '/tmp',
-      livePromptTrace: { enqueue: vi.fn(), traceContextPropagation: { allowedOrigins: [], subprocesses: [] } },
+      session: mock.session as never,
+      cwd: '/tmp',
+      livePromptTrace: {
+        enqueue: vi.fn(),
+        traceContextPropagation: { allowedOrigins: [], subprocesses: [] },
+      },
     });
     await session.submit('prompt');
     const options = mock.session.run.mock.calls[0]![2] as Record<string, unknown> | undefined;
@@ -130,8 +166,13 @@ describe('trusted trace context propagation', () => {
         return 'response';
       });
       return new InteractiveSession({
-        session: mock.session as never, cwd: '/tmp',
-        livePromptTrace: { enqueue: vi.fn(), onDiagnostic, traceContextPropagation: { allowedOrigins: [ORIGIN] } },
+        session: mock.session as never,
+        cwd: '/tmp',
+        livePromptTrace: {
+          enqueue: vi.fn(),
+          onDiagnostic,
+          traceContextPropagation: { allowedOrigins: [ORIGIN] },
+        },
       });
     };
     const first = makeSession();

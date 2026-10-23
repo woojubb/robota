@@ -11,6 +11,7 @@ import type { ISubmitOptions, ITurnHandle, TDriverId } from '@robota-sdk/agent-i
 export interface INewTurnSubmissionDeps {
   readonly execCtrl: SessionExecutionController;
   readonly ensureInitialized: () => Promise<void>;
+  readonly assertInputAllowed: () => void;
   readonly executeAcceptedTurn: (entry: IQueuedInput) => Promise<void>;
   readonly emitDropped: (driverId: TDriverId, maxDepth: number) => void;
   readonly isWakeStopped: (wakeTaskId: string) => boolean;
@@ -57,6 +58,7 @@ export async function submitNewTurn(
   deps.execCtrl.executionClaim.beginSubmission();
   try {
     await deps.ensureInitialized();
+    deps.assertInputAllowed();
     if (deps.execCtrl.shuttingDown) throw new Error('Interactive session is shutting down.');
     if (options.wakeTaskId !== undefined && deps.isWakeStopped(options.wakeTaskId)) {
       throw new StoppedWakeSubmissionError(options.wakeTaskId);

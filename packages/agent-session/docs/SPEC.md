@@ -190,12 +190,15 @@ A session runs one turn at a time:
   it would follow unanswered calls and diverge from the checkpoint it must continue. The session
   exposes it — also after a cancellation that ended the turn once a wait was saved — so the host
   can resume or abandon it, and offers only waits whose effect was never admitted for an answer.
-  Once its rounds have settled into history, a later failure or cancellation ends it like an
-  ordinary turn.
+  An acknowledged available conversation snapshot preserves that admission block across same-owner
+  restoration; discovery data never replaces the host journal. Settled history permits new input
+  only after its configured synchronous checkpoint acknowledges removal of the block. A failed
+  save retains admission until an explicit checkpoint succeeds, without replaying execution.
 - Abandoning runs nothing and writes nothing to the journal: the open calls are closed in history
   as failed, so the conversation stays well-formed and can no longer resume that execution. Its
   journal records remain the host's to keep or discard. Abandonment must never become a route to
-  replay an effect or to claim an outcome nobody recorded.
+  replay an effect or to claim an outcome nobody recorded. Restored discovery cannot prove an
+  effect never started, and abandonment must acknowledge its configured checkpoint before returning.
 - A wait holds no live approver. The turn claim is held until the execution and its pending writes
   settle. Injected classifiers, hooks and tools own their own model calls and must declare their
   journal integration separately.

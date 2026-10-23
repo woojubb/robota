@@ -305,8 +305,8 @@ describe('session artifact — the record is decoded, not cast (TRANS-006)', () 
 });
 
 describe('session artifact — one version constant, not two (TRANS-006)', () => {
-  it('keeps the incumbent name and value on the public surface', () => {
-    expect(SESSION_RECORD_ENVELOPE_VERSION).toBe(1);
+  it('exports the coordinated recovery envelope version', () => {
+    expect(SESSION_RECORD_ENVELOPE_VERSION).toBe(2);
     expect(JSON.parse(serializeSessionArtifact(fullRecord())).schemaVersion).toBe(
       SESSION_RECORD_ENVELOPE_VERSION,
     );

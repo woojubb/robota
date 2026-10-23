@@ -1,3 +1,4 @@
+import { decodePendingExecution } from './pending-execution-decoder.js';
 /**
  * TRANS-005 (#2081) — the optional members of a persisted session record.
  *
@@ -50,6 +51,16 @@ export function applyOptionalRecordMembers(
   path: string,
   issues: TDecodeIssues,
 ): void {
+  setOptional(
+    record,
+    'pendingExecution',
+    decodeOptional(
+      raw['pendingExecution'],
+      atKey(path, 'pendingExecution'),
+      issues,
+      decodePendingExecution,
+    ),
+  );
   for (const key of ['name', 'systemPrompt', 'sandboxSnapshotId'] as const) {
     setOptional(record, key, decodeOptional(raw[key], atKey(path, key), issues, decodeString));
   }

@@ -219,7 +219,7 @@ export function decodeOpenMap<TValue>(
   const decoded: Record<string, TValue> = {};
   for (const [key, member] of Object.entries(value as Record<string, unknown>)) {
     const element = decodeValue(member, atKey(path, key), issues);
-    if (element !== undefined) decoded[key] = element;
+    if (element !== undefined) Object.defineProperty(decoded, key, { value: element, enumerable: true, writable: true, configurable: true });
   }
   return decoded;
 }

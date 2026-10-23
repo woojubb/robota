@@ -1,3 +1,7 @@
+import { realpathSync } from 'node:fs';
+import { decodeInteractiveSessionRecord } from './session-record-codec/index.js';
+import { assertSynchronousCheckpoint } from './synchronous-checkpoint.js';
+import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-session';
 import {
   TRUST_TO_MODE,
   ObservableEventService,
@@ -132,7 +136,24 @@ export class Session extends SessionBase {
   private toolChange: Promise<void> = Promise.resolve();
   private shuttingDown = false;
   /** Set while a journaled execution's round is open in history; cleared once it settles or is abandoned. */
-  private pendingExecution?: ISessionPendingExecution;
+  private recoveryState:
+    | { kind: 'ready' }
+    | { kind: 'pending'; pending: ISessionPendingExecution; liveWaits: boolean }
+    | {
+        kind: 'save-required';
+        pending?: ISessionPendingExecution;
+        executionId?: string;
+        liveWaits: boolean;
+      } = { kind: 'ready' };
+  private checkpointing = false;
+
+  private get pendingExecution(): ISessionPendingExecution | undefined {
+    return this.recoveryState.kind === 'ready' ? undefined : this.recoveryState.pending;
+  }
+  private setPending(pending: ISessionPendingExecution | undefined, liveWaits = false): void {
+    if (this.recoveryState.kind === 'save-required') return;
+    this.recoveryState = pending ? { kind: 'pending', pending, liveWaits } : { kind: 'ready' };
+  }
   private shutdownPromise: Promise<void> | null = null;
   /** Stdout collected from SessionStart hooks, injected on first run(). */
   private sessionStartStdout = '';
@@ -252,11 +273,7 @@ export class Session extends SessionBase {
   ): Promise<string> {
     const options = value ? { ...value } : undefined;
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
-    if (this.pendingExecution)
-      throw new ExecutionRecoveryError(
-        'EXECUTION_RECOVERY_REQUIRED',
-        'Resume or abandon the pending Session execution before submitting new input',
-      );
+    this.assertInputAllowed();
     const controller = this.turnClaim.claim(); // Synchronously, before any await.
     const unlink = linkCancellation(controller, options?.signal);
     const { signal } = controller;
@@ -280,19 +297,22 @@ export class Session extends SessionBase {
       const response = await executeRun(
         message,
         rawInput,
-        this.buildRunContext(),
+        this.buildRunContext(options?.executionJournal !== undefined),
         signal,
         runOptions,
       );
+      this.setPending(undefined);
+      this.commitConversation();
       this.messageCount += 1;
       return response;
     } catch (error) {
       if (error instanceof ExecutionSuspendedError) {
-        this.pendingExecution = pendingExecution(error);
+        this.setPending(pendingExecution(error), true);
         signal.throwIfAborted();
       } else if (options?.executionJournal) {
-        this.pendingExecution = unfinishedExecution(this.agent.getHistory(), undefined, new Set());
+        this.setPending(unfinishedExecution(this.agent.getHistory(), undefined, new Set()));
       }
+      this.saveAfterFailure(error);
       throw error;
     } finally {
       this.permissionEnforcer.endTurn();
@@ -317,6 +337,7 @@ export class Session extends SessionBase {
   ): Promise<string> {
     const options = { ...value, toolResponses: structuredClone(value.toolResponses) };
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
+    this.assertCheckpointSettled();
     if (this.pendingExecution && this.pendingExecution.executionId !== options.executionId)
       throw new ExecutionRecoveryError(
         'EXECUTION_RECOVERY_CONFLICT',
@@ -329,30 +350,32 @@ export class Session extends SessionBase {
       controller.signal.throwIfAborted();
       await this.serializeToolChange(() => this.applyPendingTools());
       const journal = sessionRecoveryJournal(
-        noteEffectAdmissions(options.journal, admitted),
+        noteEffectAdmissions(options.journal, admitted, () => {
+          if (this.recoveryState.kind === 'pending') this.recoveryState.liveWaits = false;
+        }),
         this.sessionId,
         this.cwd,
         (peerTurn) => this.permissionEnforcer.beginTurn(peerTurn, checkpointedApprovals),
       );
-      const response = await executeResume(this.buildRunContext(), {
+      const response = await executeResume(this.buildRunContext(true), {
         ...options,
         journal,
         signal: controller.signal,
       });
-      this.pendingExecution = undefined;
+      this.setPending(undefined);
+      this.commitConversation(options.executionId);
       return response;
     } catch (error) {
       if (error instanceof ExecutionSuspendedError) {
-        this.pendingExecution = pendingExecution(error);
+        this.setPending(pendingExecution(error), true);
         controller.signal.throwIfAborted();
       } else {
         // Settled rounds end the execution like an ordinary turn; a round left open keeps it pending.
-        this.pendingExecution = unfinishedExecution(
-          this.agent.getHistory(),
-          this.pendingExecution,
-          admitted,
+        this.setPending(
+          unfinishedExecution(this.agent.getHistory(), this.pendingExecution, admitted),
         );
       }
+      this.saveAfterFailure(error);
       throw error;
     } finally {
       this.permissionEnforcer.endTurn();
@@ -373,6 +396,15 @@ export class Session extends SessionBase {
    */
   abandonPendingExecution(executionId: string): void {
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
+    if (this.recoveryState.kind === 'save-required') {
+      if (this.recoveryState.executionId !== executionId || this.pendingExecution)
+        throw new ExecutionRecoveryError(
+          'EXECUTION_RECOVERY_CONFLICT',
+          'Checkpoint the unresolved Session transition first',
+        );
+      this.checkpoint();
+      return;
+    }
     const pending = this.pendingExecution;
     if (!pending) return;
     if (pending.executionId !== executionId)
@@ -382,12 +414,123 @@ export class Session extends SessionBase {
       );
     const controller = this.turnClaim.claim();
     try {
-      for (const message of abandonedRoundResults(this.agent.getHistory(), pending))
+      const liveWaits = this.recoveryState.kind === 'pending' && this.recoveryState.liveWaits;
+      for (const message of abandonedRoundResults(this.agent.getHistory(), pending, liveWaits))
         this.agent.injectRawMessage(message);
-      this.pendingExecution = undefined;
-      this.persistSessionInternal();
+      this.setPending(undefined);
+      this.commitConversation(executionId);
     } finally {
       this.turnClaim.release(controller);
+    }
+  }
+
+  /** Refuse admission before callers resolve input or change scheduling state. */
+  assertInputAllowed(): void {
+    if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
+    this.assertCheckpointSettled();
+    if (this.pendingExecution)
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_REQUIRED',
+        'Resume or abandon the pending Session execution before submitting new input',
+      );
+  }
+  private assertCheckpointSettled(): void {
+    if (this.checkpointing || this.recoveryState.kind === 'save-required')
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_REQUIRED',
+        'Call Session.checkpoint() to save the unresolved conversation transition',
+      );
+  }
+  getConversationSnapshot(): ISessionConversationSnapshot {
+    return structuredClone({
+      id: this.sessionId,
+      cwd: realpathSync(this.cwd),
+      messages: this.agent.getHistory(),
+      ...(this.pendingExecution ? { pendingExecution: this.pendingExecution } : {}),
+    });
+  }
+  /** Install a complete same-owner snapshot on a pristine, idle Session. */
+  restoreConversation(snapshot: ISessionConversationSnapshot): void {
+    this.assertInputAllowed();
+    if (
+      this.turnClaim.isRunning() ||
+      this.agent.getHistory().some((message) => message.role !== 'system')
+    )
+      throw new Error('Conversation restore requires a pristine idle Session');
+    if (snapshot.id !== this.sessionId || realpathSync(snapshot.cwd) !== realpathSync(this.cwd))
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_CONFLICT',
+        'Conversation owner or workspace differs',
+      );
+    const decoded = decodeInteractiveSessionRecord({
+      id: snapshot.id,
+      cwd: snapshot.cwd,
+      messages: snapshot.messages,
+      ...(snapshot.pendingExecution === undefined
+        ? {}
+        : { pendingExecution: snapshot.pendingExecution }),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    });
+    if (decoded.status !== 'valid')
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_INVALID',
+        'Invalid conversation recovery snapshot',
+      );
+    const conversation = structuredClone(decoded.record);
+    this.agent.clearHistory();
+    for (const message of conversation.messages) this.agent.injectRawMessage(message);
+    this.setPending(conversation.pendingExecution);
+    this.syncContextFromHistory();
+  }
+  /** Retry only persistence, never model or tool execution. A sink must acknowledge synchronously. */
+  checkpoint(): void {
+    if (this.turnClaim.isRunning() || this.checkpointing)
+      throw new Error('Cannot checkpoint during a Session transition');
+    if (!this.checkpointHistoryCallback && !this.sessionStore)
+      throw new Error('Session checkpoint requires a persistence sink');
+    this.commitConversation(
+      this.recoveryState.kind === 'save-required' ? this.recoveryState.executionId : undefined,
+    );
+  }
+  private commitConversation(executionId?: string): void {
+    if (!this.checkpointHistoryCallback && !this.sessionStore) return;
+    if (this.checkpointing) throw new Error('Reentrant Session checkpoint');
+    const pending = this.pendingExecution;
+    const liveWaits = this.recoveryState.kind !== 'ready' && this.recoveryState.liveWaits;
+    this.checkpointing = true;
+    try {
+      if (this.checkpointHistoryCallback)
+        assertSynchronousCheckpoint(this.checkpointHistoryCallback());
+      else this.persistSessionInternal(true);
+      this.recoveryState = pending ? { kind: 'pending', pending, liveWaits } : { kind: 'ready' };
+    } catch (error) {
+      this.recoveryState = {
+        kind: 'save-required',
+        pending,
+        liveWaits,
+        executionId: executionId ?? pending?.executionId,
+      };
+      throw error;
+    } finally {
+      this.checkpointing = false;
+    }
+  }
+  private saveAfterFailure(error: unknown): void {
+    if (this.recoveryState.kind === 'save-required') return;
+    try {
+      this.commitConversation();
+    } catch (saveError) {
+      if (error instanceof ExecutionSuspendedError) throw saveError;
+      try {
+        this.log('error', {
+          message: `Session checkpoint failed while preserving the execution error: ${saveError instanceof Error ? saveError.message : String(saveError)}`,
+          stack: saveError instanceof Error ? (saveError.stack ?? '') : '',
+          historyLength: this.agent.getHistory().length,
+        });
+      } catch {
+        // allow-fallback: a secondary diagnostic must never replace the original execution failure.
+      }
     }
   }
 
@@ -403,6 +546,7 @@ export class Session extends SessionBase {
    * Resolves to the names that will be offered.
    */
   addTools(tools: readonly IToolWithEventService[]): Promise<readonly string[]> {
+    this.assertInputAllowed();
     if (this.shuttingDown) {
       return Promise.reject(new Error('[LIFECYCLE] Session is shutting down'));
     }
@@ -455,6 +599,7 @@ export class Session extends SessionBase {
     options?: IRuntimeToolInvokeOptions,
   ): Promise<IToolExecutionResult> {
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
+    this.assertInputAllowed();
     return this.runtimeTools.invoke(name, parameters, options);
   }
 
@@ -478,7 +623,7 @@ export class Session extends SessionBase {
       systemPrompt: this.systemMessage,
       toolSchemas: this.toolSchemas,
       sessionStore: this.sessionStore,
-      agent: this.agent,
+      conversation: this.getConversationSnapshot(),
       getFullHistory: () => this.getFullHistory(),
     });
     if (strict && outcome.status !== 'valid') {
@@ -538,6 +683,7 @@ export class Session extends SessionBase {
     model: string,
     options?: IProviderRegistrationOptions,
   ): void {
+    this.assertInputAllowed();
     this.agent.swapDefaultProvider(newProvider, model, options);
     newProvider.configureNativeWebTools?.({ webSearch: true });
     if ('onServerToolUse' in newProvider) {
@@ -559,7 +705,15 @@ export class Session extends SessionBase {
     signal?: AbortSignal,
     executionJournal?: IExecutionJournal,
   ): Promise<void> {
-    await this.compactWith(instructions, trigger, signal, undefined, executionJournal);
+    this.assertInputAllowed();
+    const controller = this.turnClaim.claim();
+    const unlink = linkCancellation(controller, signal);
+    try {
+      await this.compactWith(instructions, trigger, controller.signal, undefined, executionJournal);
+    } finally {
+      unlink();
+      this.turnClaim.release(controller);
+    }
   }
 
   /** `hookTraceEnv` reaches PreCompact only for a compaction inside a prompt (see `executeRun`). */
@@ -582,7 +736,7 @@ export class Session extends SessionBase {
     await compact(instructions, buildCompactContext(this.buildRunContext(), extras), signal);
   }
 
-  private buildRunContext(): IRunContext {
+  private buildRunContext(journaled = false): IRunContext {
     return {
       sessionId: this.sessionId,
       cwd: this.cwd,
@@ -599,8 +753,16 @@ export class Session extends SessionBase {
         this.compactWith(undefined, 'auto', signal, hookTraceEnv, executionJournal),
       persistSession: () => this.persistSessionInternal(),
       checkpointHistory:
-        this.checkpointHistoryCallback ??
-        (this.sessionStore ? () => this.persistSessionInternal(true) : undefined),
+        this.checkpointHistoryCallback || this.sessionStore
+          ? () => {
+              if (journaled)
+                this.setPending(
+                  unfinishedExecution(this.agent.getHistory(), this.pendingExecution, new Set()),
+                );
+              this.commitConversation();
+            }
+          : undefined,
+
       getSessionStore: () => !!this.sessionStore,
       clearSessionStartStdout: () => void (this.sessionStartStdout = ''),
       permissionMode: this.permissionMode,

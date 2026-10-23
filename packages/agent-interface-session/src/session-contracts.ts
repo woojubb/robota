@@ -1,3 +1,4 @@
+import type { ISessionPendingExecution } from './session-recovery-contracts.js';
 /**
  * Interactive-session contracts — the minimal session surface, execution result,
  * event map, and persistence shapes consumed by transport adapters.
@@ -36,16 +37,8 @@ import type {
   ISessionTurnSubmission,
   ISessionWorkspaceLocation,
 } from './session-capability-contracts.js';
-import type {
-  IActiveBranchPointer,
-  IGoalState,
-  IPlanArtifact,
-} from './session-event-map.js';
-import type {
-  IHistoryEntry,
-  IToolSchema,
-  TUniversalMessage,
-} from '@robota-sdk/agent-core';
+import type { IActiveBranchPointer, IGoalState, IPlanArtifact } from './session-event-map.js';
+import type { IHistoryEntry, IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskState,
   TBackgroundTaskEvent,
@@ -161,6 +154,7 @@ export interface IInteractiveSessionRecord {
   createdAt: string;
   updatedAt: string;
   messages: TUniversalMessage[];
+  pendingExecution?: ISessionPendingExecution;
   history?: IHistoryEntry[];
   systemPrompt?: string;
   toolSchemas?: IToolSchema[];
