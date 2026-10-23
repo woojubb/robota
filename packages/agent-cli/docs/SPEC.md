@@ -222,6 +222,14 @@ Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`)
 
 ## Design decisions
 
+### Browser launch compatibility
+
+Verified pull-request links retain `open` so platform-specific browser launching remains maintained
+by a dedicated library. URL trust checks remain Robota's responsibility, separate from the launch
+mechanism. Replacing the dependency requires equivalent supported-platform behavior and lower
+maintenance cost. A smaller dependency count alone does not justify maintaining operating-system
+launch commands here.
+
 ### Self-contained bundle
 
 `@robota-sdk/agent-cli` publishes a self-contained bundle for its supported CLI entry points,
