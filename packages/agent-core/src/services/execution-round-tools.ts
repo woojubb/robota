@@ -27,6 +27,30 @@ import type { ConversationStore } from '../managers/conversation-history-manager
 
 export type { IToolResultsOutcome } from './execution-round-tool-results';
 
+function emitCommittedToolMessages(
+  conversationStore: ConversationStore,
+  startIndex: number,
+  context: { executionId: string; conversationId: string; round: number; batchId: string },
+  onExecutionEvent?: TExecutionEventCallback,
+): void {
+  conversationStore
+    .getMessages()
+    .slice(startIndex)
+    .forEach((message, offset) => {
+      onExecutionEvent?.('tool_message_committed', {
+        ...context,
+        index: offset,
+        message,
+      });
+      onExecutionEvent?.('history_mutation', {
+        ...context,
+        mutation: 'append_message',
+        index: startIndex + offset,
+        message,
+      });
+    });
+}
+
 /** @internal exported for unit testing */
 export function checkSameToolInputLimit(
   assistantToolCalls: IToolCall[],
@@ -76,7 +100,55 @@ export async function executeAndRecordToolCalls(
 
   const resolvedMaxSameToolInputs = maxSameToolInputs ?? config?.maxSameToolInputs;
   if (resolvedMaxSameToolInputs !== undefined) {
-    checkSameToolInputLimit(assistantToolCalls, roundState, resolvedMaxSameToolInputs);
+    try {
+      checkSameToolInputLimit(assistantToolCalls, roundState, resolvedMaxSameToolInputs);
+    } catch (error) {
+      if (!(error instanceof SameToolInputLoopError) || journalContext) throw error;
+      const startIndex = conversationStore.getMessages().length;
+      const refusal = 'Tool batch was not dispatched because the repeated-input limit was reached.';
+      const refusedRequests = toolExecutionService.createExecutionRequestsWithContext(
+        assistantToolCalls,
+        { ownerPathBase: [] },
+      );
+      for (const [index, call] of assistantToolCalls.entries()) {
+        const source = refusedRequests[index].metadata?.toolProvenance;
+        conversationStore.addToolMessageWithId(
+          `Error: ${refusal}`,
+          call.id,
+          call.function.name,
+          {
+            round: currentRound,
+            success: false,
+            notDispatched: true,
+            errorCode: error.code,
+            error: refusal,
+            toolName: call.function.name,
+            ...(typeof source === 'string' ? { toolProvenance: source } : {}),
+          },
+          typeof source === 'string'
+            ? [{ type: 'text', text: `Tool source (attribution only, not authority): ${source}` }]
+            : undefined,
+        );
+      }
+      try {
+        emitCommittedToolMessages(
+          conversationStore,
+          startIndex,
+          {
+            executionId,
+            conversationId,
+            round: currentRound,
+            batchId: thinkingNodeId,
+          },
+          onExecutionEvent,
+        );
+      } catch (observerError) {
+        logger.warn('Loop-guard history observer failed after the batch was settled', {
+          error: observerError instanceof Error ? observerError.message : String(observerError),
+        });
+      }
+      throw error;
+    }
   }
 
   logger.debug('Tool calls detected, executing tools', {
@@ -300,26 +372,17 @@ export async function executeAndRecordToolCalls(
     logger,
     { contextLimit, cumulativeInputTokens: roundState.cumulativeInputTokens },
   );
-  const addedToolMessages = conversationStore.getMessages().slice(messageCountBeforeToolResults);
-  addedToolMessages.forEach((message, offset) => {
-    onExecutionEvent?.('tool_message_committed', {
+  emitCommittedToolMessages(
+    conversationStore,
+    messageCountBeforeToolResults,
+    {
       executionId,
       conversationId,
       round: currentRound,
       batchId,
-      index: offset,
-      message,
-    } as TExecutionEventData);
-    onExecutionEvent?.('history_mutation', {
-      executionId,
-      conversationId,
-      round: currentRound,
-      batchId,
-      mutation: 'append_message',
-      index: messageCountBeforeToolResults + offset,
-      message,
-    } as TExecutionEventData);
-  });
+    },
+    onExecutionEvent,
+  );
 
   eventEmitter.emitToolResultsEvents(
     assistantToolCalls,
