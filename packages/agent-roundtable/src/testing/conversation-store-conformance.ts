@@ -67,6 +67,20 @@ async function load(store: ConversationStore, id = 'room'): Promise<Conversation
   return envelope;
 }
 
+function mutateNestedOutput(state: JsonValue): void {
+  check(
+    state !== null && typeof state === 'object' && !Array.isArray(state),
+    'object output state',
+  );
+  const nested = state.nested;
+  check(
+    nested !== null && typeof nested === 'object' && !Array.isArray(nested),
+    'nested output object',
+  );
+  check(Array.isArray(nested.values), 'nested output array');
+  nested.values.push('injected output mutation');
+}
+
 async function roundtrip({
   clients: [a, b],
   leaseMs,
@@ -82,6 +96,7 @@ async function roundtrip({
     'complete initial envelope',
   );
   input.nested.values.push('mutation');
+  mutateNestedOutput(created.state);
   created.state = null;
   equal(
     await load(b),
@@ -89,32 +104,29 @@ async function roundtrip({
     'create clone isolation',
   );
   const firstLoad = await load(a);
-  check(
-    firstLoad.state !== null &&
-      typeof firstLoad.state === 'object' &&
-      !Array.isArray(firstLoad.state),
-    'loaded object state',
-  );
-  firstLoad.state.unknownField = 'mutation';
-  equal((await load(b)).state, expected, 'load clone isolation');
+  mutateNestedOutput(firstLoad.state);
+  equal((await load(b)).state, expected, 'nested load clone isolation');
   await rejects(() => b.create('room', null), 'conflict');
   const claim = await a.claim('room', 'owner', leaseMs);
-  const state = { nested: ['kept'] };
+  const state = { nested: { values: ['kept'] } };
   const change = { claim, expectedRevision: 0, operationId: 'one', state };
   const committed = await a.commit(change);
-  state.nested.push('mutation');
+  state.nested.values.push('mutation');
+  mutateNestedOutput(committed.state);
   committed.state = null;
   const wanted = {
     schemaVersion: 1,
     conversationId: 'room',
     revision: 1,
-    state: { nested: ['kept'] },
+    state: { nested: { values: ['kept'] } },
   };
   equal(await load(b), wanted, 'commit clone isolation');
   const receipt = await b.lookupOperation('room', 'one');
   check(receipt !== undefined, 'committed operation receipt missing');
+  mutateNestedOutput(receipt.state);
   receipt.state = false;
-  equal(await a.lookupOperation('room', 'one'), wanted, 'receipt clone isolation');
+  equal(await a.lookupOperation('room', 'one'), wanted, 'nested receipt clone isolation');
+  equal(await load(b), wanted, 'receipt mutation cannot corrupt current state');
   for (const [i, value] of [null, true, 12, 'primitive', ['array']].entries()) {
     equal((await a.create(`primitive-${i}`, value)).state, value, 'opaque primitive JSON');
   }
@@ -220,7 +232,19 @@ async function leases(f: ConversationStoreConformanceFixture): Promise<void> {
   // A caller's old expiresAt is metadata; the backend's renewed expiry governs ownership.
   await a.commit({ claim: first, expectedRevision: 0, operationId: 'renewed', state: null });
   await f.advanceTo(renewed.expiresAt);
+  await rejects(
+    () =>
+      a.commit({ claim: renewed, expectedRevision: 1, operationId: 'expired', state: 'forbidden' }),
+    'stale-claim',
+  );
+  await rejects(() => a.release(renewed), 'stale-claim');
   await rejects(() => a.renew(renewed, leaseMs), 'stale-claim');
+  equal((await load(b)).revision, 1, 'expired operations cannot change state before successor');
+  equal(
+    await b.lookupOperation('room', 'expired'),
+    undefined,
+    'expired fresh write has no receipt',
+  );
   const successor = await b.claim('room', 'owner', leaseMs);
   check(successor.fence > first.fence, 'same-owner reacquisition increases fence');
   await staleOperations(a, first, 1);
@@ -293,6 +317,8 @@ async function operationRetries(f: ConversationStoreConformanceFixture): Promise
   await rejects(() => b.commit({ ...change, expectedRevision: 1 }), 'conflict');
   await a.release(claim);
   equal(await b.commit(change), first, 'known retry precedes current claim validation');
+  await rejects(() => b.commit({ ...change, state: 'changed after release' }), 'conflict');
+  await rejects(() => b.commit({ ...change, expectedRevision: 1 }), 'conflict');
   await f.advanceTo(claim.expiresAt);
   const next = await b.claim('room', 'replacement', leaseMs);
   equal(await a.commit(change), first, 'retry survives expiry and replacement');
@@ -344,9 +370,17 @@ async function invalidInputs({
   leaseMs,
 }: ConversationStoreConformanceFixture): Promise<void> {
   await rejects(() => a.create('', null), 'invalid-config');
-  for (const value of [NaN, Infinity])
-    await rejects(() => a.create('invalid', value), 'invalid-config');
-  equal(await b.load('invalid'), undefined, 'invalid create cannot persist');
+  // Deliberately cross the typed JSON boundary with representative invalid JavaScript values.
+  const invalidStates: readonly unknown[] = [
+    NaN,
+    Infinity,
+    { nested: { bad: undefined } },
+    { nested: new Date(0) },
+  ];
+  for (const [i, value] of invalidStates.entries()) {
+    await rejects(() => a.create(`invalid-${i}`, value as JsonValue), 'invalid-config');
+    equal(await b.load(`invalid-${i}`), undefined, 'invalid create cannot persist');
+  }
   await a.create('room', null);
   await rejects(() => a.claim('missing', 'owner', leaseMs), 'conflict');
   await rejects(() => a.claim('room', '', leaseMs), 'invalid-config');
@@ -365,8 +399,8 @@ async function invalidInputs({
   );
   await rejects(() => b.commit({ ...change, operationId: '' }), 'invalid-config');
   await rejects(() => b.renew(claim, 0), 'invalid-config');
-  for (const state of [NaN, Infinity])
-    await rejects(() => b.commit({ ...change, state }), 'invalid-config');
+  for (const state of invalidStates)
+    await rejects(() => b.commit({ ...change, state: state as JsonValue }), 'invalid-config');
   const cyclic: { self?: JsonValue } = {};
   cyclic.self = cyclic;
   await rejects(() => b.commit({ ...change, state: cyclic }), 'invalid-config');

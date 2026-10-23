@@ -108,7 +108,88 @@ class ReceiptLoss extends Client {
   }
 }
 
-type ClientFactory = (backend: ConversationStore) => ConversationStore;
+interface TestClock {
+  now: number;
+}
+
+class ExpiredWrite extends Client {
+  constructor(
+    backend: ConversationStore,
+    private readonly clock: TestClock,
+  ) {
+    super(backend);
+  }
+  override async commit(change: ConversationCommit) {
+    const saved = this.clock.now;
+    if (saved >= change.claim.expiresAt) this.clock.now = change.claim.expiresAt - 1;
+    try {
+      return await super.commit(change);
+    } finally {
+      this.clock.now = saved;
+    }
+  }
+}
+
+function shallow(envelope: ConversationEnvelope): ConversationEnvelope {
+  const state = envelope.state;
+  return {
+    ...envelope,
+    state: Array.isArray(state)
+      ? [...state]
+      : state !== null && typeof state === 'object'
+        ? { ...state }
+        : state,
+  };
+}
+
+class ShallowOutput extends Client {
+  private views = new Map<string, ConversationEnvelope>();
+  private receipts = new Map<string, ConversationEnvelope>();
+  override async create(id: string, state: JsonValue) {
+    const envelope = await super.create(id, state);
+    this.views.set(id, envelope);
+    return shallow(envelope);
+  }
+  override async load(id: string) {
+    const envelope = this.views.get(id);
+    return envelope && shallow(envelope);
+  }
+  override async commit(change: ConversationCommit) {
+    const envelope = await super.commit(change);
+    const key = JSON.stringify([change.claim.conversationId, change.operationId]);
+    let receipt = this.receipts.get(key);
+    if (!receipt) {
+      receipt = envelope;
+      this.views.set(envelope.conversationId, envelope);
+      this.receipts.set(key, envelope);
+    }
+    return shallow(receipt);
+  }
+  override async lookupOperation(id: string, operation: string) {
+    const envelope = this.receipts.get(JSON.stringify([id, operation]));
+    return envelope && shallow(envelope);
+  }
+}
+
+class JsonCoercion extends Client {
+  private coerce(state: JsonValue): JsonValue {
+    try {
+      return state !== null && typeof state === 'object'
+        ? JSON.parse(JSON.stringify(state))
+        : state;
+    } catch {
+      return state;
+    } // Preserve the independently covered cyclic-input rejection.
+  }
+  override create(id: string, state: JsonValue) {
+    return super.create(id, this.coerce(state));
+  }
+  override commit(change: ConversationCommit) {
+    return super.commit({ ...change, state: this.coerce(change.state) });
+  }
+}
+
+type ClientFactory = (backend: ConversationStore, clock: TestClock) => ConversationStore;
 
 async function runWithFault(
   target: ConversationStoreConformanceCase,
@@ -116,14 +197,14 @@ async function runWithFault(
   cleaned: string[],
 ) {
   await runConversationStoreConformance((name) => {
-    let now = 1_000;
-    const backend = new MemoryConversationStore({ now: () => now });
-    const subject = name === target ? wrap(backend) : new Client(backend);
+    const clock = { now: 1_000 };
+    const backend = new MemoryConversationStore({ now: () => clock.now });
+    const subject = name === target ? wrap(backend, clock) : new Client(backend);
     return {
       clients: [subject, subject],
       leaseMs: 1_000,
       advanceTo: (time) => {
-        now = Math.max(now, time);
+        clock.now = Math.max(clock.now, time);
       },
       cleanup: () => {
         cleaned.push(name);
@@ -139,6 +220,9 @@ describe('ConversationStore conformance fault sensitivity', () => {
     ['leases', (backend) => new LeaseRevival(backend)],
     ['operation-retries', (backend) => new RetryAsNewWrite(backend)],
     ['lost-reply', (backend) => new ReceiptLoss(backend)],
+    ['leases', (backend, clock) => new ExpiredWrite(backend, clock)],
+    ['roundtrip', (backend) => new ShallowOutput(backend)],
+    ['invalid-inputs', (backend) => new JsonCoercion(backend)],
   ] satisfies [ConversationStoreConformanceCase, ClientFactory][])(
     'rejects a faulty backend in %s and cleans its fixture',
     async (name, wrap) => {
