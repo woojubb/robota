@@ -133,6 +133,7 @@ export {
   resolveSessionIdByIdOrName,
   generateSessionName,
   restoreSessionRecordIntoSession,
+  restoredScheduleDisposition,
   SessionRenameUnavailableError,
   persistSessionRename,
   WorkspaceProjectSessionStore,
@@ -142,6 +143,7 @@ export {
 export type {
   IHostToolResultSpillStore,
   ISessionRecordRestoreResult,
+  TRestoredScheduleDisposition,
 } from './interactive/index.js';
 export type {
   TInteractiveSessionOptions,

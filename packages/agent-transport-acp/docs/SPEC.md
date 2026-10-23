@@ -15,8 +15,9 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
 - Depends on `agent-transport` (shared stdio carrier helper), the `agent-interface-*` contracts,
   `agent-core` types and the ACP SDK. It imports no sibling transport, no `agent-framework` and no
   CLI. Carrier mechanics shared with MCP live in `agent-transport/node`, not here and not copied.
-- Does not delegate file reads, writes or terminals to the editor, replay history (`session/load`),
-  or advertise MCP capability, and speaks no ACP version other than 1.
+- Does not delegate file reads, writes or terminals to the editor, build or find stored sessions
+  (loading one is the host's port), or advertise MCP capability, and speaks no ACP version other
+  than 1.
 - Is not Robota's own surface protocol. The WebSocket wire protocol serves session listing and
   switching, history paging, background work, status frames and pairing that ACP v1 has no
   counterpart for; this adapter sits beside it over the same session.
@@ -34,8 +35,9 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
 
 ## Invariants
 
-- **The editor widens nothing.** `session/new` must name the served directory and carry no MCP
-  servers or extra roots; the host's trust check runs before the session id is returned. A
+- **The editor widens nothing.** `session/new` and `session/load` must name the served directory and
+  carry no MCP servers or extra roots, and the host's trust check runs before either answers; a load
+  reaches only a session the host's port admits, which must be rooted in the served directory. A
   permission answer grants only an option that request listed, and anything cancelled, failed or
   unrecognised denies.
 - **Questions fail closed.** ACP v1 has no free-form question, so the transport never listens for
@@ -51,7 +53,18 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
 
 - **One session per connection.** The host builds one session, with its trust, working directory
   and permissions. Serving a second `session/new` would alias that session under another id or need
-  a session factory whose per-session working directory is not established, so it is refused.
+  a session factory whose per-session working directory is not established, so it is refused. A
+  `session/load` replaces the connection's session instead of adding one: the host's port makes the
+  stored session current in what the transport was attached to, and the transport keeps serving
+  that object. A load is checked exactly like `session/new` and refused while a prompt runs, since it
+  would take the session from under that turn; the host may refuse more (work still in progress, a
+  session that would run on its own). It is offered only when the host can load, and the editor sees
+  the conversation it reopened before the load answers.
+- **The command list follows the session.** The editor learns the commands it may offer once it
+  holds the session id, so the list goes out after the reply that gives it. Any prompt, a command or
+  a model turn, can change the catalog (a plugin reload, a preset, a skill that installs another), so
+  the list is re-checked after every prompt and sent again only when it changed.
+  Commands a client runs itself are not offered, because an editor cannot run them.
 - **`session/new` waits for the session to start.** The host builds the session in the background
   and it cannot name itself until it is ready, while an editor sends `session/new` straight after
   `initialize`; answering early would fail the first launch at random. A session that failed to
@@ -86,7 +99,8 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
   alone, so the request carries the arguments whole, an edit's diff and the file it touches, and a
   title that is never shortened; approving a summary would approve what was not seen.
 - **Slash commands arrive as prompt text.** A prompt whose text starts with `/` goes to the host's
-  command port; the editor's own command list is not advertised. A command that runs a model turn
+  command port. The commands an editor may offer are advertised so it can list them, but the prompt
+  text stays the way a command arrives, as ACP sends a chosen command. A command that runs a model turn
   (a skill) streams, asks about permissions and is cancelled exactly like a typed message, because
   the person must be able to answer what it asks and stop what it does; the prompt's signal goes
   with the command, so a cancel that lands while the skill is still being prepared stops its turn
