@@ -54,10 +54,8 @@ export function replayHistory(
     }
     const { tool } = segment;
     if (tool.internal) continue;
-    const toolCallId =
-      tool.executionId !== undefined && !used.has(tool.executionId)
-        ? tool.executionId
-        : nextToolCallId();
+    let toolCallId = tool.executionId ?? nextToolCallId();
+    while (used.has(toolCallId)) toolCallId = nextToolCallId();
     used.add(toolCallId);
     updates.send({
       sessionUpdate: 'tool_call',

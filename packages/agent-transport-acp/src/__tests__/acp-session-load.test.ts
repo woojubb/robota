@@ -504,43 +504,46 @@ describe('session/load', () => {
     await loading;
   });
 
-  it('gives a replayed call a fresh row when its id already named an earlier one', async () => {
-    const fake = createFakeSession();
-    const repeated: IHistoryDisplaySegment[] = [
-      {
-        type: 'tool',
-        tool: {
-          toolName: 'Read',
-          firstArg: 'a',
-          isRunning: false,
-          result: 'success',
-          executionId: 'call_0',
+  it.each(['call_0', 'tool-1'])(
+    'gives a replayed call a fresh row when its id %s already named an earlier one',
+    async (executionId) => {
+      const fake = createFakeSession();
+      const repeated: IHistoryDisplaySegment[] = [
+        {
+          type: 'tool',
+          tool: {
+            toolName: 'Read',
+            firstArg: 'a',
+            isRunning: false,
+            result: 'success',
+            executionId,
+          },
         },
-      },
-      {
-        type: 'tool',
-        tool: {
-          toolName: 'Read',
-          firstArg: 'b',
-          isRunning: false,
-          result: 'success',
-          executionId: 'call_0',
+        {
+          type: 'tool',
+          tool: {
+            toolName: 'Read',
+            firstArg: 'b',
+            isRunning: false,
+            result: 'success',
+            executionId,
+          },
         },
-      },
-    ];
-    fake.session.getMessagesDisplay = () => repeated;
-    const { editor } = await start(fake, { loadSession: async () => ({ loaded: true }) });
-    await editor.connection.agent.request('initialize', { protocolVersion: 1 });
-    await editor.connection.agent.request('session/load', {
-      sessionId: 'robota-session-1',
-      cwd: WORKSPACE,
-      mcpServers: [],
-    });
-    expect(editor.updates.map((u) => (u as { toolCallId: string }).toolCallId)).toEqual([
-      'call_0',
-      'tool-1',
-    ]);
-  });
+      ];
+      fake.session.getMessagesDisplay = () => repeated;
+      const { editor } = await start(fake, { loadSession: async () => ({ loaded: true }) });
+      await editor.connection.agent.request('initialize', { protocolVersion: 1 });
+      await editor.connection.agent.request('session/load', {
+        sessionId: 'robota-session-1',
+        cwd: WORKSPACE,
+        mcpServers: [],
+      });
+      expect(editor.updates.map((u) => (u as { toolCallId: string }).toolCallId)).toEqual([
+        executionId,
+        executionId === 'tool-1' ? 'tool-2' : 'tool-1',
+      ]);
+    },
+  );
 
   it('answers a fixed error when the loaded history cannot be read, and keeps the cause local', async () => {
     const fake = createFakeSession();
