@@ -93,13 +93,16 @@ export function createZodFunctionTool<S extends ZodType>(
 
   if (options.resultMode === 'invocation-json') {
     return FunctionTool.fromResult(schema, async (parameters, context) => {
+      const startedAt = Date.now();
       const data = await wrappedFn(parameters, context);
+      const executionTime = Date.now() - startedAt;
       if (typeof data !== 'string') throw new ValidationError('Expected invocation JSON output');
       const payload: unknown = JSON.parse(data);
       const result = InvocationResultSchema.parse(payload);
       return {
         success: result.success,
         data,
+        metadata: { executionTime, toolName: name, parameters },
         ...(result.success ? {} : { error: result.error }),
       };
     });

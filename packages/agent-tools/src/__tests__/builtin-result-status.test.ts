@@ -72,7 +72,7 @@ describe('declared builtin invocation outcomes', () => {
 
   it.each(failures)(
     '$name reports its failure in the outer envelope and preserves the JSON payload',
-    async ({ tool, args }) => {
+    async ({ name, tool, args }) => {
       const result = await tool().execute(args);
       expect(result.success).toBe(false);
       expect(typeof result.data).toBe('string');
@@ -80,6 +80,8 @@ describe('declared builtin invocation outcomes', () => {
       expect(payload).toMatchObject({ success: false });
       expect(payload).toHaveProperty('error', result.error);
       expect(result.error).toEqual(expect.any(String));
+      expect(result.metadata).toMatchObject({ toolName: name, parameters: args });
+      expect(result.metadata?.executionTime).toEqual(expect.any(Number));
     },
   );
 
@@ -107,6 +109,27 @@ describe('declared builtin invocation outcomes', () => {
       error: 'refused',
       data: ' { "success": false, "output": "retained", "error": "refused" } ',
     });
+  });
+
+  it('retains caller arguments in metadata while the executor receives schema defaults', async () => {
+    const schema = z.object({ level: z.string().default('info') });
+    const args = {};
+    for (const resultMode of ['value', 'invocation-json'] as const) {
+      const tool = createZodFunctionTool(
+        'Defaulted',
+        'Defaulted arguments',
+        schema,
+        async ({ level }) => {
+          expect(level).toBe('info');
+          return JSON.stringify({ success: true, output: 'done' });
+        },
+        { resultMode },
+      );
+      const result = await tool.execute(args);
+      expect(result.metadata).toMatchObject({ toolName: 'Defaulted', parameters: {} });
+      expect(result.metadata?.executionTime).toEqual(expect.any(Number));
+      expect(result.metadata?.parameters).not.toHaveProperty('level');
+    }
   });
 
   it.each([
