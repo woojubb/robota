@@ -1,5 +1,7 @@
 # @robota-sdk/agent-process
 
+## 3.0.0-beta.96
+
 ## 3.0.0-beta.95
 
 ## 3.0.0-beta.94

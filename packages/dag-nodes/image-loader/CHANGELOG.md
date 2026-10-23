@@ -1,5 +1,12 @@
 # @robota-sdk/dag-node-image-loader
 
+## 3.0.0-beta.62
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/dag-core@3.0.0-beta.62
+  - @robota-sdk/dag-node@3.0.0-beta.62
+
 ## 3.0.0-beta.61
 
 ### Patch Changes

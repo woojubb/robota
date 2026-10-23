@@ -1,5 +1,12 @@
 # @robota-sdk/agent-session-analytics
 
+## 3.0.0-beta.96
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.96
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.96
+  - @robota-sdk/agent-interface-session@3.0.0-beta.96
+
 ## 3.0.0-beta.95
 ### Patch Changes
 

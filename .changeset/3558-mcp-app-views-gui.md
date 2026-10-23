@@ -1,6 +1,7 @@
 ---
 '@robota-sdk/agent-ui-web': minor
 '@robota-sdk/agent-cli': patch
+'@robota-sdk/agent-gui-web': patch
 ---
 
 Show a finished MCP tool call's app in an opaque frame with a source-bound JSON-RPC bridge. App callbacks use the session's view authority and permission prompt. Session changes and frame disposal reject pending local requests.

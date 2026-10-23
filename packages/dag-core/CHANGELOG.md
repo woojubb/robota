@@ -1,5 +1,10 @@
 # @robota-sdk/dag-core
 
+## 3.0.0-beta.62
+### Patch Changes
+
+- Remove the unused `zod-to-json-schema` dependency from the private DAG core package without changing its runtime behavior or public contracts.
+
 ## 3.0.0-beta.61
 
 ### Major Changes
