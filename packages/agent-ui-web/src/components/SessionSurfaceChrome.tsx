@@ -268,7 +268,7 @@ function noticeSentence(notice: ISessionNotice): string | null {
 }
 
 /**
- * Session and protocol failures, as dismissible toasts over the top-right corner: they stay until
+ * Session outcomes and protocol failures, as dismissible toasts over the top-right corner: they stay until
  * dismissed, and never push the conversation or the composer out of view. Command output is not
  * here — it belongs to the conversation. A provider error classified at the wire boundary shows one
  * plain sentence with the next step; its raw text sits behind "Details" rather than as the headline.
@@ -280,13 +280,16 @@ export function SessionNotices({ state }: { state: IWsSessionState }): React.Rea
     <div className="pointer-events-none absolute right-4 top-16 z-40 flex w-[min(400px,calc(100%-32px))] flex-col gap-2">
       {notices.slice(-3).map((notice) => {
         const sentence = noticeSentence(notice);
+        const compacted = notice.kind === 'context-compacted';
         return (
           <div
             key={notice.id}
-            role="alert"
+            role={compacted ? 'status' : 'alert'}
             className="gui-rise pointer-events-auto flex items-start gap-3 rounded-xl bg-popover px-4 py-3 text-[14px] leading-snug text-popover-foreground shadow-xl shadow-black/30"
           >
-            <span className="mt-[7px] h-2 w-2 flex-shrink-0 rounded-full bg-destructive" />
+            <span
+              className={`mt-[7px] h-2 w-2 flex-shrink-0 rounded-full ${compacted ? 'bg-primary' : 'bg-destructive'}`}
+            />
             <span className="max-h-40 flex-1 overflow-y-auto whitespace-pre-wrap break-words">
               {sentence ?? notice.message}
               {sentence && (

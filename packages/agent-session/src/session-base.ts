@@ -2,6 +2,7 @@ import { requireExecutionRoot } from './execution-root.js';
 import { TurnClaim } from './turn-claim.js';
 
 import type { ContextWindowTracker, TAutoCompactThreshold } from './context-window-tracker.js';
+import type { CompactionOrchestrator } from './compaction-orchestrator.js';
 import type { PermissionEnforcer } from './permission-enforcer.js';
 import type { IPermissionDenial } from './permission-denial-log.js';
 import type {
@@ -22,6 +23,7 @@ export abstract class SessionBase {
   protected abstract readonly agent: ConversationAgent;
   protected abstract readonly permissionEnforcer: PermissionEnforcer;
   protected abstract readonly contextTracker: ContextWindowTracker;
+  protected abstract readonly compactionOrchestrator: CompactionOrchestrator;
   protected abstract permissionMode: TPermissionMode;
   protected abstract activePresetId: string;
   protected abstract parallelSubagentsEnabled: boolean;
@@ -145,7 +147,13 @@ export abstract class SessionBase {
       ...(options.temperature !== undefined && { temperature: options.temperature }),
       ...(options.maxOutputTokens !== undefined && { maxTokens: options.maxOutputTokens }),
     });
-    this.model = nextModel;
+    this.setActiveModel(nextModel);
+  }
+
+  protected setActiveModel(model: string): void {
+    this.model = model;
+    this.contextTracker.setModel(model);
+    this.compactionOrchestrator.setModel(model);
   }
 
   /** Read the selection for the next model call; provider default remains `auto`. */

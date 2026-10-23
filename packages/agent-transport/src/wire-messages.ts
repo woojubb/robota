@@ -32,6 +32,7 @@ import type {
 import type {
   IAskRequestEvent,
   IBranchEvent,
+  ICompactEvent,
   IExecutionResult,
   IContextFileRefreshedEvent,
   IModelListGroup,
@@ -270,7 +271,15 @@ export type TServerMessage =
   | { type: 'context'; state: ReturnType<ISessionConversationRead['getContextState']> }
   // #3189: the full history gained entries that no streamed frame carries (a compaction, a skill
   // activation, a memory event). A client that shows the full history re-reads it with `get-history`.
-  | { type: 'history_changed' }
+  | {
+      type: 'history_changed';
+      /** A completed compaction, for clients that do not render the full system history. */
+      compact?: {
+        trigger: ICompactEvent['trigger'];
+        beforeUsedPercentage: number;
+        afterUsedPercentage: number;
+      };
+    }
   // #3189: where the turn now starting came from (the user, a wake-up, a peer, an external event).
   | { type: 'turn_source'; source: TTurnSource }
   | { type: 'commands'; commands: ICommandListEntry[]; skills: ICommandSkillListEntry[] }

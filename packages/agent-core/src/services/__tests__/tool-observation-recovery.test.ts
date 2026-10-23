@@ -79,7 +79,7 @@ function fixture(
       return response;
     };
   const model = 'tool-observation-fixture';
-  registerModelMetadata({ id: model, name: model, contextWindow: 1000, maxOutput: 100 });
+  registerModelMetadata({ id: model, name: model, contextWindow: 10000, maxOutput: 100 });
   const observer = new OutcomeObserver();
   const agent = new ConversationAgent({
     name: 'tool-observation-fixture',
@@ -120,7 +120,7 @@ function batch(name = 'act'): TScriptedTurn {
       { name: 'read', args: {} },
       { name, args: {} },
     ],
-    usage: { inputTokens: 850, outputTokens: 1 },
+    usage: { inputTokens: 8500, outputTokens: 1 },
   };
 }
 

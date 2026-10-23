@@ -66,6 +66,31 @@ describe('context token estimation', () => {
     expect(estimate.usedTokens).toBeGreaterThanOrEqual(80_000);
   });
 
+  it('adds the unreported input to the latest provider usage instead of hiding it below that floor', () => {
+    const pending = [userMessage('new input')];
+    const estimate = estimateContextTokensFromMessages([assistantMessage(800, 10), ...pending]);
+
+    expect(estimate.providerTokens).toBe(810);
+    expect(estimate.usedTokens).toBe(810 + estimateSerializedContextTokens(pending));
+  });
+
+  it('counts each unreported tool, input and system message once after only the latest usage report', () => {
+    const pending: TUniversalMessage[] = [
+      { id: 'tool', role: 'tool', toolCallId: 'call', content: 'result', state: 'complete', timestamp: NOW },
+      userMessage('next'),
+      { id: 'system', role: 'system', content: 'transient', state: 'complete', timestamp: NOW },
+    ];
+    const estimate = estimateContextTokensFromMessages([
+      assistantMessage(30_000, 2_000), assistantMessage(50_000, 3_000), ...pending,
+    ], { usageFloorTokens: 52_000 });
+
+    expect(estimate.providerTokens).toBe(53_000);
+    expect(estimate.usedTokens).toBe(53_000 + estimateSerializedContextTokens(pending));
+    expect(estimateContextTokensFromMessages([assistantMessage(800, 10), ...pending], {
+      usageFloorTokens: 2000,
+    }).usedTokens).toBe(2000);
+  });
+
   it('can use a caller-provided usage floor when it exceeds the serialized estimate', () => {
     const estimate = estimateContextTokensFromMessages([userMessage('short')], {
       usageFloorTokens: 120_000,
