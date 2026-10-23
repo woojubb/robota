@@ -162,7 +162,7 @@ describe('Node live OTLP trace export', () => {
       const session = new InteractiveSession({
         session: {
           run: vi.fn(async () => 'private response'),
-          abort: vi.fn(), getHistory: () => history,
+          abort: vi.fn(), assertInputAllowed: vi.fn(), getHistory: () => history,
           getContextState: () => ({ usedPercentage: 0, usedTokens: 0, maxTokens: 100 }),
           getPermissionMode: () => 'default', getProviderId: () => 'test-provider',
           getModelId: () => 'test-model',

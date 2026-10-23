@@ -245,6 +245,7 @@ it('routes discovered approved MCP instructions into actual user and model turns
     session: {
       run,
       getSessionId: () => 'skill-turn',
+      assertInputAllowed: vi.fn(),
       getHistory: () => [],
       getSystemMessage: () => 'system',
       getToolSchemas: () => [],
