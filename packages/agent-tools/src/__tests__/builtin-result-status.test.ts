@@ -1,4 +1,4 @@
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -188,6 +188,54 @@ describe('declared builtin invocation outcomes', () => {
   it('keeps ToolSearch missing-catalog refusal as a hard failure', async () => {
     await expect(createToolSearchTool().execute({ query: 'Read' })).rejects.toThrow();
   });
+
+  it.each(['read', 'write', 'edit-read', 'edit-write'])(
+    'reports an offered editor %s failure without falling back to disk',
+    async (action) => {
+      const filePath = join(root, `editor-${action}.txt`);
+      writeFileSync(filePath, 'DISK alpha');
+      let reads = 0;
+      let writes = 0;
+      const options = {
+        cwd: root,
+        editorFiles: () => ({
+          readTextFile: async () => {
+            reads += 1;
+            if (action === 'read' || action === 'edit-read')
+              throw new Error('Editor read refused');
+            return 'BUFFER alpha';
+          },
+          writeTextFile: async () => {
+            writes += 1;
+            throw new Error('Editor write refused');
+          },
+        }),
+      };
+      const args =
+        action === 'read'
+          ? { filePath }
+          : action === 'write'
+            ? { filePath, content: 'blocked' }
+            : { filePath, oldString: 'alpha', newString: 'beta' };
+      const tool =
+        action === 'read'
+          ? createReadTool(options)
+          : action === 'write'
+            ? createWriteTool(options)
+            : createEditTool(options);
+      const result = await tool.execute(args);
+      expect(result.success).toBe(false);
+      expect(JSON.parse(String(result.data))).toMatchObject({
+        success: false,
+        error: result.error,
+      });
+      expect(result.error).toContain('Editor');
+      expect(result.metadata).toMatchObject({ toolName: tool.schema.name, parameters: args });
+      expect(reads).toBe(action === 'write' ? 0 : 1);
+      expect(writes).toBe(action === 'write' || action === 'edit-write' ? 1 : 0);
+      expect(readFileSync(filePath, 'utf8')).toBe('DISK alpha');
+    },
+  );
 
   it.each(['read', 'write', 'edit-read', 'edit-write'])(
     'propagates an offered filesystem %s failure without a disk fallback',
