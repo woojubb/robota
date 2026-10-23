@@ -157,7 +157,8 @@ export interface ISessionNotice {
     | 'protocol-error'
     | 'session-change-refused'
     | 'background-task-control-failed'
-    | 'command-failed';
+    | 'command-failed'
+    | 'context-compacted';
   message: string;
   /**
    * A `session-error` classified at the wire boundary (#3289 §3) — present only when the host could

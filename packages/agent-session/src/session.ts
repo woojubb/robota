@@ -127,7 +127,7 @@ export class Session extends SessionBase {
   private readonly onCompactEventCallback?: ISessionOptions['onCompactEvent'];
   private readonly sessionLogger?: ISessionLogger;
   private readonly maxTurns?: number;
-  private readonly compactionOrchestrator: CompactionOrchestrator;
+  protected readonly compactionOrchestrator: CompactionOrchestrator;
   private readonly runtimeTools: SessionRuntimeTools;
   private readonly wrapAddedTools: ISessionOptions['wrapAddedTools'];
   /** Tools added while a turn ran, applied when the next one starts. */
@@ -693,10 +693,7 @@ export class Session extends SessionBase {
         this.log('server_tool', { tool: name, ...input });
     }
     this.aiProvider = newProvider;
-    // #3282 §2: without this, getModelId() (session_status's `model` field) kept reporting the
-    // PREVIOUS provider's model after a hot-swap — `this.model` is this class's own cache and
-    // `swapDefaultProvider` has no reason to know about it.
-    this.model = model;
+    this.setActiveModel(model);
   }
 
   async compact(

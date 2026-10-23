@@ -7,7 +7,7 @@
 
 import { randomUUID } from 'node:crypto';
 
-import { callJournaledProvider, runHooks } from '@robota-sdk/agent-core';
+import { callJournaledProvider, createAbortError, runHooks } from '@robota-sdk/agent-core';
 
 import { formatConversationEntries } from './conversation-transcript.js';
 
@@ -68,7 +68,7 @@ export interface ICompactionOptions {
 export class CompactionOrchestrator {
   private readonly sessionId: string;
   private readonly cwd: string;
-  private readonly model: string;
+  private model: string;
   private readonly hooks?: Record<string, unknown>;
   private readonly compactInstructions?: string;
   private readonly basePrompt?: string;
@@ -82,6 +82,10 @@ export class CompactionOrchestrator {
     this.compactInstructions = options.compactInstructions;
     this.basePrompt = options.basePrompt;
     this.hookTypeExecutors = options.hookTypeExecutors;
+  }
+
+  setModel(model: string): void {
+    this.model = model;
   }
 
   /**
@@ -149,7 +153,14 @@ export class CompactionOrchestrator {
       model: this.model,
     };
     const summaryMessage = await callJournaledProvider(
-      (messages, options) => provider.chat(messages, options),
+      async (messages, options) => {
+        try {
+          return await provider.chat(messages, options);
+        } catch (error) {
+          if (signal?.aborted) throw createAbortError('Compaction cancelled', error);
+          throw error;
+        }
+      },
       [
         {
           id: randomUUID(),
@@ -162,6 +173,8 @@ export class CompactionOrchestrator {
       {
         model: this.model,
         executionId,
+        // Override defaults inside provider wrappers without mutating shared provider state.
+        onTextDelta: () => {},
         onModelFallback: (notice) => {
           route = { ...notice.to };
         },

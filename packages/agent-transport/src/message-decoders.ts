@@ -324,7 +324,15 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
   messages: { messages: isRecordArray, display: isOptional(isRecordArray), ...authored },
   history: { startIndex: isCount, total: isCount, entries: isWireHistoryEntries },
   context: { state: isRecord },
-  history_changed: {},
+  history_changed: {
+    compact: isOptional(
+      (value) =>
+        isRecord(value) &&
+        oneOf(['auto', 'manual'])(value['trigger']) &&
+        isFiniteNumber(value['beforeUsedPercentage']) &&
+        isFiniteNumber(value['afterUsedPercentage']),
+    ),
+  },
   turn_source: { source: oneOf(Object.keys(TURN_SOURCES)) },
   commands: { commands: isRecordArray, skills: isRecordArray },
   session_status: { status: isRecord },

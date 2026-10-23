@@ -9,6 +9,7 @@ import {
   CONTEXT_ESTIMATE_CHARS_PER_TOKEN,
   createLogger,
   createUserMessage,
+  createSystemMessage,
   getProviderCapabilities,
   runHooks,
   traceEnvFor,
@@ -45,29 +46,6 @@ export async function executeRun(
   const hookTraceEnv = traceContext
     ? traceEnvFor('hooks', traceContext, traceContext.parentSpanId)
     : undefined;
-  // Auto-compact BEFORE processing the new message (not after).
-  // This prevents compaction from interfering with the current response stream.
-  ctx.contextTracker.updateFromHistory(ctx.agent.getHistory());
-  if (ctx.contextTracker.shouldAutoCompact()) {
-    // Providers store onTextDelta as an instance property for their own internal streaming.
-    // Compaction calls provider.chat() without passing onTextDelta in options, so the
-    // provider falls back to this.onTextDelta. Temporarily clearing it prevents compaction
-    // summary text from streaming to the UI. This workaround stays until provider packages
-    // remove the instance-level onTextDelta property.
-    const provider = ctx.aiProvider as { onTextDelta?: unknown };
-    const savedDelta = provider.onTextDelta;
-    provider.onTextDelta = undefined;
-    try {
-      if (runOptions?.executionJournal) {
-        await ctx.compact(abortSignal, hookTraceEnv, runOptions.executionJournal);
-      } else {
-        await (hookTraceEnv ? ctx.compact(abortSignal, hookTraceEnv) : ctx.compact(abortSignal));
-      }
-    } finally {
-      provider.onTextDelta = savedDelta;
-    }
-  }
-
   ctx.log('user', { content: message });
 
   // Fire UserPromptSubmit hook before AI processes input
@@ -96,6 +74,23 @@ export async function executeRun(
   const enrichedMessage = hookStdout
     ? `<system-reminder>\n${hookStdout}\n</system-reminder>\n${message}`
     : message;
+
+  // Budget the pending request without putting its new input into the history being summarized.
+  const pendingInput = createUserMessage(enrichedMessage);
+  const ephemeralSystemContext = runOptions?.ephemeralSystemContext;
+  const pendingMessages = [
+    pendingInput,
+    ...(ephemeralSystemContext?.trim() ? [createSystemMessage(ephemeralSystemContext)] : []),
+  ];
+  ctx.contextTracker.updateFromHistory(ctx.agent.getHistory());
+  if (ctx.contextTracker.shouldAutoCompact([...ctx.agent.getHistory(), ...pendingMessages])) {
+    if (runOptions?.executionJournal) {
+      await ctx.compact(abortSignal, hookTraceEnv, runOptions.executionJournal);
+    } else {
+      await (hookTraceEnv ? ctx.compact(abortSignal, hookTraceEnv) : ctx.compact(abortSignal));
+    }
+  }
+
   // Clear sessionStart stdout after first injection
   ctx.clearSessionStartStdout();
 
@@ -116,7 +111,7 @@ export async function executeRun(
     nativeWebFetchSupported: providerCapabilities.nativeWebTools.webFetch.supported,
     nativeWebFetchEnabled: providerCapabilities.nativeWebTools.webFetch.enabled,
   });
-  ctx.contextTracker.updateFromHistory([...history, createUserMessage(enrichedMessage)]);
+  ctx.contextTracker.updateFromHistory([...history, ...pendingMessages]);
   ctx.onContextUpdate?.(ctx.contextTracker.getContextState());
 
   let response: string;

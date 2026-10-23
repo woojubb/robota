@@ -18,7 +18,8 @@ export type TAutoCompactThreshold = number | false;
 
 export class ContextWindowTracker {
   private contextUsedTokens = 0;
-  private readonly contextMaxTokens: number;
+  private contextMaxTokens: number;
+  private readonly contextMaxTokensOverride: number | undefined;
   private autoCompactThreshold: TAutoCompactThreshold;
 
   constructor(
@@ -26,6 +27,7 @@ export class ContextWindowTracker {
     contextMaxTokens?: number,
     autoCompactThreshold?: TAutoCompactThreshold,
   ) {
+    this.contextMaxTokensOverride = contextMaxTokens;
     this.contextMaxTokens = contextMaxTokens ?? getModelContextWindow(model);
     this.autoCompactThreshold = normalizeAutoCompactThreshold(autoCompactThreshold);
   }
@@ -45,11 +47,19 @@ export class ContextWindowTracker {
   }
 
   /** Whether auto-compaction threshold has been exceeded */
-  shouldAutoCompact(): boolean {
+  shouldAutoCompact(requestMessages?: TUniversalMessage[]): boolean {
     if (this.autoCompactThreshold === false) {
       return false;
     }
-    return this.getContextState().usedPercentage >= this.autoCompactThreshold * PERCENT;
+    const usedTokens = requestMessages
+      ? estimateContextTokensFromMessages(requestMessages).usedTokens
+      : this.contextUsedTokens;
+    return usedTokens >= this.contextMaxTokens * this.autoCompactThreshold;
+  }
+
+  /** Follow the active model unless the host supplied its own context budget. */
+  setModel(model: string): void {
+    this.contextMaxTokens = this.contextMaxTokensOverride ?? getModelContextWindow(model);
   }
 
   /** The auto-compaction policy for this tracker. */

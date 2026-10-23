@@ -838,3 +838,33 @@ describe('decodeFrame — the one carrier path', () => {
     });
   });
 });
+
+describe('completed compaction metadata', () => {
+  it('accepts both a legacy history change and the optional typed completion', () => {
+    for (const message of [
+      { type: 'history_changed' },
+      {
+        type: 'history_changed',
+        compact: { trigger: 'auto', beforeUsedPercentage: 90.5, afterUsedPercentage: 20 },
+      },
+      {
+        type: 'history_changed',
+        compact: { trigger: 'manual', beforeUsedPercentage: 10, afterUsedPercentage: 2 },
+      },
+    ]) {
+      expect(decodeServerMessage(message)).toEqual({ ok: true, message });
+    }
+  });
+
+  it.each([
+    null,
+    [],
+    {},
+    { trigger: 'unknown', beforeUsedPercentage: 90, afterUsedPercentage: 20 },
+    { trigger: 'auto', beforeUsedPercentage: '90', afterUsedPercentage: 20 },
+    { trigger: 'auto', beforeUsedPercentage: 90, afterUsedPercentage: NaN },
+    { trigger: 'auto', beforeUsedPercentage: Infinity, afterUsedPercentage: 20 },
+  ])('refuses malformed completion metadata %j', (compact) => {
+    expect(decodeServerMessage({ type: 'history_changed', compact }).ok).toBe(false);
+  });
+});

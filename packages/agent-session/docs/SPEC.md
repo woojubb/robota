@@ -134,7 +134,9 @@ round trip — a local round trip must be lossless.
   fire-and-forget and cannot block or mutate the call.
 - The automatic-compaction trigger is a `0 < value <= 1` fraction of the context window
   (default `0.835`), or `false` to disable it for an embedding runtime that manages compaction
-  externally; it can be changed after construction and takes effect on the next `run()`.
+  externally; it can be changed after construction and takes effect on the next `run()`. The
+  window and summarization model follow the active model, while an explicit host context budget
+  and its automatic-compaction policy survive model changes.
 - Compaction-event metadata carries one `trigger` value (`manual` by default for an explicit
   call, `auto` for auto-compaction) that flows unchanged into the hook system, the session log,
   and the caller's own callback — nothing along that path re-derives the trigger independently.
@@ -311,7 +313,7 @@ person is never shown "no history" when history could not actually be read.
 
 - The summarization provider call is text-only (`toolChoice: none`) for manual and automatic
   compaction, regardless of the next turn's tool policy. Provider-hosted web tools must not run
-  while summarizing session history.
+  while summarizing session history, and summary text must not enter the response stream.
 - The project-context system message is preserved across compaction — it is excluded from the
   summarization input, and re-injected (ahead of the generated summary) after history is
   cleared, so the model does not lose awareness of its working directory, rules, and tools after
@@ -337,8 +339,9 @@ person is never shown "no history" when history could not actually be read.
   peer's words must never read as the operator's own, and no content can pose as another message.
   Compaction and every other such consumer use the one rendering, so what a summary keeps and what
   another reader sees cannot drift apart.
-- Auto-compaction triggers at the _start_ of a run (before the new user message is processed), so
-  it cannot interfere with an in-flight response stream.
+- Auto-compaction budgets the pending input, including hook enrichment and transient system
+  context, before admitting that input to conversation history. Only retained history is
+  summarized, so a large new input cannot bypass compaction and hooks need not be replayed.
 
 ### Abort behavior
 

@@ -303,7 +303,7 @@ describe('pushed session state (#3189)', () => {
     expect(client.sent).toEqual([{ type: 'context', state }]);
   });
 
-  it.each(['compact', 'skill_activation', 'memory_event'])(
+  it.each(['skill_activation', 'memory_event'])(
     'tells the client the history changed on %s, without sending the entries',
     (event) => {
       const session = createSession();
@@ -314,6 +314,25 @@ describe('pushed session state (#3189)', () => {
       expect(client.sent).toEqual([{ type: 'history_changed' }]);
     },
   );
+
+  it('preserves completed compaction metadata without sending or replacing history entries', () => {
+    const session = createSession();
+    const client = attach(session);
+    session.emit('compact', {
+      trigger: 'auto',
+      before: { usedTokens: 900, maxTokens: 1000, usedPercentage: 90, remainingPercentage: 10 },
+      after: { usedTokens: 200, maxTokens: 1000, usedPercentage: 20, remainingPercentage: 80 },
+    });
+    expect(client.sent).toEqual([
+      {
+        type: 'history_changed',
+        compact: { trigger: 'auto', beforeUsedPercentage: 90, afterUsedPercentage: 20 },
+      },
+    ]);
+    client.leave();
+    session.emit('compact', { trigger: 'auto' });
+    expect(client.sent).toHaveLength(1);
+  });
 
   it('delivers where a turn came from', () => {
     const session = createSession();
@@ -330,12 +349,15 @@ describe('pushed session state (#3189)', () => {
     const state = { usedTokens: 1, maxTokens: 10, usedPercentage: 10, remainingPercentage: 90 };
 
     session.emit('context_update', state);
-    session.emit('compact', {});
+    session.emit('compact', { trigger: 'auto', before: state, after: state });
     session.emit('turn_source', 'user');
 
     expect(observer.sent).toEqual([
       { type: 'context', state },
-      { type: 'history_changed' },
+      {
+        type: 'history_changed',
+        compact: { trigger: 'auto', beforeUsedPercentage: 10, afterUsedPercentage: 10 },
+      },
       { type: 'turn_source', source: 'user' },
     ]);
   });

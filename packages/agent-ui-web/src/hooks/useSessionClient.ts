@@ -464,6 +464,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   } = useAgentSwitcherState(send);
   const { handleSchedulesMessage, requestSchedules, ...schedulesState } = useSchedulesState(send);
 
+  const clearCompactionNotices = useCallback((): void => {
+    setSessionNotices((previous) => previous.filter((notice) => notice.kind !== 'context-compacted'));
+  }, []);
+
   const handleMessage = useCallback(
     (msg: TServerMessage): void => {
       // ARCH-2164: touching the exhaustive registry here keeps every decoded variant tied to an
@@ -663,6 +667,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           // Nothing of the old session stays on screen until the new one's answers arrive.
           sessionStatusRef.current = null;
           setSessionStatus(null);
+          clearCompactionNotices();
           streamingTextRef.current = '';
           turnSegmentsRef.current = [];
           setStreamingText('');
@@ -685,6 +690,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'history_cleared': {
+          clearCompactionNotices();
           rejectPendingAppRequests('The session history was cleared.');
           streamingTextRef.current = '';
           turnSegmentsRef.current = [];
@@ -793,6 +799,29 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           setCommandCatalog(catalog);
           break;
         }
+        case 'context': {
+          // A later status snapshot supplies identity and the latest context when none is known yet.
+          if (sessionStatusRef.current !== null) {
+            const next = { ...sessionStatusRef.current, context: msg.state };
+            sessionStatusRef.current = next;
+            setSessionStatus(next);
+          }
+          break;
+        }
+        case 'history_changed': {
+          const compact = msg.compact;
+          if (compact?.trigger === 'auto') {
+            setSessionNotices((previous) => [
+              ...previous,
+              {
+                id: nextId(),
+                kind: 'context-compacted',
+                message: `Auto compacted context: ${Math.round(compact.beforeUsedPercentage)}% → ${Math.round(compact.afterUsedPercentage)}%`,
+              },
+            ]);
+          }
+          break;
+        }
         case 'session_status': {
           sessionStatusRef.current = msg.status;
           setSessionStatus(msg.status);
@@ -877,6 +906,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       appendEntry,
       canListSessions,
       closeExecutionDetail,
+      clearCompactionNotices,
       finishTurn,
       handleAgentDefinitionsMessage,
       handleAppViewMessage,
@@ -921,7 +951,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       statusRef.current = next;
       setStatus(next);
       // A reply lost with the connection never arrives; the views waiting on one learn that now.
-      if (next !== 'connected') rejectPendingAppRequests();
+      if (next !== 'connected') {
+        rejectPendingAppRequests();
+        clearCompactionNotices();
+      }
       // Every client learns what it can offer and what is in effect as soon as it is attached.
       if (next === 'connected') {
         // A reply lost with the old connection never arrives; stop waiting for it.
@@ -954,6 +987,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   }, [
     makeClient,
     handleMessage,
+    clearCompactionNotices,
     requestSessions,
     requestSchedules,
     armRestore,

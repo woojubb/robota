@@ -39,9 +39,15 @@ export function estimateContextTokensFromMessages(
   const providerTokens = providerEstimate?.tokens;
   const usageFloorTokens = normalizeUsageFloorTokens(options.usageFloorTokens);
   const providerUsageIsTerminal = providerEstimate?.index === messages.length - 1;
+  const providerWithPendingTokens = providerEstimate
+    ? providerEstimate.tokens +
+      (providerUsageIsTerminal
+        ? 0
+        : estimateSerializedContextTokens(messages.slice(providerEstimate.index + 1)))
+    : 0;
   const usedTokens = providerUsageIsTerminal
     ? Math.max(providerTokens ?? 0, usageFloorTokens ?? 0)
-    : Math.max(serializedTokens, providerTokens ?? 0, usageFloorTokens ?? 0);
+    : Math.max(serializedTokens, providerWithPendingTokens, usageFloorTokens ?? 0);
 
   return {
     usedTokens,
