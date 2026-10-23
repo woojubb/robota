@@ -23,8 +23,8 @@ re-implements none of them.
 
 ## Contract
 
-- The factory passes the caller's `cwd` and optional `sandboxClient` straight through to the default
-  tool factory; it does not maintain a separate tool list, so pack composition adds, drops, or
+- The factory passes the caller's `cwd`, optional `sandboxClient` and optional `editorFiles` straight
+  through to the default tool factory; it does not maintain a separate tool list, so pack composition adds, drops, or
   reorders no defaults relative to that source.
 - Adapter-gated tools (`CodebaseRetrieval`, `Computer`) are absent because this pack supplies neither
   adapter nor driver.

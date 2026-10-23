@@ -420,7 +420,10 @@ start a person chose is admitted as it is elsewhere. From entry until shutdown, 
 use stderr while stdout is reserved for ACP frames. SIGINT, SIGTERM, stdin close, startup failure
 and carrier failure enter one idempotent cleanup path. An editor's `/command` prompt runs as a
 transport-origin command on this machine, so the remote command policy applies to it as it does to a
-WebSocket client. No WebSocket or TUI transport starts in this mode.
+WebSocket client. When the editor offers its file system, Read, Write and Edit read and write through
+it behind the same path guard and permission decision, so the agent sees unsaved changes and the
+editor holds its edits; Glob and Grep still search the disk and say so, commands stay in the agent's
+own sandbox, and the editor's terminals are not used. No WebSocket or TUI transport starts in this mode.
 
 ### `__PRODUCT_CLI_NAME__ mcp serve`
 

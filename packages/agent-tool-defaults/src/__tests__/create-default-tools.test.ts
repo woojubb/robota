@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -208,5 +208,82 @@ describe('file tools follow the sandbox filesystem relation (issue #3081)', () =
     const result = await read.execute({ filePath: '/sandbox/only.txt' });
     // The host has no /sandbox root, so the host read fails; it never consults the sandbox's files.
     expect(JSON.stringify(result)).not.toContain('inside the sandbox');
+  });
+});
+
+/** Issue #3550 item 4 — an editor reaches the host file tools and the searches, never the commands. */
+describe('an editor reaches the host file tools only', () => {
+  function recordingEditor() {
+    const asked: string[] = [];
+    const requests: string[] = [];
+    const access = {
+      readTextFile: async (path: string) => {
+        requests.push(`read ${path}`);
+        return 'EDITOR TEXT\n';
+      },
+      writeTextFile: async (path: string) => {
+        requests.push(`write ${path}`);
+      },
+    };
+    return {
+      requests,
+      asked,
+      editorFiles: () => {
+        asked.push('asked');
+        return access;
+      },
+    };
+  }
+  const parse = (outcome: unknown) =>
+    JSON.parse(String((outcome as { data?: unknown }).data)) as { output: string };
+
+  it('Read and Write go through the editor and the searches say they read the disk', async () => {
+    const root = mkdtempSync(join(PRIVATE_BASE, 'editor-'));
+    writeFileSync(join(root, 'probe.txt'), 'DISK TEXT\n');
+    const editor = recordingEditor();
+    const tools = createDefaultTools({ cwd: root, editorFiles: editor.editorFiles });
+    const byName = (name: string) => tools.find((tool) => tool.getName() === name)!;
+
+    expect(parse(await byName('Read').execute({ filePath: 'probe.txt' })).output).toContain(
+      'EDITOR TEXT',
+    );
+    await byName('Write').execute({ filePath: 'out.txt', content: 'x' });
+    expect(editor.requests).toEqual([`read ${join(root, 'probe.txt')}`, `write ${join(root, 'out.txt')}`]);
+    expect(parse(await byName('Grep').execute({ pattern: 'DISK' })).output).toContain(
+      '[Searched the files on disk.',
+    );
+  });
+
+  it('Shell and Bash never ask for the editor', async () => {
+    const root = mkdtempSync(join(PRIVATE_BASE, 'editor-shell-'));
+    const editor = recordingEditor();
+    const tools = createDefaultTools({ cwd: root, editorFiles: editor.editorFiles });
+    for (const name of ['Shell', 'Bash']) {
+      const outcome = await tools
+        .find((tool) => tool.getName() === name)!
+        .execute({ command: 'echo shell-ok' });
+      expect(JSON.stringify(outcome)).toContain('shell-ok');
+    }
+    expect(editor.asked).toEqual([]);
+  });
+
+  it('a separate sandbox filesystem keeps every file tool, so the editor is not asked', async () => {
+    const sandboxClient = new InMemorySandboxClient();
+    await sandboxClient.writeFile('/sandbox/only.txt', 'inside the sandbox');
+    const editor = recordingEditor();
+    const tools = createDefaultTools({
+      cwd: '/sandbox',
+      sandboxClient,
+      editorFiles: editor.editorFiles,
+    });
+    const read = tools.find((tool) => tool.getName() === 'Read')!;
+    expect(JSON.stringify(await read.execute({ filePath: '/sandbox/only.txt' }))).toContain(
+      'inside the sandbox',
+    );
+    await tools.find((tool) => tool.getName() === 'Write')!.execute({
+      filePath: '/sandbox/out.txt',
+      content: 'x',
+    });
+    expect(editor.asked).toEqual([]);
   });
 });

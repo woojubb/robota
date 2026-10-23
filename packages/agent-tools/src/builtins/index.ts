@@ -22,4 +22,9 @@ export { askUserQuestionTool, createAskUserQuestionTool } from './ask-user-quest
 export { toolSearchTool, createToolSearchTool, TOOL_SEARCH_NAME } from './tool-search-tool.js';
 export type { IToolSearchOutput } from './tool-search-tool.js';
 export { DEFAULT_TOOL_SEARCH_LIMIT, matchDeferredTools } from './tool-search-matching.js';
-export type { IBuiltinToolDescriptionOptions, ISandboxBuiltinToolOptions } from './tool-options.js';
+export type {
+  IBuiltinToolDescriptionOptions,
+  IFileBuiltinToolOptions,
+  ISandboxBuiltinToolOptions,
+} from './tool-options.js';
+export type { IEditorFileAccess, IEditorFileOptions } from './editor-files.js';

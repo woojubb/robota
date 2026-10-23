@@ -155,5 +155,7 @@ export { DEFAULT_TOOL_SEARCH_LIMIT, matchDeferredTools } from './builtins/tool-s
 export type {
   IBuiltinToolDescriptionOptions,
   IContainedBuiltinToolOptions,
+  IFileBuiltinToolOptions,
   ISandboxBuiltinToolOptions,
 } from './builtins/tool-options';
+export type { IEditorFileAccess, IEditorFileOptions } from './builtins/editor-files';

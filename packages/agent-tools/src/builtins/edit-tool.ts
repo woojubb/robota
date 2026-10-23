@@ -10,11 +10,11 @@ import { createReadStream } from 'node:fs';
 import { z } from 'zod';
 
 import { atomicWriteUtf8File } from './atomic-file-write.js';
+import { editorFailure, editorRead, editorSignal, editorWrite } from './editor-files.js';
 import { checkPathWithinCwd, resolveHostPath } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
-import type { ISandboxBuiltinToolOptions } from './tool-options.js';
-import type { ISandboxToolOptions } from '../sandbox/types.js';
+import type { IFileBuiltinToolOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
@@ -80,7 +80,11 @@ async function readBoundedUtf8File(
   return Buffer.concat(chunks, bytes).toString('utf8');
 }
 
-async function editFileTool(args: TEditArgs, options: ISandboxToolOptions): Promise<string> {
+async function editFileTool(
+  args: TEditArgs,
+  options: IFileBuiltinToolOptions,
+  callSignal?: AbortSignal,
+): Promise<string> {
   const { oldString, newString, replaceAll = false } = args;
   // A relative path anchors to the containment root before it is confined or edited (issue #2429).
   const filePath = options.sandboxClient
@@ -92,9 +96,23 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions): Prom
     if (pathError !== undefined) return pathError;
   }
 
+  // The edit applies to the text Read shows and lands where Write writes: through the editor for
+  // what it offers, on a host path the guard admitted, after the permission gate ran.
+  const fromEditor = options.sandboxClient ? undefined : editorRead(options);
+  const toEditor = options.sandboxClient ? undefined : editorWrite(options);
+  const signal = editorSignal(options.signal, callSignal);
+
   let content: string;
   try {
-    if (options.sandboxClient) {
+    if (fromEditor !== undefined) {
+      try {
+        content = await fromEditor(filePath, signal);
+      } catch (err) {
+        // allow-fallback: the editor's refusal → IToolInvocationResult error
+        return editorFailure('read', filePath, err);
+      }
+      if (Buffer.byteLength(content, 'utf8') > MAX_EDIT_FILE_BYTES) throw new EditByteLimitError('input');
+    } else if (options.sandboxClient) {
       content = await options.sandboxClient.readFile(filePath);
       // This API already returns a complete string; admission here still bounds the
       // string operations below, while a streaming sandbox read API is needed to bound
@@ -176,7 +194,14 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions): Prom
       content.slice(content.indexOf(oldString) + oldString.length);
 
   try {
-    if (options.sandboxClient) {
+    if (toEditor !== undefined) {
+      try {
+        await toEditor(filePath, updated, signal);
+      } catch (err) {
+        // allow-fallback: the editor's refusal → IToolInvocationResult error
+        return editorFailure('write', filePath, err);
+      }
+    } else if (options.sandboxClient) {
       await options.sandboxClient.writeFile(filePath, updated);
     } else {
       await atomicWriteUtf8File(filePath, updated);
@@ -205,13 +230,13 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions): Prom
 /**
  * Create an EditTool instance — register with agent tools registry.
  */
-export function createEditTool(options: ISandboxBuiltinToolOptions): FunctionTool {
+export function createEditTool(options: IFileBuiltinToolOptions): FunctionTool {
   return createZodFunctionTool(
     'Edit',
     options.description ?? DEFAULT_EDIT_DESCRIPTION,
     EditSchema,
-    async (params) => {
-      return editFileTool(params, options);
+    async (params, context) => {
+      return editFileTool(params, options, context?.signal);
     },
   );
 }
