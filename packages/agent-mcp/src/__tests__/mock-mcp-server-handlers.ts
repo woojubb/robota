@@ -214,3 +214,22 @@ export function handleToolsCall(
     respond();
   }
 }
+
+export function handleReadResource(
+  body: Record<string, unknown> | undefined,
+  id: string | number | undefined,
+  options: IMockMcpServerOptions,
+  res: ServerResponse,
+): void {
+  const params = body?.['params'] as { uri?: string } | undefined;
+  const contents = params?.uri === undefined ? undefined : options.resourceContents?.[params.uri];
+  if (contents === undefined) {
+    sendJson(res, HTTP_OK, {
+      jsonrpc: '2.0',
+      id: id ?? null,
+      error: { code: JSON_RPC_INVALID_PARAMS, message: `Unknown resource: ${String(params?.uri)}` },
+    });
+    return;
+  }
+  sendJson(res, HTTP_OK, { jsonrpc: '2.0', id, result: { contents } });
+}

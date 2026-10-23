@@ -1,5 +1,11 @@
 # @robota-sdk/dag-builder
 
+## 0.1.0-beta.2
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/dag-core@3.0.0-beta.62
+
 ## 0.1.0-beta.1
 
 ### Patch Changes

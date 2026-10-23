@@ -5,6 +5,7 @@ import { validateMcpServeInvocation } from '../startup/mcp-serve-invocation.js';
 import { hostedAdmissionError } from './hosted-runtime-config.js';
 import { HostedRuntimeController } from './hosted-runtime-controller.js';
 import { createE2BHostedRuntimeExecutorFactory } from './e2b-hosted-executor.js';
+import { loadE2BSdk } from './e2b-sdk.js';
 
 import type { TConfigEnvironment } from '@robota-sdk/product-config';
 import type { IStartCliOptions } from '../startup/cli-options-types.js';
@@ -59,6 +60,12 @@ export async function runHostedRuntime(
                   : 'interactive',
     resume: args.continueMode || args.resumeId !== undefined || args.forkSession,
   });
+  if (
+    options.hostedRuntimeExecutorFactory === undefined &&
+    environment.PRODUCT_HOSTED_WORKER_EXECUTION_CONFIG !== undefined
+  ) {
+    await loadE2BSdk();
+  }
   const factory =
     options.hostedRuntimeExecutorFactory ??
     (environment.PRODUCT_HOSTED_WORKER_EXECUTION_CONFIG !== undefined

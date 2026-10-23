@@ -12,7 +12,7 @@ import {
 import { loadProductConfig } from '@robota-sdk/product-config/node';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defaultClientConditions, defineConfig } from 'vite';
+import { defaultClientConditions, defineConfig, type ViteDevServer } from 'vite';
 
 /**
  * The GUI web app build. One static entry for every host: the desktop app loads `dist/` from disk
@@ -21,7 +21,8 @@ import { defaultClientConditions, defineConfig } from 'vite';
  *
  * The built page carries a strict CSP: it may reach only a loopback WebSocket (its sidecar). The dev
  * server goes without it, because Vite injects an inline HMR preamble the policy would block. The
- * desktop app additionally pins the exact port through a response header.
+ * desktop app additionally pins the exact port through a response header. The policy is injected into
+ * the HTML entries Vite builds only: `public/app-sandbox.html` is copied verbatim and keeps its own.
  */
 const CONTENT_SECURITY_POLICY = [
   "default-src 'self'",
@@ -29,7 +30,17 @@ const CONTENT_SECURITY_POLICY = [
   "img-src 'self' data:",
   "style-src 'self' 'unsafe-inline'",
   "script-src 'self'",
+  "frame-src 'self'",
 ].join('; ');
+
+function installAppSandboxNetworkPolicy(server: Pick<ViteDevServer, 'middlewares'>): void {
+  server.middlewares.use((request, response, next) => {
+    if (request.url?.split('?')[0] === '/app-sandbox.html') {
+      response.setHeader('Connection-Allowlist', '()');
+    }
+    next();
+  });
+}
 
 function selectedPublicProductConfig() {
   // The product generator writes both files in one fixed workspace location. Resolve from
@@ -80,6 +91,11 @@ export default defineConfig(({ command }) => {
         command === 'serve' ? ['source', ...defaultClientConditions] : [...defaultClientConditions],
     },
     plugins: [
+      {
+        name: 'app-sandbox-network-policy',
+        configureServer: installAppSandboxNetworkPolicy,
+        configurePreviewServer: installAppSandboxNetworkPolicy,
+      },
       {
         name: 'product-page-title',
         transformIndexHtml: (html) =>

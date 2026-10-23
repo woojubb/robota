@@ -1,4 +1,4 @@
-import { CommandExitError } from 'e2b/dist/index.mjs';
+import { loadE2BSdk } from './e2b-sdk.js';
 import { hostedAdmissionError } from './hosted-runtime-config.js';
 import type { Sandbox, CommandHandle } from 'e2b/dist/index.mjs';
 
@@ -26,6 +26,8 @@ export async function startE2BWorkerProcess(
   options: IE2BWorkerProcessOptions,
   assertOpen: () => void,
 ): Promise<IE2BWorkerProcess> {
+  assertOpen();
+  const { CommandExitError } = await loadE2BSdk();
   assertOpen();
   let handle: CommandHandle | undefined;
   const output = (data: string | Uint8Array): void => {

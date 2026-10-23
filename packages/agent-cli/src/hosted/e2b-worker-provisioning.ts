@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { posix } from 'node:path';
-import { Sandbox } from 'e2b/dist/index.mjs';
+import { loadE2BSdk } from './e2b-sdk.js';
 import {
   decodeHostedIdentity,
   decodeHostedSnapshot,
@@ -12,6 +12,7 @@ import { decodeHostedFilesystemCheckpoint } from './hosted-filesystem-checkpoint
 import { hostedSessionCheckpointBytes } from './hosted-session-checkpoint.js';
 import type { IHostedWorkerResumeSession } from './hosted-worker-execution-config.js';
 import type { IHostedIdentity, IHostedSnapshot } from './hosted-runtime-types.js';
+import type { Sandbox } from 'e2b/dist/index.mjs';
 
 /** Owner-side input. Sign admission only after this operation returns a verified resource receipt. */
 export interface IE2BWorkerProvisioningOptions {
@@ -103,6 +104,8 @@ export async function provisionE2BTaskWorker(
       sourceEpoch: String(checkpoint!.sourceEpoch),
     }),
   };
+  options.signal.throwIfAborted();
+  const { Sandbox } = await loadE2BSdk();
   options.signal.throwIfAborted();
   let sandbox: Sandbox;
   try {

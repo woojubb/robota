@@ -72,6 +72,8 @@ beside the binary. Native addon builds require a matching macOS, Linux or Window
 binary re-enters its embedded entry for workers and the daemon. The caller owns signing and desktop
 packaging. The browser asset root, when provided, must be an absolute directory packaged by the
 consumer; a consumer host without one does not serve the SDK's built-in monitor assets.
+Install `e2b@2.51.0` alongside the CLI before calling the native builder. Native compilation embeds
+the complete hosted capability, including E2B; the resulting binary needs no adjacent SDK package.
 
 ## First run
 
@@ -507,7 +509,27 @@ while physical containment, provider billing and independent remote custody requ
 measurements.
 
 Hosted posture requires current signed admission for a separate task worker and company broker.
-The installed E2B executor runs the stock CLI inside that worker. The runtime forwards arguments,
+The stock E2B executor is an explicitly installed capability for the npm/Node CLI. Local npm
+installation does not install or load the E2B SDK. Enable stock hosting in the same project:
+
+```sh
+npm install @robota-sdk/agent-cli e2b@2.51.0
+```
+
+For a global CLI installation, install both into the same global prefix:
+
+```sh
+npm install --global @robota-sdk/agent-cli e2b@2.51.0
+```
+
+Existing E2B helpers remain exported from the CLI package; their asynchronous provider operations
+require that explicit SDK installation. A missing SDK refuses stock hosted startup before admission
+requests, with installation guidance, and never runs the task on the host. A host supplying its own
+`hostedRuntimeExecutorFactory` does not need E2B. Stock standalone full/headless binaries and the
+desktop's bundled runtime retain embedded E2B support; this npm installation change does not remove
+their hosted capability.
+
+The executor runs the stock CLI inside the admitted worker. The runtime forwards arguments,
 input and output and owns cancellation, credential expiry and provider deletion; it does not run
 task tools against its own filesystem. Direct `--api-key` configuration is refused.
 

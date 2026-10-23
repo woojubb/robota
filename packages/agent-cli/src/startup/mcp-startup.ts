@@ -102,6 +102,12 @@ export interface IComposeMcpClientForStartupInput {
    * the mode decides (`print` has none; the others have one).
    */
   readonly askSurface?: boolean;
+  /**
+   * Whether a GUI surface that can host MCP app views in an isolated frame drives this host: the
+   * serve host for the desktop app and web GUI. Not `mcp serve`, the ACP editor agent, the TUI or
+   * a print run, none of which can show a view. Omitted means none does.
+   */
+  readonly appSurface?: boolean;
 }
 
 /**
@@ -318,6 +324,7 @@ export async function composeMcpClientForStartup(
     reportDiagnostic: input.reportDiagnostic,
     userActionSurface: mcpUserActionSurfaceFor(input.mode),
     elicitation: mcpElicitationFor(input.mode, input.askSurface),
+    apps: mcpAppsFor(input.mode, input.appSurface),
     cliName: input.productRuntime.vocabulary.cliName,
   });
 
@@ -389,4 +396,26 @@ export function mcpUserActionSurfaceFor(mode: TMcpStartupMode): TMCPUserActionSu
  */
 export function mcpElicitationFor(mode: TMcpStartupMode, askSurface?: boolean): boolean {
   return mode !== 'print' && askSurface !== false;
+}
+
+/**
+ * Whether servers may attach an app view to a tool result: only the serve host driven by a GUI that
+ * hosts such views in an isolated frame. Everywhere else the extension is not declared at all, so a
+ * server never builds a view nobody can show.
+ */
+export function mcpAppsFor(mode: TMcpStartupMode, appSurface?: boolean): boolean {
+  return mode === 'serve' && appSurface === true;
+}
+
+/**
+ * Whether a GUI that can host app views drives this process: the plain `--serve` host, which the
+ * desktop app's workspace daemon and the web GUI run. `mcp serve` and the ACP editor agent share
+ * the serve runtime but attach no such surface, and the TUI and print runs do not use it at all.
+ */
+export function mcpAppSurfaceFor(invocation: {
+  readonly serve: boolean;
+  readonly mcpServe: boolean;
+  readonly acp: boolean;
+}): boolean {
+  return invocation.serve && !invocation.mcpServe && !invocation.acp;
 }

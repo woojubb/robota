@@ -14,6 +14,7 @@ import { canonicalName, resolveNameCollisions } from './naming.js';
 
 import type { TUnenforceableSchemaReporter } from '../third-party-schema.js';
 import type { ICanonicalNameResult, INameCollisionLoser } from './naming.js';
+import type { TMCPToolUiProblem } from './ui-metadata.js';
 import type {
   IMCPCatalog,
   IMCPCatalogPromptEntry,
@@ -49,7 +50,11 @@ export interface IBuildCatalogOptions {
   readonly report?: TUnenforceableSchemaReporter;
   /** Fixed reason only: raw metadata, source values and credentials never enter diagnostics. */
   readonly reportResultSizeProblem?: (reason: 'invalid-type' | 'out-of-range') => void;
+  /** Fixed reason only, like `reportResultSizeProblem`; the tool is still offered, without a view. */
+  readonly reportUiMetadataProblem?: (toolName: string, reason: TMCPToolUiProblem) => void;
 }
+
+const APP_ONLY_TOOL_REASON = 'app-only tool; this host offers tools to the model only';
 
 /**
  * Transports `IMCPCatalogServerEntry.transport` (`./types.ts`, not owned here) can express. A
@@ -77,6 +82,8 @@ interface IPendingTool extends IPendingBase {
   readonly kind: 'tool';
   readonly inputSchema: IParameterSchema;
   readonly resultSizeMetadata?: IMCPDiscovery['tools']['items'][number]['resultSizeMetadata'];
+  readonly ui?: IMCPDiscovery['tools']['items'][number]['ui'];
+  readonly uiProblem?: IMCPDiscovery['tools']['items'][number]['uiProblem'];
 }
 
 interface IPendingPrompt extends IPendingBase {
@@ -159,10 +166,20 @@ function collectPendingTools(
   serverId: string,
   discovery: IMCPDiscovery,
   provenance: IMCPCatalogProvenance,
+  rejected: IMCPCatalogRejection[],
 ): IPendingTool[] {
   const items: IPendingTool[] = [];
   if (discovery.tools.state.kind === 'supported') {
     for (const tool of discovery.tools.items) {
+      if (tool.ui !== undefined && !tool.ui.visibility.includes('model')) {
+        rejected.push({
+          kind: 'tool',
+          serverId,
+          name: canonicalName(serverId, tool.name).name,
+          reason: APP_ONLY_TOOL_REASON,
+        });
+        continue;
+      }
       items.push({
         kind: 'tool',
         key: `${serverId}::tool::${tool.name}`,
@@ -173,6 +190,8 @@ function collectPendingTools(
         provenance,
         inputSchema: tool.inputSchema,
         resultSizeMetadata: tool.resultSizeMetadata,
+        ui: tool.ui,
+        uiProblem: tool.uiProblem,
       });
     }
   }
@@ -260,6 +279,9 @@ function buildToolEntry(
   if (item.resultSizeMetadata?.kind === 'invalid') {
     options?.reportResultSizeProblem?.(item.resultSizeMetadata.reason);
   }
+  if (item.uiProblem !== undefined) {
+    options?.reportUiMetadataProblem?.(canonical, item.uiProblem);
+  }
   return {
     kind: 'tool',
     canonicalName: canonical,
@@ -269,6 +291,7 @@ function buildToolEntry(
     ...(item.resultSizeMetadata?.kind === 'accepted'
       ? { maxResultChars: item.resultSizeMetadata.maxResultChars }
       : {}),
+    ...(item.ui === undefined ? {} : { ui: item.ui }),
     unenforceablePaths: narrowed.unenforceable,
     provenance: item.provenance,
     disposition: reason ? 'adapted' : 'adopted',
@@ -343,7 +366,7 @@ export function buildCatalog(
     if (!discovery) continue;
 
     const provenance = buildProvenance(input, discovery);
-    pending.push(...collectPendingTools(input.serverId, discovery, provenance));
+    pending.push(...collectPendingTools(input.serverId, discovery, provenance, rejected));
     pending.push(...collectPendingPrompts(input.serverId, discovery, provenance));
     pending.push(...collectPendingResources(input.serverId, discovery, provenance));
   }

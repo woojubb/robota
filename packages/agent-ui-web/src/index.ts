@@ -16,7 +16,13 @@ export type {
   ISessionClientHandle,
   TMakeSessionClient,
 } from './hooks/useSessionClient.js';
-export type { TSessionListing, TSessionsError } from './hooks/session-client-types.js';
+export type {
+  TAppToolArguments,
+  TAppToolOutcome,
+  TAppView,
+  TSessionListing,
+  TSessionsError,
+} from './hooks/session-client-types.js';
 // Issue #3280 §5: a host that can restart the runtime calls this before reloading the page, so the
 // first session listing after reconnecting can switch back to the session the person was in.
 export { rememberSessionForRestore } from './hooks/use-session-directory.js';

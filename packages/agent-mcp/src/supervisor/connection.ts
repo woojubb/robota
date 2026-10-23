@@ -31,7 +31,12 @@ import type {
   IMCPServerIdentity,
   TMCPCapabilityDomain,
 } from '../catalog/types.js';
-import type { IMCPSession, IMCPToolCallResult } from '../client/session.js';
+import type {
+  IMCPReadResourceOptions,
+  IMCPReadResourceResult,
+  IMCPSession,
+  IMCPToolCallResult,
+} from '../client/session.js';
 import type {
   IOutboundTraceContext,
   IUserInteraction,
@@ -479,6 +484,31 @@ export class MCPConnectionSupervisor {
             ? { outboundTraceContext: options.outboundTraceContext }
             : {}),
           ...(options?.ask ? { ask: options.ask } : {}),
+        });
+      } catch (error) {
+        this.retireSelfClosedStdioSession(session, error);
+        const classification = classifyMcpFailure(error);
+        const message = extractErrorMessage(error);
+        throw new MCPSupervisorError(classification, message, { cause: error });
+      }
+    });
+  }
+
+  /**
+   * One bounded `resources/read` under the same connection, budget and failure classification as
+   * `callTool`. It is a protocol request, so it takes the per-request timeout, not a tool call's.
+   */
+  async readResource(
+    uri: string,
+    options?: Pick<IMCPReadResourceOptions, 'signal'>,
+  ): Promise<IMCPReadResourceResult> {
+    return this.withDefaultBudget(options?.signal, async (effectiveSignal) => {
+      const session = await this.ensureConnected(effectiveSignal);
+      this.noteActivity();
+      try {
+        return await session.readResource(uri, {
+          signal: effectiveSignal,
+          timeoutMs: this.options.timeouts.perCallMs,
         });
       } catch (error) {
         this.retireSelfClosedStdioSession(session, error);

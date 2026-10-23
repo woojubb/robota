@@ -194,6 +194,7 @@ describe('owner-side E2B clean provisioning and filesystem recovery', () => {
       return create(...args);
     });
     const pending = provisionE2BTaskWorker({ ...f.options, signal: abort.signal });
+    await vi.waitFor(() => expect(f.create).toHaveBeenCalledTimes(1));
     abort.abort();
     expect(f.kill).not.toHaveBeenCalled();
     finish();

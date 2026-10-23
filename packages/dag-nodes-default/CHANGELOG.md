@@ -1,5 +1,29 @@
 # @robota-sdk/dag-nodes-default
 
+## 0.1.0-beta.17
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/dag-core@3.0.0-beta.62
+  - @robota-sdk/dag-node@3.0.0-beta.62
+  - @robota-sdk/dag-node-image-loader@3.0.0-beta.62
+  - @robota-sdk/dag-node-image-source@3.0.0-beta.62
+  - @robota-sdk/dag-node-input@3.0.0-beta.62
+  - @robota-sdk/dag-node-llm-text@3.0.0-beta.80
+  - @robota-sdk/dag-node-multi-input@3.0.0-beta.62
+  - @robota-sdk/dag-node-ok-emitter@3.0.0-beta.62
+  - @robota-sdk/dag-node-seedance-video@3.0.0-beta.80
+  - @robota-sdk/dag-node-skill@3.0.0-beta.80
+  - @robota-sdk/dag-node-text-output@3.0.0-beta.62
+  - @robota-sdk/dag-node-text-template@3.0.0-beta.62
+  - @robota-sdk/dag-node-text-to-image@3.0.0-beta.80
+  - @robota-sdk/dag-node-tool@3.0.0-beta.80
+  - @robota-sdk/dag-node-transform@3.0.0-beta.62
+  - @robota-sdk/dag-node-utility-text@3.0.0-beta.62
+  - @robota-sdk/agent-core@3.0.0-beta.96
+  - @robota-sdk/agent-framework@3.0.0-beta.96
+  - @robota-sdk/agent-interface-command@3.0.0-beta.96
+
 ## 0.1.0-beta.16
 ### Patch Changes
 
