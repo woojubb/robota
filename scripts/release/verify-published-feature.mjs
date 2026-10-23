@@ -108,6 +108,7 @@ export async function verifyPublished({
       JSON.stringify({
         build: { dockerfile: 'Dockerfile' },
         remoteUser: 'editor',
+        updateRemoteUserUID: false,
         containerUser: 'editor',
         userEnvProbe: 'none',
         features: { [exact]: {} },

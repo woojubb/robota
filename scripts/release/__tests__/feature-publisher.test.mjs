@@ -332,7 +332,7 @@ test('failed anonymous consumer preserves complete child diagnostics and cleans 
     const cli = path.join(bin, 'devcontainer');
     await writeFile(
       cli,
-      '#!/bin/sh\nprintf "%s\\n" "FULL_DIAGNOSTIC_BEFORE_TRAILING_STACK" >&2\ncat "$DOCKER_CONFIG/config.json"\nexit 42\n',
+      '#!/bin/sh\nprintf "%s\\n" "FULL_DIAGNOSTIC_BEFORE_TRAILING_STACK" >&2\ncat "$DOCKER_CONFIG/config.json"\ncat "$3/.devcontainer/devcontainer.json" >&2\nexit 42\n',
       { mode: 0o755 },
     );
     process.env.PATH = bin + path.delimiter + oldPath;
@@ -351,6 +351,13 @@ test('failed anonymous consumer preserves complete child diagnostics and cleans 
     );
     const receipt = JSON.parse(await readFile(receiptFile, 'utf8'));
     expect(receipt.normalAndCustomSlashBeforeAndAfterRebuild).toBe(false);
+    const generatedConfig = JSON.parse(
+      receipt.invocations
+        .find((x) => x.command === cli)
+        .stderr.split('\n')
+        .find((line) => line.startsWith('{')),
+    );
+    expect(generatedConfig.updateRemoteUserUID).toBe(false);
     expect(JSON.parse(receipt.invocations.find((x) => x.command === cli).stdout)).toEqual({
       credsStore: 'robota-anonymous',
     });
