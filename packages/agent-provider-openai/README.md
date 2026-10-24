@@ -66,9 +66,10 @@ OpenAI-compatible endpoint that rejects the `strict` field needs `strictTools` l
 
 ### Parallel function-call generation
 
-Set `parallelToolCalls` on the provider to send the exact boolean as `parallel_tool_calls` on
-Chat Completions and Responses requests, including plain `chat()`, callback-driven `chat()` and
-`chatStream()`:
+Set `parallelToolCalls` on the provider to send the exact boolean as `parallel_tool_calls`:
+Chat Completions sends it only on requests that include tools, the only requests it constrains,
+while Responses sends it on every request. This holds for plain `chat()`,
+callback-driven `chat()` and `chatStream()`:
 
 ```typescript
 const provider = new OpenAIProvider({
