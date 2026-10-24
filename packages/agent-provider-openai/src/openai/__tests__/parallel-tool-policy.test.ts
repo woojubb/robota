@@ -202,24 +202,36 @@ describe.each<TOpenAIApiSurface>(['chat-completions', 'responses'])(
       expect(received).toHaveLength(3);
     });
 
-    it('keeps explicit false without tools and with toolChoice none', async () => {
-      const provider = new OpenAIProvider({
-        ...providerOptions(apiSurface),
-        parallelToolCalls: false,
-      });
-      await provider.chat(messages, { model: 'fixture-model' });
-      await provider.chat(messages, { model: 'fixture-model', tools: [tool], toolChoice: 'none' });
-      expect(received[0]).toHaveProperty('parallel_tool_calls', false);
-      expect(received[0]).not.toHaveProperty('tools');
-      expect(received[1]).toMatchObject({ parallel_tool_calls: false, tool_choice: 'none' });
-    });
+    it.each(['chat', 'callback', 'stream'] as const)(
+      'keeps explicit false with toolChoice none and omits it without tools only on chat completions (%s)',
+      async (form) => {
+        const provider = new OpenAIProvider({
+          ...providerOptions(apiSurface),
+          parallelToolCalls: false,
+        });
+        await invoke(provider, form, { model: 'fixture-model' });
+        await invoke(provider, form, {
+          model: 'fixture-model',
+          tools: [tool],
+          toolChoice: 'none',
+        });
+        expect(received).toHaveLength(2);
+        expect(received[0]).not.toHaveProperty('tools');
+        if (apiSurface === 'responses') {
+          expect(received[0]).toHaveProperty('parallel_tool_calls', false);
+        } else {
+          expect(received[0]).not.toHaveProperty('parallel_tool_calls');
+        }
+        expect(received[1]).toMatchObject({ parallel_tool_calls: false, tool_choice: 'none' });
+      },
+    );
 
     it('captures the primitive without freezing the caller options', async () => {
       const options = { ...providerOptions(apiSurface), parallelToolCalls: false };
       const provider = new OpenAIProvider(options);
       options.parallelToolCalls = true;
       options.defaultModel = 'fixture-model';
-      await provider.chat(messages);
+      await provider.chat(messages, { tools: [tool] });
       expect(received[0]).toMatchObject({ parallel_tool_calls: false, model: 'fixture-model' });
       expect(Object.isFrozen(options)).toBe(false);
     });
@@ -232,7 +244,7 @@ describe.each<TOpenAIApiSurface>(['chat-completions', 'responses'])(
         baseURL,
         options: { apiSurface, ...(policy !== undefined && { parallelToolCalls: policy }) },
       });
-      await provider.chat(messages);
+      await provider.chat(messages, { tools: [tool] });
       if (policy === undefined) expect(received[0]).not.toHaveProperty('parallel_tool_calls');
       else expect(received[0]).toHaveProperty('parallel_tool_calls', policy);
     });
