@@ -441,6 +441,7 @@
     "subagent-permission-forwarding",
     "surface-unknown-preset-command-modules",
     "tidy-tools-settle",
+    "tool-less-chat-parallel-policy",
     "tool-observation-display",
     "tool-queue-timing",
     "trans-001-payload-agnostic-transport",

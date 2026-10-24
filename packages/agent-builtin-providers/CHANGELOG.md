@@ -1,5 +1,16 @@
 # @robota-sdk/agent-builtin-providers
 
+## 3.0.0-beta.99
+### Patch Changes
+
+- Updated dependencies [b185f55]
+  - @robota-sdk/agent-provider-openai@3.0.0-beta.99
+  - @robota-sdk/agent-core@3.0.0-beta.99
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.99
+  - @robota-sdk/agent-provider-bytedance@3.0.0-beta.99
+  - @robota-sdk/agent-provider-gemini@3.0.0-beta.99
+  - @robota-sdk/agent-provider-openai-compatible@3.0.0-beta.99
+
 ## 3.0.0-beta.98
 ### Patch Changes
 
