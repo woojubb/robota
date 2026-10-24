@@ -1,5 +1,13 @@
 # @robota-sdk/agent-transport-acp
 
+## 3.0.0-beta.98
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.98
+  - @robota-sdk/agent-interface-session@3.0.0-beta.98
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.98
+  - @robota-sdk/agent-transport@3.0.0-beta.98
+
 ## 3.0.0-beta.97
 ### Minor Changes
 
