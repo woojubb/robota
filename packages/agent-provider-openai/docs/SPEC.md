@@ -2,7 +2,7 @@
 
 ## Overview
 
-OpenAI provider implementation (`openai` SDK). The OpenAI-compatible protocol base lives in `@robota-sdk/agent-provider-openai-compatible` and is consumed via its `./shared` entry.
+The OpenAI provider (`openai` SDK) requests generation policy without hiding returned calls or guaranteeing result validity; callers own call-count and argument validation, and hosts own tool execution. The OpenAI-compatible protocol base lives in `@robota-sdk/agent-provider-openai-compatible` and is consumed via its `./shared` entry.
 
 Users who need a provider not included here can implement `IAIProvider` from `@robota-sdk/agent-core` and register it directly.
 

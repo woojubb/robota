@@ -1,6 +1,7 @@
 import { probeOpenAICompatibleProfile } from '@robota-sdk/agent-provider-openai-compatible/shared';
 
 import { OpenAIProvider } from './provider';
+import { parseParallelToolCalls } from './parallel-tool-policy';
 
 import type { IOpenAINativeWebToolsOptions, TOpenAIApiSurface } from './types';
 import type { IProviderDefinition, TUniversalValue } from '@robota-sdk/agent-core';
@@ -59,6 +60,10 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
     // organization and project the others name.
     destinationEnvironment: ['OPENAI_BASE_URL', 'OPENAI_ORG_ID', 'OPENAI_PROJECT_ID'],
     createProvider: (config) => {
+      const parallelToolCalls = parseParallelToolCalls(
+        config.options?.parallelToolCalls,
+        config.options?.apiSurface,
+      );
       const apiSurface = readApiSurface(config.options);
       const nativeWebTools = readNativeWebTools(config.options);
       validateOpenAINativeWebTools(config.baseURL, apiSurface, nativeWebTools);
@@ -67,6 +72,7 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
         ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
         ...(config.timeout !== undefined && { timeout: config.timeout }),
         ...(apiSurface !== undefined && { apiSurface }),
+        ...(parallelToolCalls !== undefined && { parallelToolCalls }),
         ...(nativeWebTools !== undefined && { nativeWebTools }),
         ...(config.options?.durableOperations === true && { durableOperations: true }),
         defaultModel: config.model,

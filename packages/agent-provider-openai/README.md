@@ -64,6 +64,32 @@ tool is sent with `strict: true` on both the Responses and Chat Completions surf
 OpenAI-compatible endpoint that rejects the `strict` field needs `strictTools` left off. With
 `strictTools` off (the default) tool schemas are forwarded as authored and no `strict` field is sent.
 
+### Parallel function-call generation
+
+Set `parallelToolCalls` on the provider to send the exact boolean as `parallel_tool_calls` on
+Chat Completions and Responses requests, including plain `chat()`, callback-driven `chat()` and
+`chatStream()`:
+
+```typescript
+const provider = new OpenAIProvider({
+  apiKey: process.env.OPENAI_API_KEY,
+  parallelToolCalls: false,
+});
+```
+
+The policy is captured at construction; later changes to the options object do not change it.
+Omitting it leaves the native field absent and retains existing behavior. Provider profiles can
+set the same boolean in `options.parallelToolCalls`; `null` and other non-boolean values are rejected.
+An explicit policy with an invalid `apiSurface` is also rejected before a profile can fall back to
+its default surface. Explicit policies cannot be used with an executor: constructor injection fails
+immediately, and a later `configure()` injection makes calls fail before dispatch or callbacks.
+
+This requests a generation policy, independently of `toolChoice` and `strictTools`. It does not
+guarantee exactly one call, valid arguments or execution order, and it does not schedule tool
+handlers. All returned calls and usage remain visible, even if an endpoint returns multiple calls
+under `false`. A compatible endpoint may reject or ignore the field; verify support for the endpoint
+and model you use.
+
 ### Reasoning effort and web tools
 
 A reasoning-effort selection (`defaultModel.effort` on a `ConversationAgent` agent, or `effort` on a chat call)
@@ -90,6 +116,7 @@ required; the constructor throws otherwise.
 | `organization`              | `string`                                   | OpenAI organization ID.                                                                                         |
 | `timeout`                   | `number`                                   | Request timeout in milliseconds.                                                                                |
 | `strictTools`               | `boolean`                                  | Closes tool object schemas and requests OpenAI strict function calling (see above).                             |
+| `parallelToolCalls`         | `boolean`                                  | Captured native parallel function-call generation policy; omitted by default and incompatible with executors. |
 | `responseFormat`            | `'text' \| 'json_object' \| 'json_schema'` | Response format; `'json_schema'` uses `jsonSchema`.                                                             |
 | `jsonSchema`                | `IOpenAIJsonSchemaDefinition`              | Schema for Structured Outputs when `responseFormat` is `'json_schema'`.                                         |
 | `reasoning`                 | `IOpenAIResponsesReasoningOptions`         | Responses API reasoning controls (`effort`, `summary`).                                                         |
