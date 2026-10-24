@@ -6,6 +6,7 @@ import {
 
 import { convertToOpenAIMessages, convertToOpenAITools } from './message-converter';
 import { buildOpenAIChatResponseFormat, mergeChatResponseFormat } from './openai-request-format';
+import { parallelToolCallsWire } from './parallel-tool-policy';
 import {
   awaitWithProviderRequestId,
   readOpenAIRequestId,
@@ -26,6 +27,7 @@ export interface IOpenAIChatCompletionsOptions {
   messages: TUniversalMessage[];
   chatOptions?: IChatOptions;
   providerOptions: IOpenAIProviderOptions;
+  parallelToolCalls?: boolean;
   payloadLogger?: IPayloadLogger;
   responseParser: OpenAIResponseParser;
   onTextDelta?: TTextDeltaCallback;
@@ -145,6 +147,7 @@ function buildChatRequestParams(
   );
   return {
     model,
+    ...parallelToolCallsWire(input.parallelToolCalls),
     messages: openaiMessages,
     ...(input.chatOptions?.temperature !== undefined && {
       temperature: input.chatOptions.temperature,

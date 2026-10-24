@@ -165,6 +165,13 @@ export interface IOpenAIProviderOptions {
   strictTools?: boolean;
 
   /**
+   * Requests the native parallel function-call generation policy on both OpenAI API surfaces.
+   * Captured at construction; undefined omits the wire field. Does not guarantee call count,
+   * argument validity or execution order. Explicit values cannot be used with an executor.
+   */
+  readonly parallelToolCalls?: boolean;
+
+  /**
    * Provider-native hosted web tool request from provider profile options.
    *
    * OpenAI-compatible Chat Completions endpoints do not support this ConversationAgent

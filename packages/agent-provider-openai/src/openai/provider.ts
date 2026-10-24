@@ -12,6 +12,7 @@ import {
   chatWithOpenAIChatCompletions,
 } from './chat-completions-chat';
 import { OPENAI_MODEL_EFFORT_TABLE } from './model-effort-table';
+import { assertParallelToolCallsExecutor, parseParallelToolCalls } from './parallel-tool-policy';
 import { OpenAIResponseParser } from './parsers/response-parser';
 import { chatStreamWithOpenAIResponsesApi, chatWithOpenAIResponsesApi } from './responses-chat';
 
@@ -42,6 +43,7 @@ export class OpenAIProvider extends AbstractAIProvider {
   private readonly client?: OpenAI;
   private readonly options: IOpenAIProviderOptions;
   private readonly apiSurface: TOpenAIApiSurface;
+  private readonly parallelToolCalls: boolean | undefined;
   private readonly payloadLogger: IPayloadLogger | undefined;
   private readonly responseParser: OpenAIResponseParser;
 
@@ -56,6 +58,8 @@ export class OpenAIProvider extends AbstractAIProvider {
   constructor(options: IOpenAIProviderOptions) {
     super(options.logger || SilentLogger);
     this.options = options;
+    this.parallelToolCalls = parseParallelToolCalls(options.parallelToolCalls, options.apiSurface);
+    assertParallelToolCallsExecutor(this.parallelToolCalls, options.executor !== undefined);
     this.apiSurface = resolveApiSurface(options);
     validateOpenAIProviderNativeWebTools(this.apiSurface, options.nativeWebTools);
 
@@ -86,6 +90,7 @@ export class OpenAIProvider extends AbstractAIProvider {
     messages: TUniversalMessage[],
     options?: IChatOptions,
   ): Promise<TUniversalMessage> {
+    assertParallelToolCallsExecutor(this.parallelToolCalls, this.executor !== undefined);
     this.validateMessages(messages);
     this.validateNativeWebTools(options?.nativeWebTools);
     const resolvedOptions = this.resolveEffortOptions(options);
@@ -112,6 +117,7 @@ export class OpenAIProvider extends AbstractAIProvider {
         messages,
         chatOptions: this.projectChatOptions(resolvedOptions),
         providerOptions: this.options,
+        parallelToolCalls: this.parallelToolCalls,
         onTextDelta: this.onTextDelta,
         requestHeaders: this.traceRequestHeaders(resolvedOptions),
       });
@@ -124,6 +130,7 @@ export class OpenAIProvider extends AbstractAIProvider {
       messages,
       chatOptions: this.projectChatOptions(resolvedOptions),
       providerOptions: this.options,
+      parallelToolCalls: this.parallelToolCalls,
       payloadLogger: this.payloadLogger,
       responseParser: this.responseParser,
       onTextDelta: this.onTextDelta,
@@ -137,6 +144,7 @@ export class OpenAIProvider extends AbstractAIProvider {
     messages: TUniversalMessage[],
     options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage> {
+    assertParallelToolCallsExecutor(this.parallelToolCalls, this.executor !== undefined);
     this.validateNativeWebTools(options?.nativeWebTools);
     const resolvedOptions = this.resolveEffortOptions(options);
 
@@ -179,6 +187,7 @@ export class OpenAIProvider extends AbstractAIProvider {
         messages,
         chatOptions: this.projectChatOptions(resolvedOptions),
         providerOptions: this.options,
+        parallelToolCalls: this.parallelToolCalls,
         onTextDelta: this.onTextDelta,
         requestHeaders: this.traceRequestHeaders(resolvedOptions),
       });
@@ -191,6 +200,7 @@ export class OpenAIProvider extends AbstractAIProvider {
       messages,
       chatOptions: this.projectChatOptions(resolvedOptions),
       providerOptions: this.options,
+      parallelToolCalls: this.parallelToolCalls,
       payloadLogger: this.payloadLogger,
       responseParser: this.responseParser,
       onTextDelta: this.onTextDelta,
