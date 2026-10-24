@@ -129,10 +129,10 @@ describe('server rendered homepage content', () => {
     const html = renderToStaticMarkup(<HomePageContent locale="en" />);
     const hero = html.split('</section>')[0];
 
-    expect(hero).toContain('One foundation for agents you use and agents you build.');
+    expect(hero).toContain('Use and build agents on the same foundation.');
     expect(hero).toContain('Build with the SDK');
     expect(hero).toContain('Try the CLI');
-    expect(hero).toContain('Our direction: agents that can reliably advance the systems they are built on.');
+    expect(hero).toContain('We aim to build agents that can reliably improve the systems they are built on.');
   });
 
   it('uses the approved Korean proposition and labels the English SDK guide', () => {

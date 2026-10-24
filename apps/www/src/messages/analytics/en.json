@@ -1,0 +1,7 @@
+{
+  "settings": "Analytics cookie settings",
+  "label": "Analytics cookies",
+  "description": "We use Google Analytics to measure page visits and improve this site. It is optional, and you can change your choice at any time.",
+  "reject": "Reject",
+  "accept": "Accept"
+}

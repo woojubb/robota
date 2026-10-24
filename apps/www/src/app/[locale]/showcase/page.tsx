@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { Metadata } from 'next';
+import { MarketingPageSeo } from '@/components/MarketingPageSeo';
 import { getMarketingMetadata } from '@/lib/marketing';
 
 export async function generateMetadata({
@@ -24,6 +25,8 @@ export default async function ShowcasePage({ params }: { params: Promise<{ local
   const submitRequirements = t.raw('submitRequirements') as string[];
 
   return (
+    <>
+    <MarketingPageSeo locale={locale === 'ko' ? 'ko' : 'en'} page='showcase' />
     <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
       <div className="mb-12">
         <h1 className="text-3xl font-extrabold text-[var(--foreground)] sm:text-4xl">
@@ -80,16 +83,18 @@ export default async function ShowcasePage({ params }: { params: Promise<{ local
       <section className="rounded-xl border border-[var(--border)] bg-[var(--card)] p-6">
         <h2 className="text-lg font-bold text-[var(--foreground)] mb-2">{t('submitTitle')}</h2>
         <p className="text-sm text-[var(--muted-foreground)] mb-3">
-          {t('submitDescription')}{' '}
-          <a
-            href="__PROJECT_REPOSITORY_URL__"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[var(--primary)] hover:underline"
-          >
-            GitHub
-          </a>
-          .
+          {t.rich('submitDescription', {
+            repository: (chunks) => (
+              <a
+                href="__PROJECT_REPOSITORY_URL__"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[var(--primary)] hover:underline"
+              >
+                {chunks}
+              </a>
+            ),
+          })}
         </p>
         <ul className="mb-5 space-y-1.5">
           {submitRequirements.map((req) => (
@@ -109,5 +114,6 @@ export default async function ShowcasePage({ params }: { params: Promise<{ local
         </a>
       </section>
     </div>
+    </>
   );
 }

@@ -1,12 +1,12 @@
 {
   "beta": "Public beta",
   "eyebrow": "TypeScript agent SDK + coding CLI",
-  "title": "One foundation for agents you use and agents you build.",
-  "lead": "Build an agent into your TypeScript application with the SDK. Or work in your terminal with the coding CLI built from the same public components. Configure a model endpoint, tools, permissions, and sessions for the task at hand.",
+  "title": "Use and build agents on the same foundation.",
+  "lead": "{name} provides a TypeScript SDK for AI agents and a coding CLI built from the same public components. Build agents into your app or use the CLI in your terminal. Configure a model endpoint, tools, permissions, and sessions for your task.",
   "sdkAction": "Build with the SDK",
   "cliAction": "Try the CLI",
-  "heroNote": "Public packages · Node.js 22.12 or later · Bring a model endpoint",
-  "heroVision": "Our direction: agents that can reliably advance the systems they are built on.",
+  "heroNote": "Public packages · Node.js 22.12 or later · Model endpoint required",
+  "heroVision": "We aim to build agents that can reliably improve the systems they are built on.",
   "jumpLabel": "On this page",
   "jumpLinks": {
     "features": "Features",
@@ -16,55 +16,55 @@
     "install": "Install"
   },
   "proofEyebrow": "The shared foundation",
-  "proofTitle": "Inspect the pieces. Then run a first query.",
-  "proofLead": "The agent framework assembles sessions, tools, and permission checks. The coding CLI is one maintained interface built on it. You can use the framework from your own Node.js application.",
+  "proofTitle": "Explore the components and run your first query.",
+  "proofLead": "The agent framework brings together sessions, tools, and permission checks. The coding CLI is a maintained interface built on that framework. You can also use the framework in your own Node.js app.",
   "sdkLabel": "Agent framework",
   "cliLabel": "Coding CLI",
-  "diagramCaption": "One public TypeScript foundation, with an embeddable path and a ready terminal interface.",
+  "diagramCaption": "A shared TypeScript foundation for an SDK you can embed and a CLI you can run in your terminal.",
   "installLabel": "Install the SDK packages",
-  "exampleLabel": "One-shot TypeScript query",
-  "cliCodeLabel": "CLI setup outline",
-  "cliPromptIntro": "After configuring a provider and model, type a normal prompt:",
-  "cliExpectedReply": "Look for a text reply from the selected model; its wording and quality depend on that model. Before asking about project files, decide whether to trust the workspace.",
+  "exampleLabel": "Single TypeScript query",
+  "cliCodeLabel": "Start CLI setup",
+  "cliPromptIntro": "After configuring a provider and model, enter a prompt:",
+  "cliExpectedReply": "The selected model returns a text reply. Its wording and quality depend on the model. Before asking about project files, decide whether to trust the workspace.",
   "copy": "Copy",
   "copied": "Copied",
   "copyFailed": "Copy failed. Select the code to copy it.",
-  "exampleNote": "This static example requires a running OpenAI-compatible server and a model ID loaded there. The local port is illustrative. The 'local' API key is a placeholder for servers without authentication; replace it with your server's credential if required. A published-package loopback check verified the SDK call and cleanup; no real model answer is shown.",
+  "exampleNote": "This example requires a running OpenAI-compatible server and the ID of a model loaded on it. The local port is an example. The 'local' API key is a placeholder for a server without authentication; replace it with your server's credential if needed. A local test of the published packages verified the SDK call and cleanup. The example does not show a real model response.",
   "codeSource": "Inspect the framework source",
   "tasksEyebrow": "Choose a first task",
-  "tasksTitle": "Two practical ways in.",
+  "tasksTitle": "Choose how to start.",
   "prereqLabel": "Before you run it",
   "tasks": [
     {
-      "title": "Build a query into your app",
-      "body": "Install the framework and a provider adapter, then call createQuery from a Node.js script. Move to InteractiveSession when your own UI needs a longer conversation.",
+      "title": "Add a query to your app",
+      "body": "Install the framework and a provider adapter, then call createQuery from a Node.js script. Use InteractiveSession when your own UI needs a longer conversation.",
       "needs": "You need Node.js 22.12+, a configured provider endpoint, and a model ID. The example on this page uses a running local OpenAI-compatible server.",
       "action": "Read the SDK guide"
     },
     {
       "title": "Ask the coding CLI about a project",
-      "body": "Run the CLI, configure a provider and model with a hosted key or running local endpoint, then decide whether to trust the workspace before project context is loaded.",
+      "body": "Run the CLI and configure a provider and model using a hosted API key or a running local endpoint. Decide whether to trust the workspace before the CLI loads project context.",
       "needs": "You need Node.js 22.12+ and an API key or a running local model server. Provider costs and policies depend on the endpoint you choose.",
       "action": "Read CLI setup"
     }
   ],
-  "featuresEyebrow": "Everything in the foundation",
-  "featuresTitle": "What ships today.",
-  "featuresLead": "Every capability below is part of the public SDK packages or the coding CLI built from them. Each card names the package, class, flag, or command to look for and links to the guide that owns the details.",
+  "featuresEyebrow": "SDK and CLI capabilities",
+  "featuresTitle": "Available now.",
+  "featuresLead": "These capabilities are available in the public SDK packages or the coding CLI built from them. Each card lists the relevant packages, classes, flags, or commands and links to the detailed guide.",
   "guideLink": "Guide",
   "sourceLink": "Package README",
   "featureGroups": {
     "models": {
       "title": "Models and providers",
-      "body": "Choose the model per task, and keep a turn going when one fails."
+      "body": "Choose a model for each task and continue the turn with another model if one fails."
     },
     "safety": {
       "title": "Tools and safety",
-      "body": "Typed tools, with every call checked before it runs."
+      "body": "Use typed tools and check every call before it runs."
     },
     "sessions": {
       "title": "Sessions and execution",
-      "body": "Long-running work that survives the terminal and splits across agents."
+      "body": "Keep work running after you close the terminal, or divide it among agents."
     },
     "extend": {
       "title": "Connect and extend",
@@ -72,29 +72,29 @@
     },
     "interfaces": {
       "title": "Interfaces",
-      "body": "The same session behind a terminal, a script, a browser, or a protocol."
+      "body": "Use the same session from a terminal, script, browser, or protocol."
     },
     "build": {
       "title": "Build your own",
-      "body": "Use the layers directly, or assemble a product of your own on them."
+      "body": "Use individual layers directly, or combine them into your own product."
     }
   },
   "features": {
     "providers": {
       "title": "Multi-provider adapters",
-      "body": "Provider packages for Anthropic, OpenAI, Google Gemini, DeepSeek, Qwen and Gemma, plus any OpenAI-compatible endpoint (gateways, Azure, vLLM, local servers) through baseURL."
+      "body": "Use provider packages for Anthropic, OpenAI, Google Gemini, DeepSeek, Qwen, and Gemma. Set baseURL to connect to other OpenAI-compatible endpoints, including gateways, Azure, vLLM, and local servers."
     },
     "fallback": {
       "title": "Fallback, effort and advisor",
-      "body": "FallbackProvider moves a turn to another model when the primary is overloaded or failing. The CLI adds per-run model effort and an advisor model the agent can consult."
+      "body": "FallbackProvider switches the turn to another model if the primary model is overloaded or fails. In the CLI, you can set model effort for each run and configure an advisor model for the agent to consult."
     },
     "local": {
       "title": "Local models",
-      "body": "Point a provider profile at an Ollama, LM Studio or other OpenAI-compatible server on your own machine or network. You run the model; enabled tools decide what else leaves it."
+      "body": "Configure a provider profile to use Ollama, LM Studio, or another OpenAI-compatible server on your computer or network. You run the model. The tools you enable determine what other data leaves your system."
     },
     "media": {
       "title": "Image and video generation",
-      "body": "The Gemini provider includes image generation, and a separate ByteDance (ModelArk) provider generates video. The video provider is not a chat model for an agent."
+      "body": "Use the Gemini provider to generate images and the separate ByteDance (ModelArk) provider to generate video. The video provider cannot serve as an agent's chat model."
     },
     "tools": {
       "title": "Validated tools",
@@ -102,11 +102,11 @@
     },
     "permissions": {
       "title": "Permission modes and rules",
-      "body": "Every tool call passes deny, ask and allow rules, then one of five permission modes. A few destructive actions are never approved automatically in any mode."
+      "body": "Each tool call is checked against deny, ask, and allow rules, then evaluated under one of five permission modes. Some destructive actions are never approved automatically, regardless of the mode."
     },
     "hooks": {
       "title": "Lifecycle hooks",
-      "body": "Run commands on tool, prompt and session events. PreToolUse can block a call; other hooks log, audit, or add context to the next prompt."
+      "body": "Run commands when tool, prompt, or session events occur. PreToolUse can block a call. Other hooks can record logs, support audits, or add context to the next prompt."
     },
     "sandbox": {
       "title": "OS sandbox for shell",
@@ -114,43 +114,43 @@
     },
     "trust": {
       "title": "Workspace trust",
-      "body": "Project instructions such as AGENTS.md and CLAUDE.md load only in a trusted workspace. An untrusted repository refuses unattended runs or starts them Restricted."
+      "body": "Project instructions such as AGENTS.md and CLAUDE.md load only in trusted workspaces. For an untrusted repository, the CLI refuses unattended runs or starts in Restricted mode."
     },
     "sessions": {
       "title": "Saved, resumable sessions",
-      "body": "Continue, resume, rename or fork a conversation. Context is tracked and compacted automatically; the SDK host supplies the session store it wants."
+      "body": "Continue, resume, rename, or fork a conversation. Context usage is tracked and compacted automatically. The SDK host chooses and supplies the session store."
     },
     "daemon": {
       "title": "Background sessions and daemon",
-      "body": "Supervised sessions keep running after the terminal closes. One workspace daemon serves several terminals and the desktop app from a single runtime."
+      "body": "Supervised sessions continue running after you close the terminal. A single workspace daemon provides one runtime for multiple terminals and the desktop app."
     },
     "subagents": {
       "title": "Subagents and background tasks",
-      "body": "Delegate work to subagents with their own context and tools, in process or in child processes, and manage queued and running jobs from one place."
+      "body": "Delegate work to subagents with their own context and tools. Run them in the same process or in child processes, and manage queued and running jobs in one place."
     },
     "automation": {
       "title": "Loops, schedules and plans",
-      "body": "Repeat a prompt on a cadence, wake the agent later or when command output matches, and keep a session read-only until you approve its plan."
+      "body": "Repeat a prompt at a set interval, or wake the agent later or when command output matches a condition. Keep the session read-only until you approve its plan."
     },
     "checkpoints": {
       "title": "Checkpoints, memory and cost",
-      "body": "Rewind or fork from edit checkpoints, keep approved facts across sessions with opt-in memory, inspect context use, and set a monthly cost budget."
+      "body": "Rewind to an edit checkpoint or fork from it. Use opt-in memory to retain approved facts across sessions, inspect context usage, and set a monthly cost limit."
     },
     "workflows": {
       "title": "DAG workflows",
-      "body": "/workflows designs a workflow from a description with the active model, saves it as JSON in the workspace, validates it and runs it, optionally detached."
+      "body": "Use /workflows to turn a description into a workflow with the active model. Save it as JSON in the workspace, validate it, and run it, with the option to run detached."
     },
     "roundtable": {
       "title": "Multi-agent roundtables",
-      "body": "Coordinate independent agents and people in one shared transcript: select turns, run parallel groups, and plug a Robota session in as a participant or selector."
+      "body": "Bring independent agents and people into a shared transcript. Choose the turn order, run groups in parallel, and use a Robota session as a participant or selector."
     },
     "mcp": {
       "title": "MCP in both directions",
-      "body": "Connect to stdio or remote MCP servers, including OAuth sign-in, after explicit approval. Or serve a session as an MCP server over stdio or authenticated HTTP."
+      "body": "After explicit approval, connect to stdio or remote MCP servers, including those that use OAuth sign-in. You can also expose a session as an MCP server over stdio or authenticated HTTP."
     },
     "skills": {
       "title": "Skills, commands and agents",
-      "body": "Markdown skills and commands become slash commands; agent definitions describe subagents. They are discovered in the project and your home directory."
+      "body": "Define skills and commands in Markdown to make them available as slash commands. Agent definitions describe subagents. The CLI discovers these files in the project and your home directory."
     },
     "plugins": {
       "title": "Plugins and marketplaces",
@@ -158,7 +158,7 @@
     },
     "events": {
       "title": "External events",
-      "body": "Grant a verified outside service permission to send text events into a running terminal session, and list or revoke those grants from the session."
+      "body": "Allow a verified external service to send text events to a running terminal session. View or revoke those permissions from within the session."
     },
     "terminal": {
       "title": "Terminal UI",
@@ -166,56 +166,56 @@
     },
     "print": {
       "title": "Print mode and goals",
-      "body": "Run one prompt from a script or pipe, get text, JSON or streaming JSON, request schema-shaped output, or work toward a goal over several turns."
+      "body": "Run a prompt from a script or pipe and receive text, JSON, or streaming JSON. Request output that follows a schema, or let the agent work toward a goal over multiple turns."
     },
     "gui": {
       "title": "Browser GUI and desktop app",
-      "body": "Serve the GUI for the current workspace on loopback and open it in a browser. The desktop app in the repository shows the same GUI over the workspace daemon."
+      "body": "Serve the current workspace GUI on a loopback address and open it in a browser. The desktop app in the repository displays the same GUI through the workspace daemon."
     },
     "http": {
-      "title": "Serve over HTTP and transports",
-      "body": "Let other services submit turns and stream results as server-sent events, behind a bearer token or as an OAuth resource server. WebSocket, HTTP, MCP and WebRTC carriers share one wire protocol."
+      "title": "HTTP and other transports",
+      "body": "Let other services submit turns and receive results as server-sent events, protected by a bearer token or OAuth resource server. WebSocket, HTTP, MCP, and WebRTC transports use the same wire protocol."
     },
     "devices": {
       "title": "Devices and remote control",
-      "body": "Message other live sessions, hand a conversation to another session or device, link your own devices, and co-drive a session from a paired browser over peer-to-peer WebRTC."
+      "body": "Message other running sessions, hand a conversation to another session or device, and link your devices. Pair a browser to control a session together over peer-to-peer WebRTC."
     },
     "ci": {
       "title": "CI and GitHub Actions",
-      "body": "Run print mode in a workflow step to review a pull request or answer a task, and gate a pipeline on an evals-as-code score."
+      "body": "Use print mode in a workflow step to review a pull request or respond to a task. Gate the pipeline on an evals-as-code score."
     },
     "core": {
       "title": "Conversation engine",
-      "body": "ConversationAgent runs and streams turns with history, tool calling, structured output and plugins. It is the minimal set: core plus one provider."
+      "body": "ConversationAgent runs and streams turns with conversation history, tool calling, structured output, and plugins. The minimum setup is core and one provider."
     },
     "framework": {
-      "title": "Framework assembly",
-      "body": "createQuery runs one-shot queries with built-in tools and permissions; InteractiveSession drives a full conversation; createAgentRuntime assembles a host runtime."
+      "title": "Framework components",
+      "body": "Use createQuery for a single query with built-in tools and permissions, InteractiveSession for a full conversation, and createAgentRuntime to assemble a host runtime."
     },
     "embedding": {
       "title": "Servers, bots and serverless",
-      "body": "Put the framework behind an SSE or WebSocket server with a full event stream per session, resume a saved session per bot channel, or run a stateless runtime that persists nothing."
+      "body": "Use the framework in an SSE or WebSocket server with a full event stream for each session. Resume a saved session for each bot channel, or use a stateless runtime that stores nothing."
     },
     "channels": {
       "title": "One agent, many channels",
-      "body": "TransportRegistry runs one agent definition behind several transports, with their enabled state kept in a settings file; there is no separate gateway process."
+      "body": "TransportRegistry runs one agent definition across multiple transports. A settings file records which transports are enabled. No separate gateway process is needed."
     },
     "product": {
       "title": "Product composition",
-      "body": "assembleProduct builds a product from a declarative profile. Capability packs, slash-command modules, presets and output styles are the parts the coding CLI uses."
+      "body": "Build a product from a declarative profile with assembleProduct. Use the same capability packs, slash-command modules, presets, and output styles as the coding CLI."
     },
     "productHost": {
       "title": "Ship your own CLI product",
-      "body": "Depend on the published CLI package and own the entry, identity, assets and packaging: a product-bound CLI host, desktop-host helpers for an Electron app, and native binary builds."
+      "body": "Use the published CLI package while controlling your product's entry point, identity, assets, and packaging. It provides a product-bound CLI host, desktop-host helpers for Electron, and native binary builds."
     },
     "analytics": {
       "title": "Diagnostics, usage and evals",
-      "body": "Check settings, provider, trust and plugins in one report; summarize local token use and cost without sending content; export content-free metrics; run evals as code."
+      "body": "Check settings, providers, workspace trust, and plugins in one report. Summarize local token usage and cost without sending content, export metrics without conversation content, and run evaluations as code."
     }
   },
   "cliEyebrow": "The coding CLI",
-  "cliTitle": "A full agent in your terminal.",
-  "cliLead": "The CLI is the maintained interface on the shared foundation. The same runtime powers the terminal UI, scripts, background sessions, the browser GUI, and other services.",
+  "cliTitle": "Run an agent in your terminal.",
+  "cliLead": "The coding CLI is a maintained interface built on the shared framework. The same runtime supports the terminal UI, scripts, background sessions, browser GUI, and other services.",
   "cliFlows": [
     {
       "title": "Work interactively",
@@ -223,19 +223,19 @@
     },
     {
       "title": "Script a single prompt",
-      "body": "Print mode exits with a code your script can check. A goal run keeps working over several turns."
+      "body": "Print mode returns an exit code your script can check. Goal runs continue working over multiple turns."
     },
     {
       "title": "Keep sessions running",
       "body": "Resume earlier work, run supervised sessions in the background, and share one daemon."
     },
     {
-      "title": "Serve it to other surfaces",
+      "title": "Connect other interfaces and services",
       "body": "Open the browser GUI, accept HTTP clients with a bearer token, or act as an MCP server."
     },
     {
-      "title": "Reach your other sessions",
-      "body": "Inside a session: message peers, hand off a conversation, link devices, pair a browser."
+      "title": "Connect to your other sessions",
+      "body": "From a session, message other sessions, hand off a conversation, link devices, or pair a browser."
     },
     {
       "title": "Check setup and usage",
@@ -247,7 +247,7 @@
   "cliGuideLink": "Read the CLI reference",
   "safetyEyebrow": "Permissions and safety",
   "safetyTitle": "Decide what the agent may do.",
-  "safetyLead": "Deny, ask and allow rules are checked first, then the permission mode. Set the mode per run or change it inside a session.",
+  "safetyLead": "Deny, ask, and allow rules are checked before the permission mode is applied. Choose a mode when you start a run or change it during the session.",
   "modeTableCaption": "What each permission mode allows",
   "modeHeaders": [
     "Mode",
@@ -285,12 +285,12 @@
   "rulesLabel": "Rules in a settings file",
   "safetyNotes": [
     {
-      "title": "Rules win over modes",
-      "body": "An ask rule still asks in bypassPermissions. Removing the root, home or working directory, and writing into .git or tool configuration, are never approved automatically."
+      "title": "Rules take priority over modes",
+      "body": "An ask rule still requires approval in bypassPermissions mode. Deleting the root, home, or working directory and writing to .git or tool configuration files are never approved automatically."
     },
     {
-      "title": "Unattended means denied",
-      "body": "In default mode, a request that needs approval is denied when nobody answers it, unless your host supplies a permission handler."
+      "title": "No approval response means denial",
+      "body": "In default mode, a request that needs approval is denied if nobody responds, unless your host provides a permission handler."
     },
     {
       "title": "Sandboxed shell",
@@ -299,12 +299,12 @@
   ],
   "safetyLink": "Read the permissions and hooks guide",
   "architectureEyebrow": "Architecture",
-  "architectureTitle": "Libraries below, products on top.",
-  "architectureLead": "Everything under packages/ is neutral and reusable; the CLI and apps are opinionated assemblies of those libraries. Each layer builds only on the layers below it.",
+  "architectureTitle": "Build products on reusable libraries.",
+  "architectureLead": "The libraries under packages/ are neutral and reusable. The CLI and apps combine them for specific purposes. Each layer depends only on the layers below it.",
   "layers": {
     "interface": "Product interface: the terminal coding assistant",
     "composition": "Product composition: profiles, capability packs, commands, presets",
-    "surfaces": "Terminal UI and carriers over the shared wire protocol",
+    "surfaces": "Terminal UI and transports using the shared wire protocol",
     "assembly": "Assembly: InteractiveSession, createQuery, createAgentRuntime",
     "runtime": "Runtime: sessions, background tasks, tools, MCP client, plugins",
     "providers": "One provider package per vendor",
@@ -333,7 +333,7 @@
     },
     "transports": {
       "title": "Transports and UI",
-      "body": "Put a session behind a protocol or a screen."
+      "body": "Connect a session to a protocol or user interface."
     },
     "contracts": {
       "title": "Contracts",
@@ -346,7 +346,7 @@
   },
   "packagesLink": "Browse the package index",
   "installEyebrow": "Install",
-  "installTitle": "Pick how you want to run it.",
+  "installTitle": "Choose how to run it.",
   "installLead": "Published packages need Node.js 22.12 or later. The standalone binary needs nothing else installed.",
   "installOptions": {
     "npx": {
@@ -355,7 +355,7 @@
     },
     "global": {
       "title": "Install globally",
-      "body": "Keep the CLI on your PATH with npm."
+      "body": "Install the CLI on your PATH with npm."
     },
     "binary": {
       "title": "Standalone binary",
@@ -369,54 +369,54 @@
   "binaryUnix": "macOS / Linux",
   "binaryWindows": "Windows PowerShell",
   "releasesLink": "See all releases",
-  "fitEyebrow": "Know the fit",
-  "fitTitle": "Use the source. Understand the terms.",
-  "fitLead": "A public codebase lets you inspect how the SDK and CLI are assembled. Start with the package and source that match your task.",
+  "fitEyebrow": "Source and licensing",
+  "fitTitle": "Review the source and usage terms.",
+  "fitLead": "The public source shows how the SDK and CLI are assembled. Start with the packages and code relevant to your task.",
   "fitItems": [
     {
-      "title": "Open source and commercial paths",
-      "body": "The code is offered under AGPL-3.0, with a commercial licensing path for uses that need different terms. Review the license for your distribution or service."
+      "title": "Open source and commercial licensing",
+      "body": "The code is available under AGPL-3.0. A commercial license is also available if you need different terms. Review the license conditions for your distribution or service."
     },
     {
       "title": "Provider costs are separate",
-      "body": "The SDK and CLI do not include model inference. A hosted provider can charge for usage; local inference has its own compute and operating costs."
+      "body": "The SDK and CLI do not include model inference. Hosted providers may charge for usage. Running models locally also requires compute and operating costs."
     },
     {
       "title": "First-party showcase",
-      "body": "The coding CLI is the maintained example of these public components composed into a developer tool. Browse its source and the current showcase."
+      "body": "The coding CLI is a maintained developer tool built from the public components. Explore its source and the current showcase."
     }
   ],
   "fitLink": "Explore the showcase",
-  "visionEyebrow": "Direction, not a guarantee",
-  "visionTitle": "Our agents develop and advance our agents.",
-  "visionBody": "That is the long-term direction of the project. Today, the usable foundation is an SDK and coding CLI with explicit providers, tools, and host decisions. Reliable autonomous self-development must be demonstrated through actual outcomes as the system evolves.",
-  "roadmapNote": "Roadmap reviewed October 2026. Plans can change; the public beta is available now.",
+  "visionEyebrow": "Our long-term goal",
+  "visionTitle": "Our agents develop and improve one another.",
+  "visionBody": "This is the project's long-term goal, rather than a promised capability. Today, the SDK and coding CLI let you choose providers, tools, and host behavior explicitly. Reliable autonomous self-development still needs to be demonstrated through actual results as the system evolves.",
+  "roadmapNote": "Roadmap reviewed in October 2026. Plans may change. The public beta is available now.",
   "roadmapLink": "View the roadmap",
   "faqEyebrow": "Before you start",
-  "faqTitle": "Common questions.",
+  "faqTitle": "Common questions",
   "faqs": [
     {
       "question": "Do I need the CLI to use the SDK?",
-      "answer": "No. Import the agent framework into your own Node.js host and inject a provider. The CLI is one complete interface built from public components."
+      "answer": "No. Import the agent framework into your own Node.js host and supply a provider. The CLI is one complete interface built from the public components."
     },
     {
       "question": "Will a query run without configuring a model?",
-      "answer": "You need a provider endpoint and a suitable model. A local OpenAI-compatible example requires its server and model to be running; a hosted provider needs its own credentials and terms."
+      "answer": "You need a provider endpoint and a suitable model. The local OpenAI-compatible example requires a running server with a loaded model. For a hosted provider, use its credentials and follow its terms."
     },
     {
       "question": "Does the SDK persist conversations automatically?",
-      "answer": "No. A simple createQuery call is not a durable session. Supply a session store when your host needs save and resume behavior."
+      "answer": "No. A createQuery call alone does not create a persistent session. Supply a session store if your host needs to save and resume conversations."
     },
     {
       "question": "What should I read before enabling tools?",
-      "answer": "Review project trust and permission modes. In default mode, an unattended request for approval is denied unless your host provides a permission handler."
+      "answer": "Review workspace trust and permission modes. In default mode, unattended runs deny requests that need approval unless your host supplies a permission handler."
     },
     {
       "question": "Is the beta API stable?",
-      "answer": "Not yet. The packages are 3.0.0 beta releases and APIs may change before a stable release; the changelog records upgrade notes."
+      "answer": "Not yet. The packages are 3.0.0 beta releases, and the API may change before a stable release. See the changelog for upgrade notes."
     }
   ],
-  "closeTitle": "Start with one real task.",
-  "closeBody": "Choose the embeddable query or set up the coding CLI. Both paths begin with the provider and access decisions you control.",
+  "closeTitle": "Start with a real task.",
+  "closeBody": "Add a query to your app or set up the coding CLI. In either case, you choose the provider and access permissions.",
   "sdkGuide": "SDK guide (English)"
 }

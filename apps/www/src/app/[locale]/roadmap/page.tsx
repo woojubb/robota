@@ -1,5 +1,6 @@
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 import type { Metadata } from 'next';
+import { MarketingPageSeo } from '@/components/MarketingPageSeo';
 import { getMarketingMetadata } from '@/lib/marketing';
 
 export async function generateMetadata({
@@ -25,6 +26,8 @@ export default async function RoadmapPage({ params }: { params: Promise<{ locale
   const laterItems = t.raw('later.items') as string[];
 
   return (
+    <>
+    <MarketingPageSeo locale={locale === 'ko' ? 'ko' : 'en'} page='roadmap' />
     <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
       <div className="mb-10">
         <h1 className="text-3xl font-extrabold text-[var(--foreground)] sm:text-4xl">
@@ -147,5 +150,6 @@ export default async function RoadmapPage({ params }: { params: Promise<{ locale
         </div>
       </section>
     </div>
+    </>
   );
 }

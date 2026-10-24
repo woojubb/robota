@@ -1,7 +1,7 @@
 {
   "home": {
-    "title": "{name} — TypeScript AI Agent SDK and Coding CLI",
-    "description": "Build AI agents with {name}’s TypeScript SDK, or use the coding CLI built from the same public components. Public beta."
+    "title": "{name} | TypeScript AI agent SDK and coding CLI",
+    "description": "Build AI agents with the {name} TypeScript SDK, or use the coding CLI built from the same public components. Available in public beta."
   },
   "beta": {
     "title": "Public Beta",

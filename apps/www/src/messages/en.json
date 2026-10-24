@@ -10,7 +10,7 @@
       "cli": "CLI guide"
     },
     "footer": {
-      "tagline": "TypeScript agent SDK and coding CLI built from shared public components. Public beta; AGPL-3.0 or commercial license.",
+      "tagline": "A TypeScript agent SDK and coding CLI built from the same public components. Available in public beta under AGPL-3.0 or a commercial license.",
       "product": "Product",
       "developers": "Developers",
       "company": "Company",
@@ -277,7 +277,7 @@
     "communityTitle": "Community Projects",
     "communityEmpty": "No community projects listed yet. Be the first to submit yours.",
     "submitTitle": "Submit Your Project",
-    "submitDescription": "Have a working project built with @robota-sdk/*? Open a pull request to propose it for this page via",
+    "submitDescription": "Have a working project built with @robota-sdk/*? Open a pull request to propose it for this page via <repository>GitHub</repository>.",
     "submitRequirements": [
       "Must use at least one @robota-sdk/* package",
       "Public source code or live demo required",
