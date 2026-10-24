@@ -18,7 +18,7 @@ test('reads public native evidence without inheriting tokens or following redire
   await publisher.readPublicNativeEvidence('woojubb/robota', '123');
   expect(requests).toHaveLength(2);
   for (const { url, options } of requests) {
-    expect(url).toMatch(/^https:\/\/api.github.com\/repos\/woojubb\/robota\/actions\/runs\/123/);
+    expect(url).toMatch(/^https:\/\/api\.github\.com\/repos\/woojubb\/robota\/actions\/runs\/123/);
     expect(options.headers.Authorization).toBeUndefined();
     expect(options.credentials).toBe('omit');
     expect(options.redirect).toBe('error');
