@@ -1,5 +1,21 @@
 # @robota-sdk/agent-transport
 
+## 3.0.0-beta.97
+### Patch Changes
+
+- c207a31: Keep automatic compaction aligned with the active model and pending input, preserve provider usage when estimating new context, and keep summary text out of the response stream. Display live context changes and successful automatic compaction in the shared app interface.
+- Updated dependencies [c207a31]
+- Updated dependencies [9b4f63b]
+- Updated dependencies [7911a7d]
+- Updated dependencies [23a30cd]
+  - @robota-sdk/agent-core@3.0.0-beta.97
+  - @robota-sdk/agent-interface-session@3.0.0-beta.97
+  - @robota-sdk/agent-interface-command@3.0.0-beta.97
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.97
+  - @robota-sdk/agent-interface-session-mobility@3.0.0-beta.97
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.97
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.97
+
 ## 3.0.0-beta.96
 ### Patch Changes
 

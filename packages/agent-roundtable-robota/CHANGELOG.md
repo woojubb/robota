@@ -1,5 +1,22 @@
 # @robota-sdk/agent-roundtable-robota
 
+## 3.0.0-beta.97
+### Patch Changes
+
+- 9b4f63b: Allow explicitly borrowed providers to outlive agent destruction and Session shutdown while keeping
+  owned providers as the default. Track replaced and removed provider cleanup, expose current provider
+  registrations after swapping, and hold Roundtable resource leases until runtime teardown finishes.
+  Borrowing does not permit concurrent provider use across leases.
+  Serialize manager lifecycle transitions so reinitialization cannot admit providers during pending teardown.
+- Updated dependencies [c207a31]
+- Updated dependencies [9b4f63b]
+- Updated dependencies [c59acd3]
+- Updated dependencies [7911a7d]
+- Updated dependencies [23a30cd]
+  - @robota-sdk/agent-core@3.0.0-beta.97
+  - @robota-sdk/agent-session@3.0.0-beta.97
+  - @robota-sdk/agent-roundtable@3.0.0-beta.97
+
 ## 3.0.0-beta.96
 ### Patch Changes
 
