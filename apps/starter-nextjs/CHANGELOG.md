@@ -1,5 +1,11 @@
 # @robota-sdk/starter-nextjs
 
+## 0.0.2-beta.31
+### Patch Changes
+
+  - @robota-sdk/agent-framework@3.0.0-beta.99
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.99
+
 ## 0.0.2-beta.30
 ### Patch Changes
 

@@ -1,5 +1,10 @@
 # @robota-sdk/dag-node-gemini-image-edit
 
+## 3.0.0-beta.83
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.99
+
 ## 3.0.0-beta.82
 ### Patch Changes
 
