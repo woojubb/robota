@@ -1,0 +1,31 @@
+{
+  "id": "robota",
+  "version": "1.0.0",
+  "name": "Robota",
+  "description": "Install the CLI with private state that survives ordinary container rebuilds.",
+  "installsAfter": ["ghcr.io/devcontainers/features/node"],
+  "options": {
+    "version": {
+      "type": "string",
+      "default": "3.0.0-beta.97",
+      "description": "Exact CLI release version."
+    },
+    "installMethod": {
+      "type": "string",
+      "enum": ["binary", "npm"],
+      "default": "binary",
+      "description": "Binary needs no Node; npm requires an existing supported Node/npm installation."
+    }
+  },
+  "containerEnv": {
+    "PRODUCT_USER_STATE_DIR": "/var/lib/robota/state",
+    "ROBOTA_USER_STATE_DIR": "/var/lib/robota/state"
+  },
+  "mounts": [
+    {
+      "source": "robota-state-${devcontainerId}",
+      "target": "/var/lib/robota/state",
+      "type": "volume"
+    }
+  ]
+}

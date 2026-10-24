@@ -20,15 +20,8 @@ export type TSessionRecoverableResumeOptions = TSessionResumeOptions &
 export type TSessionExecutionResult =
   | { status: 'completed'; response: string }
   | { status: 'waiting'; requests: readonly IToolWaitRequest[] };
-/**
- * A journaled execution whose round is open in history — parked on saved waits, or stopped by a
- * failure — so the Session accepts no new input until it is resumed or abandoned. `requests` are
- * the saved waits whose effect has not been admitted; empty when a failure left the round open.
- */
-export interface ISessionPendingExecution {
-  executionId: string;
-  requests: readonly IToolWaitRequest[];
-}
+import type { ISessionPendingExecution } from '@robota-sdk/agent-interface-session';
+export type { ISessionPendingExecution } from '@robota-sdk/agent-interface-session';
 
 export function pendingExecution(
   error: ExecutionSuspendedError,
@@ -80,11 +73,15 @@ export function unfinishedExecution(
 export function noteEffectAdmissions(
   journal: IRecoverableExecutionJournal,
   admitted: Set<string>,
+  onAdmission?: () => void,
 ): IRecoverableExecutionJournal {
   return {
     read: (executionId) => journal.read(executionId),
     append: (record) => {
-      if (record.kind === 'tool-effect-start') admitted.add(record.actionId);
+      if (record.kind === 'tool-effect-start') {
+        admitted.add(record.actionId);
+        onAdmission?.();
+      }
       return journal.append(record);
     },
   };
@@ -97,10 +94,11 @@ export function noteEffectAdmissions(
 export function abandonedRoundResults(
   history: readonly TUniversalMessage[],
   pending: ISessionPendingExecution,
+  liveWaits: boolean,
 ): TUniversalMessage[] {
   const round = lastRound(history);
   if (!round || round.assistant.metadata?.executionId !== pending.executionId) return [];
-  const waiting = new Set(pending.requests.map((request) => request.toolCallId));
+  const waiting = new Set((liveWaits ? pending.requests : []).map((request) => request.toolCallId));
   return round.open.map((call) => {
     const error = waiting.has(call.id)
       ? 'Not run: the execution was abandoned while this call awaited a response.'

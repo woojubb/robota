@@ -20,6 +20,12 @@ function mockSession(cwd: string) {
     getCwd: vi.fn().mockReturnValue(cwd),
     run: vi.fn().mockResolvedValue('skill answer'),
     abort: vi.fn(),
+    assertInputAllowed: vi.fn(),
+    getConversationSnapshot(
+      this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
+    ) {
+      return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
+    },
     getHistory: vi.fn().mockReturnValue([]),
     getContextState: vi.fn().mockReturnValue({ usedPercentage: 1, usedTokens: 1, maxTokens: 1000 }),
     injectMessage: vi.fn(),

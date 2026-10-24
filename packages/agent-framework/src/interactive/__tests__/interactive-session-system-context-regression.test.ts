@@ -77,6 +77,12 @@ vi.mock('@robota-sdk/agent-session', async () => {
       getEventService: vi.fn().mockReturnValue({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
       run: vi.fn().mockResolvedValue('mock response'),
       abort: vi.fn(),
+      assertInputAllowed: vi.fn(),
+      getConversationSnapshot(
+        this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
+      ) {
+        return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
+      },
       getHistory: vi.fn().mockReturnValue([]),
       clearHistory: vi.fn(),
       injectMessage: vi.fn(),
@@ -104,6 +110,12 @@ vi.mock('@robota-sdk/agent-core', async () => {
     ...actual,
     ConversationAgent: vi.fn().mockImplementation(() => ({
       run: vi.fn().mockResolvedValue('mock AI response'),
+      assertInputAllowed: vi.fn(),
+      getConversationSnapshot(
+        this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
+      ) {
+        return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
+      },
       getHistory: vi.fn().mockReturnValue([]),
       clearHistory: vi.fn(),
       injectMessage: vi.fn(),

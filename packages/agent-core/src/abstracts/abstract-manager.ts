@@ -31,6 +31,8 @@ export interface IManagerLifecycleOptions {
 export abstract class AbstractManager {
   protected initialized = false;
   private disposed = false;
+  private initializationPromise: Promise<void> | undefined;
+  private disposalPromise: Promise<void> | undefined;
 
   protected constructor(options: IManagerLifecycleOptions = {}) {
     this.initialized = options.readyOnConstruction === true;
@@ -40,15 +42,24 @@ export abstract class AbstractManager {
    * Initialize the manager (idempotent)
    */
   async initialize(): Promise<void> {
+    while (this.disposalPromise) {
+      await this.disposalPromise;
+    }
     if (this.initialized) {
       return;
     }
-    await this.doInitialize();
-    this.initialized = true;
-    // Disposal is reversible by an explicit re-initialize, which is the contract this class has
-    // always had (both hooks are documented idempotent). What must not happen is a disposed manager
-    // silently answering as though nothing happened -- hence the flag, not a permanent tombstone.
-    this.disposed = false;
+    this.initializationPromise ??= Promise.resolve()
+      .then(() => this.doInitialize())
+      .then(() => {
+        if (!this.disposalPromise) {
+          this.initialized = true;
+          this.disposed = false;
+        }
+      })
+      .finally(() => {
+        this.initializationPromise = undefined;
+      });
+    await this.initializationPromise;
   }
 
   /**
@@ -60,9 +71,18 @@ export abstract class AbstractManager {
    * Dispose manager resources (idempotent)
    */
   async dispose(): Promise<void> {
-    await this.doDispose();
+    if (this.disposalPromise) return this.disposalPromise;
     this.initialized = false;
     this.disposed = true;
+    const cleanup = () => this.doDispose();
+    this.disposalPromise = (this.initializationPromise ?? Promise.resolve())
+      .then(cleanup, cleanup)
+      .finally(() => {
+        this.initialized = false;
+        this.disposed = true;
+        this.disposalPromise = undefined;
+      });
+    await this.disposalPromise;
   }
 
   /**

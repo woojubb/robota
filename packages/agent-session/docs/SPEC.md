@@ -16,7 +16,7 @@ persistence paths that consume it (the store, the artifact envelope, the replay 
 
 ## Boundaries / Non-goals
 
-- Does not own AI provider creation — accepts a pre-constructed `IAIProvider` via injection.
+- Does not own AI provider creation — accepts a pre-constructed `IAIProvider` via injection, with explicit borrowed lifetime leaving close responsibility to its external owner and owned lifetime as the default.
 - Does not own tool implementations — accepts pre-constructed tools via injection.
 - Does not own system-prompt building — accepts a pre-built system message string. It owns
   exactly one model-facing prompt surface: the compaction summarization prompt, whose base
@@ -134,7 +134,9 @@ round trip — a local round trip must be lossless.
   fire-and-forget and cannot block or mutate the call.
 - The automatic-compaction trigger is a `0 < value <= 1` fraction of the context window
   (default `0.835`), or `false` to disable it for an embedding runtime that manages compaction
-  externally; it can be changed after construction and takes effect on the next `run()`.
+  externally; it can be changed after construction and takes effect on the next `run()`. The
+  window and summarization model follow the active model, while an explicit host context budget
+  and its automatic-compaction policy survive model changes.
 - Compaction-event metadata carries one `trigger` value (`manual` by default for an explicit
   call, `auto` for auto-compaction) that flows unchanged into the hook system, the session log,
   and the caller's own callback — nothing along that path re-derives the trigger independently.
@@ -190,12 +192,15 @@ A session runs one turn at a time:
   it would follow unanswered calls and diverge from the checkpoint it must continue. The session
   exposes it — also after a cancellation that ended the turn once a wait was saved — so the host
   can resume or abandon it, and offers only waits whose effect was never admitted for an answer.
-  Once its rounds have settled into history, a later failure or cancellation ends it like an
-  ordinary turn.
+  An acknowledged available conversation snapshot preserves that admission block across same-owner
+  restoration; discovery data never replaces the host journal. Settled history permits new input
+  only after its configured synchronous checkpoint acknowledges removal of the block. A failed
+  save retains admission until an explicit checkpoint succeeds, without replaying execution.
 - Abandoning runs nothing and writes nothing to the journal: the open calls are closed in history
   as failed, so the conversation stays well-formed and can no longer resume that execution. Its
   journal records remain the host's to keep or discard. Abandonment must never become a route to
-  replay an effect or to claim an outcome nobody recorded.
+  replay an effect or to claim an outcome nobody recorded. Restored discovery cannot prove an
+  effect never started, and abandonment must acknowledge its configured checkpoint before returning.
 - A wait holds no live approver. The turn claim is held until the execution and its pending writes
   settle. Injected classifiers, hooks and tools own their own model calls and must declare their
   journal integration separately.
@@ -308,7 +313,7 @@ person is never shown "no history" when history could not actually be read.
 
 - The summarization provider call is text-only (`toolChoice: none`) for manual and automatic
   compaction, regardless of the next turn's tool policy. Provider-hosted web tools must not run
-  while summarizing session history.
+  while summarizing session history, and summary text must not enter the response stream.
 - The project-context system message is preserved across compaction — it is excluded from the
   summarization input, and re-injected (ahead of the generated summary) after history is
   cleared, so the model does not lose awareness of its working directory, rules, and tools after
@@ -334,8 +339,9 @@ person is never shown "no history" when history could not actually be read.
   peer's words must never read as the operator's own, and no content can pose as another message.
   Compaction and every other such consumer use the one rendering, so what a summary keeps and what
   another reader sees cannot drift apart.
-- Auto-compaction triggers at the _start_ of a run (before the new user message is processed), so
-  it cannot interfere with an in-flight response stream.
+- Auto-compaction budgets the pending input, including hook enrichment and transient system
+  context, before admitting that input to conversation history. Only retained history is
+  summarized, so a large new input cannot bypass compaction and hooks need not be replayed.
 
 ### Abort behavior
 

@@ -2,6 +2,7 @@ import { requireExecutionRoot } from './execution-root.js';
 import { TurnClaim } from './turn-claim.js';
 
 import type { ContextWindowTracker, TAutoCompactThreshold } from './context-window-tracker.js';
+import type { CompactionOrchestrator } from './compaction-orchestrator.js';
 import type { PermissionEnforcer } from './permission-enforcer.js';
 import type { IPermissionDenial } from './permission-denial-log.js';
 import type {
@@ -18,9 +19,11 @@ import type {
 } from '@robota-sdk/agent-core';
 
 export abstract class SessionBase {
+  abstract assertInputAllowed(): void;
   protected abstract readonly agent: ConversationAgent;
   protected abstract readonly permissionEnforcer: PermissionEnforcer;
   protected abstract readonly contextTracker: ContextWindowTracker;
+  protected abstract readonly compactionOrchestrator: CompactionOrchestrator;
   protected abstract permissionMode: TPermissionMode;
   protected abstract activePresetId: string;
   protected abstract parallelSubagentsEnabled: boolean;
@@ -112,6 +115,7 @@ export abstract class SessionBase {
    * AGENTS.md/CLAUDE.md staleness refresh.
    */
   updateSystemMessage(newMessage: string): void {
+    this.assertInputAllowed();
     this.systemMessage = newMessage;
     this.agent.updateSystemPrompt(newMessage);
   }
@@ -143,7 +147,13 @@ export abstract class SessionBase {
       ...(options.temperature !== undefined && { temperature: options.temperature }),
       ...(options.maxOutputTokens !== undefined && { maxTokens: options.maxOutputTokens }),
     });
-    this.model = nextModel;
+    this.setActiveModel(nextModel);
+  }
+
+  protected setActiveModel(model: string): void {
+    this.model = model;
+    this.contextTracker.setModel(model);
+    this.compactionOrchestrator.setModel(model);
   }
 
   /** Read the selection for the next model call; provider default remains `auto`. */
@@ -292,11 +302,11 @@ export abstract class SessionBase {
   }
 
   getHistory(): TUniversalMessage[] {
-    return this.agent.getHistory();
+    return structuredClone(this.agent.getHistory());
   }
 
   getFullHistory(): IHistoryEntry[] {
-    return this.agent.getFullHistory();
+    return structuredClone(this.agent.getFullHistory());
   }
 
   getSessionTokenUsage(): { inputTokens: number; outputTokens: number } | undefined {
@@ -339,6 +349,7 @@ export abstract class SessionBase {
 
   /** Add an event entry to history (not a chat message) */
   addHistoryEntry(entry: IHistoryEntry): void {
+    this.assertInputAllowed();
     this.agent.addHistoryEntry(entry);
   }
 
@@ -348,6 +359,7 @@ export abstract class SessionBase {
     content: string,
     options?: { toolCallId?: string; name?: string },
   ): void {
+    this.assertInputAllowed();
     this.agent.injectMessage(role, content, options);
   }
 
@@ -356,10 +368,12 @@ export abstract class SessionBase {
    * Used during session restore to correctly reconstruct tool_use+tool_result pairs.
    */
   injectRawMessage(msg: TUniversalMessage): void {
+    this.assertInputAllowed();
     this.agent.injectRawMessage(msg);
   }
 
   clearHistory(): void {
+    this.assertInputAllowed();
     this.agent.clearHistory();
     this.contextTracker.reset();
   }

@@ -48,6 +48,7 @@ function runtime(
 function submissionDeps(execCtrl: SessionExecutionController, init = Promise.resolve()) {
   return {
     execCtrl,
+    assertInputAllowed: vi.fn(),
     ensureInitialized: () => init,
     executeAcceptedTurn: vi.fn(),
     emitDropped: vi.fn(),
@@ -63,18 +64,26 @@ describe('runtime tools and scoped submission cancellation', () => {
     await expect(tools.invokeRuntimeTool('tool', {})).rejects.toThrow(/already running/i);
     init.resolve();
     await expect(first).resolves.toMatchObject({ success: true });
-    expect(session.invokeRuntimeTool).toHaveBeenCalledExactlyOnceWith('tool', {}, {
-      executionId: expect.any(String),
-    });
+    expect(session.invokeRuntimeTool).toHaveBeenCalledExactlyOnceWith(
+      'tool',
+      {},
+      {
+        executionId: expect.any(String),
+      },
+    );
     expect(execCtrl.executing).toBe(false);
   });
 
   it('queues a submission that arrives during a direct call and starts it when the call ends', async () => {
     const hold = deferred<void>();
-    const { tools, execCtrl, resumeQueuedTurn } = runtime(controller(), Promise.resolve(), async () => {
-      await hold.promise;
-      return { success: true, toolName: 'tool', result: 'ok' };
-    });
+    const { tools, execCtrl, resumeQueuedTurn } = runtime(
+      controller(),
+      Promise.resolve(),
+      async () => {
+        await hold.promise;
+        return { success: true, toolName: 'tool', result: 'ok' };
+      },
+    );
     const call = tools.invokeRuntimeTool('tool', {});
     await Promise.resolve();
     const deps = submissionDeps(execCtrl);
@@ -95,10 +104,14 @@ describe('runtime tools and scoped submission cancellation', () => {
 
   it('keeps an agent wakeup that arrives during a direct call instead of dropping it', async () => {
     const hold = deferred<void>();
-    const { tools, execCtrl, resumeQueuedTurn } = runtime(controller(), Promise.resolve(), async () => {
-      await hold.promise;
-      return { success: true, toolName: 'tool', result: 'ok' };
-    });
+    const { tools, execCtrl, resumeQueuedTurn } = runtime(
+      controller(),
+      Promise.resolve(),
+      async () => {
+        await hold.promise;
+        return { success: true, toolName: 'tool', result: 'ok' };
+      },
+    );
     const call = tools.invokeRuntimeTool('tool', {});
     await Promise.resolve();
 
@@ -192,10 +205,14 @@ describe('runtime tools and scoped submission cancellation', () => {
 
     await tools.invokeRuntimeTool('tool', {}, options);
     expect(seen).toEqual(['drv-1']);
-    expect(session.invokeRuntimeTool).toHaveBeenCalledExactlyOnceWith('tool', {}, {
-      ...options,
-      executionId: expect.any(String),
-    });
+    expect(session.invokeRuntimeTool).toHaveBeenCalledExactlyOnceWith(
+      'tool',
+      {},
+      {
+        ...options,
+        executionId: expect.any(String),
+      },
+    );
     expect(execCtrl.activeDriverId).toBeNull();
 
     await tools.invokeRuntimeTool('tool', {});
@@ -228,9 +245,9 @@ describe('runtime tools and scoped submission cancellation', () => {
     const claim = execCtrl.executionClaim.acquire('prompt');
     execCtrl.activeDriverId = 'turn-driver';
     const { tools } = runtime(execCtrl);
-    await expect(
-      tools.invokeRuntimeTool('tool', {}, { driverId: 'intruder' }),
-    ).rejects.toThrow(/already running/i);
+    await expect(tools.invokeRuntimeTool('tool', {}, { driverId: 'intruder' })).rejects.toThrow(
+      /already running/i,
+    );
     expect(execCtrl.activeDriverId).toBe('turn-driver');
     execCtrl.executionClaim.complete(claim, () => {});
   });
@@ -260,6 +277,7 @@ describe('runtime tools and scoped submission cancellation', () => {
     const remove = vi.spyOn(abort.signal, 'removeEventListener');
     const deps = {
       execCtrl,
+      assertInputAllowed: vi.fn(),
       ensureInitialized: async () => {},
       executeAcceptedTurn: vi.fn(),
       emitDropped: vi.fn(),
@@ -298,6 +316,7 @@ describe('runtime tools and scoped submission cancellation', () => {
       publicTurnOptions({ signal: abort.signal }),
       {
         execCtrl,
+        assertInputAllowed: vi.fn(),
         ensureInitialized: () => init.promise,
         executeAcceptedTurn,
         emitDropped: vi.fn(),
@@ -330,6 +349,7 @@ describe('runtime tools and scoped submission cancellation', () => {
       { signal: abort.signal },
       {
         execCtrl,
+        assertInputAllowed: vi.fn(),
         ensureInitialized: async () => {},
         emitDropped: vi.fn(),
         isWakeStopped: () => false,

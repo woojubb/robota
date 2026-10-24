@@ -52,6 +52,43 @@ afterEach(() => {
 });
 
 describe('POSIX installer configuration', () => {
+  it('refuses a bad checksum before installing the executable', () => {
+    const test = fixture('robota-linux-x64');
+    writeFileSync(test.checksums, `${'0'.repeat(64)}  robota-linux-x64\n`);
+    const result = spawnSync('sh', [script], {
+      encoding: 'utf8',
+      env: {
+        PATH: `${test.commands}:${process.env.PATH}`,
+        HOME: test.directory,
+        FIXTURE_BINARY: test.payload,
+        FIXTURE_CHECKSUMS: test.checksums,
+      },
+    });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('checksum mismatch');
+    expect(() => readFileSync(path.join(test.directory, '.robota/bin/robota'))).toThrow();
+  });
+
+  it('refuses an unsupported CPU before downloading', () => {
+    const test = fixture('robota-linux-x64');
+    writeFileSync(
+      path.join(test.commands, 'uname'),
+      '#!/bin/sh\ncase "$1" in -s) echo Linux ;; -m) echo riscv64 ;; esac\n',
+    );
+    const result = spawnSync('sh', [script], {
+      encoding: 'utf8',
+      env: {
+        PATH: `${test.commands}:${process.env.PATH}`,
+        HOME: test.directory,
+        FIXTURE_BINARY: test.payload,
+        FIXTURE_CHECKSUMS: test.checksums,
+      },
+    });
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain('unsupported CPU');
+    expect(result.stdout).not.toContain('downloading');
+  });
+
   it('installs Robota without requiring an external product selection', () => {
     const test = fixture('robota-linux-x64');
     const result = spawnSync('sh', [script], {

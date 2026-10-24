@@ -50,7 +50,8 @@ directory, before the containment check and the filesystem call — the same anc
 wrapping the tool must canonicalize the same argument the same way before the gate sees it, so the
 path judged is the path opened. `Read` decides containment on the file it opened wherever the
 platform can name that file (macOS, Linux), so a path swapped for a link after the check is refused,
-not followed.
+not followed; a read an editor carries is checked before the request, since the editor opens the
+file itself.
 
 ### Write/Edit semantics
 
@@ -118,6 +119,16 @@ never happened.
   shared client that confines a host process in place only rewrites the invocation, so the shell
   tool keeps its own timeouts, cancellation, output limits and process-group kill; foreground host
   shell groups also terminate after their owner dies, including when the owner cannot handle a signal.
+- `IEditorFileAccess` lets an editor that has the workspace open carry `Read`, `Write` and `Edit`
+  on the host, so the agent reads what the editor shows and its writes land in the editor. Each tool
+  asks for it at call time, because an editor connects after the tools exist and can go away, and
+  uses it only after its own containment check, with the permission gate already decided before any
+  tool body; the editor's text gets the same limits and error envelope as the disk's. `Edit` reads
+  where `Read` reads and writes where `Write` writes, so it edits the text the model saw. An editor
+  is not a sandbox: its files are the host's, a separate sandbox filesystem still carries every file
+  tool, and commands never use it. `Glob` and `Grep` still search the disk and say so in their result
+  while an editor is attached, because nothing tells them which files it holds unsaved and asking it
+  for each result would open a buffer per file.
 - The OS sandbox promises only what the OS enforces. Its network boundary is on or off, and off
   closes Unix sockets too, because a per-domain allowlist needs a proxy the OS does not enforce and
   a host daemon's socket is a way out; the model cannot ask to leave it. What it guards is outside
@@ -142,7 +153,10 @@ never happened.
 
 ## Error handling
 
-Built-in tools report ordinary input, network, and path failures through their result envelope.
+Built-in invocation tools declare their serialized result protocol, so ordinary input, network,
+and path failures retain that JSON payload while reporting failure in the execution envelope seen
+by callers and surfaces; ordinary custom function values remain domain data regardless of their
+shape. Invalid declared results fail explicitly instead of being reported as success.
 Grep executes pattern matching outside the caller's event loop; exhaustion, worker failure, and
 cancellation are hard execution errors surfaced only after the isolated operation has stopped.
 Read admits host file bytes independent of the requested line slice and bounds formatted output;

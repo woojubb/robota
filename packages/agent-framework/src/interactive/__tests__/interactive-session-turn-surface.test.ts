@@ -7,9 +7,20 @@ function runtime(): Record<string, unknown> {
     run: vi.fn().mockResolvedValue('answer'),
     abort: vi.fn(),
     clearHistory: vi.fn(),
+    assertInputAllowed: vi.fn(),
+    getConversationSnapshot(
+      this: Pick<import('@robota-sdk/agent-session').Session, 'getSessionId' | 'getHistory'>,
+    ) {
+      return { id: this.getSessionId(), cwd: '/workspace', messages: this.getHistory() };
+    },
     getHistory: vi.fn().mockReturnValue([]),
     injectMessage: vi.fn(),
-    getContextState: () => ({ maxTokens: 100, usedTokens: 0, usedPercentage: 0, remainingPercentage: 100 }),
+    getContextState: () => ({
+      maxTokens: 100,
+      usedTokens: 0,
+      usedPercentage: 0,
+      remainingPercentage: 100,
+    }),
     getSessionId: () => 'session_surface',
     getModelId: () => 'test-model',
     getMessageCount: () => 0,
@@ -23,9 +34,12 @@ describe('the surface a turn was accepted on', () => {
   it('is recorded on the turn usage observation, independently of the driver id', async () => {
     const session = new InteractiveSession({ session: runtime() as never, cwd: '/tmp' });
     for (const surface of ['remote', 'attach'] as const) {
-      await (await session.submit('hello', undefined, undefined, { driverId: 'device-1', surface })).completed;
+      await (
+        await session.submit('hello', undefined, undefined, { driverId: 'device-1', surface })
+      ).completed;
     }
-    const surfaces = session.getFullHistory()
+    const surfaces = session
+      .getFullHistory()
       .filter((entry) => entry.type === 'usage-observation')
       .map((entry) => (entry.data as { surface?: string }).surface);
     expect(surfaces).toEqual(['remote', 'attach']);

@@ -1,3 +1,4 @@
+import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-session';
 /**
  * Session restore helpers for InteractiveSession.
  *
@@ -15,7 +16,11 @@ import type {
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextReferenceItem } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
-import { createSystemMessage, createToolMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import {
+  createSystemMessage,
+  createToolMessage,
+  messageToHistoryEntry,
+} from '@robota-sdk/agent-core';
 import type { TUniversalMessage, IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskState,
@@ -57,6 +62,7 @@ export function loadSessionRecord(
   history: IHistoryEntry[];
   sessionName: string | undefined;
   pendingRestoreMessages: TUniversalMessage[] | null;
+  pendingRestoreConversation: ISessionConversationSnapshot | null;
   backgroundTasks: IBackgroundTaskState[];
   backgroundTaskEvents: TBackgroundTaskEvent[];
   backgroundJobGroups: IBackgroundJobGroupState[];
@@ -85,6 +91,7 @@ export function loadSessionRecord(
       history: [],
       sessionName: undefined,
       pendingRestoreMessages: null,
+      pendingRestoreConversation: null,
       backgroundTasks: [],
       backgroundTaskEvents: [],
       backgroundJobGroups: [],
@@ -103,13 +110,19 @@ export function loadSessionRecord(
   }
   const record = outcome.record;
 
-  const { messages, interruptedCalls } = reconcileInterruptedCalls(record.messages ?? []);
+  const { messages, interruptedCalls } = record.pendingExecution
+    ? { messages: record.messages, interruptedCalls: [] }
+    : reconcileInterruptedCalls(record.messages ?? []);
   const history = [...(record.history ?? [])];
   for (const call of interruptedCalls) {
-    history.push(messageToHistoryEntry(createSystemMessage(
-      `Tool call ${call.name} (${call.id}) was interrupted. Its external outcome is unknown; it was not rerun.`,
-      { metadata: { kind: 'interrupted-tool-call', toolCallId: call.id } },
-    )));
+    history.push(
+      messageToHistoryEntry(
+        createSystemMessage(
+          `Tool call ${call.name} (${call.id}) was interrupted. Its external outcome is unknown; it was not rerun.`,
+          { metadata: { kind: 'interrupted-tool-call', toolCallId: call.id } },
+        ),
+      ),
+    );
   }
   const restoredBackgroundTasks = record.backgroundTasks ?? [];
   const restoredBackgroundTaskEvents = record.backgroundTaskEvents ?? [];
@@ -127,11 +140,21 @@ export function loadSessionRecord(
   );
   const sessionName = record.name;
   let pendingRestoreMessages: TUniversalMessage[] | null = null;
+  let pendingRestoreConversation: ISessionConversationSnapshot | null = null;
 
   // CLI-073: forks restore the conversation too — the SPEC promises
   // "new session (fresh UUID) but restores context"; only the session id is new.
   if (record.messages) {
-    if (existingSession) {
+    if (record.pendingExecution) {
+      const conversation = {
+        id: record.id,
+        cwd: record.cwd,
+        messages,
+        pendingExecution: record.pendingExecution,
+      };
+      if (existingSession) existingSession.restoreConversation(conversation);
+      else pendingRestoreConversation = conversation;
+    } else if (existingSession) {
       for (const msg of messages) {
         injectSavedMessage(existingSession, msg);
       }
@@ -145,6 +168,7 @@ export function loadSessionRecord(
     history,
     sessionName,
     pendingRestoreMessages,
+    pendingRestoreConversation,
     backgroundTasks,
     backgroundTaskEvents,
     backgroundJobGroups,
@@ -175,9 +199,18 @@ export function reconcileInterruptedCalls(messages: readonly TUniversalMessage[]
   const finishPending = (): void => {
     for (const call of pending) {
       const result = createToolMessage(
-        JSON.stringify({ success: false, interrupted: true, outcome: 'unknown',
-          error: 'Tool call was interrupted; its external outcome is unknown. Do not retry automatically.' }),
-        { toolCallId: call.id, name: call.name, metadata: { interrupted: true, outcome: 'unknown' } },
+        JSON.stringify({
+          success: false,
+          interrupted: true,
+          outcome: 'unknown',
+          error:
+            'Tool call was interrupted; its external outcome is unknown. Do not retry automatically.',
+        }),
+        {
+          toolCallId: call.id,
+          name: call.name,
+          metadata: { interrupted: true, outcome: 'unknown' },
+        },
       );
       result.state = 'interrupted';
       restored.push(result);
@@ -189,7 +222,10 @@ export function reconcileInterruptedCalls(messages: readonly TUniversalMessage[]
     if (message.role !== 'tool') finishPending();
     restored.push(message);
     if (message.role === 'assistant') {
-      pending = (message.toolCalls ?? []).map((call) => ({ id: call.id, name: call.function.name }));
+      pending = (message.toolCalls ?? []).map((call) => ({
+        id: call.id,
+        name: call.function.name,
+      }));
     } else if (message.role === 'tool') {
       const index = pending.findIndex((call) => call.id === message.toolCallId);
       if (index !== -1) pending.splice(index, 1);

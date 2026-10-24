@@ -1,3 +1,4 @@
+import { assertSynchronousCheckpoint } from './synchronous-checkpoint.js';
 /**
  * Session history operations — compaction and persistence helpers.
  *
@@ -173,7 +174,7 @@ export interface IPersistContext {
   systemPrompt: string;
   toolSchemas: IToolSchema[];
   sessionStore: IInteractiveSessionStore;
-  agent: ConversationAgent;
+  conversation: import('@robota-sdk/agent-interface-session').ISessionConversationSnapshot;
   getFullHistory: () => Array<{
     id: string;
     timestamp: Date;
@@ -202,7 +203,6 @@ export interface IPersistContext {
  * surface can say something; the guarantee this function makes is that it does not destroy.
  */
 export function persistSession(ctx: IPersistContext): TSessionLoadOutcome {
-  const history = ctx.agent.getHistory();
   const now = new Date().toISOString();
 
   const outcome = ctx.sessionStore.load(ctx.sessionId);
@@ -213,17 +213,18 @@ export function persistSession(ctx: IPersistContext): TSessionLoadOutcome {
 
   const record: IInteractiveSessionRecord = {
     ...existing,
-    id: ctx.sessionId,
+    id: ctx.conversation.id,
     name: existing?.name,
-    cwd: ctx.cwd,
+    cwd: ctx.conversation.cwd,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
-    messages: history,
+    messages: ctx.conversation.messages,
+    pendingExecution: ctx.conversation.pendingExecution,
     history: ctx.getFullHistory(),
     systemPrompt: ctx.systemPrompt,
     toolSchemas: ctx.toolSchemas,
   };
 
-  ctx.sessionStore.save(record);
+  assertSynchronousCheckpoint(ctx.sessionStore.save(record));
   return { status: 'valid', record };
 }

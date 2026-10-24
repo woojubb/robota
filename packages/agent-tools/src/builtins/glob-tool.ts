@@ -18,6 +18,7 @@ import fg from 'fast-glob';
 import pLimit from 'p-limit';
 import { z } from 'zod';
 
+import { withDiskSearchNotice } from './editor-files.js';
 import { isWithinCwd, resolveSearchRoot } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
@@ -194,7 +195,7 @@ export async function globFileTool(
 
   const result: IToolInvocationResult = {
     success: true,
-    output,
+    output: withDiskSearchNotice(output, options),
   };
   return JSON.stringify(result);
 }
@@ -213,5 +214,6 @@ export function createGlobTool(options: IContainedBuiltinToolOptions): FunctionT
     async (params) => {
       return globFileTool(params, options);
     },
+    { resultMode: 'invocation-json' },
   );
 }

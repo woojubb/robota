@@ -1,3 +1,4 @@
+import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-session';
 import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 /**
  * Session initialization helpers for InteractiveSession.
@@ -180,6 +181,7 @@ export interface IAsyncInitDeps {
   resumeSessionId: string | undefined;
   /** Messages deferred until the session is created (set during restore). */
   pendingRestoreMessages: TUniversalMessage[] | null;
+  pendingRestoreConversation?: ISessionConversationSnapshot | null;
   /** CLI-1994: the resumed record's assembled prompt — see {@link applyForkedSystemPrompt}. */
   restoredSystemPrompt: string | undefined;
   /** Registry-backed internal prompt handlers; never public InteractiveSession options. */
@@ -357,7 +359,9 @@ export async function initializeInteractiveSessionAsync(
     explicitSystemPrompt: options.systemPrompt,
   });
 
-  if (deps.pendingRestoreMessages) {
+  if (deps.pendingRestoreConversation) {
+    created.session.restoreConversation(deps.pendingRestoreConversation);
+  } else if (deps.pendingRestoreMessages) {
     for (const msg of deps.pendingRestoreMessages) injectSavedMessage(created.session, msg);
     created.session.syncContextFromHistory();
   }

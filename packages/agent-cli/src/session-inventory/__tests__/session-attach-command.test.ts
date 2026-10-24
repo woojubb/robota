@@ -31,6 +31,7 @@ function runtime(): Record<string, unknown> {
     run: vi.fn().mockResolvedValue('answer'),
     abort: vi.fn(),
     clearHistory: vi.fn(),
+    assertInputAllowed: vi.fn(),
     getHistory: vi.fn().mockReturnValue([]),
     injectMessage: vi.fn(),
     getContextState: () => ({ maxTokens: 100, usedTokens: 0, usedPercentage: 0, remainingPercentage: 100 }),

@@ -122,7 +122,11 @@ describe('TC-03: a file from an earlier build is unsupported', () => {
       JSON.stringify({ schemaVersion: 99, record: record() }),
       'utf-8',
     );
-    expect(store.load(SESSION_ID)).toEqual({ status: 'unsupported', schemaVersion: 99, cwd: '/work' });
+    expect(store.load(SESSION_ID)).toEqual({
+      status: 'unsupported',
+      schemaVersion: 99,
+      cwd: '/work',
+    });
   });
 });
 
@@ -134,7 +138,7 @@ describe('TC-05: the write path refuses rather than overwriting what it cannot r
       cwd: '/work',
       systemPrompt: 'p',
       toolSchemas: [],
-      agent: { getHistory: () => history },
+      conversation: { id: SESSION_ID, cwd: '/work', messages: history },
       getFullHistory: () => [],
     } as unknown as Parameters<typeof persistSession>[0];
   }

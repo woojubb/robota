@@ -164,6 +164,30 @@ describe('codingPack — the file tools are SCOPED to the supplied cwd (ARCH-006
   });
 });
 
+/** Issue #3550 item 4 — the pack hands the caller's editor access to the file tools it builds. */
+describe('codingPack — an editor access reaches its file tools', () => {
+  it("Read returns the editor's text and Write lands in the editor", async () => {
+    const requests: string[] = [];
+    const editorFiles = () => ({
+      readTextFile: async (path: string) => {
+        requests.push(`read ${path}`);
+        return 'EDITOR TEXT';
+      },
+      writeTextFile: async (path: string) => {
+        requests.push(`write ${path}`);
+      },
+    });
+    const pack = createCodingPack({ cwd: PRIVATE_BASE, editorFiles });
+    const read = (await invoke(pack, 'Read', { filePath: 'unsaved.txt' })) as { output?: string };
+    expect(read.output).toContain('EDITOR TEXT');
+    expect((await invoke(pack, 'Write', { filePath: 'out.txt', content: 'x' })).success).toBe(true);
+    expect(requests).toEqual([
+      `read ${join(PRIVATE_BASE, 'unsaved.txt')}`,
+      `write ${join(PRIVATE_BASE, 'out.txt')}`,
+    ]);
+  });
+});
+
 describe('codingPack — is a well-formed additive pack', () => {
   it('merges cleanly on top of empty base modules with no rejections', () => {
     const { merged, rejected } = mergeCapabilityPacks([], [createCodingPack({ cwd: CWD })]);

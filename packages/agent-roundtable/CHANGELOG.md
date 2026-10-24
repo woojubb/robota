@@ -1,5 +1,10 @@
 # @robota-sdk/agent-roundtable
 
+## 3.0.0-beta.97
+### Patch Changes
+
+- c59acd3: Export a runner-independent ConversationStore conformance helper from the separate testing entry for backend authors.
+
 ## 3.0.0-beta.96
 
 ## 3.0.0-beta.95

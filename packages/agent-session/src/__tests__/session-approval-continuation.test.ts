@@ -1,5 +1,12 @@
+import { readFileSync } from 'node:fs';
+import { deserializeSessionArtifact, serializeSessionArtifact } from '../session-artifact.js';
+import { decodeVersionedInteractiveSessionRecord } from '../session-record-codec/index.js';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { NodeSessionStore } from '../session-store.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clearRegisteredToolProfiles, FunctionTool } from '@robota-sdk/agent-core';
+import { clearRegisteredToolProfiles, FunctionTool, createAssistantMessage } from '@robota-sdk/agent-core';
 import { createScriptedProvider, type TScriptedTurn } from '@robota-sdk/agent-core/testing';
 import type {
   IToolWaitRequest,
@@ -649,4 +656,433 @@ describe('a journaled round left open by a failure', () => {
       content: expect.stringContaining('outcome is unknown'),
     });
   });
+});
+
+describe('saved pending execution admission', () => {
+  it.each(['ordinary', 'recoverable'])(
+    'refuses %s input after a persisted wait is reconstructed',
+    async (mode) => {
+      const directory = mkdtempSync(join(tmpdir(), 'session-pending-'));
+      try {
+        const store = new NodeSessionStore(directory);
+        const saved = journalFixture();
+        const source = fixture([action], { sessionStore: store });
+        const parked = await source.session.runRecoverable('original input', {
+          executionJournal: saved.journal,
+        });
+        expect(parked.status).toBe('waiting');
+        await source.session.shutdown();
+        const loaded = store.load('approval-session');
+        if (loaded.status !== 'valid') throw new Error('Expected saved conversation');
+        const restored = fixture([{ text: 'must not accept new input' }], { sessionStore: store });
+        restored.session.restoreConversation(loaded.record);
+        const before = restored.session.getHistory();
+        const result =
+          mode === 'ordinary'
+            ? restored.session.run('new input')
+            : restored.session.runRecoverable('new input', { executionJournal: saved.journal });
+        await expect(result).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_REQUIRED' });
+        expect(restored.requests).toHaveLength(0);
+        expect(restored.session.getHistory()).toEqual(before);
+        expect(restored.effect).not.toHaveBeenCalled();
+      } finally {
+        rmSync(directory, { recursive: true, force: true });
+      }
+    },
+  );
+});
+
+describe('atomic recovery checkpoints', () => {
+  it('saves open intent before effects and clears the marker with the settled history', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'session-checkpoint-'));
+    try {
+      const store = new NodeSessionStore(directory);
+      const saved = journalFixture();
+      const f = fixture([action, { text: 'done' }], { ...allowed, sessionStore: store });
+      f.effect.mockImplementation(async () => {
+        expect(store.load('approval-session')).toMatchObject({
+          status: 'valid',
+          record: { pendingExecution: { requests: [] } },
+        });
+        return 'effect result';
+      });
+      await expect(
+        f.session.runRecoverable('input', { executionJournal: saved.journal }),
+      ).resolves.toEqual({ status: 'completed', response: 'done' });
+      const loaded = store.load('approval-session');
+      expect(loaded).toMatchObject({ status: 'valid' });
+      if (loaded.status !== 'valid') throw new Error('Expected saved conversation');
+      expect(loaded.record.pendingExecution).toBeUndefined();
+      expect(loaded.record.messages.at(-1)).toMatchObject({ role: 'assistant', content: 'done' });
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses effects when a configured checkpoint returns a rejected Promise', async () => {
+    const f = fixture([action], {
+      ...allowed,
+      checkpointHistory: async () => {
+        throw new Error('async write rejected');
+      },
+    });
+    await expect(
+      f.session.runRecoverable('input', { executionJournal: journalFixture().journal }),
+    ).rejects.toThrow('synchronously');
+    expect(f.effect).not.toHaveBeenCalled();
+    await expect(f.session.run('other input')).rejects.toThrow('checkpoint()');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  it('rejects asynchronous store acknowledgment through the lower writer', async () => {
+    const store = {
+      load: () => ({ status: 'missing' as const }),
+      save: async () => {
+        throw new Error('late failure');
+      },
+      list: () => [],
+      delete: () => undefined,
+    };
+    const f = fixture([action], { ...allowed, sessionStore: store });
+    await expect(
+      f.session.runRecoverable('input', { executionJournal: journalFixture().journal }),
+    ).rejects.toThrow('synchronously');
+    expect(f.effect).not.toHaveBeenCalled();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
+
+  it('does not acknowledge waiting when its strict suspension snapshot fails', async () => {
+    let session: Session;
+    const f = fixture([action], {
+      checkpointHistory: () => {
+        if (session.getPendingExecution()?.requests.length) throw new Error('wait save failed');
+      },
+    });
+    session = f.session;
+    await expect(
+      session.runRecoverable('input', { executionJournal: journalFixture().journal }),
+    ).rejects.toThrow('wait save failed');
+    expect(f.effect).not.toHaveBeenCalled();
+    await expect(session.run('other')).rejects.toThrow('checkpoint()');
+  });
+
+  it('retries a failed completed save through checkpoint without repeating effects or model calls', async () => {
+    let session: Session;
+    let rejectClear = false;
+    const f = fixture([action, { text: 'done' }], {
+      checkpointHistory: () => {
+        if (rejectClear && !session.getPendingExecution()) throw new Error('clear save failed');
+      },
+    });
+    session = f.session;
+    const saved = journalFixture();
+    const parked = await session.runRecoverable('input', { executionJournal: saved.journal });
+    if (parked.status !== 'waiting') throw new Error('Expected wait');
+    rejectClear = true;
+    const options = {
+      executionId: parked.requests[0].executionId,
+      journal: saved.journal,
+      toolResponses: [
+        {
+          requestId: parked.requests[0].requestId,
+          responseId: 'yes',
+          response: { approved: true },
+        },
+      ],
+    };
+    await expect(session.resumeRecoverable(options)).rejects.toThrow('clear save failed');
+    await expect(session.resumeRecoverable(options)).rejects.toThrow('checkpoint()');
+    expect(() => session.injectMessage('user', 'mutate')).toThrow('checkpoint()');
+    expect(() => session.clearHistory()).toThrow('checkpoint()');
+    const before = session.getConversationSnapshot();
+    const count = f.requests.length;
+    rejectClear = false;
+    session.checkpoint();
+    session.checkpoint();
+    expect(session.getConversationSnapshot()).toEqual(before);
+    expect(f.effect).toHaveBeenCalledOnce();
+    expect(f.requests).toHaveLength(count);
+    expect(() => session.assertInputAllowed()).not.toThrow();
+  });
+
+  it('retries abandonment persistence without duplicating receipts and rejects the wrong identity before saving', async () => {
+    let session: Session;
+    let rejectClear = false;
+    const save = vi.fn(() => {
+      if (rejectClear && !session.getPendingExecution()) throw new Error('abandon save failed');
+    });
+    const f = fixture([action], { checkpointHistory: save });
+    session = f.session;
+    const result = await session.runRecoverable('input', {
+      executionJournal: journalFixture().journal,
+    });
+    if (result.status !== 'waiting') throw new Error('Expected wait');
+    const id = result.requests[0].executionId;
+    rejectClear = true;
+    expect(() => session.abandonPendingExecution(id)).toThrow('abandon save failed');
+    const snapshot = session.getConversationSnapshot();
+    const saves = save.mock.calls.length;
+    expect(() => session.abandonPendingExecution('wrong')).toThrow('Checkpoint');
+    expect(save).toHaveBeenCalledTimes(saves);
+    rejectClear = false;
+    session.abandonPendingExecution(id);
+    session.abandonPendingExecution(id);
+    expect(session.getConversationSnapshot()).toEqual(snapshot);
+    expect(snapshot.messages.filter((message) => message.role === 'tool')).toHaveLength(1);
+    expect(f.effect).not.toHaveBeenCalled();
+  });
+
+  it('restores cloned discovery but never claims a restored wait proves an effect did not start', async () => {
+    const source = await waiting();
+    const snapshot = source.source.session.getConversationSnapshot();
+    const fresh = fixture([{ text: 'new' }]);
+    fresh.session.restoreConversation(snapshot);
+    snapshot.messages.length = 0;
+    snapshot.pendingExecution!.requests[0].data.changed = true;
+    expect(fresh.session.getPendingExecution()).toEqual({
+      executionId: source.executionId,
+      requests: [source.request],
+    });
+    fresh.session.abandonPendingExecution(source.executionId);
+    expect(fresh.session.getHistory().at(-1)).toMatchObject({
+      role: 'tool',
+      content: expect.stringContaining('outcome is unknown'),
+    });
+    expect(fresh.effect).not.toHaveBeenCalled();
+  });
+
+  it('restores exact identity, retains the block after wrong answers, then resumes once', async () => {
+    const source = await waiting();
+    const fresh = fixture([{ text: 'finished' }]);
+    fresh.session.restoreConversation(source.source.session.getConversationSnapshot());
+    await expect(
+      fresh.session.resumeRecoverable({ executionId: 'wrong', journal: source.journal }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_CONFLICT' });
+    await expect(
+      fresh.session.resumeRecoverable({
+        executionId: source.executionId,
+        journal: source.journal,
+        toolResponses: [{ requestId: 'wrong', responseId: 'bad', response: { approved: true } }],
+      }),
+    ).rejects.toMatchObject({ code: 'EXECUTION_RECOVERY_CONFLICT' });
+    expect(() => fresh.session.assertInputAllowed()).toThrow('pending');
+    expect(fresh.effect).not.toHaveBeenCalled();
+    await expect(
+      fresh.session.resumeRecoverable({
+        executionId: source.executionId,
+        journal: source.journal,
+        toolResponses: [
+          { requestId: source.request.requestId, responseId: 'good', response: { approved: true } },
+        ],
+      }),
+    ).resolves.toEqual({ status: 'completed', response: 'finished' });
+    expect(fresh.effect).toHaveBeenCalledOnce();
+    expect(fresh.session.getPendingExecution()).toBeUndefined();
+  });
+
+  it('validates owner, workspace and complete marker before mutating pristine history', async () => {
+    const source = await waiting();
+    const snapshot = source.source.session.getConversationSnapshot();
+    const fresh = fixture([]);
+    const before = fresh.session.getHistory();
+    expect(() => fresh.session.restoreConversation({ ...snapshot, id: 'other' })).toThrow('owner');
+    expect(() => fresh.session.restoreConversation({ ...snapshot, cwd: '/' })).toThrow('workspace');
+    const invalid = structuredClone(snapshot);
+    invalid.pendingExecution!.requests[0].toolCallId = 'absent';
+    expect(() => fresh.session.restoreConversation(invalid)).toThrow('Invalid');
+    expect(fresh.session.getHistory()).toEqual(before);
+  });
+});
+
+describe('saved recovery contract and error precedence', () => {
+  it('retains the exact original execution error when the secondary save also fails', async () => {
+    let rejectSave = false;
+    const f = fixture([action], {
+      checkpointHistory: () => {
+        if (rejectSave) throw new Error('secondary save error');
+      },
+    });
+    const saved = journalFixture();
+    const parked = await f.session.runRecoverable('input', { executionJournal: saved.journal });
+    if (parked.status !== 'waiting') throw new Error('Expected wait');
+    rejectSave = true;
+    const primary = new Error('primary journal read failure');
+    await expect(
+      f.session.resumeRecoverable({
+        executionId: parked.requests[0].executionId,
+        journal: {
+          ...saved.journal,
+          read: async () => {
+            throw primary;
+          },
+        },
+      }),
+    ).rejects.toBe(primary);
+    await expect(f.session.run('other')).rejects.toThrow('checkpoint()');
+    expect(f.effect).not.toHaveBeenCalled();
+    rejectSave = false;
+    f.session.checkpoint();
+    expect(() => f.session.assertInputAllowed()).toThrow('pending');
+  });
+
+  it('current denial overrides a restored saved approval', async () => {
+    const f = await waiting();
+    const fresh = fixture([{ text: 'denied' }], {
+      permissions: { allow: [], ask: [], deny: ['act'] },
+    });
+    fresh.session.restoreConversation(f.source.session.getConversationSnapshot());
+    await expect(
+      fresh.session.resumeRecoverable({
+        executionId: f.executionId,
+        journal: f.journal,
+        toolResponses: [
+          { requestId: f.request.requestId, responseId: 'yes', response: { approved: true } },
+        ],
+      }),
+    ).resolves.toEqual({ status: 'completed', response: 'denied' });
+    expect(fresh.effect).not.toHaveBeenCalled();
+    expect(fresh.session.getPendingExecution()).toBeUndefined();
+  });
+
+  it('round-trips v2 waits through file and artifact, reads v1 without a marker, and permits multiple waits for one action', async () => {
+    const f = await waiting();
+    const snapshot = f.source.session.getConversationSnapshot();
+    const pending = snapshot.pendingExecution!;
+    snapshot.pendingExecution = {
+      ...pending,
+      requests: [
+        ...pending.requests,
+        {
+          ...pending.requests[0],
+          requestId: 'other-request',
+          kind: 'additional-check',
+          data: { extra: true },
+        },
+      ],
+    };
+    const now = new Date().toISOString();
+    const record = { ...snapshot, createdAt: now, updatedAt: now };
+    const directory = mkdtempSync(join(tmpdir(), 'pending-codec-'));
+    try {
+      const store = new NodeSessionStore(directory);
+      store.save(record);
+      expect(
+        JSON.parse(readFileSync(join(directory, 'approval-session.json'), 'utf8')).schemaVersion,
+      ).toBe(2);
+      const loaded = store.load('approval-session');
+      expect(loaded).toEqual({ status: 'valid', record });
+      const artifact = serializeSessionArtifact(record);
+      expect(deserializeSessionArtifact(artifact)).toEqual(record);
+      const { pendingExecution: _pending, ...legacy } = record;
+      expect(decodeVersionedInteractiveSessionRecord({ schemaVersion: 1, record: legacy })).toEqual(
+        { status: 'valid', record: legacy },
+      );
+      expect(decodeVersionedInteractiveSessionRecord({ schemaVersion: 1, record }).status).toBe(
+        'corrupt',
+      );
+      const duplicate = structuredClone(record);
+      if (!duplicate.pendingExecution) throw new Error('Expected pending fixture');
+      duplicate.pendingExecution.requests[1].requestId =
+        duplicate.pendingExecution.requests[0].requestId;
+      expect(
+        decodeVersionedInteractiveSessionRecord({ schemaVersion: 2, record: duplicate }).status,
+      ).toBe('corrupt');
+      const nan = structuredClone(record);
+      if (!nan.pendingExecution) throw new Error('Expected pending fixture');
+      nan.pendingExecution.requests[0].data = { invalid: Number.NaN };
+      expect(
+        decodeVersionedInteractiveSessionRecord({ schemaVersion: 2, record: nan }).status,
+      ).toBe('corrupt');
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+});
+
+
+it('keeps retained history reads from mutating a pending conversation', async () => {
+  const f = await waiting();
+  const before = f.source.session.getConversationSnapshot();
+  const history = f.source.session.getHistory();
+  const assistant = history.findLast((message) => message.role === 'assistant');
+  if (assistant?.role !== 'assistant' || !assistant.toolCalls) throw new Error('Expected open round');
+  assistant.toolCalls[0].function.name = 'mutated';
+  expect(f.source.session.getConversationSnapshot()).toEqual(before);
+});
+
+it('uses a configured checkpoint callback instead of also saving to the lower store', async () => {
+  const directory = mkdtempSync(join(tmpdir(), 'checkpoint-owner-'));
+  try {
+    const store = new NodeSessionStore(directory);
+    const save = vi.spyOn(store, 'save');
+    const checkpointHistory = vi.fn();
+    const f = fixture([action, { text: 'done' }], { ...allowed, sessionStore: store, checkpointHistory });
+    await expect(f.session.runRecoverable('input', { executionJournal: journalFixture().journal })).resolves.toMatchObject({ status: 'completed' });
+    expect(checkpointHistory).toHaveBeenCalled();
+    expect(save).not.toHaveBeenCalled();
+  } finally { rmSync(directory, { recursive: true, force: true }); }
+});
+
+describe('reviewed transition ownership and primary errors', () => {
+  it('holds the turn claim throughout manual compaction so input cannot create a pending tail underneath it', async () => {
+    const f = fixture([action, { text: 'summary' }]);
+    f.session.injectMessage('user', 'old conversation');
+    let entered!: () => void;
+    let release!: () => void;
+    const started = new Promise<void>((resolve) => { entered = resolve; });
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const chat = f.provider.chat.bind(f.provider);
+    f.provider.chat = async (messages, options) => {
+      if (options?.toolChoice === 'none') { entered(); await held; return createAssistantMessage('summary'); }
+      return chat(messages, options);
+    };
+    const compacting = f.session.compact();
+    await started;
+    try {
+      await expect(f.session.runRecoverable('concurrent input', { executionJournal: journalFixture().journal })).rejects.toMatchObject({ name: 'SessionBusyError' });
+      expect(f.session.getPendingExecution()).toBeUndefined();
+    } finally {
+      release();
+      await compacting;
+    }
+    expect(f.effect).not.toHaveBeenCalled();
+  });
+
+  it('preserves the exact primary journal error even when the secondary save diagnostic throws', async () => {
+    const primary = new Error('original journal failure');
+    const diagnostic = new Error('diagnostic sink failure');
+    let rejectSave = false;
+    const f = fixture([action], {
+      checkpointHistory: () => { if (rejectSave) throw new Error('secondary save failure'); },
+      sessionLogger: { log(_id, event, data) {
+        if (event === 'error' && String(data.message).startsWith('Session checkpoint failed')) throw diagnostic;
+      } },
+    });
+    const saved = journalFixture();
+    const parked = await f.session.runRecoverable('input', { executionJournal: saved.journal });
+    if (parked.status !== 'waiting') throw new Error('Expected wait');
+    rejectSave = true;
+    await expect(f.session.resumeRecoverable({ executionId: parked.requests[0].executionId, journal: { ...saved.journal, read: async () => { throw primary; } } })).rejects.toBe(primary);
+    await expect(f.session.run('other')).rejects.toThrow('checkpoint()');
+    expect(f.effect).not.toHaveBeenCalled();
+    rejectSave = false;
+    f.session.checkpoint();
+  });
+});
+
+it.each(['wait data', 'nested metadata'])('preserves own JSON prototype-named keys in %s', async (target) => {
+  const f = await waiting();
+  const snapshot = f.source.session.getConversationSnapshot();
+  if (!snapshot.pendingExecution) throw new Error('Expected pending snapshot');
+  const payload = { ['__proto__']: { own: 'retained' }, constructor: 'ordinary JSON field', nested: { ['__proto__']: { deep: true } } };
+  const scores = { ['__proto__']: 42, constructor: 8 };
+  snapshot.pendingExecution.requests[0].data = payload;
+  snapshot.messages[0].metadata = { scores };
+  const record = { ...snapshot, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  const restored = deserializeSessionArtifact(serializeSessionArtifact(record));
+  const actual = target === 'wait data' ? restored.pendingExecution?.requests[0].data : restored.messages[0].metadata?.scores;
+  expect(actual).toEqual(target === 'wait data' ? payload : scores);
+  if (typeof actual !== 'object' || actual === null) throw new Error('Expected decoded map');
+  expect(Object.hasOwn(actual, '__proto__')).toBe(true);
+  expect(Object.getPrototypeOf(actual)).toBe(Object.prototype);
 });

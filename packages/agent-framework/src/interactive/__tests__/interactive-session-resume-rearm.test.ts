@@ -23,6 +23,8 @@ import type { Session } from '@robota-sdk/agent-session';
 function createSessionStub(): Session {
   return {
     getSessionId: () => 'session_resumed',
+    assertInputAllowed: vi.fn(),
+    getConversationSnapshot: () => ({ id: 'session_resumed', cwd: '/workspace', messages: [] }),
     getHistory: () => [],
     getSystemMessage: () => 'system',
     getToolSchemas: () => [],

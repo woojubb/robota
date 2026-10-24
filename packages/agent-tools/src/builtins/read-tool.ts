@@ -11,6 +11,7 @@ import { stat, type FileHandle } from 'node:fs/promises';
 import { z } from 'zod';
 import { ToolExecutionError } from '@robota-sdk/agent-core';
 
+import { editorFailure, editorRead, editorSignal } from './editor-files.js';
 import {
   ContainmentEscapeError,
   checkPathWithinCwd,
@@ -19,8 +20,7 @@ import {
 } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
-import type { ISandboxBuiltinToolOptions } from './tool-options.js';
-import type { ISandboxToolOptions } from '../sandbox/types.js';
+import type { IFileBuiltinToolOptions } from './tool-options.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
@@ -139,7 +139,41 @@ function formatReadResult(
   return JSON.stringify(result);
 }
 
-async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Promise<string> {
+/**
+ * The editor's text, admitted like the disk's: the same input budget, the same binary refusal and the
+ * same formatting, so a model cannot tell which one answered except by the content.
+ */
+async function readThroughEditor(
+  read: NonNullable<ReturnType<typeof editorRead>>,
+  filePath: string,
+  startLine: number,
+  limit: number,
+  signal: AbortSignal | undefined,
+): Promise<string> {
+  let content: string;
+  try {
+    content = await read(filePath, signal);
+  } catch (err) {
+    if (signal?.aborted) throw new ReadCancelledError();
+    // allow-fallback: the editor's refusal → IToolInvocationResult error
+    return editorFailure('read', filePath, err);
+  }
+  if (signal?.aborted) throw new ReadCancelledError();
+  if (Buffer.byteLength(content, 'utf8') > MAX_READ_BYTES) throw new ReadByteLimitError('input');
+  if (content.slice(0, 8192).includes('\0')) {
+    const result: IToolInvocationResult = {
+      success: false, output: '', error: `Binary file not supported: ${filePath}`,
+    };
+    return JSON.stringify(result);
+  }
+  return formatReadResult(filePath, content, startLine, limit);
+}
+
+async function readFileTool(
+  args: TReadArgs,
+  options: IFileBuiltinToolOptions,
+  callSignal?: AbortSignal,
+): Promise<string> {
   if (options.signal?.aborted) throw new ReadCancelledError();
   const { offset, limit = DEFAULT_LIMIT } = args;
   // A relative path anchors to the containment root before it is confined or opened (issue #2429).
@@ -172,6 +206,14 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Prom
 
   const pathError = checkPathWithinCwd(filePath, options.cwd);
   if (pathError !== undefined) return pathError;
+
+  // Only a path the guard admitted reaches an editor; the permission gate ran before this body.
+  const fromEditor = editorRead(options);
+  if (fromEditor !== undefined) {
+    return readThroughEditor(
+      fromEditor, filePath, startLine, limit, editorSignal(options.signal, callSignal),
+    );
+  }
 
   const failure = (error: string): string =>
     JSON.stringify({ success: false, output: '', error } satisfies IToolInvocationResult);
@@ -239,13 +281,14 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Prom
 /**
  * Create a ReadTool instance — register with agent tools registry.
  */
-export function createReadTool(options: ISandboxBuiltinToolOptions): FunctionTool {
+export function createReadTool(options: IFileBuiltinToolOptions): FunctionTool {
   return createZodFunctionTool(
     'Read',
     options.description ?? DEFAULT_READ_DESCRIPTION,
     ReadSchema,
-    async (params) => {
-      return readFileTool(params, options);
+    async (params, context) => {
+      return readFileTool(params, options, context?.signal);
     },
+    { resultMode: 'invocation-json' },
   );
 }

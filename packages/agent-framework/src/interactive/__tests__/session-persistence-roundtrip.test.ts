@@ -11,7 +11,7 @@ import { loadedRecordOrMissing } from './session-load-helpers.js';
 
 /**
  * DATA-006 (ARL-08): the SessionStore JSON record round-trip must preserve EVERY
- * `IInteractiveSessionRecord` field. The `Required<IInteractiveSessionRecord>` typing forces the fixture
+ * `IInteractiveSessionRecord` field. The `Required<Omit<IInteractiveSessionRecord, 'pendingExecution'>>` typing forces the fixture
  * to enumerate every field (a new field breaks this fixture's compile until it is populated), so the
  * deep-equal exercises the whole surface — most importantly `goal`, which the old hand-enumerated
  * `fromSessionRecord` silently dropped on load. The structural mirror (`{ ...session }`), not this test,
@@ -30,7 +30,9 @@ describe.runIf(process.platform === 'linux')(
       return { store: await createTrustedProjectSessionStoreFixture(cwd), cwd };
     }
 
-    function fullRecord(cwd: string): Required<IInteractiveSessionRecord> {
+    function fullRecord(
+      cwd: string,
+    ): Required<Omit<IInteractiveSessionRecord, 'pendingExecution'>> {
       return {
         id: 'session_full',
         name: 'full-fixture',

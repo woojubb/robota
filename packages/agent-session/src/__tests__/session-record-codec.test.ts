@@ -730,7 +730,7 @@ describe('decodeVersionedInteractiveSessionRecord — TC-07 version gate', () =>
     expect(outcome.status).toBe('valid');
   });
 
-  it.each([[0], [2], [1.5], [-1]])('reports version %s as unsupported', (version) => {
+  it.each([[0], [3], [1.5], [-1]])('reports version %s as unsupported', (version) => {
     const outcome = decodeVersionedInteractiveSessionRecord({
       schemaVersion: version,
       record: persisted(),
@@ -840,6 +840,7 @@ describe('TC-09 key parity between the contract and the decoder', () => {
       createdAt: true,
       updatedAt: true,
       messages: true,
+      pendingExecution: true,
       history: true,
       systemPrompt: true,
       toolSchemas: true,

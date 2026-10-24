@@ -150,6 +150,7 @@ describe('RUNTIME-003: an acceptance callback cannot strand the turn it was told
         {},
         {
           execCtrl: controller,
+          assertInputAllowed: vi.fn(),
           ensureInitialized: async () => {},
           executeAcceptedTurn,
           emitDropped: vi.fn(),

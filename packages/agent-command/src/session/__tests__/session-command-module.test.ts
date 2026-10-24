@@ -292,6 +292,7 @@ describe('createSessionCommandModule', () => {
       clearHistory,
       run: vi.fn().mockResolvedValue('answer'),
       abort: vi.fn(),
+      assertInputAllowed: vi.fn(),
       getHistory: vi.fn().mockReturnValue([]),
       injectMessage: vi.fn(),
       getSystemMessage: vi.fn().mockReturnValue('system'),

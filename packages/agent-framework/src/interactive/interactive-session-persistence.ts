@@ -68,7 +68,7 @@ export function persistSession(
     }
     const existing = outcome.status === 'valid' ? outcome.record : undefined;
     const sandboxSnapshotId = sandboxState?.snapshotId ?? existing?.sandboxSnapshotId;
-    sessionStore.save(
+    const acknowledgment: unknown = sessionStore.save(
       buildInteractiveSessionRecord({
         session,
         sessionId,
@@ -89,6 +89,15 @@ export function persistSession(
           : {}),
       }),
     );
+    if (
+      acknowledgment !== null &&
+      (typeof acknowledgment === 'object' || typeof acknowledgment === 'function') &&
+      'then' in acknowledgment &&
+      typeof acknowledgment.then === 'function'
+    ) {
+      void Promise.resolve(acknowledgment).catch(() => undefined);
+      throw new Error('Session store must acknowledge synchronously');
+    }
   } catch (error) {
     if (strict) throw error;
     // allow-fallback: persistence is best-effort for interactive execution and must not break a turn
@@ -128,17 +137,19 @@ interface IBuildInteractiveSessionRecordInput {
 function buildInteractiveSessionRecord(
   input: IBuildInteractiveSessionRecordInput,
 ): IInteractiveSessionRecord {
+  const conversation = input.session.getConversationSnapshot();
   return {
-    id: input.sessionId,
+    id: conversation.id,
     ...(input.goalState !== undefined ? { goal: input.goalState } : {}),
     ...(input.planState !== undefined ? { plan: input.planState } : {}),
     ...(input.activeBranchState !== undefined ? { activeBranch: input.activeBranchState } : {}),
     ...(input.sessionLoops !== undefined ? { sessionLoops: [...input.sessionLoops] } : {}),
     ...(input.sessionName !== undefined ? { name: input.sessionName } : {}),
-    cwd: input.cwd,
+    cwd: conversation.cwd,
     createdAt: input.createdAt ?? new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    messages: input.session.getHistory(),
+    messages: conversation.messages,
+    ...(conversation.pendingExecution ? { pendingExecution: conversation.pendingExecution } : {}),
     history: input.history,
     systemPrompt: input.session.getSystemMessage(),
     toolSchemas: input.session.getToolSchemas(),

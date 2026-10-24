@@ -25,6 +25,7 @@ import type {
 import type {
   IAskRequestEvent,
   IBranchEvent,
+  ICompactEvent,
   IContextFileRefreshedEvent,
   IExecutionResult,
   IPermissionRequestEvent,
@@ -203,6 +204,15 @@ export function subscribeSessionEvents(
   const onContextUpdate = (state: ReturnType<IProtocolSession['getContextState']>): void =>
     deliver({ type: 'context', state });
   const onHistoryChanged = (): void => deliver({ type: 'history_changed' });
+  const onCompact = (event: ICompactEvent): void =>
+    deliver({
+      type: 'history_changed',
+      compact: {
+        trigger: event.trigger,
+        beforeUsedPercentage: event.before.usedPercentage,
+        afterUsedPercentage: event.after.usedPercentage,
+      },
+    });
   const onTurnSource = (source: TTurnSource): void => deliver({ type: 'turn_source', source });
   // One client's `/mode` or `/model` shows on every client on this session, in the frame
   // `get-status` answers with.
@@ -233,7 +243,7 @@ export function subscribeSessionEvents(
   session.on('history_cleared', onHistoryCleared);
   session.on('session_switched', onSessionSwitched);
   session.on('context_update', onContextUpdate);
-  session.on('compact', onHistoryChanged);
+  session.on('compact', onCompact);
   session.on('skill_activation', onHistoryChanged);
   session.on('memory_event', onHistoryChanged);
   session.on('turn_source', onTurnSource);
@@ -264,7 +274,7 @@ export function subscribeSessionEvents(
     session.off('history_cleared', onHistoryCleared);
     session.off('session_switched', onSessionSwitched);
     session.off('context_update', onContextUpdate);
-    session.off('compact', onHistoryChanged);
+    session.off('compact', onCompact);
     session.off('skill_activation', onHistoryChanged);
     session.off('memory_event', onHistoryChanged);
     session.off('turn_source', onTurnSource);

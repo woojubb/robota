@@ -65,15 +65,11 @@ function decodeMetadataValue(
     return undefined;
   }
   if (typeof value === 'object' && value !== null) {
-    const numbers: Record<string, number> = {};
-    for (const [key, member] of Object.entries(value as Record<string, unknown>)) {
-      if (typeof member !== 'number') {
-        addIssue(issues, atKey(path, key), `expected a number, received ${describeValue(member)}`);
-        continue;
-      }
-      numbers[key] = member;
-    }
-    return numbers;
+    return decodeOpenMap(value, path, issues, (member, memberPath, sink) => {
+      if (typeof member === 'number') return member;
+      addIssue(sink, memberPath, `expected a number, received ${describeValue(member)}`);
+      return undefined;
+    });
   }
   addIssue(issues, path, `expected a metadata value, received ${describeValue(value)}`);
   return undefined;

@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { FunctionTool, ConversationAgent, clearRegisteredToolProfiles } from '@robota-sdk/agent-core';
+import {
+  FunctionTool,
+  ConversationAgent,
+  clearRegisteredToolProfiles,
+} from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
   IToolExecutionContext,
@@ -433,5 +437,163 @@ describe('runtimeParticipant: cancellation while a delta is in flight', () => {
     await room.dispose();
     expect(result.status).toBe('cancelled');
     expect(unhandled).toEqual([]);
+  });
+});
+
+describe('runtimeParticipant provider ownership', () => {
+  function borrowedRuntime() {
+    const scripted = createScriptedProvider([{ text: 'borrowed response' }]);
+    const close = vi.fn(async () => {});
+    const originalChat = scripted.provider.chat.bind(scripted.provider);
+    const provider = Object.assign(scripted.provider, {
+      close,
+      chat: (...args: Parameters<typeof originalChat>) => {
+        if (close.mock.calls.length) throw new Error('provider closed');
+        return originalChat(...args);
+      },
+    });
+    const participant = runtimeParticipant({
+      id: 'borrower',
+      runtime: { id: 'fixture/agent', version: '1' },
+      createAgent: () =>
+        new ConversationAgent({
+          name: 'borrower',
+          aiProviders: [provider],
+          providerOwnership: { [provider.name]: 'borrowed' },
+          defaultModel: { provider: provider.name, model: 'fixture' },
+          logging: { enabled: false },
+        }),
+    });
+    return { participant, provider, close };
+  }
+
+  it('refuses concurrent borrowed reuse, permits sequential reuse, and leaves close to the host', async () => {
+    const { participant, provider, close } = borrowedRuntime();
+    const first = await participant.factory.openSession({
+      conversationId: 'first',
+      participantId: 'p',
+    });
+    await expect(
+      participant.factory.openSession({ conversationId: 'overlap', participantId: 'p' }),
+    ).rejects.toMatchObject({ code: 'resource-reused' });
+    expect(close).not.toHaveBeenCalled();
+    await first.release();
+    const second = await participant.factory.openSession({
+      conversationId: 'second',
+      participantId: 'p',
+    });
+    try {
+      expect(await second.session.runTurn(turn(), execOptions())).toEqual({
+        kind: 'speak',
+        content: 'borrowed response',
+      });
+    } finally {
+      await second.release();
+    }
+    expect(close).not.toHaveBeenCalled();
+    await provider.close();
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it('keeps a borrowed provider alive after checkpoint restoration fails', async () => {
+    const { participant, close } = borrowedRuntime();
+    await expect(
+      participant.factory.openSession({
+        conversationId: 'bad',
+        participantId: 'p',
+        checkpoint: { version: 'bad', data: null },
+      }),
+    ).rejects.toMatchObject({ code: 'checkpoint-invalid' });
+    expect(close).not.toHaveBeenCalled();
+    const next = await participant.factory.openSession({
+      conversationId: 'next',
+      participantId: 'p',
+    });
+    await next.release();
+    expect(close).not.toHaveBeenCalled();
+  });
+
+  it('retains the lease until asynchronous teardown finishes, including repeated release', async () => {
+    const { provider } = borrowedRuntime();
+    let finish: () => void = () => {};
+    let started: () => void = () => {};
+    const teardownStarted = new Promise<void>((resolve) => {
+      started = resolve;
+    });
+    const pending = new Promise<void>((resolve) => {
+      finish = resolve;
+    });
+    let first = true;
+    const participant = runtimeParticipant({
+      id: 'p',
+      runtime: { id: 'fixture/agent', version: '1' },
+      createAgent: () => {
+        const agent = new ConversationAgent({
+          name: 'fixture',
+          aiProviders: [provider],
+          providerOwnership: { [provider.name]: 'borrowed' },
+          defaultModel: { provider: provider.name, model: 'fixture' },
+          logging: { enabled: false },
+        });
+        if (first) {
+          first = false;
+          const destroy = agent.destroy.bind(agent);
+          vi.spyOn(agent, 'destroy').mockImplementation(async () => {
+            started();
+            await pending;
+            return destroy();
+          });
+        }
+        return agent;
+      },
+    });
+    const lease = await participant.factory.openSession({
+      conversationId: 'first',
+      participantId: 'p',
+    });
+    const release = lease.release();
+    const repeated = lease.release();
+    await teardownStarted;
+    await expect(
+      participant.factory.openSession({ conversationId: 'overlap', participantId: 'p' }),
+    ).rejects.toMatchObject({ code: 'resource-reused' });
+    finish();
+    await Promise.all([release, repeated]);
+    const next = await participant.factory.openSession({
+      conversationId: 'next',
+      participantId: 'p',
+    });
+    await next.release();
+  });
+
+  it('claims the provider swapped in before opening the lease', async () => {
+    const previous = createScriptedProvider([{ text: 'previous' }]).provider;
+    const provider = createScriptedProvider([{ text: 'current' }]).provider;
+    const participant = runtimeParticipant({
+      id: 'p',
+      runtime: { id: 'fixture/agent', version: '1' },
+      createAgent: () => {
+        const agent = new ConversationAgent({
+          name: 'fixture',
+          aiProviders: [previous],
+          providerOwnership: { [previous.name]: 'borrowed' },
+          defaultModel: { provider: previous.name, model: 'fixture' },
+          logging: { enabled: false },
+        });
+        agent.swapDefaultProvider(provider, 'fixture', { ownership: 'borrowed' });
+        return agent;
+      },
+    });
+    const lease = await participant.factory.openSession({
+      conversationId: 'first',
+      participantId: 'p',
+    });
+    try {
+      await expect(
+        participant.factory.openSession({ conversationId: 'second', participantId: 'p' }),
+      ).rejects.toMatchObject({ code: 'resource-reused' });
+    } finally {
+      await lease.release();
+    }
   });
 });

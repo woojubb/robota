@@ -38,7 +38,7 @@ platform-neutral — only this adapter, and the runtimes it wraps, are Node-only
 | Kind                                                                              | Wait continuation                                               | Checkpoint             | Model calls                                            |
 | --------------------------------------------------------------------------------- | --------------------------------------------------------------- | ---------------------- | ------------------------------------------------------ |
 | `sessionParticipant`                                                              | Yes — a tool call awaiting approval (`robota-session/approval`) | `robota-session/1`     | Metered (`'metered'`)                                  |
-| `runtimeParticipant`                                                               | No — a suspended execution fails the turn outright              | `robota-agent/1`       | Metered (`'metered'`)                                  |
+| `runtimeParticipant`                                                              | No — a suspended execution fails the turn outright              | `robota-agent/1`       | Metered (`'metered'`)                                  |
 | Custom (write your own `AgentParticipant` against `@robota-sdk/agent-roundtable`) | Whatever you implement                                          | Whatever you implement | Declare `factory.modelCalls` yourself (see note below) |
 
 A custom participant needs neither this package nor agent runtime at all — `@robota-sdk/agent-roundtable`'s
@@ -253,3 +253,13 @@ independently of any of those three:
 A host that persists checkpoints across releases should track the checkpoint `version` string
 alongside its own data, the same way `@robota-sdk/agent-roundtable`'s stored conversation state
 carries its own `schemaVersion` (see that package's README).
+
+## Borrowed provider lifetime
+
+A host may configure `ConversationAgent` with
+`providerOwnership: { [provider.name]: 'borrowed' }`, or return
+`providerOwnership: 'borrowed'` from `createSessionOptions`. Releasing either adapter's lease then
+destroys its runtime while leaving the provider open for the host to close after all borrowers finish.
+The default remains owned. Providers, tools and sessions remain exclusive to one live lease through
+teardown, including borrowed providers; reuse is allowed after release finishes. Configure or swap
+resources before opening the lease and keep them fixed while it is live.

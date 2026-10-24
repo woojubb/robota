@@ -7,12 +7,8 @@
 import { nextScheduledFireOnOrAfter } from '@robota-sdk/agent-executor';
 
 import { createSourceUsageSummaryEntry } from './interactive-session-execution.js';
-import { isReArmableScheduledTask } from './schedule-rearm.js';
-import {
-  sessionLoopBlockReason,
-  sessionLoopExpiry,
-  sessionLoopFirstWakeEligibility,
-} from './session-loop-lifecycle.js';
+import { isReArmableScheduledTask, restoredScheduleDisposition } from './schedule-rearm.js';
+import { sessionLoopExpiry, sessionLoopFirstWakeEligibility } from './session-loop-lifecycle.js';
 import {
   BackgroundJobOrchestrator,
   createBackgroundGroupExecutionEntryId,
@@ -101,16 +97,15 @@ export class SessionBackgroundTaskTracker {
    */
   private reArmRestoredSchedules(manager: IBackgroundTaskManager): void {
     const nowMs = Date.now();
-    const restoredTasks = [...this.backgroundTasks];
-    const blockedIds = new Set<string>();
-    // Classify every held loop before spawning any timer. A runner may synchronously emit a
+    // Classify every held task before spawning any timer. A runner may synchronously emit a
     // sleeping event and persist its snapshot while this method is still iterating.
-    for (const task of restoredTasks) {
+    const restoredTasks = this.backgroundTasks.map((task) => ({
+      task,
+      disposition: restoredScheduleDisposition(task, nowMs, this.sessionLoopsDisabled),
+    }));
+    for (const { task, disposition: blocked } of restoredTasks) {
       if (!isReArmableScheduledTask(task) || !task.schedule) continue;
-      if (task.metadata?.['sessionLoopSelfPaced'] === true) continue;
-      const blocked = sessionLoopBlockReason(task, nowMs, this.sessionLoopsDisabled);
-      if (!blocked) continue;
-      blockedIds.add(task.id);
+      if (blocked !== 'expired' && blocked !== 'disabled') continue;
       this.heldSessionLoops.push(
         blocked === 'expired'
           ? { ...task, status: 'cancelled', completedAt: new Date(nowMs).toISOString() }
@@ -118,13 +113,12 @@ export class SessionBackgroundTaskTracker {
       );
       this.appendSystemNote?.(`Session loop "${task.label}" ${blocked}; it was not re-armed.`);
     }
-    for (const task of restoredTasks) {
+    for (const { task, disposition } of restoredTasks) {
       // SELFHOST-012: re-arm both `sleeping` and `paused` scheduled tasks (shared predicate — must agree with
       // the restore reconciliation). A paused one is re-spawned then immediately paused again so a restart keeps
       // it paused (not silently running).
       if (!isReArmableScheduledTask(task) || !task.schedule) continue;
-      if (task.metadata?.['sessionLoopSelfPaced'] === true) continue;
-      if (blockedIds.has(task.id)) continue;
+      if (disposition !== 'rearm' && disposition !== 'rearm-paused') continue;
       // A paused schedule carries no pending fire time, so the missed-wake note applies only to sleeping ones.
       let missedFireAt: number | undefined;
       if (task.status === 'sleeping' && task.nextFireAt !== undefined) {
@@ -150,7 +144,7 @@ export class SessionBackgroundTaskTracker {
           `Missed scheduled wake "${task.label}" (was due ${new Date(missedFireAt).toISOString()} while the session was closed); re-arming.`,
         );
       }
-      const wasPaused = task.status === 'paused';
+      const wasPaused = disposition === 'rearm-paused';
       const spawned = manager.spawn({
         kind: 'scheduled',
         cronExpression: task.schedule.cronExpression,

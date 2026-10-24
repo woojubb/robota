@@ -12,6 +12,7 @@ import { createAcpTransport } from '../acp-transport.js';
 
 import type { IAcpTransport, IAcpTransportOptions, IAcpTransportSession } from '../acp-types.js';
 import type {
+  AvailableCommand,
   ClientConnection,
   RequestPermissionRequest,
   RequestPermissionResponse,
@@ -110,7 +111,10 @@ export function createFakeSession(
 
 export interface IEditor {
   readonly connection: ClientConnection;
+  /** Every session update except the command lists, in arrival order. */
   readonly updates: SessionUpdate[];
+  /** Each command list the agent advertised, in arrival order. */
+  readonly commandLists: AvailableCommand[][];
   readonly permissionRequests: RequestPermissionRequest[];
   /** What the editor answers when asked for permission. */
   answerPermission(
@@ -161,13 +165,16 @@ export async function startTransport(
   await transport.start();
 
   const updates: SessionUpdate[] = [];
+  const commandLists: AvailableCommand[][] = [];
   const permissionRequests: RequestPermissionRequest[] = [];
   let answer: Parameters<IEditor['answerPermission']>[0] = () => ({
     outcome: { outcome: 'cancelled' },
   });
   const app = client({ name: 'test-editor' })
     .onNotification('session/update', ({ params }) => {
-      updates.push(params.update);
+      if (params.update.sessionUpdate === 'available_commands_update') {
+        commandLists.push(params.update.availableCommands);
+      } else updates.push(params.update);
     })
     .onRequest('session/request_permission', async ({ params }) => {
       permissionRequests.push(params);
@@ -182,6 +189,7 @@ export async function startTransport(
   const editor: IEditor = {
     connection,
     updates,
+    commandLists,
     permissionRequests,
     answerPermission: (next) => {
       answer = next;
