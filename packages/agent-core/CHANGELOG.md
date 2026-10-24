@@ -1,5 +1,16 @@
 # @robota-sdk/agent-core
 
+## 3.0.0-beta.97
+### Patch Changes
+
+- c207a31: Keep automatic compaction aligned with the active model and pending input, preserve provider usage when estimating new context, and keep summary text out of the response stream. Display live context changes and successful automatic compaction in the shared app interface.
+- 9b4f63b: Allow explicitly borrowed providers to outlive agent destruction and Session shutdown while keeping
+  owned providers as the default. Track replaced and removed provider cleanup, expose current provider
+  registrations after swapping, and hold Roundtable resource leases until runtime teardown finishes.
+  Borrowing does not permit concurrent provider use across leases.
+  Serialize manager lifecycle transitions so reinitialization cannot admit providers during pending teardown.
+- 23a30cd: Preserve paired tool history when the repeated-input guard rejects an ordinary run, recording every blocked batch member as undispatched while retaining the original failure.
+
 ## 3.0.0-beta.96
 
 ## 3.0.0-beta.95

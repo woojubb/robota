@@ -1,5 +1,14 @@
 # @robota-sdk/agent-transport-http
 
+## 3.0.0-beta.97
+### Patch Changes
+
+- Updated dependencies [c207a31]
+- Updated dependencies [7911a7d]
+  - @robota-sdk/agent-transport@3.0.0-beta.97
+  - @robota-sdk/agent-interface-session@3.0.0-beta.97
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.97
+
 ## 3.0.0-beta.96
 ### Patch Changes
 

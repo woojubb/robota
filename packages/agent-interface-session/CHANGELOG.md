@@ -1,5 +1,21 @@
 # @robota-sdk/agent-interface-session
 
+## 3.0.0-beta.97
+### Patch Changes
+
+- 7911a7d: Preserve pending execution discovery and input admission in atomic Session conversation snapshots.
+  Strict synchronous checkpoints now gate waiting, settlement and abandonment acknowledgment; failed saves
+  require checkpoint repair without repeating execution. Restore before framework queue and autonomous
+  input admission, and refuse unresolved conversation copies. Read v1/v2 session envelopes and write v2;
+  older readers preserve v2 as unsupported, so coordinate reader versions when rolling back.
+- Updated dependencies [c207a31]
+- Updated dependencies [9b4f63b]
+- Updated dependencies [23a30cd]
+  - @robota-sdk/agent-core@3.0.0-beta.97
+  - @robota-sdk/agent-interface-command@3.0.0-beta.97
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.97
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.97
+
 ## 3.0.0-beta.96
 ### Patch Changes
 
