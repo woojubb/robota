@@ -7,6 +7,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { prepareFeature, publicationDisposition } from '../prepare-devcontainer-feature.mjs';
 
+const authoredFeature = JSON.parse(
+  await readFile(
+    new URL('../../../devcontainer-features/src/robota/devcontainer-feature.json', import.meta.url),
+    'utf8',
+  ),
+);
 const roots = [];
 afterEach(async () => {
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
@@ -51,7 +57,7 @@ describe('prepared Dev Container Feature', () => {
     );
     expect(metadata).toMatchObject({
       id,
-      version: '1.0.0',
+      version: authoredFeature.version,
       name: id.toUpperCase(),
       options: { version: { default: '3.0.0-beta.96' }, installMethod: { default: 'binary' } },
       containerEnv: {
