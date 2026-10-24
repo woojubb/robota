@@ -398,6 +398,7 @@
     "prov-004-responseformat-transport",
     "provider-error-classification",
     "public-contract-release-coverage",
+    "quiet-invoices-agree",
     "quiet-windows-daemons",
     "read-tool-symlink-containment",
     "remote-002-stage-a-webrtc-skeleton",
