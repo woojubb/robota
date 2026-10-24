@@ -79,6 +79,7 @@ export interface IOpenAIResponsesTextConfig {
 
 export interface IOpenAIResponsesRequestBase {
   model: string;
+  parallel_tool_calls?: boolean;
   input: TOpenAIResponsesInputItem[];
   tools?: TOpenAIResponsesTool[];
   tool_choice?: 'auto' | 'none' | 'required' | { type: 'function'; name: string };

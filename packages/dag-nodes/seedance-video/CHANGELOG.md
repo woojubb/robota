@@ -1,5 +1,15 @@
 # @robota-sdk/dag-node-seedance-video
 
+## 3.0.0-beta.83
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.99
+
+## 3.0.0-beta.82
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.98
+
 ## 3.0.0-beta.81
 ### Patch Changes
 

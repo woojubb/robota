@@ -8,6 +8,7 @@ import {
 } from '@robota-sdk/agent-provider-openai-compatible/shared';
 
 import { buildOpenAIResponsesTextConfig } from './openai-request-format';
+import { parallelToolCallsWire } from './parallel-tool-policy';
 import { resolveOpenAIReasoningOptions } from './reasoning-effort';
 import {
   awaitWithProviderRequestId,
@@ -35,6 +36,7 @@ export interface IOpenAIResponsesChatOptions {
   messages: TUniversalMessage[];
   chatOptions?: IChatOptions;
   providerOptions: IOpenAIProviderOptions;
+  parallelToolCalls?: boolean;
   onTextDelta?: TTextDeltaCallback;
   /** Per-request headers (trusted `traceparent`), sent after the raw request payload is captured. */
   requestHeaders?: Readonly<Record<string, string>>;
@@ -177,6 +179,7 @@ function buildResponsesRequestParams(
   );
   return {
     model,
+    ...parallelToolCallsWire(input.parallelToolCalls),
     input: convertToOpenAIResponsesInput(input.messages),
     ...(tools !== undefined && {
       tools,

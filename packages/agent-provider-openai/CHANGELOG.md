@@ -1,5 +1,25 @@
 # @robota-sdk/agent-provider-openai
 
+## 3.0.0-beta.99
+### Patch Changes
+
+- b185f55: Send the configured `parallelToolCalls` policy on Chat Completions only for requests that include
+  tools, so a provider with an explicit policy no longer sends the field on tool-less calls, where it
+  constrains nothing and a Chat Completions endpoint may reject it. The Responses surface still sends an explicit policy on every request.
+  - @robota-sdk/agent-core@3.0.0-beta.99
+  - @robota-sdk/agent-provider-openai-compatible@3.0.0-beta.99
+
+## 3.0.0-beta.98
+### Patch Changes
+
+- 261bfc5: Add a constructor and profile `parallelToolCalls` boolean that forwards the native generation
+  policy on Chat Completions and Responses, preserving explicit false across streaming and
+  non-streaming calls. Omission preserves existing behavior. Reject malformed or unsupported
+  configurations before dispatch, retain the policy despite caller option mutation, and preserve
+  all returned calls and usage without claiming a call-count or execution-order guarantee.
+  - @robota-sdk/agent-core@3.0.0-beta.98
+  - @robota-sdk/agent-provider-openai-compatible@3.0.0-beta.98
+
 ## 3.0.0-beta.97
 ### Patch Changes
 

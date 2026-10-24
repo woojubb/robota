@@ -6,6 +6,7 @@ import {
 
 import { convertToOpenAIMessages, convertToOpenAITools } from './message-converter';
 import { buildOpenAIChatResponseFormat, mergeChatResponseFormat } from './openai-request-format';
+import { parallelToolCallsWire } from './parallel-tool-policy';
 import {
   awaitWithProviderRequestId,
   readOpenAIRequestId,
@@ -26,6 +27,7 @@ export interface IOpenAIChatCompletionsOptions {
   messages: TUniversalMessage[];
   chatOptions?: IChatOptions;
   providerOptions: IOpenAIProviderOptions;
+  parallelToolCalls?: boolean;
   payloadLogger?: IPayloadLogger;
   responseParser: OpenAIResponseParser;
   onTextDelta?: TTextDeltaCallback;
@@ -150,9 +152,11 @@ function buildChatRequestParams(
       temperature: input.chatOptions.temperature,
     }),
     ...(input.chatOptions?.maxTokens !== undefined && { max_tokens: input.chatOptions.maxTokens }),
+    // The policy only constrains tool calls; Chat Completions may reject it without `tools`.
     ...(input.chatOptions?.tools && {
       tools: convertToOpenAITools(input.chatOptions.tools, input.providerOptions.strictTools),
       tool_choice: toOpenAICompatibleToolChoice(input.chatOptions.toolChoice),
+      ...parallelToolCallsWire(input.parallelToolCalls),
     }),
     ...(responseFormat !== undefined && { response_format: responseFormat }),
   } as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming;

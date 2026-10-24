@@ -5,5 +5,5 @@ reaches any OpenAI-compatible endpoint through `baseURL`. The shared OpenAI-comp
 it uses lives in `@robota-sdk/agent-provider-openai-compatible` (its `./shared` entry). The
 [package README](../README.md) covers installation, options and usage.
 
-- [SPEC.md](SPEC.md): the package contract and its design decisions (reasoning effort, strict tool
-  schemas, payload log permissions).
+- [SPEC.md](SPEC.md): the package contract and its design decisions (parallel function-call policy,
+  reasoning effort, strict tool schemas, payload log permissions).

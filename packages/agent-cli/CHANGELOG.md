@@ -1,5 +1,9 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.99
+
+## 3.0.0-beta.98
+
 ## 3.0.0-beta.97
 ### Minor Changes
 
