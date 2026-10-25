@@ -224,13 +224,54 @@ describe.each<TOpenAIApiSurface>(['chat-completions', 'responses'])(
         providerOptions: { anthropic: upstream },
         tags,
       };
-      const provider = new OpenAIProvider({ ...providerOptions(apiSurface), extraBody });
+      const options = { ...providerOptions(apiSurface), extraBody };
+      const provider = new OpenAIProvider(options);
       upstream.disableParallelToolUse = false;
       tags.push('second');
       extraBody['later'] = ['added'];
+      Object.assign(options, { extraBody: { model: 'private-override-model', replaced: true } });
       await provider.chat(messages, { model: 'fixture-model' });
-      expect(received[0]).toMatchObject({ providerOptions: gatewayOptions, tags: ['first'] });
+      expect(received[0]).toMatchObject({
+        model: 'fixture-model',
+        providerOptions: gatewayOptions,
+        tags: ['first'],
+      });
       expect(received[0]).not.toHaveProperty('later');
+      expect(received[0]).not.toHaveProperty('replaced');
+    });
+
+    it('reserves every field the provider writes', async () => {
+      const provider = new OpenAIProvider({
+        ...providerOptions(apiSurface),
+        parallelToolCalls: false,
+        strictTools: true,
+        responseFormat: 'json_schema',
+        jsonSchema: { name: 'classification', schema: { type: 'object' } },
+        ...(apiSurface === 'responses' && {
+          reasoning: { summary: 'auto' },
+          includeEncryptedReasoning: true,
+          store: false,
+        }),
+      });
+      for (const form of forms) {
+        await invoke(provider, form, {
+          model: 'fixture-model',
+          tools: [tool],
+          toolChoice: 'required',
+          temperature: 0,
+          maxTokens: 64,
+        });
+      }
+      const written = [...new Set(received.flatMap((body) => Object.keys(body)))];
+      expect(written).toEqual(
+        expect.arrayContaining(['model', 'tools', 'parallel_tool_calls', 'stream']),
+      );
+      for (const field of written) {
+        expect(
+          () =>
+            new OpenAIProvider({ ...providerOptions(apiSurface), extraBody: { [field]: null } }),
+        ).toThrow(`extraBody cannot set the provider-managed field ${field}`);
+      }
     });
 
     it('keeps a raw-payload observer from changing later requests', async () => {
@@ -274,13 +315,20 @@ describe('extra body boundary', () => {
     'model',
     'messages',
     'input',
+    'previous_response_id',
+    'conversation',
     'tools',
     'tool_choice',
     'parallel_tool_calls',
     'functions',
     'function_call',
+    'web_search_options',
     'stream',
     'stream_options',
+    'n',
+    'background',
+    'modalities',
+    'audio',
     'response_format',
     'text',
     'max_tokens',

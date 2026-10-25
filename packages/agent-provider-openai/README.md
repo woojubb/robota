@@ -112,13 +112,18 @@ The value is copied at construction; later changes to the object do not change r
 empty object is the same as omitting it. It must be JSON data: `null`, booleans, strings, finite
 numbers, arrays and plain objects; anything JSON serialization would drop or alter (`undefined`,
 functions, `NaN`, `Date`, class instances, cycles) makes the constructor throw. So does a field
-the provider manages on either surface: `model`, `messages`, `input`, `tools`, `tool_choice`,
-`parallel_tool_calls`, `functions`, `function_call`, `stream`, `stream_options`,
-`response_format`, `text`, `max_tokens`, `max_completion_tokens`, `max_output_tokens`,
-`temperature`, `reasoning`, `reasoning_effort`, `include` and `store`; use the typed provider or
-chat option instead. Provider profiles accept the same object in `options.extraBody`. Like an
-explicit `parallelToolCalls`, it cannot be used with an executor. The endpoint decides what the
-fields do, and they are sent, like the rest of the body, to the configured endpoint.
+the provider writes on either surface, or one that would change the response shape it parses or
+add server-side history to the full history it already sends: `model`, `messages`, `input`,
+`previous_response_id`, `conversation`, `tools`, `tool_choice`, `parallel_tool_calls`,
+`functions`, `function_call`, `web_search_options`, `stream`, `stream_options`, `n`,
+`background`, `modalities`, `audio`, `response_format`, `text`, `max_tokens`,
+`max_completion_tokens`, `max_output_tokens`, `temperature`, `reasoning`, `reasoning_effort`,
+`include` and `store`. Use the typed provider or chat option where one exists; the list applies to
+both surfaces, so a field the provider writes only on the other surface is refused too. Provider
+profiles accept the same object in `options.extraBody`. Like an explicit `parallelToolCalls`, it
+cannot be used with an executor; set it on the provider the executor runs instead. The endpoint
+decides what the fields do, and they are sent, like the rest of the body, to the configured
+endpoint.
 
 ### Reasoning effort and web tools
 

@@ -1,18 +1,27 @@
 import type { TOpenAIExtraBody, TOpenAIExtraBodyValue } from './types';
 
-// Fields either request builder writes, plus other spellings of the same concerns. Overriding one
-// would bypass tool projection, the parallel policy, stream assembly or effort-outcome reporting.
+// Fields either request builder writes, plus other spellings of the same concerns: overriding one
+// would bypass tool projection, the parallel policy, stream assembly, or the effort-outcome and
+// native-web reports. Also fields that change the response shape the parsers read (one choice, a
+// completed text response) or add server-side history to the full history already sent.
 const PROVIDER_MANAGED_FIELDS: ReadonlySet<string> = new Set([
   'model',
   'messages',
   'input',
+  'previous_response_id',
+  'conversation',
   'tools',
   'tool_choice',
   'parallel_tool_calls',
   'functions',
   'function_call',
+  'web_search_options',
   'stream',
   'stream_options',
+  'n',
+  'background',
+  'modalities',
+  'audio',
   'response_format',
   'text',
   'max_tokens',
