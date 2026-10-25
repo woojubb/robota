@@ -21,6 +21,18 @@ export interface IOpenAINativeWebToolsOptions {
   webFetch?: boolean;
 }
 
+/** A JSON value sent through {@link IOpenAIProviderOptions.extraBody}. */
+export type TOpenAIExtraBodyValue =
+  | string
+  | number
+  | boolean
+  | null
+  | readonly TOpenAIExtraBodyValue[]
+  | { readonly [key: string]: TOpenAIExtraBodyValue };
+
+/** Top-level request-body fields sent through {@link IOpenAIProviderOptions.extraBody}. */
+export type TOpenAIExtraBody = Readonly<Record<string, TOpenAIExtraBodyValue>>;
+
 /**
  * Valid provider option value types
  */
@@ -33,6 +45,7 @@ export type TOpenAIProviderOptionValue =
   | IOpenAIJsonSchemaDefinition
   | IOpenAINativeWebToolsOptions
   | IOpenAIResponsesReasoningOptions
+  | TOpenAIExtraBody
   | OpenAI
   | IPayloadLogger
   | ILogger
@@ -171,6 +184,14 @@ export interface IOpenAIProviderOptions {
    * argument validity or execution order. Explicit values cannot be used with an executor.
    */
   readonly parallelToolCalls?: boolean;
+
+  /**
+   * JSON fields merged as top-level fields into every request body on both API surfaces, for
+   * endpoint-specific options this provider does not model (for example a gateway's upstream
+   * options). Copied at construction; an empty object is the same as omitting it. Fields the
+   * provider manages and non-JSON values are rejected, and it cannot be used with an executor.
+   */
+  readonly extraBody?: TOpenAIExtraBody;
 
   /**
    * Provider-native hosted web tool request from provider profile options.
