@@ -4,6 +4,7 @@ import {
   toOpenAICompatibleToolChoice,
 } from '@robota-sdk/agent-provider-openai-compatible/shared';
 
+import { extraBodyWire } from './extra-body';
 import { convertToOpenAIMessages, convertToOpenAITools } from './message-converter';
 import { buildOpenAIChatResponseFormat, mergeChatResponseFormat } from './openai-request-format';
 import { parallelToolCallsWire } from './parallel-tool-policy';
@@ -17,7 +18,7 @@ import { assembleOpenAIStream } from './streaming/stream-assembler';
 
 import type { IPayloadLogger } from './interfaces/payload-logger';
 import type { OpenAIResponseParser } from './parsers/response-parser';
-import type { IOpenAIProviderOptions } from './types';
+import type { IOpenAIProviderOptions, TOpenAIExtraBody } from './types';
 import type { IOpenAILogData } from './types/api-types';
 import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
 import type OpenAI from 'openai';
@@ -28,6 +29,7 @@ export interface IOpenAIChatCompletionsOptions {
   chatOptions?: IChatOptions;
   providerOptions: IOpenAIProviderOptions;
   parallelToolCalls?: boolean;
+  extraBody?: TOpenAIExtraBody;
   payloadLogger?: IPayloadLogger;
   responseParser: OpenAIResponseParser;
   onTextDelta?: TTextDeltaCallback;
@@ -146,6 +148,7 @@ function buildChatRequestParams(
     mergeChatResponseFormat(input.providerOptions, input.chatOptions?.responseFormat),
   );
   return {
+    ...extraBodyWire(input.extraBody),
     model,
     messages: openaiMessages,
     ...(input.chatOptions?.temperature !== undefined && {
