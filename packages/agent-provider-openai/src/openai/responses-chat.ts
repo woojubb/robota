@@ -7,6 +7,7 @@ import {
   toOpenAIResponsesToolChoice,
 } from '@robota-sdk/agent-provider-openai-compatible/shared';
 
+import { extraBodyWire } from './extra-body';
 import { buildOpenAIResponsesTextConfig } from './openai-request-format';
 import { parallelToolCallsWire } from './parallel-tool-policy';
 import { resolveOpenAIReasoningOptions } from './reasoning-effort';
@@ -27,7 +28,7 @@ import type {
   IOpenAIResponsesRequestStreaming,
   TOpenAIResponsesStreamEvent,
 } from './responses-types';
-import type { IOpenAIProviderOptions } from './types';
+import type { IOpenAIProviderOptions, TOpenAIExtraBody } from './types';
 import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
 import type OpenAI from 'openai';
 
@@ -37,6 +38,7 @@ export interface IOpenAIResponsesChatOptions {
   chatOptions?: IChatOptions;
   providerOptions: IOpenAIProviderOptions;
   parallelToolCalls?: boolean;
+  extraBody?: TOpenAIExtraBody;
   onTextDelta?: TTextDeltaCallback;
   /** Per-request headers (trusted `traceparent`), sent after the raw request payload is captured. */
   requestHeaders?: Readonly<Record<string, string>>;
@@ -178,6 +180,7 @@ function buildResponsesRequestParams(
     input.chatOptions?.effortResolution,
   );
   return {
+    ...extraBodyWire(input.extraBody),
     model,
     ...parallelToolCallsWire(input.parallelToolCalls),
     input: convertToOpenAIResponsesInput(input.messages),

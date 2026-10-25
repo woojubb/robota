@@ -11,13 +11,14 @@ import {
   chatStreamWithOpenAIChatCompletions,
   chatWithOpenAIChatCompletions,
 } from './chat-completions-chat';
+import { assertExtraBodyExecutor, parseExtraBody } from './extra-body';
 import { OPENAI_MODEL_EFFORT_TABLE } from './model-effort-table';
 import { assertParallelToolCallsExecutor, parseParallelToolCalls } from './parallel-tool-policy';
 import { OpenAIResponseParser } from './parsers/response-parser';
 import { chatStreamWithOpenAIResponsesApi, chatWithOpenAIResponsesApi } from './responses-chat';
 
 import type { IPayloadLogger } from './interfaces/payload-logger';
-import type { IOpenAIProviderOptions, TOpenAIApiSurface } from './types';
+import type { IOpenAIProviderOptions, TOpenAIApiSurface, TOpenAIExtraBody } from './types';
 import type {
   TUniversalMessage,
   IChatOptions,
@@ -44,6 +45,7 @@ export class OpenAIProvider extends AbstractAIProvider {
   private readonly options: IOpenAIProviderOptions;
   private readonly apiSurface: TOpenAIApiSurface;
   private readonly parallelToolCalls: boolean | undefined;
+  private readonly extraBody: TOpenAIExtraBody | undefined;
   private readonly payloadLogger: IPayloadLogger | undefined;
   private readonly responseParser: OpenAIResponseParser;
 
@@ -60,6 +62,8 @@ export class OpenAIProvider extends AbstractAIProvider {
     this.options = options;
     this.parallelToolCalls = parseParallelToolCalls(options.parallelToolCalls, options.apiSurface);
     assertParallelToolCallsExecutor(this.parallelToolCalls, options.executor !== undefined);
+    this.extraBody = parseExtraBody(options.extraBody);
+    assertExtraBodyExecutor(this.extraBody, options.executor !== undefined);
     this.apiSurface = resolveApiSurface(options);
     validateOpenAIProviderNativeWebTools(this.apiSurface, options.nativeWebTools);
 
@@ -91,6 +95,7 @@ export class OpenAIProvider extends AbstractAIProvider {
     options?: IChatOptions,
   ): Promise<TUniversalMessage> {
     assertParallelToolCallsExecutor(this.parallelToolCalls, this.executor !== undefined);
+    assertExtraBodyExecutor(this.extraBody, this.executor !== undefined);
     this.validateMessages(messages);
     this.validateNativeWebTools(options?.nativeWebTools);
     const resolvedOptions = this.resolveEffortOptions(options);
@@ -118,6 +123,7 @@ export class OpenAIProvider extends AbstractAIProvider {
         chatOptions: this.projectChatOptions(resolvedOptions),
         providerOptions: this.options,
         parallelToolCalls: this.parallelToolCalls,
+        extraBody: this.extraBody,
         onTextDelta: this.onTextDelta,
         requestHeaders: this.traceRequestHeaders(resolvedOptions),
       });
@@ -131,6 +137,7 @@ export class OpenAIProvider extends AbstractAIProvider {
       chatOptions: this.projectChatOptions(resolvedOptions),
       providerOptions: this.options,
       parallelToolCalls: this.parallelToolCalls,
+      extraBody: this.extraBody,
       payloadLogger: this.payloadLogger,
       responseParser: this.responseParser,
       onTextDelta: this.onTextDelta,
@@ -145,6 +152,7 @@ export class OpenAIProvider extends AbstractAIProvider {
     options?: IChatOptions,
   ): AsyncIterable<TUniversalMessage> {
     assertParallelToolCallsExecutor(this.parallelToolCalls, this.executor !== undefined);
+    assertExtraBodyExecutor(this.extraBody, this.executor !== undefined);
     this.validateNativeWebTools(options?.nativeWebTools);
     const resolvedOptions = this.resolveEffortOptions(options);
 
@@ -188,6 +196,7 @@ export class OpenAIProvider extends AbstractAIProvider {
         chatOptions: this.projectChatOptions(resolvedOptions),
         providerOptions: this.options,
         parallelToolCalls: this.parallelToolCalls,
+        extraBody: this.extraBody,
         onTextDelta: this.onTextDelta,
         requestHeaders: this.traceRequestHeaders(resolvedOptions),
       });
@@ -201,6 +210,7 @@ export class OpenAIProvider extends AbstractAIProvider {
       chatOptions: this.projectChatOptions(resolvedOptions),
       providerOptions: this.options,
       parallelToolCalls: this.parallelToolCalls,
+      extraBody: this.extraBody,
       payloadLogger: this.payloadLogger,
       responseParser: this.responseParser,
       onTextDelta: this.onTextDelta,

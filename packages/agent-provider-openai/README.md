@@ -91,6 +91,35 @@ handlers. All returned calls and usage remain visible, even if an endpoint retur
 under `false`. A compatible endpoint may reject or ignore the field; verify support for the endpoint
 and model you use.
 
+### Extra request-body fields
+
+Only the fields this provider manages, and those in `extraBody`, are sent; other unknown constructor
+or chat-option keys never reach the endpoint. Set `extraBody` for endpoint-specific options the
+provider does not model, such as a gateway's upstream settings. Its fields are merged as top-level
+fields into every request body on both API surfaces, with or without tools, for plain `chat()`,
+callback-driven `chat()` and `chatStream()`, and raw-payload request events show the merged body:
+
+```typescript
+const provider = new OpenAIProvider({
+  apiKey: process.env.GATEWAY_API_KEY,
+  baseURL: 'https://gateway.example.com/v1',
+  parallelToolCalls: false,
+  extraBody: { providerOptions: { upstream: { disableParallelToolUse: true } } },
+});
+```
+
+The value is copied at construction; later changes to the object do not change requests, and an
+empty object is the same as omitting it. It must be JSON data: `null`, booleans, strings, finite
+numbers, arrays and plain objects; anything JSON serialization would drop or alter (`undefined`,
+functions, `NaN`, `Date`, class instances, cycles) makes the constructor throw. So does a field
+the provider manages on either surface: `model`, `messages`, `input`, `tools`, `tool_choice`,
+`parallel_tool_calls`, `functions`, `function_call`, `stream`, `stream_options`,
+`response_format`, `text`, `max_tokens`, `max_completion_tokens`, `max_output_tokens`,
+`temperature`, `reasoning`, `reasoning_effort`, `include` and `store`; use the typed provider or
+chat option instead. Provider profiles accept the same object in `options.extraBody`. Like an
+explicit `parallelToolCalls`, it cannot be used with an executor. The endpoint decides what the
+fields do, and they are sent, like the rest of the body, to the configured endpoint.
+
 ### Reasoning effort and web tools
 
 A reasoning-effort selection (`defaultModel.effort` on a `ConversationAgent` agent, or `effort` on a chat call)
@@ -117,7 +146,8 @@ required; the constructor throws otherwise.
 | `organization`              | `string`                                   | OpenAI organization ID.                                                                                         |
 | `timeout`                   | `number`                                   | Request timeout in milliseconds.                                                                                |
 | `strictTools`               | `boolean`                                  | Closes tool object schemas and requests OpenAI strict function calling (see above).                             |
-| `parallelToolCalls`         | `boolean`                                  | Captured native parallel function-call generation policy; omitted by default and incompatible with executors. |
+| `parallelToolCalls`         | `boolean`                                  | Captured native parallel function-call generation policy; omitted by default and incompatible with executors.   |
+| `extraBody`                 | `TOpenAIExtraBody`                         | JSON fields merged into every request body; provider-managed fields are rejected (see above).                   |
 | `responseFormat`            | `'text' \| 'json_object' \| 'json_schema'` | Response format; `'json_schema'` uses `jsonSchema`.                                                             |
 | `jsonSchema`                | `IOpenAIJsonSchemaDefinition`              | Schema for Structured Outputs when `responseFormat` is `'json_schema'`.                                         |
 | `reasoning`                 | `IOpenAIResponsesReasoningOptions`         | Responses API reasoning controls (`effort`, `summary`).                                                         |
