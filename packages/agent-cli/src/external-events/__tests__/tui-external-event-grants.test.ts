@@ -293,7 +293,7 @@ describe('grants across a switch on a run-level history (#3189)', () => {
     // A token the ingress can spend: a compact JWS naming its own id and expiry.
     const part = (value: unknown): string =>
       Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
-    const spendable = `${part({ alg: 'ES256' })}.${part({ jti: 'j1', exp: Date.now() / 1000 + 300 })}.c2ln`;
+    const spendable = `${part({ alg: 'ES256' })}.${part({ jti: 'j1', exp: Math.floor(Date.now() / 1000) + 300 })}.c2ln`;
     expect(
       await tui.receive('chat', {
         token: spendable,
