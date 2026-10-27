@@ -12,82 +12,110 @@ assembled from the same neutral building blocks you can embed in your own applic
 > Evaluating with an AI agent? Start at [`llms.txt`](./llms.txt) — the consumer map (minimal
 > package set, capabilities, behavior contracts).
 
-## Quick Start — Embed the Library
+## Quick start: embed an agent
 
-The minimal set is `agent-core` plus one `agent-provider-<vendor>` package; add `agent-tools` when the
-agent calls tools. Published packages need Node.js 22.12 or later.
+Install `agent-core` and a provider package to run an agent. Published packages require Node.js
+22.12 or later. This example uses Anthropic and requires an `ANTHROPIC_API_KEY` environment
+variable. See the [providers guide](./content/guide/providers.md) for other providers and local
+model servers.
 
 ```bash
 npm install @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic
 ```
 
-```typescript
+Save this example as `agent.mjs`:
+
+```javascript
 import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const agent = new ConversationAgent({
-  name: 'MyAgent',
-  aiProviders: [new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })],
-  defaultModel: {
-    provider: 'anthropic',
-    model: 'claude-sonnet-4-6',
-  },
-  systemMessage: 'You are a helpful assistant.',
+	name: 'MyAgent',
+	aiProviders: [new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })],
+	defaultModel: {
+		provider: 'anthropic',
+		model: 'claude-sonnet-4-6',
+	},
+	systemMessage: 'You are a helpful assistant.',
 });
 
 const response = await agent.run('Hello!');
+console.log(response);
 ```
+
+Run `node agent.mjs`. The model's response appears in the console. The text depends on the model.
 
 [Runtime migration and compatibility](./content/guide/runtime-migration.md)
 
 ### Add a tool
 
 `createZodFunctionTool` validates the model's arguments against a zod schema before your function
-runs, and types the function's input from that schema:
+runs, and types the function's input from that schema. In addition to the packages above, install
+`agent-tools` and Zod 3:
 
 ```bash
 npm install @robota-sdk/agent-tools zod@3
 ```
 
-```typescript
+Save this example as `weather.mjs`:
+
+```javascript
 import { ConversationAgent } from '@robota-sdk/agent-core';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
 const getWeather = createZodFunctionTool(
-  'getWeather',
-  'Get the current weather for a city',
-  z.object({ city: z.string() }),
-  async ({ city }) => `It is sunny in ${city}.`,
+	'getWeather',
+	'Get the current weather for a city',
+	z.object({ city: z.string() }),
+	async ({ city }) => `It is sunny in ${city}.`,
 );
 
 const agent = new ConversationAgent({
-  name: 'WeatherAgent',
-  aiProviders: [new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })],
-  defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  tools: [getWeather],
+	name: 'WeatherAgent',
+	aiProviders: [new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })],
+	defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+	tools: [getWeather],
 });
 
 const answer = await agent.run('What is the weather in Seoul?');
+console.log(answer);
 ```
+
+Run `node weather.mjs` to see the response.
 
 Any OpenAI-compatible endpoint works too — AI gateways, Azure, vLLM, local servers — through the
 OpenAI provider's `baseURL` (see the [providers guide](./content/guide/providers.md)).
 
-### Higher-level assembly — `createQuery`
+### Run a query with built-in tools
 
-`agent-framework` assembles the built-in tools, permissions, and config/context loading on top:
+`agent-framework` provides `createQuery` with built-in tools and permission checks. Install it with
+the Anthropic provider:
 
-```typescript
+```bash
+npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
+```
+
+With `ANTHROPIC_API_KEY` set, save this example as `query.mjs`. It shuts down the session when the
+query finishes:
+
+```javascript
 import { createQuery } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const query = createQuery({
-  provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+	provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+	model: 'claude-sonnet-4-6',
 });
-const response = await query('List all TypeScript files in src/');
+try {
+	console.log(await query('List all TypeScript files in src/'));
+} finally {
+	await query.shutdown();
+}
 ```
+
+Run `node query.mjs` to see the response.
 
 `createQuery` runs in the `default` permission mode: with nobody to approve, a tool call that would
 ask for permission is denied. See the [SDK guide](./content/guide/sdk.md) for sessions, permission
@@ -148,7 +176,7 @@ unsigned — macOS and Windows may warn.
   (`robota daemon start`) that the desktop app and the full terminal UI (`robota --attach`) connect to.
   [Sessions and daemon](./content/guide/sessions-and-daemon.md)
 - **MCP, both directions** — connect to MCP servers (stdio or remote, including OAuth sign-in) with
-  `agent-mcp`, and serve an Robota session as an MCP server with `agent-transport-mcp`
+  `agent-mcp`, and serve a Robota session as an MCP server with `agent-transport-mcp`
   (`robota mcp serve`). [MCP guide](./content/guide/mcp.md)
 - **Devices and remote control** — link your own devices, send messages and files between
   sessions, hand a session off to another device, and co-drive a session from a browser over
@@ -190,7 +218,7 @@ The [packages index](https://docs.robota.io/en/packages/) on the docs site cover
 
 | Package                                                                                                                      | Description                                                                       |
 | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)                                             | `Robota` engine: run/runStream, history, tool calling, structured output, plugins |
+| [`@robota-sdk/agent-core`](https://www.npmjs.com/package/@robota-sdk/agent-core)                                             | `ConversationAgent`: run/runStream, history, tool calling, structured output, plugins |
 | [`@robota-sdk/agent-provider-anthropic`](https://www.npmjs.com/package/@robota-sdk/agent-provider-anthropic)                 | Anthropic (Claude) provider                                                       |
 | [`@robota-sdk/agent-provider-openai`](https://www.npmjs.com/package/@robota-sdk/agent-provider-openai)                       | OpenAI provider; any OpenAI-compatible endpoint through `baseURL`                 |
 | [`@robota-sdk/agent-provider-openai-compatible`](https://www.npmjs.com/package/@robota-sdk/agent-provider-openai-compatible) | DeepSeek, Qwen and Gemma providers, and the shared OpenAI-compatible protocol     |
