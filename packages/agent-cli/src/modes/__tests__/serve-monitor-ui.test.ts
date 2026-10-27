@@ -64,7 +64,20 @@ describe('startMonitorUiServer (GUI-007)', () => {
   let fixtureRoot: string;
   let webRoot: string;
   let server: IMonitorUiServer;
-  const wsUrl = 'ws://127.0.0.1:7070';
+  const wsUrl = 'ws://127.0.0.1:7070?token=dummy-token';
+
+  async function authenticate(): Promise<{ path: string; cookie: string }> {
+    const response = await fetch(`${server.url}/__monitor_login`, {
+      method: 'POST',
+      body: new URLSearchParams({ code: server.accessCode }),
+      redirect: 'manual',
+    });
+    expect(response.status).toBe(303);
+    const path = response.headers.get('location');
+    const cookie = response.headers.get('set-cookie');
+    if (!path || !cookie) throw new Error('Monitor login did not return a session');
+    return { path, cookie: cookie.split(';')[0]! };
+  }
 
   beforeAll(async () => {
     fixtureRoot = realpathSync(mkdtempSync(join(tmpdir(), 'monitor-ui-')));
@@ -94,11 +107,85 @@ describe('startMonitorUiServer (GUI-007)', () => {
   });
 
   it('injects the live ws-url meta into index.html', async () => {
-    const res = await fetch(`${server.url}/`);
+    const { path, cookie } = await authenticate();
+    const res = await fetch(`${server.url}${path}`, { headers: { cookie } });
     const html = await res.text();
     expect(res.status).toBe(200);
     expect(html).toContain(`<meta name="ws-url" content="${wsUrl}" />`);
   });
+
+  it('does not expose the token before a valid local login', async () => {
+    const landing = await fetch(`${server.url}/`);
+    expect(landing.status).toBe(200);
+    expect(await landing.text()).not.toContain('dummy-token');
+    expect((await fetch(`${server.url}/index.html`)).status).toBe(403);
+    const bad = await fetch(`${server.url}/__monitor_login`, {
+      method: 'POST', body: new URLSearchParams({ code: 'wrong' }), redirect: 'manual',
+    });
+    expect(bad.status).toBe(403);
+    const { path, cookie } = await authenticate();
+    expect((await fetch(`${server.url}${path}`)).status).toBe(403);
+    const allowed = await fetch(`${server.url}${path}`, { headers: { cookie } });
+    expect(allowed.status).toBe(200);
+    expect(await allowed.text()).toContain('dummy-token');
+    expect(allowed.headers.get('referrer-policy')).toBe('no-referrer');
+    expect((await fetch(`${server.url}${path}assets/app.js`)).status).toBe(403);
+    const asset = await fetch(`${server.url}${path}assets/app.js`, { headers: { cookie } });
+    expect(asset.status).toBe(200);
+    expect(await asset.text()).toContain('export const x = 1;');
+  });
+
+  it('closes even when a login request has not finished sending its body', async () => {
+    const temporary = await startMonitorUiServer(webRoot, wsUrl, createTestProductRuntime());
+    const req = request(`${temporary.url}/__monitor_login`, {
+      method: 'POST', headers: { 'content-length': '1000' },
+    });
+    req.on('error', () => {});
+    req.write('code=partial');
+    await new Promise<void>((resolve, reject) => {
+      req.once('socket', (socket) => socket.once('connect', resolve));
+      req.once('error', reject);
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const closing = temporary.close();
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        closing,
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error('Monitor close was delayed')), 1500);
+        }),
+      ]);
+    } finally {
+      if (timeout) clearTimeout(timeout);
+      req.destroy();
+      await closing;
+    }
+  });
+
+  it('bounds a login request even while the client keeps sending data', async () => {
+    const temporary = await startMonitorUiServer(webRoot, wsUrl, createTestProductRuntime());
+    const req = request(`${temporary.url}/__monitor_login`, {
+      method: 'POST', headers: { 'content-length': '1000' },
+    });
+    req.on('error', () => {});
+    req.write('code=partial');
+    const drip = setInterval(() => req.write('x'), 500);
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        new Promise<void>((resolve) => req.once('error', () => resolve())),
+        new Promise<never>((_, reject) => {
+          timeout = setTimeout(() => reject(new Error('Login exceeded its deadline')), 12_000);
+        }),
+      ]);
+    } finally {
+      clearInterval(drip);
+      if (timeout) clearTimeout(timeout);
+      req.destroy();
+      await temporary.close();
+    }
+  }, 15_000);
 
   it('serves a static asset with a JS content-type', async () => {
     const res = await fetch(`${server.url}/assets/app.js`);
@@ -117,7 +204,7 @@ describe('startMonitorUiServer (GUI-007)', () => {
     },
   );
 
-  it.each(['/', '/index.html', '/assets/app.js', '/assets/app-sandbox.html'])(
+  it.each(['/', '/assets/app.js', '/assets/app-sandbox.html'])(
     'does not restrict the ordinary host asset at %s',
     async (path) => {
       const response = await fetch(`${server.url}${path}`);

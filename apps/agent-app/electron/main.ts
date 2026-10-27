@@ -11,6 +11,7 @@ import {
   loadDesktopRemoteConfig,
   REMOTE_RUNTIME_FAILURE,
 } from './remote-runtime.js';
+import { remotePermissionText } from './remote-permission-display.js';
 import { mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -172,13 +173,8 @@ async function startDaemon(): Promise<TDaemonStart> {
         hostEnvironment.PRODUCT_DESKTOP_REMOTE_CONNECTION_CONFIG!,
       );
       remoteRuntime = new DesktopRemoteRuntime(config, async (event) => {
-        const printable = JSON.stringify(event)
-          .replace(
-            // eslint-disable-next-line no-control-regex -- Native approval text must not contain display controls.
-            /[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]/gu,
-            ' ',
-          )
-          .slice(0, 4000);
+        const printable = remotePermissionText(event);
+        if (printable === undefined) return false;
         const answer = await dialog.showMessageBox({
           type: 'question',
           message: 'Remote task requests permission',

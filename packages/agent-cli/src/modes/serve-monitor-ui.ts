@@ -4,14 +4,15 @@
  * CLI OWNING and SERVING its own GUI (a localhost-origin surface) — the secure replacement for a deployed
  * page reaching into `localhost`. Kept SEPARATE from the WS transport (a neutral library must not serve a UI).
  *
- * SEC-001 hook: the injected `ws-url` is where the auth token rides (`?token=…`) once SEC-001 lands — the
- * server-injected URL is the token-delivery channel for this co-located browser client.
+ * The WS URL contains the transport credential. The index is served only after the operator enters
+ * the terminal access code, and the resulting browser session is scoped to an unpredictable path.
  */
 
 import { publicProductConfig } from '@robota-sdk/product-config';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import { spawn } from 'node:child_process';
+import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { closeSync, existsSync, fstatSync, openSync, readFileSync, realpathSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { extname, join, sep } from 'node:path';
@@ -37,6 +38,7 @@ const MIME: Record<string, string> = {
 /** A running monitor-UI HTTP server: its localhost URL + a graceful close. */
 export interface IMonitorUiServer {
   url: string;
+  accessCode: string;
   close: () => Promise<void>;
 }
 
@@ -96,13 +98,74 @@ export async function startMonitorUiServer(
   // Canonicalized once: webRoot is a fixed build output for the life of the server, and every
   // request's containment decision is made against this resolved form.
   const webRootReal = realpathSync(webRoot);
+  const accessCode = randomBytes(32).toString('base64url');
+  const sessionCookie = randomBytes(32).toString('base64url');
+  const sessionPath = `/${randomBytes(24).toString('base64url')}/`;
 
   const server = createServer((req, res) => {
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Cache-Control', 'no-store');
     // Defense-in-depth (SEC-001): reject a non-loopback Host so a DNS-rebinding page cannot read the
     // token-carrying index.html from this server, mirroring the WS transport's upgrade check.
     if (!isLoopbackHostHeader(req.headers.host)) {
       res.writeHead(403).end('Forbidden host');
       return;
+    }
+    if (req.method === 'POST' && req.url === '/__monitor_login') {
+      let body = '';
+      const deadline = setTimeout(() => req.destroy(), 10_000);
+      deadline.unref();
+      req.once('close', () => clearTimeout(deadline));
+      req.setEncoding('utf8');
+      req.setTimeout(10_000, () => req.destroy());
+      req.on('error', () => {});
+      req.on('data', (chunk: string) => {
+        body += chunk;
+        if (body.length > 1024) req.destroy();
+      });
+      req.on('end', () => {
+        const supplied = new URLSearchParams(body).get('code') ?? '';
+        const expected = Buffer.from(accessCode);
+        const actual = Buffer.from(supplied);
+        if (actual.length !== expected.length || !timingSafeEqual(actual, expected)) {
+          res.writeHead(403).end('Invalid access code');
+          return;
+        }
+        res.writeHead(303, {
+          Location: sessionPath,
+          'Set-Cookie': `robota_monitor=${sessionCookie}; HttpOnly; SameSite=Strict; Path=${sessionPath}`,
+        }).end();
+      });
+      return;
+    }
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      res.writeHead(405).end('Method not allowed');
+      return;
+    }
+    if (req.url === '/') {
+      res.writeHead(200, {
+        'content-type': 'text/html; charset=utf-8',
+        'content-security-policy': "default-src 'none'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'",
+        'x-frame-options': 'DENY',
+      }).end(
+        '<!doctype html><title>Monitor access</title><form method="post" action="/__monitor_login">' +
+        '<label>Access code from your terminal <input name="code" type="password" required autocomplete="off"></label>' +
+        '<button type="submit">Open monitor</button></form>',
+      );
+      return;
+    }
+    const requestPath = (req.url ?? '/').split('?')[0];
+    const isSession = requestPath.startsWith(sessionPath);
+    if (isSession) {
+      const cookies = (req.headers.cookie ?? '').split(';').map((cookie) => cookie.trim());
+      const sessionCookies = cookies.filter((cookie) => cookie.startsWith('robota_monitor='));
+      const supplied = Buffer.from(sessionCookies[0]?.slice('robota_monitor='.length) ?? '');
+      const expected = Buffer.from(sessionCookie);
+      if (sessionCookies.length !== 1 || supplied.length !== expected.length ||
+          !timingSafeEqual(supplied, expected)) {
+        res.writeHead(403).end('Forbidden');
+        return;
+      }
     }
     // A malformed percent-encoding (e.g. `GET /%`) must NOT crash the serve host via an uncaught URIError —
     // SEC-001 treats localhost as hostile, so a co-resident process must not DoS the running agent.
@@ -113,7 +176,9 @@ export async function startMonitorUiServer(
       res.writeHead(400).end('Bad request');
       return;
     }
-    const relPath = rawPath === '/' ? '/index.html' : rawPath;
+    const relPath = isSession
+      ? rawPath === sessionPath ? '/index.html' : `/${rawPath.slice(sessionPath.length)}`
+      : rawPath;
     // Structural containment (SEC-006): split the URL path into segments and admit only plain names.
     // A request cannot escape `webRoot` because it is never given a component that traverses — `..`,
     // `.` and embedded separators are rejected outright rather than normalized away afterwards.
@@ -153,6 +218,10 @@ export async function startMonitorUiServer(
     // operate on that descriptor. A path-based `stat` followed by a path-based `read` would be two
     // independent lookups that can disagree; with an fd there is nothing left to swap between them.
     const isIndex = filePath.endsWith(`${sep}index.html`);
+    if (isIndex && !isSession) {
+      res.writeHead(403).end('Forbidden');
+      return;
+    }
     const contentType = MIME[extname(filePath)] ?? 'application/octet-stream';
     let body: string | Buffer;
     let fd: number;
@@ -186,13 +255,23 @@ export async function startMonitorUiServer(
     res.end(body);
   });
 
-  await new Promise<void>((resolve) => server.listen(0, MONITOR_HOST, () => resolve()));
+  await new Promise<void>((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(0, MONITOR_HOST, () => {
+      server.off('error', reject);
+      resolve();
+    });
+  });
   const addr = server.address();
   const port = typeof addr === 'object' && addr !== null ? addr.port : 0;
   const url = `http://${MONITOR_HOST}:${port}`;
   return {
     url,
-    close: () => new Promise<void>((resolve) => server.close(() => resolve())),
+    accessCode,
+    close: () => new Promise<void>((resolve, reject) => {
+      server.close((error) => error ? reject(error) : resolve());
+      server.closeAllConnections();
+    }),
   };
 }
 

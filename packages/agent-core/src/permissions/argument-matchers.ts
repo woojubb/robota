@@ -61,6 +61,34 @@ export type TMatchDirection = 'allow' | 'deny';
 
 const REGEX_SPECIALS = /[.+^${}()|[\]\\]/g;
 
+/** A conservative representation for comparing literal shell words in deny rules. */
+function literalCommand(command: string, pattern: boolean): string | undefined {
+  let quote: "'" | '"' | undefined;
+  let result = '';
+  for (const char of command) {
+    if (char === quote) {
+      quote = undefined;
+      continue;
+    }
+    if (quote === undefined && (char === "'" || char === '"')) {
+      quote = char;
+      continue;
+    }
+    if (quote !== undefined && (char === ' ' || char === '\t')) return undefined;
+    if (quote === undefined && (char === ' ' || char === '\t')) {
+      if (!result.endsWith(' ')) result += ' ';
+      continue;
+    }
+    // Shell expansion, escapes, redirects and platform-specific syntax cannot be compared as
+    // literal words. A wildcard in a rule is the rule's own glob, not a shell expansion.
+    if (/[^\x20-\x7e]|[$`\\!%~<>()[\]{}?#]/u.test(char) || (!pattern && char === '*')) {
+      return undefined;
+    }
+    result += char;
+  }
+  return quote === undefined ? result : undefined;
+}
+
 /**
  * Convert a glob-style wildcard pattern to a RegExp — the `text` matcher, and the first half of
  * the `command` one.
@@ -97,9 +125,18 @@ export function matchCommand(
   const regex = globToRegex(pattern);
   if (direction === 'deny') {
     if (regex.test(argument)) return 'match';
-    return splitCommandSegments(argument).some((segment) => regex.test(segment))
-      ? 'match'
-      : 'no-match';
+    const segments = splitCommandSegments(argument);
+    if (segments.some((segment) => regex.test(segment))) return 'match';
+    const literalPattern = literalCommand(pattern, true);
+    if (literalPattern === undefined) return 'unevaluable';
+    const literalRegex = globToRegex(literalPattern);
+    for (const segment of segments) {
+      const literal = literalCommand(segment, false);
+      if (literal !== undefined && literalRegex.test(literal)) return 'match';
+    }
+    // Arbitrary shell programs can invoke other programs. A non-match cannot establish that a
+    // denied command will not run, even when the wrapper's name or syntax is unfamiliar.
+    return 'unevaluable';
   }
   if (!regex.test(argument)) return 'no-match';
   if (!pattern.includes('*')) return 'match';

@@ -2269,6 +2269,9 @@ importers:
 
   packages/agent-tools:
     dependencies:
+      '@robota-sdk/agent-file-authority':
+        specifier: workspace:*
+        version: link:../agent-file-authority
       '@robota-sdk/agent-process':
         specifier: workspace:*
         version: link:../agent-process

@@ -94,8 +94,11 @@ export { withUniqueSessionName } from './interactive/interactive-session-fork-re
 // client-run commands (`/shell`, `/editor`) through the same gate the session uses.
 export { SessionTerminalHandoffGate } from './interactive/interactive-session-terminal-handoff.js';
 export type {
+  IExternalEventTokenClaim,
+  IExternalEventTokenClaimStore,
   IExternalEventSourceOptions,
   IExternalEventSource,
+  TExternalEventTokenClaimResult,
   TExternalEventReceipt,
   TExternalEventSettlement,
 } from './interactive/index.js';

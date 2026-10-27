@@ -65,12 +65,12 @@ describe('bypassPermissions no longer proceeds past what must reach a person', (
     expect(handler).toHaveBeenCalledOnce();
   });
 
-  it('with no approver attached, the ask is a denial', async () => {
+  it('with no approver attached, a matching or unevaluable ask is denied', async () => {
     const enforcer = makeEnforcer({
       config: { permissions: { allow: [], deny: [], ask: ['Bash(git push*)'] } },
     });
     await expect(enforcer.checkPermission('Bash', { command: 'git push' })).resolves.toBe(false);
-    await expect(enforcer.checkPermission('Bash', { command: 'git status' })).resolves.toBe(true);
+    await expect(enforcer.checkPermission('Bash', { command: 'git status' })).resolves.toBe(false);
   });
 
   it('removing the home directory is not auto-approved', async () => {
@@ -349,11 +349,14 @@ describe('recent denials (issue #3082)', () => {
   });
 
   it('records nothing for an allowed call and keeps only the latest entries', async () => {
+    const permissionHandler = vi.fn().mockResolvedValue(true);
     const enforcer = makeEnforcer({
       getPermissionMode: () => 'default',
       config: { permissions: { allow: ['Bash(ls*)'], deny: ['Bash(rm *)'], ask: [] } },
+      permissionHandler,
     });
     await enforcer.checkPermission('Bash', { command: 'ls' });
+    expect(permissionHandler).toHaveBeenCalledTimes(1);
     expect(enforcer.getRecentDenials()).toEqual([]);
     for (let i = 0; i < 25; i++) await enforcer.checkPermission('Bash', { command: `rm f${i}` });
     const denials = enforcer.getRecentDenials();
