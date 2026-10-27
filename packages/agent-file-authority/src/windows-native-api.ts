@@ -16,6 +16,17 @@ export interface IWindowsStandardInfo {
   Directory?: number;
 }
 
+export interface IWindowsRenameInfo {
+  ReplaceIfExists: number;
+  RootDirectory: TNativeHandle;
+  FileNameLength: number;
+  FileName: Uint16Array;
+}
+
+export interface IWindowsDispositionInfo {
+  DeleteFile: number;
+}
+
 export interface IWindowsObjectAttributes {
   Length: number;
   RootDirectory: TNativeHandle;
@@ -68,6 +79,8 @@ export interface IWindowsApi {
   readonly attributeTagInfoType: koffi.TypeObject;
   readonly fileIdInfoType: koffi.TypeObject;
   readonly standardInfoType: koffi.TypeObject;
+  readonly renameInfoType: koffi.TypeObject;
+  readonly dispositionInfoType: koffi.TypeObject;
   readonly createFileW: TCreateFileW;
   readonly closeHandle: (handle: TNativeHandle) => boolean;
   readonly getAttributeTagInfo: TGetInformation;
@@ -80,6 +93,20 @@ export interface IWindowsApi {
     bytesToRead: number,
     bytesRead: number[],
     overlapped: null,
+  ) => boolean;
+  readonly writeFile: (
+    handle: TNativeHandle,
+    buffer: Uint8Array,
+    bytesToWrite: number,
+    bytesWritten: number[],
+    overlapped: null,
+  ) => boolean;
+  readonly flushFileBuffers: (handle: TNativeHandle) => boolean;
+  readonly setFileInformation: (
+    handle: TNativeHandle,
+    informationClass: number,
+    information: object,
+    informationBytes: number,
   ) => boolean;
   readonly getLastError: () => number;
   readonly ntCreateFile: TNtCreateFile;
@@ -94,9 +121,12 @@ interface IWindowsTypes {
   readonly attributeTagInfoType: koffi.TypeObject;
   readonly fileIdInfoType: koffi.TypeObject;
   readonly standardInfoType: koffi.TypeObject;
+  readonly renameInfoType: koffi.TypeObject;
+  readonly dispositionInfoType: koffi.TypeObject;
 }
 
 const FILE_ID_BYTES = 16;
+const FILE_NAME_CHARS = 256;
 
 function defineWindowsTypes(): IWindowsTypes {
   const handleType = koffi.pointer('ConversationAgentStableFileHandle', koffi.opaque());
@@ -136,6 +166,15 @@ function defineWindowsTypes(): IWindowsTypes {
       DeletePending: 'uint8_t',
       Directory: 'uint8_t',
     }),
+    renameInfoType: koffi.struct('ConversationAgentFileRenameInfo', {
+      ReplaceIfExists: 'uint8_t',
+      RootDirectory: handleType,
+      FileNameLength: 'uint32_t',
+      FileName: koffi.array('uint16_t', FILE_NAME_CHARS, 'Typed'),
+    }),
+    dispositionInfoType: koffi.struct('ConversationAgentFileDispositionInfo', {
+      DeleteFile: 'uint8_t',
+    }),
   };
 }
 
@@ -151,6 +190,9 @@ function bindKernel32(
   | 'getStandardInfo'
   | 'getFileSizeEx'
   | 'readFile'
+  | 'writeFile'
+  | 'flushFileBuffers'
+  | 'setFileInformation'
   | 'getLastError'
 > {
   return {
@@ -175,6 +217,20 @@ function bindKernel32(
       'uint32_t',
       koffi.out(koffi.pointer('uint32_t')),
       'void *',
+    ]),
+    writeFile: library.func('WriteFile', 'bool', [
+      types.handleType,
+      koffi.pointer('uint8_t'),
+      'uint32_t',
+      koffi.out(koffi.pointer('uint32_t')),
+      'void *',
+    ]),
+    flushFileBuffers: library.func('FlushFileBuffers', 'bool', [types.handleType]),
+    setFileInformation: library.func('SetFileInformationByHandle', 'bool', [
+      types.handleType,
+      'int32_t',
+      'void *',
+      'uint32_t',
     ]),
     getLastError: library.func('GetLastError', 'uint32_t', []),
   };

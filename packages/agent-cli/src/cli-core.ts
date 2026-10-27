@@ -6,6 +6,7 @@ import { runHostedRuntime } from './hosted/hosted-runtime-startup.js';
 import { PrintTerminal } from './print-terminal.js';
 import { readExternalEventGrantFiles } from './external-events/external-event-grant-file.js';
 import { createExternalEventVerifier } from './external-events/external-event-verifier.js';
+import { createExternalEventReplayStore } from './external-events/external-event-replay-store.js';
 import {
   createTuiExternalEventGrants,
   createRefusalReporter,
@@ -447,6 +448,10 @@ async function runCliCore(
     // allow-fallback: user-local command failure is terminal — exit is the correct response
     terminal.writeError(error instanceof Error ? error.message : String(error));
     process.exit(1);
+  }
+
+  if (args.serve && args.open && !process.stdout.isTTY) {
+    throw new Error('Opening the monitor requires an interactive terminal for its access code.');
   }
 
   // Issue #3268: a person starting a TUI session is asked, before the project is composed, rather
@@ -1301,7 +1306,9 @@ async function runCliCore(
     ...(externalEvents !== undefined
       ? {
           externalEventVerifierFactory: createExternalEventVerifier,
-          externalEventGrantHistory: createExternalEventGrantHistory(),
+          externalEventGrantHistory: createExternalEventGrantHistory(
+            createExternalEventReplayStore(productRuntime.layout.userRoot),
+          ),
         }
       : {}),
     // CMD-004 Stage C: remote-control enable/stop run HOST-side via the `remoteControl` command

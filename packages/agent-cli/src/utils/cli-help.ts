@@ -79,7 +79,7 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
                              Asks for confirmation; use --yes to skip
   --yes                      Skip confirmation prompts (required for --reset in non-TTY)
   --serve                    Run the headless runtime over a loopback WebSocket
-  --serve --open             Serve {{name}} over localhost and open it in a browser
+  --serve --open             Serve {{name}} over localhost; enter the terminal access code in the browser
   --serve --http-port <port> Also serve the agent HTTP API (submit with SSE streaming, commands,
                              abort, messages) on 127.0.0.1:<port>, for other apps and services.
                              Requires PRODUCT_HTTP_TOKEN (at least 32 characters): the bearer

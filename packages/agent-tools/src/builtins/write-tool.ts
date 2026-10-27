@@ -57,7 +57,7 @@ async function writeFileTool(
     } else if (options.sandboxClient) {
       await options.sandboxClient.writeFile(filePath, content);
     } else {
-      await atomicWriteUtf8File(filePath, content);
+      await atomicWriteUtf8File(filePath, content, options.cwd);
     }
 
     const result: IToolInvocationResult = {

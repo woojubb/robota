@@ -31,6 +31,7 @@ import {
   type ISupervisedPr,
 } from '../session-inventory/supervised-session-control.js';
 import { createExternalEventVerifier } from '../external-events/external-event-verifier.js';
+import { createExternalEventReplayStore } from '../external-events/external-event-replay-store.js';
 import { ExternalEventGrantRefusedError } from '../external-events/external-event-grant-host.js';
 import {
   createRebindableExternalEventGrants,
@@ -48,7 +49,12 @@ import { startServeHttpHost, type IServeHttpHost } from './serve-http-host.js';
 import type { IServeHttpOptions } from '../utils/serve-http-args.js';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
-import type { InteractiveSession, IOrgPolicy, SessionSlot } from '@robota-sdk/agent-framework';
+import type {
+  ExternalEventGrantHistory,
+  InteractiveSession,
+  IOrgPolicy,
+  SessionSlot,
+} from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
@@ -201,6 +207,8 @@ export interface IServeModeOptions {
   setupRequired?: boolean;
   /** Also serve the agent HTTP API on this loopback port, admitted by this bearer. */
   http?: IServeHttpOptions;
+  /** Host-persistent one-time token claims shared by every session in this served runtime. */
+  externalEventGrantHistory?: ExternalEventGrantHistory;
 }
 
 /**
@@ -269,7 +277,8 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(args.supervisedExternalEventGrants === true
       ? {
           externalEventVerifierFactory: createExternalEventVerifier,
-          externalEventGrantHistory: createExternalEventGrantHistory(),
+          externalEventGrantHistory:
+            opts.externalEventGrantHistory ?? createExternalEventGrantHistory(),
         }
       : {}),
     baselinePermissionAllow: opts.productRuntime.layout.baselinePermissionAllow,
@@ -446,6 +455,9 @@ function supervisedSessionCommandProcess(
 
 export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   const { args } = opts;
+  if (args.open && !process.stdout.isTTY) {
+    throw new Error('Opening the monitor requires an interactive terminal for its access code.');
+  }
   let pendingSignal: NodeJS.Signals | undefined;
   let settleFromSignal: ((reason: string) => void) | undefined;
   const onSignal = (signal: NodeJS.Signals): void => {
@@ -462,7 +474,16 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   };
   if (args.supervisedSessionId !== undefined) process.stderr.on('error', onStderrError);
   try {
-    const sessionOptions = buildServeSessionOptions(opts);
+    const runtimeOptions =
+      args.supervisedExternalEventGrants === true && opts.externalEventGrantHistory === undefined
+        ? {
+            ...opts,
+            externalEventGrantHistory: createExternalEventGrantHistory(
+              createExternalEventReplayStore(opts.productRuntime.layout.userRoot),
+            ),
+          }
+        : opts;
+    const sessionOptions = buildServeSessionOptions(runtimeOptions);
 
     // Declared before the host starts: the directory is attached in `bindTransports`, ahead of the
     // first connection, and asks this whether the runtime is stopping.
@@ -543,18 +564,27 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     // surface) and opens it — gated on `--open` so the GUI sidecar's plain `--serve` path is unaffected. The WS
     // URL is resolved AFTER the host started (the bound port is only known then).
     let monitorUi: IMonitorUiServer | null = null;
-    if (args.open) {
-      const wsUrl = opts.getMonitorWsUrl?.();
-      const webRoot = resolveProductWebRoot(opts.productRuntime);
-      if (wsUrl && webRoot) {
-        monitorUi = await startMonitorUiServer(webRoot, wsUrl, opts.productRuntime);
-        process.stdout.write(servedAtMessage(monitorUi.url, opts.productRuntime));
-        openInBrowser(monitorUi.url);
-      } else if (!webRoot) {
-        process.stderr.write(
-          `${opts.productRuntime.config.identity.displayName} web assets not found (dist/web) — run a full CLI build.\n`,
-        );
+    try {
+      if (args.open) {
+        const wsUrl = opts.getMonitorWsUrl?.();
+        const webRoot = resolveProductWebRoot(opts.productRuntime);
+        if (wsUrl && webRoot) {
+          monitorUi = await startMonitorUiServer(webRoot, wsUrl, opts.productRuntime);
+          process.stdout.write(servedAtMessage(monitorUi.url, opts.productRuntime));
+          process.stdout.write(`Monitor access code: ${monitorUi.accessCode}\n`);
+          openInBrowser(monitorUi.url);
+        } else if (!webRoot) {
+          process.stderr.write(
+            `${opts.productRuntime.config.identity.displayName} web assets not found (dist/web) — run a full CLI build.\n`,
+          );
+        }
       }
+    } catch (error) {
+      await monitorUi?.close().catch(() => undefined);
+      await httpEndpoint?.stop().catch(() => undefined);
+      await host.shutdown('Monitor could not be served').catch(() => undefined);
+      await pool?.shutdownAll('Monitor could not be served')?.catch(() => undefined);
+      throw error;
     }
 
     // Stay alive until the supervisor (e.g. apps/agent-app on window close) signals — or a

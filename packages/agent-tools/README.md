@@ -100,8 +100,9 @@ Pass `llmsTxtProbe: false` to `createWebFetchTool` to turn the check off.
   are refused, judged on resolved (symlink-free) paths. For `Shell` and `Bash` it is the starting
   directory, not a boundary. The tool description names the active OS and shell so the model writes
   the right syntax.
-- `Write` and `Edit` replace files atomically and keep the existing file mode, so executable scripts
-  stay executable. `Edit` reports the line where the change starts, so a UI can show a short hunk.
+- `Write` and `Edit` replace files atomically through a retained root authority and keep the existing
+  file mode, so executable scripts stay executable. `Edit` reports the line where the change starts,
+  so a UI can show a short hunk.
 - `AskUserQuestion` asks one to four questions through the ask port the host injects. Each surface
   renders it its own way; a headless run gets a structured `unavailable` result instead of hanging.
 - `Read` throws `ReadByteLimitError` when a read exceeds its byte budget and `ReadCancelledError`

@@ -86,18 +86,44 @@ describe('issue #2427 regression — the separator rule is an ALLOW-side rule on
     ).toBe('deny');
   });
 
-  it('the deny side still respects quoting — a separator inside quotes is one command', () => {
-    // No false positive: `rm` inside a quoted string is an argument to `echo`, not a command.
+  it('does not deny quoted text as a command, but asks when a deny cannot be ruled out', () => {
     expect(
       evaluatePermission('Bash', { command: 'echo "rm -rf /"' }, 'bypassPermissions', {
         deny: ['Bash(rm *)'],
       }),
-    ).toBe('auto');
+    ).toBe('approve');
     expect(
       evaluatePermission('Bash', { command: 'ls -la' }, 'bypassPermissions', {
         deny: ['Bash(rm *)'],
       }),
-    ).toBe('auto');
+    ).toBe('approve');
+  });
+
+  it('does not auto-approve shell-equivalent spellings of a denied command', () => {
+    const permissions = { allow: ['Bash'], deny: ['Bash(cat .env)'] };
+    const context = { resolveInWorkspace: () => '/workspace/.env', sandboxAutoApproved: true };
+    for (const command of [
+      "cat .e'n'v", 'cat ".env"', 'cat    .env', 'cat ./.env', 'c\\at .env',
+      'env cat .env', 'command cat .env', '/bin/cat .env', 'cat -- .env',
+      'cat $(printf .env)', 'c`at .env', 'CAT .env', 'nohup cat .env',
+      'nice cat .env', 'timeout 5 cat .env', 'xargs cat .env',
+    ]) {
+      for (const mode of ['default', 'plan', 'bypassPermissions'] as const) {
+        expect(evaluatePermission('Bash', { command }, mode, permissions, context), command)
+          .not.toBe('auto');
+      }
+    }
+  });
+
+  it('does not let shell expansion or an uncertain quoted rule fall through to an allow', () => {
+    for (const [command, deny] of [
+      ['cat $SECRET', 'Bash(cat .env)'],
+      ['cat .env', 'Bash(cat ".env")'],
+    ] as const) {
+      expect(
+        evaluatePermission('Bash', { command }, 'default', { allow: ['Bash'], deny: [deny] }),
+      ).not.toBe('auto');
+    }
   });
 
   it('the background/subagent policy resolver denies a chained command too (CORE-025)', () => {

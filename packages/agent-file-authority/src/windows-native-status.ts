@@ -1,4 +1,4 @@
-type TNtOpenFailureKind = 'missing' | 'unsafe' | 'host-io';
+type TNtOpenFailureKind = 'missing' | 'exists' | 'unsafe' | 'host-io';
 
 export interface INtOpenFailure {
   readonly kind: TNtOpenFailureKind;
@@ -9,6 +9,7 @@ const HEX_RADIX = 16;
 const STATUS_NO_SUCH_FILE = 0xc000000f;
 const STATUS_OBJECT_NAME_NOT_FOUND = 0xc0000034;
 const STATUS_OBJECT_PATH_NOT_FOUND = 0xc000003a;
+const STATUS_OBJECT_NAME_COLLISION = 0xc0000035;
 const STATUS_STOPPED_ON_SYMLINK = 0x8000002d;
 const STATUS_FILE_IS_A_DIRECTORY = 0xc00000ba;
 const STATUS_NOT_A_DIRECTORY = 0xc0000103;
@@ -33,6 +34,8 @@ export function classifyNtOpenFailure(status: number): INtOpenFailure {
   return {
     kind: MISSING_STATUSES.has(normalized)
       ? 'missing'
+      : normalized === STATUS_OBJECT_NAME_COLLISION
+        ? 'exists'
       : UNSAFE_STATUSES.has(normalized)
         ? 'unsafe'
         : 'host-io',

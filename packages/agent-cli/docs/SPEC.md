@@ -398,7 +398,9 @@ driver is on it fails closed: a permission is denied and an ask is cancelled. A 
 refused only when the runtime is stopping, the client's own previous change is still under way, the
 session cannot be opened or no room is left for it, or the client is the last driver of a session with
 a pending prompt that nobody else could then answer. What belongs to the run rather than to a session — external-event grants and
-the supervised name — stays on the session the runtime started with, whichever session a client is on.
+the supervised name — stays on the session the runtime started with, whichever session a client is on. A token admitted by an
+external-event grant remains spent across process restarts until it can no longer verify; the carrier persists only an opaque claim,
+never the bearer or its raw identifier.
 
 Runner failure propagation is explicit in serve mode: `waitForFailure()` returns the first named
 nonzero runner outcome without waiting for unrelated runners, and serve mode assigns that exact exit
