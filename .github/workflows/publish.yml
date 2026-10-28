@@ -25,6 +25,7 @@ jobs:
     name: publish
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment: npm-publish
     env:
       PRODUCT_BUILD_ENV: ${{ vars.PRODUCT_BUILD_ENV }}
@@ -134,7 +135,7 @@ jobs:
     name: preserve durable receipt
     needs: publish
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 5
     permissions:
       actions: read
       contents: write
@@ -161,15 +162,12 @@ jobs:
           NODE
           manifest="$RUNNER_TEMP/release-receipt/npm-release-integrity.json"
           lock="$RUNNER_TEMP/release-receipt/npm-release-package-lock.json"
-          deadline=$(( $(date +%s) + 350 * 60 ))
-          # allow-runner-wait: the native release is an external workflow and may use its full build matrix timeout.
-          until names=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' 2>/dev/null); do
-            if [ "$(date +%s)" -ge "$deadline" ]; then
-              echo "::error::Release $RELEASE_TAG did not become available for its receipt."
-              exit 1
-            fi
-            sleep 60
-          done
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" \
+              --notes 'Package integrity receipt; native and desktop assets follow their verified workflows.' ||
+              gh release view "$RELEASE_TAG" >/dev/null
+          fi
+          names=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')
           manifest_name=npm-release-integrity.json
           lock_name=npm-release-package-lock.json
           if printf '%s\n' "$names" | grep -Fqx "$manifest_name" || printf '%s\n' "$names" | grep -Fqx "$lock_name"; then

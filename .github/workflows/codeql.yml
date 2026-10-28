@@ -17,6 +17,7 @@ jobs:
     if: github.event.repository.private == false || github.event.repository.owner.type == 'Organization'
     name: Analyze (javascript-typescript)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
       - name: Initialize CodeQL

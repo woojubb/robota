@@ -38,6 +38,7 @@ jobs:
   gitleaks:
     name: Secret scan (gitleaks)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     # Read-only and safe for fork PRs: external contributions receive the same secret-detection floor
     # as same-repository work. The checkout and downloaded scanner receive no write-capable token.
     steps:

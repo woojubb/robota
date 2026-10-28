@@ -25,7 +25,9 @@ it('admits release effects only after binding them to reviewed source', () => {
   expect(publish.on.workflow_dispatch.inputs.product_env).toBeUndefined();
   expect(publish.jobs.publish.permissions.contents).toBe('read');
   const publishSteps = publish.jobs.publish.steps;
-  expect(publishSteps.find((step) => step.uses === 'actions/checkout@v7').with['persist-credentials']).toBe(false);
+  expect(
+    publishSteps.find((step) => step.uses === 'actions/checkout@v7').with['persist-credentials'],
+  ).toBe(false);
   expectStepBefore(
     publishSteps,
     (step) => step.name === 'Bind publication to the release tag and protected main',
@@ -44,13 +46,17 @@ it('admits release effects only after binding them to reviewed source', () => {
   );
   expect(publish.jobs.receipt.permissions.contents).toBe('write');
   expect(publish.jobs.receipt.needs).toBe('publish');
+  const receiptPublish = publish.jobs.receipt.steps.find(
+    (step) => step.name === 'Preserve the attested receipt with the release',
+  ).run;
+  expect(receiptPublish).toContain('gh release create');
+  expect(receiptPublish).toMatch(/gh release create[\s\S]+\|\|[\s\S]+gh release view/u);
 
   const image = readWorkflow('release-image.yml');
   const resolveSteps = image.jobs.resolve.steps;
   expectStepBefore(
     resolveSteps,
-    (step) =>
-      step.name === 'Reject an unreviewed tag source before executing repository dependencies',
+    (step) => step.name === 'Bind the published source before executing repository dependencies',
     (step) => step.uses === 'pnpm/action-setup@v6',
   );
   expect(
@@ -58,15 +64,20 @@ it('admits release effects only after binding them to reviewed source', () => {
       (step) => step.name === 'Verify npm is the tarball published from this exact tag',
     ),
   ).toBe(true);
-  const productGeneration = resolveSteps.find((step) => step.name === 'Generate selected product workspace');
+  const productGeneration = resolveSteps.find(
+    (step) => step.name === 'Generate selected product workspace',
+  );
   expect(productGeneration.run).toContain('--github-env "$GITHUB_ENV"');
-  const integrity = resolveSteps.find((step) => step.name === 'Verify npm is the tarball published from this exact tag');
+  const integrity = resolveSteps.find(
+    (step) => step.name === 'Verify npm is the tarball published from this exact tag',
+  );
   expect(integrity.run).toContain('--source-ref refs/heads/main');
   expect(integrity.run).toContain('--source-digest "$tag_commit"');
   expect(integrity.run).toContain('dependencyNames?.length !== 1');
   expect(image.jobs.image.needs).toBe('resolve');
-  expect(image.jobs.image.steps.find((step) => step.uses === 'actions/checkout@v7').with.ref)
-    .toBe('${{ needs.resolve.outputs.commit }}');
+  expect(image.jobs.image.steps.find((step) => step.uses === 'actions/checkout@v7').with.ref).toBe(
+    '${{ needs.resolve.outputs.commit }}',
+  );
 
   const native = readWorkflow('release-bun-binaries.yml');
   const nativeSteps = native.jobs['build-bun'].steps;
@@ -75,6 +86,10 @@ it('admits release effects only after binding them to reviewed source', () => {
     (step) => step.name === 'Bind a release build to protected main history',
     (step) => step.name === 'Install dependencies',
   );
+  const nativePublish = native.jobs['publish-bun'].steps.find(
+    (step) => step.name === 'Publish all six assets once',
+  ).run;
+  expect(nativePublish).toMatch(/gh release create[\s\S]+\|\|[\s\S]+gh release view/u);
 
   const desktop = readWorkflow('release-desktop-app.yml');
   expect(desktop.on.workflow_dispatch.inputs.publish).toBeUndefined();
@@ -131,7 +146,9 @@ it('rejects registry image locks that change digest, root, version, integrity, o
       return spawnSync(
         process.execPath,
         [
-          fileURLToPath(new URL('../../../docker/robota/validate-release-lock.mjs', import.meta.url)),
+          fileURLToPath(
+            new URL('../../../docker/robota/validate-release-lock.mjs', import.meta.url),
+          ),
           lockPath,
           packagePath,
         ],
@@ -140,8 +157,7 @@ it('rejects registry image locks that change digest, root, version, integrity, o
           env: {
             ...process.env,
             ROBOTA_VERSION: '1.2.3',
-            ROBOTA_LOCK_SHA256:
-              expectedDigest ?? createHash('sha256').update(bytes).digest('hex'),
+            ROBOTA_LOCK_SHA256: expectedDigest ?? createHash('sha256').update(bytes).digest('hex'),
           },
         },
       );

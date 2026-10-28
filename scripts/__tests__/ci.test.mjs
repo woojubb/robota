@@ -13,7 +13,16 @@ import path from 'node:path';
 import { parse } from 'yaml';
 import { afterEach, expect, it, vi } from 'vitest';
 import { fileURLToPath } from 'node:url';
-import { assertBuild, assertGate, assertNativeGate, selectScope } from '../ci.mjs';
+import {
+  assertBuild,
+  assertGate,
+  assertNativeGate,
+  releaseMetadataCandidate,
+  releaseMetadataPlan,
+  selectScope,
+  verifyGeneratedRelease,
+  verifyPromotionChecks,
+} from '../ci.mjs';
 
 const selectionFault = vi.hoisted(() => ({ empty: false }));
 vi.mock('node:child_process', async (importOriginal) => {
@@ -124,12 +133,19 @@ it('runs tests separately from static and generated-release checks and always ev
   for (const job of ['tests', 'static-checks']) {
     expect([...workflow.jobs[job].needs].sort()).toEqual(['scope', 'workspace-build']);
   }
-  expect(workflow.jobs['workspace-build'].if).toBe("needs.scope.outputs.developer_docs != 'true'");
-  expect(workflow.jobs['static-checks'].if).toBe("needs.scope.outputs.developer_docs != 'true'");
+  expect(workflow.jobs['workspace-build'].if).toBe(
+    "needs.scope.outputs.developer_docs != 'true' && needs.scope.outputs.release_metadata != 'true'",
+  );
+  expect(workflow.jobs['static-checks'].if).toBe(
+    "needs.scope.outputs.developer_docs != 'true' && needs.scope.outputs.release_metadata != 'true'",
+  );
   expect(workflow.jobs.tests.if).toBe(
-    "${{ !cancelled() && needs.scope.result == 'success' && (needs.scope.outputs.developer_docs == 'true' || needs.workspace-build.result == 'success') }}",
+    "${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.release_metadata != 'true' && (needs.scope.outputs.developer_docs == 'true' || needs.workspace-build.result == 'success') }}",
   );
   expect(workflow.jobs['release-checks'].needs).toBe('scope');
+  expect(workflow.jobs['release-checks'].if).toBe(
+    "needs.scope.outputs.release == 'true' && needs.scope.outputs.promotion != 'true'",
+  );
   expect(workflow.jobs['pr-validation'].if).toBe('${{ always() }}');
   expect(workflow.jobs['pr-validation'].needs).toEqual(
     expect.arrayContaining([
@@ -145,7 +161,7 @@ it('runs tests separately from static and generated-release checks and always ev
     step.uses?.startsWith('actions/download-artifact'),
   );
   expect(download.if).toBe(
-    "(inputs.kind == 'static' || inputs.kind == 'tests') && !fromJSON(inputs.plan).developerDocs",
+    "(inputs.kind == 'static' || inputs.kind == 'tests') && !fromJSON(inputs.plan).developerDocs && !fromJSON(inputs.plan).releaseMetadata",
   );
   expect(download.with['artifact-ids']).toBe('${{ inputs.artifact-id }}');
   for (const job of ['tests', 'static-checks']) {
@@ -153,6 +169,318 @@ it('runs tests separately from static and generated-release checks and always ev
       '${{ needs.workspace-build.outputs.artifact-id }}',
     );
   }
+});
+
+// Representative paths from the actual beta.101 prerelease output: Changesets retained the
+// consumed files and updated apps, examples, nested package groups and scratch as well as packages/*.
+const releaseProjects = [
+  'apps/agent-app',
+  'examples/capabilities/agent-eval',
+  'packages/agent-cli',
+  'packages/agent-core',
+  'packages/dag-nodes/file-read',
+  'scratch',
+].map((dir) => ({ dir }));
+const releaseChanges = [
+  'M',
+  '.changeset/pre.json',
+  'M',
+  'pnpm-lock.yaml',
+  'M',
+  'devcontainer-features/src/robota/devcontainer-feature.json',
+  'M',
+  'apps/agent-app/package.json',
+  'M',
+  'apps/agent-app/CHANGELOG.md',
+  'M',
+  'examples/capabilities/agent-eval/package.json',
+  'M',
+  'examples/capabilities/agent-eval/CHANGELOG.md',
+  'M',
+  'packages/agent-cli/package.json',
+  'M',
+  'packages/agent-cli/CHANGELOG.md',
+  'M',
+  'packages/agent-core/package.json',
+  'M',
+  'packages/agent-core/CHANGELOG.md',
+  'M',
+  'packages/dag-nodes/file-read/package.json',
+  'M',
+  'packages/dag-nodes/file-read/CHANGELOG.md',
+  'M',
+  'scratch/package.json',
+  'M',
+  'scratch/CHANGELOG.md',
+];
+const withoutReleaseFile = (file) =>
+  releaseChanges.flatMap((entry, index) =>
+    index % 2 === 0 || entry !== file
+      ? index % 2 === 0
+        ? []
+        : [releaseChanges[index - 1], entry]
+      : [],
+  );
+
+it('recognizes the real prerelease workspace layout only after exact regeneration', () => {
+  expect(releaseMetadataCandidate(releaseChanges, releaseProjects)).toBe(true);
+  expect(
+    releaseMetadataPlan(releaseChanges, { projects: releaseProjects, releaseVerified: true }),
+  ).toMatchObject({
+    releaseMetadata: true,
+    promotion: false,
+    release: true,
+  });
+  expect(releaseMetadataPlan(releaseChanges, { projects: releaseProjects })).toBe(undefined);
+  expect(
+    releaseMetadataPlan([...releaseChanges, 'M', 'packages/agent-core/src/index.ts'], {
+      projects: releaseProjects,
+      releaseVerified: true,
+    }),
+  ).toBe(undefined);
+  expect(
+    releaseMetadataPlan(withoutReleaseFile('pnpm-lock.yaml'), {
+      projects: releaseProjects,
+      releaseVerified: true,
+    }),
+  ).toBe(undefined);
+});
+
+function releaseVerificationFixture() {
+  const cwd = mkdtempSync(path.join(os.tmpdir(), 'release-verification-'));
+  roots.push(cwd);
+  const baseFiles = {
+    '.changeset/pre.json': '{"mode":"pre","changesets":[]}',
+    'pnpm-lock.yaml': 'lockfileVersion: 6\n',
+    'devcontainer-features/src/robota/devcontainer-feature.json':
+      '{"version":"1.0.0","options":{"version":{"default":"1.0.0"}}}\n',
+    'packages/agent-cli/package.json': '{"name":"cli","version":"1.0.0"}\n',
+    'packages/agent-cli/CHANGELOG.md': '# CLI\n',
+    'packages/agent-core/package.json': '{"name":"core","version":"1.0.0"}\n',
+  };
+  const generatedFiles = {
+    '.changeset/pre.json': '{"mode":"pre","changesets":["release"]}',
+    'pnpm-lock.yaml': 'lockfileVersion: 6\nrelease: true\n',
+    'devcontainer-features/src/robota/devcontainer-feature.json':
+      '{"version":"1.0.1","options":{"version":{"default":"1.0.1"}}}\n',
+    'packages/agent-cli/package.json': '{"name":"cli","version":"1.0.1"}\n',
+    'packages/agent-cli/CHANGELOG.md': '# CLI\n\n## 1.0.1\n',
+    'packages/agent-core/package.json': '{"name":"core","version":"1.0.1"}\n',
+  };
+  for (const [file, contents] of Object.entries(baseFiles)) write(cwd, file, contents);
+  exec(cwd, 'git', ['init', '-q']);
+  exec(cwd, 'git', ['add', '.']);
+  exec(cwd, 'git', [
+    '-c',
+    'user.name=CI fixture',
+    '-c',
+    'user.email=ci@example.test',
+    'commit',
+    '-qm',
+    'base',
+  ]);
+  const base = exec(cwd, 'git', ['rev-parse', 'HEAD']);
+  for (const [file, contents] of Object.entries(generatedFiles)) write(cwd, file, contents);
+  commit(cwd);
+  const target = exec(cwd, 'git', ['rev-parse', 'HEAD']);
+  const generateImpl = async (checkout) => {
+    for (const [file, contents] of Object.entries(generatedFiles)) write(checkout, file, contents);
+  };
+  return { cwd, base, target, generateImpl };
+}
+
+it('accepts only a byte-for-byte regeneration of the version commit', async () => {
+  const options = releaseVerificationFixture();
+  expect(await verifyGeneratedRelease(options)).toBe(true);
+});
+
+it('installs and executes release verification tools only from the trusted base checkout', async () => {
+  const cwd = mkdtempSync(path.join(os.tmpdir(), 'release-verifier-trust-'));
+  const bin = mkdtempSync(path.join(os.tmpdir(), 'release-verifier-bin-'));
+  roots.push(cwd, bin);
+  const installLog = path.join(bin, 'installed-lock.txt');
+  const fakePnpm = path.join(bin, process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm');
+  const fakePnpmScript = path.join(bin, 'fake-pnpm.mjs');
+  write(cwd, '.gitignore', 'node_modules/\n');
+  write(cwd, 'pnpm-lock.yaml', 'lockfileVersion: 6\ntrusted-base-tool: true\n');
+  write(
+    cwd,
+    'scripts/release/version.mjs',
+    `import { writeFileSync } from 'node:fs';\nimport path from 'node:path';\nconst workspace = path.resolve(process.argv[3]);\nwriteFileSync(path.join(workspace, 'pnpm-lock.yaml'), 'lockfileVersion: 6\\ntrusted-generated: true\\n');\n`,
+  );
+  write(
+    bin,
+    'fake-pnpm.mjs',
+    `import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';\nimport path from 'node:path';\ncopyFileSync(path.join(process.cwd(), 'pnpm-lock.yaml'), ${JSON.stringify(installLog)});\nmkdirSync(path.join(process.cwd(), 'node_modules/.bin'), { recursive: true });\nwriteFileSync(path.join(process.cwd(), 'node_modules/.bin/changeset'), 'trusted base tool');\n`,
+  );
+  if (process.platform === 'win32')
+    write(bin, 'pnpm.cmd', `@echo off\r\n"${process.execPath}" "${fakePnpmScript}" %*\r\n`);
+  else {
+    write(
+      bin,
+      'pnpm',
+      `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(fakePnpmScript)} "$@"\n`,
+    );
+    chmodSync(fakePnpm, 0o755);
+  }
+  exec(cwd, 'git', ['init', '-q']);
+  exec(cwd, 'git', ['add', '.']);
+  exec(cwd, 'git', [
+    '-c',
+    'user.name=CI fixture',
+    '-c',
+    'user.email=ci@example.test',
+    'commit',
+    '-qm',
+    'base',
+  ]);
+  const base = exec(cwd, 'git', ['rev-parse', 'HEAD']);
+  write(
+    cwd,
+    'pnpm-lock.yaml',
+    'lockfileVersion: 6\ntrusted-generated: true\ntarget-controlled-tool: malicious\n',
+  );
+  commit(cwd);
+  const target = exec(cwd, 'git', ['rev-parse', 'HEAD']);
+  const originalPath = process.env.PATH;
+  process.env.PATH = `${bin}${path.delimiter}${originalPath ?? ''}`;
+  try {
+    expect(await verifyGeneratedRelease({ cwd, base, target })).toBe(false);
+  } finally {
+    process.env.PATH = originalPath;
+  }
+  expect(readFileSync(installLog, 'utf8')).toBe('lockfileVersion: 6\ntrusted-base-tool: true\n');
+});
+
+it.each([
+  [
+    'manifest',
+    'packages/agent-cli/package.json',
+    '{"name":"cli","version":"1.0.1","scripts":{"postinstall":"node attack.js"}}\n',
+  ],
+  ['lockfile', 'pnpm-lock.yaml', 'lockfileVersion: 6\nrelease: false\n'],
+  ['prerelease state', '.changeset/pre.json', '{"mode":"pre","changesets":["forged"]}'],
+  ['changelog', 'packages/agent-cli/CHANGELOG.md', '# CLI\n\nforged\n'],
+  [
+    'Feature metadata',
+    'devcontainer-features/src/robota/devcontainer-feature.json',
+    '{"version":"9.0.0","options":{"version":{"default":"attacker"}}}\n',
+  ],
+])('rejects arbitrary %s content on generated paths', async (_label, file, contents) => {
+  const options = releaseVerificationFixture();
+  write(options.cwd, file, contents);
+  commit(options.cwd);
+  options.target = exec(options.cwd, 'git', ['rev-parse', 'HEAD']);
+  expect(await verifyGeneratedRelease(options)).toBe(false);
+});
+
+it('rejects a generated-looking path set when a required output is missing', () => {
+  expect(releaseMetadataCandidate(withoutReleaseFile('pnpm-lock.yaml'), releaseProjects)).toBe(
+    false,
+  );
+  expect(
+    releaseMetadataPlan(withoutReleaseFile('pnpm-lock.yaml'), {
+      projects: releaseProjects,
+      releaseVerified: true,
+    }),
+  ).toBe(undefined);
+});
+
+it('selects the fast promotion path only for develop to main with complete release metadata', () => {
+  const sourceAndRelease = [...releaseChanges, 'M', 'packages/agent-core/src/index.ts'];
+  expect(
+    releaseMetadataPlan(sourceAndRelease, {
+      headRef: 'develop',
+      baseRef: 'main',
+      promotionVerified: true,
+    }),
+  ).toMatchObject({ releaseMetadata: true, promotion: true, release: true });
+  expect(releaseMetadataPlan(sourceAndRelease, { headRef: 'develop', baseRef: 'main' })).toBe(
+    undefined,
+  );
+  expect(releaseMetadataPlan(sourceAndRelease, { headRef: 'feature', baseRef: 'main' })).toBe(
+    undefined,
+  );
+  expect(releaseMetadataPlan(sourceAndRelease, { headRef: 'develop', baseRef: 'develop' })).toBe(
+    undefined,
+  );
+});
+
+it('verifies every first-parent promotion commit is a reviewed merge with required checks', async () => {
+  const options = fixture();
+  write(
+    options.cwd,
+    'packages/agent-cli/package.json',
+    JSON.stringify({ name: 'cli', version: '1.0.0' }),
+  );
+  commit(options.cwd);
+  options.base = exec(options.cwd, 'git', ['rev-parse', 'HEAD']);
+  const branch = exec(options.cwd, 'git', ['rev-parse', '--abbrev-ref', 'HEAD']);
+  exec(options.cwd, 'git', ['checkout', '-qb', 'feature']);
+  write(options.cwd, 'packages/core/src/index.ts', 'reviewed');
+  write(
+    options.cwd,
+    'packages/agent-cli/package.json',
+    JSON.stringify({ name: 'cli', version: '1.0.1' }),
+  );
+  commit(options.cwd);
+  exec(options.cwd, 'git', ['checkout', '-q', branch]);
+  exec(options.cwd, 'git', [
+    '-c',
+    'user.name=CI fixture',
+    '-c',
+    'user.email=ci@example.test',
+    'merge',
+    '--no-ff',
+    '-qm',
+    'merge reviewed feature',
+    'feature',
+  ]);
+  const headSha = exec(options.cwd, 'git', ['rev-parse', 'HEAD']);
+  const response = (checks) => ({
+    ok: true,
+    json: async () => ({ check_runs: checks.map((name) => ({ name, conclusion: 'success' })) }),
+  });
+  expect(
+    await verifyPromotionChecks({
+      cwd: options.cwd,
+      base: options.base,
+      headSha,
+      repository: 'woojubb/robota',
+      fetchImpl: async () => response(['pr-validation', 'security']),
+      verifyReleaseImpl: async () => true,
+    }),
+  ).toBe(true);
+  expect(
+    await verifyPromotionChecks({
+      cwd: options.cwd,
+      base: options.base,
+      headSha,
+      repository: 'woojubb/robota',
+      fetchImpl: async () => response(['pr-validation']),
+      verifyReleaseImpl: async () => true,
+    }),
+  ).toBe(false);
+  expect(
+    await verifyPromotionChecks({
+      cwd: options.cwd,
+      base: options.base,
+      headSha: exec(options.cwd, 'git', ['rev-parse', 'feature']),
+      repository: 'woojubb/robota',
+      fetchImpl: async () => response(['pr-validation', 'security']),
+      verifyReleaseImpl: async () => true,
+    }),
+  ).toBe(false);
+  expect(
+    await verifyPromotionChecks({
+      cwd: options.cwd,
+      base: options.base,
+      headSha,
+      repository: 'woojubb/robota',
+      fetchImpl: async () => response(['pr-validation', 'security']),
+      verifyReleaseImpl: async () => false,
+    }),
+  ).toBe(false);
 });
 
 it('replaces the full-suite trigger for the exact mixed docs/private-example paths in PR #17', () => {
@@ -579,10 +907,47 @@ function developerDocumentNeeds() {
     build: [],
     docs: false,
     release: false,
+    releaseMetadata: false,
+    promotion: false,
   });
   for (const job of ['workspace-build', 'static-checks']) needs[job].result = 'skipped';
   return needs;
 }
+
+function releaseMetadataNeeds(promotion = false) {
+  const needs = successfulNeeds(true);
+  needs.scope.outputs.plan = JSON.stringify({
+    full: false,
+    developerDocs: false,
+    releaseMetadata: true,
+    promotion,
+    checks: [],
+    build: [],
+    docs: false,
+    release: true,
+  });
+  for (const job of ['workspace-build', 'static-checks', 'tests']) needs[job].result = 'skipped';
+  if (promotion) needs['release-checks'].result = 'skipped';
+  return needs;
+}
+
+it('accepts only the bounded release metadata omissions', () => {
+  expect(() => assertGate(releaseMetadataNeeds())).not.toThrow();
+  expect(() => assertGate(releaseMetadataNeeds(true))).not.toThrow();
+  expect(() =>
+    assertNativeGate({
+      scope: releaseMetadataNeeds().scope,
+      'build-bun': { result: 'skipped' },
+    }),
+  ).not.toThrow();
+  for (const promotion of [false, true]) {
+    for (const job of ['workspace-build', 'static-checks', 'tests']) {
+      const needs = releaseMetadataNeeds(promotion);
+      needs[job].result = 'success';
+      expect(() => assertGate(needs)).toThrow();
+    }
+  }
+});
 it('accepts only the deliberate document omissions with successful root scripts', () => {
   expect(() => assertGate(developerDocumentNeeds())).not.toThrow();
   for (const job of ['scope', 'tests']) {

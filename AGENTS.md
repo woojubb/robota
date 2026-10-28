@@ -42,8 +42,8 @@ merged PR heads covered above, changing CI permissions or repository settings, a
 
 ## Keeping the harness small
 
-1. Correct the cause or existing guidance; verify enough to resolve the failure, then resume requested work.
-   Record evidence/reuse in its issue/PR; revise or remove obsolete guidance instead of appending rules, hooks, or scans.
+1. Correct the cause or existing guidance; verify enough to resolve the failure, then resume requested work. Chain
+   prerequisites by events, never runner polling; give every process/job the shortest evidence-based timeout plus a small margin. Record evidence/reuse in its issue/PR; revise or remove obsolete guidance instead of appending rules, hooks, or scans.
 2. Adding to the harness needs a failure reproduced on the current model that review and tests cannot catch;
    the same PR removes as much as it adds.
 3. When a new model ships, empty the harness back to this level, keep only what is still needed, and re-apply

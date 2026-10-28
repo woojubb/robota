@@ -27,7 +27,7 @@
     "docs:deploy": "pnpm --filter robota-docs run deploy",
     "docs:validate-structure": "node scripts/docs/validate-package-docs-structure.mjs",
     "changeset": "changeset",
-    "version": "changeset version",
+    "version": "node scripts/release/version.mjs --workspace .",
     "release": "bash scripts/publish/publish-packages.sh",
     "cli:dev": "scripts/dev/agent",
     "cli:trust": "scripts/dev/agent trust --yes",

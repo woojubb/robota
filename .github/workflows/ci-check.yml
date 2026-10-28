@@ -20,7 +20,7 @@ jobs:
   check:
     name: ${{ inputs.kind }}
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 25
     outputs:
       artifact-id: ${{ steps.archive.outputs.artifact-id }}
     env:
@@ -34,13 +34,13 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/ci-setup
       - name: Require the successful build's artifact ID
-        if: (inputs.kind == 'static' || inputs.kind == 'tests') && !fromJSON(inputs.plan).developerDocs
+        if: (inputs.kind == 'static' || inputs.kind == 'tests') && !fromJSON(inputs.plan).developerDocs && !fromJSON(inputs.plan).releaseMetadata
         shell: bash
         run: test -n "$CI_ARTIFACT_ID"
         env:
           CI_ARTIFACT_ID: ${{ inputs.artifact-id }}
       - uses: actions/download-artifact@v5
-        if: (inputs.kind == 'static' || inputs.kind == 'tests') && !fromJSON(inputs.plan).developerDocs
+        if: (inputs.kind == 'static' || inputs.kind == 'tests') && !fromJSON(inputs.plan).developerDocs && !fromJSON(inputs.plan).releaseMetadata
         with:
           artifact-ids: ${{ inputs.artifact-id }}
           merge-multiple: true
