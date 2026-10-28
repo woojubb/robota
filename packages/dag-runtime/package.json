@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-runtime",
-  "version": "3.0.0-beta.62",
+  "version": "3.0.0-beta.63",
   "private": true,
   "description": "DAG execution engine for Robota AI workflows",
   "type": "module",
