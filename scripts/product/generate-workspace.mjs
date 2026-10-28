@@ -765,6 +765,8 @@ async function connectExternalWorkflowPeers(sourceRoot, outputDirectory, package
   const artifactSpec = manifest.devDependencies['@robota-sdk/workflows'];
   if (!artifactSpec.startsWith('file:')) throw new Error('Workflow artifact must be a vendored file.');
   const artifact = await readFile(path.resolve(path.dirname(manifestPath), artifactSpec.slice(5)));
+  const integrity = `sha512-${createHash('sha512').update(artifact).digest('base64')}`;
+  if (workflow.resolution?.integrity !== integrity) throw new Error('Workflow artifact integrity does not match the lockfile.');
   return { package: '@robota-sdk/workflows', sha256: createHash('sha256').update(artifact).digest('hex'), peerAliases };
 }
 

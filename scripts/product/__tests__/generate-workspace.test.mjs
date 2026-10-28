@@ -1,5 +1,6 @@
 import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import os from 'node:os';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
@@ -313,7 +314,7 @@ describe('generated workspace package remapping', () => {
     await mkdir(path.join(source, 'vendor'));
     await writeFile(path.join(source, 'vendor/workflow.tgz'), 'fixture artifact');
     const key = 'file:vendor/workflow.tgz(@robota-sdk/agent-core@packages+agent-core)';
-    const snapshot = { id: 'file:vendor/workflow.tgz', name: '@robota-sdk/workflows', peerDependencies: Object.fromEntries(peers.map((name) => [`@robota-sdk/${name}`, '3.0.0-beta.102 || 3.0.0-beta.103'])), dependencies: Object.fromEntries(peers.map((name) => [`@robota-sdk/${name}`, `link:packages/${name}`])) };
+    const snapshot = { id: 'file:vendor/workflow.tgz', name: '@robota-sdk/workflows', resolution: { integrity: `sha512-${createHash('sha512').update('fixture artifact').digest('base64')}` }, peerDependencies: Object.fromEntries(peers.map((name) => [`@robota-sdk/${name}`, '3.0.0-beta.102 || 3.0.0-beta.103'])), dependencies: Object.fromEntries(peers.map((name) => [`@robota-sdk/${name}`, `link:packages/${name}`])) };
     await writeFile(path.join(source, 'pnpm-lock.yaml'), stringify({ lockfileVersion: '6.0', importers: { 'packages/agent-cli': { devDependencies: { '@robota-sdk/workflows': { specifier: 'file:../../vendor/workflow.tgz', version: key } } } }, packages: { [key]: snapshot } }));
     execFileSync('git', ['-C', source, 'add', '.']);
     const config = resolveTestConfig({ scope: '@cedar', displayName: 'Cedar' });
@@ -326,6 +327,18 @@ describe('generated workspace package remapping', () => {
     expect(lock.packages[key]).toEqual(snapshot);
     await writeFile(path.join(source, 'packages/agent-core/package.json'), JSON.stringify({ name: '@robota-sdk/agent-core', version: '3.0.0-beta.101' }));
     await expect(generateWorkspaceFromConfig({ sourceRoot: source, outDir: path.join(root, 'incompatible'), config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config) })).rejects.toThrow('supported version');
+
+    for (const peer of peers) {
+      await writeFile(path.join(source, 'packages', peer, 'package.json'), JSON.stringify({ name: `@robota-sdk/${peer}`, version: '3.0.0-beta.104' }));
+      snapshot.peerDependencies[`@robota-sdk/${peer}`] += ' || 3.0.0-beta.104';
+    }
+    await writeFile(path.join(source, 'pnpm-lock.yaml'), stringify({ lockfileVersion: '6.0', importers: { 'packages/agent-cli': { devDependencies: { '@robota-sdk/workflows': { specifier: 'file:../../vendor/workflow.tgz', version: key } } } }, packages: { [key]: snapshot } }));
+    const next = path.join(root, 'next');
+    await generateWorkspaceFromConfig({ sourceRoot: source, outDir: next, config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config) });
+    const nextLock = parseDocument(await readFile(path.join(next, 'pnpm-lock.yaml'), 'utf8')).toJSON();
+    expect(nextLock.packages[key].peerDependencies['@robota-sdk/agent-core']).toContain('3.0.0-beta.104');
+    await writeFile(path.join(source, 'vendor/workflow.tgz'), 'replacement with stale lockfile');
+    await expect(generateWorkspaceFromConfig({ sourceRoot: source, outDir: path.join(root, 'stale'), config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config) })).rejects.toThrow('integrity');
   });
   it('omits optional authored author links when the selected product has no repository URL', () => {
     const source = "---\nauthor: 'Example Author'\n---\nBody\n";
