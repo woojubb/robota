@@ -49,7 +49,7 @@ describe('tool aliases share one set of rules', () => {
   it('an argument-scoped deny on one alias refuses the same call through the other', () => {
     const lists = { deny: ['Shell(rm *)'], allow: ['Shell', 'Bash'] };
     expect(evaluatePermission('Bash', { command: 'rm -rf build' }, 'default', lists)).toBe('deny');
-    expect(evaluatePermission('Bash', { command: 'ls' }, 'default', lists)).toBe('auto');
+    expect(evaluatePermission('Bash', { command: 'ls' }, 'default', lists)).toBe('approve');
   });
 
   it('an allow on one alias approves the same call through the other', () => {

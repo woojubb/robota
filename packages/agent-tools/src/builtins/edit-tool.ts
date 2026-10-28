@@ -5,13 +5,13 @@
  * (ensuring surgical edits). Pass replaceAll:true to replace all occurrences.
  */
 
-import { createReadStream } from 'node:fs';
+import { constants } from 'node:fs';
 
 import { z } from 'zod';
 
 import { atomicWriteUtf8File } from './atomic-file-write.js';
 import { editorFailure, editorRead, editorSignal, editorWrite } from './editor-files.js';
-import { checkPathWithinCwd, resolveHostPath } from './path-guard.js';
+import { checkPathWithinCwd, ContainmentEscapeError, openWithinCwd, resolveHostPath } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
 import type { IFileBuiltinToolOptions } from './tool-options.js';
@@ -56,25 +56,40 @@ class EditByteLimitError extends Error {
 
 /**
  * Read a file as UTF-8 while rejecting as soon as more than `maxBytes` bytes have arrived —
- * before the whole content is materialized. Reading actual bytes off the stream (rather than
+ * before the whole content is materialized. Reading actual bytes from the opened file (rather than
  * trusting stat() size) also catches a file that grows after being stat'd, or has no stable
  * size at all (a named pipe).
  */
-async function readBoundedUtf8File(filePath: string, maxBytes: number): Promise<string> {
-  const stream = createReadStream(filePath, { highWaterMark: READ_CHUNK_BYTES });
-  const chunks: Buffer[] = [];
-  let bytes = 0;
+async function readBoundedUtf8File(
+  filePath: string,
+  cwd: string | undefined,
+  maxBytes: number,
+): Promise<string> {
+  const handle = await openWithinCwd(filePath, cwd, constants.O_RDONLY);
   try {
-    for await (const chunk of stream) {
-      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-      bytes += buffer.length;
+    const chunks: Buffer[] = [];
+    let bytes = 0;
+    let offset = 0;
+    let buffer = Buffer.allocUnsafe(Math.min(READ_CHUNK_BYTES, maxBytes + 1));
+    for (;;) {
+      const { bytesRead } = await handle.read(buffer, offset, buffer.length - offset, null);
+      if (bytesRead === 0) {
+        if (offset > 0) chunks.push(buffer.subarray(0, offset));
+        break;
+      }
+      bytes += bytesRead;
       if (bytes > maxBytes) throw new EditByteLimitError('input');
-      chunks.push(buffer);
+      offset += bytesRead;
+      if (offset === buffer.length) {
+        chunks.push(buffer);
+        offset = 0;
+        buffer = Buffer.allocUnsafe(Math.min(READ_CHUNK_BYTES, maxBytes - bytes + 1));
+      }
     }
+    return Buffer.concat(chunks, bytes).toString('utf8');
   } finally {
-    stream.destroy();
+    await handle.close();
   }
-  return Buffer.concat(chunks, bytes).toString('utf8');
 }
 
 async function editFileTool(
@@ -120,7 +135,7 @@ async function editFileTool(
       if (Buffer.byteLength(content, 'utf8') > MAX_EDIT_FILE_BYTES)
         throw new EditByteLimitError('input');
     } else {
-      content = await readBoundedUtf8File(filePath, MAX_EDIT_FILE_BYTES);
+      content = await readBoundedUtf8File(filePath, options.cwd, MAX_EDIT_FILE_BYTES);
     }
   } catch (err) {
     signal?.throwIfAborted();
@@ -131,6 +146,9 @@ async function editFileTool(
         error: `${err.message}: ${filePath}`,
       };
       return JSON.stringify(result);
+    }
+    if (err instanceof ContainmentEscapeError) {
+      return JSON.stringify({ success: false, output: '', error: err.message });
     }
     // allow-fallback: read failure before edit → IToolInvocationResult error (file not found)
     const result: IToolInvocationResult = {
@@ -207,7 +225,7 @@ async function editFileTool(
     } else if (options.sandboxClient) {
       await options.sandboxClient.writeFile(filePath, updated);
     } else {
-      await atomicWriteUtf8File(filePath, updated);
+      await atomicWriteUtf8File(filePath, updated, options.cwd);
     }
   } catch (err) {
     // allow-fallback: write failure after edit → IToolInvocationResult error

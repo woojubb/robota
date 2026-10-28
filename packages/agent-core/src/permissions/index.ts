@@ -13,6 +13,7 @@ export {
   toolNameMatches,
   parseParameterRule,
   matchesAnyPattern,
+  hasUnevaluableArgumentPattern,
   registerToolPermissionProfile,
   clearRegisteredToolProfiles,
   getToolPermissionProfile,

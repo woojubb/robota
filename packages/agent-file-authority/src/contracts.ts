@@ -17,7 +17,7 @@ export interface IStableFileAuthorityErrorContext {
 const ERROR_MESSAGES: Readonly<Record<TStableFileAuthorityErrorCode, string>> = {
   INVALID_PATH: 'The requested root-relative file operation is invalid.',
   UNSAFE_ENTRY: 'The requested entry cannot be opened without following an unsafe object.',
-  UNSUPPORTED_BACKEND: 'This host cannot provide stable root-relative file reads.',
+  UNSUPPORTED_BACKEND: 'This host cannot provide stable root-relative file operations.',
   AUTHORITY_CLOSED: 'The stable rooted file authority is closed.',
   ROOT_CHANGED: 'The retained root identity changed during the operation.',
   FILE_CHANGED: 'The file identity or contents changed during the bounded read.',
@@ -41,6 +41,13 @@ export class StableFileAuthorityError extends Error {
 /** Opaque authority for bounded regular-file reads beneath one retained directory identity. */
 export interface IStableRootedFileReader {
   readBytes(relativeSegments: readonly string[], maxBytes: number): Uint8Array | undefined;
+  close(): void;
+  [Symbol.dispose](): void;
+}
+
+/** Opaque authority for atomic UTF-8 writes beneath one retained directory identity. */
+export interface IStableRootedFileWriter {
+  writeUtf8(relativeSegments: readonly string[], content: string): void;
   close(): void;
   [Symbol.dispose](): void;
 }

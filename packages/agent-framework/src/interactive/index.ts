@@ -64,8 +64,11 @@ export {
   ExternalEventIngress,
 } from './external-event-ingress.js';
 export type {
+  IExternalEventTokenClaim,
+  IExternalEventTokenClaimStore,
   IExternalEventSourceOptions,
   IExternalEventSource,
+  TExternalEventTokenClaimResult,
   TExternalEventReceipt,
   TExternalEventSettlement,
 } from './external-event-ingress.js';

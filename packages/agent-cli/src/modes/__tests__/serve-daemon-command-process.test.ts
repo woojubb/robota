@@ -221,6 +221,41 @@ describe('a command in a served runtime (#3189)', () => {
     expect(shutdown).not.toHaveBeenCalled();
   });
 
+  it('shuts down the runtime host when monitor startup fails', async () => {
+    const directory = mkdtempSync(join(tmpdir(), 'monitor-start-failure-'));
+    const tty = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
+    Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: true });
+    try {
+      const options = serveOptions({ open: true }, {});
+      options.productRuntime = {
+        ...options.productRuntime,
+        artifact: { version: '1.0.0', webRoot: join(directory, 'missing') },
+      };
+      options.getMonitorWsUrl = () => 'ws://127.0.0.1:1?token=dummy';
+      await expect(runServeMode(options)).rejects.toThrow();
+      expect(shutdown).toHaveBeenCalledExactlyOnceWith('Monitor could not be served');
+    } finally {
+      if (tty) Object.defineProperty(process.stdout, 'isTTY', tty);
+      else Reflect.deleteProperty(process.stdout, 'isTTY');
+      rmSync(directory, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses noninteractive monitor startup before starting the runtime host', async () => {
+    const tty = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY');
+    Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: false });
+    vi.mocked(startRuntimeHost).mockClear();
+    try {
+      await expect(runServeMode(serveOptions({ open: true }, {}))).rejects.toThrow(
+        'Opening the monitor requires an interactive terminal',
+      );
+      expect(startRuntimeHost).not.toHaveBeenCalled();
+    } finally {
+      if (tty) Object.defineProperty(process.stdout, 'isTTY', tty);
+      else Reflect.deleteProperty(process.stdout, 'isTTY');
+    }
+  });
+
   it('never stops or restarts a daemon, and tells the client how to restart it', async () => {
     const settings = settingsAdapter();
     const options = serveOptions({ daemon: true }, { settings });

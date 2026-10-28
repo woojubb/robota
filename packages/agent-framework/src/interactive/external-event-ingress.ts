@@ -76,6 +76,24 @@ export interface IExternalEventHost {
   history?: ExternalEventGrantHistory;
 }
 
+export interface IExternalEventTokenClaim {
+  readonly grant: IExternalEventGrant;
+  readonly jti: string;
+  readonly expiresAt: number;
+  readonly at: number;
+}
+
+export type TExternalEventTokenClaimResult =
+  | 'claimed'
+  | 'spent'
+  | 'saturated'
+  | 'unavailable';
+
+/** Durable replay protection supplied by a host that can persist an atomic token claim. */
+export interface IExternalEventTokenClaimStore {
+  claim(input: IExternalEventTokenClaim): TExternalEventTokenClaimResult;
+}
+
 const MAX_EVENT_BYTES = 16 * 1024;
 const MAX_ID_LENGTH = 128;
 const MAX_JTI_LENGTH = 256;
@@ -160,8 +178,10 @@ function spendableClaims(
   if (!isRecord(claims)) return undefined;
   const { jti, exp } = claims;
   if (typeof jti !== 'string' || jti.length === 0 || jti.length > MAX_JTI_LENGTH) return undefined;
-  if (typeof exp !== 'number' || !Number.isFinite(exp)) return undefined;
-  return { jti, expiresAt: exp * 1000 + REPLAY_SKEW_MS };
+  if (typeof exp !== 'number' || !Number.isSafeInteger(exp) || exp <= 0) return undefined;
+  const expiresAt = exp * 1000 + REPLAY_SKEW_MS;
+  if (!Number.isSafeInteger(expiresAt)) return undefined;
+  return { jti, expiresAt };
 }
 
 interface IMessage {
@@ -211,11 +231,15 @@ const GRANTS = Symbol('external event grant history');
 /** What a run remembers about each grant across the sessions it holds; opaque to its holder. */
 export class ExternalEventGrantHistory {
   readonly [GRANTS] = new Map<string, IGrantHistory>();
+
+  constructor(readonly tokenClaims?: IExternalEventTokenClaimStore) {}
 }
 
 /** One history per run: create it once and pass it to every session the run builds. */
-export function createExternalEventGrantHistory(): ExternalEventGrantHistory {
-  return new ExternalEventGrantHistory();
+export function createExternalEventGrantHistory(
+  tokenClaims?: IExternalEventTokenClaimStore,
+): ExternalEventGrantHistory {
+  return new ExternalEventGrantHistory(tokenClaims);
 }
 
 /**
@@ -401,6 +425,28 @@ export class ExternalEventIngress {
     if (replay !== undefined) return { admitted: false, refusal: replay };
     if (source.rate.admit(source.grant.grantId) !== undefined)
       return { admitted: false, refusal: 'rate-limited' };
+    let claim: TExternalEventTokenClaimResult;
+    try {
+      claim = this.host.history?.tokenClaims?.claim({
+        grant: source.grant,
+        jti: claims!.jti,
+        expiresAt: claims!.expiresAt,
+        at,
+      }) ?? 'claimed';
+    } catch {
+      claim = 'unavailable';
+    }
+    if (claim !== 'claimed') {
+      return {
+        admitted: false,
+        refusal:
+          claim === 'spent'
+            ? 'malformed'
+            : claim === 'saturated'
+              ? 'rate-limited'
+              : 'session-unavailable',
+      };
+    }
     source.spent.set(claims!.jti, claims!.expiresAt);
     return this.submit(source, event);
   }

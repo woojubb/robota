@@ -267,10 +267,9 @@ function primaryArg(toolName: string, args: TToolArgs): string | undefined {
  * Test whether a tool invocation matches ANY pattern in a list (allow or deny).
  * Shared by `evaluatePermission` and the CORE-025 policy resolver so pattern semantics stay in one place.
  *
- * `direction` says which list these patterns came from. It defaults to `'allow'`, the narrower
- * reading, so a caller that forgets it never widens what a deny entry lets through — a DENY list
- * must pass `'deny'` explicitly, because for a `command` argument the two directions differ (see
- * {@link TMatchDirection}).
+ * This is a match predicate, not an authorization decision: `false` includes unevaluable patterns.
+ * Use `evaluatePermission` for a decision, or check `hasUnevaluableArgumentPattern` separately
+ * before treating a deny-list non-match as safe. Deny-list matching must specify `direction: 'deny'`.
  */
 export function matchesAnyPattern(
   toolName: string,

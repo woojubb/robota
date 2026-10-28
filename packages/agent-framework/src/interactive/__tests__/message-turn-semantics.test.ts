@@ -304,7 +304,7 @@ describe('an admitted external event keeps its narrower baseline', () => {
   it('runs without tools and without @path expansion, while a peer turn has tools', async () => {
     const { session, chatOptions, requests } = await receiver([{ text: 'a' }, { text: 'b' }]);
     const claims = Buffer.from(
-      JSON.stringify({ jti: 'one', exp: Date.now() / 1000 + 300 }),
+      JSON.stringify({ jti: 'one', exp: Math.floor(Date.now() / 1000) + 300 }),
     ).toString('base64url');
     const source = await session.openExternalEventSource({
       grant: {

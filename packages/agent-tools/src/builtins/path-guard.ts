@@ -100,7 +100,7 @@ const DARWIN_O_NOFOLLOW_ANY = 0x20000000;
 
 /** Whether canonical `candidate` is canonical `root` or beneath it, compared as text only. */
 function isCanonicalInside(root: string, candidate: string): boolean {
-  return candidate === root || candidate.startsWith(root + sep);
+  return candidate === root || candidate.startsWith(root.endsWith(sep) ? root : root + sep);
 }
 
 /**

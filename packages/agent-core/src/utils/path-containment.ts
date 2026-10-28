@@ -88,5 +88,6 @@ export function canonicalizePath(p: string): string {
 export function isPathInside(root: string, candidate: string): boolean {
   const canonicalRoot = canonicalizePath(root);
   const canonicalCandidate = canonicalizePath(candidate);
-  return canonicalCandidate === canonicalRoot || canonicalCandidate.startsWith(canonicalRoot + sep);
+  const prefix = canonicalRoot.endsWith(sep) ? canonicalRoot : canonicalRoot + sep;
+  return canonicalCandidate === canonicalRoot || canonicalCandidate.startsWith(prefix);
 }

@@ -1,10 +1,10 @@
 import { mkdtempSync, mkdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, parse } from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { resolveTrustedExecutionRoot } from './path-containment.js';
+import { isPathInside, resolveTrustedExecutionRoot } from './path-containment.js';
 
 let fixtureRoot: string;
 let executionRoot: string;
@@ -41,4 +41,8 @@ describe('resolveTrustedExecutionRoot', () => {
       expect(() => resolveTrustedExecutionRoot(input)).toThrow(expected);
     }
   });
+});
+
+it('recognizes a file under a filesystem root as inside that root', () => {
+  expect(isPathInside(parse(fixtureRoot).root, join(fixtureRoot, 'not-a-directory'))).toBe(true);
 });

@@ -446,6 +446,63 @@ describe('external event admission is decided by the verified token (#3072)', ()
     expect(h.submit).toHaveBeenCalledTimes(2);
   });
 
+  it('uses a durable claim store so a fresh run cannot replay an unexpired token', async () => {
+    const claimed = new Set<string>();
+    const store = {
+      claim: vi.fn(({ jti }: { readonly jti: string }) => {
+        if (claimed.has(jti)) return 'spent' as const;
+        claimed.add(jti);
+        return 'claimed' as const;
+      }),
+    };
+    const spent = token({ jti: 'cross-run' });
+    const before = harness('default', createExternalEventGrantHistory(store));
+    expect((await before.open().receive({ token: spent, event: message() })).admitted).toBe(true);
+
+    const after = harness('default', createExternalEventGrantHistory(store));
+    expect(await after.open().receive({ token: spent, event: message('again') })).toEqual({
+      admitted: false,
+      refusal: 'malformed',
+    });
+    expect(after.submit).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when durable replay state is unavailable', async () => {
+    const history = createExternalEventGrantHistory({ claim: () => 'unavailable' });
+    const h = harness('default', history);
+
+    expect(await h.open().receive({ token: token(), event: message() })).toEqual({
+      admitted: false,
+      refusal: 'session-unavailable',
+    });
+    expect(h.submit).not.toHaveBeenCalled();
+  });
+
+  it('rejects an expiry that cannot be represented by durable replay storage', async () => {
+    const claim = vi.fn(() => 'claimed' as const);
+    const h = harness('default', createExternalEventGrantHistory({ claim }));
+
+    expect(
+      await h.open().receive({
+        token: token({ exp: Number.MAX_SAFE_INTEGER }),
+        event: message(),
+      }),
+    ).toEqual({ admitted: false, refusal: 'malformed' });
+    expect(claim).not.toHaveBeenCalled();
+    expect(h.submit).not.toHaveBeenCalled();
+  });
+
+  it('rate-limits when durable replay state reaches its retention bound', async () => {
+    const history = createExternalEventGrantHistory({ claim: () => 'saturated' });
+    const h = harness('default', history);
+
+    expect(await h.open().receive({ token: token(), event: message() })).toEqual({
+      admitted: false,
+      refusal: 'rate-limited',
+    });
+    expect(h.submit).not.toHaveBeenCalled();
+  });
+
   it('remembers spent tokens and rate history across a close and reopen of the grant', async () => {
     const h = harness();
     const rate = [{ windowMs: 60_000, maxTurns: 1 }];
