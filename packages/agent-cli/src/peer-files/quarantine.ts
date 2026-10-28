@@ -106,6 +106,23 @@ export type TQuarantineTarget =
   | { readonly ok: true; readonly directory: string; readonly name: string; readonly file: string }
   | Extract<TFileAdmission, { readonly refused: unknown }>;
 
+/** Persist one complete chunk even when the underlying file handle reports a short write. */
+async function writeComplete(handle: FileHandle, chunk: Uint8Array): Promise<void> {
+  const buffer = Buffer.from(chunk.buffer, chunk.byteOffset, chunk.byteLength);
+  let offset = 0;
+  while (offset < buffer.length) {
+    const result = await handle.write(buffer, offset, buffer.length - offset);
+    if (
+      !Number.isSafeInteger(result.bytesWritten) ||
+      result.bytesWritten <= 0 ||
+      result.bytesWritten > buffer.length - offset
+    ) {
+      throw new Error('quarantine file made no valid write progress');
+    }
+    offset += result.bytesWritten;
+  }
+}
+
 /**
  * Where a file offered under `name` would be kept, or why it cannot be. Checked before the operator
  * is asked, so nobody approves a transfer that could not be kept.
@@ -158,7 +175,7 @@ export async function openQuarantineSink(
   };
   return {
     write: async (chunk) => {
-      await handle.write(chunk);
+      await writeComplete(handle, chunk);
     },
     commit: async () => {
       await handle.sync();

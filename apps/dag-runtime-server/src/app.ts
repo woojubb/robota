@@ -245,6 +245,11 @@ export interface IRunProgressSource {
   subscribe(listener: (event: TRunProgressEvent) => void): () => void;
 }
 
+/** Host-owned admission for every DAG HTTP request. There is no anonymous default. */
+export interface IDagRuntimeAdmission {
+  authorize(request: Request): boolean | Promise<boolean>;
+}
+
 /** A run progress event is terminal when the whole execution has finished (success or failure). */
 function isTerminalProgressEvent(event: TRunProgressEvent): boolean {
   return event.eventType === 'execution.completed' || event.eventType === 'execution.failed';
@@ -266,10 +271,34 @@ export function createDagRuntimeServer(
   catalog: IDagNodeCatalogPort,
   definitionReads: IDagDefinitionReadPort,
   definitionMutations: IDagDefinitionMutationPort,
+  admission: IDagRuntimeAdmission,
   progressSource?: IRunProgressSource,
   assets?: IAssetStore,
 ): Hono {
   const app = new Hono();
+
+  app.use('/v1/dag/*', async (c, next) => {
+    if (await admission.authorize(c.req.raw)) return next();
+    c.header('WWW-Authenticate', 'Bearer');
+    return c.json(
+      {
+        ok: false,
+        status: 401,
+        errors: [
+          {
+            type: 'urn:agent:problems:dag:authentication',
+            title: 'Authentication required',
+            status: 401,
+            detail: 'The DAG runtime request was not authenticated',
+            instance: new URL(c.req.url).pathname,
+            code: 'DAG_AUTHENTICATION_REQUIRED',
+            retryable: false,
+          },
+        ],
+      },
+      401,
+    );
+  });
 
   // --- Node catalog ---
   app.get('/v1/dag/nodes', async (c) => {

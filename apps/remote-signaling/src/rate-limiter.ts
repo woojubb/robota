@@ -47,6 +47,9 @@ export const DEFAULT_MAX_CONNECTIONS = 2048;
 /** Default ceiling on concurrent connections per resolved source key (REMOTE-011 E2). `0` disables. */
 export const DEFAULT_MAX_CONNECTIONS_PER_IP = 64;
 
+/** Maximum distinct source-address buckets retained by the relay join/presence limiter. */
+export const DEFAULT_MAX_SOURCE_BUCKETS = 4096;
+
 /** Default max bytes per WebSocket frame (REMOTE-011 E2). Signaling frames are a few KB; far below ws's 100 MiB. */
 export const DEFAULT_MAX_FRAME_BYTES = 64 * 1024;
 
@@ -66,12 +69,28 @@ export class TokenBucketLimiter {
   public constructor(
     private readonly config: ITokenBucketConfig = DEFAULT_TOKEN_BUCKET,
     private readonly clock: IClock = systemClock,
+    private readonly maxBuckets = Number.POSITIVE_INFINITY,
   ) {}
+
+  private evictRefilled(now: number): void {
+    if (this.config.refillPerMs <= 0) return;
+    const oldest = this.buckets.entries().next().value as
+      | [string, { tokens: number; last: number }]
+      | undefined;
+    if (oldest === undefined) return;
+    const [key, bucket] = oldest;
+    const elapsed = Math.max(0, now - bucket.last);
+    if (bucket.tokens + elapsed * this.config.refillPerMs >= this.config.burst) {
+      this.buckets.delete(key);
+    }
+  }
 
   public tryConsume(key: string): boolean {
     const now = this.clock.now();
     let bucket = this.buckets.get(key);
     if (!bucket) {
+      if (this.buckets.size >= this.maxBuckets) this.evictRefilled(now);
+      if (this.buckets.size >= this.maxBuckets) return false;
       bucket = { tokens: this.config.burst, last: now };
       this.buckets.set(key, bucket);
     }
@@ -80,6 +99,9 @@ export class TokenBucketLimiter {
     bucket.last = now;
     if (bucket.tokens >= 1) {
       bucket.tokens -= 1;
+      // Keep insertion order as least-recently-used order without letting rejected traffic pin a key.
+      this.buckets.delete(key);
+      this.buckets.set(key, bucket);
       return true;
     }
     return false;

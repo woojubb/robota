@@ -374,6 +374,11 @@ export class TurnServer {
     return count;
   }
 
+  /** Diagnostics only: unauthenticated source buckets retained in the current answer window. */
+  public get unauthenticatedSourceCount(): number {
+    return this.answerBuckets.size;
+  }
+
   /**
    * Close every allocation whose owner is not one of `owners`, and allocate for these owners only
    * from now on — also for a request whose authorization was answered before this call.
@@ -486,26 +491,30 @@ export class TurnServer {
     request: IStunMessage,
     to: ITransportAddress,
     cls: TStunClass,
+    minimumAnswerBytes: number,
     attrs: () => { type: number; value: Buffer }[],
   ): void {
     const now = this.now();
-    const total = (this.answerBudget ??= { tokens: this.limits.totalPerSecond, at: now });
-    const source = this.answerBuckets.get(to.address) ?? {
-      tokens: this.limits.perSourcePerSecond,
-      at: now,
-    };
-    this.answerBuckets.set(to.address, source);
-    // No answer is smaller than this: a request below it is dropped before any work.
-    if (request.raw.length < MIN_ANSWER_BYTES) return;
-    // Both budgets are checked before anything is computed, and charged only for an answer sent.
+    // Refuse requests that can never carry an answer before retaining any attacker-selected key.
+    if (request.raw.length < minimumAnswerBytes) return;
+    // Check an existing source before doing nonce/HMAC and encoding work. A new source stays
+    // allocation-free until its answer is known to fit the anti-amplification boundary below.
+    const existing = this.answerBuckets.get(to.address);
+    const source = existing ?? { tokens: this.limits.perSourcePerSecond, at: now };
     if (!refill(source, this.limits.perSourcePerSecond, now)) return;
+    const total = (this.answerBudget ??= { tokens: this.limits.totalPerSecond, at: now });
+    // The global budget is allocation-free: once exhausted, new source identities retain nothing.
     if (!refill(total, this.limits.totalPerSecond, now)) return;
+    // Charge every attempt that can reach nonce/HMAC generation, even when the encoded response is
+    // later rejected by the anti-amplification boundary. Otherwise a deliberately undersized request
+    // gets unlimited cryptographic work without ever spending an answer token.
+    total.tokens -= 1;
     const response = encodeStun(request.method, cls, request.transactionId, attrs(), {
       fingerprint: false,
     });
     if (response.length > request.raw.length) return;
+    if (existing === undefined) this.answerBuckets.set(to.address, source);
     source.tokens -= 1;
-    total.tokens -= 1;
     this.send(response, to);
   }
 
@@ -514,16 +523,21 @@ export class TurnServer {
     request: IStunMessage,
     to: ITransportAddress,
     code: number,
+    extraBytes = 0,
     extra: () => { type: number; value: Buffer }[] = () => [],
   ): void {
-    this.answerUnauthenticated(request, to, StunClass.Error, () => [
-      { type: StunAttr.ErrorCode, value: errorCode(code, '') },
-      ...extra(),
-    ]);
+    this.answerUnauthenticated(
+      request,
+      to,
+      StunClass.Error,
+      MIN_ANSWER_BYTES + extraBytes,
+      () => [{ type: StunAttr.ErrorCode, value: errorCode(code, '') }, ...extra()],
+    );
   }
 
   private challenge(request: IStunMessage, to: ITransportAddress, code: 401 | 438): void {
-    this.refuseUnauthenticated(request, to, code, () => [
+    const paddedRealmBytes = Math.ceil(Buffer.byteLength(this.realm) / 4) * 4;
+    this.refuseUnauthenticated(request, to, code, 4 + paddedRealmBytes + 4 + 16, () => [
       { type: StunAttr.Realm, value: Buffer.from(this.realm) },
       { type: StunAttr.Nonce, value: Buffer.from(this.nonce(to)) },
     ]);
@@ -601,9 +615,16 @@ export class TurnServer {
   private async request(request: IStunMessage, rinfo: RemoteInfo): Promise<void> {
     const client: ITransportAddress = { address: rinfo.address, port: rinfo.port };
     if (request.method === StunMethod.Binding) {
-      this.answerUnauthenticated(request, client, StunClass.Success, () => [
-        { type: StunAttr.XorMappedAddress, value: encodeXorAddress(client, request.transactionId) },
-      ]);
+      const addressBytes = isIPv4(client.address) ? 8 : 20;
+      this.answerUnauthenticated(
+        request,
+        client,
+        StunClass.Success,
+        20 + 4 + addressBytes,
+        () => [
+          { type: StunAttr.XorMappedAddress, value: encodeXorAddress(client, request.transactionId) },
+        ],
+      );
       return;
     }
     const known: number[] = [

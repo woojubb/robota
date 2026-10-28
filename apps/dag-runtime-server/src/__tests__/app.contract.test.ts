@@ -7,12 +7,22 @@ import { createDagFramework } from '@robota-sdk/dag-framework';
 import { DagOrchestrationHttpClient } from '@robota-sdk/dag-orchestration-client';
 import type { ICostMetaOperationsPort } from '@robota-sdk/dag-cost';
 
-import { createDagRuntimeServer } from '../app.js';
+import { createDagRuntimeServer as createDagRuntimeServerWithAdmission } from '../app.js';
 
 import type { IRunProgressSource } from '../app.js';
 import type { IAssetStore, IRunDraftOperationsPort, TRunProgressEvent } from '@robota-sdk/dag-core';
 import type { IDagFramework } from '@robota-sdk/dag-framework';
 import type { Hono } from 'hono';
+
+const allowTestRequests = { authorize: (): boolean => true } as const;
+const createDagRuntimeServer = (...args: unknown[]): Hono =>
+  createDagRuntimeServerWithAdmission(
+    ...([
+      ...args.slice(0, 8),
+      allowTestRequests,
+      ...args.slice(8),
+    ] as unknown as Parameters<typeof createDagRuntimeServerWithAdmission>),
+  );
 
 describe('dag-runtime-server contract', () => {
   let framework: IDagFramework;
@@ -62,6 +72,31 @@ describe('dag-runtime-server contract', () => {
       outputs: expect.any(Array),
     });
     expect(input).not.toHaveProperty('defaultInputPort');
+  });
+
+  it('rejects an unauthenticated request before invoking a DAG capability', async () => {
+    let catalogReads = 0;
+    const catalog = Object.create(framework.catalog) as typeof framework.catalog;
+    catalog.listNodes = async () => {
+      catalogReads += 1;
+      return framework.catalog.listNodes();
+    };
+    const denied = createDagRuntimeServerWithAdmission(
+      framework.runs,
+      framework.costMeta,
+      framework.runDrafts,
+      framework.build,
+      framework.validation,
+      catalog,
+      framework.definitionReads,
+      framework.definitionMutations,
+      { authorize: () => false },
+    );
+
+    const response = await denied.request('/v1/dag/nodes');
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toBe('Bearer');
+    expect(catalogReads).toBe(0);
   });
 
   it('cancels a prepared run through the HTTP lifecycle and reports missing runs', async () => {

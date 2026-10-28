@@ -8,9 +8,9 @@ name: Publish to npm
 on:
   workflow_dispatch:
     inputs:
-      product_env:
-        description: 'Non-secret product environment file contents; otherwise uses vars.PRODUCT_BUILD_ENV.'
-        required: false
+      tag:
+        description: 'Existing release tag whose commit must exactly equal the protected main commit being published.'
+        required: true
         type: string
 
 permissions:
@@ -27,12 +27,41 @@ jobs:
     runs-on: ubuntu-latest
     environment: npm-publish
     env:
-      PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
+      PRODUCT_BUILD_ENV: ${{ vars.PRODUCT_BUILD_ENV }}
+    outputs:
+      release_tag: ${{ steps.release.outputs.tag }}
     permissions:
       contents: read
       id-token: write
+      attestations: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Bind publication to the release tag and protected main
+        id: release
+        shell: bash
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^[0-9A-Za-z._+-]+$ ]]; then
+            echo "::error::Refusing an invalid release tag."
+            exit 1
+          fi
+          git fetch --force origin \
+            "+refs/heads/main:refs/remotes/origin/main" \
+            "+refs/tags/$TAG:refs/tags/$TAG"
+          tag_commit=$(git rev-parse "refs/tags/$TAG^{commit}")
+          main_commit=$(git rev-parse refs/remotes/origin/main)
+          if [ "$tag_commit" != "$GITHUB_SHA" ] || [ "$main_commit" != "$GITHUB_SHA" ]; then
+            echo "::error::The release tag, workflow source, and protected main must be the same commit."
+            exit 1
+          fi
+          echo "RELEASE_TAG=$TAG" >> "$GITHUB_ENV"
+          echo "RELEASE_SOURCE_COMMIT=$tag_commit" >> "$GITHUB_ENV"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
       - uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
@@ -50,12 +79,110 @@ jobs:
           pnpm exec tsx -e '
             import { writeFileSync } from "node:fs";
             import { join } from "node:path";
-            if (!process.env.PRODUCT_BUILD_ENV?.trim()) throw new Error("Select product_env or configure vars.PRODUCT_BUILD_ENV before publication.");
+            if (!process.env.PRODUCT_BUILD_ENV?.trim()) throw new Error("Configure vars.PRODUCT_BUILD_ENV before publication.");
             writeFileSync(join(process.env.RUNNER_TEMP, "selected-product.env"), process.env.PRODUCT_BUILD_ENV, { mode: 0o600 });
           '
           pnpm exec tsx scripts/product/generate-workspace.mjs --env "$RUNNER_TEMP/selected-product.env" --out "$RUNNER_TEMP/product-workspace" --github-env "$GITHUB_ENV"
+      - name: Validate the tag and canonical product identity before publication
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
+        shell: bash
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          node - <<'NODE'
+          const manifest = require('./packages/agent-cli/package.json');
+          const expectedTag = `${process.env.PROJECT_RELEASE_TAG_PREFIX ?? ''}${manifest.version}`;
+          if (!process.env.PROJECT_RELEASE_TAG_PREFIX || process.env.TAG !== expectedTag) {
+            throw new Error(`release tag must equal configured prefix plus CLI version (${expectedTag})`);
+          }
+          if (!/^@[a-z0-9][a-z0-9._-]*$/.test(process.env.PRODUCT_PACKAGE_SCOPE ?? '') ||
+              manifest.name !== `${process.env.PRODUCT_PACKAGE_SCOPE}/agent-cli`) {
+            throw new Error('generated CLI package does not match the configured package scope');
+          }
+          if (!/^https:\/\//.test(process.env.PROJECT_NPM_REGISTRY_URL ?? '')) {
+            throw new Error('publication requires a configured HTTPS npm registry');
+          }
+          if (!/^[0-9a-f]{64}$/.test(process.env.PRODUCT_CONFIG_SHA256 ?? '')) {
+            throw new Error('publication requires the canonical product configuration digest');
+          }
+          NODE
       - name: Publish the configured product packages
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
+        env:
+          RELEASE_INTEGRITY_MANIFEST: ${{ runner.temp }}/npm-release-integrity.json
+          RELEASE_INSTALL_LOCK: ${{ runner.temp }}/npm-release-package-lock.json
         run: |
           pnpm install --frozen-lockfile
           bash scripts/publish/publish-packages.sh --trusted
+      - name: Preserve the tag-bound registry integrity manifest
+        uses: actions/upload-artifact@v7
+        with:
+          name: npm-release-${{ github.event.inputs.tag }}
+          path: |
+            ${{ runner.temp }}/npm-release-integrity.json
+            ${{ runner.temp }}/npm-release-package-lock.json
+          if-no-files-found: error
+          retention-days: 90
+      - name: Attest the durable release receipt
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            ${{ runner.temp }}/npm-release-integrity.json
+            ${{ runner.temp }}/npm-release-package-lock.json
+  receipt:
+    name: preserve durable receipt
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    permissions:
+      actions: read
+      contents: write
+    steps:
+      - name: Restore the attested release receipt
+        uses: actions/download-artifact@v7
+        with:
+          name: npm-release-${{ needs.publish.outputs.release_tag }}
+          path: ${{ runner.temp }}/release-receipt
+      - name: Preserve the attested receipt with the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.publish.outputs.release_tag }}
+        run: |
+          set -euo pipefail
+          GH_VERSION=$(gh --version | head -1 | awk '{print $3}') node - <<'NODE'
+          const [major, minor, patch] = process.env.GH_VERSION.split('.').map(Number);
+          if ([major, minor, patch].some((part) => !Number.isInteger(part)) ||
+              major < 2 || (major === 2 && minor < 102)) {
+            throw new Error('GitHub CLI 2.102.0 or newer is required for safe release asset handling');
+          }
+          NODE
+          manifest="$RUNNER_TEMP/release-receipt/npm-release-integrity.json"
+          lock="$RUNNER_TEMP/release-receipt/npm-release-package-lock.json"
+          deadline=$(( $(date +%s) + 350 * 60 ))
+          # allow-runner-wait: the native release is an external workflow and may use its full build matrix timeout.
+          until names=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name' 2>/dev/null); do
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "::error::Release $RELEASE_TAG did not become available for its receipt."
+              exit 1
+            fi
+            sleep 60
+          done
+          manifest_name=npm-release-integrity.json
+          lock_name=npm-release-package-lock.json
+          if printf '%s\n' "$names" | grep -Fqx "$manifest_name" || printf '%s\n' "$names" | grep -Fqx "$lock_name"; then
+            if ! printf '%s\n' "$names" | grep -Fqx "$manifest_name" || ! printf '%s\n' "$names" | grep -Fqx "$lock_name"; then
+              echo "::error::The release has only part of its integrity receipt."
+              exit 1
+            fi
+            mkdir -p "$RUNNER_TEMP/existing-receipt"
+            gh release download "$RELEASE_TAG" --dir "$RUNNER_TEMP/existing-receipt" --pattern "$manifest_name" --pattern "$lock_name"
+            cmp "$manifest" "$RUNNER_TEMP/existing-receipt/$manifest_name"
+            cmp "$lock" "$RUNNER_TEMP/existing-receipt/$lock_name"
+          else
+            gh release upload "$RELEASE_TAG" \
+              "$manifest#$manifest_name" \
+              "$lock#$lock_name"
+          fi

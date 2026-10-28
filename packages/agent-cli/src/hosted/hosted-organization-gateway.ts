@@ -26,6 +26,8 @@ export function createHostedOrganizationGateway(options: {
   readonly modelResource: string;
 }): (request: IncomingMessage, response: ServerResponse) => void {
   const bindings = [...options.bindings];
+  type TAdmission = Awaited<ReturnType<HostedOrganizationControl['admit']>>;
+  const pendingAdmissions = new Map<string, Promise<TAdmission>>();
   const tokens = new Set<string>(); const runtimes = new Set<string>(); const grants = new Set<string>();
   for (const binding of bindings) {
     if (!/^[A-Za-z0-9_-]{32,256}$/u.test(binding.token) || tokens.has(binding.token) || runtimes.has(binding.config.identity.runtime) || grants.has(binding.grantId))
@@ -40,6 +42,44 @@ export function createHostedOrganizationGateway(options: {
     const budget = options.ledger.budgetState('grant', binding.grantId);
     return { sessions: 1, modelCalls: options.ledger.grantOperationCount(binding.grantId),
       modelTokens: budget.spent.tokens, costMicros: budget.spent.costMicros };
+  };
+  const admit = async (binding: IHostedOrganizationBinding, signal: AbortSignal): Promise<TAdmission> => {
+    if (signal.aborted) throw new OrganizationRefused('policy-unavailable');
+    let pending = pendingAdmissions.get(binding.grantId);
+    if (pending === undefined) {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30_000);
+      pending = options.control.admit(
+        { resource: binding.config.worker.resource, grantId: binding.grantId, identity: binding.config.identity, epoch: binding.config.epoch },
+        controller.signal,
+      ).finally(() => {
+        clearTimeout(timeout);
+        pendingAdmissions.delete(binding.grantId);
+      });
+      void pending.catch(() => undefined);
+      pendingAdmissions.set(binding.grantId, pending);
+    }
+    return new Promise<TAdmission>((resolve, reject) => {
+      const aborted = (): void => {
+        signal.removeEventListener('abort', aborted);
+        reject(new OrganizationRefused('policy-unavailable'));
+      };
+      if (signal.aborted) {
+        aborted();
+        return;
+      }
+      signal.addEventListener('abort', aborted, { once: true });
+      void pending!.then(
+        (admission) => {
+          signal.removeEventListener('abort', aborted);
+          resolve(admission);
+        },
+        (error: unknown) => {
+          signal.removeEventListener('abort', aborted);
+          reject(error);
+        },
+      );
+    });
   };
   return (request, response) => {
     const controller = new AbortController();
@@ -78,24 +118,29 @@ export function createHostedOrganizationGateway(options: {
         if (request.headers.host !== new URL(config.broker.endpoint).host ||
           new URL(config.worker.endpoint).origin !== new URL(config.broker.endpoint).origin)
           throw new OrganizationRefused('not-authorized');
-        const grant = await options.control.admit({ resource: config.worker.resource, grantId: binding.grantId, identity: config.identity, epoch: config.epoch }, controller.signal);
+        let role: THostedBackendRole | undefined;
         if (!model) {
-          const role = request.url === new URL(config.worker.endpoint).pathname ? 'worker'
+          role = request.url === new URL(config.worker.endpoint).pathname ? 'worker'
             : request.url === new URL(config.broker.endpoint).pathname ? 'broker' : undefined;
           if (!role || typeof body.nonce !== 'string' || body.version !== 3 || body.role !== role ||
             body.resource !== config[role].resource || body.epoch !== config.epoch ||
             Object.entries(config.identity).some(([key, expected]) => (body.identity as Record<string, unknown>)?.[key] !== expected) ||
             JSON.stringify(body.snapshot) !== JSON.stringify(config.snapshot) || JSON.stringify(body.limits) !== JSON.stringify(config.limits))
             throw new OrganizationRefused('not-authorized');
+        } else {
+          const key = request.headers['idempotency-key'];
+          if (typeof key !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/u.test(key)) throw new OrganizationRefused('invalid-schema');
+        }
+        const grant = await admit(binding, controller.signal);
+        if (!model) {
           const issuedAt = Date.now();
-          const unsigned: Omit<IHostedAdmissionProof, 'signature'> = { version: 3, identity: config.identity, role, resource: config[role].resource, nonce: body.nonce, epoch: config.epoch, issuedAt,
+          const unsigned: Omit<IHostedAdmissionProof, 'signature'> = { version: 3, identity: config.identity, role: role!, resource: config[role!].resource, nonce: body.nonce as string, epoch: config.epoch, issuedAt,
             expiresAt: Math.min(issuedAt + 60_000, binding.expiresAt, grant.expiresAt), snapshot: config.snapshot, ready: true, limits: config.limits, usage: role === 'broker' ? usage(binding) : null };
-          const proof = { ...unsigned, signature: binding.signAdmission(role, hostedAdmissionBytes(unsigned)) };
-          verifyHostedAdmissionProof(proof, config, role, body.nonce, Date.now());
+          const proof = { ...unsigned, signature: binding.signAdmission(role!, hostedAdmissionBytes(unsigned)) };
+          verifyHostedAdmissionProof(proof, config, role!, body.nonce as string, Date.now());
           reply(200, proof); return;
         }
-        const key = request.headers['idempotency-key'];
-        if (typeof key !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/u.test(key)) throw new OrganizationRefused('invalid-schema');
+        const key = request.headers['idempotency-key'] as string;
         const payload = await options.payloads.put(grant.id, bytes);
         const now = Date.now();
         const claims: IOrganizationRequest = { version: 1, grantId: grant.id, tenant: grant.tenant, task: grant.task, actor: grant.actor, audience: grant.audience, epoch: grant.epoch, nonce: randomUUID(), notBefore: now,

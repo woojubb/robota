@@ -121,10 +121,10 @@ it('uses the successful native tag even though workflow_run executes on main', (
   }
 });
 
-it('preserves explicit unpublished candidates and verification-only dispatches', () => {
-  const candidate = context({}, { publish: 'false' });
-  candidate.event_name = 'workflow_dispatch';
-  expect(evaluate(desktop.jobs.desktop.if, candidate)).toBe(true);
+it('removes unpublished candidate controls and preserves verification-only dispatches', () => {
+  expect(desktop.on.workflow_dispatch.inputs.publish).toBeUndefined();
+  expect(desktop.on.workflow_dispatch.inputs.source_ref).toBeUndefined();
+  expect(desktop.on.workflow_dispatch.inputs.candidate_platform).toBeUndefined();
   const verification = context({}, { verify_only: 'true' });
   verification.event_name = 'workflow_dispatch';
   expect(evaluate(desktop.jobs.desktop.if, verification)).toBe(false);
@@ -143,8 +143,7 @@ it('fails a manual published build immediately when any native payload is absent
     (step) => step.name === 'Require the native release before publishing installers',
   );
   expect(preflight).toBeDefined();
-  expect(evaluate(preflight.if, context({}, { publish: 'false' }))).toBe(false);
-  expect(evaluate(preflight.if, context({}, { publish: 'true' }))).toBe(true);
+  expect(preflight.if).toBeUndefined();
   const expression = native.jobs['build-bun'].strategy.matrix.target;
   const targets = Function('github', 'fromJSON', `return (${expression.slice(3, -2)});`)(
     { event_name: 'workflow_dispatch' }, JSON.parse,

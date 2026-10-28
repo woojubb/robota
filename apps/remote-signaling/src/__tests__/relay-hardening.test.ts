@@ -73,6 +73,30 @@ function signalFrames(peer: { readonly sent: string[] }): Record<string, unknown
 }
 
 describe('SignalingRelay abuse-hardening (REMOTE-004 B2)', () => {
+  it('bounds distinct source buckets and admits a new source only after an idle bucket refills', () => {
+    let now = 1_000;
+    const relay = new SignalingRelay({
+      rateLimit: { burst: 1, refillPerMs: 1 / 1_000 },
+      maxSourceBuckets: 2,
+      clock: { now: () => now },
+    });
+    const first = fakePeer('192.0.2.1');
+    const second = fakePeer('192.0.2.2');
+    const refused = fakePeer('192.0.2.3');
+
+    join(relay, first, '');
+    join(relay, second, '');
+    join(relay, refused, '');
+
+    expect(relay.sourceBucketCount).toBe(2);
+    expect(lastFrame(refused)).toEqual({ type: 'error', reason: 'rate-limited' });
+
+    now += 1_000;
+    join(relay, refused, '');
+    expect(relay.sourceBucketCount).toBeLessThanOrEqual(2);
+    expect(lastFrame(refused)).toEqual({ type: 'error', reason: 'empty-rendezvous' });
+  });
+
   it('TC-03: rate-limits join floods per source and never relays a rejected join', () => {
     const relay = new SignalingRelay({
       rateLimit: { burst: 2, refillPerMs: 0 },

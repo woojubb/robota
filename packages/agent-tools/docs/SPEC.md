@@ -119,8 +119,10 @@ never happened.
   shared client that confines a host process in place only rewrites the invocation, so the shell
   tool keeps its own timeouts, cancellation, output limits and process-group kill; foreground host
   shell groups also terminate after their owner dies, including when the owner cannot handle a signal.
-- `IEditorFileAccess` lets an editor that has the workspace open carry `Read`, `Write` and `Edit`
-  on the host, so the agent reads what the editor shows and its writes land in the editor. Each tool
+- `IEditorFileAccess` lets an editor adapter with stable rooted path authority carry `Read`, `Write`
+  and `Edit` on the host, so the agent reads what the editor shows and its writes land in the editor.
+  A pathname-only adapter cannot claim that authority and the tools use their stable disk access.
+  Each tool
   asks for it at call time, because an editor connects after the tools exist and can go away, and
   uses it only after its own containment check, with the permission gate already decided before any
   tool body; the editor's text gets the same limits and error envelope as the disk's. `Edit` reads

@@ -10,6 +10,8 @@ import { createDagRuntimeServer } from '../app.js';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
 import type { IDagFramework } from '@robota-sdk/dag-framework';
 
+const TOKEN = 'roundtrip-token-for-native-dag-runtime';
+
 // A single-node DAG: one InputNode emitting its configured text on the `text` output port.
 // InputNode has no inputs and always succeeds, so the run reaches a terminal state quickly —
 // exactly the race (run finishes before the watcher subscribes) the provider must tolerate.
@@ -25,6 +27,7 @@ describe('HttpDagRuntimeProvider round-trip against the in-process server', () =
   let framework: IDagFramework;
   let provider: HttpDagRuntimeProvider;
   let tmpDir: string;
+  let observedRequests: Array<{ path: string; authorization: string | null }>;
 
   beforeEach(async () => {
     tmpDir = await mkdtemp(path.join(os.tmpdir(), 'dag-http-provider-'));
@@ -32,6 +35,7 @@ describe('HttpDagRuntimeProvider round-trip against the in-process server', () =
       paths: { storageRoot: path.join(tmpDir, 'storage'), assetRoot: path.join(tmpDir, 'assets') },
     });
     await framework.start();
+    observedRequests = [];
     const app = createDagRuntimeServer(
       framework.runs,
       framework.costMeta,
@@ -41,12 +45,25 @@ describe('HttpDagRuntimeProvider round-trip against the in-process server', () =
       framework.catalog,
       framework.definitionReads,
       framework.definitionMutations,
+      {
+        authorize: (request) => request.headers.get('authorization') === `Bearer ${TOKEN}`,
+      },
       framework.internals.execution.runProgressEventBus,
     );
     // Route the provider's HTTP + SSE traffic into the in-process Hono app instead of a real socket.
-    const fetchImpl = ((input: RequestInfo | URL, init?: RequestInit) =>
-      app.request(input as string, init)) as typeof fetch;
-    provider = new HttpDagRuntimeProvider({ baseUrl: 'http://dag.test', fetch: fetchImpl });
+    const fetchImpl = ((input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      observedRequests.push({
+        path: new URL(request.url).pathname,
+        authorization: request.headers.get('authorization'),
+      });
+      return app.request(request);
+    }) as typeof fetch;
+    provider = new HttpDagRuntimeProvider({
+      baseUrl: 'http://dag.test',
+      token: TOKEN,
+      fetch: fetchImpl,
+    });
   });
 
   afterEach(async () => {
@@ -71,6 +88,13 @@ describe('HttpDagRuntimeProvider round-trip against the in-process server', () =
     expect(result.ok).toBe(true);
     expect(result.error).toBeUndefined();
     expect(result.durationMs).toBeGreaterThanOrEqual(0);
+    expect(observedRequests).toContainEqual({
+      path: expect.stringMatching(/\/events$/u),
+      authorization: `Bearer ${TOKEN}`,
+    });
+    expect(observedRequests.every((request) => request.authorization === `Bearer ${TOKEN}`)).toBe(
+      true,
+    );
     // The InputNode's `text` output (the run input, runtime-priority) reached the mapped result —
     // proof the payload flowed submit → execute → result over HTTP.
     //

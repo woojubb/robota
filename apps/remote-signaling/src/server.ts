@@ -95,7 +95,7 @@ function wrapSocket(socket: WebSocket, remoteAddress?: string): ISignalingPeer {
   const id = `peer_${(peerCounter += 1)}`;
   return {
     id,
-    ...(remoteAddress ? { remoteAddress } : {}),
+    ...(remoteAddress !== undefined ? { remoteAddress } : {}),
     send(raw: string): void {
       if (socket.readyState === socket.OPEN) socket.send(raw);
     },
@@ -146,7 +146,9 @@ export function startSignalingServer(
     totalConnections += 1;
     perSourceConnections.set(sourceKey, perSource + 1);
 
-    const peer = wrapSocket(socket, request.socket.remoteAddress);
+    // Reuse the same trusted source identity for connection and relay limits. Otherwise a proxy
+    // deployment caps by the resolved client while every join shares the proxy's TCP address.
+    const peer = wrapSocket(socket, sourceKey);
     let released = false;
     const release = (): void => {
       if (released) return; // close + error can both fire — decrement exactly once

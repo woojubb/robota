@@ -12,7 +12,7 @@ import { createHostedOrganizationInputTokenCounter } from '../hosted-organizatio
 import { createHostedOrganizationGateway } from '../hosted-organization-gateway.js';
 import type { IHostedRuntimeConfig } from '../hosted-runtime-types.js';
 
-export async function organizationGatewayFixture(options: { idempotency?: boolean; timeMs?: number } = {}) {
+export async function organizationGatewayFixture(options: { idempotency?: boolean; timeMs?: number; blockInventory?: boolean; rejectAdmission?: boolean } = {}) {
   let handler: ReturnType<typeof createHostedOrganizationGateway> | undefined;
   const ingress = createServer((request, response) => { if (handler) handler(request, response); else response.writeHead(503).end(); });
   await new Promise<void>((resolve) => ingress.listen(0, '127.0.0.1', resolve));
@@ -27,6 +27,11 @@ export async function organizationGatewayFixture(options: { idempotency?: boolea
   const unknown = new Promise<void>((resolve) => { unknownResolved = resolve; });
   let mode: 'complete' | 'lost-ack' | 'pending' = 'complete';
   let inputTokens = 1;
+  let inventoryLists = 0;
+  let inventoryStarted!: () => void;
+  const inventoryStart = new Promise<void>((resolve) => { inventoryStarted = resolve; });
+  let inventoryReleased!: () => void;
+  const inventoryRelease = new Promise<void>((resolve) => { inventoryReleased = resolve; });
   let dispatched!: () => void;
   const dispatch = new Promise<void>((resolve) => { dispatched = resolve; });
   let release!: () => void;
@@ -56,12 +61,28 @@ export async function organizationGatewayFixture(options: { idempotency?: boolea
     reservation: { tokens: 10, timeMs: options.timeMs ?? 20_000, costMicros: 10 }, maxInputBytes: 4096, maxOutputTokens: 8, costMicrosPerToken: 1, providerIdempotency: options.idempotency ?? true,
     countInputTokens: createHostedOrganizationInputTokenCounter({ endpoint: `${provider}/count`, apiKey: 'owner-counter-only', encode: (_surface, body) => body }) });
   const control = new HostedOrganizationControl({ ledger: owner.ledger, audit: new OrganizationAudit({ stream: a.stream, publicKey: a.signer.publicKey, sink: a.sink, anchor: a.anchor }), actions: [action],
-    inventory: { list: async () => terminations.length ? [] : [{ resource: config.worker.resource, grantId: owner.grant.id, identity: config.identity, epoch: config.epoch }], terminate: async (worker) => { terminations.push(worker.resource); } },
+    inventory: { list: async () => {
+      inventoryLists += 1;
+      inventoryStarted();
+      if (options.blockInventory === true) await inventoryRelease;
+      return terminations.length ? [] : [{ resource: config.worker.resource, grantId: owner.grant.id, identity: config.identity, epoch: config.epoch }];
+    }, terminate: async (worker) => { terminations.push(worker.resource); } },
     incidentOwners: { detection: 'security', containment: 'runtime', assessment: 'asset-owner', recovery: 'authority-owner', report: async (event) => { incidents.push(event); if (event.kind === 'unknown-effect') unknownResolved(); } } });
+  if (options.rejectAdmission === true) {
+    Object.defineProperty(control, 'admit', { value: async () => {
+      inventoryLists += 1;
+      inventoryStarted();
+      if (options.blockInventory === true) await inventoryRelease;
+      throw new Error('inventory unavailable');
+    } });
+  }
   const token = 'task-bearer-'.padEnd(48, 'x');
   handler = createHostedOrganizationGateway({ control, ledger: owner.ledger, payloads, modelResource: 'model', bindings: [{ config, grantId: owner.grant.id, token, expiresAt: Date.now() + 60_000,
     signAdmission: (_role, bytes) => sign(null, bytes, owner.issuer.privateKey).toString('base64url'), signRequest: (bytes) => sign(null, bytes, owner.worker.privateKey).toString('base64url') }] });
   return { owner, a, control, config, token, origin, content, payloads, upstreamCalls, dispatch, unknown, incidents, terminations,
+    inventoryListCount: () => inventoryLists,
+    inventoryStart,
+    releaseInventory: inventoryReleased,
     setMode: (next: typeof mode) => { mode = next; }, setInputTokens: (next: number) => { inputTokens = next; }, release,
     async call(key = 'duplicate') {
       return fetch(`${origin}/v1/chat/completions`, { method: 'POST', headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json', 'idempotency-key': key },

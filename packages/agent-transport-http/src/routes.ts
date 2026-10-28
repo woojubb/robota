@@ -12,6 +12,7 @@ import {
   resolveAdmission,
 } from '@robota-sdk/agent-transport/node';
 import { Hono } from 'hono';
+import { bodyLimit } from 'hono/body-limit';
 
 import { createHttpOpenPrompts } from './open-prompts.js';
 import { answerPromptHandler, listPromptsHandler } from './prompt-routes.js';
@@ -52,7 +53,11 @@ export interface IAgentRoutesOptions {
    * body. Absent leaves the session's own default.
    */
   attribution?: TTurnAttribution;
+  /** Maximum bytes accepted by a JSON request route. Default 64 KiB. */
+  maxJsonBodyBytes?: number;
 }
+
+const DEFAULT_MAX_JSON_BODY_BYTES = 64 * 1024;
 
 /**
  * Create a Hono router with all agent HTTP endpoints.
@@ -72,6 +77,14 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   // is keyed by the session's declared ID rather than by object identity.
   const claims = createTurnClaims();
   const openPrompts = createHttpOpenPrompts();
+  const maxJsonBodyBytes = options.maxJsonBodyBytes ?? DEFAULT_MAX_JSON_BODY_BYTES;
+  if (!Number.isSafeInteger(maxJsonBodyBytes) || maxJsonBodyBytes < 1) {
+    throw new Error('maxJsonBodyBytes must be a positive integer');
+  }
+  const limitJsonBody = bodyLimit({
+    maxSize: maxJsonBodyBytes,
+    onError: (c) => c.json({ error: 'request body too large' }, 413),
+  });
 
   // SEC-008: resolved ONCE, at construction, so a transport that cannot mint a credential fails to
   // build rather than serving without one. Resolving per request would also mint a new token per
@@ -109,6 +122,7 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   // POST /submit — execute prompt, stream events via SSE
   app.post(
     '/submit',
+    limitJsonBody,
     submitHandler({ sessionFactory, claims, openPrompts, onStreamFailure, attribution }),
   );
 
@@ -118,11 +132,12 @@ export function createAgentRoutes(options: IAgentRoutesOptions): Hono {
   // POST /prompts/:id — answer one of them
   app.post(
     '/prompts/:id',
+    limitJsonBody,
     answerPromptHandler({ sessionFactory, claims, openPrompts, attribution }),
   );
 
   // POST /command — execute system command
-  app.post('/command', async (c) => {
+  app.post('/command', limitJsonBody, async (c) => {
     const session = await sessionFactory(c);
     const body = await c.req.json<{ name: string; args?: string }>();
 
