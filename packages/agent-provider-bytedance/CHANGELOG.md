@@ -1,5 +1,10 @@
 # @robota-sdk/agent-provider-bytedance
 
+## 3.0.0-beta.102
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.102
+
 ## 3.0.0-beta.101
 ### Patch Changes
 

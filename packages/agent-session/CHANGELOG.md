@@ -1,5 +1,13 @@
 # @robota-sdk/agent-session
 
+## 3.0.0-beta.102
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.102
+  - @robota-sdk/agent-file-authority@3.0.0-beta.102
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.102
+  - @robota-sdk/agent-interface-session@3.0.0-beta.102
+
 ## 3.0.0-beta.101
 ### Patch Changes
 
