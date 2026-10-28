@@ -29,6 +29,7 @@ concurrency:
 jobs:
   desktop:
     name: Package + publish (${{ matrix.os }})
+    timeout-minutes: 60
     env:
       PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
     if: >-
@@ -325,8 +326,9 @@ jobs:
         run: node .release-tools/scripts/release/setup-macos-signing.mjs cleanup
 
   await-published-assets:
-    name: Wait for the tag's release assets to be published
+    name: Require the tag's published release assets
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [desktop]
     if: ${{ !cancelled() && (github.event.inputs.verify_only == 'true' || needs.desktop.result == 'success') }}
     env:
@@ -360,7 +362,7 @@ jobs:
           printf '%s' "$PRODUCT_BUILD_ENV" > "$RUNNER_TEMP/selected-product.env"
           pnpm exec tsx scripts/product/generate-workspace.mjs --env "$RUNNER_TEMP/selected-product.env" --out "$RUNNER_TEMP/product-workspace" --github-env "$GITHUB_ENV" --github-output "$GITHUB_OUTPUT"
 
-      - name: Poll until every macOS asset exists
+      - name: Require every macOS asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.tag.outputs.tag }}
@@ -368,31 +370,22 @@ jobs:
         run: |
           set -euo pipefail
           required="${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64 ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-x64 SHA256SUMS.txt"
-          deadline=$(( $(date +%s) + 1500 ))   # 25 minutes
-          # allow-runner-wait: a release runs with a human or agent already driving it, and this
-          while :; do
-            names=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || true)
-            missing=""
-            for r in $required; do
-              printf '%s\n' "$names" | grep -qx "$r" || missing="$missing $r"
-            done
-            printf '%s\n' "$names" | grep -q '\.dmg$' || missing="$missing <a .dmg>"
-            if [ -z "$missing" ]; then
-              echo "all required assets present on $TAG"
-              exit 0
-            fi
-            if [ "$(date +%s)" -ge "$deadline" ]; then
-              echo "::error::timed out waiting for release assets on $TAG; still missing:$missing"
-              exit 1
-            fi
-            echo "waiting for:$missing"
-            # allow-runner-wait: the interval of the release poll suppressed above.
-            sleep 30
+          names=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          missing=""
+          for r in $required; do
+            printf '%s\n' "$names" | grep -qx "$r" || missing="$missing $r"
           done
+          printf '%s\n' "$names" | grep -q '\.dmg$' || missing="$missing <a .dmg>"
+          if [ -n "$missing" ]; then
+            echo "::error::Release assets are incomplete on $TAG:$missing"
+            exit 1
+          fi
+          echo "all required assets present on $TAG"
 
   verify-macos-artifacts:
     name: Verify published macOS artifacts open on a user's Mac
     runs-on: macos-latest
+    timeout-minutes: 15
     needs: [await-published-assets]
     if: ${{ !cancelled() && needs.await-published-assets.result == 'success' }}
     env:

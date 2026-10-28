@@ -24,7 +24,12 @@ const messages: TUniversalMessage[] = [
 ];
 
 function httpError(status: number, type: string): Error {
-  return APIError.generate(status, { error: { type, message: `${type} happened` } }, undefined, {});
+  return APIError.generate(
+    status,
+    { error: { type, message: `${type} happened` } },
+    undefined,
+    new Headers(),
+  );
 }
 
 function providerWith(apiSurface: 'chat-completions' | 'responses', error: Error): OpenAIProvider {
@@ -101,7 +106,7 @@ describe('OpenAI provider errors', () => {
             error: { type: 'invalid_request_error', code: 'model_not_found', message: 'no model' },
           },
           undefined,
-          {},
+          new Headers(),
         ),
       );
       const error = await failure(() => provider.chat(messages, { model: 'gpt-4o' }));
@@ -132,7 +137,7 @@ describe('OpenAI provider errors', () => {
           429,
           { error: { type: 'rate_limit_exceeded', message: 'slow down' } },
           undefined,
-          { 'retry-after': '12' },
+          new Headers({ 'retry-after': '12' }),
         ),
       );
       const error = await failure(() => provider.chat(messages, { model: 'gpt-4o' }));

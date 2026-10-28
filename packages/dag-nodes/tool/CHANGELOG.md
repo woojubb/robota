@@ -1,5 +1,24 @@
 # @robota-sdk/dag-node-tool
 
+## 3.0.0-beta.87
+### Patch Changes
+
+- 6f41c53: Update Zod, OpenAI, and Undici to patched releases so installed Robota artifacts do not carry the
+  known production dependency vulnerabilities. The Zod schema bridge now preserves the supported
+  object, record, enum, literal, wrapper, and transform contracts on Zod 4, and the OpenAI-compatible
+  response parser safely ignores non-function tool-call variants introduced by the current SDK.
+- Updated dependencies [6f41c53]
+  - @robota-sdk/agent-core@3.0.0-beta.103
+  - @robota-sdk/dag-core@3.0.0-beta.63
+  - @robota-sdk/dag-node@3.0.0-beta.63
+  - @robota-sdk/agent-tools@3.0.0-beta.103
+
+## 3.0.0-beta.86
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.102
+  - @robota-sdk/agent-tools@3.0.0-beta.102
+
 ## 3.0.0-beta.85
 ### Patch Changes
 

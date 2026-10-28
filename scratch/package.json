@@ -1,6 +1,6 @@
 {
   "name": "robota-scratch",
-  "version": "0.0.1-beta.24",
+  "version": "0.0.1-beta.26",
   "private": true,
   "description": "Disposable scripts: repro probes and live checks. src/ contents are gitignored — nothing here is ever committed or published.",
   "type": "module",
@@ -8,16 +8,16 @@
     "run": "tsx --conditions=source"
   },
   "dependencies": {
+    "@robota-sdk/agent-builtin-providers": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-executor": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
-    "@robota-sdk/agent-builtin-providers": "workspace:*",
+    "@robota-sdk/agent-mcp": "workspace:*",
     "@robota-sdk/agent-provider-openai": "workspace:*",
     "@robota-sdk/agent-session": "workspace:*",
     "@robota-sdk/agent-subagent-runner": "workspace:*",
-    "@robota-sdk/agent-mcp": "workspace:*",
     "@robota-sdk/agent-tools": "workspace:*",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

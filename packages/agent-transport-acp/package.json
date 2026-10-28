@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport-acp",
-  "version": "3.0.0-beta.101",
+  "version": "3.0.0-beta.103",
   "description": "Agent Client Protocol (ACP) agent transport for the Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
@@ -55,7 +55,7 @@
     "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-transport": "workspace:*",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^20.19.43",

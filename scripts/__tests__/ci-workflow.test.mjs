@@ -5,6 +5,12 @@ import { expect, it } from 'vitest';
 const workflow = parse(
   readFileSync(new URL('../../.github/workflows/ci.yml', import.meta.url), 'utf8'),
 );
+const nativeWorkflow = parse(
+  readFileSync(
+    new URL('../../.github/workflows/release-bun-binaries.yml', import.meta.url),
+    'utf8',
+  ),
+);
 
 function schedules(event, branch) {
   if (!Object.hasOwn(workflow.on, event)) return false;
@@ -35,6 +41,15 @@ it('runs required branch and manual checks without duplicating develop push CI',
     workflow.jobs['pr-validation'].steps.some((step) => step.run === 'node scripts/ci.mjs gate'),
   ).toBe(true);
   expect(workflow.jobs.security.needs).toEqual(['secret-scan']);
+});
+
+it('limits authenticated promotion evidence reads to each scope job', () => {
+  for (const candidate of [workflow, nativeWorkflow]) {
+    expect(candidate.permissions).toEqual({ contents: 'read' });
+    expect(candidate.jobs.scope.permissions).toEqual({ checks: 'read', contents: 'read' });
+    const scopeStep = candidate.jobs.scope.steps.find((step) => step.id === 'scope');
+    expect(scopeStep.env.CI_TOKEN).toBe('${{ github.token }}');
+  }
 });
 
 function concurrencyFor({ attempt, ref, runId }) {

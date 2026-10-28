@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-multi-input",
-  "version": "3.0.0-beta.62",
+  "version": "3.0.0-beta.63",
   "private": true,
   "description": "DAG multi-input node for Robota — emits multiple named ports from runtime inputs",
   "type": "module",
@@ -61,7 +61,7 @@
   "dependencies": {
     "@robota-sdk/dag-core": "workspace:*",
     "@robota-sdk/dag-node": "workspace:*",
-    "zod": "^3.24.4"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "eslint": "^8.56.0",

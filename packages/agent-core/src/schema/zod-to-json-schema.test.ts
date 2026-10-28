@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { z } from 'zod';
 import type { IZodSchema, IZodSchemaDef } from './zod-schema-types';
 import {
   extractEnumValues,
@@ -261,6 +262,21 @@ describe('extractEnumValues', () => {
     });
 
     expect(extractEnumValues(schema)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('extracts values from real Zod 4 string and numeric enums', () => {
+    expect(extractEnumValues(z.enum(['a', 'b', 'c']))).toEqual(['a', 'b', 'c']);
+    expect(
+      extractEnumValues(z.nativeEnum({ 0: 'Low', 1: 'High', Low: 0, High: 1 } as const)),
+    ).toEqual([0, 1]);
+  });
+
+  it('preserves string and numeric members of a real mixed Zod 4 native enum', () => {
+    expect(
+      extractEnumValues(
+        z.nativeEnum({ 3: 'Orange', Apple: 'apple', Banana: 'banana', Orange: 3 } as const),
+      ),
+    ).toEqual(['apple', 'banana', 3]);
   });
 
   it('should throw when schema is missing _def', () => {

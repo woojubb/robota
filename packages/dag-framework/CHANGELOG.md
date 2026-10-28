@@ -1,5 +1,27 @@
 # @robota-sdk/dag-framework
 
+## 1.0.0-beta.27
+### Patch Changes
+
+- Updated dependencies [6f41c53]
+  - @robota-sdk/agent-core@3.0.0-beta.103
+  - @robota-sdk/dag-core@3.0.0-beta.63
+  - @robota-sdk/dag-node@3.0.0-beta.63
+  - @robota-sdk/dag-worker@3.0.0-beta.84
+  - @robota-sdk/dag-adapters-local@3.0.0-beta.63
+  - @robota-sdk/dag-api@3.0.0-beta.63
+  - @robota-sdk/dag-builder@0.1.0-beta.3
+  - @robota-sdk/dag-cost@3.0.0-beta.63
+  - @robota-sdk/dag-orchestration-client@3.0.0-beta.63
+  - @robota-sdk/dag-projection@3.0.0-beta.63
+  - @robota-sdk/dag-runtime@3.0.0-beta.63
+
+## 1.0.0-beta.26
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.102
+  - @robota-sdk/dag-worker@3.0.0-beta.83
+
 ## 1.0.0-beta.25
 ### Patch Changes
 

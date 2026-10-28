@@ -15,7 +15,7 @@ const UniversalValueSchema: z.ZodType<TUniversalValue> = z.lazy(() =>
     z.undefined(),
     z.date(),
     z.array(UniversalValueSchema),
-    z.record(UniversalValueSchema),
+    z.record(z.string(), UniversalValueSchema),
   ]),
 );
 
@@ -30,7 +30,7 @@ const ProviderSchema = z.object({
   apiKeyRef: CredentialReferenceSchema.optional(),
   baseURL: z.string().optional(),
   timeout: z.number().optional(),
-  options: z.record(UniversalValueSchema).optional(),
+  options: z.record(z.string(), UniversalValueSchema).optional(),
 });
 
 const ProviderProfileSchema = z.object({
@@ -40,7 +40,7 @@ const ProviderProfileSchema = z.object({
   apiKeyRef: CredentialReferenceSchema.optional(),
   baseURL: z.string().optional(),
   timeout: z.number().optional(),
-  options: z.record(UniversalValueSchema).optional(),
+  options: z.record(z.string(), UniversalValueSchema).optional(),
 });
 
 const PermissionsSchema = z.object({
@@ -52,7 +52,7 @@ const PermissionsSchema = z.object({
   ask: z.array(z.string()).optional(),
 });
 
-const EnvSchema = z.record(z.string()).optional();
+const EnvSchema = z.record(z.string(), z.string()).optional();
 
 /** Command hook definition */
 const CommandHookDefinitionSchema = z.object({
@@ -65,7 +65,7 @@ const CommandHookDefinitionSchema = z.object({
 const HttpHookDefinitionSchema = z.object({
   type: z.literal('http'),
   url: z.string(),
-  headers: z.record(z.string()).optional(),
+  headers: z.record(z.string(), z.string()).optional(),
   timeout: z.number().optional(),
 });
 
@@ -140,7 +140,7 @@ export const HooksSchema = z
   .optional();
 
 /** Plugin enablement map: plugin name -> enabled flag */
-const EnabledPluginsSchema = z.record(z.boolean()).optional();
+const EnabledPluginsSchema = z.record(z.string(), z.boolean()).optional();
 
 /** Extra marketplace sources: name -> { source: TMarketplaceSource } */
 const MarketplaceSourceSchema = z.object({
@@ -152,12 +152,15 @@ const MarketplaceSourceSchema = z.object({
     ref: z.string().optional(),
   }),
 });
-const ExtraKnownMarketplacesSchema = z.record(MarketplaceSourceSchema).optional().catch(undefined);
+const ExtraKnownMarketplacesSchema = z
+  .record(z.string(), MarketplaceSourceSchema)
+  .optional()
+  .catch(undefined);
 const AutoCompactThresholdSchema = z.union([z.number().gt(0).lte(1), z.literal(false)]).optional();
 
 const TransportSettingsSchema = z.object({
   enabled: z.boolean().optional(),
-  options: z.record(UniversalValueSchema).optional(),
+  options: z.record(z.string(), UniversalValueSchema).optional(),
 });
 
 const SandboxSettingsSchema = z.object({
@@ -187,7 +190,7 @@ export const SettingsSchema = z.object({
   /** Active provider profile key from providers. */
   currentProvider: z.string().optional(),
   /** Provider profiles keyed by user-facing profile name. */
-  providers: z.record(ProviderProfileSchema).optional(),
+  providers: z.record(z.string(), ProviderProfileSchema).optional(),
   /** Legacy single-provider settings. Prefer currentProvider + providers for new config. */
   provider: ProviderSchema.optional(),
   permissions: PermissionsSchema.optional(),
@@ -211,7 +214,7 @@ export const SettingsSchema = z.object({
   /** Auto-compact threshold as a 0-1 fraction. Set false to disable automatic compaction. */
   autoCompactThreshold: AutoCompactThresholdSchema,
   /** Transport enable/disable + options: transport name -> config */
-  transports: z.record(TransportSettingsSchema).optional(),
+  transports: z.record(z.string(), TransportSettingsSchema).optional(),
   /** OS-level confinement of shell commands (bubblewrap on Linux, Seatbelt on macOS). */
   sandbox: SandboxSettingsSchema.optional(),
   /** NEUT-004: host-selected active-task context root and optional enablement. */

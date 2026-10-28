@@ -10,9 +10,9 @@
 #   pnpm publish:beta --dry-run           # build, check, pack and verify; publish nothing
 #   publish-packages.sh --trusted         # from .github/workflows/publish.yml: npm trusted publishing
 #
-# Publishing is the standard Changesets flow: `changeset publish` runs `pnpm publish` for each public
-# package whose version is not on npm yet, so a retry only publishes what is still missing. Packages are
-# published under `latest` only: trusted publishing cannot move dist-tags, so there is no `beta` tag.
+# The exact tarballs inspected below are the tarballs sent to npm. A retry skips versions already present,
+# then publishes only the missing tarballs. Packages are published under `latest` only: trusted publishing
+# cannot move dist-tags, so there is no `beta` tag.
 # A package's first publish cannot be trusted (npm configures trust only for an existing package); it
 # goes through the local OTP path.
 #
@@ -33,6 +33,9 @@ if [[ "$REGISTRY" != https://* ]]; then
   exit 1
 fi
 export npm_config_registry="$REGISTRY"
+export npm_config_fetch_timeout=60000
+export npm_config_fetch_retries=1
+export npm_config_fetch_retry_maxtimeout=10000
 if [ -n "${PROJECT_PACKAGE_ACCESS:-}" ]; then
   case "$PROJECT_PACKAGE_ACCESS" in public|restricted) export npm_config_access="$PROJECT_PACKAGE_ACCESS" ;; *)
     echo "❌ PROJECT_PACKAGE_ACCESS must be public or restricted." >&2
@@ -86,6 +89,8 @@ while IFS=$'\t' read -r NAME DIR; do
   PACKAGES+=("$NAME")
   PACKAGE_DIRS+=("$DIR")
 done < <(
+  # The JavaScript reads shell values through process.env.
+  # shellcheck disable=SC2016
   pnpm -r --depth -1 --json list | RELEASE_VERSION="$VERSION" PRODUCT_PACKAGE_SCOPE="$PACKAGE_SCOPE" node -e '
 let input = "";
 process.stdin.on("data", (chunk) => (input += chunk));
@@ -139,126 +144,80 @@ else
   echo "✓ npm user: $NPM_USER"
 fi
 
-echo "🚀 Publishing..."
-# Changesets rejects an explicit latest tag while it can see prerelease state.
-PRE_STATE="$ROOT_DIR/.changeset/pre.json"
-PRE_STATE_LOCK="$ROOT_DIR/.changeset/.publish-prestate-lock"
-PRE_STATE_PRESENT="false"
-if [ -e "$PRE_STATE" ] || [ -L "$PRE_STATE" ]; then
-  if [ ! -f "$PRE_STATE" ] || [ -L "$PRE_STATE" ]; then
-    echo "❌ Changesets prerelease state must be a regular file." >&2
-    exit 1
-  fi
-  PRE_STATE_PRESENT="true"
-fi
-if ! mkdir "$PRE_STATE_LOCK"; then
-  echo "❌ Another publication owns the Changesets prerelease state; inspect $PRE_STATE_LOCK before retrying." >&2
-  exit 1
-fi
-
-restore_pre_state() {
-  trap - EXIT HUP INT TERM
-  if [ "$PRE_STATE_PRESENT" = "true" ]; then
-    if [ -f "$PRE_STATE_LOCK/pre.json" ]; then
-      if [ -e "$PRE_STATE" ] || [ -L "$PRE_STATE" ]; then
-        echo "❌ Changesets prerelease state reappeared during publication; original preserved in $PRE_STATE_LOCK." >&2
-        return 1
-      fi
-      if ! mv "$PRE_STATE_LOCK/pre.json" "$PRE_STATE"; then
-        echo "❌ Could not restore Changesets prerelease state from $PRE_STATE_LOCK." >&2
-        return 1
-      fi
-    elif [ ! -f "$PRE_STATE" ]; then
-      echo "❌ Changesets prerelease state is missing; inspect $PRE_STATE_LOCK." >&2
-      return 1
-    fi
-  elif [ -e "$PRE_STATE" ] || [ -L "$PRE_STATE" ]; then
-    echo "❌ Changesets prerelease state appeared during publication; inspect $PRE_STATE_LOCK." >&2
-    return 1
-  fi
-  if ! rmdir "$PRE_STATE_LOCK"; then
-    echo "❌ Could not remove the Changesets publication lock at $PRE_STATE_LOCK." >&2
-    return 1
-  fi
-}
-
-PUBLISH_PID=""
-finish_signal() {
-  local status="$1"
-  trap '' HUP INT TERM
-  if [ -n "$PUBLISH_PID" ]; then
-    wait "$PUBLISH_PID" || true
-  else
-    local child
-    for child in $(jobs -pr); do
-      wait "$child" || true
-    done
-  fi
-  exit "$status"
-}
-
-trap 'status=$?; restore_pre_state || exit 1; exit "$status"' EXIT
-trap 'finish_signal 129' HUP
-trap 'finish_signal 130' INT
-trap 'finish_signal 143' TERM
-if [ "$PRE_STATE_PRESENT" = "true" ]; then
-  mv "$PRE_STATE" "$PRE_STATE_LOCK/pre.json"
-fi
-
-# npm requires a one-time password for every publish. `changeset publish` can only notice that from npm's
-# `--json` error object, which pnpm's failure output does not carry, so an interactive publish asks for the
-# code here, right before the publishes run, and asks again when npm rejects an expired one; versions that
-# already reached the registry are skipped on the retry. An explicit --otp is used once and never asked for.
+echo "🚀 Publishing the reviewed tarballs..."
+# npm requires a one-time password for every local publish. An interactive run asks immediately before
+# the next missing tarball and retries that tarball with a fresh code when npm rejects an expired one.
+# Trusted publishing uses the workflow's OIDC identity and never prompts.
 PROMPT_OTP="false"
 if [ "$TRUSTED" != "true" ] && [ -z "$OTP" ] && [ -t 0 ]; then
   PROMPT_OTP="true"
 fi
 OTP_ATTEMPTS=4
 PUBLISH_OUTPUT=$(mktemp "${TMPDIR:-/tmp}/package-publish.XXXXXX")
-PUBLISH_ATTEMPT=1
-PUBLISH_STATUS=0
-while :; do
-  if [ "$PROMPT_OTP" = "true" ]; then
-    OTP=""
-    while [ -z "$OTP" ]; do
-      IFS= read -r -s -p "🔑 npm one-time password (attempt $PUBLISH_ATTEMPT of $OTP_ATTEMPTS): " OTP
-      printf '\n' >&2
-    done
+trap 'rm -f "$PUBLISH_OUTPUT"' EXIT HUP INT TERM
+for TARBALL in "$PACK_DIR"/*.tgz; do
+  MANIFEST=$(tar -xzOf "$TARBALL" package/package.json)
+  NAME=$(printf '%s' "$MANIFEST" | node -pe 'JSON.parse(require("fs").readFileSync(0, "utf8")).name')
+  TARBALL_VERSION=$(printf '%s' "$MANIFEST" | node -pe 'JSON.parse(require("fs").readFileSync(0, "utf8")).version')
+  if npm view "$NAME@$TARBALL_VERSION" version --prefer-online --registry "$REGISTRY" >/dev/null 2>&1; then
+    echo "   ✓ $NAME@$TARBALL_VERSION already exists — skip"
+    continue
   fi
-  PUBLISH_ARGS=(publish --no-git-tag --tag latest)
-  if [ -n "$OTP" ]; then
-    PUBLISH_ARGS+=(--otp="$OTP")
-  fi
-  # The background pipeline keeps pnpm a direct child of this script for the signal traps; `wait` on it
-  # returns the pipeline's status under pipefail.
-  : > "$PUBLISH_OUTPUT"
-  pnpm changeset "${PUBLISH_ARGS[@]}" <&0 2>&1 | tee "$PUBLISH_OUTPUT" &
-  PUBLISH_PID=$!
-  PUBLISH_STATUS=0
-  wait "$PUBLISH_PID" || PUBLISH_STATUS=$?
-  PUBLISH_PID=""
-  if [ "$PUBLISH_STATUS" -eq 0 ] || [ "$PROMPT_OTP" != "true" ] || [ "$PUBLISH_ATTEMPT" -ge "$OTP_ATTEMPTS" ] \
-    || ! grep -q EOTP "$PUBLISH_OUTPUT"; then
-    break
-  fi
-  echo "⚠️  npm rejected the one-time password (expired or mistyped); published versions stay, the rest retry with a fresh code."
-  PUBLISH_ATTEMPT=$((PUBLISH_ATTEMPT + 1))
+  PUBLISH_ATTEMPT=1
+  while :; do
+    if [ "$PROMPT_OTP" = "true" ]; then
+      OTP=""
+      while [ -z "$OTP" ]; do
+        IFS= read -r -s -p "🔑 npm one-time password for $NAME (attempt $PUBLISH_ATTEMPT of $OTP_ATTEMPTS): " OTP
+        printf '\n' >&2
+      done
+    fi
+    PUBLISH_ARGS=(publish "$TARBALL" --tag latest --registry "$REGISTRY")
+    if [ -n "${PROJECT_PACKAGE_ACCESS:-}" ]; then
+      PUBLISH_ARGS+=(--access "$PROJECT_PACKAGE_ACCESS")
+    fi
+    if [ -n "$OTP" ]; then
+      PUBLISH_ARGS+=(--otp="$OTP")
+    fi
+    : > "$PUBLISH_OUTPUT"
+    PUBLISH_STATUS=0
+    npm "${PUBLISH_ARGS[@]}" 2>&1 | tee "$PUBLISH_OUTPUT" || PUBLISH_STATUS=$?
+    if [ "$PUBLISH_STATUS" -eq 0 ]; then
+      break
+    fi
+    if [ "$PROMPT_OTP" != "true" ] || [ "$PUBLISH_ATTEMPT" -ge "$OTP_ATTEMPTS" ] \
+      || ! grep -q EOTP "$PUBLISH_OUTPUT"; then
+      exit "$PUBLISH_STATUS"
+    fi
+    echo "⚠️  npm rejected the one-time password; retrying this unpublished tarball with a fresh code."
+    PUBLISH_ATTEMPT=$((PUBLISH_ATTEMPT + 1))
+  done
 done
 rm -f "$PUBLISH_OUTPUT"
-if [ "$PUBLISH_STATUS" -ne 0 ]; then
-  exit "$PUBLISH_STATUS"
-fi
-restore_pre_state
+trap - EXIT HUP INT TERM
 
-# The registry's replicas take minutes to agree after a publish, so a stale `latest` right after
-# `changeset publish` is not a failure yet: ask again, uncached, for up to 15 minutes.
+# The registry's replicas take time to agree after a publish. Check pending packages concurrently every
+# ten seconds for up to three minutes instead of serially waiting between observations.
 echo "🔎 Verifying..."
 PENDING=("${PACKAGES[@]}")
-for ATTEMPT in $(seq 1 15); do
+VERIFY_DIR=$(mktemp -d "${TMPDIR:-/tmp}/package-verify.XXXXXX")
+trap 'rm -rf "$VERIFY_DIR"' EXIT HUP INT TERM
+for ATTEMPT in $(seq 1 18); do
   STALE=()
   SEEN=()
+  INDEX=0
   for NAME in "${PENDING[@]}"; do
-    LATEST=$(npm view "$NAME" dist-tags.latest --prefer-online --registry "$REGISTRY" 2>/dev/null || true)
+    INDEX=$((INDEX + 1))
+    (
+      LATEST=$(npm view "$NAME" dist-tags.latest --prefer-online --registry "$REGISTRY" 2>/dev/null || true)
+      printf '%s\t%s\n' "$NAME" "$LATEST" > "$VERIFY_DIR/$INDEX"
+    ) &
+    if [ $((INDEX % 12)) -eq 0 ]; then wait; fi
+  done
+  wait
+  for RESULT in "$VERIFY_DIR"/*; do
+    IFS=$'\t' read -r NAME LATEST < "$RESULT"
+    rm -f "$RESULT"
     if [ "$LATEST" != "$VERSION" ]; then
       STALE+=("$NAME")
       SEEN+=("$NAME latest=${LATEST:-<no answer>}")
@@ -266,14 +225,16 @@ for ATTEMPT in $(seq 1 15); do
   done
   [ "${#STALE[@]}" -eq 0 ] && break
   PENDING=("${STALE[@]}")
-  if [ "$ATTEMPT" -eq 15 ]; then
-    echo "❌ latest is not $VERSION after 15 minutes:"
+  if [ "$ATTEMPT" -eq 18 ]; then
+    echo "❌ latest is not $VERSION after three minutes:"
     printf '   %s\n' "${SEEN[@]}"
     exit 1
   fi
-  echo "   ${#PENDING[@]} package(s) not yet showing $VERSION; checking again in 60s"
-  sleep 60
+  echo "   ${#PENDING[@]} package(s) not yet showing $VERSION; checking again in 10s"
+  sleep 10
 done
+rm -rf "$VERIFY_DIR"
+trap - EXIT HUP INT TERM
 
 if [ -n "${RELEASE_INTEGRITY_MANIFEST:-}" ]; then
   echo "🔐 Binding registry tarballs to the reviewed release source..."

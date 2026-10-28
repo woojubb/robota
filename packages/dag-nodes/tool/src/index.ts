@@ -14,7 +14,11 @@ import { z } from 'zod';
 
 import { resolveContainmentRoot } from './containment.js';
 import { TOOL_FACTORIES, TOOL_NODE_ALLOWED_TOOLS, type FunctionTool } from './tool-factories.js';
-import { GrepIsolationError, ReadByteLimitError, ReadCancelledError } from '@robota-sdk/agent-tools';
+import {
+  GrepIsolationError,
+  ReadByteLimitError,
+  ReadCancelledError,
+} from '@robota-sdk/agent-tools';
 
 export { TOOL_NODE_ALLOWED_TOOLS } from './tool-factories.js';
 
@@ -22,7 +26,7 @@ export const ToolNodeConfigSchema = z.object({
   /** Which in-process agent-tools builtin to run (see TOOL_NODE_ALLOWED_TOOLS). */
   toolName: z.string().min(1),
   /** Static tool arguments; the `params` input port is merged over these (input wins). */
-  params: z.record(z.unknown()).default({}),
+  params: z.record(z.string(), z.unknown()).default({}),
   /**
    * NARROWS the containment root. Omitted, the root is the directory the run was invoked from; set,
    * it must resolve INSIDE that directory or the node refuses to run (SEC-007). It cannot widen the
@@ -170,12 +174,9 @@ async function runBuiltin(
     if (err instanceof ReadCancelledError) {
       return {
         ok: false,
-        error: buildTaskExecutionError(
-          'DAG_TASK_EXECUTION_CANCELLED',
-          err.message,
-          false,
-          { toolName },
-        ),
+        error: buildTaskExecutionError('DAG_TASK_EXECUTION_CANCELLED', err.message, false, {
+          toolName,
+        }),
       };
     }
     // allow-fallback: a thrown ValidationError/ToolExecutionError is a hard node failure

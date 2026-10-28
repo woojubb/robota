@@ -11,7 +11,7 @@ import { z } from 'zod';
 
 const MultiInputConfigSchema = z.object({
   ports: z.array(z.string()).default([]),
-  values: z.record(z.string()).default({}),
+  values: z.record(z.string(), z.string()).default({}),
 });
 
 /**

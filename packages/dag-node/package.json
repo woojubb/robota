@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node",
-  "version": "3.0.0-beta.62",
+  "version": "3.0.0-beta.63",
   "private": true,
   "description": "AbstractNodeDefinition base class for Robota DAG workflow nodes",
   "type": "module",
@@ -50,8 +50,7 @@
   ],
   "dependencies": {
     "@robota-sdk/dag-core": "workspace:*",
-    "zod": "^3.24.4",
-    "zod-to-json-schema": "^3.24.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "eslint": "^8.56.0",

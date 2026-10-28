@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-mcp",
-  "version": "3.0.0-beta.101",
+  "version": "3.0.0-beta.103",
   "description": "MCP client for the Robota SDK: server definitions, activation, connections, tool catalog and OAuth sign-in",
   "type": "module",
   "main": "dist/node/index.js",
@@ -57,13 +57,13 @@
     "@robota-sdk/agent-core": "workspace:*"
   },
   "dependencies": {
-    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/client": "^2.3.0",
     "@modelcontextprotocol/core": "^2.0.0"
   },
   "devDependencies": {
-    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/node": "^2.1.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@modelcontextprotocol/server": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.3.0",
     "@robota-sdk/agent-core": "workspace:*",
     "@types/node": "^20.10.0",
     "rimraf": "^5.0.10",

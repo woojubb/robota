@@ -4,9 +4,9 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { describe, expect, it, vi } from 'vitest';
 import { hostedWorkerCliFixture } from './helpers/hosted-worker-cli.js';
-import { scriptedHostedBroker } from './helpers/hosted-scripted-broker.js';
-
-const quote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`;
+const TIMEOUT_PROBE_MS = 3_000;
+const STARTUP_MARGIN_MS = 2_000;
+const SETTLEMENT_MARGIN_MS = 1_000;
 
 describe('hosted worker fixture cleanup', () => {
   it.each(['close', 'timeout'] as const)(
@@ -14,7 +14,7 @@ describe('hosted worker fixture cleanup', () => {
     async (cause) => {
       const fixture = await hostedWorkerCliFixture(
         {},
-        cause === 'timeout' ? { runTimeoutMs: 45000 } : {},
+        cause === 'timeout' ? { runTimeoutMs: TIMEOUT_PROBE_MS } : {},
       );
       const abort = new AbortController();
       const observation = mkdtempSync(join(tmpdir(), 'hosted-cleanup-observation-'));
@@ -26,37 +26,15 @@ describe('hosted worker fixture cleanup', () => {
       try {
         writeFileSync(
           program,
-          `import {writeFileSync} from 'node:fs'; const path = ${JSON.stringify(marker)}; writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); writeFileSync(path, String(Date.now())); const timer = setInterval(() => writeFileSync(path, String(Date.now())), 50); setTimeout(() => clearInterval(timer), 60000);`,
+          `import {writeFileSync} from 'node:fs'; const path = ${JSON.stringify(marker)}; writeFileSync(${JSON.stringify(pidFile)}, String(process.pid)); writeFileSync(path, String(Date.now())); const timer = setInterval(() => writeFileSync(path, String(Date.now())), 50); setTimeout(() => clearInterval(timer), 30000);`,
         );
-        scriptedHostedBroker(fixture.f, (_body, index) =>
-          index === 0
-            ? {
-                tool: {
-                  name: 'Bash',
-                  arguments: JSON.stringify({
-                    command: `${quote(process.execPath)} ${quote(program)}`,
-                    timeout: 65000,
-                  }),
-                },
-              }
-            : { content: 'normal completion' },
+        running = fixture.runFixtureProcess(program, abort.signal).then(
+          (result) => ({ result }),
+          (error: unknown) => ({ error }),
         );
-        running = fixture
-          .run(
-            [
-              '-p',
-              'Run cleanup probe',
-              '--permission-mode',
-              'bypassPermissions',
-              '--no-session-persistence',
-            ],
-            abort.signal,
-          )
-          .then(
-            (result) => ({ result }),
-            (error: unknown) => ({ error }),
-          );
-        await vi.waitFor(() => expect(existsSync(marker)).toBe(true), { timeout: 40000 });
+        await vi.waitFor(() => expect(existsSync(marker)).toBe(true), {
+          timeout: STARTUP_MARGIN_MS,
+        });
         if (cause === 'close') {
           await fixture.close();
           closed = true;
@@ -64,7 +42,10 @@ describe('hosted worker fixture cleanup', () => {
         const outcome = await Promise.race([
           running,
           new Promise((resolve) =>
-            setTimeout(() => resolve('still running'), cause === 'timeout' ? 46000 : 1500),
+            setTimeout(
+              () => resolve('still running'),
+              cause === 'timeout' ? TIMEOUT_PROBE_MS + SETTLEMENT_MARGIN_MS : 1_500,
+            ),
           ),
         ]);
         expect(outcome).not.toBe('still running');
@@ -87,6 +68,6 @@ describe('hosted worker fixture cleanup', () => {
         rmSync(observation, { recursive: true, force: true });
       }
     },
-    75000,
+    6_000,
   );
 });

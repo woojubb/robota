@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-nodes-default",
-  "version": "0.1.0-beta.22",
+  "version": "0.1.0-beta.24",
   "private": true,
   "description": "Default DAG node catalog — composition aggregator for the built-in node set (entry-point-only)",
   "type": "module",
@@ -83,7 +83,7 @@
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
     "@google/genai": "^1.52.0",
-    "openai": "^4.104.0"
+    "openai": "^6.0.0"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {

@@ -1,5 +1,21 @@
 # @robota-sdk/dag-runtime-server
 
+## 3.0.0-beta.27
+### Patch Changes
+
+- Updated dependencies [6f41c53]
+  - @robota-sdk/dag-core@3.0.0-beta.63
+  - @robota-sdk/dag-framework@1.0.0-beta.27
+  - @robota-sdk/dag-api@3.0.0-beta.63
+  - @robota-sdk/dag-builder@0.1.0-beta.3
+  - @robota-sdk/dag-cost@3.0.0-beta.63
+  - @robota-sdk/dag-orchestration-client@3.0.0-beta.63
+
+## 3.0.0-beta.26
+### Patch Changes
+
+  - @robota-sdk/dag-framework@1.0.0-beta.26
+
 ## 3.0.0-beta.25
 ### Patch Changes
 

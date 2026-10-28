@@ -65,7 +65,7 @@ const processRecord = z.object({
   ppid: z.number(),
   ipc: z.boolean(),
   cwd: z.string(),
-  environment: z.record(z.string()),
+  environment: z.record(z.string(), z.string()),
 });
 
 it('accounts a public child process and its parent under the inherited hosted model grant', async () => {

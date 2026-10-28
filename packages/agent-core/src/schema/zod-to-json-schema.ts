@@ -14,6 +14,8 @@
 
 import {
   isRequiredField,
+  normalizeEnumValues,
+  normalizedTypeName,
   requireDef,
   literalKind,
   resolveAdditionalProperties,
@@ -44,7 +46,7 @@ export function zodToJsonSchema(
   const objectDef = unwrapToObjectDef(schemaDef);
   if (!objectDef) {
     throw new Error(
-      `Zod schema root must be an object; got ${String(schemaDef.typeName)}. ` +
+      `Zod schema root must be an object; got ${String(normalizedTypeName(schemaDef))}. ` +
         'Wrap the fields in z.object({ … }) before converting.',
     );
   }
@@ -73,7 +75,14 @@ function convertObjectShape(
     }
   }
 
-  const additionalProperties = resolveAdditionalProperties(objectDef, allowAdditionalProperties);
+  const resolvedAdditionalProperties = resolveAdditionalProperties(
+    objectDef,
+    allowAdditionalProperties,
+  );
+  const additionalProperties =
+    typeof resolvedAdditionalProperties === 'object'
+      ? convertZodTypeToProperty(resolvedAdditionalProperties, allowAdditionalProperties)
+      : resolvedAdditionalProperties;
   return {
     type: 'object',
     properties,
@@ -90,13 +99,14 @@ function convertZodTypeToProperty(
   allowAdditionalProperties?: boolean,
 ): IParameterSchema {
   const typeDef = requireDef(typeObj, 'Zod type');
+  const typeName = normalizedTypeName(typeDef);
 
   const base: Partial<IParameterSchema> = {};
-  if (typeDef.description) {
-    base.description = typeDef.description;
+  if (typeDef.description ?? typeObj.description) {
+    base.description = typeDef.description ?? typeObj.description;
   }
 
-  switch (typeDef.typeName) {
+  switch (typeName) {
     case 'ZodString':
       return { type: 'string', ...base };
 
@@ -107,12 +117,13 @@ function convertZodTypeToProperty(
       return { type: 'boolean', ...base };
 
     case 'ZodArray': {
-      if (!typeDef.type) {
+      const item = typeDef.element ?? (typeof typeDef.type === 'object' ? typeDef.type : undefined);
+      if (!item) {
         throw new Error('ZodArray is missing item type; cannot convert to JSON schema.');
       }
       return {
         type: 'array',
-        items: convertZodTypeToProperty(typeDef.type, allowAdditionalProperties),
+        items: convertZodTypeToProperty(item, allowAdditionalProperties),
         ...base,
       };
     }
@@ -122,11 +133,11 @@ function convertZodTypeToProperty(
       return { ...convertObjectShape(typeDef, allowAdditionalProperties), ...base };
 
     case 'ZodEnum': {
-      const enumValues = typeDef.values;
-      if (!enumValues || !Array.isArray(enumValues)) {
+      const enumValues = typeDef.values ?? typeDef.entries;
+      if (!enumValues) {
         throw new Error('ZodEnum is missing enum values; cannot convert to JSON schema.');
       }
-      return { type: 'string', enum: enumValues as TJSONSchemaEnum, ...base };
+      return { ...convertNativeEnum(enumValues), ...base };
     }
 
     case 'ZodNativeEnum': {
@@ -141,15 +152,16 @@ function convertZodTypeToProperty(
       return { type: 'string', format: 'date-time', ...base };
 
     case 'ZodLiteral':
-      return { ...convertLiteral(typeDef.value), ...base };
+      return {
+        ...convertLiteralValues(Array.isArray(typeDef.values) ? typeDef.values : [typeDef.value]),
+        ...base,
+      };
 
     case 'ZodUnion':
     case 'ZodDiscriminatedUnion': {
       const members = typeDef.options;
       if (!members || !Array.isArray(members) || members.length === 0) {
-        throw new Error(
-          `${String(typeDef.typeName)} is missing options; cannot convert to JSON schema.`,
-        );
+        throw new Error(`${String(typeName)} is missing options; cannot convert to JSON schema.`);
       }
       // A union node carries `anyOf` INSTEAD of `type` — emitting both is invalid JSON Schema.
       return {
@@ -163,6 +175,13 @@ function convertZodTypeToProperty(
         throw new Error('ZodEffects is missing schema; cannot convert to JSON schema.');
       }
       return { ...convertZodTypeToProperty(typeDef.schema, allowAdditionalProperties), ...base };
+    }
+
+    case 'ZodPipe': {
+      if (!typeDef.in) {
+        throw new Error('ZodPipe is missing input schema; cannot convert to JSON schema.');
+      }
+      return { ...convertZodTypeToProperty(typeDef.in, allowAdditionalProperties), ...base };
     }
 
     case 'ZodNullable': {
@@ -184,9 +203,7 @@ function convertZodTypeToProperty(
     case 'ZodOptional':
     case 'ZodDefault': {
       if (!typeDef.innerType) {
-        throw new Error(
-          `${String(typeDef.typeName)} is missing innerType; cannot convert to JSON schema.`,
-        );
+        throw new Error(`${String(typeName)} is missing innerType; cannot convert to JSON schema.`);
       }
       return { ...convertZodTypeToProperty(typeDef.innerType, allowAdditionalProperties), ...base };
     }
@@ -205,8 +222,21 @@ function convertZodTypeToProperty(
       return { type: 'object', additionalProperties: { type: 'string' }, ...base };
 
     default:
-      throw new Error(unsupportedConstructMessage(String(typeDef.typeName)));
+      throw new Error(unsupportedConstructMessage(String(typeName)));
   }
+}
+
+function convertLiteralValues(values: Array<TUniversalValue | undefined>): IParameterSchema {
+  if (values.length === 0) {
+    throw new Error('ZodLiteral declares no values; cannot convert to JSON schema.');
+  }
+  const kinds = new Set(values.map(literalKind));
+  if (kinds.size !== 1) {
+    return { anyOf: values.map((value) => convertLiteral(value)) };
+  }
+  const kind = literalKind(values[0]);
+  if (!kind) return convertLiteral(values[0]);
+  return kind === 'null' ? { type: 'null' } : { type: kind, enum: values as TJSONSchemaEnum };
 }
 
 /** A literal is a one-value enum of its own primitive type. */
@@ -235,11 +265,19 @@ function convertNativeEnum(values: IZodSchemaDef['values']): IParameterSchema {
   if (!values || typeof values !== 'object') {
     throw new Error('ZodNativeEnum is missing enum values; cannot convert to JSON schema.');
   }
-  const all = Array.isArray(values) ? values : Object.values(values);
-  const numeric = all.filter((entry): entry is number => typeof entry === 'number');
-  const members = numeric.length > 0 ? numeric : all;
+  const members = normalizeEnumValues(values);
   if (members.length === 0) {
     throw new Error('ZodNativeEnum declares no members; cannot convert to JSON schema.');
+  }
+  const numeric = members.filter((entry): entry is number => typeof entry === 'number');
+  const strings = members.filter((entry): entry is string => typeof entry === 'string');
+  if (numeric.length > 0 && strings.length > 0) {
+    return {
+      anyOf: [
+        { type: 'string', enum: strings },
+        { type: 'number', enum: numeric },
+      ],
+    };
   }
   return {
     type: numeric.length > 0 ? 'number' : 'string',

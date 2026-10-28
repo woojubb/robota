@@ -33,6 +33,9 @@ concurrency:
 jobs:
   scope:
     if: github.event_name == 'pull_request'
+    permissions:
+      checks: read
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -49,11 +52,17 @@ jobs:
         env:
           CI_EVENT: ${{ github.event_name }}
           CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_REF: ${{ github.head_ref }}
+          CI_BASE_REF: ${{ github.base_ref }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CI_REPOSITORY: ${{ github.repository }}
+          CI_API_URL: ${{ github.api_url }}
+          CI_TOKEN: ${{ github.token }}
   build-bun:
     name: Build Bun / ${{ matrix.product }} / ${{ matrix.target }}
     needs: scope
-    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || fromJSON(needs.scope.outputs.plan).developerDocs != true) }}
-    timeout-minutes: ${{ github.event_name == 'pull_request' && 30 || 360 }}
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || (fromJSON(needs.scope.outputs.plan).developerDocs != true && fromJSON(needs.scope.outputs.plan).releaseMetadata != true)) }}
+    timeout-minutes: ${{ github.event_name == 'pull_request' && 30 || 40 }}
     env:
       PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
     outputs:
@@ -71,7 +80,7 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
-        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
+        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 10 }}
         with:
           fetch-depth: 0
           ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.inputs.tag || github.ref_name }}
@@ -110,25 +119,25 @@ jobs:
           sparse-checkout: scripts/release
 
       - name: Install pnpm
-        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
+        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 10 }}
         uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
           run_install: false
 
       - name: Setup Node.js
-        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
+        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 10 }}
         uses: actions/setup-node@v6
         with:
           node-version: 22.14.0
           cache: 'pnpm'
 
       - name: Install dependencies
-        timeout-minutes: ${{ github.event_name == 'pull_request' && 10 || 360 }}
+        timeout-minutes: 10
         run: ${{ github.event_name == 'pull_request' && 'pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .' || 'pnpm install --frozen-lockfile' }}
 
       - name: Generate selected product workspace
-        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
+        timeout-minutes: 10
         id: product
         shell: bash
         env:
@@ -150,18 +159,18 @@ jobs:
             exit 1
           fi
       - name: Build workspace
-        timeout-minutes: ${{ github.event_name == 'pull_request' && 10 || 360 }}
+        timeout-minutes: 10
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
         run: ${{ github.event_name == 'pull_request' && 'pnpm install --frozen-lockfile && pnpm -r --filter "{packages/agent-cli}..." --filter "{apps/agent-app}^..." run build' || 'pnpm install --frozen-lockfile && pnpm build' }}
 
       - name: Setup Bun
-        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
+        timeout-minutes: 10
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.4.2
 
       - name: Compile the exact native target
-        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
+        timeout-minutes: 10
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
         shell: bash
         run: bun packages/agent-cli/scripts/build-bun.mjs "${{ matrix.target }}"
@@ -189,7 +198,7 @@ jobs:
           node "$GITHUB_WORKSPACE/.release-tools/scripts/release/macos-signing.mjs" notarize-cli "$BINARY"
 
       - name: Execute the exact signed native target
-        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
+        timeout-minutes: 10
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
         shell: bash
         run: |
@@ -204,7 +213,7 @@ jobs:
           node packages/agent-cli/scripts/e2e-native-file-authority.mjs "$binary"
 
       - name: Package and exercise the unsigned desktop product
-        timeout-minutes: ${{ github.event_name == 'pull_request' && 10 || 360 }}
+        timeout-minutes: 10
         if: github.event_name == 'pull_request'
         shell: bash
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
@@ -218,7 +227,7 @@ jobs:
           pnpm --filter './packages/agent-cli' test:bun
 
       - name: Upload exactly one native binary
-        timeout-minutes: ${{ github.event_name == 'pull_request' && 5 || 360 }}
+        timeout-minutes: 10
         uses: actions/upload-artifact@v7
         with:
           name: bun-binary-${{ matrix.target }}-${{ matrix.product }}-${{ github.run_id }}
@@ -250,6 +259,7 @@ jobs:
       PROJECT_RELEASE_TAG_PREFIX: ${{ needs.build-bun.outputs.tag_prefix }}
       PROJECT_REPOSITORY_URL: ${{ needs.build-bun.outputs.repository_url }}
     runs-on: ubuntu-24.04
+    timeout-minutes: 10
     permissions:
       contents: write
     steps:
@@ -365,7 +375,14 @@ jobs:
           NOTES: ${{ runner.temp }}/release-notes.md
         run: |
           set -euo pipefail
-          gh release view "$TAG" >/dev/null 2>&1 || gh release create "$TAG" --title "$TAG" --notes-file "$NOTES"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$TAG" --notes-file "$NOTES"
+          else
+            gh release create "$TAG" --title "$TAG" --notes-file "$NOTES" || {
+              gh release view "$TAG" >/dev/null
+              gh release edit "$TAG" --title "$TAG" --notes-file "$NOTES"
+            }
+          fi
           gh release upload "$TAG" \
             .release-assets/${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64 \
             .release-assets/${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-x64 \
@@ -421,7 +438,7 @@ jobs:
     needs: [build-bun, publish-bun]
     if: ${{ !cancelled() && github.event_name != 'pull_request' && needs['publish-bun'].result == 'success' }}
     runs-on: ubuntu-24.04
-    timeout-minutes: 30
+    timeout-minutes: 10
     concurrency:
       group: devcontainer-feature-woojubb
       cancel-in-progress: false

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-instant-node",
-  "version": "3.0.0-beta.85",
+  "version": "3.0.0-beta.87",
   "private": true,
   "description": "Prompt-backed instant DAG node for Robota — create custom nodes at runtime from a system prompt template",
   "type": "module",
@@ -62,7 +62,7 @@
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/dag-core": "workspace:*",
     "@robota-sdk/dag-node": "workspace:*",
-    "zod": "^3.24.4"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

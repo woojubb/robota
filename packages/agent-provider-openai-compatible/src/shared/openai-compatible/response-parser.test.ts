@@ -216,6 +216,51 @@ describe('OpenAICompatibleResponseParser', () => {
     ]);
   });
 
+  it('preserves function calls and ignores unsupported custom calls in a mixed response', () => {
+    const parser = new OpenAICompatibleResponseParser();
+    const response: OpenAI.Chat.ChatCompletion = {
+      id: 'chatcmpl-mixed-tools',
+      object: 'chat.completion',
+      created: 1,
+      model: 'local-model',
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: null,
+            refusal: null,
+            tool_calls: [
+              {
+                id: 'custom-1',
+                type: 'custom',
+                custom: { name: 'UnsupportedGrammar', input: 'raw input' },
+              },
+              {
+                id: 'function-1',
+                type: 'function',
+                function: { name: 'SupportedFunction', arguments: '{"value":1}' },
+              },
+            ],
+          },
+          finish_reason: 'tool_calls',
+          logprobs: null,
+        },
+      ],
+    };
+
+    const result = parser.parseResponse(response);
+
+    if (result.role !== 'assistant') throw new Error('Expected assistant message');
+    expect(result.toolCalls).toEqual([
+      {
+        id: 'function-1',
+        type: 'function',
+        function: { name: 'SupportedFunction', arguments: '{"value":1}' },
+      },
+    ]);
+  });
+
   it('applies text projection while parsing streaming chunks', () => {
     const parser = new OpenAICompatibleResponseParser({
       textProjector: (text) => text.replace('[hidden]', ''),
