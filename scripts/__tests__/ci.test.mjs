@@ -424,6 +424,7 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
     JSON.stringify({ name: 'cli', version: '1.0.1' }),
   );
   commit(options.cwd);
+  const reviewedHead = exec(options.cwd, 'git', ['rev-parse', 'HEAD']);
   exec(options.cwd, 'git', ['checkout', '-q', branch]);
   exec(options.cwd, 'git', [
     '-c',
@@ -441,13 +442,20 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
     ok: true,
     json: async () => ({ check_runs: checks.map((name) => ({ name, conclusion: 'success' })) }),
   });
+  const requireReviewedHead = (url) => {
+    expect(String(url)).toContain(`/commits/${reviewedHead}/check-runs`);
+  };
+  const reviewedChecks = async (url) => {
+    requireReviewedHead(url);
+    return response(['pr-validation', 'security']);
+  };
   expect(
     await verifyPromotionChecks({
       cwd: options.cwd,
       base: options.base,
       headSha,
       repository: 'woojubb/robota',
-      fetchImpl: async () => response(['pr-validation', 'security']),
+      fetchImpl: reviewedChecks,
       verifyReleaseImpl: async () => true,
     }),
   ).toBe(true);
@@ -457,7 +465,10 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
       base: options.base,
       headSha,
       repository: 'woojubb/robota',
-      fetchImpl: async () => response(['pr-validation']),
+      fetchImpl: async (url) => {
+        requireReviewedHead(url);
+        return response(['pr-validation']);
+      },
       verifyReleaseImpl: async () => true,
     }),
   ).toBe(false);
@@ -467,7 +478,7 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
       base: options.base,
       headSha: exec(options.cwd, 'git', ['rev-parse', 'feature']),
       repository: 'woojubb/robota',
-      fetchImpl: async () => response(['pr-validation', 'security']),
+      fetchImpl: reviewedChecks,
       verifyReleaseImpl: async () => true,
     }),
   ).toBe(false);
@@ -477,7 +488,7 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
       base: options.base,
       headSha,
       repository: 'woojubb/robota',
-      fetchImpl: async () => response(['pr-validation', 'security']),
+      fetchImpl: reviewedChecks,
       verifyReleaseImpl: async () => false,
     }),
   ).toBe(false);
