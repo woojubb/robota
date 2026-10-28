@@ -23,7 +23,6 @@ on:
         type: string
 
 permissions:
-  checks: read
   contents: read
 
 # Shares the Release with release-desktop-app.yml — serialize both publishers on the same tag.
@@ -34,6 +33,9 @@ concurrency:
 jobs:
   scope:
     if: github.event_name == 'pull_request'
+    permissions:
+      checks: read
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:

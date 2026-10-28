@@ -10,10 +10,12 @@ concurrency:
   group: ${{ github.run_attempt == '1' && format('ci-{0}', github.ref) || format('ci-retry-{0}', github.run_id) }}
   cancel-in-progress: ${{ github.run_attempt == '1' }}
 permissions:
-  checks: read
   contents: read
 jobs:
   scope:
+    permissions:
+      checks: read
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
