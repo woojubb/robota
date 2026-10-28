@@ -1,5 +1,10 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.102
+### Patch Changes
+
+- 253c261: Publish the exact preverified package artifacts and start dependent release jobs only after their prerequisites succeed.
+
 ## 3.0.0-beta.101
 ### Patch Changes
 

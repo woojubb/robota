@@ -1,5 +1,11 @@
 # @robota-sdk/dag-node-skill
 
+## 3.0.0-beta.86
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.102
+  - @robota-sdk/agent-interface-command@3.0.0-beta.102
+
 ## 3.0.0-beta.85
 ### Patch Changes
 
