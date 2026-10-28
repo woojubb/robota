@@ -21,7 +21,7 @@ it('runs required branch and manual checks without duplicating develop push CI',
   expect(schedules('push', 'develop')).toBe(false);
   expect(schedules('pull_request', 'feature')).toBe(false);
 
-  expect(workflow.permissions).toEqual({ contents: 'read' });
+  expect(workflow.permissions).toEqual({ checks: 'read', contents: 'read' });
   expect(workflow.jobs.tests.needs).toEqual(['scope', 'workspace-build']);
   expect(workflow.jobs['release-checks'].needs).toBe('scope');
   expect(workflow.jobs['pr-validation'].needs).toEqual([

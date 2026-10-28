@@ -10,6 +10,7 @@ concurrency:
   group: ${{ github.run_attempt == '1' && format('ci-{0}', github.ref) || format('ci-retry-{0}', github.run_id) }}
   cancel-in-progress: ${{ github.run_attempt == '1' }}
 permissions:
+  checks: read
   contents: read
 jobs:
   scope:
@@ -46,6 +47,7 @@ jobs:
           CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CI_REPOSITORY: ${{ github.repository }}
           CI_API_URL: ${{ github.api_url }}
+          CI_TOKEN: ${{ github.token }}
   workspace-build:
     needs: scope
     if: needs.scope.outputs.developer_docs != 'true' && needs.scope.outputs.release_metadata != 'true'

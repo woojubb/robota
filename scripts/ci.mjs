@@ -187,6 +187,7 @@ export async function verifyPromotionChecks({
   headSha,
   repository,
   apiUrl = 'https://api.github.com',
+  token = process.env.CI_TOKEN,
   fetchImpl = fetch,
   verifyReleaseImpl = verifyGeneratedRelease,
 }) {
@@ -216,7 +217,10 @@ export async function verifyPromotionChecks({
           `${endpoint.toString().replace(/\/$/u, '')}/`,
         ),
         {
-          headers: { Accept: 'application/vnd.github+json' },
+          headers: {
+            Accept: 'application/vnd.github+json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           signal: AbortSignal.timeout(10_000),
         },
       );
