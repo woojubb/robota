@@ -316,19 +316,17 @@ export function selectScope({
       changed.add('apps/docs');
     }
     if (!changed.size)
-      return developerDocs
-        ? {
-            full: false,
-            developerDocs: true,
-            releaseMetadata: false,
-            promotion: false,
-            reason: 'developer documents only',
-            checks: [],
-            build: [],
-            docs: false,
-            release: false,
-          }
-        : full('empty selection');
+      return {
+        full: false,
+        developerDocs: true,
+        releaseMetadata: false,
+        promotion: false,
+        reason: developerDocs ? 'developer documents only' : 'topology-only ancestry',
+        checks: [],
+        build: [],
+        docs: false,
+        release: false,
+      };
     const selectors = [...changed].flatMap((dir) => ['--filter', `...{${dir}}`]);
     const affected = workspaces(cwd, selectors);
     if (!affected.length || [...changed].some((dir) => !affected.some((p) => p.dir === dir)))
