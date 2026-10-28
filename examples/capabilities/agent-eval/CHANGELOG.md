@@ -1,5 +1,15 @@
 # robota-capability-agent-eval
 
+## 0.1.1-beta.14
+### Patch Changes
+
+- Updated dependencies [62663ae]
+  - @robota-sdk/agent-core@3.0.0-beta.101
+  - @robota-sdk/agent-framework@3.0.0-beta.101
+  - @robota-sdk/agent-mcp@3.0.0-beta.101
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.101
+  - @robota-sdk/agent-provider-replay@3.0.0-beta.101
+
 ## 0.1.1-beta.13
 ### Patch Changes
 

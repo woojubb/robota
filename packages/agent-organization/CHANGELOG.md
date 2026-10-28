@@ -1,5 +1,7 @@
 # @robota-sdk/agent-organization
 
+## 3.0.0-beta.101
+
 ## 3.0.0-beta.100
 
 ## 3.0.0-beta.99

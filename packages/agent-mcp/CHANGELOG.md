@@ -1,5 +1,11 @@
 # @robota-sdk/agent-mcp
 
+## 3.0.0-beta.101
+### Patch Changes
+
+- Updated dependencies [62663ae]
+  - @robota-sdk/agent-core@3.0.0-beta.101
+
 ## 3.0.0-beta.100
 ### Patch Changes
 
@@ -27,7 +33,7 @@
 ### Major Changes
 
 - 68dda38: MCP Apps: a tool's declared view can ride its result to a surface that can host it.
-  
+
   `agent-mcp` declares the `io.modelcontextprotocol/ui` extension only when the host opts in
   (`IMCPOpenSessionOptions.apps`), on both protocol eras. A tool's `_meta.ui` reference (a `ui://`
   resource and its audience) is kept in discovery and the catalog only when the server declared the
@@ -38,7 +44,7 @@
   After a successful call, `DiscoveredMCPTool` reads the declared resource and, when it is one
   `text/html;profile=mcp-app` document within the size bound, attaches `IToolResult.view`; otherwise the
   text result is unchanged and the omission is reported. The view never enters model context.
-  
+
   `agent-cli` opts in only for the plain `--serve` host that the desktop app and web GUI drive, not the
   TUI, print runs, `mcp serve` or the ACP agent.
 
