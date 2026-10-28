@@ -6,9 +6,6 @@
 '@robota-sdk/agent-provider-gemini': patch
 '@robota-sdk/agent-provider-openai-compatible': patch
 '@robota-sdk/agent-builtin-providers': patch
-'@robota-sdk/dag-core': patch
-'@robota-sdk/dag-node-llm-text': minor
-'@robota-sdk/dag-framework': minor
 ---
 
 Provider DIP Stage B (ARCH-PROVIDER-003), part 1: collapse infrastructure. Adds the

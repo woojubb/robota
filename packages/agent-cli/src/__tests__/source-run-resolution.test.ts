@@ -22,8 +22,7 @@ interface IManifest {
 }
 
 const PACKAGES_DIR = fileURLToPath(new URL('../../..', import.meta.url));
-/** The workspace globs that hold packages (`pnpm-workspace.yaml`: `packages/*`, `packages/dag-nodes/*`). */
-const PACKAGE_ROOTS = [PACKAGES_DIR, path.join(PACKAGES_DIR, 'dag-nodes')];
+const PACKAGE_ROOTS = [PACKAGES_DIR];
 
 function workspaceManifests(): Map<string, { dir: string; manifest: IManifest }> {
   const byName = new Map<string, { dir: string; manifest: IManifest }>();
@@ -41,8 +40,7 @@ function workspaceManifests(): Map<string, { dir: string; manifest: IManifest }>
 /**
  * The workspace packages a source run of the CLI may load: agent-cli lists its workspace packages as
  * devDependencies (it bundles them); every other package reaches its own through its dependencies,
- * including optional ones it imports on demand (dag-nodes-default loads its gemini nodes that way, and a
- * missed one there fails silently). Peer workspace dependencies count too.
+ * including optional dependencies and peer workspace dependencies.
  */
 function cliClosure(
   byName: Map<string, { dir: string; manifest: IManifest }>,
@@ -85,9 +83,9 @@ describe('pnpm cli:dev runs without a build', () => {
 
   it('reaches the workspace packages the CLI depends on', () => {
     const names = closure.map(({ manifest }) => manifest.name);
-    expect(names).toContain('@robota-sdk/dag-core');
-    expect(names).toContain('@robota-sdk/dag-node-instant-node');
-    expect(names).toContain('@robota-sdk/dag-node-gemini-image-edit');
+    expect(names).toContain('@robota-sdk/agent-core');
+    expect(names).not.toContain('@robota-sdk/agent-command-workflows');
+    expect(names.some((name) => name.startsWith('@robota-sdk/dag-'))).toBe(false);
   });
 
   it('resolves every reached export subpath to an existing source file', () => {

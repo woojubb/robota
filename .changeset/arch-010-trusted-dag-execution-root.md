@@ -1,14 +1,5 @@
 ---
 '@robota-sdk/agent-core': minor
-'@robota-sdk/dag-core': major
-'@robota-sdk/dag-worker': major
-'@robota-sdk/dag-framework': major
-'@robota-sdk/dag-node-tool': minor
-'@robota-sdk/dag-node-file-read': minor
-'@robota-sdk/dag-node-file-write': minor
-'@robota-sdk/dag-node-skill': major
-'@robota-sdk/agent-command-workflows': patch
-'@robota-sdk/dag-runtime-server': patch
 ---
 
 Carry a trusted canonical absolute execution root from DAG product composition through worker task

@@ -23,7 +23,6 @@ Composition roots
                             workspace daemon, starting one if none is running
   apps/agent-web            Next.js host for the browser remote client
   apps/starter-nextjs       Next.js chat starter over agent-framework
-  apps/dag-runtime-server   Hono HTTP server over dag-framework
   apps/remote-signaling     Content-blind WebRTC signaling relay for remote control
   apps/action               GitHub Action that runs agent-cli
   apps/docs, apps/www, apps/blog
@@ -56,11 +55,9 @@ SDK packages (@robota-sdk/*)
                         agent-organization-host (private Node broker and durable authority) ·
                         agent-roundtable (no @robota-sdk dependency)
 
-DAG / workflow subsystem (private; depends on the SDK packages, never the reverse)
-  dag-core ← dag-node, dag-runtime, dag-worker, dag-builder, dag-cost, dag-api, … ← dag-framework
-  dag-core, dag-node ← dag-node-* leaves ← dag-nodes-default
-  dag-framework, dag-nodes-default ← agent-command-workflows (/workflows in agent-cli)
-  (A ← B: B depends on A)
+External workflow library
+  @robota-sdk/workflows/command ← agent-cli (/workflows)
+  (The workflow artifact depends on host SDK peers, never the reverse.)
 ```
 
 The main package-level edges are drawn in [`diagrams/robota-architecture.mmd`](diagrams/robota-architecture.mmd).
@@ -82,13 +79,8 @@ The main package-level edges are drawn in [`diagrams/robota-architecture.mmd`](d
 > transport adapters, admission, access tokens and external events (`-transport`), and terminal UI
 > interactions (`-tui`). They depend only on `agent-core` and on lower contract packages.
 
-> **DAG / workflow subsystem.** The `dag-*` and `agent-command-workflows` packages are private and
-> not published on their own. The product `/workflows` path is composed in `agent-command-workflows`;
-> there is no standalone DAG CLI. The code used by the CLI's `/workflows` path is bundled into
-> `@robota-sdk/agent-cli`: its local runtime exposes the 23-node synchronous base catalog plus saved
-> instant nodes. The private async workspace catalog can reach 29 nodes when all optional loaders
-> succeed; it is not a CLI capability. `apps/dag-runtime-server` exposes the same in-process DAG
-> framework over HTTP.
+> **Workflows.** The CLI bundles the separately maintained workflow library, which uses host-owned
+> SDK peers and preserves the `/workflows` command and saved workflow formats.
 
 ## Key Architectural Decisions
 
@@ -137,13 +129,6 @@ the System Overview diagram above. Current checks are defined in `AGENTS.md` and
   `FAMILY-SIBLINGS` cannot be walked around by an import the manifest never names.
 - `INTERFACE-DEPS` — an `agent-interface-*` package depends only on `agent-core` and on a LOWER-layer
   peer interface package, never on an implementation package.
-- `DAG-NODES-LEAF` — a `dag-node-*` leaf package may depend, among `dag-*` packages, only on the
-  node-contract owners `dag-core` and `dag-node` — never on an orchestrator/runtime/adapter layer
-  and never on a sibling `dag-node-*`, so a node stays composable by any orchestrator.
-- `DAG-NODE-COMPOSITION` — every `@robota-sdk/dag-node-*` package receives concrete provider
-  definitions/factories from its composition root. A DAG node must not declare or import a concrete
-  `agent-provider-*` SDK or read ambient credentials; persisted provider names are validated against
-  the injected registry, and media definitions resolve credentials only at execution time.
 - `DEV-CYCLE` — the full workspace graph over `dependencies` + `devDependencies` +
   `peerDependencies` should be acyclic; a dev-only edge that closes a cycle leaves no valid
   topological build order. No current check proves this full manifest graph acyclic.

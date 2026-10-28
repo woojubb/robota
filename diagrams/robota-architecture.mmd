@@ -66,21 +66,13 @@ graph TD
     PACK[pack-coding]
   end
 
-  subgraph DAG["DAG / workflow subsystem · private"]
-    DAGCORE[dag-core]
-    DAGPARTS[dag-node · dag-runtime · dag-worker ·<br/>dag-builder · dag-cost · dag-api · …]
-    DAGLEAF[dag-node-* leaves]
-    DAGFW[dag-framework]
-    DAGDEF[dag-nodes-default]
-    WF[agent-command-workflows]
-  end
+  WF["External @robota-sdk/workflows/command"]
 
   subgraph Surfaces["Composition roots"]
     CLI[packages/agent-cli<br/>robota · self-contained bundle]
     APP[apps/agent-app<br/>Electron desktop app]
     WEB[apps/agent-web<br/>browser remote client]
     STARTER[apps/starter-nextjs]
-    DAGSRV[apps/dag-runtime-server]
     SIG[apps/remote-signaling]
     ACTION[apps/action]
   end
@@ -128,12 +120,7 @@ graph TD
   CAP --> PROD & PACK
   CMD & TD --> PACK
 
-  %% DAG subsystem
-  DAGCORE --> DAGPARTS --> DAGFW
-  DAGCORE --> DAGLEAF --> DAGDEF
-  CORE --> DAGFW
-  FW --> DAGDEF & WF
-  DAGFW & DAGDEF --> WF
+  CORE & FW --> WF
 
   %% Composition roots
   FW & CMD & PROD & PACK & SUB & MCP & BIP & SA --> CLI
@@ -142,6 +129,5 @@ graph TD
   CLI -. daemon over loopback WebSocket .-> APP
   TGUI --> WEB
   FW & PROV --> STARTER
-  DAGFW --> DAGSRV
   TWEBRTC --> SIG
   CLI -. runs .-> ACTION

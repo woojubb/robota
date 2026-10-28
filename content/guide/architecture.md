@@ -195,10 +195,8 @@ TypeScript.
 
 ### Internal packages
 
-Some packages are marked `private` and are not published to npm: the DAG workflow engine
-(`dag-*`) and `agent-command-workflows`, which together power the CLI's `/workflows` command and are
-bundled into `agent-cli`; the web UI packages above; and `agent-provider-replay`, a provider that
-replays a recorded session for offline tests.
+Some workspace packages are private, including the web UI packages above and `agent-provider-replay`.
+The CLI bundles the separately maintained workflow library for its `/workflows` command.
 
 ## Dependency rules
 

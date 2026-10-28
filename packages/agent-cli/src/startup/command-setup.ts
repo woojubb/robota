@@ -37,7 +37,7 @@ import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-prov
 import {
   createWorkspaceWorkflowProject,
   createWorkflowsCommandModule,
-} from '@robota-sdk/agent-command-workflows';
+} from '@robota-sdk/workflows/command';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { buildDoctorInputs } from './doctor-inputs.js';
 

@@ -70,7 +70,7 @@ it in the directory the app serves, so the next `app:dev` starts a daemon on the
 ## Repository Layout
 
 - `packages/` — the agent libraries (`agent-*`), their shared contracts (`agent-interface-*`), the
-  coding capability pack (`pack-coding`), and the DAG workflow packages (`dag-*`, `dag-nodes/*`).
+  and the coding capability pack (`pack-coding`).
 - `apps/` — deployable apps, none published to npm (listed below).
 - `examples/` — runnable example projects. They are workspace members, so they build against the
   local packages.
@@ -89,7 +89,6 @@ The apps:
 | `blog`               | The blog, blog.__PROJECT_WEBSITE_HOST__ (Astro)                                                                       |
 | `agent-app`          | The Electron desktop app: starts or reuses the workspace's `__PRODUCT_CLI_NAME__` daemon and loads the GUI           |
 | `agent-web`          | Next.js host for the browser remote-control client (`/remote`)                                         |
-| `dag-runtime-server` | HTTP server for the DAG runtime (`/v1/dag/*`)                                                          |
 | `remote-signaling`   | WebRTC signaling relay for remote control                                                              |
 | `starter-nextjs`     | Next.js starter template with one chat API route                                                       |
 | `action`             | GitHub Action that runs the CLI; not released (see [GitHub Actions](../integrations/github-action.md)) |
