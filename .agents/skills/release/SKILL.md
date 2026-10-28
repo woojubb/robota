@@ -20,10 +20,11 @@ head before merging.
 2. **Promote** `develop` → `main` with a PR whose head is `develop`. On merge,
    `release-tag-on-version-bump.yml` tags the new version; the binary and desktop release workflows run
    from that tag, and `release-image.yml` waits for step 3's npm publish, then pushes the agent image.
-3. **Publish** by running the _Publish to npm_ workflow on `main` (`gh workflow run publish.yml --ref main`).
+3. **Publish** by resolving the release tag whose commit is exactly `origin/main`, then running the
+   _Publish to npm_ workflow on `main` (`gh workflow run publish.yml --ref main -f tag=<tag>`).
    It waits on the `npm-publish` environment, whose one required reviewer is the owner's account — the one the
-   agent's `gh` runs as — so the agent approves it. Approve only the run just dispatched: its `headSha` is
-   `origin/main` and its status is `waiting`.
+   agent's `gh` runs as — so the agent approves it. Approve only the run just dispatched: its `headSha`,
+   the selected tag's peeled commit and `origin/main` are identical, and its status is `waiting`.
 
    ```bash
    gh run list --workflow publish.yml --branch main --limit 1 --json databaseId,headSha,status

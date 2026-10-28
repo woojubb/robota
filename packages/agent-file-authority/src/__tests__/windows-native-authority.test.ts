@@ -199,4 +199,70 @@ describe('WindowsNativeAuthority read sharing', () => {
     expect(shares[0] & 0x2).toBe(0x2);
     expect(shares[1] & 0x2).toBe(0);
   });
+
+  it('refuses Windows components that cannot be represented exactly', () => {
+    const authority = uninitializedAuthority();
+    const handleType = koffi.pointer('TestStableLengthHandle', koffi.opaque());
+    const unicodeStringType = koffi.struct('TestStableLengthUnicodeString', {
+      Length: 'uint16_t',
+      MaximumLength: 'uint16_t',
+      Buffer: koffi.pointer('char16_t'),
+    });
+    const objectAttributesType = koffi.struct('TestStableLengthObjectAttributes', {
+      Length: 'uint32_t',
+      RootDirectory: handleType,
+      ObjectName: koffi.pointer(unicodeStringType),
+      Attributes: 'uint32_t',
+      SecurityDescriptor: 'void *',
+      SecurityQualityOfService: 'void *',
+    });
+    const ntCreateFile = vi.fn(
+      (output: TNativeHandle[]) => {
+        output[0] = BigInt(42);
+        return 0;
+      },
+    );
+    Reflect.set(authority, 'api', { unicodeStringType, objectAttributesType, ntCreateFile });
+    const issueRelativeOpen = Reflect.get(authority, 'issueRelativeOpen') as (
+      parent: TNativeHandle,
+      segment: string,
+      final: boolean,
+      replaceable: boolean,
+    ) => unknown;
+    const issueRelativeCreate = Reflect.get(authority, 'issueRelativeCreate') as (
+      parent: TNativeHandle,
+      segment: string,
+      directory: boolean,
+      disposition: number,
+    ) => unknown;
+
+    expect(() =>
+      issueRelativeOpen.call(authority, BigInt(1), 'x'.repeat(255), true, false),
+    ).not.toThrow();
+    expect(() =>
+      issueRelativeOpen.call(authority, BigInt(1), 'x'.repeat(256), true, false),
+    ).toThrow();
+    expect(() =>
+      issueRelativeOpen.call(
+        authority,
+        BigInt(1),
+        `target${'a'.repeat(32_768)}`,
+        true,
+        false,
+      ),
+    ).toThrow();
+    expect(() =>
+      issueRelativeOpen.call(authority, BigInt(1), `${'😀'.repeat(127)}x`, true, false),
+    ).not.toThrow();
+    expect(() =>
+      issueRelativeOpen.call(authority, BigInt(1), `${'😀'.repeat(127)}xx`, true, false),
+    ).toThrow();
+    expect(() =>
+      issueRelativeCreate.call(authority, BigInt(1), 'x'.repeat(255), false, 2),
+    ).not.toThrow();
+    expect(() =>
+      issueRelativeCreate.call(authority, BigInt(1), 'x'.repeat(256), false, 2),
+    ).toThrow();
+    expect(ntCreateFile).toHaveBeenCalledTimes(3);
+  });
 });

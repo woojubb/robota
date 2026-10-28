@@ -11,6 +11,7 @@ import { startDagRuntimeServer } from '@robota-sdk/dag-runtime-server';
 const handle = await startDagRuntimeServer({
   port: 3939,
   userStateRoot: config.storage.userRoot,
+  token: process.env.DAG_RUNTIME_TOKEN!,
 });
 // ... later
 await handle.stop();
@@ -24,6 +25,8 @@ only need the Hono app.
 | Setting            | Source                                                               |
 | ------------------ | -------------------------------------------------------------------- |
 | Port               | `options.port`, else `options.environment.DAG_RUNTIME_SERVER_PORT`, else `3939` |
+| Host               | `options.host`, else `127.0.0.1`                                  |
+| Authentication     | `options.token`, required as a bearer token                        |
 | DAG storage root   | `DAG_STORAGE_ROOT`, else `options.userStateRoot/dag/storage`        |
 | Asset storage root | `ASSET_STORAGE_ROOT`, else `options.userStateRoot/dag/assets`       |
 | Execution root     | The server process's working directory                               |

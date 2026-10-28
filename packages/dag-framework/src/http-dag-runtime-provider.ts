@@ -29,6 +29,8 @@ import type {
 export interface IHttpDagRuntimeProviderOptions {
   /** Base URL of the native DAG runtime server, e.g. `http://localhost:3939`. */
   readonly baseUrl: string;
+  /** Bearer secret configured by the native DAG runtime server. */
+  readonly token?: string;
   /** Fetch implementation (defaults to the global `fetch`); injectable for tests. */
   readonly fetch?: typeof fetch;
 }
@@ -135,7 +137,13 @@ export class HttpDagRuntimeProvider implements IDetachableRunProvider {
 
   public constructor(options: IHttpDagRuntimeProviderOptions) {
     this.baseUrl = trimTrailingSlashes(options.baseUrl);
-    this.fetchImpl = options.fetch ?? fetch;
+    const transport = options.fetch ?? fetch;
+    this.fetchImpl = ((input: RequestInfo | URL, init?: RequestInit) => {
+      if (options.token === undefined) return transport(input, init);
+      const headers = new Headers(init?.headers);
+      headers.set('authorization', `Bearer ${options.token}`);
+      return transport(input, { ...init, headers });
+    }) as typeof fetch;
     this.displayName = `HTTP (${this.baseUrl})`;
     this.client = new DagOrchestrationHttpClient({ baseUrl: this.baseUrl, fetch: this.fetchImpl });
   }

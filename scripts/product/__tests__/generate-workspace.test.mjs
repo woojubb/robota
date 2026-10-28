@@ -212,6 +212,23 @@ describe('product strings in generated artifact syntax', () => {
     expect(text).toContain('PRODUCT_PACKAGE_SCOPE=@alpha\n');
     expect(text).toContain('PRODUCT_CONFIG_FILE=/tmp/selected.env\n');
     expect(text).toContain('PRODUCT_WORKSPACE=/tmp/selected-workspace\n');
+    expect(text).toMatch(/PRODUCT_CONFIG_SHA256=[a-f0-9]{64}\n/u);
+    const digest = text.match(/PRODUCT_CONFIG_SHA256=([a-f0-9]{64})\n/u)?.[1];
+    expect(digest).toBe('fb41e4520075f2ab7d35d02367344e551e00e5b0ee1d886e2723d33472db262e');
+    const reordered = Object.fromEntries(
+      Object.entries(config).reverse().map(([section, value]) => [
+        section,
+        value && typeof value === 'object' && !Array.isArray(value)
+          ? Object.fromEntries(Object.entries(value).reverse())
+          : value,
+      ]),
+    );
+    expect(workflowProductEnvironment(reordered, '/tmp/selected.env', '/tmp/selected-workspace'))
+      .toContain(`PRODUCT_CONFIG_SHA256=${digest}\n`);
+    const changed = structuredClone(config);
+    changed.identity.displayName = `${changed.identity.displayName} changed`;
+    expect(workflowProductEnvironment(changed, '/tmp/selected.env', '/tmp/selected-workspace'))
+      .not.toContain(`PRODUCT_CONFIG_SHA256=${digest}\n`);
     expect(text).toContain('PROJECT_NPM_REGISTRY_URL=\n');
     expect(text).not.toContain('API_KEY');
     expect(() => workflowProductEnvironment(config, '/tmp/selected.env', '/tmp/path\nINJECTED=x')).toThrow('PRODUCT_WORKSPACE');

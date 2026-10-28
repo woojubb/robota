@@ -275,4 +275,9 @@ for ATTEMPT in $(seq 1 15); do
   sleep 60
 done
 
+if [ -n "${RELEASE_INTEGRITY_MANIFEST:-}" ]; then
+  echo "🔐 Binding registry tarballs to the reviewed release source..."
+  node scripts/publish/generate-integrity-manifest.mjs "$PACK_DIR" "$RELEASE_INTEGRITY_MANIFEST"
+fi
+
 echo "🎉 Published $VERSION"

@@ -26,6 +26,100 @@ async function stop(child: ChildProcess) {
   const stopped = new Promise<void>((resolve) => child.once('exit', () => resolve())); child.kill('SIGKILL'); await stopped;
 }
 
+function workerProbe(
+  fixture: Awaited<ReturnType<typeof organizationGatewayFixture>>,
+  signal?: AbortSignal,
+) {
+  return fetch(`${fixture.origin}/worker`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    signal,
+    body: JSON.stringify({
+      version: 3,
+      identity: fixture.config.identity,
+      role: 'worker',
+      resource: fixture.config.worker.resource,
+      nonce: 'worker-probe',
+      epoch: fixture.config.epoch,
+      snapshot: fixture.config.snapshot,
+      limits: fixture.config.limits,
+    }),
+  });
+}
+
+it('rejects malformed model requests before consulting hosted inventory', async () => {
+  const f = await organizationGatewayFixture();
+  try {
+    const response = await fetch(`${f.origin}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${f.token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ model: 'pinned-model', messages: [] }),
+    });
+    expect(response.status).toBe(403);
+    expect(f.inventoryListCount()).toBe(0);
+    expect(f.upstreamCalls).toHaveLength(0);
+  } finally { await f.close(); }
+});
+
+it('shares one hosted admission while concurrent requests wait on inventory', async () => {
+  const f = await organizationGatewayFixture({ blockInventory: true });
+  try {
+    const first = workerProbe(f);
+    await f.inventoryStart;
+    const second = workerProbe(f);
+    await new Promise<void>((resolve) => setTimeout(resolve, 30));
+    expect(f.inventoryListCount()).toBe(1);
+    f.releaseInventory();
+    const responses = await Promise.all([first, second]);
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    expect(f.inventoryListCount()).toBe(1);
+  } finally {
+    f.releaseInventory();
+    await f.close();
+  }
+});
+
+it('keeps shared admission available when the first waiter disconnects', async () => {
+  const f = await organizationGatewayFixture({ blockInventory: true });
+  const controller = new AbortController();
+  try {
+    const first = workerProbe(f, controller.signal);
+    await f.inventoryStart;
+    controller.abort();
+    await expect(first).rejects.toThrow();
+    const second = workerProbe(f);
+    await new Promise<void>((resolve) => setTimeout(resolve, 30));
+    expect(f.inventoryListCount()).toBe(1);
+    f.releaseInventory();
+    expect((await second).status).toBe(200);
+    expect(f.inventoryListCount()).toBe(1);
+  } finally {
+    f.releaseInventory();
+    await f.close();
+  }
+});
+
+it('observes a rejected shared admission after every waiter disconnects', async () => {
+  const f = await organizationGatewayFixture({ blockInventory: true, rejectAdmission: true });
+  const controller = new AbortController();
+  const unhandled: unknown[] = [];
+  const onUnhandled = (error: unknown): void => { unhandled.push(error); };
+  process.on('unhandledRejection', onUnhandled);
+  try {
+    const request = workerProbe(f, controller.signal);
+    await f.inventoryStart;
+    controller.abort();
+    await expect(request).rejects.toThrow();
+    f.releaseInventory();
+    await new Promise<void>((resolve) => setImmediate(resolve));
+    expect(unhandled).toEqual([]);
+  } finally {
+    process.removeListener('unhandledRejection', onUnhandled);
+    f.releaseInventory();
+    await f.close();
+  }
+});
+
 it('two real worker processes race one company operation and retry its durable receipt without another upstream effect', async () => {
   const f = await organizationGatewayFixture(); f.setMode('pending');
   const first = worker(f.origin, f.token); const second = worker(f.origin, f.token);

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { randomBytes } from 'node:crypto';
 import { createSocket } from 'node:dgram';
@@ -211,6 +211,7 @@ describe('TURN server — requests nobody authenticated', () => {
       fingerprint: false,
     });
     expect((await probe(server, [bareBinding])).answers).toEqual([]);
+    expect(server.unauthenticatedSourceCount).toBe(0);
 
     // One the size a WebRTC client sends gets its challenge, no larger than itself.
     const sized = allocateRequest(20);
@@ -218,6 +219,49 @@ describe('TURN server — requests nobody authenticated', () => {
     expect(answers).toHaveLength(1);
     expect(answers[0]!.length).toBeLessThanOrEqual(sized.length);
     expect(readErrorCode(attribute(decodeStun(answers[0]!)!, StunAttr.ErrorCode))).toBe(401);
+    expect(server.unauthenticatedSourceCount).toBe(1);
+  });
+
+  it('globally bounds challenge work even when the response cannot fit the request', async () => {
+    const now = Date.now();
+    const server = await serve({
+      now: () => now,
+      unauthenticatedLimits: { perSourcePerSecond: 100, totalPerSecond: 2 },
+    });
+    const nonce = vi.spyOn(
+      server as unknown as { nonce(client: { address: string; port: number }): string },
+      'nonce',
+    );
+    const bare = allocateRequest(0);
+    expect((await probe(server, Array.from({ length: 10 }, () => bare))).answers).toEqual([]);
+    expect(nonce).not.toHaveBeenCalled();
+    expect(server.unauthenticatedSourceCount).toBe(0);
+  });
+
+  it('does not let a saturated source consume the global challenge budget', async () => {
+    const now = Date.now();
+    const server = await serve({
+      now: () => now,
+      unauthenticatedLimits: { perSourcePerSecond: 1, totalPerSecond: 2 },
+    });
+    const internals = server as unknown as {
+      challenge(request: ReturnType<typeof decodeStun>, to: { address: string; port: number }, code: 401): void;
+      nonce(client: { address: string; port: number }): string;
+      send(bytes: Buffer, to: { address: string; port: number }): void;
+    };
+    const request = decodeStun(allocateRequest(20));
+    const undersized = decodeStun(allocateRequest(0));
+    if (!request) throw new Error('expected a valid allocate request');
+    if (!undersized) throw new Error('expected a valid undersized allocate request');
+    const nonce = vi.spyOn(internals, 'nonce');
+    vi.spyOn(internals, 'send').mockImplementation(() => undefined);
+    for (let index = 0; index < 10; index += 1) {
+      internals.challenge(undersized, { address: '192.0.2.3', port: 1000 + index }, 401);
+    }
+    internals.challenge(request, { address: '192.0.2.1', port: 1000 }, 401);
+    internals.challenge(request, { address: '192.0.2.1', port: 1001 }, 401);
+    internals.challenge(request, { address: '192.0.2.2', port: 1000 }, 401);
+    expect(nonce).toHaveBeenCalledTimes(2);
   });
 
   it('are answered at a limited rate per source address and in all; the rest are dropped', async () => {
@@ -229,8 +273,13 @@ describe('TURN server — requests nobody authenticated', () => {
       now: () => now,
       unauthenticatedLimits: { perSourcePerSecond: 3, totalPerSecond: 100 },
     });
+    const nonce = vi.spyOn(
+      perSource as unknown as { nonce(client: { address: string; port: number }): string },
+      'nonce',
+    );
     expect((await probe(perSource, burst)).answers).toHaveLength(3);
     expect((await probe(perSource, burst)).answers).toHaveLength(0);
+    expect(nonce).toHaveBeenCalledTimes(3);
 
     const inAll = await serve({
       now: () => now,
