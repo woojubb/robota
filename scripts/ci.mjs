@@ -208,10 +208,11 @@ export async function verifyPromotionChecks({
     let generatedReleases = 0;
     for (const sha of commits) {
       const parents = git(cwd, 'show', '-s', '--format=%P', sha).split(' ').filter(Boolean);
-      if (parents.length < 2) return false;
+      if (parents.length !== 2) return false;
+      const reviewedHead = parents[1];
       const response = await fetchImpl(
         new URL(
-          `repos/${repository}/commits/${sha}/check-runs?per_page=100`,
+          `repos/${repository}/commits/${reviewedHead}/check-runs?per_page=100`,
           `${endpoint.toString().replace(/\/$/u, '')}/`,
         ),
         {
