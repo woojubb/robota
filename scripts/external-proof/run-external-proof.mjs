@@ -8,10 +8,9 @@
  * into a throwaway directory outside the repo, type-checks the consumer against the SHIPPED `.d.ts`
  * files, and runs the Mode A/B/C/D assertions.
  *
- * OPT-IN by design — it packs + installs (network, tens of seconds), so it is NOT part of `pnpm test`.
+ * OPT-IN by design — it builds, packs, and installs (network, tens of seconds), so it is NOT part of `pnpm test`.
  * Run it explicitly:
  *
- *   pnpm build                 # the tarballs are packed from dist/, so the build must be current
  *   pnpm proof:external        # or: node scripts/external-proof/run-external-proof.mjs
  *
  * Flags:
@@ -52,8 +51,8 @@ function log(message) {
   process.stdout.write(`${message}\n`);
 }
 
-function run(command, args, options) {
-  return execFileSync(command, args, { encoding: 'utf8', ...options });
+function run(command, args, options, timeout = 60_000) {
+  return execFileSync(command, args, { encoding: 'utf8', timeout, ...options });
 }
 
 /** Read every workspace package manifest under `packages/`. */
@@ -97,6 +96,7 @@ export async function packAll(closure, manifests, tarballDir) {
     const output = execFileSync('pnpm', ['pack', '--pack-destination', tarballDir], {
       cwd: dir,
       encoding: 'utf8',
+      timeout: 15_000,
     });
     const tarballPath = path.resolve(
       tarballDir,
@@ -129,7 +129,8 @@ export function writeConsumerManifest(consumerDir, tarballs) {
     version: '0.0.0',
     private: true,
     type: 'module',
-    description: 'ARCH-005 S3 — a third-party product built on the published agent runtime packages.',
+    description:
+      'ARCH-005 S3 — a third-party product built on the published agent runtime packages.',
     scripts: { build: 'tsc -p tsconfig.json', proof: 'node dist/proof.js' },
     dependencies: specs,
     devDependencies: { '@types/node': '^20.19.43', typescript: '^5.9.3' },
@@ -174,28 +175,40 @@ async function main() {
   const manifests = readWorkspaceManifests();
   const closure = resolveClosure(manifests);
 
-  log(`[1/5] pnpm pack — ${closure.length} published packages (workspace dependency closure)`);
+  log(`[1/6] build — ${closure.length} packages in the external-consumer dependency closure`);
+  run(
+    'pnpm',
+    ['-r', ...closure.flatMap((name) => ['--filter', name]), '--if-present', 'run', 'build'],
+    { cwd: REPO_ROOT, stdio: 'inherit' },
+    90_000,
+  );
+
+  log(`\n[2/6] pnpm pack — ${closure.length} published packages (workspace dependency closure)`);
   const tarballs = await packAll(closure, manifests, tarballDir);
 
-  log('\n[2/5] materialising the external consumer package');
+  log('\n[3/6] materialising the external consumer package');
   fs.cpSync(path.join(FIXTURE_DIR, 'src'), path.join(consumerDir, 'src'), { recursive: true });
   fs.copyFileSync(path.join(FIXTURE_DIR, 'tsconfig.json'), path.join(consumerDir, 'tsconfig.json'));
   writeConsumerManifest(consumerDir, tarballs);
 
-  log('\n[3/5] npm install (real tarball install — no workspace link, no relative import)');
-  run('npm', ['install', '--no-audit', '--no-fund', '--loglevel=error'], {
-    cwd: consumerDir,
-    stdio: 'inherit',
-  });
+  log('\n[4/6] npm install (real tarball install — no workspace link, no relative import)');
+  run(
+    'npm',
+    ['install', '--no-audit', '--no-fund', '--loglevel=error'],
+    { cwd: consumerDir, stdio: 'inherit' },
+    60_000,
+  );
 
-  log('\n[4/5] tsc — type-check the consumer against the SHIPPED .d.ts surface');
-  run(path.join(consumerDir, 'node_modules', '.bin', 'tsc'), ['-p', 'tsconfig.json'], {
-    cwd: consumerDir,
-    stdio: 'inherit',
-  });
+  log('\n[5/6] tsc — type-check the consumer against the SHIPPED .d.ts surface');
+  run(
+    path.join(consumerDir, 'node_modules', '.bin', 'tsc'),
+    ['-p', 'tsconfig.json'],
+    { cwd: consumerDir, stdio: 'inherit' },
+    30_000,
+  );
 
-  log('\n[5/5] running the Mode A/B/C/D assertions\n');
-  run(process.execPath, ['dist/proof.js'], { cwd: consumerDir, stdio: 'inherit' });
+  log('\n[6/6] running the Mode A/B/C/D assertions\n');
+  run(process.execPath, ['dist/proof.js'], { cwd: consumerDir, stdio: 'inherit' }, 30_000);
 
   if (keep) {
     log(`\nworking directory kept at ${workdir}`);
