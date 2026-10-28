@@ -162,9 +162,11 @@ jobs:
           NODE
           manifest="$RUNNER_TEMP/release-receipt/npm-release-integrity.json"
           lock="$RUNNER_TEMP/release-receipt/npm-release-package-lock.json"
-          gh release view "$RELEASE_TAG" >/dev/null 2>&1 ||
+          if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" \
-              --notes 'Package integrity receipt; native and desktop assets follow their verified workflows.'
+              --notes 'Package integrity receipt; native and desktop assets follow their verified workflows.' ||
+              gh release view "$RELEASE_TAG" >/dev/null
+          fi
           names=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')
           manifest_name=npm-release-integrity.json
           lock_name=npm-release-package-lock.json

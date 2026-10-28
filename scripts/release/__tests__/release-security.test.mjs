@@ -46,6 +46,11 @@ it('admits release effects only after binding them to reviewed source', () => {
   );
   expect(publish.jobs.receipt.permissions.contents).toBe('write');
   expect(publish.jobs.receipt.needs).toBe('publish');
+  const receiptPublish = publish.jobs.receipt.steps.find(
+    (step) => step.name === 'Preserve the attested receipt with the release',
+  ).run;
+  expect(receiptPublish).toContain('gh release create');
+  expect(receiptPublish).toMatch(/gh release create[\s\S]+\|\|[\s\S]+gh release view/u);
 
   const image = readWorkflow('release-image.yml');
   const resolveSteps = image.jobs.resolve.steps;
@@ -81,6 +86,10 @@ it('admits release effects only after binding them to reviewed source', () => {
     (step) => step.name === 'Bind a release build to protected main history',
     (step) => step.name === 'Install dependencies',
   );
+  const nativePublish = native.jobs['publish-bun'].steps.find(
+    (step) => step.name === 'Publish all six assets once',
+  ).run;
+  expect(nativePublish).toMatch(/gh release create[\s\S]+\|\|[\s\S]+gh release view/u);
 
   const desktop = readWorkflow('release-desktop-app.yml');
   expect(desktop.on.workflow_dispatch.inputs.publish).toBeUndefined();

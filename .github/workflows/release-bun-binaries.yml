@@ -374,7 +374,10 @@ jobs:
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TAG" --notes-file "$NOTES"
           else
-            gh release create "$TAG" --title "$TAG" --notes-file "$NOTES"
+            gh release create "$TAG" --title "$TAG" --notes-file "$NOTES" || {
+              gh release view "$TAG" >/dev/null
+              gh release edit "$TAG" --title "$TAG" --notes-file "$NOTES"
+            }
           fi
           gh release upload "$TAG" \
             .release-assets/${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64 \

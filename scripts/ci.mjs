@@ -1,5 +1,14 @@
 import { spawnSync } from 'node:child_process';
-import { appendFileSync, existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import {
+  appendFileSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -35,39 +44,128 @@ export function workspaces(cwd, selectors = []) {
     });
 }
 
-export function releaseMetadataPlan(changes, { headRef, baseRef, promotionVerified = false } = {}) {
-  const entries = [];
-  for (let index = 0; index < changes.length - 1; index += 2) {
-    entries.push({ status: changes[index], file: changes[index + 1] });
-  }
+function entries(changes) {
+  const parsed = [];
+  for (let index = 0; index < changes.length - 1; index += 2)
+    parsed.push({ status: changes[index], file: changes[index + 1] });
+  return parsed;
+}
+
+function changesBetween(cwd, base, target = 'HEAD') {
+  const comparison = git(cwd, 'merge-base', base, target);
+  return command(
+    'git',
+    ['diff', '--name-status', '-z', '--no-renames', comparison, target],
+    cwd,
+    true,
+  ).split('\0');
+}
+
+export function releaseMetadataCandidate(changes, projects) {
+  const changed = entries(changes);
+  const generatedWorkspaceFiles = new Set(
+    projects.flatMap(({ dir }) => [`${dir}/package.json`, `${dir}/CHANGELOG.md`]),
+  );
   const allowed = ({ status, file }) => {
     if (file === '.changeset/pre.json' || file === 'pnpm-lock.yaml') return status === 'M';
     if (file === 'devcontainer-features/src/robota/devcontainer-feature.json')
       return status === 'M';
-    if (/^\.changeset\/[^/]+\.md$/u.test(file)) return status === 'D';
-    if (/^packages\/[^/]+\/(?:package\.json|CHANGELOG\.md)$/u.test(file)) return status === 'M';
-    return false;
+    if (/^\.changeset\/[^/]+\.md$/u.test(file)) return ['M', 'D'].includes(status);
+    return status === 'M' && generatedWorkspaceFiles.has(file);
   };
   const required = [
     '.changeset/pre.json',
     'pnpm-lock.yaml',
     'packages/agent-cli/package.json',
     'packages/agent-core/package.json',
+    'devcontainer-features/src/robota/devcontainer-feature.json',
   ];
-  const complete = required.every((file) =>
-    entries.some((entry) => entry.file === file && entry.status === 'M'),
+  return (
+    changed.length > 0 &&
+    changed.every(allowed) &&
+    required.every((file) => changed.some((entry) => entry.file === file && entry.status === 'M'))
   );
-  const consumedChangeset = entries.some(
-    ({ status, file }) => status === 'D' && /^\.changeset\/[^/]+\.md$/u.test(file),
-  );
+}
+
+export async function verifyGeneratedRelease({
+  cwd = process.cwd(),
+  base,
+  target = 'HEAD',
+  generateImpl,
+}) {
+  const root = mkdtempSync(path.join(tmpdir(), 'robota-release-version-'));
+  const checkout = path.join(root, 'checkout');
+  let attached = false;
+  try {
+    command('git', ['worktree', 'add', '--detach', '--quiet', checkout, base], cwd, false, 30_000);
+    attached = true;
+    if (generateImpl) await generateImpl(checkout);
+    else {
+      if (!existsSync(path.join(cwd, 'node_modules', '.bin', 'changeset')))
+        command(
+          pnpm,
+          ['install', '--frozen-lockfile', '--ignore-scripts', '--filter', '.'],
+          cwd,
+          false,
+          2 * 60_000,
+        );
+      command(
+        process.execPath,
+        [path.join(cwd, 'scripts/release/version.mjs'), '--workspace', checkout],
+        cwd,
+        false,
+        3 * 60_000,
+      );
+    }
+    const untracked = git(cwd, '-C', checkout, 'ls-files', '--others', '--exclude-standard');
+    if (untracked) return false;
+    const generated = command(
+      'git',
+      ['-C', checkout, 'diff', '--binary', '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/'],
+      cwd,
+      true,
+    );
+    const expected = command(
+      'git',
+      [
+        'diff',
+        '--binary',
+        '--no-ext-diff',
+        '--src-prefix=a/',
+        '--dst-prefix=b/',
+        base,
+        target,
+        '--',
+      ],
+      cwd,
+      true,
+    );
+    return generated === expected;
+  } catch {
+    return false;
+  } finally {
+    if (attached)
+      try {
+        command('git', ['worktree', 'remove', '--force', checkout], cwd, false, 30_000);
+      } catch {
+        // The verification already fails closed; prune removes a stale administrative entry later.
+        try {
+          command('git', ['worktree', 'prune'], cwd, false, 30_000);
+        } catch {}
+      }
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+export function releaseMetadataPlan(
+  changes,
+  { projects = [], headRef, baseRef, releaseVerified = false, promotionVerified = false } = {},
+) {
   const promotion = headRef === 'develop' && baseRef === 'main';
-  // A generated bump may contain only Changesets output. A develop -> main promotion also contains
-  // the source commits that were already reviewed and checked before entering the protected branch.
   if (
-    !entries.length ||
-    !complete ||
-    !consumedChangeset ||
-    (promotion ? !promotionVerified : !entries.every(allowed))
+    promotion
+      ? !promotionVerified
+      : !releaseVerified || !releaseMetadataCandidate(changes, projects)
   )
     return undefined;
   return {
@@ -90,6 +188,7 @@ export async function verifyPromotionChecks({
   repository,
   apiUrl = 'https://api.github.com',
   fetchImpl = fetch,
+  verifyReleaseImpl = verifyGeneratedRelease,
 }) {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository ?? '')) return false;
   if (!/^[0-9a-f]{40}$/u.test(headSha ?? '')) return false;
@@ -106,6 +205,7 @@ export async function verifyPromotionChecks({
       .split('\n')
       .filter(Boolean);
     if (!commits.length) return false;
+    let generatedReleases = 0;
     for (const sha of commits) {
       const parents = git(cwd, 'show', '-s', '--format=%P', sha).split(' ').filter(Boolean);
       if (parents.length < 2) return false;
@@ -124,8 +224,14 @@ export async function verifyPromotionChecks({
       for (const name of ['pr-validation', 'security']) {
         if (!runs.some((run) => run.name === name && run.conclusion === 'success')) return false;
       }
+      const before = JSON.parse(git(cwd, 'show', `${parents[0]}:packages/agent-cli/package.json`));
+      const after = JSON.parse(git(cwd, 'show', `${sha}:packages/agent-cli/package.json`));
+      if (before.version !== after.version) {
+        if (!(await verifyReleaseImpl({ cwd, base: parents[0], target: sha }))) return false;
+        generatedReleases += 1;
+      }
     }
-    return true;
+    return generatedReleases === 1;
   } catch {
     return false;
   }
@@ -137,6 +243,7 @@ export function selectScope({
   base,
   headRef,
   baseRef,
+  releaseVerified = false,
   promotionVerified = false,
 }) {
   const all = workspaces(cwd);
@@ -160,7 +267,13 @@ export function selectScope({
       cwd,
       true,
     ).split('\0');
-    const metadata = releaseMetadataPlan(changes, { headRef, baseRef, promotionVerified });
+    const metadata = releaseMetadataPlan(changes, {
+      projects: all,
+      headRef,
+      baseRef,
+      releaseVerified,
+      promotionVerified,
+    });
     if (metadata) return metadata;
     const changed = new Set();
     let docs = false;
@@ -322,14 +435,24 @@ async function main() {
   const cwd = process.cwd();
   const kind = process.argv[2];
   if (kind === 'scope') {
-    const promotionVerified =
-      process.env.CI_HEAD_REF === 'develop' && process.env.CI_BASE_REF === 'main'
-        ? await verifyPromotionChecks({
+    const promotion = process.env.CI_HEAD_REF === 'develop' && process.env.CI_BASE_REF === 'main';
+    const promotionVerified = promotion
+      ? await verifyPromotionChecks({
+          cwd,
+          base: process.env.CI_BASE,
+          headSha: process.env.CI_HEAD_SHA,
+          repository: process.env.CI_REPOSITORY,
+          apiUrl: process.env.CI_API_URL,
+        })
+      : false;
+    const changes = changesBetween(cwd, process.env.CI_BASE, process.env.CI_HEAD_SHA);
+    const projects = workspaces(cwd);
+    const releaseVerified =
+      !promotion && releaseMetadataCandidate(changes, projects)
+        ? await verifyGeneratedRelease({
             cwd,
-            base: process.env.CI_BASE,
-            headSha: process.env.CI_HEAD_SHA,
-            repository: process.env.CI_REPOSITORY,
-            apiUrl: process.env.CI_API_URL,
+            base: git(cwd, 'merge-base', process.env.CI_BASE, process.env.CI_HEAD_SHA),
+            target: process.env.CI_HEAD_SHA,
           })
         : false;
     const plan = selectScope({
@@ -338,6 +461,7 @@ async function main() {
       base: process.env.CI_BASE,
       headRef: process.env.CI_HEAD_REF,
       baseRef: process.env.CI_BASE_REF,
+      releaseVerified,
       promotionVerified,
     });
     appendFileSync(

@@ -4,12 +4,6 @@ name: CodeQL
 on:
   push:
     branches: [main, develop]
-    paths-ignore:
-      - '.changeset/**'
-      - 'packages/*/CHANGELOG.md'
-      - 'packages/*/package.json'
-      - 'pnpm-lock.yaml'
-      - 'devcontainer-features/src/robota/devcontainer-feature.json'
 permissions:
   contents: read
   security-events: write

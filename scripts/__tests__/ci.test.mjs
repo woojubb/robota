@@ -17,8 +17,10 @@ import {
   assertBuild,
   assertGate,
   assertNativeGate,
+  releaseMetadataCandidate,
   releaseMetadataPlan,
   selectScope,
+  verifyGeneratedRelease,
   verifyPromotionChecks,
 } from '../ci.mjs';
 
@@ -169,13 +171,31 @@ it('runs tests separately from static and generated-release checks and always ev
   }
 });
 
+// Representative paths from the actual beta.101 prerelease output: Changesets retained the
+// consumed files and updated apps, examples, nested package groups and scratch as well as packages/*.
+const releaseProjects = [
+  'apps/agent-app',
+  'examples/capabilities/agent-eval',
+  'packages/agent-cli',
+  'packages/agent-core',
+  'packages/dag-nodes/file-read',
+  'scratch',
+].map((dir) => ({ dir }));
 const releaseChanges = [
   'M',
   '.changeset/pre.json',
-  'D',
-  '.changeset/fix.md',
   'M',
   'pnpm-lock.yaml',
+  'M',
+  'devcontainer-features/src/robota/devcontainer-feature.json',
+  'M',
+  'apps/agent-app/package.json',
+  'M',
+  'apps/agent-app/CHANGELOG.md',
+  'M',
+  'examples/capabilities/agent-eval/package.json',
+  'M',
+  'examples/capabilities/agent-eval/CHANGELOG.md',
   'M',
   'packages/agent-cli/package.json',
   'M',
@@ -184,23 +204,128 @@ const releaseChanges = [
   'packages/agent-core/package.json',
   'M',
   'packages/agent-core/CHANGELOG.md',
+  'M',
+  'packages/dag-nodes/file-read/package.json',
+  'M',
+  'packages/dag-nodes/file-read/CHANGELOG.md',
+  'M',
+  'scratch/package.json',
+  'M',
+  'scratch/CHANGELOG.md',
 ];
+const withoutReleaseFile = (file) =>
+  releaseChanges.flatMap((entry, index) =>
+    index % 2 === 0 || entry !== file
+      ? index % 2 === 0
+        ? []
+        : [releaseChanges[index - 1], entry]
+      : [],
+  );
 
-it('selects the fast path only for complete generated release metadata', () => {
-  expect(releaseMetadataPlan(releaseChanges)).toMatchObject({
+it('recognizes the real prerelease workspace layout only after exact regeneration', () => {
+  expect(releaseMetadataCandidate(releaseChanges, releaseProjects)).toBe(true);
+  expect(
+    releaseMetadataPlan(releaseChanges, { projects: releaseProjects, releaseVerified: true }),
+  ).toMatchObject({
     releaseMetadata: true,
     promotion: false,
     release: true,
   });
-  expect(releaseMetadataPlan([...releaseChanges, 'M', 'packages/agent-core/src/index.ts'])).toBe(
-    undefined,
+  expect(releaseMetadataPlan(releaseChanges, { projects: releaseProjects })).toBe(undefined);
+  expect(
+    releaseMetadataPlan([...releaseChanges, 'M', 'packages/agent-core/src/index.ts'], {
+      projects: releaseProjects,
+      releaseVerified: true,
+    }),
+  ).toBe(undefined);
+  expect(
+    releaseMetadataPlan(withoutReleaseFile('pnpm-lock.yaml'), {
+      projects: releaseProjects,
+      releaseVerified: true,
+    }),
+  ).toBe(undefined);
+});
+
+function releaseVerificationFixture() {
+  const cwd = mkdtempSync(path.join(os.tmpdir(), 'release-verification-'));
+  roots.push(cwd);
+  const baseFiles = {
+    '.changeset/pre.json': '{"mode":"pre","changesets":[]}',
+    'pnpm-lock.yaml': 'lockfileVersion: 6\n',
+    'devcontainer-features/src/robota/devcontainer-feature.json':
+      '{"version":"1.0.0","options":{"version":{"default":"1.0.0"}}}\n',
+    'packages/agent-cli/package.json': '{"name":"cli","version":"1.0.0"}\n',
+    'packages/agent-cli/CHANGELOG.md': '# CLI\n',
+    'packages/agent-core/package.json': '{"name":"core","version":"1.0.0"}\n',
+  };
+  const generatedFiles = {
+    '.changeset/pre.json': '{"mode":"pre","changesets":["release"]}',
+    'pnpm-lock.yaml': 'lockfileVersion: 6\nrelease: true\n',
+    'devcontainer-features/src/robota/devcontainer-feature.json':
+      '{"version":"1.0.1","options":{"version":{"default":"1.0.1"}}}\n',
+    'packages/agent-cli/package.json': '{"name":"cli","version":"1.0.1"}\n',
+    'packages/agent-cli/CHANGELOG.md': '# CLI\n\n## 1.0.1\n',
+    'packages/agent-core/package.json': '{"name":"core","version":"1.0.1"}\n',
+  };
+  for (const [file, contents] of Object.entries(baseFiles)) write(cwd, file, contents);
+  exec(cwd, 'git', ['init', '-q']);
+  exec(cwd, 'git', ['add', '.']);
+  exec(cwd, 'git', [
+    '-c',
+    'user.name=CI fixture',
+    '-c',
+    'user.email=ci@example.test',
+    'commit',
+    '-qm',
+    'base',
+  ]);
+  const base = exec(cwd, 'git', ['rev-parse', 'HEAD']);
+  for (const [file, contents] of Object.entries(generatedFiles)) write(cwd, file, contents);
+  commit(cwd);
+  const target = exec(cwd, 'git', ['rev-parse', 'HEAD']);
+  const generateImpl = async (checkout) => {
+    for (const [file, contents] of Object.entries(generatedFiles)) write(checkout, file, contents);
+  };
+  return { cwd, base, target, generateImpl };
+}
+
+it('accepts only a byte-for-byte regeneration of the version commit', async () => {
+  const options = releaseVerificationFixture();
+  expect(await verifyGeneratedRelease(options)).toBe(true);
+});
+
+it.each([
+  [
+    'manifest',
+    'packages/agent-cli/package.json',
+    '{"name":"cli","version":"1.0.1","scripts":{"postinstall":"node attack.js"}}\n',
+  ],
+  ['lockfile', 'pnpm-lock.yaml', 'lockfileVersion: 6\nrelease: false\n'],
+  ['prerelease state', '.changeset/pre.json', '{"mode":"pre","changesets":["forged"]}'],
+  ['changelog', 'packages/agent-cli/CHANGELOG.md', '# CLI\n\nforged\n'],
+  [
+    'Feature metadata',
+    'devcontainer-features/src/robota/devcontainer-feature.json',
+    '{"version":"9.0.0","options":{"version":{"default":"attacker"}}}\n',
+  ],
+])('rejects arbitrary %s content on generated paths', async (_label, file, contents) => {
+  const options = releaseVerificationFixture();
+  write(options.cwd, file, contents);
+  commit(options.cwd);
+  options.target = exec(options.cwd, 'git', ['rev-parse', 'HEAD']);
+  expect(await verifyGeneratedRelease(options)).toBe(false);
+});
+
+it('rejects a generated-looking path set when a required output is missing', () => {
+  expect(releaseMetadataCandidate(withoutReleaseFile('pnpm-lock.yaml'), releaseProjects)).toBe(
+    false,
   );
-  expect(releaseMetadataPlan(releaseChanges.filter((entry) => entry !== '.changeset/fix.md'))).toBe(
-    undefined,
-  );
-  expect(releaseMetadataPlan(releaseChanges.filter((entry) => entry !== 'pnpm-lock.yaml'))).toBe(
-    undefined,
-  );
+  expect(
+    releaseMetadataPlan(withoutReleaseFile('pnpm-lock.yaml'), {
+      projects: releaseProjects,
+      releaseVerified: true,
+    }),
+  ).toBe(undefined);
 });
 
 it('selects the fast promotion path only for develop to main with complete release metadata', () => {
@@ -225,9 +350,21 @@ it('selects the fast promotion path only for develop to main with complete relea
 
 it('verifies every first-parent promotion commit is a reviewed merge with required checks', async () => {
   const options = fixture();
+  write(
+    options.cwd,
+    'packages/agent-cli/package.json',
+    JSON.stringify({ name: 'cli', version: '1.0.0' }),
+  );
+  commit(options.cwd);
+  options.base = exec(options.cwd, 'git', ['rev-parse', 'HEAD']);
   const branch = exec(options.cwd, 'git', ['rev-parse', '--abbrev-ref', 'HEAD']);
   exec(options.cwd, 'git', ['checkout', '-qb', 'feature']);
   write(options.cwd, 'packages/core/src/index.ts', 'reviewed');
+  write(
+    options.cwd,
+    'packages/agent-cli/package.json',
+    JSON.stringify({ name: 'cli', version: '1.0.1' }),
+  );
   commit(options.cwd);
   exec(options.cwd, 'git', ['checkout', '-q', branch]);
   exec(options.cwd, 'git', [
@@ -253,6 +390,7 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
       headSha,
       repository: 'woojubb/robota',
       fetchImpl: async () => response(['pr-validation', 'security']),
+      verifyReleaseImpl: async () => true,
     }),
   ).toBe(true);
   expect(
@@ -262,6 +400,7 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
       headSha,
       repository: 'woojubb/robota',
       fetchImpl: async () => response(['pr-validation']),
+      verifyReleaseImpl: async () => true,
     }),
   ).toBe(false);
   expect(
@@ -271,6 +410,17 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
       headSha: exec(options.cwd, 'git', ['rev-parse', 'feature']),
       repository: 'woojubb/robota',
       fetchImpl: async () => response(['pr-validation', 'security']),
+      verifyReleaseImpl: async () => true,
+    }),
+  ).toBe(false);
+  expect(
+    await verifyPromotionChecks({
+      cwd: options.cwd,
+      base: options.base,
+      headSha,
+      repository: 'woojubb/robota',
+      fetchImpl: async () => response(['pr-validation', 'security']),
+      verifyReleaseImpl: async () => false,
     }),
   ).toBe(false);
 });
