@@ -37,8 +37,9 @@ export interface IAcpTransportSession
 }
 
 /**
- * The editor's file system, as the editor offered it (`clientCapabilities.fs`): a method it did not
- * offer is absent. Paths are absolute. A failure rejects with the editor's reason.
+ * The editor's pathname file system, as the editor offered it (`clientCapabilities.fs`): a method
+ * it did not offer is absent. Paths are absolute. ACP v1 does not bind the path to stable rooted
+ * authority, so contained host file tools must not treat this as `IEditorFileAccess.pathAuthority`.
  */
 export interface IAcpEditorFileAccess {
   readTextFile?(path: string, signal?: AbortSignal): Promise<string>;

@@ -930,9 +930,23 @@ function parseCliArguments(argv) {
 
 /** Carry only the validated contract into later workflow steps; never export ambient credentials. */
 export function workflowProductEnvironment(config, configFile, workspace) {
+  const canonicalize = (value) => {
+    if (Array.isArray(value)) return value.map(canonicalize);
+    if (value !== null && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0)
+          .map(([key, entry]) => [key, canonicalize(entry)]),
+      );
+    }
+    return value;
+  };
+  const configSha256 = createHash('sha256')
+    .update(JSON.stringify(canonicalize(config)))
+    .digest('hex');
   const entries = [
     ['PRODUCT_CONFIG_FILE', path.resolve(configFile)],
     ['PRODUCT_WORKSPACE', path.resolve(workspace)],
+    ['PRODUCT_CONFIG_SHA256', configSha256],
     ...productConfigEntries().map(({ section, field, descriptor }) => [
       descriptor.variable,
       typeof config[section][field] === 'object' ? JSON.stringify(config[section][field]) : config[section][field] ?? '',

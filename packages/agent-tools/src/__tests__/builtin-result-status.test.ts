@@ -199,6 +199,7 @@ describe('declared builtin invocation outcomes', () => {
       const options = {
         cwd: root,
         editorFiles: () => ({
+          pathAuthority: 'stable-root' as const,
           readTextFile: async () => {
             reads += 1;
             if (action === 'read' || action === 'edit-read')

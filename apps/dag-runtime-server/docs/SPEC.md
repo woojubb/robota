@@ -13,6 +13,8 @@ the server entrypoint.
   exposes them over HTTP.
 - Carries no external-runtime API surface or compatibility layer; any such adapter lives outside this
   repository.
+- Every route requires host-owned admission. The standalone server requires a bearer secret and
+  binds to IPv4 loopback unless its host explicitly selects another interface.
 - Run cancellation defers to the in-process lifecycle's committed-state decision: a winning cancel
   answers 200, a missing run answers 404, and an invalid terminal transition is rejected without
   rewriting the already-decided winner.

@@ -39,8 +39,8 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
   carry no MCP servers or extra roots, and the host's trust check runs before either answers; a load
   reaches only a session the host's port admits, which must be rooted in the served directory. A
   permission answer grants only an option that request listed, and anything cancelled, failed or
-  unrecognised denies. The editor's file system carries only an access that the host's tools have
-  already checked and been allowed.
+  unrecognised denies. ACP v1's pathname-only file system cannot preserve a checked file identity
+  across a rename, so contained host file tools never delegate `Read`, `Write` or `Edit` to it.
 - **Questions fail closed.** ACP v1 has no free-form question, so the transport never listens for
   one and the session answers it as cancelled.
 - **Every session event has a decision.** The event policy is exhaustive over the shared vocabulary
@@ -100,10 +100,9 @@ ACP-specific vocabulary stay in this package, so a protocol revision touches one
   alone, so the request carries the arguments whole, an edit's diff and the file it touches, and a
   title that is never shortened; approving a summary would approve what was not seen.
 - **The editor's file system goes to the host, not to the session.** An editor that offers `fs`
-  lets the agent read what it shows, unsaved changes included, and write into it, where it can show
-  and undo the change. The paths, the permission and the limits belong to the host's file tools,
-  which this package may not import, so it hands the host an access bound to the served session and
-  the host decides which tools use it. It is handed over after `session/new` or `session/load` binds
+  gives the host pathname access bound to the served session. Because ACP v1 cannot bind that path
+  to stable rooted authority, contained file tools keep their disk capability instead of delegating
+  reads or writes. It is handed over after `session/new` or `session/load` binds
   the session, because every `fs` request names the session, and withdrawn when the transport stops so the tools
   return to the disk. Terminals are not delegated: an editor terminal runs outside the agent's
   command sandbox.

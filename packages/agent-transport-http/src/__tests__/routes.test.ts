@@ -199,6 +199,79 @@ describe('HTTP Transport Routes', () => {
     return { app, mockSession };
   }
 
+  it.each(['/submit', '/command', '/prompts/prompt-1'])(
+    'refuses an oversized JSON body on %s before resolving a session',
+    async (pathname) => {
+      const sessionFactory = vi.fn(() => createMockSession());
+      const app = createAgentRoutes({
+        sessionFactory,
+        admission: { token: 'expected-token' },
+        maxJsonBodyBytes: 16,
+      });
+      const response = await app.request(pathname, {
+        method: 'POST',
+        headers: {
+          authorization: 'Bearer expected-token',
+          'content-type': 'application/json',
+          'content-length': '128',
+        },
+        body: JSON.stringify({ value: 'x'.repeat(100) }),
+      });
+
+      expect(response.status).toBe(413);
+      expect(sessionFactory).not.toHaveBeenCalled();
+    },
+  );
+
+  it('refuses an oversized streamed JSON body without Content-Length', async () => {
+    const sessionFactory = vi.fn(() => createMockSession());
+    const app = createAgentRoutes({
+      sessionFactory,
+      admission: { token: 'expected-token' },
+      maxJsonBodyBytes: 16,
+    });
+    const body = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new TextEncoder().encode('{"value":"'));
+        controller.enqueue(new TextEncoder().encode('x'.repeat(100)));
+        controller.enqueue(new TextEncoder().encode('"}'));
+        controller.close();
+      },
+    });
+
+    const request = new Request('http://localhost/submit', {
+      method: 'POST',
+      headers: {
+        authorization: 'Bearer expected-token',
+        'content-type': 'application/json',
+      },
+      body,
+      duplex: 'half',
+    } as RequestInit & { duplex: 'half' });
+    const response = await app.request(request);
+
+    expect(response.status).toBe(413);
+    expect(sessionFactory).not.toHaveBeenCalled();
+  });
+
+  it('keeps authentication ahead of the JSON body limit', async () => {
+    const sessionFactory = vi.fn(() => createMockSession());
+    const app = createAgentRoutes({
+      sessionFactory,
+      admission: { token: 'expected-token' },
+      maxJsonBodyBytes: 16,
+    });
+
+    const response = await app.request('/submit', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'content-length': '128' },
+      body: JSON.stringify({ value: 'x'.repeat(100) }),
+    });
+
+    expect(response.status).toBe(401);
+    expect(sessionFactory).not.toHaveBeenCalled();
+  });
+
   // ── POST /abort ───────────────────────────────────────────────
 
   it('POST /abort calls session.abort()', async () => {

@@ -5,14 +5,19 @@
  * then reads what the editor shows, unsaved changes included, and its writes land in the editor, which
  * shows them and keeps them in its own undo history. The tool decides everything before it asks:
  * containment, the session's permission gate and the tool's limits run first, and the editor only
- * performs the access. An editor is not a sandbox: its files are the host's files, so it never
- * replaces the host path guard and never carries commands or searches.
+ * performs the access. Only an adapter that guarantees the checked absolute path is the same file
+ * it accesses may carry a file operation. A pathname-only remote protocol cannot make that
+ * guarantee across a filesystem rename, so it must leave the marker absent and the tool uses its
+ * stable disk authority instead. An editor is not a sandbox: its files are the host's files, so it
+ * never replaces the host path guard and never carries commands or searches.
  */
 
 import type { IToolInvocationResult } from '../types/tool-result.js';
 
 /** What the editor offers. A method it does not offer is absent, and the tool uses the disk for it. */
 export interface IEditorFileAccess {
+  /** Explicit capability: this adapter binds the checked path to a stable rooted authority. */
+  readonly pathAuthority?: 'stable-root';
   /** The file's text as the editor has it. `path` is absolute. */
   readTextFile?(path: string, signal?: AbortSignal): Promise<string>;
   /** Replace the file's text in the editor. `path` is absolute. */
@@ -34,12 +39,14 @@ type TEditorWrite = (path: string, content: string, signal?: AbortSignal) => Pro
 /** The editor's read for this call, when an editor is attached and offers reads. */
 export function editorRead(options: IEditorFileOptions): TEditorRead | undefined {
   const access = options.editorFiles?.();
+  if (access?.pathAuthority !== 'stable-root') return undefined;
   return access?.readTextFile?.bind(access);
 }
 
 /** The editor's write for this call, when an editor is attached and offers writes. */
 export function editorWrite(options: IEditorFileOptions): TEditorWrite | undefined {
   const access = options.editorFiles?.();
+  if (access?.pathAuthority !== 'stable-root') return undefined;
   return access?.writeTextFile?.bind(access);
 }
 
@@ -69,10 +76,11 @@ export function editorFailure(action: 'read' | 'write', path: string, error: unk
  */
 export function withDiskSearchNotice(output: string, options: IEditorFileOptions): string {
   const access = options.editorFiles?.();
-  if (access === undefined) return output;
-  if (access.readTextFile === undefined && access.writeTextFile === undefined) return output;
+  if (access?.readTextFile === undefined && access?.writeTextFile === undefined) return output;
   const readHint =
-    access.readTextFile === undefined ? '' : ' Read returns a file as the editor has it.';
+    access.pathAuthority === 'stable-root' && access.readTextFile !== undefined
+      ? ' Read returns a file as the editor has it.'
+      : '';
   return (
     `${output}\n\n[Searched the files on disk. The editor may hold changes to them that are not ` +
     `saved yet, which this search does not see.${readHint}]`

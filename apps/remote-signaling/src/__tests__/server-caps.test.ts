@@ -124,6 +124,53 @@ describe('signaling server transport caps (REMOTE-011 E2)', () => {
     );
   }, 15000);
 
+  it('uses the custom source key for relay rate limiting as well as connection caps', async () => {
+    await withServer(
+      {
+        relay: { rateLimit: { burst: 1, refillPerMs: 0 } },
+        addressResolver: (request) => {
+          const key = request.headers['x-test-ip'];
+          return typeof key === 'string' ? key : undefined;
+        },
+      },
+      async (_server, url) => {
+        const first = connect(url, { 'x-test-ip': 'first' });
+        const second = connect(url, { 'x-test-ip': 'second' });
+        await Promise.all([onceOpen(first), onceOpen(second)]);
+        const firstReply = onceMessage(first);
+        const secondReply = onceMessage(second);
+        first.send(JSON.stringify({ type: 'join', rendezvous: 'resolved-source' }));
+        second.send(JSON.stringify({ type: 'join', rendezvous: 'resolved-source' }));
+        expect((await firstReply).type).toBe('joined');
+        expect((await secondReply).type).toBe('joined');
+        first.close();
+        second.close();
+      },
+    );
+  }, 15000);
+
+  it('does not turn an empty custom source key into a per-connection relay key', async () => {
+    await withServer(
+      {
+        relay: { rateLimit: { burst: 1, refillPerMs: 0 } },
+        addressResolver: () => '',
+      },
+      async (_server, url) => {
+        const first = connect(url);
+        const second = connect(url);
+        await Promise.all([onceOpen(first), onceOpen(second)]);
+        const firstReply = onceMessage(first);
+        first.send(JSON.stringify({ type: 'join', rendezvous: 'empty-source-first' }));
+        expect((await firstReply).type).toBe('joined');
+        const secondReply = onceMessage(second);
+        second.send(JSON.stringify({ type: 'join', rendezvous: 'empty-source-second' }));
+        expect(await secondReply).toEqual({ type: 'error', reason: 'rate-limited' });
+        first.close();
+        second.close();
+      },
+    );
+  }, 15000);
+
   it('TC-04: a frame over maxFrameBytes closes with 1009; a small frame still relays (joined)', async () => {
     await withServer({ maxFrameBytes: 1024 }, async (_server, url) => {
       // Small frame: a normal join succeeds.

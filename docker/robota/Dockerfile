@@ -3,7 +3,8 @@
 # Robota agent image. See README.md in this directory for the host options the inner OS sandbox
 # needs, credentials, trust and workspace guidance.
 #
-#   docker build -t robota docker/robota
+#   docker/robota/pack-local.sh
+#   docker build --build-arg ROBOTA_SOURCE=local -t robota:local docker/robota
 #
 # ROBOTA_SOURCE=registry (default) installs @robota-sdk/agent-cli@${ROBOTA_VERSION} from npm.
 # ROBOTA_SOURCE=local installs the CLI tarball `pack-local.sh` wrote to local-packages/. That path
@@ -13,6 +14,7 @@ FROM node:22-bookworm-slim
 
 ARG ROBOTA_VERSION=3.0.0-beta.90
 ARG ROBOTA_SOURCE=registry
+ARG ROBOTA_LOCK_SHA256=
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
@@ -27,15 +29,22 @@ RUN apt-get update \
 # depends only on third-party packages, so any other @robota-sdk package found after the install
 # would not come from the selected source and fails the build. local-packages/ is bind-mounted for
 # the install step only, so the tarball never becomes an image layer.
+COPY --chmod=0444 release-package-lock.json /tmp/release-package-lock.json
+COPY --chmod=0555 validate-release-lock.mjs /usr/local/lib/robota/validate-release-lock.mjs
 RUN --mount=type=bind,source=local-packages,target=/tmp/local-packages \
   set -eu; \
   mkdir -p /opt/robota; \
   cd /opt/robota; \
-  echo '{"name":"robota-image","private":true}' > package.json; \
   case "$ROBOTA_SOURCE" in \
     registry) \
-      npm install --omit=dev --no-audit --no-fund "@robota-sdk/agent-cli@${ROBOTA_VERSION}" ;; \
+      if ! printf '%s' "$ROBOTA_LOCK_SHA256" | grep -Eq '^[0-9a-f]{64}$'; then \
+        echo "registry builds require the attested release lock digest" >&2; exit 1; \
+      fi; \
+      cp /tmp/release-package-lock.json package-lock.json; \
+      node /usr/local/lib/robota/validate-release-lock.mjs package-lock.json package.json; \
+      npm ci --omit=dev --ignore-scripts --no-audit --no-fund ;; \
     local) \
+      echo '{"name":"robota-image","private":true}' > package.json; \
       set -- /tmp/local-packages/*.tgz; \
       if [ "$#" -ne 1 ] || [ ! -e "$1" ]; then \
         echo "local-packages/ must hold exactly the agent-cli tarball; run docker/robota/pack-local.sh" >&2; exit 1; \
@@ -47,6 +56,7 @@ RUN --mount=type=bind,source=local-packages,target=/tmp/local-packages \
   if [ "$installed" != "node_modules/@robota-sdk/agent-cli" ]; then \
     echo "only @robota-sdk/agent-cli may be installed; found: $installed" >&2; exit 1; \
   fi; \
+  rm -f /tmp/release-package-lock.json package-lock.json; \
   npm cache clean --force; \
   ln -s /opt/robota/node_modules/.bin/robota /usr/local/bin/robota; \
   robota --version

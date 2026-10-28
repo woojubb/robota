@@ -7,6 +7,8 @@ directory covers the **batch** shape: one container per task, which runs `robota
 | File | Purpose |
 | --- | --- |
 | `Dockerfile` | `node:22-bookworm-slim` with `bubblewrap`, `git`, CA certificates and `tini`; the CLI installed root-owned; runs as `node` |
+| `release-package-lock.json` | Placeholder replaced by the release workflow with the attested exact dependency graph for registry builds |
+| `validate-release-lock.mjs` | Fails registry builds unless the lock digest, sole CLI root, version, integrity and registry are exact |
 | `entrypoint.sh` | Seeds default settings, exports Docker secrets, then runs the command |
 | `default-settings.json` | Sandbox on, refuse to start when it cannot run, `/run/secrets` hidden from confined commands |
 | `seccomp-bwrap.json` | Docker's default seccomp profile plus the one rule `bubblewrap` needs |
@@ -172,7 +174,9 @@ docker pull ghcr.io/woojubb/robota:3.0.0-beta.90
 docker tag ghcr.io/woojubb/robota:3.0.0-beta.90 robota:3.0.0-beta.90   # the name used below
 ```
 
-To build it yourself instead: `docker build --build-arg ROBOTA_VERSION=3.0.0-beta.90 -t robota:3.0.0-beta.90 docker/robota`.
+Registry images are built only by the release workflow because the build requires its attested
+dependency lock and digest. For an unreleased local checkout, use the pre-release verification build
+below instead.
 
 ## Batch usage
 
@@ -251,8 +255,10 @@ history.
 ## Pre-release verification build
 
 The image installs a published release by default (`ROBOTA_SOURCE=registry`), so it maps one-to-one
-to a version and rolls back by tag. To verify unreleased changes before a release, pack this
-checkout's CLI and build from the tarball:
+to a version and rolls back by tag. Registry builds require the release workflow's attested
+`release-package-lock.json` and its SHA-256 build argument; the checked-in placeholder deliberately
+cannot produce a registry image. To verify unreleased changes before a release, pack this checkout's
+CLI and build from the tarball:
 
 ```sh
 docker/robota/pack-local.sh                      # build the CLI and its workspace dependencies, pnpm pack

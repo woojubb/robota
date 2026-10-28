@@ -76,6 +76,30 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'pull_request' && github.sha || github.event.inputs.tag || github.ref_name }}
 
+      - name: Bind a release build to protected main history
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          TAG: ${{ github.event.inputs.tag || github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^[0-9A-Za-z._+-]+$ ]]; then
+            echo "::error::Refusing an invalid release tag."
+            exit 1
+          fi
+          git fetch --force origin \
+            "+refs/heads/main:refs/remotes/origin/main" \
+            "+refs/tags/$TAG:refs/tags/$TAG"
+          tag_commit=$(git rev-parse "refs/tags/$TAG^{commit}")
+          if ! git merge-base --is-ancestor "$tag_commit" refs/remotes/origin/main; then
+            echo "::error::Release tags must select a reviewed commit on protected main history."
+            exit 1
+          fi
+          if [ "$GITHUB_EVENT_NAME" = push ] && [ "$tag_commit" != "$GITHUB_SHA" ]; then
+            echo "::error::The release tag does not match the triggering commit."
+            exit 1
+          fi
+
       # Keep the product tag immutable while allowing reviewed release tooling to repair an older tag.
       - name: Checkout macOS release tooling
         if: github.event_name != 'pull_request' && runner.os == 'macOS'

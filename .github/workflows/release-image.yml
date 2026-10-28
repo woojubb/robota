@@ -25,16 +25,39 @@ jobs:
   resolve:
     name: Resolve the release and wait for it on npm
     runs-on: ubuntu-latest
-    timeout-minutes: 260
+    timeout-minutes: 360
+    permissions:
+      contents: read
+      attestations: read
     env:
       PRODUCT_BUILD_ENV: ${{ vars.PRODUCT_BUILD_ENV }}
     outputs:
       version: ${{ steps.release.outputs.version }}
       tag: ${{ steps.release.outputs.tag }}
+      commit: ${{ steps.release.outputs.commit }}
+      lock_sha256: ${{ steps.integrity.outputs.lock_sha256 }}
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
+      - name: Reject an unreviewed tag source before executing repository dependencies
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$TAG" =~ ^[0-9A-Za-z._+-]+$ ]]; then
+            echo "::error::Refusing an invalid release tag."
+            exit 1
+          fi
+          git fetch --force origin "+refs/heads/main:refs/remotes/origin/main"
+          tag_commit=$(git rev-parse "refs/tags/$TAG^{commit}")
+          if [ "$tag_commit" != "$GITHUB_SHA" ] || ! git merge-base --is-ancestor "$tag_commit" refs/remotes/origin/main; then
+            echo "::error::The pushed release tag is not the triggering commit on protected main history."
+            exit 1
+          fi
       - uses: pnpm/action-setup@v6
         with:
           version: 8.15.4
@@ -55,7 +78,7 @@ jobs:
             exit 1
           fi
           printf '%s' "$PRODUCT_BUILD_ENV" > "$RUNNER_TEMP/selected-product.env"
-          pnpm exec tsx scripts/product/generate-workspace.mjs --env "$RUNNER_TEMP/selected-product.env" --out "$RUNNER_TEMP/product-workspace" --github-output "$GITHUB_OUTPUT"
+          pnpm exec tsx scripts/product/generate-workspace.mjs --env "$RUNNER_TEMP/selected-product.env" --out "$RUNNER_TEMP/product-workspace" --github-env "$GITHUB_ENV" --github-output "$GITHUB_OUTPUT"
       - name: Resolve the release tag and version
         id: release
         shell: bash
@@ -94,23 +117,111 @@ jobs:
             echo "::error::$tag carries agent-cli $tagged, not $version."
             exit 1
           fi
+          tag_commit=$(git rev-parse "refs/tags/$tag^{commit}")
+          git fetch --force origin "+refs/heads/main:refs/remotes/origin/main"
+          if ! git merge-base --is-ancestor "$tag_commit" refs/remotes/origin/main; then
+            echo "::error::$tag is not on protected main history."
+            exit 1
+          fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
-      - name: Wait until @robota-sdk/agent-cli@version is on npm
+          echo "commit=$tag_commit" >> "$GITHUB_OUTPUT"
+      - name: Verify npm is the tarball published from this exact tag
         if: steps.release.outputs.version != ''
+        id: integrity
+        shell: bash
         env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ steps.release.outputs.tag }}
           VERSION: ${{ steps.release.outputs.version }}
         run: |
-          deadline=$(( $(date +%s) + 240 * 60 ))
-          until [ "$(npm view "@robota-sdk/agent-cli@$VERSION" version 2>/dev/null)" = "$VERSION" ]; do
+          set -euo pipefail
+          tag_commit=$(git rev-parse "refs/tags/$TAG^{commit}")
+          GH_VERSION=$(gh --version | head -1 | awk '{print $3}') node - <<'NODE'
+          const [major, minor, patch] = process.env.GH_VERSION.split('.').map(Number);
+          if ([major, minor, patch].some((part) => !Number.isInteger(part)) ||
+              major < 2 || (major === 2 && minor < 102)) {
+            throw new Error('GitHub CLI 2.102.0 or newer is required for safe release download and attestation verification');
+          }
+          NODE
+          mkdir -p "$RUNNER_TEMP/npm-release"
+          deadline=$(( $(date +%s) + 350 * 60 ))
+          # allow-runner-wait: receipt assets are produced by the independently running publish and native release workflows.
+          while :; do
+            names=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || true)
+            if printf '%s\n' "$names" | grep -Fqx npm-release-integrity.json &&
+               printf '%s\n' "$names" | grep -Fqx npm-release-package-lock.json; then
+              break
+            fi
             if [ "$(date +%s)" -ge "$deadline" ]; then
-              echo "::error::@robota-sdk/agent-cli@$VERSION did not appear on npm within 4 hours. Publish it, then re-run this workflow with workflow_dispatch version=$VERSION."
+              echo "::error::The attested npm release receipt did not become available within 350 minutes."
               exit 1
             fi
-            echo "@robota-sdk/agent-cli@$VERSION not on npm yet; checking again in 60s."
             sleep 60
           done
-          echo "@robota-sdk/agent-cli@$VERSION is on npm."
+          gh release download "$TAG" --dir "$RUNNER_TEMP/npm-release" \
+            --pattern npm-release-integrity.json \
+            --pattern npm-release-package-lock.json
+          manifest="$RUNNER_TEMP/npm-release/npm-release-integrity.json"
+          lock="$RUNNER_TEMP/npm-release/npm-release-package-lock.json"
+          gh attestation verify "$manifest" --repo "$GH_REPO" \
+            --signer-workflow "$GH_REPO/.github/workflows/publish.yml" \
+            --source-ref refs/heads/main --source-digest "$tag_commit" --signer-digest "$tag_commit"
+          gh attestation verify "$lock" --repo "$GH_REPO" \
+            --signer-workflow "$GH_REPO/.github/workflows/publish.yml" \
+            --source-ref refs/heads/main --source-digest "$tag_commit" --signer-digest "$tag_commit"
+          MANIFEST="$manifest" LOCK="$lock" TAG="$TAG" COMMIT="$tag_commit" VERSION="$VERSION" node - <<'NODE'
+          const crypto = require('node:crypto');
+          const fs = require('node:fs');
+          const manifest = JSON.parse(fs.readFileSync(process.env.MANIFEST, 'utf8'));
+          const packageName = `${process.env.PRODUCT_PACKAGE_SCOPE}/agent-cli`;
+          const cli = manifest.packages?.find((entry) => entry.name === packageName);
+          const lock = JSON.parse(fs.readFileSync(process.env.LOCK, 'utf8'));
+          const lockSha256 = crypto.createHash('sha256').update(fs.readFileSync(process.env.LOCK)).digest('hex');
+          const rootDependencies = lock.packages?.['']?.dependencies;
+          const lockedCli = lock.packages?.[`node_modules/${packageName}`];
+          const dependencyNames = rootDependencies && Object.keys(rootDependencies);
+          const registry = new URL(process.env.PROJECT_NPM_REGISTRY_URL);
+          const registryPrefix = registry.href.endsWith('/') ? registry.href : `${registry.href}/`;
+          const lockEntries = Object.entries(lock.packages ?? {}).filter(([name]) => name !== '');
+          const invalidResolution = lockEntries.some(([, entry]) => {
+            if (entry.link || typeof entry.resolved !== 'string' ||
+                !/^sha512-[A-Za-z0-9+/]+={0,2}$/.test(entry.integrity ?? '')) return true;
+            let resolved;
+            try { resolved = new URL(entry.resolved); } catch { return true; }
+            return !resolved.href.startsWith(registryPrefix);
+          });
+          if (manifest.version !== 1 || manifest.tag !== process.env.TAG ||
+              manifest.sourceCommit !== process.env.COMMIT ||
+              manifest.productConfigSha256 !== process.env.PRODUCT_CONFIG_SHA256 ||
+              manifest.packageScope !== process.env.PRODUCT_PACKAGE_SCOPE ||
+              manifest.registry !== process.env.PROJECT_NPM_REGISTRY_URL ||
+              manifest.installLockSha256 !== lockSha256 || cli?.version !== process.env.VERSION ||
+              !/^sha512-[A-Za-z0-9+/]+={0,2}$/.test(cli?.integrity ?? '') ||
+              dependencyNames?.length !== 1 || dependencyNames[0] !== packageName ||
+              rootDependencies?.[packageName] !== process.env.VERSION ||
+              lockedCli?.version !== process.env.VERSION || lockedCli?.integrity !== cli.integrity ||
+              invalidResolution) {
+            throw new Error('npm release receipt does not bind this tag, commit, product, CLI, and install graph');
+          }
+          NODE
+          expected=$(MANIFEST="$manifest" node -e "const m=require(process.env.MANIFEST); process.stdout.write(m.packages.find(p=>p.name===process.env.PRODUCT_PACKAGE_SCOPE+'/agent-cli').integrity)")
+          actual=$(npm view "$PRODUCT_PACKAGE_SCOPE/agent-cli@$VERSION" dist.integrity --prefer-online --registry "$PROJECT_NPM_REGISTRY_URL")
+          if [ "$actual" != "$expected" ]; then
+            echo "::error::The registry CLI tarball differs from the tag-bound published artifact."
+            exit 1
+          fi
+          cp "$lock" "$RUNNER_TEMP/release-package-lock.json"
+          echo "lock_sha256=$(sha256sum "$lock" | awk '{print $1}')" >> "$GITHUB_OUTPUT"
+      - name: Carry the verified install graph into the image job
+        if: steps.release.outputs.version != ''
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-image-lock-${{ steps.release.outputs.tag }}
+          path: ${{ runner.temp }}/release-package-lock.json
+          if-no-files-found: error
+          retention-days: 1
 
   image:
     name: Build, smoke-test and push the image
@@ -123,6 +234,7 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: read
+      actions: read
       packages: write
       id-token: write
       attestations: write
@@ -132,7 +244,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: refs/tags/${{ needs.resolve.outputs.tag }}
+          ref: ${{ needs.resolve.outputs.commit }}
+          persist-credentials: false
+      - name: Restore the verified install graph
+        uses: actions/download-artifact@v7
+        with:
+          name: release-image-lock-${{ needs.resolve.outputs.tag }}
+          path: docker/robota
       - uses: docker/setup-qemu-action@v4
       - uses: docker/setup-buildx-action@v4
       - name: Build the amd64 image for the smoke test
@@ -143,6 +261,7 @@ jobs:
           build-args: |
             ROBOTA_SOURCE=registry
             ROBOTA_VERSION=${{ env.VERSION }}
+            ROBOTA_LOCK_SHA256=${{ needs.resolve.outputs.lock_sha256 }}
           load: true
           tags: robota:smoke
           cache-to: type=gha,mode=max
@@ -174,6 +293,7 @@ jobs:
           build-args: |
             ROBOTA_SOURCE=registry
             ROBOTA_VERSION=${{ env.VERSION }}
+            ROBOTA_LOCK_SHA256=${{ needs.resolve.outputs.lock_sha256 }}
           push: true
           tags: ${{ env.IMAGE }}:${{ env.VERSION }}
           labels: |

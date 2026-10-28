@@ -1,7 +1,8 @@
 /**
  * The editor's file system, as the editor offered it in `initialize`: reads and writes the host's
- * file tools may hand to it once the session is bound. The tools decide what they touch; this only
- * carries the access, so it never widens what a tool may reach.
+ * file tools may inspect once the session is bound. ACP v1 carries only a pathname, not a stable
+ * rooted file capability, so this adapter deliberately cannot claim the authority required to
+ * carry contained Read, Write or Edit operations.
  */
 
 import { isAbsolute } from 'node:path';

@@ -150,8 +150,19 @@ jobs:
           TAG: ${{ steps.tag.outputs.tag }}
         run: |
           set -euo pipefail
-          if git ls-remote --tags origin "refs/tags/$TAG" | grep -q "refs/tags/$TAG"; then
-            echo "tag $TAG already exists — skip (idempotent)."
+          git fetch --force origin "+refs/heads/main:refs/remotes/origin/main"
+          main_commit=$(git rev-parse refs/remotes/origin/main)
+          if [ "$main_commit" != "$GITHUB_SHA" ] || [ "$(git rev-parse HEAD)" != "$GITHUB_SHA" ]; then
+            echo "::error::Release tagging requires the triggering protected main commit."
+            exit 1
+          fi
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            git fetch --force origin "refs/tags/$TAG:refs/tags/$TAG"
+            if [ "$(git rev-parse "refs/tags/$TAG^{commit}")" != "$GITHUB_SHA" ]; then
+              echo "::error::Existing tag $TAG selects a different commit."
+              exit 1
+            fi
+            echo "tag $TAG already selects this protected main commit — skip (idempotent)."
             echo "pushed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi

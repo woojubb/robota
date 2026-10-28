@@ -56,6 +56,12 @@ const HANDLE_WIDTH_BITS = 64;
 const INVALID_HANDLE_VALUE = BigInt('-1');
 const MAX_FILE_NAME_CODE_UNITS = 255;
 
+function assertWindowsSegmentLength(segment: string): void {
+  if (segment.length === 0 || segment.length > MAX_FILE_NAME_CODE_UNITS) {
+    throw authorityError('INVALID_PATH', 'validate-segments');
+  }
+}
+
 function isInvalidHandle(handle: TNativeHandle): boolean {
   return handle === null || BigInt.asIntN(HANDLE_WIDTH_BITS, handle) === INVALID_HANDLE_VALUE;
 }
@@ -299,6 +305,7 @@ export class WindowsNativeAuthority {
     final: boolean,
     replaceable: boolean,
   ): { handle: TNativeHandle; status: number } {
+    assertWindowsSegmentLength(segment);
     const unicodeName = koffi.alloc(this.api.unicodeStringType, 1);
     try {
       koffi.encode(unicodeName, this.api.unicodeStringType, {
@@ -350,6 +357,7 @@ export class WindowsNativeAuthority {
     directory: boolean,
     disposition: number,
   ): { handle: TNativeHandle; status: number } {
+    assertWindowsSegmentLength(segment);
     const unicodeName = koffi.alloc(this.api.unicodeStringType, 1);
     try {
       koffi.encode(unicodeName, this.api.unicodeStringType, {

@@ -58,6 +58,7 @@ function editor(
   const reads: { path: string; signal?: AbortSignal }[] = [];
   const writes: { path: string; content: string }[] = [];
   const access: IEditorFileAccess = {
+    pathAuthority: 'stable-root',
     ...(offer.reads !== false
       ? {
           readTextFile: async (path: string, signal?: AbortSignal) => {
@@ -87,6 +88,15 @@ beforeEach(() => {
 });
 
 describe('Read through the editor', () => {
+  it('does not delegate to a pathname-only editor without stable rooted authority', async () => {
+    const readTextFile = vi.fn(async () => 'OUTSIDE');
+    const result = await invoke(
+      createReadTool({ cwd: root, editorFiles: () => ({ readTextFile }) }),
+      { filePath: 'probe.txt' },
+    );
+    expect(result.output).toContain('DISK alpha');
+    expect(readTextFile).not.toHaveBeenCalled();
+  });
   it("returns the editor's text for an admitted path, resolved against the root", async () => {
     const ed = editor({ [probe]: 'BUFFER alpha\nunsaved line\n' });
     const result = await invoke(createReadTool({ cwd: root, editorFiles: ed.editorFiles }), {
@@ -193,6 +203,18 @@ describe('Read through the editor', () => {
 });
 
 describe('Write through the editor', () => {
+  it('writes to disk instead of a pathname-only editor', async () => {
+    const writeTextFile = vi.fn(async () => undefined);
+    const target = join(root, 'new.txt');
+    const result = await invoke(
+      createWriteTool({ cwd: root, editorFiles: () => ({ writeTextFile }) }),
+      { filePath: target, content: 'stable disk\n' },
+    );
+    expect(result.success, result.error).toBe(true);
+    expect(writeTextFile).not.toHaveBeenCalled();
+    expect(readFileSync(target, 'utf8')).toBe('stable disk\n');
+  });
+
   it('hands the content to the editor and leaves the disk alone', async () => {
     const ed = editor({});
     const target = join(root, 'new.txt');
@@ -218,6 +240,7 @@ describe('Write through the editor', () => {
 
   it("surfaces the editor's failure as the tool's error", async () => {
     const editorFiles = () => ({
+      pathAuthority: 'stable-root' as const,
       writeTextFile: async () => {
         throw new Error('Internal error: read-only buffer');
       },
@@ -246,6 +269,19 @@ describe('Write through the editor', () => {
 });
 
 describe('Edit through the editor', () => {
+  it('reads and writes disk instead of a pathname-only editor', async () => {
+    const readTextFile = vi.fn(async () => 'BUFFER alpha\n');
+    const writeTextFile = vi.fn(async () => undefined);
+    const result = await invoke(
+      createEditTool({ cwd: root, editorFiles: () => ({ readTextFile, writeTextFile }) }),
+      { filePath: probe, oldString: 'DISK', newString: 'STABLE' },
+    );
+    expect(result.success, result.error).toBe(true);
+    expect(readTextFile).not.toHaveBeenCalled();
+    expect(writeTextFile).not.toHaveBeenCalled();
+    expect(readFileSync(probe, 'utf8')).toBe('STABLE alpha\n');
+  });
+
   it("edits the editor's text and writes it back through the editor", async () => {
     const ed = editor({ [probe]: 'BUFFER alpha\nunsaved\n' });
     const result = await invoke(createEditTool({ cwd: root, editorFiles: ed.editorFiles }), {
@@ -281,6 +317,7 @@ describe('Edit through the editor', () => {
       const callController = new AbortController();
       const writes = vi.fn(async () => {});
       const access: IEditorFileAccess = {
+        pathAuthority: 'stable-root',
         readTextFile: async () => {
           (source === 'options' ? optionsController : callController).abort();
           return 'BUFFER alpha\n';
@@ -330,6 +367,7 @@ describe('Edit through the editor', () => {
     expect(read.error).toBe(`The editor could not read ${probe}: no buffer for ${probe}`);
 
     const editorFiles = () => ({
+      pathAuthority: 'stable-root' as const,
       readTextFile: async () => 'alpha',
       writeTextFile: async () => {
         throw new Error('closed');
@@ -363,6 +401,7 @@ describe('cancelled file effects', () => {
       const reads = vi.fn(async () => 'BUFFER alpha\n');
       const writes = vi.fn(async () => {});
       const access: IEditorFileAccess = {
+        pathAuthority: 'stable-root',
         readTextFile: reads,
         ...(destination === 'editor' ? { writeTextFile: writes } : {}),
       };
@@ -405,6 +444,17 @@ describe('Glob and Grep with an editor attached', () => {
     const grep = await invoke(createGrepTool({ cwd: root, editorFiles: ed.editorFiles }), {
       pattern: 'DISK',
     });
+    expect(grep.output).toBe(`${probe}\n\n${notice}]`);
+  });
+
+  it('warn for a pathname-only editor without claiming delegated reads', async () => {
+    const grep = await invoke(
+      createGrepTool({
+        cwd: root,
+        editorFiles: () => ({ readTextFile: async () => 'BUFFER' }),
+      }),
+      { pattern: 'DISK' },
+    );
     expect(grep.output).toBe(`${probe}\n\n${notice}]`);
   });
 

@@ -217,6 +217,7 @@ describe('an editor reaches the host file tools only', () => {
     const asked: string[] = [];
     const requests: string[] = [];
     const access = {
+      pathAuthority: 'stable-root' as const,
       readTextFile: async (path: string) => {
         requests.push(`read ${path}`);
         return 'EDITOR TEXT\n';

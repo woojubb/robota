@@ -19,6 +19,7 @@ import {
   DEFAULT_MESSAGE_RATE,
   DEFAULT_RENDEZVOUS_TTL_MS,
   DEFAULT_MAX_RENDEZVOUS,
+  DEFAULT_MAX_SOURCE_BUCKETS,
   type IClock,
   type IScheduler,
   type ITokenBucketConfig,
@@ -73,6 +74,8 @@ export interface ISignalingRelayOptions {
   readonly hooks?: ISignalingRelayHooks;
   /** Per-source join token-bucket (default: burst 5, refill 1/12s). */
   readonly rateLimit?: ITokenBucketConfig;
+  /** Maximum distinct source buckets retained by join/presence limiting. */
+  readonly maxSourceBuckets?: number;
   /**
    * Per-connection **message rate** for the relayed `signal` path (REMOTE-011 E2; default
    * {@link DEFAULT_MESSAGE_RATE}). Bounds a `signal` flood from an already-joined peer — distinct from the
@@ -127,11 +130,20 @@ export class SignalingRelay {
       options.maxPresenceTopicsPerSource,
     );
     const clock = options.clock ?? systemClock;
-    this.limiter = new TokenBucketLimiter(options.rateLimit, clock);
+    const maxSourceBuckets = options.maxSourceBuckets ?? DEFAULT_MAX_SOURCE_BUCKETS;
+    if (!Number.isSafeInteger(maxSourceBuckets) || maxSourceBuckets < 1) {
+      throw new Error('maxSourceBuckets must be a positive integer');
+    }
+    this.limiter = new TokenBucketLimiter(options.rateLimit, clock, maxSourceBuckets);
     this.messageLimiter = new TokenBucketLimiter(
       options.messageRate ?? DEFAULT_MESSAGE_RATE,
       clock,
     );
+  }
+
+  /** Diagnostics only: source-address buckets retained by join/presence limiting. */
+  public get sourceBucketCount(): number {
+    return this.limiter.size;
   }
 
   /** Handle one raw inbound frame from `peer`. Only `signal` frames are ever forwarded, and only to the peer's counterpart. */

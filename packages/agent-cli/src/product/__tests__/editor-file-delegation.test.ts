@@ -36,6 +36,7 @@ function gatedTools(answer: boolean, deny: string[] = []) {
   const events: string[] = [];
   const slot = createEditorFileSlot();
   slot.set({
+    pathAuthority: 'stable-root',
     readTextFile: async (path) => {
       events.push(`editor read ${path}`);
       return 'BUFFER alpha\n';

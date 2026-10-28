@@ -38,6 +38,8 @@ import type { IHttpTransportSession } from '@robota-sdk/agent-transport-http';
 
 const LOOPBACK = '127.0.0.1';
 const LABEL = 'HTTP API';
+const REQUEST_TIMEOUT_MS = 30_000;
+const HEADERS_TIMEOUT_MS = 10_000;
 /**
  * Who an HTTP turn is attributed to: assigned here, never taken from the request, so a client cannot
  * record its turns as the local operator's or another surface's. The same in both admission modes:
@@ -92,6 +94,9 @@ export async function startServeHttpHost(options: IServeHttpHostOptions): Promis
   const handler = remote === undefined ? listener : remoteHandler(remote, listener, options);
   const host = remote?.host ?? LOOPBACK;
   const server = createServer(handler);
+  // Bound request receipt without limiting long-lived SSE responses.
+  server.requestTimeout = REQUEST_TIMEOUT_MS;
+  server.headersTimeout = HEADERS_TIMEOUT_MS;
   await listen(server, options.port, host);
   const address = server.address();
   if (address === null || typeof address === 'string') {

@@ -169,6 +169,7 @@ describe('codingPack — an editor access reaches its file tools', () => {
   it("Read returns the editor's text and Write lands in the editor", async () => {
     const requests: string[] = [];
     const editorFiles = () => ({
+      pathAuthority: 'stable-root' as const,
       readTextFile: async (path: string) => {
         requests.push(`read ${path}`);
         return 'EDITOR TEXT';
