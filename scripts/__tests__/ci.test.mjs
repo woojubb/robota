@@ -416,40 +416,45 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
   commit(options.cwd);
   options.base = exec(options.cwd, 'git', ['rev-parse', 'HEAD']);
   const branch = exec(options.cwd, 'git', ['rev-parse', '--abbrev-ref', 'HEAD']);
-  exec(options.cwd, 'git', ['checkout', '-qb', 'feature']);
-  write(options.cwd, 'packages/core/src/index.ts', 'reviewed');
-  write(
-    options.cwd,
-    'packages/agent-cli/package.json',
-    JSON.stringify({ name: 'cli', version: '1.0.1' }),
-  );
-  commit(options.cwd);
-  const reviewedHead = exec(options.cwd, 'git', ['rev-parse', 'HEAD']);
-  exec(options.cwd, 'git', ['checkout', '-q', branch]);
-  exec(options.cwd, 'git', [
-    '-c',
-    'user.name=CI fixture',
-    '-c',
-    'user.email=ci@example.test',
-    'merge',
-    '--no-ff',
-    '-qm',
-    'merge reviewed feature',
-    'feature',
-  ]);
+  const reviewedHeads = [];
+  for (const [feature, version] of [
+    ['feature-one', '1.0.1'],
+    ['feature-two', '1.0.2'],
+  ]) {
+    exec(options.cwd, 'git', ['checkout', '-qb', feature]);
+    write(options.cwd, 'packages/core/src/index.ts', `reviewed ${version}`);
+    write(options.cwd, 'packages/agent-cli/package.json', JSON.stringify({ name: 'cli', version }));
+    commit(options.cwd);
+    reviewedHeads.push(exec(options.cwd, 'git', ['rev-parse', 'HEAD']));
+    exec(options.cwd, 'git', ['checkout', '-q', branch]);
+    exec(options.cwd, 'git', [
+      '-c',
+      'user.name=CI fixture',
+      '-c',
+      'user.email=ci@example.test',
+      'merge',
+      '--no-ff',
+      '-qm',
+      `merge reviewed ${feature}`,
+      feature,
+    ]);
+  }
   const headSha = exec(options.cwd, 'git', ['rev-parse', 'HEAD']);
   const response = (checks) => ({
     ok: true,
     json: async () => ({ check_runs: checks.map((name) => ({ name, conclusion: 'success' })) }),
   });
-  const requireReviewedHead = (url) => {
-    expect(String(url)).toContain(`/commits/${reviewedHead}/check-runs`);
+  const reviewedChecks = (missingSecurityAt = -1) => {
+    let index = 0;
+    return async (url, init) => {
+      expect(String(url)).toContain(`/commits/${reviewedHeads[index]}/check-runs`);
+      expect(init.headers.Authorization).toBe('Bearer fixture-token');
+      return response(
+        index++ === missingSecurityAt ? ['pr-validation'] : ['pr-validation', 'security'],
+      );
+    };
   };
-  const reviewedChecks = async (url, init) => {
-    requireReviewedHead(url);
-    expect(init.headers.Authorization).toBe('Bearer fixture-token');
-    return response(['pr-validation', 'security']);
-  };
+  const verifyEveryRelease = vi.fn(async () => true);
   expect(
     await verifyPromotionChecks({
       cwd: options.cwd,
@@ -457,10 +462,11 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
       headSha,
       repository: 'woojubb/robota',
       token: 'fixture-token',
-      fetchImpl: reviewedChecks,
-      verifyReleaseImpl: async () => true,
+      fetchImpl: reviewedChecks(),
+      verifyReleaseImpl: verifyEveryRelease,
     }),
   ).toBe(true);
+  expect(verifyEveryRelease).toHaveBeenCalledTimes(2);
   expect(
     await verifyPromotionChecks({
       cwd: options.cwd,
@@ -468,11 +474,7 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
       headSha,
       repository: 'woojubb/robota',
       token: 'fixture-token',
-      fetchImpl: async (url, init) => {
-        requireReviewedHead(url);
-        expect(init.headers.Authorization).toBe('Bearer fixture-token');
-        return response(['pr-validation']);
-      },
+      fetchImpl: reviewedChecks(1),
       verifyReleaseImpl: async () => true,
     }),
   ).toBe(false);
@@ -480,24 +482,27 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
     await verifyPromotionChecks({
       cwd: options.cwd,
       base: options.base,
-      headSha: exec(options.cwd, 'git', ['rev-parse', 'feature']),
+      headSha: reviewedHeads[1],
       repository: 'woojubb/robota',
       token: 'fixture-token',
-      fetchImpl: reviewedChecks,
+      fetchImpl: reviewedChecks(),
       verifyReleaseImpl: async () => true,
     }),
   ).toBe(false);
-  expect(
-    await verifyPromotionChecks({
-      cwd: options.cwd,
-      base: options.base,
-      headSha,
-      repository: 'woojubb/robota',
-      token: 'fixture-token',
-      fetchImpl: reviewedChecks,
-      verifyReleaseImpl: async () => false,
-    }),
-  ).toBe(false);
+  for (const failedRelease of [0, 1]) {
+    let index = 0;
+    expect(
+      await verifyPromotionChecks({
+        cwd: options.cwd,
+        base: options.base,
+        headSha,
+        repository: 'woojubb/robota',
+        token: 'fixture-token',
+        fetchImpl: reviewedChecks(),
+        verifyReleaseImpl: async () => index++ !== failedRelease,
+      }),
+    ).toBe(false);
+  }
 });
 
 it('replaces the full-suite trigger for the exact mixed docs/private-example paths in PR #17', () => {
