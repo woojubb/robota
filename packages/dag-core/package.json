@@ -78,7 +78,7 @@
     "node": ">=20.19.0"
   },
   "dependencies": {
-    "zod": "^3.24.4"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "eslint": "^8.56.0",

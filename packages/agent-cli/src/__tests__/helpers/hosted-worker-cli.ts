@@ -1,7 +1,7 @@
 /** Real public CLI and real worker CLI; only the E2B transport is simulated. No cloud containment claim. */
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { hostedFixture } from '../../hosted/__tests__/hosted-fixture.js';
@@ -207,6 +207,49 @@ startCli({ environment: process.env }).catch(error => { process.stderr.write(err
         }
       }
     };
+    const track = (
+      child: ChildProcess,
+      signal?: AbortSignal,
+    ): Promise<{ status: number | null; stdout: string; stderr: string }> =>
+      new Promise((resolve, reject) => {
+        // Exit precedes pipe close: a detached simulated task can still hold those pipes.
+        child.once('exit', killOwnedGroups);
+        const drained = new Promise<void>((done) => child.once('close', () => done()));
+        active.set(child, drained);
+        let timedOut = false;
+        const stop = (): void => {
+          child.kill('SIGTERM');
+        };
+        signal?.addEventListener('abort', stop, { once: true });
+        if (signal?.aborted) stop();
+        let stdout = '',
+          stderr = '';
+        child.stdout?.on('data', (data) => {
+          stdout += data;
+        });
+        child.stderr?.on('data', (data) => {
+          stderr += data;
+        });
+        child.stdin?.end();
+        const timer = setTimeout(() => {
+          timedOut = true;
+          killOwnedGroups();
+          child.kill('SIGKILL');
+        }, options.runTimeoutMs ?? 60_000);
+        child.once('error', (error) => {
+          clearTimeout(timer);
+          signal?.removeEventListener('abort', stop);
+          reject(error);
+        });
+        child.once('close', (status) => {
+          active.delete(child);
+          killOwnedGroups();
+          clearTimeout(timer);
+          signal?.removeEventListener('abort', stop);
+          if (timedOut) reject(new Error('hosted worker fixture did not settle'));
+          else resolve({ status, stdout, stderr });
+        });
+      });
     return {
       f,
       worker,
@@ -219,67 +262,41 @@ startCli({ environment: process.env }).catch(error => { process.stderr.write(err
       usageReceipt,
       run: async (args: readonly string[], signal?: AbortSignal) => {
         if (closing) throw new Error('hosted worker fixture is closed');
-        return new Promise<{ status: number | null; stdout: string; stderr: string }>(
-          (resolve, reject) => {
-            const child = spawn(
-              process.execPath,
-              [
-                '--import',
-                join(root, 'node_modules/tsx/dist/loader.mjs'),
-                '--conditions=source',
-                entry,
-                ...args,
-              ],
-              {
-                cwd: home,
-                env: createTestBinaryEnvironment(home, {
-                  ...f.environment,
-                  PRODUCT_HOSTED_WORKER_EXECUTION_CONFIG: execution,
-                  PRODUCT_E2B_API_KEY: 'runtime-management-canary',
-                  ANTHROPIC_API_KEY: 'runtime-upstream-canary',
-                }),
-                stdio: ['pipe', 'pipe', 'pipe'],
-              },
-            );
-            // Exit precedes pipe close: a detached simulated task can still hold those pipes.
-            child.once('exit', killOwnedGroups);
-            const drained = new Promise<void>((done) => child.once('close', () => done()));
-            active.set(child, drained);
-            let timedOut = false;
-            const stop = (): void => {
-              child.kill('SIGTERM');
-            };
-            signal?.addEventListener('abort', stop, { once: true });
-            if (signal?.aborted) stop();
-            let stdout = '',
-              stderr = '';
-            child.stdout.on('data', (data) => {
-              stdout += data;
-            });
-            child.stderr.on('data', (data) => {
-              stderr += data;
-            });
-            child.stdin.end();
-            const timer = setTimeout(() => {
-              timedOut = true;
-              killOwnedGroups();
-              child.kill('SIGKILL');
-            }, options.runTimeoutMs ?? 60_000);
-            child.once('error', (error) => {
-              clearTimeout(timer);
-              signal?.removeEventListener('abort', stop);
-              reject(error);
-            });
-            child.once('close', (status) => {
-              active.delete(child);
-              killOwnedGroups();
-              clearTimeout(timer);
-              signal?.removeEventListener('abort', stop);
-              if (timedOut) reject(new Error('hosted worker fixture did not settle'));
-              else resolve({ status, stdout, stderr });
-            });
-          },
+        return track(
+          spawn(
+            process.execPath,
+            [
+              '--import',
+              join(root, 'node_modules/tsx/dist/loader.mjs'),
+              '--conditions=source',
+              entry,
+              ...args,
+            ],
+            {
+              cwd: home,
+              env: createTestBinaryEnvironment(home, {
+                ...f.environment,
+                PRODUCT_HOSTED_WORKER_EXECUTION_CONFIG: execution,
+                PRODUCT_E2B_API_KEY: 'runtime-management-canary',
+                ANTHROPIC_API_KEY: 'runtime-upstream-canary',
+              }),
+              stdio: ['pipe', 'pipe', 'pipe'],
+            },
+          ),
+          signal,
         );
+      },
+      runFixtureProcess: async (program: string, signal?: AbortSignal) => {
+        if (closing) throw new Error('hosted worker fixture is closed');
+        const child = spawn(process.execPath, [program], {
+          cwd: worker,
+          env: createTestBinaryEnvironment(home),
+          detached: true,
+          stdio: ['pipe', 'pipe', 'pipe'],
+        });
+        if (child.pid)
+          appendFileSync(groups, JSON.stringify({ pid: child.pid }) + String.fromCharCode(10));
+        return track(child, signal);
       },
       close: () => {
         closing ??= (async () => {

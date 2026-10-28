@@ -33,7 +33,12 @@ const messages: TUniversalMessage[] = [
 ];
 
 function httpError(status: number, type: string): Error {
-  return APIError.generate(status, { error: { type, message: `${type} happened` } }, undefined, {});
+  return APIError.generate(
+    status,
+    { error: { type, message: `${type} happened` } },
+    undefined,
+    new Headers(),
+  );
 }
 
 interface IChatProvider {
@@ -115,7 +120,7 @@ describe('OpenAI-compatible provider errors', () => {
           404,
           { error: { type: 'not_found', message: 'Cannot POST /wrong/path/chat/completions' } },
           undefined,
-          {},
+          new Headers(),
         ),
       );
       const error = await failure(() => makeProvider().chat(messages, { model }));

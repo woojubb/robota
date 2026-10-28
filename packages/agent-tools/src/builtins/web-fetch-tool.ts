@@ -31,7 +31,10 @@ const LLMS_TXT_PROBE_MAX_BYTES = 512_000;
 
 const WebFetchSchema = z.object({
   url: z.string().describe('The URL to fetch'),
-  headers: z.record(z.string()).optional().describe('Optional HTTP headers as key-value pairs'),
+  headers: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe('Optional HTTP headers as key-value pairs'),
 });
 
 type TWebFetchArgs = z.infer<typeof WebFetchSchema>;
@@ -203,7 +206,9 @@ async function probeLlmsTxt(
       egress.deps,
     );
     if (!response.ok || response.status < 200 || response.status >= 300) return undefined;
-    return isLlmsTxtIndex(response.headers.get('content-type') ?? '', response.body) ? indexUrl : undefined;
+    return isLlmsTxtIndex(response.headers.get('content-type') ?? '', response.body)
+      ? indexUrl
+      : undefined;
   } catch {
     // allow-fallback: the probe is advisory; its failure must leave the main fetch result unchanged
     return undefined;
@@ -241,7 +246,10 @@ async function runWebFetch(
     const response = await fetchWithEgressPolicy(
       url,
       {
-        headers: { ...(userAgent === undefined ? {} : { 'User-Agent': userAgent }), ...(headers ?? {}) },
+        headers: {
+          ...(userAgent === undefined ? {} : { 'User-Agent': userAgent }),
+          ...(headers ?? {}),
+        },
         signal,
         timeoutMs: DEFAULT_TIMEOUT_MS,
         maxResponseBytes: MAX_RESPONSE_BYTES,
@@ -282,7 +290,12 @@ async function runWebFetch(
       const origin = new URL(response.finalUrl).origin;
       let probe = llmsTxtCache?.get(origin);
       if (llmsTxtCache && probe === undefined) {
-        const started: Promise<string | undefined> = probeLlmsTxt(origin, egress, userAgent, signal).then((indexUrl) => {
+        const started: Promise<string | undefined> = probeLlmsTxt(
+          origin,
+          egress,
+          userAgent,
+          signal,
+        ).then((indexUrl) => {
           // A cancelled run says nothing about the site, so it must not be remembered as a miss.
           if (indexUrl === undefined && signal?.aborted && llmsTxtCache.get(origin) === started) {
             llmsTxtCache.delete(origin);
@@ -322,12 +335,15 @@ const UNPROBED_WEB_FETCH_DESCRIPTION = `${WEB_FETCH_DESCRIPTION_BASE}.`;
  */
 export function createWebFetchTool(options: IWebFetchToolOptions = {}): FunctionTool {
   const egress = options.egress ?? {};
-  const llmsTxtCache: TLlmsTxtCache | undefined = options.llmsTxtProbe === false ? undefined : new Map();
+  const llmsTxtCache: TLlmsTxtCache | undefined =
+    options.llmsTxtProbe === false ? undefined : new Map();
   return createZodFunctionTool(
     'WebFetch',
-    options.description ?? (llmsTxtCache ? DEFAULT_WEB_FETCH_DESCRIPTION : UNPROBED_WEB_FETCH_DESCRIPTION),
+    options.description ??
+      (llmsTxtCache ? DEFAULT_WEB_FETCH_DESCRIPTION : UNPROBED_WEB_FETCH_DESCRIPTION),
     WebFetchSchema,
-    async (params, context) => runWebFetch(params, egress, options.userAgent, llmsTxtCache, context?.signal),
+    async (params, context) =>
+      runWebFetch(params, egress, options.userAgent, llmsTxtCache, context?.signal),
     { resultMode: 'invocation-json' },
   );
 }

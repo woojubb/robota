@@ -2,7 +2,7 @@
   "name": "robota-capability-streaming",
   "version": "0.1.0",
   "private": true,
-  "description": "Robota capability demo \u2014 runStream consumption (deltas + typed final value)",
+  "description": "Robota capability demo — runStream consumption (deltas + typed final value)",
   "type": "module",
   "scripts": {
     "dev": "tsx src/index.ts",
@@ -11,7 +11,7 @@
   "dependencies": {
     "@robota-sdk/agent-core": "^3.0.0-beta.67",
     "@robota-sdk/agent-provider-anthropic": "^3.0.0-beta.67",
-    "zod": "^3.25.76"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

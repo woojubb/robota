@@ -83,7 +83,7 @@
   "peerDependencies": {
     "@anthropic-ai/sdk": "^0.91.1",
     "@google/genai": "^1.52.0",
-    "openai": "^4.104.0"
+    "openai": "^6.0.0"
   },
   "peerDependenciesMeta": {
     "@anthropic-ai/sdk": {

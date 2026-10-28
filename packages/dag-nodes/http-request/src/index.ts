@@ -18,7 +18,11 @@ const DEFAULT_TIMEOUT_MS = 10_000;
 class BodyByteLimitError extends Error {}
 
 /** Read only admitted bytes; a stalled stream must also observe the request's abort signal. */
-async function readBody(response: Response, maxBytes: number, signal: AbortSignal): Promise<string> {
+async function readBody(
+  response: Response,
+  maxBytes: number,
+  signal: AbortSignal,
+): Promise<string> {
   if (response.body === null) return '';
 
   const reader = response.body.getReader();
@@ -58,14 +62,18 @@ async function readBody(response: Response, maxBytes: number, signal: AbortSigna
   const pieces: string[] = [];
   let outputBytes = 0;
   for (let offset = 0; offset < length; offset += 64 * 1024) {
-    const piece = decoder.decode(bytes.subarray(offset, Math.min(offset + 64 * 1024, length)), { stream: true });
+    const piece = decoder.decode(bytes.subarray(offset, Math.min(offset + 64 * 1024, length)), {
+      stream: true,
+    });
     outputBytes += encoder.encode(piece).byteLength;
-    if (outputBytes > maxBytes) throw new BodyByteLimitError('HTTP response body exceeds its UTF-8 byte limit');
+    if (outputBytes > maxBytes)
+      throw new BodyByteLimitError('HTTP response body exceeds its UTF-8 byte limit');
     pieces.push(piece);
   }
   const tail = decoder.decode();
   outputBytes += encoder.encode(tail).byteLength;
-  if (outputBytes > maxBytes) throw new BodyByteLimitError('HTTP response body exceeds its UTF-8 byte limit');
+  if (outputBytes > maxBytes)
+    throw new BodyByteLimitError('HTTP response body exceeds its UTF-8 byte limit');
   pieces.push(tail);
   return pieces.join('');
 }
@@ -73,7 +81,7 @@ async function readBody(response: Response, maxBytes: number, signal: AbortSigna
 const HttpRequestConfigSchema = z.object({
   method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).default('GET'),
   url: z.string().default(''),
-  headers: z.record(z.string()).default({}),
+  headers: z.record(z.string(), z.string()).default({}),
   body: z.string().optional(),
   timeoutMs: z.number().int().positive().default(DEFAULT_TIMEOUT_MS),
 });
@@ -182,7 +190,9 @@ export class HttpRequestNodeDefinition extends AbstractNodeDefinition<
         return {
           ok: false,
           error: buildTaskExecutionError(
-            'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED', error.message, false,
+            'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED',
+            error.message,
+            false,
             { maxBytes, nodeType: 'http-request' },
           ),
         };
