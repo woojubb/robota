@@ -166,8 +166,8 @@ describe('stable rooted file writer', () => {
       } finally {
         writer.close();
       }
-      expect(lstatSync(target).isSymbolicLink()).toBe(false);
       expect(readFileSync(target, 'utf8')).toBe('inside');
+      expect(lstatSync(target).isSymbolicLink()).toBe(false);
       expect(readFileSync(outside, 'utf8')).toBe('outside');
     },
   );
