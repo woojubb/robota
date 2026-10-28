@@ -2,15 +2,14 @@ name: Release — agent image
 
 # Publishes ghcr.io/<owner>/robota:<version> (linux/amd64, linux/arm64) from docker/robota at the release
 # tag, installing exactly the @robota-sdk/agent-cli release the tag names, so the image and the npm
-# package are 1:1. Only a tag with the configured release prefix whose agent-cli manifest carries that
-# version publishes; any other tag publishes nothing. The tag (pushed by release-tag-on-version-bump.yml)
-# arrives before the separate npm publish, so the first job waits for that version on npm. The amd64
-# image must pass docker/robota/smoke before anything is pushed. No floating `latest`: operators pin.
+# package are 1:1. A successful npm publication starts this workflow; it never occupies a runner waiting
+# for a separately ordered prerequisite. The amd64 image must pass docker/robota/smoke before anything is
+# pushed. No floating `latest`: operators pin.
 
 on:
-  push:
-    tags:
-      - '**'
+  workflow_run:
+    workflows: ['Publish to npm']
+    types: [completed]
   workflow_dispatch:
     inputs:
       version:
@@ -23,9 +22,15 @@ permissions:
 
 jobs:
   resolve:
-    name: Resolve the release and wait for it on npm
+    name: Resolve the published release
+    if: >-
+      ${{ github.event_name == 'workflow_dispatch'
+        || (github.event.workflow_run.conclusion == 'success'
+          && github.event.workflow_run.event == 'workflow_dispatch'
+          && github.event.workflow_run.head_branch == 'main'
+          && github.event.workflow_run.head_repository.full_name == github.repository) }}
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 10
     permissions:
       contents: read
       attestations: read
@@ -40,22 +45,21 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
           persist-credentials: false
-      - name: Reject an unreviewed tag source before executing repository dependencies
-        if: github.event_name == 'push'
+      - name: Bind the published source before executing repository dependencies
         shell: bash
         env:
-          TAG: ${{ github.ref_name }}
+          EVENT: ${{ github.event_name }}
+          UPSTREAM_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
-          if [[ ! "$TAG" =~ ^[0-9A-Za-z._+-]+$ ]]; then
-            echo "::error::Refusing an invalid release tag."
-            exit 1
-          fi
+          expected=$GITHUB_SHA
+          if [ "$EVENT" = workflow_run ]; then expected=$UPSTREAM_SHA; fi
           git fetch --force origin "+refs/heads/main:refs/remotes/origin/main"
-          tag_commit=$(git rev-parse "refs/tags/$TAG^{commit}")
-          if [ "$tag_commit" != "$GITHUB_SHA" ] || ! git merge-base --is-ancestor "$tag_commit" refs/remotes/origin/main; then
-            echo "::error::The pushed release tag is not the triggering commit on protected main history."
+          if [ "$(git rev-parse HEAD)" != "$expected" ] ||
+             [ "$expected" != "$(git rev-parse refs/remotes/origin/main)" ]; then
+            echo "::error::The npm workflow source is not the checked-out commit on protected main history."
             exit 1
           fi
       - uses: pnpm/action-setup@v6
@@ -86,7 +90,7 @@ jobs:
           TAG_PREFIX: ${{ steps.product.outputs.tag_prefix }}
           EVENT: ${{ github.event_name }}
           INPUT_VERSION: ${{ github.event.inputs.version }}
-          REF_NAME: ${{ github.ref_name }}
+          UPSTREAM_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           if [ -z "$TAG_PREFIX" ]; then
@@ -97,12 +101,8 @@ jobs:
             version="$INPUT_VERSION"
             tag="$TAG_PREFIX$version"
           else
-            tag="$REF_NAME"
-            if [[ "$tag" != "$TAG_PREFIX"* ]]; then
-              echo "Tag '$tag' does not use the release prefix '$TAG_PREFIX'; nothing to publish."
-              exit 0
-            fi
-            version="${tag#"$TAG_PREFIX"}"
+            version=$(git show "$UPSTREAM_SHA:packages/agent-cli/package.json" | node -pe "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+            tag="$TAG_PREFIX$version"
           fi
           if ! [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
             echo "::error::'$version' is not a release version."
@@ -119,8 +119,9 @@ jobs:
           fi
           tag_commit=$(git rev-parse "refs/tags/$tag^{commit}")
           git fetch --force origin "+refs/heads/main:refs/remotes/origin/main"
-          if ! git merge-base --is-ancestor "$tag_commit" refs/remotes/origin/main; then
-            echo "::error::$tag is not on protected main history."
+          if ! git merge-base --is-ancestor "$tag_commit" refs/remotes/origin/main ||
+             { [ "$EVENT" = workflow_run ] && [ "$tag_commit" != "$UPSTREAM_SHA" ]; }; then
+            echo "::error::$tag is not the published commit on protected main history."
             exit 1
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
@@ -146,20 +147,12 @@ jobs:
           }
           NODE
           mkdir -p "$RUNNER_TEMP/npm-release"
-          deadline=$(( $(date +%s) + 350 * 60 ))
-          # allow-runner-wait: receipt assets are produced by the independently running publish and native release workflows.
-          while :; do
-            names=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || true)
-            if printf '%s\n' "$names" | grep -Fqx npm-release-integrity.json &&
-               printf '%s\n' "$names" | grep -Fqx npm-release-package-lock.json; then
-              break
-            fi
-            if [ "$(date +%s)" -ge "$deadline" ]; then
-              echo "::error::The attested npm release receipt did not become available within 350 minutes."
-              exit 1
-            fi
-            sleep 60
-          done
+          names=$(gh release view "$TAG" --json assets --jq '.assets[].name')
+          if ! printf '%s\n' "$names" | grep -Fqx npm-release-integrity.json ||
+             ! printf '%s\n' "$names" | grep -Fqx npm-release-package-lock.json; then
+            echo "::error::The successful npm workflow did not preserve its complete release receipt."
+            exit 1
+          fi
           gh release download "$TAG" --dir "$RUNNER_TEMP/npm-release" \
             --pattern npm-release-integrity.json \
             --pattern npm-release-package-lock.json
@@ -228,7 +221,7 @@ jobs:
     needs: resolve
     if: needs.resolve.outputs.version != ''
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 45
     concurrency:
       group: release-image-${{ needs.resolve.outputs.version }}
       cancel-in-progress: false

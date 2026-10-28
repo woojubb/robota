@@ -4,11 +4,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-function command(executable, args, cwd, capture = false) {
+function command(executable, args, cwd, capture = false, timeout = 60_000) {
   const result = spawnSync(executable, args, {
     cwd,
     encoding: 'utf8',
     stdio: capture ? 'pipe' : 'inherit',
+    timeout,
   });
   if (result.error || result.status !== 0)
     throw new Error(
@@ -34,11 +35,116 @@ export function workspaces(cwd, selectors = []) {
     });
 }
 
-export function selectScope({ cwd = process.cwd(), event, base }) {
+export function releaseMetadataPlan(changes, { headRef, baseRef, promotionVerified = false } = {}) {
+  const entries = [];
+  for (let index = 0; index < changes.length - 1; index += 2) {
+    entries.push({ status: changes[index], file: changes[index + 1] });
+  }
+  const allowed = ({ status, file }) => {
+    if (file === '.changeset/pre.json' || file === 'pnpm-lock.yaml') return status === 'M';
+    if (file === 'devcontainer-features/src/robota/devcontainer-feature.json')
+      return status === 'M';
+    if (/^\.changeset\/[^/]+\.md$/u.test(file)) return status === 'D';
+    if (/^packages\/[^/]+\/(?:package\.json|CHANGELOG\.md)$/u.test(file)) return status === 'M';
+    return false;
+  };
+  const required = [
+    '.changeset/pre.json',
+    'pnpm-lock.yaml',
+    'packages/agent-cli/package.json',
+    'packages/agent-core/package.json',
+  ];
+  const complete = required.every((file) =>
+    entries.some((entry) => entry.file === file && entry.status === 'M'),
+  );
+  const consumedChangeset = entries.some(
+    ({ status, file }) => status === 'D' && /^\.changeset\/[^/]+\.md$/u.test(file),
+  );
+  const promotion = headRef === 'develop' && baseRef === 'main';
+  // A generated bump may contain only Changesets output. A develop -> main promotion also contains
+  // the source commits that were already reviewed and checked before entering the protected branch.
+  if (
+    !entries.length ||
+    !complete ||
+    !consumedChangeset ||
+    (promotion ? !promotionVerified : !entries.every(allowed))
+  )
+    return undefined;
+  return {
+    full: false,
+    developerDocs: false,
+    releaseMetadata: true,
+    promotion,
+    reason: promotion ? 'protected develop release promotion' : 'generated release metadata',
+    checks: [],
+    build: [],
+    docs: false,
+    release: true,
+  };
+}
+
+export async function verifyPromotionChecks({
+  cwd = process.cwd(),
+  base,
+  headSha,
+  repository,
+  apiUrl = 'https://api.github.com',
+  fetchImpl = fetch,
+}) {
+  if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u.test(repository ?? '')) return false;
+  if (!/^[0-9a-f]{40}$/u.test(headSha ?? '')) return false;
+  let endpoint;
+  try {
+    endpoint = new URL(apiUrl);
+  } catch {
+    return false;
+  }
+  if (endpoint.protocol !== 'https:' || endpoint.username || endpoint.password) return false;
+  try {
+    const comparison = git(cwd, 'merge-base', base, headSha);
+    const commits = git(cwd, 'rev-list', '--first-parent', '--reverse', `${comparison}..${headSha}`)
+      .split('\n')
+      .filter(Boolean);
+    if (!commits.length) return false;
+    for (const sha of commits) {
+      const parents = git(cwd, 'show', '-s', '--format=%P', sha).split(' ').filter(Boolean);
+      if (parents.length < 2) return false;
+      const response = await fetchImpl(
+        new URL(
+          `repos/${repository}/commits/${sha}/check-runs?per_page=100`,
+          `${endpoint.toString().replace(/\/$/u, '')}/`,
+        ),
+        {
+          headers: { Accept: 'application/vnd.github+json' },
+          signal: AbortSignal.timeout(10_000),
+        },
+      );
+      if (!response.ok) return false;
+      const runs = (await response.json()).check_runs ?? [];
+      for (const name of ['pr-validation', 'security']) {
+        if (!runs.some((run) => run.name === name && run.conclusion === 'success')) return false;
+      }
+    }
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function selectScope({
+  cwd = process.cwd(),
+  event,
+  base,
+  headRef,
+  baseRef,
+  promotionVerified = false,
+}) {
   const all = workspaces(cwd);
   const full = (reason) => ({
     full: true,
     developerDocs: false,
+    releaseMetadata: false,
+    promotion: false,
     reason,
     checks: all.map((p) => p.dir),
     build: all.filter((p) => p.dir.startsWith('packages/') && p.scripts?.build).map((p) => p.dir),
@@ -54,6 +160,8 @@ export function selectScope({ cwd = process.cwd(), event, base }) {
       cwd,
       true,
     ).split('\0');
+    const metadata = releaseMetadataPlan(changes, { headRef, baseRef, promotionVerified });
+    if (metadata) return metadata;
     const changed = new Set();
     let docs = false;
     let release = false;
@@ -94,6 +202,8 @@ export function selectScope({ cwd = process.cwd(), event, base }) {
         ? {
             full: false,
             developerDocs: true,
+            releaseMetadata: false,
+            promotion: false,
             reason: 'developer documents only',
             checks: [],
             build: [],
@@ -114,6 +224,8 @@ export function selectScope({ cwd = process.cwd(), event, base }) {
     return {
       full: false,
       developerDocs: false,
+      releaseMetadata: false,
+      promotion: false,
       reason: 'affected workspaces and docs consumer',
       checks: affected.map((p) => p.dir),
       build: dependencies
@@ -132,10 +244,13 @@ export function assertGate(needs) {
   const plan = JSON.parse(needs.scope.outputs.plan);
   if (typeof plan.release !== 'boolean') throw new Error('Invalid scope plan.');
   assertDeveloperDocs(plan);
+  assertReleaseMetadata(plan);
   for (const job of ['workspace-build', 'static-checks', 'tests', 'release-checks']) {
     const omitted =
-      (job === 'release-checks' && plan.release === false) ||
-      (plan.developerDocs === true && ['workspace-build', 'static-checks'].includes(job));
+      (job === 'release-checks' && (plan.release === false || plan.promotion === true)) ||
+      (plan.developerDocs === true && ['workspace-build', 'static-checks'].includes(job)) ||
+      (plan.releaseMetadata === true &&
+        ['workspace-build', 'static-checks', 'tests'].includes(job));
     const expected = omitted ? 'skipped' : 'success';
     if (needs[job]?.result !== expected)
       throw new Error(`${job}: expected ${expected}, received ${needs[job]?.result}`);
@@ -147,7 +262,8 @@ export function assertNativeGate(needs) {
   const plan = JSON.parse(needs.scope.outputs.plan);
   if (typeof plan.developerDocs !== 'boolean') throw new Error('Invalid native scope plan.');
   assertDeveloperDocs(plan);
-  const expected = plan.developerDocs ? 'skipped' : 'success';
+  assertReleaseMetadata(plan);
+  const expected = plan.developerDocs || plan.releaseMetadata ? 'skipped' : 'success';
   if (needs['build-bun']?.result !== expected)
     throw new Error(`Native builds: expected ${expected}, received ${needs['build-bun']?.result}`);
 }
@@ -159,12 +275,34 @@ function assertDeveloperDocs(plan) {
     plan.full !== false ||
     plan.docs !== false ||
     plan.release !== false ||
+    plan.releaseMetadata !== false ||
+    plan.promotion !== false ||
     !Array.isArray(plan.checks) ||
     plan.checks.length ||
     !Array.isArray(plan.build) ||
     plan.build.length
   )
     throw new Error('Invalid developer document selection.');
+}
+
+function assertReleaseMetadata(plan) {
+  if (plan.releaseMetadata === undefined || plan.releaseMetadata === false) {
+    if (plan.promotion === true) throw new Error('A promotion must be release metadata.');
+    return;
+  }
+  if (
+    plan.releaseMetadata !== true ||
+    plan.full !== false ||
+    plan.developerDocs !== false ||
+    plan.docs !== false ||
+    plan.release !== true ||
+    typeof plan.promotion !== 'boolean' ||
+    !Array.isArray(plan.checks) ||
+    plan.checks.length ||
+    !Array.isArray(plan.build) ||
+    plan.build.length
+  )
+    throw new Error('Invalid release metadata selection.');
 }
 
 export function assertBuild(metadata, plan, sha, cwd = process.cwd()) {
@@ -184,10 +322,27 @@ async function main() {
   const cwd = process.cwd();
   const kind = process.argv[2];
   if (kind === 'scope') {
-    const plan = selectScope({ cwd, event: process.env.CI_EVENT, base: process.env.CI_BASE });
+    const promotionVerified =
+      process.env.CI_HEAD_REF === 'develop' && process.env.CI_BASE_REF === 'main'
+        ? await verifyPromotionChecks({
+            cwd,
+            base: process.env.CI_BASE,
+            headSha: process.env.CI_HEAD_SHA,
+            repository: process.env.CI_REPOSITORY,
+            apiUrl: process.env.CI_API_URL,
+          })
+        : false;
+    const plan = selectScope({
+      cwd,
+      event: process.env.CI_EVENT,
+      base: process.env.CI_BASE,
+      headRef: process.env.CI_HEAD_REF,
+      baseRef: process.env.CI_BASE_REF,
+      promotionVerified,
+    });
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `plan=${JSON.stringify(plan)}\nrelease=${plan.release}\ndeveloper_docs=${plan.developerDocs}\n`,
+      `plan=${JSON.stringify(plan)}\nrelease=${plan.release}\ndeveloper_docs=${plan.developerDocs}\nrelease_metadata=${plan.releaseMetadata}\npromotion=${plan.promotion}\n`,
     );
     console.log(JSON.stringify(plan, null, 2));
     if (process.env.GITHUB_STEP_SUMMARY)
@@ -206,7 +361,7 @@ async function main() {
     return;
   }
   const plan = JSON.parse(process.env.CI_PLAN);
-  const run = (...args) => command(pnpm, args, cwd);
+  const run = (...args) => command(pnpm, args, cwd, false, 20 * 60_000);
   assertDeveloperDocs(plan);
   if (kind === 'tests' && plan.developerDocs === true) {
     // Static checks are skipped for developer documents, but the language rule covers them too.
@@ -232,12 +387,14 @@ async function main() {
     run('exec', 'tsx', 'scripts/product/prepare-workflow-workspace.mjs');
     // GITHUB_ENV is available to subsequent steps only, so use the returned fixed fixture path here.
     const generated = path.join(process.env.RUNNER_TEMP, 'product-workspace');
-    command(pnpm, ['install', '--frozen-lockfile'], generated);
-    command(pnpm, ['build'], generated);
+    command(pnpm, ['install', '--frozen-lockfile'], generated, false, 10 * 60_000);
+    command(pnpm, ['build'], generated, false, 10 * 60_000);
     command(
       'bash',
       ['scripts/publish/publish-packages.sh', '--skip-build', '--dry-run'],
       generated,
+      false,
+      10 * 60_000,
     );
     return;
   }

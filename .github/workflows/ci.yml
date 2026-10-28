@@ -14,10 +14,13 @@ permissions:
 jobs:
   scope:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       plan: ${{ steps.scope.outputs.plan }}
       release: ${{ steps.scope.outputs.release }}
       developer_docs: ${{ steps.scope.outputs.developer_docs }}
+      release_metadata: ${{ steps.scope.outputs.release_metadata }}
+      promotion: ${{ steps.scope.outputs.promotion }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -38,16 +41,21 @@ jobs:
         env:
           CI_EVENT: ${{ github.event_name }}
           CI_BASE: ${{ github.event.pull_request.base.sha }}
+          CI_HEAD_REF: ${{ github.head_ref }}
+          CI_BASE_REF: ${{ github.base_ref }}
+          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CI_REPOSITORY: ${{ github.repository }}
+          CI_API_URL: ${{ github.api_url }}
   workspace-build:
     needs: scope
-    if: needs.scope.outputs.developer_docs != 'true'
+    if: needs.scope.outputs.developer_docs != 'true' && needs.scope.outputs.release_metadata != 'true'
     uses: ./.github/workflows/ci-check.yml
     with:
       kind: build
       plan: ${{ needs.scope.outputs.plan }}
   static-checks:
     needs: [scope, workspace-build]
-    if: needs.scope.outputs.developer_docs != 'true'
+    if: needs.scope.outputs.developer_docs != 'true' && needs.scope.outputs.release_metadata != 'true'
     uses: ./.github/workflows/ci-check.yml
     with:
       kind: static
@@ -55,7 +63,7 @@ jobs:
       artifact-id: ${{ needs.workspace-build.outputs.artifact-id }}
   tests:
     needs: [scope, workspace-build]
-    if: ${{ !cancelled() && needs.scope.result == 'success' && (needs.scope.outputs.developer_docs == 'true' || needs.workspace-build.result == 'success') }}
+    if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.release_metadata != 'true' && (needs.scope.outputs.developer_docs == 'true' || needs.workspace-build.result == 'success') }}
     uses: ./.github/workflows/ci-check.yml
     with:
       kind: tests
@@ -63,7 +71,7 @@ jobs:
       artifact-id: ${{ needs.workspace-build.outputs.artifact-id }}
   release-checks:
     needs: scope
-    if: needs.scope.outputs.release == 'true'
+    if: needs.scope.outputs.release == 'true' && needs.scope.outputs.promotion != 'true'
     uses: ./.github/workflows/ci-check.yml
     with:
       kind: release
@@ -73,6 +81,7 @@ jobs:
     needs: [scope, workspace-build, static-checks, tests, release-checks]
     if: ${{ always() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
       - run: node scripts/ci.mjs gate
@@ -91,6 +100,7 @@ jobs:
     needs: [secret-scan]
     if: ${{ always() }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Secret scan must pass
         run: '[ "${{ needs.secret-scan.result }}" = success ]'

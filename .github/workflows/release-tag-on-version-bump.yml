@@ -26,8 +26,6 @@ on:
 
 permissions:
   contents: read
-  # Reading workflow runs to confirm the pushed tag actually triggered the release workflows.
-  actions: read
 
 concurrency:
   group: release-tag-${{ github.sha }}
@@ -39,6 +37,7 @@ jobs:
     env:
       PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v7
         with:
@@ -190,40 +189,3 @@ jobs:
           echo "  current version  : $CUR"
           echo "  bump detected    : $BUMPED"
           echo "  tag that would be pushed: ${TAG:-<none>}"
-
-      # The failure this guards is silent and expensive: a tag that triggers nothing produces a GitHub
-      # Release with no assets, and the only symptom is a download page that is simply empty. Assert the
-      # native release workflow actually started for this tag; desktop follows its successful completion.
-      - name: Confirm the tag triggered the native release workflow
-        if: steps.push.outputs.pushed == 'true'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          TAG: ${{ steps.tag.outputs.tag }}
-        run: |
-          set -euo pipefail
-          deadline=$(( $(date +%s) + 300 ))   # 5 minutes; a push trigger dispatches within seconds
-          want="release-bun-binaries.yml"
-          # allow-runner-wait: a release runs with a human or agent already driving it, and this
-          # poll watches an EXTERNAL event (asset propagation) that no re-run can observe sooner.
-          # Per-push gates do not qualify — see scan-runner-wait.mjs.
-          while :; do
-            missing=""
-            for wf in $want; do
-              n=$(gh run list --workflow "$wf" --branch "$TAG" --limit 1 --json databaseId --jq 'length')
-              [ "$n" -ge 1 ] || missing="$missing $wf"
-            done
-            if [ -z "$missing" ]; then
-              echo "native release workflow was triggered by $TAG; desktop follows its successful completion."
-              exit 0
-            fi
-            if [ "$(date +%s)" -ge "$deadline" ]; then
-              echo "::error::$TAG did not trigger:$missing"
-              echo "::error::A tag pushed with GITHUB_TOKEN cannot trigger workflows — check that the"
-              echo "::error::checkout used RELEASE_DEPLOY_KEY. The release would otherwise have no assets."
-              exit 1
-            fi
-            echo "waiting for:$missing"
-            # allow-runner-wait: the interval of the release poll suppressed above.
-            sleep 15
-          done

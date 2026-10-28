@@ -8,27 +8,49 @@ import { parse } from 'yaml';
 
 const root = new URL('../../../.github/workflows/', import.meta.url);
 function readWorkflow(name) {
-  return parse(readFileSync(new URL(name, root), 'utf8')
-    .replaceAll('__PROJECT_RELEASE_TAG_PREFIX__', 'release-')
-    .replaceAll('__PRODUCT_ARTIFACT_PREFIX__', 'runtime-cli'));
+  return parse(
+    readFileSync(new URL(name, root), 'utf8')
+      .replaceAll('__PROJECT_RELEASE_TAG_PREFIX__', 'release-')
+      .replaceAll('__PRODUCT_ARTIFACT_PREFIX__', 'runtime-cli'),
+  );
 }
 const desktop = readWorkflow('release-desktop-app.yml');
 const native = readWorkflow('release-bun-binaries.yml');
 const codeql = readWorkflow('codeql.yml');
+const image = readWorkflow('release-image.yml');
+const publish = readWorkflow('publish.yml');
 const tagging = readFileSync(new URL('release-tag-on-version-bump.yml', root), 'utf8');
 
 it.each([
-  { os: 'Linux', maintainer: 'Example Product <maintainer@example.com>', author: { name: 'Example Product' } },
+  {
+    os: 'Linux',
+    maintainer: 'Example Product <maintainer@example.com>',
+    author: { name: 'Example Product' },
+  },
   { os: 'Linux', maintainer: '', author: { name: 'Example Product', email: 'legacy@example.com' } },
-  { os: 'macOS', maintainer: 'Example Product <maintainer@example.com>', author: { name: 'Example Product' } },
-  { os: 'Windows', maintainer: 'Example Product <maintainer@example.com>', author: { name: 'Example Product' } },
-])('packages $os with the selected maintainer and preserves platform signing options', ({ os, maintainer, author }) => {
-  const step = desktop.jobs.desktop.steps.find((step) => step.name === 'Package the desktop app (bundles the runtime)');
-  expect(step.env.LINUX_PACKAGE_MAINTAINER).toBe('${{ vars.PRODUCT_LINUX_MAINTAINER }}');
-  const temp = mkdtempSync(join(tmpdir(), 'desktop-maintainer-'));
-  const fixture = join(temp, 'builder.cjs');
-  try {
-    writeFileSync(fixture, `
+  {
+    os: 'macOS',
+    maintainer: 'Example Product <maintainer@example.com>',
+    author: { name: 'Example Product' },
+  },
+  {
+    os: 'Windows',
+    maintainer: 'Example Product <maintainer@example.com>',
+    author: { name: 'Example Product' },
+  },
+])(
+  'packages $os with the selected maintainer and preserves platform signing options',
+  ({ os, maintainer, author }) => {
+    const step = desktop.jobs.desktop.steps.find(
+      (step) => step.name === 'Package the desktop app (bundles the runtime)',
+    );
+    expect(step.env.LINUX_PACKAGE_MAINTAINER).toBe('${{ vars.PRODUCT_LINUX_MAINTAINER }}');
+    const temp = mkdtempSync(join(tmpdir(), 'desktop-maintainer-'));
+    const fixture = join(temp, 'builder.cjs');
+    try {
+      writeFileSync(
+        fixture,
+        `
       const { createRequire } = require('node:module');
       const appRequire = createRequire(process.env.APP_MANIFEST);
       const builderRequire = createRequire(appRequire.resolve('electron-builder'));
@@ -47,22 +69,39 @@ it.each([
           ? await FpmTarget.prototype.computeFpmMetaInfoOptions.call(target) : {};
         console.log(JSON.stringify({ args, maintainer: metadata.maintainer }));
       })().catch(error => { console.error(error.message); process.exitCode = 1; });
-    `);
-    const result = spawnSync('bash', ['-c', 'pnpm() { "$FIXTURE_NODE" "$FIXTURE_BUILDER" "$@"; };\n' + step.run], {
-      encoding: 'utf8',
-      env: { PATH: process.env.PATH, RUNNER_OS: os, LINUX_PACKAGE_MAINTAINER: maintainer,
-        FIXTURE_NODE: process.execPath, FIXTURE_BUILDER: fixture, FIXTURE_AUTHOR: JSON.stringify(author),
-        APP_MANIFEST: fileURLToPath(new URL('../../../apps/agent-app/package.json', import.meta.url)) },
-    });
-    expect(result.status, result.stderr).toBe(0);
-    const actual = JSON.parse(result.stdout);
-    const args = ['--filter', './apps/agent-app', 'dist:app'];
-    if (os === 'macOS') args.push('--config.forceCodeSigning=true');
-    if (os === 'Linux' && maintainer) args.push(`--config.linux.maintainer=${maintainer}`);
-    expect(actual.args).toEqual(args);
-    if (os === 'Linux') expect(actual.maintainer).toBe(maintainer || 'Example Product <legacy@example.com>');
-  } finally { rmSync(temp, { recursive: true, force: true }); }
-});
+    `,
+      );
+      const result = spawnSync(
+        'bash',
+        ['-c', 'pnpm() { "$FIXTURE_NODE" "$FIXTURE_BUILDER" "$@"; };\n' + step.run],
+        {
+          encoding: 'utf8',
+          env: {
+            PATH: process.env.PATH,
+            RUNNER_OS: os,
+            LINUX_PACKAGE_MAINTAINER: maintainer,
+            FIXTURE_NODE: process.execPath,
+            FIXTURE_BUILDER: fixture,
+            FIXTURE_AUTHOR: JSON.stringify(author),
+            APP_MANIFEST: fileURLToPath(
+              new URL('../../../apps/agent-app/package.json', import.meta.url),
+            ),
+          },
+        },
+      );
+      expect(result.status, result.stderr).toBe(0);
+      const actual = JSON.parse(result.stdout);
+      const args = ['--filter', './apps/agent-app', 'dist:app'];
+      if (os === 'macOS') args.push('--config.forceCodeSigning=true');
+      if (os === 'Linux' && maintainer) args.push(`--config.linux.maintainer=${maintainer}`);
+      expect(actual.args).toEqual(args);
+      if (os === 'Linux')
+        expect(actual.maintainer).toBe(maintainer || 'Example Product <legacy@example.com>');
+    } finally {
+      rmSync(temp, { recursive: true, force: true });
+    }
+  },
+);
 
 function evaluate(expression, github, steps = {}) {
   const source = expression.replace(/^\s*\$\{\{/, '').replace(/\}\}\s*$/, '');
@@ -97,7 +136,53 @@ it('cannot occupy the shared publisher queue before its native release dependenc
   expect(desktop.on.push).toBeUndefined();
   expect(desktop.on.workflow_run).toEqual({ workflows: [native.name], types: ['completed'] });
   expect(native.on.push.tags).toEqual(['**']);
-  expect(tagging).toMatch(/want="release-bun-binaries\.yml"/);
+  expect(tagging).not.toMatch(/\bsleep\s+\d+/u);
+});
+
+it('starts the image only after npm publication and never polls between workflows', () => {
+  expect(image.on.push).toBeUndefined();
+  expect(image.on.workflow_run).toEqual({ workflows: [publish.name], types: ['completed'] });
+  const github = context({
+    event: 'workflow_dispatch',
+    head_branch: 'main',
+    head_repository: { full_name: 'example/runtime' },
+  });
+  expect(evaluate(image.jobs.resolve.if, github)).toBe(true);
+  for (const workflow of [
+    tagging,
+    readFileSync(new URL('publish.yml', root), 'utf8'),
+    readFileSync(new URL('release-image.yml', root), 'utf8'),
+    readFileSync(new URL('release-desktop-app.yml', root), 'utf8'),
+  ]) {
+    expect(workflow).not.toMatch(/\ballow-runner-wait\b/u);
+    expect(workflow).not.toMatch(/\bsleep\s+\d+/u);
+    expect(workflow).not.toContain('360');
+  }
+});
+
+it('bounds every local workflow job with a small timeout', () => {
+  for (const name of [
+    'ci.yml',
+    'ci-check.yml',
+    'codeql.yml',
+    'gitleaks.yml',
+    'publish.yml',
+    'release-bun-binaries.yml',
+    'release-desktop-app.yml',
+    'release-image.yml',
+    'release-tag-on-version-bump.yml',
+  ]) {
+    const workflow = readWorkflow(name);
+    for (const [jobName, job] of Object.entries(workflow.jobs)) {
+      if (job.uses) continue;
+      expect(job['timeout-minutes'], `${name}:${jobName}`).toBeDefined();
+      const rendered = String(job['timeout-minutes']);
+      expect(rendered, `${name}:${jobName}`).not.toContain('360');
+      for (const number of rendered.match(/\d+/gu) ?? []) {
+        expect(Number(number), `${name}:${jobName}`).toBeLessThanOrEqual(60);
+      }
+    }
+  }
 });
 
 it.each([
@@ -145,16 +230,25 @@ it('fails a manual published build immediately when any native payload is absent
   expect(preflight).toBeDefined();
   expect(preflight.if).toBeUndefined();
   const expression = native.jobs['build-bun'].strategy.matrix.target;
-  const targets = Function('github', 'fromJSON', `return (${expression.slice(3, -2)});`)(
-    { event_name: 'workflow_dispatch' }, JSON.parse,
+  const targets = Function(
+    'github',
+    'fromJSON',
+    `return (${expression.slice(3, -2)});`,
+  )({ event_name: 'workflow_dispatch' }, JSON.parse);
+  const names = targets.map(
+    (target) => `runtime-cli-${target}${target.startsWith('windows') ? '.exe' : ''}`,
   );
-  const names = targets.map((target) => `runtime-cli-${target}${target.startsWith('windows') ? '.exe' : ''}`);
   names.push('SHA256SUMS.txt');
   const run = (assets) =>
     spawnSync('bash', ['-c', 'gh() { printf "%s\\n" "$FIXTURE_ASSETS"; };\n' + preflight.run], {
       encoding: 'utf8',
       cwd: fileURLToPath(new URL('../../../', import.meta.url)),
-    env: { PATH: process.env.PATH, TAG: 'release-3.0.0-beta.86', PRODUCT_ARTIFACT_PREFIX: 'runtime-cli', FIXTURE_ASSETS: assets.join('\n') },
+      env: {
+        PATH: process.env.PATH,
+        TAG: 'release-3.0.0-beta.86',
+        PRODUCT_ARTIFACT_PREFIX: 'runtime-cli',
+        FIXTURE_ASSETS: assets.join('\n'),
+      },
     });
   expect(run(names).status).toBe(0);
   const missing = run(names.filter((name) => name !== 'runtime-cli-darwin-arm64'));
@@ -171,34 +265,67 @@ it('fails a manual published build immediately when any native payload is absent
 
 // Execute the publishing step's real shell guard, without checking out or publishing anything.
 it.each(['cedar-v', 'amber-v', 'v', 'runtime.release-'])(
-  'accepts the selected release prefix %s and rejects another product tag', (prefix) => {
-    const resolve = native.jobs['publish-bun'].steps.find((step) => step.name === 'Resolve release tag');
-    const run = (tag) => spawnSync('bash', ['-c', resolve.run], {
-      encoding: 'utf8', env: { PATH: process.env.PATH, INPUT_TAG: tag, REF_NAME: '',
-        PROJECT_RELEASE_TAG_PREFIX: prefix, GITHUB_OUTPUT: '/dev/null' },
-    });
+  'accepts the selected release prefix %s and rejects another product tag',
+  (prefix) => {
+    const resolve = native.jobs['publish-bun'].steps.find(
+      (step) => step.name === 'Resolve release tag',
+    );
+    const run = (tag) =>
+      spawnSync('bash', ['-c', resolve.run], {
+        encoding: 'utf8',
+        env: {
+          PATH: process.env.PATH,
+          INPUT_TAG: tag,
+          REF_NAME: '',
+          PROJECT_RELEASE_TAG_PREFIX: prefix,
+          GITHUB_OUTPUT: '/dev/null',
+        },
+      });
     expect(run(`${prefix}3.0.0-beta.86`).status).toBe(0);
     expect(run('another-product-3.0.0-beta.86').status).toBe(1);
   },
 );
 
 it('refuses automatic installer publication for a tag outside the selected product', () => {
-  const guard = desktop.jobs.desktop.steps.find((step) => step.name === 'Validate configured release tag');
-  const run = (tag) => spawnSync('bash', ['-c', guard.run], {
-    encoding: 'utf8', env: { PATH: process.env.PATH, TAG: tag, PROJECT_RELEASE_TAG_PREFIX: 'cedar-v' },
-  });
+  const guard = desktop.jobs.desktop.steps.find(
+    (step) => step.name === 'Validate configured release tag',
+  );
+  const run = (tag) =>
+    spawnSync('bash', ['-c', guard.run], {
+      encoding: 'utf8',
+      env: { PATH: process.env.PATH, TAG: tag, PROJECT_RELEASE_TAG_PREFIX: 'cedar-v' },
+    });
   expect(run('cedar-v3.0.0-beta.86').status).toBe(0);
   expect(run('amber-v3.0.0-beta.86').status).toBe(1);
   expect(run('develop').status).toBe(1);
 });
 
 it('carries the release repository into publication from a generated workspace without Git metadata', () => {
-  const step = desktop.jobs.desktop.steps.find((step) => step.name === 'Publish installers to the GitHub Release');
-  const repository = step.env.GH_REPO === undefined ? undefined : evaluate(step.env.GH_REPO, context());
-  const result = spawnSync('bash', ['-c', 'gh() { while [ "$#" -gt 0 ]; do if [ "$1" = --repo ]; then test "$2" = "example/runtime"; return; fi; shift; done; return 1; };\n' + step.run], {
-    cwd: '/tmp', encoding: 'utf8', env: { PATH: process.env.PATH, GH_REPO: repository,
-      TAG: 'release-1.0.0', NOTES: '/tmp/notes', ASSETS: 'release/*.dmg', MANIFEST: 'release/checksums.txt' },
-  });
+  const step = desktop.jobs.desktop.steps.find(
+    (step) => step.name === 'Publish installers to the GitHub Release',
+  );
+  const repository =
+    step.env.GH_REPO === undefined ? undefined : evaluate(step.env.GH_REPO, context());
+  const result = spawnSync(
+    'bash',
+    [
+      '-c',
+      'gh() { while [ "$#" -gt 0 ]; do if [ "$1" = --repo ]; then test "$2" = "example/runtime"; return; fi; shift; done; return 1; };\n' +
+        step.run,
+    ],
+    {
+      cwd: '/tmp',
+      encoding: 'utf8',
+      env: {
+        PATH: process.env.PATH,
+        GH_REPO: repository,
+        TAG: 'release-1.0.0',
+        NOTES: '/tmp/notes',
+        ASSETS: 'release/*.dmg',
+        MANIFEST: 'release/checksums.txt',
+      },
+    },
+  );
   expect(result.status).toBe(0);
 });
 
@@ -206,52 +333,79 @@ it('does not require product release configuration or credentials when the versi
   const workflow = readWorkflow('release-tag-on-version-bump.yml');
   const steps = workflow.jobs['tag-on-bump'].steps;
   const resolve = steps.find((step) => step.name === 'Resolve the version change');
-  const version = JSON.parse(readFileSync(new URL('../../../packages/agent-cli/package.json', import.meta.url), 'utf8')).version;
+  const version = JSON.parse(
+    readFileSync(new URL('../../../packages/agent-cli/package.json', import.meta.url), 'utf8'),
+  ).version;
   const temp = mkdtempSync(join(tmpdir(), 'unchanged-release-'));
   const output = join(temp, 'output');
   try {
     writeFileSync(output, '');
-    const result = spawnSync('bash', ['-c', 'git() { printf "%s\\n" "$PREVIOUS_MANIFEST"; };\n' + resolve.run], {
-      cwd: fileURLToPath(new URL('../../../', import.meta.url)), encoding: 'utf8',
-      env: { PATH: process.env.PATH, GITHUB_OUTPUT: output, PREVIOUS_MANIFEST: JSON.stringify({ version }) },
-    });
+    const result = spawnSync(
+      'bash',
+      ['-c', 'git() { printf "%s\\n" "$PREVIOUS_MANIFEST"; };\n' + resolve.run],
+      {
+        cwd: fileURLToPath(new URL('../../../', import.meta.url)),
+        encoding: 'utf8',
+        env: {
+          PATH: process.env.PATH,
+          GITHUB_OUTPUT: output,
+          PREVIOUS_MANIFEST: JSON.stringify({ version }),
+        },
+      },
+    );
     expect(result.status).toBe(0);
     expect(readFileSync(output, 'utf8')).toContain('bumped=false');
     const github = context();
     github.event_name = 'push';
-    const outputs = { resolve: { outputs: { bumped: 'false' } }, push: { outputs: { pushed: 'false' } } };
+    const outputs = {
+      resolve: { outputs: { bumped: 'false' } },
+      push: { outputs: { pushed: 'false' } },
+    };
     for (const step of steps.slice(steps.indexOf(resolve) + 1)) {
       expect(step.if, step.name ?? step.uses ?? step.run).toBeDefined();
       expect(evaluate(step.if, github, outputs)).toBe(false);
     }
-  } finally { rmSync(temp, { recursive: true, force: true }); }
+  } finally {
+    rmSync(temp, { recursive: true, force: true });
+  }
 });
 
-it.each([['true', undefined], ['false', 'true']])(
-  'requires explicit release configuration for bump=%s dry_run=%s', (bumped, dryRun) => {
-    const workflow = readWorkflow('release-tag-on-version-bump.yml');
-    const steps = workflow.jobs['tag-on-bump'].steps;
-    const github = context({}, { dry_run: dryRun });
-    github.event_name = dryRun ? 'workflow_dispatch' : 'push';
-    const selection = steps.find((step) => step.name === 'Generate selected product workspace');
-    expect(evaluate(selection.if, github, { resolve: { outputs: { bumped } } })).toBe(true);
-    const result = spawnSync('bash', ['-c', selection.run], { encoding: 'utf8', env: { PATH: process.env.PATH } });
-    expect(result.status).toBe(1);
-    expect(result.stdout).toContain('PRODUCT_BUILD_ENV');
-    const tag = steps.find((step) => step.name === 'Resolve configured release tag');
-    const invalid = spawnSync('bash', ['-c', tag.run], { encoding: 'utf8', env: { PATH: process.env.PATH, CUR: '1.0.0', TAG_PREFIX: '' } });
-    expect(invalid.status).toBe(1);
-    expect(invalid.stdout).toContain('PROJECT_RELEASE_TAG_PREFIX');
-  },
-);
+it.each([
+  ['true', undefined],
+  ['false', 'true'],
+])('requires explicit release configuration for bump=%s dry_run=%s', (bumped, dryRun) => {
+  const workflow = readWorkflow('release-tag-on-version-bump.yml');
+  const steps = workflow.jobs['tag-on-bump'].steps;
+  const github = context({}, { dry_run: dryRun });
+  github.event_name = dryRun ? 'workflow_dispatch' : 'push';
+  const selection = steps.find((step) => step.name === 'Generate selected product workspace');
+  expect(evaluate(selection.if, github, { resolve: { outputs: { bumped } } })).toBe(true);
+  const result = spawnSync('bash', ['-c', selection.run], {
+    encoding: 'utf8',
+    env: { PATH: process.env.PATH },
+  });
+  expect(result.status).toBe(1);
+  expect(result.stdout).toContain('PRODUCT_BUILD_ENV');
+  const tag = steps.find((step) => step.name === 'Resolve configured release tag');
+  const invalid = spawnSync('bash', ['-c', tag.run], {
+    encoding: 'utf8',
+    env: { PATH: process.env.PATH, CUR: '1.0.0', TAG_PREFIX: '' },
+  });
+  expect(invalid.status).toBe(1);
+  expect(invalid.stdout).toContain('PROJECT_RELEASE_TAG_PREFIX');
+});
 
 it.each([
   { private: false, owner: { type: 'User' }, expected: true },
   { private: true, owner: { type: 'User' }, expected: false },
   { private: false, owner: { type: 'Organization' }, expected: true },
   { private: true, owner: { type: 'Organization' }, expected: true },
-])('preserves supported CodeQL targets and excludes personal private repositories: %j', ({ expected, ...repository }) => {
-  const condition = codeql.jobs.analyze.if;
-  const selected = condition === undefined ? true : evaluate(condition, { event: { repository } });
-  expect(selected).toBe(expected);
-});
+])(
+  'preserves supported CodeQL targets and excludes personal private repositories: %j',
+  ({ expected, ...repository }) => {
+    const condition = codeql.jobs.analyze.if;
+    const selected =
+      condition === undefined ? true : evaluate(condition, { event: { repository } });
+    expect(selected).toBe(expected);
+  },
+);

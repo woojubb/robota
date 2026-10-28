@@ -13,7 +13,14 @@ import path from 'node:path';
 import { parse } from 'yaml';
 import { afterEach, expect, it, vi } from 'vitest';
 import { fileURLToPath } from 'node:url';
-import { assertBuild, assertGate, assertNativeGate, selectScope } from '../ci.mjs';
+import {
+  assertBuild,
+  assertGate,
+  assertNativeGate,
+  releaseMetadataPlan,
+  selectScope,
+  verifyPromotionChecks,
+} from '../ci.mjs';
 
 const selectionFault = vi.hoisted(() => ({ empty: false }));
 vi.mock('node:child_process', async (importOriginal) => {
@@ -124,12 +131,19 @@ it('runs tests separately from static and generated-release checks and always ev
   for (const job of ['tests', 'static-checks']) {
     expect([...workflow.jobs[job].needs].sort()).toEqual(['scope', 'workspace-build']);
   }
-  expect(workflow.jobs['workspace-build'].if).toBe("needs.scope.outputs.developer_docs != 'true'");
-  expect(workflow.jobs['static-checks'].if).toBe("needs.scope.outputs.developer_docs != 'true'");
+  expect(workflow.jobs['workspace-build'].if).toBe(
+    "needs.scope.outputs.developer_docs != 'true' && needs.scope.outputs.release_metadata != 'true'",
+  );
+  expect(workflow.jobs['static-checks'].if).toBe(
+    "needs.scope.outputs.developer_docs != 'true' && needs.scope.outputs.release_metadata != 'true'",
+  );
   expect(workflow.jobs.tests.if).toBe(
-    "${{ !cancelled() && needs.scope.result == 'success' && (needs.scope.outputs.developer_docs == 'true' || needs.workspace-build.result == 'success') }}",
+    "${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.release_metadata != 'true' && (needs.scope.outputs.developer_docs == 'true' || needs.workspace-build.result == 'success') }}",
   );
   expect(workflow.jobs['release-checks'].needs).toBe('scope');
+  expect(workflow.jobs['release-checks'].if).toBe(
+    "needs.scope.outputs.release == 'true' && needs.scope.outputs.promotion != 'true'",
+  );
   expect(workflow.jobs['pr-validation'].if).toBe('${{ always() }}');
   expect(workflow.jobs['pr-validation'].needs).toEqual(
     expect.arrayContaining([
@@ -145,7 +159,7 @@ it('runs tests separately from static and generated-release checks and always ev
     step.uses?.startsWith('actions/download-artifact'),
   );
   expect(download.if).toBe(
-    "(inputs.kind == 'static' || inputs.kind == 'tests') && !fromJSON(inputs.plan).developerDocs",
+    "(inputs.kind == 'static' || inputs.kind == 'tests') && !fromJSON(inputs.plan).developerDocs && !fromJSON(inputs.plan).releaseMetadata",
   );
   expect(download.with['artifact-ids']).toBe('${{ inputs.artifact-id }}');
   for (const job of ['tests', 'static-checks']) {
@@ -153,6 +167,112 @@ it('runs tests separately from static and generated-release checks and always ev
       '${{ needs.workspace-build.outputs.artifact-id }}',
     );
   }
+});
+
+const releaseChanges = [
+  'M',
+  '.changeset/pre.json',
+  'D',
+  '.changeset/fix.md',
+  'M',
+  'pnpm-lock.yaml',
+  'M',
+  'packages/agent-cli/package.json',
+  'M',
+  'packages/agent-cli/CHANGELOG.md',
+  'M',
+  'packages/agent-core/package.json',
+  'M',
+  'packages/agent-core/CHANGELOG.md',
+];
+
+it('selects the fast path only for complete generated release metadata', () => {
+  expect(releaseMetadataPlan(releaseChanges)).toMatchObject({
+    releaseMetadata: true,
+    promotion: false,
+    release: true,
+  });
+  expect(releaseMetadataPlan([...releaseChanges, 'M', 'packages/agent-core/src/index.ts'])).toBe(
+    undefined,
+  );
+  expect(releaseMetadataPlan(releaseChanges.filter((entry) => entry !== '.changeset/fix.md'))).toBe(
+    undefined,
+  );
+  expect(releaseMetadataPlan(releaseChanges.filter((entry) => entry !== 'pnpm-lock.yaml'))).toBe(
+    undefined,
+  );
+});
+
+it('selects the fast promotion path only for develop to main with complete release metadata', () => {
+  const sourceAndRelease = [...releaseChanges, 'M', 'packages/agent-core/src/index.ts'];
+  expect(
+    releaseMetadataPlan(sourceAndRelease, {
+      headRef: 'develop',
+      baseRef: 'main',
+      promotionVerified: true,
+    }),
+  ).toMatchObject({ releaseMetadata: true, promotion: true, release: true });
+  expect(releaseMetadataPlan(sourceAndRelease, { headRef: 'develop', baseRef: 'main' })).toBe(
+    undefined,
+  );
+  expect(releaseMetadataPlan(sourceAndRelease, { headRef: 'feature', baseRef: 'main' })).toBe(
+    undefined,
+  );
+  expect(releaseMetadataPlan(sourceAndRelease, { headRef: 'develop', baseRef: 'develop' })).toBe(
+    undefined,
+  );
+});
+
+it('verifies every first-parent promotion commit is a reviewed merge with required checks', async () => {
+  const options = fixture();
+  const branch = exec(options.cwd, 'git', ['rev-parse', '--abbrev-ref', 'HEAD']);
+  exec(options.cwd, 'git', ['checkout', '-qb', 'feature']);
+  write(options.cwd, 'packages/core/src/index.ts', 'reviewed');
+  commit(options.cwd);
+  exec(options.cwd, 'git', ['checkout', '-q', branch]);
+  exec(options.cwd, 'git', [
+    '-c',
+    'user.name=CI fixture',
+    '-c',
+    'user.email=ci@example.test',
+    'merge',
+    '--no-ff',
+    '-qm',
+    'merge reviewed feature',
+    'feature',
+  ]);
+  const headSha = exec(options.cwd, 'git', ['rev-parse', 'HEAD']);
+  const response = (checks) => ({
+    ok: true,
+    json: async () => ({ check_runs: checks.map((name) => ({ name, conclusion: 'success' })) }),
+  });
+  expect(
+    await verifyPromotionChecks({
+      cwd: options.cwd,
+      base: options.base,
+      headSha,
+      repository: 'woojubb/robota',
+      fetchImpl: async () => response(['pr-validation', 'security']),
+    }),
+  ).toBe(true);
+  expect(
+    await verifyPromotionChecks({
+      cwd: options.cwd,
+      base: options.base,
+      headSha,
+      repository: 'woojubb/robota',
+      fetchImpl: async () => response(['pr-validation']),
+    }),
+  ).toBe(false);
+  expect(
+    await verifyPromotionChecks({
+      cwd: options.cwd,
+      base: options.base,
+      headSha: exec(options.cwd, 'git', ['rev-parse', 'feature']),
+      repository: 'woojubb/robota',
+      fetchImpl: async () => response(['pr-validation', 'security']),
+    }),
+  ).toBe(false);
 });
 
 it('replaces the full-suite trigger for the exact mixed docs/private-example paths in PR #17', () => {
@@ -579,10 +699,47 @@ function developerDocumentNeeds() {
     build: [],
     docs: false,
     release: false,
+    releaseMetadata: false,
+    promotion: false,
   });
   for (const job of ['workspace-build', 'static-checks']) needs[job].result = 'skipped';
   return needs;
 }
+
+function releaseMetadataNeeds(promotion = false) {
+  const needs = successfulNeeds(true);
+  needs.scope.outputs.plan = JSON.stringify({
+    full: false,
+    developerDocs: false,
+    releaseMetadata: true,
+    promotion,
+    checks: [],
+    build: [],
+    docs: false,
+    release: true,
+  });
+  for (const job of ['workspace-build', 'static-checks', 'tests']) needs[job].result = 'skipped';
+  if (promotion) needs['release-checks'].result = 'skipped';
+  return needs;
+}
+
+it('accepts only the bounded release metadata omissions', () => {
+  expect(() => assertGate(releaseMetadataNeeds())).not.toThrow();
+  expect(() => assertGate(releaseMetadataNeeds(true))).not.toThrow();
+  expect(() =>
+    assertNativeGate({
+      scope: releaseMetadataNeeds().scope,
+      'build-bun': { result: 'skipped' },
+    }),
+  ).not.toThrow();
+  for (const promotion of [false, true]) {
+    for (const job of ['workspace-build', 'static-checks', 'tests']) {
+      const needs = releaseMetadataNeeds(promotion);
+      needs[job].result = 'success';
+      expect(() => assertGate(needs)).toThrow();
+    }
+  }
+});
 it('accepts only the deliberate document omissions with successful root scripts', () => {
   expect(() => assertGate(developerDocumentNeeds())).not.toThrow();
   for (const job of ['scope', 'tests']) {
