@@ -1,5 +1,10 @@
 # @robota-sdk/agent-core
 
+## 3.0.0-beta.101
+### Patch Changes
+
+- 62663ae: Harden local file writes, permission denials, monitor access, and one-time external event admission.
+
 ## 3.0.0-beta.100
 
 ## 3.0.0-beta.99

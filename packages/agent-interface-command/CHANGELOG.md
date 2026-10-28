@@ -1,5 +1,11 @@
 # @robota-sdk/agent-interface-command
 
+## 3.0.0-beta.101
+### Patch Changes
+
+- Updated dependencies [62663ae]
+  - @robota-sdk/agent-core@3.0.0-beta.101
+
 ## 3.0.0-beta.100
 ### Patch Changes
 

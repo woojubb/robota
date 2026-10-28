@@ -1,5 +1,12 @@
 # @robota-sdk/agent-telemetry-otel
 
+## 3.0.0-beta.101
+### Patch Changes
+
+- Updated dependencies [62663ae]
+  - @robota-sdk/agent-core@3.0.0-beta.101
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.101
+
 ## 3.0.0-beta.100
 ### Patch Changes
 
@@ -57,7 +64,7 @@
   uses the OpenTelemetry GenAI semantic conventions (`invoke_agent`, `chat`, `execute_tool`, `gen_ai.*`
   attributes, `GEN_AI_SCHEMA_URL`) and keeps Robota-only facts such as timing and outcome as `agent.*`;
   `mode: 'gen_ai/dup'` emits both attribute sets under GenAI span names for a gradual migration.
-  
+
   `IToolBodyTraceEntry` gains an optional live-only `toolName`, which the GenAI projection uses for the
   `execute_tool` span name and `gen_ai.tool.name`.
 - ccff111: Live telemetry can name its metrics with the OpenTelemetry GenAI semantic conventions. With
@@ -74,7 +81,7 @@
   so a provider split of token totals survives the dropped counters. `PRODUCT_TELEMETRY_SEMCONV` now applies to
   traces and metrics, and is refused only when neither is exported over otlp or console. Console metrics
   print the same projection.
-  
+
   `@robota-sdk/agent-telemetry-otel` adds `projectLivePromptMetricSamples`, which maps a live prompt trace
   batch onto those GenAI metrics as plain, SDK-free samples with the recommended bucket boundaries, so
   every host names and measures the same facts the same way. Its inference samples keep the label-safe
