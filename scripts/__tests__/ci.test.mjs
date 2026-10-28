@@ -844,9 +844,51 @@ it.each(['push', 'workflow_dispatch'])('keeps %s full even for developer documen
   expectFullCoverage(selectScope({ ...options, event }));
 });
 
-it('falls back for empty changes and an invalid base', () => {
+it('uses the short root-script gate for topology-only pull requests but rejects an invalid base', () => {
   const options = fixture();
-  expectFullCoverage(selectScope(options));
+  const branch = exec(options.cwd, 'git', ['rev-parse', '--abbrev-ref', 'HEAD']);
+  exec(options.cwd, 'git', ['checkout', '-qb', 'promoted-main']);
+  exec(options.cwd, 'git', [
+    '-c',
+    'user.name=CI fixture',
+    '-c',
+    'user.email=ci@example.test',
+    'commit',
+    '--allow-empty',
+    '-qm',
+    'prior promotion',
+  ]);
+  exec(options.cwd, 'git', ['checkout', '-q', branch]);
+  exec(options.cwd, 'git', [
+    '-c',
+    'user.name=CI fixture',
+    '-c',
+    'user.email=ci@example.test',
+    'merge',
+    '--no-ff',
+    '-qm',
+    'sync prior promotion ancestry',
+    'promoted-main',
+  ]);
+  expect(exec(options.cwd, 'git', ['show', '-s', '--format=%P', 'HEAD']).split(' ')).toHaveLength(
+    2,
+  );
+  expect(exec(options.cwd, 'git', ['rev-parse', 'HEAD^{tree}'])).toBe(
+    exec(options.cwd, 'git', ['rev-parse', 'HEAD^1^{tree}']),
+  );
+  expect(selectScope(options)).toEqual({
+    full: false,
+    developerDocs: true,
+    releaseMetadata: false,
+    promotion: false,
+    reason: 'topology-only ancestry',
+    checks: [],
+    build: [],
+    docs: false,
+    release: false,
+  });
+  for (const event of ['push', 'workflow_dispatch'])
+    expectFullCoverage(selectScope({ ...options, event }));
   expectFullCoverage(selectScope({ ...options, base: 'missing-ref' }));
 });
 
