@@ -101,18 +101,18 @@ export async function verifyGeneratedRelease({
     attached = true;
     if (generateImpl) await generateImpl(checkout);
     else {
-      if (!existsSync(path.join(cwd, 'node_modules', '.bin', 'changeset')))
+      if (!existsSync(path.join(checkout, 'node_modules', '.bin', 'changeset')))
         command(
           pnpm,
           ['install', '--frozen-lockfile', '--ignore-scripts', '--filter', '.'],
-          cwd,
+          checkout,
           false,
           2 * 60_000,
         );
       command(
         process.execPath,
-        [path.join(cwd, 'scripts/release/version.mjs'), '--workspace', checkout],
-        cwd,
+        [path.join(checkout, 'scripts/release/version.mjs'), '--workspace', checkout],
+        checkout,
         false,
         3 * 60_000,
       );

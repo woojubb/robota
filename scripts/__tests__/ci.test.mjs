@@ -294,6 +294,64 @@ it('accepts only a byte-for-byte regeneration of the version commit', async () =
   expect(await verifyGeneratedRelease(options)).toBe(true);
 });
 
+it('installs and executes release verification tools only from the trusted base checkout', async () => {
+  const cwd = mkdtempSync(path.join(os.tmpdir(), 'release-verifier-trust-'));
+  const bin = mkdtempSync(path.join(os.tmpdir(), 'release-verifier-bin-'));
+  roots.push(cwd, bin);
+  const installLog = path.join(bin, 'installed-lock.txt');
+  const fakePnpm = path.join(bin, process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm');
+  const fakePnpmScript = path.join(bin, 'fake-pnpm.mjs');
+  write(cwd, '.gitignore', 'node_modules/\n');
+  write(cwd, 'pnpm-lock.yaml', 'lockfileVersion: 6\ntrusted-base-tool: true\n');
+  write(
+    cwd,
+    'scripts/release/version.mjs',
+    `import { writeFileSync } from 'node:fs';\nimport path from 'node:path';\nconst workspace = path.resolve(process.argv[3]);\nwriteFileSync(path.join(workspace, 'pnpm-lock.yaml'), 'lockfileVersion: 6\\ntrusted-generated: true\\n');\n`,
+  );
+  write(
+    bin,
+    'fake-pnpm.mjs',
+    `import { copyFileSync, mkdirSync, writeFileSync } from 'node:fs';\nimport path from 'node:path';\ncopyFileSync(path.join(process.cwd(), 'pnpm-lock.yaml'), ${JSON.stringify(installLog)});\nmkdirSync(path.join(process.cwd(), 'node_modules/.bin'), { recursive: true });\nwriteFileSync(path.join(process.cwd(), 'node_modules/.bin/changeset'), 'trusted base tool');\n`,
+  );
+  if (process.platform === 'win32')
+    write(bin, 'pnpm.cmd', `@echo off\r\n"${process.execPath}" "${fakePnpmScript}" %*\r\n`);
+  else {
+    write(
+      bin,
+      'pnpm',
+      `#!/bin/sh\nexec ${JSON.stringify(process.execPath)} ${JSON.stringify(fakePnpmScript)} "$@"\n`,
+    );
+    chmodSync(fakePnpm, 0o755);
+  }
+  exec(cwd, 'git', ['init', '-q']);
+  exec(cwd, 'git', ['add', '.']);
+  exec(cwd, 'git', [
+    '-c',
+    'user.name=CI fixture',
+    '-c',
+    'user.email=ci@example.test',
+    'commit',
+    '-qm',
+    'base',
+  ]);
+  const base = exec(cwd, 'git', ['rev-parse', 'HEAD']);
+  write(
+    cwd,
+    'pnpm-lock.yaml',
+    'lockfileVersion: 6\ntrusted-generated: true\ntarget-controlled-tool: malicious\n',
+  );
+  commit(cwd);
+  const target = exec(cwd, 'git', ['rev-parse', 'HEAD']);
+  const originalPath = process.env.PATH;
+  process.env.PATH = `${bin}${path.delimiter}${originalPath ?? ''}`;
+  try {
+    expect(await verifyGeneratedRelease({ cwd, base, target })).toBe(false);
+  } finally {
+    process.env.PATH = originalPath;
+  }
+  expect(readFileSync(installLog, 'utf8')).toBe('lockfileVersion: 6\ntrusted-base-tool: true\n');
+});
+
 it.each([
   [
     'manifest',
