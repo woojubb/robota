@@ -39,9 +39,12 @@ export function runModeA(): void {
   };
   const bare = assembleProduct(bareProfile);
   checkEqual("assembled id is the consumer's own", bare.id, 'acme-assistant');
-  checkEqual('agentName is the consumer\'s branding, not the SDK default', bare.agentName, 'acme');
+  checkEqual("agentName is the consumer's branding, not the SDK default", bare.agentName, 'acme');
   checkEqual('version passes through', bare.version, '0.1.0');
-  check('provider surface passes through unchanged', bare.providerDefinitions === providerDefinitions);
+  check(
+    'provider surface passes through unchanged',
+    bare.providerDefinitions === providerDefinitions,
+  );
   checkEqual('a bare profile yields no command modules', bare.commandModules.length, 0);
   checkEqual('a bare profile yields no tools', bare.tools.length, 0);
   checkEqual('a bare profile yields no subagents', bare.subagents.length, 0);
@@ -78,7 +81,9 @@ export function runModeA(): void {
   );
   note('Mode A consumers do not depend on any @robota-sdk/agent-provider-* package directly');
 
-  section("A3 — the reference CLI's runtime capability arrives as a pack (their branding, our runtime)");
+  section(
+    "A3 — the reference CLI's runtime capability arrives as a pack (their branding, our runtime)",
+  );
   const product = assembleProduct({
     ...bareProfile,
     providerSettings: ACME_PROVIDER_SETTINGS,
