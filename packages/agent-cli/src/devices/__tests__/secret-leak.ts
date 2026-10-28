@@ -31,6 +31,8 @@ export function phraseFragments(words: readonly string[], passphrase?: string): 
 
 /** The fragments found in `text` (case-insensitive). Empty means nothing leaked. */
 export function leakedIn(text: string, fragments: readonly string[]): string[] {
-  const lower = text.toLowerCase();
-  return fragments.filter((fragment) => lower.includes(fragment.toLowerCase()));
+  return fragments.filter((fragment) => {
+    const escaped = fragment.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(?<![\\p{L}\\p{N}])${escaped}(?![\\p{L}\\p{N}])`, 'iu').test(text);
+  });
 }

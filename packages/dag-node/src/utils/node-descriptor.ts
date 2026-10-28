@@ -1,4 +1,3 @@
-import { zodToJsonSchema } from 'zod-to-json-schema';
 import { z, type ZodType } from 'zod';
 import type { TResult, IDagError } from '@robota-sdk/dag-core';
 import { buildValidationError } from '@robota-sdk/dag-core';
@@ -29,14 +28,11 @@ export function buildConfigSchema(
       ),
     };
   }
-  // Reference `zodToJsonSchema` through a simplified signature so its return-type
-  // generic does not instantiate excessively deep over the schema type (TS2589).
-  const toJsonSchema = zodToJsonSchema as unknown as (
-    schema: ZodType,
-    opts?: { target?: string },
-  ) => Record<string, unknown>;
   return {
     ok: true,
-    value: toJsonSchema(configSchemaDefinition, { target: 'jsonSchema7' }),
+    value: z.toJSONSchema(configSchemaDefinition, { target: 'draft-07', io: 'input' }) as Record<
+      string,
+      unknown
+    >,
   };
 }

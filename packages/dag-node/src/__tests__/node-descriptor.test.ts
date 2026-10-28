@@ -7,12 +7,14 @@ describe('buildConfigSchema', () => {
     const zodSchema = z.object({
       prompt: z.string(),
       temperature: z.number().optional(),
+      retries: z.number().default(2),
     });
     const result = buildConfigSchema(zodSchema);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.value).toHaveProperty('type', 'object');
     expect(result.value).toHaveProperty('properties');
+    expect(result.value.required).toEqual(['prompt']);
   });
 
   it('returns empty schema for null (no config declared)', () => {

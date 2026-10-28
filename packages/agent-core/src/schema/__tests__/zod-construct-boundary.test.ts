@@ -65,6 +65,24 @@ describe('CORE-041 — constructs the universal subset CAN express', () => {
     expect(validateAgainstJsonSchema(schema, { level: 1 }, '')).toEqual([]);
   });
 
+  it('converts a mixed native enum without advertising its numeric reverse-map name', () => {
+    enum Fruit {
+      Apple = 'apple',
+      Banana = 'banana',
+      Orange = 3,
+    }
+    const schema = zodToJsonSchema(asZod(z.object({ fruit: z.nativeEnum(Fruit) })));
+    const fruit = schema.properties?.['fruit'];
+
+    expect(fruit?.anyOf).toEqual([
+      { type: 'string', enum: ['apple', 'banana'] },
+      { type: 'number', enum: [3] },
+    ]);
+    expect(validateAgainstJsonSchema(schema, { fruit: 'apple' }, '')).toEqual([]);
+    expect(validateAgainstJsonSchema(schema, { fruit: 3 }, '')).toEqual([]);
+    expect(validateAgainstJsonSchema(schema, { fruit: 'Orange' }, '').join(' ')).toMatch(/match/);
+  });
+
   it('converts a date to the string a provider actually receives', () => {
     // JSON has no date type. Every provider sends a string on the wire, so `{type:'string'}` is not
     // a lossy stand-in — it is the faithful description of the payload. `format` carries the intent.

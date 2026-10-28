@@ -28,7 +28,7 @@ export const LlmTextConfigSchema = z.object({
   temperature: z.number().default(DEFAULT_TEMPERATURE),
   maxTokens: z.number().int().positive().optional(),
   baseCredits: z.number().default(0),
-  options: z.record(z.unknown()).optional(),
+  options: z.record(z.string(), z.unknown()).optional(),
 });
 
 export type TLlmTextConfig = z.output<typeof LlmTextConfigSchema>;

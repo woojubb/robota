@@ -86,14 +86,19 @@ export class OpenAICompatibleResponseParser {
 
   private parseNativeToolCalls(message: OpenAI.Chat.ChatCompletionMessage): IToolCall[] {
     return (
-      message.tool_calls?.map((toolCall) => ({
-        id: toolCall.id,
-        type: 'function' as const,
-        function: {
-          name: toolCall.function.name,
-          arguments: toolCall.function.arguments,
-        },
-      })) || []
+      message.tool_calls
+        ?.filter(
+          (toolCall): toolCall is Extract<typeof toolCall, { type: 'function' }> =>
+            toolCall.type === 'function',
+        )
+        .map((toolCall) => ({
+          id: toolCall.id,
+          type: 'function' as const,
+          function: {
+            name: toolCall.function.name,
+            arguments: toolCall.function.arguments,
+          },
+        })) || []
     );
   }
 

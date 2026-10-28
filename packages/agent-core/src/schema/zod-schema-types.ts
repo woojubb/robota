@@ -20,22 +20,28 @@ export interface IZodParseResult {
 
 export interface IZodSchemaDef {
   typeName?: string;
+  /** Zod v4 replaces `typeName` with lowercase `type`. Zod v3 uses this member for array items. */
+  type?: string | IZodSchema;
   innerType?: IZodSchema;
   valueType?: IZodSchema;
-  checks?: Array<{ kind: string; value?: TUniversalValue }>;
-  shape?: () => Record<string, IZodSchema>;
-  type?: IZodSchema;
+  element?: IZodSchema;
+  checks?: unknown[];
+  shape?: (() => Record<string, IZodSchema>) | Record<string, IZodSchema>;
+  catchall?: IZodSchema;
   /**
    * `ZodEnum` holds an ARRAY here; `ZodNativeEnum` holds the enum OBJECT itself (CORE-041). One Zod
    * field name, two shapes — the converter narrows before reading it.
    */
   values?: TUniversalValue[] | Record<string, TUniversalValue>;
+  entries?: Record<string, TUniversalValue>;
   description?: string;
   unknownKeys?: 'passthrough' | 'strip' | 'strict';
   /** `ZodEffects` (`.refine()` / `.transform()`) holds the schema it wraps here. */
   schema?: IZodSchema;
   /** `ZodUnion` / `ZodDiscriminatedUnion` members. */
   options?: IZodSchema[];
+  /** Zod v4 pipes (`.transform()`) keep the accepted input schema here. */
+  in?: IZodSchema;
   /** `ZodLiteral` value. */
   value?: TUniversalValue;
 }
@@ -43,7 +49,9 @@ export interface IZodSchemaDef {
 export interface IZodSchema {
   parse(value: unknown): unknown;
   safeParse(value: unknown): IZodParseResult;
-  _def?: IZodSchemaDef;
+  /** Runtime-inspected only after validation so Zod v3 and v4 remain structurally assignable. */
+  _def?: unknown;
+  description?: string;
 }
 
 /**

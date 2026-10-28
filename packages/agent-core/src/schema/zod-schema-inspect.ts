@@ -24,7 +24,7 @@ export const MAX_WRAPPER_DEPTH = 64;
 export function resolveAdditionalProperties(
   objectDef: IZodSchemaDef,
   allowAdditionalProperties?: boolean,
-): boolean | undefined {
+): boolean | IZodSchema | undefined {
   if (allowAdditionalProperties) {
     return true;
   }
@@ -35,15 +35,33 @@ export function resolveAdditionalProperties(
     case 'strict':
       return false;
     default:
-      // Not a Zod object with a declared mode — leave it to the subset's omitted-means-closed default.
-      return undefined;
+      // Zod v4 represents object mode through catchall: absent means strip, never means strict,
+      // unknown means passthrough, and another schema validates additional values.
+      if (!objectDef.catchall)
+        return normalizedTypeName(objectDef) === 'ZodObject' ? true : undefined;
+      switch (normalizedTypeName(requireDef(objectDef.catchall, 'Zod catchall'))) {
+        case 'ZodNever':
+          return false;
+        case 'ZodUnknown':
+          return true;
+        default:
+          return objectDef.catchall;
+      }
   }
+}
+
+/** Present one stable set of names to the converter across Zod v3 and v4. */
+export function normalizedTypeName(typeDef: IZodSchemaDef): string | undefined {
+  if (typeDef.typeName) return typeDef.typeName;
+  if (typeof typeDef.type !== 'string') return undefined;
+  const name = typeDef.type[0]?.toUpperCase() + typeDef.type.slice(1);
+  return `Zod${name}`;
 }
 
 /** Unwrap transparent wrappers until an object definition is reached; undefined if it never is. */
 export function unwrapToObjectDef(typeDef: IZodSchemaDef): IZodSchemaDef | undefined {
   const resolved = unwrapTransparent(typeDef);
-  return resolved.typeName === 'ZodObject' ? resolved : undefined;
+  return normalizedTypeName(resolved) === 'ZodObject' ? resolved : undefined;
 }
 
 /**
@@ -58,18 +76,19 @@ export function unwrapTransparent(typeDef: IZodSchemaDef): IZodSchemaDef {
   // `innerType` points at itself. The cap turns that into the file's usual loud failure instead of
   // a hang.
   for (let depth = 0; depth <= MAX_WRAPPER_DEPTH; depth += 1) {
+    const typeName = normalizedTypeName(current);
     const inner =
-      current.typeName === 'ZodEffects'
+      typeName === 'ZodEffects'
         ? current.schema
-        : current.typeName === 'ZodOptional' ||
-            current.typeName === 'ZodNullable' ||
-            current.typeName === 'ZodDefault'
-          ? current.innerType
-          : undefined;
+        : typeName === 'ZodPipe'
+          ? current.in
+          : typeName === 'ZodOptional' || typeName === 'ZodNullable' || typeName === 'ZodDefault'
+            ? current.innerType
+            : undefined;
     if (!inner) {
       return current;
     }
-    current = requireDef(inner, `${String(current.typeName)} inner type`);
+    current = requireDef(inner, `${String(typeName)} inner type`);
   }
   throw new Error(
     `Zod wrapper chain exceeds ${MAX_WRAPPER_DEPTH} levels; refusing to unwrap further (cyclic schema?).`,
@@ -78,10 +97,10 @@ export function unwrapTransparent(typeDef: IZodSchemaDef): IZodSchemaDef {
 
 export function requireDef(schema: IZodSchema, label: string): IZodSchemaDef {
   const def = schema._def;
-  if (!def) {
+  if (!def || typeof def !== 'object') {
     throw new Error(`${label} is missing _def; cannot convert to JSON schema.`);
   }
-  return def;
+  return def as IZodSchemaDef;
 }
 
 export function literalKind(value: TUniversalValue | undefined): TJSONSchemaKind | undefined {
@@ -97,10 +116,7 @@ export function literalKind(value: TUniversalValue | undefined): TJSONSchemaKind
  * `ZodEffects` so `.optional().refine(…)` is not reported as required.
  */
 export function isRequiredField(typeObj: IZodSchema): boolean {
-  const typeDef = typeObj._def;
-  if (!typeDef) {
-    throw new Error('Zod schema is missing _def; cannot determine required fields.');
-  }
+  const typeDef = requireDef(typeObj, 'Zod schema');
 
   // Loop, do not peel one level: `.optional().refine(f).refine(f)` is two ZodEffects deep, and a
   // single unwrap reported that field as required -- the model then being told an optional field is
@@ -108,18 +124,17 @@ export function isRequiredField(typeObj: IZodSchema): boolean {
   let resolved = typeDef;
   for (
     let depth = 0;
-    resolved.typeName === 'ZodEffects' && depth <= MAX_WRAPPER_DEPTH;
+    (normalizedTypeName(resolved) === 'ZodEffects' || normalizedTypeName(resolved) === 'ZodPipe') &&
+    depth <= MAX_WRAPPER_DEPTH;
     depth += 1
   ) {
-    if (!resolved.schema) break;
-    resolved = requireDef(resolved.schema, 'ZodEffects inner type');
+    const inner = normalizedTypeName(resolved) === 'ZodPipe' ? resolved.in : resolved.schema;
+    if (!inner) break;
+    resolved = requireDef(inner, 'Zod effect inner type');
   }
 
-  return (
-    resolved.typeName !== 'ZodOptional' &&
-    resolved.typeName !== 'ZodNullable' &&
-    resolved.typeName !== 'ZodDefault'
-  );
+  const typeName = normalizedTypeName(resolved);
+  return typeName !== 'ZodOptional' && typeName !== 'ZodNullable' && typeName !== 'ZodDefault';
 }
 
 /**
@@ -127,10 +142,24 @@ export function isRequiredField(typeObj: IZodSchema): boolean {
  */
 export function extractEnumValues(schema: IZodSchema): TUniversalValue[] {
   const typeDef = requireDef(schema, 'Zod schema');
-  if (!typeDef.values || !Array.isArray(typeDef.values)) {
+  const values = typeDef.values ?? typeDef.entries;
+  if (!values || typeof values !== 'object') {
     throw new Error('ZodEnum schema is missing enum values; cannot extract enum values.');
   }
-  return typeDef.values;
+  return normalizeEnumValues(values);
+}
+
+/** Preserve enum members while removing TypeScript's numeric reverse-map entries. */
+export function normalizeEnumValues(
+  values: TUniversalValue[] | Record<string, TUniversalValue>,
+): TUniversalValue[] {
+  if (Array.isArray(values)) return values;
+  const numericValues = Object.values(values).filter(
+    (value): value is number => typeof value === 'number',
+  );
+  return Object.entries(values)
+    .filter(([key]) => !numericValues.includes(Number(key)))
+    .map(([, value]) => value);
 }
 
 /**
@@ -146,8 +175,9 @@ export function hasValidationConstraints(schema: IZodSchema): boolean {
  */
 export function getSchemaTypeName(schema: IZodSchema): string {
   const typeDef = requireDef(schema, 'Zod schema');
-  if (!typeDef.typeName) {
+  const typeName = normalizedTypeName(typeDef);
+  if (!typeName) {
     throw new Error('Zod schema has empty typeName; cannot determine schema type name.');
   }
-  return typeDef.typeName;
+  return typeName;
 }
