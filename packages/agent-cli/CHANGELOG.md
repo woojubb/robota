@@ -1,5 +1,15 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.101
+### Patch Changes
+
+- 5783499: Harden file, HTTP, relay, hosted-runtime, editor, and native path boundaries against resource exhaustion, short writes, path races, and integer narrowing.
+
+  Editor integrations now carry `Read`, `Write`, and `Edit` only when their `IEditorFileAccess` adapter declares `pathAuthority: 'stable-root'`; pathname-only adapters continue to receive disk-search notices, while file operations use the tools' stable disk authority. Existing adapters that can prove stable rooted access should add the marker to retain editor-buffer reads and writes.
+
+  `HttpDagRuntimeProvider` accepts a `token` option and applies it to every orchestration and event-stream request so it interoperates with the authenticated native DAG runtime server.
+- 62663ae: Harden local file writes, permission denials, monitor access, and one-time external event admission.
+
 ## 3.0.0-beta.100
 
 ## 3.0.0-beta.99
@@ -53,7 +63,7 @@
 ### Minor Changes
 
 - 68dda38: MCP Apps: a tool's declared view can ride its result to a surface that can host it.
-  
+
   `agent-mcp` declares the `io.modelcontextprotocol/ui` extension only when the host opts in
   (`IMCPOpenSessionOptions.apps`), on both protocol eras. A tool's `_meta.ui` reference (a `ui://`
   resource and its audience) is kept in discovery and the catalog only when the server declared the
@@ -64,14 +74,14 @@
   After a successful call, `DiscoveredMCPTool` reads the declared resource and, when it is one
   `text/html;profile=mcp-app` document within the size bound, attaches `IToolResult.view`; otherwise the
   text result is unchanged and the omission is reported. The view never enters model context.
-  
+
   `agent-cli` opts in only for the plain `--serve` host that the desktop app and web GUI drive, not the
   TUI, print runs, `mcp serve` or the ACP agent.
 
 ### Patch Changes
 
 - fbb287d: Show a finished MCP tool call's app in an opaque frame with a source-bound JSON-RPC bridge. App callbacks use the session's view authority and permission prompt. Session changes and frame disposal reject pending local requests.
-  
+
   Hosts can provide a sandbox URL through `SessionSurface`. The web GUI serves a separate sandbox document with content restrictions and `Connection-Allowlist` enforcement. App execution requires Chromium 158 or newer and native network isolation; other browsers and hosts without the response policy show an unavailable message and retain the text result. A surface without a sandbox URL never reads the app document.
 - Keep E2B out of the base Node installation and defer SDK loading until stock hosted execution is selected. Install `e2b@2.51.0` alongside the CLI in the same project or global prefix to enable that capability. A missing SDK produces installation guidance before admission requests and never falls back to host execution. Public E2B exports and injected executors remain compatible; stock native binaries retain the embedded SDK, and consumer native builds require it as explicit build tooling.
 
@@ -268,7 +278,7 @@
   `gen_ai/dup` to emit both attribute sets while dashboards move. The default, `agent`, exports exactly
   the spans it did before. An unknown value, or the setting while neither traces nor metrics are exported,
   refuses startup. Console traces under a GenAI mode print the same projected spans.
-  
+
   The live prompt trace now carries each tool body's name (the session's tool-body observation includes it
   and the framework's live projection passes a label-safe name through); it reaches spans only under a
   GenAI mode and is never written to session history.
@@ -286,7 +296,7 @@
   so a provider split of token totals survives the dropped counters. `PRODUCT_TELEMETRY_SEMCONV` now applies to
   traces and metrics, and is refused only when neither is exported over otlp or console. Console metrics
   print the same projection.
-  
+
   `@robota-sdk/agent-telemetry-otel` adds `projectLivePromptMetricSamples`, which maps a live prompt trace
   batch onto those GenAI metrics as plain, SDK-free samples with the recommended bucket boundaries, so
   every host names and measures the same facts the same way. Its inference samples keep the label-safe
@@ -324,7 +334,7 @@
 ### Minor Changes
 
 - 7116367: Credentials the runtime holds for itself no longer reach the commands it runs.
-  
+
   - `agent-cli` — once a workspace's settings are admitted, every variable a provider profile or
     definition names as its credential (`$ENV:` references, and defaults such as `OPENAI_API_KEY`)
     leaves the process environment, so tools, hooks, background shells, a skill's `!` commands and
@@ -354,7 +364,7 @@
 ### Patch Changes
 
 - 5bb675a: Provider commands check a profile's `$ENV:` or default credential against the host's environment snapshot, so `/provider switch`, `/provider test`, `/provider add`, `/provider edit` and a cross-profile `/model` keep working while the runtime withholds its own credentials from `process.env`.
-  
+
   - `IProviderCommandModuleOptions` takes an optional `env`, and `createDefaultCommandModules` takes `providerEnvironment`. The CLI passes its startup snapshot.
   - The git that isolated subagents run, and so the repository's hooks, now get the command environment instead of the full snapshot.
 
@@ -362,7 +372,7 @@
 ### Minor Changes
 
 - 3427887: `--serve --http-port` can serve the agent HTTP API as an OAuth resource server: with `--http-public-url`, `--oauth-issuer`, `--oauth-scopes` and `--oauth-allowed-subjects` (plus optional `--http-host` and `--trusted-proxy`) it may bind a non-loopback address and admits access tokens through the same shared resource-server gate as `mcp serve`. Without them it stays loopback with the `PRODUCT_HTTP_TOKEN` bearer.
-  
+
   The refusal answer shared by both resource-server carriers (503 for unavailable issuer keys, uncounted; counted challenge otherwise) is now `refuseAccessToken` in `@robota-sdk/agent-transport/node`.
 
 ### Patch Changes

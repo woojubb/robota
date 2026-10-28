@@ -1,5 +1,17 @@
 # @robota-sdk/agent-transport-http
 
+## 3.0.0-beta.101
+### Patch Changes
+
+- 5783499: Harden file, HTTP, relay, hosted-runtime, editor, and native path boundaries against resource exhaustion, short writes, path races, and integer narrowing.
+
+  Editor integrations now carry `Read`, `Write`, and `Edit` only when their `IEditorFileAccess` adapter declares `pathAuthority: 'stable-root'`; pathname-only adapters continue to receive disk-search notices, while file operations use the tools' stable disk authority. Existing adapters that can prove stable rooted access should add the marker to retain editor-buffer reads and writes.
+
+  `HttpDagRuntimeProvider` accepts a `token` option and applies it to every orchestration and event-stream request so it interoperates with the authenticated native DAG runtime server.
+  - @robota-sdk/agent-interface-session@3.0.0-beta.101
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.101
+  - @robota-sdk/agent-transport@3.0.0-beta.101
+
 ## 3.0.0-beta.100
 ### Patch Changes
 

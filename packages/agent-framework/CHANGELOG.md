@@ -1,5 +1,25 @@
 # @robota-sdk/agent-framework
 
+## 3.0.0-beta.101
+### Patch Changes
+
+- 62663ae: Harden local file writes, permission denials, monitor access, and one-time external event admission.
+- Updated dependencies [5783499]
+- Updated dependencies [62663ae]
+  - @robota-sdk/agent-file-authority@3.0.0-beta.101
+  - @robota-sdk/agent-tools@3.0.0-beta.101
+  - @robota-sdk/agent-core@3.0.0-beta.101
+  - @robota-sdk/agent-session@3.0.0-beta.101
+  - @robota-sdk/agent-tool-defaults@3.0.0-beta.101
+  - @robota-sdk/agent-executor@3.0.0-beta.101
+  - @robota-sdk/agent-interface-command@3.0.0-beta.101
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.101
+  - @robota-sdk/agent-interface-session@3.0.0-beta.101
+  - @robota-sdk/agent-interface-session-mobility@3.0.0-beta.101
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.101
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.101
+  - @robota-sdk/agent-roundtable@3.0.0-beta.101
+
 ## 3.0.0-beta.100
 ### Patch Changes
 
@@ -276,7 +296,7 @@
   `gen_ai/dup` to emit both attribute sets while dashboards move. The default, `agent`, exports exactly
   the spans it did before. An unknown value, or the setting while neither traces nor metrics are exported,
   refuses startup. Console traces under a GenAI mode print the same projected spans.
-  
+
   The live prompt trace now carries each tool body's name (the session's tool-body observation includes it
   and the framework's live projection passes a label-safe name through); it reaches spans only under a
   GenAI mode and is never written to session history.
@@ -362,7 +382,7 @@
 ### Minor Changes
 
 - 7116367: Credentials the runtime holds for itself no longer reach the commands it runs.
-  
+
   - `agent-cli` — once a workspace's settings are admitted, every variable a provider profile or
     definition names as its credential (`$ENV:` references, and defaults such as `OPENAI_API_KEY`)
     leaves the process environment, so tools, hooks, background shells, a skill's `!` commands and
@@ -389,7 +409,7 @@
   - `agent-command-workflows` — `/workflows create` and `/workflows run` resolve prompt-node credentials
     from the host's environment snapshot.
 - 5bb675a: Provider commands check a profile's `$ENV:` or default credential against the host's environment snapshot, so `/provider switch`, `/provider test`, `/provider add`, `/provider edit` and a cross-profile `/model` keep working while the runtime withholds its own credentials from `process.env`.
-  
+
   - `IProviderCommandModuleOptions` takes an optional `env`, and `createDefaultCommandModules` takes `providerEnvironment`. The CLI passes its startup snapshot.
   - The git that isolated subagents run, and so the repository's hooks, now get the command environment instead of the full snapshot.
 

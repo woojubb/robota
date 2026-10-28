@@ -1,5 +1,11 @@
 # @robota-sdk/dag-node-instant-node
 
+## 3.0.0-beta.85
+### Patch Changes
+
+- Updated dependencies [62663ae]
+  - @robota-sdk/agent-core@3.0.0-beta.101
+
 ## 3.0.0-beta.84
 ### Patch Changes
 
@@ -65,7 +71,7 @@
 ### Minor Changes
 
 - 7116367: Credentials the runtime holds for itself no longer reach the commands it runs.
-  
+
   - `agent-cli` — once a workspace's settings are admitted, every variable a provider profile or
     definition names as its credential (`$ENV:` references, and defaults such as `OPENAI_API_KEY`)
     leaves the process environment, so tools, hooks, background shells, a skill's `!` commands and

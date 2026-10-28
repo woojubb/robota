@@ -1,5 +1,16 @@
 # @robota-sdk/agent-command
 
+## 3.0.0-beta.101
+### Patch Changes
+
+- Updated dependencies [62663ae]
+  - @robota-sdk/agent-core@3.0.0-beta.101
+  - @robota-sdk/agent-framework@3.0.0-beta.101
+  - @robota-sdk/agent-interface-command@3.0.0-beta.101
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.101
+  - @robota-sdk/agent-interface-session@3.0.0-beta.101
+  - @robota-sdk/agent-preset@3.0.0-beta.101
+
 ## 3.0.0-beta.100
 ### Patch Changes
 
@@ -123,14 +134,14 @@
 ### Minor Changes
 
 - 5bb675a: Provider commands check a profile's `$ENV:` or default credential against the host's environment snapshot, so `/provider switch`, `/provider test`, `/provider add`, `/provider edit` and a cross-profile `/model` keep working while the runtime withholds its own credentials from `process.env`.
-  
+
   - `IProviderCommandModuleOptions` takes an optional `env`, and `createDefaultCommandModules` takes `providerEnvironment`. The CLI passes its startup snapshot.
   - The git that isolated subagents run, and so the repository's hooks, now get the command environment instead of the full snapshot.
 
 ### Patch Changes
 
 - 7116367: Credentials the runtime holds for itself no longer reach the commands it runs.
-  
+
   - `agent-cli` — once a workspace's settings are admitted, every variable a provider profile or
     definition names as its credential (`$ENV:` references, and defaults such as `OPENAI_API_KEY`)
     leaves the process environment, so tools, hooks, background shells, a skill's `!` commands and

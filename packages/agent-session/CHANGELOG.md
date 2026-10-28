@@ -1,5 +1,15 @@
 # @robota-sdk/agent-session
 
+## 3.0.0-beta.101
+### Patch Changes
+
+- Updated dependencies [5783499]
+- Updated dependencies [62663ae]
+  - @robota-sdk/agent-file-authority@3.0.0-beta.101
+  - @robota-sdk/agent-core@3.0.0-beta.101
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.101
+  - @robota-sdk/agent-interface-session@3.0.0-beta.101
+
 ## 3.0.0-beta.100
 ### Patch Changes
 
@@ -208,7 +218,7 @@
   `gen_ai/dup` to emit both attribute sets while dashboards move. The default, `agent`, exports exactly
   the spans it did before. An unknown value, or the setting while neither traces nor metrics are exported,
   refuses startup. Console traces under a GenAI mode print the same projected spans.
-  
+
   The live prompt trace now carries each tool body's name (the session's tool-body observation includes it
   and the framework's live projection passes a label-safe name through); it reaches spans only under a
   GenAI mode and is never written to session history.

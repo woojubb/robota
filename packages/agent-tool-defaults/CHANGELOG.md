@@ -1,5 +1,13 @@
 # @robota-sdk/agent-tool-defaults
 
+## 3.0.0-beta.101
+### Patch Changes
+
+- Updated dependencies [5783499]
+- Updated dependencies [62663ae]
+  - @robota-sdk/agent-tools@3.0.0-beta.101
+  - @robota-sdk/agent-core@3.0.0-beta.101
+
 ## 3.0.0-beta.100
 ### Patch Changes
 
