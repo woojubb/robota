@@ -13,6 +13,9 @@ permissions:
   contents: read
 jobs:
   scope:
+    permissions:
+      checks: read
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -46,6 +49,7 @@ jobs:
           CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
           CI_REPOSITORY: ${{ github.repository }}
           CI_API_URL: ${{ github.api_url }}
+          CI_TOKEN: ${{ github.token }}
   workspace-build:
     needs: scope
     if: needs.scope.outputs.developer_docs != 'true' && needs.scope.outputs.release_metadata != 'true'

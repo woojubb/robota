@@ -445,8 +445,9 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
   const requireReviewedHead = (url) => {
     expect(String(url)).toContain(`/commits/${reviewedHead}/check-runs`);
   };
-  const reviewedChecks = async (url) => {
+  const reviewedChecks = async (url, init) => {
     requireReviewedHead(url);
+    expect(init.headers.Authorization).toBe('Bearer fixture-token');
     return response(['pr-validation', 'security']);
   };
   expect(
@@ -455,6 +456,7 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
       base: options.base,
       headSha,
       repository: 'woojubb/robota',
+      token: 'fixture-token',
       fetchImpl: reviewedChecks,
       verifyReleaseImpl: async () => true,
     }),
@@ -465,8 +467,10 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
       base: options.base,
       headSha,
       repository: 'woojubb/robota',
-      fetchImpl: async (url) => {
+      token: 'fixture-token',
+      fetchImpl: async (url, init) => {
         requireReviewedHead(url);
+        expect(init.headers.Authorization).toBe('Bearer fixture-token');
         return response(['pr-validation']);
       },
       verifyReleaseImpl: async () => true,
@@ -478,6 +482,7 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
       base: options.base,
       headSha: exec(options.cwd, 'git', ['rev-parse', 'feature']),
       repository: 'woojubb/robota',
+      token: 'fixture-token',
       fetchImpl: reviewedChecks,
       verifyReleaseImpl: async () => true,
     }),
@@ -488,6 +493,7 @@ it('verifies every first-parent promotion commit is a reviewed merge with requir
       base: options.base,
       headSha,
       repository: 'woojubb/robota',
+      token: 'fixture-token',
       fetchImpl: reviewedChecks,
       verifyReleaseImpl: async () => false,
     }),
