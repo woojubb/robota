@@ -425,7 +425,7 @@ export class ExternalEventIngress {
     if (replay !== undefined) return { admitted: false, refusal: replay };
     if (source.rate.admit(source.grant.grantId) !== undefined)
       return { admitted: false, refusal: 'rate-limited' };
-    let claim: TExternalEventTokenClaimResult = 'claimed';
+    let claim: TExternalEventTokenClaimResult;
     try {
       claim = this.host.history?.tokenClaims?.claim({
         grant: source.grant,
