@@ -236,7 +236,7 @@ export async function verifyPromotionChecks({
         generatedReleases += 1;
       }
     }
-    return generatedReleases === 1;
+    return generatedReleases >= 1;
   } catch {
     return false;
   }

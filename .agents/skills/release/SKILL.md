@@ -15,8 +15,8 @@ head before merging.
 
 Generated bump PRs run the release-artifact gate instead of repeating source checks only when CI regenerates
 their complete diff byte-for-byte from the base. A `develop` → `main` promotion uses the fast path only when
-every first-parent develop commit is a reviewed merge with successful `pr-validation` and `security`, and the
-single version-changing merge regenerates exactly; missing evidence falls back to the full gate. Release
+every first-parent develop commit is a reviewed merge with successful `pr-validation` and `security`, and
+every version-changing merge regenerates exactly; missing evidence falls back to the full gate. Release
 workflows chain completed prerequisites by events and use the shortest measured timeout with a small margin;
 they never occupy a runner polling for another workflow.
 
