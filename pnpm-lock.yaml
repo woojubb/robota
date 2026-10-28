@@ -325,49 +325,6 @@ importers:
         specifier: ^4.123.0
         version: 4.123.0
 
-  apps/dag-runtime-server:
-    dependencies:
-      '@hono/node-server':
-        specifier: ^2.0.11
-        version: 2.0.11(hono@4.13.14)
-      '@robota-sdk/dag-api':
-        specifier: workspace:*
-        version: link:../../packages/dag-api
-      '@robota-sdk/dag-builder':
-        specifier: workspace:*
-        version: link:../../packages/dag-builder
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../packages/dag-core
-      '@robota-sdk/dag-cost':
-        specifier: workspace:*
-        version: link:../../packages/dag-cost
-      '@robota-sdk/dag-framework':
-        specifier: workspace:*
-        version: link:../../packages/dag-framework
-      '@robota-sdk/dag-orchestration-client':
-        specifier: workspace:*
-        version: link:../../packages/dag-orchestration-client
-      hono:
-        specifier: '>=4.13.11 <5.0.0'
-        version: 4.13.14
-    devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
-
   apps/docs:
     dependencies:
       gray-matter:
@@ -1171,9 +1128,6 @@ importers:
       '@robota-sdk/agent-command':
         specifier: workspace:*
         version: link:../agent-command
-      '@robota-sdk/agent-command-workflows':
-        specifier: workspace:*
-        version: link:../agent-command-workflows
       '@robota-sdk/agent-core':
         specifier: workspace:*
         version: link:../agent-core
@@ -1276,6 +1230,9 @@ importers:
       '@robota-sdk/product-config':
         specifier: workspace:*
         version: link:../product-config
+      '@robota-sdk/workflows':
+        specifier: file:../../vendor/robota-workflows/robota-sdk-workflows-0.3.0.tgz
+        version: file:vendor/robota-workflows/robota-sdk-workflows-0.3.0.tgz(@robota-sdk/agent-builtin-providers@packages+agent-builtin-providers)(@robota-sdk/agent-core@packages+agent-core)(@robota-sdk/agent-framework@packages+agent-framework)(@robota-sdk/agent-interface-command@packages+agent-interface-command)(@robota-sdk/agent-tools@packages+agent-tools)
       '@types/marked':
         specifier: ^6.0.0
         version: 6.0.0
@@ -1340,55 +1297,6 @@ importers:
         specifier: workspace:*
         version: link:../agent-preset
     devDependencies:
-      '@types/node':
-        specifier: ^22.19.21
-        version: 22.19.21
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/agent-command-workflows:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-framework':
-        specifier: workspace:*
-        version: link:../agent-framework
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:*
-        version: link:../agent-interface-command
-      '@robota-sdk/dag-builder':
-        specifier: workspace:*
-        version: link:../dag-builder
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-      '@robota-sdk/dag-framework':
-        specifier: workspace:*
-        version: link:../dag-framework
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../dag-node
-      '@robota-sdk/dag-node-instant-node':
-        specifier: workspace:*
-        version: link:../dag-nodes/instant-node
-      '@robota-sdk/dag-nodes-default':
-        specifier: workspace:*
-        version: link:../dag-nodes-default
-    devDependencies:
-      '@robota-sdk/agent-builtin-providers':
-        specifier: workspace:*
-        version: link:../agent-builtin-providers
       '@types/node':
         specifier: ^22.19.21
         version: 22.19.21
@@ -2712,1015 +2620,6 @@ importers:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
-  packages/dag-adapters-local:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-      '@robota-sdk/dag-cost':
-        specifier: workspace:*
-        version: link:../dag-cost
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-adapters-sqlite:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-      better-sqlite3:
-        specifier: ^11.0.0
-        version: 11.10.0
-    devDependencies:
-      '@types/better-sqlite3':
-        specifier: ^7.6.12
-        version: 7.6.13
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-api:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-    devDependencies:
-      '@robota-sdk/dag-adapters-local':
-        specifier: workspace:*
-        version: link:../dag-adapters-local
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-builder:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-
-  packages/dag-core:
-    dependencies:
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-cost:
-    dependencies:
-      '@marcbachmann/cel-js':
-        specifier: ^7.5.3
-        version: 7.6.1
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-    devDependencies:
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-framework:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/dag-adapters-local':
-        specifier: workspace:*
-        version: link:../dag-adapters-local
-      '@robota-sdk/dag-api':
-        specifier: workspace:*
-        version: link:../dag-api
-      '@robota-sdk/dag-builder':
-        specifier: workspace:*
-        version: link:../dag-builder
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-      '@robota-sdk/dag-cost':
-        specifier: workspace:*
-        version: link:../dag-cost
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../dag-node
-      '@robota-sdk/dag-orchestration-client':
-        specifier: workspace:*
-        version: link:../dag-orchestration-client
-      '@robota-sdk/dag-projection':
-        specifier: workspace:*
-        version: link:../dag-projection
-      '@robota-sdk/dag-runtime':
-        specifier: workspace:*
-        version: link:../dag-runtime
-      '@robota-sdk/dag-worker':
-        specifier: workspace:*
-        version: link:../dag-worker
-    optionalDependencies:
-      '@robota-sdk/dag-nodes-default':
-        specifier: workspace:*
-        version: link:../dag-nodes-default
-    devDependencies:
-      '@robota-sdk/dag-node-instant-node':
-        specifier: workspace:*
-        version: link:../dag-nodes/instant-node
-      rimraf:
-        specifier: ^5.0.10
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-
-  packages/dag-node:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes-default:
-    dependencies:
-      '@anthropic-ai/sdk':
-        specifier: ^0.91.1
-        version: 0.91.1(zod@4.6.7)
-      '@google/genai':
-        specifier: ^1.52.0
-        version: 1.52.0
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/agent-framework':
-        specifier: workspace:*
-        version: link:../agent-framework
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:*
-        version: link:../agent-interface-command
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../dag-node
-      '@robota-sdk/dag-node-image-loader':
-        specifier: workspace:*
-        version: link:../dag-nodes/image-loader
-      '@robota-sdk/dag-node-image-source':
-        specifier: workspace:*
-        version: link:../dag-nodes/image-source
-      '@robota-sdk/dag-node-input':
-        specifier: workspace:*
-        version: link:../dag-nodes/input
-      '@robota-sdk/dag-node-llm-text':
-        specifier: workspace:*
-        version: link:../dag-nodes/llm-text
-      '@robota-sdk/dag-node-multi-input':
-        specifier: workspace:*
-        version: link:../dag-nodes/multi-input
-      '@robota-sdk/dag-node-ok-emitter':
-        specifier: workspace:*
-        version: link:../dag-nodes/ok-emitter
-      '@robota-sdk/dag-node-seedance-video':
-        specifier: workspace:*
-        version: link:../dag-nodes/seedance-video
-      '@robota-sdk/dag-node-skill':
-        specifier: workspace:*
-        version: link:../dag-nodes/skill
-      '@robota-sdk/dag-node-text-output':
-        specifier: workspace:*
-        version: link:../dag-nodes/text-output
-      '@robota-sdk/dag-node-text-template':
-        specifier: workspace:*
-        version: link:../dag-nodes/text-template
-      '@robota-sdk/dag-node-text-to-image':
-        specifier: workspace:*
-        version: link:../dag-nodes/text-to-image
-      '@robota-sdk/dag-node-tool':
-        specifier: workspace:*
-        version: link:../dag-nodes/tool
-      '@robota-sdk/dag-node-transform':
-        specifier: workspace:*
-        version: link:../dag-nodes/transform
-      '@robota-sdk/dag-node-utility-text':
-        specifier: workspace:*
-        version: link:../dag-nodes/utility-text
-      openai:
-        specifier: ^6.0.0
-        version: 6.0.0(ws@8.21.1)(zod@4.6.7)
-    optionalDependencies:
-      '@robota-sdk/agent-builtin-providers':
-        specifier: workspace:*
-        version: link:../agent-builtin-providers
-      '@robota-sdk/dag-node-gemini-image-edit':
-        specifier: workspace:*
-        version: link:../dag-nodes/gemini-image-edit
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.43
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/file-read:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../../agent-core
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.43
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/file-write:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../../agent-core
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.43
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/gemini-image-edit:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../../agent-core
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.43
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/http-request:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.43
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/image-loader:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/image-source:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/input:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/instant-node:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../../agent-core
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.43
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/llm-text:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../../agent-core
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.43
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/multi-input:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/ok-emitter:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/seedance-video:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../../agent-core
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.43
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/skill:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../../agent-core
-      '@robota-sdk/agent-interface-command':
-        specifier: workspace:*
-        version: link:../../agent-interface-command
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.43
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/text-output:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/text-template:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/text-to-image:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../../agent-core
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.43
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/tool:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../../agent-core
-      '@robota-sdk/agent-tools':
-        specifier: workspace:*
-        version: link:../../agent-tools
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      '@types/node':
-        specifier: ^20.10.0
-        version: 20.19.43
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/transform:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-nodes/utility-text:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../../dag-core
-      '@robota-sdk/dag-node':
-        specifier: workspace:*
-        version: link:../../dag-node
-      zod:
-        specifier: '>=4.6.7 <5.0.0'
-        version: 4.6.7
-    devDependencies:
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-orchestration-client:
-    dependencies:
-      '@robota-sdk/dag-builder':
-        specifier: workspace:*
-        version: link:../dag-builder
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-      '@robota-sdk/dag-cost':
-        specifier: workspace:*
-        version: link:../dag-cost
-    devDependencies:
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-projection:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-    devDependencies:
-      '@robota-sdk/dag-adapters-local':
-        specifier: workspace:*
-        version: link:../dag-adapters-local
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-runtime:
-    dependencies:
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-    devDependencies:
-      '@robota-sdk/dag-adapters-local':
-        specifier: workspace:*
-        version: link:../dag-adapters-local
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
-  packages/dag-worker:
-    dependencies:
-      '@robota-sdk/agent-core':
-        specifier: workspace:*
-        version: link:../agent-core
-      '@robota-sdk/dag-core':
-        specifier: workspace:*
-        version: link:../dag-core
-    devDependencies:
-      '@robota-sdk/dag-adapters-local':
-        specifier: workspace:*
-        version: link:../dag-adapters-local
-      '@robota-sdk/dag-adapters-sqlite':
-        specifier: workspace:*
-        version: link:../dag-adapters-sqlite
-      '@types/better-sqlite3':
-        specifier: ^7.6.12
-        version: 7.6.13
-      better-sqlite3:
-        specifier: ^11.0.0
-        version: 11.10.0
-      eslint:
-        specifier: ^8.56.0
-        version: 8.57.1
-      rimraf:
-        specifier: ^5.0.5
-        version: 5.0.10
-      tsdown:
-        specifier: ^0.22.14
-        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
-      typescript:
-        specifier: ^6.0.3
-        version: 6.0.3
-      vitest:
-        specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
-
   packages/pack-coding:
     dependencies:
       '@robota-sdk/agent-capability-pack':
@@ -3861,19 +2760,6 @@ packages:
     dependencies:
       json-schema-to-ts: 3.1.1
       standardwebhooks: 1.0.0
-      zod: 4.6.7
-    dev: false
-
-  /@anthropic-ai/sdk@0.91.1(zod@4.6.7):
-    resolution: {integrity: sha512-LAmu761tSN9r66ixvmciswUj/ZC+1Q4iAfpedTfSVLeswRwnY3n2Nb6Tsk+cLPP28aLOPWeMgIuTuCcMC6W/iw==}
-    hasBin: true
-    peerDependencies:
-      zod: '>=4.6.7 <5.0.0'
-    peerDependenciesMeta:
-      zod:
-        optional: true
-    dependencies:
-      json-schema-to-ts: 3.1.1
       zod: 4.6.7
     dev: false
 
@@ -7572,7 +6458,6 @@ packages:
     resolution: {integrity: sha512-YyY8yiDU07ByKb2rJUoNgMAkYeeDvkdrONBREV2MP9siAW7yNft0KfbIoonWTIMY0fGtv8og0EhzKx3Xsi1Nmg==}
     engines: {node: '>=20.19.0'}
     hasBin: true
-    dev: false
 
   /@mdx-js/mdx@3.1.1:
     resolution: {integrity: sha512-f6ZO2ifpwAQIpzGWaBQT2TXxPv6z3RBzQKpVftEWN78Vl/YweF1uwussDx8ECAXVtr3Rs89fKyG9YlzUs9DyGQ==}
@@ -10301,12 +9186,6 @@ packages:
       '@babel/types': 7.29.7
     dev: true
 
-  /@types/better-sqlite3@7.6.13:
-    resolution: {integrity: sha512-NMv9ASNARoKksWtsq/SHakpYAYnhBrQgGD8zkLYk/jaK8jUGn08CfEdTRgYhMypUQAfzSP8W6gNLe0q19/t4VA==}
-    dependencies:
-      '@types/node': 22.19.21
-    dev: true
-
   /@types/body-parser@1.19.6:
     resolution: {integrity: sha512-HLFeCYgz89uk22N5Qg3dvGvsv46B8GLvKKo1zKG4NybA8U2DiEO3w9lqGg29t/tfLRJpJ6iQxnVw4OnB7MoM9g==}
     dependencies:
@@ -12322,6 +11201,7 @@ packages:
     dependencies:
       bindings: 1.5.0
       prebuild-install: 7.1.3
+    dev: true
 
   /bignumber.js@9.3.1:
     resolution: {integrity: sha512-Ko0uX15oIUS7wJ3Rb30Fs6SkVbLmPBAKdlm7q9+ak9bbIeFf0MwuBsQV6z7+X768/cHsfg+WlysDWJcmthjsjQ==}
@@ -12332,6 +11212,7 @@ packages:
     resolution: {integrity: sha512-p2q/t/mhvuOj/UeLlV6566GD/guowlr0hHxClI0W9m7MWYkL1F0hLo+0Aexs9HSPCtR1SXQ0TD3MMKrXZajbiQ==}
     dependencies:
       file-uri-to-path: 1.0.0
+    dev: true
 
   /bittorrent-dht@11.0.12:
     resolution: {integrity: sha512-bFmQq874HMIBon/6KNMf/U1OG+UxJ0UzI9oPra2IRlZLuPA7VwBiA7uEpWaO2ww8G76OFjxB1p1XCOS94FuCPQ==}
@@ -12356,6 +11237,7 @@ packages:
       buffer: 5.7.1
       inherits: 2.0.4
       readable-stream: 3.6.2
+    dev: true
 
   /blake3-wasm@2.1.5:
     resolution: {integrity: sha512-F1+K8EbfOZE49dtoPtmxUQrpXaBIl3ICvasLh+nJta0xkz+9kF/7uet9fLnwKqhDrmj6g+6K3Tw9yQPUg2ka5g==}
@@ -12469,6 +11351,7 @@ packages:
     dependencies:
       base64-js: 1.5.1
       ieee754: 1.2.1
+    dev: true
 
   /buffer@6.0.3:
     resolution: {integrity: sha512-FTiCpNxtwiZZHEZbcbTIcZjERVICn9yq/pDFkTl95/AxzD1naBctN7YO68riM/gLSDY7sdrMby8hofADYuuqOA==}
@@ -12656,6 +11539,7 @@ packages:
 
   /chownr@1.1.4:
     resolution: {integrity: sha512-jJ0bqzaylmJtVnNgzTeSOs8DPavpbYgEr/b0YL8/2GO3xJEhInFmhKMUnEJQjZumK7KXGFhUy89PrsJWlakBVg==}
+    dev: true
 
   /chownr@3.0.0:
     resolution: {integrity: sha512-+IxzY9BZOQd/XuYPRmrvEVjF/nqj5kgT4kEq7VofrDoM1MxoRjEWkrCC3EtLi59TVawxTAn+orJwFQcrqEN1+g==}
@@ -13528,6 +12412,7 @@ packages:
     engines: {node: '>=10'}
     dependencies:
       mimic-response: 3.1.0
+    dev: true
 
   /dedent@1.7.2:
     resolution: {integrity: sha512-WzMx3mW98SN+zn3hgemf4OzdmyNhhhKz5Ay0pUfQiMQ3e1g+xmTJWp/pKdwKVXhdSkAEGIIzqeuWrL3mV/AXbA==}
@@ -13546,6 +12431,7 @@ packages:
   /deep-extend@0.6.0:
     resolution: {integrity: sha512-LOHxIOaPYdHlJRtCQfDIVZtfw/ufM8+rVj649RIHzcm/vGwQRXFt6OPqIFWsm2XEMrNIEtWR64sY1LEKD2vAOA==}
     engines: {node: '>=4.0.0'}
+    dev: true
 
   /deep-is@0.1.4:
     resolution: {integrity: sha512-oIPzksmTg4/MriiaYGO+okXDT7ztn/w3Eptv/+gSIdMdKsJo0u4CfYNFJPy+4SKMuCqGw2wxnA+URMg3t8a/bQ==}
@@ -14030,6 +12916,7 @@ packages:
     requiresBuild: true
     dependencies:
       once: 1.4.0
+    dev: true
 
   /enhanced-resolve@5.22.1:
     resolution: {integrity: sha512-6QEuw3zoX1SJQc7b87aBXke/no+mG2bTBgw29gWMQonLmpEkWoCAVkl+M49e48AZlWzxiDzDZzYdp6kobcyLww==}
@@ -14879,6 +13766,7 @@ packages:
   /expand-template@2.0.3:
     resolution: {integrity: sha512-XYfuKMvj4O35f/pOXLObndIRvyQ+/+6AhODh+OKWj9S9498pHHn/IMszH+gt0fBCRWMNfk1ZSp5x3AifmnI2vg==}
     engines: {node: '>=6'}
+    dev: true
 
   /expect-type@1.3.0:
     resolution: {integrity: sha512-knvyeauYhqjOYvQ66MznSMs83wmHrCycNEN6Ao+2AeYEfxUIkuiVxdEa1qlGEPK+We3n0THiDciYSsCcgW/DoA==}
@@ -15141,6 +14029,7 @@ packages:
 
   /file-uri-to-path@1.0.0:
     resolution: {integrity: sha512-0Zt+s3L7Vf1biwWZ29aARiVYLx7iMGnEUl9x33fbB/j3jR81u/O2LbqK+Bm1CDSNDKVtJ/YjwY7TUd5SkeLQLw==}
+    dev: true
 
   /filelist@1.0.6:
     resolution: {integrity: sha512-5giy2PkLYY1cP39p17Ech+2xlpTRL9HLspOfEgm0L6CwBXBTgsK5ou0JtzYuepxkaQ/tvhCFIJ5uXo0OrM2DxA==}
@@ -15316,6 +14205,7 @@ packages:
 
   /fs-constants@1.0.0:
     resolution: {integrity: sha512-y6OAwoSIf7FyjMIv94u+b5rdheZEjzR63GTyZJm5qh4Bi+2YgwLCcI/fPFZkL5PSixOt6ZNKm+w+Hfp/Bciwow==}
+    dev: true
 
   /fs-extra@10.1.0:
     resolution: {integrity: sha512-oRXApq54ETRj4eMiFzGnHWGy+zo5raudjuxN0b8H7s/RU2oW0Wvsx9O0ACRN/kRq9E8Vu/ReskGB5o3ji+FzHQ==}
@@ -15546,6 +14436,7 @@ packages:
 
   /github-from-package@0.0.0:
     resolution: {integrity: sha512-SyHy3T1v2NUXn29OsWdxmK6RwHD+vkj3v8en8AOBZ1wBQ/hCAQ5bAQTD02kW4W9tUp/3Qh6J8r9EvntiyCmOOw==}
+    dev: true
 
   /github-slugger@2.0.0:
     resolution: {integrity: sha512-IaOQ9puYtjrkq7Y0Ygl9KDZnrf/aiUJYUpVf89y8kyaxbRG7Y1SrX/jaumrv81vc61+kiMempujsM3Yw7w5qcw==}
@@ -16084,6 +14975,7 @@ packages:
 
   /ieee754@1.2.1:
     resolution: {integrity: sha512-dcyqhDvX1C46lXZcVqCpK+FtMRQVdIMN6/Df5js2zouUsqG7I6sFxitIC+7KYK29KdXOLHdu9zL4sFnoVQnqaA==}
+    dev: true
 
   /ignore@5.3.2:
     resolution: {integrity: sha512-hsBTNUqQTDwkWtcdYI2i06Y/nUBEsNEDJKjWdigLvegy8kDuJAS8uRlpkkcQpyEXL0Z/pjDy5HBmMjRCJ2gq+g==}
@@ -16149,6 +15041,7 @@ packages:
 
   /ini@1.3.8:
     resolution: {integrity: sha512-JV/yugV2uzW5iMRSiZAyDtQd+nxtUnjeLt0acNdw98kKLrvuRVyB80tsREOE7yvGVgalhZ6RNXCmEHkUKBKxew==}
+    dev: true
 
   /ini@4.1.1:
     resolution: {integrity: sha512-QQnnxNyfvmHFIsj7gkPcYymR8Jdw/o7mp5ZFihxn6h8Ci6fh3Dx4E1gPjpQEpIuPo9XVNY/ZUwh4BPMjGyL01g==}
@@ -18693,6 +17586,7 @@ packages:
   /mimic-response@3.1.0:
     resolution: {integrity: sha512-z0yWI+4FDrrweS8Zmt4Ej5HdJmky15+L2e6Wgn3+iK5fWzb6T3fhNFq2+MeTRb064c6Wr4N/wv0DzQTjNzHNGQ==}
     engines: {node: '>=10'}
+    dev: true
 
   /min-indent@1.0.1:
     resolution: {integrity: sha512-I9jwMn07Sy/IwOj3zVkVik2JTvgpaykDZEigL6Rx6N9LbMywwUSMtxET+7lVoDLLd3O3IXwJwvuuns8UB/HeAg==}
@@ -18747,6 +17641,7 @@ packages:
 
   /minimist@1.2.8:
     resolution: {integrity: sha512-2yyAR8qBkN3YuheJanUpWC5U3bb5osDywNB8RzDVlDwDHbocAJveqqj1u8+SVD7jkWT4yvsHCpWqqWqAxb0zCA==}
+    dev: true
 
   /minipass@7.1.3:
     resolution: {integrity: sha512-tEBHqDnIoM/1rXME1zgka9g6Q2lcoCkxHLuc7ODJ5BxbP5d4c2Z5cGgtXAku59200Cx7diuHTOYfSBD8n6mm8A==}
@@ -18762,6 +17657,7 @@ packages:
 
   /mkdirp-classic@0.5.3:
     resolution: {integrity: sha512-gKLcREMhtuZRwRAfqP3RFW+TK4JqApVBtOIftVgjuABpAtpxhPGaDcfvbhNvD0B8iD1oUr/txX35NjcaY6Ns/A==}
+    dev: true
 
   /mkdirp@0.5.6:
     resolution: {integrity: sha512-FP+p8RB8OWpF3YZBCrP5gtADmtXApB5AMLn+vdyA+PyxCjrCs00mjyUozssO33cwDeT3wNGdLxJ5M//YqtHAJw==}
@@ -18847,6 +17743,7 @@ packages:
 
   /napi-build-utils@2.0.0:
     resolution: {integrity: sha512-GEbrYkbfF7MoNaoh2iGG84Mnf/WZfB0GdGEsM8wz7Expx/LlWf5U8t9nvJKXSp3qr5IsEbK04cBGhol/KwOsWA==}
+    dev: true
 
   /napi-postinstall@0.3.4:
     resolution: {integrity: sha512-PHI5f1O0EP5xJ9gQmFGMS6IZcrVvTjpXjz7Na41gTE7eE2hK11lg04CECCYEEjdc17EV4DO+fkGEtt7TpTaTiQ==}
@@ -19028,6 +17925,7 @@ packages:
     engines: {node: '>=10'}
     dependencies:
       semver: 7.8.5
+    dev: true
 
   /node-abi@4.33.0:
     resolution: {integrity: sha512-vLBWCKb+7LWsX+TbfzWOkw0W81m377tyx3hOweBTjO43CXZnRGS1/JPWs20fr0PgZyDXk6ROYrylsEycK8raDA==}
@@ -19910,6 +18808,7 @@ packages:
       simple-get: 4.0.1
       tar-fs: 2.1.5
       tunnel-agent: 0.6.0
+    dev: true
 
   /prelude-ls@1.2.1:
     resolution: {integrity: sha512-vkcDPrRZo1QZLbn5RLGPpg/WmIQ65qoWWhcGKf/b5eplkkarX0m9z8ppCat4mlOqUsWpyNuYgO3VRyrYHSzX5g==}
@@ -20068,6 +18967,7 @@ packages:
     dependencies:
       end-of-stream: 1.4.5
       once: 1.4.0
+    dev: true
 
   /punycode@2.3.1:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
@@ -20164,6 +19064,7 @@ packages:
       ini: 1.3.8
       minimist: 1.2.8
       strip-json-comments: 2.0.1
+    dev: true
 
   /react-dom@19.2.8(react@19.2.8):
     resolution: {integrity: sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==}
@@ -20270,6 +19171,7 @@ packages:
       inherits: 2.0.4
       string_decoder: 1.3.0
       util-deprecate: 1.0.2
+    dev: true
 
   /readdirp@5.1.1:
     resolution: {integrity: sha512-Kko+Y5XQ6fM+Ce3dq3m9YGxnacYZYl9cA1wZjaF3Vbry2L3i1qVg8+CAgNPsXRArPMUMCaOR7oa9Nqntc43JKA==}
@@ -21401,6 +20303,7 @@ packages:
 
   /simple-concat@1.0.1:
     resolution: {integrity: sha512-cSFtAPtRhljv69IK0hTVZQ+OfE9nePi/rtJmw5UjHeVyVroEqJXP1sFztKUy1qU+xvz3u/sfYJLa947b7nAN2Q==}
+    dev: true
 
   /simple-get@4.0.1:
     resolution: {integrity: sha512-brv7p5WgH0jmQJr1ZDDfKDOSeWWg+OVypG99A/5vYGPqJ6pxiaHLy8nxtFjBA7oMa01ebA9gfh1uMCFqOuXxvA==}
@@ -21408,6 +20311,7 @@ packages:
       decompress-response: 6.0.0
       once: 1.4.0
       simple-concat: 1.0.1
+    dev: true
 
   /simple-update-notifier@2.0.0:
     resolution: {integrity: sha512-a2B9Y0KlNXl9u/vsW6sTIu9vGEpfKu2wRV6l1H3XEas/0gUIzGzBoP/IouTcUQbm9JWZLH3COxyn03TYlFax6w==}
@@ -21701,6 +20605,7 @@ packages:
     requiresBuild: true
     dependencies:
       safe-buffer: 5.2.1
+    dev: true
 
   /stringify-entities@4.0.4:
     resolution: {integrity: sha512-IwfBptatlO+QCJUo19AqvrPNqlVMpW9YEL2LIVY+Rpv2qsjCGxaDLNRgeGsQWJhfItebuJhsGSLjaBbNSQ+ieg==}
@@ -21760,6 +20665,7 @@ packages:
   /strip-json-comments@2.0.1:
     resolution: {integrity: sha512-4gB8na07fecVVkOI6Rs4e7T6NOTki5EmL7TUduTs6bu3EdnSycntVJ4re8kgZA+wx9IueI2Y11bfbgwtzuE0KQ==}
     engines: {node: '>=0.10.0'}
+    dev: true
 
   /strip-json-comments@3.1.1:
     resolution: {integrity: sha512-6fPc+R4ihwqP6N/aIv2f1gMH8lOVtWQHoqC4yK6oSDVVocumAsfCqjkXnqiYMhmMwS/mEHLp7Vehlt3ql6lEig==}
@@ -21895,6 +20801,7 @@ packages:
       mkdirp-classic: 0.5.3
       pump: 3.0.4
       tar-stream: 2.2.0
+    dev: true
 
   /tar-stream@2.2.0:
     resolution: {integrity: sha512-ujeqbceABgwMZxEJnk2HDY2DlnUZ+9oEcb1KzTVfYHio0UE6dG71n60d8D2I4qNvleWrrXpmjpt7vZeF1LnMZQ==}
@@ -21905,6 +20812,7 @@ packages:
       fs-constants: 1.0.0
       inherits: 2.0.4
       readable-stream: 3.6.2
+    dev: true
 
   /tar@7.5.22:
     resolution: {integrity: sha512-MFO/QzvtAOmJbkhOaCTvbGcFN9L9b+JunIsDwaKljSOdcLMea3NJ1k9Usz/rjdfSXTq4dfzfeS7W4p4YOAAHeA==}
@@ -22239,6 +21147,7 @@ packages:
     resolution: {integrity: sha512-McnNiV1l8RYeY8tBgEpuodCC1mLUdbSN+CYBL7kJsJNInOP8UjDDEwdk6Mw60vdLLrr5NHKZhMAOSrR2NZuQ+w==}
     dependencies:
       safe-buffer: 5.2.1
+    dev: true
 
   /tunnel@0.0.6:
     resolution: {integrity: sha512-1h/Lnq9yajKY2PEbBadPXj3VxsDDu844OnaAo52UVmIzIvwwtBPIuNvkjuzBlTWpfJyUbG3ez0KSBibQkj4ojg==}
@@ -22719,6 +21628,7 @@ packages:
   /util-deprecate@1.0.2:
     resolution: {integrity: sha512-EPD5q1uXyFxJpCrLnCc1nHnq3gOa6DZBocAIiI2TaSCA7VCJ1UJDMagCzIkXNsUYfD1daK//LTEQ8xiIbrHtcw==}
     requiresBuild: true
+    dev: true
 
   /utils-merge@1.0.1:
     resolution: {integrity: sha512-pMZTvIkT1d+TFGvDOqodOclx0QWkkgi6Tdoa8gC8ffGAAqz9pzPTZWAybbsHHoED/ztMtkv/VoYTYyShUn81hA==}
@@ -23765,3 +22675,26 @@ packages:
 
   /zwitch@2.0.4:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
+
+  file:vendor/robota-workflows/robota-sdk-workflows-0.3.0.tgz(@robota-sdk/agent-builtin-providers@packages+agent-builtin-providers)(@robota-sdk/agent-core@packages+agent-core)(@robota-sdk/agent-framework@packages+agent-framework)(@robota-sdk/agent-interface-command@packages+agent-interface-command)(@robota-sdk/agent-tools@packages+agent-tools):
+    resolution: {integrity: sha512-ykGW/cryQc74lW+nb/y+aFeq/r+vhULA0aCYitzMeF6ATEpZ7HGREOBfXXehYTBXyt4UqoEsYU5HU2UJ5d+1UA==, tarball: file:vendor/robota-workflows/robota-sdk-workflows-0.3.0.tgz}
+    id: file:vendor/robota-workflows/robota-sdk-workflows-0.3.0.tgz
+    name: '@robota-sdk/workflows'
+    version: 0.3.0
+    engines: {node: ^22.14.0}
+    peerDependencies:
+      '@robota-sdk/agent-builtin-providers': 3.0.0-beta.102 || 3.0.0-beta.103
+      '@robota-sdk/agent-core': 3.0.0-beta.102 || 3.0.0-beta.103
+      '@robota-sdk/agent-framework': 3.0.0-beta.102 || 3.0.0-beta.103
+      '@robota-sdk/agent-interface-command': 3.0.0-beta.102 || 3.0.0-beta.103
+      '@robota-sdk/agent-tools': 3.0.0-beta.102 || 3.0.0-beta.103
+    dependencies:
+      '@marcbachmann/cel-js': 7.6.1
+      '@robota-sdk/agent-builtin-providers': link:packages/agent-builtin-providers
+      '@robota-sdk/agent-core': link:packages/agent-core
+      '@robota-sdk/agent-framework': link:packages/agent-framework
+      '@robota-sdk/agent-interface-command': link:packages/agent-interface-command
+      '@robota-sdk/agent-tools': link:packages/agent-tools
+      better-sqlite3: 11.10.0
+      zod: 4.6.7
+    dev: true

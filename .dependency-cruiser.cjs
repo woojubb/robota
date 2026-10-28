@@ -24,46 +24,6 @@ module.exports = {
     },
 
     // ==========================================================
-    // DAG dependency direction rules
-    // dag-core is SSOT - must not depend on any other dag package
-    // ==========================================================
-    {
-      name: 'no-dag-core-to-dag-packages',
-      severity: 'error',
-      comment: 'dag-core (SSOT) must not depend on any other DAG package',
-      from: { path: '^packages/dag-core/' },
-      to: {
-        path: '^packages/dag-(runtime|worker|projection|api|nodes)/',
-      },
-    },
-
-    // ==========================================================
-    // Lower DAG layers must not depend on higher DAG layers
-    // Layer order: dag-core < dag-runtime/dag-worker/dag-projection < dag-api
-    // ==========================================================
-    {
-      name: 'no-dag-runtime-to-api',
-      severity: 'error',
-      comment: 'dag-runtime must not depend on dag-api (higher layer)',
-      from: { path: '^packages/dag-runtime/' },
-      to: { path: '^packages/dag-api/' },
-    },
-    {
-      name: 'no-dag-worker-to-api',
-      severity: 'error',
-      comment: 'dag-worker must not depend on dag-api (higher layer)',
-      from: { path: '^packages/dag-worker/' },
-      to: { path: '^packages/dag-api/' },
-    },
-    {
-      name: 'no-dag-projection-to-api',
-      severity: 'error',
-      comment: 'dag-projection must not depend on dag-api (higher layer)',
-      from: { path: '^packages/dag-projection/' },
-      to: { path: '^packages/dag-api/' },
-    },
-
-    // ==========================================================
     // Provider packages must not depend on each other
     // ==========================================================
     {

@@ -3,7 +3,6 @@
 '@robota-sdk/agent-framework': minor
 '@robota-sdk/agent-session': minor
 '@robota-sdk/agent-command': minor
-'@robota-sdk/agent-command-workflows': patch
 '@robota-sdk/agent-mcp': minor
 '@robota-sdk/agent-cli': minor
 '@robota-sdk/agent-ui-terminal': patch

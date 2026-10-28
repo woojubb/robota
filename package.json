@@ -183,7 +183,6 @@
   },
   "workspaces": [
     "packages/*",
-    "packages/dag-nodes/*",
     "apps/*",
     "examples/*",
     "examples/capabilities/*",

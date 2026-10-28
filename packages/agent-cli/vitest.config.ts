@@ -7,6 +7,7 @@ export default mergeConfig(
   defineConfig({
     test: {
       environment: 'node',
+      server: { deps: { inline: [/@robota-sdk\/workflows/] } },
       globals: true,
       coverage: {
         provider: 'v8',

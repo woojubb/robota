@@ -1,6 +1,5 @@
 ---
 '@robota-sdk/agent-preset': patch
-'@robota-sdk/dag-framework': minor
 '@robota-sdk/agent-cli': patch
 '@robota-sdk/agent-core': patch
 '@robota-sdk/agent-provider-anthropic': patch

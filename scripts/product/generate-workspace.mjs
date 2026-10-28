@@ -55,7 +55,13 @@ function mappedName(value, packageMap) {
 }
 
 function replaceRegexScope(text, scope) {
-  return text.replaceAll(PRODUCT_SCOPE, scope);
+  const external = '__ROBOTA_EXTERNAL_WORKFLOWS__';
+  const externalRegex = '__ROBOTA_EXTERNAL_WORKFLOWS_REGEX__';
+  return text.replaceAll(`${PRODUCT_SCOPE}/workflows`, external)
+    .replaceAll(`${PRODUCT_SCOPE}\\/workflows`, externalRegex)
+    .replaceAll(PRODUCT_SCOPE, scope)
+    .replaceAll(externalRegex, `${PRODUCT_SCOPE}\\/workflows`)
+    .replaceAll(external, `${PRODUCT_SCOPE}/workflows`);
 }
 
 function replacePackageNamesInText(text, packageMap, scope) {
@@ -148,11 +154,11 @@ function rewriteJavaScript(source, filePath, packageMap, scope) {
 function rewriteStructuredValue(value, packageMap, scope) {
   if (Array.isArray(value)) return value.map((item) => rewriteStructuredValue(item, packageMap, scope));
   if (!value || typeof value !== 'object') {
-    return typeof value === 'string' ? mappedName(value, packageMap).replaceAll(PRODUCT_SCOPE, scope) : value;
+    return typeof value === 'string' ? replaceRegexScope(mappedName(value, packageMap), scope) : value;
   }
   return Object.fromEntries(
     Object.entries(value).map(([key, item]) => [
-      mappedName(key, packageMap).replaceAll(PRODUCT_SCOPE, scope),
+      replaceRegexScope(mappedName(key, packageMap), scope),
       rewriteStructuredValue(item, packageMap, scope),
     ]),
   );
@@ -720,6 +726,48 @@ async function copyFiles(sourceRoot, outputDirectory, files, packageMap, scope) 
   }
 }
 
+async function connectExternalWorkflowPeers(sourceRoot, outputDirectory, packageMap, scope) {
+  if (scope === PRODUCT_SCOPE) return;
+  const manifestPath = path.join(outputDirectory, 'packages/agent-cli/package.json');
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'));
+  if (!manifest.devDependencies?.['@robota-sdk/workflows']) return;
+
+  const original = parseDocument(await readFile(path.join(sourceRoot, 'pnpm-lock.yaml'), 'utf8')).toJSON();
+  const lockPath = path.join(outputDirectory, 'pnpm-lock.yaml');
+  const lock = parseDocument(await readFile(lockPath, 'utf8')).toJSON();
+  const snapshot = Object.entries(original.packages).find(([, value]) => value.name === '@robota-sdk/workflows');
+  if (!snapshot) throw new Error('Workflow artifact is missing from the source lockfile.');
+  const [snapshotKey, workflow] = snapshot;
+  const importer = lock.importers['packages/agent-cli'];
+  importer.devDependencies['@robota-sdk/workflows'] = original.importers['packages/agent-cli'].devDependencies['@robota-sdk/workflows'];
+  const peerAliases = {};
+  for (const peer of Object.keys(workflow.peerDependencies)) {
+    const productName = packageMap.get(peer);
+    const link = workflow.dependencies[peer];
+    if (!productName || typeof link !== 'string' || !link.startsWith('link:packages/')) {
+      throw new Error(`Workflow peer ${peer} is not linked to a generated SDK workspace.`);
+    }
+    const targetManifest = JSON.parse(await readFile(path.join(outputDirectory, link.slice(5), 'package.json'), 'utf8'));
+    if (targetManifest.name !== productName || !workflow.peerDependencies[peer].split(/\s*\|\|\s*/u).includes(targetManifest.version)) {
+      throw new Error(`Workflow peer ${peer} does not match the generated SDK name and supported version.`);
+    }
+    const specifier = `workspace:${productName}@*`;
+    peerAliases[peer] = productName;
+    manifest.devDependencies[peer] = specifier;
+    importer.devDependencies[peer] = { specifier, version: `link:../${link.slice('link:packages/'.length)}` };
+  }
+  for (const [key, value] of Object.entries(lock.packages)) {
+    if (value.id === workflow.id) delete lock.packages[key];
+  }
+  lock.packages[snapshotKey] = workflow;
+  await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+  await writeFile(lockPath, stringify(lock));
+  const artifactSpec = manifest.devDependencies['@robota-sdk/workflows'];
+  if (!artifactSpec.startsWith('file:')) throw new Error('Workflow artifact must be a vendored file.');
+  const artifact = await readFile(path.resolve(path.dirname(manifestPath), artifactSpec.slice(5)));
+  return { package: '@robota-sdk/workflows', sha256: createHash('sha256').update(artifact).digest('hex'), peerAliases };
+}
+
 function assertPublicConfig(config, publicConfig, embeddedIdentity) {
   const scope = config?.identity?.packageScope;
   assertPackageScope(scope);
@@ -815,8 +863,11 @@ export async function generateWorkspaceFromConfig({
       }
     }
 
+    const externalWorkflow = await connectExternalWorkflowPeers(source, temporaryOutput, packageMap, config.identity.packageScope);
+
     const productDirectory = path.join(temporaryOutput, '.product');
     await mkdir(productDirectory, { recursive: true });
+    if (externalWorkflow) await writeFile(path.join(productDirectory, 'external-workflow.json'), `${JSON.stringify(externalWorkflow, null, 2)}\n`, { mode: 0o644 });
     const sourceManifest = JSON.parse(await readFile(path.join(temporaryOutput, 'packages/agent-cli/package.json'), 'utf8'));
     const sourceVersion = sourceManifest.version ?? '0.0.0';
     const productVersion = config.release.productVersion ?? sourceVersion;

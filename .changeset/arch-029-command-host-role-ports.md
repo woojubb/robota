@@ -1,7 +1,6 @@
 ---
 '@robota-sdk/agent-framework': major
 '@robota-sdk/agent-command': patch
-'@robota-sdk/agent-command-workflows': patch
 '@robota-sdk/agent-ui-terminal': patch
 ---
 

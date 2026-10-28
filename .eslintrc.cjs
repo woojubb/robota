@@ -253,7 +253,6 @@ module.exports = {
         tsconfigRootDir: __dirname,
         project: [
           './packages/*/tsconfig.eslint.json',
-          './packages/dag-nodes/*/tsconfig.eslint.json',
         ],
       },
       rules: {
