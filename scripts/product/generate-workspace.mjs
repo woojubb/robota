@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import ts from 'typescript';
-import { satisfies } from 'semver';
+import { satisfies, valid } from 'semver';
 import { parseDocument, stringify, visit as visitYaml } from 'yaml';
 import { embeddedProductIdentity, embeddedProductRuntimeDefaults, productConfigEntries, publicProductConfig } from '../../packages/product-config/src/index.ts';
 
@@ -736,7 +736,20 @@ async function connectExternalWorkflowPeers(sourceRoot, outputDirectory, package
   const original = parseDocument(await readFile(path.join(sourceRoot, 'pnpm-lock.yaml'), 'utf8')).toJSON();
   const lockPath = path.join(outputDirectory, 'pnpm-lock.yaml');
   const lock = parseDocument(await readFile(lockPath, 'utf8')).toJSON();
-  const snapshot = Object.entries(original.packages).find(([, value]) => value.name === '@robota-sdk/workflows');
+  const artifactSpec = manifest.devDependencies['@robota-sdk/workflows'];
+  const sourceImporter = original.importers['packages/agent-cli'].devDependencies['@robota-sdk/workflows'];
+  const registryArtifact = !artifactSpec.startsWith('file:');
+  if (sourceImporter.specifier !== artifactSpec) throw new Error('Workflow dependency does not match the source lockfile.');
+  let snapshot;
+  if (registryArtifact) {
+    if (valid(artifactSpec) !== artifactSpec || (sourceImporter.version !== artifactSpec && !sourceImporter.version.startsWith(`${artifactSpec}(`))) {
+      throw new Error('Workflow registry dependency must use an exact locked version.');
+    }
+    const key = `/@robota-sdk/workflows@${sourceImporter.version}`;
+    if (original.packages[key]) snapshot = [key, original.packages[key]];
+  } else {
+    snapshot = Object.entries(original.packages).find(([, value]) => value.name === '@robota-sdk/workflows');
+  }
   if (!snapshot) throw new Error('Workflow artifact is missing from the source lockfile.');
   const [snapshotKey, workflow] = snapshot;
   const importer = lock.importers['packages/agent-cli'];
@@ -757,14 +770,18 @@ async function connectExternalWorkflowPeers(sourceRoot, outputDirectory, package
     manifest.devDependencies[peer] = specifier;
     importer.devDependencies[peer] = { specifier, version: `link:../${link.slice('link:packages/'.length)}` };
   }
+  const registryPrefixes = [`/@robota-sdk/workflows@${artifactSpec}`, `/${scope}/workflows@${artifactSpec}`];
   for (const [key, value] of Object.entries(lock.packages)) {
-    if (value.id === workflow.id) delete lock.packages[key];
+    if ((workflow.id && value.id === workflow.id) || (registryArtifact && registryPrefixes.some((prefix) => key === prefix || key.startsWith(`${prefix}(`)))) delete lock.packages[key];
   }
   lock.packages[snapshotKey] = workflow;
   await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   await writeFile(lockPath, stringify(lock));
-  const artifactSpec = manifest.devDependencies['@robota-sdk/workflows'];
-  if (!artifactSpec.startsWith('file:')) throw new Error('Workflow artifact must be a vendored file.');
+  if (registryArtifact) {
+    const integrity = workflow.resolution?.integrity;
+    if (typeof integrity !== 'string' || !/^sha512-[A-Za-z0-9+/]{86}==$/.test(integrity)) throw new Error('Workflow registry artifact is missing valid SHA-512 integrity.');
+    return { package: '@robota-sdk/workflows', version: artifactSpec, integrity, peerAliases };
+  }
   const artifact = await readFile(path.resolve(path.dirname(manifestPath), artifactSpec.slice(5)));
   const integrity = `sha512-${createHash('sha512').update(artifact).digest('base64')}`;
   if (workflow.resolution?.integrity !== integrity) throw new Error('Workflow artifact integrity does not match the lockfile.');
