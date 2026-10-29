@@ -1,5 +1,15 @@
 # @robota-sdk/agent-interface-command
 
+## 3.0.0-beta.106
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.106
+
+## 3.0.0-beta.105
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.105
+
 ## 3.0.0-beta.104
 ### Patch Changes
 

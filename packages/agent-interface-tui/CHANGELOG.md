@@ -1,5 +1,9 @@
 # @robota-sdk/agent-interface-tui
 
+## 3.0.0-beta.106
+
+## 3.0.0-beta.105
+
 ## 3.0.0-beta.104
 
 ## 3.0.0-beta.103
