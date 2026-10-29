@@ -1,5 +1,10 @@
 # @robota-sdk/agent-organization-host
 
+## 3.0.0-beta.99
+### Patch Changes
+
+  - @robota-sdk/agent-organization@3.0.0-beta.105
+
 ## 3.0.0-beta.98
 ### Patch Changes
 

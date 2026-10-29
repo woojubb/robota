@@ -1,5 +1,12 @@
 # @robota-sdk/agent-tools
 
+## 3.0.0-beta.105
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.0-beta.105
+  - @robota-sdk/agent-file-authority@3.0.0-beta.105
+  - @robota-sdk/agent-process@3.0.0-beta.105
+
 ## 3.0.0-beta.104
 ### Patch Changes
 

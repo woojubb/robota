@@ -1,5 +1,10 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.105
+### Patch Changes
+
+- Release the verified runtime through retained publication artifacts and parallel delivery workflows.
+
 ## 3.0.0-beta.104
 ### Patch Changes
 
