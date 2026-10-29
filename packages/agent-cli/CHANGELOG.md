@@ -1,5 +1,10 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.106
+### Patch Changes
+
+- Accept public packed manifests with the private field omitted when publishing retained release artifacts.
+
 ## 3.0.0-beta.105
 ### Patch Changes
 
