@@ -36,12 +36,16 @@ async function concurrently(items, count, work) {
 // Check every package before the first write. Existing immutable versions must match these bytes.
 await concurrently(packages, 6, async (pkg) => {
   const response = await fetch(new URL(encodeURIComponent(pkg.name), `${registry.replace(/\/$/, '')}/`), {
-    headers: { accept: 'application/vnd.npm.install-v1+json' },
+    headers: { accept: 'application/json' },
     signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) throw new Error(`${pkg.name}: registry preflight returned ${response.status}; first publication requires owner setup.`);
   const metadata = await response.json();
+  if (!metadata.time || typeof metadata.time !== 'object' || Array.isArray(metadata.time))
+    throw new Error(`${pkg.name}: registry version history is unavailable; refusing publication.`);
   const published = metadata.versions?.[version];
+  if (!published && Object.hasOwn(metadata.time, version))
+    throw new Error(`${pkg.name}@${version}: registry version history shows this unavailable version was already used.`);
   if (published && published.dist?.integrity !== pkg.integrity)
     throw new Error(`${pkg.name}@${version}: existing bytes differ; refusing to replace or certify them.`);
   pkg.exists = Boolean(published);
