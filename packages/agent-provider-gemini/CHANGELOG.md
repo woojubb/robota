@@ -1,5 +1,172 @@
 # @robota-sdk/agent-provider-gemini
 
+## 3.0.0
+### Minor Changes
+
+- 1698be4: A child-process subagent can no longer send the parent's provider credential to a different
+  endpoint.
+
+  - **Before spawning a child**, the parent compares every environment variable that decides where
+    the provider connects or which credential it sends. If the child's environment differs, the job
+    is refused before the credential leaves the parent. The error names the variable, never its
+    value. The variables compared are:
+    - the proxy and TLS variables;
+    - the variables the provider's SDK reads, such as `OPENAI_BASE_URL`, `ANTHROPIC_AUTH_TOKEN` and
+      the Vertex settings;
+    - the credential's own variable.
+  - **The child** repeats the check before it builds its provider. It builds that provider from the
+    parent's effective connection exactly: it no longer fills in a base URL, options or a default
+    credential from its own registry, and a credential reference that resolves to nothing is refused.
+  - **Where the effective connection comes from:** the parent applies its own definition defaults
+    (base URL, options). `profileName` is sent only when it names the connection actually sent.
+  - **New contracts:**
+    - `IProviderDefinition.destinationEnvironment`, declared by every built-in provider.
+    - `createProviderFromExactProfile`, `connectionEnvironmentNames`,
+      `findConnectionEnvironmentDivergence`, `sealConnectionEnvironment`,
+      `verifyConnectionEnvironment` and `TRANSPORT_ENVIRONMENT`.
+    - The start payload's `connectionCheck`.
+    - The child-process runner's `providerDefinitions` option, now required: a provider with no
+      definition there is refused, because its connection cannot be checked.
+- 4c73a0b: Provider failures keep the vendor's HTTP status and error type. `ProviderError` gains `status` and `type`, adapters throw `ProviderError` (or `RateLimitError` for a rate limit) instead of a bare `Error`, an Anthropic mid-stream `overloaded_error` event surfaces as a `ProviderError` with that type, and media errors carry `status`. New `classifyProviderFailure` says whether a failure is worth retrying on another model, and `toProviderError` is the shared adapter mapping.
+- 7937c19: Split the `@robota-sdk/agent-provider` monolith into SDK-aligned leaf packages (ARCH-PROVIDER-002 Stage A). The single package that hard-bundled all three vendor SDKs (`@anthropic-ai/sdk`, `openai`, `@google/genai`) is **removed** and replaced by per-vendor leaves, each depending only on `@robota-sdk/agent-core` + its one SDK: `@robota-sdk/agent-provider-anthropic`, `@robota-sdk/agent-provider-openai`, `@robota-sdk/agent-provider-openai-compatible` (DeepSeek/Qwen/Gemma over the shared OpenAI-compatible base), `@robota-sdk/agent-provider-gemini` (+ a `./google` entry), and `@robota-sdk/agent-provider-bytedance` (media/video `IVideoGenerationProvider`). The aggregated `createDefaultProviderDefinitions()` now lives in the new `@robota-sdk/agent-builtin-providers` leaf.
+
+  Migration: replace `@robota-sdk/agent-provider/<vendor>` imports with the corresponding `@robota-sdk/agent-provider-<vendor>` package (`/deepseek`, `/qwen`, `/gemma` → `@robota-sdk/agent-provider-openai-compatible`; `/google` → `@robota-sdk/agent-provider-gemini/google`), and import `createDefaultProviderDefinitions` from `@robota-sdk/agent-builtin-providers`. Consumers now pull only the vendor SDK(s) they actually use.
+
+### Patch Changes
+
+- 7b6234c: A tool call whose arguments fail to decode to a JSON object (invalid JSON, or a `null`/scalar/array
+  root — including a stream truncated mid-argument) no longer breaks the rest of its batch or the round
+  after it. Every other call in the same batch still executes and gets its real result; the malformed
+  call gets a clear per-call error instead, naming the tool and call id, and the run continues rather
+  than rejecting. The Anthropic and Gemini providers no longer throw when building the next request
+  from a conversation that still carries that call's original malformed arguments.
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+- 3ab2eca: - External presets accept every permission mode a session does, `auto` included; `auto` used to fail validation.
+  - `createDagFramework({ ports: { costMeta } })` wires cost-metadata management; without it cost operations still report that they are unsupported.
+  - `startCli()` runs the subagent worker when a subagent starts the embedder's entry script again, as the product executable already did; an embedded CLI used to start a second CLI there.
+  - The provider `executor` option docs no longer import a `RemoteExecutor` that does not exist, and `IRemoteExecutorConfig` is marked deprecated: nothing implements a remote executor.
+- 2c612ba: Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- 9fbab1b: Provider DIP Stage B (ARCH-PROVIDER-003), part 1: collapse infrastructure. Adds the
+  provider-registry-driven `@robota-sdk/dag-node-llm-text` node that supersedes the
+  per-vendor LLM nodes + router, relocates the provider config resolver into
+  `agent-core`, adds SSOT cost/allowedModels fields, inverts the `llm-text` validator
+  tombstone, and wires `createDagFramework({ providers })`. Additive — the per-vendor
+  nodes still exist; consumer migration + their removal follow in part 2.
+- 4f3c075: Assemble complete, verified package generations before switching build output; preserve the previous generation on build failure and pack only verified regular-file images. Include copied CLI web assets in affected-build ordering and artifact transfer. Preserve the CLI version in managed build paths. Public runtime contracts remain compatible (patch).
+- b6d14ce: Make the universal JSON-schema subset able to express an object, so a nested `z.object()` keeps its
+  properties and required fields instead of reaching the model as `{ "type": "object" }`. Tools and
+  structured-output schemas with one level of nesting are now advertised in full and enforced on the
+  tool-input path; `z.union` / `z.discriminatedUnion` / `z.literal` are supported and map to `anyOf`
+  and single-value enums; `.nullable()` keeps its null branch; and Zod's `strip`, `strict` and
+  `passthrough` modes stop collapsing into two `additionalProperties` emissions. Fixes the shipped
+  `Computer` and `AskUserQuestion` built-ins, whose action and question fields were being dropped
+  entirely.
+
+  `agent-core` is **minor**, not patch: `IObjectParameterSchema` is a new export, and
+  `IParameterSchema.type` became optional (a union node carries `anyOf` instead of a type), which is a
+  consumer-visible type change — two call sites in this repo needed editing to keep compiling.
+  `additionalProperties` also widened to `boolean | IParameterSchema`, and `required` and `anyOf` are
+  new members. The provider packages are **patch**: each adapts to the widened subset without changing
+  its own public surface.
+- 9c6a8db: Provider adapters now throw the specific typed failure a vendor response describes, instead of a
+  generic `ProviderError` carrying only its status. A 401/403 (or a vendor-specific authentication type)
+  becomes an `AuthenticationError`; a response naming an unavailable model — by code or, when the vendor
+  gives neither (Anthropic's and Gemini's real bodies carry no distinguishing code), by its message —
+  becomes a `ModelNotAvailableError`, whose `model` is now optional since a bare HTTP status does not
+  always name one; a transport failure becomes a `NetworkError`, which now also carries the provider
+  name. A 429's `retry-after` header (a delta or an HTTP-date) is read into `RateLimitError.retryAfter`
+  when the vendor sends one.
+
+  Vendor error text is scrubbed of anything that reads like a credential — an `Authorization`/`Bearer`
+  value, an API key in a header, query string or JSON body, a bare `sk-`/`AIza…` token — before it is
+  kept on any of these typed errors, so a misconfigured self-hosted gateway that echoes a request back
+  can no longer leak one into a message or a "Details" disclosure. The new `scrubSecrets` export applies
+  the same scrubbing to arbitrary text.
+- 7d9cc66: Retain typed resource and audio observations alongside structured tool results through history, durable receipts, recovery, size admission, and session persistence. Preserve opaque resource references without fetching them, project embedded text and explicit unsupported binary/audio diagnostics into provider requests and compaction transcripts, and validate persisted observation shapes on reload.
+- Updated dependencies [7b6234c]
+- Updated dependencies [4eea54b]
+- Updated dependencies [1698be4]
+- Updated dependencies [d4189b9]
+- Updated dependencies [9edae52]
+- Updated dependencies [4078a72]
+- Updated dependencies [4c73a0b]
+- Updated dependencies [196a900]
+- Updated dependencies [f336838]
+- Updated dependencies [34e50f0]
+- Updated dependencies [722e88a]
+- Updated dependencies [d23c848]
+- Updated dependencies [3038eb7]
+- Updated dependencies [02b7452]
+- Updated dependencies [e689c8e]
+- Updated dependencies [ec5e477]
+- Updated dependencies [c7f9203]
+- Updated dependencies [be0e53c]
+- Updated dependencies [8bd5fac]
+- Updated dependencies [57280bf]
+- Updated dependencies [5033dd9]
+- Updated dependencies [18c0d5c]
+- Updated dependencies [dbd888d]
+- Updated dependencies [1887e54]
+- Updated dependencies [9f46375]
+- Updated dependencies [41cca13]
+- Updated dependencies [ada3841]
+- Updated dependencies [5093a30]
+- Updated dependencies [94b2c87]
+- Updated dependencies [3ab2eca]
+- Updated dependencies [2c612ba]
+- Updated dependencies [66af868]
+- Updated dependencies [04a6de4]
+- Updated dependencies [0ba247b]
+- Updated dependencies [6f41c53]
+- Updated dependencies [fec722f]
+- Updated dependencies [2d3b2c0]
+- Updated dependencies [4772067]
+- Updated dependencies [9fbab1b]
+- Updated dependencies [a009f5b]
+- Updated dependencies [c207a31]
+- Updated dependencies [9b4f63b]
+- Updated dependencies [4f3c075]
+- Updated dependencies [475e085]
+- Updated dependencies [e477440]
+- Updated dependencies [9dcb5da]
+- Updated dependencies [a95ca85]
+- Updated dependencies [b6d14ce]
+- Updated dependencies [0382a51]
+- Updated dependencies [93d061d]
+- Updated dependencies [39554a1]
+- Updated dependencies [d28430a]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [df02568]
+- Updated dependencies [07b627f]
+- Updated dependencies [d0de5b2]
+- Updated dependencies [9c6a8db]
+- Updated dependencies [dfb9b15]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [d6b9404]
+- Updated dependencies [62663ae]
+- Updated dependencies [23a30cd]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [9814afc]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [02053ec]
+  - @robota-sdk/agent-core@3.0.0
+
 ## 3.0.0-beta.106
 ### Patch Changes
 

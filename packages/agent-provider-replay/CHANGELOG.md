@@ -1,5 +1,124 @@
 # @robota-sdk/agent-provider-replay
 
+## 3.0.0
+### Major Changes
+
+- 242a644: Require versioned, event-decoded session replay logs. Reject unknown, malformed, and unsupported
+  entries instead of dropping them or inventing message fields. Replay-only session loads and lists
+  report damaged logs explicitly. Legacy unversioned JSONL is not accepted; snapshot encoding remains
+  unchanged. Persisted logs now use schema version 1, and all replay entry points share the session-owned
+  decoder and preserve sidecar integrity failures.
+
+### Minor Changes
+
+- b078afa: Restore full-fidelity replay for session-log values externalized to content-addressed sidecar files.
+
+  `agent-session` now exports a bounded, containment- and integrity-checked recursive payload resolver,
+  hydrates JSONL logs at their read boundary, and rejects unresolved replay-substrate values during raw
+  validation. `agent-provider-replay` reuses that resolver for direct construction and file loading so
+  large recorded responses remain aligned with later calls.
+
+### Patch Changes
+
+- Updated dependencies [7b6234c]
+- Updated dependencies [5307f8a]
+- Updated dependencies [b462ee7]
+- Updated dependencies [4eea54b]
+- Updated dependencies [30e5e50]
+- Updated dependencies [1698be4]
+- Updated dependencies [9368d00]
+- Updated dependencies [d4189b9]
+- Updated dependencies [9edae52]
+- Updated dependencies [4078a72]
+- Updated dependencies [4c73a0b]
+- Updated dependencies [196a900]
+- Updated dependencies [f336838]
+- Updated dependencies [34e50f0]
+- Updated dependencies [722e88a]
+- Updated dependencies [a5cc36e]
+- Updated dependencies [d23c848]
+- Updated dependencies [3038eb7]
+- Updated dependencies [02b7452]
+- Updated dependencies [e689c8e]
+- Updated dependencies [ec5e477]
+- Updated dependencies [c7f9203]
+- Updated dependencies [18b52cc]
+- Updated dependencies [9843fe6]
+- Updated dependencies [be0e53c]
+- Updated dependencies [8bd5fac]
+- Updated dependencies [57280bf]
+- Updated dependencies [5033dd9]
+- Updated dependencies [18c0d5c]
+- Updated dependencies [dbd888d]
+- Updated dependencies [1887e54]
+- Updated dependencies [9f46375]
+- Updated dependencies [9f46375]
+- Updated dependencies [41cca13]
+- Updated dependencies [ada3841]
+- Updated dependencies [5093a30]
+- Updated dependencies [94b2c87]
+- Updated dependencies [10597b2]
+- Updated dependencies [3ab2eca]
+- Updated dependencies [2c612ba]
+- Updated dependencies [66af868]
+- Updated dependencies [e706b43]
+- Updated dependencies [60f3965]
+- Updated dependencies [04719a9]
+- Updated dependencies [04a6de4]
+- Updated dependencies [0ba247b]
+- Updated dependencies [6f41c53]
+- Updated dependencies [807d161]
+- Updated dependencies [fec722f]
+- Updated dependencies [b078afa]
+- Updated dependencies [b078afa]
+- Updated dependencies [2ebff01]
+- Updated dependencies [2d3b2c0]
+- Updated dependencies [4772067]
+- Updated dependencies [64ba748]
+- Updated dependencies [9fbab1b]
+- Updated dependencies [a009f5b]
+- Updated dependencies [c207a31]
+- Updated dependencies [9b4f63b]
+- Updated dependencies [4f3c075]
+- Updated dependencies [475e085]
+- Updated dependencies [6085cad]
+- Updated dependencies [e477440]
+- Updated dependencies [9dcb5da]
+- Updated dependencies [a95ca85]
+- Updated dependencies [b6d14ce]
+- Updated dependencies [0382a51]
+- Updated dependencies [93d061d]
+- Updated dependencies [39554a1]
+- Updated dependencies [d28430a]
+- Updated dependencies [bed26ea]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [bad976f]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [df02568]
+- Updated dependencies [4b76cfa]
+- Updated dependencies [fcb0da3]
+- Updated dependencies [07b627f]
+- Updated dependencies [d0de5b2]
+- Updated dependencies [9c6a8db]
+- Updated dependencies [dfb9b15]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7911a7d]
+- Updated dependencies [ebd40a0]
+- Updated dependencies [d6b9404]
+- Updated dependencies [62663ae]
+- Updated dependencies [23a30cd]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [9814afc]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [02053ec]
+- Updated dependencies [242a644]
+  - @robota-sdk/agent-core@3.0.0
+  - @robota-sdk/agent-session@3.0.0
+
 ## 3.0.0-beta.106
 ### Patch Changes
 
