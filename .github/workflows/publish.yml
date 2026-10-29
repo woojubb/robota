@@ -160,7 +160,7 @@ jobs:
           if (data.RELEASE_SOURCE_COMMIT !== process.env.GITHUB_SHA || data.RELEASE_TAG !== process.env.TAG)
             throw new Error('Prepared publication does not match this release.');
           for (const [key, value] of Object.entries(data)) {
-            if (!/^[A-Z_]+$/.test(key) || /[\r\n]/.test(value)) throw new Error('Invalid publication environment.');
+            if (!/^[A-Z][A-Z0-9_]*$/.test(key) || /[\r\n]/.test(value)) throw new Error('Invalid publication environment.');
             appendFileSync(process.env.GITHUB_ENV, key + '=' + value + '\n');
           }
           NODE
@@ -173,6 +173,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: npm-release-${{ github.event.inputs.tag }}
+          overwrite: true
           path: |
             ${{ runner.temp }}/npm-release-integrity.json
             ${{ runner.temp }}/npm-release-package-lock.json
