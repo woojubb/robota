@@ -144,6 +144,9 @@ importers:
       publint:
         specifier: ^0.3.24
         version: 0.3.24
+      semver:
+        specifier: 7.8.5
+        version: 7.8.5
       tar:
         specifier: '>=7.5.21 <8.0.0'
         version: 7.5.22
