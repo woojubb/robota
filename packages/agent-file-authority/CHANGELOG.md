@@ -1,5 +1,7 @@
 # @robota-sdk/agent-file-authority
 
+## 3.0.0-beta.104
+
 ## 3.0.0-beta.103
 
 ## 3.0.0-beta.102

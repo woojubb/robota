@@ -1,5 +1,11 @@
 # @robota-sdk/agent-cli
 
+## 3.0.0-beta.104
+### Patch Changes
+
+- f78fe5f: Publish a release candidate whose packed artifacts were rebuilt before external-consumer verification.
+- ce8c499: Consume the separately maintained workflow runtime in the self-contained CLI bundle while preserving existing workflows.
+
 ## 3.0.0-beta.103
 
 ## 3.0.0-beta.102
