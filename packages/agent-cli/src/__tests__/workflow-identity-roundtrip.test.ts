@@ -3,7 +3,7 @@ import { dagDefinitionFromParsedFile, toDagWorkflowFile } from '@robota-sdk/work
 
 describe('bundled workflow identity', () => {
   it('preserves distinct colon-containing endpoints through a visual file and companion', () => {
-    const definition = {
+    const definition: Parameters<typeof toDagWorkflowFile>[0] = {
       dagId: 'identity-pairs',
       version: 1,
       status: 'draft',
@@ -17,7 +17,7 @@ describe('bundled workflow identity', () => {
         { from: 'a:b', to: 'c', bindings: [{ outputKey: 'text', inputKey: 'text' }] },
         { from: 'a', to: 'b:c', bindings: [{ outputKey: 'text', inputKey: 'text' }] },
       ],
-    } satisfies Parameters<typeof toDagWorkflowFile>[0];
+    };
     const saved = toDagWorkflowFile(definition);
     const restored = dagDefinitionFromParsedFile(saved.workflowFile, saved.companion);
     expect(restored.edges).toEqual(definition.edges);
