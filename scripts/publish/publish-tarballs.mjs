@@ -13,7 +13,7 @@ const packages = readdirSync(directory).filter((name) => name.endsWith('.tgz')).
   const manifest = JSON.parse(execFileSync('tar', ['-xzOf', tarball, 'package/package.json'], {
     encoding: 'utf8', timeout: 10_000,
   }));
-  if (!manifest.name?.startsWith(`${scope}/`) || manifest.version !== version || manifest.private !== false)
+  if (!manifest.name?.startsWith(`${scope}/`) || manifest.version !== version || manifest.private === true)
     throw new Error(`Unexpected release package in ${file}`);
   return { name: manifest.name, tarball,
     integrity: `sha512-${createHash('sha512').update(readFileSync(tarball)).digest('base64')}` };
