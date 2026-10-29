@@ -22677,17 +22677,17 @@ packages:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
   file:vendor/robota-workflows/robota-sdk-workflows-0.0.1.tgz(@robota-sdk/agent-builtin-providers@packages+agent-builtin-providers)(@robota-sdk/agent-core@packages+agent-core)(@robota-sdk/agent-framework@packages+agent-framework)(@robota-sdk/agent-interface-command@packages+agent-interface-command)(@robota-sdk/agent-tools@packages+agent-tools):
-    resolution: {integrity: sha512-zASq4t1/gwoGoJzsEisOvinXchbDSVVfMF7RU5P1UmMqGZhaeHjJKRtKjMLx4m3ss2xhH27mouPU49vvFqZEug==, tarball: file:vendor/robota-workflows/robota-sdk-workflows-0.0.1.tgz}
+    resolution: {integrity: sha512-NRi2lbL3OlQFhL1FK/dl0OdokHw8IdgEink/G6i7SW5Jv0FHZRG17uIFycUHXDwLTPwh8/O8GZMdinj6P1mFzA==, tarball: file:vendor/robota-workflows/robota-sdk-workflows-0.0.1.tgz}
     id: file:vendor/robota-workflows/robota-sdk-workflows-0.0.1.tgz
     name: '@robota-sdk/workflows'
     version: 0.0.1
     engines: {node: ^22.14.0}
     peerDependencies:
-      '@robota-sdk/agent-builtin-providers': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107
-      '@robota-sdk/agent-core': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107
-      '@robota-sdk/agent-framework': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107
-      '@robota-sdk/agent-interface-command': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107
-      '@robota-sdk/agent-tools': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107
+      '@robota-sdk/agent-builtin-providers': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107 || ~3.0.0
+      '@robota-sdk/agent-core': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107 || ~3.0.0
+      '@robota-sdk/agent-framework': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107 || ~3.0.0
+      '@robota-sdk/agent-interface-command': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107 || ~3.0.0
+      '@robota-sdk/agent-tools': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107 || ~3.0.0
     dependencies:
       '@marcbachmann/cel-js': 7.6.1
       '@robota-sdk/agent-builtin-providers': link:packages/agent-builtin-providers
