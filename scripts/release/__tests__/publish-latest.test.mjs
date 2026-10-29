@@ -58,6 +58,25 @@ function makeFixture({ failure = '', trusted = false } = {}) {
     path.join(root, 'scripts/publish/publish-packages.sh'),
     path.join(directory, 'scripts/publish/publish-packages.sh'),
   );
+  copyFileSync(
+    path.join(root, 'scripts/publish/publish-tarballs.mjs'),
+    path.join(directory, 'scripts/publish/publish-tarballs.mjs'),
+  );
+  writeFileSync(
+    path.join(directory, 'registry-fixture.mjs'),
+    `
+    import fs from 'node:fs';
+    globalThis.fetch = async (url) => {
+      const name = decodeURIComponent(String(url)).split('/').slice(-2).join('/');
+      const mode = process.env.FIXTURE_REGISTRY_MODE || 'missing';
+      if (mode === 'forbidden' || (mode === 'mixed' && name.endsWith('cedar-new')) || (mode === 'missing' && name.endsWith('cedar-new'))) return { ok: false, status: mode === 'missing' ? 404 : 403 };
+      const records = fs.readFileSync(process.env.PACK_RECORD, 'utf8').trim().split('\\n').map(JSON.parse);
+      const item = records.find(entry => entry.name === name);
+      const integrity = mode === 'conflict' ? 'sha512-other' : 'sha512-' + item?.sha512;
+      return {ok: true, status: 200, json: async () => ({ versions: ['unpublished', 'mixed'].includes(mode) ? {} : { '${version}': {dist: {integrity}} } }) };
+    };
+  `,
+  );
   for (const relative of [
     'scripts/harness/check-publish-safety.mjs',
     'scripts/harness/check-sdk-public-surface.mjs',
@@ -174,7 +193,7 @@ function lines(file) {
     : [];
 }
 
-function run(fixture, { failure = fixture.failure, args = [] } = {}) {
+function run(fixture, { failure = fixture.failure, args = [], registryMode = 'missing' } = {}) {
   const result = spawnSync(
     'bash',
     [
@@ -202,6 +221,8 @@ function run(fixture, { failure = fixture.failure, args = [] } = {}) {
         PUBLISH_RECORD: fixture.record,
         PACK_RECORD: fixture.packRecord,
         FIXTURE_FAILURE: failure,
+        FIXTURE_REGISTRY_MODE: registryMode,
+        NODE_OPTIONS: `--import=${path.join(fixture.directory, 'registry-fixture.mjs')}`,
       },
     },
   );
@@ -238,8 +259,24 @@ it('refuses trusted publication when a package has never been published', () => 
   const fixture = makeFixture({ trusted: true });
   const result = run(fixture);
   expect(result.status).not.toBe(0);
-  expect(result.output).toContain('Never published');
+  expect(result.output).toContain('first publication requires owner setup');
   expect(result.records).toEqual([]);
+});
+
+it.each(['forbidden', 'conflict', 'mixed'])(
+  'refuses trusted %s registry evidence before any write',
+  (registryMode) => {
+    const result = run(makeFixture({ trusted: true }), { registryMode });
+    expect(result.status).not.toBe(0);
+    expect(result.records).toEqual([]);
+  },
+);
+
+it('skips already published trusted tarballs only when their integrity matches', () => {
+  const result = run(makeFixture({ trusted: true }), { registryMode: 'matching' });
+  expect(result.status, result.output).toBe(0);
+  expect(result.records).toEqual([]);
+  expect(result.output).toContain('already published with matching integrity');
 });
 
 it('passes an explicit OTP to each exact tarball', () => {
