@@ -20,6 +20,11 @@ const codeql = readWorkflow('codeql.yml');
 const image = readWorkflow('release-image.yml');
 const publish = readWorkflow('publish.yml');
 const tagging = readFileSync(new URL('release-tag-on-version-bump.yml', root), 'utf8');
+function requiredStepIndex(steps, name) {
+  const index = steps.findIndex((step) => step.name === name);
+  if (index < 0) throw new Error(`Required release step missing: ${name}`);
+  return index;
+}
 
 it.each([
   {
@@ -132,11 +137,87 @@ function context(overrides = {}, inputs = {}) {
   };
 }
 
-it('cannot occupy the shared publisher queue before its native release dependency finishes', () => {
-  expect(desktop.on.push).toBeUndefined();
-  expect(desktop.on.workflow_run).toEqual({ workflows: [native.name], types: ['completed'] });
+it('independently builds installers from a bound tag with separate release concurrency', () => {
+  expect(desktop.on.push.tags).toEqual(['**']);
+  expect(desktop.on.workflow_run).toBeUndefined();
   expect(native.on.push.tags).toEqual(['**']);
+  expect(desktop.concurrency.group).toContain('desktop-assets-');
+  expect(native.concurrency.group).toContain('native-assets-');
+  const steps = desktop.jobs.desktop.steps;
+  const index = (name) => requiredStepIndex(steps, name);
+  for (const required of [
+    'Bind published installers to protected main history',
+    'Validate configured release tag',
+    'Exercise the packaged runtime',
+  ]) {
+    expect(() =>
+      requiredStepIndex(
+        steps.filter((step) => step.name !== required),
+        required,
+      ),
+    ).toThrow('Required release step missing');
+  }
+  expect(index('Bind published installers to protected main history')).toBeLessThan(
+    index('Install dependencies'),
+  );
+  expect(index('Validate configured release tag')).toBeLessThan(
+    index('Compile the host CLI binary'),
+  );
+  expect(index('Compile the host CLI binary')).toBeLessThan(
+    index('Package the desktop app (bundles the runtime)'),
+  );
+  expect(index('Exercise the packaged runtime')).toBeLessThan(
+    index('Publish installers to the GitHub Release'),
+  );
+  const publish = steps[index('Publish installers to the GitHub Release')];
+  expect(publish.run).toMatch(/gh release create[\s\S]+\|\|[\s\S]+gh release view/u);
+  expect(publish.run).toContain('gh release upload');
+  expect(publish.env.MANIFEST).toContain('SHA256SUMS-desktop-');
+  expect(
+    native.jobs['publish-bun'].steps.find((step) => step.name === 'Publish all six assets once')
+      .run,
+  ).toContain('SHA256SUMS.txt');
   expect(tagging).not.toMatch(/\bsleep\s+\d+/u);
+});
+
+it('recovers when another release job creates the same tag during desktop publication', () => {
+  const step = desktop.jobs.desktop.steps.find(
+    (item) => item.name === 'Publish installers to the GitHub Release',
+  );
+  const fixture = mkdtempSync(join(tmpdir(), 'release-create-race-'));
+  try {
+    const trace = join(fixture, 'trace');
+    const shell =
+      `gh() {
+      printf '%s\\n' "$*" >> "$TRACE";
+      if [ "$2" = view ]; then
+        if [ ! -f "$TRACE.viewed" ]; then touch "$TRACE.viewed"; return 1; fi
+        return 0
+      fi
+      if [ "$2" = create ]; then return 1; fi
+      return 0
+    }\n` + step.run;
+    const result = spawnSync('bash', ['-c', shell], {
+      cwd: fixture,
+      encoding: 'utf8',
+      env: {
+        PATH: process.env.PATH,
+        TRACE: trace,
+        TAG: 'release-1',
+        GH_REPO: 'owner/repo',
+        NOTES: 'notes',
+        ASSETS: 'desktop.dmg',
+        MANIFEST: 'SHA256SUMS-desktop-macos.txt',
+      },
+    });
+    expect(result.status, result.stderr).toBe(0);
+    const calls = readFileSync(trace, 'utf8');
+    expect(calls).toContain('release create release-1');
+    expect(calls).toContain('release upload release-1');
+    expect(calls).toContain('SHA256SUMS-desktop-macos.txt');
+  } finally {
+    rmSync(fixture, { recursive: true, force: true });
+  }
 });
 
 it('starts the image only after npm publication and never polls between workflows', () => {
@@ -185,24 +266,12 @@ it('bounds every local workflow job with a small timeout', () => {
   }
 });
 
-it.each([
-  { conclusion: 'failure' },
-  { conclusion: 'cancelled' },
-  { event: 'workflow_dispatch' },
-  { head_repository: { full_name: 'someone/runtime' } },
-])(
-  'refuses an automatic installer publication for an unrelated or unsuccessful native run: %j',
-  (run) => {
-    expect(evaluate(desktop.jobs.desktop.if, context(run))).toBe(false);
-  },
-);
-
-it('uses the successful native tag even though workflow_run executes on main', () => {
-  const github = context();
-  expect(evaluate(desktop.jobs.desktop.if, github)).toBe(true);
+it('uses the selected tag for each independent desktop job', () => {
   for (const job of ['desktop', 'await-published-assets', 'verify-macos-artifacts']) {
     const resolve = desktop.jobs[job].steps.find((step) => step.name === 'Resolve release tag');
-    expect(evaluate(resolve.env.INPUT_TAG, github)).toBe('release-3.0.0-beta.86');
+    expect(resolve.env.INPUT_TAG).toBe('${{ github.event.inputs.tag }}');
+    expect(resolve.env.REF_NAME).toBe('${{ github.ref_name }}');
+    expect(resolve.run).toContain('${INPUT_TAG:-$REF_NAME}');
   }
 });
 
@@ -223,44 +292,15 @@ it('does not let read-only verification hold the native publisher queue', () => 
   expect(render(desktop.concurrency.group)).not.toBe(render(native.concurrency.group));
 });
 
-it('fails a manual published build immediately when any native payload is absent', () => {
-  const preflight = desktop.jobs.desktop.steps.find(
-    (step) => step.name === 'Require the native release before publishing installers',
-  );
-  expect(preflight).toBeDefined();
-  expect(preflight.if).toBeUndefined();
-  const expression = native.jobs['build-bun'].strategy.matrix.target;
-  const targets = Function(
-    'github',
-    'fromJSON',
-    `return (${expression.slice(3, -2)});`,
-  )({ event_name: 'workflow_dispatch' }, JSON.parse);
-  const names = targets.map(
-    (target) => `runtime-cli-${target}${target.startsWith('windows') ? '.exe' : ''}`,
-  );
-  names.push('SHA256SUMS.txt');
-  const run = (assets) =>
-    spawnSync('bash', ['-c', 'gh() { printf "%s\\n" "$FIXTURE_ASSETS"; };\n' + preflight.run], {
-      encoding: 'utf8',
-      cwd: fileURLToPath(new URL('../../../', import.meta.url)),
-      env: {
-        PATH: process.env.PATH,
-        TAG: 'release-3.0.0-beta.86',
-        PRODUCT_ARTIFACT_PREFIX: 'runtime-cli',
-        FIXTURE_ASSETS: assets.join('\n'),
-      },
-    });
-  expect(run(names).status).toBe(0);
-  const missing = run(names.filter((name) => name !== 'runtime-cli-darwin-arm64'));
-  expect(missing.status).toBe(1);
-  expect(missing.stdout).toMatch(/release-bun-binaries\.yml/);
-  for (const dottedName of ['runtime-cli-windows-x64.exe', 'SHA256SUMS.txt']) {
-    const lookalike = run(
-      names.map((name) => (name === dottedName ? name.replace('.', '_') : name)),
-    );
-    expect(lookalike.status).toBe(1);
-    expect(lookalike.stdout).toContain(`Native release asset ${dottedName} is missing`);
-  }
+it('verifies published native and desktop artifacts before macOS acceptance', () => {
+  const job = desktop.jobs['await-published-assets'];
+  const check = job.steps.find((step) => step.name === 'Require every macOS asset');
+  expect(check).toBeDefined();
+  expect(check.run).toContain('darwin-arm64');
+  expect(check.run).toContain('darwin-x64');
+  expect(check.run).toContain('SHA256SUMS.txt');
+  expect(check.run).toContain('\\.dmg');
+  expect(desktop.jobs['verify-macos-artifacts'].needs).toEqual(['await-published-assets']);
 });
 
 // Execute the publishing step's real shell guard, without checking out or publishing anything.

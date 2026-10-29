@@ -1,5 +1,44 @@
 # @robota-sdk/agent-cli-web
 
+## 3.0.0
+### Patch Changes
+
+- e8d70ac: A first run finds a provider, instead of a dead end. `robota --serve` (and the daemon it starts) no
+  longer refuses when no provider is configured: it starts in setup mode, and the GUI's conversation area
+  shows a "Connect a model provider to start" panel with a "Set up provider" button in place of the
+  composer. Answering it configures and swaps in the first provider live, with no restart. A startup
+  failure now says why — `robota daemon start --json` and the desktop app's fatal screen report the
+  child's own reason instead of a generic "readiness channel closed", and the fatal screen gets a Try
+  again button. `trust status --json` and the desktop trust dialog list only sources whose state trust
+  would actually change, instead of naming one this platform could not determine; the dialog shows one
+  sentence and a collapsed Details section. `robota --serve --open` in an untrusted folder now asks at
+  the terminal (trust it, start Restricted, or quit) when someone is there to ask, instead of refusing
+  outright.
+- fbb287d: Show a finished MCP tool call's app in an opaque frame with a source-bound JSON-RPC bridge. App callbacks use the session's view authority and permission prompt. Session changes and frame disposal reject pending local requests.
+
+  Hosts can provide a sandbox URL through `SessionSurface`. The web GUI serves a separate sandbox document with content restrictions and `Connection-Allowlist` enforcement. App execution requires Chromium 158 or newer and native network isolation; other browsers and hosts without the response policy show an unavailable message and retain the text result. A surface without a sandbox URL never reads the app document.
+- 7d9cc66: Connect the desktop to an owner-bound remote task through scoped TLS credentials, durable replay protection, current company authority and a separate native operator approval channel. Keep remote credentials and local filesystem capabilities outside the renderer's remote task connection.
+- Updated dependencies [7b72344]
+- Updated dependencies [9ecffed]
+- Updated dependencies [6ae3f28]
+- Updated dependencies [9721162]
+- Updated dependencies [57f57f5]
+- Updated dependencies [9721162]
+- Updated dependencies [6e6b06b]
+- Updated dependencies [227ff3a]
+- Updated dependencies [f8a8a4d]
+- Updated dependencies [29486da]
+- Updated dependencies [e8d70ac]
+- Updated dependencies [09e7e21]
+- Updated dependencies [0ba247b]
+- Updated dependencies [fbb287d]
+- Updated dependencies [c207a31]
+- Updated dependencies [1e3f91a]
+- Updated dependencies [df02568]
+- Updated dependencies [c402d98]
+- Updated dependencies [7d9cc66]
+  - @robota-sdk/agent-ui-web@3.0.0
+
 ## 3.0.0-beta.106
 ### Patch Changes
 

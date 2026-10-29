@@ -24,20 +24,37 @@ it('admits release effects only after binding them to reviewed source', () => {
   expect(publish.on.workflow_dispatch.inputs.tag.required).toBe(true);
   expect(publish.on.workflow_dispatch.inputs.product_env).toBeUndefined();
   expect(publish.jobs.publish.permissions.contents).toBe('read');
+  const prepareSteps = publish.jobs.prepare.steps;
   const publishSteps = publish.jobs.publish.steps;
-  expect(
-    publishSteps.find((step) => step.uses === 'actions/checkout@v7').with['persist-credentials'],
-  ).toBe(false);
+  for (const steps of [prepareSteps, publishSteps]) {
+    expect(
+      steps.find((step) => step.uses === 'actions/checkout@v7').with['persist-credentials'],
+    ).toBe(false);
+  }
   expectStepBefore(
-    publishSteps,
+    prepareSteps,
     (step) => step.name === 'Bind publication to the release tag and protected main',
     (step) => step.uses === 'pnpm/action-setup@v6',
   );
   expectStepBefore(
-    publishSteps,
+    prepareSteps,
     (step) => step.name === 'Validate the tag and canonical product identity before publication',
-    (step) => step.name === 'Publish the configured product packages',
+    (step) => step.name === 'Prepare the configured product packages once',
   );
+  expect(publish.jobs.publish.needs).toBe('prepare');
+  expect(
+    publishSteps.find((step) => step.uses === 'actions/download-artifact@v7').with['artifact-ids'],
+  ).toBe('${{ needs.prepare.outputs.artifact_id }}');
+  expectStepBefore(
+    publishSteps,
+    (step) => step.name === 'Restore the exact prepared publication',
+    (step) => step.name === 'Publish only missing packages from the retained tarballs',
+  );
+  const restore = publishSteps.find(
+    (step) => step.name === 'Restore the exact prepared publication',
+  ).run;
+  expect(restore).toContain('data.RELEASE_SOURCE_COMMIT !== process.env.GITHUB_SHA');
+  expect(restore).toContain('data.RELEASE_TAG !== process.env.TAG');
   expect(
     publishSteps.some((step) => step.name === 'Preserve the tag-bound registry integrity manifest'),
   ).toBe(true);
@@ -192,6 +209,17 @@ it('generates a release manifest only when registry and reviewed tarball integri
     mkdirSync(pack, { recursive: true });
     mkdirSync(payload, { recursive: true });
     mkdirSync(bin);
+    const fetchStub = join(scratch, 'fetch-stub.mjs');
+    writeFileSync(
+      fetchStub,
+      `
+      globalThis.fetch = async () => ({
+        ok: process.env.FIXTURE_HTTP !== 'fail', status: 403,
+        json: async () => ({ versions: { '1.2.3': { dist: { integrity: process.env.FIXTURE_INTEGRITY } } },
+          'dist-tags': { latest: process.env.FIXTURE_LATEST || '1.2.3' } })
+      });
+    `,
+    );
     writeFileSync(
       join(payload, 'package.json'),
       JSON.stringify({ name: '@robota-sdk/agent-cli', version: '1.2.3' }),
@@ -206,7 +234,7 @@ it('generates a release manifest only when registry and reviewed tarball integri
 if [ "$1" = view ]; then
   printf "%s\\n" "$FIXTURE_INTEGRITY"
 elif [ "$1" = install ]; then
-  node -e 'const fs=require("fs"); const pkg=require("./package.json"); const [name,version]=Object.entries(pkg.dependencies)[0]; fs.writeFileSync("package-lock.json", JSON.stringify({name:pkg.name,lockfileVersion:3,packages:{"":{name:pkg.name,dependencies:pkg.dependencies},["node_modules/"+name]:{version,integrity:process.env.FIXTURE_INTEGRITY}}}));'
+  node -e 'const fs=require("fs"); const pkg=require("./package.json"); const [name,version]=Object.entries(pkg.dependencies)[0]; fs.writeFileSync("package-lock.json", JSON.stringify({name:pkg.name,lockfileVersion:3,packages:{"":{name:pkg.name,dependencies:pkg.dependencies},["node_modules/"+name]:{version,integrity:process.env.FIXTURE_LOCK_INTEGRITY || process.env.FIXTURE_INTEGRITY}}}));'
 else
   exit 2
 fi
@@ -215,7 +243,7 @@ fi
     chmodSync(npm, 0o755);
     const output = join(scratch, 'manifest.json');
     const lockOutput = join(scratch, 'package-lock.json');
-    const run = (published) =>
+    const run = (published, extra = {}) =>
       spawnSync(
         process.execPath,
         [
@@ -235,10 +263,15 @@ fi
             PRODUCT_PACKAGE_SCOPE: '@robota-sdk',
             RELEASE_INSTALL_LOCK: lockOutput,
             FIXTURE_INTEGRITY: published,
+            NODE_OPTIONS: `--import=${fetchStub}`,
+            ...extra,
           },
         },
       );
     expect(run('sha512-wrong').status).toBe(1);
+    expect(run(integrity, { FIXTURE_LATEST: '0.9.0' }).status).toBe(1);
+    expect(run(integrity, { FIXTURE_HTTP: 'fail' }).status).toBe(1);
+    expect(run(integrity, { FIXTURE_LOCK_INTEGRITY: 'sha512-other' }).status).toBe(1);
     const success = run(integrity);
     expect(success.status, success.stderr).toBe(0);
     expect(JSON.parse(readFileSync(output, 'utf8'))).toMatchObject({
