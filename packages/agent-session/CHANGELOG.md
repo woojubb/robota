@@ -1,5 +1,924 @@
 # @robota-sdk/agent-session
 
+## 3.0.0
+### Major Changes
+
+- 807d161: **BREAKING — ARCH-010: the execution root is a required contract field, and the containment guard now fails closed.**
+
+  The file-tool containment guard was fail-open: with no root configured it answered "allowed". A tool
+  built with no `cwd` therefore had no boundary — measured, a `Read` constructed that way returned the
+  contents of `/etc/hostname` — and the child-process subagent worker called `createDefaultTools()` with
+  no argument at all, so subagents got exactly that. Three independent auditors found three different
+  symptoms of this one missing field.
+
+  **Removed — seven context-free tool singletons.** `readTool`, `writeTool`, `editTool`, `globTool`,
+  `grepTool`, `shellTool`, `bashTool` are gone from `@robota-sdk/agent-tools`. A module-level instance is
+  bound at import time and can carry no containment root, so after the guard was inverted they could only
+  refuse everything.
+
+  Migrate to the factory of the same name, passing the directory the tool is allowed to work in:
+
+  ```ts
+  // before
+  import { readTool, globTool } from '@robota-sdk/agent-tools';
+  const tools = [readTool, globTool];
+
+  // after
+  import { createReadTool, createGlobTool } from '@robota-sdk/agent-tools';
+  const cwd = process.cwd(); // or the workspace this agent is scoped to
+  const tools = [createReadTool({ cwd }), createGlobTool({ cwd })];
+  ```
+
+  `webFetchTool`, `webSearchTool` and `askUserQuestionTool` are unchanged — they touch no filesystem, so
+  there is no root to contain them by.
+
+  **`cwd` is now REQUIRED** on `ISandboxToolOptions`, `IContainedBuiltinToolOptions` (and everything
+  extending them), `ICreateDefaultToolsOptions`, `ISessionOptions` and `ISubagentOptions`. The `= {}`
+  default parameter was removed from every builtin factory — that default was the mechanism by which
+  "forgot the root" was legal. `new Session({...})` without `cwd` no longer compiles, and also throws at
+  construction, because a required field is only required to a TypeScript caller.
+
+  **`Session` no longer reads `process.cwd()`.** It uses the root it was given, and `getCwd()` exposes it
+  so a fork or subagent asks the session instead of re-deriving a root that can disagree with it.
+
+  **Behavioural change even for callers that already passed a root**: a tool that somehow reaches the
+  guard with no root now REFUSES with an explicit error ("no containment root is configured … this is an
+  assembly bug, not a path problem") instead of allowing the access.
+- 64ba748: **BREAKING — ARCH-042: project filesystem access is now an explicit, host-issued authority instead of an ambient consequence of `cwd`.**
+
+  `@robota-sdk/agent-framework` adds `WorkspaceTrustService` and the opaque
+  `IWorkspaceProjectAuthority`, plus bounded reader, settings-writer, state-storage, and mutation
+  facets. Public session, settings, context, checkpoint, memory, contribution, query, and replay
+  contracts consume those facets. A caller that does not supply `projectAccess` is deliberately
+  restricted to user-owned host state and receives no project filesystem capability.
+
+  The framework removes or renames ambient Node/project exports. Migrate `checkSettingsFile` to
+  `checkNodeHostSettingsFile`, `readMergedProviderSettingsFromPaths` to
+  `readMergedProviderSettingsFromSources`, `resolveProviderSettingsWriteTargetPath` to
+  `resolveProviderSettingsWriteTarget`, `FileSystemMemoryStore` / `createFileSystemMemoryStore` to
+  `WorkspaceMemoryStore` / `createWorkspaceMemoryStore`, and `PluginSettingsStore` to
+  `NodeHostPluginSettingsStore`. Host-only git helpers now carry the `FromNodeHost` suffix.
+  `projectPaths`, `resolveSettingsPathForScope`, and `getProviderSettingsPaths` are removed; project
+  consumers must use the authority facets rather than recover absolute paths.
+
+  `@robota-sdk/agent-session` renames the Node filesystem implementation `SessionStore` to
+  `NodeSessionStore` and adds explicit session-log/external-payload source and sink ports. Session
+  replay no longer resolves external payload files from an ambient directory.
+
+  `@robota-sdk/agent-interface-transport` changes `ISkillExecutionPort.loadCommands(cwd, home?)` to
+  the authority-bound `loadCommands()` and removes the optional absolute-path leak
+  `IInteractiveSessionStore.getFilePath`. `@robota-sdk/agent-command` consequently replaces the
+  `cwd` option of `createSkillsCommandModule` with required `contributionSources`; default command
+  composition accepts explicit contribution sources and discovers no project skills when none are
+  provided.
+
+  `@robota-sdk/agent-cli`, `@robota-sdk/agent-transport`, and
+  `@robota-sdk/agent-transport-tui` thread the trusted-or-restricted project decision through every
+  session surface. Embedded callers that need project settings, state, context, skills, checkpoints,
+  or mutation must mint access through `WorkspaceTrustService` and pass the returned
+  `projectAccess` (and a separately approved mutation/settings facet where required). Omitting it is
+  still type-compatible but is behaviorally breaking: the surface now fails closed instead of
+  reading or writing the current directory.
+- 242a644: Require versioned, event-decoded session replay logs. Reject unknown, malformed, and unsupported
+  entries instead of dropping them or inventing message fields. Replay-only session loads and lists
+  report damaged logs explicitly. Legacy unversioned JSONL is not accepted; snapshot encoding remains
+  unchanged. Persisted logs now use schema version 1, and all replay entry points share the session-owned
+  decoder and preserve sidecar integrity failures.
+
+### Minor Changes
+
+- 9368d00: Advisor escalation: the main model can consult a second model at the decision points it chooses.
+
+  With an advisor configured (`--advisor <profile>[:<model>]`, or the `advisorModel` setting that
+  `/advisor` saves; the flag wins), the session gets an `Advisor({ question? })` tool. The advisor reads
+  the whole conversation — system prompt, messages, tool calls and results — serialized into one prompt
+  and sent with `toolChoice: 'none'`, truncated from the front to fit its window with the system prompt
+  kept, and declines when even that does not fit. Its answer comes back framed as guidance to verify;
+  an empty or refusing answer reads as declined. Calls are limited to two per turn and a fixed number
+  per session, parallel calls in one round share those limits, and a repeated question in the same
+  turn returns the earlier answer. A request that was sent counts even when the provider failed (the
+  decline is reported by class, never by its text); only a call declined before sending gives its slot
+  back.
+
+  Advisor usage, including in-process subagents', is recorded where each turn's usage is recorded —
+  the persisted session history, under the advisor's own provider and model — so `/cost`, usage reports
+  and resumed sessions include it. `/cost` now totals that history and prices each part on its own
+  model, showing "mixed" when more than one model was priced.
+
+  `/advisor <model>` and `/advisor off` change only where calls go, never the tool list, so the main
+  model's prompt cache is not invalidated mid-session; the tool is added only when a session starts
+  with an advisor. Sending history to a destination (provider type and endpoint host) the main model
+  does not already use needs a one-time consent per destination, kept in the user settings file; a
+  refusal is remembered for the session. The organization's `allowedProviders` applies, and
+  `PRODUCT_DISABLE_ADVISOR=1` turns it off completely. In-process subagents inherit the advisor, bound
+  to their own conversation; child-process subagents do not get it.
+
+  **`@robota-sdk/agent-framework` is `major` for one reason: `ICommandHostSessionAccess` gains a
+  required member,** `getSessionUsage()`, the session's persisted usage records. An external
+  implementation of that role port stops compiling until it adds the method. The rest is additive.
+
+  - `agent-session` — `formatConversationEntries`, the one text rendering of a conversation, now used
+    by compaction too. It keeps tool calls and results, marks a user message a peer session sent
+    (`user [from "peer:<id>"]`), and JSON-encodes every message onto one line so no content can forge
+    another entry; compaction previously flattened all of this. `Session.getProvider()` returns the
+    provider the session currently uses.
+  - `agent-framework` — `AdvisorController`, `createAdvisorTool`, the advisor spec helpers, provider
+    destinations (`describeProviderDestination`, `rememberProviderDestination`), `getSessionUsage` and
+    `ISessionUsageRecord`, the `onUsageRecorded` session option, and the optional `advisor` command
+    host adapter. Session assembly binds a host-supplied Advisor tool to the session holding it.
+  - `agent-command` — the `/advisor` command module; `/cost` reads the session's persisted usage.
+  - `agent-cli` — the `--advisor` flag, `advisorModel` setting, per-destination consent store and kill
+    switch.
+  - `agent-ui-terminal` — a usage line from another source (the advisor, a background task) names that
+    source and leaves out the context window it does not have.
+  - `agent-session-analytics` — personal usage counts an advisor call's tokens and cost toward its
+    turn without counting it as a turn.
+- 4078a72: Model fallback chain. `--fallback-model a,b` (or the `fallbackModel` settings array; the flag wins) names up to three models a turn moves to when its model is overloaded, unavailable or failing on the server. An entry is a provider profile, `profile:model`, a bare model on the primary's provider, or `default`. The move happens only before any output has streamed, lasts for the current turn, and is shown as a system note; entries that cannot be built are passed over and entries outside the organization's `allowedProviders` are dropped with a notice. `FallbackProvider` in agent-framework implements it over the session's provider; `IChatOptions` gains `executionId`, `onModelFallback` and `preserveContextWindow`, `IAIProvider` gains optional `resolveModelRoute`, and the execution loop emits a `provider_fallback` event and attributes requests, call observations, committed replies, the response cache and usage to the model that answered. A turn that ran on more than one model records per-model `modelShares` on its usage observation, which personal usage reports split by model and provider. A `/provider` switch keeps the chain, read again for the new primary.
+- 196a900: Permission rules can say more than one argument per tool.
+
+  - **`Tool(name:value)` in deny and ask rules** matches a named top-level parameter, with `*` in the
+    value (`Bash(run_in_background:true)`, `Agent(model:opus*)`, `github__create_issue(repo:acme/*)`).
+    It is a parameter rule only when `name` is one of the tool's parameters, so
+    `WebFetch(https://…)` keeps its meaning. A parameter the call omits never matches, and a
+    non-scalar value is unevaluable, so the call asks. Allow rules may not use the form.
+  - **A rule on the primary field** (`Bash(command:rm *)`) is reported at startup and asks on every
+    call, instead of being silently ignored.
+  - **Tool-name globs.** Deny and ask rules may glob the tool name (`github__*`). Allow rules may do so
+    only after a literal `<server>__` prefix; an unanchored allow glob is refused at construction.
+  - **A bare-name deny removes the tool from the model's context.** `Tool`, `Tool(*)` or a name glob
+    withholds it from the offered set and the deferred-tool catalogue, live, instead of offering it
+    and refusing every call. `IAgentConfig.isToolVisible` is the new seam.
+  - **MCP canonical names keep the whole `<server>__` prefix when truncated**, so a server glob still
+    names every tool of that server.
+- f336838: One permission evaluation order for every caller. The interactive session, background tasks and
+  subagents used to run two different resolvers, so the same call could be decided differently
+  depending on who made it. They now share `evaluatePermission`, and a background policy only adds a
+  ceiling, an ask-everything flag and the task's own lists to it:
+
+  deny → caller ceiling → unevaluable deny (ask) → never-auto-approve set (ask) → ask-everything →
+  bypassPermissions → allow → mode.
+
+  - **`ask` rules.** `permissions.ask` patterns always ask, in every mode including
+    `bypassPermissions`. They are matched per command like a deny rule, and are validated at
+    construction alongside `allow` and `deny`.
+  - **Never auto-approved, bypass included:** removing a critical path with `rm`/`rmdir` (the root, a
+    top-level directory, home, the working directory or a parent), and a modify-class write into
+    `.git`, the configured project-state directory, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a shell rc file.
+    Files inside an isolated worktree (`the configured project-state directory/worktrees/<name>/…`) are ordinary files. With no
+    approver attached, an ask is a denial.
+  - **A ceiling is checked before bypass and before any ask.** A subagent's `inherit-allowlist` ceiling
+    is now the parent's *effective* rules, read live at spawn: settings, preset lists and command
+    auto-allows. It used to be the raw settings file. An unevaluable deny under a policy now asks,
+    like everywhere else, where it used to deny outright; with no approver it is still a denial.
+  - **Settings layers union `permissions.allow`**, as they already did `deny`. A checked-in project
+    file no longer silently discards the user's allow list.
+  - **Print mode, `createQuery()` and headless sessions default to `default` mode**, not
+    `bypassPermissions`. They have no approver, so a call that would ask is denied. Pass
+    `--permission-mode` / `permissionMode: 'bypassPermissions'` explicitly for unattended runs.
+
+  **Breaking:**
+  - `@robota-sdk/agent-core` removes `resolvePermissionByPolicy` and `TPermissionPolicyDecision` in
+    favour of `projectPermissionPolicy` plus `evaluatePermission`'s new `context` argument.
+  - `@robota-sdk/agent-framework` changes the settings merge rule for `permissions.allow`, and the
+    default permission mode of `createQuery()` and headless sessions.
+- 34e50f0: A new permission mode, `auto`, lets a model classifier approve or block what would otherwise prompt.
+
+  - **What it decides:**
+    - Reads and in-workspace edits run as in `acceptEdits`.
+    - Commands and other calls the mode leaves open go to the classifier, a side call to the
+      session's own model. It sees the call, the working directory and the git remotes, never the
+      conversation.
+    - A block reaches the model with its reason, so it can take another route.
+  - **What still reaches a person, or is refused:**
+    - Deny rules and background ceilings apply first.
+    - `ask` rules, critical removals and protected paths ask a person.
+    - After 3 refusals in a row (blocks, or no usable verdict), or 20 blocks in the session, the
+      mode asks a person until one approves.
+      With no one to ask, the call is denied.
+  - **Allow rules:** in `auto` mode, allow rules that approve any command are set aside while the
+    mode is on. Examples are `Bash(*)`, an interpreter (`Bash(python *)`), a package runner
+    (`Bash(npm run *)`, `Bash(pnpm exec *)`), `Agent`, `ExecuteCommand` or `Computer`. Narrow
+    rules still apply.
+  - **Retry:** `/permissions` lists classifier blocks. `/permissions retry <n>` lets that exact call
+    run once, unjudged, when the model tries it again.
+  - **Turning it on and off:**
+    - `--permission-mode auto`, `/mode auto` or `/permissions auto`.
+    - An organization turns it off with `disableAutoMode` in the org policy.
+  - **New contracts:**
+    - `TPermissionMode` gains `'auto'`.
+    - `allowRulesForAutoMode` and `isBroadExecutionAllowRule`.
+    - `IPermissionClassifier` and `AutoModeGate`.
+    - The `permissionClassifier` session option.
+    - `Session.retryPermissionDenial`, and `retryDenial` on the permission-mode adapter.
+    - The `'classifier'` denial reason.
+    - `createModelPermissionClassifier`.
+    - The `disableAutoMode` option on `createSession` and `IOrgPolicy`.
+- 722e88a: Shell commands can run in an OS-level sandbox: bubblewrap on Linux and WSL2, Seatbelt on macOS.
+
+  - **Confinement:** covers the command and every process it starts.
+    - Writes are limited to the working directory, the temporary directories and
+      `sandbox.filesystem.allowWrite`.
+    - Agent, git-hook, MCP and shell configuration inside the workspace stays read-only.
+    - `sandbox.filesystem.denyRead` hides paths from the command.
+    - The network is on or off (`sandbox.network.enabled`).
+  - **Modes:** `/sandbox` switches between `auto-allow`, `regular` and `off` for the next command and
+    saves the choice.
+    - In `auto-allow` (`sandbox.autoAllowBashIfSandboxed`), a confined command runs without a prompt
+      in `default` and `acceptEdits`.
+    - Deny rules, ask rules, critical removals and plan mode still apply first.
+  - **Exclusions:** `sandbox.excludedCommands` run unconfined, through the ordinary permission path.
+  - **When the sandbox cannot run:** a missing or unusable backend is reported at startup, in
+    `robota doctor` and in `/sandbox`, and commands then run unconfined.
+    `sandbox.failIfUnavailable` refuses to start instead.
+  - **New contracts:**
+    - `OsSandboxClient`, `detectOsSandbox`, `bubblewrapArguments`, `seatbeltProfile`.
+    - `ISandboxClient.wrapCommand` and `autoApproves`.
+    - `IPermissionEvaluationContext.sandboxAutoApproved`.
+    - The `commandSandbox` session option.
+    - The `sandbox` settings key and the `sandbox` command host adapter.
+- a5cc36e: `/permissions` shows the rules the session enforces and the calls it refused.
+
+  - **Rules by source:** each allow, deny and ask rule the gate reads is listed under the settings file
+    that declares it. Rules added by a CLI flag, a preset or a command are listed under "this session".
+    A rule a settings file declares but the session does not enforce is not shown.
+  - **Recent denials:** the latest refused calls, most recent first, with the reason: a rule or the
+    mode, the user declining, or no one available to approve.
+  - New contracts: `Session.getRecentPermissionDenials()`, `PermissionEnforcer.getRecentDenials()`,
+    `IPermissionDenial`, the `permissionRules` host adapter (`createSettingsPermissionRulesAdapter`),
+    and `getPermissionRules` / `listRecentDenials` on `ICommandPermissionModeAdapter`. Settings
+    provenance now covers `permissions.ask`.
+- d23c848: Built-in read-only shell commands run without a prompt.
+
+  A Bash call is decided like a read, and runs without a prompt in every mode (`plan` included), when
+  every command in it comes from the fixed read-only set (`ls`, `cat`, `grep`, `find` without actions,
+  `git status`/`log`/`diff`/`show` and similar) and it also:
+
+  - stays inside the workspace: every path operand resolves inside once symlinks are followed, as
+    `Read` requires;
+  - uses only printable ASCII syntax that bash, zsh, fish and PowerShell all read the same way.
+
+  Deny and ask rules still apply first. A command that writes through a redirect, expands or
+  substitutes anything, or runs git outside the session's repository takes the ordinary path.
+
+  New exports: `isReadOnlyCommandLine` and `TResolveInWorkspace`. `IPermissionEvaluationContext`
+  gains `resolveInWorkspace`, which `PermissionEnforcer` supplies.
+- 3038eb7: A message from another session is instant messaging: text from an untrusted third party that
+  carries no authority. What the model does with it is decided by the session's ordinary permissions —
+  rules, permission mode and remembered consent — exactly like the session's own work. The per-origin
+  peer policy is gone.
+
+  **BREAKING**
+
+  - `agent-core`: `IPermissionEvaluationContext.peerTurn` is now a boolean. It decides only whether a
+    `repliesToPeer` tool exists; every other call in a peer turn is decided as in any turn. Removed:
+    `isToolAvailableInPeerTurn`, `isSecretPath`, `IPeerTurnAuthority`, `TPeerReach` (now exported by
+    `agent-interface-session-mobility`) and `IToolPermissionProfile.workspacePaths`.
+  - `agent-tools`: `Read` and `Glob` no longer declare `workspacePaths`.
+  - `agent-session`: `ISessionRunOptions.peerReach` is replaced by `peerTurn?: boolean`, and
+    `ISessionOptions.allowPeerChanges` is removed. An ask in a peer turn is answered like any other:
+    a consent the operator remembered answers it, and an "always allow" given there is remembered.
+  - `agent-interface-session`: `IPeerTurnContext` no longer has `reach`; it carries only the reply
+    route.
+  - `agent-interface-session-mobility`: `peerReachOf` is removed; `TPeerReach` moves here. A delegated
+    turn carries no reach.
+  - `agent-framework`: the `peers.allowChanges` setting is removed (an existing value is ignored). A
+    peer turn is offered the ordinary tools, plus `peer_reply`.
+
+  **Changes**
+
+  - `agent-framework`: the per-turn statement tells the model the message is an opinion from an
+    untrusted third party, not its owner's instruction, and that it decides for itself whether and how
+    to act. A message still expands no `@path` and attaches no context reference, and its requests
+    still carry no provider-hosted tool, since no permission step can decide one. The session takes
+    at most 6 messages a minute and 30 an hour from each sender for a turn; a message over the limit
+    is refused with a reason the sender receives. A prompt answer given in the name of a `peer:` or `external:`
+    driver is ignored. External-event turns keep their tool-less baseline.
+  - `agent-cli`: incoming peer turns carry only their reply route.
+- 02b7452: A reply to a peer session is decided by the permission system like any call that sends something
+  off this machine, and it goes only to the sender that was admitted.
+
+  - `agent-core` — a tool declaring `repliesToPeer` is still refused outside a peer turn; inside one it
+    is decided by the ordinary steps: deny, ask and allow rules, then the mode. It declares no risk
+    class, so it asks by default, is refused in plan mode and proceeds under bypass. `IPeerTurnAuthority`
+    no longer has `toolUsed`.
+  - `agent-session` — an "always allow" answer to the reply is remembered and answers later replies,
+    as for any tool; other asks in a peer turn still need a fresh approval each time.
+  - `agent-framework` — `peer_reply` asks the operator by default, showing the full text and the peer
+    it goes to; `permissions.allow`/`deny` rules naming `peer_reply` apply. `PeerMessageIngress`
+    refuses a message whose origin names a sender other than the admitted one, or whose admission names
+    no sender, and submits the turn with the admitted identity.
+  - `agent-cli` — a local peer message is taken as coming from the session it names only when that
+    session confirms, at its own socket, that it is sending exactly that message to this receiver.
+    The reply target, the driver id and the operator's notices come from the confirmed sender. A
+    session on an earlier version cannot confirm, so its messages are refused; both sessions need this
+    version to message each other.
+- e689c8e: Follow-ups to connection approval and `/handoff`.
+
+  - `agent-transport-webrtc-web` — the browser remote client says `Waiting for the host to approve this connection…`
+    (`awaiting-approval`) after pairing, and `Connected` only once the host's session answers. A host that closes the
+    channel instead is shown as `refused` and is not retried, since a retry would only ask the operator again; a
+    first connection lost before the host answered is `failed`. Reconnect attempts count until the host admits a
+    connection, so a link that keeps dropping while approval is pending gives up instead of asking again and again.
+  - `agent-core`, `agent-session`, `agent-framework` — a turn that did not come from the operator stores its
+    `turnSource` (`peer`, `external`, `agent-wakeup`) beside `driverId` on the user message and in the display
+    history (`IRunOptions.turnSource`), so a session handed off keeps where each turn came from.
+  - `agent-cli` — a `/handoff` resent after a lost confirmation reports what stays behind as it is now, not as it was
+    at the first attempt, and after refusing to resend a session that changed, the hand-off status shows that refusal
+    instead of the earlier lost confirmation.
+- c7f9203: Connected sessions can send each other files.
+
+  - `/peers send-file <session-id> <path>` sends a copy of any file the operator can read to another
+    live session on this host.
+  - The model sends a file only through the `peer_send_file` tool. Every call asks the user, showing
+    the path, size, hash and destination; no permission mode, rule or remembered consent answers it.
+    The tool reaches only files inside the workspace whose path does not look like it holds secrets
+    (`.env*`, `~/.ssh`, keys and credentials), and it does not exist in a turn a peer's message started.
+  - The receiving operator approves every file. A received file is kept as an inert copy (mode 0600)
+    under `the configured user data directory<sender>/`. It is never run and never placed in the model's context.
+    The conversation is told only its name, size and sha256. A name that leaves that directory is
+    refused, a symbolic link is never written through, and nothing is overwritten.
+  - Transfers travel on a channel of their own (a separate connection on this host, a separate data
+    channel between devices), in chunks the receiver paces, up to 32 MiB, and are kept only when the
+    whole content matches the offered sha256. A transfer that ends early is discarded; there is no
+    resume.
+
+  **API**
+
+  - `agent-interface-session-mobility`: the `file` capability, which asks the operator for every
+    request; `ConnectionAuthority.authorizeFile`; `IFileOffer` and `IFileFrameChannel`.
+  - `agent-transport/node`: `sendFileOverChannel` and `receiveFileOverChannel`, the carrier over any
+    `IFileFrameChannel`; `DEFAULT_MAX_FILE_BYTES`.
+  - `agent-transport-webrtc`: `IDeviceMeshLink.openFileChannel` and `onFileChannel`.
+  - `agent-remote-pairing`: `file` joins `DEVICE_CAPABILITIES`. A device certificate that names it is
+    refused as malformed by an earlier version.
+  - `agent-core`: `IToolPermissionProfile.notInPeerTurn` withholds a tool from a turn a peer's message
+    started.
+  - `agent-framework`: `ICommandLocalPeersAdapter.prepareFile`.
+- 18b52cc: Built-in commands are offered to the model deliberately, each described for the model, and never
+  with a trust, credential or permission-widening action.
+
+  - `agent-interface-command` — `ICommand` gains `modelDescription?` (what the model is told, beside the
+    short `/help` line), and `modelInvocable` on a subcommand entry now narrows what the model may run.
+  - `agent-framework` — `ISystemCommand` gains `modelDescription?` and `modelRequiresPermission?`.
+    Once any subcommand of a model-invocable command declares `modelInvocable`, the model may run only
+    the bare command and the subcommands declared `true`; everything else, including an alias or an
+    undeclared subcommand, is refused before the command runs. The model-facing descriptor lists only
+    that subset. A model-requested monitor's command is now decided by the shell tool's gate (its
+    Bash/Shell rules, the mode and the prompt) and a refusal rejects with the new
+    `MonitorCommandRefusedError`. The `scriptedSession` test harness accepts `permissions` patterns.
+  - `agent-session` — `Session.checkToolPermission(toolName, toolArgs)` decides an action that has a
+    tool's effect by another route: that tool's PreToolUse hooks, then the gate's rules, mode,
+    remembered consent and prompt — never the command sandbox's auto-approval, since the action does
+    not run inside the sandbox.
+  - `agent-framework` also: `ICommandMCPActivationAdapter.userActionSurface?` tells `/mcp` whether the
+    user can type a session command, so the model's status names the terminal sign-in otherwise.
+  - `agent-command` — `/context` (bare and `list`), `/cost` (the report, not `budget`) and `/mcp`
+    (`status` only, without a prompt) are now model-invocable; `/memory approve` and `/memory reject`
+    are now user-only; the model's `/monitor` is decided by the shell gate rather than by consent to
+    the command's name. Every model-invocable command carries a model-facing description. The model's
+    `/mcp status` shows only safe names, states and the command to suggest, and a caller that does not
+    identify itself gets that view. `/context list` accounts only for turns still in context. New
+    `mcpUserActionNotice`, `mcpUserActionCommand` and `mcpUnavailableServersNotice` build the fixed
+    notices.
+  - `agent-command-workflows` — `/workflows` carries a model-facing description.
+  - `agent-mcp` — `createDiscoveredTool` accepts `authFailureNotice`: a call the server refuses for
+    authentication returns that host text instead of the generic failure.
+  - `agent-cli` — an MCP server that did not start because the user must approve it, trust the
+    workspace or sign in is named to the model at the start of an interactive session with the
+    command to suggest, and a
+    signed-in OAuth server that refuses a call tells the model to suggest `/mcp login <server>` — or, in print and serve runs, the terminal
+    `robota mcp login <server>`.
+
+  A command whose bare form is a complete action declares `runsBare`, so choosing `/cost` or `/mcp`
+  from the autocomplete menu still runs it even though they now declare subcommands.
+- 9843fe6: Sign in to a remote MCP server from inside a session, and use its tools without restarting.
+
+  - **`/mcp login <server> [--no-browser]`** runs the same per-server OAuth sign-in as
+    `robota mcp login` (discovery checks, PKCE, `state`, RFC 9207 `iss`, RFC 8707 resource, the
+    loopback listener, the lock-guarded store). It opens the browser through the argv opener; with
+    `--no-browser`, or when no browser can be opened, it shows the authorization URL and asks for the
+    redirect URL in the session's own prompt (masked), held to the same rules as a pasted redirect in
+    the terminal. A failed, refused, timed-out or cancelled sign-in changes nothing and is reported by
+    a fixed reason only. `/mcp login <server> --client-secret` is refused: a secret is never typed into
+    a session, and `robota mcp login <server> --client-secret` is named instead (also after a failed
+    token exchange for a pre-registered client). `/mcp` stays user-only (`modelInvocable: false`).
+  - **Connected in the same session:** after a sign-in, a server that could not connect for want of
+    one goes through the normal admission (approval, fingerprint, trust) and connects, and its tools
+    are offered from the next message; a server that was already connected is admitted again and
+    reconnects, and its authenticator drops what it held and reads the new credential. A tool left out
+    because the session already has its name is reported, and only tools actually added get
+    provenance. In browser mode the authorization URL is shown in the session prompt before the
+    browser opens, where the user can also choose to paste the redirect instead or cancel.
+  - **`runMCPOAuthLogin`** takes `readRedirectWhenBrowserFails`: when `openBrowser` rejects, the
+    loopback listener stops and the pasted redirect is read instead, for the same redirect URI. The
+    loopback listener's time limit now runs from its first `wait()` — once the authorization page is
+    handed over — so time spent at a prompt before the browser opens does not count against it.
+  - **`Session.addTools`** (and `ICommandSessionTools.addTools`) offers tools that became usable
+    mid-session, through the same permission gate and — via `ISessionOptions.wrapAddedTools`, which
+    `createSession` sets — the same edit-checkpoint and reversible-execution wraps as the assembled
+    tools. A name the session already has is left out, never replaced. Calls are serialized, and tools
+    added while a turn runs are applied when the next turn starts, so a turn's rounds all see one
+    tool list and the prompt cache misses once, at that boundary.
+  - **Breaking (`agent-framework`, major):** `addTools` is a new required member of the
+    `ICommandSessionTools` role port (and so of `ICommandSessionRuntime`). A host that implements the
+    port itself must add it; one that passes an `agent-session` `Session` already has it.
+  - **`ICommandMCPActivationAdapter.oauthLogin`** (`ICommandMCPOAuthLoginRequest`,
+    `ICommandMCPOAuthLoginResult`, `ICommandMCPOAuthRedirectPrompt`) is the port behind it.
+  - The sign-in notice and `/mcp status` now suggest `/mcp login <server>` in a session and
+    `robota mcp login <server>` in a terminal; the server's name is shown only when it is safe to paste
+    into any shell, otherwise `<server>`.
+- 9f46375: A session can save a pending tool approval and answer it after it is reopened.
+  `Session.runRecoverable()` runs a prompt with a host-owned execution journal from
+  `@robota-sdk/agent-core`. When a tool call needs approval, it returns `waiting` with the saved
+  request (the exact action and its arguments) instead of asking a live approver.
+  `Session.resumeRecoverable()` takes the answer and continues that execution without adding another
+  user message; a session recreated with the same session ID, workspace, provider and model can do the
+  same. Ordinary `run()` keeps asking for approval live.
+
+  An approval covers only the action and arguments it was given; it never grants session-wide consent.
+  Current permissions, hooks and task restrictions are still checked when the tool runs, and a saved
+  denial holds even if the policy has since become more permissive. Reusing a response ID with
+  different content is refused.
+
+  While an execution waits, the session refuses new prompts. `Session.getPendingExecution()` returns
+  its `executionId` and saved requests, also after a cancellation that ended the turn once the wait
+  was saved. A resume refused before it continues, such as a stale response or a storage failure,
+  leaves the execution pending for another attempt; once it has continued, a later failure ends it
+  like an ordinary turn. `Session.abandonPendingExecution(executionId)` gives it up so the session
+  accepts new input: nothing runs and nothing is written to the journal, its open tool calls are
+  closed as failed in history, and that execution can no longer be resumed. The same journal also
+  records compaction's model call before history changes, and a journal write failure stays a failure
+  even when the turn is being cancelled.
+- 94b2c87: A PreToolUse `command` hook can now steer a tool call, not only refuse it. The permission gate
+  applies the winning `hookSpecificOutput.permissionDecision`:
+
+  - `allow` skips the prompt a person would otherwise get. Deny rules, refusals from the mode, the
+    `auto` mode classifier and asks that must reach a person (an `ask` rule, a protected path, a
+    policy that asks about everything) still apply.
+  - `ask` sends the call to a person even when the mode or a remembered consent would run it. The
+    answer is not remembered, and with no one to ask the call is refused.
+  - `defer` leaves the call to the normal flow, as before.
+
+  Before this change these decisions were read and then ignored.
+
+  `updatedInput` is still not applied: the call runs the input it was made with, and an `allow` sent
+  with an `updatedInput` is not applied either, since it approved another input.
+
+  `runHooks` (agent-core) now reads a decision and an `updatedInput` only from `command` hooks: a
+  `prompt` or `agent` hook answers from a model that reads the tool input it judges, so it can only
+  refuse. With several hooks, `ask` now outranks `defer` (`deny` > `ask` > `defer` > `allow`), and the
+  reported `updatedInput` is the one sent with the winning decision.
+- 04719a9: **A permission request names the tool call it is about.**
+
+  `IPermissionRequestEvent` gains an optional `executionId`: the same id the call's `tool_start` and
+  `tool_end` carry, so a surface can hold one row from the request to the call's end. The session's
+  permission path carries the call's id from the tool wrapper to the prompt (`IPermissionAskContext.executionId`)
+  and the framework's prompt registry stamps it on the event, so it reaches every client that receives
+  the event, the WebSocket and HTTP `permission_request` frames included. It is present whenever the
+  session reports that call (its own, or an in-process background agent's) and absent for a
+  child-process agent's forwarded request.
+
+  The ACP agent transport keys its permission rows by that id: the request's `toolCallId` is the
+  call's execution id, its start and end address the same row, a denial the session decides on its
+  own while the editor's dialog is open closes that one row, and two same-named calls each follow
+  their own row whatever order the editor answers in. A request that names no call gets a row that
+  closes with the answer, and is closed at the end of the turn if no answer came. The name-ordered
+  matching is gone.
+- 04a6de4: **Reasoning text a provider streams now reaches the editor as an ACP `agent_thought_chunk`, through a new `thinking_delta` session event.**
+
+  `IChatOptions.onThinkingDelta`, `IRunOptions.onThinkingDelta` and `IResumeExecutionOptions.onThinkingDelta`
+  (typed `TThinkingDeltaCallback`) carry reasoning text from a provider through the run, and the session
+  options (`ISessionOptions.onThinkingDelta`, `ICreateSessionOptions.onThinkingDelta`) hand it to the
+  session's owner. `InteractiveSession` emits it as `thinking_delta(delta)`, beside `text_delta`. The
+  text is never part of the reply: it is not appended to the conversation, not streamed through
+  `onTextDelta`, and the core adds no record of its own for it (no text-delta log entry, no
+  `provider_stream_raw_delta`); a provider's own native payload capture and response metadata keep
+  what the provider sent, as before. A reasoning delta counts as provider activity for the idle
+  timeout whether or not anyone listens to it, so a model that is only thinking is not cut off. The
+  existing `thinking(isThinking)` event is unchanged and remains the busy indicator. Where a provider
+  sends no reasoning text, nothing is emitted and nothing new is switched on.
+
+  `@robota-sdk/agent-interface-session` is a major change because a new session event name makes an
+  exhaustive map over the event names stop compiling until it classifies the event.
+
+  `@robota-sdk/agent-transport-acp` sends each non-empty `thinking_delta` to the editor as an
+  `agent_thought_chunk`, in order with the message chunks, so `robota acp` shows the model's reasoning
+  in the editor. A turn that streamed only thoughts still shows its result text, because only reply
+  text marks a turn as streamed. The WebSocket wire, the HTTP stream, headless stream-json, `query()`
+  and the terminal UI do not carry the new event in this change (`@robota-sdk/agent-transport` and
+  `@robota-sdk/agent-ui-terminal` classify it as non-surface). A forked skill and an in-process subagent
+  pass their reply text up but not their reasoning.
+
+  Two providers already receive reasoning text and now report it. `@robota-sdk/agent-provider-openai`
+  passes `response.reasoning_summary_text.delta` events of a streamed Responses call to
+  `onThinkingDelta`; the API sends them only when the provider profile asks for a reasoning summary, and
+  no request option changed; a summary streamed in several parts, and the summary of a later reasoning
+  item, each start on a new paragraph (`\n\n`) so the parts do not run together.
+  `@robota-sdk/agent-provider-openai-compatible` reports the text of Gemma's thought channel, which the
+  provider already removed from the reply, as it streams across chunk boundaries, with each later
+  channel of one reply on a new paragraph; the reply text is unchanged. No other provider reports
+  reasoning, and Anthropic thinking is not enabled. A model fallback chain still moves to the next model when only reasoning had streamed.
+
+  The scripted test provider (`@robota-sdk/agent-core/testing`) accepts an optional `thinking` string on
+  a turn and delivers it through `onThinkingDelta` before the turn's text; the scripted session harness
+  collects `thinking_delta` and now keeps a scripted tool-call turn's `usage`, which it used to drop.
+- 0ba247b: A tool result can now carry a view its source declared (an MCP app), and a surface can invoke a
+  runtime tool through the session's permission gate with a prompt. This is the contract and wiring
+  layer: nothing produces a view yet, and the GUI does not yet host one.
+
+  - `agent-core` — `IToolResult.view` carries an `IToolAppView` (source, `ui://` resource, mime type,
+    HTML, structured content, callable tools, the call's input). `view` is now a typed key of
+    `IToolResult`, so an extension that already used a `view` key with another type must rename it.
+    The view is display data: it never enters model context or the size that decides a spill, and a
+    result replaced by its reference keeps it.
+  - `agent-interface-session` — `invokeRuntimeTool` takes `permissionInteraction` (`'interactive'` or
+    the default `'deny'`), a `driverId` (a host that attributes prompts names it as the requester) and
+    an `executionId` its events carry. A finished model call's `tool_end` names its view with
+    `IToolState.appView` (`viewId`, source, resource), and the new
+    `ISessionToolAppViews.readToolAppView(viewId)` reads the document. A permission handler may take
+    `{ signal }`, and aborting it withdraws the prompt.
+  - `agent-session` — a direct call asks a person only when its caller says so, and the handler is
+    given the call's own signal; the tool end event carries the view, never in the logged result data.
+  - `agent-framework` — the view of a model's call is kept under a `viewId` the session mints, in a
+    bounded per-session store (16 views, 4 MiB each, 16 MiB in all, measured on the whole serialized
+    view), and read on demand, so the document never rides `tool_end` to every surface, never enters
+    the recorded history, and a repeated provider tool-call id cannot overwrite another turn's view.
+    A malformed view is dropped. A direct call keeps and names no view, recognised by the id it was
+    started with. A submission or agent wakeup that arrives while a direct call holds the session is
+    queued behind it, as during a turn, instead of refused. A direct call acting for a driver
+    attributes its permission prompt and tool events to that driver, and aborting its signal withdraws
+    an open prompt from every surface.
+  - `agent-transport` — a driving connection sends `call-app-tool` (answered by `app_tool_result`) and
+    `read-app-view` (answered by `app_view`). A call names its view and reaches only the tools that
+    view's source declared; a call or read that decodes but cannot be served answers `protocol_error`
+    echoing the `requestId`, while an observer's attempt is refused like any non-read. A call still
+    waiting on its prompt is cancelled when its connection goes away (for the resume bridge, when the
+    bridge is disposed). `maxFrameBytes` bounds an app answer to what a carrier's channel carries;
+    the WebRTC carrier uses a history page's worth. `IProtocolSession` now includes the runtime-tool
+    and app-view roles.
+  - `agent-ui-web` — the two new server messages are recorded as not rendered until the app-view host
+    consumes them.
+
+  An implementation of `IInteractiveSession` or `IProtocolSession` outside this repository must add
+  `readToolAppView` (and, for `IProtocolSession`, `listRuntimeTools` and `invokeRuntimeTool`); the
+  members are required so a host cannot silently lack them.
+- b078afa: Restore full-fidelity replay for session-log values externalized to content-addressed sidecar files.
+
+  `agent-session` now exports a bounded, containment- and integrity-checked recursive payload resolver,
+  hydrates JSONL logs at their read boundary, and rejects unresolved replay-substrate values during raw
+  validation. `agent-provider-replay` reuses that resolver for direct construction and file loading so
+  large recorded responses remain aligned with later calls.
+- b078afa: Preserve complete resumable session records when the raw Session writer re-saves them.
+
+  `IInteractiveSessionStore` is now the canonical persistence port, including its optional file-backed
+  record-path capability. `agent-session` consumes the canonical record and store contracts directly and
+  keeps its former type names only as compatibility re-exports.
+- 2ebff01: Complete the public session-log event vocabulary for every production writer/reader event and pass
+  the session-owned compaction trigger unchanged to PreCompact, PostCompact, logging, and callbacks.
+- 7d9cc66: Preserve an explicitly supplied host tool scheduling policy through session assembly and CLI presentation modes, retaining permission admission and conservative handling of undeclared resources.
+- 4b76cfa: NEUT-005 (wave 2): restore an actionable context-capacity hint at the surface tier, neutrally. The zero-dependency `agent-core` layer emits a product-neutral hard-capacity notice and exposes the `IAgentConfig.contextCapacityHint` seam (wave 1). This wave wires that seam end-to-end without baking product vocabulary into a neutral library:
+
+  - `agent-session`: `ISessionOptions.contextCapacityHint` is forwarded into the ConversationAgent config (`buildConversationAgent`), making the core seam reachable from the consuming layer.
+  - `agent-framework`: new `deriveContextCapacityHint(commandModules)` derives the concrete remediation wording from the surface's OWN registered command set (names a registered `compact` command → `"Run /compact and retry."`; `undefined` when none, leaving the neutral core default). It is applied automatically in interactive session assembly across the TUI, print, and `--serve` surfaces.
+  - `agent-cli`: the default command set registers `/compact`, so end users regain the actionable hint.
+  - `agent-interface-transport`: reworded the `'allow-project'` permission comment so it no longer hardcodes a storage path (the location is owned by the consuming layer), matching the `agent-session` twin.
+- fcb0da3: PAYLOAD-2153: make external-payload replay stable across Linux, macOS, and Windows.
+
+  - Add the domain-free `@robota-sdk/agent-file-authority` leaf with bounded, root-relative reads over retained native handles and a typed, path-safe refusal taxonomy.
+  - Route session replay and framework project reads through the shared authority while preserving their existing domain-specific budgets, integrity checks, and error mappings.
+  - Expose the canonical safe session-id predicate through the framework facade so CLI exact-session lookup stays within the SDK package boundary.
+  - Package the pinned native bridge in clean-installed Node CLI archives and exact-host standalone Bun binaries, refusing unsupported or mismatched targets before artifact mutation.
+- 9814afc: Type-SSOT convergence (TYPE-003; re-audit CONTRACT-002/003/011/012 + RUNTIME-47 + STRUCT-04). Behavior is unchanged — this is a type-level refactor. `ITokenUsage` (agent-core) is confirmed as the usage-triple SSOT: `ISessionUsageTotals` and `IBackgroundTaskUsage` become aliases, and every inline `{ promptTokens; completionTokens; totalTokens }` copy (service/orchestration/executor/remote-client shapes) now references the SSOT (structurally identical → patch). The subagent-job contracts derive from the background-task SSOT — `TSubagentJobStatus = Exclude<TBackgroundTaskStatus, 'paused'>`, mode alias, and a `Pick`-projection `ISubagentJobState` — with a compile-enforced parity test so a drifting hand copy can no longer exist. `@robota-sdk/agent-session` is minor because the public `ISessionRecord` type is now the typed `IInteractiveSessionRecord` alias (previously a relaxed `unknown[]` mirror): runtime behavior of `SessionStore` is identical, but downstream code that assigned loose payloads to the record's fields may need explicit casts at its own trust boundary (the framework store facade's `as unknown as` cast bridge is deleted). agent-session's duplicate `@robota-sdk/agent-core` deps/devDeps declaration is also removed (STRUCT-04).
+
+### Patch Changes
+
+- 5307f8a: Discriminate `IBackgroundTaskResult` by kind, the same way `TBackgroundTaskRequest` already is:
+  `exitCode`/`signalCode` exist only on the `process` member and `usage` only on the `agent` member,
+  instead of being optional-and-unreachable on every kind. `IBackgroundTaskResult<K>` narrows to the
+  kind-specific member; called with no type argument it is still the full union, which is what
+  `IBackgroundTaskState.result` continues to hold (that field stays undiscriminated — a later change).
+  `ISubagentJobResult` is now derived as `Omit<IBackgroundTaskResult<'agent'>, 'kind'>` rather than a
+  hand-maintained `Omit<IBackgroundTaskResult, 'kind' | 'exitCode' | 'signalCode'>`.
+
+  `IBackgroundTaskHandle` gains the same kind parameter as `IBackgroundTaskStart`: a runner declared
+  for kind `K` resolves its handle's `result` to `IBackgroundTaskResult<K>`, so a caller that starts a
+  known-kind runner gets a correctly-narrowed result with no cast, and reading a cross-kind field on it
+  is a compile error. Consumers reading `state.result` through the generic (kind-erased) manager or
+  task-state path are unaffected in behavior, but a `.exitCode`/`.signalCode`/`.usage` read there must
+  now narrow on the result's own `kind` first, since the fallback default keeps `IBackgroundTaskResult`
+  as the full union rather than the previously flat, always-present shape.
+
+  `agent-session`'s session-record decoder now rejects a persisted result carrying a field outside its
+  own kind (e.g. an `'agent'` result with `exitCode`) as corrupt, reported at that field's own path —
+  the same corruption-reporting style the taskId/kind identity check already uses.
+
+  **Breaking for `@robota-sdk/agent-interface-execution` and `@robota-sdk/agent-executor`**: code that
+  read `exitCode`/`signalCode`/`usage` off an unnarrowed `IBackgroundTaskResult`, or that implemented
+  `IBackgroundTaskHandle`/a custom runner without specifying its kind parameter, needs to narrow on
+  `result.kind` (or specify the kind parameter) before those fields are visible again.
+- b462ee7: Discriminate `IBackgroundTaskState` by kind, the same way `TBackgroundTaskRequest` and (as of the
+  prior change) `TBackgroundTaskResult` already are. Fields only one runner ever produces now live
+  only on that kind's member instead of being optional-and-cross-kind-reachable on every kind:
+
+  - `agent`-only: `agentType`, `isolation`, `resumeSessionId`, `promptPreview`, and the
+    worktree-isolation fields (`worktreePath`, `branchName`, `worktreeStatus`, `worktreeNextAction`,
+    `worktreeBaseRevision`, `parentWorktreeStatus`).
+  - `scheduled`-only: `schedule`, `nextFireAt`.
+  - Every kind except `agent`: `commandPreview` (a process command, an MCP tool-invocation summary, or
+    a schedule's shell command / wake instruction).
+  - `state.result` is now `IBackgroundTaskResult<K>` — correlated with `state.kind`, not the free
+    full-result union.
+
+  `pid`, `logPath`, and `transcriptPath` stay on the shared base rather than becoming agent- or
+  process-exclusive: the runner handle SPI already reports them for whichever runner's process
+  happens to produce them, and a subagent run via the worktree/child-process runner carries a `pid`
+  exactly as a `process`-kind task does. `timeoutReason` also stays base — session restore sets
+  `'stale_worker'` on any non-terminal, non-rearmable task regardless of kind, not only agent ones.
+
+  `IBackgroundTaskState<K>` narrows to the kind-specific member; called with no type argument it is
+  still the full union. The session-record decoder (`agent-session`) now rejects a persisted task
+  state carrying a field outside its own kind as corrupt, reported at that field's own path, the same
+  way it already rejects a `state.result` whose kind disagrees with `state.kind`.
+
+  **Breaking for `@robota-sdk/agent-interface-execution` and `@robota-sdk/agent-executor`**: code that
+  read a kind-specific field (e.g. `state.agentType`, `state.schedule`, `state.commandPreview`) off an
+  unnarrowed `IBackgroundTaskState` needs to narrow on `state.kind` first, since the fallback default
+  no longer carries every field on every kind. `agent-session`, `agent-framework`, and `agent-command`
+  land the corresponding narrowing at every read site the type change touched; no runtime behavior
+  changes there beyond the state decoder's new corruption checks.
+- 30e5e50: Reject background runner results whose task ID or kind differs from the task being completed, and report the same mismatch as corruption when decoding a persisted session record.
+- be0e53c: A tool instance shared by several sessions sends each call's span to the session that made the call.
+
+  - **Before:** each session set its event service on the shared instance, so the span went to whichever session had set it last.
+  - **`agent-core`:** `IToolExecutionContext` gains an optional `instanceEventService`. `FunctionTool` emits its span there when a call carries one.
+  - **`agent-session`:** the permission wrapper keeps its session's service and passes it with every call.
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+- 10597b2: Apply command-hook PreToolUse input rewrites only after every enforcing hook evaluates the final
+  input. Permission checks and tool execution share those arguments; rewrite cycles and replacements
+  that a delegated or already-settled action cannot apply are refused.
+- 2c612ba: Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- e706b43: Live telemetry can name its spans with the OpenTelemetry GenAI semantic conventions. Set
+  `PRODUCT_TELEMETRY_SEMCONV` to `gen_ai` to export `invoke_agent`, `chat {model}` (client) and
+  `execute_tool {tool}` spans with `gen_ai.*` attributes, keeping Robota-only facts as `agent.*`; or to
+  `gen_ai/dup` to emit both attribute sets while dashboards move. The default, `agent`, exports exactly
+  the spans it did before. An unknown value, or the setting while neither traces nor metrics are exported,
+  refuses startup. Console traces under a GenAI mode print the same projected spans.
+
+  The live prompt trace now carries each tool body's name (the session's tool-body observation includes it
+  and the framework's live projection passes a label-safe name through); it reaches spans only under a
+  GenAI mode and is never written to session history.
+- 60f3965: **`robota mcp serve --ask-client` puts a caller's permission and ask prompts to the calling MCP client through elicitation instead of failing them.**
+
+  `@robota-sdk/agent-transport-mcp`: `createMcpTransport`, `createMcpHttpHost`,
+  `createMcpRemoteHttpHost` and `createAgentMcpServer` take `askClient`. Off by default, every prompt
+  is a tool error as before. On, and when the client declared form-mode elicitation, a permission or
+  ask prompt raised by that client's own call is put to it: a permission offers allow once or deny
+  only, never a remembered grant; an ask becomes a form (choice, multiple choice, free text); a masked
+  ask is never sent; deny, decline, cancel, a client error or an answer naming nothing offered keeps
+  today's outcome. stdio asks during the call. The HTTP hosts keep no session state, so they ask only
+  a client on the 2026-07-28 revision, through input-required rounds whose `requestState` is a
+  single-use random token naming one parked call; a 2025-era HTTP client keeps the tool error.
+  A call listens for prompts only while its own work drives the session, so a submission waiting
+  in the queue never holds another caller's prompt that it cannot answer.
+  Breaking for hand-written sessions: `IMcpTransportSession` now also requires `ISessionEvents`
+  (`on`/`off`), `ISessionPromptResolution` (`resolvePermission`/`resolveAsk`) and
+  `ISessionDriverAttribution` (`getActiveDriverId`), which `InteractiveSession` and the published
+  test double already implement.
+
+  `@robota-sdk/agent-interface-session` / `@robota-sdk/agent-session` / `@robota-sdk/agent-framework`:
+  `ISessionRuntimeTools.invokeRuntimeTool` (and `Session.invokeRuntimeTool`) accept
+  `options.permissionInteraction` and `options.driverId`. A direct call still denies a decision that
+  would need a person, and finds no one to ask a question, unless its caller passes
+  `permissionInteraction: 'interactive'`; then it asks the session's permission handler and its
+  tools get the session's ask port. `InteractiveSession` makes `driverId` the active driver while
+  the direct call runs, so a prompt the call raises carries it as `requesterDriverId`. With
+  `askClient` on, an MCP call runs under its own `mcp:<n>` driver id; a submission made that way is
+  attributed to it rather than to the owner.
+
+  `@robota-sdk/agent-transport`: exports `permissionSummaryArgument`, the argument a person recognises
+  a tool call by (`filePath` for the built-in file tools), for every transport that puts a permission
+  request to a person in its own wire form.
+
+  `@robota-sdk/agent-cli`: `mcp serve --ask-client` turns this on for whichever carrier the run serves.
+- c207a31: Keep automatic compaction aligned with the active model and pending input, preserve provider usage when estimating new context, and keep summary text out of the response stream. Display live context changes and successful automatic compaction in the shared app interface.
+- 9b4f63b: Allow explicitly borrowed providers to outlive agent destruction and Session shutdown while keeping
+  owned providers as the default. Track replaced and removed provider cleanup, expose current provider
+  registrations after swapping, and hold Roundtable resource leases until runtime teardown finishes.
+  Borrowing does not permit concurrent provider use across leases.
+  Serialize manager lifecycle transitions so reinitialization cannot admit providers during pending teardown.
+- 4f3c075: Assemble complete, verified package generations before switching build output; preserve the previous generation on build failure and pack only verified regular-file images. Include copied CLI web assets in affected-build ordering and artifact transfer. Preserve the CLI version in managed build paths. Public runtime contracts remain compatible (patch).
+- 6085cad: CORE-031: a compaction with nothing to summarise no longer replaces the conversation
+
+  `Session.compact()` guarded on the FULL conversation and then compacted a DIFFERENT array — the same
+  history with system messages filtered out. So a conversation consisting only of system messages
+  passed the guard, reached the orchestrator empty, took its `return ''` shortcut, and came back as a
+  "summary" the caller wrote over the conversation: cleared, and replaced with an empty
+  `[Context Summary]` block.
+
+  The guard now tests the messages that will actually be compacted. Nothing to summarise is a no-op,
+  not a failure — the conversation is left exactly as found, no hook fires, no `context_compact` event
+  is written, and the provider is not called.
+
+  `CompactionOrchestrator.compact()` correspondingly throws `CompactionError` on an empty `history`
+  rather than returning `''`, which contradicted the contract two lines above it in its own docblock
+  ("always a non-empty string") and was the value that made the overwrite possible. Whether there is
+  anything worth compacting is the caller's judgement, made before it commits to replacing anything.
+
+  Reachable from the public SDK surface: `Session.injectMessage` is what `--resume` and `--fork` drive
+  on every restore.
+- 93d061d: CORE-043: structured output now knows which transport can carry the schema before the first call
+
+  `run(input, { output })` asked every provider for `responseFormat: { type: 'json_schema' }`. A
+  provider whose surface cannot express that accepted the option and dropped it — and the schema was
+  stated in words only by the RETRY feedback turn, which runs on attempt two. So against such a
+  provider, attempt one carried nothing describing the required shape and could only succeed by luck:
+  the advertised three attempts were really two, and the first was spent discovering something the
+  capability table already knew.
+
+  A `(provider, model)` pair now resolves to a mechanism (`response_schema` / `json_object` / `none`)
+  and a provenance (`catalog` / `vendor-default` / `undeclared` / `unverified-endpoint`), and the
+  request is shaped to match at the one seam that holds both the resolved provider and the outgoing
+  messages. When the wire cannot carry the shape, the schema is stated in the prompt on the FIRST
+  attempt. Each structured request emits a `structured_output_transport` event reporting what the
+  request actually did.
+
+  - `IAIProvider.endpointIsVendorDefault?()` — a provider configured with a custom `baseURL` reports
+    it, so the runtime stops claiming enforcement a gateway may not provide. Separate from
+    `capabilityTable?()` on purpose: `@robota-sdk/agent-provider-openai` declares no table (nobody has
+    verified one) and must still be able to answer.
+  - DeepSeek's capability table declared `json_schema`; DeepSeek guarantees the response PARSES but
+    takes no schema parameter. Corrected to `json_object`.
+  - A provider that declares nothing is still sent the request unchanged — silence is not a denial.
+- bed26ea: Fix: an in-flight autonomous `goal` is no longer lost on session resume. `fromSessionRecord` was a hand-enumerated field whitelist that omitted `goal` (while the write path persisted it), so the goal silently vanished on load. The read path is now a structural mirror of the write path (`{ ...session }`), so every persisted field — including `goal` — round-trips, and a future field cannot be dropped by omission (ARL-08 / DATA-006). `ISessionRecord` gains an opaque `goal?: unknown` for contract honesty.
+- bad976f: Persist turn and tool intent before effects, restore interrupted calls with unknown outcomes, reap owned foreground shell groups after owner death, and prune proven dead peer announcements.
+- 07b627f: A local peer can now be answered, and what its turn may do depends on where it runs.
+
+  - `agent-core`: the permission evaluator takes a peer turn's authority as one more input
+    (`IPermissionEvaluationContext.peerTurn`), decided after the deny list and ceiling and before
+    bypass and allow rules. A peer on another host uses no tool. A peer on the same host may use an
+    inspect-class tool that declares `workspacePaths`, only when every named location resolves inside
+    the workspace and is not a credential (`isSecretPath`); write and execute tools are refused unless
+    enabled, and then every use asks. A tool declaring `repliesToPeer` exists only in a peer turn and
+    asks once the turn used another tool. New: `isToolAvailableInPeerTurn`, `TPeerReach`,
+    `IPeerTurnAuthority`. `IRunOptions.withholdHostedTools` leaves a provider's hosted tools out of a
+    run's requests (`nativeWebTools` with `false` withholds a hosted tool for one call).
+  - `agent-tools`: `Read` and `Glob` declare the arguments that say where they look. `Grep` does not:
+    it reads files it was never named, so a peer turn does not get it.
+  - `agent-session`: `ISessionRunOptions.peerReach` makes a run a peer turn for the permission policy;
+    every ask in it needs a fresh approval, and its requests carry no provider-hosted tool. `ISessionOptions.allowPeerChanges` enables write and execute
+    tools for same-host peer turns.
+  - `agent-interface-session`: `ISubmitOptions.peer` (`IPeerTurnContext`) carries a peer turn's reach,
+    the message it answers and the session a reply goes to.
+  - `agent-interface-session-mobility`: `IPeerMessage.inReplyTo` threads a conversation;
+    `peerReachOf(admission)` maps admission to a reach.
+  - `agent-framework`: a peer turn is offered what its origin allows, and a new `peer_reply` tool
+    answers the peer that sent the message, threaded to it. The setting `peers.allowChanges` enables
+    write and execute tools for same-host peer turns.
+  - `agent-ui-terminal`: a permission prompt in a peer turn names the requesting peer.
+  - `agent-cli`: incoming peer turns carry their reach and reply route; a conversation is limited in
+    depth and in how often this session answers it, and a reply over a limit is not sent and the
+    operator is told.
+  - `agent-provider-anthropic`, `agent-provider-openai-compatible` (Qwen): a request whose
+    `nativeWebTools` sets a hosted tool to `false` is sent without it.
+- d0de5b2: A peer session's message now reaches the model as a peer's, and a peer turn runs on the external
+  baseline.
+
+  - `agent-core` marks every user message whose driver id starts with `peer:` as
+    `<peer_message from="…">…</peer_message>` in the outgoing request — both the round and the forced
+    summary — while the stored history keeps the text as sent. Wrapper-shaped text in user and tool
+    messages is escaped, and an id that is not a plain identifier is printed as `peer:unverified`.
+    New exports: `peerDriverOf`, `printablePeerDriver`.
+  - `agent-session`'s conversation transcript (compaction, advisor) labels a peer message with the same
+    printable id, so no rendering echoes a sender-chosen id that is not a plain identifier.
+  - `agent-framework` runs a `peer` turn like an `external` one — no tools (`toolChoice: 'none'`), no
+    `@path` expansion, no context references — and adds a per-turn system statement that the message
+    came from another session and carries no authority. A `peer` turn must carry a `peer:` driver id.
+- 7d9cc66: Retain typed resource and audio observations alongside structured tool results through history, durable receipts, recovery, size admission, and session persistence. Preserve opaque resource references without fetching them, project embedded text and explicit unsupported binary/audio diagnostics into provider requests and compaction transcripts, and validate persisted observation shapes on reload.
+- 7d9cc66: Retain registered tool source attribution in observations and preserve ordered outcome receipts independently of conversation summaries.
+- 7911a7d: Preserve pending execution discovery and input admission in atomic Session conversation snapshots.
+  Strict synchronous checkpoints now gate waiting, settlement and abandonment acknowledgment; failed saves
+  require checkpoint repair without repeating execution. Restore before framework queue and autonomous
+  input admission, and refuse unresolved conversation copies. Read v1/v2 session envelopes and write v2;
+  older readers preserve v2 as unsupported, so coordinate reader versions when rolling back.
+- ebd40a0: Harden on-disk log permissions against CWE-377 (SEC-003, CodeQL `js/insecure-temporary-file`).
+
+  Session logs, externalized session payloads, and OpenAI request/response payload logs all carry
+  conversation and prompt content, but were created with the process umask (typically `0644`) inside a
+  caller-supplied directory that may be shared or world-writable. They are now created owner-only
+  (`0600`), and the directories that hold them are created `0700`.
+
+  This is a permissions change only — file locations, names, formats, and APIs are unchanged. Anything
+  that read these logs as a _different_ OS user will no longer be able to; the owning user is
+  unaffected.
+- 7d9cc66: Retain mixed tool observations alongside structured results through live session events and history
+  display. The shared app renderer previews inline raster images and keeps resource URIs inert, with
+  explicit diagnostics for unsupported media instead of silently dropping it.
+- 7d9cc66: Retain registered attribution on refused and interrupted call receipts without replacing the source of actual or recovered settlements, and project undispatched registered calls into live and restored presentation history.
+- Updated dependencies [9c19c50]
+- Updated dependencies [7b6234c]
+- Updated dependencies [5307f8a]
+- Updated dependencies [b462ee7]
+- Updated dependencies [37b4bd7]
+- Updated dependencies [4eea54b]
+- Updated dependencies [1698be4]
+- Updated dependencies [d4189b9]
+- Updated dependencies [9edae52]
+- Updated dependencies [4078a72]
+- Updated dependencies [4c73a0b]
+- Updated dependencies [196a900]
+- Updated dependencies [f336838]
+- Updated dependencies [34e50f0]
+- Updated dependencies [722e88a]
+- Updated dependencies [d23c848]
+- Updated dependencies [3038eb7]
+- Updated dependencies [02b7452]
+- Updated dependencies [e689c8e]
+- Updated dependencies [ec5e477]
+- Updated dependencies [c7f9203]
+- Updated dependencies [7b72344]
+- Updated dependencies [6ae3f28]
+- Updated dependencies [be0e53c]
+- Updated dependencies [57f57f5]
+- Updated dependencies [ba822c1]
+- Updated dependencies [6e6b06b]
+- Updated dependencies [8bd5fac]
+- Updated dependencies [57280bf]
+- Updated dependencies [5033dd9]
+- Updated dependencies [18c0d5c]
+- Updated dependencies [dbd888d]
+- Updated dependencies [1887e54]
+- Updated dependencies [9f46375]
+- Updated dependencies [41cca13]
+- Updated dependencies [ada3841]
+- Updated dependencies [5093a30]
+- Updated dependencies [94b2c87]
+- Updated dependencies [3ab2eca]
+- Updated dependencies [e8d70ac]
+- Updated dependencies [2c612ba]
+- Updated dependencies [66af868]
+- Updated dependencies [60f3965]
+- Updated dependencies [115e104]
+- Updated dependencies [04719a9]
+- Updated dependencies [04a6de4]
+- Updated dependencies [0ba247b]
+- Updated dependencies [6f41c53]
+- Updated dependencies [fec722f]
+- Updated dependencies [2d3b2c0]
+- Updated dependencies [4772067]
+- Updated dependencies [9fbab1b]
+- Updated dependencies [a009f5b]
+- Updated dependencies [c207a31]
+- Updated dependencies [9b4f63b]
+- Updated dependencies [4f3c075]
+- Updated dependencies [475e085]
+- Updated dependencies [e477440]
+- Updated dependencies [9dcb5da]
+- Updated dependencies [a95ca85]
+- Updated dependencies [b6d14ce]
+- Updated dependencies [0382a51]
+- Updated dependencies [93d061d]
+- Updated dependencies [39554a1]
+- Updated dependencies [d28430a]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [df02568]
+- Updated dependencies [fcb0da3]
+- Updated dependencies [07b627f]
+- Updated dependencies [d0de5b2]
+- Updated dependencies [9c6a8db]
+- Updated dependencies [dfb9b15]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7911a7d]
+- Updated dependencies [d6b9404]
+- Updated dependencies [5783499]
+- Updated dependencies [62663ae]
+- Updated dependencies [9c6a8db]
+- Updated dependencies [23a30cd]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [9814afc]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [02053ec]
+  - @robota-sdk/agent-interface-execution@3.0.0
+  - @robota-sdk/agent-core@3.0.0
+  - @robota-sdk/agent-interface-session@3.0.0
+  - @robota-sdk/agent-file-authority@3.0.0
+
 ## 3.0.0-beta.106
 ### Patch Changes
 

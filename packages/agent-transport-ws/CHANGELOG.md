@@ -1,5 +1,324 @@
 # @robota-sdk/agent-transport-ws
 
+## 3.0.0
+### Major Changes
+
+- e82215f: **ARCH-011: replace the ambiguous transport lifecycle stub with executable conformance.**
+
+  `ITransportAdapter` now requires a frozen `service | runner` lifecycle descriptor. `start()` resolves
+  at the concrete transport's documented readiness boundary; start before attach and repeated active
+  start reject a stable lifecycle error, repeated stop is safe, and stopped adapters can reattach and
+  restart.
+
+  Runner adapters launch separately and expose a typed terminal outcome through
+  `waitForCompletion()`. The registry accepts base adapters, rejects duplicate names, keeps
+  configuration as an optional capability, returns complete ordered records whose pending slots become
+  registry-owned `abandoned` outcomes on stop/rollback, and exposes a real-runner-only first-failure
+  wait. It serializes startup/stop, rejects active restart before mutation, and reverses partial startup
+  from the currently failing adapter with typed safe rollback details. Runtime host and serve mode
+  propagate real nonzero runner results without treating normal shutdown abandonment as failure.
+
+  HTTP, MCP, both WebSocket adapters, WebRTC, and headless invoke one shared public conformance kit.
+  The former `TuiTransport` export is removed because it ignored the attached session; use `renderApp`
+  or `TuiInteractionChannel`, which honestly own their session lifecycle.
+
+### Minor Changes
+
+- 6ae3f28: A served runtime can list its workspace's sessions, start a new one and switch to another without the
+  process or any client connection restarting. The GUI shows them in a sessions sidebar.
+
+  - `agent-interface-session` is **`major`** for two reasons:
+    - It adds `ISessionListing`, `ISessionDirectory` and `ISessionSwitchedEvent`.
+    - `IInteractiveSessionEvents` gains a required `session_switched` event. An exhaustive map over the
+      event names stops compiling until it classifies the new event.
+  - `agent-transport` is **`major`** for the same kind of reason:
+    - It adds the wire messages `list-sessions` → `sessions`/`sessions_error`, `new-session`,
+      `switch-session`, and the broadcast `session_switched`.
+    - It adds a `sessionDirectory` handler option. A refusal to switch comes back as a
+      `protocol_error` carrying the reason.
+    - An exhaustive map over message types must add the new variants.
+  - `agent-transport-ws` passes a configured `sessionDirectory` to every connection.
+  - `agent-framework` is **`major` because `IRuntimeHostHandle.session` is now a `SessionSlot`**, not the
+    `InteractiveSession`, and `bindTransports` receives the slot.
+    - The slot is an `IInteractiveSession` that forwards to the current session. Members outside that
+      interface are read through `host.session.current`, which changes on a switch.
+    - Adds `InteractiveSession.whenInitialized()`.
+    - Exports `listUnreadableSessions`.
+  - `agent-ui-web` is **`major`**:
+    - `IWsSessionState` gains session listing state and actions.
+    - It adds a `SessionSidebar`.
+    - `/resume` opens the sidebar.
+  - `agent-cli`: `robota --serve` provides the session directory, and refuses a switch that would lose
+    work in progress. External-event grants belong to the run: a switch reopens them on the new session,
+    as the TUI already does.
+  - External-event grant history (spent tokens, rate windows, revocations) belongs to the run. The new
+    option `externalEventGrantHistory` (from `createExternalEventGrantHistory()`) is shared by every
+    session that a served runtime or the TUI builds. A session switch therefore replays no spent token
+    and resets no rate limit. The TUI previously had this gap when it switched sessions.
+- 57f57f5: A daemon keeps several sessions live, and each client is bound to its own: one client's switch moves
+  only that client.
+
+  - `agent-interface-session`: `ISessionBinder`/`ISessionBinding`, the session-change refusal codes with
+    `isSessionChangeRefusal`, and listing rows that may say `live` and `clients`.
+  - `agent-framework`: `SessionPool` and `SessionChangeRefusal`.
+  - `agent-transport` (**major**): a new server frame, `session_change_failed`, which an exhaustive
+    consumer must handle. A refused `new-session` or `switch-session` now answers with it, carrying a
+    `code`, instead of `protocol_error`; both requests take an optional `requestId` that it echoes.
+  - `agent-transport-ws`: the `sessionBinder` option binds each connection to its own session and
+    releases the binding when the connection closes.
+  - `agent-cli`: `robota --serve` and the daemon keep up to four sessions live. Each WebSocket client and
+    attached terminal is bound to its own session; leaving a busy session is no longer refused, and only
+    the last driver of a session with a pending prompt is kept from leaving it. Grants and the supervised
+    name stay on the runtime's first session, and its reported activity covers every live session.
+  - `agent-ui-web`: a refused new or switch shows the host's reason as a notice (an older host's
+    `protocol_error` still does); the session sidebar marks live sessions and counts the other clients
+    on each; after a reconnect to a host that keeps sessions live, the GUI returns to the session it was on.
+  - `agent-ui-terminal`: an attached terminal shows why a switch was refused, and the picker's switch
+    stays pending until the host answers; the session picker marks live sessions and their clients.
+- 9db63ee: Add named session capability roles and explicit capability-host queries while preserving the legacy
+  `IInteractiveSession` interface shape. HTTP, MCP, protocol, WS, WebRTC, and headless transports now
+  declare only the session roles they consume, and the direct aggregate-cast floor is zero.
+- 2ebff01: Emit the complete persisted checkpoint and branch lifecycle, forward plan, context-refresh, and
+  branch events through protocol transports, and render deterministic bounded notices in the TUI.
+  Transport-owned delivery failures now enter the owning carrier cleanup lifecycle without reversing
+  an already-committed session operation.
+- 5c5ff23: TRANS-001: payload-agnostic transport — opaque binary frames + consumer-declared event types
+
+  The WS transport now carries **arbitrary payloads** alongside the text-agent protocol on one
+  connection, instead of forcing every app-level payload through the `text_delta`/`submit` wire
+  protocol.
+
+  - `agent-interface-transport` adds the channel contracts (`IBinaryFrame`, `IChannelEventFrame`,
+    `IChannelDescriptor`, `IPayloadChannel`, `IPayloadChannelHost`, `TChannelEventMap`,
+    `TChannelFrame`, `TChannelReceiveResult`). Content-neutral carrier mechanics — no payload domain.
+  - `agent-transport-protocol` adds the pure channel frame codec (`encodeBinaryFrame`,
+    `encodeChannelEventFrame`, `decodeChannelFrame`, `isChannelFrame`). `TClientMessage` /
+    `TServerMessage` are unchanged.
+  - `agent-transport-ws` becomes a carrier that routes by WebSocket frame opcode — TEXT to the
+    text-agent protocol profile, BINARY to consumer-declared channels — and `WsTransport` now
+    implements `IPayloadChannelHost` (`registerChannel`). `PayloadChannelRegistry` is exported.
+
+  Additive only: existing transports, consumers, and the agent wire protocol are untouched.
+
+### Patch Changes
+
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+- 2c612ba: Release the migrated Robota product with its public SDK namespace, robota command, compatible SDK exports, internal product configuration, and verified CLI startup and delivery corrections.
+- 235da81: **BREAKING — ARCH-030: `createWsHandler` takes the carrier's delivery boundary, not a raw `send`.**
+
+  `createWsHandler` had two outbound semantics on one connection. The session-event fan-out went through
+  a guard that reported carrier failures through `onDeliveryError`; every reply to an inbound frame got
+  the raw `send`. Eleven reply families were unguarded — five resolving from a Promise continuation, so a
+  reply landing after a disconnect escaped as an **unhandled rejection** while the carrier's cleanup was
+  never notified, and six synchronous ones that threw into the carrier's inbound listener instead.
+
+  `IWsHandlerOptions` now takes a single `deliver: TOutboundDeliver` in place of `send` and
+  `onDeliveryError`. **The carrier builds the boundary** from its own sink and its own failure policy and
+  passes it down — not the reverse, because a protocol layer handed a raw sink so it can hand a wrapper
+  back leaves the raw sink reachable, which is how the twelfth reply family gets added unguarded.
+
+  ```ts
+  // before
+  const { onMessage, cleanup } = createWsHandler({
+    session,
+    send: (msg) => ws.send(JSON.stringify(msg)),
+    onDeliveryError: (error) => ws.close(1011, error.message),
+  });
+
+  // after
+  const deliver = createOutboundDelivery(
+    (msg) => ws.send(JSON.stringify(msg)),
+    (error) => ws.close(1011, error.message),
+  );
+  const { onMessage, cleanup } = createWsHandler({ session, deliver });
+  ```
+
+  `TOutboundDeliver` is branded and `createOutboundDelivery` is its only producer, so a plain
+  `(message: TServerMessage) => void` is refused by the compiler wherever a boundary is required.
+
+  **The boundary latches:** it reports at most one delivery failure per connection, after which frames are
+  dropped without a further report. All three carriers already treated a delivery failure as terminal and
+  each had grown its own latch; it belongs upstream of all three. `SessionResumeBridge` builds a fresh
+  boundary per `attach`, which is what un-latches the session after a reconnect, and buffers a frame
+  before the boundary so a dropped one still replays.
+
+  **`ISubscribeSessionEventsOptions` is no longer exported** from the package barrel. It is the options bag
+  of `subscribeSessionEvents`, which is package-internal, and it was already absent from the SPEC's public
+  API table. Its `onDeliveryError` member is gone regardless — carrier-failure containment is the
+  boundary's job now.
+
+  `agent-transport-ws` and `agent-transport-webrtc` are `patch`: `WsSessionDelivery` (whose raw `send` is
+  now private, with `deliver` the only public sink) and `PairingGate` are not on their packages' barrels,
+  and every barrel export of both packages keeps its signature.
+- 4f3c075: Assemble complete, verified package generations before switching build output; preserve the previous generation on build failure and pack only verified regular-file images. Include copied CLI web assets in affected-build ordering and artifact transfer. Preserve the CLI version in managed build paths. Public runtime contracts remain compatible (patch).
+- 94cc355: REMOTE-002 Stage A: extract the transport-neutral session bridge + wire protocol into a new
+  `@robota-sdk/agent-transport-protocol` package (`createWsHandler`, `TClientMessage`/`TServerMessage`); repoint
+  `agent-transport-ws` and `agent-web-ui` at it (no pass-through re-export). Add a new
+  `@robota-sdk/agent-transport-webrtc` package: a `WebRtcTransport` (`IConfigurableTransport`, `defaultEnabled:false`)
+  that carries an `IInteractiveSession` over an `RTCDataChannel` reusing the shared handler, with a lazily-loaded
+  optional `werift` peer dependency that throws an explicit "WebRTC transport unavailable" error on absence (never a
+  silent no-op). No user-facing enable path and no auth in Stage A (that lands in Stage B); the transport is proven
+  by an in-process loopback data-channel round-trip only.
+
+  (Bump target corrected during REL-023 triage: `@robota-sdk/agent-web-ui` was dissolved by GUI-006 (#1141, 2026-07-12) before this work was ever published; its protocol-consumer role now lives in `@robota-sdk/agent-transport-webrtc-web`.)
+- 9c6a8db: The wire protocol gained several request/reply pairs so a GUI never has to scrape command output for
+  data it can read directly.
+
+  `get-settings`/`update-settings` read and write the Settings screen; a patch applies through the same
+  function its matching slash command uses, so the two paths cannot drift. `list-models` returns the
+  configured models grouped by provider profile, with the current profile and model. `get-agent-definitions`
+  returns the agent switcher's roster and current selection. `project-status`, `project-diff` and
+  `project-memory` back the Project panel's git status, one file's diff, and project memory; a host
+  without this capability answers `protocol_error` instead of hanging. `rename-session` and
+  `delete-session` rename or remove a stored session from the list, current or not, each with its own
+  success/failure reply.
+
+  The `messages` frame gained an optional `display` field — the same history projected into display
+  segments (text runs and finished tool calls, diffs included) — and the connection's own `driverId`, so
+  a reload, reconnect or resume shows tool rows and tells a co-driver's turns from its own. The `error`
+  frame gained optional `code`, `provider`, `retryAfterSeconds` and `model` fields so a renderer can say
+  what kind of failure happened (`auth`, `rate_limit`, `model_unavailable`, `network`, `provider`) instead
+  of showing only raw text; a session error this classification does not recognize is unchanged.
+
+  `TCommandSurfaceLocality` names whether a `'remote'`-sourced command is provably on this machine. The
+  WebRTC/device-mesh transport now forwards `'remote'` for it (it proves no locality, the same rule
+  already applied to pairing), and both the WS and WebRTC transports forward it into the Settings
+  read/write path, so a command that refuses a remote surface (installing a plugin) refuses identically
+  regardless of which transport carried it.
+- Updated dependencies [7b6234c]
+- Updated dependencies [37b4bd7]
+- Updated dependencies [4eea54b]
+- Updated dependencies [50d2c9f]
+- Updated dependencies [3c81769]
+- Updated dependencies [724fabb]
+- Updated dependencies [d877de2]
+- Updated dependencies [d61e159]
+- Updated dependencies [bfe8ed5]
+- Updated dependencies [1698be4]
+- Updated dependencies [a5961c9]
+- Updated dependencies [d4189b9]
+- Updated dependencies [9edae52]
+- Updated dependencies [4078a72]
+- Updated dependencies [4c73a0b]
+- Updated dependencies [196a900]
+- Updated dependencies [f336838]
+- Updated dependencies [34e50f0]
+- Updated dependencies [722e88a]
+- Updated dependencies [d23c848]
+- Updated dependencies [3038eb7]
+- Updated dependencies [02b7452]
+- Updated dependencies [e689c8e]
+- Updated dependencies [ec5e477]
+- Updated dependencies [c7f9203]
+- Updated dependencies [7b72344]
+- Updated dependencies [6ae3f28]
+- Updated dependencies [be0e53c]
+- Updated dependencies [57f57f5]
+- Updated dependencies [ba822c1]
+- Updated dependencies [6e6b06b]
+- Updated dependencies [8bd5fac]
+- Updated dependencies [57280bf]
+- Updated dependencies [5033dd9]
+- Updated dependencies [18c0d5c]
+- Updated dependencies [dbd888d]
+- Updated dependencies [1887e54]
+- Updated dependencies [9f46375]
+- Updated dependencies [41cca13]
+- Updated dependencies [9a01e78]
+- Updated dependencies [ada3841]
+- Updated dependencies [5093a30]
+- Updated dependencies [94b2c87]
+- Updated dependencies [3ab2eca]
+- Updated dependencies [e8d70ac]
+- Updated dependencies [2c612ba]
+- Updated dependencies [66af868]
+- Updated dependencies [3427887]
+- Updated dependencies [c967c57]
+- Updated dependencies [fef3a50]
+- Updated dependencies [60f3965]
+- Updated dependencies [115e104]
+- Updated dependencies [04719a9]
+- Updated dependencies [04a6de4]
+- Updated dependencies [0ba247b]
+- Updated dependencies [6f41c53]
+- Updated dependencies [4c5148e]
+- Updated dependencies [0116a29]
+- Updated dependencies [fec722f]
+- Updated dependencies [e82215f]
+- Updated dependencies [52b7346]
+- Updated dependencies [9db63ee]
+- Updated dependencies [b078afa]
+- Updated dependencies [2ebff01]
+- Updated dependencies [9db63ee]
+- Updated dependencies [2ebff01]
+- Updated dependencies [2d3b2c0]
+- Updated dependencies [4772067]
+- Updated dependencies [0f98419]
+- Updated dependencies [64ba748]
+- Updated dependencies [9fbab1b]
+- Updated dependencies [d312755]
+- Updated dependencies [a009f5b]
+- Updated dependencies [c207a31]
+- Updated dependencies [9b4f63b]
+- Updated dependencies [3244fb8]
+- Updated dependencies [1e3f91a]
+- Updated dependencies [4f3c075]
+- Updated dependencies [475e085]
+- Updated dependencies [e477440]
+- Updated dependencies [9dcb5da]
+- Updated dependencies [a95ca85]
+- Updated dependencies [b6d14ce]
+- Updated dependencies [0382a51]
+- Updated dependencies [93d061d]
+- Updated dependencies [39554a1]
+- Updated dependencies [d28430a]
+- Updated dependencies [7669851]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [df02568]
+- Updated dependencies [4b76cfa]
+- Updated dependencies [07b627f]
+- Updated dependencies [d0de5b2]
+- Updated dependencies [9c6a8db]
+- Updated dependencies [9c6a8db]
+- Updated dependencies [dfb9b15]
+- Updated dependencies [9665c6e]
+- Updated dependencies [44393be]
+- Updated dependencies [c7fa299]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [5134b3b]
+- Updated dependencies [7911a7d]
+- Updated dependencies [d6b9404]
+- Updated dependencies [62663ae]
+- Updated dependencies [23a30cd]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [5c5ff23]
+- Updated dependencies [9814afc]
+- Updated dependencies [7d9cc66]
+- Updated dependencies [02053ec]
+- Updated dependencies [9c6a8db]
+  - @robota-sdk/agent-core@3.0.0
+  - @robota-sdk/agent-interface-session@3.0.0
+  - @robota-sdk/agent-interface-transport@3.0.0
+  - @robota-sdk/agent-transport@3.0.0
+  - @robota-sdk/agent-interface-analytics@3.0.0
+
 ## 3.0.0-beta.106
 ### Patch Changes
 
