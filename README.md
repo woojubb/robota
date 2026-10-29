@@ -314,11 +314,10 @@ Full documentation lives at **[docs.robota.io](https://docs.robota.io/en/)**.
 This repository holds the Robota agent SDK, providers, transports, the CLI, and related
 apps (desktop app, browser remote client, docs site, marketing site, blog).
 
+The `/workflows` command uses a separately maintained workflow library bundled into the CLI.
+
 Some workspace packages are **private** and never published to npm on their own:
 
-- The **DAG / workflow subsystem** (`packages/dag-*`, `packages/dag-nodes/*`,
-  `packages/agent-command-workflows`). It is bundled into `@robota-sdk/agent-cli`, which publishes as
-  a self-contained bundle, and reaches users through the `/workflows` command.
 - The **GUI** packages (`agent-ui-web`, `agent-gui-web`, `agent-transport-webrtc-web`) behind the
   desktop app, `robota --serve --open`, and the browser remote client.
 - `agent-provider-replay`, a provider that replays a recorded session for offline tests.

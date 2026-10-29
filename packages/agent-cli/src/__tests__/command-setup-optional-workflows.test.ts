@@ -1,7 +1,7 @@
 import { createTestProductRuntime } from './helpers/product-runtime.js';
 /**
  * INFRA-028: `/workflows` is bundled into the self-contained agent-cli. The command module comes from
- * `@robota-sdk/agent-command-workflows`, which is compiled into `dist` (no runtime resolution), so the
+ * `@robota-sdk/workflows/command`, which is compiled into `dist` (no runtime resolution), so the
  * command is ALWAYS registered — both in the monorepo and in a published/packed install.
  *
  * ARCH-005 S2: `buildCommandSetup` now returns the product-shell MATERIALS rather than the final module

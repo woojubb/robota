@@ -1,7 +1,6 @@
 ---
 '@robota-sdk/agent-framework': patch
 '@robota-sdk/agent-subagent-runner': patch
-'@robota-sdk/agent-command-workflows': patch
 ---
 
 A subagent and a fork-context skill now start in the permission mode their parent is in at that

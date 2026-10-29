@@ -99,7 +99,7 @@ through `ICommandHostAdapters`.
    overridden, and the shell reports it (`Capability … was not composed`).
 4. `selectProductCommandModules()` (`src/product/runtime-plumbing.ts`) applies the preset's
    `enabledCommandModules` / `disabledCommandModules` to that merged set, then appends the fixed
-   modules the preset never filters: `/workflows` from `@robota-sdk/agent-command-workflows` and any
+   modules the preset never filters: `/workflows` from `@robota-sdk/workflows/command` and any
    `commandModules` a caller passed to `startCli()`.
 
 Preset module names that match nothing are reported by `reportUnknownPresetModules()` before

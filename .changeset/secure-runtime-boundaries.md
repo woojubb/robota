@@ -5,7 +5,6 @@
 '@robota-sdk/agent-transport-acp': patch
 '@robota-sdk/agent-transport-http': patch
 '@robota-sdk/agent-transport-webrtc': patch
-'@robota-sdk/dag-framework': patch
 ---
 
 Harden file, HTTP, relay, hosted-runtime, editor, and native path boundaries against resource exhaustion, short writes, path races, and integer narrowing.

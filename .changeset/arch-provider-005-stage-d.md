@@ -1,8 +1,6 @@
 ---
 '@robota-sdk/agent-interface-transport': minor
 '@robota-sdk/agent-framework': minor
-'@robota-sdk/dag-node-skill': minor
-'@robota-sdk/dag-nodes-default': patch
 ---
 
 Provider DIP Stage D (ARCH-PROVIDER-005): invert the skill node's dependency on the

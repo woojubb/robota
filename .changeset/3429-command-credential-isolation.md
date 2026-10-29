@@ -4,8 +4,6 @@
 '@robota-sdk/agent-command': patch
 '@robota-sdk/agent-tools': minor
 '@robota-sdk/agent-subagent-runner': patch
-'@robota-sdk/dag-node-instant-node': minor
-'@robota-sdk/agent-command-workflows': patch
 ---
 
 Credentials the runtime holds for itself no longer reach the commands it runs.

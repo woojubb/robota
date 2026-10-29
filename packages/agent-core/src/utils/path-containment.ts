@@ -11,9 +11,7 @@
  * server. Both now decide containment here, because two containment checks that can disagree are
  * their own defect.
  *
- * Every security-boundary containment check in the repo routes through here — the `agent-*` family
- * and the `dag-*` family alike. The DAG side is not a cross-family exception: `dag-framework`
- * declares `@robota-sdk/agent-core` in its runtime dependencies.
+ * Security-boundary containment checks use this shared implementation.
  */
 import { accessSync, constants, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'node:path';
