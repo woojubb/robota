@@ -1,5 +1,10 @@
 # @robota-sdk/agent-cli
 
+## 3.0.1
+### Patch Changes
+
+- 3c5221b: Restore consistent stable package and desktop delivery after the incomplete 3.0.0 publication.
+
 ## 3.0.0
 ### Major Changes
 
