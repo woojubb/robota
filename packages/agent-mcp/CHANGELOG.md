@@ -1,10 +1,5 @@
 # @robota-sdk/agent-mcp
 
-## 3.0.1
-### Patch Changes
-
-  - @robota-sdk/agent-core@3.0.1
-
 ## 3.0.0
 ### Major Changes
 

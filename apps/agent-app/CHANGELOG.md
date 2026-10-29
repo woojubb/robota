@@ -1,11 +1,5 @@
 # @robota-sdk/agent-app
 
-## 3.0.1
-### Patch Changes
-
-- 3c5221b: Restore consistent stable package and desktop delivery after the incomplete 3.0.0 publication.
-  - @robota-sdk/product-config@3.0.1
-
 ## 3.0.0
 ### Minor Changes
 
