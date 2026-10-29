@@ -8,6 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import ts from 'typescript';
+import { satisfies } from 'semver';
 import { parseDocument, stringify, visit as visitYaml } from 'yaml';
 import { embeddedProductIdentity, embeddedProductRuntimeDefaults, productConfigEntries, publicProductConfig } from '../../packages/product-config/src/index.ts';
 
@@ -748,7 +749,7 @@ async function connectExternalWorkflowPeers(sourceRoot, outputDirectory, package
       throw new Error(`Workflow peer ${peer} is not linked to a generated SDK workspace.`);
     }
     const targetManifest = JSON.parse(await readFile(path.join(outputDirectory, link.slice(5), 'package.json'), 'utf8'));
-    if (targetManifest.name !== productName || !workflow.peerDependencies[peer].split(/\s*\|\|\s*/u).includes(targetManifest.version)) {
+    if (targetManifest.name !== productName || !satisfies(targetManifest.version, workflow.peerDependencies[peer])) {
       throw new Error(`Workflow peer ${peer} does not match the generated SDK name and supported version.`);
     }
     const specifier = `workspace:${productName}@*`;
