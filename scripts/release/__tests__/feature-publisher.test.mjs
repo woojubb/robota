@@ -25,28 +25,134 @@ test('reads public native evidence without inheriting tokens or following redire
   }
 });
 
-test('Feature publishing stays release-only behind native publication with only scoped package write', () => {
+test('Feature publication joins same-source npm and native completion before scoped writes', () => {
   const workflow = parse(
     readFileSync(
-      new URL('../../../.github/workflows/release-bun-binaries.yml', import.meta.url),
+      new URL('../../../.github/workflows/release-feature.yml', import.meta.url),
       'utf8',
     ),
   );
-  const job = workflow.jobs['publish-devcontainer-feature'];
   expect(workflow.permissions).toEqual({ contents: 'read' });
+  expect(workflow.on.workflow_run).toEqual({
+    workflows: ['Release — Bun binaries', 'Publish to npm'],
+    types: ['completed'],
+  });
+  const join = workflow.jobs.prerequisites;
+  const condition = Function('github', `return (${join.if.slice(3, -2)});`);
+  const context = (conclusion, event, repository) => ({
+    repository: 'owner/repo',
+    event: { workflow_run: { conclusion, event, head_repository: { full_name: repository } } },
+  });
+  expect(condition(context('success', 'push', 'owner/repo'))).toBe(true);
+  for (const item of [
+    ['failure', 'push', 'owner/repo'],
+    ['success', 'pull_request', 'owner/repo'],
+    ['success', 'push', 'other/repo'],
+  ])
+    expect(condition(context(...item))).toBe(false);
+  const script = join.steps.find((step) => step.id === 'join').with.script;
+  expect(script).toContain("completed('release-bun-binaries.yml'), completed('publish.yml')");
+  expect(script).toContain('run.head_sha === sha');
+  expect(script).toContain("npm.head_branch !== 'main'");
+  expect(script).toContain('receipts.length !== 1');
+  expect(script).toContain('object.sha !== sha');
+  expect(script).toContain('if (!/^[0-9A-Za-z._+-]+$/');
+  const job = workflow.jobs['publish-devcontainer-feature'];
   expect(job.permissions).toEqual({ contents: 'read', packages: 'write' });
-  expect(job.needs).toEqual(['build-bun', 'publish-bun']);
-  const condition = Function('github', 'needs', 'cancelled', `return (${job.if.slice(3, -2)});`);
-  for (const event of ['push', 'workflow_dispatch', 'pull_request']) {
-    for (const result of ['success', 'failure', 'cancelled', 'skipped']) {
-      expect(condition({ event_name: event }, { 'publish-bun': { result } }, () => false)).toBe(
-        event !== 'pull_request' && result === 'success',
-      );
-    }
-  }
-  expect(
-    condition({ event_name: 'push' }, { 'publish-bun': { result: 'success' } }, () => true),
-  ).toBe(false);
+  expect(job.needs).toBe('prerequisites');
+  expect(job.if).toBe("needs.prerequisites.outputs.ready == 'true'");
+  expect(job.steps.find((step) => step.uses === 'actions/checkout@v7').with.ref).toBe(
+    '${{ needs.prerequisites.outputs.tag }}',
+  );
+});
+
+test('Feature prerequisites admit only matching completed release evidence', async () => {
+  const workflow = parse(
+    readFileSync(
+      new URL('../../../.github/workflows/release-feature.yml', import.meta.url),
+      'utf8',
+    ),
+  );
+  const script = workflow.jobs.prerequisites.steps.find((step) => step.id === 'join').with.script;
+  const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
+  const execute = new AsyncFunction('github', 'context', 'core', script);
+  const sha = 'a'.repeat(40);
+  const run = async ({
+    native = true,
+    npm = true,
+    mismatch = false,
+    tag = 'v1.0.0',
+    receipts = 1,
+    nativeOverride = {},
+    npmOverride = {},
+  } = {}) => {
+    const output = {};
+    const good = (id, head_branch) => ({
+      id,
+      head_sha: sha,
+      head_branch,
+      event: 'push',
+      head_repository: { full_name: 'owner/repo' },
+    });
+    const github = {
+      rest: {
+        actions: {
+          listWorkflowRuns: async ({ workflow_id }) => ({
+            data: {
+              workflow_runs:
+                workflow_id === 'publish.yml'
+                  ? npm
+                    ? [{ ...good(2, 'main'), ...npmOverride }]
+                    : []
+                  : native
+                    ? [{ ...good(1, 'release'), ...nativeOverride }]
+                    : [],
+            },
+          }),
+          listWorkflowRunArtifacts: async () => ({
+            data: {
+              artifacts: Array.from({ length: receipts }, () => ({
+                name: `npm-release-${tag}`,
+                expired: false,
+              })),
+            },
+          }),
+        },
+        git: {
+          getRef: async () => ({
+            data: { object: { type: 'commit', sha: mismatch ? 'b'.repeat(40) : sha } },
+          }),
+        },
+      },
+    };
+    await execute(
+      github,
+      {
+        repo: { owner: 'owner', repo: 'repo' },
+        payload: { workflow_run: { head_sha: sha }, repository: { full_name: 'owner/repo' } },
+      },
+      {
+        info: () => {},
+        setOutput: (key, value) => {
+          output[key] = value;
+        },
+      },
+    );
+    return output;
+  };
+  expect(await run()).toMatchObject({ ready: 'true', tag: 'v1.0.0', native_run: 1 });
+  expect(await run({ native: false })).toEqual({ ready: 'false' });
+  expect(await run({ npm: false })).toEqual({ ready: 'false' });
+  for (const nativeOverride of [
+    { head_sha: 'b'.repeat(40) },
+    { head_repository: { full_name: 'other/repo' } },
+    { event: 'pull_request' },
+  ])
+    expect(await run({ nativeOverride })).toEqual({ ready: 'false' });
+  expect(await run({ npmOverride: { head_branch: 'other' } })).toEqual({ ready: 'false' });
+  await expect(run({ mismatch: true })).rejects.toThrow('differs');
+  await expect(run({ tag: '../bad' })).rejects.toThrow('Invalid release tag');
+  await expect(run({ receipts: 2 })).rejects.toThrow('one successful npm release receipt');
 });
 
 import assert from 'node:assert/strict';
