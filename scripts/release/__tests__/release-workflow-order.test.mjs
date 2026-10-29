@@ -20,6 +20,11 @@ const codeql = readWorkflow('codeql.yml');
 const image = readWorkflow('release-image.yml');
 const publish = readWorkflow('publish.yml');
 const tagging = readFileSync(new URL('release-tag-on-version-bump.yml', root), 'utf8');
+function requiredStepIndex(steps, name) {
+  const index = steps.findIndex((step) => step.name === name);
+  if (index < 0) throw new Error(`Required release step missing: ${name}`);
+  return index;
+}
 
 it.each([
   {
@@ -139,7 +144,19 @@ it('independently builds installers from a bound tag with separate release concu
   expect(desktop.concurrency.group).toContain('desktop-assets-');
   expect(native.concurrency.group).toContain('native-assets-');
   const steps = desktop.jobs.desktop.steps;
-  const index = (name) => steps.findIndex((step) => step.name === name);
+  const index = (name) => requiredStepIndex(steps, name);
+  for (const required of [
+    'Bind published installers to protected main history',
+    'Validate configured release tag',
+    'Exercise the packaged runtime',
+  ]) {
+    expect(() =>
+      requiredStepIndex(
+        steps.filter((step) => step.name !== required),
+        required,
+      ),
+    ).toThrow('Required release step missing');
+  }
   expect(index('Bind published installers to protected main history')).toBeLessThan(
     index('Install dependencies'),
   );

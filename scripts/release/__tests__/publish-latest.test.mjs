@@ -69,11 +69,11 @@ function makeFixture({ failure = '', trusted = false } = {}) {
     globalThis.fetch = async (url) => {
       const name = decodeURIComponent(String(url)).split('/').slice(-2).join('/');
       const mode = process.env.FIXTURE_REGISTRY_MODE || 'missing';
-      if (mode === 'forbidden' || (mode === 'missing' && name.endsWith('cedar-new'))) return { ok: false, status: mode === 'forbidden' ? 403 : 404 };
+      if (mode === 'forbidden' || (mode === 'mixed' && name.endsWith('cedar-new')) || (mode === 'missing' && name.endsWith('cedar-new'))) return { ok: false, status: mode === 'missing' ? 404 : 403 };
       const records = fs.readFileSync(process.env.PACK_RECORD, 'utf8').trim().split('\\n').map(JSON.parse);
       const item = records.find(entry => entry.name === name);
       const integrity = mode === 'conflict' ? 'sha512-other' : 'sha512-' + item?.sha512;
-      return {ok: true, status: 200, json: async () => ({ versions: mode === 'unpublished' ? {} : { '${version}': {dist: {integrity}} } }) };
+      return {ok: true, status: 200, json: async () => ({ versions: ['unpublished', 'mixed'].includes(mode) ? {} : { '${version}': {dist: {integrity}} } }) };
     };
   `,
   );
@@ -263,7 +263,7 @@ it('refuses trusted publication when a package has never been published', () => 
   expect(result.records).toEqual([]);
 });
 
-it.each(['forbidden', 'conflict'])(
+it.each(['forbidden', 'conflict', 'mixed'])(
   'refuses trusted %s registry evidence before any write',
   (registryMode) => {
     const result = run(makeFixture({ trusted: true }), { registryMode });

@@ -83,6 +83,8 @@ test('Feature prerequisites admit only matching completed release evidence', asy
     mismatch = false,
     tag = 'v1.0.0',
     receipts = 1,
+    nativeOverride = {},
+    npmOverride = {},
   } = {}) => {
     const output = {};
     const good = (id, head_branch) => ({
@@ -100,10 +102,10 @@ test('Feature prerequisites admit only matching completed release evidence', asy
               workflow_runs:
                 workflow_id === 'publish.yml'
                   ? npm
-                    ? [good(2, 'main')]
+                    ? [{ ...good(2, 'main'), ...npmOverride }]
                     : []
                   : native
-                    ? [good(1, 'release')]
+                    ? [{ ...good(1, 'release'), ...nativeOverride }]
                     : [],
             },
           }),
@@ -141,6 +143,13 @@ test('Feature prerequisites admit only matching completed release evidence', asy
   expect(await run()).toMatchObject({ ready: 'true', tag: 'v1.0.0', native_run: 1 });
   expect(await run({ native: false })).toEqual({ ready: 'false' });
   expect(await run({ npm: false })).toEqual({ ready: 'false' });
+  for (const nativeOverride of [
+    { head_sha: 'b'.repeat(40) },
+    { head_repository: { full_name: 'other/repo' } },
+    { event: 'pull_request' },
+  ])
+    expect(await run({ nativeOverride })).toEqual({ ready: 'false' });
+  expect(await run({ npmOverride: { head_branch: 'other' } })).toEqual({ ready: 'false' });
   await expect(run({ mismatch: true })).rejects.toThrow('differs');
   await expect(run({ tag: '../bad' })).rejects.toThrow('Invalid release tag');
   await expect(run({ receipts: 2 })).rejects.toThrow('one successful npm release receipt');
