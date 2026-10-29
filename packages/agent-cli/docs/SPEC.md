@@ -236,7 +236,7 @@ launch commands here.
 ### Self-contained bundle
 
 `@robota-sdk/agent-cli` publishes a self-contained bundle for its supported CLI entry points,
-independent of sibling packages' publish state: build-time modules those paths need (including the vendored `@robota-sdk/workflows` runtime) are compiled into `dist`, declared as
+independent of sibling packages' publish state: build-time modules those paths need (including the pinned `@robota-sdk/workflows` runtime) are compiled into `dist`, declared as
 `devDependencies` only, so the published package's runtime `dependencies` contain zero `@robota-sdk`
 packages — `npm install @robota-sdk/agent-cli` never resolves an `@robota-sdk` sibling. `/workflows`
 is always bundled and present; its local runtime uses a fixed base node catalog plus saved instant
