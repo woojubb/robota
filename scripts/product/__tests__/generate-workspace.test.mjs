@@ -299,6 +299,51 @@ describe('generated workspace package remapping', () => {
     expect(rewriteContent('vitest.config.ts', 'const inline = /@robota-sdk\\/workflows/;', new Map(), '@cedar')).toContain('@robota-sdk\\/workflows');
   });
 
+  it('retains an exact registry workflow snapshot and connects its SDK peers', async () => {
+    const root = await temporaryRoot();
+    const source = await tinyCommittedSource(root);
+    const peers = ['agent-core', 'agent-tools'];
+    for (const peer of peers) {
+      await mkdir(path.join(source, 'packages', peer));
+      await writeFile(path.join(source, 'packages', peer, 'package.json'), JSON.stringify({ name: `@robota-sdk/${peer}`, version: '3.0.0' }));
+    }
+    const cliPath = path.join(source, 'packages/agent-cli/package.json');
+    const cli = JSON.parse(await readFile(cliPath, 'utf8'));
+    cli.devDependencies = { '@robota-sdk/workflows': '0.0.1' };
+    await writeFile(cliPath, JSON.stringify(cli));
+    const suffix = '0.0.1(@robota-sdk/agent-core@packages+agent-core)(@robota-sdk/agent-tools@packages+agent-tools)';
+    const key = `/@robota-sdk/workflows@${suffix}`;
+    const integrity = `sha512-${createHash('sha512').update('registry fixture').digest('base64')}`;
+    const snapshot = { resolution: { integrity }, peerDependencies: Object.fromEntries(peers.map((name) => [`@robota-sdk/${name}`, '~3.0.0'])), dependencies: Object.fromEntries(peers.map((name) => [`@robota-sdk/${name}`, `link:packages/${name}`])) };
+    const sourceLock = { lockfileVersion: '6.0', importers: { 'packages/agent-cli': { devDependencies: { '@robota-sdk/workflows': { specifier: '0.0.1', version: suffix } } } }, packages: { [key]: snapshot, '/unrelated@1.0.0': { resolution: { integrity } } } };
+    await writeFile(path.join(source, 'pnpm-lock.yaml'), stringify(sourceLock));
+    execFileSync('git', ['-C', source, 'add', '.']);
+    const config = resolveTestConfig({ scope: '@cedar', displayName: 'Cedar' });
+    const generate = (outDir) => generateWorkspaceFromConfig({ sourceRoot: source, outDir: path.join(root, outDir), config, publicConfig: publicProductConfig(config), embeddedIdentity: embeddedProductIdentity(config) });
+    await generate('registry');
+    const output = path.join(root, 'registry');
+    const actual = JSON.parse(await readFile(path.join(output, 'packages/agent-cli/package.json'), 'utf8'));
+    const lock = parseDocument(await readFile(path.join(output, 'pnpm-lock.yaml'), 'utf8')).toJSON();
+    expect(actual.devDependencies['@robota-sdk/workflows']).toBe('0.0.1');
+    expect(actual.devDependencies['@robota-sdk/agent-core']).toBe('workspace:@cedar/agent-core@*');
+    expect(lock.packages[key]).toEqual(snapshot);
+    expect(lock.packages['/unrelated@1.0.0']).toEqual({ resolution: { integrity } });
+    expect(lock.importers['packages/agent-cli'].devDependencies['@robota-sdk/workflows']).toEqual({ specifier: '0.0.1', version: suffix });
+    expect(JSON.parse(await readFile(path.join(output, '.product/external-workflow.json'), 'utf8'))).toMatchObject({ package: '@robota-sdk/workflows', version: '0.0.1', integrity });
+    snapshot.resolution.integrity = 'invalid';
+    await writeFile(path.join(source, 'pnpm-lock.yaml'), stringify(sourceLock));
+    await expect(generate('bad-integrity')).rejects.toThrow('integrity');
+    snapshot.resolution.integrity = integrity;
+    await writeFile(path.join(source, 'packages/agent-core/package.json'), JSON.stringify({ name: '@robota-sdk/agent-core', version: '3.1.0' }));
+    await writeFile(path.join(source, 'pnpm-lock.yaml'), stringify(sourceLock));
+    await expect(generate('bad-sdk')).rejects.toThrow('supported version');
+    cli.devDependencies['@robota-sdk/workflows'] = '^0.0.1';
+    sourceLock.importers['packages/agent-cli'].devDependencies['@robota-sdk/workflows'].specifier = '^0.0.1';
+    await writeFile(cliPath, JSON.stringify(cli));
+    await writeFile(path.join(source, 'pnpm-lock.yaml'), stringify(sourceLock));
+    await expect(generate('unlocked-version')).rejects.toThrow('exact locked version');
+  });
+
   it('connects external workflow peers to generated workspaces in the frozen lockfile', async () => {
     const root = await temporaryRoot();
     const source = await tinyCommittedSource(root);
