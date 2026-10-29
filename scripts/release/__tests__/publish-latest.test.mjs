@@ -74,8 +74,10 @@ function makeFixture({ failure = '', trusted = false } = {}) {
       const item = records.find(entry => entry.name === name);
       const integrity = mode === 'conflict' ? 'sha512-other' : 'sha512-' + item?.sha512;
       const bad = name.endsWith('cedar-new');
-      const time = mode === 'no-history' || options?.headers?.accept !== 'application/json' ? undefined : mode === 'empty-history' && bad ? {} : { created: '2025-01-01T00:00:00.000Z', modified: '2026-01-01T00:00:00.000Z', '1.0.0': mode === 'invalid-time' && bad ? 'not-a-date' : '2025-01-01T00:00:00.000Z', ...(mode === 'historic' && bad ? { '${version}': '2026-03-20T00:00:00.000Z' } : {}), ...(!['unpublished', 'mixed', 'historic', 'no-history', 'empty-history', 'malformed-versions', 'invalid-time'].includes(mode) ? { '${version}': '2026-01-01T00:00:00.000Z' } : {}) };
-      const versions = mode === 'malformed-versions' && bad ? null : { '1.0.0': { dist: { integrity } }, ...(!['unpublished', 'mixed', 'historic', 'no-history', 'empty-history', 'malformed-versions', 'invalid-time'].includes(mode) ? { '${version}': { dist: { integrity } } } : {}) };
+      const missingTarget = ['unpublished', 'mixed', 'historic', 'no-history', 'empty-history', 'malformed-versions', 'invalid-time', 'normalized-time'].includes(mode);
+      const versionTime = mode === 'invalid-time' && bad ? 'not-a-date' : mode === 'normalized-time' && bad ? '2025-02-30T00:00:00.000Z' : '2025-01-01T00:00:00.000Z';
+      const time = mode === 'no-history' || options?.headers?.accept !== 'application/json' ? undefined : mode === 'empty-history' && bad ? {} : { created: '2025-01-01T00:00:00.000Z', modified: '2026-01-01T00:00:00.000Z', '1.0.0': versionTime, ...(mode === 'historic' && bad ? { '${version}': '2026-03-20T00:00:00.000Z' } : {}), ...(!missingTarget ? { '${version}': '2026-01-01T00:00:00.000Z' } : {}) };
+      const versions = mode === 'malformed-versions' && bad ? null : { '1.0.0': { dist: { integrity } }, ...(!missingTarget ? { '${version}': { dist: { integrity } } } : {}) };
       return {ok: true, status: 200, json: async () => ({ versions, time }) };
     };
   `,
@@ -282,7 +284,7 @@ it('skips already published trusted tarballs only when their integrity matches',
   expect(result.output).toContain('already published with matching integrity');
 });
 
-it.each(['historic', 'no-history', 'empty-history', 'malformed-versions', 'invalid-time'])(
+it.each(['historic', 'no-history', 'empty-history', 'malformed-versions', 'invalid-time', 'normalized-time'])(
   'refuses trusted %s registry version history before any write',
   (registryMode) => {
     const result = run(makeFixture({ trusted: true }), { registryMode });

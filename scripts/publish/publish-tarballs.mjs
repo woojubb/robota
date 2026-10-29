@@ -42,7 +42,7 @@ await concurrently(packages, 6, async (pkg) => {
   if (!response.ok) throw new Error(`${pkg.name}: registry preflight returned ${response.status}; first publication requires owner setup.`);
   const metadata = await response.json();
   const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
-  const validTime = (value) => typeof value === 'string' && Number.isFinite(Date.parse(value));
+  const validTime = (value) => typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
   if (!isRecord(metadata) || !isRecord(metadata.time) || !isRecord(metadata.versions) ||
       !validTime(metadata.time.created) || !validTime(metadata.time.modified) ||
       Object.keys(metadata.versions).length === 0 ||
