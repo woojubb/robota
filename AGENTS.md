@@ -22,7 +22,7 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
   does, when to use it, what it returns) and a deliberate, tested choice of model invocation: what the model should
   run on its own is model-invocable and described so it is picked at the right moment. Trust, credential and
   permission-widening actions stay user-only; a failure that needs such an action names the command to suggest.
-- `develop` → `main` promotion, version bumps and npm publish: [.agents/skills/release](.agents/skills/release/SKILL.md).
+- One release PR from `develop` to `main`, version bumps and npm publish: [.agents/skills/release](.agents/skills/release/SKILL.md).
 
 ## Checks
 

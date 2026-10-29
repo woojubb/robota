@@ -1,9 +1,8 @@
 name: Release — Desktop app
 
 on:
-  workflow_run:
-    workflows: ['Release — Bun binaries']
-    types: [completed]
+  push:
+    tags: ['**']
   workflow_dispatch:
     inputs:
       product_env:
@@ -23,7 +22,7 @@ permissions:
   contents: write
 
 concurrency:
-  group: ${{ github.event.inputs.verify_only == 'true' && 'verify-release-assets-' || 'release-assets-' }}${{ github.event.inputs.tag || github.event.workflow_run.head_branch || github.ref_name }}
+  group: ${{ github.event.inputs.verify_only == 'true' && 'verify-release-assets-' || 'desktop-assets-' }}${{ github.event.inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -32,10 +31,7 @@ jobs:
     timeout-minutes: 60
     env:
       PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
-    if: >-
-      ${{ github.event.inputs.verify_only != 'true' && (github.event_name != 'workflow_run'
-        || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
-          && github.event.workflow_run.head_repository.full_name == github.repository)) }}
+    if: github.event.inputs.verify_only != 'true'
     strategy:
       fail-fast: false
       matrix:
@@ -55,7 +51,7 @@ jobs:
         id: tag
         shell: bash
         env:
-          INPUT_TAG: ${{ github.event.inputs.tag || github.event.workflow_run.head_branch }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
           REF_NAME: ${{ github.ref_name }}
         run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
 
@@ -69,7 +65,6 @@ jobs:
         shell: bash
         env:
           TAG: ${{ steps.tag.outputs.tag }}
-          UPSTREAM_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           set -euo pipefail
           if [[ ! "$TAG" =~ ^[0-9A-Za-z._+-]+$ ]]; then
@@ -84,10 +79,6 @@ jobs:
             echo "::error::Published installers require a reviewed commit on protected main history."
               exit 1
             fi
-          if [ "$GITHUB_EVENT_NAME" = workflow_run ] && [ "$tag_commit" != "$UPSTREAM_SHA" ]; then
-            echo "::error::The native release source does not match the selected tag."
-            exit 1
-          fi
 
       - name: Checkout release tooling
         uses: actions/checkout@v7
@@ -148,23 +139,6 @@ jobs:
             echo "::error::The selected tag must use the configured PROJECT_RELEASE_TAG_PREFIX."
             exit 1
           fi
-
-      - name: Require the native release before publishing installers
-        shell: bash
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GH_REPO: ${{ github.repository }}
-          TAG: ${{ steps.tag.outputs.tag }}
-        run: |
-          set -euo pipefail
-          names=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || true)
-          required="${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-arm64 ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-darwin-x64 ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-linux-arm64 ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-linux-x64 ${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}-windows-x64.exe SHA256SUMS.txt"
-          for name in $required; do
-            if ! printf '%s\n' "$names" | grep -Fqx "$name"; then
-              echo "::error::Native release asset $name is missing. Run release-bun-binaries.yml for $TAG before retrying installers."
-              exit 1
-            fi
-          done
 
       - name: Verify Windows native control transport
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
@@ -315,7 +289,9 @@ jobs:
           MANIFEST: release/SHA256SUMS-desktop-${{ matrix.os }}.txt
         run: |
           set -euo pipefail
-          gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1 || gh release create "$TAG" --repo "$GH_REPO" --title "$TAG" --notes-file "$NOTES"
+          gh release view "$TAG" --repo "$GH_REPO" >/dev/null 2>&1 || \
+            gh release create "$TAG" --repo "$GH_REPO" --title "$TAG" --notes-file "$NOTES" || \
+            gh release view "$TAG" --repo "$GH_REPO" >/dev/null
           # `# reason`, not `-- reason`: shellcheck cannot PARSE the `--` form, and a directive it
           # shellcheck disable=SC2086 # $ASSETS is an intentional multi-pattern glob list.
           gh release upload "$TAG" --repo "$GH_REPO" $ASSETS "$MANIFEST" --clobber
@@ -337,7 +313,7 @@ jobs:
       - name: Resolve release tag
         id: tag
         env:
-          INPUT_TAG: ${{ github.event.inputs.tag || github.event.workflow_run.head_branch }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
           REF_NAME: ${{ github.ref_name }}
         run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
 
@@ -394,7 +370,7 @@ jobs:
       - name: Resolve release tag
         id: tag
         env:
-          INPUT_TAG: ${{ github.event.inputs.tag || github.event.workflow_run.head_branch }}
+          INPUT_TAG: ${{ github.event.inputs.tag }}
           REF_NAME: ${{ github.ref_name }}
         run: echo "tag=${INPUT_TAG:-$REF_NAME}" >> "$GITHUB_OUTPUT"
 
