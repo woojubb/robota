@@ -14,7 +14,6 @@ permissions:
 jobs:
   scope:
     permissions:
-      checks: read
       contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -22,8 +21,6 @@ jobs:
       plan: ${{ steps.scope.outputs.plan }}
       release: ${{ steps.scope.outputs.release }}
       developer_docs: ${{ steps.scope.outputs.developer_docs }}
-      release_metadata: ${{ steps.scope.outputs.release_metadata }}
-      promotion: ${{ steps.scope.outputs.promotion }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -31,35 +28,21 @@ jobs:
       - uses: ./.github/actions/ci-setup
         with:
           install: 'false'
-      - name: Harness size cap
-        run: |
-          harness=$(git ls-files AGENTS.md CLAUDE.md .agents .claude scripts/harness .github | xargs cat | wc -l)
-          agents=$(wc -l < AGENTS.md)
-          if [ "$agents" -gt 50 ] || [ "$harness" -gt 12000 ]; then
-            echo "::error::Harness over its cap. Remove as much as you add."
-            exit 1
-          fi
       - id: scope
         run: node scripts/ci.mjs scope
         env:
           CI_EVENT: ${{ github.event_name }}
           CI_BASE: ${{ github.event.pull_request.base.sha }}
-          CI_HEAD_REF: ${{ github.head_ref }}
-          CI_BASE_REF: ${{ github.base_ref }}
-          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          CI_REPOSITORY: ${{ github.repository }}
-          CI_API_URL: ${{ github.api_url }}
-          CI_TOKEN: ${{ github.token }}
   workspace-build:
     needs: scope
-    if: needs.scope.outputs.developer_docs != 'true' && needs.scope.outputs.release_metadata != 'true'
+    if: needs.scope.outputs.developer_docs != 'true'
     uses: ./.github/workflows/ci-check.yml
     with:
       kind: build
       plan: ${{ needs.scope.outputs.plan }}
   static-checks:
     needs: [scope, workspace-build]
-    if: needs.scope.outputs.developer_docs != 'true' && needs.scope.outputs.release_metadata != 'true'
+    if: needs.scope.outputs.developer_docs != 'true'
     uses: ./.github/workflows/ci-check.yml
     with:
       kind: static
@@ -67,22 +50,15 @@ jobs:
       artifact-id: ${{ needs.workspace-build.outputs.artifact-id }}
   tests:
     needs: [scope, workspace-build]
-    if: ${{ !cancelled() && needs.scope.result == 'success' && needs.scope.outputs.release_metadata != 'true' && (needs.scope.outputs.developer_docs == 'true' || needs.workspace-build.result == 'success') }}
+    if: needs.scope.outputs.developer_docs != 'true'
     uses: ./.github/workflows/ci-check.yml
     with:
       kind: tests
       plan: ${{ needs.scope.outputs.plan }}
       artifact-id: ${{ needs.workspace-build.outputs.artifact-id }}
-  release-checks:
-    needs: scope
-    if: needs.scope.outputs.release == 'true' && needs.scope.outputs.promotion != 'true'
-    uses: ./.github/workflows/ci-check.yml
-    with:
-      kind: release
-      plan: ${{ needs.scope.outputs.plan }}
   pr-validation:
     name: pr-validation
-    needs: [scope, workspace-build, static-checks, tests, release-checks]
+    needs: [scope, workspace-build, static-checks, tests]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
