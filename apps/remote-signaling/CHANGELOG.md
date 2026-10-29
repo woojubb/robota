@@ -1,5 +1,7 @@
 # @robota-sdk/remote-signaling
 
+## 3.0.0
+
 ## 3.0.0-beta.83
 
 ### Patch Changes
