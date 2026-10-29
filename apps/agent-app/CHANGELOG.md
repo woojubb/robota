@@ -1,5 +1,12 @@
 # @robota-sdk/agent-app
 
+## 3.0.1
+### Patch Changes
+
+- 95af165: Restore consistent stable package and desktop delivery after the incomplete 3.0.0 publication.
+- 5f6b7ad: Consume the published workflow package while preserving host SDK identity.
+  - @robota-sdk/product-config@3.0.1
+
 ## 3.0.0
 ### Minor Changes
 
