@@ -36,20 +36,26 @@ const packages = readdirSync(packDirectory)
       execFileSync('tar', ['-xzOf', tarball, 'package/package.json'], { encoding: 'utf8' }),
     );
     const integrity = `sha512-${createHash('sha512').update(readFileSync(tarball)).digest('base64')}`;
-    const published = execFileSync(
-      'npm',
-      ['view', `${manifest.name}@${manifest.version}`, 'dist.integrity', '--registry', registry],
-      { encoding: 'utf8' },
-    ).trim();
-    if (published !== integrity) {
-      throw new Error(
-        `${manifest.name}@${manifest.version} registry integrity does not match the reviewed tarball`,
-      );
-    }
     return { name: manifest.name, version: manifest.version, integrity };
   });
 
 if (packages.length === 0) throw new Error('no release tarballs were found');
+// One bounded observation; a failed receipt can resume from the retained artifact without rebuilding.
+let cursor = 0;
+await Promise.all(Array.from({ length: Math.min(6, packages.length) }, async () => {
+  while (cursor < packages.length) {
+    const pkg = packages[cursor++];
+    const response = await fetch(new URL(encodeURIComponent(pkg.name), `${registry.replace(/\/$/, '')}/`), {
+      headers: { accept: 'application/vnd.npm.install-v1+json' },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!response.ok) throw new Error(`${pkg.name}: registry returned ${response.status}`);
+    const metadata = await response.json();
+    if (metadata.versions?.[pkg.version]?.dist?.integrity !== pkg.integrity ||
+        metadata['dist-tags']?.latest !== pkg.version)
+      throw new Error(`${pkg.name}@${pkg.version}: registry integrity/latest not yet confirmed; resume this run without repacking.`);
+  }
+}));
 const cli = packages.find((entry) => entry.name === `${packageScope}/agent-cli`);
 if (!cli) throw new Error('the configured CLI tarball was not published');
 
@@ -72,7 +78,7 @@ try {
       '--registry',
       registry,
     ],
-    { cwd: lockRoot, stdio: 'inherit' },
+    { cwd: lockRoot, stdio: 'inherit', timeout: 60_000 },
   );
   lockBytes = readFileSync(join(lockRoot, 'package-lock.json'));
   const lock = JSON.parse(lockBytes.toString('utf8'));

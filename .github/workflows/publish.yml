@@ -21,20 +21,18 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  publish:
-    name: publish
+  prepare:
+    name: prepare release tarballs
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    environment: npm-publish
+    timeout-minutes: 8
     env:
       PRODUCT_BUILD_ENV: ${{ vars.PRODUCT_BUILD_ENV }}
     outputs:
       release_tag: ${{ steps.release.outputs.tag }}
+      artifact_id: ${{ steps.pack.outputs.artifact-id }}
     permissions:
       contents: read
-      id-token: write
-      attestations: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -70,9 +68,6 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      # Trusted publishing needs npm >= 11.5.1; pnpm 8 hands the packed tarball to this npm. Pinned so a
-      # release run is reproducible.
-      - run: npm install -g npm@11.20.0
       - run: pnpm install --frozen-lockfile
       - name: Generate selected product workspace
         shell: bash
@@ -108,18 +103,77 @@ jobs:
             throw new Error('publication requires the canonical product configuration digest');
           }
           NODE
-      - name: Publish the configured product packages
+      - name: Prepare the configured product packages once
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
+        run: |
+          pnpm install --frozen-lockfile
+          bash scripts/publish/publish-packages.sh --prepare-only --pack-dir "$RUNNER_TEMP/npm-release/tarballs"
+          node --input-type=module <<'NODE'
+          import { writeFileSync } from 'node:fs';
+          const keys = ['PRODUCT_PACKAGE_SCOPE', 'PROJECT_REPOSITORY_URL', 'PROJECT_NPM_REGISTRY_URL',
+            'PROJECT_PACKAGE_ACCESS', 'PRODUCT_CONFIG_SHA256', 'RELEASE_TAG', 'RELEASE_SOURCE_COMMIT'];
+          writeFileSync(process.env.RUNNER_TEMP + '/npm-release/publication.json',
+            JSON.stringify(Object.fromEntries(keys.map(key => [key, process.env[key] ?? '']))));
+          NODE
+      - uses: actions/upload-artifact@v7
+        id: pack
+        with:
+          name: npm-tarballs-${{ github.run_id }}
+          path: ${{ runner.temp }}/npm-release
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 90
+
+  publish:
+    name: publish
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    environment: npm-publish
+    outputs:
+      release_tag: ${{ needs.prepare.outputs.release_tag }}
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+      - run: npm install -g npm@11.20.0
+      - uses: actions/download-artifact@v7
+        with:
+          artifact-ids: ${{ needs.prepare.outputs.artifact_id }}
+          merge-multiple: true
+          path: ${{ runner.temp }}/npm-release
+      - name: Restore the exact prepared publication
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$GITHUB_SHA"
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs';
+          const data = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/npm-release/publication.json'));
+          if (data.RELEASE_SOURCE_COMMIT !== process.env.GITHUB_SHA || data.RELEASE_TAG !== process.env.TAG)
+            throw new Error('Prepared publication does not match this release.');
+          for (const [key, value] of Object.entries(data)) {
+            if (!/^[A-Z][A-Z0-9_]*$/.test(key) || /[\r\n]/.test(value)) throw new Error('Invalid publication environment.');
+            appendFileSync(process.env.GITHUB_ENV, key + '=' + value + '\n');
+          }
+          NODE
+      - name: Publish only missing packages from the retained tarballs
         env:
           RELEASE_INTEGRITY_MANIFEST: ${{ runner.temp }}/npm-release-integrity.json
           RELEASE_INSTALL_LOCK: ${{ runner.temp }}/npm-release-package-lock.json
-        run: |
-          pnpm install --frozen-lockfile
-          bash scripts/publish/publish-packages.sh --trusted
+        run: bash scripts/publish/publish-packages.sh --trusted --pack-dir "$RUNNER_TEMP/npm-release/tarballs"
       - name: Preserve the tag-bound registry integrity manifest
         uses: actions/upload-artifact@v7
         with:
           name: npm-release-${{ github.event.inputs.tag }}
+          overwrite: true
           path: |
             ${{ runner.temp }}/npm-release-integrity.json
             ${{ runner.temp }}/npm-release-package-lock.json

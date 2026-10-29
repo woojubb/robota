@@ -8,7 +8,8 @@
 #   pnpm publish:beta --otp=123456        # non-interactive: the code is used once, nothing is asked
 #   pnpm publish:beta --skip-build        # dist is already current (e.g. from CI)
 #   pnpm publish:beta --dry-run           # build, check, pack and verify; publish nothing
-#   publish-packages.sh --trusted         # from .github/workflows/publish.yml: npm trusted publishing
+#   publish-packages.sh --prepare-only --pack-dir <dir> # retain inspected tarballs for retries
+#   publish-packages.sh --trusted --pack-dir <dir>      # publish that exact retained artifact
 #
 # The exact tarballs inspected below are the tarballs sent to npm. A retry skips versions already present,
 # then publishes only the missing tarballs. Packages are published under `latest` only: trusted publishing
@@ -33,9 +34,8 @@ if [[ "$REGISTRY" != https://* ]]; then
   exit 1
 fi
 export npm_config_registry="$REGISTRY"
-export npm_config_fetch_timeout=60000
-export npm_config_fetch_retries=1
-export npm_config_fetch_retry_maxtimeout=10000
+export npm_config_fetch_timeout=15000
+export npm_config_fetch_retries=0
 if [ -n "${PROJECT_PACKAGE_ACCESS:-}" ]; then
   case "$PROJECT_PACKAGE_ACCESS" in public|restricted) export npm_config_access="$PROJECT_PACKAGE_ACCESS" ;; *)
     echo "❌ PROJECT_PACKAGE_ACCESS must be public or restricted." >&2
@@ -47,6 +47,8 @@ OTP=""
 SKIP_BUILD="false"
 DRY_RUN="false"
 TRUSTED="false"
+PREPARE_ONLY="false"
+PACK_DIR=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --skip-build) SKIP_BUILD="true" ;;
@@ -54,6 +56,8 @@ while [ "$#" -gt 0 ]; do
     --otp=*) OTP="${1#--otp=}" ;;
     --otp) OTP="${2:?--otp requires a value}"; shift ;;
     --trusted) TRUSTED="true" ;;
+    --prepare-only) PREPARE_ONLY="true" ;;
+    --pack-dir) PACK_DIR="${2:?--pack-dir requires a directory}"; shift ;;
     *)
       echo "❌ Unknown argument: $1"
       echo "   Usage: pnpm publish:beta [--otp=123456] [--skip-build] [--dry-run] [--trusted]"
@@ -71,52 +75,34 @@ fi
 VERSION=$(node -p "require('./packages/agent-core/package.json').version")
 echo "📦 Version: $VERSION"
 
-if [ "$SKIP_BUILD" = "true" ]; then
-  echo "🛠️  Skipping build (--skip-build)."
-else
-  echo "🛠️  Building..."
-  pnpm build
+# A restored artifact is already built, packed and inspected. Never recreate it on retry.
+if [ -z "$PACK_DIR" ] || [ "$PREPARE_ONLY" = "true" ]; then
+  if [ "$SKIP_BUILD" != "true" ]; then pnpm build; fi
+  node scripts/harness/check-publish-safety.mjs
+  node scripts/harness/check-sdk-public-surface.mjs
+  PACK_DIR="${PACK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/package-pack.XXXXXX")}"
+  mkdir -p "$PACK_DIR"
+  while IFS= read -r DIR; do
+    (cd "$DIR" && pnpm pack --pack-destination "$PACK_DIR" >/dev/null)
+  done < <(
+    pnpm -r --depth -1 --json list | RELEASE_VERSION="$VERSION" node -e '
+      let input = "";
+      process.stdin.on("data", chunk => input += chunk);
+      process.stdin.on("end", () => {
+        for (const pkg of JSON.parse(input)) {
+          if (pkg.name?.startsWith(process.env.PRODUCT_PACKAGE_SCOPE + "/") &&
+              pkg.private === false && pkg.version === process.env.RELEASE_VERSION)
+            console.log(pkg.path);
+        }
+      });
+    '
+  )
+  node scripts/publish/verify-tarballs.mjs "$PACK_DIR"
 fi
-
-echo "🔎 Release checks..."
-node scripts/harness/check-publish-safety.mjs
-node scripts/harness/check-sdk-public-surface.mjs
-
-# Public packages in the selected scope that belong to this lockstep release (name and directory).
-PACKAGES=()
-PACKAGE_DIRS=()
-while IFS=$'\t' read -r NAME DIR; do
-  PACKAGES+=("$NAME")
-  PACKAGE_DIRS+=("$DIR")
-done < <(
-  # The JavaScript reads shell values through process.env.
-  # shellcheck disable=SC2016
-  pnpm -r --depth -1 --json list | RELEASE_VERSION="$VERSION" PRODUCT_PACKAGE_SCOPE="$PACKAGE_SCOPE" node -e '
-let input = "";
-process.stdin.on("data", (chunk) => (input += chunk));
-process.stdin.on("end", () => {
-  const scope = process.env.PRODUCT_PACKAGE_SCOPE;
-  for (const pkg of JSON.parse(input)) {
-    if (pkg.name?.startsWith(`${scope}/`) && pkg.private === false && pkg.version === process.env.RELEASE_VERSION) {
-      console.log(`${pkg.name}\t${pkg.path}`);
-    }
-  }
-});
-'
-)
-if [ "${#PACKAGES[@]}" -eq 0 ]; then
-  echo "❌ No public packages in $PACKAGE_SCOPE at $VERSION."
-  exit 1
+if [ "$PREPARE_ONLY" = "true" ]; then
+  echo "Prepared exact release tarballs in $PACK_DIR."
+  exit 0
 fi
-echo "📋 ${#PACKAGES[@]} public packages at $VERSION"
-
-# Pack and inspect every tarball before anything reaches the registry.
-echo "📦 Packing and verifying tarballs..."
-PACK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/package-pack.XXXXXX")
-for DIR in "${PACKAGE_DIRS[@]}"; do
-  (cd "$DIR" && pnpm pack --pack-destination "$PACK_DIR" >/dev/null)
-done
-node scripts/publish/verify-tarballs.mjs "$PACK_DIR"
 
 if [ "$DRY_RUN" = "true" ]; then
   echo "Dry run complete (tarballs in $PACK_DIR); nothing was published."
@@ -124,26 +110,13 @@ if [ "$DRY_RUN" = "true" ]; then
 fi
 
 if [ "$TRUSTED" = "true" ]; then
-  # A package npm has never seen cannot have a trusted publisher yet, so this run would fail on it
-  # after publishing the others. Refuse up front instead.
-  NEW=()
-  for NAME in "${PACKAGES[@]}"; do
-    npm view "$NAME" name --registry "$REGISTRY" >/dev/null 2>&1 || NEW+=("$NAME")
-  done
-  if [ "${#NEW[@]}" -gt 0 ]; then
-    echo "❌ Never published, so not trusted yet: ${NEW[*]}"
-    echo "   Publish them once locally with the owner OTP (pnpm publish:beta), configure trust, then rerun."
-    exit 1
-  fi
+  node scripts/publish/publish-tarballs.mjs "$PACK_DIR" "$VERSION"
 else
   echo "🔐 Checking npm authentication..."
-  if ! NPM_USER=$(npm whoami --registry "$REGISTRY" 2>/dev/null); then
-    echo "❌ Not logged in. Run: npm login --registry $REGISTRY"
-    exit 1
-  fi
-  echo "✓ npm user: $NPM_USER"
+  npm whoami --registry "$REGISTRY" >/dev/null
 fi
 
+if [ "$TRUSTED" != "true" ]; then
 echo "🚀 Publishing the reviewed tarballs..."
 # npm requires a one-time password for every local publish. An interactive run asks immediately before
 # the next missing tarball and retries that tarball with a fresh code when npm rejects an expired one.
@@ -196,45 +169,7 @@ done
 rm -f "$PUBLISH_OUTPUT"
 trap - EXIT HUP INT TERM
 
-# The registry's replicas take time to agree after a publish. Check pending packages concurrently every
-# ten seconds for up to three minutes instead of serially waiting between observations.
-echo "🔎 Verifying..."
-PENDING=("${PACKAGES[@]}")
-VERIFY_DIR=$(mktemp -d "${TMPDIR:-/tmp}/package-verify.XXXXXX")
-trap 'rm -rf "$VERIFY_DIR"' EXIT HUP INT TERM
-for ATTEMPT in $(seq 1 18); do
-  STALE=()
-  SEEN=()
-  INDEX=0
-  for NAME in "${PENDING[@]}"; do
-    INDEX=$((INDEX + 1))
-    (
-      LATEST=$(npm view "$NAME" dist-tags.latest --prefer-online --registry "$REGISTRY" 2>/dev/null || true)
-      printf '%s\t%s\n' "$NAME" "$LATEST" > "$VERIFY_DIR/$INDEX"
-    ) &
-    if [ $((INDEX % 12)) -eq 0 ]; then wait; fi
-  done
-  wait
-  for RESULT in "$VERIFY_DIR"/*; do
-    IFS=$'\t' read -r NAME LATEST < "$RESULT"
-    rm -f "$RESULT"
-    if [ "$LATEST" != "$VERSION" ]; then
-      STALE+=("$NAME")
-      SEEN+=("$NAME latest=${LATEST:-<no answer>}")
-    fi
-  done
-  [ "${#STALE[@]}" -eq 0 ] && break
-  PENDING=("${STALE[@]}")
-  if [ "$ATTEMPT" -eq 18 ]; then
-    echo "❌ latest is not $VERSION after three minutes:"
-    printf '   %s\n' "${SEEN[@]}"
-    exit 1
-  fi
-  echo "   ${#PENDING[@]} package(s) not yet showing $VERSION; checking again in 10s"
-  sleep 10
-done
-rm -rf "$VERIFY_DIR"
-trap - EXIT HUP INT TERM
+fi
 
 if [ -n "${RELEASE_INTEGRITY_MANIFEST:-}" ]; then
   echo "🔐 Binding registry tarballs to the reviewed release source..."

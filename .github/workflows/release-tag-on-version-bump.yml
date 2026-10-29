@@ -1,7 +1,7 @@
 name: Release — tag on version bump
 
 # RELEASE-001 — when the CLI version changes on main, push the tag using the configured release prefix.
-# That tag fires release-bun-binaries.yml; its successful completion starts release-desktop-app.yml.
+# That tag starts native and desktop builds independently.
 # A tag pushed with GITHUB_TOKEN cannot fire another workflow (anti-recursion), so tagging uses the deploy key below.
 # npm publish is OUT OF SCOPE — it is the separate Publish to npm workflow (publish.yml, trusted publishing).
 #

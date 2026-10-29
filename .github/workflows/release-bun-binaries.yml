@@ -1,8 +1,7 @@
 name: Release — Bun binaries
 
 # PAYLOAD-2153 / DIST-002 — compile every native Bun executable on its matching host, execute the
-# packaged replay/refusal proof there, then publish verified binaries and the selected Feature with
-# separate job-scoped release-asset and package credentials.
+# packaged replay/refusal proof there, then publish verified binaries.
 # Sibling to release.yml (manual npm publish); this workflow never publishes npm packages.
 
 on:
@@ -25,16 +24,14 @@ on:
 permissions:
   contents: read
 
-# Shares the Release with release-desktop-app.yml — serialize both publishers on the same tag.
 concurrency:
-  group: release-assets-${{ github.event.inputs.tag || github.ref_name }}
+  group: native-assets-${{ github.event.inputs.tag || github.ref_name }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   scope:
     if: github.event_name == 'pull_request'
     permissions:
-      checks: read
       contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -52,16 +49,10 @@ jobs:
         env:
           CI_EVENT: ${{ github.event_name }}
           CI_BASE: ${{ github.event.pull_request.base.sha }}
-          CI_HEAD_REF: ${{ github.head_ref }}
-          CI_BASE_REF: ${{ github.base_ref }}
-          CI_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
-          CI_REPOSITORY: ${{ github.repository }}
-          CI_API_URL: ${{ github.api_url }}
-          CI_TOKEN: ${{ github.token }}
   build-bun:
     name: Build Bun / ${{ matrix.product }} / ${{ matrix.target }}
     needs: scope
-    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || (fromJSON(needs.scope.outputs.plan).developerDocs != true && fromJSON(needs.scope.outputs.plan).releaseMetadata != true)) }}
+    if: ${{ !cancelled() && (github.event_name != 'pull_request' || needs.scope.result != 'success' || (fromJSON(needs.scope.outputs.plan).developerDocs != true)) }}
     timeout-minutes: ${{ github.event_name == 'pull_request' && 30 || 40 }}
     env:
       PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
@@ -432,83 +423,3 @@ jobs:
             fi
           done < .release-expected.tsv
           (cd .published-assets && sha256sum --check SHA256SUMS.txt)
-
-  publish-devcontainer-feature:
-    name: Publish selected Dev Container Feature
-    needs: [build-bun, publish-bun]
-    if: ${{ !cancelled() && github.event_name != 'pull_request' && needs['publish-bun'].result == 'success' }}
-    runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    concurrency:
-      group: devcontainer-feature-woojubb
-      cancel-in-progress: false
-    permissions:
-      contents: read
-      packages: write
-    env:
-      PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
-      FEATURE_REGISTRY: ghcr.io
-      FEATURE_NAMESPACE: woojubb/devcontainer-features
-    steps:
-      - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.inputs.tag || github.ref_name }}
-      - uses: pnpm/action-setup@v6
-        with:
-          version: 8.15.4
-          run_install: false
-      - uses: actions/setup-node@v6
-        with:
-          node-version: 22.14.0
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - name: Generate exact selected release workspace
-        run: pnpm exec tsx scripts/product/prepare-workflow-workspace.mjs
-      - uses: oras-project/setup-oras@v1
-        with:
-          version: 1.3.0
-      - name: Install pinned official Feature packager and consumer
-        run: npm install --prefix "$RUNNER_TEMP/feature-tools" --ignore-scripts --no-audit --no-fund @devcontainers/cli@0.89.0
-      - name: Write non-secret publication options
-        env:
-          RELEASE_TAG: ${{ github.event.inputs.tag || github.ref_name }}
-        run: |
-          node --input-type=module <<'JS'
-          import { writeFileSync } from 'node:fs';
-          import path from 'node:path';
-          const e=process.env;
-          writeFileSync(path.join(e.RUNNER_TEMP,'feature-options.json'),JSON.stringify({
-            checkout:e.GITHUB_WORKSPACE,workspace:e.PRODUCT_WORKSPACE,tag:e.RELEASE_TAG,
-            runId:e.GITHUB_RUN_ID,namespace:e.FEATURE_NAMESPACE,registry:e.FEATURE_REGISTRY,
-            repository:e.GITHUB_REPOSITORY,cli:path.join(e.RUNNER_TEMP,'feature-tools/node_modules/.bin/devcontainer'),
-            oras:'oras',receiptFile:path.join(e.RUNNER_TEMP,'feature-publication.json')
-          }));
-          JS
-      - name: Validate release, package deterministically, enforce immutable versions, publish and anonymously pull
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/release/feature-publisher.mjs release "$RUNNER_TEMP/feature-options.json"
-      - name: Execute anonymous exact-digest Feature consumer
-        # A private refusing credential helper and credential-free child environment are enforced by the verifier.
-        run: |
-          node --input-type=module <<'JS'
-          import { readFileSync } from 'node:fs';
-          import path from 'node:path';
-          import { verifyPublished } from './scripts/release/verify-published-feature.mjs';
-          const e=process.env;
-          const published=JSON.parse(readFileSync(path.join(e.RUNNER_TEMP,'feature-publication.json')));
-          await verifyPublished({...published,checkout:e.GITHUB_WORKSPACE,
-            cli:path.join(e.RUNNER_TEMP,'feature-tools/node_modules/.bin/devcontainer'),
-            tempParent:e.RUNNER_TEMP,receiptFile:path.join(e.RUNNER_TEMP,'feature-anonymous-acceptance.json')});
-          JS
-      - name: Preserve public delivery receipts
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: devcontainer-feature-${{ github.run_id }}
-          path: |
-            ${{ runner.temp }}/feature-publication.json
-            ${{ runner.temp }}/feature-anonymous-acceptance.json
-          if-no-files-found: ignore
