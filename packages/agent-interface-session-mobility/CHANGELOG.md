@@ -1,5 +1,11 @@
 # @robota-sdk/agent-interface-session-mobility
 
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.4
+  - @robota-sdk/agent-interface-session@3.0.4
+
 ## 3.0.3
 ### Patch Changes
 

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/product-config",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "private": false,
   "description": "Explicit product configuration contracts and host loading",
   "type": "module",

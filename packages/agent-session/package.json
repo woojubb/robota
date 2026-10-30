@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-session",
-  "version": "3.0.3",
+  "version": "3.0.4",
   "description": "Session for the Robota SDK: permission-gated tool execution, hooks, context tracking, compaction and persistence",
   "type": "module",
   "main": "dist/node/index.js",
