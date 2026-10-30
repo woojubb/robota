@@ -303,6 +303,12 @@ it('verifies published native and desktop artifacts before macOS acceptance', ()
   expect(desktop.jobs['verify-macos-artifacts'].needs).toEqual(['await-published-assets']);
 });
 
+it('does not start final acceptance from an independent tag-triggered desktop build', () => {
+  const gate = desktop.jobs['await-published-assets'];
+  expect(gate.if).toContain("github.event.inputs.verify_only == 'true'");
+  expect(gate.if).not.toContain("needs.desktop.result == 'success'");
+});
+
 // Execute the publishing step's real shell guard, without checking out or publishing anything.
 it.each(['cedar-v', 'amber-v', 'v', 'runtime.release-'])(
   'accepts the selected release prefix %s and rejects another product tag',
