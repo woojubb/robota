@@ -1,7 +1,7 @@
 import {
   authorityError,
   StableFileAuthorityError,
-  type IStableRootedFileWriter,
+  type INamedStableRootedFileWriter,
 } from './contracts.js';
 import { createHostBackend } from './host-factory.js';
 import { validateRelativeSegments, validateRootDirectory } from './input-validation.js';
@@ -12,17 +12,45 @@ const finalizer = new FinalizationRegistry<IStableFileHostBackend>((backend) => 
   backend.close();
 });
 
-class StableRootedFileWriter implements IStableRootedFileWriter {
+class StableRootedFileWriter implements INamedStableRootedFileWriter {
   private backend: IStableFileHostBackend | undefined;
   private readonly finalizerToken = {};
 
   constructor(
-    rootDirectory: string,
+    private readonly rootDirectory: string,
     private readonly hooks: IFileAuthorityTestHooks,
   ) {
     const backend = createHostBackend(validateRootDirectory(rootDirectory));
     this.backend = backend;
     finalizer.register(this, backend, this.finalizerToken);
+  }
+
+  assertNamedRoot(): void {
+    const backend = this.backend;
+    if (backend === undefined) throw authorityError('AUTHORITY_CLOSED', 'inspect-root');
+    if (backend.assertNamedRoot === undefined)
+      throw authorityError('UNSUPPORTED_BACKEND', 'inspect-root');
+    backend.assertNamedRoot(this.rootDirectory);
+  }
+
+  writeUtf8WhileNamed(relativeSegments: readonly string[], content: string): void {
+    const backend = this.backend;
+    if (backend === undefined) throw authorityError('AUTHORITY_CLOSED', 'write');
+    validateRelativeSegments(relativeSegments);
+    if (typeof content !== 'string') throw authorityError('INVALID_PATH', 'validate-content');
+    this.assertNamedRoot();
+    backend.writeUtf8(relativeSegments, content, {
+      ...this.hooks,
+      afterPreCommitValidated: () => {
+        this.assertNamedRoot();
+        this.hooks.afterPreCommitValidated?.();
+        this.assertNamedRoot();
+      },
+      afterCommit: () => {
+        this.hooks.afterCommit?.();
+        this.assertNamedRoot();
+      },
+    });
   }
 
   writeUtf8(relativeSegments: readonly string[], content: string): void {
@@ -57,7 +85,7 @@ class StableRootedFileWriter implements IStableRootedFileWriter {
 }
 
 /** Create a stable, opaque write authority rooted at the currently opened directory identity. */
-export function createStableRootedFileWriter(rootDirectory: string): IStableRootedFileWriter {
+export function createStableRootedFileWriter(rootDirectory: string): INamedStableRootedFileWriter {
   return new StableRootedFileWriter(rootDirectory, {});
 }
 
@@ -65,6 +93,6 @@ export function createStableRootedFileWriter(rootDirectory: string): IStableRoot
 export function createStableRootedFileWriterForTest(
   rootDirectory: string,
   hooks: IFileAuthorityTestHooks,
-): IStableRootedFileWriter {
+): INamedStableRootedFileWriter {
   return new StableRootedFileWriter(rootDirectory, hooks);
 }

@@ -43,6 +43,7 @@ export {
   assertWorkspaceProjectMutation,
   assertWorkspaceProjectMutationForAuthority,
   createWorkspaceProjectMutation,
+  prepareWorkflowJsonMutation,
   assertWorkspaceProjectSettingsWriter,
   assertWorkspaceProjectStateStorage,
   createWorkspaceProjectSettingsWriter,
