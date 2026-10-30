@@ -14,8 +14,8 @@ export async function fetchReleaseRuns(github, owner, repo, workflowId, tag) {
   };
   const pages = await Promise.all([
     request({ branch: tag, event: 'push' }),
-    ...['queued', 'in_progress', 'waiting', 'requested', 'pending'].map((status) =>
-      request({ event: 'workflow_dispatch', status }),
+    ...['queued', 'in_progress', 'waiting', 'requested', 'pending', 'action_required'].map(
+      (status) => request({ event: 'workflow_dispatch', status }),
     ),
   ]);
   return pages.flat();

@@ -35,6 +35,7 @@ test('includes pending manual producers in the active release search', async () 
   };
   await fetchReleaseRuns(github, 'owner', 'repo', 'release.yml', 'v3.0.3');
   assert.ok(queried.includes('pending'));
+  assert.ok(queried.includes('action_required'));
 });
 
 test('splits a 1000-result interval and recovers both halves', async () => {
