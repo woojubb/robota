@@ -1,5 +1,14 @@
 # robota-capability-agent-eval
 
+## 0.1.3
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+  - @robota-sdk/agent-framework@3.0.2
+  - @robota-sdk/agent-mcp@3.0.2
+  - @robota-sdk/agent-provider-anthropic@3.0.2
+  - @robota-sdk/agent-provider-replay@3.0.2
+
 ## 0.1.2
 ### Patch Changes
 

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-preset",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Preset contract and resolver for the Robota SDK (IPreset, resolvePreset, listPresets, built-in presets)",
   "type": "module",
   "main": "dist/node/index.js",
