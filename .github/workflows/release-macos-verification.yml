@@ -73,7 +73,7 @@ jobs:
               }
               if (receipts.some((receipt) => !receipt)) continue;
               if (!(await resolveReleaseTag(github, owner, repo, expected, trigger.event === 'workflow_dispatch'))) continue;
-              if (found) ready.push({ tag: expected.tag, sha: expected.sha, native_run: String(pair[0].id), native_attempt: String(receipts[0].attempt), native_run_attempt: String(pair[0].run_attempt), desktop_run: String(pair[1].id), desktop_attempt: String(receipts[1].attempt), desktop_run_attempt: String(pair[1].run_attempt) });
+              ready.push({ tag: expected.tag, sha: expected.sha, native_run: String(pair[0].id), native_attempt: String(receipts[0].attempt), native_run_attempt: String(pair[0].run_attempt), desktop_run: String(pair[1].id), desktop_attempt: String(receipts[1].attempt), desktop_run_attempt: String(pair[1].run_attempt) });
             }
             if (ready.length > 256) throw new Error('Too many active release receipts; use manual verification');
             if (!ready.length) core.notice('Matching verified tag producers are not both ready; delivery remains pending.');
