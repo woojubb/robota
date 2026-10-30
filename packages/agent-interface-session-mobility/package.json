@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-interface-session-mobility",
-  "version": "3.0.2",
+  "version": "3.0.3",
   "description": "Session-mobility contracts and handoff orchestration for the Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",

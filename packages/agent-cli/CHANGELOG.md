@@ -1,5 +1,10 @@
 # @robota-sdk/agent-cli
 
+## 3.0.3
+### Patch Changes
+
+- Align React dependencies with Ink so supported mixed CLI and web installs share the same React instance.
+
 ## 3.0.2
 ### Patch Changes
 
