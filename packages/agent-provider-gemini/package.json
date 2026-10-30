@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-provider-gemini",
-  "version": "3.0.1",
+  "version": "3.0.2",
   "description": "Google Gemini provider implementation for Robota SDK",
   "type": "module",
   "publishConfig": {
