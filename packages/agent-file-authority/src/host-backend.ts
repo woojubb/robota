@@ -3,6 +3,7 @@ export interface IFileAuthorityTestHooks {
   readonly afterReadChunk?: (bytesRead: number) => void;
   readonly afterTemporaryWritten?: (temporaryName: string) => void;
   readonly afterPreCommitValidated?: () => void;
+  readonly afterCommit?: () => void;
 }
 
 export interface IStableFileHostBackend {

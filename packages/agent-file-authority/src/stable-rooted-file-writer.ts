@@ -46,8 +46,11 @@ class StableRootedFileWriter implements INamedStableRootedFileWriter {
         this.hooks.afterPreCommitValidated?.();
         this.assertNamedRoot();
       },
+      afterCommit: () => {
+        this.hooks.afterCommit?.();
+        this.assertNamedRoot();
+      },
     });
-    this.assertNamedRoot();
   }
 
   writeUtf8(relativeSegments: readonly string[], content: string): void {

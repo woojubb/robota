@@ -85,6 +85,30 @@ describe('stable rooted file writer', () => {
   );
 
   it.runIf(process.platform !== 'win32')(
+    'rolls back a named-root write when the root moves immediately after commit',
+    () => {
+      const base = temporaryRoot('stable-writer-named-root-post-commit-');
+      const root = join(base, 'root');
+      const moved = join(base, 'moved');
+      mkdirSync(root);
+      writeFileSync(join(root, 'note.txt'), 'original');
+      const writer = createStableRootedFileWriterForTest(root, {
+        afterCommit: () => {
+          renameSync(root, moved);
+          mkdirSync(root);
+        },
+      });
+      try {
+        expect(() => writer.writeUtf8WhileNamed(['note.txt'], 'replacement')).toThrow();
+      } finally {
+        writer.close();
+      }
+      expect(readFileSync(join(moved, 'note.txt'), 'utf8')).toBe('original');
+      expect(readdirSync(root)).toEqual([]);
+    },
+  );
+
+  it.runIf(process.platform !== 'win32')(
     'refuses a target created after the initial absence check',
     () => {
       const root = temporaryRoot('stable-writer-target-create-');

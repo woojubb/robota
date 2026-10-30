@@ -40,7 +40,7 @@ import {
   createWorkflowsCommandModule,
 } from '@robota-sdk/workflows/command';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
-import { wrapWorkflowWriteApproval } from './workflow-write-approval.js';
+import { wrapWorkflowModule } from './workflow-write-approval.js';
 import { buildDoctorInputs } from './doctor-inputs.js';
 
 import type { IProductSandbox } from '../product/execution-containment.js';
@@ -98,29 +98,22 @@ function loadWorkflowsCommandModule(
   const module = createWorkflowsCommandModule(moduleOptions);
   const access = workspaceComposition.projectAccess;
   if (projectMutation !== undefined || access.status !== 'trusted') return module;
-  return {
-    ...module,
-    systemCommands: module.systemCommands?.map((command) =>
-      command.name !== 'workflows'
-        ? command
-        : wrapWorkflowWriteApproval(
-            command,
-            () => prepareWorkflowJsonMutation(access.authority),
-            async (mutation, context, args) => {
-              const approvedModule = createWorkflowsCommandModule({
-                ...moduleOptions,
-                project: createWorkspaceWorkflowProject(access.authority, mutation),
-              });
-              const approvedCommand = approvedModule.systemCommands?.find(
-                (item) => item.name === 'workflows',
-              );
-              if (approvedCommand === undefined)
-                return { success: false, message: 'Workflow command is unavailable.' };
-              return approvedCommand.execute(context, args);
-            },
-          ),
-    ),
-  };
+  return wrapWorkflowModule(
+    module,
+    () => prepareWorkflowJsonMutation(access.authority),
+    async (mutation, context, args) => {
+      const approvedModule = createWorkflowsCommandModule({
+        ...moduleOptions,
+        project: createWorkspaceWorkflowProject(access.authority, mutation),
+      });
+      const approvedCommand = approvedModule.systemCommands?.find(
+        (item) => item.name === 'workflows',
+      );
+      if (approvedCommand === undefined)
+        return { success: false, message: 'Workflow command is unavailable.' };
+      return approvedCommand.execute(context, args);
+    },
+  );
 }
 
 export interface ICliSetup {

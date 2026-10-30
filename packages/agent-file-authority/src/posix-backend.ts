@@ -341,6 +341,7 @@ export class PosixStableFileHostBackend implements IStableFileHostBackend {
         }
         committed = true;
         cleanTemporaryName = false;
+        hooks.afterCommit?.();
 
         const targetIdentity = this.readNamedIdentity(
           parentDescriptor,

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { wrapWorkflowWriteApproval } from './workflow-write-approval.js';
+import { wrapWorkflowWriteApproval, wrapWorkflowModule } from './workflow-write-approval.js';
+import { createWorkflowsCommandModule } from '@robota-sdk/workflows/command';
 import type { ICommandHostContext, ISystemCommand } from '@robota-sdk/agent-framework';
 
 function host(source: 'user' | 'model' | 'remote', answer?: 'yes' | 'no'): ICommandHostContext {
@@ -15,6 +16,23 @@ function host(source: 'user' | 'model' | 'remote', answer?: 'yes' | 'no'): IComm
 }
 
 describe('workflow write approval', () => {
+  it('publishes the same user-only authoring metadata in the palette and executor', () => {
+    const module = wrapWorkflowModule(
+      createWorkflowsCommandModule(),
+      () => ({ approve: () => ({}), close: vi.fn() }),
+      vi.fn(),
+    );
+    const entry = module.commandSources?.[0]
+      ?.getCommands()
+      .find((item) => item.name === 'workflows');
+    const executor = module.systemCommands?.find((item) => item.name === 'workflows');
+    expect(entry?.modelInvocable).toBe(false);
+    expect(entry?.modelDescription).toBe(executor?.modelDescription);
+    for (const name of ['create', 'build']) {
+      expect(entry?.subcommands?.find((item) => item.name === name)?.modelInvocable).toBe(false);
+      expect(executor?.subcommands?.find((item) => item.name === name)?.modelInvocable).toBe(false);
+    }
+  });
   it('requires a human confirmation for create and closes its grant after execution', async () => {
     const execute = vi.fn(async () => ({ success: true, message: 'saved' }));
     const close = vi.fn();

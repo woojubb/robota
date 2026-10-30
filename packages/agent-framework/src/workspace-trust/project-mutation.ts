@@ -77,7 +77,6 @@ export function prepareWorkflowJsonMutation(authority: IWorkspaceProjectAuthorit
             throw new WorkspaceAuthorityRequiredError('Workflow writes require valid UTF-8 JSON.');
           }
           writer.writeUtf8WhileNamed(segments, text);
-          verify();
         },
         deleteFile(_relativePath: string, _purpose: string): boolean {
           throw new WorkspaceAuthorityRequiredError(
