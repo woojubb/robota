@@ -1100,7 +1100,7 @@ importers:
         specifier: ^1.5.4
         version: 1.5.4
       react:
-        specifier: 19.2.8
+        specifier: ^19.2.8
         version: 19.2.8
       string-width:
         specifier: ^8.2.2
@@ -2528,7 +2528,7 @@ importers:
         specifier: ^7.3.0
         version: 7.3.0(marked@9.1.6)
       react:
-        specifier: 19.2.8
+        specifier: ^19.2.8
         version: 19.2.8
       string-width:
         specifier: ^8.2.2
