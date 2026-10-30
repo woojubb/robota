@@ -15,6 +15,7 @@ export {
   assertWorkspaceProjectMutation,
   assertWorkspaceProjectMutationForAuthority,
   createWorkspaceProjectMutation,
+  prepareWorkflowJsonMutation,
 } from './project-mutation.js';
 export { supportsWorkspaceProjectMutation } from './project-relative-writer.js';
 export { assertWorkspaceProjectReader } from './project-reader.js';

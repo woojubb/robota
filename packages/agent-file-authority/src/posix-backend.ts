@@ -175,9 +175,7 @@ function libcFunctions(): IPosixFunctions {
       open: library.func('int open(const char *path, int flags)') as TOpen,
       openAt: (directory, path, openFlags, mode) =>
         variadicOpenAt(directory, path, openFlags, 'unsigned int', mode),
-      mkdirAt: library.func(
-        'int mkdirat(int fd, const char *path, unsigned int mode)',
-      ) as TMkdirAt,
+      mkdirAt: library.func('int mkdirat(int fd, const char *path, unsigned int mode)') as TMkdirAt,
       noReplaceAt: (sourceDirectory, source, targetDirectory, target) =>
         renameExchange(
           sourceDirectory,
@@ -221,6 +219,21 @@ export class PosixStableFileHostBackend implements IStableFileHostBackend {
     }
   }
 
+  assertNamedRoot(rootDirectory: string): void {
+    if (this.rootDescriptor === undefined) throw authorityError('AUTHORITY_CLOSED', 'inspect-root');
+    this.assertRootIdentity(this.rootDescriptor);
+    const descriptor = libcFunctions().open(rootDirectory, flags(true));
+    if (descriptor < 0) throw authorityError('ROOT_CHANGED', 'inspect-named-root');
+    try {
+      const metadata = safeFstat(descriptor, 'inspect-named-root');
+      if (!metadata.isDirectory() || !sameObject(this.rootIdentity, identity(metadata))) {
+        throw authorityError('ROOT_CHANGED', 'inspect-named-root');
+      }
+    } finally {
+      this.closeDescriptor(descriptor);
+    }
+  }
+
   readBytes(
     relativeSegments: readonly string[],
     maxBytes: number,
@@ -236,12 +249,7 @@ export class PosixStableFileHostBackend implements IStableFileHostBackend {
     try {
       for (let index = 0; index < relativeSegments.length; index += 1) {
         const final = index === relativeSegments.length - 1;
-        const descriptor = this.openAt(
-          parentDescriptor,
-          relativeSegments[index],
-          flags(!final),
-          0,
-        );
+        const descriptor = this.openAt(parentDescriptor, relativeSegments[index], flags(!final), 0);
         if (descriptor < 0) {
           const errno = koffi.errno();
           if (errno === koffi.os.errno.ENOENT) return undefined;
@@ -333,6 +341,7 @@ export class PosixStableFileHostBackend implements IStableFileHostBackend {
         }
         committed = true;
         cleanTemporaryName = false;
+        hooks.afterCommit?.();
 
         const targetIdentity = this.readNamedIdentity(
           parentDescriptor,
@@ -547,7 +556,8 @@ export class PosixStableFileHostBackend implements IStableFileHostBackend {
   }
 
   private renameWithoutReplacement(parentDescriptor: number, source: string, target: string): void {
-    if (libcFunctions().noReplaceAt(parentDescriptor, source, parentDescriptor, target) >= 0) return;
+    if (libcFunctions().noReplaceAt(parentDescriptor, source, parentDescriptor, target) >= 0)
+      return;
     const errno = koffi.errno();
     if (errno === koffi.os.errno.EEXIST) throw authorityError('FILE_CHANGED', 'commit-write');
     throw authorityError('HOST_IO', 'commit-write', { hostCode: hostCode(errno) });

@@ -1,5 +1,10 @@
 # @robota-sdk/agent-cli
 
+## 3.0.2
+### Patch Changes
+
+- Allow users to approve workflow JSON creation in trusted macOS projects.
+
 ## 3.0.1
 ### Patch Changes
 

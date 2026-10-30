@@ -1,5 +1,12 @@
 # @robota-sdk/agent-transport-mcp
 
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-interface-session@3.0.2
+  - @robota-sdk/agent-interface-transport@3.0.2
+  - @robota-sdk/agent-transport@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 
