@@ -30,7 +30,7 @@ jobs:
         id: join
         with:
           script: |
-            const { selectDesktopRelease, latestTagRun, recoveryCandidates, resolveReleaseTag } = await import(`${process.env.GITHUB_WORKSPACE}/scripts/release/desktop-release-order.mjs`);
+            const { selectDesktopRelease, latestTagRun, recoveryCandidates, resolveReleaseTag, selectEvidenceArtifact } = await import(`${process.env.GITHUB_WORKSPACE}/scripts/release/desktop-release-order.mjs`);
             const { fetchReleaseRuns, fetchAllPushRuns } = await import(`${process.env.GITHUB_WORKSPACE}/scripts/release/fetch-release-runs.mjs`);
             const { owner, repo } = context.repo;
             const trigger = context.payload.workflow_run;
@@ -65,18 +65,15 @@ jobs:
               const source = trigger.event === 'push' ? trigger : latestTagRun(expected, native);
               if (!selectDesktopRelease(expected, source, native, desktop)) continue;
               const pair = [latestTagRun(expected, native), latestTagRun(expected, desktop)];
-              let found = true;
+              const receipts = [];
               for (const [i, run] of pair.entries()) {
-                const name = `${i === 0 ? 'native' : 'desktop'}-release-evidence-${run.id}-${run.run_attempt}`;
                 const { data } = await github.rest.actions.listWorkflowRunArtifacts({ owner, repo, run_id: run.id, per_page: 100 });
                 if (data.total_count > data.artifacts.length) throw new Error('Artifact list exceeds the bounded page');
-                const matching = data.artifacts.filter((a) => a.name === name && !a.expired);
-                if (matching.length > 1) throw new Error(`Ambiguous ${name}`);
-                if (!matching.length) found = false;
+                receipts.push(selectEvidenceArtifact(data.artifacts, i === 0 ? 'native' : 'desktop', run.id, run.run_attempt));
               }
-              if (!found) continue;
+              if (receipts.some((receipt) => !receipt)) continue;
               if (!(await resolveReleaseTag(github, owner, repo, expected, trigger.event === 'workflow_dispatch'))) continue;
-              if (found) ready.push({ tag: expected.tag, sha: expected.sha, native_run: String(pair[0].id), native_attempt: String(pair[0].run_attempt), desktop_run: String(pair[1].id), desktop_attempt: String(pair[1].run_attempt) });
+              if (found) ready.push({ tag: expected.tag, sha: expected.sha, native_run: String(pair[0].id), native_attempt: String(receipts[0].attempt), native_run_attempt: String(pair[0].run_attempt), desktop_run: String(pair[1].id), desktop_attempt: String(receipts[1].attempt), desktop_run_attempt: String(pair[1].run_attempt) });
             }
             if (ready.length > 256) throw new Error('Too many active release receipts; use manual verification');
             if (!ready.length) core.notice('Matching verified tag producers are not both ready; delivery remains pending.');
@@ -99,8 +96,10 @@ jobs:
       RELEASE_SHA: ${{ matrix.sha }}
       NATIVE_RUN: ${{ matrix.native_run }}
       NATIVE_ATTEMPT: ${{ matrix.native_attempt }}
+      NATIVE_RUN_ATTEMPT: ${{ matrix.native_run_attempt }}
       DESKTOP_RUN: ${{ matrix.desktop_run }}
       DESKTOP_ATTEMPT: ${{ matrix.desktop_attempt }}
+      DESKTOP_RUN_ATTEMPT: ${{ matrix.desktop_run_attempt }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       GH_REPO: ${{ github.repository }}
     steps:
@@ -166,8 +165,8 @@ jobs:
             const [native, desktop] = await Promise.all([runs('release-bun-binaries.yml'), runs('release-desktop-app.yml')]);
             if (!selectDesktopRelease(expected, trigger, native, desktop)) throw new Error('Release producers changed during verification');
             const pair = [latestTagRun(expected, native), latestTagRun(expected, desktop)];
-            if (String(pair[0].id) !== process.env.NATIVE_RUN || String(pair[0].run_attempt) !== process.env.NATIVE_ATTEMPT ||
-                String(pair[1].id) !== process.env.DESKTOP_RUN || String(pair[1].run_attempt) !== process.env.DESKTOP_ATTEMPT)
+            if (String(pair[0].id) !== process.env.NATIVE_RUN || String(pair[0].run_attempt) !== process.env.NATIVE_RUN_ATTEMPT ||
+                String(pair[1].id) !== process.env.DESKTOP_RUN || String(pair[1].run_attempt) !== process.env.DESKTOP_RUN_ATTEMPT)
               throw new Error('Release producer attempt changed during verification');
       - name: Record verified release evidence
         run: |

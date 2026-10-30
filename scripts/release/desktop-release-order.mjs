@@ -78,3 +78,20 @@ export async function resolveReleaseTag(github, owner, repo, expected, recoverin
   if (recovering) return false;
   throw new Error('Tag does not identify the triggering commit');
 }
+
+/** A failed-only rerun may reuse a successful producer job from an earlier attempt. */
+export function selectEvidenceArtifact(artifacts, kind, runId, currentAttempt) {
+  const prefix = `${kind}-release-evidence-${runId}-`;
+  const eligible = artifacts
+    .flatMap((artifact) => {
+      if (artifact.expired || !artifact.name.startsWith(prefix)) return [];
+      const suffix = artifact.name.slice(prefix.length);
+      if (!/^[1-9][0-9]*$/u.test(suffix)) return [];
+      const attempt = Number(suffix);
+      return attempt <= currentAttempt ? [{ ...artifact, attempt }] : [];
+    })
+    .sort((a, b) => b.attempt - a.attempt);
+  if (eligible.length > 1 && eligible[0].attempt === eligible[1].attempt)
+    throw new Error('Ambiguous release evidence artifacts');
+  return eligible[0];
+}

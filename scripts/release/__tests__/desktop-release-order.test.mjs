@@ -119,3 +119,16 @@ test('recovery skips a deleted tag without suppressing a valid release', async (
     resolveReleaseTag(github, 'owner', 'repo', { tag: 'old', sha: 'abc' }, false),
   );
 });
+
+test('a failed-only rerun can reuse a matching successful earlier producer artifact', async () => {
+  const { selectEvidenceArtifact } = await import('../desktop-release-order.mjs');
+  const artifact = { name: 'desktop-release-evidence-42-1', expired: false };
+  assert.equal(selectEvidenceArtifact([artifact], 'desktop', 42, 2).attempt, 1);
+  const newer = { name: 'desktop-release-evidence-42-2', expired: false };
+  assert.equal(selectEvidenceArtifact([artifact, newer], 'desktop', 42, 2).attempt, 2);
+  assert.throws(() => selectEvidenceArtifact([newer, newer], 'desktop', 42, 2), /Ambiguous/);
+  assert.equal(
+    selectEvidenceArtifact([{ ...artifact, expired: true }], 'desktop', 42, 2),
+    undefined,
+  );
+});
