@@ -1,5 +1,11 @@
 # @robota-sdk/agent-tool-defaults
 
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+  - @robota-sdk/agent-tools@3.0.5
+
 ## 3.0.4
 ### Patch Changes
 

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport-acp",
-  "version": "3.0.4",
+  "version": "3.0.5",
   "description": "Agent Client Protocol (ACP) agent transport for the Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",

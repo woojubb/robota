@@ -1,5 +1,16 @@
 # @robota-sdk/agent-transport
 
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+  - @robota-sdk/agent-interface-analytics@3.0.5
+  - @robota-sdk/agent-interface-command@3.0.5
+  - @robota-sdk/agent-interface-execution@3.0.5
+  - @robota-sdk/agent-interface-session@3.0.5
+  - @robota-sdk/agent-interface-session-mobility@3.0.5
+  - @robota-sdk/agent-interface-transport@3.0.5
+
 ## 3.0.4
 ### Patch Changes
 

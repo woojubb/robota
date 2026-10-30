@@ -1,5 +1,13 @@
 # @robota-sdk/agent-executor
 
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+  - @robota-sdk/agent-interface-execution@3.0.5
+  - @robota-sdk/agent-interface-transport@3.0.5
+  - @robota-sdk/agent-process@3.0.5
+
 ## 3.0.4
 ### Patch Changes
 
