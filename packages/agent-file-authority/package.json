@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-file-authority",
-  "version": "3.0.1",
+  "version": "3.0.4",
   "description": "Stable root-relative file read and write authority for Node.js",
   "type": "module",
   "main": "dist/node/index.js",
