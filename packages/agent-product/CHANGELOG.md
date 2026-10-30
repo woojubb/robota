@@ -1,5 +1,14 @@
 # @robota-sdk/agent-product
 
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-capability-pack@3.0.4
+  - @robota-sdk/agent-core@3.0.4
+  - @robota-sdk/agent-framework@3.0.4
+  - @robota-sdk/agent-interface-transport@3.0.4
+  - @robota-sdk/agent-preset@3.0.4
+
 ## 3.0.3
 ### Patch Changes
 

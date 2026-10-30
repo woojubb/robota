@@ -1,5 +1,10 @@
 # @robota-sdk/agent-cli
 
+## 3.0.4
+### Patch Changes
+
+- Coordinate verification of published desktop and native release artifacts.
+
 ## 3.0.3
 ### Patch Changes
 

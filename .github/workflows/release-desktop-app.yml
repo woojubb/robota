@@ -297,6 +297,28 @@ jobs:
           gh release upload "$TAG" --repo "$GH_REPO" $ASSETS "$MANIFEST" --clobber
         working-directory: ${{ env.PRODUCT_WORKSPACE }}/apps/agent-app
 
+      - name: Record published desktop asset evidence
+        if: ${{ runner.os == 'macOS' }}
+        shell: bash
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          ASSETS: ${{ matrix.assets }}
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}/apps/agent-app
+        run: |
+          set -euo pipefail
+          config_hash=$(node -e 'process.stdout.write(require("node:crypto").createHash("sha256").update(process.env.PRODUCT_BUILD_ENV).digest("hex"))')
+          # The existing asset patterns are selected by the trusted matrix.
+          node "$GITHUB_WORKSPACE/.release-tools/scripts/release/desktop-release-evidence.mjs" "$RUNNER_TEMP/desktop-release-evidence.json" desktop \
+            "$TAG" "$(git -C "$GITHUB_WORKSPACE" rev-parse 'HEAD^{commit}')" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" \
+            "${PRODUCT_ARTIFACT_PREFIX:-$PRODUCT_CLI_NAME}" "$PROJECT_RELEASE_TAG_PREFIX" "$PROJECT_REPOSITORY_URL" "$config_hash" $ASSETS "release/SHA256SUMS-desktop-${{ matrix.os }}.txt"
+      - uses: actions/upload-artifact@v7
+        if: ${{ runner.os == 'macOS' }}
+        with:
+          name: desktop-release-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/desktop-release-evidence.json
+          if-no-files-found: error
+          retention-days: 90
+
       - name: Remove macOS release credentials
         if: ${{ always() && runner.os == 'macOS' }}
         run: node .release-tools/scripts/release/setup-macos-signing.mjs cleanup
@@ -306,7 +328,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     needs: [desktop]
-    if: ${{ !cancelled() && (github.event.inputs.verify_only == 'true' || needs.desktop.result == 'success') }}
+    if: ${{ !cancelled() && github.event.inputs.verify_only == 'true' }}
     env:
       PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
     steps:
