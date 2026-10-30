@@ -523,8 +523,8 @@ different from the SDK's runtime plugins for the `Robota` class; both are covere
 
 `create` asks the active model to design a workflow from your description, saves it as
 `.workflows/<name>.json` (prompt-backed nodes go under `.workflows/nodes/`), runs it, and reports the
-saved path and outputs. The agent can run `create` and `build` itself, except in `plan` mode; the
-other subcommands are yours.
+saved path and outputs. Run `/workflows` commands yourself. `create` and `build` ask for interactive
+confirmation before saving; without an interactive confirmation, the CLI cannot approve the write.
 
 ## Context, checkpoints and cost
 
@@ -777,7 +777,7 @@ available in the current session.
 
 The agent can run some commands itself through a command tool: `/skills`, `/agent`, `/compact`,
 `/context` (reading), `/cost` (the report), `/memory` (except `approve` and `reject`), `/mcp status`,
-`/schedule`, `/monitor`, `/loop`, and `/workflows create` and `build`. Every other command, and every
+`/schedule`, `/monitor`, and `/loop`. Every other command, and every
 trust, credential or pairing action, runs only when you type it.
 
 ## The terminal UI

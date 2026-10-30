@@ -86,14 +86,10 @@ The main package-level edges are drawn in [`diagrams/robota-architecture.mmd`](d
 
 - **Strict one-way dependency direction** — No bidirectional production dependencies. A package owns
   its public surface instead of forwarding another package's (see `RE-EXPORT`).
-- **Robota-owned DAG runtime contract** — The DAG runtime executes Robota's own domain model; no
-  external-runtime API or compatibility layer lives in this repository.
 - **Ports and adapters** — Core packages define port interfaces. Adapters implement them. No direct infrastructure coupling.
 - **SPEC as contract** — Each package's `docs/SPEC.md` records its purpose, contract, invariants and
   design decisions; a change to a contract rewrites the matching SPEC sentence.
-- **No fallback for required capabilities** — Terminal failures stay terminal. Optional discovery may
-  omit absent nodes; the private async DAG catalog currently skips any media/skill import or
-  construction failure, so callers requiring those nodes inject them explicitly.
+- **No fallback for required capabilities** — Terminal failures stay terminal.
 
 ## Dependency and interface rule identifiers
 
@@ -135,7 +131,7 @@ the System Overview diagram above. Current checks are defined in `AGENTS.md` and
   `pnpm deps:check` (run in CI) covers source imports only: its `no-circular` rule fails the build
   on a circular import it can resolve, but it does not read manifest edges.
 - `ENTRY-POINT-ONLY` — a guarded composition aggregator (a package whose entry statically pulls a
-  whole catalog, e.g. the default DAG node set or the default tool set) belongs at an application
+  whole catalog, e.g. the default tool set) belongs at an application
   entry point or explicit composition root; mid-layer libraries use an injected port or a safe lazy
   import. The former `GUARDED_AGGREGATORS` scan table no longer exists.
 - `PACKAGE-NAME` — the canonical architecture documents (plus every `packages/**/docs/SPEC.md`)
