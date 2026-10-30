@@ -36,12 +36,21 @@ async function concurrently(items, count, work) {
 // Check every package before the first write. Existing immutable versions must match these bytes.
 await concurrently(packages, 6, async (pkg) => {
   const response = await fetch(new URL(encodeURIComponent(pkg.name), `${registry.replace(/\/$/, '')}/`), {
-    headers: { accept: 'application/vnd.npm.install-v1+json' },
+    headers: { accept: 'application/json' },
     signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) throw new Error(`${pkg.name}: registry preflight returned ${response.status}; first publication requires owner setup.`);
   const metadata = await response.json();
-  const published = metadata.versions?.[version];
+  const isRecord = (value) => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const validTime = (value) => typeof value === 'string' && Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
+  if (!isRecord(metadata) || !isRecord(metadata.time) || !isRecord(metadata.versions) ||
+      !validTime(metadata.time.created) || !validTime(metadata.time.modified) ||
+      Object.keys(metadata.versions).length === 0 ||
+      Object.keys(metadata.versions).some((item) => !validTime(metadata.time[item])))
+    throw new Error(`${pkg.name}: registry version history is incomplete or invalid; refusing publication.`);
+  const published = metadata.versions[version];
+  if (!published && Object.hasOwn(metadata.time, version))
+    throw new Error(`${pkg.name}@${version}: registry version history shows this unavailable version was already used.`);
   if (published && published.dist?.integrity !== pkg.integrity)
     throw new Error(`${pkg.name}@${version}: existing bytes differ; refusing to replace or certify them.`);
   pkg.exists = Boolean(published);
