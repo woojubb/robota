@@ -21,8 +21,9 @@ package also ships its own `CHANGELOG.md` with the complete record for each vers
 command can now author a workflow from a plain-English description. `__PRODUCT_CLI_NAME__` → `/workflows create
 "fetch the issues, summarize each, then post a digest"` asks the active provider to design the
 workflow, saves it as a reusable `.workflows/<name>.json` artifact (with any prompt-backed nodes
-under `.workflows/nodes/`), and runs it immediately. `create` is model-invocable, so the agent can
-build and run a workflow on your behalf mid-conversation. The full command surface is
+under `.workflows/nodes/`), and runs it immediately. At this release, `create` was model-invocable.
+The [current CLI](../guide/cli.md#workflows-workflows) requires the user to invoke the command and
+confirm the write. The command surface at this release was
 `create "<desc>" [--input key=value] [--name <name>] | list | catalog | validate <file> | run <file>`
 — `list` shows available workflow node kinds, `catalog` lists saved workflow files in `.workflows/`,
 and `validate` / `run` operate on a workflow file.

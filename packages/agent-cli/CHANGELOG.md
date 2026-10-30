@@ -1,5 +1,10 @@
 # @robota-sdk/agent-cli
 
+## 3.0.5
+### Patch Changes
+
+- Clarify workflow ownership and the CLI's interactive approval policy.
+
 ## 3.0.4
 ### Patch Changes
 

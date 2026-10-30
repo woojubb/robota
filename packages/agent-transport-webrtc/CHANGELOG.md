@@ -1,5 +1,14 @@
 # @robota-sdk/agent-transport-webrtc
 
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-interface-session@3.0.5
+  - @robota-sdk/agent-interface-session-mobility@3.0.5
+  - @robota-sdk/agent-interface-transport@3.0.5
+  - @robota-sdk/agent-remote-pairing@3.0.5
+  - @robota-sdk/agent-transport@3.0.5
+
 ## 3.0.4
 ### Patch Changes
 
