@@ -1,4 +1,9 @@
-import { assertProjectReadPurpose } from './project-reader-path.js';
+import { createStableRootedFileWriter } from '@robota-sdk/agent-file-authority';
+import {
+  assertCurrentWorkspaceIdentity,
+  assertProjectReadPurpose,
+  workspacePathSegments,
+} from './project-reader-path.js';
 import { createWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 import {
@@ -16,6 +21,80 @@ import type {
 } from './types.js';
 
 const projectMutations = new WeakMap<object, IWorkspaceProjectAuthority>();
+
+/** Retain the project directory before asking a human to approve this single workflow operation. */
+export function prepareWorkflowJsonMutation(authority: IWorkspaceProjectAuthority): {
+  approve(decision: TWorkspaceProjectMutationDecision): IWorkspaceProjectMutation;
+  close(): void;
+} {
+  const accepted = assertWorkspaceProjectAuthority(authority);
+  const identity = getWorkspaceProjectIdentity(accepted);
+  const resolver = getWorkspaceProjectIdentityResolver(accepted);
+  assertCurrentWorkspaceIdentity(identity, resolver);
+  const writer = createStableRootedFileWriter(identity.worktreeRoot);
+  let open = true;
+  let approved = false;
+  const verify = (): void => {
+    if (!open) throw new WorkspaceAuthorityRequiredError('Workflow write approval has ended.');
+    assertWorkspaceProjectAuthority(accepted);
+    assertCurrentWorkspaceIdentity(identity, resolver);
+    writer.assertNamedRoot();
+  };
+  try {
+    verify();
+  } catch (error) {
+    writer.close();
+    throw error;
+  }
+  return Object.freeze({
+    approve(decision: TWorkspaceProjectMutationDecision): IWorkspaceProjectMutation {
+      if (approved)
+        throw new WorkspaceAuthorityRequiredError('Workflow write approval was already used.');
+      if (decision.status !== 'approved')
+        throw new WorkspaceAuthorityRequiredError('Workflow write approval was denied.');
+      assertProjectReadPurpose(decision.purpose);
+      verify();
+      approved = true;
+      const mutation = Object.freeze({
+        writeBytes(relativePath: string, content: Uint8Array, purpose: string): void {
+          verify();
+          assertProjectReadPurpose(purpose);
+          const segments = workspacePathSegments(relativePath);
+          if (
+            segments.length < 2 ||
+            segments[0] !== '.workflows' ||
+            !segments.at(-1)?.endsWith('.json')
+          ) {
+            throw new WorkspaceAuthorityRequiredError(
+              'Workflow writes are limited to JSON under .workflows.',
+            );
+          }
+          let text: string;
+          try {
+            text = new TextDecoder('utf-8', { fatal: true }).decode(content);
+            JSON.parse(text);
+          } catch {
+            throw new WorkspaceAuthorityRequiredError('Workflow writes require valid UTF-8 JSON.');
+          }
+          writer.writeUtf8WhileNamed(segments, text);
+          verify();
+        },
+        deleteFile(_relativePath: string, _purpose: string): boolean {
+          throw new WorkspaceAuthorityRequiredError(
+            'Workflow write approval does not permit deletion.',
+          );
+        },
+      });
+      projectMutations.set(mutation, accepted);
+      return mutation as IWorkspaceProjectMutation;
+    },
+    close(): void {
+      if (!open) return;
+      open = false;
+      writer.close();
+    },
+  });
+}
 
 class WorkspaceProjectMutation {
   constructor(

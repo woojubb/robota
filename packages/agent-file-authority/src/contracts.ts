@@ -52,6 +52,14 @@ export interface IStableRootedFileWriter {
   [Symbol.dispose](): void;
 }
 
+/** A rooted writer that can additionally require the root name to remain unchanged. */
+export interface INamedStableRootedFileWriter extends IStableRootedFileWriter {
+  /** Verify that the original root name still identifies the retained directory. */
+  assertNamedRoot(): void;
+  /** Write only while the original name still identifies the retained root. */
+  writeUtf8WhileNamed(relativeSegments: readonly string[], content: string): void;
+}
+
 export function authorityError(
   code: TStableFileAuthorityErrorCode,
   operation: string,

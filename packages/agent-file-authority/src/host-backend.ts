@@ -6,6 +6,8 @@ export interface IFileAuthorityTestHooks {
 }
 
 export interface IStableFileHostBackend {
+  /** Refuse if the supplied name no longer names this retained directory object. */
+  assertNamedRoot?(rootDirectory: string): void;
   readBytes(
     relativeSegments: readonly string[],
     maxBytes: number,
