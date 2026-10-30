@@ -1,0 +1,182 @@
+name: Release — verify published macOS assets
+
+on:
+  workflow_run:
+    workflows: ['Release — Bun binaries', 'Release — Desktop app']
+    types: [completed]
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: macos-verification-${{ github.event.workflow_run.head_branch }}
+  cancel-in-progress: false
+
+jobs:
+  prerequisites:
+    name: Match exact release producers
+    if: ${{ (github.event.workflow_run.event == 'push' || github.event.workflow_run.event == 'workflow_dispatch') && github.event.workflow_run.head_repository.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      ready: ${{ steps.join.outputs.ready }}
+      matrix: ${{ steps.join.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/github-script@v8
+        id: join
+        with:
+          script: |
+            const { selectDesktopRelease, latestTagRun, recoveryCandidates, resolveReleaseTag } = await import(`${process.env.GITHUB_WORKSPACE}/scripts/release/desktop-release-order.mjs`);
+            const { fetchReleaseRuns, fetchAllPushRuns } = await import(`${process.env.GITHUB_WORKSPACE}/scripts/release/fetch-release-runs.mjs`);
+            const { owner, repo } = context.repo;
+            const trigger = context.payload.workflow_run;
+            let candidates;
+            let cachedNative;
+            let cachedDesktop;
+            if (trigger.event === 'push') {
+              candidates = [{ tag: trigger.head_branch, sha: trigger.head_sha }];
+            } else {
+              // Dispatch branches do not identify their tags. Re-evaluate tag-push history instead.
+              const earliest = (await github.rest.repos.get({ owner, repo })).data.created_at;
+              const [native, desktop] = await Promise.all([
+                fetchAllPushRuns(github, owner, repo, 'release-bun-binaries.yml', earliest),
+                fetchAllPushRuns(github, owner, repo, 'release-desktop-app.yml', earliest),
+              ]);
+              candidates = recoveryCandidates(`${owner}/${repo}`, native, desktop);
+              if (candidates.length) {
+                const active = await Promise.all([
+                  fetchReleaseRuns(github, owner, repo, 'release-bun-binaries.yml', candidates[0].tag),
+                  fetchReleaseRuns(github, owner, repo, 'release-desktop-app.yml', candidates[0].tag),
+                ]);
+                cachedNative = [...native, ...active[0].filter((run) => run.event === 'workflow_dispatch')];
+                cachedDesktop = [...desktop, ...active[1].filter((run) => run.event === 'workflow_dispatch')];
+              }
+            }
+            const ready = [];
+            for (const candidate of candidates) {
+              const expected = { repository: `${owner}/${repo}`, ...candidate };
+              if (!/^[A-Za-z0-9._+-]+$/.test(expected.tag)) throw new Error('Invalid release tag');
+              const runs = (workflowId) => fetchReleaseRuns(github, owner, repo, workflowId, expected.tag);
+              const [native, desktop] = cachedNative && cachedDesktop ? [cachedNative, cachedDesktop] : await Promise.all([runs('release-bun-binaries.yml'), runs('release-desktop-app.yml')]);
+              const source = trigger.event === 'push' ? trigger : latestTagRun(expected, native);
+              if (!selectDesktopRelease(expected, source, native, desktop)) continue;
+              const pair = [latestTagRun(expected, native), latestTagRun(expected, desktop)];
+              let found = true;
+              for (const [i, run] of pair.entries()) {
+                const name = `${i === 0 ? 'native' : 'desktop'}-release-evidence-${run.id}-${run.run_attempt}`;
+                const { data } = await github.rest.actions.listWorkflowRunArtifacts({ owner, repo, run_id: run.id, per_page: 100 });
+                if (data.total_count > data.artifacts.length) throw new Error('Artifact list exceeds the bounded page');
+                const matching = data.artifacts.filter((a) => a.name === name && !a.expired);
+                if (matching.length > 1) throw new Error(`Ambiguous ${name}`);
+                if (!matching.length) found = false;
+              }
+              if (!found) continue;
+              if (!(await resolveReleaseTag(github, owner, repo, expected, trigger.event === 'workflow_dispatch'))) continue;
+              if (found) ready.push({ tag: expected.tag, sha: expected.sha, native_run: String(pair[0].id), native_attempt: String(pair[0].run_attempt), desktop_run: String(pair[1].id), desktop_attempt: String(pair[1].run_attempt) });
+            }
+            if (ready.length > 256) throw new Error('Too many active release receipts; use manual verification');
+            if (!ready.length) core.notice('Matching verified tag producers are not both ready; delivery remains pending.');
+            core.setOutput('ready', String(ready.length > 0));
+            core.setOutput('matrix', JSON.stringify(ready));
+
+  verify:
+    name: Verify exact published macOS artifacts
+    needs: prerequisites
+    if: needs.prerequisites.outputs.ready == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.prerequisites.outputs.matrix) }}
+    runs-on: macos-26
+    timeout-minutes: 25
+    env:
+      PRODUCT_BUILD_ENV: ${{ vars.PRODUCT_BUILD_ENV }}
+      RELEASE_TAG: ${{ matrix.tag }}
+      RELEASE_SHA: ${{ matrix.sha }}
+      NATIVE_RUN: ${{ matrix.native_run }}
+      NATIVE_ATTEMPT: ${{ matrix.native_attempt }}
+      DESKTOP_RUN: ${{ matrix.desktop_run }}
+      DESKTOP_ATTEMPT: ${{ matrix.desktop_attempt }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ matrix.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .release-tools
+          sparse-checkout: |
+            scripts/release
+            scripts/harness
+          persist-credentials: false
+      - name: Confirm tag and protected main
+        run: |
+          set -euo pipefail
+          git fetch origin "+refs/heads/main:refs/remotes/origin/main" "+refs/tags/$RELEASE_TAG:refs/tags/$RELEASE_TAG"
+          test "$(git rev-parse "refs/tags/$RELEASE_TAG^{commit}")" = "$RELEASE_SHA"
+          git merge-base --is-ancestor "$RELEASE_SHA" refs/remotes/origin/main
+      - uses: actions/download-artifact@v7
+        with:
+          name: native-release-evidence-${{ matrix.native_run }}-${{ matrix.native_attempt }}
+          run-id: ${{ matrix.native_run }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/native-evidence
+      - uses: actions/download-artifact@v7
+        with:
+          name: desktop-release-evidence-${{ matrix.desktop_run }}-${{ matrix.desktop_attempt }}
+          run-id: ${{ matrix.desktop_run }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: ${{ runner.temp }}/desktop-evidence
+      - name: Download and compare exact published producer assets
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/published"
+          node .release-tools/scripts/release/download-desktop-evidence.mjs "$RUNNER_TEMP/native-evidence/native-release-evidence.json" "$RUNNER_TEMP/desktop-evidence/desktop-release-evidence.json" "$RUNNER_TEMP/published"
+          node .release-tools/scripts/release/verify-desktop-evidence.mjs "$RUNNER_TEMP/native-evidence/native-release-evidence.json" "$RUNNER_TEMP/desktop-evidence/desktop-release-evidence.json" "$RUNNER_TEMP/published"
+      - name: Verify what a user downloads
+        run: |
+          set -euo pipefail
+          prefix=$(node -e 'process.stdout.write(JSON.parse(require("node:fs").readFileSync(process.argv[1])).identity.prefix)' "$RUNNER_TEMP/native-evidence/native-release-evidence.json")
+          PRODUCT_ARTIFACT_PREFIX="$prefix" bash .release-tools/scripts/harness/verify-macos-release-artifacts.sh "$RELEASE_TAG" "$RUNNER_TEMP/published"
+      - name: Confirm published assets have not changed during verification
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/recheck"
+          node .release-tools/scripts/release/download-desktop-evidence.mjs "$RUNNER_TEMP/native-evidence/native-release-evidence.json" "$RUNNER_TEMP/desktop-evidence/desktop-release-evidence.json" "$RUNNER_TEMP/recheck"
+          node .release-tools/scripts/release/verify-desktop-evidence.mjs "$RUNNER_TEMP/native-evidence/native-release-evidence.json" "$RUNNER_TEMP/desktop-evidence/desktop-release-evidence.json" "$RUNNER_TEMP/recheck"
+          test "$(git ls-remote origin "refs/tags/$RELEASE_TAG^{}" | cut -f1)" = "$RELEASE_SHA" || test "$(git ls-remote origin "refs/tags/$RELEASE_TAG" | cut -f1)" = "$RELEASE_SHA"
+      - name: Confirm producer attempts did not change during verification
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { selectDesktopRelease, latestTagRun } = await import(`${process.env.GITHUB_WORKSPACE}/.release-tools/scripts/release/desktop-release-order.mjs`);
+            const { fetchReleaseRuns } = await import(`${process.env.GITHUB_WORKSPACE}/.release-tools/scripts/release/fetch-release-runs.mjs`);
+            const { owner, repo } = context.repo;
+            const trigger = (await github.rest.actions.getWorkflowRun({ owner, repo, run_id: Number(process.env.NATIVE_RUN) })).data;
+            const expected = { repository: `${owner}/${repo}`, tag: process.env.RELEASE_TAG, sha: process.env.RELEASE_SHA };
+            const runs = (workflow_id) => fetchReleaseRuns(github, owner, repo, workflow_id, expected.tag);
+            const [native, desktop] = await Promise.all([runs('release-bun-binaries.yml'), runs('release-desktop-app.yml')]);
+            if (!selectDesktopRelease(expected, trigger, native, desktop)) throw new Error('Release producers changed during verification');
+            const pair = [latestTagRun(expected, native), latestTagRun(expected, desktop)];
+            if (String(pair[0].id) !== process.env.NATIVE_RUN || String(pair[0].run_attempt) !== process.env.NATIVE_ATTEMPT ||
+                String(pair[1].id) !== process.env.DESKTOP_RUN || String(pair[1].run_attempt) !== process.env.DESKTOP_ATTEMPT)
+              throw new Error('Release producer attempt changed during verification');
+      - name: Record verified release evidence
+        run: |
+          set -euo pipefail
+          shasum -a 256 "$RUNNER_TEMP/native-evidence/native-release-evidence.json" "$RUNNER_TEMP/desktop-evidence/desktop-release-evidence.json" > "$RUNNER_TEMP/verified-macos-evidence.txt"
+          printf 'tag=%s\nsha=%s\nnative=%s:%s\ndesktop=%s:%s\n' "$RELEASE_TAG" "$RELEASE_SHA" "$NATIVE_RUN" "$NATIVE_ATTEMPT" "$DESKTOP_RUN" "$DESKTOP_ATTEMPT" >> "$RUNNER_TEMP/verified-macos-evidence.txt"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: verified-macos-${{ matrix.tag }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/verified-macos-evidence.txt
+          if-no-files-found: error
+          retention-days: 90

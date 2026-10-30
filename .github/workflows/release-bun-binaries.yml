@@ -423,3 +423,28 @@ jobs:
             fi
           done < .release-expected.tsv
           (cd .published-assets && sha256sum --check SHA256SUMS.txt)
+
+      - name: Checkout reviewed release evidence tooling
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .release-tools
+          sparse-checkout: scripts/release
+          persist-credentials: false
+
+      - name: Record published native asset evidence
+        env:
+          TAG: ${{ steps.tag.outputs.tag }}
+          PRODUCT_BUILD_ENV: ${{ github.event.inputs.product_env || vars.PRODUCT_BUILD_ENV }}
+        run: |
+          set -euo pipefail
+          config_hash=$(node -e 'process.stdout.write(require("node:crypto").createHash("sha256").update(process.env.PRODUCT_BUILD_ENV).digest("hex"))')
+          node .release-tools/scripts/release/desktop-release-evidence.mjs "$RUNNER_TEMP/native-release-evidence.json" native \
+            "$TAG" "$(git rev-parse 'HEAD^{commit}')" "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" \
+            "$PRODUCT_ARTIFACT_PREFIX" "$PROJECT_RELEASE_TAG_PREFIX" "$PROJECT_REPOSITORY_URL" "$config_hash" .published-assets/*
+      - uses: actions/upload-artifact@v7
+        with:
+          name: native-release-evidence-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/native-release-evidence.json
+          if-no-files-found: error
+          retention-days: 90
