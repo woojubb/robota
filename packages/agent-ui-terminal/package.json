@@ -57,7 +57,7 @@
     "ink": "^7.1.1",
     "marked": "^9.1.6",
     "marked-terminal": "^7.3.0",
-    "react": "19.2.8",
+    "react": "^19.2.0",
     "string-width": "^8.2.2"
   },
   "devDependencies": {
