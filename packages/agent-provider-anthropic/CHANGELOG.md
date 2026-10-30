@@ -1,5 +1,15 @@
 # @robota-sdk/agent-provider-anthropic
 
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 
