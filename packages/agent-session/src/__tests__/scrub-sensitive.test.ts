@@ -17,6 +17,9 @@ describe('isSensitiveKey', () => {
       'secret',
       'password',
       'x-api-key',
+      'authToken',
+      'auth_token',
+      'auth-token',
     ]) {
       expect(isSensitiveKey(k)).toBe(true);
     }
