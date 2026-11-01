@@ -18,6 +18,19 @@ import {
 
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 
+/**
+ * #3679: Node opens an inspector on SIGUSR1, and any same-user process can send that signal and then
+ * attach to the debugger to read or drive the supervised runtime — the daemon especially, which
+ * outlives its window. Disable it on the child. `--disable-sigusr1` is a Node flag (added 22.14/23.7),
+ * so this applies only when the self-launch runs under a Node that accepts it; under Bun single-file
+ * binaries, where SIGUSR1 does not open a Node inspector, it is skipped.
+ */
+function nodeInspectorHardeningArgs(): readonly string[] {
+  if (process.versions.bun !== undefined) return [];
+  if (!process.allowedNodeEnvironmentFlags.has('--disable-sigusr1')) return [];
+  return ['--disable-sigusr1'];
+}
+
 interface IHandshakeMessage {
   readonly kind: 'ready' | 'acknowledged' | 'error';
   readonly id: string;
@@ -240,7 +253,7 @@ export async function launchSupervisedSession(
   let child: ChildProcess;
   try {
     child = spawn(self.execPath, [
-      ...execArgs, ...entryArgs, '--serve', '--supervised-session-id', id,
+      ...nodeInspectorHardeningArgs(), ...execArgs, ...entryArgs, '--serve', '--supervised-session-id', id,
       ...(options.name === undefined ? [] : [`--name=${options.name}`]),
       ...(grants.length > 0 ? ['--supervised-external-event-grants'] : []),
       ...(options.daemon === true ? ['--daemon'] : []),
