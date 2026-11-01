@@ -9,7 +9,7 @@
 import { readFileSync, existsSync, unlinkSync, readdirSync } from 'fs';
 import { resolve, sep } from 'path';
 
-import { ensureOwnerOnlyDirectory, writeOwnerOnlyFile } from '@robota-sdk/agent-core/node';
+import { ensureOwnerOnlyDirectory, tightenExistingFile, writeOwnerOnlyFile } from '@robota-sdk/agent-core/node';
 
 import { assertSafeSessionId, isSafeSessionId } from './session-id.js';
 import {
@@ -181,6 +181,21 @@ export class NodeSessionStore implements IInteractiveSessionStore {
         status: 'corrupt',
         issues: [{ path: '', message: `could not read the session file: ${describeError(error)}` }],
       };
+    }
+    // SEC-020 / #3679: `save` tightens a record it REWRITES, but a session that is only resumed or
+    // listed keeps whatever mode its writer left — so a record from a pre-SEC-020 build stays 0644.
+    // Repair it on read: `list` routes through here, so browsing or resuming a legacy session makes
+    // it owner-only. A no-op once the mode is already tight, and on non-POSIX hosts.
+    //
+    // Best-effort on this READ path, unlike the write callers of `tightenExistingFile`: a record
+    // owned by another account (EPERM) or on a chmod-ignoring mount makes it throw, and this is the
+    // one place `tightenExistingFile` runs from `list` — where a single unrepairable file must not
+    // take the whole listing down (the invariant `outcomeForListedId` upholds). A failed repair
+    // leaves the mode as it was and the record is still returned.
+    try {
+      tightenExistingFile(path);
+    } catch {
+      // allow-fallback: repairing the mode is opportunistic; reading the session is the job.
     }
     return decodeStoredSession(raw);
   }

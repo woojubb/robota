@@ -121,6 +121,11 @@ apps/**/README.md
 apps/api-server/.local-assets/
 apps/api-server/.dag-storage/
 
+# Local product state the CLI writes into a project (sessions, logs, checkpoints, settings) — never
+# commit. Carries prompts, model output, tool results and provider credentials; #3679. A bare
+# pattern, so it matches `.robota/` in the repo root and in every package/app that one is run from.
+.robota/
+
 # Legacy DAG runtime working directory — never commit local run state
 .dag/
 # FLOW-007 workspace layout: local workflow catalog + code nodes (test/dev working dir) — never commit
