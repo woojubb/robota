@@ -229,6 +229,56 @@ describe('WindowsNativeAuthority read sharing', () => {
     expect(shares[1] & 0x2).toBe(0);
   });
 
+  it('opens a committed name for identity without data access, so open writers cannot refuse it', () => {
+    const authority = uninitializedAuthority();
+    const handleType = koffi.pointer('TestStableIdentityHandle', koffi.opaque());
+    const unicodeStringType = koffi.struct('TestStableIdentityUnicodeString', {
+      Length: 'uint16_t',
+      MaximumLength: 'uint16_t',
+      Buffer: koffi.pointer('char16_t'),
+    });
+    const objectAttributesType = koffi.struct('TestStableIdentityObjectAttributes', {
+      Length: 'uint32_t',
+      RootDirectory: handleType,
+      ObjectName: koffi.pointer(unicodeStringType),
+      Attributes: 'uint32_t',
+      SecurityDescriptor: 'void *',
+      SecurityQualityOfService: 'void *',
+    });
+    const opens: { access: number; share: number }[] = [];
+    Reflect.set(authority, 'api', {
+      unicodeStringType,
+      objectAttributesType,
+      ntCreateFile: (
+        output: TNativeHandle[],
+        desiredAccess: number,
+        _attributes: object,
+        _ioStatus: object,
+        _allocationSize: null,
+        _fileAttributes: number,
+        shareAccess: number,
+      ) => {
+        opens.push({ access: desiredAccess, share: shareAccess });
+        output[0] = BigInt(42);
+        return 0;
+      },
+    });
+    const inspected: boolean[] = [];
+    Reflect.set(authority, 'assertSafeHandle', (_handle: TNativeHandle, directory: boolean) => {
+      inspected.push(directory);
+    });
+
+    expect(authority.openIdentity(BigInt(1), 'result.txt', 0)).toBe(BigInt(42));
+
+    const FILE_READ_DATA = 0x1;
+    const FILE_WRITE_DATA = 0x2;
+    const DELETE = 0x10000;
+    expect(opens).toHaveLength(1);
+    expect(opens[0].access & (FILE_READ_DATA | FILE_WRITE_DATA | DELETE)).toBe(0);
+    expect(opens[0].share & 0x7).toBe(0x7);
+    expect(inspected).toEqual([false]);
+  });
+
   it('refuses Windows components that cannot be represented exactly', () => {
     const authority = uninitializedAuthority();
     const handleType = koffi.pointer('TestStableLengthHandle', koffi.opaque());
