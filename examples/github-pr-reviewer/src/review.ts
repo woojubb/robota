@@ -30,7 +30,6 @@ const query = createQuery({
     'Glob',
     'Grep',
     'WebFetch',
-    'WebSearch',
     'peer_send_file',
   ],
   maxTurns: 1,

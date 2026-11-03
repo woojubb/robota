@@ -198,15 +198,7 @@ try {
         permissionMode: 'acceptEdits',
         additionalTools: tools,
         allowedTools: [observe.canonicalName, change.canonicalName],
-        deniedTools: [
-          'Bash',
-          'Shell',
-          'Write',
-          'Edit',
-          'WebFetch',
-          'WebSearch',
-          'BackgroundProcess',
-        ],
+        deniedTools: ['Bash', 'Shell', 'Write', 'Edit', 'WebFetch', 'BackgroundProcess'],
       })('Observe the setting, turn it on, and verify the new state.');
       const pairedIds = (provider.requests.at(-1) ?? [])
         .filter((message) => message.role === 'tool')
