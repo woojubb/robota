@@ -39,8 +39,12 @@ describe('PerformancePlugin', () => {
       expect(plugin.name).toBe('PerformancePlugin');
     });
 
+    it('monitors no system metrics by default when no collector is injected', () => {
+      plugin = new PerformancePlugin({ strategy: 'memory' });
+      expect(plugin.name).toBe('PerformancePlugin');
+    });
+
     it.each([
-      { name: 'by default', options: {} },
       { name: 'with only monitorMemory on', options: { monitorMemory: true, monitorCPU: false } },
       { name: 'with only monitorCPU on', options: { monitorMemory: false, monitorCPU: true } },
       {

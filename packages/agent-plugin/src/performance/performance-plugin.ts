@@ -89,8 +89,9 @@ export class PerformancePlugin extends AbstractPlugin<
       prometheusEndpoint: options.prometheusEndpoint ?? '/metrics',
       remoteHeaders: options.remoteHeaders ?? {},
       maxEntries: options.maxEntries ?? DEFAULT_MAX_ENTRIES,
-      monitorMemory: options.monitorMemory ?? true,
-      monitorCPU: options.monitorCPU ?? true,
+      // System metrics are read only when a collector is injected; on by default when one is.
+      monitorMemory: options.monitorMemory ?? options.metricsCollector !== undefined,
+      monitorCPU: options.monitorCPU ?? options.metricsCollector !== undefined,
       monitorNetwork: options.monitorNetwork ?? false,
       batchSize: options.batchSize ?? DEFAULT_BATCH_SIZE,
       flushInterval: options.flushInterval ?? DEFAULT_FLUSH_INTERVAL_MS,
