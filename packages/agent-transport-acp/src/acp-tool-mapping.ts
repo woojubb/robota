@@ -12,7 +12,6 @@ const TOOL_KINDS: Readonly<Record<string, ToolKind>> = {
   Shell: 'execute',
   Bash: 'execute',
   WebFetch: 'fetch',
-  WebSearch: 'fetch',
 };
 
 const MAX_TITLE_DETAIL = 120;

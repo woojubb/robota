@@ -58,9 +58,8 @@ export interface ICodingPackOptions {
  * outright when the profile suppresses the framework tier with `defaultTools: []`.
  *
  * - **tools** — `createDefaultTools()` from `@robota-sdk/agent-tool-defaults`, CONSUMED rather than
- *   mirrored (ARCH-035). That set is shell/bash/read/write/edit/glob/grep/webFetch/webSearch/
- *   askUserQuestion; the adapter-gated tools (`CodebaseRetrieval`, `Computer`) appear only when their
- *   adapter or driver is supplied, and this pack supplies neither. Until ARCH-035 the list was rebuilt
+ *   mirrored (ARCH-035). That set is shell/bash/read/write/edit/glob/grep/webFetch/askUserQuestion,
+ *   all tools that need no adapter, credential or external service. Until ARCH-035 the list was rebuilt
  *   here from the `@robota-sdk/agent-tools` factories and held to the defaults by a NAME-equality test
  *   — a pin that let ARCH-021's first TC-05 pass while being unable to fail, because comparing names
  *   cannot distinguish a pack-composed surface from an imported-default one when the two are pinned.
@@ -99,9 +98,8 @@ export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
     // pack-composed surface from an imported-default one when the pack is pinned to the defaults.
     // Consuming the set makes the relationship structural, so there is nothing left to drift.
     //
-    // The adapter-gated tools stay out, as before: `createDefaultTools` adds `CodebaseRetrieval` only
-    // when given a `retrievalAdapter` and the Computer tools only when given a `computerDriver`, and
-    // this pack supplies neither. SEC-007 still holds — `cwd` is REQUIRED here, so the file-tool
+    // The default set holds no tool that needs an adapter, a credential or an external service, so
+    // neither does this pack. SEC-007 still holds — `cwd` is REQUIRED here, so the file-tool
     // guard cannot be disarmed by omission, and the leaf threads it into every tool it builds.
     tools: createDefaultTools(toolOptions),
     commandModules: [

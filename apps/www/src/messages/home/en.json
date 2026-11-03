@@ -98,7 +98,7 @@
     },
     "tools": {
       "title": "Validated tools",
-      "body": "createZodFunctionTool checks model arguments against a zod schema before your function runs. Built-in coding tools cover files, search, shell, web fetch and web search."
+      "body": "createZodFunctionTool checks model arguments against a zod schema before your function runs. Built-in coding tools cover files, search, shell and web fetch."
     },
     "permissions": {
       "title": "Permission modes and rules",

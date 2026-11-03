@@ -3,8 +3,8 @@
  *
  * Composes over the injected `IRetrievalAdapter` (via `IRetrievalToolOptions`). It carries NO corpus and
  * NO domain content itself — the adapter (built from a surface-supplied parser + corpus) does the
- * ranking. With no adapter the tool reports unavailability (it is added to the default set only when an
- * adapter is present — see `createDefaultTools`).
+ * ranking. With no adapter the tool reports unavailability; the composition root that owns an adapter
+ * builds the tool itself.
  */
 
 import { z } from 'zod';

@@ -87,7 +87,7 @@ export async function runModeC(): Promise<void> {
     product.subagents.map((subagent) => subagent.name),
     ['general-purpose', 'Explore', 'Plan', 'acme-triager'],
   );
-  checkEqual("tools: the ten coding tools plus the consumer's", product.tools.length, 11);
+  checkEqual("tools: the nine coding tools plus the consumer's", product.tools.length, 10);
   check(
     'the consumer tool is in the merged set',
     product.tools.some((tool) => tool.getName() === 'AcmeTicketLookup'),
@@ -211,26 +211,12 @@ export async function runModeC(): Promise<void> {
     'Glob',
     'Grep',
     'WebFetch',
-    'WebSearch',
     'AskUserQuestion',
   ];
   checkEqual(
     'ARCH-035: the leaf ships exactly the always-present set, read from the published tarball',
     frameworkDefaultToolNames,
     ALWAYS_PRESENT,
-  );
-
-  // The adapter gating is the part that made this a SUPERSET rather than a duplicate of the pack's
-  // list, and it is why deleting the tier outright was rejected: `retrievalAdapter` would have been
-  // left declared, threaded, and reaching nothing.
-  const withRetrieval = createDefaultTools({
-    cwd: process.cwd(),
-    retrievalAdapter: { retrieve: async () => ({ symbols: [], totalTokens: 0 }) },
-  }).map((tool) => tool.getName());
-  checkEqual(
-    'ARCH-035: supplying a retrievalAdapter adds exactly CodebaseRetrieval and nothing else',
-    withRetrieval.filter((name) => !ALWAYS_PRESENT.includes(name)),
-    ['CodebaseRetrieval'],
   );
 
   checkEqual(

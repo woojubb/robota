@@ -1,6 +1,6 @@
 import { resolveCliRuntimeContext } from './product-bootstrap.js';
 import { restartProductEnvironment } from '../product/restart-environment.js';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { productProviderDefinitions } from '../product/provider-definitions.js';
 import { withholdProviderCredentials } from '../product/command-environment.js';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import { createUserSessionStore } from '@robota-sdk/agent-framework';
@@ -51,6 +51,8 @@ import {
   resolveInitialCliWorkspaceProjectAccess,
 } from './workspace-project-composition.js';
 import { runMcpLoginCommand, runMcpLogoutCommand } from './mcp-login-command.js';
+import { runMcpAddCommand } from './mcp-add-server.js';
+import { resolveMcpApprovalStore } from './mcp-approval-file-store.js';
 import { runWorkspaceTrustCommand } from './workspace-trust-command.js';
 import { optionArgv } from '../utils/option-argv.js';
 import {
@@ -215,7 +217,7 @@ export async function runPreparsedCliCommand(
       ...restartProductEnvironment(
         productRuntime,
         sources,
-        options.providerDefinitions ?? createDefaultProviderDefinitions(),
+        options.providerDefinitions ?? productProviderDefinitions(),
       ),
       ...telemetryEnvironment,
     };
@@ -488,7 +490,7 @@ export async function runPreparsedCliCommand(
   // the startup snapshot, so the live environment those commands inherit drops it now.
   withholdProviderCredentials(
     composition.settingsSources,
-    options.providerDefinitions ?? createDefaultProviderDefinitions(),
+    options.providerDefinitions ?? productProviderDefinitions(),
   );
   if (
     argv[SUBCOMMAND_INDEX] === 'mcp' &&
@@ -499,6 +501,18 @@ export async function runPreparsedCliCommand(
       settingsSources: composition.settingsSources,
       env: productRuntime.environment,
       productRuntime,
+      stdout: (text) => process.stdout.write(text),
+      stderr: (text) => process.stderr.write(text),
+    });
+    return true;
+  }
+  if (argv[SUBCOMMAND_INDEX] === 'mcp' && argv[ACTION_INDEX] === 'add') {
+    process.exitCode = runMcpAddCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
+      interactive: process.stdin.isTTY === true && process.stdout.isTTY === true,
+      productRuntime,
+      settingsSources: composition.settingsSources,
+      env: productRuntime.environment,
+      approvalStore: resolveMcpApprovalStore(options.mcpApprovalStore, productRuntime),
       stdout: (text) => process.stdout.write(text),
       stderr: (text) => process.stderr.write(text),
     });

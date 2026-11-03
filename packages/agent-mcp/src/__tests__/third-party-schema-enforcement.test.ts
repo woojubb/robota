@@ -206,3 +206,82 @@ describe('CORE-040 — a schema the subset cannot express is narrowed, not refus
     expect(result.success).toBe(true);
   });
 });
+
+describe('narrowing projects every node onto the subset keywords', () => {
+  const SUBSET_KEYS = new Set([
+    'type',
+    'description',
+    'enum',
+    'items',
+    'properties',
+    'required',
+    'anyOf',
+    'additionalProperties',
+    'minimum',
+    'maximum',
+    'pattern',
+    'format',
+    'default',
+  ]);
+
+  function keysOutsideSubset(node: unknown, path = ''): string[] {
+    if (typeof node !== 'object' || node === null) return [];
+    const schema = node as Record<string, unknown>;
+    const own = Object.keys(schema)
+      .filter((key) => !SUBSET_KEYS.has(key))
+      .map((key) => `${path}.${key}`);
+    const properties = (schema['properties'] ?? {}) as Record<string, unknown>;
+    return [
+      ...own,
+      ...Object.entries(properties).flatMap(([key, child]) => keysOutsideSubset(child, `${path}.${key}`)),
+      ...keysOutsideSubset(schema['items'], `${path}[]`),
+      ...((schema['anyOf'] as unknown[] | undefined) ?? []).flatMap((child, index) =>
+        keysOutsideSubset(child, `${path}.anyOf[${index}]`),
+      ),
+      ...(typeof schema['additionalProperties'] === 'object'
+        ? keysOutsideSubset(schema['additionalProperties'], `${path}.additionalProperties`)
+        : []),
+    ];
+  }
+
+  it('drops a constraint the subset cannot check and reports it, so the copy stays inside the contract', () => {
+    // The shape a real search server (Exa) declares: string length constraints the subset lacks.
+    const declared = {
+      type: 'object',
+      properties: {
+        query: { type: 'string', minLength: 1, description: 'search query' },
+        objective: { type: 'string', minLength: 1, maxLength: 4096 },
+        tags: { type: 'array', items: { type: 'string', minLength: 2 }, minItems: 1 },
+      },
+      required: ['query', 'objective'],
+      additionalProperties: false,
+    } as unknown as IParameterSchema;
+
+    const { schema, unenforceable } = narrowToUniversalSubset(declared);
+
+    expect(keysOutsideSubset(schema)).toEqual([]);
+    expect(unenforceable).toEqual([
+      '.query.minLength',
+      '.objective.minLength',
+      '.objective.maxLength',
+      '.tags.minItems',
+      '.tags[].minLength',
+    ]);
+    expect(schema.required).toEqual(['query', 'objective']);
+    expect(schema.properties?.['query']).toEqual({ type: 'string', description: 'search query' });
+  });
+
+  it('drops annotations without reporting them, since they constrain nothing', () => {
+    const declared = {
+      type: 'object',
+      title: 'Search',
+      $comment: 'generated',
+      properties: { q: { type: 'string', title: 'Query', examples: ['robota'], deprecated: false } },
+    } as unknown as IParameterSchema;
+
+    const { schema, unenforceable } = narrowToUniversalSubset(declared);
+
+    expect(unenforceable).toEqual([]);
+    expect(schema).toEqual({ type: 'object', properties: { q: { type: 'string' } } });
+  });
+});

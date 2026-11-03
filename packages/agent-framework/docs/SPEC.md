@@ -252,8 +252,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   `defaultTools` replaces the framework's default tool tier outright; `additionalTools` only appends
   and, on a name collision with an already-assembled tool, the earlier entry silently wins and the
   contributed one is dropped rather than displacing it. That asymmetry is deliberate: the default tier
-  is constructed _with_ session context (the working-directory guard, sandbox client, retrieval
-  adapter), and an externally-constructed contribution carries none of it, so letting a name collision
+  is constructed _with_ session context (the working-directory guard, sandbox client), and an
+  externally-constructed contribution carries none of it, so letting a name collision
   swap one in would silently disable a security guarantee. A consumer that wants its own tools to
   fully own the surface passes an empty `defaultTools` and supplies everything through
   `additionalTools` instead — replacement stays fully expressible, just never as a side effect of a
@@ -408,6 +408,6 @@ Third parties extend the SDK through a small set of seams rather than subclassin
 (attaching a session to HTTP/WebSocket/MCP/etc.), hook executor injection (subject to the seeding and
 replace-vs-extend rules above), `ISandboxClient` (routing built-in tool I/O through a sandbox), a
 subagent runner factory (swapping the default in-process runner for a process- or worktree-backed
-one), and the `guardrails`/`retrievalAdapter` ports read by session assembly but implemented by
-nobody in this package. Each of these is deliberately a narrow, typed seam rather than an escape hatch
+one), and the `guardrails` port read by session assembly but implemented by nobody in this
+package. Each of these is deliberately a narrow, typed seam rather than an escape hatch
 into internal state, so a third party cannot reach further than the contract it was given.

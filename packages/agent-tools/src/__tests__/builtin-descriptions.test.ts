@@ -122,12 +122,6 @@ describe('description override seam on every builtin factory (NEUT-002)', () => 
     expect(mod.createWebFetchTool({ description: OVERRIDE }).getDescription()).toBe(OVERRIDE);
   });
 
-  it('createWebSearchTool exists and accepts a description override', async () => {
-    const mod = await import('../builtins/web-search-tool.js');
-    expect(typeof mod.createWebSearchTool).toBe('function');
-    expect(mod.createWebSearchTool({ description: OVERRIDE }).getDescription()).toBe(OVERRIDE);
-  });
-
   it('createAskUserQuestionTool accepts a description override', async () => {
     const mod = await import('../builtins/ask-user-question-tool.js');
     expect(mod.createAskUserQuestionTool({ description: OVERRIDE }).getDescription()).toBe(

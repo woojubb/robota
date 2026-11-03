@@ -39,7 +39,6 @@ const EXPECTED_TOOLS = [
   'Read',
   'Shell',
   'WebFetch',
-  'WebSearch',
   'Write',
   'peer_send_file',
   'report_goal_status',

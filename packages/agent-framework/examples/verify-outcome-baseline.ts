@@ -49,7 +49,7 @@ try {
         permissionMode: 'acceptEdits',
         bare: true,
         allowedTools: ['Write'],
-        deniedTools: ['Bash', 'Shell', 'WebFetch', 'WebSearch', 'BackgroundProcess'],
+        deniedTools: ['Bash', 'Shell', 'WebFetch', 'BackgroundProcess'],
       });
       const start = performance.now();
       const result = await run('Fix add(2, 3) so it returns 5 in math.mjs.');

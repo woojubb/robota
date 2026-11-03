@@ -42,3 +42,10 @@ that request alone — every other tool on the turn is unaffected — and is rep
 identity through the shared tool-schema-projection logger. When a call selects `toolChoice: none`,
 the provider also omits its configured server-side web search, for both ordinary and streaming
 calls, so a server tool cannot still execute when the core passed no local tool schemas.
+
+## Server-side web search
+
+Whether the provider attaches Anthropic's server-side web search is fixed when it is built, from the
+profile option the definition declares; nothing enables it afterwards, so a session or a provider swap
+cannot change what a provider runs. A malformed option fails at construction, because a misspelled key
+that quietly left search off would look like a working configuration.

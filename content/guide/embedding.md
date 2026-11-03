@@ -101,7 +101,7 @@ use a hosted provider as in the next sections.
 ## Before you deploy: tools and permissions
 
 Every framework session gets the default tools — `Shell`, `Bash`, `Read`, `Write`, `Edit`, `Glob`,
-`Grep`, `WebFetch`, `WebSearch`, `AskUserQuestion` — with file tools confined to `cwd`. On a server,
+`Grep`, `WebFetch`, `AskUserQuestion` — with file tools confined to `cwd`. On a server,
 decide what the model may do before it can do it:
 
 - Keep `permissionMode: 'default'` (the default). Reads and searches proceed; writing files, running

@@ -42,7 +42,7 @@ import type {
   ISessionLogger,
   TAutoCompactThreshold as TSessionAutoCompactThreshold,
 } from '@robota-sdk/agent-session';
-import type { ISandboxClient, IRetrievalAdapter } from '@robota-sdk/agent-tools';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IToolCallHandoffPolicy } from './tool-call-handoff-types.js';
 
 /**
@@ -316,11 +316,6 @@ export interface ICreateSessionOptions {
    * child run un-sandboxed while looking sandboxed.
    */
   sandboxType?: string;
-  /**
-   * SELFHOST-003: optional codebase-retrieval adapter (built from a surface-supplied source parser +
-   * corpus). When present, the adapter-gated `CodebaseRetrieval` tool joins the default set; absent otherwise.
-   */
-  retrievalAdapter?: IRetrievalAdapter;
   /** Name reported to the underlying ConversationAgent agent config. Defaults to 'agent'. */
   agentName?: string;
   /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */

@@ -59,7 +59,6 @@ export async function processDocument(filePath: string): Promise<IDocumentResult
       'Glob',
       'Grep',
       'WebFetch',
-      'WebSearch',
       'peer_send_file',
     ],
     maxTurns: 1,

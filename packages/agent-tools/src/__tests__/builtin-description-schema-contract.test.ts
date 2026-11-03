@@ -26,7 +26,6 @@ import { createGrepTool } from '../builtins/grep-tool.js';
 import { createReadTool } from '../builtins/read-tool.js';
 import { createShellTool } from '../builtins/shell-tool.js';
 import { createWebFetchTool } from '../builtins/web-fetch-tool.js';
-import { createWebSearchTool } from '../builtins/web-search-tool.js';
 import { createWriteTool } from '../builtins/write-tool.js';
 
 import type { FunctionTool } from '@robota-sdk/agent-core';
@@ -46,7 +45,6 @@ const BUILTINS: ReadonlyArray<{ name: string; tool: FunctionTool }> = [
   { name: 'Grep', tool: createGrepTool({ cwd: ROOT }) },
   { name: 'Shell', tool: createShellTool({ cwd: ROOT }) },
   { name: 'WebFetch', tool: createWebFetchTool({}) },
-  { name: 'WebSearch', tool: createWebSearchTool({}) },
   { name: 'AskUserQuestion', tool: createAskUserQuestionTool({}) },
 ];
 

@@ -219,7 +219,7 @@ describe('AnthropicProvider', () => {
   });
 
   describe('capabilities', () => {
-    it('reports server web search support and generic configuration', () => {
+    it('reports server web search support and how it is switched on', () => {
       const provider = new AnthropicProvider({
         client: mockClient as unknown as Anthropic,
       });
@@ -228,13 +228,18 @@ describe('AnthropicProvider', () => {
         supported: true,
         enabled: false,
         source: 'anthropic-messages',
-        reason: 'Call configureNativeWebTools({ webSearch: true }) or set enableWebTools.',
+        reason:
+          'Set the provider profile option nativeWebTools.webSearch to true (constructor option enableWebTools).',
+      });
+      expect(provider.enableWebTools).toBe(false);
+
+      const searching = new AnthropicProvider({
+        client: mockClient as unknown as Anthropic,
+        enableWebTools: true,
       });
 
-      provider.configureNativeWebTools({ webSearch: true });
-
-      expect(provider.enableWebTools).toBe(true);
-      expect(provider.getCapabilities().nativeWebTools).toEqual({
+      expect(searching.enableWebTools).toBe(true);
+      expect(searching.getCapabilities().nativeWebTools).toEqual({
         webSearch: { supported: true, enabled: true, source: 'anthropic-messages' },
         webFetch: {
           supported: false,
@@ -247,8 +252,10 @@ describe('AnthropicProvider', () => {
   });
 
   it('omits configured hosted web search for toolChoice none in direct and streaming requests', async () => {
-    const provider = new AnthropicProvider({ client: mockClient as unknown as Anthropic });
-    provider.configureNativeWebTools({ webSearch: true });
+    const provider = new AnthropicProvider({
+      client: mockClient as unknown as Anthropic,
+      enableWebTools: true,
+    });
     const messages: TUniversalMessage[] = [
       {
         id: 'no-tools-input',
@@ -1248,7 +1255,10 @@ describe('AnthropicProvider', () => {
         yield { type: 'content_block_delta', delta: { type: 'text_delta', text: 'ok' } };
       })();
       mockClient.messages.create.mockResolvedValue(asyncChunks);
-      provider.configureNativeWebTools({ webSearch: true });
+      const searchingProvider = new AnthropicProvider({
+        client: mockClient as unknown as Anthropic,
+        enableWebTools: true,
+      });
 
       const messages: TUniversalMessage[] = [
         {
@@ -1260,7 +1270,7 @@ describe('AnthropicProvider', () => {
         },
       ];
 
-      for await (const _chunk of provider.chatStream(messages, {
+      for await (const _chunk of searchingProvider.chatStream(messages, {
         model: 'claude-3-opus-20240229',
         nativeWebTools: { webSearch: true },
       })) {
@@ -1281,7 +1291,10 @@ describe('AnthropicProvider', () => {
         yield { type: 'content_block_delta', delta: { type: 'text_delta', text: 'ok' } };
       })();
       mockClient.messages.create.mockResolvedValue(asyncChunks);
-      provider.configureNativeWebTools({ webSearch: true });
+      const searchingProvider = new AnthropicProvider({
+        client: mockClient as unknown as Anthropic,
+        enableWebTools: true,
+      });
 
       const messages: TUniversalMessage[] = [
         {
@@ -1293,7 +1306,7 @@ describe('AnthropicProvider', () => {
         },
       ];
 
-      for await (const _chunk of provider.chatStream(messages, {
+      for await (const _chunk of searchingProvider.chatStream(messages, {
         model: 'claude-3-opus-20240229',
         nativeWebTools: { webSearch: false, webFetch: false },
       })) {

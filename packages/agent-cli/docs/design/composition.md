@@ -66,7 +66,7 @@ when no hosted deployment is configured.
 flowchart TD
     A["__PRODUCT_CLI_NAME__ open: deep link, may change directory"] --> B["workspace access, pre-parsed subcommands"]
     B --> C["parseCliArgs: --help, --version, --check-update, --reset, user-local"]
-    C --> D["trust prompt, preset, OS sandbox, pack set, MCP clients"]
+    C --> D["trust prompt, preset, OS sandbox, pack set, first-start web search question, MCP clients"]
     D --> E["buildCommandSetup: base command modules, host adapters"]
     E --> F["createCliUsageTransportRegistry"]
     F --> G["routeProjectSetup: init, --configure, provider setup"]
@@ -79,7 +79,7 @@ flowchart TD
     J -->|default| N["renderApp (agent-ui-terminal)"]
 ```
 
-Pre-parsed subcommands (`doctor`, `trust`, `daemon`, `session …`, `usage`, `mcp login|logout`,
+Pre-parsed subcommands (`doctor`, `trust`, `daemon`, `session …`, `usage`, `mcp add|login|logout`,
 `eval`) are routed by `runPreparsedCliCommand()` in `src/startup/preparsed-command-routing.ts` and
 return before the product is assembled. See [`internal-structure.md`](internal-structure.md).
 

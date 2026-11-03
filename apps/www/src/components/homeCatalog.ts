@@ -16,7 +16,7 @@ export const featureCatalog = [
   {
     group: 'safety',
     items: [
-      { id: 'tools', guide: 'guide/building-agents', tags: ['createZodFunctionTool', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'WebFetch', 'WebSearch'] },
+      { id: 'tools', guide: 'guide/building-agents', tags: ['createZodFunctionTool', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'WebFetch'] },
       { id: 'permissions', guide: 'guide/permissions-and-hooks', tags: ['plan', 'default', 'acceptEdits', 'auto', 'bypassPermissions'] },
       { id: 'hooks', guide: 'guide/permissions-and-hooks', tags: ['PreToolUse', 'PostToolUse', 'SessionStart', 'UserPromptSubmit'] },
       { id: 'sandbox', guide: 'guide/permissions-and-hooks', tags: ['bubblewrap', 'Seatbelt', '/sandbox'] },

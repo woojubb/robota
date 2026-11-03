@@ -5,20 +5,18 @@ import { buildCreateSessionOptions } from '../create-session-projection.js';
 import type { ICreateSessionProjectionDeps } from '../create-session-projection.js';
 import type { IInitOptions } from '../interactive-session-options.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
-import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
 
 /**
- * ARCH-013 stage 3 — the two consumer-supplied extension ports reach the session.
+ * ARCH-013 stage 3 — the consumer-supplied guardrail registry reaches the session.
  *
- * `guardrails` and `retrievalAdapter` were both READ all along: `create-session.ts` installs a
- * `PreToolUse` guardrail hook whenever the registry is non-empty, and `create-tools.ts` gates the
- * `CodebaseRetrieval` tool on the adapter. Neither could be SET, because this projection dropped
- * them — so two documented capabilities (SELFHOST-005, SELFHOST-003) were unreachable from every
- * public surface rather than merely unused.
+ * `guardrails` was READ all along: `create-session.ts` installs a `PreToolUse` guardrail hook
+ * whenever the registry is non-empty. It could not be SET, because this projection dropped it — so a
+ * documented capability (SELFHOST-005) was unreachable from every public surface rather than merely
+ * unused.
  *
- * Both are consumer-supplied ports: the repo ships no implementation of either, which is what makes
- * "the chain is broken" the whole defect. Stage 1's `scan-option-reachability` froze both as
- * unreachable keys; this change removes them from that baseline, and the scan is what stops them
+ * It is a consumer-supplied port: the repo ships no implementation of it, which is what makes "the
+ * chain is broken" the whole defect. Stage 1's `scan-option-reachability` froze it as an
+ * unreachable key; this change removes it from that baseline, and the scan is what stops it
  * silently returning to it.
  */
 const DEPS: ICreateSessionProjectionDeps = {
@@ -53,24 +51,5 @@ describe('ARCH-013 stage 3 — a consumer can supply the guardrail registry', ()
     const built = buildCreateSessionOptions(initOptions({}), DEPS);
 
     expect('guardrails' in built).toBe(false);
-  });
-});
-
-describe('ARCH-013 stage 3 — a consumer can supply the retrieval adapter', () => {
-  it('projects the adapter that gates CodebaseRetrieval', () => {
-    // The real member is `retrieve` returning `IRetrievalResult`, and it is written cast-free for a
-    // reason: an `as unknown as` here would encode a member name and a return shape that do not
-    // exist, and the gate is truthiness-only so nothing would ever catch it.
-    const adapter: IRetrievalAdapter = { retrieve: async () => ({ symbols: [], totalTokens: 0 }) };
-
-    const built = buildCreateSessionOptions(initOptions({ retrievalAdapter: adapter }), DEPS);
-
-    expect(built.retrievalAdapter).toBe(adapter);
-  });
-
-  it('omits the key entirely when no adapter is supplied', () => {
-    const built = buildCreateSessionOptions(initOptions({}), DEPS);
-
-    expect('retrievalAdapter' in built).toBe(false);
   });
 });

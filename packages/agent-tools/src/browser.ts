@@ -1,5 +1,5 @@
 // Browser-safe entry point for @robota-sdk/agent-tools.
-// Excludes Node.js-only tools (bash, read, write, edit, glob, grep, web-fetch, web-search)
+// Excludes Node.js-only tools (bash, read, write, edit, glob, grep, web-fetch)
 // and the sandbox clients that depend on Node.js APIs.
 
 export type { IToolInvocationResult } from './types/tool-result';

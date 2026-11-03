@@ -31,7 +31,6 @@ import type { IAnthropicProviderOptions } from './types';
 import type {
   IProviderCapabilityTable,
   IProviderCapabilities,
-  IProviderNativeWebToolRequest,
   IProviderModelEffortTable,
   IToolSchemaProjectionProfile,
   TUniversalMessage,
@@ -61,9 +60,10 @@ export class AnthropicProvider extends AbstractAIProvider {
 
   /**
    * When true, Anthropic server tools (web_search) are included in every request.
-   * The server executes these tools internally — no local tool registration needed.
+   * The server executes these tools internally — no local tool registration needed. Fixed at
+   * construction (`enableWebTools` option): whoever builds the provider decides, nothing flips it.
    */
-  enableWebTools = false;
+  readonly enableWebTools: boolean;
 
   /**
    * Optional callback for text deltas during streaming.
@@ -79,6 +79,7 @@ export class AnthropicProvider extends AbstractAIProvider {
   constructor(options: IAnthropicProviderOptions) {
     super();
     this.options = options;
+    this.enableWebTools = options.enableWebTools === true;
 
     // Set executor if provided
     if (options.executor) {
@@ -397,14 +398,6 @@ export class AnthropicProvider extends AbstractAIProvider {
       options?.toolChoice !== 'none' &&
       options?.nativeWebTools?.webSearch !== false
     );
-  }
-
-  configureNativeWebTools(request: IProviderNativeWebToolRequest): IProviderCapabilities {
-    if (request.webSearch === true) {
-      this.enableWebTools = true;
-    }
-    this.validateNativeWebTools(request);
-    return this.getCapabilities();
   }
 
   override validateConfig(): boolean {

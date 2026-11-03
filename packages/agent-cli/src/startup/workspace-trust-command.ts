@@ -1,6 +1,6 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { productProviderDefinitions } from '../product/provider-definitions.js';
 import {
   createNodeWorkspaceTrustService,
   type TWorkspaceProjectAccess,
@@ -89,7 +89,7 @@ export async function runWorkspaceTrustCommand(
           : await service.inspect(cwd);
     if (action === 'status' && argv.includes('--json')) {
       // For a client that asks a person itself (the desktop app) before it starts a runtime here.
-      process.stdout.write(`${JSON.stringify(trustStatusJson(access, cwd, runtime, providerDefinitions ?? createDefaultProviderDefinitions()))}\n`);
+      process.stdout.write(`${JSON.stringify(trustStatusJson(access, cwd, runtime, providerDefinitions ?? productProviderDefinitions()))}\n`);
       return 0;
     }
     printAccess(access, runtime);

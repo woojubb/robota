@@ -96,20 +96,9 @@ export function runModeA(): void {
     ['agent-command-shell', 'agent-command-editor', 'agent-command-git'],
   );
   checkEqual(
-    'the ten built-in coding tools are present',
+    'the nine built-in coding tools are present',
     product.tools.map((tool) => tool.getName()),
-    [
-      'Shell',
-      'Bash',
-      'Read',
-      'Write',
-      'Edit',
-      'Glob',
-      'Grep',
-      'WebFetch',
-      'WebSearch',
-      'AskUserQuestion',
-    ],
+    ['Shell', 'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebFetch', 'AskUserQuestion'],
   );
   checkEqual(
     'the built-in coding subagents are present',

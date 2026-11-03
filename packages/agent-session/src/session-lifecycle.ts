@@ -20,16 +20,14 @@ import type {
 const logger = createLogger('SessionLifecycle');
 
 /**
- * Configure provider-specific features: streaming, web tools, server tool logging.
- * Mutates the provider object in-place.
+ * Wire the session's server tool log onto the provider. Mutates the provider object in-place.
+ * Which hosted tools a provider runs is decided where it is constructed, never here.
  */
 export function configureProvider(
   provider: IAIProvider,
   _options: ISessionOptions,
   log: (event: string, data: TSessionLogData) => void,
 ): void {
-  provider.configureNativeWebTools?.({ webSearch: true });
-
   // Wire server tool logging
   if ('onServerToolUse' in provider) {
     (

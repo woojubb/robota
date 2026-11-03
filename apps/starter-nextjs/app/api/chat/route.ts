@@ -36,7 +36,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       'Glob',
       'Grep',
       'WebFetch',
-      'WebSearch',
       'peer_send_file',
     ],
   });

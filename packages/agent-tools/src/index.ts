@@ -134,15 +134,6 @@ export { createGrepTool, GrepIsolationError } from './builtins/grep-tool';
 export type { IGrepToolOptions } from './builtins/grep-tool';
 export { webFetchTool, createWebFetchTool } from './builtins/web-fetch-tool';
 export type { IWebFetchToolOptions } from './builtins/web-fetch-tool';
-export { webSearchTool, createWebSearchTool } from './builtins/web-search-tool';
-export type { IWebSearchToolOptions } from './builtins/web-search-tool';
-export { createBraveSearchProvider } from './builtins/brave-search-provider';
-export type {
-  IWebSearchProvider,
-  IWebSearchQuery,
-  IWebSearchResultItem,
-  IWebSearchToolProviderOptions,
-} from './builtins/web-search-provider';
 export { askUserQuestionTool, createAskUserQuestionTool } from './builtins/ask-user-question-tool';
 // CLI-1990: the resident tool that loads deferred schemas on demand, and its pure match/rank half.
 export {

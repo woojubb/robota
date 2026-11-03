@@ -685,7 +685,6 @@ export class Session extends SessionBase {
   ): void {
     this.assertInputAllowed();
     this.agent.swapDefaultProvider(newProvider, model, options);
-    newProvider.configureNativeWebTools?.({ webSearch: true });
     if ('onServerToolUse' in newProvider) {
       (
         newProvider as { onServerToolUse?: (name: string, input: Record<string, string>) => void }

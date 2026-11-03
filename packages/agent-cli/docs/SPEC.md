@@ -334,8 +334,11 @@ definition.
 
 **Approvals outlive the process.** The CLI keeps activation decisions in an owner-only file in the
 user's storage unless the host supplies its own `IMCPActivationApprovalStore`, and `/mcp approve`
-connects the approved server in the running session. A decision binds to the definition's
-fingerprint and security identity, so a changed definition asks again. A store that cannot be read
+connects the approved server in the running session. A person at a terminal can also add and
+approve a server in one step: `__PRODUCT_CLI_NAME__ mcp add`, or the web search question the first
+interactive start asks before MCP definitions are resolved, so the choice connects in that session.
+No other start asks, and no slash command or model-invocable path adds a server. A decision binds to
+the definition's fingerprint and security identity, so a changed definition asks again. A store that cannot be read
 reads as no decisions: it can only withhold approval, never grant it. Opted-in distributed skill
 content needs separate consent from a known local user, bound to verified instructions, complete
 frontmatter, manifest, origin, workspace and URI, and a live activation remains conditional on
@@ -581,7 +584,12 @@ env var name — never the key value) pointing at `--configure` to persist a pro
 ### Provider profile resolution
 
 The CLI must not branch on provider type names to decide defaults, required fields, setup prompts, or
-constructor behavior — those come from the injected `IProviderDefinition` records. The profile key
+constructor behavior — those come from the injected `IProviderDefinition` records, including the
+product's model-native web search default, which applies to every definition that declares native web
+search and yields to a profile that sets `nativeWebTools`. The product's definition set is built in one
+place for the parent session and the child-process subagent worker alike; routing it through
+`startCli({ providerDefinitions })` would mark it caller-supplied and make subagents non-reproducible. The
+profile key
 (`currentProvider`) is a stable selection identity independent of provider `type`; resolution order is
 `currentProvider` + `providers[...]`, then legacy `provider`, then the resolved definition's defaults.
 Environment-variable API key references use `$ENV:NAME`; an unresolved `$ENV:NAME` must never be sent

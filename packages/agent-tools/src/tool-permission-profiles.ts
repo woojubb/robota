@@ -31,7 +31,6 @@ export const AGENT_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPermis
   Glob: { argument: { key: 'pattern', kind: 'text' }, riskClass: 'inspect' },
   Grep: { argument: { key: 'pattern', kind: 'text' }, riskClass: 'inspect' },
   WebFetch: { argument: { key: 'url', kind: 'url' }, riskClass: 'inspect' },
-  WebSearch: { argument: { key: 'query', kind: 'text' }, riskClass: 'inspect' },
   // The tool that had no classification at all until now. It reads the codebase and returns
   // excerpts; treating it as unknown meant prompting for every search and refusing it in plan mode,
   // which is the mode where searching is the only thing you CAN do.
@@ -43,7 +42,7 @@ export const AGENT_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPermis
   // its own name when the model actually calls it, exactly as it would be were it never deferred.
   // Classified so a rule naming `ToolSearch` is evaluable rather than falling to 'unevaluable' →
   // prompt, which in plan mode is a refusal to let the agent discover what it may read.
-  // `query` is the narrowable argument, matched as text like the other search tools'.
+  // `query` is the narrowable argument, matched as text.
   ToolSearch: { argument: { key: 'query', kind: 'text' }, riskClass: 'inspect' },
   // SELFHOST-010: looking at the screen is perception, decided like a read.
   ComputerView: { riskClass: 'inspect' },

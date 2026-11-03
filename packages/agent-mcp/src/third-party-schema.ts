@@ -31,6 +31,43 @@ const logger = createLogger('ThirdPartySchema');
 /** The types the universal subset models. Anything else is a node this repo cannot check. */
 const SUBSET_TYPES = new Set(['object', 'array', 'string', 'number', 'integer', 'boolean', 'null']);
 
+/** The published JSON Schema meta-schemas, draft-04 through 2020-12. */
+const STANDARD_DIALECT =
+  /^https?:\/\/json-schema\.org\/(?:draft-0[4-7]\/schema|draft\/(?:2019-09|2020-12)\/schema)#?$/u;
+
+/** The keywords `IParameterSchema` declares. A narrowed node carries no other. */
+const SUBSET_KEYWORDS = new Set([
+  'type',
+  'description',
+  'enum',
+  'items',
+  'properties',
+  'required',
+  'anyOf',
+  'additionalProperties',
+  'minimum',
+  'maximum',
+  'pattern',
+  'format',
+  'default',
+]);
+
+/** Keywords that constrain no value, so dropping them leaves nothing unchecked. */
+const ANNOTATION_KEYWORDS = new Set([
+  'title',
+  'examples',
+  '$comment',
+  '$id',
+  '$anchor',
+  '$defs',
+  'definitions',
+  'deprecated',
+  'readOnly',
+  'writeOnly',
+  'contentMediaType',
+  'contentEncoding',
+]);
+
 export interface INarrowedSchema {
   /** A copy carrying only what the subset can enforce. */
   schema: IParameterSchema;
@@ -68,12 +105,30 @@ function isExpressible(node: IParameterSchema): boolean {
 
 function narrowNode(input: IParameterSchema, path: string, dropped: string[]): IParameterSchema {
   let node = input;
-  // Foreign dialect declarations are not part of the portable schema contract. Keep the
-  // enforceable constraints, but report the declaration's removal rather than persisting it.
+  // A dialect declaration is not part of the portable schema contract, so it never persists. A
+  // standard JSON Schema dialect gives the subset's keywords the meaning they have here, so dropping
+  // it leaves nothing unchecked; any other dialect is reported.
   if (Object.prototype.hasOwnProperty.call(node, '$schema')) {
-    const { $schema: _dialect, ...portable } = node as IParameterSchema & { $schema?: unknown };
-    dropped.push(`${path}.$schema`);
+    const { $schema: dialect, ...portable } = node as IParameterSchema & { $schema?: unknown };
+    if (typeof dialect !== 'string' || !STANDARD_DIALECT.test(dialect)) {
+      dropped.push(`${path}.$schema`);
+    }
     node = portable as IParameterSchema;
+  }
+  // The copy holds only subset keywords: anything else is a constraint nothing here checks (reported)
+  // or an annotation (dropped quietly). Carrying it would hand on a schema outside the contract its
+  // type claims, which a strict reader of that contract — the session record — then refuses.
+  const keywords = Object.keys(node);
+  if (keywords.some((key) => !SUBSET_KEYWORDS.has(key))) {
+    const subset: Record<string, unknown> = {};
+    for (const key of keywords) {
+      if (SUBSET_KEYWORDS.has(key)) {
+        subset[key] = (node as Record<string, unknown>)[key];
+      } else if (!ANNOTATION_KEYWORDS.has(key)) {
+        dropped.push(`${path}.${key}`);
+      }
+    }
+    node = subset as IParameterSchema;
   }
   if (Array.isArray(node.anyOf)) {
     node = {

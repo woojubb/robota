@@ -34,7 +34,7 @@ import type {
   IThemeCataloguePort,
 } from '@robota-sdk/agent-command';
 import { createOutputStyleRegistry, loadOutputStylesFromSources } from '@robota-sdk/agent-preset';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { productProviderDefinitions } from '../product/provider-definitions.js';
 import {
   createWorkspaceWorkflowProject,
   createWorkflowsCommandModule,
@@ -124,7 +124,7 @@ export interface ICliSetup {
   providerDefinitions: readonly IProviderDefinition[];
   /**
    * ARCH-109: whether `providerDefinitions` above came from the caller rather than from
-   * `createDefaultProviderDefinitions()`.
+   * `productProviderDefinitions()`.
    *
    * Reported rather than re-derived, because it cannot be re-derived. The definitions carry
    * `createProvider` and `probeProfile` — functions — so a downstream reader can compare them with
@@ -245,7 +245,7 @@ export function buildCommandSetup(
       : { skillCommands: options.mcpActivationAdapter.skills.commandSource }),
     outputStyleRegistry,
   };
-  const providerDefinitions = options.providerDefinitions ?? createDefaultProviderDefinitions();
+  const providerDefinitions = options.providerDefinitions ?? productProviderDefinitions();
   const providerSettingsSources = workspaceComposition.settingsSources;
   const providerSettingsStore = resolveProviderSettingsWriteTarget(
     workspaceComposition.settingsStores,

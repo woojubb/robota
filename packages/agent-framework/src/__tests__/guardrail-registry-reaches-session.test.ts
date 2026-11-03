@@ -1,5 +1,5 @@
 /**
- * ARCH-013 stage 3 — the guardrail registry and retrieval adapter, from the PUBLIC surface in.
+ * ARCH-013 stage 3 — the guardrail registry, from the PUBLIC surface in.
  *
  * ## What each group here guards, stated because an earlier revision got it wrong
  *
@@ -20,7 +20,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
-import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
 import type { IInteractiveSessionStandardOptions } from '../interactive/interactive-session-options.js';
 
 const sessionCtorCalls: Array<Record<string, unknown>> = [];
@@ -104,12 +103,6 @@ const NEVER_PASSES: TGuardrail = () => ({ pass: false, reason: 'blocked by test'
 function executorTypesOf(sessionOptions: Record<string, unknown>): string[] {
   const executors = (sessionOptions.hookTypeExecutors ?? []) as Array<{ type?: string }>;
   return executors.map((executor) => executor.type ?? '').filter(Boolean);
-}
-
-/** Tool names on the assembled session. */
-function toolNamesOf(sessionOptions: Record<string, unknown>): string[] {
-  const tools = (sessionOptions.tools ?? []) as Array<{ getName?: () => string }>;
-  return tools.map((tool) => tool.getName?.() ?? '').filter(Boolean);
 }
 
 function asyncInitDeps(): Parameters<
@@ -347,53 +340,7 @@ describe('createSession registers the guardrail machinery (pre-existing, previou
   });
 });
 
-describe('createSession gates CodebaseRetrieval on the adapter (pre-existing behaviour)', () => {
-  beforeEach(() => {
-    sessionCtorCalls.length = 0;
-  });
-
-  it('surfaces CodebaseRetrieval when an adapter is supplied', async () => {
-    // `create-tools.test.ts` already covers the last hop (adapter in `createDefaultTools`'s options →
-    // tool present). The hop nothing covered is this one: `createSession` → `assemble-session-tools`
-    // → `createDefaultTools`. Without it, "the adapter reaches the session" was an inference across
-    // two separately-tested halves rather than a measured fact.
-    const { createSession } = await import('../assembly/create-session.js');
-    // `retrieve`, not `search`: the gate is truthiness-only so a wrong member name would still pass,
-    // which is exactly why encoding one in a cast is worth avoiding.
-    const retrievalAdapter: IRetrievalAdapter = {
-      retrieve: async () => ({ symbols: [], totalTokens: 0 }),
-    };
-
-    await createSession({
-      config: baseConfig(),
-      context: { agentsMd: '', projectNotesMd: '' },
-      terminal: MOCK_TERMINAL,
-      provider: createMockProvider(),
-      retrievalAdapter,
-    });
-
-    expect(toolNamesOf(sessionCtorCalls[0]!)).toContain('CodebaseRetrieval');
-  });
-
-  it('does NOT surface it without an adapter — there is no host fallback', async () => {
-    const { createSession } = await import('../assembly/create-session.js');
-
-    await createSession({
-      config: baseConfig(),
-      context: { agentsMd: '', projectNotesMd: '' },
-      terminal: MOCK_TERMINAL,
-      provider: createMockProvider(),
-    });
-
-    const names = toolNamesOf(sessionCtorCalls[0]!);
-    // Both halves: the tool is absent, AND the list is genuinely populated — a `not.toContain` over
-    // an empty list passes for the wrong reason, which is how a negative assertion goes vacuous.
-    expect(names.length).toBeGreaterThan(3);
-    expect(names).not.toContain('CodebaseRetrieval');
-  });
-});
-
-describe('ARCH-013 stage 3 — the PUBLIC surface carries both ports (this is what guards the fix)', () => {
+describe('ARCH-013 stage 3 — the PUBLIC surface carries the guardrail port (this is what guards the fix)', () => {
   beforeEach(() => {
     sessionCtorCalls.length = 0;
   });
@@ -424,30 +371,7 @@ describe('ARCH-013 stage 3 — the PUBLIC surface carries both ports (this is wh
     expect(executorTypesOf(sessionCtorCalls[0]!)).toContain('guardrail');
   });
 
-  it('carries a retrieval adapter set on the published option type through to the tool surface', async () => {
-    const { initializeInteractiveSessionAsync } =
-      await import('../interactive/interactive-session-init.js');
-    const retrievalAdapter: IRetrievalAdapter = {
-      retrieve: async () => ({ symbols: [], totalTokens: 0 }),
-    };
-
-    await initializeInteractiveSessionAsync(
-      {
-        cwd: '/arch-013-stage-3-public',
-        provider: createMockProvider(),
-        bare: true,
-        config: baseConfig(),
-        retrievalAdapter,
-      },
-      asyncInitDeps(),
-    );
-
-    const names = toolNamesOf(sessionCtorCalls[0]!);
-    expect(names.length).toBeGreaterThan(3);
-    expect(names).toContain('CodebaseRetrieval');
-  });
-
-  it('carries neither when neither is set — the contrast that makes the two above mean something', async () => {
+  it('carries no guardrail hook when no registry is set — the contrast that makes the case above mean something', async () => {
     const { initializeInteractiveSessionAsync } =
       await import('../interactive/interactive-session-init.js');
 
@@ -462,19 +386,14 @@ describe('ARCH-013 stage 3 — the PUBLIC surface carries both ports (this is wh
     );
 
     expect(guardrailHooksOf(sessionCtorCalls[0]!)).toHaveLength(0);
-    const names = toolNamesOf(sessionCtorCalls[0]!);
-    // Populated-list guard, like its siblings: a `not.toContain` over an empty list passes for the
-    // wrong reason, and this file argues that everywhere else.
-    expect(names.length).toBeGreaterThan(3);
-    expect(names).not.toContain('CodebaseRetrieval');
   });
 });
 
-describe('ARCH-013 stage 3 — the ports are pinned to the PUBLISHED construction type', () => {
-  it('accepts both ports on `IInteractiveSessionStandardOptions` itself', () => {
+describe('ARCH-013 stage 3 — the port is pinned to the PUBLISHED construction type', () => {
+  it('accepts the guardrail port on `IInteractiveSessionStandardOptions` itself', () => {
     // WHAT THIS ADDS, stated narrowly because an earlier docblock here claimed more than it does.
     //
-    // The one guard distinct to this case: both ports are pinned to the PUBLISHED construction type
+    // The one guard distinct to this case: the port is pinned to the PUBLISHED construction type
     // independently of `initializeInteractiveSessionAsync`'s parameter type. Everything else that
     // could fail here already fails elsewhere — review measured that of the five typecheck errors
     // produced by removing a port, three come from other sites that would break anyway.
@@ -499,11 +418,9 @@ describe('ARCH-013 stage 3 — the ports are pinned to the PUBLISHED constructio
       bare: true,
       config: baseConfig(),
       guardrails: { neverPasses: NEVER_PASSES },
-      retrievalAdapter: { retrieve: async () => ({ symbols: [], totalTokens: 0 }) },
     };
 
     expect(options.guardrails).toBeDefined();
-    expect(options.retrievalAdapter).toBeDefined();
   });
 });
 

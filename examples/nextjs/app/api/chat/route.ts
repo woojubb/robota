@@ -15,7 +15,6 @@ const DENIED_TOOLS = [
   'Glob',
   'Grep',
   'WebFetch',
-  'WebSearch',
   'peer_send_file',
 ];
 

@@ -17,7 +17,7 @@ import {
   renderDoctorReport,
   runDoctor,
 } from '@robota-sdk/agent-command';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { productProviderDefinitions } from '../product/provider-definitions.js';
 
 import { buildDoctorInputs, resolveDoctorProjectAccess } from './doctor-inputs.js';
 import { resolveCliRuntimeContext } from './product-bootstrap.js';
@@ -107,7 +107,7 @@ export async function runDoctorRoute(
     version: ctx.version,
     options: ctx.options,
     ...access,
-    providerDefinitions: ctx.options.providerDefinitions ?? createDefaultProviderDefinitions(),
+    providerDefinitions: ctx.options.providerDefinitions ?? productProviderDefinitions(),
     env,
     ...(ctx.userHome === undefined ? {} : { userHome: ctx.userHome }),
   });

@@ -26,8 +26,8 @@ re-implements none of them.
 - The factory passes the caller's `cwd`, optional `sandboxClient` and optional `editorFiles` straight
   through to the default tool factory; it does not maintain a separate tool list, so pack composition adds, drops, or
   reorders no defaults relative to that source.
-- Adapter-gated tools (`CodebaseRetrieval`, `Computer`) are absent because this pack supplies neither
-  adapter nor driver.
+- Tools that need an adapter, a credential or an external service (`CodebaseRetrieval`, `Computer`)
+  are absent: the default set it consumes holds none.
 
 ## Design decisions
 

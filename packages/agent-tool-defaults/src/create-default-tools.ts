@@ -24,26 +24,19 @@ import {
   createReadTool,
   createWriteTool,
   createEditTool,
-  createRetrievalTool,
-  createComputerTool,
   createGlobTool,
   createGrepTool,
   createWebFetchTool,
-  createWebSearchTool,
   routesFilesThroughSandbox,
 } from '@robota-sdk/agent-tools';
 
 import type { FunctionTool } from '@robota-sdk/agent-core';
-import type {
-  IComputerDriver,
-  IEditorFileAccess,
-  IRetrievalAdapter,
-  ISandboxClient,
-} from '@robota-sdk/agent-tools';
+import type { IEditorFileAccess, ISandboxClient } from '@robota-sdk/agent-tools';
 
 /**
  * Create the default set of CLI tools.
- * Returns the standard tools.
+ * Returns the standard tools: only those that need no external service, credential or adapter. A
+ * tool that does is built by the composition root that owns the adapter.
  */
 export interface ICreateDefaultToolsOptions {
   sandboxClient?: ISandboxClient;
@@ -65,14 +58,6 @@ export interface ICreateDefaultToolsOptions {
    * sandbox with its own filesystem keeps every file tool, since its files are not the editor's.
    */
   editorFiles?: () => IEditorFileAccess | undefined;
-  /** SELFHOST-003: when present, adds the adapter-gated `CodebaseRetrieval` tool (absent otherwise). */
-  retrievalAdapter?: IRetrievalAdapter;
-  /**
-   * SELFHOST-010: when present, adds the adapter-gated `ComputerView` + `Computer` tools. Unlike the
-   * shell tool's host `spawn` fallback, computer-use has NO host fallback — with no driver the tools are
-   * simply ABSENT (there is no safe library-side "local" screen to fall back to).
-   */
-  computerDriver?: IComputerDriver;
 }
 
 /**
@@ -106,19 +91,11 @@ export function createDefaultTools(options: ICreateDefaultToolsOptions): Functio
     // construction, so registering one meant `Glob`/`Grep` could enumerate outside the session's
     // working directory while `Read`/`Write`/`Edit` were contained.
     ...(separate ? [] : [createGlobTool(hostFileOptions), createGrepTool(hostFileOptions)]),
-    // MUST 4: also built per call, for the same reason — `webFetchTool`/`webSearchTool` are
-    // module-level singletons in `agent-tools`, so two concurrently open sessions built from this
-    // set (e.g. two `sessionParticipant`s) shared them and tripped `resource-reused` even though
-    // nothing about a WebFetch/WebSearch tool actually needs to be shared across sessions.
+    // MUST 4: also built per call, for the same reason — `webFetchTool` is a module-level
+    // singleton in `agent-tools`, so two concurrently open sessions built from this set (e.g. two
+    // `sessionParticipant`s) shared it and tripped `resource-reused` even though nothing about a
+    // WebFetch tool actually needs to be shared across sessions.
     createWebFetchTool({ userAgent: options.httpUserAgent }),
-    createWebSearchTool(),
     createAskUserQuestionTool(),
-    // Retrieval is adapter-gated: absent when no adapter is supplied (there is no host fallback).
-    ...(options.retrievalAdapter
-      ? [createRetrievalTool({ adapter: options.retrievalAdapter })]
-      : []),
-    // Computer-use is adapter-gated on the driver: absent when no driver is supplied. There is NO host
-    // fallback (unlike the shell tool's host spawn) — no library-side "local" screen exists.
-    ...(options.computerDriver ? createComputerTool({ driver: options.computerDriver }) : []),
   ];
 }

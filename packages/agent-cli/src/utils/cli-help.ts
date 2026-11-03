@@ -168,6 +168,10 @@ Commands:
   {{cli}} daemon unlock             Remove a daemon start lock left by a start that is gone
   {{cli}} mcp serve [options]       Serve one {{name}} session over stdio, authenticated loopback HTTP,
                                   or OAuth-authorized remote HTTP
+  {{cli}} mcp add <exa|parallel>    Add a keyless web search MCP server to your settings, approved
+  {{cli}} mcp add <name> <https-url>
+                                  Add an HTTP MCP server to your settings, approved; it connects on
+                                  the next start
   {{cli}} mcp login <name> [--client-secret] [--no-browser]
                                   Sign in to a remote MCP server that declares oauth
                                   (--no-browser: print the URL, paste the redirect back)

@@ -9,9 +9,10 @@
 
 import type { IProviderCapabilities } from '@robota-sdk/agent-core';
 
-const CONFIGURE_HINT = 'Call configureNativeWebTools({ webSearch: true }) or set enableWebTools.';
+const CONFIGURE_HINT =
+  'Set the provider profile option nativeWebTools.webSearch to true (constructor option enableWebTools).';
 
-/** Vendor-level capabilities, which depend on whether server web search has been switched on. */
+/** Vendor-level capabilities, which depend on whether the provider was built with server web search. */
 export function anthropicProviderCapabilities(webToolsEnabled: boolean): IProviderCapabilities {
   return {
     functionCalling: { supported: true },

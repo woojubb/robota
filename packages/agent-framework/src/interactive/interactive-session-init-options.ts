@@ -52,7 +52,6 @@ import type {
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 import type { ISessionLogSink } from '@robota-sdk/agent-session';
-import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
 import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
 /** Standard construction: cwd + provider. Config/context loaded internally. */
@@ -210,8 +209,6 @@ export interface IInitOptions {
   defaultTools?: readonly IToolWithEventService[];
   /** SELFHOST-005 guardrail REGISTRY (name → function). ARCH-013 S3; see create-session-projection. */
   guardrails?: Record<string, TGuardrail>;
-  /** SELFHOST-003 retrieval adapter gating `CodebaseRetrieval`. ARCH-013 S3; same seam as above. */
-  retrievalAdapter?: IRetrievalAdapter;
   /** Request structured output from the provider for this session (issue #2056: incl. `json_schema`). */
   responseFormat?: TSessionResponseFormat;
 }

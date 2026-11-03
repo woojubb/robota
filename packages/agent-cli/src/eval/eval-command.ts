@@ -23,7 +23,7 @@ import {
   formatEvalReport,
   runEval,
 } from '@robota-sdk/agent-framework';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { productProviderDefinitions } from '../product/provider-definitions.js';
 import { createProviderFromConfig } from '@robota-sdk/agent-core';
 import type { IProviderDefinition, TProviderCredentialResolver } from '@robota-sdk/agent-core';
 
@@ -108,7 +108,7 @@ async function buildDefaultRunFn(cwd: string, deps: IRunEvalDeps): Promise<TEval
     (() => {
       throw new Error('Eval startup requires explicit host settings sources.');
     })();
-  const definitions = deps.providerDefinitions ?? createDefaultProviderDefinitions();
+  const definitions = deps.providerDefinitions ?? productProviderDefinitions();
   const config = readProviderSettings(settingsSources, {
     providerDefinitions: definitions,
     ...(deps.environment !== undefined ? { env: deps.environment } : {}),

@@ -389,7 +389,7 @@ try {
     permissionMode: 'acceptEdits' as const,
     additionalTools: tools,
     allowedTools: tools.map((tool) => tool.getName()),
-    deniedTools: ['Bash', 'Shell', 'Write', 'Edit', 'WebFetch', 'WebSearch', 'BackgroundProcess'],
+    deniedTools: ['Bash', 'Shell', 'Write', 'Edit', 'WebFetch', 'BackgroundProcess'],
   };
   let reconciliation: Record<string, unknown> | undefined;
   let result: Awaited<ReturnType<ReturnType<typeof createSessionRunFn>>>;
