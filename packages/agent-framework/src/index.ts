@@ -126,6 +126,7 @@ export {
   createProjectSessionStore,
   createNodeHostSessionStore,
   createNodeToolResultSpillStore,
+  sweepStaleToolResultSpillDirectories,
   createUserSessionStore,
   createUserPromptHistoryFile,
   isSafeSessionId,

@@ -225,6 +225,7 @@ durable Roundtable execution. Unresolved forks and workspace copies are refused 
 | `SESSION_LOG_EVENT`, `SESSION_LOG_SCHEMA_VERSION`                                                            | Consts              | The log event vocabulary and schema version                                              |
 | `resolveSessionLogExternalPayloads`, `NodeExternalPayloadSource`, `createSessionLogExternalPayloadReference` | Functions, class    | Large log fields stored as separate payload files                                        |
 | `NodeToolResultSpillStore`                                                                                   | Class               | Stores oversized tool results in files for the life of the session                       |
+| `sweepStaleToolResultSpillDirectories`                                                                       | Function            | Removes spill directories left behind by a process that is no longer running             |
 | `NodePromptHistoryFile`                                                                                      | Class               | Append-only prompt history file that can be read newest-first                            |
 
 `IContextWindowState` (the `getContextState()` result) is exported by `@robota-sdk/agent-core`.

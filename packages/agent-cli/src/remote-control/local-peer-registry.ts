@@ -30,14 +30,29 @@
  * directory is atomic on every filesystem this runs on.
  */
 
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { linkSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  linkSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { join } from 'node:path';
+
+import {
+  readDarwinStartTime,
+  readProcessStartTime as readCoreProcessStartTime,
+} from '@robota-sdk/agent-core/node';
 
 import { readWindowsProcessStartTime } from '../session-inventory/windows-security.js';
 
 import type { IWorkspaceClaim } from './local-peer-workspace.js';
+
+/** Re-exported for this product's callers; the implementation is agent-core's. */
+export { readDarwinStartTime };
 
 /** What a session publishes about itself. */
 export interface IPeerEntry {
@@ -83,46 +98,6 @@ const ENTRY_SUFFIX = '.peer.json';
 const SECOND_MS = 1_000;
 const STATUS_FRESH_MS = 30_000;
 
-/**
- * Read a process's start time from `/proc`.
- *
- * Returns undefined rather than throwing when the process is gone or `/proc` cannot answer —
- * "no answer" and "not running" are different, so the caller must not guess `alive`.
- */
-function readProcStartTime(pid: number): string | undefined {
-  try {
-    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
-    // Field 22 is starttime. The comm field can contain spaces and parentheses, so the split is
-    // anchored on the LAST ')' rather than on whitespace — splitting naively mis-indexes every
-    // field for a process whose name contains a space.
-    const afterComm = stat.slice(stat.lastIndexOf(')') + 2);
-    return afterComm.split(' ')[19];
-  } catch {
-    // allow-fallback: this substitutes no alternative value — undefined means "could not tell",
-    // which the caller maps to `unknown` rather than to either verdict.
-    return undefined;
-  }
-}
-
-/** macOS has no `/proc`; `ps` supplies a whole-second birth time. */
-export function readDarwinStartTime(
-  pid: number,
-  runPs: (pid: number) => string = (targetPid) =>
-    execFileSync('/bin/ps', ['-p', String(targetPid), '-o', 'lstart='], {
-      encoding: 'utf8',
-      timeout: 1_000,
-      maxBuffer: 128,
-      env: { TZ: 'UTC', LC_ALL: 'C' },
-    }),
-): string | undefined {
-  try {
-    const startedAt = runPs(pid).trim();
-    return startedAt || undefined;
-  } catch {
-    return undefined;
-  }
-}
-
 function probePid(pid: number): 'present' | 'absent' | 'unknown' {
   try {
     process.kill(pid, 0);
@@ -132,16 +107,14 @@ function probePid(pid: number): 'present' | 'absent' | 'unknown' {
   }
 }
 
+/** agent-core's reader, with this product's Windows reader (the one agent-core cannot carry). */
 export function readProcessStartTime(
   pid: number,
   platform: string = process.platform,
   readDarwin: (pid: number) => string | undefined = readDarwinStartTime,
   readWindows: (pid: number) => string | undefined = readWindowsProcessStartTime,
 ): string | undefined {
-  if (!Number.isSafeInteger(pid) || pid <= 0) return undefined;
-  if (platform === 'darwin') return readDarwin(pid);
-  if (platform === 'win32') return readWindows(pid);
-  return readProcStartTime(pid);
+  return readCoreProcessStartTime(pid, { platform, readDarwin, readWindows });
 }
 
 function readAnnouncedStartMetadata(
@@ -201,25 +174,45 @@ export function announcePeer(
 
 /** Withdraw only files still owned by this announcement, including a claim retained during a
  * concurrent prune. A later owner of the same session ID must remain published. */
-export function withdrawPeer(options: IRegistryOptions, sessionId: string, owner: IPeerEntry): void {
+export function withdrawPeer(
+  options: IRegistryOptions,
+  sessionId: string,
+  owner: IPeerEntry,
+): void {
   const canonical = `${sessionId}${ENTRY_SUFFIX}`;
   for (const file of readdirSync(options.guardedDirectory)) {
-    if (file !== canonical && !((file.startsWith('.prune-') || file.startsWith('.withdraw-')) && file.endsWith(ENTRY_SUFFIX))) continue;
+    if (
+      file !== canonical &&
+      !(
+        (file.startsWith('.prune-') || file.startsWith('.withdraw-')) &&
+        file.endsWith(ENTRY_SUFFIX)
+      )
+    )
+      continue;
     const path = join(options.guardedDirectory, file);
     const claim = join(options.guardedDirectory, `.withdraw-${randomUUID()}${ENTRY_SUFFIX}`);
     try {
       const before = statSync(path);
       const raw = readFileSync(path, 'utf8');
       const entry = JSON.parse(raw) as IPeerEntry;
-      if (entry.sessionId !== sessionId || entry.pid !== owner.pid || entry.startedAt !== owner.startedAt) continue;
+      if (
+        entry.sessionId !== sessionId ||
+        entry.pid !== owner.pid ||
+        entry.startedAt !== owner.startedAt
+      )
+        continue;
       renameSync(path, claim);
       const after = statSync(claim);
       const claimedRaw = readFileSync(claim, 'utf8');
       if (before.dev === after.dev && before.ino === after.ino && raw === claimedRaw) {
         rmSync(claim);
       } else {
-        try { linkSync(claim, path); rmSync(claim); }
-        catch { /* A replacement owns the canonical path; retain the claim for discovery. */ }
+        try {
+          linkSync(claim, path);
+          rmSync(claim);
+        } catch {
+          /* A replacement owns the canonical path; retain the claim for discovery. */
+        }
       }
     } catch {
       // Missing, unreadable or concurrently replaced registrations are not ours to remove.
@@ -283,11 +276,15 @@ export function listPeers(options: IRegistryOptions): readonly IDiscoveredPeer[]
   // A concurrent prune can temporarily move an announcement to a claim path. Both paths remain
   // readable; prefer the newest reachable announcement for each session id.
   const bySession = new Map<string, IDiscoveredPeer>();
-  const rank = (peer: IDiscoveredPeer): number => peer.liveness === 'alive' ? 2 : peer.liveness === 'unknown' ? 1 : 0;
+  const rank = (peer: IDiscoveredPeer): number =>
+    peer.liveness === 'alive' ? 2 : peer.liveness === 'unknown' ? 1 : 0;
   for (const peer of out) {
     const previous = bySession.get(peer.entry.sessionId);
-    if (!previous || rank(peer) > rank(previous) ||
-      (rank(peer) === rank(previous) && peer.entry.announcedAt > previous.entry.announcedAt)) {
+    if (
+      !previous ||
+      rank(peer) > rank(previous) ||
+      (rank(peer) === rank(previous) && peer.entry.announcedAt > previous.entry.announcedAt)
+    ) {
       bySession.set(peer.entry.sessionId, peer);
     }
   }
@@ -328,8 +325,11 @@ export function pruneDeadPeers(options: IRegistryOptions): number {
       const claimedStat = statSync(claim);
       const claimedRaw = readFileSync(claim, 'utf8');
       const sameFile = claimedStat.dev === originalStat.dev && claimedStat.ino === originalStat.ino;
-      if (!sameFile || claimedRaw !== original ||
-          judgeLiveness(entry, readStartTime, probe) !== 'dead') {
+      if (
+        !sameFile ||
+        claimedRaw !== original ||
+        judgeLiveness(entry, readStartTime, probe) !== 'dead'
+      ) {
         try {
           linkSync(claim, path);
           rmSync(claim);

@@ -1,10 +1,20 @@
 /**
  * TERM-004: `/editor` — compose a message/prompt in `$EDITOR` via the terminal-handoff capability,
  * then return the saved text. The temp file is pre-filled with any args and removed afterward.
+ *
+ * The buffer is the composed message, so it is owner-only: a directory only the owner can enter,
+ * holding a `0600` file. A relative prefix puts that directory under the operating-system temporary
+ * directory; an absolute prefix names a host-owned location instead (`<directory>/<name prefix>`), which
+ * a host that keeps no conversation content in shared directories supplies.
  */
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, isAbsolute, join } from 'node:path';
+
+import {
+  createProcessScopedDirectory,
+  removeDirectoryOnProcessExit,
+} from '@robota-sdk/agent-core/node';
 
 import { resolveEditor } from './resolve-editor.js';
 import { spawnInherited } from '../shell/spawn-inherited.js';
@@ -19,6 +29,11 @@ export const EDITOR_COMMAND_DESCRIPTION =
   'Compose a message in $EDITOR (optionally pre-filled with `/editor <text>`), then return it.';
 export const DEFAULT_EDITOR_TEMPORARY_DIRECTORY_PREFIX = 'agent-editor-';
 
+function createEditorDirectory(prefix: string): string {
+  if (isAbsolute(prefix)) return createProcessScopedDirectory(dirname(prefix), basename(prefix));
+  return mkdtempSync(join(tmpdir(), prefix));
+}
+
 export async function executeEditorCommand(
   context: ICommandHostTerminalHandoff & ICommandHostWorkspace,
   args: string,
@@ -32,11 +47,13 @@ export async function executeEditorCommand(
   }
 
   const editor = resolveEditor();
-  const dir = mkdtempSync(join(tmpdir(), temporaryDirectoryPrefix));
+  const dir = createEditorDirectory(temporaryDirectoryPrefix);
+  // A hangup or interrupt while the editor is open ends the process without reaching `finally`.
+  const cancelExitRemoval = removeDirectoryOnProcessExit(dir);
   const file = join(dir, 'message.md');
-  writeFileSync(file, args ?? '', 'utf8');
 
   try {
+    writeFileSync(file, args ?? '', { encoding: 'utf8', mode: 0o600 });
     const exitCode = await context.runWithTerminal(async () =>
       spawnInherited(editor.command, [...editor.args, file], context.getCwd()),
     );
@@ -54,5 +71,6 @@ export async function executeEditorCommand(
     return { message: content, success: true, data: { content } };
   } finally {
     rmSync(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 20 });
+    cancelExitRemoval();
   }
 }

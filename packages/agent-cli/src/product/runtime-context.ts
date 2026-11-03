@@ -25,6 +25,13 @@ export interface ICliProductLayout {
     readonly workspaceTrust: string;
     readonly orgPolicy: string;
     readonly mcpApprovals: string;
+    /**
+     * Parents of the directories one process owns while it runs: spilled tool results and the editor
+     * buffer. Owner-only, inside the state root rather than the shared temporary directory, and swept
+     * of dead processes' leftovers at startup.
+     */
+    readonly spill: string;
+    readonly editor: string;
   };
   readonly projectStateDirectories: TWorkspaceProjectStateDirectories;
   readonly projectSettingsPaths: readonly IProjectSettingsPath[];
@@ -98,6 +105,8 @@ export function createCliRuntimeContext(
       workspaceTrust: join(userRoot, 'workspace-trust.json'),
       orgPolicy: join(userRoot, 'org-policy.json'),
       mcpApprovals: join(userRoot, 'mcp-approvals.json'),
+      spill: join(userRoot, 'spill'),
+      editor: join(userRoot, 'editor'),
     },
     projectStateDirectories: {
       sessions: join(directory, 'sessions'),
@@ -153,7 +162,11 @@ export function createCliRuntimeContext(
     vocabulary: {
       displayName: config.identity.displayName,
       cliName: config.identity.cliName,
-      editorTemporaryDirectoryPrefix: config.identity.editorTemporaryDirectoryPrefix,
+      // Absolute, so `/editor` keeps its buffer inside the owner-only state root, not shared tmp.
+      editorTemporaryDirectoryPrefix: join(
+        layout.userPaths.editor,
+        config.identity.editorTemporaryDirectoryPrefix,
+      ),
       doctor,
       doctorSlash: {
         ...doctor,

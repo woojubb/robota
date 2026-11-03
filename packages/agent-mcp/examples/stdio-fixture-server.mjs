@@ -27,11 +27,13 @@ if (mode === 'stall') {
           text:
             mode === 'oversized-stdio'
               ? 'x'.repeat(9 * 1024 * 1024)
-              : mode === 'client-info'
-                ? JSON.stringify(server.getClientVersion())
-                : mode === 'client-capabilities'
-                  ? JSON.stringify(server.getClientCapabilities())
-                  : 'pong',
+              : mode === 'spillable-stdio'
+                ? `SPILLABLE-${'x'.repeat(100_000)}`
+                : mode === 'client-info'
+                  ? JSON.stringify(server.getClientVersion())
+                  : mode === 'client-capabilities'
+                    ? JSON.stringify(server.getClientCapabilities())
+                    : 'pong',
         },
       ],
     };

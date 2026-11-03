@@ -507,6 +507,16 @@ missing.
 All trust diagnostics expose only state and canonical display path — credentials and
 project-controlled content are never printed.
 
+### Scratch directories
+
+The working data a live feature needs — spilled tool results and the `/editor` buffer — lives in
+owner-only per-process directories of the state root, never the shared temporary directory: spilled
+results and the composed message are conversation content. Whatever ends a run — an exit, a hangup,
+an interrupt, a termination request or a crash the crash policy rethrows — removes them without
+changing how the process ends; a run killed outright leaves its directory, and the next start removes
+those whose recorded owner can no longer be alive, by the rule `@robota-sdk/agent-core` states for
+process-scoped directories.
+
 ### Destination-scoped telemetry headers
 
 Generic OTLP headers go only to signals that use the generic endpoint, never to a signal with its own

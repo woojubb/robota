@@ -30,6 +30,7 @@ import {
 import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
 import { commandEnvironment } from '../product/command-environment.js';
 
+import { prepareSpillParentDirectory } from './ephemeral-state.js';
 import { buildMcpClientTimeouts, createMcpClientComposition } from './mcp-client-composition.js';
 import { describeMcpContribution } from './mcp-contribution-descriptor.js';
 import { resolveMcpDefinitions } from './mcp-definition-sources.js';
@@ -317,6 +318,7 @@ export async function composeMcpClientForStartup(
     timeouts: buildMcpClientTimeouts(settings.callTimeoutMs),
     createResultSpillStore: () =>
       createNodeToolResultSpillStore({
+        parentDirectory: prepareSpillParentDirectory(input.productRuntime),
         onCleanupFailure: (reason) =>
           input.reportDiagnostic(`MCP tool-result retention cleanup failed (${reason})`),
       }),

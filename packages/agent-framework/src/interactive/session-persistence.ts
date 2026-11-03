@@ -5,6 +5,7 @@ import {
   NodeSessionStore,
   NodeToolResultSpillStore,
   isSafeSessionId as sessionIsSafeSessionId,
+  sweepStaleToolResultSpillDirectories as sessionSweepStaleToolResultSpillDirectories,
 } from '@robota-sdk/agent-session';
 
 import { WorkspaceProjectSessionStore } from './workspace-session-store.js';
@@ -37,11 +38,24 @@ export interface IHostToolResultSpillStore extends IToolResultSpillStore {
   shutdown(): Promise<void>;
 }
 
-/** Explicit host-owned storage for bounded MCP result references. */
+/**
+ * Explicit host-owned storage for bounded MCP result references, in `options.parentDirectory`: an
+ * owner-only directory the host owns. Omitting it is deprecated and keeps the earlier default under
+ * the shared operating-system temporary directory; a host that cares where tool output lands passes
+ * its own directory.
+ */
 export function createNodeToolResultSpillStore(
   options: INodeToolResultSpillStoreOptions = {},
 ): IHostToolResultSpillStore {
   return new NodeToolResultSpillStore(options);
+}
+
+/**
+ * Remove the spill directories under `parent` whose recorded owner can no longer be alive. A host
+ * calls this once at startup for the parent it hands to {@link createNodeToolResultSpillStore}.
+ */
+export function sweepStaleToolResultSpillDirectories(parent: string): readonly string[] {
+  return sessionSweepStaleToolResultSpillDirectories(parent);
 }
 
 /**

@@ -89,6 +89,7 @@ import {
   createProductSubagentRunnerFactory,
 } from './product/subagent-composition.js';
 import { createEditorFileSlot } from './product/editor-file-slot.js';
+import { sweepStaleEphemeralState } from './startup/ephemeral-state.js';
 import { reloadPluginCommandSource } from './plugins/default-plugin-command-source-loader.js';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js';
@@ -581,6 +582,8 @@ async function runCliCore(
       identityChanged: () => void deviceMesh.identityChanged(),
     },
   );
+  // A process that died without running its exit handlers leaves its scratch directories behind.
+  sweepStaleEphemeralState(productRuntime);
   for (const { file, error } of outputStyleLoadErrors) {
     terminal.writeError(`Skipped output style "${file}": ${error}`);
   }
