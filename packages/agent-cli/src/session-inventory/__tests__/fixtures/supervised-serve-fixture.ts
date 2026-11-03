@@ -4,6 +4,7 @@ import { createUserSessionStore } from '@robota-sdk/agent-framework';
 import { runServeMode, type IServeModeOptions } from '../../../modes/serve-mode.js';
 import { createServeSessionDirectory } from '../../../modes/serve-session-directory.js';
 import { parseCliArgs } from '../../../utils/cli-args.js';
+import { readSupervisedTransportToken } from '../../supervised-transport-token.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
@@ -13,6 +14,10 @@ const supervisedRoot = process.env['PRODUCT_TEST_SUPERVISED_ROOT'];
 // Given, the runtime saves its sessions there and offers them, as `test-product daemon start` does.
 const sessionsDirectory = process.env['PRODUCT_TEST_SESSIONS_DIR'];
 if (!id || !supervisedRoot) throw new Error('supervised test fixture requires an id and private root');
+// As the real runtime does at startup: the token a daemon's launcher wrote to its pipe.
+const pipedToken = process.argv.includes('--supervised-transport-token-fd')
+  ? readSupervisedTransportToken()
+  : undefined;
 if (process.env['PRODUCT_TEST_LATE_STDERR'] === '1' && process.platform !== 'win32') {
   process.on('SIGUSR2', () => { process.stderr.write('late fixture stderr\n'); });
 }
@@ -38,6 +43,7 @@ const options = {
     ...(process.argv.includes('--supervised-external-event-grants')
       ? ['--supervised-external-event-grants'] : []),
     ...process.argv.filter((arg) => arg.startsWith('--external-event-')),
+    ...(pipedToken === undefined ? [] : ['--supervised-transport-token-fd']),
     ...(process.argv.includes('--daemon') ? ['--daemon'] : []),
     ...(process.env['PRODUCT_TEST_PERMISSION_MODE'] === undefined
       ? [] : ['--permission-mode', process.env['PRODUCT_TEST_PERMISSION_MODE']]),
@@ -57,10 +63,14 @@ const options = {
     waitForFailure: () => never,
   },
   preset: {},
-  // Stands in for the bound transport: the URL carries the token the launcher put in the environment.
-  // `PRODUCT_TEST_NO_WS_URL` stands in for a disabled ws transport.
+  // Stands in for the bound transport: the URL carries the token the launcher handed over, from its
+  // pipe or its environment. A piped token also reports which token names this process's environment
+  // carries, which must be none. `PRODUCT_TEST_NO_WS_URL` stands in for a disabled ws transport.
   getMonitorWsUrl: () => process.env['PRODUCT_TEST_NO_WS_URL'] === undefined
-    ? `ws://127.0.0.1:9?token=${process.env['PRODUCT_WS_TOKEN'] ?? ''}`
+    ? pipedToken === undefined
+      ? `ws://127.0.0.1:9?token=${process.env['PRODUCT_WS_TOKEN'] ?? ''}`
+      : `ws://127.0.0.1:9?token=${pipedToken}&env=${
+        Object.keys(process.env).filter((name) => /WS_TOKEN/iu.test(name)).join(',')}`
     : undefined,
 } as unknown as IServeModeOptions;
 

@@ -79,6 +79,8 @@ export function createDefaultTransportRegistry(
   sessionBinder?: import('@robota-sdk/agent-interface-session').ISessionBinder<IProtocolSession>,
   /** #3282 §4a: host-owned read/write for the GUI Settings screen. */
   settingsReporter?: ISessionMessageHandlerOptions['settingsReporter'],
+  /** A token the host handed over outside the environment (a supervised daemon's pipe); it wins over `PRODUCT_WS_TOKEN`. */
+  transportToken?: string,
 ): {
   registry: TransportRegistry;
   wsTransport: WsTransport;
@@ -93,7 +95,7 @@ export function createDefaultTransportRegistry(
   // passes PRODUCT_WS_TOKEN (a per-launch nonce) + optional PRODUCT_WS_PORT via env. The token makes the WS
   // transport reject any unauthenticated connection before emitting session data. If absent,
   // WsTransport auto-mints a distinct authenticated launch token; neither token is persisted here.
-  const wsToken = productRuntime.environment['PRODUCT_WS_TOKEN'];
+  const wsToken = transportToken ?? productRuntime.environment['PRODUCT_WS_TOKEN'];
   // The transport holds the token from here on. Left in the environment, every tool subprocess
   // this runtime starts would inherit the credential that admits a WebSocket client.
   withholdEnvironmentVariables([
