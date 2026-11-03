@@ -20,7 +20,10 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { PROCESS_OWNER_RECORD_NAME } from '@robota-sdk/agent-core/node';
+import {
+  PROCESS_OWNER_RECORD_NAME,
+  removeProcessScopedDirectoriesNow,
+} from '@robota-sdk/agent-core/node';
 import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -138,6 +141,20 @@ describe('edit checkpoints of a run that persists no session', () => {
         .filter((name) => name !== PROCESS_OWNER_RECORD_NAME)
         .sort(),
     ).toEqual(['session_1', 'session_2']);
+  });
+
+  it('are removed when the run ends', async () => {
+    const { productRuntime, createStore } = await compositionFor({ ephemeral: true });
+    const store = createStore();
+    await store.beginTurn({ sessionId: 'session_1', prompt: `rewrite notes ${CANARY}` });
+    await store.finalizeTurn();
+    const parent = productRuntime.layout.userPaths.ephemeralCheckpoints;
+    expect(readdirSync(parent)).toHaveLength(1);
+
+    // What every ending runs: exit, the handled signals, and the crash policy before it rethrows.
+    removeProcessScopedDirectoriesNow();
+
+    expect(readdirSync(parent)).toEqual([]);
   });
 
   it('create nothing until the first store is built', async () => {

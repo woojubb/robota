@@ -511,17 +511,19 @@ project-controlled content are never printed.
 
 ### `--no-session-persistence`
 
-The flag promises that a run leaves no conversation-derived data on disk once it exits. The session
-record is only one of the stores that would keep it, so the flag turns off every store the run could
-otherwise keep — the session record, prompt history and subagent transcripts — not the session store
-alone. Edit checkpoints are the exception: `/rewind` needs the pre-images of the run's own edits, so
-they keep working for the run but move out of the project into an owner-only per-process directory of
-the state root, removed when the run ends. Durable memory is a separate opt-in and the flag does not suppress it.
+The flag promises that a run leaves no conversation-derived data on disk once it exits, apart from
+durable memory: memory is a store the owner turned on to keep across runs, so the flag leaves that
+choice alone. The session record is only one of the stores that would keep the conversation, so the
+flag turns off every store the run could otherwise keep — the session record, prompt history and
+subagent transcripts — not the session store alone. Edit checkpoints are the exception: `/rewind`
+needs the pre-images of the run's own edits, so with the flag they keep working for the run but move
+out of the project into an owner-only per-process directory of the state root, removed when the run
+ends.
 
-The working data a live feature needs — spilled tool results, the `/editor` buffer, and those
-checkpoints — lives in owner-only per-process directories of the state root, never the shared
-temporary directory, whether or not the flag is set: spilled results and the composed message are
-conversation content either way. Whatever ends a run — an exit, a hangup, an interrupt, a termination
+The working data a live feature needs — spilled tool results and the `/editor` buffer, and with the
+flag those checkpoints — lives in owner-only per-process directories of the state root, never the
+shared temporary directory: spilled results and the composed message are conversation content whether
+or not the flag is set. Whatever ends a run — an exit, a hangup, an interrupt, a termination
 request or a crash the crash policy rethrows — removes them without changing how the process ends; a
 run killed outright leaves its directory, and the next start removes those whose recorded owner can no
 longer be alive, by the rule `@robota-sdk/agent-core` states for process-scoped directories.
