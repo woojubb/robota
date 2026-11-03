@@ -29,6 +29,20 @@ function failure(label, result) {
   );
 }
 
+/**
+ * The environment every probe runs in. It names no user state root at all: a fixture's
+ * `PRODUCT_USER_STATE_DIR` conflicts with `<prefix>USER_STATE_DIR` when the binary's identity matches the
+ * fixture's (a generated product workspace), which would fail the control for a reason that has nothing to do
+ * with autoloading; and a loaded `.env` must find the prefixed variable unset, since dotenv never overrides
+ * one. The temporary HOME still keeps the default state root away from the real one.
+ */
+export function standaloneAutoloadEnvironment(home, stateVariable) {
+  const env = fixtureProcessEnvironment(home);
+  delete env.PRODUCT_USER_STATE_DIR;
+  delete env[stateVariable];
+  return env;
+}
+
 export function runStandaloneAutoloadE2e(binaryPath, options = {}) {
   const envPrefix = options.envPrefix ?? selectedFixtureIdentity().identity.envPrefix;
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-standalone-autoload-')));
@@ -48,7 +62,7 @@ export function runStandaloneAutoloadE2e(binaryPath, options = {}) {
     const plantedState = join(root, plantedName);
     writeFileSync(join(repository, '.env'), `${stateVariable}=${plantedState}\n`);
 
-    const env = fixtureProcessEnvironment(join(root, 'home'));
+    const env = standaloneAutoloadEnvironment(join(root, 'home'), stateVariable);
     const run = (args, extra = {}) =>
       spawnSync(resolve(binaryPath), args, {
         cwd: repository,

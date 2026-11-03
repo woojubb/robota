@@ -97,6 +97,19 @@ it('compiles every standalone executable through Bun.build with runtime config a
   expect(sites.filter(({ missing }) => missing.length > 0)).toEqual([]);
 });
 
+it('probes autoloading in an environment that names no user state root', async () => {
+  // A fixture PRODUCT_USER_STATE_DIR conflicts with <prefix>USER_STATE_DIR once the binary's identity matches
+  // the fixture's, which would fail the release check's control in a generated product workspace; and a .env
+  // can only be caught setting the prefixed variable if it is unset to begin with.
+  const { standaloneAutoloadEnvironment } = await import(
+    '../../../packages/agent-cli/scripts/e2e-standalone-autoload.mjs'
+  );
+  const env = standaloneAutoloadEnvironment('/tmp/home', 'PROBE_USER_STATE_DIR');
+  expect(env).not.toHaveProperty('PRODUCT_USER_STATE_DIR');
+  expect(env).not.toHaveProperty('PROBE_USER_STATE_DIR');
+  expect(env.HOME).toBe('/tmp/home');
+});
+
 it('passes every autoload opt-out to each `bun build --compile` command line', () => {
   const commands = workspaceFiles.flatMap((file) =>
     read(file)
