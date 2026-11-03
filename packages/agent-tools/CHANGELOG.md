@@ -1,5 +1,13 @@
 # @robota-sdk/agent-tools
 
+## 3.0.6
+### Patch Changes
+
+- Updated dependencies [7c4eb0d]
+  - @robota-sdk/agent-file-authority@3.0.6
+  - @robota-sdk/agent-core@3.0.6
+  - @robota-sdk/agent-process@3.0.6
+
 ## 3.0.5
 ### Patch Changes
 
