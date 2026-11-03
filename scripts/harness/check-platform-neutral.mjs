@@ -71,10 +71,58 @@ const markers = (names, prefix) =>
 const NODE_DEFINE = markers(NODE_GLOBALS, 'node_global');
 const DOM_DEFINE = markers(DOM_GLOBALS, 'dom_global');
 
+/** Global names whose type comes from `@types/node`: a neutral declaration may not mention them. */
+const NODE_TYPE_NAMES = new Set([
+  'NodeJS',
+  'Buffer',
+  'process',
+  'global',
+  'require',
+  'module',
+  '__dirname',
+  '__filename',
+]);
+
+/** The leftmost identifier of `A.B.C`, whether written as a type name or as an expression. */
+function leftmost(node) {
+  if (ts.isIdentifier(node)) return node.text;
+  if (ts.isQualifiedName(node)) return leftmost(node.left);
+  if (ts.isPropertyAccessExpression(node)) return leftmost(node.expression);
+  return undefined;
+}
+
+/** Names the file declares itself, so a local `Buffer` type or `process` parameter is not Node's. */
+function declaredNames(source) {
+  const names = new Set();
+  const visit = (node) => {
+    if (
+      (ts.isInterfaceDeclaration(node) ||
+        ts.isTypeAliasDeclaration(node) ||
+        ts.isClassDeclaration(node) ||
+        ts.isEnumDeclaration(node) ||
+        ts.isFunctionDeclaration(node) ||
+        ts.isTypeParameterDeclaration(node) ||
+        ts.isImportClause(node) ||
+        ts.isImportSpecifier(node) ||
+        ts.isNamespaceImport(node) ||
+        ts.isVariableDeclaration(node) ||
+        ts.isParameter(node) ||
+        ts.isBindingElement(node)) &&
+      node.name &&
+      ts.isIdentifier(node.name)
+    )
+      names.add(node.name.text);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return names;
+}
+
 /**
  * What a workspace file names from Node in its source, including what esbuild erases: type-only
- * imports, `import('node:x')` types, the `NodeJS` namespace and a `/// <reference types="node" />`.
- * Read from the TypeScript syntax tree, so strings and comments are never mistaken for code.
+ * imports, `import('node:x')` types, and Node's global types — the `NodeJS` namespace, `Buffer` or
+ * `typeof process` in a type position, a `/// <reference types="node" />`. Read from the TypeScript
+ * syntax tree, so strings and comments are never mistaken for code.
  */
 function sourceNodeReferences(file, code) {
   const kind = file.endsWith('.tsx')
@@ -83,8 +131,16 @@ function sourceNodeReferences(file, code) {
       ? ts.ScriptKind.TS
       : ts.ScriptKind.JSX;
   const source = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, false, kind);
+  const local = declaredNames(source);
   const builtins = new Set();
-  let nodeTypes = source.typeReferenceDirectives.some((directive) => directive.fileName === 'node');
+  const nodeTypes = new Set(
+    source.typeReferenceDirectives.some((directive) => directive.fileName === 'node')
+      ? ['node']
+      : [],
+  );
+  const nodeType = (name) => {
+    if (name !== undefined && NODE_TYPE_NAMES.has(name) && !local.has(name)) nodeTypes.add(name);
+  };
   const specifier = (node) => (node && ts.isStringLiteralLike(node) ? node.text : undefined);
   const visit = (node) => {
     let named;
@@ -99,13 +155,14 @@ function sourceNodeReferences(file, code) {
       named = specifier(node.argument.literal);
     else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword)
       named = specifier(node.arguments[0]);
-    else if (ts.isQualifiedName(node) && ts.isIdentifier(node.left) && node.left.text === 'NodeJS')
-      nodeTypes = true;
+    else if (ts.isTypeReferenceNode(node)) nodeType(leftmost(node.typeName));
+    else if (ts.isTypeQueryNode(node)) nodeType(leftmost(node.exprName));
+    else if (ts.isExpressionWithTypeArguments(node)) nodeType(leftmost(node.expression));
     if (named !== undefined && isBuiltin(named)) builtins.add(named);
     ts.forEachChild(node, visit);
   };
   visit(source);
-  return { builtins, nodeTypes };
+  return { builtins, nodeTypes: [...nodeTypes].sort() };
 }
 
 const ASSET_LOADERS = Object.fromEntries(
@@ -299,8 +356,8 @@ async function checkSubpath({ root, packages, label, entryFile, allowDom }) {
     const named = sourceNodeReferences(file, code);
     for (const builtin of named.builtins)
       problems.push(`${label} imports ${builtin}: ${chain(file)}`);
-    if (named.nodeTypes)
-      problems.push(`${label} uses Node types (NodeJS namespace): ${chain(file)}`);
+    if (named.nodeTypes.length > 0)
+      problems.push(`${label} uses Node types ${named.nodeTypes.join(', ')}: ${chain(file)}`);
     const loader = file.endsWith('.tsx') ? 'tsx' : /\.[cm]?ts$/u.test(file) ? 'ts' : 'jsx';
     const define = allowDom ? NODE_DEFINE : { ...NODE_DEFINE, ...DOM_DEFINE };
     const { code: transformed } = await transform(code, {

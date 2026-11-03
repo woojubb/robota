@@ -106,7 +106,7 @@ describe('platform-neutral entry check', () => {
         '@robota-sdk/a uses Node global process: packages/a/src/index.ts → packages/a/src/env.ts',
         '@robota-sdk/a imports node:child_process: packages/a/src/index.ts → packages/a/src/lazy.ts',
         '@robota-sdk/a imports node:stream: packages/a/src/index.ts → packages/a/src/types.ts',
-        '@robota-sdk/a uses Node types (NodeJS namespace): packages/a/src/index.ts → packages/a/src/types.ts',
+        '@robota-sdk/a uses Node types NodeJS: packages/a/src/index.ts → packages/a/src/types.ts',
       ]),
     );
   });
@@ -132,6 +132,31 @@ describe('platform-neutral entry check', () => {
         '@robota-sdk/a imports node:child_process: packages/a/src/index.ts',
         '@robota-sdk/a imports node:fs: packages/a/src/index.ts',
         '@robota-sdk/a imports node:fs/promises: packages/a/src/index.ts',
+      ].sort(),
+    );
+  });
+
+  it("reports Node's global types in type positions, unless the file declares the name", async () => {
+    const root = workspace({
+      packages: {
+        a: {
+          exports: neutralExport(),
+          files: {
+            'src/index.ts':
+              "export * from './heritage';\nexport * from './typed';\nexport * from './local';",
+            'src/heritage.ts': 'export interface E extends NodeJS.EventEmitter {}',
+            'src/typed.ts': 'export type T = { data: Buffer; env: typeof process.env };',
+            'src/local.ts':
+              'type Buffer = Uint8Array;\nexport const read = (process: { cwd(): string }, b: Buffer) => [process.cwd(), b];',
+          },
+        },
+      },
+      lists: { neutral: ['a'] },
+    });
+    expect((await checkPlatformNeutral(root)).sort()).toEqual(
+      [
+        '@robota-sdk/a uses Node types Buffer, process: packages/a/src/index.ts → packages/a/src/typed.ts',
+        '@robota-sdk/a uses Node types NodeJS: packages/a/src/index.ts → packages/a/src/heritage.ts',
       ].sort(),
     );
   });
