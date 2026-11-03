@@ -38,6 +38,7 @@ export function createAnthropicProviderDefinition(): IProviderDefinition {
     displayName: 'Anthropic',
     description: 'Claude series — strong at coding tasks. API key required.',
     category: 'cloud-paid',
+    nativeWebTools: ['webSearch'],
     // Interim provider-level cost (ARCH-PROVIDER-003), migrated from the former llm-text-anthropic node.
     costPerTokenUsd: 0.003,
     defaults: {

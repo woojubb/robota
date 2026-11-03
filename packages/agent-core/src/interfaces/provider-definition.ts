@@ -1,4 +1,5 @@
 import type { IAIProvider } from './provider';
+import type { IProviderNativeWebToolRequest } from './provider-capabilities';
 import type { TUniversalValue } from './types';
 
 /** A serializable name of a host-held credential, never the credential itself. */
@@ -150,6 +151,11 @@ export interface IProviderDefinition {
   category?: TProviderCategory;
   /** Available credential acquisition methods; concrete authorization belongs to the host. */
   connectionMethods?: readonly ('api-key' | 'browser')[];
+  /**
+   * The provider-hosted web tools a profile can enable through `options.nativeWebTools`. Absent means
+   * the provider runs none and rejects that option, so a host only sets it where it is declared here.
+   */
+  nativeWebTools?: readonly (keyof IProviderNativeWebToolRequest)[];
   defaults?: IProviderProfileDefaults;
   /**
    * Optional enforced model allowlist (ARCH-PROVIDER-003). Distinct from {@link modelCatalog}: the catalog

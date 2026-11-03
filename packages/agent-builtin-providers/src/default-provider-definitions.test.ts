@@ -38,6 +38,39 @@ describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
     expect(costByType.qwen).toBe(0.0002);
   });
 
+  it('declares native web search exactly where a profile can switch it on', () => {
+    // A host reads `nativeWebTools` to decide where it may set the profile option; a declaration the
+    // provider does not honour, or an honoured option it does not declare, would let them drift.
+    for (const definition of createDefaultProviderDefinitions()) {
+      const build = () =>
+        definition.createProvider({
+          name: definition.type,
+          model: definition.defaults?.model ?? 'test-model',
+          apiKey: 'test-key',
+          ...(definition.defaults?.baseURL !== undefined && { baseURL: definition.defaults.baseURL }),
+          options: { nativeWebTools: { webSearch: true } },
+        });
+      if (definition.nativeWebTools?.includes('webSearch') === true) {
+        expect(build().getCapabilities?.().nativeWebTools.webSearch.enabled, definition.type).toBe(
+          true,
+        );
+      } else {
+        let enabled = false;
+        try {
+          enabled = build().getCapabilities?.().nativeWebTools.webSearch.enabled === true;
+        } catch {
+          enabled = false;
+        }
+        expect(enabled, definition.type).toBe(false);
+      }
+    }
+    expect(
+      createDefaultProviderDefinitions()
+        .filter((d) => d.nativeWebTools?.includes('webSearch') === true)
+        .map((d) => d.type),
+    ).toEqual(['anthropic']);
+  });
+
   it('declares, for every built-in provider, the environment its client reads to pick a destination', () => {
     // A child process builds the provider from the parent's configuration; only a declared variable
     // is compared before the parent's credential is handed over. An undeclared one is a gap.

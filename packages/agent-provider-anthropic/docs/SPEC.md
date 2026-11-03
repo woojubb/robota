@@ -45,10 +45,7 @@ calls, so a server tool cannot still execute when the core passed no local tool 
 
 ## Server-side web search
 
-Whether the provider attaches Anthropic's server-side web search is fixed when it is built: the
-`enableWebTools` option, which the provider definition sets from the profile option
-`nativeWebTools.webSearch`. Nothing enables it afterwards, so a session or a provider swap cannot
-change what a provider runs, and a composition root chooses a default by setting the profile option
-rather than by calling into a built provider. A profile whose `nativeWebTools` has the wrong shape
-fails at construction, since a misspelled key that quietly left search off would look like a working
-configuration.
+Whether the provider attaches Anthropic's server-side web search is fixed when it is built, from the
+profile option the definition declares; nothing enables it afterwards, so a session or a provider swap
+cannot change what a provider runs. A malformed option fails at construction, because a misspelled key
+that quietly left search off would look like a working configuration.
