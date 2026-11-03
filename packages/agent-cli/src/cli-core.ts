@@ -96,6 +96,7 @@ import { runEvalCommand } from './eval/eval-command.js';
 import { runtimeVersion } from './startup/version.js';
 import { runResetConfig } from './startup/reset-config.js';
 import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first-run.js';
+import { offerWebSearchMcpServer } from './startup/first-run-web-search.js';
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetupOrExit } from './startup/command-setup.js';
@@ -454,12 +455,14 @@ async function runCliCore(
     throw new Error('Opening the monitor requires an interactive terminal for its access code.');
   }
 
+  // A person at a terminal starting a new TUI session: asked about trust, and about web search.
+  const interactiveStart =
+    startsNewTuiSession(args) && process.stdin.isTTY === true && process.stdout.isTTY === true;
   // Issue #3268: a person starting a TUI session is asked, before the project is composed, rather
   // than left in a Restricted session no one mentioned.
   projectAccess = await askToTrustWorkspace(projectAccess, cwd, {
     productRuntime,
-    interactive:
-      startsNewTuiSession(args) && process.stdin.isTTY === true && process.stdout.isTTY === true,
+    interactive: interactiveStart,
     accessFixed:
       safeMode ||
       optionArgv(process.argv).includes(RESTRICTED_WORKSPACE_FLAG) ||
@@ -523,12 +526,31 @@ async function runCliCore(
   // answers asks; a server's elicitation there could only be declined.
   const mcpAskSurface = !(args.printMode || args.goal || mcpServe || acp);
   const mcpAppSurface = mcpAppSurfaceFor({ serve: args.serve, mcpServe, acp });
+  const mcpApprovalStore = resolveMcpApprovalStore(options.mcpApprovalStore, productRuntime);
+  // Decided once: the welcome below is shown for the same first start the web search question is.
+  const firstRun = isFirstRun(productRuntime.layout.userPaths.onboarded);
+  const mcpSettingsSources = createInitialCliWorkspaceComposition(
+    cwd,
+    startupOptions,
+  ).settingsSources;
+  const mcpWillCompose = options.mcpActivationAdapter === undefined && !safeMode;
+  // Before the definitions are resolved below, so a server chosen here connects in this session.
+  if (mcpWillCompose) {
+    await offerWebSearchMcpServer({
+      firstRun,
+      interactive: interactiveStart && presentation !== undefined,
+      terminal,
+      productRuntime,
+      settingsSources: mcpSettingsSources,
+      env: productRuntime.environment,
+      approvalStore: mcpApprovalStore,
+    });
+  }
   const mcp =
-    options.mcpActivationAdapter === undefined && !safeMode
+    mcpWillCompose
       ? await composeMcpClientForStartup({
           productRuntime,
-          settingsSources: createInitialCliWorkspaceComposition(cwd, startupOptions)
-            .settingsSources,
+          settingsSources: mcpSettingsSources,
           projectAccess,
           cwd,
           env: productRuntime.environment,
@@ -538,7 +560,7 @@ async function runCliCore(
           ...(options.mcpStdioAuthorities === undefined
             ? {}
             : { stdioAuthorities: options.mcpStdioAuthorities }),
-          approvalStore: resolveMcpApprovalStore(options.mcpApprovalStore, productRuntime),
+          approvalStore: mcpApprovalStore,
           ...(options.mcpHttpTransportDeps === undefined
             ? {}
             : { httpTransportDeps: options.mcpHttpTransportDeps }),
@@ -1215,7 +1237,7 @@ async function runCliCore(
     requestExit: () => commandHostAdapters.process?.requestExit('other'),
     environment: telemetryEnvironment,
   });
-  if (isFirstRun(productRuntime.layout.userPaths.onboarded)) {
+  if (firstRun) {
     printFirstRunWelcome(terminal, productRuntime, screenReader);
     markOnboarded(productRuntime.layout.userPaths.onboarded);
   }
