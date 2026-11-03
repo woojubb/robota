@@ -183,7 +183,7 @@
     "@robota-sdk/agent-ui-terminal": "workspace:*",
     "@robota-sdk/pack-coding": "workspace:*",
     "@robota-sdk/product-config": "workspace:*",
-    "@robota-sdk/workflows": "0.0.2",
+    "@robota-sdk/workflows": "0.0.3",
     "@types/marked": "^6.0.0",
     "@types/qrcode": "^1.5.5",
     "@types/ws": "^8.18.1",
