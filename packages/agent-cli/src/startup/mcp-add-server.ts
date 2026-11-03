@@ -213,6 +213,11 @@ function approvalRequestFor(
 }
 
 export interface IMcpAddCommandDeps extends IAddUserMcpServerDeps {
+  /**
+   * Whether a person is at the terminal (stdin and stdout both TTYs). The command records that
+   * person's approval, so without one it refuses: a script or an agent's shell must not grant it.
+   */
+  readonly interactive: boolean;
   readonly stdout: (text: string) => void;
   readonly stderr: (text: string) => void;
 }
@@ -237,6 +242,12 @@ export function runMcpAddCommand(args: readonly string[], deps: IMcpAddCommandDe
   const parsed = parseMcpAddArguments(args);
   if (!parsed.ok) {
     deps.stderr(`${parsed.reason}\nUsage: ${cliName} mcp add <${WEB_SEARCH_MCP_CATALOG.map((choice) => choice.id).join('|')}> | ${cliName} mcp add <name> <https-url>\n`);
+    return 1;
+  }
+  if (!deps.interactive) {
+    deps.stderr(
+      `${cliName} mcp add approves the server as you, so it runs only in an interactive terminal: run \`${cliName} mcp add ${args.join(' ')}\` there.\n`,
+    );
     return 1;
   }
   try {

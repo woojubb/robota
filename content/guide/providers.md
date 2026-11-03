@@ -91,14 +91,18 @@ const provider = new AnthropicProvider({
 
 ### Configuration options
 
-| Option         | Type        | Required                       | Description                                                    |
-| -------------- | ----------- | ------------------------------ | -------------------------------------------------------------- |
-| `apiKey`       | `string`    | Yes (unless `client` provided) | Anthropic API key                                              |
-| `client`       | `Anthropic` | No                             | Pre-built Anthropic SDK client                                 |
-| `baseURL`      | `string`    | No                             | Any Anthropic-Messages-API-compatible endpoint (proxy/gateway) |
-| `timeout`      | `number`    | No                             | Request timeout in milliseconds                                |
-| `defaultModel` | `string`    | No                             | Model used when a request names none                           |
-| `executor`     | `IExecutor` | No                             | Remote or local executor override                              |
+| Option           | Type        | Required                       | Description                                                               |
+| ---------------- | ----------- | ------------------------------ | ------------------------------------------------------------------------- |
+| `apiKey`         | `string`    | Yes (unless `client` provided) | Anthropic API key                                                         |
+| `client`         | `Anthropic` | No                             | Pre-built Anthropic SDK client                                            |
+| `baseURL`        | `string`    | No                             | Any Anthropic-Messages-API-compatible endpoint (proxy/gateway)            |
+| `timeout`        | `number`    | No                             | Request timeout in milliseconds                                           |
+| `defaultModel`   | `string`    | No                             | Model used when a request names none                                      |
+| `executor`       | `IExecutor` | No                             | Remote or local executor override                                         |
+| `enableWebTools` | `boolean`   | No                             | Attach Anthropic's server-side `web_search` tool to requests (default: off) |
+
+A provider profile sets the same thing with `"options": { "nativeWebTools": { "webSearch": true } }`;
+the CLI turns it on by default for an Anthropic profile that does not set `nativeWebTools`.
 
 ### With a pre-built client
 

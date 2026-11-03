@@ -4,7 +4,7 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
  * approval, and is listed in the command help beside `mcp serve`.
  */
 
-import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -16,11 +16,27 @@ import { printHelp, subcommandHelpFor } from '../../utils/cli-help.js';
 
 const roots: string[] = [];
 const exitCode = process.exitCode;
+const originalTty = {
+  stdin: Object.getOwnPropertyDescriptor(process.stdin, 'isTTY'),
+  stdout: Object.getOwnPropertyDescriptor(process.stdout, 'isTTY'),
+};
 afterEach(() => {
   vi.restoreAllMocks();
   process.exitCode = exitCode;
+  for (const stream of ['stdin', 'stdout'] as const) {
+    const original = originalTty[stream];
+    if (original === undefined) delete (process[stream] as { isTTY?: boolean }).isTTY;
+    else Object.defineProperty(process[stream], 'isTTY', original);
+  }
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
+
+/** Run the routed command with stdin/stdout reporting `tty` (a person at the terminal, or not). */
+async function routeWith(tty: boolean, ...args: string[]) {
+  Object.defineProperty(process.stdin, 'isTTY', { value: tty, configurable: true });
+  Object.defineProperty(process.stdout, 'isTTY', { value: tty, configurable: true });
+  return route(...args);
+}
 
 async function route(...args: string[]) {
   const home = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-mcp-add-route-')));
@@ -41,7 +57,7 @@ async function route(...args: string[]) {
 
 describe('test-product mcp add', () => {
   it('is handled by the pre-parse router: writes the entry and the approval, exits 0', async () => {
-    const { handled, code, out, err, runtime } = await route('exa');
+    const { handled, code, out, err, runtime } = await routeWith(true, 'exa');
 
     expect(handled).toBe(true);
     expect(code).toBe(0);
@@ -54,7 +70,7 @@ describe('test-product mcp add', () => {
   });
 
   it('takes <name> <https-url>', async () => {
-    const { code, runtime } = await route('mine', 'https://search.example.com/mcp');
+    const { code, runtime } = await routeWith(true, 'mine', 'https://search.example.com/mcp');
 
     expect(code).toBe(0);
     expect(JSON.parse(readFileSync(runtime.layout.userPaths.settings, 'utf8'))).toEqual({
@@ -63,11 +79,24 @@ describe('test-product mcp add', () => {
   });
 
   it('exits 1 with the usage for an unknown bare name', async () => {
-    const { handled, code, err } = await route('unknown');
+    const { handled, code, err } = await routeWith(true, 'unknown');
 
     expect(handled).toBe(true);
     expect(code).toBe(1);
     expect(err).toContain('Usage: test-product mcp add');
+  });
+});
+
+describe('test-product mcp add without a person at the terminal', () => {
+  it('refuses, names the command to run in a terminal, and writes nothing', async () => {
+    const { handled, code, out, err, runtime } = await routeWith(false, 'exa');
+
+    expect(handled).toBe(true);
+    expect(code).toBe(1);
+    expect(out).toBe('');
+    expect(err).toContain('test-product mcp add exa');
+    expect(existsSync(runtime.layout.userPaths.settings)).toBe(false);
+    expect(existsSync(runtime.layout.userPaths.mcpApprovals)).toBe(false);
   });
 });
 

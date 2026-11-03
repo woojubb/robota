@@ -113,18 +113,25 @@ describe('CLI first-start web search step', () => {
     });
   });
 
+  // Each mode runs on a terminal WITH a TUI presentation, as `cli.ts` passes one, so only the mode
+  // check can make it non-interactive.
   it.each([
-    ['print mode', ['-p', 'hello'], true],
-    ['goal mode', ['--goal', 'ship it'], true],
-    ['serve mode', ['--serve'], true],
-    ['mcp serve', ['mcp', 'serve'], true],
-    ['ACP', ['acp'], true],
-    ['a terminal start with no TUI presentation', [], true],
-  ])('is not interactive for %s', async (_label, args, tty) => {
-    const offer = await start(args, { tty });
+    ['print mode', ['-p', 'hello']],
+    ['goal mode', ['--goal', 'ship it']],
+    ['serve mode', ['--serve']],
+    ['mcp serve', ['mcp', 'serve']],
+    ['ACP', ['acp']],
+  ])('is not interactive for %s', async (_label, args) => {
+    const offer = await start(args, { tty: true, presentation });
 
     expect(offer).toMatchObject({ interactive: false });
     expect(calls.order).toEqual(['offer', 'compose']);
+  });
+
+  it('is not interactive for a terminal start with no TUI presentation', async () => {
+    const offer = await start([], { tty: true });
+
+    expect(offer).toMatchObject({ interactive: false });
   });
 
   it('is not interactive without a terminal', async () => {

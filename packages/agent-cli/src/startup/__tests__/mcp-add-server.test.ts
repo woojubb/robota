@@ -5,7 +5,7 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
  * activation request and inspects the same approval file — and finds the server `approved`.
  */
 
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -251,11 +251,16 @@ describe('parseMcpAddArguments', () => {
 });
 
 describe('runMcpAddCommand', () => {
-  function run(f: IFixture, args: readonly string[]): { code: number; out: string; err: string } {
+  function run(
+    f: IFixture,
+    args: readonly string[],
+    interactive = true,
+  ): { code: number; out: string; err: string } {
     let out = '';
     let err = '';
     const code = runMcpAddCommand(args, {
       ...f.deps,
+      interactive,
       stdout: (text) => (out += text),
       stderr: (text) => (err += text),
     });
@@ -289,6 +294,19 @@ describe('runMcpAddCommand', () => {
       },
     });
     expect(inspectLikeStartup(f, 'mine')).toBe('approved');
+  });
+
+  it('refuses without a person at the terminal and writes nothing', () => {
+    const f = fixture();
+
+    const { code, out, err } = run(f, ['exa'], false);
+
+    expect(code).toBe(1);
+    expect(out).toBe('');
+    expect(err).toContain('runs only in an interactive terminal');
+    expect(err).toContain('test-product mcp add exa');
+    expect(existsSync(f.settingsPath)).toBe(false);
+    expect(inspectLikeStartup(f, 'exa')).not.toBe('approved');
   });
 
   it('names the usage and writes nothing for a wrong invocation', () => {

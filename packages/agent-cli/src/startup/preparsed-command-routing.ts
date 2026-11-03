@@ -508,6 +508,7 @@ export async function runPreparsedCliCommand(
   }
   if (argv[SUBCOMMAND_INDEX] === 'mcp' && argv[ACTION_INDEX] === 'add') {
     process.exitCode = runMcpAddCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
+      interactive: process.stdin.isTTY === true && process.stdout.isTTY === true,
       productRuntime,
       settingsSources: composition.settingsSources,
       env: productRuntime.environment,
