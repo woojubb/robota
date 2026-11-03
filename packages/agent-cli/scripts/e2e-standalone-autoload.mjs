@@ -30,16 +30,18 @@ function failure(label, result) {
 }
 
 /**
- * The environment every probe runs in. It names no user state root at all: a fixture's
- * `PRODUCT_USER_STATE_DIR` conflicts with `<prefix>USER_STATE_DIR` when the binary's identity matches the
- * fixture's (a generated product workspace), which would fail the control for a reason that has nothing to do
- * with autoloading; and a loaded `.env` must find the prefixed variable unset, since dotenv never overrides
- * one. The temporary HOME still keeps the default state root away from the real one.
+ * The environment every probe runs in: the host basics and the temporary HOME, and no `PRODUCT_*` variable at
+ * all, so the executable runs on the identity compiled into it. When those variables name the same product as
+ * the binary (a generated product workspace) they are all honoured, a state root among them becomes required,
+ * and it conflicts with `<prefix>USER_STATE_DIR`: the control would fail for a reason that has nothing to do
+ * with autoloading. A loaded `.env` must also find the prefixed variable unset, since dotenv never overrides
+ * one. The temporary HOME keeps the default state root away from the real one.
  */
 export function standaloneAutoloadEnvironment(home, stateVariable) {
   const env = fixtureProcessEnvironment(home);
-  delete env.PRODUCT_USER_STATE_DIR;
-  delete env[stateVariable];
+  for (const key of Object.keys(env)) {
+    if (key.startsWith('PRODUCT_') || key === stateVariable) delete env[key];
+  }
   return env;
 }
 
