@@ -31,6 +31,10 @@ const logger = createLogger('ThirdPartySchema');
 /** The types the universal subset models. Anything else is a node this repo cannot check. */
 const SUBSET_TYPES = new Set(['object', 'array', 'string', 'number', 'integer', 'boolean', 'null']);
 
+/** The published JSON Schema meta-schemas, draft-04 through 2020-12. */
+const STANDARD_DIALECT =
+  /^https?:\/\/json-schema\.org\/(?:draft-0[4-7]\/schema|draft\/(?:2019-09|2020-12)\/schema)#?$/u;
+
 export interface INarrowedSchema {
   /** A copy carrying only what the subset can enforce. */
   schema: IParameterSchema;
@@ -68,11 +72,14 @@ function isExpressible(node: IParameterSchema): boolean {
 
 function narrowNode(input: IParameterSchema, path: string, dropped: string[]): IParameterSchema {
   let node = input;
-  // Foreign dialect declarations are not part of the portable schema contract. Keep the
-  // enforceable constraints, but report the declaration's removal rather than persisting it.
+  // A dialect declaration is not part of the portable schema contract, so it never persists. A
+  // standard JSON Schema dialect gives the subset's keywords the meaning they have here, so dropping
+  // it leaves nothing unchecked; any other dialect is reported.
   if (Object.prototype.hasOwnProperty.call(node, '$schema')) {
-    const { $schema: _dialect, ...portable } = node as IParameterSchema & { $schema?: unknown };
-    dropped.push(`${path}.$schema`);
+    const { $schema: dialect, ...portable } = node as IParameterSchema & { $schema?: unknown };
+    if (typeof dialect !== 'string' || !STANDARD_DIALECT.test(dialect)) {
+      dropped.push(`${path}.$schema`);
+    }
     node = portable as IParameterSchema;
   }
   if (Array.isArray(node.anyOf)) {
