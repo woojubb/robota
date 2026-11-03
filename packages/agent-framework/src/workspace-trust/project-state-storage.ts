@@ -22,6 +22,14 @@ import type {
 } from './types.js';
 
 const projectStateStorages = new WeakMap<object, IWorkspaceProjectAuthority>();
+/** The anchored writer behind each minted storage, and its path resolution; internal to the framework. */
+interface IMigrationAccess {
+  readonly boundary: IWorkspaceProjectMutationBoundary;
+  readonly projectRelativePath: (relativePath: string, allowRoot: boolean) => string;
+}
+
+/** What a store's migration does with a minted storage beyond the public facet. */
+const migrationAccesses = new WeakMap<object, IMigrationAccess>();
 
 class WorkspaceProjectStateStorage {
   readonly namespace: TWorkspaceProjectStateNamespace;
@@ -57,6 +65,12 @@ class WorkspaceProjectStateStorage {
     assertWorkspaceProjectAuthority(this.authority);
     assertProjectReadPurpose(purpose);
     this.mutationBoundary.write(this.projectRelativePath(relativePath), content);
+  }
+
+  replaceBytes(relativePath: string, content: Uint8Array, purpose: string): void {
+    assertWorkspaceProjectAuthority(this.authority);
+    assertProjectReadPurpose(purpose);
+    this.mutationBoundary.replace(this.projectRelativePath(relativePath), content);
   }
 
   appendText(relativePath: string, content: string, purpose: string): void {
@@ -96,19 +110,25 @@ export function getWorkspaceProjectStateStorage(
   }
   const identity = getWorkspaceProjectIdentity(accepted);
   const reader = getWorkspaceProjectReader(accepted);
+  const mutationBoundary = createWorkspaceProjectMutationBoundary(
+    identity,
+    getWorkspaceProjectIdentityResolver(accepted),
+  );
   const storage = Object.freeze(
     new WorkspaceProjectStateStorage(
       namespace,
       rootRelativePath,
       accepted,
       reader,
-      createWorkspaceProjectMutationBoundary(
-        identity,
-        getWorkspaceProjectIdentityResolver(accepted),
-      ),
+      mutationBoundary,
     ),
   );
   projectStateStorages.set(storage, accepted);
+  migrationAccesses.set(storage, {
+    boundary: mutationBoundary,
+    projectRelativePath: (relativePath, allowRoot) =>
+      storage.projectRelativePath(relativePath, allowRoot),
+  });
   return storage as IWorkspaceProjectStateStorage;
 }
 
@@ -140,4 +160,93 @@ export function assertWorkspaceProjectStateStoragePair(
       'Project state facets do not belong to the same workspace authority.',
     );
   }
+}
+
+/** The anchored writer behind a minted storage, with its authority checked to be live. */
+function migrationAccessOf(storage: IWorkspaceProjectStateStorage): IMigrationAccess {
+  const access = migrationAccesses.get(assertWorkspaceProjectStateStorage(storage));
+  if (access === undefined) {
+    throw new WorkspaceAuthorityRequiredError(
+      'A runtime-minted workspace project state storage is required.',
+    );
+  }
+  return access;
+}
+
+/**
+ * Counts, and with `apply` removes, the temp files crashed replaces left in a directory of `storage`
+ * (`relativeDirectory`, `''` for its root), through the same anchored writer as every other project
+ * write; `migrationStartedAt` is when the migration started, by the filesystem's clock. Internal: a
+ * store's migration sweeps the directories it visits.
+ */
+export function sweepWorkspaceProjectStateTemporaries(
+  storage: IWorkspaceProjectStateStorage,
+  relativeDirectory: string,
+  apply: boolean,
+  migrationStartedAt?: number,
+): number {
+  const access = migrationAccessOf(storage);
+  return access.boundary.sweepTemporaries(
+    access.projectRelativePath(relativeDirectory, true),
+    apply,
+    migrationStartedAt,
+  );
+}
+
+/**
+ * How many names the regular file at `relativePath` of `storage` has, opened through the anchored
+ * writer without following a link; `undefined` when it is missing. Internal: a migration refuses a
+ * file with another name, since replacing it would leave the plaintext under that name.
+ */
+export function workspaceProjectStateLinkCount(
+  storage: IWorkspaceProjectStateStorage,
+  relativePath: string,
+): number | undefined {
+  const access = migrationAccessOf(storage);
+  return access.boundary.linkCount(access.projectRelativePath(relativePath, false));
+}
+
+/** New content for a file of a storage, flushed beside it until {@link commit} puts it in place. */
+export interface IStagedWorkspaceProjectStateFile {
+  /** Renames the staged file over the target and flushes the directory. */
+  commit(): void;
+  /** Removes the staged file if it was not committed. Idempotent. */
+  discard(): void;
+}
+
+/**
+ * `content` flushed to a temp file beside `relativePath` of `storage`, the target left as it is, so a
+ * migration can stage every file of a store before it renames any. Internal to the framework.
+ */
+export function stageWorkspaceProjectStateFile(
+  storage: IWorkspaceProjectStateStorage,
+  relativePath: string,
+  content: Uint8Array,
+): IStagedWorkspaceProjectStateFile {
+  const access = migrationAccessOf(storage);
+  const boundary = access.boundary;
+  const target = access.projectRelativePath(relativePath, false);
+  const temporaryName = boundary.stage(target, content);
+  let settled = false;
+  return {
+    commit: () => {
+      if (settled) throw new Error('A staged project file is committed or discarded only once.');
+      settled = true;
+      try {
+        boundary.commitStaged(target, temporaryName);
+      } catch (error) {
+        try {
+          boundary.discardStaged(target, temporaryName);
+        } catch {
+          // allow-fallback: a staged file that cannot be removed holds sealed bytes; the sweep finds it.
+        }
+        throw error;
+      }
+    },
+    discard: () => {
+      if (settled) return;
+      settled = true;
+      boundary.discardStaged(target, temporaryName);
+    },
+  };
 }

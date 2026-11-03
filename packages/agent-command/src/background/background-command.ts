@@ -8,6 +8,8 @@ import {
   readCommandBackgroundTaskLog,
 } from '@robota-sdk/agent-framework';
 
+import { formatBackgroundLogPage } from './log-page-text.js';
+
 import type { ICommandHostBackgroundTasks } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
@@ -42,10 +44,8 @@ export async function executeBackgroundCommand(
       taskId,
       parseCommandBackgroundLogCursor(reasonParts[0]),
     );
-    const next = page.nextCursor ? `\nNext offset: ${page.nextCursor.offset}` : '';
     return {
-      message:
-        page.lines.length > 0 ? `${page.lines.join('\n')}${next}` : `No log lines: ${taskId}`,
+      message: formatBackgroundLogPage(taskId, page),
       success: true,
       data: { taskId, nextOffset: page.nextCursor?.offset },
     };

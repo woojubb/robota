@@ -286,6 +286,10 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     return task.handle.readLog(cursor);
   }
 
+  isTranscriptSealed(taskId: string): boolean {
+    return this.tasks.get(taskId)?.handle?.transcriptSealed === true;
+  }
+
   subscribe(listener: TBackgroundTaskEventListener): () => void {
     this.listeners.add(listener);
     return () => {

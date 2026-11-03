@@ -305,6 +305,13 @@ export class SessionBackgroundTaskTracker {
     return this.getOrchestratorOrThrow(sessionId).waitGroup(groupId);
   }
 
+  /** Whether a task's transcript is sealed, as the orchestrator remembers it or the live handle says. */
+  isTranscriptSealed(taskId: string): boolean {
+    if (this.backgroundJobOrchestrator)
+      return this.backgroundJobOrchestrator.isTranscriptSealed(taskId);
+    return this.getManager()?.isTranscriptSealed?.(taskId) === true;
+  }
+
   async readTaskDetail(
     entryId: string,
     taskId: string,
@@ -336,7 +343,9 @@ export class SessionBackgroundTaskTracker {
   readGroupDetail(entryId: string, groupId: string, sessionId: string): IExecutionDetailPage {
     const group = this.getOrchestratorOrThrow(sessionId).getGroup(groupId);
     if (!group) throw new Error(`Unknown background job group: ${groupId}`);
-    const summary = summarizeBackgroundJobGroup(group);
+    const summary = summarizeBackgroundJobGroup(group, {
+      isTranscriptSealed: (taskId) => this.isTranscriptSealed(taskId),
+    });
     return createLineDetailPage({ entryId, lines: summary.lines, kind: 'group_summary' });
   }
 

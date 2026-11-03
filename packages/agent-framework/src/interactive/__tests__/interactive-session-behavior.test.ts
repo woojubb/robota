@@ -1329,8 +1329,8 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     const history = session.getFullHistory();
     expect(history).toHaveLength(2);
 
-    // SessionStore.load should have been called with the resume ID
-    expect(mockSessionStore.load).toHaveBeenCalledWith('prev-session');
+    // SessionStore.load should have been called with the resume ID, holding it: a resume saves it next
+    expect(mockSessionStore.load).toHaveBeenCalledWith('prev-session', { hold: true });
 
     // Messages should have been injected into Session's ConversationAgent for AI context
     expect(mockSession.injectRawMessage).toHaveBeenCalledTimes(2);

@@ -37,6 +37,13 @@ export interface ISessionListing {
   readonly currentSessionId: string;
   readonly sessions: readonly ISessionListingEntry[];
   readonly unreadableSessionIds: readonly string[];
+  /**
+   * How many stored sessions are sealed and cannot be opened by the host — its keys are locked, or it
+   * has none that open them; which of the two is not said. They are not in `sessions`, and not even
+   * their workspace can be told, so this counts every one in the host's store. Absent when there are
+   * none, and from an older host that sends none.
+   */
+  readonly lockedSessionCount?: number;
 }
 
 /**

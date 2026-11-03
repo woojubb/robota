@@ -48,6 +48,8 @@ export function fireSubagentLifecycleHook(
   hooks: THooksConfig | undefined,
   hookTypeExecutors: IHookTypeExecutor[] | undefined,
   environmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'],
+  /** The runner's live handle says the transcript is sealed; a hook then learns that, never its plaintext. */
+  transcriptSealed = false,
 ): void {
   const hookEventName = getSubagentHookEvent(event);
   if (!hookEventName || !('task' in event)) return;
@@ -65,6 +67,7 @@ export function fireSubagentLifecycleHook(
       ? {
           agent_transcript_path: event.task.transcriptPath,
           transcript_path: event.task.transcriptPath,
+          ...(transcriptSealed ? { transcript_sealed: true as const } : {}),
         }
       : {}),
     ...(event.task.error?.message || event.task.timeoutReason

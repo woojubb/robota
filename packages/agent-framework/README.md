@@ -366,17 +366,17 @@ that supports snapshots, `shutdown()` stores the sandbox snapshot ID, and resumi
 
 ## More capabilities
 
-| Capability                  | Exports                                                                                               |
-| --------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Model fallback              | `FallbackProvider`, `resolveModelFallbackChain`, `applyModelFallback`                                 |
-| Advisor (second-model tool) | `AdvisorController`, `createAdvisorTool`                                                              |
-| Edit checkpoints and rewind | `EditCheckpointStore`, `createDirectoryEditCheckpointState`, `wrapEditCheckpointTools`                |
-| Reversible execution        | `evaluateReversibleToolSafety`, `wrapReversibleExecutionTools` (session option `reversibleExecution`) |
-| Project and user memory     | `ProjectMemoryStore`, `WorkspaceMemoryStore`, `SemanticMemoryStore`, `listUserLocalMemoryItems`       |
-| Evals                       | `defineEval`, `runEval`, `createSessionRunFn`, matchers such as `exactMatch` and `usedTool`           |
-| Bundle plugins              | `BundlePluginLoader`, `BundlePluginInstaller`, `MarketplaceClient`                                    |
-| Settings                    | `readSettings`, `writeSettings`, `inspectSettingsLayers`, `createNodeHostSettingsSource`              |
-| Self-hosting verification   | `planSelfHostingVerification`, `transitionSelfHostingLoop`                                            |
+| Capability                  | Exports                                                                                                                   |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Model fallback              | `FallbackProvider`, `resolveModelFallbackChain`, `applyModelFallback`                                                     |
+| Advisor (second-model tool) | `AdvisorController`, `createAdvisorTool`                                                                                  |
+| Edit checkpoints and rewind | `EditCheckpointStore`, `createDirectoryEditCheckpointState`, `createSealedEditCheckpointState`, `wrapEditCheckpointTools` |
+| Reversible execution        | `evaluateReversibleToolSafety`, `wrapReversibleExecutionTools` (session option `reversibleExecution`)                     |
+| Project and user memory     | `ProjectMemoryStore`, `WorkspaceMemoryStore`, `SemanticMemoryStore`, `listUserLocalMemoryItems`                           |
+| Evals                       | `defineEval`, `runEval`, `createSessionRunFn`, matchers such as `exactMatch` and `usedTool`                               |
+| Bundle plugins              | `BundlePluginLoader`, `BundlePluginInstaller`, `MarketplaceClient`                                                        |
+| Settings                    | `readSettings`, `writeSettings`, `inspectSettingsLayers`, `createNodeHostSettingsSource`                                  |
+| Self-hosting verification   | `planSelfHostingVerification`, `transitionSelfHostingLoop`                                                                |
 
 Bundle plugins use the Claude Code plugin layout: a directory with `.claude-plugin/plugin.json`
 (`name` is required; `version` and `description` are optional) that can contribute skills,

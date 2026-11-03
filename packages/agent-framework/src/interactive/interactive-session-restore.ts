@@ -6,6 +6,7 @@ import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-s
  * session record back into the tracker state on resume/fork.
  */
 
+import { lockedReasonOf, sealedSessionState } from './locked-session-wording.js';
 import { isReArmableScheduledTask } from './schedule-rearm.js';
 
 import type { IInteractiveSessionStore, TSessionLoadOutcome } from './session-persistence.js';
@@ -21,6 +22,7 @@ import {
   createToolMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
+import { loadSessionForUpdate } from '@robota-sdk/agent-session';
 import type { TUniversalMessage, IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskState,
@@ -56,6 +58,11 @@ export function loadSessionRecord(
   sessionStore: IInteractiveSessionStore,
   resumeSessionId: string,
   existingSession: Session | null,
+  /**
+   * The store's answer when the caller already asked (to check it first); otherwise this asks. Either
+   * way it is a load that HOLDS the session, since a resume goes on to save it.
+   */
+  outcome: TSessionLoadOutcome = sessionStore.load(resumeSessionId, { hold: true }),
 ): {
   /** TRANS-007: what the store concluded. `missing` is a new session; the rest are not. */
   loadOutcome: TSessionLoadOutcome;
@@ -84,7 +91,6 @@ export function loadSessionRecord(
    */
   restoredSystemPrompt: string | undefined;
 } {
-  const outcome = sessionStore.load(resumeSessionId);
   if (outcome.status !== 'valid') {
     return {
       loadOutcome: outcome,
@@ -235,6 +241,33 @@ export function reconcileInterruptedCalls(messages: readonly TUniversalMessage[]
   return { messages: restored, interruptedCalls };
 }
 
+/**
+ * Why a resume of `sessionId` must not go ahead, or `undefined` when it may: the store read the
+ * record, or — when `allowMissing` — the session was never saved and starts new under that id.
+ * Anything else is a record that is there and unreadable here (locked, corrupt, or written by a
+ * build this one does not read), and starting empty under its id is what would let the next save
+ * replace it: after an unlock, a locked conversation would be overwritten by the empty one.
+ */
+export function resumeRefusal(
+  sessionId: string,
+  outcome: TSessionLoadOutcome,
+  allowMissing: boolean,
+): Error | undefined {
+  if (outcome.status === 'valid' || (outcome.status === 'missing' && allowMissing)) {
+    return undefined;
+  }
+  if (outcome.status === 'locked') {
+    const reason = lockedReasonOf(outcome);
+    return new Error(
+      `Cannot resume session ${sessionId}: it is ${sealedSessionState(reason)}` +
+        `${reason === 'locked' ? '; unlock to open it' : ''}.`,
+    );
+  }
+  return new Error(
+    `Cannot resume session ${sessionId}: the session store reported "${outcome.status}" for its record.`,
+  );
+}
+
 /** What {@link restoreSessionRecordIntoSession} did to the session it was handed. */
 export interface ISessionRecordRestoreResult {
   /** Whether the record carried a system prompt and the session now runs under it. */
@@ -253,19 +286,24 @@ export interface ISessionRecordRestoreResult {
  * A record the store cannot hand back is a failure of the job, stated as such. Starting the child
  * empty in that case would be a fork that silently forgot its parent, which is the one outcome a
  * caller of this function has no way to detect.
+ *
+ * The child goes on to save the record, so it is read the way a writer reads it: a store that seals
+ * hands back the record it wrote or holds when the keys are locked (the fork `/fork` just wrote, or
+ * one handed over from another process), instead of answering `locked`.
  */
 export function restoreSessionRecordIntoSession(
   sessionStore: IInteractiveSessionStore,
   resumeSessionId: string,
   session: Session,
 ): ISessionRecordRestoreResult {
-  const restored = loadSessionRecord(sessionStore, resumeSessionId, session);
-  if (restored.loadOutcome.status !== 'valid') {
-    throw new Error(
-      `Cannot resume session ${resumeSessionId}: the session store reported ` +
-        `"${restored.loadOutcome.status}" for its record.`,
-    );
-  }
+  const restored = loadSessionRecord(
+    sessionStore,
+    resumeSessionId,
+    session,
+    loadSessionForUpdate(sessionStore, resumeSessionId),
+  );
+  const refusal = resumeRefusal(resumeSessionId, restored.loadOutcome, false);
+  if (refusal !== undefined) throw refusal;
   if (restored.restoredSystemPrompt !== undefined) {
     session.updateSystemMessage(restored.restoredSystemPrompt);
   }

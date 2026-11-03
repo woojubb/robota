@@ -247,6 +247,65 @@ module.exports = {
       },
     },
     {
+      // #3679: the SDK's conversation store constructors (session records, session logs, the prompt
+      // history, the tool-result spill, edit checkpoints) default to plain for embedders. Every store
+      // a product package builds comes from the one factory that states how it seals, so none can be
+      // left writing plaintext beside sealed files; scripts/__tests__/session-store-construction.test.mjs.
+      files: [
+        'packages/agent-cli/src/**/*.{ts,tsx}',
+        'packages/agent-ui-terminal/src/**/*.{ts,tsx}',
+        'packages/agent-product/src/**/*.{ts,tsx}',
+        'apps/*/src/**/*.{ts,tsx}',
+      ],
+      excludedFiles: [
+        'packages/agent-cli/src/product/session-stores.ts',
+        '**/*.test.ts',
+        '**/*.test.tsx',
+        '**/__tests__/**',
+      ],
+      rules: {
+        '@typescript-eslint/no-restricted-imports': [
+          'error',
+          {
+            paths: [
+              {
+                name: '@robota-sdk/agent-framework',
+                importNames: [
+                  'createUserSessionStore',
+                  'createProjectSessionStore',
+                  'createNodeHostSessionStore',
+                  'WorkspaceProjectSessionStore',
+                  'createUserPromptHistoryFile',
+                  'WorkspaceSessionLogSink',
+                  'WorkspaceSessionLogSource',
+                  'createSubagentLogger',
+                  'createNodeToolResultSpillStore',
+                  'EditCheckpointStore',
+                  'createDirectoryEditCheckpointState',
+                ],
+                allowTypeImports: true,
+                message:
+                  'Build conversation stores with packages/agent-cli/src/product/session-stores.ts, which states how they seal.',
+              },
+              {
+                name: '@robota-sdk/agent-session',
+                importNames: [
+                  'NodeSessionStore',
+                  'NodePromptHistoryFile',
+                  'NodeSessionLogSink',
+                  'NodeSessionLogSource',
+                  'NodeToolResultSpillStore',
+                ],
+                allowTypeImports: true,
+                message:
+                  'Build conversation stores with packages/agent-cli/src/product/session-stores.ts, which states how they seal.',
+              },
+            ],
+          },
+        ],
+      },
+    },
+    {
       files: ['packages/**/*.ts', 'packages/**/*.tsx'],
       excludedFiles: ['**/*.d.ts'],
       parserOptions: {

@@ -1,3 +1,9 @@
+import {
+  SealedSessionUnreadableError,
+  isSealedSessionUnreadableError,
+  loadSessionForUpdate,
+} from '@robota-sdk/agent-session';
+
 import type { IInteractiveSessionRecord, IInteractiveSessionStore } from './session-persistence.js';
 import type {
   IBackgroundJobGroupState,
@@ -16,13 +22,59 @@ import type {
   IPlanArtifact,
   IActiveBranchPointer,
   ISessionLoopState,
+  TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
+
+/** Hears of the saves a store refused for a sealed session, and of the saves that went through. */
+export interface ISaveRefusalReporter {
+  refused(error: SealedSessionUnreadableError): void;
+  saved(sessionId: string): void;
+}
+
+/**
+ * Reports a save the store refused because the sealed file there cannot be proven safe to replace —
+ * once per session and reason, since every later turn would be refused for the same one. A save that
+ * goes through ends the episode, so a refusal after it is reported again. What it reports is the
+ * refusal's fixed text, which carries no content.
+ */
+export function createRefusedSaveReporter(
+  report: (error: SealedSessionUnreadableError) => void,
+): ISaveRefusalReporter {
+  const reported = new Map<string, SealedSessionUnreadableError['reason']>();
+  return {
+    refused(error) {
+      if (reported.get(error.sessionId) === error.reason) return;
+      reported.set(error.sessionId, error.reason);
+      report(error);
+    },
+    saved(sessionId) {
+      reported.delete(sessionId);
+    },
+  };
+}
+
+/**
+ * The refusal a `locked` load means for a writer, in the store's own words: keys that are locked, no
+ * keys at all in this process (never "unlock" then — nothing here would open it), or a session this
+ * store holds whose file changed since.
+ */
+function lockedRefusal(
+  sessionId: string,
+  outcome: Extract<TSessionLoadOutcome, { status: 'locked' }>,
+): SealedSessionUnreadableError {
+  return new SealedSessionUnreadableError(sessionId, outcome.reason ?? 'locked');
+}
 
 /**
  * Persist the current session state to the session store.
  * Ordinary turn snapshots are best-effort. Callers that acknowledge durable work can request
  * strict writes so a failed or unreadable store never appears to have accepted that work.
+ *
+ * Best-effort is not silent for a sealed session the store will not replace — a locked record the
+ * store does not hold, or a save it refused: `refusals` hears of it, so the person learns their
+ * turns are not being saved instead of finding out at the next resume, and of the next save that
+ * goes through.
  */
 export function persistSession(
   sessionStore: IInteractiveSessionStore,
@@ -54,6 +106,7 @@ export function persistSession(
   activeBranchState?: IActiveBranchPointer,
   strict = false,
   sessionLoops?: readonly ISessionLoopState[],
+  refusals?: ISaveRefusalReporter,
 ): void {
   try {
     const sessionId = session.getSessionId();
@@ -61,8 +114,9 @@ export function persistSession(
     // failed for any reason OTHER than "no record" must not be treated as "no record" — writing
     // then replaces a file this build merely cannot read with a fresh one, and that file is the
     // only copy.
-    const outcome = sessionStore.load(sessionId);
+    const outcome = loadSessionForUpdate(sessionStore, sessionId);
     if (outcome.status !== 'valid' && outcome.status !== 'missing') {
+      if (outcome.status === 'locked') refusals?.refused(lockedRefusal(sessionId, outcome));
       if (strict) throw new Error(`Session record cannot be updated: ${outcome.status}`);
       return;
     }
@@ -98,7 +152,9 @@ export function persistSession(
       void Promise.resolve(acknowledgment).catch(() => undefined);
       throw new Error('Session store must acknowledge synchronously');
     }
+    refusals?.saved(sessionId);
   } catch (error) {
+    if (isSealedSessionUnreadableError(error)) refusals?.refused(error);
     if (strict) throw error;
     // allow-fallback: persistence is best-effort for interactive execution and must not break a turn
   }

@@ -11,8 +11,9 @@
  * makes "who writes this field" answerable by looking.
  *
  * CLI-1994 moved the whole payload builder here from the runner's private method, for the same
- * reason: the ARCH-044 boundary — a fork job's conversation never crosses this wire — is a property
- * of THIS projection, and a test can only pin it against the code that actually produces the payload.
+ * reason: the ARCH-044 boundary — a plain fork job's conversation never crosses this wire, and a
+ * sealing parent's crosses only as the held-record token — is a property of THIS projection, and a
+ * test can only pin it against the code that actually produces the payload.
  */
 
 import { findProviderDefinition } from '@robota-sdk/agent-core';
@@ -23,6 +24,7 @@ import {
   sealConnectionEnvironment,
 } from '@robota-sdk/agent-executor';
 
+import { RESUME_HELD_MAX_CHARACTERS } from './child-process-subagent-ipc.js';
 import { projectParentConfig } from './parent-config-projection.js';
 import { projectParentContext } from './parent-context-projection.js';
 import { encodeAgentDefinition, encodeParentContext } from './subagent-worker-start-dto.js';
@@ -31,7 +33,11 @@ import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.j
 import type { ISandboxProjection, TParentSandboxSettings } from './worker-composition.js';
 import type { IProviderDefinition, IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 import type { IConnectionEnvironmentCheck, ISubagentJobStart } from '@robota-sdk/agent-executor';
-import type { IAgentDefinition, IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
+import type {
+  IAgentDefinition,
+  IInProcessSubagentRunnerDeps,
+  TSessionSealing,
+} from '@robota-sdk/agent-framework';
 import type { ISerializableProviderProfile } from '@robota-sdk/agent-interface-execution';
 
 /** The parent-decided fields of a start payload, ready to spread onto it. */
@@ -84,6 +90,108 @@ export interface IStartPayloadOptions {
   readonly connection?: IProjectedConnection;
   /** The parent's sandbox settings as they stand now, read at this spawn. */
   readonly parentSandboxSettings?: TParentSandboxSettings;
+  /** The parent seals, so its child does too: the grant its sealer issues when `start` is sent. */
+  readonly writeGrant?: string;
+  /** From {@link projectStartPayloadSealing}: a sealing parent's fork job's held record. */
+  readonly resumeHeld?: string;
+}
+
+/** What a sealing parent's fork job hands its child beside the grant; nothing otherwise. */
+export interface IProjectedSealing {
+  readonly resumeHeld?: string;
+}
+
+/**
+ * Whether the payload can carry what the parent's sealing needs, checked BEFORE anything is made for
+ * the job (a worktree, a child) so that each refusal leaves nothing behind: a sealing parent whose
+ * sealer cannot hand its sealing to another process, a fork job whose sealed record cannot be handed
+ * over, and a record past the wire bound. It takes nothing and returns nothing: the fork record stays
+ * where it is for {@link projectStartPayloadSealing}, so a job that fails before then (preparing its
+ * worktree, the connection check) can simply be run again.
+ */
+export function preflightStartPayloadSealing(
+  job: ISubagentJobStart,
+  deps: Pick<IInProcessSubagentRunnerDeps, 'resumeSessionStore'>,
+  logSealing: TSessionSealing,
+): void {
+  exportStartPayloadSealing(job, deps, logSealing, true);
+}
+
+/**
+ * What the payload carries for how the parent keeps its subagent logs, with the same refusals as
+ * {@link preflightStartPayloadSealing}.
+ *
+ * A plain parent adds nothing: its child keeps its log plain and reads a fork record from the store
+ * itself, exactly as before. A sealing parent's sealer must issue a write grant, which is read here
+ * only to see that it can: the payload carries the grant as it stands when `start` is sent. For a
+ * fork job it adds the record its store holds (`exportHeld`), since a child never holds the keys that
+ * open a sealed one. Exporting hands over a fork record `/fork` just wrote once, so a job that fails
+ * after this point needs a fresh `/fork` while the keys are locked.
+ */
+export function projectStartPayloadSealing(
+  job: ISubagentJobStart,
+  deps: Pick<IInProcessSubagentRunnerDeps, 'resumeSessionStore'>,
+  logSealing: TSessionSealing,
+): IProjectedSealing {
+  return exportStartPayloadSealing(job, deps, logSealing, false);
+}
+
+/** Both of the above; `keep` leaves the fork record where it is for a later export. */
+function exportStartPayloadSealing(
+  job: ISubagentJobStart,
+  deps: Pick<IInProcessSubagentRunnerDeps, 'resumeSessionStore'>,
+  logSealing: TSessionSealing,
+  keep: boolean,
+): IProjectedSealing {
+  if (logSealing === 'plain') return {};
+  const sealer = logSealing.sealer;
+  if (sealer.writeGrant === undefined) {
+    throw new BackgroundTaskError(
+      'validation',
+      'This session seals its logs, but its sealer cannot hand its sealing to a subagent; the ' +
+        'subagent was not started.',
+    );
+  }
+  sealer.writeGrant();
+  const resumeSessionId = job.request.resumeSessionId;
+  if (resumeSessionId === undefined) return {};
+  const store = deps.resumeSessionStore;
+  const resumeHeld = store?.exportHeld?.(resumeSessionId, { keep });
+  if (resumeHeld === undefined) {
+    throw new BackgroundTaskError('validation', unhandedRecordMessage(resumeSessionId, store));
+  }
+  if (resumeHeld.length > RESUME_HELD_MAX_CHARACTERS) {
+    throw new BackgroundTaskError(
+      'validation',
+      `Session ${resumeSessionId} is too large to hand to a subagent (the limit is 32 MiB); the ` +
+        'subagent was not started.',
+    );
+  }
+  return { resumeHeld };
+}
+
+/**
+ * Why a fork record could not be handed over, from what the store says of it now — a probe, which
+ * remembers nothing. Only locked keys are something an unlock fixes; a record that is missing, does
+ * not open, was written by another build or was never sealed stays that way, so its message does not
+ * send anyone to unlock.
+ */
+function unhandedRecordMessage(
+  resumeSessionId: string,
+  store: IInProcessSubagentRunnerDeps['resumeSessionStore'],
+): string {
+  const outcome = store?.load(resumeSessionId);
+  if (outcome?.status === 'locked' && outcome.reason === undefined) {
+    return (
+      `Session ${resumeSessionId} is sealed and could not be handed to its subagent: the keys ` +
+      'are locked and this session no longer holds the record. Unlock, then run /fork again.'
+    );
+  }
+  return (
+    `Session ${resumeSessionId} could not be handed to its subagent: its saved record is missing, ` +
+    'does not open, or is not sealed, so this session has nothing to hand over. The subagent was ' +
+    'not started; run /fork again.'
+  );
 }
 
 /** The provider connection a child is given, and the check it repeats before using it. */
@@ -141,9 +249,10 @@ export function projectProviderConnection(
  * waits.
  *
  * CLI-1994 / ARCH-044: `request` crosses VERBATIM — for a fork job that means `resumeSessionId` and
- * nothing more. The conversation the id names stays in the session store on the far side; nothing
- * here reads it, so nothing here can put it on the wire. `subagent-worker-start-dto.test.ts` TC-06
- * pins the key set.
+ * nothing more. For a plain parent the conversation the id names stays in the session store on the
+ * far side; nothing here reads it, so nothing here can put it on the wire. A sealing parent's record
+ * arrives already exported, as `options.resumeHeld`, and is placed at the top level only.
+ * `subagent-worker-start-dto.test.ts` TC-06 pins the key set.
  */
 export function projectStartPayload(
   job: ISubagentJobStart,
@@ -178,6 +287,8 @@ export function projectStartPayload(
       : {}),
     ...(options.logsDir ? { logsDir: options.logsDir } : {}),
     ...(options.keepProviderCredential ? { keepProviderCredential: true as const } : {}),
+    ...(options.writeGrant !== undefined ? { writeGrant: options.writeGrant } : {}),
+    ...(options.resumeHeld !== undefined ? { resumeHeld: options.resumeHeld } : {}),
   };
   return projectSandbox(deps).then((sandbox) => ({ ...base, ...sandbox }));
 }

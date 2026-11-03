@@ -14,7 +14,10 @@ import {
   SessionDeleteRefusal,
   isSessionBusy,
   listResumableSessionSummaries,
+  listResumableSessions,
   listUnreadableSessionsForWorkspace,
+  lockedSessionMessage,
+  lockedSessionReason,
   persistSessionRename,
   resolveReusableEmptySessionId,
 } from '@robota-sdk/agent-framework';
@@ -115,10 +118,9 @@ export function createServeSessionDirectory<
     current: TSession,
   ): ISessionListing => {
     const live = new Map(target.pool.listLive().map((row) => [row.sessionId, row.clients]));
-    const sessions: ISessionListingEntry[] = listResumableSessionSummaries(
-      target.store,
-      target.cwd,
-    ).map((summary) => {
+    const resumable = listResumableSessions(target.store, target.cwd);
+    const unopened = resumable.locked + resumable.noKeys;
+    const sessions: ISessionListingEntry[] = resumable.sessions.map((summary) => {
       const clients = live.get(summary.id);
       return { ...summary, live: clients !== undefined, clients: clients ?? 0 };
     });
@@ -131,6 +133,10 @@ export function createServeSessionDirectory<
       unreadableSessionIds: listUnreadableSessionsForWorkspace(target.store, target.cwd).map(
         (entry) => entry.id,
       ),
+      // Every sealed session this host cannot open, so that a client never shows "no sessions" while
+      // some are only sealed. Neither its workspace nor why it does not open (keys locked, or none
+      // here) can be told, so this is the store's whole count, and the reason stays in this process.
+      ...(unopened > 0 ? { lockedSessionCount: unopened } : {}),
     };
   };
 
@@ -235,6 +241,14 @@ export function createServeSessionDirectory<
             `Session ${sessionId} was saved in a form this version cannot read.`,
           );
         }
+        // A sealed session this process cannot open is not in the listing, so it would read as unknown.
+        const lockedReason = lockedSessionReason(target.store, sessionId);
+        if (lockedReason !== undefined) {
+          throw new SessionChangeRefusal(
+            'unreadable',
+            lockedSessionMessage(sessionId, lockedReason),
+          );
+        }
         const known = listResumableSessionSummaries(target.store, target.cwd).some(
           (summary) => summary.id === sessionId,
         );
@@ -261,6 +275,11 @@ export function createServeSessionDirectory<
           (summary) => summary.id === sessionId,
         );
         if (!known) {
+          // A sealed session this process cannot open is not in the listing, so it would read as unknown.
+          const lockedReason = lockedSessionReason(target.store, sessionId);
+          if (lockedReason !== undefined) {
+            throw new Error(lockedSessionMessage(sessionId, lockedReason));
+          }
           throw new Error(`No session ${sessionId} in this workspace.`);
         }
         // A live session keeps its own name in memory and writes it back on every persist (a turn,
@@ -285,6 +304,12 @@ export function createServeSessionDirectory<
           (summary) => summary.id === sessionId,
         );
         if (!known) {
+          // A sealed session this process cannot open is not in the listing, and its workspace
+          // cannot be told either, so it is refused by name rather than deleted or called unknown.
+          const lockedReason = lockedSessionReason(target.store, sessionId);
+          if (lockedReason !== undefined) {
+            throw new SessionDeleteRefusal('failed', lockedSessionMessage(sessionId, lockedReason));
+          }
           throw new SessionDeleteRefusal(
             'unknown_session',
             `No session ${sessionId} in this workspace.`,

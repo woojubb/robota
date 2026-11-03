@@ -70,6 +70,8 @@ function storeWith(
   }[]
 ) {
   return {
+    // `load` answers for an id the listing does not show — which is how a sealed session shows up.
+    load: (id: string) => (id === 'sealed-1' ? { status: 'locked' } : { status: 'missing' }),
     list: () =>
       records.map((record) => ({
         id: record.id,
@@ -279,6 +281,48 @@ describe('ACP mode', () => {
     await served.stop();
     expect(loaded.shutdown).toHaveBeenCalledOnce();
     expect(mock.shutdown).toHaveBeenCalledOnce();
+  });
+
+  it('says a sealed session whose keys are locked is locked, not that it does not exist', async () => {
+    const served = await serving({ sessionStore: storeWith({ id: 'stored-1' }) as never });
+
+    await expect(served.load('sealed-1')).resolves.toEqual({
+      loaded: false,
+      message: 'Session sealed-1 is sealed and locked; unlock to open it.',
+    });
+    await expect(served.load('unknown')).resolves.toEqual({
+      loaded: false,
+      message: 'No session unknown in this workspace.',
+    });
+    expect(mock.built).toHaveLength(1);
+    await served.stop();
+  });
+
+  it('reads the store once to decide a load, and still refuses a record this build cannot read', async () => {
+    const store = storeWith({ id: 'stored-1' });
+    const list = vi.fn(() => [
+      ...store.list(),
+      {
+        id: 'damaged-1',
+        outcome: { status: 'corrupt', issues: [], cwd: '/workspace' },
+      },
+    ]);
+    const load = vi.fn(store.load);
+    const served = await serving({ sessionStore: { list, load } as never });
+
+    await expect(served.load('damaged-1')).resolves.toEqual({
+      loaded: false,
+      message: 'Session damaged-1 was saved in a form this version cannot read.',
+    });
+    expect(list).toHaveBeenCalledOnce();
+    expect(load).not.toHaveBeenCalled();
+    list.mockClear();
+    mock.next = [fakeSession('stored-1')];
+
+    await expect(served.load('stored-1')).resolves.toEqual({ loaded: true });
+    expect(list).toHaveBeenCalledOnce();
+    expect(load).not.toHaveBeenCalled();
+    await served.stop();
   });
 
   it('waits for the served session to start before deciding', async () => {

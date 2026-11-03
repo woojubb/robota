@@ -59,6 +59,8 @@ export class BackgroundJobOrchestrator {
   private readonly listeners = new Set<TBackgroundJobGroupEventListener>();
   private readonly onObserverFailure: TObserverFailureReporter<TBackgroundJobGroupEvent>;
   private readonly groups = new Map<string, IBackgroundJobGroupRecord>();
+  /** Tasks whose transcript their live handle said was sealed, kept in memory only, never on group state. */
+  private readonly sealedTranscripts = new Set<string>();
   private sequence = 0;
 
   constructor(options: IBackgroundJobOrchestratorOptions) {
@@ -158,8 +160,20 @@ export class BackgroundJobOrchestrator {
     }
   }
 
+  /**
+   * Whether task `taskId`'s transcript is sealed, as its live handle said when the task finished or
+   * says now — what {@link summarizeBackgroundJobGroup} takes to point at the command that reads a
+   * sealed transcript. Memory only: a group restored from a saved session knows nothing of it.
+   */
+  isTranscriptSealed(taskId: string): boolean {
+    return this.sealedTranscripts.has(taskId) || this.manager.isTranscriptSealed?.(taskId) === true;
+  }
+
   private captureTask(record: IBackgroundJobGroupRecord, task: IBackgroundTaskState): boolean {
     if (record.state.results.some((result) => result.taskId === task.id)) return false;
+    // Whether the transcript is sealed is the runner's live handle's to say, and is kept here while
+    // the handle may go; neither task nor group state carries it.
+    if (this.manager.isTranscriptSealed?.(task.id) === true) this.sealedTranscripts.add(task.id);
     record.state.results = [...record.state.results, createResultEnvelope(task)];
     record.state.updatedAt = this.now();
     return true;
@@ -224,8 +238,19 @@ function summarizeOutput(output: string): string {
   return `${trimmed.slice(0, DEFAULT_SUMMARY_LENGTH)}...`;
 }
 
+/** What a job-group summary knows beside the group's state, which is persisted and carries none of it. */
+export interface IBackgroundJobGroupSummaryOptions {
+  /**
+   * Whether a task's transcript is sealed, from the live runtime (see
+   * `BackgroundJobOrchestrator.isTranscriptSealed`). A sealed transcript's path reaches no content for
+   * the user or the model, so its line names the command that reads it instead.
+   */
+  readonly isTranscriptSealed?: (taskId: string) => boolean;
+}
+
 export function summarizeBackgroundJobGroup(
   group: IBackgroundJobGroupState,
+  options: IBackgroundJobGroupSummaryOptions = {},
 ): IBackgroundJobGroupSummary {
   const completed = countResults(group, 'completed');
   const failed = countResults(group, 'failed');
@@ -238,7 +263,9 @@ export function summarizeBackgroundJobGroup(
     failed,
     cancelled,
     pending: Math.max(group.taskIds.length - group.results.length, 0),
-    lines: group.results.map((result) => formatResultLine(result)),
+    lines: group.results.map((result) =>
+      formatResultLine(result, options.isTranscriptSealed?.(result.taskId) === true),
+    ),
   };
 }
 
@@ -246,9 +273,12 @@ function countResults(group: IBackgroundJobGroupState, status: TBackgroundTaskSt
   return group.results.filter((result) => result.status === status).length;
 }
 
-function formatResultLine(result: IBackgroundJobResultEnvelope): string {
+function formatResultLine(result: IBackgroundJobResultEnvelope, transcriptSealed: boolean): string {
   const detail = normalizeResultDetail(result);
-  const output = result.outputRef && result.summary ? ` (output: ${result.outputRef})` : '';
+  const outputRef = transcriptSealed
+    ? `sealed log; read it with /agent read ${result.taskId}`
+    : result.outputRef;
+  const output = result.outputRef && result.summary ? ` (output: ${outputRef})` : '';
   return `[${result.status}] ${result.label} ${result.taskId}: ${detail}${output}`;
 }
 

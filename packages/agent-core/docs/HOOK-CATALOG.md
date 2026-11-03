@@ -157,8 +157,11 @@ Notes on specific fields:
 
 - `SubagentStart`/`SubagentStop`: `session_id` is the parent session's ID, `agent_type` is the
   task's agent type (or its label when it has none), and `transcript_path` is set to the subagent's
-  transcript when one exists. A host can also pass the agent ID and type to command hooks under
-  environment variable names it chooses (`subagentHookEnvironmentNames`).
+  transcript when one exists. The transcript may hold sealed content: then `transcript_sealed: true`
+  is set beside the path, its bytes are ciphertext to the hook, and no hook is given the plaintext;
+  `last_assistant_message` carries the subagent's final output either way. A host can also pass the
+  agent ID and type to command hooks under environment variable names it chooses
+  (`subagentHookEnvironmentNames`).
 - `WorktreeCreate`/`WorktreeRemove`: `session_id` is the parent session's ID and `cwd` is the
   repository root.
 - `PreModelCall`/`PostModelCall`: `effort` is the selection for that call (`auto` when none is set);

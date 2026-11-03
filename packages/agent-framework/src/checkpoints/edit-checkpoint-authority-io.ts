@@ -1,11 +1,14 @@
 import { relative, resolve } from 'node:path';
 
+import { SEALED_ARTIFACT_MAX_OVERHEAD_BYTES } from '@robota-sdk/agent-core';
+
 import {
   getWorkspaceProjectIdentity,
   getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
 } from '../workspace-trust/index.js';
 import { assertWorkspaceProjectMutationForAuthority } from '../workspace-trust/project-mutation.js';
+import { MAX_PROJECT_READ_BYTES } from '../workspace-trust/project-reader-path.js';
 
 import type { IEditCheckpointStateStorage } from './edit-checkpoint-state-storage.js';
 import type {
@@ -18,6 +21,13 @@ import type {
   TWorkspaceContributionKind,
 } from '../workspace-trust/index.js';
 
+/**
+ * The most plaintext a sealed pre-image holds, so its sealed file stays within the project
+ * reader's read limit; a larger file is refused at capture exactly as one over that limit is.
+ */
+export const SEALED_PREIMAGE_MAX_BYTES =
+  MAX_PROJECT_READ_BYTES - SEALED_ARTIFACT_MAX_OVERHEAD_BYTES;
+
 /** Authority-backed checkpoint I/O kept separate from branch/history orchestration. */
 export class EditCheckpointAuthorityIO {
   readonly cwd: string;
@@ -28,6 +38,11 @@ export class EditCheckpointAuthorityIO {
   /** Absent when the state is held outside the project, so no project path can be inside it. */
   get checkpointRootRelativePath(): string | undefined {
     return this.state.rootRelativePath;
+  }
+
+  /** Whether the state seals what it writes. */
+  get seals(): boolean {
+    return this.state.seals === true;
   }
 
   /**
@@ -49,16 +64,25 @@ export class EditCheckpointAuthorityIO {
     return this.reader.inspectKind(relativePath, 'inspect checkpoint capture target');
   }
 
+  /**
+   * Sealed state caps the pre-image so its sealed file stays readable, refusing a larger file as
+   * the reader refuses any file past its limit, and records its size so inspecting opens nothing.
+   */
   captureFile(
     originalPath: string,
     relativePath: string,
     snapshotPath: string,
     snapshotFile: string,
   ): IEditCheckpointFileRecord {
-    const content = this.reader.readBytes(relativePath, 'capture checkpoint file preimage');
+    const purpose = 'capture checkpoint file preimage';
+    const content = this.seals
+      ? this.reader.readBytes(relativePath, purpose, SEALED_PREIMAGE_MAX_BYTES)
+      : this.reader.readBytes(relativePath, purpose);
     if (content === undefined) return { originalPath, existed: false };
     this.state.writeBytes(snapshotPath, content, 'persist checkpoint file preimage');
-    return { originalPath, existed: true, snapshotFile };
+    return this.seals
+      ? { originalPath, existed: true, snapshotFile, byteLength: content.byteLength }
+      : { originalPath, existed: true, snapshotFile };
   }
 
   restoreFile(snapshotPath: string | undefined, record: IEditCheckpointFileRecord): void {
@@ -75,6 +99,19 @@ export class EditCheckpointAuthorityIO {
       throw new Error(`Checkpoint snapshot is missing: ${record.originalPath}`);
     }
     this.mutation.writeBytes(target, snapshot, 'restore checkpoint file preimage');
+  }
+
+  /** Writes back what `record` says, from a pre-image already read and verified. */
+  restoreVerifiedFile(record: IEditCheckpointFileRecord, preimage: Uint8Array | undefined): void {
+    const target = this.toProjectRelativePath(record.originalPath);
+    if (!record.existed) {
+      this.mutation.deleteFile(target, 'remove checkpoint-created file');
+      return;
+    }
+    if (preimage === undefined) {
+      throw new Error(`Checkpoint file record is missing a snapshot: ${record.originalPath}`);
+    }
+    this.mutation.writeBytes(target, preimage, 'restore checkpoint file preimage');
   }
 
   readSnapshotBytes(path: string): Uint8Array | undefined {

@@ -166,6 +166,15 @@ Commands:
   {{cli}} daemon status [--json]    Show whether this workspace's daemon is running
   {{cli}} daemon stop               Stop this workspace's daemon
   {{cli}} daemon unlock             Remove a daemon start lock left by a start that is gone
+  {{cli}} secure setup              Create the keyring that secure conversations are sealed to; shows the
+                                  recovery key once (your terminal only; the passphrase is typed, never an argument)
+  {{cli}} secure status             Show the keyring file, its slots and its sealing key fingerprint (no unlock)
+  {{cli}} secure verify [--recovery]
+                                  Unlock with the passphrase (or recovery key) and check the stored sealing
+                                  key against it; if it had been swapped: exit 2 once repaired, 4 if not
+  {{cli}} secure change-passphrase [--recovery]
+                                  Set a new passphrase, proven by the current one or the recovery key
+                                  (exit 2 or 4 as for verify when a swapped sealing key is found)
   {{cli}} mcp serve [options]       Serve one {{name}} session over stdio, authenticated loopback HTTP,
                                   or OAuth-authorized remote HTTP
   {{cli}} mcp add <exa|parallel>    Add a keyless web search MCP server to your settings, approved

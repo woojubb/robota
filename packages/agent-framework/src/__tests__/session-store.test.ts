@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -297,6 +297,56 @@ describe('SessionStore', () => {
         }
       },
     );
+  });
+
+  describe('project replay log of another session', () => {
+    it('reads a log copied under another id as corrupt, not as that session (any platform)', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'agent-project-foreign-log-'));
+      try {
+        const line = (event: Record<string, unknown>): string =>
+          JSON.stringify({ schemaVersion: 1, sessionId: 'someone-else', ...event });
+        const logs = join(cwd, '.agent', 'logs');
+        // The writer is Linux-only; the log is made by hand so the READ path is covered everywhere.
+        mkdirSync(logs, { recursive: true });
+        writeFileSync(
+          join(logs, 'mine.jsonl'),
+          [
+            line({
+              timestamp: '2026-05-05T00:00:00.000Z',
+              event: 'session_init',
+              cwd,
+              provider: 'scripted',
+              model: 'scripted',
+              systemPrompt: '',
+              systemPromptLength: 0,
+              toolSchemas: [],
+            }),
+            line({
+              timestamp: '2026-05-05T00:00:01.000Z',
+              event: 'history_mutation',
+              mutation: 'append_message',
+              index: 0,
+              message: {
+                id: 'u1',
+                role: 'user',
+                content: 'hello',
+                state: 'complete',
+                timestamp: '2026-05-05T00:00:01.000Z',
+              },
+            }),
+          ].join('\n') + '\n',
+        );
+
+        const outcome = (await projectStore(cwd)).load('mine');
+
+        expect(outcome).toEqual({
+          status: 'corrupt',
+          issues: [{ path: 'sessionId', message: 'the session log belongs to another session id' }],
+        });
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    });
   });
 
   describe('project session log degradation', () => {

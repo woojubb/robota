@@ -1,9 +1,13 @@
 import { summarizeBackgroundJobGroup } from '@robota-sdk/agent-framework';
 
 import { parseParallelRequests, parseRunRequest, tokenizeArgs } from './agent-command-parser.js';
+import { formatBackgroundLogPage } from '../background/log-page-text.js';
 
 import type { IAgentRunRequest } from './agent-command-parser.js';
-import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
+import type {
+  IAgentJobHostContext,
+  IBackgroundJobGroupSummaryOptions,
+} from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { ISubagentJobState } from '@robota-sdk/agent-interface-execution';
 
@@ -142,7 +146,7 @@ async function executeParallel(
 
   if (wait) {
     const completed = await session.waitBackgroundJobGroup(group.id);
-    const summary = summarizeBackgroundJobGroup(completed);
+    const summary = summarizeBackgroundJobGroup(completed, summaryOptionsOf(session));
     return {
       message: formatGroupSummary(summary),
       success: true,
@@ -166,7 +170,7 @@ async function executeWait(
   const [groupId] = tokens;
   if (!groupId) return { message: 'Usage: agent wait GROUP_ID', success: false };
   const completed = await session.waitBackgroundJobGroup(groupId);
-  const summary = summarizeBackgroundJobGroup(completed);
+  const summary = summarizeBackgroundJobGroup(completed, summaryOptionsOf(session));
   return {
     message: formatGroupSummary(summary),
     success: true,
@@ -182,9 +186,8 @@ async function executeRead(
   if (!agentId) return { message: 'Usage: agent read AGENT_ID [OFFSET]', success: false };
   const cursor = offset ? { offset: Number.parseInt(offset, 10) } : undefined;
   const page = await session.readBackgroundTaskLog(agentId, cursor);
-  const next = page.nextCursor ? `\nNext offset: ${page.nextCursor.offset}` : '';
   return {
-    message: page.lines.length > 0 ? `${page.lines.join('\n')}${next}` : `No log lines: ${agentId}`,
+    message: formatBackgroundLogPage(agentId, page),
     success: true,
     data: { agentId, nextOffset: page.nextCursor?.offset },
   };
@@ -247,6 +250,12 @@ export async function executeAgentCommand(
   } catch (error) {
     return { message: formatError(error), success: false };
   }
+}
+
+/** What a group summary learns from the live session: which transcripts are sealed, never on state. */
+function summaryOptionsOf(session: IAgentJobHostContext): IBackgroundJobGroupSummaryOptions {
+  const isSealed = session.isBackgroundTaskTranscriptSealed?.bind(session);
+  return isSealed === undefined ? {} : { isTranscriptSealed: isSealed };
 }
 
 function formatGroupSummary(summary: ReturnType<typeof summarizeBackgroundJobGroup>): string {

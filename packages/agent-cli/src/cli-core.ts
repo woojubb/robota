@@ -17,15 +17,22 @@ import {
   type IExternalEventHttpHost,
 } from './external-events/external-event-http-host.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type {
+  IInteractiveSession,
+  IInteractiveSessionStore,
+} from '@robota-sdk/agent-interface-session';
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 import {
-  resolveLatestSessionId,
+  listResumableSessions,
+  lockedSessionMessage,
+  lockedSessionReason,
+  lockedSessionsNotice,
   resolveReusableEmptySessionId,
   resolveSessionIdByIdOrName,
+  resumeRefusal,
+  scanSessionStore,
   InteractiveSession,
   createExternalEventGrantHistory,
-  createUserSessionStore,
   readMergedProviderSettings,
   readSettings,
   writeSettings,
@@ -68,6 +75,8 @@ import { createCliEffortAdapter, resolveCliModelEffort } from './startup/effort-
 import { resolveOutputStyle, selectOutputStyleId } from './startup/output-style-selection.js';
 import { bindAssembledCollaborators } from './product/assembled-collaborators.js';
 import { createSelectedProductProfile } from './product/product-profile.js';
+import { createProductUserSessionStore } from './product/session-stores.js';
+import { declareProductProcessMode } from './product/process-presence.js';
 import {
   buildProductRuntimeOptions,
   loadReplayProvider,
@@ -321,6 +330,19 @@ async function runCliCore(
     askClient: mcpAskClient,
   } = validateMcpServeInvocation(args, productRuntime.config.identity.cliName);
   const { acp } = validateAcpInvocation(args, productRuntime.config.identity.cliName);
+  // The workspace composition may already have built a store, so the presence learns its mode now.
+  declareProductProcessMode(
+    productRuntime,
+    args.printMode || args.goal !== undefined
+      ? 'print'
+      : mcpServe
+        ? 'mcp serve'
+        : acp
+          ? 'acp'
+          : args.serve
+            ? 'serve'
+            : 'interactive',
+  );
   const serveHttp = resolveServeHttpOptions(args, productRuntime.environment);
   // Held by the serve options from here on. Left in the environment, every tool subprocess this
   // runtime starts would inherit the bearer that admits an HTTP client.
@@ -462,7 +484,7 @@ async function runCliCore(
       process.argv.slice(4),
       cwd,
       undefined,
-      createUserSessionStore(productRuntime.layout.userPaths.sessions),
+      createProductUserSessionStore(productRuntime),
     );
     return;
   }
@@ -986,14 +1008,20 @@ async function runCliCore(
   let showSessionPickerOnStart = false;
 
   if (args.continueMode) {
-    resumeSessionId = resolveLatestSessionId(sessionStore, cwd);
+    const resumable = listResumableSessions(sessionStore, cwd);
+    resumeSessionId = resumable.sessions[0]?.id;
+    // Sealed sessions this process cannot open are not in the listing, so the latest readable
+    // session may not be the latest one, and "nothing to continue" would read as "nothing saved".
+    // Say they are there whenever there are some; the run still continues or starts as before.
+    const notice = lockedSessionsNotice(resumable.locked, resumable.noKeys);
+    if (notice !== undefined) process.stderr.write(`${notice}\n`);
   } else if (args.resumeId !== undefined) {
     if (args.resumeId === '') {
       showSessionPickerOnStart = true;
     } else {
       resumeSessionId = resolveSessionIdByIdOrName(sessionStore, args.resumeId);
       if (resumeSessionId === undefined) {
-        process.stderr.write(`Session not found: ${args.resumeId}\n`);
+        process.stderr.write(`${resumeTargetNotFoundMessage(sessionStore, args.resumeId)}\n`);
         process.exit(1);
       }
     }
@@ -1002,6 +1030,16 @@ async function runCliCore(
     // workspace instead of adding another one — nothing else can be bound to anything yet at
     // startup, so every empty session found here is free.
     resumeSessionId = resolveReusableEmptySessionId(sessionStore, cwd);
+  }
+  // A record that is there and unreadable (locked, corrupt, from a newer build) is refused here,
+  // once, with the words the session itself would use — before any surface starts. The terminal UI
+  // builds its session during its first render, where the same refusal would be thrown, not said.
+  if (resumeSessionId !== undefined && sessionStore !== undefined) {
+    const refusal = resumeRefusal(resumeSessionId, sessionStore.load(resumeSessionId), true);
+    if (refusal !== undefined) {
+      process.stderr.write(`${refusal.message}\n`);
+      process.exit(1);
+    }
   }
 
   // SELFHOST-008 P6: one memory switch (default OFF), resolved once and threaded into print/serve/TUI.
@@ -1402,4 +1440,23 @@ async function runCliCore(
     if (mcp !== undefined) await mcp.shutdown();
   }
   process.exit(0);
+}
+
+/**
+ * What `-r <id|name>` says when it matches no readable session. A sealed session whose keys are
+ * locked has no name to match, so it is named by its id when that is what was typed, and otherwise
+ * the locked sessions are counted: one of them may be the one meant, and "not found" would read as
+ * "never saved".
+ */
+function resumeTargetNotFoundMessage(
+  sessionStore: IInteractiveSessionStore | undefined,
+  idOrName: string,
+): string {
+  const reason = lockedSessionReason(sessionStore, idOrName);
+  if (reason !== undefined) return lockedSessionMessage(idOrName, reason);
+  const scan = scanSessionStore(sessionStore);
+  const notice = lockedSessionsNotice(scan.locked, scan.noKeys);
+  return notice === undefined
+    ? `Session not found: ${idOrName}`
+    : `No readable session matches ${idOrName}. ${notice}`;
 }

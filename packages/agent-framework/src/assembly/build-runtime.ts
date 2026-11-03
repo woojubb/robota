@@ -112,9 +112,12 @@ export function buildAgentRuntime(
       logBackgroundTaskEvent(sessionLogger, sessionId, event),
     );
   }
-  backgroundTaskManager.subscribe((event) =>
+  const manager = backgroundTaskManager;
+  manager.subscribe((event) =>
     fireSubagentLifecycleHook(
       event, cwd, options.config.hooks, hookTypeExecutors, environmentNames,
+      // The runner's live handle knows; task state never carries it.
+      'task' in event && manager.isTranscriptSealed?.(event.task.id) === true,
     ),
   );
 

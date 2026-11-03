@@ -1,6 +1,7 @@
 import { spawnSync } from 'node:child_process';
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   readFileSync,
@@ -106,14 +107,35 @@ describe('NodeToolResultSpillStore', () => {
     await store.shutdown();
   });
 
-  it('names a missing committed file without returning a fallback payload', async () => {
+  it('names a missing committed file without returning a fallback payload, and counts it as removed', async () => {
     const root = parent();
     const store = new NodeToolResultSpillStore({ parentDirectory: root });
     const { reference } = await store.write('secret-that-is-gone');
     const directory = join(root, readdirSync(root)[0]!);
     unlinkSync(join(directory, spilled(directory)[0]!));
     await expect(store.read(reference)).rejects.toMatchObject({ code: 'missing' });
-    await expect(store.shutdown()).rejects.toMatchObject({ code: 'cleanup-failed' });
+    await store.shutdown();
+    expect(readdirSync(root)).toEqual([]);
+  });
+
+  it('counts an expired result whose file is already gone as removed, so the next write goes on', async () => {
+    const root = parent();
+    let now = 1_000;
+    const store = new NodeToolResultSpillStore({
+      parentDirectory: root,
+      retentionMs: 10,
+      now: () => now,
+    });
+    const first = await store.write('first');
+    const directory = join(root, readdirSync(root)[0]!);
+    unlinkSync(join(directory, spilled(directory)[0]!));
+    now = 1_011;
+
+    const second = await store.write('second');
+
+    expect(await store.read(second.reference)).toBe('second');
+    await expect(store.read(first.reference)).rejects.toMatchObject({ code: 'missing' });
+    await store.shutdown();
   });
 
   it('removes expired files before accepting another write in a long-lived session', async () => {
@@ -158,7 +180,11 @@ describe('NodeToolResultSpillStore', () => {
     });
     await store.write('secret-retention-body');
     const directory = join(root, readdirSync(root)[0]!);
-    unlinkSync(join(directory, spilled(directory)[0]!));
+    // A directory where the result was: removing the result's name fails, as no file removal can.
+    const file = join(directory, spilled(directory)[0]!);
+    unlinkSync(file);
+    mkdirSync(file);
+    writeFileSync(join(file, 'kept'), 'x');
     await vi.advanceTimersByTimeAsync(25);
     expect(onCleanupFailure).toHaveBeenCalledExactlyOnceWith('cleanup-failed');
     expect(JSON.stringify(onCleanupFailure.mock.calls)).not.toContain('secret-retention-body');

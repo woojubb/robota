@@ -1,12 +1,12 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { lstatSync } from 'node:fs';
 
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { lockedSessionsNotice, scanSessionStore } from '@robota-sdk/agent-framework';
 import { admitLocalPeerDirectory } from '@robota-sdk/agent-remote-pairing/local';
 
 import { listPeers } from '../remote-control/local-peer-registry.js';
 import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezvous.js';
-import { userPaths } from '../product/user-paths.js';
+import { createProductUserSessionStore } from '../product/session-stores.js';
 import { listSupervisedSessions, resolveSupervisedDirectory } from './supervised-session-control.js';
 
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
@@ -95,19 +95,28 @@ export function executeSessionListCommand(
       string,
       { id: string; availability: string; source: 'user' | 'project' }
     >();
+    // Sealed sessions whose keys are locked are not listed (there is nothing to show of them), so
+    // they are counted from the same scan: without it a person with only sealed sessions would read
+    // "(none)".
+    let locked = 0;
+    let noKeys = 0;
     for (const [source, store] of [
       ['user', dependencies.userSessionStore],
       ['project', dependencies.projectSessionStore],
     ] as const) {
-      for (const entry of store?.list() ?? []) {
+      const scan = scanSessionStore(store);
+      locked += scan.locked;
+      noKeys += scan.noKeys ?? 0;
+      for (const entry of scan.entries) {
         if (entry.outcome.status === 'missing') continue;
         savedById.set(entry.id, { id: entry.id, availability: entry.outcome.status, source });
       }
     }
     const saved = [...savedById.values()].sort((a, b) => a.id.localeCompare(b.id));
+    const lockedNotice = lockedSessionsNotice(locked, noKeys);
     const stdout =
       format === 'json'
-        ? `${JSON.stringify({ live, saved })}\n`
+        ? `${JSON.stringify({ live, saved, ...(locked > 0 ? { locked } : {}), ...(noKeys > 0 ? { noKeys } : {}) })}\n`
         : [
             'Live processes (not linked to saved sessions):',
             live.status === 'unavailable'
@@ -129,6 +138,7 @@ export function executeSessionListCommand(
                       `  ${JSON.stringify(session.id)}  ${session.availability}  ${session.source}`,
                   )
                   .join('\n'),
+            ...(lockedNotice !== undefined ? [`  ${lockedNotice}`] : []),
           ].join('\n') + '\n';
     return {
       exitCode: live.status === 'unavailable' ? 1 : 0,
@@ -154,7 +164,7 @@ export async function runSessionListCommand(
 ): Promise<number> {
   const result = executeSessionListCommand(argv, {
     cliName: productRuntime.vocabulary.cliName,
-    userSessionStore: createUserSessionStore(userPaths(productRuntime).sessions),
+    userSessionStore: createProductUserSessionStore(productRuntime),
     ...(projectSessionStore ? { projectSessionStore } : {}),
     readPeers: () => readLocalPeersForInventory(resolveRendezvousDirectory(productRuntime)),
   });

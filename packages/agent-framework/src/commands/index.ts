@@ -289,6 +289,7 @@ export {
   buildRewindCommandSubcommands,
   inspectCommandEditCheckpoint,
   listCommandEditCheckpoints,
+  readCommandEditCheckpointListing,
   restoreCommandEditCheckpoint,
   rollbackCommandEditCheckpoint,
   forkCommandEditCheckpoint,

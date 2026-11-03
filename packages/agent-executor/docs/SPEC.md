@@ -151,7 +151,8 @@ fire watchdog is independent of the manager-level agent watchdogs above.
 ## Worktree runner contract
 
 The worktree subagent runner delegates non-worktree requests unchanged. For a worktree-isolated
-request it must: prepare a worktree through an injected adapter; hand the inner runner the prepared
+request it must: run the inner runner's preflight first, when it has one, so a job the inner runner
+refuses leaves no worktree and fires no hook; prepare a worktree through an injected adapter; hand the inner runner the prepared
 worktree path/branch on the job envelope rather than rewriting the request (the request's working
 directory stays the parent checkout; a single execution-root helper is the sole reader of which
 directory a job actually runs in); remove a clean worktree exactly once, whether preparation
@@ -195,6 +196,9 @@ concrete I/O and must not add global task registries outside the manager.
 
 Runner handles may expose paths for append-only log/transcript streams; the manager projects those
 into task state immediately after runner start and preserves matching metadata on completion.
+Whether a transcript is sealed stays with the live handle (the manager answers it by task id) and is
+never projected into task state: that state is persisted and strictly decoded, so a key other builds
+do not declare would make them report the record as damaged.
 
 Task requests may carry opaque primitive metadata. The runtime clones it into task state and
 preserves it across snapshots, but never interprets caller-specific keys — lifecycle transitions,

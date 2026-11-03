@@ -56,11 +56,25 @@ React/Ink UI.
   target, and when that guarded write is unavailable, a project-wide permission approval is never
   silently downgraded to a session-only grant. A later deny rule always takes precedence over a
   host-supplied permission baseline, even across a live preset change.
-- **Edit checkpoint state may live outside the project.** A store keeps its manifests and pre-images
-  in the trusted project's checkpoint directory unless the host supplies a location of its own, for
-  a run that must leave nothing in the project. Only where the state is kept moves: restoring still
-  writes the project's files back through the project mutation capability, so a restore can touch
-  nothing it could not before.
+- **Edit checkpoint state may live outside the project, and may be sealed.** A store keeps its
+  manifests and pre-images in the trusted project's checkpoint directory unless the host supplies a
+  location of its own, for a run that must leave nothing in the project. Only where the state is kept
+  moves: restoring still writes the project's files back through the project mutation capability, so
+  a restore can touch nothing it could not before. Sealed state is never trusted for what it says: a
+  file opens only at the place it was written, and a manifest counts only where it agrees with that
+  place. A plain manifest counts only where it is older than every sealed one, since a store that
+  seals writes none (so a migration seals a session's turns newest first, leaves plain the first
+  that cannot be sealed and every older one, and never seals what a sealing store reads as damaged —
+  a plain manifest above a sealed one, or a plain pre-image under a sealed manifest that no staged
+  copy vouches for): that stops one being appended above the sealed ones,
+  but nothing in the state anchors trust, so it cannot stop a program of the same user replacing
+  sealed manifests with plain ones. Making a checkpoint or resuming a branch never depends on
+  opening one, so a store that cannot open its checkpoints neither overwrites nor mislists them,
+  and a checkpoint that cannot be read is reported, never fatal to the others. A sealed manifest is
+  replaced whole, since a torn one could not be told from a damaged one, and a restore is all or
+  nothing, since a partial restore cannot be told from a finished one. A branch head a rollback
+  cleared on purpose lasts only for the process: recording it would add a key to the strictly
+  decoded session record, which other builds would then report as corrupt.
 - **Organization policy is host-located and fail-closed.** The policy loader reads only the path
   selected by its host. An absent or empty path is an error; a missing file at a valid path means no
   deployed policy. A present but unreadable or malformed file raises a typed error rather than
@@ -130,12 +144,25 @@ These are behaviors a caller cannot infer from a type signature alone.
   turn holds with room kept for the prompt and response; redaction is the host's.
 - **Session persistence is explicit, never implicit.** `InteractiveSession`/`createAgentRuntime`
   never construct a project session store from a bare `cwd`. A host wanting persistence supplies an
-  explicit store (optionally composed from same-authority `sessions`/`session-logs` state facets); an
-  omitted per-session store inherits the runtime store, an explicit store replaces it, and an
-  explicit `undefined` disables persistence for that one session — all three are distinguishable
-  states, not collapsed into "no store". Saved recovery discovery and conversation history share
-  one Session-owned snapshot, restored before runnable initialization; strict persistence must
-  acknowledge synchronously or refuse the transition.
+  explicit store (optionally composed from same-authority `sessions`/`session-logs` state facets,
+  plain unless its builder gives it a sealer); an omitted per-session store
+  inherits the runtime store, an explicit store replaces it, and an explicit `undefined` disables
+  persistence for that one session — all three are distinguishable states, not collapsed into "no
+  store". Saved recovery discovery and conversation history share one Session-owned snapshot,
+  restored before runnable initialization; strict persistence must acknowledge synchronously or
+  refuse the transition. A sealed session whose keys are locked is present, so the project store
+  never rebuilds it from its replay log as it would an absent one, a listing leaves it out while a
+  count says how many are there, and a surface says why it does not open — telling to unlock only
+  when locked keys are why — rather than reporting the session as not found. The project store reads its replay logs with the sealing it keeps its records with, and
+  a log it cannot read is reported the way an unreadable record is — locked, corrupt or unsupported,
+  never missing and never a failed listing. A resume — a fork's source included — goes ahead only from a record the store read or
+  a session never saved: a locked, corrupt or unsupported record is refused, because a session
+  started empty under its id would replace it on the first save after an unlock. A save the store
+  refuses for a sealed session is reported once for each reason, in the store's own words (keys
+  locked, no keys in this process, or a file changed since it was held), and again after a save
+  in between went through, not dropped on every turn. A project session record is replaced whole
+  and flushed, so a write that fails part-way leaves the previous record; a replay log rebuilds only
+  the session it names.
 - **Fork vs. resume is exactly one bit of difference.** Resume reuses the source session id; fork
   generates a fresh id while still restoring the same messages and the parent's assembled system
   prompt verbatim — a fork inherits the parent's full assembled prompt (including any active output

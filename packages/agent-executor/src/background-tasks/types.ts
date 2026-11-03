@@ -105,6 +105,8 @@ interface IBaseBackgroundTaskHandle {
   readonly pid?: number;
   readonly logPath?: string;
   readonly transcriptPath?: string;
+  /** The transcript is sealed (see `ISubagentJobHandle.transcriptSealed`); in memory only. */
+  readonly transcriptSealed?: true;
   cancel(reason?: string): Promise<void>;
   send?(input: IBackgroundTaskInput): Promise<void>;
   readLog?(cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;
@@ -196,6 +198,12 @@ export interface IBackgroundTaskManager {
   shutdown(reason?: string): Promise<void>;
   send(taskId: string, input: IBackgroundTaskInput): Promise<void>;
   readLog(taskId: string, cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;
+  /**
+   * Whether the task's transcript is sealed, as its runner's live handle says; `false` for a task it
+   * does not know or whose runner says nothing. Never read from task state, which carries no such
+   * fact. Available on the built-in manager; custom manager ports may omit it.
+   */
+  isTranscriptSealed?(taskId: string): boolean;
   subscribe(listener: TBackgroundTaskEventListener): () => void;
 }
 

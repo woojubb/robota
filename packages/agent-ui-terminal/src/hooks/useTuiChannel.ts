@@ -51,6 +51,8 @@ export interface ITuiChannelState {
   contextState: { percentage: number; usedTokens: number; maxTokens: number };
   /** The host's sessions for the picker, when the channel's host keeps them. */
   hostSessions: readonly ISessionListingEntry[] | undefined;
+  /** How many sealed sessions the host left out of `hostSessions`. */
+  hostLockedSessionCount: number;
   /** Changes when the transcript starts over for another session under this channel. */
   transcriptGeneration: number;
   /** This terminal only observes the session. */
@@ -124,6 +126,7 @@ export function useTuiChannel(channel: ITuiAppChannelPort): ITuiChannelState {
     pendingUserAction: snapshot.pendingUserAction,
     contextState: snapshot.contextState,
     hostSessions: snapshot.hostSessions,
+    hostLockedSessionCount: snapshot.hostLockedSessionCount ?? 0,
     transcriptGeneration: snapshot.transcriptGeneration ?? 0,
     readOnly: snapshot.readOnly === true,
     attached: snapshot.attached === true,

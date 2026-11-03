@@ -17,23 +17,33 @@ export {
   isPathInside,
   resolveTrustedExecutionRoot,
 } from './utils/path-containment.js';
-export type { IOwnerOnlyIo } from './utils/owner-only-store.js';
+export type {
+  IOwnerOnlyDurability,
+  IOwnerOnlyIo,
+  IStagedOwnerOnlyFile,
+  IWriteOwnerOnlyFileOptions,
+} from './utils/owner-only-store.js';
 export {
   OWNER_ONLY_DIRECTORY_MODE,
   OWNER_ONLY_FILE_MODE,
   OwnerOnlyModeError,
+  OwnerOnlyWriteUnconfirmedError,
   ensureOwnerOnlyDirectory,
   ownerOnlyGuarantee,
+  stageOwnerOnlyFile,
   tightenExistingFile,
   writeOwnerOnlyFile,
 } from './utils/owner-only-store.js';
 export type {
   ICreateProcessScopedDirectoryOptions,
+  IProcessScopedDirectoryEntry,
   ISweepProcessScopedDirectoriesOptions,
+  TProcessOwnerLiveness,
 } from './utils/process-scoped-directory.js';
 export {
   PROCESS_OWNER_RECORD_NAME,
   createProcessScopedDirectory,
+  inspectProcessScopedDirectories,
   processScopedDirectoryPrefix,
   sweepStaleProcessScopedDirectories,
 } from './utils/process-scoped-directory.js';

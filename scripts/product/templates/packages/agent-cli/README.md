@@ -373,6 +373,22 @@ your user settings. `/remote-control enable` pairs a browser to co-drive the cur
 
 See [Devices and remote control](../../content/guide/devices-and-remote.md).
 
+### Create a keyring for secure conversations
+
+```bash
+__PRODUCT_CLI_NAME__ secure setup              # create the keyring; the recovery key is shown once
+__PRODUCT_CLI_NAME__ secure status             # the keyring file, its slots and its key fingerprint (no passphrase)
+__PRODUCT_CLI_NAME__ secure verify             # unlock and check the stored key (--recovery: use the recovery key)
+__PRODUCT_CLI_NAME__ secure change-passphrase  # set a new passphrase (--recovery: reset a forgotten one)
+```
+
+The passphrase and the recovery key are typed at the terminal when asked, never given as an argument
+and never read from the environment or a pipe, so a program without a terminal of its own, such as the
+agent's shell tool, cannot run these for you. Every program running as you can read the keyring file,
+so the passphrase (at least 12 characters, not one short pattern repeated) is what protects it. The
+keyring file is the only copy of your keys, and changing the passphrase does not lock out a copy
+someone already took. Creating a keyring does not by itself change how sessions are saved.
+
 ### Check your setup and usage
 
 ```bash
@@ -407,6 +423,7 @@ Other files the CLI keeps under `<configured-user-state-dir>/`:
 | `themes/`              | your own `/theme` themes                                                                       |
 | `plugins/`             | installed plugins (a project may have its own `<configured-project-state-dir>/plugins/`)       |
 | `mcp-credentials/`     | OAuth tokens for MCP servers, readable by you only                                             |
+| `secure/keyring.json`  | your keyring for secure conversations, protected by your passphrase and recovery key            |
 
 ## Use it from code
 

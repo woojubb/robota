@@ -190,6 +190,7 @@ const FOOTER_INVENTORY: readonly IFooterInventoryEntry[] = [
             matches: [],
             loading: false,
             skippedLines: 0,
+            unreadable: { locked: 0, noKeys: 0 },
             error: undefined,
           }}
         />,

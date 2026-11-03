@@ -1,4 +1,4 @@
-import { confirmAction, isConfirmed } from '@robota-sdk/agent-core';
+import { confirmAction, isArtifactLockedError, isConfirmed } from '@robota-sdk/agent-core';
 import {
   RENAME_COMMAND_USAGE,
   clearConversationHistory,
@@ -254,11 +254,26 @@ export function executeCostCommand(context: TCostCommandContext, args: string): 
   return { success: true, message: lines.join('\n'), data };
 }
 
+/** What `/validate-session` says about a sealed log it cannot open; "unlock" only where an unlock would help. */
+const SEALED_LOG_MESSAGES = {
+  locked: 'The session log is sealed and locked; unlock to validate it.',
+  'no-keys':
+    'The session log is sealed and this process has no keys to open it, so it cannot be validated here.',
+} as const;
+
 export function executeValidateSessionCommand(
   context: ICommandHostSessionAccess & ICommandHostWorkspace,
   _args: string,
 ): ICommandResult {
-  const report = validateCommandSessionReplayLog(context);
+  let report: ReturnType<typeof validateCommandSessionReplayLog>;
+  try {
+    report = validateCommandSessionReplayLog(context);
+  } catch (error) {
+    if (!isArtifactLockedError(error)) throw error;
+    const reason =
+      (error as { readonly reason?: unknown }).reason === 'no-keys' ? 'no-keys' : 'locked';
+    return { success: false, message: SEALED_LOG_MESSAGES[reason] };
+  }
   return {
     success: report.validation.ok,
     message: formatCommandSessionReplayValidationReport(report),

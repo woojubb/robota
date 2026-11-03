@@ -14,6 +14,8 @@ import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
 
 import { runSessionAnalyze } from '../session-analyze-command.js';
 
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+
 function sessionRecord(id: string, cwd: string): unknown {
   const t = (ms: number): string => new Date(1_781_000_000_000 + ms).toISOString();
   return {
@@ -127,13 +129,14 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     const dir = join(project, '.test-product', 'sessions');
     writeSession(dir, 'session_1781000001000_aaa', project);
     writeSession(dir, 'session_1781000002000_bbb', project);
-    const store = createNodeHostSessionStore(dir);
-    const list = vi.spyOn(store, 'list');
+    const store = createNodeHostSessionStore(dir) as Required<IInteractiveSessionStore>;
+    // One pass gives both the readable records and how many sealed ones were left out.
+    const scan = vi.spyOn(store, 'scan');
 
     await run(['--session', '1781000002000'], store);
 
     const out = stdout.join('');
-    expect(list).toHaveBeenCalledOnce();
+    expect(scan).toHaveBeenCalledOnce();
     expect(out).toContain('session_1781000002000_bbb');
     expect(out).not.toContain('session_1781000001000_aaa');
   });
@@ -143,14 +146,18 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     const dir = join(project, '.test-product', 'sessions');
     writeSession(join(home, '.test-product', 'sessions'), id, home);
     writeSession(dir, id, project);
-    const store = createNodeHostSessionStore(dir);
+    const store = createNodeHostSessionStore(dir) as Required<IInteractiveSessionStore>;
     const list = vi.spyOn(store, 'list').mockImplementation(() => {
+      throw new Error('exact session lookup enumerated the store');
+    });
+    const scan = vi.spyOn(store, 'scan').mockImplementation(() => {
       throw new Error('exact session lookup enumerated the store');
     });
 
     await run(['--session', id], store);
 
     expect(list).not.toHaveBeenCalled();
+    expect(scan).not.toHaveBeenCalled();
     expect(stdout.join('')).toContain(id);
     expect(stdout.join('')).toContain(`cwd: ${project}`);
     expect(stdout.join('')).not.toContain(`cwd: ${home}`);

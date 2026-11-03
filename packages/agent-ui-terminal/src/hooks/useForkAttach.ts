@@ -8,6 +8,7 @@
  */
 
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import { lockedSessionMessage, lockedSessionReason } from '@robota-sdk/agent-framework';
 import { useCallback } from 'react';
 
 import { attachToForkedSession } from '../flows/fork-attach-flow.js';
@@ -44,6 +45,16 @@ export function useForkAttach({
       // plainly rather than reported as "the record is missing", which is a different fact.
       if (sessionStore === undefined) {
         notify('This surface has no session store, so it cannot attach to a forked session.');
+        return;
+      }
+      // A fork written sealed whose keys have locked since is present, not gone; "no longer in the
+      // session store" would be the wrong thing to tell the operator.
+      const lockedReason =
+        entry.resumeSessionId === undefined
+          ? undefined
+          : lockedSessionReason(sessionStore, entry.resumeSessionId);
+      if (entry.resumeSessionId !== undefined && lockedReason !== undefined) {
+        notify(lockedSessionMessage(entry.resumeSessionId, lockedReason));
         return;
       }
       attachToForkedSession(entry, {

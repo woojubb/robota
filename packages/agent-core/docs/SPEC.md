@@ -47,24 +47,44 @@ The SSOT for "create this directory or file so only its owner can read it," for 
 - `writeFileSync(path, data, { mode })` applies the mode only when the file is **created** — a record an older version left at 0644 keeps 0644 through every later save.
 - Creating a file wide and tightening the permissions afterwards leaves a window where the full record is readable on disk. The module therefore creates with the final mode from the start (atomic `wx`) and never chmods after, so a mutation that removes the mode is caught rather than masked.
 
-Create, set the mode, then **verify** — the verification is load-bearing, not a belt-and-braces extra: it is what catches a filesystem that accepts `chmod` and silently ignores it. Windows cannot express owner-only through `chmod`; the module reports which guarantee (`posix-mode` or `windows-acl`) is actually in force rather than claiming POSIX semantics everywhere, and a project state directory inside a world-writable directory on Windows is **not** protected by this module. Exported from `@robota-sdk/agent-core/node` for the same reason as path containment: it reads and writes the filesystem.
+Create, set the mode, then **verify** — the verification is load-bearing, not a belt-and-braces extra: it is what catches a filesystem that accepts `chmod` and silently ignores it. Windows cannot express owner-only through `chmod`; the module reports which guarantee (`posix-mode` or `windows-acl`) is actually in force rather than claiming POSIX semantics everywhere, and a project state directory inside a world-writable directory on Windows is **not** protected by this module. A write that replaces the only copy of a key is durable on request: the temp file is flushed before the rename and the directory after it, so a crash leaves the old content or the new, never an empty file; ordinary records skip the flush because the next save rewrites them. A caller replacing many files can stage each one, flushed beside its target, before renaming any, so no rename is published ahead of content not yet flushed — on macOS, where the flush stops at the drive's cache, that order is most of what protects them. A write can be create-only, committed by a link that fails when anything is already at the path, so two creators cannot both succeed. A failure after the new content is in place is reported as in place but unconfirmed, never as not written, because a caller would otherwise tell its user the old content is still there. Exported from `@robota-sdk/agent-core/node` for the same reason as path containment: it reads and writes the filesystem.
 
 ## Process-Scoped Directories
 
 Scratch a process keeps for its own lifetime — spilled tool results, an editor buffer, checkpoint pre-images — is created in a directory named for the owning process that records its owner before anything else goes in, removed when that process ends, and swept by a later start when the owner can no longer be alive. Exported from `@robota-sdk/agent-core/node` beside the owner-only store, whose directory guarantees it builds on.
 
-A sweep decides by the owner's identity, never by age: an idle session's directory is old and live, and removing it breaks the session. A pid alone is no identity — it is recycled, a containerized CLI is always pid 1, and containers sharing a state root each number their own processes — so the record carries the machine (its host name and, where the platform offers one, its machine id), the pid with its start time, the boot and, on Linux, the pid namespace. A directory is removed only when its owner provably cannot be alive: it is from this machine and an earlier boot, or from this machine, boot and namespace with its pid gone or now started at another time. On a state root shared between machines — a home directory over a network filesystem, a host directory mounted into a container on another kernel — a sweep therefore keeps every other machine's directory, and every one whose record does not name its machine: this machine cannot tell whether that owner is alive, since its boot differs, its pid means nothing here and every Linux machine reports the same initial pid namespace. The machine matches only when every part of it either record carries is equal in both, because a part only one side could read may belong to another machine. A directory from another pid namespace (its owner may be live in another container) or without a readable record is kept too; where a platform offers no boot, start time or machine id (Windows) the pid alone decides on the host the record names. The sweep touches only a real directory owned by the current account whose name has the exact scoped form; a link, a file or any other name is left alone.
+A sweep decides by the owner's identity, never by age: an idle session's directory is old and live, and removing it breaks the session. A pid alone is no identity — it is recycled, a containerized CLI is always pid 1, and containers sharing a state root each number their own processes — so the record carries the machine (its host name and, where the platform offers one, its machine id), the pid with its start time, the boot and, on Linux, the pid namespace. A directory is removed only when its owner provably cannot be alive: it is from this machine and an earlier boot, or from this machine, boot and namespace with its pid gone or now started at another time. On a state root shared between machines — a home directory over a network filesystem, a host directory mounted into a container on another kernel — a sweep therefore keeps every other machine's directory, and every one whose record does not name its machine: this machine cannot tell whether that owner is alive, since its boot differs, its pid means nothing here and every Linux machine reports the same initial pid namespace. The machine matches only when every part of it either record carries is equal in both, because a part only one side could read may belong to another machine. A directory from another pid namespace (its owner may be live in another container) or without a readable record is kept too; where a platform offers no boot, start time or machine id (Windows) the pid alone decides on the host the record names. The sweep touches only a real directory owned by the current account whose name has the exact scoped form; a link, a file or any other name is left alone. Inspection considers the same directories and removes nothing, for a host that must not act while another owner runs: such a host needs "alive" and "unknown" apart, so an owner is alive only on this machine, in this pid namespace, with a recorded start time its live pid still has, and every other owner that is not provably gone is unknown.
 
 Removal when a process ends is one registry for the whole process, shared by every copy of the module, so many directories cost one exit listener. Node runs no exit listener when a signal's default action kills the process, so the registry also listens for SIGHUP, SIGINT and SIGTERM — but acts only when nothing else handles the signal, and then re-raises it, so the process dies by that signal exactly as it would have. A process with its own handler ends as that handler decides, and its exit removes the directories; signal-exit's listeners follow the same rule and are counted as cooperating, or each would wait for the other and the signal would be ignored. A crash handler that rethrows ends the process without an exit event and must remove the directories itself first; none is installed here, since one would keep a crashing process alive. Windows console events are left to Node, and a run they end is swept at the next start.
 
-## Credential Store Port
+## Credential Store and Artifact Sealer Ports
 
-The contract for keeping a host's secrets — a string by a service-and-account key, read, written and
-removed, and nothing more — so a package that needs a secret kept takes the port without depending on
-the host that implements it, and an OS keychain and an owner-only file are interchangeable behind it.
-A store that cannot be read throws rather than reporting the secret absent. Coordination between
-readers (one refresh or one creator at a time) is the caller's, because a keychain offers no atomic
-create and the same lock must serve every backend.
+The contracts for keeping a host's secrets and for keeping its stored artifacts readable only to
+the key holder. The credential port — a string by a service-and-account key, read, written and
+removed, and nothing more — lets a package that needs a secret kept take the port without
+depending on the host that implements it, so an OS keychain and an owner-only file are
+interchangeable behind it. A store that cannot be read throws rather than reporting the secret
+absent. Coordination between readers (one refresh or one creator at a time) is the caller's,
+because a keychain offers no atomic create and the same lock must serve every backend.
+
+The sealer port does the same for a session record, a log line or a checkpoint file: it seals and
+opens a stored artifact bound to its kind and its owner's id, so a package that writes artifacts
+takes the port without depending on the keyring behind it, and a sealed file moved to another
+owner's path does not open. Opening proves that binding and that nothing changed since sealing, not
+who sealed: sealing needs only the public key, so a locked process still writes, and so can any
+program that reads the key. Every sealed artifact opens on its own; the kinds appended and read
+back in bulk may share one data key per writer, because a public-key operation per line is too slow
+to read back, while each whole artifact gets its own key so nothing on disk links two of them, and
+the port classifies every kind so a new one cannot be added unclassified. A sealer may hand its
+sealing to another process as a grant only when the grant carries no secret and the key it seals to
+outlives the sealing process; any other sealer offers none. The two ways opening fails are
+different errors on purpose — locked means the artifact is intact and this process cannot open it
+now (its keys are locked, or it holds none and only the owner's process reads it), corrupt means it
+does not open here (not sealed in a framing this build reads, damaged, or bound to another owner or
+kind) — and neither carries plaintext, a key or a path. The framing of a sealed artifact is exported on its own, because a
+reader holding no sealer must still tell a sealed file it cannot read from a damaged one; every
+framing version counts as sealed, so an older reader never mistakes a newer build's artifact for
+plaintext.
 
 ## Permission Argument Registry
 

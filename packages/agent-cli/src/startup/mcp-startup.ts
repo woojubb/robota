@@ -12,10 +12,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * receives a policy; a positive `autoBackgroundMs` in `print` mode is reported once as ignored.
  */
 
-import {
-  createNodeToolResultSpillStore,
-  createNodeWorkspaceTrustStore,
-} from '@robota-sdk/agent-framework';
+import { createNodeWorkspaceTrustStore } from '@robota-sdk/agent-framework';
 import { mcpUnavailableServersNotice } from '@robota-sdk/agent-command';
 import { mkdirSync } from 'node:fs';
 
@@ -29,8 +26,8 @@ import {
 } from '@robota-sdk/agent-mcp';
 import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
 import { commandEnvironment } from '../product/command-environment.js';
+import { createProductToolResultSpillStore } from '../product/session-stores.js';
 
-import { prepareSpillParentDirectory } from './ephemeral-state.js';
 import { buildMcpClientTimeouts, createMcpClientComposition } from './mcp-client-composition.js';
 import { describeMcpContribution } from './mcp-contribution-descriptor.js';
 import { resolveMcpDefinitions } from './mcp-definition-sources.js';
@@ -317,8 +314,7 @@ export async function composeMcpClientForStartup(
     }),
     timeouts: buildMcpClientTimeouts(settings.callTimeoutMs),
     createResultSpillStore: () =>
-      createNodeToolResultSpillStore({
-        parentDirectory: prepareSpillParentDirectory(input.productRuntime),
+      createProductToolResultSpillStore(input.productRuntime, {
         onCleanupFailure: (reason) =>
           input.reportDiagnostic(`MCP tool-result retention cleanup failed (${reason})`),
       }),

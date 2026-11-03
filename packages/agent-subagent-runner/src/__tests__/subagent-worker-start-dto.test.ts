@@ -1,7 +1,19 @@
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import { describe, expect, it } from 'vitest';
 
-import { projectStartPayload } from '../child-process-subagent-projection.js';
+import { mkdtempSync, realpathSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
+import { createUserSessionStore } from '@robota-sdk/agent-framework';
+
+import { RESUME_HELD_MAX_CHARACTERS } from '../child-process-subagent-ipc.js';
+import {
+  preflightStartPayloadSealing,
+  projectStartPayload,
+  projectStartPayloadSealing,
+} from '../child-process-subagent-projection.js';
 import {
   AGENT_DEFINITION_DTO_FIELDS,
   PARENT_CONTEXT_DTO_FIELDS,
@@ -224,19 +236,23 @@ describe('child-process permission mode projection', () => {
 });
 
 /**
- * CLI-1994 TC-06 — a FORK job's start payload is the plain job's payload plus one string.
+ * CLI-1994 TC-06 / #3679 — what a FORK job puts on the wire.
  *
- * The whole ARCH-044 argument for Alternative 1 (spec § Decision) is that a forked conversation
- * never crosses the child-process wire: the parent writes the copy to the session store and sends
- * the child an id, which the child resolves on its own side. That is a property of the payload
- * PRODUCER, so it is measured here against `projectStartPayload` — the one function that builds it —
- * as a key-set difference: exactly `resumeSessionId` is added, nowhere does a message array appear,
- * and no text of the copied conversation reaches the wire.
+ * Plain mode keeps the ARCH-044 argument for Alternative 1 (spec § Decision): the parent writes the
+ * copy to the session store and sends the child an id, which the child resolves on its own side, so
+ * a plain fork payload is the plain job's payload plus one string on the request. A sealing parent
+ * cannot keep to that — a subagent never holds the keys that open a sealed record — so the record it
+ * holds crosses, but only as the top-level `resumeHeld` token, beside a write grant that carries no
+ * secret, and within a bound. That is a property of the payload PRODUCER, so it is measured here
+ * against `projectStartPayloadSealing` and `projectStartPayload`, the functions that build it; the
+ * runner adds the grant its sealer issues when it sends the payload, as these cases do.
  */
-describe('a fork job adds ONE key to the start payload (CLI-1994 TC-06, ARCH-044)', () => {
+describe('what a fork job puts on the wire (CLI-1994 TC-06, ARCH-044, #3679)', () => {
   const FORK_SESSION_ID = 'session_cli-1994-fork';
-  /** Text that exists ONLY in the forked record; finding it on the wire is the failure. */
+  /** Text that exists ONLY in the forked record; finding it outside `resumeHeld` is the failure. */
   const COPIED_CONVERSATION_TEXT = 'Remember the number 42.';
+  /** The resolved credential: config loading turns the reference into the value itself. */
+  const PROVIDER_SECRET = 'sk-tc06-provider-secret';
 
   const DEPS: IInProcessSubagentRunnerDeps = {
     config: {
@@ -245,7 +261,8 @@ describe('a fork job adds ONE key to the start payload (CLI-1994 TC-06, ARCH-044
       provider: {
         name: 'openai',
         model: 'test-model',
-        apiKey: 'k',
+        apiKey: PROVIDER_SECRET,
+        apiKeyEnv: 'TC06_PROVIDER_KEY',
         baseURL: 'http://localhost/v1',
       },
       permissions: { allow: [], deny: [] },
@@ -310,15 +327,55 @@ describe('a fork job adds ONE key to the start payload (CLI-1994 TC-06, ARCH-044
     return found;
   }
 
-  it('the fork payload key set equals the plain one, and its request adds exactly resumeSessionId', async () => {
+  /** The canary as it appears in plain text and in base64url at each of the three alignments. */
+  function canaryForms(text: string): string[] {
+    return [0, 1, 2]
+      .map((shift) =>
+        Buffer.from(`${'x'.repeat(shift)}${text}`)
+          .toString('base64url')
+          .slice(4, -4),
+      )
+      .concat(text);
+  }
+
+  /** A locked, sealing parent whose `/fork` just wrote the copy holding the canary. */
+  function sealedParent() {
+    const sealer = createTestArtifactSealer({ locked: true });
+    const store = createUserSessionStore(
+      join(realpathSync(mkdtempSync(join(tmpdir(), 'tc06-sealed-'))), 'sessions'),
+      { sealing: { sealer } },
+    );
+    store.save(
+      {
+        id: FORK_SESSION_ID,
+        cwd: '/workspace',
+        createdAt: '2026-08-01T00:00:00.000Z',
+        updatedAt: '2026-08-01T00:00:00.000Z',
+        messages: [
+          {
+            id: 'm-1',
+            role: 'user',
+            content: COPIED_CONVERSATION_TEXT,
+            timestamp: new Date('2026-08-01T00:00:00.000Z'),
+            state: 'complete',
+          },
+        ],
+      },
+      { handoff: true },
+    );
+    return { sealer, store, deps: { ...DEPS, resumeSessionStore: store } };
+  }
+
+  it('the plain fork payload key set equals the plain one, and its request adds exactly resumeSessionId', async () => {
     const plain = await projectStartPayload(job(undefined), DEPS, {
       providerDefinitions: TEST_PROVIDER_DEFINITIONS,
     });
     const fork = await projectStartPayload(job(FORK_SESSION_ID), DEPS, {
       providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+      ...projectStartPayloadSealing(job(FORK_SESSION_ID), DEPS, 'plain'),
     });
 
-    // Nothing new rides beside the request: no seed history, no transcript, no record.
+    // Nothing new rides beside the request: no seed history, no transcript, no record, no grant.
     expect(Object.keys(fork).sort()).toEqual(Object.keys(plain).sort());
     // …and on the request, the ONE added key is the id.
     const added = Object.keys(fork.request).filter((key) => !(key in plain.request));
@@ -340,7 +397,7 @@ describe('a fork job adds ONE key to the start payload (CLI-1994 TC-06, ARCH-044
     expect(kept.keepProviderCredential).toBe(true);
   });
 
-  it('no message array and no copied-conversation or AGENTS.md/CLAUDE.md text crosses the wire', async () => {
+  it('no message array and no copied-conversation or AGENTS.md/CLAUDE.md text crosses a plain wire', async () => {
     const fork = await projectStartPayload(job(FORK_SESSION_ID), DEPS, {
       providerDefinitions: TEST_PROVIDER_DEFINITIONS,
     });
@@ -357,5 +414,100 @@ describe('a fork job adds ONE key to the start payload (CLI-1994 TC-06, ARCH-044
       array.some((item) => item !== null && typeof item === 'object' && 'role' in item),
     );
     expect(messageArrays).toEqual([]);
+  });
+
+  it('sealed: the record crosses only as top-level resumeHeld, beside the grant, and nothing else is added', async () => {
+    const { sealer, deps } = sealedParent();
+    const plain = await projectStartPayload(job(undefined), DEPS, {
+      providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+    });
+    const fork = await projectStartPayload(job(FORK_SESSION_ID), deps, {
+      providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+      ...projectStartPayloadSealing(job(FORK_SESSION_ID), deps, { sealer }),
+      writeGrant: sealer.writeGrant(),
+    });
+
+    expect(
+      Object.keys(fork)
+        .filter((key) => !(key in plain))
+        .sort(),
+    ).toEqual(['resumeHeld', 'writeGrant']);
+    expect(Object.keys(fork.request).filter((key) => !(key in plain.request))).toEqual([
+      'resumeSessionId',
+    ]);
+    const held = fork.resumeHeld as string;
+    expect(Buffer.from(held.split('.')[2] as string, 'base64url').toString('utf8')).toContain(
+      COPIED_CONVERSATION_TEXT,
+    );
+    const rest = JSON.stringify({ ...fork, resumeHeld: undefined });
+    for (const form of canaryForms(COPIED_CONVERSATION_TEXT)) expect(rest).not.toContain(form);
+    expect(held.length).toBeLessThanOrEqual(RESUME_HELD_MAX_CHARACTERS);
+  });
+
+  it('sealed: no credential and no private key material crosses, and the grant is the sealer’s own', async () => {
+    const { sealer, deps } = sealedParent();
+    const payload = await projectStartPayload(job(FORK_SESSION_ID), deps, {
+      providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+      ...projectStartPayloadSealing(job(FORK_SESSION_ID), deps, { sealer }),
+      writeGrant: sealer.writeGrant(),
+    });
+
+    expect(payload.writeGrant).toBe(sealer.writeGrant());
+    // The double's grant is a handle into this process — it names a key and never holds one.
+    expect(payload.writeGrant).toMatch(/^robota-test-grant\/v1:[0-9a-f-]+$/);
+    expect(payload.providerProfile.apiKeyEnv).toBe('TC06_PROVIDER_KEY');
+    expect(JSON.stringify(payload)).not.toContain(PROVIDER_SECRET);
+  });
+
+  it('sealed: a job that resumes nothing hands over no record, and its grant is read when start is sent', () => {
+    const { sealer, deps } = sealedParent();
+
+    expect(projectStartPayloadSealing(job(undefined), deps, { sealer })).toEqual({});
+  });
+
+  it('sealed: a held record past its bound fails before anything is spawned, naming the limit', () => {
+    const { sealer } = sealedParent();
+    const store = { exportHeld: () => 'r'.repeat(RESUME_HELD_MAX_CHARACTERS + 1) };
+
+    expect(() =>
+      projectStartPayloadSealing(
+        job(FORK_SESSION_ID),
+        { ...DEPS, resumeSessionStore: store as never },
+        { sealer },
+      ),
+    ).toThrow(/too large to hand to a subagent \(the limit is 32 MiB\)/);
+  });
+
+  it('sealed: a fork with nothing to hand over while locked fails, telling to /fork again after unlocking', () => {
+    const { sealer, deps } = sealedParent();
+    projectStartPayloadSealing(job(FORK_SESSION_ID), deps, { sealer });
+
+    expect(() => projectStartPayloadSealing(job(FORK_SESSION_ID), deps, { sealer })).toThrow(
+      `Session ${FORK_SESSION_ID} is sealed and could not be handed to its subagent: the keys are ` +
+        'locked and this session no longer holds the record. Unlock, then run /fork again.',
+    );
+  });
+
+  it('sealed: the check before anything is made for a fork job takes nothing and returns nothing', () => {
+    const { sealer, deps } = sealedParent();
+
+    for (let check = 0; check < 2; check += 1) {
+      expect(preflightStartPayloadSealing(job(FORK_SESSION_ID), deps, { sealer })).toBeUndefined();
+    }
+    expect(projectStartPayloadSealing(job(FORK_SESSION_ID), deps, { sealer }).resumeHeld).toMatch(
+      /^rsh1\./,
+    );
+    expect(() => preflightStartPayloadSealing(job(FORK_SESSION_ID), deps, { sealer })).toThrow(
+      /Unlock, then run \/fork again\./,
+    );
+  });
+
+  it('sealed: a sealer that cannot hand its sealing to another process refuses the job', () => {
+    const { sealer, deps } = sealedParent();
+    const noGrant = { ...sealer, writeGrant: undefined };
+
+    expect(() => projectStartPayloadSealing(job(undefined), deps, { sealer: noGrant })).toThrow(
+      /cannot hand its sealing to a subagent/,
+    );
   });
 });

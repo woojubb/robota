@@ -43,6 +43,7 @@ export type {
   IBackgroundTaskInput,
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
+  IBackgroundTaskLogUnreadable,
   IBackgroundTaskListFilter,
   TBackgroundTaskEvent,
   TBackgroundTaskEventListener,

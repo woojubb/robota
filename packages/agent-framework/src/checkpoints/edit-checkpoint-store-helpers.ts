@@ -1,10 +1,57 @@
 import { isAbsolute, join, relative } from 'node:path';
 
-import type { IEditCheckpointManifest } from './edit-checkpoint-types.js';
+import type { IEditCheckpointManifest, IEditCheckpointSummary } from './edit-checkpoint-types.js';
 import type { IFileSystem, IFileSystemAsync } from '@robota-sdk/agent-core';
+import type { ICheckpointNode } from '@robota-sdk/agent-session';
 
 /** The branch a checkpoint belongs to when a session has not switched away from the default. */
 export const DEFAULT_BRANCH_ID = 'main';
+
+/** A checkpoint directory's manifest, and the directory beside it that holds its pre-images. */
+export const MANIFEST_FILE = 'manifest.json';
+export const SNAPSHOT_DIR = 'files';
+/** What a migration names the sealed copy of a pre-image it stages beside it, before swapping it in. */
+export const STAGED_PREIMAGE_SUFFIX = '.sealing';
+
+const ID_PAD = 4;
+const TURN_DIRECTORY = /^turn-(\d{4,9})$/u;
+
+/** The highest sequence a checkpoint directory name can carry (`turn-999999999`). */
+export const MAX_CHECKPOINT_SEQUENCE = 999_999_999;
+
+/** The directory name, and so the id, of checkpoint `sequence`. */
+export function checkpointIdOf(sequence: number): string {
+  return `turn-${String(sequence).padStart(ID_PAD, '0')}`;
+}
+
+/** The sequence a canonically named turn directory carries; `undefined` for any other name. */
+export function sequenceOfDirectory(name: string): number | undefined {
+  const digits = TURN_DIRECTORY.exec(name)?.[1];
+  if (digits === undefined) return undefined;
+  const sequence = Number(digits);
+  return checkpointIdOf(sequence) === name ? sequence : undefined;
+}
+
+export function toEditCheckpointSummary(manifest: IEditCheckpointManifest): IEditCheckpointSummary {
+  return {
+    id: manifest.id,
+    sessionId: manifest.sessionId,
+    sequence: manifest.sequence,
+    prompt: manifest.prompt,
+    createdAt: manifest.createdAt,
+    fileCount: manifest.fileCount,
+  };
+}
+
+/** The edges of the neutral checkpoint tree, as the manifests record them. */
+export function checkpointTreeNodesOf(
+  manifests: readonly IEditCheckpointManifest[],
+): ICheckpointNode[] {
+  return manifests.map((manifest) => ({
+    id: manifest.id,
+    ...(manifest.parentId !== undefined ? { parentId: manifest.parentId } : {}),
+  }));
+}
 
 /**
  * A checkpoint manifest named a snapshot that is not inside its own checkpoint directory

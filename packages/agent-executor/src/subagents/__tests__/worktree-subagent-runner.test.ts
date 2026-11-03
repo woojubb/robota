@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { subagentExecutionRoot } from '../execution-root.js';
 import type { IHookInput, THookOutcome, IHookTypeExecutor } from '@robota-sdk/agent-core';
@@ -306,5 +306,130 @@ describe('WorktreeSubagentRunner', () => {
     ]);
     expect(hookInputs[0]?.tool_input).toMatchObject({ taskId: 'agent_1', removed: false });
     expect(hookInputs[1]?.tool_input).toMatchObject({ taskId: 'agent_1', removed: true });
+  });
+});
+
+/**
+ * #3679 step 3b: `/fork` runs in a worktree by default, so a handle the worktree runner rebuilds must
+ * keep what the inner runner's handle offers for its transcript — the paged read, the paths and the
+ * in-memory fact that the transcript is sealed — or the parent can neither read the log nor say it is
+ * sealed.
+ */
+describe('WorktreeSubagentRunner keeps the transcript of the handle it wraps', () => {
+  it('forwards the log read, the transcript and log paths, and sealedness', async () => {
+    const pages: unknown[] = [];
+    const inner: ISubagentRunner = {
+      start(job) {
+        return {
+          taskId: job.taskId,
+          logPath: '/logs/session_1/subagents/session_fork.jsonl',
+          transcriptPath: '/logs/session_1/subagents/session_fork.jsonl',
+          transcriptSealed: true,
+          result: Promise.resolve({ taskId: job.taskId, output: 'done' }),
+          cancel: () => Promise.resolve(),
+          readLog: async (cursor) => {
+            pages.push(cursor);
+            return { taskId: job.taskId, lines: ['a record'] };
+          },
+        };
+      },
+    };
+    const runner = new WorktreeSubagentRunner({
+      runner: inner,
+      worktreeAdapter: createAdapter(true),
+    });
+
+    const handle = runner.start(createJob('worktree'));
+    const page = await handle.readLog?.({ offset: 3 });
+    await handle.result;
+
+    expect(handle.transcriptPath).toBe('/logs/session_1/subagents/session_fork.jsonl');
+    expect(handle.logPath).toBe('/logs/session_1/subagents/session_fork.jsonl');
+    expect(handle.transcriptSealed).toBe(true);
+    expect(page).toEqual({ taskId: 'agent_1', lines: ['a record'] });
+    expect(pages).toEqual([{ offset: 3 }]);
+  });
+
+  it('adds none of them when the wrapped handle has none', () => {
+    const runner = new WorktreeSubagentRunner({
+      runner: createCapturedRunner().runner,
+      worktreeAdapter: createAdapter(true),
+    });
+
+    const handle = runner.start(createJob('worktree'));
+
+    expect(Object.keys(handle).sort()).toEqual(['cancel', 'result', 'taskId']);
+  });
+});
+
+/**
+ * #3679 step 3b: what a runner refuses before it starts a job — a sealing projection that cannot hand
+ * the child what it needs — must leave nothing behind, and `/fork` isolates in a worktree by default,
+ * so those checks run before a worktree is prepared or any worktree hook fires.
+ */
+describe('WorktreeSubagentRunner runs the inner runner’s preflight first', () => {
+  it('before preparing the worktree, then starts the prepared job alone', () => {
+    const order: string[] = [];
+    const adapter = createAdapter(true);
+    const prepare = vi.fn(() => {
+      order.push('prepare');
+      return TEST_WORKTREE;
+    });
+    adapter.prepare = prepare;
+    const started: unknown[][] = [];
+    const inner: ISubagentRunner = {
+      preflight(job) {
+        order.push(
+          `preflight ${job.taskId} ${job.worktree === undefined ? 'unprepared' : 'prepared'}`,
+        );
+      },
+      start(...args: Parameters<ISubagentRunner['start']>) {
+        order.push(`start ${args[0].worktree === undefined ? 'unprepared' : 'prepared'}`);
+        started.push(args);
+        return createCapturedRunner().runner.start(args[0]);
+      },
+    };
+
+    new WorktreeSubagentRunner({ runner: inner, worktreeAdapter: adapter }).start(
+      createJob('worktree'),
+    );
+
+    expect(order).toEqual(['preflight agent_1 unprepared', 'prepare', 'start prepared']);
+    expect(started.map((args) => args.length)).toEqual([1]);
+  });
+
+  it('prepares no worktree and fires no hook when the preflight refuses the job', async () => {
+    const adapter = createAdapter(true);
+    const prepare = vi.fn(() => TEST_WORKTREE);
+    adapter.prepare = prepare;
+    const start = vi.fn();
+    const hookCalls: IHookInput[] = [];
+    const executor: IHookTypeExecutor = {
+      type: 'prompt',
+      execute: async (_definition, input): Promise<THookOutcome> => {
+        hookCalls.push(input);
+        return { outcome: 'allow', source: 'prompt', stdout: '' };
+      },
+    };
+    const inner: ISubagentRunner = {
+      preflight() {
+        throw new Error('the subagent was not started');
+      },
+      start,
+    };
+    const runner = new WorktreeSubagentRunner({
+      runner: inner,
+      worktreeAdapter: adapter,
+      hooks: {
+        WorktreeCreate: [{ matcher: 'Agent', hooks: [{ type: 'prompt', prompt: 'create' }] }],
+      },
+      hookTypeExecutors: [executor],
+    });
+
+    expect(() => runner.start(createJob('worktree'))).toThrow('the subagent was not started');
+    expect(prepare).not.toHaveBeenCalled();
+    expect(start).not.toHaveBeenCalled();
+    await Promise.resolve();
+    expect(hookCalls).toEqual([]);
   });
 });

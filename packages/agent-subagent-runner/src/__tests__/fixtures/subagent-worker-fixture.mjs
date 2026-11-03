@@ -1,3 +1,5 @@
+import { writeFileSync } from 'node:fs';
+
 // DIST-006: the runner spawns `execPath args… --__agent-subagent-worker`, so the fixture asserts
 // the same entry contract the real composition root satisfies. Without this it would pass while the
 // flag was never delivered.
@@ -82,6 +84,16 @@ process.on('message', (message) => {
     // taken parent-side would still pass if the value were re-resolved before `send`.
     if (process.env.AGENT_FIXTURE_MODE === 'echo-profile') {
       process.send?.({ type: 'result', output: JSON.stringify(message.payload?.providerProfile) });
+      setTimeout(() => process.exit(0), 0);
+      return;
+    }
+    // #3679: keeps the WHOLE payload as it crossed the boundary in a file and answers with nothing
+    // from it, so a test can say where a fork's held record travels — and that nothing else, not
+    // the task's result either, carries it.
+    if (process.env.AGENT_FIXTURE_MODE === 'record-payload') {
+      const payloadPath = process.env.AGENT_FIXTURE_PAYLOAD_PATH;
+      writeFileSync(payloadPath, JSON.stringify(message.payload), 'utf8');
+      process.send?.({ type: 'result', output: 'recorded' });
       setTimeout(() => process.exit(0), 0);
       return;
     }

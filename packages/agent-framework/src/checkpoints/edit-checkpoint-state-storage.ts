@@ -9,9 +9,16 @@ import {
 } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import { OWNER_ONLY_FILE_MODE, ensureOwnerOnlyDirectory } from '@robota-sdk/agent-core/node';
+import {
+  OWNER_ONLY_FILE_MODE,
+  ensureOwnerOnlyDirectory,
+  writeOwnerOnlyFile,
+} from '@robota-sdk/agent-core/node';
 
-import { workspacePathSegments } from '../workspace-trust/project-reader-path.js';
+import {
+  refuseProjectRead,
+  workspacePathSegments,
+} from '../workspace-trust/project-reader-path.js';
 
 import type {
   IWorkspaceDirectoryEntry,
@@ -29,10 +36,22 @@ export interface IEditCheckpointStateStorage {
    * an edit can never land inside it.
    */
   readonly rootRelativePath?: string;
+  /**
+   * True for state that seals what it writes — only `createSealedEditCheckpointState` makes it, and a
+   * store refuses any other — and the store then holds itself to the rules of sealed checkpoints.
+   * Absent: plain.
+   */
+  readonly seals?: boolean;
   readText(relativePath: string, purpose: string): string | undefined;
   readBytes(relativePath: string, purpose: string): Uint8Array | undefined;
   writeText(relativePath: string, content: string, purpose: string): void;
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void;
+  /**
+   * Replaces the file whole, so a failure before the new content is in place leaves the previous
+   * file, or none, never a torn one. Sealed state needs it for its manifests; optional for plain
+   * state implemented elsewhere, which never calls it.
+   */
+  replaceBytes?(relativePath: string, content: Uint8Array, purpose: string): void;
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[];
 }
 
@@ -75,7 +94,9 @@ class DirectoryEditCheckpointState implements IEditCheckpointStateStorage {
       throw error;
     }
     try {
-      if (!fstatSync(descriptor).isFile()) throw new Error('Checkpoint state entry is not a file.');
+      if (!fstatSync(descriptor).isFile()) {
+        refuseProjectRead('Checkpoint state entry is not a file.');
+      }
       return readFileSync(descriptor);
     } finally {
       closeSync(descriptor);
@@ -95,6 +116,13 @@ class DirectoryEditCheckpointState implements IEditCheckpointStateStorage {
     } finally {
       closeSync(descriptor);
     }
+  }
+
+  /** Flushed to a temp file beside the target and renamed over it, then the directory flushed. */
+  replaceBytes(relativePath: string, content: Uint8Array, _purpose: string): void {
+    const path = this.resolve(relativePath);
+    ensureOwnerOnlyDirectory(dirname(path), { withinRoot: this.root });
+    writeOwnerOnlyFile(path, content, { durable: true });
   }
 
   listDirectory(relativePath: string, _purpose: string): readonly IWorkspaceDirectoryEntry[] {

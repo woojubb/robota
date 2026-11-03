@@ -175,8 +175,11 @@ session writes; this package only reads it and is inert when no history source i
 proceeds newest-first in blocks so the first results are visible before the whole file is read;
 within a scope, an older entry identical to a newer one is dropped so only the most recent
 occurrence remains. Exactly one load runs per open, and inserting, executing, or cancelling the
-search all abort it rather than let it run to completion unobserved. The composer's draft is never
-mutated while the overlay is open, so cancelling restores it byte-identically.
+search all abort it rather than let it run to completion unobserved. Sealed prompts the load could
+not open are counted as it goes and named with the search, so they never read as a shorter
+history; it says to unlock only when the keys are locked, not when this process has none. The
+composer's draft is never mutated while the overlay is open, so cancelling restores it
+byte-identically.
 
 ### IME cursor positioning
 

@@ -3,7 +3,8 @@
  * temporary directory: spilled tool results, the `/editor` buffer, and — when the run persists no
  * session — the edit checkpoints that keep `/rewind` working. Each directory is owner-only, records the
  * process that owns it, and is removed when that process ends; one left by a process that was killed
- * outright is removed by the next start.
+ * outright is removed by the next start, as is the presence such a process left
+ * (`process-presence.ts`).
  */
 import { basename } from 'node:path';
 
@@ -12,6 +13,8 @@ import {
   sweepStaleProcessScopedDirectories,
 } from '@robota-sdk/agent-core/node';
 import { sweepStaleToolResultSpillDirectories } from '@robota-sdk/agent-framework';
+
+import { sweepGoneProductPresence } from '../product/process-presence.js';
 
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
@@ -34,4 +37,5 @@ export function sweepStaleEphemeralState(runtime: ICliRuntimeContext): void {
     basename(runtime.vocabulary.editorTemporaryDirectoryPrefix),
   );
   sweepStaleProcessScopedDirectories(ephemeralCheckpoints, EPHEMERAL_CHECKPOINT_DIRECTORY_PREFIX);
+  sweepGoneProductPresence(runtime);
 }

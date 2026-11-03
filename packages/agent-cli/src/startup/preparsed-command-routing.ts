@@ -2,8 +2,8 @@ import { resolveCliRuntimeContext } from './product-bootstrap.js';
 import { restartProductEnvironment } from '../product/restart-environment.js';
 import { productProviderDefinitions } from '../product/provider-definitions.js';
 import { withholdProviderCredentials } from '../product/command-environment.js';
+import { createProductUserSessionStore } from '../product/session-stores.js';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
 import { realpathSync } from 'node:fs';
 import { isIP } from 'node:net';
 
@@ -42,6 +42,7 @@ import { runSessionAttachCommand } from '../session-inventory/session-attach-com
 import type { TAttachedAppRender } from '../session-inventory/session-attach-command.js';
 import type { ISessionViewCommandOptions } from '../session-inventory/session-view-command.js';
 import { validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
+import { runSecureCommand } from '../secure/secure-command.js';
 import { runUsageCommand } from '../usage/usage-command.js';
 import { runUsageExportCommand } from '../usage/usage-export-command.js';
 import { subcommandHelpFor } from '../utils/cli-help.js';
@@ -481,6 +482,16 @@ export async function runPreparsedCliCommand(
     });
     return true;
   }
+  // The keyring belongs to the user, not to a workspace: it is routed before any project composition
+  // and reads no project setting, so a repository can neither start nor shape it.
+  if (argv[SUBCOMMAND_INDEX] === 'secure') {
+    process.exitCode = await runSecureCommand(argv.slice(ACTION_INDEX), {
+      productRuntime,
+      stdout: (text) => process.stdout.write(text),
+      stderr: (text) => process.stderr.write(text),
+    });
+    return true;
+  }
   const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
   const composition = createInitialCliWorkspaceComposition(cwd, {
     ...options,
@@ -543,7 +554,7 @@ export async function runPreparsedCliCommand(
       argv.slice(SUBCOMMAND_ARGUMENT_INDEX),
       cwd,
       composition.sessionStoreScope === 'project' ? composition.sessionStore : undefined,
-      createUserSessionStore(productRuntime.layout.userPaths.sessions),
+      createProductUserSessionStore(productRuntime),
     );
     return true;
   }

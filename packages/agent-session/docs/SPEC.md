@@ -25,8 +25,9 @@ persistence paths that consume it (the store, the artifact envelope, the replay 
 - Does not own configuration resolution or context loading (owned by the framework layer).
 - Does not own the permission-evaluation algorithm or the hook execution engine (owned by
   `agent-core`); this package invokes them.
-- Owns the file-persistence _primitive_, not the record or port shape: `NodeSessionStore`
-  implements the store port and record type declared in `agent-interface-session`.
+- Owns the file-persistence _primitive_ and the stored form of a record (plain unless whoever
+  builds a store injects a sealer), not the record or port shape: `NodeSessionStore` implements
+  the store port and record type declared in `agent-interface-session`.
 - No dependency on tool-registry or provider packages — tool and provider assembly, workspace
   trust, and project-path interpretation are the consuming layer's responsibility. This package
   never imports or reconstructs a workspace authority from a path.
@@ -37,12 +38,16 @@ persistence paths that consume it (the store, the artifact envelope, the replay 
 
 - The store **decodes what it stores, and nothing further.** `load` validates the persisted
   `{ schemaVersion, record }` envelope and the record's shape, and reports one of
-  `valid` / `missing` / `corrupt` / `unsupported` rather than `record | undefined`. Distinguishing
-  a corrupt snapshot from a valid one is itself inspection, but it is _shape_ inspection only —
-  the store reads no field for its meaning (no branch on `cwd`, a message body, or any other
-  member), so it still holds no domain policy. A non-`valid` outcome is never treated as "no
-  prior record" on a write path (a consumer that reads a damaged file to preserve fields it does
-  not own must not silently overwrite it with a fresh record).
+  `valid` / `missing` / `corrupt` / `unsupported` / `locked` rather than `record | undefined`.
+  Distinguishing a corrupt snapshot from a valid one is itself inspection, but it is _shape_
+  inspection only — the store reads no field for its meaning (no branch on `cwd`, a message body,
+  or any other member) except the record's own id, which must be the id it is stored under, so it
+  still holds no domain policy. A non-`valid` outcome is never treated as "no prior record" on a
+  write path (a consumer that reads a damaged file to preserve fields it does not own must not
+  silently overwrite it with a fresh record), and a `save` itself refuses to replace a file that
+  may be a session nobody here can read: a sealed one its store cannot open and cannot prove it
+  wrote or holds, one sealed by a newer build, or one it could not read at all. Only "no such
+  file" means there is nothing to protect.
 - Persistence is atomic (same-directory temp file + rename), so a crash mid-write cannot corrupt
   the previous record; an accepted user message and an assistant tool-call intent are checkpointed
   synchronously before that turn can dispatch an effect, and a failed checkpoint refuses dispatch.
@@ -282,11 +287,14 @@ path directly. Guarantees that are not obvious from the types:
   an unsupported version fails the _whole_ decode rather than silently dropping the offending
   line and keeping its valid siblings — a partial recovery is never produced.
 - Recursive secret redaction runs before persistence (keys such as API keys, tokens, passwords).
-- Oversized log fields are spilled to content-addressed sidecar files rather than inlined, and
-  are written with an exclusive-create flag rather than an existence check followed by a write —
-  the latter was a TOCTOU race between concurrent sessions externalizing the same payload; because
-  the filename is the content's own hash, a collision on an existing file means the bytes are
-  already identical and is safely ignored.
+- Oversized log fields are spilled to sidecar files rather than inlined, written with an
+  exclusive-create flag rather than an existence check followed by a write — the latter was a
+  TOCTOU race between concurrent sessions externalizing the same payload. A plain sidecar's name is
+  the content's own hash, so a collision on an existing file means the bytes are already identical
+  and is safely ignored; a sealed sidecar's name is random, so no name says what a payload holds or
+  which payloads are equal, its digest lives only inside the sealed line, and a sink writes each
+  payload once per process. A plain sidecar a migration seals keeps its content-derived name, since
+  references — nested ones inside other payloads too — name it and must keep resolving.
 - Log directories and files are created explicitly owner-only (not inherited from the process
   umask), and every session id used as a path component is validated as a single safe path
   segment before use.
@@ -307,7 +315,19 @@ remains the owner of every message. Reads walk the file backwards in blocks so t
 entries are yielded first; a line spanning a block boundary is still parsed correctly, and a line
 that fails to parse is counted, never silently dropped. Only a missing file is treated as the
 empty state; every other read failure is surfaced rather than presented as an empty history, so a
-person is never shown "no history" when history could not actually be read.
+person is never shown "no history" when history could not actually be read. A sealed prompt this
+process cannot open now is counted apart from damage, and says whether an unlock here would read
+it, so a surface names an unlock only when one would help.
+
+Compaction rewrites every entry sealed, one per line, under the one sealer it is given. The file has
+no lock and writers append by path, so the new file replaces it by rename and what reached the old one
+meanwhile is caught up from its descriptor; a crash inside that window can lose those entries, which
+is accepted because the file is a derived copy of the records. Nothing that does not open is dropped,
+plaintext that reaches the new file anyway is reported rather than hidden, a catch-up that fails says
+how much it left unread, a compaction that finds the file already replaced by another abandons its
+rename rather than discard what that one caught up, one that finds it deleted puts nothing back, and
+a history that is a link or has another name is refused, since a rename would leave the plaintext
+where it points.
 
 ### Compaction
 
@@ -358,7 +378,8 @@ supplies. A spilled result is conversation content, so a host that cares where i
 owner-only directory of its own; omitting the parent is deprecated and keeps the earlier default under
 the shared operating-system temporary directory, so existing embedders keep working unchanged. Each
 result is written to an exclusively created `0600` file and addressed by a random, opaque
-`tool-result:` reference. No path, digest or payload appears in references or diagnostics, failures
+`tool-result:` reference; a store given a sealing writes it sealed and bound to that reference, so
+the file holds no plaintext and a result moved to another reference does not open. No path, digest or payload appears in references or diagnostics, failures
 carry no secret material, and spilled results are removed on expiry and on shutdown. In a host's
 parent they are also removed when the process ends without reaching shutdown, and a directory whose
 recorded owner can no longer be alive is removed by the host's next start. The directory prefix is
@@ -388,6 +409,43 @@ product-neutral and does not disclose the host product's name.
   who wants a blocked call lets it through once or writes a narrow allow rule.
 - **Null Object for persistence.** Without a configured store, persistence is silently skipped
   rather than requiring every call site to branch on whether one exists.
+- **A record is sealed bound to its own id, one file at a time, and what stays visible is
+  stated.** A store that seals writes every record bound to the session it belongs to, and reads
+  plain and sealed files alike, so a directory part-way through a migration lists correctly and a
+  plain record becomes sealed the next time its session is saved. A file that opens proves it is
+  bound to this id and unaltered since it was sealed, and nothing about who sealed it: sealing
+  needs only the public key, which any program of the same user can read. A sealed file the keys
+  cannot open is `locked`, not corrupt: it is intact, and a later unlock reads it; a store given no
+  sealer at all says so (`no-keys`), since no unlock in its process would open it. It is also not
+  listed, since there is no record to describe, so the scan that lists also counts what it left out
+  and a surface can say so. Any framing version counts as sealed, so a build never takes a newer
+  build's file for plaintext and replaces it; one it does not open reads as written by a build it
+  does not read. Locking takes away reading, not saving: a process that is running a session holds
+  it in memory and needs only the public key to seal it, so a store remembers, for each session it
+  wrote or was asked to hold by a resume or a writer's read, a digest of the sealed bytes and the
+  record behind them, and keeps saving that session while the keys are locked for as long as the
+  file is provably exactly what it put there. A read that only looks remembers nothing, so it can
+  neither push a held session out of that bounded memory nor keep plaintext it was shown. The
+  check and the write are two steps, so two writers saving one session at the same moment can still
+  replace each other, as plain records always could; what the check stops is a store replacing a
+  sealed session nobody in its process can read, and a file that differs from what it remembers is
+  refused as changed. What it holds is memory only, bounded, and forgotten on delete. A record
+  written for a fork job another process will run is kept apart from it, so a fork never pushes out
+  a running session, and is handed over once as a token naming the sealed bytes; a store that cannot
+  open the file (a process with only a write grant) takes the token as a record it holds, and a store
+  that seals nothing refuses it, since it would write the record in plaintext over the sealed one. Sealing
+  protects what is inside the file; file names, sizes and modification times stay visible, because
+  the directory is the index and hiding them would take a second index to replace it.
+- **An append is one sealed line that opens on its own.** A log or prompt history that seals
+  appends each call as one line bound to its kind and owner, so no line needs another to open: a
+  reader walking backwards or paging opens only what it shows, writers appending to one file need
+  no coordination, and damage stays on its own line. Every sealed append begins and ends with a
+  newline, because an append is not atomic and a writer can die part-way: what it leaves becomes a
+  line of its own and never swallows the next record, and a final fragment still being written is
+  not yet a line. A reader tells a line it read from one that is locked, one that does not open and
+  one a newer build sealed; a strict decoder fails on the first it cannot read, and a tolerant one
+  counts them. A sealer failing for any other reason is a defect, never a damaged line: a strict
+  decoder passes it on as it is. One module decides this for every append store, as one decides it for records.
 - **Decoder lives beside its consumers, not beside the type.** The record type is owned by the
   interface package; the decoder is owned here, because an interface package publishes contracts
   and vocabulary, not mechanisms, and every consumer that routes through the decoder — the store,

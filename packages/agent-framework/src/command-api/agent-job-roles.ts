@@ -57,6 +57,12 @@ export interface IAgentJobGroups {
     input: Omit<IBackgroundJobGroupCreateRequest, 'parentSessionId'>,
   ): IBackgroundJobGroupState;
   waitBackgroundJobGroup(groupId: string): Promise<IBackgroundJobGroupState>;
+  /**
+   * Whether a job's transcript is sealed, as the live runtime knows it (never group or task state):
+   * what `summarizeBackgroundJobGroup` takes so a summary points at `/agent read` rather than a path
+   * that reaches no content. Optional: a host without sealed transcripts has none.
+   */
+  isBackgroundTaskTranscriptSealed?(taskId: string): boolean;
 }
 
 /** Cron-driven wakes and their lifecycle. */

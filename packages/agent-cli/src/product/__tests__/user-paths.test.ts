@@ -18,9 +18,12 @@ describe('test-product Agent user paths', () => {
       workspaceTrust: join('/first-home', '.test-product', 'workspace-trust.json'),
       orgPolicy: join('/first-home', '.test-product', 'org-policy.json'),
       mcpApprovals: join('/first-home', '.test-product', 'mcp-approvals.json'),
+      secure: join('/first-home', '.test-product', 'secure'),
+      keyring: join('/first-home', '.test-product', 'secure', 'keyring.json'),
       spill: join('/first-home', '.test-product', 'spill'),
       editor: join('/first-home', '.test-product', 'editor'),
       ephemeralCheckpoints: join('/first-home', '.test-product', 'ephemeral-checkpoints'),
+      presence: join('/first-home', '.test-product', 'presence'),
     });
     expect(second.sessions).toBe(join('/second-home', '.test-product', 'sessions'));
     expect(userLocalStorageRoot(createTestProductRuntime('test-product', { HOME: '/first-home' }))).toBe(join('/first-home', '.test-product'));

@@ -19,6 +19,8 @@ import { selectProductSubagentRunner } from './subagent-provider-reproduction.js
 import { resolveSelfForkWorkerEntry } from '../subagents/self-fork-worker-entry.js';
 import { createGitWorktreeIsolationAdapter } from '../subagents/git-worktree-isolation-adapter.js';
 import { resolveProductShellExecutable } from './shell.js';
+import { createProductWorkerSealing, resolveProductRunnerSealing } from './session-sealing.js';
+import { declareProductProcessMode, enterProductStores } from './process-presence.js';
 
 import { childProductEnvironment } from './child-environment.js';
 export { childProductEnvironment } from './child-environment.js';
@@ -154,7 +156,17 @@ export function createProductSubagentComposition(
   providerDefinitions: readonly IProviderDefinition[] = productProviderDefinitions(),
 ): ISubagentWorkerComposition {
   const shellExecutable = resolveProductShellExecutable(productRuntime.environment);
+  // #3679: the worker seals as its parent decided — the grant binds into this runtime's one sealing
+  // decision before anything is built, so `openSessionStore` below seals the same way. Binding it is
+  // also where the worker marks its presence, since its transcript is written whether or not it ever
+  // opens a store: a migration then sees it, and a worker started during one refuses to run.
+  const workerSealing = createProductWorkerSealing(productRuntime);
+  declareProductProcessMode(productRuntime, 'subagent');
   return {
+    bindWriteGrant: (grant) => {
+      enterProductStores(productRuntime);
+      return workerSealing.bindWriteGrant(grant);
+    },
     createHookTypeExecutors: (context) => {
       const sandbox = context.sandboxClient as ISandboxClient | undefined;
       if (sandbox !== undefined && sandbox.filesystem !== 'shared') {
@@ -285,6 +297,9 @@ function createProductChildProcessSubagentRunner(options: {
     providerConfig: options.providerConfig,
     providerDefinitions: options.providerDefinitions,
     ...(options.logsDir === undefined ? {} : { logsDir: options.logsDir }),
+    // #3679: the children keep their logs as every store of this process keeps its records, and
+    // follow the key this process seals to when an unlock verifies or changes it — one decision.
+    ...resolveProductRunnerSealing(options.productRuntime),
     // The worker drops its credential after building its provider unless the owner let commands see it.
     keepProviderCredential:
       options.providerConfig.apiKeyEnv !== undefined &&

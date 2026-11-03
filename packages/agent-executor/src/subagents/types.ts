@@ -53,6 +53,12 @@ export interface ISubagentJobHandle {
   readonly pid?: number;
   readonly logPath?: string;
   readonly transcriptPath?: string;
+  /**
+   * The transcript at `transcriptPath` is sealed: its bytes are ciphertext to any reader without the
+   * keys, so a path handed to a hook or shown to the model reaches no content. Known only to the live
+   * handle, never stored on task state.
+   */
+  readonly transcriptSealed?: true;
   result: Promise<ISubagentJobResult>;
   cancel(reason?: string): Promise<void>;
   send?(prompt: string): Promise<void>;
@@ -60,6 +66,13 @@ export interface ISubagentJobHandle {
 }
 
 export interface ISubagentRunner {
+  /**
+   * Refuses, before anything is made for it (such as a worktree), a job this runner's {@link start}
+   * would refuse, so a refusal leaves nothing behind. It changes nothing, so a job that fails between
+   * it and `start` can be run again; `start` still makes every check that must hold when it runs. A
+   * runner that wraps another calls this first. Optional: a runner without one checks in `start`.
+   */
+  preflight?(job: ISubagentJobStart): void;
   start(job: ISubagentJobStart): ISubagentJobHandle;
 }
 

@@ -1,8 +1,10 @@
 import {
   buildRuntimeSession,
   isSessionBusy,
-  listUnreadableSessionsForWorkspace,
+  lockedSessionMessage,
+  lockedSessionReason,
   restoredScheduleDisposition,
+  scanSessionStore,
   SessionSlot,
 } from '@robota-sdk/agent-framework';
 import { createAcpTransport } from '@robota-sdk/agent-transport-acp';
@@ -97,13 +99,23 @@ function createSessionLoader(
     if (isSessionBusy(slot.current)) {
       return refuse('The current session has work in progress; load another once it finishes.');
     }
-    if (listUnreadableSessionsForWorkspace(store, options.cwd).some((e) => e.id === sessionId)) {
+    // One read of the store decides it: a listed entry says everything, and only an id the listing
+    // does not show is probed, since a sealed session whose keys are locked is not listed.
+    const outcome = scanSessionStore(store).entries.find(
+      (entry) => entry.id === sessionId,
+    )?.outcome;
+    if (
+      (outcome?.status === 'corrupt' || outcome?.status === 'unsupported') &&
+      outcome.cwd === options.cwd
+    ) {
       return refuse(`Session ${sessionId} was saved in a form this version cannot read.`);
     }
-    const record = store
-      .list()
-      .flatMap((entry) => (entry.outcome.status === 'valid' ? [entry.outcome.record] : []))
-      .find((candidate) => candidate.id === sessionId && candidate.cwd === options.cwd);
+    const lockedReason = outcome === undefined ? lockedSessionReason(store, sessionId) : undefined;
+    if (lockedReason !== undefined) return refuse(lockedSessionMessage(sessionId, lockedReason));
+    const record =
+      outcome?.status === 'valid' && outcome.record.cwd === options.cwd
+        ? outcome.record
+        : undefined;
     if (record === undefined) return refuse(`No session ${sessionId} in this workspace.`);
     if (runsOnItsOwn(record, Date.now(), options.sessionOptions.disableSessionLoops ?? false)) {
       return refuse(

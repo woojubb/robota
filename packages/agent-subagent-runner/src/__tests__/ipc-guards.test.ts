@@ -190,3 +190,69 @@ describe('subagent worker mode', () => {
     }
   });
 });
+
+/**
+ * #3679 step 3b: a sealing parent hands its child a write grant (non-secret: it seals and opens
+ * nothing) and, for a fork job while its keys are locked, the record it holds. The guard takes both
+ * only in the shape the parent produces them: non-empty strings, a held record only beside the id it
+ * resumes and within its bound, and a later grant only as a `sealing_key` message.
+ */
+describe('the sealing fields of a start payload', () => {
+  const forkPayload = (extra: Record<string, unknown>) => {
+    const payload = validStartPayload() as unknown as { request: Record<string, unknown> } & Record<
+      string,
+      unknown
+    >;
+    payload.request.resumeSessionId = 'session_fork';
+    return { ...payload, ...extra };
+  };
+
+  it('accepts a grant, and a held record beside the id it resumes', () => {
+    expect(
+      isSubagentWorkerParentMessage({
+        type: 'start',
+        payload: { ...validStartPayload(), writeGrant: 'rsg1.key' },
+      }),
+    ).toBe(true);
+    expect(
+      isSubagentWorkerParentMessage({
+        type: 'start',
+        payload: forkPayload({ writeGrant: 'rsg1.key', resumeHeld: 'rsh1.digest.record' }),
+      }),
+    ).toBe(true);
+  });
+
+  it.each<[string, Record<string, unknown>]>([
+    ['an empty grant', { writeGrant: '' }],
+    ['a grant that is not a string', { writeGrant: { key: 'x' } }],
+    ['an empty held record', { resumeHeld: '' }],
+    ['a held record that is not a string', { resumeHeld: ['record'] }],
+  ])('rejects %s', (_label, extra) => {
+    expect(isSubagentWorkerParentMessage({ type: 'start', payload: forkPayload(extra) })).toBe(
+      false,
+    );
+  });
+
+  it('rejects a held record with no session to resume', () => {
+    expect(
+      isSubagentWorkerParentMessage({
+        type: 'start',
+        payload: { ...validStartPayload(), resumeHeld: 'rsh1.digest.record' },
+      }),
+    ).toBe(false);
+  });
+
+  it('rejects a held record past its bound', () => {
+    const over = 'a'.repeat(32 * 1024 * 1024 + 1);
+    expect(
+      isSubagentWorkerParentMessage({ type: 'start', payload: forkPayload({ resumeHeld: over }) }),
+    ).toBe(false);
+  });
+
+  it('takes a later grant only as a non-empty string in a sealing_key message', () => {
+    expect(isSubagentWorkerParentMessage({ type: 'sealing_key', grant: 'rsg1.newer' })).toBe(true);
+    expect(isSubagentWorkerParentMessage({ type: 'sealing_key', grant: '' })).toBe(false);
+    expect(isSubagentWorkerParentMessage({ type: 'sealing_key' })).toBe(false);
+    expect(isSubagentWorkerParentMessage({ type: 'sealing_key', grant: 7 })).toBe(false);
+  });
+});

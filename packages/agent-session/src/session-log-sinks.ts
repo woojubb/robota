@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -10,35 +9,16 @@ import {
 } from '@robota-sdk/agent-core/node';
 
 import { assertSafeSessionId } from './session-id.js';
+import { StoredLines, StoredPayloads } from './stored-append-lines.js';
+import { sessionSealingOf } from './stored-session-record.js';
 
 import type { IExternalPayloadReference } from './session-log-reference-types.js';
+import type { IStoredPayloadWrite } from './stored-append-lines.js';
+import type { ISessionStoreOptions } from './stored-session-record.js';
+
+export { createSessionLogExternalPayloadReference } from './stored-append-lines.js';
 
 const logger = createLogger('NodeSessionLogSink');
-const SHA256_PATTERN = /^[0-9a-f]{64}$/;
-
-function assertContentAddress(sha256: string, serialized: string): void {
-  const actualSha256 = createHash('sha256').update(serialized).digest('hex');
-  if (!SHA256_PATTERN.test(sha256) || sha256 !== actualSha256) {
-    throw new Error('Invalid sha256: external JSON payloads require their exact content digest.');
-  }
-}
-
-/** Canonical validation and construction for every session-log external-payload reference. */
-export function createSessionLogExternalPayloadReference(
-  sessionId: string,
-  sha256: string,
-  serialized: string,
-): IExternalPayloadReference {
-  assertSafeSessionId(sessionId);
-  assertContentAddress(sha256, serialized);
-  return {
-    kind: 'external-payload',
-    encoding: 'json',
-    sha256,
-    byteLength: Buffer.byteLength(serialized),
-    relativePath: join(`${sessionId}.payloads`, `${sha256}.json`),
-  };
-}
 
 /** Workspace-neutral sink for content-addressed external JSON payloads. */
 export interface IExternalPayloadSink {
@@ -55,8 +35,20 @@ export interface ISessionLogSink {
 export class NodeSessionLogSink implements ISessionLogSink, IExternalPayloadSink {
   readonly externalPayloadSink: IExternalPayloadSink = this;
   private readonly enabled: boolean;
+  private readonly lines: StoredLines;
+  private readonly payloads: StoredPayloads;
 
-  constructor(private readonly logDirectory: string) {
+  /**
+   * @param options `sealing`: `{ sealer }` seals every append (one sealed line per call) and every
+   *   sidecar; `'plain'`, the default, writes exactly what every earlier build wrote.
+   */
+  constructor(
+    private readonly logDirectory: string,
+    options?: ISessionStoreOptions,
+  ) {
+    const sealing = sessionSealingOf(options);
+    this.lines = new StoredLines(sealing, 'session-log-line');
+    this.payloads = new StoredPayloads(sealing);
     try {
       // SEC-020: `mkdirSync(dir, { recursive: true, mode })` does NOT set the mode of a directory
       // that already exists — it returns successfully and adopts whatever is there. Measured: a log
@@ -81,33 +73,41 @@ export class NodeSessionLogSink implements ISessionLogSink, IExternalPayloadSink
     assertSafeSessionId(sessionId);
     if (!this.enabled) return;
     const path = join(this.logDirectory, `${sessionId}.jsonl`);
+    // Sealed before the file is touched, so a sealing failure writes nothing at all.
+    const stored = this.lines.encode(text, sessionId);
     // SEC-020: `mode` on a write applies only when the file is CREATED, so a log an older version
     // left at 0644 keeps 0644 for its whole life however many times it is appended to. Tightening
     // first is the repair path for a store written before this change.
     tightenExistingFile(path);
-    appendFileSync(path, text, { mode: OWNER_ONLY_FILE_MODE });
+    appendFileSync(path, stored, { mode: OWNER_ONLY_FILE_MODE });
   }
 
   writeJson(sessionId: string, sha256: string, serialized: string): IExternalPayloadReference {
-    const reference = createSessionLogExternalPayloadReference(sessionId, sha256, serialized);
-    const payloadDirectoryName = `${sessionId}.payloads`;
-    if (this.enabled) {
-      ensureOwnerOnlyDirectory(join(this.logDirectory, payloadDirectoryName));
-      const payloadPath = join(this.logDirectory, reference.relativePath);
-      try {
-        writeFileSync(payloadPath, serialized, {
-          encoding: 'utf8',
-          mode: OWNER_ONLY_FILE_MODE,
-          flag: 'wx',
-        });
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
-        // SEC-020: the payload is content-addressed, so an existing file already holds these exact
-        // bytes and `wx` correctly declines to rewrite it. Its MODE is a different question — one
-        // written by an older version is 0644 and nothing else would ever repair it.
-        tightenExistingFile(payloadPath);
+    return this.payloads.place(sessionId, sha256, serialized, (target) =>
+      this.writePayload(sessionId, target),
+    );
+  }
+
+  private writePayload(sessionId: string, target: IStoredPayloadWrite): void {
+    if (!this.enabled) return;
+    ensureOwnerOnlyDirectory(join(this.logDirectory, `${sessionId}.payloads`));
+    const payloadPath = join(this.logDirectory, target.relativePath);
+    try {
+      writeFileSync(payloadPath, target.data, {
+        ...(typeof target.data === 'string' ? { encoding: 'utf8' as const } : {}),
+        mode: OWNER_ONLY_FILE_MODE,
+        flag: 'wx',
+      });
+    } catch (error) {
+      // A random sealed name that already exists is not this payload, so only a content-addressed
+      // one may be taken as already written.
+      if (!target.contentAddressed || (error as NodeJS.ErrnoException).code !== 'EEXIST') {
+        throw error;
       }
+      // SEC-020: the payload is content-addressed, so an existing file already holds these exact
+      // bytes and `wx` correctly declines to rewrite it. Its MODE is a different question — one
+      // written by an older version is 0644 and nothing else would ever repair it.
+      tightenExistingFile(payloadPath);
     }
-    return reference;
   }
 }

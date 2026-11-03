@@ -17,6 +17,7 @@ import {
   VISIBLE_MEMORY_EVENT_TYPES,
   formatMemoryEventMessage,
 } from '../memory/memory-event-format.js';
+import { EditCheckpointNumberingExhaustedError } from '../checkpoints/edit-checkpoint-errors.js';
 import { EditCheckpointsUnavailableError } from '../checkpoints/edit-checkpoints-unavailable-error.js';
 import { supportsWorkspaceProjectMutation } from '../workspace-trust/index.js';
 
@@ -25,8 +26,10 @@ import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.j
 import type { TEditCheckpointsUnavailableReason } from '../checkpoints/edit-checkpoints-unavailable-error.js';
 import type {
   IEditCheckpointInspection,
+  IEditCheckpointListing,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
+  IEditCheckpointUnreadableCounts,
 } from '../checkpoints/edit-checkpoint-types.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
@@ -140,6 +143,14 @@ export class SessionHistoryTracker {
     return this.getCheckpointStore().list(sessionId);
   }
 
+  unreadableEditCheckpoints(): IEditCheckpointUnreadableCounts {
+    return this.getCheckpointStore().countUnreadable(this.getSessionId());
+  }
+
+  editCheckpointListing(): IEditCheckpointListing {
+    return this.getCheckpointStore().listing(this.getSessionId());
+  }
+
   inspectEditCheckpoint(checkpointId: string): IEditCheckpointInspection {
     const sessionId = this.getSessionId();
     return this.getCheckpointStore().inspect(sessionId, checkpointId);
@@ -246,7 +257,13 @@ export class SessionHistoryTracker {
     // SELFHOST-007: apply any stashed --resume branch pointer now (session is ready) so this turn's
     // parent is the restored HEAD, not the last-by-sequence tip.
     this.applyPendingActiveBranch();
-    await this.editCheckpointStore.beginTurn({ sessionId: this.getSessionId(), prompt });
+    try {
+      await this.editCheckpointStore.beginTurn({ sessionId: this.getSessionId(), prompt });
+    } catch (error) {
+      // The turn runs without a checkpoint, and the person reading it is told why.
+      if (!(error instanceof EditCheckpointNumberingExhaustedError)) throw error;
+      this.history.push(messageToHistoryEntry(createSystemMessage(error.message)));
+    }
   }
 
   async finalizeEditCheckpointTurn(): Promise<void> {

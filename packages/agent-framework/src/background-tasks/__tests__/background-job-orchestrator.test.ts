@@ -232,3 +232,73 @@ describe('BackgroundJobOrchestrator', () => {
     });
   });
 });
+
+/**
+ * #3679 step 3b (R7): the job-group summary goes to the user and the model. A sealed transcript's
+ * path reaches no content for either, so the summary names the command that reads it instead. The
+ * envelope keeps its shape and its path (it is persisted and strictly decoded); sealedness comes from
+ * the live handle, which the orchestrator remembers in memory, and reaches the summary as an option.
+ */
+describe('BackgroundJobOrchestrator — a sealed transcript', () => {
+  function runnerWith(sealed: boolean): IBackgroundTaskRunner<'agent'> {
+    return {
+      kind: 'agent',
+      start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
+        return {
+          taskId: task.taskId,
+          transcriptPath: `/tmp/${task.taskId}.jsonl`,
+          ...(sealed ? { transcriptSealed: true as const } : {}),
+          result: Promise.resolve({ taskId: task.taskId, kind: 'agent', output: 'the answer' }),
+          cancel: () => Promise.resolve(),
+        };
+      },
+    };
+  }
+
+  async function completedGroup(sealed: boolean) {
+    const manager = new BackgroundTaskManager({ runners: [runnerWith(sealed)] });
+    const orchestrator = new BackgroundJobOrchestrator({ manager });
+    const task = await manager.spawn(createAgentRequest('developer'));
+    const group = orchestrator.createGroup({
+      parentSessionId: 'session_parent',
+      waitPolicy: 'wait_all',
+      taskIds: [task.id],
+    });
+    const completed = await orchestrator.waitGroup(group.id);
+    // The handle is gone once the task is closed; the orchestrator still knows.
+    await manager.close(task.id);
+    return { completed, orchestrator, taskId: task.id };
+  }
+
+  it('points at /agent read instead of the path, in the summary the user and the model see', async () => {
+    const { completed, orchestrator } = await completedGroup(true);
+    const line = summarizeBackgroundJobGroup(completed, {
+      isTranscriptSealed: (taskId) => orchestrator.isTranscriptSealed(taskId),
+    }).lines[0];
+
+    expect(line).toMatch(/ \(output: sealed log; read it with \/agent read task_\d+\)$/);
+    expect(line).not.toContain('.jsonl');
+  });
+
+  it('keeps the path on the envelope it persists, sealed or not', async () => {
+    const sealed = await completedGroup(true);
+    const plain = await completedGroup(false);
+
+    expect(sealed.completed.results[0]?.outputRef).toBe(`/tmp/${sealed.taskId}.jsonl`);
+    expect(plain.completed.results[0]?.outputRef).toBe(`/tmp/${plain.taskId}.jsonl`);
+    expect(sealed.orchestrator.isTranscriptSealed(sealed.taskId)).toBe(true);
+    expect(plain.orchestrator.isTranscriptSealed(plain.taskId)).toBe(false);
+  });
+
+  it('keeps the path for a plain transcript', async () => {
+    const { completed, orchestrator } = await completedGroup(false);
+    const options = { isTranscriptSealed: (id: string) => orchestrator.isTranscriptSealed(id) };
+
+    expect(summarizeBackgroundJobGroup(completed, options).lines[0]).toMatch(
+      / \(output: \/tmp\/task_\d+\.jsonl\)$/,
+    );
+    expect(summarizeBackgroundJobGroup(completed)).toEqual(
+      summarizeBackgroundJobGroup(completed, options),
+    );
+  });
+});
