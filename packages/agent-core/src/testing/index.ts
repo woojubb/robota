@@ -20,3 +20,9 @@ export type {
 // exercises the same shapes agent-core's own projector tests do.
 export { loadToolSchemaProjectionFixtures } from './tool-schema-projection-fixtures.js';
 export type { IToolSchemaProjectionFixtures } from './tool-schema-projection-fixtures.js';
+
+// Process-scoped directories as another run left them, owner record included, for host sweep tests.
+export {
+  goneProcessOwner,
+  leaveProcessScopedDirectory,
+} from './process-scoped-directory-fixture.js';

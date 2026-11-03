@@ -27,6 +27,33 @@ export {
   tightenExistingFile,
   writeOwnerOnlyFile,
 } from './utils/owner-only-store.js';
+export type {
+  ICreateProcessScopedDirectoryOptions,
+  ISweepProcessScopedDirectoriesOptions,
+} from './utils/process-scoped-directory.js';
+export {
+  PROCESS_OWNER_RECORD_NAME,
+  createProcessScopedDirectory,
+  processScopedDirectoryPrefix,
+  sweepStaleProcessScopedDirectories,
+} from './utils/process-scoped-directory.js';
+export {
+  removeDirectoryOnProcessExit,
+  removeProcessScopedDirectoriesNow,
+} from './utils/process-exit-removals.js';
+export type {
+  IProcessIdentity,
+  IReadMachineIdOptions,
+  IReadProcessStartTimeOptions,
+} from './utils/process-identity.js';
+export {
+  readBootId,
+  readCurrentProcessIdentity,
+  readDarwinStartTime,
+  readMachineId,
+  readPidNamespace,
+  readProcessStartTime,
+} from './utils/process-identity.js';
 export { CommandExecutor, HttpExecutor } from './hooks/executors/index.js';
 
 // #2026: the shared egress boundary is Node-only (node:dns, node:net) and lives on this subpath.

@@ -79,6 +79,10 @@ import { createSettingsReporter } from './product/settings-reporter.js';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createDeviceMeshHost, startDeviceListReissue } from './devices/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
+import {
+  readSupervisedTransportToken,
+  SUPERVISED_TRANSPORT_TOKEN_FLAG,
+} from './session-inventory/supervised-transport-token.js';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from './telemetry/live-trace-otlp.js';
 import { takeProductTelemetryEnvironment } from './telemetry/live-telemetry-env.js';
 import { resolveLiveTelemetrySurface } from './telemetry/live-resource.js';
@@ -89,6 +93,7 @@ import {
   createProductSubagentRunnerFactory,
 } from './product/subagent-composition.js';
 import { createEditorFileSlot } from './product/editor-file-slot.js';
+import { sweepStaleEphemeralState } from './startup/ephemeral-state.js';
 import { reloadPluginCommandSource } from './plugins/default-plugin-command-source-loader.js';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js';
@@ -179,11 +184,31 @@ export interface ICliPresentation {
   setLiveChannel: typeof import('./process-guards.js').setLiveChannel;
 }
 
+/**
+ * A supervised daemon's transport token, which arrives on an inherited pipe, never its environment,
+ * where any program of this user could read it for as long as the process lives. Read from argv,
+ * not the parsed arguments: the workspace trust check runs `git` before the arguments are parsed.
+ */
+function readHandedOverTransportTokenOrExit(): string | undefined {
+  if (!optionArgv(process.argv).includes(SUPERVISED_TRANSPORT_TOKEN_FLAG)) return undefined;
+  try {
+    return readSupervisedTransportToken();
+  } catch (error) {
+    // allow-fallback: a runtime told to expect a token must not start under another — exit is the correct response
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
+}
+
 export async function startCliCore(
   initialOptions: IStartCliOptions,
   createBackgroundTaskRunners: (shellExecutable?: string) => IBackgroundTaskRunner[],
   presentation?: ICliPresentation,
 ): Promise<void> {
+  // First, before anything can start a process: until it is read and closed, the token's pipe is an
+  // open descriptor of this process, and whether a process started here gets it is then up to how
+  // that process is started. Held by the transport from here on, never written into the environment.
+  const supervisedTransportToken = readHandedOverTransportTokenOrExit();
   const productRuntime = resolveCliRuntimeContext(initialOptions);
   installProductProcessEnvironment(productRuntime);
   // Hosted admission precedes launch handlers, project contributions, provider creation and all modes.
@@ -236,6 +261,7 @@ export async function startCliCore(
       protocolOutput?.protocol,
       parsedProtocolArgs,
       telemetryEnvironment,
+      supervisedTransportToken,
     );
   } finally {
     protocolOutput?.restore();
@@ -250,6 +276,7 @@ async function runCliCore(
   protocolStdout?: Writable,
   preParsedArgs?: IParsedCliArgs,
   telemetryEnvironment: Readonly<Record<string, string>> = {},
+  supervisedTransportToken?: string,
 ): Promise<void> {
   const productRuntime = resolveCliRuntimeContext(options);
   const cwd = process.cwd();
@@ -301,7 +328,6 @@ async function runCliCore(
     'PRODUCT_HTTP_TOKEN',
     `${productRuntime.config.identity.envPrefix}HTTP_TOKEN`,
   ]);
-
   if (args.help) {
     process.stdout.write(printHelp(productRuntime));
     return;
@@ -603,6 +629,8 @@ async function runCliCore(
       identityChanged: () => void deviceMesh.identityChanged(),
     },
   );
+  // A process that died without running its exit handlers leaves its scratch directories behind.
+  sweepStaleEphemeralState(productRuntime);
   for (const { file, error } of outputStyleLoadErrors) {
     terminal.writeError(`Skipped output style "${file}": ${error}`);
   }
@@ -662,6 +690,7 @@ async function runCliCore(
     serveSessionDirectory,
     args.daemon === true,
     settingsReporter,
+    supervisedTransportToken,
   );
   // External-event grants (TUI only; the parser refuses them elsewhere): every file is valid, or the
   // TUI does not start. Each session the TUI binds opens them, and a refusal fails that bind.
@@ -811,6 +840,7 @@ async function runCliCore(
       replayProvider: args.sessionLog !== undefined,
     },
     notice: (message) => process.stderr.write(`${message}\n`),
+    persistTranscripts: !args.noSessionPersistence,
   });
 
   // ARCH-005 S2: the ONE composition call. Everything product-specific about `the product` is declared as DATA
@@ -1345,6 +1375,7 @@ async function runCliCore(
       env: productRuntime.environment,
       access: workspaceComposition.projectAccess,
       cwd,
+      persistPromptHistory: !args.noSessionPersistence,
     }),
     cliAdapter: createProductTuiCliAdapter(presentation.createDefaultTuiCliAdapter, {
       productRuntime,

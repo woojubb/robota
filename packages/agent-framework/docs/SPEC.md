@@ -56,6 +56,11 @@ React/Ink UI.
   target, and when that guarded write is unavailable, a project-wide permission approval is never
   silently downgraded to a session-only grant. A later deny rule always takes precedence over a
   host-supplied permission baseline, even across a live preset change.
+- **Edit checkpoint state may live outside the project.** A store keeps its manifests and pre-images
+  in the trusted project's checkpoint directory unless the host supplies a location of its own, for
+  a run that must leave nothing in the project. Only where the state is kept moves: restoring still
+  writes the project's files back through the project mutation capability, so a restore can touch
+  nothing it could not before.
 - **Organization policy is host-located and fail-closed.** The policy loader reads only the path
   selected by its host. An absent or empty path is an error; a missing file at a valid path means no
   deployed policy. A present but unreadable or malformed file raises a typed error rather than

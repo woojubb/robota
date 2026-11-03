@@ -9,6 +9,7 @@ import {
   mkdtempSync,
   openSync,
   readdirSync,
+  rmSync,
   rmdirSync,
   unlinkSync,
   writeFileSync,
@@ -16,11 +17,23 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import {
+  PROCESS_OWNER_RECORD_NAME,
+  createProcessScopedDirectory,
+  removeDirectoryOnProcessExit,
+  sweepStaleProcessScopedDirectories,
+} from '@robota-sdk/agent-core/node';
+
 import { NodeExternalPayloadSource } from './session-log-sources.js';
 
 import type { IToolResultSpillStore } from '@robota-sdk/agent-core';
 
 const REFERENCE = /^tool-result:([A-Za-z0-9_-]{22,64})$/u;
+/**
+ * The product-neutral name every spill directory starts with; one in a host's parent adds its owner's
+ * pid before the random suffix.
+ */
+const TOOL_RESULT_SPILL_DIRECTORY_PREFIX = 'agent-tool-results-';
 const DEFAULT_RETENTION_MS = 60 * 60 * 1000;
 const MAX_SPILL_BYTES = 8 * 1024 * 1024;
 const FILE_FLAGS =
@@ -44,8 +57,25 @@ export class ToolResultSpillError extends Error {
   }
 }
 
+/**
+ * Remove the spill directories under `parent` whose recorded owner can no longer be alive (a process
+ * killed before `shutdown()` or its exit removal could run). Returns the names removed.
+ */
+export function sweepStaleToolResultSpillDirectories(parent: string): readonly string[] {
+  return sweepStaleProcessScopedDirectories(parent, TOOL_RESULT_SPILL_DIRECTORY_PREFIX);
+}
+
 export interface INodeToolResultSpillStoreOptions {
-  /** Host-owned parent; defaults to the operating-system temporary directory. */
+  /**
+   * Host-owned, owner-only parent that already exists; it is used as it is. The store's directory in
+   * it records its owner, is removed when the process ends without reaching `shutdown()`, and is
+   * removed after a kill by {@link sweepStaleToolResultSpillDirectories}.
+   *
+   * Omitting it is deprecated. The store then keeps the earlier default: a private directory under
+   * the shared operating-system temporary directory, removed by `shutdown()` alone. Spilled results
+   * are conversation content, so a host that cares where tool output lands passes its own owner-only
+   * directory.
+   */
   readonly parentDirectory?: string;
   readonly retentionMs?: number;
   readonly now?: () => number;
@@ -58,6 +88,16 @@ interface IStoredResult {
   readonly expiresAt: number;
 }
 
+/**
+ * The deprecated default, made as earlier releases made it: a private directory under the shared
+ * operating-system temporary directory, with no owner record and no removal at process exit.
+ */
+function createTemporaryDefaultDirectory(temporary: string): string {
+  const directory = mkdtempSync(join(temporary, TOOL_RESULT_SPILL_DIRECTORY_PREFIX));
+  if (process.platform !== 'win32') chmodSync(directory, 0o700);
+  return directory;
+}
+
 /** Node host implementation of core's opaque, session-lifetime spill port. */
 export class NodeToolResultSpillStore implements IToolResultSpillStore {
   private readonly directory: string;
@@ -66,10 +106,12 @@ export class NodeToolResultSpillStore implements IToolResultSpillStore {
   private readonly onCleanupFailure?: (reason: 'cleanup-failed') => void;
   private readonly entries = new Map<string, IStoredResult>();
   private expiryTimer?: ReturnType<typeof setTimeout>;
+  private cancelExitRemoval?: () => void;
   private closed = false;
 
   constructor(options: INodeToolResultSpillStoreOptions = {}) {
-    const parent = options.parentDirectory ?? tmpdir();
+    const hostParent = options.parentDirectory;
+    const parent = hostParent ?? tmpdir();
     this.retentionMs = options.retentionMs ?? DEFAULT_RETENTION_MS;
     this.now = options.now ?? Date.now;
     this.onCleanupFailure = options.onCleanupFailure;
@@ -79,11 +121,23 @@ export class NodeToolResultSpillStore implements IToolResultSpillStore {
     try {
       const stat = lstatSync(parent);
       if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('unsafe parent');
-      this.directory = mkdtempSync(join(parent, 'agent-tool-results-'));
-      if (process.platform !== 'win32') chmodSync(this.directory, 0o700);
+      // A host's parent is used as it is; the directory made in it is owner-only and records its
+      // owner before any result goes in.
+      this.directory =
+        hostParent === undefined
+          ? createTemporaryDefaultDirectory(parent)
+          : createProcessScopedDirectory(parent, TOOL_RESULT_SPILL_DIRECTORY_PREFIX, {
+              prepareParent: false,
+            });
       this.assertRoot();
     } catch {
       throw new ToolResultSpillError('unsafe-root');
+    }
+    // In a host's parent, `shutdown()` is the normal removal; a process that ends without reaching it
+    // (an exit, or a signal nothing else handles) still leaves nothing, and one killed outright is
+    // swept at the next start by its owner record. The deprecated default keeps its earlier lifetime.
+    if (hostParent !== undefined) {
+      this.cancelExitRemoval = removeDirectoryOnProcessExit(this.directory);
     }
   }
 
@@ -224,9 +278,13 @@ export class NodeToolResultSpillStore implements IToolResultSpillStore {
     for (const [reference, entry] of this.entries) this.removeEntry(reference, entry);
     this.assertRoot();
     try {
-      if (readdirSync(this.directory).length !== 0) throw new Error('unexpected files');
+      // The owner record goes last, so a directory a failed shutdown leaves can still be swept.
+      const left = readdirSync(this.directory).filter((name) => name !== PROCESS_OWNER_RECORD_NAME);
+      if (left.length !== 0) throw new Error('unexpected files');
+      rmSync(join(this.directory, PROCESS_OWNER_RECORD_NAME), { force: true });
       rmdirSync(this.directory);
       this.closed = true;
+      this.cancelExitRemoval?.();
     } catch {
       throw new ToolResultSpillError('cleanup-failed');
     }

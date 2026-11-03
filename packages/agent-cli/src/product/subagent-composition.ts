@@ -266,7 +266,8 @@ function createProductChildProcessSubagentRunner(options: {
   readonly packContext: IProductPackContext;
   readonly providerConfig: IProviderDefinitionConfig;
   readonly providerDefinitions: readonly IProviderDefinition[];
-  readonly logsDir: string;
+  /** Absent, the child writes no transcript, so the run leaves no conversation behind. */
+  readonly logsDir?: string;
   readonly workerEntry: Parameters<
     typeof createChildProcessSubagentRunnerFactory
   >[0]['workerEntry'];
@@ -283,7 +284,7 @@ function createProductChildProcessSubagentRunner(options: {
     workerEntry: options.workerEntry,
     providerConfig: options.providerConfig,
     providerDefinitions: options.providerDefinitions,
-    logsDir: options.logsDir,
+    ...(options.logsDir === undefined ? {} : { logsDir: options.logsDir }),
     // The worker drops its credential after building its provider unless the owner let commands see it.
     keepProviderCredential:
       options.providerConfig.apiKeyEnv !== undefined &&
@@ -411,6 +412,11 @@ export function createProductSubagentRunnerFactory(options: {
   readonly providerDefinitions: readonly IProviderDefinition[];
   readonly reproduction: IProviderReproduction;
   readonly notice: (message: string) => void;
+  /**
+   * Whether child-process subagents write their transcripts under the log root. A run that persists
+   * no session (`--no-session-persistence`) turns it off.
+   */
+  readonly persistTranscripts: boolean;
 }): TSubagentRunnerFactory {
   const credentialReference = options.providerConfig.apiKeyEnv;
   const definition = findProviderDefinition(
@@ -440,7 +446,9 @@ export function createProductSubagentRunnerFactory(options: {
         packContext: options.packContext,
         providerConfig: options.providerConfig,
         providerDefinitions: options.providerDefinitions,
-        logsDir: options.productRuntime.config.storage.logRoot,
+        ...(options.persistTranscripts
+          ? { logsDir: options.productRuntime.config.storage.logRoot }
+          : {}),
         workerEntry: resolveSelfForkWorkerEntry(),
         worktreeAdapter: createProductWorktreeAdapter(options.productRuntime),
       }),

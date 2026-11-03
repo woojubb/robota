@@ -55,7 +55,7 @@ and resume bridge. Stop or device revocation withdraws the affected activation a
 late identity, enrollment and reconnect work cannot revive its authority or publish a stale pairing link. The host
 identity key devices pin is kept in the host credential store, never in a plain file; a malformed
 stored key fails closed rather than being replaced.
-The complete public CLI entry and shipped executable share diagnostic, crash and worker-dispatch policy. Each invocation owns the product environment inherited by its child processes. The CLI selects every user- and project-scoped path and identity a session needs — storage root,
+The complete public CLI entry and shipped executable share diagnostic, crash and worker-dispatch policy; only the shipped executables also harden their own processes against inspection by programs of the same user, best effort and from when their entry runs, because that changes the whole process, which a host embedding the entry decides for itself. Each invocation owns the product environment inherited by its child processes. The CLI selects every user- and project-scoped path and identity a session needs — storage root,
 presets, agent-definition roots, project settings layers, project-state layout, context-discovery
 permissions, plugin/skill/command roots, task-context directory, organization policy, keybindings,
 and display name — and passes them explicitly to the neutral SDK and framework packages, preserving
@@ -156,9 +156,10 @@ person chose Restricted, while a plain start in a folder trusted since is not ha
 because the person who trusted it expects that configuration; a daemon that could not hand over a connection is never left running, and
 the lock that keeps racing starts apart is removed only by the start that took it or by the user. The
 transport's per-launch authentication token is never exposed through the control endpoint or inventory,
-with one exception: a daemon, which receives it only through its environment and removes it from there so
-its tools never inherit it, hands its connection URL to a caller that named its start, so the token
-leaves only as that URL and never in human-readable output.
+with one exception: a daemon, which receives it only over a pipe its launcher hands it, never through its
+environment or command line (a process's initial environment stays readable to every program of the
+same user), hands its connection URL to a caller that named its start, so the token leaves only as that URL
+and never in human-readable output.
 
 Observability has two independently gated paths. `usage export` is an explicit,
 local-only action over the same authorized stores as local usage reporting: its aggregate usage,
@@ -471,7 +472,8 @@ here because the reasoning differs between them:
 - **Prompt history:** default ON (prompts are already persisted verbatim per session,
   and this is a shell-history analogue). Precedence: `settings.json` `promptHistory: false` ←
   `PRODUCT_PROMPT_HISTORY` env (**env wins**, same direction as memory — a machine-level policy).
-  TUI only; print/serve receive no writer.
+  TUI only; print/serve receive no writer. A run with `--no-session-persistence` writes none,
+  whatever the setting or the environment says.
 - **Advisor:** default OFF. Precedence: `settings.json` `advisorModel` ← `--advisor` flag (**flag
   wins**, a per-run choice like the screen-reader flag), and `PRODUCT_DISABLE_ADVISOR` above both as a
   kill switch nothing inside a session can undo — it is how an operator guarantees that conversation
@@ -509,6 +511,25 @@ decline, because a Restricted session no one mentioned hides why the project's o
 missing.
 All trust diagnostics expose only state and canonical display path — credentials and
 project-controlled content are never printed.
+
+### `--no-session-persistence`
+
+The flag promises that a run leaves no conversation-derived data on disk once it exits, apart from
+durable memory: memory is a store the owner turned on to keep across runs, so the flag leaves that
+choice alone. The session record is only one of the stores that would keep the conversation, so the
+flag turns off every store the run could otherwise keep — the session record, prompt history and
+subagent transcripts — not the session store alone. Edit checkpoints are the exception: `/rewind`
+needs the pre-images of the run's own edits, so with the flag they keep working for the run but move
+out of the project into an owner-only per-process directory of the state root, removed when the run
+ends.
+
+The working data a live feature needs — spilled tool results and the `/editor` buffer, and with the
+flag those checkpoints — lives in owner-only per-process directories of the state root, never the
+shared temporary directory: spilled results and the composed message are conversation content whether
+or not the flag is set. Whatever ends a run — an exit, a hangup, an interrupt, a termination
+request or a crash the crash policy rethrows — removes them without changing how the process ends; a
+run killed outright leaves its directory, and the next start removes those whose recorded owner can no
+longer be alive, by the rule `@robota-sdk/agent-core` states for process-scoped directories.
 
 ### Destination-scoped telemetry headers
 

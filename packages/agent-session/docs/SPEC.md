@@ -353,11 +353,16 @@ not become a committed response merely because cancellation was also requested.
 ### Tool-result spill store
 
 Oversized tool results are spilled to disk without exposing where or what they are. The store lives in
-an unpredictable, owner-only directory (created with `mkdtemp`, mode `0700`); each result is written to
-an exclusively created `0600` file and addressed by a random, opaque `tool-result:` reference. No path,
-digest or payload appears in references or diagnostics, failures carry no secret material, and spilled
-results are removed on expiry and on shutdown. The temporary directory prefix is product-neutral and
-does not disclose the host product's name.
+an unpredictable, owner-only directory (created with `mkdtemp`, mode `0700`) inside a parent the host
+supplies. A spilled result is conversation content, so a host that cares where it lands passes an
+owner-only directory of its own; omitting the parent is deprecated and keeps the earlier default under
+the shared operating-system temporary directory, so existing embedders keep working unchanged. Each
+result is written to an exclusively created `0600` file and addressed by a random, opaque
+`tool-result:` reference. No path, digest or payload appears in references or diagnostics, failures
+carry no secret material, and spilled results are removed on expiry and on shutdown. In a host's
+parent they are also removed when the process ends without reaching shutdown, and a directory whose
+recorded owner can no longer be alive is removed by the host's next start. The directory prefix is
+product-neutral and does not disclose the host product's name.
 
 ## Error Taxonomy
 

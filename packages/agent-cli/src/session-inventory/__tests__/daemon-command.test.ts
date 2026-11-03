@@ -106,17 +106,21 @@ describe('test-product daemon', () => {
     expect(h.out()).toBe(`No daemon is running in ${workspace}.\n`);
   });
 
-  it('launches a daemon after admission, with a fresh token in the environment and no fixed port', async () => {
+  it('launches a daemon after admission, with a fresh token for the pipe and no fixed port', async () => {
     const h = harness([]);
     expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(0);
     expect(h.err()).toBe('');
     expect(h.admit).toHaveBeenCalledWith(workspace, { restricted: false });
     expect(h.launch).toHaveBeenCalledTimes(1);
-    const [cwd, launchOptions] = h.launch.mock.calls[0] as unknown as [string, { env: NodeJS.ProcessEnv; daemon: boolean }];
+    const [cwd, launchOptions] = h.launch.mock.calls[0] as unknown as [
+      string,
+      { env: NodeJS.ProcessEnv; daemon: boolean; transportToken: string },
+    ];
     expect(cwd).toBe(workspace);
     expect(launchOptions.daemon).toBe(true);
-    expect(launchOptions.env['PRODUCT_WS_TOKEN']).toMatch(/^[0-9a-f]{64}$/u);
-    expect(launchOptions.env['PRODUCT_WS_TOKEN']).not.toBe('inherited');
+    expect(launchOptions.transportToken).toMatch(/^[0-9a-f]{64}$/u);
+    expect(launchOptions.transportToken).not.toBe('inherited');
+    expect(JSON.stringify(launchOptions.env)).not.toContain(launchOptions.transportToken);
     expect(launchOptions.env).not.toHaveProperty('PRODUCT_WS_PORT');
     expect(launchOptions.env['PATH']).toBe('/bin');
     expect(h.connect).toHaveBeenCalledWith(STARTED, h.options.root);

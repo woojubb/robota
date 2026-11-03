@@ -2,6 +2,7 @@ import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { PROCESS_OWNER_RECORD_NAME } from '@robota-sdk/agent-core/node';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const flags = vi.hoisted(() => ({ failCleanup: false }));
@@ -10,7 +11,17 @@ vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
   return {
     ...actual,
-    writeFileSync: (fd: number, content: string) => {
+    // Only the result write (by descriptor) runs out of space; the owner record the directory is
+    // created with is written by path and succeeds.
+    writeFileSync: (
+      target: Parameters<typeof actual.writeFileSync>[0],
+      content: string,
+      ...rest: unknown[]
+    ) => {
+      if (typeof target !== 'number') {
+        return actual.writeFileSync(target, content, ...(rest as [never]));
+      }
+      const fd = target;
       actual.writeFileSync(fd, content.slice(0, 12), 'utf8');
       const error = new Error('ENOSPC: private-payload-body') as NodeJS.ErrnoException;
       error.code = 'ENOSPC';
@@ -50,7 +61,7 @@ describe('spill write failure', () => {
     expect(caught).toMatchObject({ code: 'write-failed' });
     expect(String(caught)).not.toContain(secret);
     const directory = join(root, readdirSync(root)[0]!);
-    expect(readdirSync(directory)).toEqual([]);
+    expect(readdirSync(directory).filter((name) => name !== PROCESS_OWNER_RECORD_NAME)).toEqual([]);
     await store.shutdown();
   });
 

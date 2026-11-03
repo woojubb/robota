@@ -102,6 +102,8 @@ export function resolveTuiRenderFields(inputs: {
   readonly env: TEnv;
   readonly access: TWorkspaceProjectAccess;
   readonly cwd: string;
+  /** False when the run persists no session (`--no-session-persistence`): no prompt history is written. */
+  readonly persistPromptHistory?: boolean;
 }): TTuiRenderFields {
   return {
     // CLI-2004: off ⇒ today's byte stream is unchanged.
@@ -117,6 +119,9 @@ export function resolveTuiRenderFields(inputs: {
       env: inputs.env,
       access: inputs.access,
       cwd: inputs.cwd,
+      ...(inputs.persistPromptHistory === undefined
+        ? {}
+        : { persist: inputs.persistPromptHistory }),
     }),
   };
 }

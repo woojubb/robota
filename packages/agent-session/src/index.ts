@@ -87,6 +87,7 @@ export { NodeExternalPayloadSource, NodeSessionLogSource } from './session-log-s
 export {
   NodeToolResultSpillStore,
   ToolResultSpillError,
+  sweepStaleToolResultSpillDirectories,
   type INodeToolResultSpillStoreOptions,
   type TToolResultSpillErrorCode,
 } from './tool-result-spill-store.js';

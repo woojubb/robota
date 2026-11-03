@@ -24,7 +24,7 @@ export interface IDaemonCommandOptions {
   readonly productRuntime: ICliRuntimeContext;
   /** The directory the command runs in; its real path names the workspace. */
   readonly cwd: string;
-  /** The environment a started daemon inherits; the transport token is added to it here. */
+  /** The environment a started daemon inherits; its transport token never goes through it. */
   readonly env: (workspace: string) => NodeJS.ProcessEnv;
   /**
    * Throws, with the message to show, when a daemon may not start in this workspace. `restricted` is
@@ -112,13 +112,15 @@ async function launchDaemon(
 ): Promise<{ readonly id: string; readonly url: string; readonly restricted: boolean }> {
   const admission = await options.admit(workspace, { restricted });
   const effectiveRestricted = restricted || (typeof admission === 'object' && admission !== null && admission.restricted);
-  // The token reaches the child only through its environment, never its command line. With a
-  // token the transport also accepts the desktop app's `file://` origin. The port is left to
-  // the transport's default so a busy one is retried.
-  const env: NodeJS.ProcessEnv = { ...options.env(workspace), PRODUCT_WS_TOKEN: randomBytes(32).toString('hex') };
+  // The token reaches the child over an inherited pipe, never its command line or environment: any
+  // program of this user can read a running process's initial environment. With a token the
+  // transport also accepts the desktop app's `file://` origin. The port is left to the transport's
+  // default so a busy one is retried.
+  const env: NodeJS.ProcessEnv = { ...options.env(workspace) };
   delete env['PRODUCT_WS_PORT'];
   const id = await (options.launch ?? launchSupervisedSession)(workspace, {
     env,
+    transportToken: randomBytes(32).toString('hex'),
     productRuntime: options.productRuntime,
     root: options.root ?? resolveSupervisedDirectory(options.productRuntime),
     daemon: true,

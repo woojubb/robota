@@ -57,6 +57,19 @@ import {
   loadDesktopProductConfigSelection,
   resolveDesktopIdentity,
 } from './product-config.js';
+import { refusedRemoteDebuggingSwitch, REMOTE_DEBUGGING_REFUSED_EXIT_CODE } from './launch-guard.js';
+
+// Before any window, runtime or credential exists: Chromium opens a remote debugging endpoint only after this script
+// has run, and `app.exit` before the app is ready ends the process on the spot.
+const refusedSwitch = refusedRemoteDebuggingSwitch({
+  isPackaged: app.isPackaged,
+  argv: process.argv,
+  hasSwitch: (name) => app.commandLine.hasSwitch(name),
+});
+if (refusedSwitch !== undefined) {
+  console.error(`[agent-app] refusing to start: --${refusedSwitch} would let another program drive this app.`);
+  app.exit(REMOTE_DEBUGGING_REFUSED_EXIT_CODE);
+}
 
 const productIdentityFile = desktopIdentityPath(__dirname);
 const ambientEnvironment = Object.freeze({ ...process.env });

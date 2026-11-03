@@ -15,6 +15,7 @@ const NOT_IN_GLOBAL_HELP = new Set([
   'moved-from',
   'supervised-session-id',
   'supervised-external-event-grants',
+  'supervised-transport-token-fd',
   'daemon',
   'external-event-allow',
   // `the product session list --format` is listed with that command; `--summary` and `--source` belong

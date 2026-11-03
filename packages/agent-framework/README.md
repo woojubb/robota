@@ -370,7 +370,7 @@ that supports snapshots, `shutdown()` stores the sandbox snapshot ID, and resumi
 | --------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Model fallback              | `FallbackProvider`, `resolveModelFallbackChain`, `applyModelFallback`                                 |
 | Advisor (second-model tool) | `AdvisorController`, `createAdvisorTool`                                                              |
-| Edit checkpoints and rewind | `EditCheckpointStore`, `wrapEditCheckpointTools`                                                      |
+| Edit checkpoints and rewind | `EditCheckpointStore`, `createDirectoryEditCheckpointState`, `wrapEditCheckpointTools`                |
 | Reversible execution        | `evaluateReversibleToolSafety`, `wrapReversibleExecutionTools` (session option `reversibleExecution`) |
 | Project and user memory     | `ProjectMemoryStore`, `WorkspaceMemoryStore`, `SemanticMemoryStore`, `listUserLocalMemoryItems`       |
 | Evals                       | `defineEval`, `runEval`, `createSessionRunFn`, matchers such as `exactMatch` and `usedTool`           |

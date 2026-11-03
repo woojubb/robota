@@ -1,5 +1,5 @@
 import { setGlobalLoggerSink } from '@robota-sdk/agent-core';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
  * CORE-029 / NEUT-010 — the runtime's diagnostics reach a user in this product.
@@ -12,6 +12,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
  * actually arrives — not merely that a function was called.
  */
 describe('the CLI installs a destination for runtime diagnostics', () => {
+  beforeEach(() => {
+    // Loading the binary hardens its process; here that process would be the test worker.
+    vi.doMock('../process-hardening.js', () => ({ hardenProductProcess: () => undefined }));
+  });
+
   afterEach(() => {
     setGlobalLoggerSink(undefined);
     vi.restoreAllMocks();

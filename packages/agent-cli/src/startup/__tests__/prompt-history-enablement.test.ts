@@ -95,6 +95,20 @@ describe('prompt-history composition (SCREEN-1993 TC-07)', () => {
     expect(fields.promptHistorySource).toBe(fields.promptHistory?.writer);
   });
 
+  it('hands a run that persists no session the source to search but no writer, whatever the opt-in says', () => {
+    const fields = resolvePromptHistoryRenderFields({productRuntime: createTestProductRuntime(),
+      settings: { promptHistory: true },
+      env: { PRODUCT_PROMPT_HISTORY: '1' },
+      access: trusted,
+      cwd: '/elsewhere',
+      persist: false,
+    });
+    expect(fields.promptHistory).toBeUndefined();
+    expect('promptHistory' in fields).toBe(false);
+    expect(fields.promptHistorySource).toBeDefined();
+    expect(fields.promptHistoryProject).toBe('/repo/root');
+  });
+
   it('hands the TUI nothing when the kill switch is set', () => {
     expect(
       resolvePromptHistoryRenderFields({productRuntime: createTestProductRuntime(),
