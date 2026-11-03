@@ -4,7 +4,7 @@
  * stands in for a freshly cloned repository: its bunfig.toml preloads a script that writes a marker, and its
  * .env points the user state root somewhere else. Either taking effect fails the check. Each probe has a
  * positive control so a pass is never vacuous: the planted script writes its marker when run directly, and the
- * same variable visibly changes `--help` when it comes from the real environment. Bun runtime variables such
+ * same variable, set alone in the real environment, takes the effect the .env probe looks for. Bun runtime variables such
  * as BUN_OPTIONS and BUN_BE_BUN are out of scope: whoever sets them already controls the process as the same
  * OS user.
  *
@@ -42,6 +42,17 @@ export function standaloneAutoloadEnvironment(home, stateVariable) {
   return env;
 }
 
+/**
+ * Whether `stateVariable` set to the planted root took effect in a run: its value in the output, or the
+ * refusal a binary of the fixture's own product gives when it disagrees with `PRODUCT_USER_STATE_DIR`.
+ */
+export function stateVariableTookEffect(result, plantedName, stateVariable) {
+  return (
+    `${result.stdout ?? ''}`.includes(plantedName) ||
+    (result.status !== 0 && `${result.stderr ?? ''}`.includes(stateVariable))
+  );
+}
+
 export function runStandaloneAutoloadE2e(binaryPath, options = {}) {
   const envPrefix = options.envPrefix ?? selectedFixtureIdentity().identity.envPrefix;
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-standalone-autoload-')));
@@ -74,20 +85,13 @@ export function runStandaloneAutoloadE2e(binaryPath, options = {}) {
     if (!existsSync(marker))
       throw failure('Control: the planted preload did not write its marker', control);
     rmSync(marker);
-    const directed = run(['--help'], {
-      PRODUCT_USER_STATE_DIR: plantedState,
-      [stateVariable]: plantedState,
-    });
-    if (directed.status !== 0 || !directed.stdout.includes(plantedName)) {
-      throw failure(
-        `Control: ${stateVariable} from the environment did not show in --help`,
-        directed,
-      );
+    // Exactly what a loaded .env would add, so the control proves the probe below can see it.
+    const directed = run(['--help'], { [stateVariable]: plantedState });
+    if (!stateVariableTookEffect(directed, plantedName, stateVariable)) {
+      throw failure(`Control: ${stateVariable} from the environment had no visible effect`, directed);
     }
 
-    const loadedDotenv = (result) =>
-      result.stdout.includes(plantedName) ||
-      (result.status !== 0 && `${result.stderr ?? ''}`.includes(stateVariable));
+    const loadedDotenv = (result) => stateVariableTookEffect(result, plantedName, stateVariable);
     const version = run(['--version']);
     const help = run(['--help']);
     if (existsSync(marker)) {

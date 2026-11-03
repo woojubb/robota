@@ -109,6 +109,47 @@ it('probes autoloading with the prefixed state variable unset', async () => {
   expect(env.HOME).toBe('/tmp/home');
 });
 
+it('sees the prefixed state variable take effect either as its value or as the conflict it names', async () => {
+  const { stateVariableTookEffect } = await import(
+    '../../../packages/agent-cli/scripts/e2e-standalone-autoload.mjs'
+  );
+  const seen = (result) => stateVariableTookEffect(result, 'planted-user-state', 'PROBE_USER_STATE_DIR');
+  expect(seen({ status: 0, stdout: 'state root: /x/planted-user-state', stderr: '' })).toBe(true);
+  expect(
+    seen({ status: 1, stdout: '', stderr: 'PRODUCT_USER_STATE_DIR: conflicts with PROBE_USER_STATE_DIR' }),
+  ).toBe(true);
+  // An ignored variable, and a failure that has nothing to do with it, are not an effect.
+  expect(seen({ status: 0, stdout: 'state root: /x/home/.probe', stderr: '' })).toBe(false);
+  expect(seen({ status: 0, stdout: '', stderr: 'warning: PROBE_USER_STATE_DIR' })).toBe(false);
+  expect(seen({ status: 1, stdout: '', stderr: 'PRODUCT_PROJECT_STATE_DIR: required value' })).toBe(false);
+});
+
+it.skipIf(process.platform === 'win32')(
+  'fails its positive control on an executable that ignores the prefixed state variable',
+  async () => {
+    const { runStandaloneAutoloadE2e } = await import(
+      '../../../packages/agent-cli/scripts/e2e-standalone-autoload.mjs'
+    );
+    const { mkdtempSync, writeFileSync, chmodSync, rmSync } = await import('node:fs');
+    const { tmpdir } = await import('node:os');
+    const directory = mkdtempSync(join(tmpdir(), 'standalone-control-'));
+    try {
+      // Answers --help from PRODUCT_USER_STATE_DIR only, as a binary would whose alias stopped working.
+      const fake = join(directory, 'ignores-alias');
+      writeFileSync(
+        fake,
+        `#!${process.execPath}\nprocess.stdout.write('state root: ' + (process.env.PRODUCT_USER_STATE_DIR ?? '') + '\\n');\n`,
+      );
+      chmodSync(fake, 0o755);
+      expect(() => runStandaloneAutoloadE2e(fake, { envPrefix: 'PROBE_' })).toThrow(
+        /Control: PROBE_USER_STATE_DIR from the environment had no visible effect/u,
+      );
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  },
+);
+
 it('passes every autoload opt-out to each `bun build --compile` command line', () => {
   const commands = workspaceFiles.flatMap((file) =>
     read(file)
