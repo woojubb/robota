@@ -11,7 +11,13 @@ const result = await Bun.build({
   entrypoints: [resolve(dirname(fileURLToPath(import.meta.url)), 'qualify-native.mjs')],
   target: 'bun',
   format: 'cjs',
-  compile: { outfile: output },
+  compile: {
+    outfile: output,
+    autoloadBunfig: false,
+    autoloadDotenv: false,
+    autoloadTsconfig: false,
+    autoloadPackageJson: false,
+  },
   plugins: [createKoffiBunPlugin(`${process.platform}-${process.arch}`, import.meta.url)],
 });
 if (!result.success) {

@@ -1,6 +1,13 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 
 import { notarizeArtifact, signRuntime, selectIdentity } from '../macos-signing.mjs';
+
+const signedEntitlements = readFileSync(
+  fileURLToPath(new URL('../bun-entitlements.plist', import.meta.url)),
+  { encoding: 'utf8' },
+);
 
 describe('macOS release signing', () => {
   it('refuses a development certificate or a certificate belonging to another team', () => {
@@ -27,7 +34,9 @@ describe('macOS release signing', () => {
   });
 
   it('signs the Bun runtime with its own entitlements and verifies the resulting bytes', () => {
-    const run = vi.fn(() => '');
+    const run = vi.fn((command, args) =>
+      args.includes('--entitlements') ? signedEntitlements : '',
+    );
     signRuntime('/tmp/agent with spaces', {
       env: { MACOS_SIGNING_IDENTITY: 'identity', CSC_KEYCHAIN: '/tmp/keychain' },
       run,
@@ -46,6 +55,27 @@ describe('macOS release signing', () => {
       'codesign',
       ['--verify', '--strict', '--verbose=2', '/tmp/agent with spaces'],
     ]);
+  });
+
+  it('reads the entitlements off the signed binary and refuses a forbidden one', () => {
+    const env = { MACOS_SIGNING_IDENTITY: 'identity' };
+    const withDyld = signedEntitlements.replace(
+      '</dict>',
+      '<key>com.apple.security.cs.allow-dyld-environment-variables</key><true/></dict>',
+    );
+    const run = vi.fn((command, args) => (args.includes('--entitlements') ? withDyld : ''));
+    expect(() => signRuntime('/tmp/agent', { env, run })).toThrow(/allow-dyld-environment/);
+    expect(run.mock.calls[2]).toEqual([
+      'codesign',
+      ['--display', '--entitlements', '-', '--xml', '/tmp/agent'],
+    ]);
+  });
+
+  it('refuses a signed binary whose entitlements cannot be read', () => {
+    const run = vi.fn(() => '');
+    expect(() =>
+      signRuntime('/tmp/agent', { env: { MACOS_SIGNING_IDENTITY: 'identity' }, run }),
+    ).toThrow(/entitlement policy/);
   });
 
   it('refuses an Apple rejection even when notarytool exits successfully', () => {
