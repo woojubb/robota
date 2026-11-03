@@ -208,17 +208,21 @@ jobs:
       - name: Exercise native code paths on this host
         timeout-minutes: 10
         if: github.event_name == 'pull_request' && matrix.product == 'cedar'
+        continue-on-error: true # TEMPORARY DIAGNOSTIC (#3682): collect every Windows failure in one run
         shell: bash
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
         run: |
-          pnpm --filter './packages/agent-file-authority' exec vitest run --no-file-parallelism --reporter verbose
-          pnpm --filter './packages/agent-file-authority' qualify:native
+          status=0
+          check() { "$@" || { echo "::error::DIAGNOSTIC failed: $*"; status=1; }; }
+          check pnpm --filter './packages/agent-file-authority' exec vitest run --no-file-parallelism --reporter verbose
+          check pnpm --filter './packages/agent-file-authority' qualify:native
           qualifier="$RUNNER_TEMP/native-qualification${{ runner.os == 'Windows' && '.exe' || '' }}"
-          pnpm --filter './packages/agent-file-authority' qualify:bun:build -- "$qualifier"
-          "$qualifier"
+          check pnpm --filter './packages/agent-file-authority' qualify:bun:build -- "$qualifier"
+          check "$qualifier"
           if [ "$RUNNER_OS" = Windows ]; then
-            pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/windows-security.test.ts src/session-inventory/__tests__/windows-control-pipe.test.ts
+            check pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/windows-security.test.ts src/session-inventory/__tests__/windows-control-pipe.test.ts
           fi
+          exit $status
 
       - name: Package and exercise the unsigned desktop product
         timeout-minutes: 10
