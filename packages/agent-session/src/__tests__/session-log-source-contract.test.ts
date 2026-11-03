@@ -5,7 +5,7 @@ import * as externalPayloadReferenceValidation from '../external-payload-file-re
 import { loadSessionLogEntries } from '../session-log-replay.js';
 import { createSessionLogExternalPayloadReference } from '../session-log-sinks.js';
 
-import type { IExternalPayloadSource, ISessionLogSource } from '../session-log-sources.js';
+import type { IExternalPayloadSource, ISessionLogSource } from '../external-payload-source-types.js';
 
 describe('session log source contract', () => {
   it('keeps the reference validator module free of pathname-opening authority', () => {

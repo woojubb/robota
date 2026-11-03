@@ -5,7 +5,8 @@
  * replaying the `provider_response_normalized` responses captured in a session log.
  */
 import { isArtifactLockedError } from '@robota-sdk/agent-core';
-import { loadSessionLogEntries, NodeSessionLogSource } from '@robota-sdk/agent-session';
+import { loadSessionLogEntries } from '@robota-sdk/agent-session';
+import { NodeSessionLogSource } from '@robota-sdk/agent-session/node';
 
 import { ReplayProvider } from './replay-provider.js';
 

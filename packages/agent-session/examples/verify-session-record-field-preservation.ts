@@ -6,11 +6,11 @@ import { isDeepStrictEqual } from 'node:util';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 import {
   Session,
-  NodeSessionStore,
   type IInteractiveSessionRecord,
   type ISpinner,
   type ITerminalOutput,
 } from '../src/index.js';
+import { NodeSessionStore } from '../src/node.js';
 
 import type { IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
 

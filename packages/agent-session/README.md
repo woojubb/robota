@@ -8,13 +8,18 @@ Most applications use `InteractiveSession` or `createQuery()` from `@robota-sdk/
 which build a `Session` with tools, provider and system prompt already wired. Use this package
 directly when you assemble a session yourself.
 
+The main entry is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun and never
+reaches the file system or the process. What needs a Node host — the file-backed store, log sink and
+source, the spill store, the prompt-history file and the process hooks — is on
+`@robota-sdk/agent-session/node`, and the session takes what it needs from its host by injection.
+
 ## Installation
 
 ```bash
 npm install @robota-sdk/agent-session @robota-sdk/agent-core
 ```
 
-Requires Node.js 22.12 or later.
+Requires Node.js 22.12 or later for the `@robota-sdk/agent-session/node` adapters.
 
 ## Quick Start
 
@@ -168,10 +173,10 @@ durable Roundtable execution. Unresolved forks and workspace copies are refused 
 | **Hooks**                  | Fires `PreToolUse`, `PostToolUse`, `PermissionDecision`, `SessionStart`, `SessionEnd`, `UserPromptSubmit`, `Stop`, `StopFailure`, `PreCompact`, `PostCompact`, `PreModelCall` and `PostModelCall`. See the [hook event catalog](../agent-core/docs/HOOK-CATALOG.md). |
 | **Context tracking**       | Token usage from the shared core estimator, with a configurable auto-compact threshold (default 83.5% of the context window)                                                                                                                                         |
 | **Compaction**             | A model-written summary replaces the history to free context space; an invalid summary throws `CompactionError` and leaves the history untouched                                                                                                                     |
-| **Persistence**            | Inject an `IInteractiveSessionStore`; each completed `run()` and `shutdown()` save the record. `NodeSessionStore` writes JSON files atomically (temp file + rename)                                                                                                  |
+| **Persistence**            | Inject an `IInteractiveSessionStore`; each completed `run()` and `shutdown()` save the record. `NodeSessionStore` (on `/node`) writes JSON files atomically (temp file + rename)                                                                                     |
 | **Abort**                  | `session.abort()` stops the running turn; `run()` then rejects with an `AbortError`                                                                                                                                                                                  |
 | **One turn at a time**     | A concurrent `run()` is refused with `SessionBusyError`; `isRunning()` is true until the running turn has fully unwound                                                                                                                                              |
-| **Session logging**        | `FileSessionLogger` writes versioned JSONL through an injected sink; `NodeSessionLogSink` is the file-system sink                                                                                                                                                    |
+| **Session logging**        | `FileSessionLogger` writes versioned JSONL through an injected sink; `NodeSessionLogSink` (on `/node`) is the file-system sink                                                                                                                                       |
 | **Replay events**          | Provider and tool execution events from core are written to the log so a session can be replayed and validated                                                                                                                                                       |
 
 ## Key Methods
@@ -203,36 +208,44 @@ durable Roundtable execution. Unresolved forks and workspace copies are refused 
 
 ## Public API
 
-| Export                                                                                                       | Kind                | Description                                                                              |
-| ------------------------------------------------------------------------------------------------------------ | ------------------- | ---------------------------------------------------------------------------------------- |
-| `Session`                                                                                                    | Class               | Wraps `ConversationAgent` with permissions, hooks, compaction, logging and persistence   |
-| `ISessionOptions`, `ISessionRunOptions`, `ISessionShutdownOptions`                                           | Types               | Constructor, run and shutdown options                                                    |
-| `SessionBusyError`, `TurnClaim`                                                                              | Classes             | The refusal of a concurrent turn, and the identity of the running turn                   |
-| `PermissionEnforcer`                                                                                         | Class               | Tool permission checks, hook execution and output truncation                             |
-| `consentScopeFor`                                                                                            | Function            | The permission pattern an "allow for this session/project" answer grants                 |
-| `AutoModeGate`, `IPermissionClassifier`                                                                      | Class, type         | The `auto` permission mode and the classifier port it calls                              |
-| `ContextWindowTracker`, `AUTO_COMPACT_THRESHOLD`                                                             | Class, const        | Token usage tracking and the default auto-compact threshold                              |
-| `CompactionOrchestrator`, `CompactionError`, `DEFAULT_COMPACTION_PROMPT`                                     | Class, error, const | Conversation compaction                                                                  |
-| `TPermissionHandler`, `TPermissionResult`                                                                    | Types               | Approval callback and its answer (`true`, `false`, `'allow-session'`, `'allow-project'`) |
-| `ITerminalOutput`, `ISpinner`                                                                                | Types               | Terminal I/O used for approval prompts                                                   |
-| `NodeSessionStore`                                                                                           | Class               | File-system JSON store for session records                                               |
-| `IInteractiveSessionRecord`, `IInteractiveSessionStore`                                                      | Types               | The persisted session record and store port (from `@robota-sdk/agent-interface-session`) |
-| `decodeInteractiveSessionRecord`, `decodeVersionedInteractiveSessionRecord`                                  | Functions           | Validate a stored record before use                                                      |
-| `serializeSessionArtifact`, `deserializeSessionArtifact`                                                     | Functions           | Export a session record to a portable artifact and import it again                       |
-| `scrubSensitiveKeys`, `isSensitiveKey`                                                                       | Functions           | Redact secret-looking keys (used by the logger; optional for artifacts)                  |
-| `CheckpointTree`                                                                                             | Class               | In-memory branching tree of checkpoint IDs (fork and switch between branches)            |
-| `FileSessionLogger`, `SilentSessionLogger`, `ISessionLogger`                                                 | Class, type         | JSONL session logger and the logger port                                                 |
-| `NodeSessionLogSink`, `NodeSessionLogSource`, `ISessionLogSink`, `ISessionLogSource`                         | Classes, types      | File-system log writer and reader, and their ports                                       |
-| `loadSessionLogEntries`, `decodeSessionLogEntries`, `SessionLogDecodeError`                                  | Functions, error    | Read and validate a session log                                                          |
-| `replaySessionLogEntries`, `validateSessionReplayLogEntries`                                                 | Functions           | Rebuild history from a log and report gaps                                               |
-| `SESSION_LOG_EVENT`, `SESSION_LOG_SCHEMA_VERSION`                                                            | Consts              | The log event vocabulary and schema version                                              |
-| `resolveSessionLogExternalPayloads`, `NodeExternalPayloadSource`, `createSessionLogExternalPayloadReference` | Functions, class    | Large log fields stored as separate payload files                                        |
-| `NodeToolResultSpillStore`                                                                                   | Class               | Stores oversized tool results in files for the life of the session                       |
-| `sweepStaleToolResultSpillDirectories`                                                                       | Function            | Removes spill directories left behind by a process that is no longer running             |
-| `NodePromptHistoryFile`                                                                                      | Class               | Append-only prompt history file that can be read newest-first                            |
-| `compactPromptHistoryFile`, `inspectPromptHistoryFile`                                                       | Functions           | Seal the prompt history one entry per line under one sealer while terminals append       |
+| Export                                                                                   | Kind                | Description                                                                              |
+| ---------------------------------------------------------------------------------------- | ------------------- | ---------------------------------------------------------------------------------------- |
+| `Session`                                                                                | Class               | Wraps `ConversationAgent` with permissions, hooks, compaction, logging and persistence   |
+| `ISessionOptions`, `ISessionRunOptions`, `ISessionShutdownOptions`                       | Types               | Constructor, run and shutdown options                                                    |
+| `SessionBusyError`, `TurnClaim`                                                          | Classes             | The refusal of a concurrent turn, and the identity of the running turn                   |
+| `PermissionEnforcer`                                                                     | Class               | Tool permission checks, hook execution and output truncation                             |
+| `consentScopeFor`                                                                        | Function            | The permission pattern an "allow for this session/project" answer grants                 |
+| `AutoModeGate`, `IPermissionClassifier`                                                  | Class, type         | The `auto` permission mode and the classifier port it calls                              |
+| `ContextWindowTracker`, `AUTO_COMPACT_THRESHOLD`                                         | Class, const        | Token usage tracking and the default auto-compact threshold                              |
+| `CompactionOrchestrator`, `CompactionError`, `DEFAULT_COMPACTION_PROMPT`                 | Class, error, const | Conversation compaction                                                                  |
+| `TPermissionHandler`, `TPermissionResult`                                                | Types               | Approval callback and its answer (`true`, `false`, `'allow-session'`, `'allow-project'`) |
+| `ITerminalOutput`, `ISpinner`                                                            | Types               | Terminal I/O used for approval prompts                                                   |
+| `IInteractiveSessionRecord`, `IInteractiveSessionStore`                                  | Types               | The persisted session record and store port (from `@robota-sdk/agent-interface-session`) |
+| `decodeInteractiveSessionRecord`, `decodeVersionedInteractiveSessionRecord`              | Functions           | Validate a stored record before use                                                      |
+| `serializeSessionArtifact`, `deserializeSessionArtifact`                                 | Functions           | Export a session record to a portable artifact and import it again                       |
+| `scrubSensitiveKeys`, `isSensitiveKey`                                                   | Functions           | Redact secret-looking keys (used by the logger; optional for artifacts)                  |
+| `CheckpointTree`                                                                         | Class               | In-memory branching tree of checkpoint IDs (fork and switch between branches)            |
+| `FileSessionLogger`, `SilentSessionLogger`, `ISessionLogger`                             | Class, type         | JSONL session logger and the logger port                                                 |
+| `ISessionLogSink`, `ISessionLogSource`, `IExternalPayloadSink`, `IExternalPayloadSource` | Types               | The ports a log is written and read through                                              |
+| `loadSessionLogEntries`, `decodeSessionLogEntries`, `SessionLogDecodeError`              | Functions, error    | Read and validate a session log                                                          |
+| `replaySessionLogEntries`, `validateSessionReplayLogEntries`                             | Functions           | Rebuild history from a log and report gaps                                               |
+| `SESSION_LOG_EVENT`, `SESSION_LOG_SCHEMA_VERSION`                                        | Consts              | The log event vocabulary and schema version                                              |
+| `resolveSessionLogExternalPayloads`, `createSessionLogExternalPayloadReference`          | Functions           | Large log fields stored as separate payload files                                        |
 
 `IContextWindowState` (the `getContextState()` result) is exported by `@robota-sdk/agent-core`.
+
+`@robota-sdk/agent-session/node` holds what only a Node host provides:
+
+| Export                                             | Kind            | Description                                                                      |
+| -------------------------------------------------- | --------------- | -------------------------------------------------------------------------------- |
+| `NodeSessionStore`                                 | Class           | File-system JSON store for session records                                       |
+| `NodeSessionLogSink`, `NodeSessionLogSource`       | Classes         | File-system log writer and reader                                                |
+| `NodeExternalPayloadSource`                        | Class           | Reads a log's payload files from a base directory                                |
+| `NodeToolResultSpillStore`, `ToolResultSpillError` | Class, error    | Stores oversized tool results in files for the life of the session               |
+| `sweepStaleToolResultSpillDirectories`             | Function        | Removes spill directories left behind by a process that is no longer running     |
+| `NodePromptHistoryFile`, `parsePromptHistoryLine`  | Class, function | Append-only prompt history file that can be read newest-first                    |
+| `createNodeWorkspacePathResolver`                  | Function        | The `resolveInWorkspace` option, for a host with a file system                   |
+| `registerProcessExitFlush`                         | Function        | The `registerExitFlush` option of `FileSessionLogger`, for a host with a process |
 
 ## Session vs ConversationAgent
 
@@ -241,13 +254,26 @@ durable Roundtable execution. Unresolved forks and workspace copies are refused 
 - **`Session`** (this package): `ConversationAgent` plus permissions, hooks, compaction, logging and
   persistence. `@robota-sdk/agent-framework` builds its sessions from it.
 
+## What the host supplies
+
+The session reads nothing from the machine it runs on. The composition root passes:
+
+| Option                                     | Without it                                                                                                         |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
+| `hookTypeExecutors` (required)             | Construction throws. `[]` runs no hook handler; on Node pass the command and HTTP executors from `agent-core/node` |
+| `homeDirectory`                            | The home directory is unknown: a bare `~` is still refused, a path under it is not expanded                        |
+| `resolveInWorkspace`                       | A shell command with a path operand is not judged read-only                                                        |
+| `canonicalizePath`                         | A directory is compared as written, with no symlinks followed (`realpathSync` on Node)                             |
+| `registerExitFlush` of `FileSessionLogger` | A stream's buffered tail is not flushed when the process exits mid-stream                                          |
+
 ## Persistence
 
 `IInteractiveSessionRecord` carries the full conversation and resumable state. `NodeSessionStore`
-saves the record without inspecting its payload. It is a host adapter: passing it a directory does
-not establish workspace trust. It is built with a sealing decision: `{ sealing: { sealer } }` seals
-each record, `{ sealing: 'plain' }` keeps plain JSON. `@robota-sdk/agent-framework` instead adapts a
-trusted project's state storage to the same store port.
+(from `@robota-sdk/agent-session/node`) saves the record without inspecting its payload. It is a
+host adapter: passing it a directory does not establish workspace trust. It is built with a sealing
+decision: `{ sealing: { sealer } }` seals each record, `{ sealing: 'plain' }` keeps plain JSON.
+`@robota-sdk/agent-framework` instead adapts a trusted project's state storage to the same store
+port.
 
 When a `Session` re-saves an existing record, it keeps the fields it does not own and refreshes only
 its live conversation, history, prompt, schema, path and timestamp fields. A resumed session must
@@ -275,13 +301,14 @@ decision and the host directory it lives in.
 `SESSION_LOG_EVENT` is the complete vocabulary that writers and readers share.
 
 Reading is source-driven: `loadSessionLogEntries(source)` takes an explicit `ISessionLogSource` and
-never turns a filename into file-system access on its own. Use `NodeSessionLogSource` when the
-application owns the path. Every declared event is validated before replay, nested messages
-included; unknown events, malformed fields and unsupported versions raise `SessionLogDecodeError`,
-and unversioned logs are not accepted. Payload files are read with an aggregate byte budget and
-checked for path escape, symlink replacement, size and hash mismatch; a failure is reported rather
-than skipped. `replaySessionLogEntries` rebuilds the chat history from `history_mutation` events, and
-`validateSessionReplayLogEntries` reports missing provider or tool events.
+never turns a filename into file-system access on its own. Use `NodeSessionLogSource` from
+`@robota-sdk/agent-session/node` when the application owns the path. Every declared event is
+validated before replay, nested messages included; unknown events, malformed fields and unsupported
+versions raise `SessionLogDecodeError`, and unversioned logs are not accepted. Payload files are
+read with an aggregate byte budget and checked for path escape, symlink replacement, size and hash
+mismatch; a failure is reported rather than skipped. `replaySessionLogEntries` rebuilds the chat
+history from `history_mutation` events, and `validateSessionReplayLogEntries` reports missing
+provider or tool events.
 
 Manual and automatic compaction carry one trigger value (`manual` or `auto`) to `PreCompact`,
 `PostCompact`, the `context_compact` log entry and `onCompactEvent`.
@@ -298,7 +325,8 @@ checks the conversion on disposable files without touching your sessions.
 - `@robota-sdk/agent-core` — `ConversationAgent`, permissions, hooks and core types
 - `@robota-sdk/agent-interface-session` — the session record and store contracts
 - `@robota-sdk/agent-interface-execution` — background task contracts stored in the session record
-- `@robota-sdk/agent-file-authority` — bounded, root-relative file reads for log payloads
+- `@robota-sdk/agent-file-authority` — bounded, root-relative file reads for log payloads, used only
+  by `@robota-sdk/agent-session/node`
 
 ## Documentation
 

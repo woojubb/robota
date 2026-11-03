@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 import { afterEach, describe, expect, expectTypeOf, it } from 'vitest';
 
-import { NodeSessionStore, Session } from '../index.js';
+import { Session } from '../index.js';
+import { NodeSessionStore } from '../session-store.js';
 
 import type {
   IChatOptions,

@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FileSessionLogger } from '../session-logger.js';
-import { NodeSessionLogSink } from '../session-log-sinks.js';
+import { NodeSessionLogSink } from '../node-session-log-sink.js';
 
 // `node:fs` exports cannot be spied on in ESM, so the module is wrapped instead. The wrapper
 // COUNTS calls and can be made to fail on demand — the two things these cases need to observe.

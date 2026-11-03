@@ -17,11 +17,6 @@ import type {
 import type { TStoredLine } from './stored-append-lines.js';
 import type { ISessionStoreOptions } from './stored-session-record.js';
 
-export type {
-  IExternalPayloadSource,
-  ISessionLogSource,
-} from './external-payload-source-types.js';
-
 function payloadPathSegments(relativePath: string): readonly string[] {
   if (
     relativePath.trim().length === 0 ||

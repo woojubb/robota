@@ -20,15 +20,15 @@ import { basename, extname, join } from 'node:path';
 
 import { isSealedArtifactLine } from '@robota-sdk/agent-core';
 import { DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE } from '@robota-sdk/agent-executor';
+import { FileSessionLogger } from '@robota-sdk/agent-session';
 import {
-  FileSessionLogger,
   NodeSessionLogSink,
   StoredLines,
   migrateSessionLogDirectory,
+  registerProcessExitFlush,
   sessionSealingOf,
   splitStoredLines,
-} from '@robota-sdk/agent-session';
-import { registerProcessExitFlush } from '@robota-sdk/agent-session/node';
+} from '@robota-sdk/agent-session/node';
 
 import { NodeFileSystem } from '../adapters/node-file-system.js';
 

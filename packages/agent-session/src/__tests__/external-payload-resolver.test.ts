@@ -11,8 +11,9 @@ import {
   type TSessionLogPayloadResolutionErrorCode,
 } from '../external-payload-resolver.js';
 
+import type { IExternalPayloadSource } from '../external-payload-source-types.js';
 import type { IExternalPayloadReference } from '../session-logger.js';
-import { NodeExternalPayloadSource, type IExternalPayloadSource } from '../session-log-sources.js';
+import { NodeExternalPayloadSource } from '../session-log-sources.js';
 
 const temporaryDirectories: string[] = [];
 

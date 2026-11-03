@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { expect, it } from 'vitest';
 import { ConversationAgent, type TUniversalMessagePart } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { NodeSessionStore } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 
 it('restores runtime mixed tool history through the real session file codec', async () => {
   const root = mkdtempSync(join(tmpdir(), 'mixed-observation-session-'));

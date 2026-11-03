@@ -5,7 +5,7 @@ import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { createReplayProviderFromSource } from '@robota-sdk/agent-provider-replay';
-import { NodeSessionLogSource } from '@robota-sdk/agent-session';
+import { NodeSessionLogSource } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { InteractiveSession } from '../../index.js';

@@ -4,7 +4,7 @@ import { validateExternalPayloadReference } from './external-payload-file-reader
 import { SessionLogPayloadResolutionError } from './external-payload-resolution-contracts.js';
 
 import type { ISessionLogPayloadResolutionOptions } from './external-payload-resolution-contracts.js';
-import type { IExternalPayloadSource } from './session-log-sources.js';
+import type { IExternalPayloadSource } from './external-payload-source-types.js';
 import type { IExternalPayloadReference } from './session-logger.js';
 
 export { SessionLogPayloadResolutionError } from './external-payload-resolution-contracts.js';
