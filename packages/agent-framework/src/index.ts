@@ -522,10 +522,12 @@ export type { IPromptHistoryOptions } from './interactive/interactive-session-pr
 export {
   EditCheckpointStore,
   EditCheckpointsUnavailableError,
+  createDirectoryEditCheckpointState,
   wrapEditCheckpointTools,
 } from './checkpoints/index.js';
 export type {
   TEditCheckpointsUnavailableReason,
+  IEditCheckpointStateStorage,
   IEditCheckpointFileInspection,
   IEditCheckpointFileRecord,
   IEditCheckpointInspection,

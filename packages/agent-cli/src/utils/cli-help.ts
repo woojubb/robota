@@ -17,7 +17,9 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --system-prompt <text>     Override the system prompt for this session
   --append-system-prompt <t> Append text to the system prompt
   --language <lang>          Language preference (e.g. ko, en)
-  --no-session-persistence   Disable session persistence for this run
+  --no-session-persistence   Leave no conversation on disk: no session record, prompt history or
+                             subagent transcript is written, and /rewind checkpoints exist only
+                             until the run ends. Memory capture, if enabled, is separate
   --permission-mode <mode>   Permission mode: plan | default | acceptEdits | bypassPermissions | auto
   --external-event-grant <file>
                              TUI only: admit text-only external events whose access token

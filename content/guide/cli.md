@@ -197,7 +197,7 @@ jobs:
 | ------------------------------------- | ---------------------------------------------------------------------- |
 | `--permission-mode plan`              | Review only: the agent writes nothing and runs only read-only commands |
 | `--permission-mode bypassPermissions` | Let the agent edit and run commands without asking                     |
-| `--no-session-persistence`            | Do not save the session                                                |
+| `--no-session-persistence`            | Leave no conversation on disk (session, history, transcripts)          |
 | `--output-format json`                | One JSON result; check `.subtype` for `success` or `error`             |
 | `--max-turns <n>`                     | Cap the number of agent turns                                          |
 
@@ -210,8 +210,13 @@ __PRODUCT_CLI_NAME__ -c                              # continue the most recent 
 __PRODUCT_CLI_NAME__ -r <id-or-name>                 # resume a session
 __PRODUCT_CLI_NAME__ -c --fork-session               # continue as a new session; the original is untouched
 __PRODUCT_CLI_NAME__ -n "my-task"                    # name the new session
-__PRODUCT_CLI_NAME__ --no-session-persistence        # do not save this run
+__PRODUCT_CLI_NAME__ --no-session-persistence        # leave nothing of this run on disk
 ```
+
+`--no-session-persistence` keeps the conversation off disk. No session record, prompt-history entry or
+subagent transcript is written, and the edit checkpoints that `/rewind` uses live in an owner-only
+folder inside the state folder and are removed when the run ends. Durable memory is a separate setting:
+if you turned it on, it still saves what it captures.
 
 Inside the terminal UI: `/resume` opens the session picker, `/rename <name>` renames the session,
 `/fork [name] [--same-dir]` copies the conversation into a background session and keeps you here, and
@@ -644,7 +649,7 @@ another session or device. All four are user-only. See [Devices, Peers and Remot
 | `-r`, `--resume <id\|name>`                                                                                                                               | Resume a session                                                                                                                                                                                               |
 | `-n`, `--name <name>`                                                                                                                                     | Name the new session                                                                                                                                                                                           |
 | `--fork-session`                                                                                                                                          | With `-c`/`-r`: continue as a new session, leaving the original untouched                                                                                                                                      |
-| `--no-session-persistence`                                                                                                                                | Do not save this run                                                                                                                                                                                           |
+| `--no-session-persistence`                                                                                                                                | Leave no conversation on disk: no session, prompt history or subagent transcript; `/rewind` works only until the run ends                                                                                      |
 | `--permission-mode <mode>`                                                                                                                                | `plan`, `default`, `acceptEdits`, `bypassPermissions` or `auto`                                                                                                                                                |
 | `--dry-run`                                                                                                                                               | Same as `--permission-mode plan`                                                                                                                                                                               |
 | `--allowed-tools <list>`                                                                                                                                  | Tools that run without asking (comma-separated)                                                                                                                                                                |

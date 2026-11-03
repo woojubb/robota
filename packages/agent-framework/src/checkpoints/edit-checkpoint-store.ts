@@ -11,6 +11,7 @@ import {
   safePathSegment,
 } from './edit-checkpoint-store-helpers.js';
 
+import type { IEditCheckpointStateStorage } from './edit-checkpoint-state-storage.js';
 import type {
   IEditCheckpointFileRecord,
   IEditCheckpointInspection,
@@ -39,6 +40,11 @@ interface IActiveEditCheckpointTurn {
 interface IEditCheckpointStoreOptions {
   authority: IWorkspaceProjectAuthority;
   mutation: IWorkspaceProjectMutation;
+  /**
+   * Where manifests and file pre-images are kept. Absent, they live in the project's trusted
+   * checkpoint directory; a host that must leave nothing in the project supplies state held elsewhere.
+   */
+  stateStorage?: IEditCheckpointStateStorage;
   now?: () => Date;
 }
 export class EditCheckpointStore {
@@ -54,7 +60,11 @@ export class EditCheckpointStore {
   private forkCounter = 0;
 
   constructor(options: IEditCheckpointStoreOptions) {
-    this.authorityIO = new EditCheckpointAuthorityIO(options.authority, options.mutation);
+    this.authorityIO = new EditCheckpointAuthorityIO(
+      options.authority,
+      options.mutation,
+      options.stateStorage,
+    );
     this.cwd = this.authorityIO.cwd;
     this.now = options.now ?? (() => new Date());
   }
@@ -104,12 +114,13 @@ export class EditCheckpointStore {
     const originalPath = resolve(this.cwd, filePath);
     if (this.activeTurn.capturedPaths.has(originalPath)) return;
     const relativePath = relative(this.cwd, originalPath);
+    const checkpointRoot = this.authorityIO.checkpointRootRelativePath;
     if (
       relativePath.length === 0 ||
       relativePath.startsWith('..') ||
       resolve(this.cwd, relativePath) !== originalPath ||
-      relativePath === this.authorityIO.checkpointRootRelativePath ||
-      relativePath.startsWith(`${this.authorityIO.checkpointRootRelativePath}${sep}`)
+      (checkpointRoot !== undefined &&
+        (relativePath === checkpointRoot || relativePath.startsWith(`${checkpointRoot}${sep}`)))
     ) {
       return;
     }

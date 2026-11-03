@@ -469,7 +469,8 @@ here because the reasoning differs between them:
 - **Prompt history:** default ON (prompts are already persisted verbatim per session,
   and this is a shell-history analogue). Precedence: `settings.json` `promptHistory: false` ←
   `PRODUCT_PROMPT_HISTORY` env (**env wins**, same direction as memory — a machine-level policy).
-  TUI only; print/serve receive no writer.
+  TUI only; print/serve receive no writer. A run with `--no-session-persistence` writes none,
+  whatever the setting or the environment says.
 - **Advisor:** default OFF. Precedence: `settings.json` `advisorModel` ← `--advisor` flag (**flag
   wins**, a per-run choice like the screen-reader flag), and `PRODUCT_DISABLE_ADVISOR` above both as a
   kill switch nothing inside a session can undo — it is how an operator guarantees that conversation
@@ -508,15 +509,24 @@ missing.
 All trust diagnostics expose only state and canonical display path — credentials and
 project-controlled content are never printed.
 
-### Scratch directories
+### `--no-session-persistence`
 
-The working data a live feature needs — spilled tool results and the `/editor` buffer — lives in
-owner-only per-process directories of the state root, never the shared temporary directory: spilled
-results and the composed message are conversation content. Whatever ends a run — an exit, a hangup,
-an interrupt, a termination request or a crash the crash policy rethrows — removes them without
-changing how the process ends; a run killed outright leaves its directory, and the next start removes
-those whose recorded owner can no longer be alive, by the rule `@robota-sdk/agent-core` states for
-process-scoped directories.
+The flag promises that a run leaves no conversation-derived data on disk once it exits, apart from
+durable memory: memory is a store the owner turned on to keep across runs, so the flag leaves that
+choice alone. The session record is only one of the stores that would keep the conversation, so the
+flag turns off every store the run could otherwise keep — the session record, prompt history and
+subagent transcripts — not the session store alone. Edit checkpoints are the exception: `/rewind`
+needs the pre-images of the run's own edits, so with the flag they keep working for the run but move
+out of the project into an owner-only per-process directory of the state root, removed when the run
+ends.
+
+The working data a live feature needs — spilled tool results and the `/editor` buffer, and with the
+flag those checkpoints — lives in owner-only per-process directories of the state root, never the
+shared temporary directory: spilled results and the composed message are conversation content whether
+or not the flag is set. Whatever ends a run — an exit, a hangup, an interrupt, a termination
+request or a crash the crash policy rethrows — removes them without changing how the process ends; a
+run killed outright leaves its directory, and the next start removes those whose recorded owner can no
+longer be alive, by the rule `@robota-sdk/agent-core` states for process-scoped directories.
 
 ### Destination-scoped telemetry headers
 

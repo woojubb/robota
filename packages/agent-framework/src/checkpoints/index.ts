@@ -1,4 +1,6 @@
 export { EditCheckpointStore } from './edit-checkpoint-store.js';
+export { createDirectoryEditCheckpointState } from './edit-checkpoint-state-storage.js';
+export type { IEditCheckpointStateStorage } from './edit-checkpoint-state-storage.js';
 export { EditCheckpointManifestEscapeError } from './edit-checkpoint-store-helpers.js';
 export { EditCheckpointsUnavailableError } from './edit-checkpoints-unavailable-error.js';
 export type { TEditCheckpointsUnavailableReason } from './edit-checkpoints-unavailable-error.js';

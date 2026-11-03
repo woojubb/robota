@@ -211,6 +211,7 @@ export function buildCommandSetup(
       ? { projectSettingsWriter: options.projectSettingsWriter }
       : {}),
     ...(options.safeMode === true ? { safeMode: true } : {}),
+    ...(args.noSessionPersistence ? { ephemeralEditCheckpoints: true } : {}),
   });
   const outputStyleSources = buildOutputStyleSources({
     ...(options.safeMode === true ? { safeMode: true } : {}),
