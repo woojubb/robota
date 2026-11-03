@@ -3,6 +3,7 @@ import { childProductEnvironment } from '../product/child-environment.js';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
+import { Writable } from 'node:stream';
 
 import { scrubSecrets } from '@robota-sdk/agent-core';
 
@@ -15,6 +16,11 @@ import {
   SupervisedControlPathTooLongError,
   writeSupervisedGrantHandoff,
 } from './supervised-session-control.js';
+import {
+  isSupervisedTransportToken,
+  SUPERVISED_TRANSPORT_TOKEN_FD,
+  SUPERVISED_TRANSPORT_TOKEN_FLAG,
+} from './supervised-transport-token.js';
 
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 
@@ -108,17 +114,27 @@ function stripAnsiAndControlChars(text: string): string {
 /**
  * (b) Exact-value redaction: this process handed the child its own env, so anything shaped like a
  * credential in there (name matches, value long enough to not be a false positive on something like
- * a short flag) is replaced everywhere it appears verbatim. `split`/`join`, not a constructed RegExp:
- * a credential value routinely contains characters (`+`, `/`, `=`, …) that would need escaping first.
+ * a short flag) is replaced everywhere it appears verbatim, as is every secret handed over outside
+ * the env (the transport token's pipe). `split`/`join`, not a constructed RegExp: a credential value
+ * routinely contains characters (`+`, `/`, `=`, …) that would need escaping first.
  */
 const CREDENTIAL_ENV_NAME = /KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|AUTH/iu;
 const MIN_CREDENTIAL_VALUE_LENGTH = 8;
 
-function redactEnvCredentialValues(text: string, env: NodeJS.ProcessEnv): string {
+function redactEnvCredentialValues(
+  text: string,
+  env: NodeJS.ProcessEnv,
+  handedOverSecrets: readonly string[],
+): string {
   let result = text;
-  for (const [name, value] of Object.entries(env)) {
+  const secrets = [
+    ...Object.entries(env)
+      .filter(([name]) => CREDENTIAL_ENV_NAME.test(name))
+      .map(([, value]) => value),
+    ...handedOverSecrets,
+  ];
+  for (const value of secrets) {
     if (value === undefined || value.length < MIN_CREDENTIAL_VALUE_LENGTH) continue;
-    if (!CREDENTIAL_ENV_NAME.test(name)) continue;
     if (!result.includes(value)) continue;
     result = result.split(value).join('[REDACTED]');
   }
@@ -137,11 +153,16 @@ function lastLines(text: string, maxLines: number): string {
  * values, and (c) `scrubSecrets`'s known secret patterns (agent-core) are stripped, in that order, then
  * (d) only the last ~20 lines are kept. The child inherits this process's full environment, so (a)+(b)
  * alone cover a value it never should have echoed; (c) catches a secret the child saw over the wire
- * (an API response, a `Bearer` header) that was never this process's own to redact by value.
+ * (an API response, a `Bearer` header) that was never this process's own to redact by value. A secret
+ * handed over outside the env (`handedOverSecrets`) is no longer in it, so (b) takes it explicitly.
  */
-function sanitizeStderrTail(raw: string, env: NodeJS.ProcessEnv): string {
+function sanitizeStderrTail(
+  raw: string,
+  env: NodeJS.ProcessEnv,
+  handedOverSecrets: readonly string[] = [],
+): string {
   const withoutAnsi = stripAnsiAndControlChars(raw);
-  const withoutEnvSecrets = redactEnvCredentialValues(withoutAnsi, env);
+  const withoutEnvSecrets = redactEnvCredentialValues(withoutAnsi, env, handedOverSecrets);
   const withoutKnownPatterns = scrubSecrets(withoutEnvSecrets);
   return lastLines(withoutKnownPatterns.trim(), STDERR_TAIL_MAX_LINES).trim();
 }
@@ -206,6 +227,12 @@ async function terminateFailedStart(child: ChildProcess): Promise<boolean> {
   return hasExited(child);
 }
 
+/** The environment minus the transport token's names, matched case-insensitively as Windows does. */
+function withoutTransportTokenNames(env: NodeJS.ProcessEnv, envPrefix: string): NodeJS.ProcessEnv {
+  const names = new Set(['PRODUCT_WS_TOKEN', `${envPrefix}WS_TOKEN`].map((name) => name.toUpperCase()));
+  return Object.fromEntries(Object.entries(env).filter(([name]) => !names.has(name.toUpperCase())));
+}
+
 /** Start one opt-in supervised runtime without sending credentials through the control channel. */
 export async function launchSupervisedSession(
   cwd: string,
@@ -223,15 +250,26 @@ export async function launchSupervisedSession(
     readonly root?: string;
     /**
      * Start this workspace's daemon: its control hands the owner the WebSocket URL. The caller
-     * puts the transport token in `env`, never on the command line.
+     * hands the transport token over in `transportToken`, never on the command line.
      */
     readonly daemon?: boolean;
+    /**
+     * The WebSocket transport token the child serves under, 64 lowercase hex characters. It reaches
+     * the child only over an extra inherited pipe, never its environment (any program of the same
+     * user can read a process's initial environment for as long as it runs), command line or
+     * stderr: the child's environment is stripped of both names a token could arrive under.
+     */
+    readonly transportToken?: string;
     /** Start it Restricted: a person chose to run this untrusted folder without its own configuration. */
     readonly restricted?: boolean;
   },
 ): Promise<string> {
   if (options.name !== undefined && !isSupervisedSessionName(options.name)) {
     throw new Error('Supervised session name is invalid or too long.');
+  }
+  const transportToken = options.transportToken;
+  if (transportToken !== undefined && !isSupervisedTransportToken(transportToken)) {
+    throw new Error('Supervised session transport token is invalid.');
   }
   const grants = options.grants ?? [];
   if (grants.length > 0 && options.eventEndpoint === undefined) {
@@ -249,13 +287,17 @@ export async function launchSupervisedSession(
   if (root !== undefined) writeSupervisedGrantHandoff(root, id, grants);
   // #3282 §3: the same env handed to the child — reused to redact its own credential values out of
   // whatever the child echoes back on stderr, in `sanitizeStderrTail`.
-  const childEnv = options.env ?? childProductEnvironment(options.productRuntime);
+  const inheritedEnv = options.env ?? childProductEnvironment(options.productRuntime);
+  const childEnv = transportToken === undefined
+    ? inheritedEnv
+    : withoutTransportTokenNames(inheritedEnv, options.productRuntime.config.identity.envPrefix);
   let child: ChildProcess;
   try {
     child = spawn(self.execPath, [
       ...nodeInspectorHardeningArgs(), ...execArgs, ...entryArgs, '--serve', '--supervised-session-id', id,
       ...(options.name === undefined ? [] : [`--name=${options.name}`]),
       ...(grants.length > 0 ? ['--supervised-external-event-grants'] : []),
+      ...(transportToken === undefined ? [] : [SUPERVISED_TRANSPORT_TOKEN_FLAG]),
       ...(options.daemon === true ? ['--daemon'] : []),
       ...(options.restricted === true ? [RESTRICTED_WORKSPACE_FLAG] : []),
       ...(grants.length > 0 && options.eventEndpoint !== undefined
@@ -271,7 +313,8 @@ export async function launchSupervisedSession(
       detached: true,
       // #3282 §3: stderr is piped (was 'ignore') so a death before readiness can report why —
       // otherwise discarded exactly as before, and released on every exit path below.
-      stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+      // The transport token's pipe, when there is one, is the child's descriptor 4.
+      stdio: ['ignore', 'ignore', 'pipe', 'ipc', ...(transportToken === undefined ? [] : ['pipe' as const])],
       env: childEnv,
     });
   } catch (error) {
@@ -286,6 +329,9 @@ export async function launchSupervisedSession(
     discardHandoff();
     throw new Error('Supervised session launch observer failed.');
   }
+
+  const tokenPipe = transportToken === undefined ? undefined : child.stdio[SUPERVISED_TRANSPORT_TOKEN_FD];
+  const handedOverSecrets = transportToken === undefined ? [] : [transportToken];
 
   return new Promise<string>((resolve, reject) => {
     let done = false;
@@ -316,6 +362,7 @@ export async function launchSupervisedSession(
         }
       } else {
         child.stderr?.destroy();
+        if (tokenPipe instanceof Writable) tokenPipe.destroy();
         // A child that never read its grants must not leave them behind.
         discardHandoff();
         void terminateFailedStart(child).then((exited) => {
@@ -330,7 +377,7 @@ export async function launchSupervisedSession(
     // reason and are never replaced by incidental stderr output.
     const failFromChild = (fallback: string): void => {
       void stderrFlushed(child).then(() => {
-        const said = sanitizeStderrTail(stderrTail.read(), childEnv);
+        const said = sanitizeStderrTail(stderrTail.read(), childEnv, handedOverSecrets);
         fail(said.length > 0 ? said : fallback);
       });
     };
@@ -339,6 +386,18 @@ export async function launchSupervisedSession(
     child.once('disconnect', () =>
       failFromChild('Supervised session readiness channel closed before acknowledgement.'),
     );
+    if (transportToken !== undefined) {
+      // Written and closed at once: the child reads it first thing, before it can report ready. A pipe
+      // that cannot take it (the child already gone, no pipe at all) fails the start like any other
+      // early death, with the child's own stderr as the reason when it wrote one.
+      const refused = (): void => failFromChild('Supervised session could not receive its transport token.');
+      if (tokenPipe instanceof Writable) {
+        tokenPipe.on('error', refused);
+        tokenPipe.end(transportToken);
+      } else {
+        refused();
+      }
+    }
     child.on('message', (message: unknown) => {
       if (!isHandshakeMessage(message, id)) return fail('Supervised session sent an invalid readiness message.');
       if (message.kind === 'error') {

@@ -156,9 +156,10 @@ person chose Restricted, while a plain start in a folder trusted since is not ha
 because the person who trusted it expects that configuration; a daemon that could not hand over a connection is never left running, and
 the lock that keeps racing starts apart is removed only by the start that took it or by the user. The
 transport's per-launch authentication token is never exposed through the control endpoint or inventory,
-with one exception: a daemon, which receives it only through its environment and removes it from there so
-its tools never inherit it, hands its connection URL to a caller that named its start, so the token
-leaves only as that URL and never in human-readable output.
+with one exception: a daemon, which receives it only over a pipe its launcher hands it, never through its
+environment or command line (a process's initial environment stays readable to every program of the
+same user), hands its connection URL to a caller that named its start, so the token leaves only as that URL
+and never in human-readable output.
 
 Observability has two independently gated paths. `usage export` is an explicit,
 local-only action over the same authorized stores as local usage reporting: its aggregate usage,

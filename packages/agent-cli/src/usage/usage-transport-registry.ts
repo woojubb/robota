@@ -19,6 +19,7 @@ function createDefaultUsageTransportRegistry(
   surface: TUsageSurface,
   sessionBinder: ISessionBinder<IProtocolSession> | undefined,
   settingsReporter: ISessionMessageHandlerOptions['settingsReporter'] | undefined,
+  transportToken: string | undefined,
 ): ReturnType<typeof createDefaultTransportRegistry> {
   const admittedProjectStore = projectTrusted ? projectStore : undefined;
   const personalUsageReporter = createPersonalUsageReporter(runtime, admittedProjectStore);
@@ -31,6 +32,7 @@ function createDefaultUsageTransportRegistry(
     surface,
     sessionBinder,
     settingsReporter,
+    transportToken,
   );
 }
 
@@ -60,10 +62,14 @@ export function createCliUsageTransportRegistry(
   daemon = false,
   /** #3282 §4a: host-owned read/write for the GUI Settings screen. */
   settingsReporter?: ISessionMessageHandlerOptions['settingsReporter'],
+  /** A token handed over outside the environment (a supervised daemon's pipe); never written back to it. */
+  transportToken?: string,
 ): ReturnType<typeof createDefaultTransportRegistry> {
   // Read before the registry takes the token out of the environment.
   const { driverId, surface } = resolveCliUsageAttribution({
-    desktopToken: Boolean(runtime.environment['PRODUCT_WS_TOKEN']), open, daemon,
+    desktopToken: transportToken !== undefined || Boolean(runtime.environment['PRODUCT_WS_TOKEN']),
+    open,
+    daemon,
   });
   return createDefaultUsageTransportRegistry(
     runtime,
@@ -73,5 +79,6 @@ export function createCliUsageTransportRegistry(
     surface,
     sessionBinder,
     settingsReporter,
+    transportToken,
   );
 }

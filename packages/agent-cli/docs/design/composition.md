@@ -128,7 +128,8 @@ passes them into the profile, and reads them back from the assembled product wit
 - a `TransportRegistry` — the class belongs to `@robota-sdk/agent-framework` — whose saved
   enable/option state lives in the `transports` section of the user settings file;
 - a `WsTransport` from `@robota-sdk/agent-transport-ws`, which takes an optional launch token and
-  port from `PRODUCT_WS_TOKEN` / `PRODUCT_WS_PORT` and removes the token from the environment;
+  port from `PRODUCT_WS_TOKEN` / `PRODUCT_WS_PORT` (a supervised daemon's token instead arrives on a pipe
+  its launcher inherited) and removes the token from the environment;
 - `bindTransports(session)`, which binds the WebSocket transport to a session with
   `bindTransportAdapter()` and registers it, or replaces the earlier binding after a session switch.
 
