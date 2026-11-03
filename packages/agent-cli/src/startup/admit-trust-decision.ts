@@ -1,4 +1,4 @@
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { productProviderDefinitions } from '../product/provider-definitions.js';
 
 import { withholdProviderCredentials } from '../product/command-environment.js';
 import { createInitialCliWorkspaceComposition } from './workspace-project-composition.js';
@@ -20,7 +20,7 @@ export function admitStartupTrustDecision(
   startupOptions.projectAccess = projectAccess;
   withholdProviderCredentials(
     createInitialCliWorkspaceComposition(cwd, startupOptions).settingsSources,
-    startupOptions.providerDefinitions ?? createDefaultProviderDefinitions(),
+    startupOptions.providerDefinitions ?? productProviderDefinitions(),
     environment,
   );
 }

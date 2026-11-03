@@ -257,6 +257,10 @@ use. Setup fills the key in as a reference to an environment variable:
 }
 ```
 
+An Anthropic profile searches the web with the model's own server-side search unless you turn it
+off: set `"options": { "nativeWebTools": { "webSearch": false } }` on the profile. A profile that
+sets `nativeWebTools` is used as written.
+
 In a session, `/provider list`, `/provider switch <profile>`, `/provider add` and `/provider test`
 manage profiles. For one run, `--provider <profile>` picks a profile (add `--set-current` to make it
 the default), `--model` overrides the model, `--fallback-model a,b` continues a turn on another model

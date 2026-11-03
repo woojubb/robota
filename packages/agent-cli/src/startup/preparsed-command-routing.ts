@@ -1,6 +1,6 @@
 import { resolveCliRuntimeContext } from './product-bootstrap.js';
 import { restartProductEnvironment } from '../product/restart-environment.js';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { productProviderDefinitions } from '../product/provider-definitions.js';
 import { withholdProviderCredentials } from '../product/command-environment.js';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import { createUserSessionStore } from '@robota-sdk/agent-framework';
@@ -215,7 +215,7 @@ export async function runPreparsedCliCommand(
       ...restartProductEnvironment(
         productRuntime,
         sources,
-        options.providerDefinitions ?? createDefaultProviderDefinitions(),
+        options.providerDefinitions ?? productProviderDefinitions(),
       ),
       ...telemetryEnvironment,
     };
@@ -488,7 +488,7 @@ export async function runPreparsedCliCommand(
   // the startup snapshot, so the live environment those commands inherit drops it now.
   withholdProviderCredentials(
     composition.settingsSources,
-    options.providerDefinitions ?? createDefaultProviderDefinitions(),
+    options.providerDefinitions ?? productProviderDefinitions(),
   );
   if (
     argv[SUBCOMMAND_INDEX] === 'mcp' &&

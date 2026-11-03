@@ -560,7 +560,14 @@ env var name — never the key value) pointing at `--configure` to persist a pro
 ### Provider profile resolution
 
 The CLI must not branch on provider type names to decide defaults, required fields, setup prompts, or
-constructor behavior — those come from the injected `IProviderDefinition` records. The profile key
+constructor behavior — those come from the injected `IProviderDefinition` records. The one product choice
+made by type is model-native web search: the product's own definition set turns it on for an Anthropic
+profile that does not mention `nativeWebTools`, because no other built-in provider wires native search and
+the SDK layers stay neutral about it. That set is built in one place and used by the parent session, the
+commands that read provider metadata and the child-process subagent worker alike, so all of them build the
+same providers; routing it through `startCli({ providerDefinitions })` would mark the set as caller-supplied
+and make subagents non-reproducible. A profile that sets `nativeWebTools` (including `webSearch: false`) is
+used as written. The profile key
 (`currentProvider`) is a stable selection identity independent of provider `type`; resolution order is
 `currentProvider` + `providers[...]`, then legacy `provider`, then the resolved definition's defaults.
 Environment-variable API key references use `$ENV:NAME`; an unresolved `$ENV:NAME` must never be sent

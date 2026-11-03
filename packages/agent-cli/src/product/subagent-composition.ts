@@ -4,7 +4,7 @@ import {
   liveSandboxSettings,
 } from './execution-containment.js';
 
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { productProviderDefinitions } from './provider-definitions.js';
 import { findProviderDefinition } from '@robota-sdk/agent-core';
 import { TRANSPORT_ENVIRONMENT } from '@robota-sdk/agent-executor';
 import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
@@ -122,11 +122,6 @@ export function assertChildProcessSubagentsCanReproduce(context: IProductPackCon
       'This is refused at composition time rather than per spawn, so the failure is loud and early. ' +
       'Projecting live capability across the boundary is tracked as ARCH-033 (#1784).',
   );
-}
-
-/** the product's provider registry, in one place for both the parent and its child-process subagents. */
-function productProviderDefinitions(): readonly IProviderDefinition[] {
-  return createDefaultProviderDefinitions();
 }
 
 /**

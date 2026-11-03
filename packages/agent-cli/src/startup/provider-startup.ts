@@ -15,7 +15,7 @@ import type {
   IProviderConnectionHost,
   IOrgPolicy,
 } from '@robota-sdk/agent-framework';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { productProviderDefinitions } from '../product/provider-definitions.js';
 import { type IProviderSetupInput } from '@robota-sdk/agent-framework';
 import {
   ensureProviderConfig,
@@ -88,7 +88,7 @@ export async function handleProviderConfigurationArgs(
   _cwd: string,
   args: IParsedCliArgs,
   terminal: ITerminalOutput,
-  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
+  providerDefinitions: readonly IProviderDefinition[] = productProviderDefinitions(),
   settingsAccess: IProviderStartupSettingsAccess,
 ): Promise<boolean> {
   const scope = validateSettingsScope(args.settingsScope);
@@ -151,7 +151,7 @@ export async function ensureConfig(
   args: IParsedCliArgs,
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
-  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
+  providerDefinitions: readonly IProviderDefinition[] = productProviderDefinitions(),
   isInteractive: boolean | undefined,
   settingsAccess: IProviderStartupSettingsAccess,
 ): Promise<void> {
@@ -187,7 +187,7 @@ export async function runInteractiveProviderSetup(
   args: IParsedCliArgs,
   promptInput: TPromptInput,
   terminal: ITerminalOutput,
-  providerDefinitions: readonly IProviderDefinition[] = createDefaultProviderDefinitions(),
+  providerDefinitions: readonly IProviderDefinition[] = productProviderDefinitions(),
   settingsAccess: IProviderStartupSettingsAccess,
 ): Promise<void> {
   const access = resolveStartupSettingsAccess(settingsAccess);

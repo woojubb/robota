@@ -7,7 +7,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * that shapes a session is resolved: the process running it owns it. The terminal's own commands
  * run here too, as the plain TUI runs them.
  */
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { productProviderDefinitions } from '../product/provider-definitions.js';
 import { createTerminalClientCommands } from '@robota-sdk/agent-command';
 import { applyAppearanceSettings } from '@robota-sdk/agent-framework';
 
@@ -93,7 +93,7 @@ export function createAttachedAppRender(
       version: runtimeVersion(context.productRuntime),
       cliAdapter: createProductTuiCliAdapter(presentation.createDefaultTuiCliAdapter, {
         productRuntime: context.productRuntime,
-        providerDefinitions: context.providerDefinitions ?? createDefaultProviderDefinitions(),
+        providerDefinitions: context.providerDefinitions ?? productProviderDefinitions(),
         reloadPluginCommandSource: (registry) =>
           reloadPluginCommandSource(registry, context.productRuntime, cwd, projectAccess, context.safeMode !== true),
       }),
