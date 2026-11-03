@@ -97,7 +97,7 @@ describe('a fork job resumes its record through the store (CLI-1994 TC-03)', () 
 
   beforeEach(() => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-1994-job-')));
-    store = new NodeSessionStore(join(cwd, 'sessions'));
+    store = new NodeSessionStore(join(cwd, 'sessions'), { sealing: 'plain' });
     store.save({
       id: FORK_ID,
       name: 'parent (fork)',

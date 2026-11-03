@@ -31,13 +31,13 @@ import { encodeAgentDefinition, encodeParentContext } from './subagent-worker-st
 
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
 import type { ISandboxProjection, TParentSandboxSettings } from './worker-composition.js';
-import type { IProviderDefinition, IProviderDefinitionConfig } from '@robota-sdk/agent-core';
-import type { IConnectionEnvironmentCheck, ISubagentJobStart } from '@robota-sdk/agent-executor';
 import type {
-  IAgentDefinition,
-  IInProcessSubagentRunnerDeps,
-  TSessionSealing,
-} from '@robota-sdk/agent-framework';
+  IProviderDefinition,
+  IProviderDefinitionConfig,
+  TArtifactSealing,
+} from '@robota-sdk/agent-core';
+import type { IConnectionEnvironmentCheck, ISubagentJobStart } from '@robota-sdk/agent-executor';
+import type { IAgentDefinition, IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
 import type { ISerializableProviderProfile } from '@robota-sdk/agent-interface-execution';
 
 /** The parent-decided fields of a start payload, ready to spread onto it. */
@@ -112,7 +112,7 @@ export interface IProjectedSealing {
 export function preflightStartPayloadSealing(
   job: ISubagentJobStart,
   deps: Pick<IInProcessSubagentRunnerDeps, 'resumeSessionStore'>,
-  logSealing: TSessionSealing,
+  logSealing: TArtifactSealing,
 ): void {
   exportStartPayloadSealing(job, deps, logSealing, true);
 }
@@ -122,7 +122,7 @@ export function preflightStartPayloadSealing(
  * {@link preflightStartPayloadSealing}.
  *
  * A plain parent adds nothing: its child keeps its log plain and reads a fork record from the store
- * itself, exactly as before. A sealing parent's sealer must issue a write grant, which is read here
+ * itself. A sealing parent's sealer must issue a write grant, which is read here
  * only to see that it can: the payload carries the grant as it stands when `start` is sent. For a
  * fork job it adds the record its store holds (`exportHeld`), since a child never holds the keys that
  * open a sealed one. Exporting hands over a fork record `/fork` just wrote once, so a job that fails
@@ -131,7 +131,7 @@ export function preflightStartPayloadSealing(
 export function projectStartPayloadSealing(
   job: ISubagentJobStart,
   deps: Pick<IInProcessSubagentRunnerDeps, 'resumeSessionStore'>,
-  logSealing: TSessionSealing,
+  logSealing: TArtifactSealing,
 ): IProjectedSealing {
   return exportStartPayloadSealing(job, deps, logSealing, false);
 }
@@ -140,7 +140,7 @@ export function projectStartPayloadSealing(
 function exportStartPayloadSealing(
   job: ISubagentJobStart,
   deps: Pick<IInProcessSubagentRunnerDeps, 'resumeSessionStore'>,
-  logSealing: TSessionSealing,
+  logSealing: TArtifactSealing,
   keep: boolean,
 ): IProjectedSealing {
   if (logSealing === 'plain') return {};

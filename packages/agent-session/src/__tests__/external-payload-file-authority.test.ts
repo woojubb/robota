@@ -53,7 +53,7 @@ afterEach(() => {
 describe('NodeExternalPayloadSource file authority delegation', () => {
   it('delegates segments and the mandatory budget, then closes the authority', () => {
     authority.bytes = Buffer.from('payload');
-    const source = new NodeExternalPayloadSource('payload-root');
+    const source = new NodeExternalPayloadSource('payload-root', { sealing: 'plain' });
 
     expect(Buffer.from(source.readBytes('nested/payload.json', 7) ?? []).toString()).toBe(
       'payload',
@@ -78,7 +78,10 @@ describe('NodeExternalPayloadSource file authority delegation', () => {
     authority.error = leafError;
 
     try {
-      new NodeExternalPayloadSource('payload-root').readBytes('payload.json', 16);
+      new NodeExternalPayloadSource('payload-root', { sealing: 'plain' }).readBytes(
+        'payload.json',
+        16,
+      );
       throw new Error('Expected the delegated read to fail.');
     } catch (error) {
       expect(error).toMatchObject({ code: sessionCode, cause: leafError });

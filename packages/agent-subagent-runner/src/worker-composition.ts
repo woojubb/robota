@@ -2,10 +2,10 @@ import type {
   IHookTypeExecutor,
   IProviderDefinition,
   IToolWithEventService,
+  TArtifactSealing,
 } from '@robota-sdk/agent-core';
 import type {
   ISubagentOptions,
-  TSessionSealing,
   restoreSessionRecordIntoSession,
 } from '@robota-sdk/agent-framework';
 
@@ -139,7 +139,7 @@ export interface ISubagentWorkerComposition {
    * built at start, and stops it for a newer grant. Absent ⇒ this composition cannot seal, and a job
    * whose payload carries a grant FAILS before anything is built — never silently plain.
    */
-  readonly bindWriteGrant?: (grant: string) => TSessionSealing;
+  readonly bindWriteGrant?: (grant: string) => TArtifactSealing;
 
   /**
    * A sandbox the child composes itself at its execution root, rather than restoring one from a

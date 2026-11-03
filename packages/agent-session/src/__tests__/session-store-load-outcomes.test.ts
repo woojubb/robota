@@ -51,12 +51,12 @@ function record(id = SESSION_ID): IInteractiveSessionRecord {
 
 describe('TC-01 / TC-04: missing and valid are different answers', () => {
   it('reports missing for an id that was never saved', () => {
-    const store = new NodeSessionStore(newStoreDir());
+    const store = new NodeSessionStore(newStoreDir(), { sealing: 'plain' });
     expect(store.load('never-saved')).toEqual({ status: 'missing' });
   });
 
   it('round-trips a saved record as valid, with the Date revived', () => {
-    const store = new NodeSessionStore(newStoreDir());
+    const store = new NodeSessionStore(newStoreDir(), { sealing: 'plain' });
     store.save(record());
     const outcome = store.load(SESSION_ID);
     if (outcome.status !== 'valid') throw new Error(`expected valid, got ${outcome.status}`);
@@ -68,7 +68,7 @@ describe('TC-01 / TC-04: missing and valid are different answers', () => {
 describe('TC-02: a damaged file is corrupt, not missing', () => {
   it('reports corrupt with a located issue when the file is truncated', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir);
+    const store = new NodeSessionStore(dir, { sealing: 'plain' });
     store.save(record());
     // Truncate a file that was valid, rather than hand-writing a broken literal: this is what a
     // crash mid-write actually leaves behind.
@@ -84,7 +84,7 @@ describe('TC-02: a damaged file is corrupt, not missing', () => {
 
   it('reports corrupt for a well-formed envelope whose record is not a record', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir);
+    const store = new NodeSessionStore(dir, { sealing: 'plain' });
     writeFileSync(
       path.join(dir, `${SESSION_ID}.json`),
       JSON.stringify({ schemaVersion: SESSION_RECORD_ENVELOPE_VERSION, record: { id: 'x' } }),
@@ -100,7 +100,7 @@ describe('TC-02: a damaged file is corrupt, not missing', () => {
 describe('TC-03: a file from an earlier build is unsupported', () => {
   it('reports unsupported for a bare record with no envelope', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir);
+    const store = new NodeSessionStore(dir, { sealing: 'plain' });
     // The pre-envelope shape. This build cannot produce it, so a fixture is the only way to test the
     // case every existing session file is in — which is the case every beta user meets on their
     // first resume after this lands.
@@ -116,7 +116,7 @@ describe('TC-03: a file from an earlier build is unsupported', () => {
 
   it('reports unsupported, carrying the version it saw, for a future envelope', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir);
+    const store = new NodeSessionStore(dir, { sealing: 'plain' });
     writeFileSync(
       path.join(dir, `${SESSION_ID}.json`),
       JSON.stringify({ schemaVersion: 99, record: record() }),
@@ -159,7 +159,7 @@ describe('TC-05: the write path refuses rather than overwriting what it cannot r
     ],
   ])('leaves %s byte-identical', (_case, damage) => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir);
+    const store = new NodeSessionStore(dir, { sealing: 'plain' });
     store.save(record());
     damage(dir);
 
@@ -175,7 +175,7 @@ describe('TC-05: the write path refuses rather than overwriting what it cannot r
 
   it('still writes when there is genuinely nothing to preserve', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir);
+    const store = new NodeSessionStore(dir, { sealing: 'plain' });
     const outcome = persistSession(persistContext(store));
     expect(outcome.status).toBe('valid');
     expect(store.load(SESSION_ID).status).toBe('valid');
@@ -185,7 +185,7 @@ describe('TC-05: the write path refuses rather than overwriting what it cannot r
 describe('TC-08: list reports what it cannot read instead of hiding it', () => {
   it('includes an unreadable session in the listing, with its outcome', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir);
+    const store = new NodeSessionStore(dir, { sealing: 'plain' });
     store.save(record('sess_ok'));
     writeFileSync(path.join(dir, 'sess_old.json'), JSON.stringify(record('sess_old')), 'utf-8');
 
@@ -201,7 +201,7 @@ describe('TC-08: list reports what it cannot read instead of hiding it', () => {
     // `my session.json` throw out of the whole listing — the resume picker with it. Reporting it is
     // the same answer `list` gives for every other file it cannot read.
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir);
+    const store = new NodeSessionStore(dir, { sealing: 'plain' });
     store.save(record('readable'));
     writeFileSync(path.join(dir, 'my session.json'), '{}', 'utf-8');
 
@@ -214,7 +214,7 @@ describe('TC-08: list reports what it cannot read instead of hiding it', () => {
 
   it('sorts readable sessions by recency and keeps unreadable ones present', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir);
+    const store = new NodeSessionStore(dir, { sealing: 'plain' });
     store.save({ ...record('older'), updatedAt: '2026-08-01T00:00:00.000Z' });
     store.save({ ...record('newer'), updatedAt: '2026-08-02T00:00:00.000Z' });
     writeFileSync(path.join(dir, 'unreadable.json'), 'not json at all', 'utf-8');
@@ -228,7 +228,7 @@ describe('TC-08: list reports what it cannot read instead of hiding it', () => {
 describe('TC-10: the envelope is on disk, not merely in the round trip', () => {
   it('writes { schemaVersion, record } as the persisted shape', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir);
+    const store = new NodeSessionStore(dir, { sealing: 'plain' });
     store.save(record());
 
     const onDisk = JSON.parse(readFileSync(path.join(dir, `${SESSION_ID}.json`), 'utf-8')) as {
@@ -244,6 +244,6 @@ describe('TC-10: the envelope is on disk, not merely in the round trip', () => {
   it('cleans up its temp directories', () => {
     const dir = newStoreDir();
     rmSync(dir, { recursive: true, force: true });
-    expect(new NodeSessionStore(dir).list()).toEqual([]);
+    expect(new NodeSessionStore(dir, { sealing: 'plain' }).list()).toEqual([]);
   });
 });

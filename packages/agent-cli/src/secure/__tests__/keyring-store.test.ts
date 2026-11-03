@@ -207,6 +207,23 @@ describe('keyring store — saving', () => {
     expect(seen).toEqual(['file', 'directory']);
   });
 
+  it('flushes the parent of every directory the first write creates, not only the keyring directory', async () => {
+    const { keyring } = await fixtureKeyring();
+    const userRoot = join(root, 'user');
+    const path = join(userRoot, 'secure', 'keyring.json');
+    const flushed: string[] = [];
+
+    createKeyringFileStore({
+      path,
+      root: userRoot,
+      durability: { syncDirectory: (directory) => flushed.push(directory) },
+    }).create(keyring);
+
+    // `user/` and `user/secure/` did not exist: their entries live in `root/` and `user/`, and the
+    // file's own entry in `user/secure/`.
+    expect(flushed).toEqual([root, userRoot, join(userRoot, 'secure')]);
+  });
+
   it('keeps the old keyring and leaves no temp file when the flush fails', async () => {
     const { keyring } = await fixtureKeyring();
     const store = storeFor();
@@ -242,6 +259,8 @@ describe('keyring store — saving', () => {
       { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE },
       OTHER_PASSPHRASE,
     );
+    // The directory exists already, so the only flush is the one after the rename.
+    mkdirSync(join(root, 'secure'));
     const error = refusal(() =>
       storeFor({
         durability: {

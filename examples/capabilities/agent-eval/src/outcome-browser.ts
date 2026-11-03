@@ -395,7 +395,7 @@ try {
   let result: Awaited<ReturnType<ReturnType<typeof createSessionRunFn>>>;
   if (variant === 'cancel-after-save') {
     const storeDirectory = join(root, 'sessions');
-    const store = createNodeHostSessionStore(storeDirectory);
+    const store = createNodeHostSessionStore(storeDirectory, { sealing: 'plain' });
     interruptedOwner = createAgentRuntime({
       cwd: root,
       provider,
@@ -420,7 +420,7 @@ try {
     restoredOwner = createAgentRuntime({
       cwd: root,
       provider: { ...continuation.provider, name: provider.name },
-      sessionStore: createNodeHostSessionStore(storeDirectory),
+      sessionStore: createNodeHostSessionStore(storeDirectory, { sealing: 'plain' }),
     }).createSession({ ...options, resumeSessionId: sessionId });
     result = await (
       await restoredOwner.submit('Observe current state before considering another mutation.')

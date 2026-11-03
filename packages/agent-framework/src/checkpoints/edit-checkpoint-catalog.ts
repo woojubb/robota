@@ -1,7 +1,7 @@
 /**
  * How an edit checkpoint store finds, reads and restores its checkpoints. The store keeps what every
  * kind of state shares — the branch head, restore planning and containment — and asks its catalog for
- * the rest: plain state as it always was ({@link PlainEditCheckpointCatalog}), or sealed state under
+ * the rest: plain state ({@link PlainEditCheckpointCatalog}), or sealed state under
  * the rules of sealed checkpoints (`SealedEditCheckpointCatalog`).
  */
 import { join } from 'node:path';
@@ -69,7 +69,7 @@ export interface IEditCheckpointCatalog {
   ): number;
 }
 
-/** Plain checkpoint state, read and restored exactly as every earlier build did. */
+/** Plain checkpoint state: every manifest and pre-image is read as stored. */
 export class PlainEditCheckpointCatalog implements IEditCheckpointCatalog {
   constructor(private readonly io: EditCheckpointAuthorityIO) {}
 

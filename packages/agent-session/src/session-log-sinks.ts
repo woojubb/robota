@@ -39,12 +39,12 @@ export class NodeSessionLogSink implements ISessionLogSink, IExternalPayloadSink
   private readonly payloads: StoredPayloads;
 
   /**
-   * @param options `sealing`: `{ sealer }` seals every append (one sealed line per call) and every
-   *   sidecar; `'plain'`, the default, writes exactly what every earlier build wrote.
+   * @param options `sealing` (required): `{ sealer }` seals every append (one sealed line per call)
+   *   and every sidecar; `'plain'` writes plain lines and content-addressed sidecars.
    */
   constructor(
     private readonly logDirectory: string,
-    options?: ISessionStoreOptions,
+    options: ISessionStoreOptions,
   ) {
     const sealing = sessionSealingOf(options);
     this.lines = new StoredLines(sealing, 'session-log-line');

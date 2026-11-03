@@ -1,8 +1,7 @@
 /**
  * The product's one answer to "how do this process's session stores seal", as it stands today:
  * secure conversation is not switched on, so the answer is plain and every store the factory builds
- * writes what every earlier build wrote, byte for byte: the pretty-printed record envelope and the
- * prompt-history lines.
+ * writes plain bytes: the pretty-printed record envelope and the prompt-history lines.
  */
 import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -38,7 +37,7 @@ describe('the product session sealing', () => {
     expect(resolveProductSessionSealing(createTestProductRuntime())).toBe('plain');
   });
 
-  it('builds stores that write the envelope every earlier build wrote', () => {
+  it('builds stores that write the plain pretty-printed record envelope', () => {
     const home = realpathSync(mkdtempSync(join(tmpdir(), 'product-session-stores-')));
     roots.push(home);
     createProductUserSessionStore(createTestProductRuntime('test-product', { HOME: home })).save(
@@ -50,7 +49,7 @@ describe('the product session sealing', () => {
     );
   });
 
-  it('builds the prompt-history file that writes the lines every earlier build wrote', () => {
+  it('builds the prompt-history file that writes plain lines', () => {
     const home = realpathSync(mkdtempSync(join(tmpdir(), 'product-session-stores-')));
     roots.push(home);
     const entry = { at: '2026-11-01T00:00:00.000Z', sessionId: 's1', project: '/work', text: 'hi' };

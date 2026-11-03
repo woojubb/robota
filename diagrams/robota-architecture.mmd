@@ -126,6 +126,7 @@ graph TD
   %% Composition roots
   FW & CMD & PROD & PACK & SUB & MCP & BIP & SA --> CLI
   TTUI & TCAR & TWEBRTC & TGUI & WF --> CLI
+  KR --> CLI
   TGUI --> APP
   CLI -. daemon over loopback WebSocket .-> APP
   TGUI --> WEB

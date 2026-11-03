@@ -254,7 +254,7 @@ describe.runIf(process.platform === 'linux')('persistent edit checkpoints', () =
     expect(readFileSync(join(project, 'notes.txt'), 'utf8')).toBe(`before ${CANARY}`);
   });
 
-  it('of a plain runtime are written as they always were', async () => {
+  it('of a plain runtime are written plain', async () => {
     const project = tempRoot('test-product-checkpoint-sealing-project-');
     writeFileSync(join(project, 'notes.txt'), `before ${CANARY}`, 'utf8');
 

@@ -1,9 +1,9 @@
 /**
  * #3679 (secure conversation): every conversation store a product package builds — session records,
  * session logs, the prompt history, the tool-result spill, edit checkpoints — comes from
- * `packages/agent-cli/src/product/session-stores.ts`, which states how it seals. The SDK's store
- * constructors default to plain for embedders, so a product store built anywhere else would write
- * plaintext beside sealed files once secure mode is on.
+ * `packages/agent-cli/src/product/session-stores.ts`. Only that file knows the process's sealing
+ * decision, so a store built anywhere else in a product package could write plaintext beside sealed
+ * files once secure mode is on.
  * The repository's ESLint config refuses a value import of any of them in the product packages
  * outside that file; this pins what the rule catches — aliased or not, re-exported or reached through
  * a namespace — and what it leaves alone.
@@ -110,7 +110,7 @@ describe('session stores are built only by the product factory', () => {
       "import type { NodePromptHistoryFile, NodeSessionLogSource } from '@robota-sdk/agent-session';",
       "import type { WorkspaceSessionLogSink } from '@robota-sdk/agent-framework';",
       "import type { EditCheckpointStore, IEditCheckpointStateStorage } from '@robota-sdk/agent-framework';",
-      "import { createSealedEditCheckpointState, EditCheckpointsLockedError } from '@robota-sdk/agent-framework';",
+      "import { EditCheckpointsLockedError } from '@robota-sdk/agent-framework';",
       "import { readSettings, scanSessionStore } from '@robota-sdk/agent-framework';",
       "import { loadSessionForUpdate, NodeExternalPayloadSource } from '@robota-sdk/agent-session';",
     ]) {

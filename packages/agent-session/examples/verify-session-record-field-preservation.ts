@@ -200,7 +200,7 @@ async function main(): Promise<void> {
   let output: Omit<Record<string, unknown>, 'cleanupRemoved'> | undefined;
 
   try {
-    const store = new NodeSessionStore(join(scratchDir, 'sessions'));
+    const store = new NodeSessionStore(join(scratchDir, 'sessions'), { sealing: 'plain' });
     const existing = createExistingRecord();
     store.save(existing);
 

@@ -3,9 +3,9 @@
  * history, the tool-result spill, the edit checkpoints — and so the one place that decides how they
  * seal: a store a later process reads states the answer of {@link resolveProductSessionSealing}, and
  * one only this process reads back states {@link resolveProductTransientSealing}, so the
- * composition's stores and every command's own store agree. The SDK's store constructors default to
- * plain; the lint rule in the repository's ESLint config refuses a value import of any of them in the
- * product packages outside this file, so no store here can be left on that default.
+ * composition's stores and every command's own store agree. Only this file knows that decision, so
+ * the lint rule in the repository's ESLint config refuses a value import of any store constructor in
+ * the product packages outside it: a store built elsewhere could write plaintext beside sealed files.
  *
  * Being the one construction point also makes it where a process marks that it uses the stores
  * (`process-presence.ts`): every factory here enters the stores first, so a process that builds none
@@ -23,7 +23,6 @@ import {
   createDirectoryEditCheckpointState,
   createNodeToolResultSpillStore,
   createProjectSessionStore,
-  createSealedEditCheckpointState,
   createUserPromptHistoryFile,
   createUserSessionStore,
   createWorkspaceProjectMutation,
@@ -97,7 +96,7 @@ export function createProductPromptHistoryFile(
 
 /**
  * Where this run spills oversized tool results: a directory of its own in the owner-only state
- * root, never the shared temporary directory the SDK store defaults to.
+ * root, never the shared temporary directory.
  */
 export function createProductToolResultSpillStore(
   runtime: ICliRuntimeContext,
@@ -127,13 +126,7 @@ export function createProductEditCheckpointStoreFactory(
   options: { readonly ephemeral: boolean },
 ): () => EditCheckpointStore {
   enterProductStores(runtime);
-  const state = options.ephemeral
-    ? ephemeralCheckpointState(runtime)
-    : () =>
-        createSealedEditCheckpointState(
-          getWorkspaceProjectStateStorage(authority, 'checkpoints'),
-          resolveProductSessionSealing(runtime),
-        );
+  const ephemeralState = options.ephemeral ? ephemeralCheckpointState(runtime) : undefined;
   return () => {
     const keysLocked = resolveProductKeysLocked(runtime);
     return new EditCheckpointStore({
@@ -142,7 +135,16 @@ export function createProductEditCheckpointStoreFactory(
         status: 'approved',
         purpose: 'restore files from an edit checkpoint',
       }),
-      stateStorage: state(),
+      // A persisting session's checkpoints stay in the project's own checkpoint directory (no
+      // `stateStorage`), sealed as its record is. An ephemeral run's directory was made for this
+      // process alone, so it never held a plain checkpoint and one found there was planted.
+      ...(ephemeralState === undefined
+        ? { sealing: resolveProductSessionSealing(runtime) }
+        : {
+            sealing: resolveProductTransientSealing(runtime),
+            stateStorage: ephemeralState(),
+            sealedOnly: true,
+          }),
       ...(keysLocked === undefined ? {} : { keysLocked }),
     });
   };
@@ -161,12 +163,7 @@ function ephemeralCheckpointState(runtime: ICliRuntimeContext): () => IEditCheck
         EPHEMERAL_CHECKPOINT_DIRECTORY_PREFIX,
       );
       removeDirectoryOnProcessExit(directory);
-      // Made for this process alone, so it never held a plain checkpoint: one found there was planted.
-      state = createSealedEditCheckpointState(
-        createDirectoryEditCheckpointState(directory),
-        resolveProductTransientSealing(runtime),
-        { sealedOnly: true },
-      );
+      state = createDirectoryEditCheckpointState(directory);
     }
     return state;
   };

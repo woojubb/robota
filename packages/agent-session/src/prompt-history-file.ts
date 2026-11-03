@@ -119,13 +119,13 @@ export class NodePromptHistoryFile implements IPromptHistoryWriter, IPromptHisto
   private readonly lines: StoredLines;
 
   /**
-   * @param options `sealing`: `{ sealer }` appends each entry as one sealed line and opens sealed
-   *   lines it reads (plain ones still read); `'plain'`, the default, writes exactly what every
-   *   earlier build wrote and counts a sealed line as one no key in this process opens.
+   * @param options `sealing` (required): `{ sealer }` appends each entry as one sealed line and
+   *   opens sealed lines it reads (plain ones still read); `'plain'` appends plain lines and counts
+   *   a sealed line as one no key in this process opens.
    */
   constructor(
     private readonly path: string,
-    options: INodePromptHistoryFileOptions = {},
+    options: INodePromptHistoryFileOptions,
   ) {
     this.lines = new StoredLines(sessionSealingOf(options), 'prompt-history-line');
     this.blockBytes = options.blockBytes ?? DEFAULT_PROMPT_HISTORY_BLOCK_BYTES;

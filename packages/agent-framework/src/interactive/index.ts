@@ -24,11 +24,7 @@ export {
   WorkspaceSessionLogSink,
   WorkspaceSessionLogSource,
 } from './session-persistence.js';
-export type {
-  IHostToolResultSpillStore,
-  ISessionStoreOptions,
-  TSessionSealing,
-} from './session-persistence.js';
+export type { IHostToolResultSpillStore } from './session-persistence.js';
 export type { TLockedSessionReason } from './locked-session-wording.js';
 export {
   migrateWorkspaceProjectSessionLogs,

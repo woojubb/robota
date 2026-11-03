@@ -76,6 +76,7 @@ async function storeKeepingStateIn(
       purpose: 'checkpoint directory state test',
     }),
     stateStorage: state,
+    sealing: 'plain',
   });
 }
 

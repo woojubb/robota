@@ -14,6 +14,7 @@ import { join } from 'node:path';
 
 import { readCurrentProcessIdentity, readProcessStartTime } from '@robota-sdk/agent-core/node';
 import { leaveProcessScopedDirectory } from '@robota-sdk/agent-core/testing';
+import { TRANSPORT_ENVIRONMENT } from '@robota-sdk/agent-executor';
 import {
   createSubagentLogger,
   readSubagentTranscriptPage,
@@ -153,7 +154,7 @@ describe('a product subagent worker binds its parent’s grant', () => {
     const sealing = createProductSubagentComposition(createTestProductRuntime()).bindWriteGrant?.(
       sealer.writeGrant(),
     );
-    const logger = createSubagentLogger('session_parent', 'agent_1', logsDir, undefined, {
+    const logger = createSubagentLogger('session_parent', 'agent_1', logsDir, {
       sealing: sealing ?? 'plain',
     });
     logger.log('agent_1', 'session_init', { note: CANARY });
@@ -182,7 +183,7 @@ describe('a product subagent worker binds its parent’s grant', () => {
     const sealing = composition.bindWriteGrant?.(sealer.writeGrant()) ?? 'plain';
     // The parent tells its running children through the runner; the child binds the newer grant.
     holder.onSealingKeyChange(() => composition.bindWriteGrant?.(sealer.writeGrant()));
-    const logger = createSubagentLogger('session_parent', 'agent_1', logsDir, undefined, {
+    const logger = createSubagentLogger('session_parent', 'agent_1', logsDir, {
       sealing,
     });
     logger.log('agent_1', 'session_init', { note: 'before the unlock' });
@@ -208,7 +209,25 @@ interface IRunnerSealingOptions {
   readonly watchSealingKey?: (listener: () => void) => () => void;
 }
 
-function productRunnerOptions(runtime = createTestProductRuntime()): IRunnerSealingOptions {
+/**
+ * A runtime whose connection environment (proxy, certificate and `NODE_OPTIONS` variables) is the
+ * host's own. The product keeps the child-process runner only while a child would connect as its
+ * parent does, so a host that sets one of these (a CI runner does) would otherwise make it choose the
+ * in-process runner, which these tests do not exercise.
+ */
+function runtimeWithHostConnectionEnvironment(): ReturnType<typeof createTestProductRuntime> {
+  const host = Object.fromEntries(
+    TRANSPORT_ENVIRONMENT.flatMap((name) => {
+      const value = process.env[name];
+      return value === undefined ? [] : [[name, value]];
+    }),
+  );
+  return createTestProductRuntime('test-product', host);
+}
+
+function productRunnerOptions(
+  runtime = runtimeWithHostConnectionEnvironment(),
+): IRunnerSealingOptions {
   const factory = createProductSubagentRunnerFactory({
     productRuntime: runtime,
     packContext: { cwd: '/work' },
@@ -286,7 +305,7 @@ describe('the product runner gets its sealing and its key watch from the one dec
 
   it('never hands the runner a sealing without the watch that follows its key', async () => {
     const { holder } = await parent();
-    const runtime = createTestProductRuntime();
+    const runtime = runtimeWithHostConnectionEnvironment();
     overrideProductSecureMode(runtime, true);
     useProductKeyHolder(runtime, holder);
     const heard: string[] = [];

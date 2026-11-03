@@ -85,7 +85,7 @@ function plainEnvelope(value: IInteractiveSessionRecord): string {
 describe('a store with a sealer writes nothing readable', () => {
   it('keeps the plaintext off the disk and leaves a framed, owner-only file', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir, undefined, {
+    const store = new NodeSessionStore(dir, {
       sealing: { sealer: createTestArtifactSealer() },
     });
     store.save(record('sess_a'));
@@ -101,7 +101,7 @@ describe('a store with a sealer writes nothing readable', () => {
 
   it('round-trips the record', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir, undefined, {
+    const store = new NodeSessionStore(dir, {
       sealing: { sealer: createTestArtifactSealer() },
     });
     store.save(record('sess_a'));
@@ -110,7 +110,7 @@ describe('a store with a sealer writes nothing readable', () => {
 
   it('seals the same record to different bytes every time', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir, undefined, {
+    const store = new NodeSessionStore(dir, {
       sealing: { sealer: createTestArtifactSealer() },
     });
     store.save(record('sess_a'));
@@ -123,16 +123,16 @@ describe('a store with a sealer writes nothing readable', () => {
 describe('a store with no sealer is the store it always was', () => {
   it('writes the plain pretty-printed envelope, byte for byte', () => {
     const dir = newStoreDir();
-    new NodeSessionStore(dir, undefined, { sealing: 'plain' }).save(record('sess_a'));
+    new NodeSessionStore(dir, { sealing: 'plain' }).save(record('sess_a'));
     expect(readFileSync(fileOf(dir, 'sess_a'), 'utf-8')).toBe(plainEnvelope(record('sess_a')));
   });
 
   it('reports a sealed file as locked with no keys, not as missing or corrupt', () => {
     const dir = newStoreDir();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer: createTestArtifactSealer() } }).save(
+    new NodeSessionStore(dir, { sealing: { sealer: createTestArtifactSealer() } }).save(
       record('sess_a'),
     );
-    const reader = new NodeSessionStore(dir, undefined, { sealing: 'plain' });
+    const reader = new NodeSessionStore(dir, { sealing: 'plain' });
     // No unlock in this process would open it, which is what `no-keys` tells a surface apart.
     expect(reader.load('sess_a')).toEqual({ status: 'locked', reason: 'no-keys' });
     expect(reader.list()).toEqual([]);
@@ -145,7 +145,7 @@ describe('a locked sealer', () => {
   it('reports locked for a sealed session and leaves it out of the listing, counting it', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     store.save(record('sess_a'));
     store.save(record('sess_b'));
     sealer.lock();
@@ -159,7 +159,7 @@ describe('a locked sealer', () => {
   it('still lists the sessions that are not sealed and counts only the sealed ones', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     writeFileSync(fileOf(dir, 'sess_plain'), plainEnvelope(record('sess_plain')), 'utf-8');
     store.save(record('sess_sealed'));
     sealer.lock();
@@ -173,7 +173,7 @@ describe('a locked sealer', () => {
   it('writes a NEW session with only the public side, and a later unlock reads it', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer({ locked: true });
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
 
     store.save(record('sess_new'));
     expect(store.load('sess_new')).toEqual({ status: 'locked' });
@@ -187,7 +187,7 @@ describe('a locked sealer', () => {
   it('deletes without keys', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     store.save(record('sess_a'));
     sealer.lock();
     store.delete('sess_a');
@@ -199,7 +199,7 @@ describe('a locked sealer', () => {
 describe('a sealed file that does not open is corrupt, not locked', () => {
   it('reports a sealed file copied to another session id as corrupt', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir, undefined, {
+    const store = new NodeSessionStore(dir, {
       sealing: { sealer: createTestArtifactSealer() },
     });
     store.save(record('sess_a'));
@@ -213,7 +213,7 @@ describe('a sealed file that does not open is corrupt, not locked', () => {
 
   it('reports a tampered sealed file as corrupt, naming no content', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir, undefined, {
+    const store = new NodeSessionStore(dir, {
       sealing: { sealer: createTestArtifactSealer() },
     });
     store.save(record('sess_a'));
@@ -229,7 +229,7 @@ describe('a sealed file that does not open is corrupt, not locked', () => {
 
   it('reports a truncated sealed file as corrupt', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir, undefined, {
+    const store = new NodeSessionStore(dir, {
       sealing: { sealer: createTestArtifactSealer() },
     });
     store.save(record('sess_a'));
@@ -239,10 +239,10 @@ describe('a sealed file that does not open is corrupt, not locked', () => {
 
   it('reports a file sealed with other keys as corrupt, and lists it as such', () => {
     const dir = newStoreDir();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer: createTestArtifactSealer() } }).save(
+    new NodeSessionStore(dir, { sealing: { sealer: createTestArtifactSealer() } }).save(
       record('sess_a'),
     );
-    const otherKeys = new NodeSessionStore(dir, undefined, {
+    const otherKeys = new NodeSessionStore(dir, {
       sealing: { sealer: createTestArtifactSealer() },
     });
     expect(otherKeys.load('sess_a').status).toBe('corrupt');
@@ -274,7 +274,7 @@ describe('mixed directories while sessions migrate', () => {
   it('reads a plaintext record with a sealer configured, and seals it the next time it is saved', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     writeFileSync(fileOf(dir, 'sess_old'), plainEnvelope(record('sess_old')), 'utf-8');
     store.save(record('sess_new'));
 
@@ -300,7 +300,7 @@ describe('mixed directories while sessions migrate', () => {
 
   it('sorts readable sessions by recency across both forms', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir, undefined, {
+    const store = new NodeSessionStore(dir, {
       sealing: { sealer: createTestArtifactSealer() },
     });
     writeFileSync(
@@ -351,11 +351,11 @@ describe('a save never overwrites a sealed session this store cannot prove it wr
   it('refuses another instance that never held the session, byte-identical, while locked', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer } }).save(record('sess_a'));
+    new NodeSessionStore(dir, { sealing: { sealer } }).save(record('sess_a'));
     sealer.lock();
     const before = readFileSync(fileOf(dir, 'sess_a'));
     // A second instance, as after a restart: it remembers nothing about sess_a.
-    const restarted = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const restarted = new NodeSessionStore(dir, { sealing: { sealer } });
 
     const thrown = thrownBy(() => restarted.save(record('sess_a', 'a fresh record')));
 
@@ -367,23 +367,23 @@ describe('a save never overwrites a sealed session this store cannot prove it wr
 
   it('refuses when the store has no sealer at all', () => {
     const dir = newStoreDir();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer: createTestArtifactSealer() } }).save(
+    new NodeSessionStore(dir, { sealing: { sealer: createTestArtifactSealer() } }).save(
       record('sess_a'),
     );
     const before = readFileSync(fileOf(dir, 'sess_a'));
-    expect(() =>
-      new NodeSessionStore(dir, undefined, { sealing: 'plain' }).save(record('sess_a')),
-    ).toThrow(SealedSessionUnreadableError);
+    expect(() => new NodeSessionStore(dir, { sealing: 'plain' }).save(record('sess_a'))).toThrow(
+      SealedSessionUnreadableError,
+    );
     expect(readFileSync(fileOf(dir, 'sess_a')).equals(before)).toBe(true);
   });
 
   it('refuses when the sealed file belongs to other keys, which may still open it', () => {
     const dir = newStoreDir();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer: createTestArtifactSealer() } }).save(
+    new NodeSessionStore(dir, { sealing: { sealer: createTestArtifactSealer() } }).save(
       record('sess_a'),
     );
     const before = readFileSync(fileOf(dir, 'sess_a'));
-    const otherKeys = new NodeSessionStore(dir, undefined, {
+    const otherKeys = new NodeSessionStore(dir, {
       sealing: { sealer: createTestArtifactSealer() },
     });
     expect(() => otherKeys.save(record('sess_a'))).toThrow(
@@ -394,7 +394,7 @@ describe('a save never overwrites a sealed session this store cannot prove it wr
 
   it('still rewrites a sealed session it can open, and a plaintext one', () => {
     const dir = newStoreDir();
-    const store = new NodeSessionStore(dir, undefined, {
+    const store = new NodeSessionStore(dir, {
       sealing: { sealer: createTestArtifactSealer() },
     });
     store.save(record('sess_a'));
@@ -408,12 +408,12 @@ describe('a save never overwrites a sealed session this store cannot prove it wr
   it('keeps the autosave of another instance from replacing a locked session', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer } }).save(record('sess_a'));
+    new NodeSessionStore(dir, { sealing: { sealer } }).save(record('sess_a'));
     sealer.lock();
     const before = readFileSync(fileOf(dir, 'sess_a'));
 
     const outcome = persistSession(
-      persistContext(new NodeSessionStore(dir, undefined, { sealing: { sealer } }), 'sess_a', 'x'),
+      persistContext(new NodeSessionStore(dir, { sealing: { sealer } }), 'sess_a', 'x'),
     );
 
     expect(outcome).toEqual({ status: 'locked' });
@@ -425,7 +425,7 @@ describe('a locked process keeps saving the sessions it holds', () => {
   it('saves a session it created while locked again, and the file changes', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer({ locked: true });
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
 
     store.save(record('sess_new', 'first'));
     const first = readFileSync(fileOf(dir, 'sess_new'));
@@ -444,8 +444,8 @@ describe('a locked process keeps saving the sessions it holds', () => {
   it('saves a session it loaded to hold while unlocked after the keys lock', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer } }).save(record('sess_a'));
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    new NodeSessionStore(dir, { sealing: { sealer } }).save(record('sess_a'));
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     expect(store.load('sess_a', { hold: true }).status).toBe('valid');
     sealer.lock();
     const before = readFileSync(fileOf(dir, 'sess_a'));
@@ -463,11 +463,11 @@ describe('a locked process keeps saving the sessions it holds', () => {
   it('does not overwrite a file another writer replaced after the lock', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     store.save(record('sess_a'));
     sealer.lock();
     // Another writer (same keys, public key only) puts different sealed bytes at the path.
-    new NodeSessionStore(dir, undefined, { sealing: { sealer } }).save(record('sess_b', 'theirs'));
+    new NodeSessionStore(dir, { sealing: { sealer } }).save(record('sess_b', 'theirs'));
     const theirs = sealer.sealBytes(Buffer.from('another writer'), {
       kind: 'session-record',
       id: 'sess_a',
@@ -484,7 +484,7 @@ describe('a locked process keeps saving the sessions it holds', () => {
   it('forgets a session when it is deleted, so a file that reappears is not its own', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     store.save(record('sess_a'));
     const kept = readFileSync(fileOf(dir, 'sess_a'));
     sealer.lock();
@@ -501,8 +501,8 @@ describe('a locked process keeps saving the sessions it holds', () => {
   it('does not remember what a listing or a count only browsed', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer } }).save(record('sess_a'));
-    const browser = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    new NodeSessionStore(dir, { sealing: { sealer } }).save(record('sess_a'));
+    const browser = new NodeSessionStore(dir, { sealing: { sealer } });
     expect(browser.list()).toHaveLength(1);
     sealer.lock();
     expect(browser.scan().locked).toBe(1);
@@ -514,7 +514,7 @@ describe('a locked process keeps saving the sessions it holds', () => {
   it('keeps the autosave path going: read before write is answered from what the store holds', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     // A first persist while unlocked, with a name the autosave must go on preserving.
     store.save({ ...record('sess_a'), name: 'kept name', createdAt: '2026-07-01T00:00:00.000Z' });
     sealer.lock();
@@ -533,15 +533,13 @@ describe('a locked process keeps saving the sessions it holds', () => {
   it('offers the held copy only while the file is its own, and says when it changed', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     store.save(record('sess_a'));
     sealer.lock();
 
     expect(store.loadHeld('sess_a')).toEqual({ status: 'valid', record: record('sess_a') });
     expect(store.loadHeld('sess_unknown')).toBeUndefined();
-    expect(
-      new NodeSessionStore(dir, undefined, { sealing: { sealer } }).loadHeld('sess_a'),
-    ).toBeUndefined();
+    expect(new NodeSessionStore(dir, { sealing: { sealer } }).loadHeld('sess_a')).toBeUndefined();
     writeFileSync(
       fileOf(dir, 'sess_a'),
       sealer.sealBytes(Buffer.from('replaced'), { kind: 'session-record', id: 'sess_a' }),
@@ -560,7 +558,7 @@ describe('a locked process keeps saving the sessions it holds', () => {
     expect(memory.compare('sess_0', Buffer.from('0'))).toBe('unknown');
 
     const dir = newStoreDir();
-    const plain = new NodeSessionStore(dir, undefined, { sealing: 'plain' });
+    const plain = new NodeSessionStore(dir, { sealing: 'plain' });
     plain.save(record('sess_a'));
     expect(plain.loadHeld('sess_a')).toBeUndefined();
   });
@@ -570,7 +568,7 @@ describe.skipIf(process.platform === 'win32')('legacy mode repair reaches sealed
   it('tightens a world-readable sealed file on load, even while the keys are locked', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     store.save(record('sess_a'));
     sealer.lock();
     chmodSync(fileOf(dir, 'sess_a'), 0o644);
@@ -582,7 +580,7 @@ describe.skipIf(process.platform === 'win32')('legacy mode repair reaches sealed
   it('tightens every sealed file a listing or count browses', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     store.save(record('sess_a'));
     chmodSync(fileOf(dir, 'sess_a'), 0o640);
     sealer.lock();

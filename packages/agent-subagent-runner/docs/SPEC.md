@@ -61,8 +61,8 @@ extra dependency.
   run starts when it is still being built.
 - **The parent reads the transcript the child writes, by one rule.** The child names its log, and
   binds a sealed one, by the session it runs — the resumed record, else the task — and the parent
-  reads by the same rule, also through the worktree runner. A log with no sealed record pages as it
-  always did; in a sealed one a page's offset counts stored records, so it names the same record
+  reads by the same rule, also through the worktree runner. A log with no sealed record pages by its
+  display lines; in a sealed one a page's offset counts stored records, so it names the same record
   whether or not the keys are locked, and only the records on a page are opened. Whether a transcript is sealed is known only to
   the live handle, so hooks and job summaries learn it from there, never from task state.
 - **One provider connection across the boundary.** The child builds its provider from the

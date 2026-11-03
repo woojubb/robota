@@ -46,7 +46,7 @@ afterEach(() => {
 describe('NodeToolResultSpillStore', () => {
   it('commits an opaque reference into owner-only storage and removes it at shutdown', async () => {
     const root = parent();
-    const store = new NodeToolResultSpillStore({ parentDirectory: root });
+    const store = new NodeToolResultSpillStore({ sealing: 'plain', parentDirectory: root });
     const secret = 'authorization=secret-value';
 
     const { reference } = await store.write(secret);
@@ -72,7 +72,7 @@ describe('NodeToolResultSpillStore', () => {
 
   it('rejects traversal, unknown references, and a swapped symlink without reading outside storage', async () => {
     const root = parent();
-    const store = new NodeToolResultSpillStore({ parentDirectory: root });
+    const store = new NodeToolResultSpillStore({ sealing: 'plain', parentDirectory: root });
     const { reference } = await store.write('contained');
     await expect(store.read('tool-result:../../outside')).rejects.toMatchObject({
       code: 'invalid-reference',
@@ -95,6 +95,7 @@ describe('NodeToolResultSpillStore', () => {
     const root = parent();
     let now = 1_000;
     const store = new NodeToolResultSpillStore({
+      sealing: 'plain',
       parentDirectory: root,
       retentionMs: 10,
       now: () => now,
@@ -109,7 +110,7 @@ describe('NodeToolResultSpillStore', () => {
 
   it('names a missing committed file without returning a fallback payload, and counts it as removed', async () => {
     const root = parent();
-    const store = new NodeToolResultSpillStore({ parentDirectory: root });
+    const store = new NodeToolResultSpillStore({ sealing: 'plain', parentDirectory: root });
     const { reference } = await store.write('secret-that-is-gone');
     const directory = join(root, readdirSync(root)[0]!);
     unlinkSync(join(directory, spilled(directory)[0]!));
@@ -122,6 +123,7 @@ describe('NodeToolResultSpillStore', () => {
     const root = parent();
     let now = 1_000;
     const store = new NodeToolResultSpillStore({
+      sealing: 'plain',
       parentDirectory: root,
       retentionMs: 10,
       now: () => now,
@@ -142,6 +144,7 @@ describe('NodeToolResultSpillStore', () => {
     const root = parent();
     let now = 1_000;
     const store = new NodeToolResultSpillStore({
+      sealing: 'plain',
       parentDirectory: root,
       retentionMs: 10,
       now: () => now,
@@ -159,7 +162,11 @@ describe('NodeToolResultSpillStore', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-09-23T00:00:00Z'));
     const root = parent();
-    const store = new NodeToolResultSpillStore({ parentDirectory: root, retentionMs: 25 });
+    const store = new NodeToolResultSpillStore({
+      sealing: 'plain',
+      parentDirectory: root,
+      retentionMs: 25,
+    });
     const { reference } = await store.write('short-lived-secret');
     const directory = join(root, readdirSync(root)[0]!);
     await vi.advanceTimersByTimeAsync(25);
@@ -174,6 +181,7 @@ describe('NodeToolResultSpillStore', () => {
     const root = parent();
     const onCleanupFailure = vi.fn();
     const store = new NodeToolResultSpillStore({
+      sealing: 'plain',
       parentDirectory: root,
       retentionMs: 25,
       onCleanupFailure,
@@ -193,7 +201,7 @@ describe('NodeToolResultSpillStore', () => {
 
   it('names its directory for the owning process so a later start can tell it is stale', async () => {
     const root = parent();
-    const store = new NodeToolResultSpillStore({ parentDirectory: root });
+    const store = new NodeToolResultSpillStore({ sealing: 'plain', parentDirectory: root });
 
     expect(readdirSync(root)).toEqual([
       expect.stringMatching(new RegExp(`^agent-tool-results-${process.pid}-[A-Za-z0-9]{6}$`)),
@@ -207,7 +215,7 @@ describe('a spill directory left by a process that is gone', () => {
 
   it('is removed by the next start, and a live store beside it is not', async () => {
     const root = parent();
-    const live = new NodeToolResultSpillStore({ parentDirectory: root });
+    const live = new NodeToolResultSpillStore({ sealing: 'plain', parentDirectory: root });
     const { reference } = await live.write('still in use');
     const stale = leaveProcessScopedDirectory(
       root,
@@ -235,7 +243,7 @@ describe('a process that exits without reaching shutdown()', () => {
   function runChild(root: string, endWith: string): ReturnType<typeof spawnSync> {
     const script = [
       `import { NodeToolResultSpillStore } from ${JSON.stringify(storeModule)};`,
-      'const store = new NodeToolResultSpillStore({ parentDirectory: process.argv[1] });',
+      "const store = new NodeToolResultSpillStore({ parentDirectory: process.argv[1], sealing: 'plain' });",
       "await store.write('conversation content');",
       endWith,
     ].join('\n');

@@ -79,9 +79,9 @@ describe('a store holds a session only when it wrote it or was asked to hold it'
   it('keeps saving a session it holds while locked, however many other sessions were probed', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     store.save(record('sess_live'));
-    const other = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const other = new NodeSessionStore(dir, { sealing: { sealer } });
     for (let index = 0; index < 40; index += 1) other.save(record(`sess_other_${index}`));
     // Read-only probes: a usage report, an "is it locked?" check, a fork attach.
     for (let index = 0; index < 40; index += 1) {
@@ -100,8 +100,8 @@ describe('a store holds a session only when it wrote it or was asked to hold it'
   it('does not hold what a probe read, so it cannot replace that session once the keys lock', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer } }).save(record('sess_a'));
-    const prober = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    new NodeSessionStore(dir, { sealing: { sealer } }).save(record('sess_a'));
+    const prober = new NodeSessionStore(dir, { sealing: { sealer } });
     expect(prober.load('sess_a').status).toBe('valid');
     sealer.lock();
     const before = readFileSync(fileOf(dir, 'sess_a'));
@@ -116,8 +116,8 @@ describe('a store holds a session only when it wrote it or was asked to hold it'
   it('holds a session a resume-style load asked for, and keeps saving it after the lock', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer } }).save(record('sess_a'));
-    const resumer = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    new NodeSessionStore(dir, { sealing: { sealer } }).save(record('sess_a'));
+    const resumer = new NodeSessionStore(dir, { sealing: { sealer } });
     expect(resumer.load('sess_a', { hold: true }).status).toBe('valid');
     sealer.lock();
 
@@ -133,9 +133,9 @@ describe('a store holds a session only when it wrote it or was asked to hold it'
   it('wipes the plaintext the sealer handed back once it is decoded', () => {
     const dir = newStoreDir();
     const { sealer, opened } = countingSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     store.save(record('sess_a'));
-    new NodeSessionStore(dir, undefined, { sealing: { sealer } }).load('sess_a', { hold: true });
+    new NodeSessionStore(dir, { sealing: { sealer } }).load('sess_a', { hold: true });
 
     expect(opened).toHaveLength(1);
     expect(opened[0]!.length).toBeGreaterThan(0);
@@ -147,7 +147,7 @@ describe('a store pays for what it already knows only once', () => {
   it('replaces a file it remembers without decrypting it first', () => {
     const dir = newStoreDir();
     const { sealer, opened } = countingSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     store.save(record('sess_a'));
     store.save(record('sess_a', 'second'));
     store.save(record('sess_a', 'third'));
@@ -159,10 +159,10 @@ describe('a store pays for what it already knows only once', () => {
     const dir = newStoreDir();
     const inner = createTestArtifactSealer();
     const { sealer, opened } = countingSealer(inner);
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     writeFileSync(fileOf(dir, 'sess_plain'), plainEnvelope(record('sess_plain')), 'utf-8');
     store.save(record('sess_sealed'));
-    new NodeSessionStore(dir, undefined, { sealing: { sealer: inner } }).save(record('sess_open'));
+    new NodeSessionStore(dir, { sealing: { sealer: inner } }).save(record('sess_open'));
     inner.lock();
 
     const scan = store.scan();
@@ -185,15 +185,15 @@ describe.skipIf(process.platform === 'win32' || process.getuid?.() === 0)(
   () => {
     it('refuses to replace a sealed file it cannot open for reading, with or without a sealer', () => {
       const dir = newStoreDir();
-      new NodeSessionStore(dir, undefined, {
+      new NodeSessionStore(dir, {
         sealing: { sealer: createTestArtifactSealer() },
       }).save(record('sess_a'));
       const before = readFileSync(fileOf(dir, 'sess_a'));
       chmodSync(fileOf(dir, 'sess_a'), 0o000);
       try {
         for (const store of [
-          new NodeSessionStore(dir, undefined, { sealing: 'plain' }),
-          new NodeSessionStore(dir, undefined, { sealing: { sealer: createTestArtifactSealer() } }),
+          new NodeSessionStore(dir, { sealing: 'plain' }),
+          new NodeSessionStore(dir, { sealing: { sealer: createTestArtifactSealer() } }),
         ]) {
           const thrown = thrownBy(() => store.save(record('sess_a', 'replacement')));
           expect(thrown).toBeInstanceOf(SealedSessionUnreadableError);
@@ -212,8 +212,8 @@ describe('a record answers only for the id it is stored under', () => {
     const dir = newStoreDir();
     writeFileSync(fileOf(dir, 'sess_b'), plainEnvelope(record('sess_a')), 'utf-8');
     for (const store of [
-      new NodeSessionStore(dir, undefined, { sealing: 'plain' }),
-      new NodeSessionStore(dir, undefined, { sealing: { sealer: createTestArtifactSealer() } }),
+      new NodeSessionStore(dir, { sealing: 'plain' }),
+      new NodeSessionStore(dir, { sealing: { sealer: createTestArtifactSealer() } }),
     ]) {
       const outcome = store.load('sess_b');
       expect(outcome.status).toBe('corrupt');
@@ -235,7 +235,7 @@ describe('a record answers only for the id it is stored under', () => {
         id: 'sess_b',
       }),
     );
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
 
     const outcome = store.load('sess_b', { hold: true });
 
@@ -257,8 +257,8 @@ describe('a sealed file in a framing version this build does not know', () => {
     const dir = newStoreDir();
     newerFile(dir, 'sess_new');
     for (const store of [
-      new NodeSessionStore(dir, undefined, { sealing: 'plain' }),
-      new NodeSessionStore(dir, undefined, { sealing: { sealer: createTestArtifactSealer() } }),
+      new NodeSessionStore(dir, { sealing: 'plain' }),
+      new NodeSessionStore(dir, { sealing: { sealer: createTestArtifactSealer() } }),
     ]) {
       expect(store.load('sess_new')).toEqual({ status: 'unsupported', schemaVersion: undefined });
       expect(store.list().map((entry) => [entry.id, entry.outcome.status])).toEqual([
@@ -271,8 +271,8 @@ describe('a sealed file in a framing version this build does not know', () => {
     const dir = newStoreDir();
     const before = newerFile(dir, 'sess_new');
     for (const store of [
-      new NodeSessionStore(dir, undefined, { sealing: 'plain' }),
-      new NodeSessionStore(dir, undefined, { sealing: { sealer: createTestArtifactSealer() } }),
+      new NodeSessionStore(dir, { sealing: 'plain' }),
+      new NodeSessionStore(dir, { sealing: { sealer: createTestArtifactSealer() } }),
     ]) {
       const thrown = thrownBy(() => store.save(record('sess_new')));
       expect(thrown).toBeInstanceOf(SealedSessionUnreadableError);
@@ -286,7 +286,7 @@ describe('the reasons a save is refused say what the store saw', () => {
   it('names a file that changed since this store wrote it as changed', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     store.save(record('sess_a'));
     sealer.lock();
     writeFileSync(
@@ -304,12 +304,12 @@ describe('the reasons a save is refused say what the store saw', () => {
 
   it('names a file sealed with other keys as one that does not open, without claiming who wrote it', () => {
     const dir = newStoreDir();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer: createTestArtifactSealer() } }).save(
+    new NodeSessionStore(dir, { sealing: { sealer: createTestArtifactSealer() } }).save(
       record('sess_a'),
     );
 
     const thrown = thrownBy(() =>
-      new NodeSessionStore(dir, undefined, {
+      new NodeSessionStore(dir, {
         sealing: { sealer: createTestArtifactSealer() },
       }).save(record('sess_a')),
     );
@@ -322,18 +322,21 @@ describe('the reasons a save is refused say what the store saw', () => {
 });
 
 describe('how a store is built', () => {
-  it('keeps records plain when built the 3.0 way, and refuses a stated sealing that is not one', () => {
+  it('keeps records plain when it says plain, and refuses a sealing that is missing or is not one', () => {
     const root = newStoreDir();
     const dir = path.join(root, 'sessions');
-    // The published call shapes: no options at all, and an owned root.
-    new NodeSessionStore(dir).save(record('sess_a'));
-    new NodeSessionStore(dir, root).save(record('sess_b'));
+    // Both call shapes: with and without an owned root.
+    new NodeSessionStore(dir, { sealing: 'plain' }).save(record('sess_a'));
+    new NodeSessionStore(dir, { ownedRoot: root, sealing: 'plain' }).save(record('sess_b'));
     expect(JSON.parse(readFileSync(fileOf(dir, 'sess_a'), 'utf8')).record.id).toBe('sess_a');
     expect(JSON.parse(readFileSync(fileOf(dir, 'sess_b'), 'utf8')).record.id).toBe('sess_b');
 
     const Stated = NodeSessionStore as unknown as new (...args: unknown[]) => NodeSessionStore;
-    expect(() => new Stated(dir, undefined, { sealing: { sealer: undefined } })).toThrow(TypeError);
-    expect(() => new Stated(dir, undefined, { sealing: 'sealed' })).toThrow(TypeError);
-    expect(() => new Stated(dir, undefined, 'plain')).toThrow(TypeError);
+    // What the types refuse, a caller that ignores them is refused at run time as well.
+    expect(() => new Stated(dir)).toThrow(TypeError);
+    expect(() => new Stated(dir, {})).toThrow(TypeError);
+    expect(() => new Stated(dir, { sealing: { sealer: undefined } })).toThrow(TypeError);
+    expect(() => new Stated(dir, { sealing: 'sealed' })).toThrow(TypeError);
+    expect(() => new Stated(dir, 'plain')).toThrow(TypeError);
   });
 });

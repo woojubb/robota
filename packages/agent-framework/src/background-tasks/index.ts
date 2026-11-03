@@ -49,7 +49,6 @@ export type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 export type {
   IBackgroundJobGroupCreateRequest,
   IBackgroundJobGroupSummary,
-  IBackgroundJobGroupSummaryOptions,
   IBackgroundJobGroupState,
   IBackgroundJobOrchestratorOptions,
   IBackgroundJobResultEnvelope,

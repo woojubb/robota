@@ -65,7 +65,9 @@ function record(id: string): ISessionRecord {
 }
 
 function newStore(): NodeSessionStore {
-  return new NodeSessionStore(realpathSync(mkdtempSync(path.join(tmpdir(), 'artifact-resume-'))));
+  return new NodeSessionStore(realpathSync(mkdtempSync(path.join(tmpdir(), 'artifact-resume-'))), {
+    sealing: 'plain',
+  });
 }
 
 describe('imported session artifact resumes via loadSessionRecord (TC-03)', () => {

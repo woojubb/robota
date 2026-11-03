@@ -58,7 +58,7 @@ describe('a fork record written for a handoff', () => {
   it('never pushes a held session out of what the store holds', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     const held = sessionIds(HELD_LIMIT);
     for (const id of held) store.save(record(id));
 
@@ -71,7 +71,7 @@ describe('a fork record written for a handoff', () => {
   it('is still handed back to a writer after many other sessions were saved', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer({ locked: true });
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
 
     store.save(record('sess_fork'), { handoff: true });
     for (const id of sessionIds(40, 'sess_other')) store.save(record(id));
@@ -88,7 +88,7 @@ describe('a fork record written for a handoff', () => {
   it('is exported once, as a token naming the sealed bytes, while the file is still those bytes', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer({ locked: true });
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     store.save(record('sess_fork'), { handoff: true });
 
     const token = store.exportHeld?.('sess_fork');
@@ -102,7 +102,7 @@ describe('a fork record written for a handoff', () => {
   it('is left in place by an export that keeps it, for the export that hands it over', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer({ locked: true });
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     store.save(record('sess_fork'), { handoff: true });
 
     const kept = [1, 2].map(() => store.exportHeld?.('sess_fork', { keep: true }));
@@ -116,10 +116,10 @@ describe('a fork record written for a handoff', () => {
   it('is not exported once the file changed since the handoff write', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     store.save(record('sess_fork'), { handoff: true });
     // Another writer rewrites the fork (the child running it, say).
-    new NodeSessionStore(dir, undefined, { sealing: { sealer } }).save(
+    new NodeSessionStore(dir, { sealing: { sealer } }).save(
       record('sess_fork', 'rewritten elsewhere'),
     );
     sealer.lock();
@@ -132,13 +132,13 @@ describe('exporting a record the store does not hold', () => {
   it('opens the file while unlocked and holds nothing it read', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer } }).save(record('sess_fork'));
-    const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+    new NodeSessionStore(dir, { sealing: { sealer } }).save(record('sess_fork'));
+    const store = new NodeSessionStore(dir, { sealing: { sealer } });
     const held = sessionIds(HELD_LIMIT);
     for (const id of held) store.save(record(id));
     const others = sessionIds(5, 'sess_probe');
     for (const id of others) {
-      new NodeSessionStore(dir, undefined, { sealing: { sealer } }).save(record(id));
+      new NodeSessionStore(dir, { sealing: { sealer } }).save(record(id));
     }
 
     const token = store.exportHeld?.('sess_fork');
@@ -153,18 +153,18 @@ describe('exporting a record the store does not hold', () => {
   it('is nothing while the keys are locked, and nothing for a store that seals nothing', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer } }).save(record('sess_fork'));
+    new NodeSessionStore(dir, { sealing: { sealer } }).save(record('sess_fork'));
     sealer.lock();
 
     expect(
-      new NodeSessionStore(dir, undefined, { sealing: { sealer } }).exportHeld?.('sess_fork'),
+      new NodeSessionStore(dir, { sealing: { sealer } }).exportHeld?.('sess_fork'),
     ).toBeUndefined();
 
     const plainDir = newStoreDir();
-    const plain = new NodeSessionStore(plainDir);
+    const plain = new NodeSessionStore(plainDir, { sealing: 'plain' });
     plain.save(record('sess_fork'), { handoff: true });
     expect(plain.exportHeld?.('sess_fork')).toBeUndefined();
-    // A plain handoff write is the plain file every earlier build wrote.
+    // A plain handoff write is the plain file.
     expect(readFileSync(path.join(plainDir, 'sess_fork.json'), 'utf8')).toContain(CANARY);
   });
 });
@@ -173,8 +173,8 @@ describe('a store that holds only a write grant', () => {
   it('reports a sealed record as no keys here, not as locked keys an unlock would open', () => {
     const dir = newStoreDir();
     const parent = createTestArtifactSealer();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer: parent } }).save(record('sess_fork'));
-    const child = new NodeSessionStore(dir, undefined, {
+    new NodeSessionStore(dir, { sealing: { sealer: parent } }).save(record('sess_fork'));
+    const child = new NodeSessionStore(dir, {
       sealing: { sealer: openTestWriteGrant(parent.writeGrant()) },
     });
 
@@ -184,10 +184,10 @@ describe('a store that holds only a write grant', () => {
   it('takes the handed-over record, resumes it and keeps saving it sealed', () => {
     const dir = newStoreDir();
     const parentSealer = createTestArtifactSealer({ locked: true });
-    const parent = new NodeSessionStore(dir, undefined, { sealing: { sealer: parentSealer } });
+    const parent = new NodeSessionStore(dir, { sealing: { sealer: parentSealer } });
     parent.save(record('sess_fork'), { handoff: true });
     const token = parent.exportHeld?.('sess_fork') as string;
-    const child = new NodeSessionStore(dir, undefined, {
+    const child = new NodeSessionStore(dir, {
       sealing: { sealer: openTestWriteGrant(parentSealer.writeGrant()) },
     });
 
@@ -211,11 +211,11 @@ describe('a store that holds only a write grant', () => {
   it('does not take a record for a file that is no longer the bytes the token names', () => {
     const dir = newStoreDir();
     const parentSealer = createTestArtifactSealer();
-    const parent = new NodeSessionStore(dir, undefined, { sealing: { sealer: parentSealer } });
+    const parent = new NodeSessionStore(dir, { sealing: { sealer: parentSealer } });
     parent.save(record('sess_fork'));
     const token = parent.exportHeld?.('sess_fork') as string;
     parent.save(record('sess_fork', 'rewritten after the export'));
-    const child = new NodeSessionStore(dir, undefined, {
+    const child = new NodeSessionStore(dir, {
       sealing: { sealer: openTestWriteGrant(parentSealer.writeGrant()) },
     });
 
@@ -235,10 +235,10 @@ describe('a store that holds only a write grant', () => {
   ])('refuses %s', (label, mutate) => {
     const dir = newStoreDir();
     const parentSealer = createTestArtifactSealer();
-    const parent = new NodeSessionStore(dir, undefined, { sealing: { sealer: parentSealer } });
+    const parent = new NodeSessionStore(dir, { sealing: { sealer: parentSealer } });
     parent.save(record('sess_other'));
     const token = mutate(parent.exportHeld?.('sess_other') as string);
-    const child = new NodeSessionStore(dir, undefined, {
+    const child = new NodeSessionStore(dir, {
       sealing: { sealer: openTestWriteGrant(parentSealer.writeGrant()) },
     });
 
@@ -248,10 +248,10 @@ describe('a store that holds only a write grant', () => {
   it('is refused by a store that seals nothing, which would write the record in plaintext', () => {
     const dir = newStoreDir();
     const parentSealer = createTestArtifactSealer();
-    const parent = new NodeSessionStore(dir, undefined, { sealing: { sealer: parentSealer } });
+    const parent = new NodeSessionStore(dir, { sealing: { sealer: parentSealer } });
     parent.save(record('sess_fork'));
     const token = parent.exportHeld?.('sess_fork') as string;
-    const plain = new NodeSessionStore(dir);
+    const plain = new NodeSessionStore(dir, { sealing: 'plain' });
 
     expect(() => plain.importHeld?.('sess_fork', token)).toThrow(TypeError);
     expect(() => plain.save(record('sess_fork', 'plaintext'))).toThrow();

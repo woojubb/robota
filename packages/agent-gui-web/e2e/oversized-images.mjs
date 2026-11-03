@@ -192,7 +192,7 @@ try {
   execFileSync('git', ['init', '--quiet'], { cwd: root, env: createTestBinaryEnvironment(home) });
   const trust = createNodeWorkspaceTrustService(runtime.layout.userPaths.workspaceTrust, runtime.layout.projectStateDirectories);
   if (contribution === 'packaged') assert.equal((await trust.grant(root)).status, 'trusted');
-  store = contribution === 'packaged' ? createInitialCliWorkspaceComposition(root, { productRuntime: runtime, projectAccess: await trust.inspect(root) }).sessionStore : createNodeHostSessionStore(runtime.layout.userPaths.sessions);
+  store = contribution === 'packaged' ? createInitialCliWorkspaceComposition(root, { productRuntime: runtime, projectAccess: await trust.inspect(root) }).sessionStore : createNodeHostSessionStore(runtime.layout.userPaths.sessions, { sealing: 'plain' });
   web = await preview({ root: packageRoot, preview: { port: 0, host: '127.0.0.1' } });
   const launch = async (resumeId) => {
     round = 0; restored = Boolean(resumeId);

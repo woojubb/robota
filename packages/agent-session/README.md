@@ -242,8 +242,8 @@ durable Roundtable execution. Unresolved forks and workspace copies are refused 
 
 `IInteractiveSessionRecord` carries the full conversation and resumable state. `NodeSessionStore`
 saves the record without inspecting its payload. It is a host adapter: passing it a directory does
-not establish workspace trust. It keeps records as plain JSON unless it is built with
-`{ sealing: { sealer } }`, which seals each one. `@robota-sdk/agent-framework` instead adapts a
+not establish workspace trust. It is built with a sealing decision: `{ sealing: { sealer } }` seals
+each record, `{ sealing: 'plain' }` keeps plain JSON. `@robota-sdk/agent-framework` instead adapts a
 trusted project's state storage to the same store port.
 
 When a `Session` re-saves an existing record, it keeps the fields it does not own and refreshes only
@@ -258,11 +258,12 @@ secret fields and stores large fields as content-addressed JSON payload files un
 `{sessionId}.payloads/`. Streaming text deltas go to the log as `text_delta` events; keep
 high-frequency output in logs and the session record focused on resumable state.
 
-`NodeSessionLogSink`, `NodeSessionLogSource` and `NodePromptHistoryFile` write and read plain lines
-unless they are built with `{ sealing: { sealer } }`. Then each append is one sealed line and each
-payload file is sealed under a random name; a source reads plain and sealed lines alike, and
-`readStoredLines()` says which lines it could not open (locked, damaged, or sealed by a newer build)
-where `readText()` throws.
+`NodeSessionLogSink`, `NodeSessionLogSource` and `NodePromptHistoryFile` are built with a sealing
+decision too. With `{ sealing: { sealer } }` each append is one sealed line and each payload file is
+sealed under a random name; with `{ sealing: 'plain' }` they write plain lines. A source reads plain
+and sealed lines alike, and `readStoredLines()` says which lines it could not open (locked, damaged,
+or sealed by a newer build) where `readText()` throws. `NodeToolResultSpillStore` takes the same
+decision and the host directory it lives in.
 
 `Session.run()` forwards core execution events into the log, including `provider_request`,
 `provider_native_raw_payload`, `provider_stream_raw_delta`, `provider_response_raw`,

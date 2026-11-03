@@ -40,7 +40,7 @@ describe('NodePromptHistoryFile (SCREEN-1993 TC-01)', () => {
   it('appends one JSON line per entry with owner-only directory and file modes', () => {
     const root = temp();
     const path = join(root, '.agent', 'history.jsonl');
-    const file = new NodePromptHistoryFile(path, { ownedRoot: root });
+    const file = new NodePromptHistoryFile(path, { sealing: 'plain', ownedRoot: root });
     file.append(entry(1));
     file.append(entry(2));
     const lines = readFileSync(path, 'utf8').split('\n');
@@ -55,11 +55,11 @@ describe('NodePromptHistoryFile (SCREEN-1993 TC-01)', () => {
   it('reads newest-first across several blocks, carrying a line split by a block boundary', async () => {
     const root = temp();
     const path = join(root, 'history.jsonl');
-    const writer = new NodePromptHistoryFile(path);
+    const writer = new NodePromptHistoryFile(path, { sealing: 'plain' });
     const total = 120;
     for (let index = 0; index < total; index += 1) writer.append(entry(index));
     // A block far smaller than the file: many boundaries, most of them mid-line.
-    const reader = new NodePromptHistoryFile(path, { blockBytes: 97 });
+    const reader = new NodePromptHistoryFile(path, { sealing: 'plain', blockBytes: 97 });
     const blocks = await collect(reader);
     expect(blocks.length).toBeGreaterThan(1);
     const texts = blocks.flatMap((block) => block.entries.map((item) => item.text));
@@ -73,13 +73,13 @@ describe('NodePromptHistoryFile (SCREEN-1993 TC-01)', () => {
   it('counts a malformed line as skipped and never yields it', async () => {
     const root = temp();
     const path = join(root, 'history.jsonl');
-    const writer = new NodePromptHistoryFile(path);
+    const writer = new NodePromptHistoryFile(path, { sealing: 'plain' });
     writer.append(entry(1));
     // Two bad lines: not JSON, and JSON of the wrong shape.
     const { appendFileSync } = await import('node:fs');
     appendFileSync(path, 'not json at all\n{"at":"x"}\n');
     writer.append(entry(2));
-    const blocks = await collect(new NodePromptHistoryFile(path));
+    const blocks = await collect(new NodePromptHistoryFile(path, { sealing: 'plain' }));
     expect(blocks.flatMap((block) => block.entries.map((item) => item.text))).toEqual([
       'prompt 2',
       'prompt 1',
@@ -91,10 +91,10 @@ describe('NodePromptHistoryFile (SCREEN-1993 TC-01)', () => {
   it('stops between blocks once the signal is aborted', async () => {
     const root = temp();
     const path = join(root, 'history.jsonl');
-    const writer = new NodePromptHistoryFile(path);
+    const writer = new NodePromptHistoryFile(path, { sealing: 'plain' });
     for (let index = 0; index < 60; index += 1) writer.append(entry(index));
     const controller = new AbortController();
-    const reader = new NodePromptHistoryFile(path, { blockBytes: 200 });
+    const reader = new NodePromptHistoryFile(path, { sealing: 'plain', blockBytes: 200 });
     const seen: IPromptHistoryBlock[] = [];
     for await (const block of reader.read({ signal: controller.signal })) {
       seen.push(block);
@@ -105,9 +105,13 @@ describe('NodePromptHistoryFile (SCREEN-1993 TC-01)', () => {
 
   it('yields nothing for a missing file and throws for a path that is a directory', async () => {
     const root = temp();
-    expect(await collect(new NodePromptHistoryFile(join(root, 'absent.jsonl')))).toEqual([]);
+    expect(
+      await collect(new NodePromptHistoryFile(join(root, 'absent.jsonl'), { sealing: 'plain' })),
+    ).toEqual([]);
     const directory = join(root, 'history.jsonl');
     mkdirSync(directory);
-    await expect(collect(new NodePromptHistoryFile(directory))).rejects.toThrow();
+    await expect(
+      collect(new NodePromptHistoryFile(directory, { sealing: 'plain' })),
+    ).rejects.toThrow();
   });
 });

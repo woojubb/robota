@@ -59,7 +59,7 @@ function allPages(path: string, sealer?: ReturnType<typeof createTestArtifactSea
     readSubagentTranscriptPage(path, {
       offset,
       pageLines: 2,
-      ...(sealer === undefined ? {} : { sealing: { sealer } }),
+      sealing: sealer === undefined ? 'plain' : { sealer },
     }),
   );
 }

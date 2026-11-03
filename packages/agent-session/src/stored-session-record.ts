@@ -5,13 +5,13 @@
  * back the same way; this is that one place, {@link StoredSessionRecords}. A record is stored in one
  * of two forms:
  *
- * - plain: the versioned JSON envelope, exactly as every build before sealing wrote it, or
+ * - plain: the versioned JSON envelope, or
  * - sealed: the same JSON bytes sealed by an {@link IArtifactSealer}, bound to the record's own id.
  *
  * A store that seals WRITES sealed and reads both, so a directory part-way through a migration lists
  * correctly and a plain record turns sealed the next time its session is saved. A store that seals
- * nothing writes plain, byte for byte as before, and meets a sealed file as `locked`: this process
- * cannot read it, which is a different fact from "damaged" and from "not there".
+ * nothing writes plain and meets a sealed file as `locked`: this process cannot read it, which is a
+ * different fact from "damaged" and from "not there".
  *
  * Locking drops the ability to READ, not to keep saving what a process is already running: sealing
  * needs only the public key, and the process holds its session in memory. So a store remembers, per
@@ -38,7 +38,7 @@ import {
   decodeVersionedInteractiveSessionRecord,
 } from './session-record-codec/index.js';
 
-import type { IArtifactContext, IArtifactSealer } from '@robota-sdk/agent-core';
+import type { IArtifactContext, IArtifactSealer, TArtifactSealing } from '@robota-sdk/agent-core';
 import type {
   IInteractiveSessionRecord,
   ISessionExportOptions,
@@ -47,32 +47,26 @@ import type {
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
 
-/** How a session store keeps its records: sealed by `sealer`, or `'plain'`. */
-export type TSessionSealing = { readonly sealer: IArtifactSealer } | 'plain';
-
 /**
- * How a session store is built. `sealing` says how it keeps its records; left out, they are plain,
- * byte for byte what every earlier build wrote, so an embedder that never heard of sealing builds
- * stores exactly as before. A host that seals states it for every store it builds: a store left
- * plain beside sealed ones would write plaintext next to them.
+ * How a session store is built. `sealing` is required: every store states whether it keeps its
+ * records sealed or plain, because a store that silently kept them plain beside sealed ones would
+ * write plaintext next to them. A host that seals states it for every store it builds.
  */
 export interface ISessionStoreOptions {
-  readonly sealing?: TSessionSealing;
+  readonly sealing: TArtifactSealing;
 }
 
-/** The sealing `options` state, `'plain'` when they state none; a stated value that is not one is refused. */
-export function sessionSealingOf(options: ISessionStoreOptions | undefined): TSessionSealing {
-  if (options === undefined) return 'plain';
+/** The sealing `options` state; one that is not a {@link TArtifactSealing} (a call that ignores the types) is refused. */
+export function sessionSealingOf(options: ISessionStoreOptions): TArtifactSealing {
   if (typeof options !== 'object' || options === null) {
     throw new TypeError('Session store options must be an object, such as { sealing }.');
   }
-  if (options.sealing === undefined) return 'plain';
   assertSessionSealing(options.sealing);
   return options.sealing;
 }
 
-/** Refuses anything that is not a {@link TSessionSealing}. */
-export function assertSessionSealing(value: unknown): asserts value is TSessionSealing {
+/** Refuses anything that is not a {@link TArtifactSealing}. */
+export function assertSessionSealing(value: unknown): asserts value is TArtifactSealing {
   if (value === 'plain') return;
   const sealer =
     typeof value === 'object' && value !== null
@@ -86,7 +80,7 @@ export function assertSessionSealing(value: unknown): asserts value is TSessionS
   ) {
     return;
   }
-  throw new TypeError("A session store seals with { sealer } or keeps records 'plain'.");
+  throw new TypeError("A session store states how it seals: { sealer }, or 'plain'.");
 }
 
 /** What a listing says about a sealed file that does not open; fixed, so it can carry no content. */
@@ -426,7 +420,7 @@ export class StoredSessionRecords {
    */
   readonly #handoffs = new SealedSessionMemory(MAX_HANDOFF_RECORDS);
 
-  constructor(sealing: TSessionSealing) {
+  constructor(sealing: TArtifactSealing) {
     assertSessionSealing(sealing);
     this.#sealer = sealing === 'plain' ? undefined : sealing.sealer;
   }
@@ -488,7 +482,7 @@ export class StoredSessionRecords {
         throw new SealedSessionUnreadableError(id, 'unreadable');
       case 'oversized':
         // Nothing past the read limit can be shown to be anything. A store that seals protects it,
-        // since it may be a sealed session; one that seals nothing replaces it as it always did.
+        // since it may be a sealed session; one that seals nothing replaces it.
         if (this.seals) throw new SealedSessionUnreadableError(id, 'unreadable');
         return;
       case 'sealed':

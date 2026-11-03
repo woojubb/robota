@@ -69,6 +69,7 @@ const factory = createChildProcessSubagentRunnerFactory({
   providerConfig,
   providerDefinitions: myProviderDefinitions, // required: a job whose provider is not here is refused
   logsDir: hostSelectedLogDirectory,
+  logSealing: 'plain', // required: how the children keep their logs, `{ sealer }` or 'plain'
   worktreeAdapter, // required: no concrete git default — inject the port at the composition root
 });
 ```

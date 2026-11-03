@@ -38,7 +38,10 @@ export interface IMigrateSessionRecordsOptions {
    * stops the migration there with that record as it was.
    */
   readonly beforeCommit?: () => void;
-  /** Also removes temp files crashed writes left; leave it off while another writer may be running. */
+  /**
+   * Also removes the temp files crashed writes left; leave it off while another writer may be running.
+   * Off, they are still counted in `staleTemporaries` and left where they are.
+   */
   readonly sweepTemporaries?: boolean;
   /**
    * When the migration started, in milliseconds by the filesystem's clock (its marker's time): a temp
@@ -64,7 +67,7 @@ export interface ISessionRecordMigration {
   readonly refused: readonly string[];
   /** Records that changed while being sealed: left as they are, for the next run. */
   readonly changed: readonly string[];
-  /** Temp files crashed writes left with a record in them: removed (or to remove). */
+  /** Temp files crashed writes left with a record in them: removed (or to remove) with `sweepTemporaries`, else left. */
   readonly staleTemporaries: number;
 }
 
@@ -134,13 +137,11 @@ export function migrateNodeSessionStore(
   }, options.beforeCommit);
   result.sealed += replacements.replaced;
   result.changed.push(...replacements.changed);
-  if (options.sweepTemporaries === true) {
-    result.staleTemporaries = sweepStaleStoreTemporaries(
-      baseDir,
-      options.apply,
-      options.migrationStartedAt,
-    );
-  }
+  result.staleTemporaries = sweepStaleStoreTemporaries(
+    baseDir,
+    options.apply && options.sweepTemporaries === true,
+    options.migrationStartedAt,
+  );
   return result;
 }
 

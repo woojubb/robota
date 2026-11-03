@@ -46,11 +46,11 @@ import type { TParentSandboxSettings } from './worker-composition.js';
 import type {
   IProviderDefinition,
   IProviderDefinitionConfig,
+  TArtifactSealing,
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type {
   IInProcessSubagentRunnerDeps,
-  TSessionSealing,
   TSubagentRunnerFactory,
 } from '@robota-sdk/agent-framework';
 import type {
@@ -115,13 +115,14 @@ export interface IChildProcessSubagentRunnerOptions {
    */
   watchParentSandboxSettings?: (listener: (settings: TParentSandboxSettings) => void) => () => void;
   /**
-   * How the children keep their logs, from the composition root's one sealing decision; plain when
-   * left out. With a sealer, every start payload carries the write grant the sealer issues when the
-   * payload is sent (a job is refused before anything is made for it when the sealer cannot issue
-   * one), a fork job carries the record the parent's store holds, handles say their transcript is
-   * sealed, and `readLog` opens with this sealing.
+   * How the children keep their logs, from the composition root's one sealing decision; required, so
+   * a host cannot leave children writing plain transcripts beside sealed stores. With a sealer, every
+   * start payload carries the write grant the sealer issues when the payload is sent (a job is
+   * refused before anything is made for it when the sealer cannot issue one), a fork job carries the
+   * record the parent's store holds, handles say their transcript is sealed, and `readLog` opens with
+   * this sealing. With `'plain'`, children write plain transcripts and a sealed one is not opened.
    */
-  logSealing?: TSessionSealing;
+  logSealing: TArtifactSealing;
   /**
    * Be told that the key the parent seals to was verified or changed; returns the way to stop. The
    * runner then re-reads its write grant and sends it to every running child whose grant differs
@@ -164,7 +165,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   private readonly keepProviderCredential: boolean;
   private readonly parentSandboxSettings?: () => TParentSandboxSettings | undefined;
   private readonly watchParentSandboxSettings?: IChildProcessSubagentRunnerOptions['watchParentSandboxSettings'];
-  private readonly logSealing: TSessionSealing;
+  private readonly logSealing: TArtifactSealing;
   private readonly watchSealingKey?: IChildProcessSubagentRunnerOptions['watchSealingKey'];
   private readonly sealingChildren = new Set<ISealingChild>();
   private unwatchSealingKey: (() => void) | undefined;
@@ -188,7 +189,20 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     this.keepProviderCredential = options.keepProviderCredential === true;
     this.parentSandboxSettings = options.parentSandboxSettings;
     this.watchParentSandboxSettings = options.watchParentSandboxSettings;
-    this.logSealing = options.logSealing ?? 'plain';
+    const logSealing: unknown = options.logSealing;
+    if (
+      logSealing !== 'plain' &&
+      (typeof logSealing !== 'object' ||
+        logSealing === null ||
+        typeof (logSealing as { readonly sealer?: unknown }).sealer !== 'object' ||
+        (logSealing as { readonly sealer?: unknown }).sealer === null)
+    ) {
+      // A caller that ignores the types is refused, as one that passes a bad value is.
+      throw new TypeError(
+        "The runner states how its children keep their logs: { sealer }, or 'plain'.",
+      );
+    }
+    this.logSealing = options.logSealing;
     this.watchSealingKey = options.watchSealingKey;
   }
 
@@ -289,8 +303,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       taskId: job.taskId,
       ...(child.pid !== undefined && { pid: child.pid }),
       ...(transcriptPath !== undefined && { transcriptPath, logPath: transcriptPath }),
-      // Known here, in memory, and nowhere persisted: the child seals its log with this runner's
-      // grant.
+      // The child seals its log with this runner's grant; the task state carries the fact on.
       ...(transcriptPath !== undefined &&
         logSealing !== 'plain' && { transcriptSealed: true as const }),
       result,
@@ -450,15 +463,15 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
 }
 
 /**
- * A page of the child's transcript (R1). The cursor counts stored records, so a plain log pages as it
- * always did and an offset names the same record whether the keys are locked or not; only the
- * records on the page are opened, and `unreadable` says how many of them could not be shown.
+ * A page of the child's transcript (R1). The cursor counts stored records, so an offset names the
+ * same record whether the keys are locked or not; only the records on the page are opened, and
+ * `unreadable` says how many of them could not be shown.
  */
 function readTranscriptLog(
   taskId: string,
   transcriptPath: string,
   cursor: IBackgroundTaskLogCursor | undefined,
-  sealing: TSessionSealing,
+  sealing: TArtifactSealing,
 ): IBackgroundTaskLogPage {
   const page = readSubagentTranscriptPage(transcriptPath, {
     sealing,

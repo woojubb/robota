@@ -67,7 +67,10 @@ export interface IMigrateEditCheckpointsOptions {
   readonly apply: boolean;
   /** Runs before each manifest replace (a turn's commit); throwing stops the migration there. */
   readonly beforeCommit?: () => void;
-  /** Also removes temp files crashed replaces left; leave it off while another writer may be running. */
+  /**
+   * Also removes the temp files crashed replaces left; leave it off while another writer may be running.
+   * Off, they are still counted in `staleTemporaries` and left where they are.
+   */
   readonly sweepTemporaries?: boolean;
   /**
    * When the migration started, in milliseconds by the filesystem's clock (its marker's time): a temp
@@ -113,6 +116,7 @@ export interface IEditCheckpointMigration {
   readonly refused: readonly string[];
   /** Turns whose manifest changed while being sealed: left for the next run. */
   readonly changed: readonly string[];
+  /** Stale temp files found: removed (or to remove) with `sweepTemporaries`, else left where they are. */
   readonly staleTemporaries: number;
 }
 
@@ -174,7 +178,7 @@ class CheckpointMigration {
   }
 
   private replace(name: string, content: Uint8Array): void {
-    this.storage.replaceBytes?.(name, content, PURPOSE);
+    this.storage.replaceBytes(name, content, PURPOSE);
   }
 
   private opens(stored: Uint8Array, context: IArtifactContext): boolean {
@@ -189,11 +193,10 @@ class CheckpointMigration {
   }
 
   private sweep(directory: string): void {
-    if (this.options.sweepTemporaries !== true) return;
     this.result.staleTemporaries += sweepWorkspaceProjectStateTemporaries(
       this.storage,
       directory,
-      this.options.apply,
+      this.options.apply && this.options.sweepTemporaries === true,
       this.options.migrationStartedAt,
     );
   }
@@ -519,9 +522,6 @@ export function migrateWorkspaceEditCheckpoints(
   const accepted = assertWorkspaceProjectStateStorage(storage);
   if (accepted.namespace !== 'checkpoints') {
     throw new Error('Migrating edit checkpoints requires the checkpoints state namespace.');
-  }
-  if (accepted.replaceBytes === undefined) {
-    throw new Error('Migrating edit checkpoints requires a storage that replaces files whole.');
   }
   return new CheckpointMigration(accepted, options).run();
 }

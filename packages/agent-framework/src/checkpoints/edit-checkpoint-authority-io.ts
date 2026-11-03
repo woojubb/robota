@@ -5,7 +5,6 @@ import { SEALED_ARTIFACT_MAX_OVERHEAD_BYTES } from '@robota-sdk/agent-core';
 import {
   getWorkspaceProjectIdentity,
   getWorkspaceProjectReader,
-  getWorkspaceProjectStateStorage,
 } from '../workspace-trust/index.js';
 import { assertWorkspaceProjectMutationForAuthority } from '../workspace-trust/project-mutation.js';
 import { MAX_PROJECT_READ_BYTES } from '../workspace-trust/project-reader-path.js';
@@ -46,17 +45,17 @@ export class EditCheckpointAuthorityIO {
   }
 
   /**
-   * `stateStorage` replaces the project's own checkpoint state directory; restoring a checkpoint
-   * still writes the project's files back through `mutation`.
+   * `stateStorage` is where manifests and pre-images are kept, sealed or not as it says; restoring a
+   * checkpoint still writes the project's files back through `mutation`.
    */
   constructor(
     authority: IWorkspaceProjectAuthority,
     mutation: IWorkspaceProjectMutation,
-    stateStorage?: IEditCheckpointStateStorage,
+    stateStorage: IEditCheckpointStateStorage,
   ) {
     this.cwd = resolve(getWorkspaceProjectIdentity(authority).worktreeRoot);
     this.reader = getWorkspaceProjectReader(authority);
-    this.state = stateStorage ?? getWorkspaceProjectStateStorage(authority, 'checkpoints');
+    this.state = stateStorage;
     this.mutation = assertWorkspaceProjectMutationForAuthority(mutation, authority);
   }
 

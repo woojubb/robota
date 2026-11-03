@@ -135,7 +135,7 @@ describe('resuming a sealed session this process holds no keys for', () => {
       process.platform === 'linux'
         ? join(project, '.test-product', 'sessions')
         : join(home, '.test-product', 'sessions');
-    createNodeHostSessionStore(sessionsDirectory, undefined, {
+    createNodeHostSessionStore(sessionsDirectory, {
       sealing: { sealer: createTestArtifactSealer() },
     }).save({
       id: LOCKED_ID,
@@ -209,7 +209,7 @@ describe('resuming a sealed session this process holds no keys for', () => {
   });
 
   it('-c says sealed sessions are there even when it continues a readable one', async () => {
-    createNodeHostSessionStore(sessionsDirectory, undefined, { sealing: 'plain' }).save({
+    createNodeHostSessionStore(sessionsDirectory, { sealing: 'plain' }).save({
       id: 'session_readable',
       cwd: project,
       createdAt: '2026-09-02T00:00:00.000Z',

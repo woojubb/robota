@@ -194,7 +194,7 @@ function probeProcess(pid: number): boolean {
  * Whether `owner` ran on this machine: the host names are equal and so are the machine ids, where a
  * machine id only one side could read counts as a different machine, since that side may be one.
  */
-function onThisMachine(owner: IProcessIdentity, current: IProcessIdentity): boolean {
+export function ownerOnThisMachine(owner: IProcessIdentity, current: IProcessIdentity): boolean {
   return (
     owner.hostname !== undefined &&
     owner.hostname === current.hostname &&
@@ -209,7 +209,7 @@ function ownerIsGone(
   isAlive: (pid: number) => boolean,
   readStartTime: (pid: number) => string | undefined,
 ): boolean {
-  if (!onThisMachine(owner, current)) return false;
+  if (!ownerOnThisMachine(owner, current)) return false;
   if (
     owner.bootId !== undefined &&
     current.bootId !== undefined &&
@@ -236,7 +236,7 @@ function ownerIsAlive(
   isAlive: (pid: number) => boolean,
   readStartTime: (pid: number) => string | undefined,
 ): boolean {
-  if (!onThisMachine(owner, current)) return false;
+  if (!ownerOnThisMachine(owner, current)) return false;
   if (owner.pidNamespace !== current.pidNamespace || owner.startTime === undefined) return false;
   if (owner.pid === current.pid) return current.startTime === owner.startTime;
   return isAlive(owner.pid) && readStartTime(owner.pid) === owner.startTime;

@@ -139,7 +139,7 @@ describe.skipIf(process.platform === 'win32')('a print run ended by a signal mid
             "    name: 'scratch-end-test',",
             "    version: 'test',",
             '    async chat() {',
-            '      const store = createNodeToolResultSpillStore({ parentDirectory: prepareSpillParentDirectory(productRuntime) });',
+            "      const store = createNodeToolResultSpillStore({ parentDirectory: prepareSpillParentDirectory(productRuntime), sealing: 'plain' });",
             "      await store.write('a spilled tool result');",
             `      writeFileSync(${JSON.stringify(ready)}, 'spilled');`,
             '      return new Promise(() => {});',

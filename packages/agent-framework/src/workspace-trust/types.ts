@@ -121,9 +121,9 @@ export interface IWorkspaceProjectStateStorage {
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void;
   /**
    * Replaces the file whole: a failure before the new content is in place leaves the previous file as
-   * it was. Optional for a storage implemented outside this package; the framework's always has it.
+   * it was.
    */
-  replaceBytes?(relativePath: string, content: Uint8Array, purpose: string): void;
+  replaceBytes(relativePath: string, content: Uint8Array, purpose: string): void;
   appendText(relativePath: string, content: string, purpose: string): void;
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[];
   deleteFile(relativePath: string, purpose: string): boolean;

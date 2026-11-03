@@ -26,7 +26,8 @@ import type {
 } from '../workspace-trust/index.js';
 
 /**
- * Where an edit checkpoint store keeps its manifests and file pre-images. The project's trusted state
+ * Where an edit checkpoint store keeps its manifests and file pre-images, as a location only: the
+ * store seals what it writes there, or not, as its own `sealing` says. The project's trusted state
  * directory is one answer (`IWorkspaceProjectStateStorage` satisfies this); a directory outside the
  * project is the other ({@link createDirectoryEditCheckpointState}).
  */
@@ -37,9 +38,9 @@ export interface IEditCheckpointStateStorage {
    */
   readonly rootRelativePath?: string;
   /**
-   * True for state that seals what it writes — only `createSealedEditCheckpointState` makes it, and a
-   * store refuses any other — and the store then holds itself to the rules of sealed checkpoints.
-   * Absent: plain.
+   * True for the state a store makes from its `sealing` when that seals; the store then holds itself
+   * to the rules of sealed checkpoints. A store refuses state given to it that already says so, since
+   * it applies its own sealing. Absent: plain.
    */
   readonly seals?: boolean;
   readText(relativePath: string, purpose: string): string | undefined;
@@ -48,10 +49,9 @@ export interface IEditCheckpointStateStorage {
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void;
   /**
    * Replaces the file whole, so a failure before the new content is in place leaves the previous
-   * file, or none, never a torn one. Sealed state needs it for its manifests; optional for plain
-   * state implemented elsewhere, which never calls it.
+   * file, or none, never a torn one. Sealed state writes its manifests through it.
    */
-  replaceBytes?(relativePath: string, content: Uint8Array, purpose: string): void;
+  replaceBytes(relativePath: string, content: Uint8Array, purpose: string): void;
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[];
 }
 

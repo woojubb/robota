@@ -84,13 +84,13 @@ describe('SessionStore atomic persistence (CORE-019)', () => {
         },
       ],
     });
-    new NodeSessionStore(baseDir).save(record);
-    const loaded = loadedOrMissing(new NodeSessionStore(baseDir), record.id);
+    new NodeSessionStore(baseDir, { sealing: 'plain' }).save(record);
+    const loaded = loadedOrMissing(new NodeSessionStore(baseDir, { sealing: 'plain' }), record.id);
     expect(loaded?.messages).toStrictEqual(record.messages);
   });
 
   it('save() roundtrips and leaves no temp-file residue', () => {
-    const store = new NodeSessionStore(baseDir);
+    const store = new NodeSessionStore(baseDir, { sealing: 'plain' });
     store.save(createRecord());
 
     const loaded = loadedOrMissing(store, 'core-019-atomic');
@@ -101,7 +101,7 @@ describe('SessionStore atomic persistence (CORE-019)', () => {
   });
 
   it('save() over an existing record replaces it atomically', () => {
-    const store = new NodeSessionStore(baseDir);
+    const store = new NodeSessionStore(baseDir, { sealing: 'plain' });
     store.save(createRecord());
     store.save(
       createRecord({
@@ -123,7 +123,7 @@ describe('SessionStore atomic persistence (CORE-019)', () => {
   });
 
   it('a failed save leaves the previous record untouched', () => {
-    const store = new NodeSessionStore(baseDir);
+    const store = new NodeSessionStore(baseDir, { sealing: 'plain' });
     store.save(createRecord());
 
     // Fault injection: a circular record makes JSON.stringify throw before any bytes

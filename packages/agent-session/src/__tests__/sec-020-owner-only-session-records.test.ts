@@ -68,7 +68,7 @@ describe('SEC-020 — NodeSessionStore', () => {
   it('TC-15: a fresh store is 0700 and its records 0600 under umask 022', () => {
     // Measured before this change: 0755 and 0644.
     const base = join(root, 'sessions');
-    new NodeSessionStore(base).save(record('a'));
+    new NodeSessionStore(base, { sealing: 'plain' }).save(record('a'));
     expect(mode(base)).toBe(OWNER_ONLY_DIRECTORY);
     expect(mode(join(base, 'a.json'))).toBe(OWNER_ONLY_FILE);
   });
@@ -77,13 +77,13 @@ describe('SEC-020 — NodeSessionStore', () => {
     const base = join(root, 'sessions');
     mkdirSync(base);
     chmodSync(base, 0o777);
-    new NodeSessionStore(base).save(record('b'));
+    new NodeSessionStore(base, { sealing: 'plain' }).save(record('b'));
     expect(mode(base)).toBe(OWNER_ONLY_DIRECTORY);
   });
 
   it('TC-17: a record an older version left at 0644 is narrowed on the next save', () => {
     const base = join(root, 'sessions');
-    const store = new NodeSessionStore(base);
+    const store = new NodeSessionStore(base, { sealing: 'plain' });
     store.save(record('c'));
     chmodSync(join(base, 'c.json'), 0o644);
     store.save(record('c'));
@@ -93,7 +93,7 @@ describe('SEC-020 — NodeSessionStore', () => {
   it('TC-18: resume still works — save, load, list and delete are unchanged', () => {
     // A permission change that breaks resume is not a fix. This is the half the mode assertions
     // cannot see.
-    const store = new NodeSessionStore(join(root, 'sessions'));
+    const store = new NodeSessionStore(join(root, 'sessions'), { sealing: 'plain' });
     store.save(record('keep'));
     // TRANS-007: `load` reports WHICH of four things happened, so "the record is there" and "the
     // record is gone" are now distinct answers rather than two readings of `undefined`.
@@ -113,14 +113,14 @@ describe('SEC-020 — NodeSessionLogSink', () => {
     const logs = join(root, 'logs');
     mkdirSync(logs);
     chmodSync(logs, 0o777);
-    new NodeSessionLogSink(logs).append('s1', '{"a":1}\n');
+    new NodeSessionLogSink(logs, { sealing: 'plain' }).append('s1', '{"a":1}\n');
     expect(mode(logs)).toBe(OWNER_ONLY_DIRECTORY);
     expect(mode(join(logs, 's1.jsonl'))).toBe(OWNER_ONLY_FILE);
   });
 
   it('TC-20: a log an older version left at 0644 is narrowed before the next append', () => {
     const logs = join(root, 'logs');
-    const sink = new NodeSessionLogSink(logs);
+    const sink = new NodeSessionLogSink(logs, { sealing: 'plain' });
     sink.append('s2', 'one\n');
     chmodSync(join(logs, 's2.jsonl'), 0o644);
     sink.append('s2', 'two\n');
@@ -130,7 +130,7 @@ describe('SEC-020 — NodeSessionLogSink', () => {
 
   it('TC-21: the content-addressed payload directory and its files are owner-only', () => {
     const logs = join(root, 'logs');
-    const sink = new NodeSessionLogSink(logs);
+    const sink = new NodeSessionLogSink(logs, { sealing: 'plain' });
     const serialized = '{"payload":true}';
     const sha256 = createSha(serialized);
     const reference = sink.writeJson('s3', sha256, serialized);
@@ -142,7 +142,7 @@ describe('SEC-020 — NodeSessionLogSink', () => {
     // `flag: 'wx'` correctly declines to rewrite content-addressed bytes. Its mode is a different
     // question, and nothing else would ever repair a payload an older version wrote at 0644.
     const logs = join(root, 'logs');
-    const sink = new NodeSessionLogSink(logs);
+    const sink = new NodeSessionLogSink(logs, { sealing: 'plain' });
     const serialized = '{"payload":true}';
     const sha256 = createSha(serialized);
     const reference = sink.writeJson('s4', sha256, serialized);
@@ -158,7 +158,7 @@ describe('SEC-020 — NodeSessionLogSink', () => {
     // directory any account can read.
     const blocked = join(root, 'not-a-directory');
     writeFileSync(blocked, 'x');
-    const sink = new NodeSessionLogSink(blocked);
+    const sink = new NodeSessionLogSink(blocked, { sealing: 'plain' });
     expect(() => sink.append('s5', 'line\n')).not.toThrow();
   });
 });
@@ -172,7 +172,7 @@ describe('SEC-020 — the store root the host declares it owns', () => {
     mkdirSync(owned);
     chmodSync(owned, 0o755);
     const base = join(owned, 'sessions');
-    new NodeSessionStore(base, owned).save(record('d'));
+    new NodeSessionStore(base, { ownedRoot: owned, sealing: 'plain' }).save(record('d'));
     expect(mode(owned)).toBe(OWNER_ONLY_DIRECTORY);
     expect(mode(base)).toBe(OWNER_ONLY_DIRECTORY);
   });
@@ -183,7 +183,7 @@ describe('SEC-020 — the store root the host declares it owns', () => {
     const parent = join(root, 'someone-elses');
     mkdirSync(parent);
     chmodSync(parent, 0o755);
-    new NodeSessionStore(join(parent, 'sessions')).save(record('e'));
+    new NodeSessionStore(join(parent, 'sessions'), { sealing: 'plain' }).save(record('e'));
     expect(mode(parent)).toBe(0o755);
     expect(mode(join(parent, 'sessions'))).toBe(OWNER_ONLY_DIRECTORY);
   });

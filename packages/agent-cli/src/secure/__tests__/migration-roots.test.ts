@@ -56,7 +56,7 @@ function project(name: string): string {
 }
 
 function recordIn(cwd: string): void {
-  new NodeSessionStore(runtime.layout.userPaths.sessions).save({
+  new NodeSessionStore(runtime.layout.userPaths.sessions, { sealing: 'plain' }).save({
     id: `session_${Math.random().toString(36).slice(2, 8)}`,
     cwd,
     createdAt: '2026-11-01T00:00:00.000Z',

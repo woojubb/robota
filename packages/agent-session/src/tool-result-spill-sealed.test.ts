@@ -1,8 +1,8 @@
 /**
  * #3679 step 3c — a spill store given a sealing keeps every spilled tool result sealed on disk,
- * bound to its reference, and reads it back itself; one without (every earlier build, and the default)
- * writes exactly what it wrote before. A spilled result is conversation content, and the directory it
- * sits in is open to every program of the same user.
+ * bound to its reference, and reads it back itself; one that says `'plain'` writes the result as it
+ * is. A spilled result is conversation content, and the directory it sits in is open to every program
+ * of the same user.
  */
 import { spawnSync } from 'node:child_process';
 import {
@@ -302,10 +302,10 @@ describe('a sealing spill store', () => {
   });
 });
 
-describe('a spill store without a sealing', () => {
-  it('writes <token>.txt holding the result as it is, as every earlier build did', async () => {
+describe('a spill store that says plain', () => {
+  it('writes <token>.txt holding the result as it is', async () => {
     const root = parent();
-    const store = new NodeToolResultSpillStore({ parentDirectory: root });
+    const store = new NodeToolResultSpillStore({ sealing: 'plain', parentDirectory: root });
     // Plaintext that starts like a sealed artifact is still only plaintext here.
     const content = `RSL1:${CANARY}`;
 
@@ -317,7 +317,7 @@ describe('a spill store without a sealing', () => {
     await store.shutdown();
   });
 
-  it('reads the file again on every read, as before', async () => {
+  it('reads the file again on every read', async () => {
     const root = parent();
     const store = new NodeToolResultSpillStore({ parentDirectory: root, sealing: 'plain' });
     const { reference } = await store.write(CANARY);

@@ -36,7 +36,7 @@ import { validateWorkspaceSessionReplayLog } from '../interactive/workspace-sess
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
-import type { ISessionStoreOptions } from '../interactive/session-persistence.js';
+import type { ISessionStoreOptions } from '@robota-sdk/agent-session';
 
 const CANARY = 'CANARY-0b7d-what-the-project-session-said';
 const SESSION = 'session_sealed_replay';
@@ -238,9 +238,11 @@ describe('the Workspace log source with a sealer', () => {
     expect(opened.length).toBeGreaterThan(1);
     expect(opened.some((text) => text.includes(CANARY))).toBe(true);
 
-    const plain = new WorkspaceSessionLogSource(logs, SESSION);
+    const plain = new WorkspaceSessionLogSource(logs, SESSION, { sealing: 'plain' });
     expect(() => plain.readText()).toThrow(ArtifactLockedError);
-    expect(new WorkspaceSessionLogSource(logs, 'absent_session').readStoredLines()).toBeUndefined();
+    expect(
+      new WorkspaceSessionLogSource(logs, 'absent_session', { sealing: 'plain' }).readStoredLines(),
+    ).toBeUndefined();
   });
 
   it('holds a sealed sidecar to the plaintext budget exactly', async () => {
@@ -260,11 +262,11 @@ describe('the Workspace log source with a sealer', () => {
 });
 
 describe.runIf(linux)('the Workspace log sink with a sealer', () => {
-  it('writes exactly what every earlier build wrote when plain', async () => {
+  it('writes plain lines and content-addressed sidecars when plain', async () => {
     const { logs } = await project();
     const sink = new WorkspaceSessionLogSink(logs, { sealing: 'plain' });
     sink.append(SESSION, '{"a":1}\n');
-    new WorkspaceSessionLogSink(logs).append(SESSION, '{"b":2}\n');
+    new WorkspaceSessionLogSink(logs, { sealing: 'plain' }).append(SESSION, '{"b":2}\n');
     const serialized = JSON.stringify(CANARY.repeat(4));
     const sha256 = createHash('sha256').update(serialized).digest('hex');
     const reference = sink.writeJson(SESSION, sha256, serialized);
@@ -310,9 +312,9 @@ describe('/validate-session over a sealed project log', () => {
     expect(() =>
       validateWorkspaceSessionReplayLog(access, SESSION, { sealing: { sealer } }),
     ).toThrowError(expect.objectContaining({ code: 'ARTIFACT_LOCKED', reason: 'locked' }));
-    expect(() => validateWorkspaceSessionReplayLog(access, SESSION)).toThrowError(
-      expect.objectContaining({ code: 'ARTIFACT_LOCKED', reason: 'no-keys' }),
-    );
+    expect(() =>
+      validateWorkspaceSessionReplayLog(access, SESSION, { sealing: 'plain' }),
+    ).toThrowError(expect.objectContaining({ code: 'ARTIFACT_LOCKED', reason: 'no-keys' }));
   });
 });
 
@@ -320,7 +322,7 @@ describe('the user prompt-history file', () => {
   it('is plain, byte for byte, unless a sealing is given', async () => {
     const path = join(cwd, 'state', 'history.jsonl');
     const entry = { at: '2026-11-01T00:00:00.000Z', sessionId: 's1', project: cwd, text: CANARY };
-    createUserPromptHistoryFile(path).append(entry);
+    createUserPromptHistoryFile(path, { sealing: 'plain' }).append(entry);
     expect(readFileSync(path, 'utf8')).toBe(`${JSON.stringify(entry)}\n`);
 
     const sealed = join(cwd, 'state', 'sealed-history.jsonl');

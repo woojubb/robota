@@ -248,7 +248,7 @@ describe('StoredPayloads', () => {
     return { writes, write: (target) => writes.push(target) };
   }
 
-  it('places a plain payload at its content address, exactly as before', () => {
+  it('places a plain payload at its content address', () => {
     const { writes, write } = recorder();
     const reference = new StoredPayloads('plain').place('s1', sha256, serialized, write);
     expect(reference).toEqual({
@@ -348,7 +348,7 @@ describe('StoredPayloads', () => {
     );
   });
 
-  it('reads every payload as bytes, exactly as before, when plain', () => {
+  it('reads every payload as bytes when plain', () => {
     const sealer = createTestArtifactSealer();
     const { writes, write } = recorder();
     new StoredPayloads({ sealer }).place('s1', sha256, serialized, write);

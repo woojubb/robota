@@ -113,7 +113,9 @@ function fullRecord(): IInteractiveSessionRecord {
 }
 
 function newStore(): NodeSessionStore {
-  return new NodeSessionStore(realpathSync(mkdtempSync(path.join(tmpdir(), 'artifact-store-'))));
+  return new NodeSessionStore(realpathSync(mkdtempSync(path.join(tmpdir(), 'artifact-store-'))), {
+    sealing: 'plain',
+  });
 }
 
 describe('session artifact — round-trip fidelity (TC-01)', () => {

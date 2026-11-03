@@ -163,8 +163,10 @@ export interface IInteractiveSessionStore {
    * The record this store instance itself last wrote, or loaded to hold, while the stored file is
    * still exactly those bytes — what a process that is running a session needs to keep saving it
    * after `load` has started saying `locked`. `undefined` for any session it does not hold; `locked`
-   * with the reason `changed` for one whose file has changed since. Optional: a store that never
-   * seals has nothing to hold.
+   * with the reason `changed` for one whose file has changed since. A store that rebuilds a session
+   * from a replay log may also answer `missing` for a session that has no saved record and whose log
+   * it cannot open now: for the writer there is nothing to protect, since a save writes the record
+   * and leaves the log as it is. Optional: a store that never seals has nothing to hold.
    */
   loadHeld?(id: string): TSessionLoadOutcome | undefined;
   /**

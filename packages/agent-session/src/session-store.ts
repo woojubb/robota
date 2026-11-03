@@ -94,6 +94,18 @@ function compareListEntriesByRecency(left: ISessionListEntry, right: ISessionLis
   return at(right) - at(left);
 }
 
+/** How a {@link NodeSessionStore} is built. */
+export interface INodeSessionStoreOptions extends ISessionStoreOptions {
+  /**
+   * An ancestor of the store's directory the HOST also owns, tightened along with it (SEC-020).
+   * Optional because this adapter does not interpret its base directory as a trusted root and must
+   * not guess that a parent belongs to the product — which of them do is composition's knowledge.
+   * Left out, a store root that already exists keeps whatever mode it was given: the leaf is made
+   * 0700 and the directory above it is not touched.
+   */
+  readonly ownedRoot?: string;
+}
+
 /**
  * Persistent session store backed by individual JSON files.
  *
@@ -108,18 +120,14 @@ export class NodeSessionStore implements IInteractiveSessionStore {
 
   /**
    * @param baseDir the directory holding the records.
-   * @param ownedRoot an ancestor of `baseDir` the HOST also owns, tightened along with it (SEC-020).
-   *   Optional because this adapter does not interpret its base directory as a trusted root and must
-   *   not guess that a parent belongs to the product — which of them do is composition's knowledge.
-   *   Omitting it leaves a store root an older version created at whatever mode it was given, which
-   *   is what review of PR #2224 found: the leaf was 0700 and the directory above it was not.
-   * @param options `sealing`: `{ sealer }` seals what `save` writes and opens what `load` reads;
-   *   `'plain'`, the default, writes plain JSON and reports a sealed file it finds as `locked`.
+   * @param options `sealing` (required): `{ sealer }` seals what `save` writes and opens what `load`
+   *   reads; `'plain'` writes plain JSON and reports a sealed file it finds as `locked`.
+   *   `ownedRoot`: see {@link INodeSessionStoreOptions}.
    */
-  constructor(baseDir: string, ownedRoot?: string, options?: ISessionStoreOptions) {
+  constructor(baseDir: string, options: INodeSessionStoreOptions) {
     this.records = new StoredSessionRecords(sessionSealingOf(options));
     this.baseDir = baseDir;
-    this.ownedRoot = ownedRoot;
+    this.ownedRoot = options.ownedRoot;
   }
 
   /**
@@ -184,7 +192,7 @@ export class NodeSessionStore implements IInteractiveSessionStore {
     // destroy the only copy — unless it is provably exactly what this instance last wrote or holds,
     // which is how a locked process goes on saving the sessions it is running. A file it could not
     // read at all may be one of those, so it is protected the same way. A plain or absent file is
-    // replaced exactly as before.
+    // replaced.
     this.records.assertReplaceable(session.id, this.readExisting(path));
     // TRANS-007: the versioned envelope, not the bare record. Without a version on disk there is
     // nothing to compare, so "written by a build this one does not read" cannot be told from

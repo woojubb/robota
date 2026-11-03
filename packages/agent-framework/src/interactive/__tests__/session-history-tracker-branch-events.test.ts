@@ -32,6 +32,7 @@ async function createTracker(): Promise<{
   const access = await createTrustedProjectAccessFixture(cwd);
   if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
   const store = new EditCheckpointStore({
+    sealing: 'plain',
     authority: access.authority,
     mutation: createWorkspaceProjectMutation(access.authority, {
       status: 'approved',
@@ -98,7 +99,13 @@ describe('SessionHistoryTracker branch-event operation matrix (ARCH-020)', () =>
         expect(order[index - 1]).toBe('persist');
       }
       expect(events.every((event) => event.branchId.length > 0)).toBe(true);
-      expect(events.at(-1)?.branchId).toBe('main');
+      // Rolling back through the first checkpoint clears the head and starts a fresh branch for the
+      // next turn; the event names that branch, as the fork and switch events name theirs, rather
+      // than the default one the session left.
+      const fresh = tracker.getActiveBranchPointer();
+      expect(fresh).toMatchObject({ checkpointId: null });
+      expect(events.at(-1)?.branchId).toBe(fresh?.branchId);
+      expect(events.at(-1)?.branchId).not.toBe('main');
     },
   );
 

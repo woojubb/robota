@@ -196,9 +196,9 @@ concrete I/O and must not add global task registries outside the manager.
 
 Runner handles may expose paths for append-only log/transcript streams; the manager projects those
 into task state immediately after runner start and preserves matching metadata on completion.
-Whether a transcript is sealed stays with the live handle (the manager answers it by task id) and is
-never projected into task state: that state is persisted and strictly decoded, so a key other builds
-do not declare would make them report the record as damaged.
+Whether the transcript is sealed is projected with them and persisted in task state, so a task
+restored in a later session still says that its path reaches no content and a reader must go through
+the log read.
 
 Task requests may carry opaque primitive metadata. The runtime clones it into task state and
 preserves it across snapshots, but never interprets caller-specific keys — lifecycle transitions,

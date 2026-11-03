@@ -137,7 +137,7 @@ describe.runIf(linux)('the project store with a sealer', () => {
     const { sessions, logs } = await storage();
     const store = createProjectSessionStore(sessions, logs, { sealing: { sealer } });
     store.save(record('sess_a'));
-    new WorkspaceSessionLogSink(logs).append(
+    new WorkspaceSessionLogSink(logs, { sealing: 'plain' }).append(
       'sess_a',
       [
         JSON.stringify({
@@ -405,7 +405,7 @@ describe('the project store with no sealer is the store it always was', () => {
     expect(reader.scan?.()).toEqual({ entries: [], locked: 0, noKeys: 1 });
   });
 
-  it('is plain when built the 3.0 way, and refuses a stated sealing that is not one (any platform)', async () => {
+  it('keeps records plain when it says plain, and refuses a sealing that is missing or is not one (any platform)', async () => {
     const { sessions, logs } = await storage();
     const directory = join(cwd, '.agent', 'sessions');
     mkdirSync(directory, { recursive: true });
@@ -416,22 +416,26 @@ describe('the project store with no sealer is the store it always was', () => {
         id: 'sess_a',
       }),
     );
-    // No options and empty options are both the published shape: plain, so a sealed file is out of reach.
-    expect(createProjectSessionStore(sessions, logs).load('sess_a')).toEqual(NO_KEYS);
-    expect(createProjectSessionStore(sessions, logs, {}).load('sess_a')).toEqual(NO_KEYS);
+    // Plain, so a sealed file is out of reach.
+    expect(createProjectSessionStore(sessions, logs, { sealing: 'plain' }).load('sess_a')).toEqual(
+      NO_KEYS,
+    );
+    // What the types refuse, a caller that ignores them is refused at run time as well.
     const stated = createProjectSessionStore as unknown as (...args: unknown[]) => unknown;
+    expect(() => stated(sessions, logs)).toThrow(TypeError);
+    expect(() => stated(sessions, logs, {})).toThrow(TypeError);
     expect(() => stated(sessions, logs, { sealing: { sealer: undefined } })).toThrow(TypeError);
     expect(() => stated(sessions, logs, 'plain')).toThrow(TypeError);
   });
 
-  it('reads and lists plaintext records exactly as before (any platform)', async () => {
+  it('reads and lists plaintext records (any platform)', async () => {
     const { sessions, logs } = await storage();
     const store = createProjectSessionStore(sessions, logs, { sealing: 'plain' });
-    const legacy = JSON.stringify({ schemaVersion: 2, record: record('sess_a') }, null, 2);
+    const plaintext = JSON.stringify({ schemaVersion: 2, record: record('sess_a') }, null, 2);
     const directory = join(cwd, '.agent', 'sessions');
     // The writer is Linux-only; a plaintext fixture is made by hand so the READ path is covered here too.
     mkdirSync(directory, { recursive: true });
-    writeFileSync(join(directory, 'sess_a.json'), legacy, 'utf-8');
+    writeFileSync(join(directory, 'sess_a.json'), plaintext, 'utf-8');
 
     expect(store.load('sess_a')).toEqual({ status: 'valid', record: record('sess_a') });
     expect(store.list().map((entry) => entry.id)).toEqual(['sess_a']);

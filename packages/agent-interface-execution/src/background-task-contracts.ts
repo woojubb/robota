@@ -301,6 +301,12 @@ interface IBaseBackgroundTaskState<K extends TBackgroundTaskKind> {
   error?: IBackgroundTaskError;
   logPath?: string;
   transcriptPath?: string;
+  /**
+   * The transcript at `transcriptPath` is sealed: its bytes are ciphertext to any reader without the
+   * keys, so the path reaches no content and a reader goes through the task's log read instead (the
+   * `/agent read` command). Set from the runner's handle when the task starts; absent for a plain one.
+   */
+  transcriptSealed?: true;
   timeoutReason?: TBackgroundTaskTimeoutReason;
   metadata?: Record<string, TBackgroundPrimitive>;
 }

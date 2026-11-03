@@ -13,8 +13,8 @@
  * empty lines, and the final fragment of a file, if it carries sealed framing (or the start of it)
  * and no newline yet, is an append still in progress rather than a line.
  *
- * A store that seals nothing writes exactly what every earlier build wrote, and meets a sealed line
- * as one no key in its process opens. Plain and sealed lines may sit in one file, each read by its
+ * A store that seals nothing writes plain lines, and meets a sealed line as one no key in its
+ * process opens. Plain and sealed lines may sit in one file, each read by its
  * own framing.
  *
  * An externalized payload of a sealing log is sealed under a RANDOM name. A content-addressed name
@@ -43,12 +43,12 @@ import { assertSafeSessionId } from './session-id.js';
 import { assertSessionSealing } from './stored-session-record.js';
 
 import type { IExternalPayloadReference } from './session-log-reference-types.js';
-import type { TSessionSealing } from './stored-session-record.js';
 import type {
   IArtifactContext,
   IArtifactSealer,
   TArtifactKind,
   TArtifactLockedReason,
+  TArtifactSealing,
 } from '@robota-sdk/agent-core';
 
 /** The kinds of artifact an append store's lines are sealed as. */
@@ -72,7 +72,7 @@ const NO_KEYS: TStoredLine = Object.freeze({ kind: 'locked', reason: 'no-keys' }
 /** The start of a sealed-line prefix, too short to carry its colon yet: `R`, `RS`, `RSL`, `RSL` and a version digit. */
 const PARTIAL_SEALED_LINE_PREFIX = /^R(?:S(?:L[0-9]?)?)?$/;
 
-function sealerOf(sealing: TSessionSealing): IArtifactSealer | undefined {
+function sealerOf(sealing: TArtifactSealing): IArtifactSealer | undefined {
   assertSessionSealing(sealing);
   return sealing === 'plain' ? undefined : sealing.sealer;
 }
@@ -86,7 +86,7 @@ export class StoredLines {
   readonly #sealer: IArtifactSealer | undefined;
   readonly #kind: TAppendLineKind;
 
-  constructor(sealing: TSessionSealing, kind: TAppendLineKind) {
+  constructor(sealing: TArtifactSealing, kind: TAppendLineKind) {
     this.#sealer = sealerOf(sealing);
     this.#kind = kind;
   }
@@ -150,7 +150,7 @@ export class StoredLines {
  * The physical lines of a store's text. An UNTERMINATED final fragment with sealed framing, or so
  * short that it is still only the start of it (`RSL` and a version digit, cut anywhere), is left
  * out: every sealed append ends with a newline, so such a fragment is an append in progress (or one
- * whose writer died), not a record. A plain fragment is kept exactly as every earlier build read it.
+ * whose writer died), not a record. A plain fragment is kept as it is.
  */
 export function splitStoredLines(text: string): string[] {
   const lines = text.split(NEWLINE);
@@ -253,16 +253,16 @@ function payloadError(
 
 /**
  * How a session-log sink places externalized JSON values beside its log, and how a source opens what
- * it reads back. Plain: the content-addressed `<id>.payloads/<sha256>.json` every earlier build
- * wrote. Sealing: `<id>.payloads/<22 random base64url characters>.sealed`, holding the payload sealed
- * as `session-log-payload` for the session, written once per payload per instance.
+ * it reads back. Plain: the content-addressed `<id>.payloads/<sha256>.json`. Sealing:
+ * `<id>.payloads/<22 random base64url characters>.sealed`, holding the payload sealed as
+ * `session-log-payload` for the session, written once per payload per instance.
  */
 export class StoredPayloads {
   readonly #sealer: IArtifactSealer | undefined;
   /** Per session: plaintext digest → the sealed sidecar this instance already wrote for it. */
   readonly #written = new Map<string, Map<string, string>>();
 
-  constructor(sealing: TSessionSealing) {
+  constructor(sealing: TArtifactSealing) {
     this.#sealer = sealerOf(sealing);
   }
 
@@ -308,7 +308,7 @@ export class StoredPayloads {
 
   /**
    * The payload bytes in `stored` (what was read at `relativePath`), held to the plaintext budget
-   * exactly. A plain store reads every payload as bytes, exactly as before: only a sealed line can
+   * exactly. A plain store reads every payload as bytes: only a sealed line can
    * reference a sealed payload, and a plain reader never gets past the line. A sealing store passes
    * plain bytes through too, so a directory written before sealing still resolves — a JSON payload
    * never starts with the sealed magic — and opens sealed bytes bound to `ownerId`:

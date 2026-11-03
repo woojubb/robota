@@ -35,12 +35,12 @@ import {
   EditCheckpointsLockedError,
 } from '../edit-checkpoint-errors.js';
 import { SEALED_PREIMAGE_MAX_BYTES } from '../edit-checkpoint-authority-io.js';
-import { createSealedEditCheckpointState } from '../edit-checkpoint-sealed-state.js';
+import { createSealedEditCheckpointState as sealState } from '../edit-checkpoint-sealed-state.js';
 import { createDirectoryEditCheckpointState } from '../edit-checkpoint-state-storage.js';
 import { EditCheckpointStore } from '../edit-checkpoint-store.js';
 
 import type { IEditCheckpointStateStorage } from '../edit-checkpoint-state-storage.js';
-import type { IArtifactSealer } from '@robota-sdk/agent-core';
+import type { IArtifactSealer, TArtifactSealing } from '@robota-sdk/agent-core';
 
 const CANARY = 'PRIVATE-CHECKPOINT-CANARY-51c9';
 const SESSION = 'session_1';
@@ -62,6 +62,23 @@ afterEach(() => {
   rmSync(base, { recursive: true, force: true });
 });
 
+/** What a sealed state was made from: the store takes the raw state and the decision, and seals itself. */
+const origins = new WeakMap<
+  IEditCheckpointStateStorage,
+  { raw: IEditCheckpointStateStorage; sealing: TArtifactSealing; sealedOnly: boolean }
+>();
+
+/** `sealState`, remembering what the state was made from so `storeOver` can build a store over it. */
+function createSealedEditCheckpointState(
+  raw: IEditCheckpointStateStorage,
+  sealing: TArtifactSealing,
+  options: { readonly sealedOnly?: boolean } = {},
+): IEditCheckpointStateStorage {
+  const state = sealState(raw, sealing, options);
+  origins.set(state, { raw, sealing, sealedOnly: options.sealedOnly === true });
+  return state;
+}
+
 function sealedState(sealer: IArtifactSealer): IEditCheckpointStateStorage {
   return createSealedEditCheckpointState(createDirectoryEditCheckpointState(root), { sealer });
 }
@@ -72,13 +89,18 @@ async function storeOver(
 ): Promise<EditCheckpointStore> {
   const access = await createTrustedProjectAccessFixture(project);
   if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
+  // A state made by `createSealedEditCheckpointState` is given as what it was made from; any other
+  // state is kept plain.
+  const origin = origins.get(state);
   return new EditCheckpointStore({
     authority: access.authority,
     mutation: createWorkspaceProjectMutation(access.authority, {
       status: 'approved',
       purpose: 'sealed checkpoint test',
     }),
-    stateStorage: state,
+    stateStorage: origin?.raw ?? state,
+    sealing: origin?.sealing ?? 'plain',
+    ...(origin?.sealedOnly === true ? { sealedOnly: true } : {}),
     ...options,
   });
 }
@@ -221,7 +243,7 @@ describe('sealed checkpoint files are bound to their place', () => {
     ]);
   });
 
-  it('refuses state that says it seals but was not made by createSealedEditCheckpointState', async () => {
+  it('refuses state that says it seals itself: the store seals, so it takes state that does not', async () => {
     const pretending = Object.assign(createDirectoryEditCheckpointState(root), { seals: true });
 
     await expect(storeOver(pretending)).rejects.toThrow(RangeError);
@@ -523,8 +545,8 @@ describe('capture in sealing mode', () => {
   });
 });
 
-describe('plain state is unchanged', () => {
-  it('writes the same layout, manifest and pre-image bytes as before', async () => {
+describe('plain state', () => {
+  it('writes a plain manifest and plain pre-images in the checkpoint layout', async () => {
     writeFileSync(join(project, 'notes.txt'), `before ${CANARY}`);
     const plain = createDirectoryEditCheckpointState(root);
     expect(createSealedEditCheckpointState(plain, 'plain')).toBe(plain);
@@ -556,7 +578,7 @@ describe('plain state is unchanged', () => {
     );
   });
 
-  it('counts nothing as unreadable, leaving a manifest that does not parse out as before', async () => {
+  it('counts nothing as unreadable, and leaves a manifest that does not parse out of the listing', async () => {
     const store = await storeOver(createDirectoryEditCheckpointState(root));
     await editTurn(store, 'one', {});
     mkdirSync(at('turn-0002'), { recursive: true });
@@ -568,7 +590,7 @@ describe('plain state is unchanged', () => {
 });
 
 describe('a sealed manifest is replaced whole', () => {
-  it('goes in place through replaceBytes, after its pre-images are written, where plain state writes it as before', async () => {
+  it('goes in place through replaceBytes, after its pre-images are written, where plain state writes it with writeBytes', async () => {
     writeFileSync(join(project, 'a.txt'), 'a1');
     const sealed = recordingState(createDirectoryEditCheckpointState(root));
     const store = await storeOver(
@@ -587,22 +609,6 @@ describe('a sealed manifest is replaced whole', () => {
       `write ${SESSION}/turn-0001/files/000001.content`,
       `write ${SESSION}/turn-0001/manifest.json`,
     ]);
-  });
-
-  it('is refused over state that cannot replace a file whole', () => {
-    const directory = createDirectoryEditCheckpointState(root);
-    const cannotReplace: IEditCheckpointStateStorage = {
-      readText: (path, purpose) => directory.readText(path, purpose),
-      readBytes: (path, purpose) => directory.readBytes(path, purpose),
-      writeText: (path, content, purpose) => directory.writeText(path, content, purpose),
-      writeBytes: (path, content, purpose) => directory.writeBytes(path, content, purpose),
-      listDirectory: (path, purpose) => directory.listDirectory(path, purpose),
-    };
-
-    expect(() =>
-      createSealedEditCheckpointState(cannotReplace, { sealer: createTestArtifactSealer() }),
-    ).toThrow(RangeError);
-    expect(createSealedEditCheckpointState(cannotReplace, 'plain')).toBe(cannotReplace);
   });
 });
 

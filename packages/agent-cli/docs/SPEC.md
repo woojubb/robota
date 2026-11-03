@@ -316,22 +316,22 @@ as most likely in place, never as nothing written.
 
 A passphrase or recovery key is typed at an interactive terminal and comes from nowhere else: not an
 argument, the environment, a pipe or a file. Every command that asks for one therefore refuses
-unless stdin is a terminal, which is also what turns away a program the model starts through its shell
-tool: that process has no controlling terminal and no input. The recovery key is shown once, on the
-secret terminal where it is wiped afterwards, and typed back before anything is saved, so a keyring
-whose key the person never held is not created. Creating a keyring does not turn secure mode on.
-Every conversation store the CLI builds — the workspace composition's and each command's own —
+unless stdin is a terminal, which is also what turns away a program the model starts through its
+shell tool: that process has no controlling terminal and no input. The recovery key is shown once,
+on the secret terminal where it is wiped afterwards, and typed back before anything is saved, so a
+keyring whose key the person never held is not created. Creating a keyring does not turn secure mode
+on. Every conversation store the CLI builds — the workspace composition's and each command's own —
 comes from one factory that states how it seals, from one decision: what a later process reads is
 sealed with the keyring, and what only its own process reads back (a spilled tool result, the edit
 checkpoints of a run that persists no session) with a key made in that process's memory, which seals
 nothing else, opens whatever the keyring's lock state and ends with the process; the two are plain
 exactly together. A person's `/rewind` reads are refused while the keyring is locked whichever key
 sealed the checkpoints, so locked has one meaning for them; what the running turn reads back for
-itself is not. A lint rule refuses a value import of the SDK's store constructors anywhere else in
-the product packages, since those default to plain for embedders: no store can be left writing
-plaintext beside sealed files. Until secure mode exists the decision is plain, and everything is
-written as before except each process's presence. Whether secure mode is on is one predicate every
-decision that depends on it reads, and no process is given a key holder while it is off.
+itself is not. Every SDK store constructor requires that decision, and a lint rule refuses a value
+import of them anywhere else in the product packages, because only the factory knows the process's
+decision: a store built elsewhere could write plaintext beside sealed files. Whether secure mode is
+on is one predicate every decision that depends on it reads: the decision is plain unless it is on,
+and no process is given a key holder while it is off.
 
 Being the one construction point, the factory is also where a process records that it uses the
 stores: the first store it builds (or, for a subagent worker, the grant it binds) creates its
@@ -732,19 +732,18 @@ startup errors.
 
 `--continue`/`-c` resumes the most recent session for the cwd (reusing its id); `--resume [id]`
 resumes an explicit id/name or shows a picker when omitted; `--fork-session` (combined with either)
-creates a fresh id while restoring the resumed context, leaving the original file untouched.
-`-c` with no prior session for the cwd starts a new one — identical in TUI and print mode. Print mode
+creates a fresh id while restoring the resumed context, leaving the original file untouched. `-c`
+with no prior session for the cwd starts a new one — identical in TUI and print mode. Print mode
 requires an explicit `-r <id|name>` (no interactive picker) and rejects `--no-session-persistence`
 combined with `-c`/`-r`. A sealed session whose keys are locked is in no picker and is not what `-c`
 picks, because there is no record to show; so `-r` names the lock for an id, and counts the locked
-sessions for a name it cannot match, instead of reporting the session missing, and every surface that lists sessions or picks one (`-c`, the picker, `session
-list`, `session analyze`, the served session listing, `usage` and its report) says how many it left
-out whenever some are locked — the latest readable session may not be the latest one — while
-`usage export` refuses rather than send a partial snapshot. A served rename or delete of a locked
-session names the lock instead of calling it unknown. Resuming a record that is there but cannot
-be read (locked, corrupt, or from a build this one does not read) is refused rather than started
-empty under its id, and the CLI says so before any surface starts, so the terminal UI never meets
-it in its first render.
+sessions for a name it cannot match, instead of reporting the session missing, and every surface
+that lists or picks sessions says how many it left out whenever some are locked — the latest
+readable session may not be the latest one — while `usage export` refuses rather than send a partial
+snapshot. A served rename or delete of a locked session names the lock instead of calling it
+unknown. Resuming a record that is there but cannot be read (locked, corrupt, or from a build this
+one does not read) is refused rather than started empty under its id, and the CLI says so before any
+surface starts, so the terminal UI never meets it in its first render.
 
 ### Destructive actions
 

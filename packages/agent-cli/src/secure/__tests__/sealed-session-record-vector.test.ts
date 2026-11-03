@@ -84,7 +84,7 @@ afterEach(() => {
 
 function storedAs(id: string, bytes: Uint8Array = sealed): NodeSessionStore {
   writeFileSync(join(dir, `${id}.json`), bytes);
-  return new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+  return new NodeSessionStore(dir, { sealing: { sealer } });
 }
 
 function decryptionCode(aad: string): string {
@@ -107,7 +107,7 @@ describe('sealed session record version 1 — known answer', () => {
 
   it('opens through the sealer and the store to the known record', () => {
     copyFileSync(fixture('session-record-v1.sealed'), join(dir, `${ID}.json`));
-    const outcome = new NodeSessionStore(dir, undefined, { sealing: { sealer } }).load(ID);
+    const outcome = new NodeSessionStore(dir, { sealing: { sealer } }).load(ID);
     if (outcome.status !== 'valid') throw new Error(`expected valid, got ${outcome.status}`);
     expect(JSON.parse(JSON.stringify(outcome.record))).toEqual(KNOWN_RECORD);
     expect(

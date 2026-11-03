@@ -120,7 +120,7 @@ describe('the product transient sealing', () => {
     await store.shutdown();
   });
 
-  it('builds a spill store that writes what every earlier build wrote while the runtime is plain', async () => {
+  it('builds a spill store that writes plain results while the runtime is plain', async () => {
     const userHome = home();
     const store = createProductToolResultSpillStore(
       createTestProductRuntime('test-product', { HOME: userHome }),

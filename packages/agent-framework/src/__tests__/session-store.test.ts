@@ -68,6 +68,7 @@ async function projectStore(cwd: string): Promise<ReturnType<typeof createProjec
   return createProjectSessionStore(
     getWorkspaceProjectStateStorage(access.authority, 'sessions'),
     getWorkspaceProjectStateStorage(access.authority, 'session-logs'),
+    { sealing: 'plain' },
   );
 }
 
@@ -77,7 +78,7 @@ describe('SessionStore', () => {
 
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), 'agent-session-test-'));
-    store = new NodeSessionStore(tmpDir);
+    store = new NodeSessionStore(tmpDir, { sealing: 'plain' });
   });
 
   afterEach(() => {
@@ -126,6 +127,7 @@ describe('SessionStore', () => {
           createProjectSessionStore(
             getWorkspaceProjectStateStorage(leftAccess.authority, 'sessions'),
             getWorkspaceProjectStateStorage(rightAccess.authority, 'session-logs'),
+            { sealing: 'plain' },
           ),
         ).toThrow(/same workspace authority/);
       } finally {
@@ -193,7 +195,7 @@ describe('SessionStore', () => {
         const access = await createTrustedProjectAccessFixture(cwd);
         if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
         const logStorage = getWorkspaceProjectStateStorage(access.authority, 'session-logs');
-        const sink = new WorkspaceSessionLogSink(logStorage);
+        const sink = new WorkspaceSessionLogSink(logStorage, { sealing: 'plain' });
         sink.append(
           'log-only-session',
           [
@@ -284,7 +286,7 @@ describe('SessionStore', () => {
 
         try {
           const sessionStorage = getWorkspaceProjectStateStorage(access.authority, 'sessions');
-          const store = createProjectSessionStore(sessionStorage, logStorage);
+          const store = createProjectSessionStore(sessionStorage, logStorage, { sealing: 'plain' });
           const loaded = loadedRecordOrMissing(store, 'log-only-session');
 
           expect(loaded?.cwd).toBe(cwd);
@@ -361,9 +363,11 @@ describe('SessionStore', () => {
           const storage = getWorkspaceProjectStateStorage(access.authority, 'session-logs');
           const serialized = JSON.stringify('larger than one byte');
           const sha256 = createHash('sha256').update(serialized).digest('hex');
-          const sink = new WorkspaceSessionLogSink(storage);
+          const sink = new WorkspaceSessionLogSink(storage, { sealing: 'plain' });
           const reference = sink.writeJson('safe-session', sha256, serialized);
-          const source = new WorkspaceSessionLogSource(storage, 'safe-session');
+          const source = new WorkspaceSessionLogSource(storage, 'safe-session', {
+            sealing: 'plain',
+          });
 
           expect(() => source.readBytes(reference.relativePath, 1)).toThrowError(
             expect.objectContaining({ code: 'MAX_TOTAL_BYTES_EXCEEDED' }),
@@ -384,6 +388,7 @@ describe('SessionStore', () => {
         if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
         const sink = new WorkspaceSessionLogSink(
           getWorkspaceProjectStateStorage(access.authority, 'session-logs'),
+          { sealing: 'plain' },
         );
 
         expect(() => sink.writeJson('safe-session', 'a'.repeat(64), '{"safe":true}')).toThrow(
@@ -404,6 +409,7 @@ describe('SessionStore', () => {
         if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
         const sink = new WorkspaceSessionLogSink(
           getWorkspaceProjectStateStorage(access.authority, 'session-logs'),
+          { sealing: 'plain' },
         );
 
         expect(() => sink.append('safe-session', '{}\n')).not.toThrow();
@@ -439,7 +445,9 @@ describe('SessionStore', () => {
     });
 
     it('returns empty array when base directory does not exist', () => {
-      const nonExistentStore = new NodeSessionStore(join(tmpDir, 'does-not-exist'));
+      const nonExistentStore = new NodeSessionStore(join(tmpDir, 'does-not-exist'), {
+        sealing: 'plain',
+      });
       expect(listedRecords(nonExistentStore)).toEqual([]);
     });
   });
@@ -558,7 +566,7 @@ describe('SessionStore', () => {
   describe('directory creation', () => {
     it('creates the base directory on first save', () => {
       const nestedDir = join(tmpDir, 'nested', 'sessions');
-      const nestedStore = new NodeSessionStore(nestedDir);
+      const nestedStore = new NodeSessionStore(nestedDir, { sealing: 'plain' });
       nestedStore.save(makeRecord({ id: 'first' }));
       const loaded = loadedRecordOrMissing(nestedStore, 'first');
       expect(loaded?.id).toBe('first');

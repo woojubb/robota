@@ -113,16 +113,16 @@ export class NodeExternalPayloadSource implements IExternalPayloadSource {
   private readonly ownerId: string | undefined;
 
   /**
-   * @param options `sealing`: `{ sealer }` opens sealed payloads (plain ones still resolve);
-   *   `'plain'`, the default, meets a sealed payload as one no key in this process opens.
+   * @param options `sealing` (required): `{ sealer }` opens sealed payloads (plain ones still
+   *   resolve); `'plain'` meets a sealed payload as one no key in this process opens.
    */
-  constructor(baseDirectory: string, options?: INodeExternalPayloadSourceOptions) {
+  constructor(baseDirectory: string, options: INodeExternalPayloadSourceOptions) {
     if (baseDirectory.trim().length === 0) {
       throw new Error('External-payload base directory must not be empty.');
     }
     this.baseDirectory = resolve(baseDirectory);
     this.payloads = new StoredPayloads(sessionSealingOf(options));
-    this.ownerId = options?.ownerId;
+    this.ownerId = options.ownerId;
   }
 
   readBytes(relativePath: string, maxBytes: number): Uint8Array | undefined {
@@ -177,13 +177,12 @@ export class NodeSessionLogSource implements ISessionLogSource {
   private readonly ownerId: string;
 
   /**
-   * @param options `sealing`: `{ sealer }` opens sealed lines and payloads (plain ones still read);
-   *   `'plain'`, the default, reads plain logs exactly as before and meets a sealed line as one no
-   *   key in this process opens.
+   * @param options `sealing` (required): `{ sealer }` opens sealed lines and payloads (plain ones
+   *   still read); `'plain'` meets a sealed line as one no key in this process opens.
    */
   constructor(
     private readonly logFile: string,
-    options?: ISessionStoreOptions,
+    options: ISessionStoreOptions,
   ) {
     if (logFile.trim().length === 0) {
       throw new Error('Session log-file path must not be empty.');

@@ -164,6 +164,7 @@ export type {
 // Session persistence
 export { assertSafeSessionId, isSafeSessionId } from './session-id.js';
 export { NodeSessionStore } from './session-store.js';
+export type { INodeSessionStoreOptions } from './session-store.js';
 export { loadSessionForUpdate } from './load-session-for-update.js';
 // Sealed session records: the one object both session stores write and read through, so the user's
 // directory and the trusted project's cannot disagree about what a sealed or plain file means.
@@ -181,7 +182,6 @@ export type {
   IEncodedSession,
   ISessionStoreOptions,
   TSealedSessionRefusal,
-  TSessionSealing,
   TStoredSessionFile,
   TStoredSessionMigrationState,
 } from './stored-session-record.js';

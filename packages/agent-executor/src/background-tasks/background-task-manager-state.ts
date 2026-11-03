@@ -53,6 +53,7 @@ function attachBackgroundTaskHandleMetadata(
   if (handle.pid) task.state.pid = handle.pid;
   if (handle.logPath) task.state.logPath = handle.logPath;
   if (handle.transcriptPath) task.state.transcriptPath = handle.transcriptPath;
+  if (handle.transcriptSealed === true) task.state.transcriptSealed = true;
   if (!handle.pid && !handle.logPath && !handle.transcriptPath) return undefined;
   const updatedAt = now();
   task.state.updatedAt = updatedAt;

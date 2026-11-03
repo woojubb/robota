@@ -223,11 +223,11 @@ describe('SubagentManager', () => {
 });
 
 /**
- * #3679 step 3b: whether a subagent's transcript is sealed is a fact of the runner's live handle,
- * kept in memory: task state is persisted and strictly decoded, so it gains no key for it. The
- * manager answers it by task id for the hooks and the job-group summary.
+ * #3679 step 3b: whether a subagent's transcript is sealed is the runner's handle's to say, and the
+ * manager projects it into the task state, which is persisted: a task restored in a later session,
+ * a job-group result and a hook all say the same thing as the live task.
  */
-describe('SubagentManager — a sealed transcript is known from the live handle only', () => {
+describe('SubagentManager — a sealed transcript is part of the task state', () => {
   function sealedRunner(sealed: boolean): ISubagentRunner {
     return {
       start(job: ISubagentJobStart): ISubagentJobHandle {
@@ -242,23 +242,34 @@ describe('SubagentManager — a sealed transcript is known from the live handle 
     };
   }
 
-  it('answers by task id, before and after the job ends, and keeps it off the task state', async () => {
+  it('shows on the task, the job state and every snapshot from the start, through the end', async () => {
     const manager = new SubagentManager({ runner: sealedRunner(true) });
     const tasks = manager.getBackgroundTaskManager();
+    const seen: Array<boolean | undefined> = [];
+    tasks.subscribe((event) => {
+      if (event.type === 'background_task_updated' || event.type === 'background_task_completed') {
+        seen.push(event.task.transcriptSealed);
+      }
+    });
 
     const created = await manager.spawn(createSpawnRequest('Work'));
-    expect(tasks.isTranscriptSealed?.(created.id)).toBe(true);
+    expect(tasks.get(created.id)?.transcriptSealed).toBe(true);
+    expect(manager.get(created.id)?.transcriptSealed).toBe(true);
     await manager.wait(created.id);
 
-    expect(tasks.isTranscriptSealed?.(created.id)).toBe(true);
-    expect(JSON.stringify(tasks.get(created.id))).not.toContain('Sealed');
-    expect(tasks.isTranscriptSealed?.('task_unknown')).toBe(false);
+    expect(tasks.get(created.id)?.transcriptSealed).toBe(true);
+    expect(tasks.get(created.id)?.transcriptPath).toBe(`/logs/${created.id}.jsonl`);
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((flag) => flag === true)).toBe(true);
   });
 
-  it('is false for a plain transcript', async () => {
+  it('is absent for a plain transcript', async () => {
     const manager = new SubagentManager({ runner: sealedRunner(false) });
     const created = await manager.spawn(createSpawnRequest('Work'));
+    await manager.wait(created.id);
 
-    expect(manager.getBackgroundTaskManager().isTranscriptSealed?.(created.id)).toBe(false);
+    const state = manager.getBackgroundTaskManager().get(created.id);
+    expect(state?.transcriptPath).toBeDefined();
+    expect(state).not.toHaveProperty('transcriptSealed');
   });
 });

@@ -47,7 +47,7 @@ function record(id: string): IInteractiveSessionRecord {
 function lockedSealedStore() {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'framework-fork-locked-')));
   const sealer = createTestArtifactSealer({ locked: true });
-  return { sealer, store: new NodeSessionStore(dir, undefined, { sealing: { sealer } }) };
+  return { sealer, store: new NodeSessionStore(dir, { sealing: { sealer } }) };
 }
 
 /** `/fork`'s write, from a live session holding the canary. */

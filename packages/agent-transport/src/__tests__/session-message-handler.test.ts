@@ -398,7 +398,7 @@ describe('WebSocket Transport Handler', () => {
   });
 
   // #3679 step 3b: a sealed transcript's page says how many records it could not show; the field
-  // rides the wire to a client unchanged, and a page without it is the same bytes as before.
+  // rides the wire to a client unchanged, and a page without it carries no such field.
   it('carries unreadable counts to the client, and a plain page byte for byte', async () => {
     const { onMessage, sent, session } = setup();
     const sealedPage: IBackgroundTaskLogPage = {

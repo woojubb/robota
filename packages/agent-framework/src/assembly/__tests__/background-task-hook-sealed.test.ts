@@ -1,7 +1,7 @@
 /**
  * #3679 step 3b (R6): a subagent hook is a program of the same user, so it gets the transcript's
  * path and, when the transcript is sealed, `transcript_sealed: true` — never plaintext. Sealedness
- * comes from the runner's live handle through the manager, never from task state.
+ * is on the task state, which the manager projects from the runner's handle.
  */
 import { describe, expect, it } from 'vitest';
 

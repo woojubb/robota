@@ -45,6 +45,7 @@ import {
   closeSync,
   fsyncSync,
   linkSync,
+  lstatSync,
   mkdirSync,
   openSync,
   renameSync,
@@ -111,6 +112,33 @@ export interface IEnsureOwnerOnlyOptions extends IOwnerOnlyIo {
    * would eventually chmod someone's home directory.
    */
   readonly withinRoot?: string;
+  /**
+   * Flush the parent of every directory this call creates, so the new entries survive a crash: a
+   * flushed file in a directory whose own entry was never flushed is gone with it. Off by default;
+   * a key store, which has no other copy, turns it on.
+   */
+  readonly durable?: boolean;
+  /** Seam for the flush of `durable`; see {@link IOwnerOnlyDurability.syncDirectory}. */
+  readonly syncDirectory?: (directory: string) => void;
+}
+
+/** `directory` and each ancestor of it that does not exist yet, outermost first. */
+function missingDirectories(directory: string): string[] {
+  const missing: string[] = [];
+  let current = directory;
+  for (;;) {
+    try {
+      lstatSync(current);
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') break;
+    }
+    missing.unshift(current);
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return missing;
 }
 
 /** Every directory from `root` down to `target`, outermost first. `root` must be an ancestor. */
@@ -159,7 +187,11 @@ export function ensureOwnerOnlyDirectory(
     });
   const setMode =
     options.setMode ?? ((target: string, mode: number): void => chmodSync(target, mode));
+  const missing = options.durable === true ? missingDirectories(directory) : [];
   makeDirectory(directory, OWNER_ONLY_DIRECTORY_MODE);
+  // The directories just created, outermost first: each one's entry lives in its parent, which is
+  // flushed once the whole chain exists.
+  for (const created of missing) (options.syncDirectory ?? syncDirectoryOnDisk)(dirname(created));
   // Every directory the caller declared it owns, not only the leaf. `mkdir` set the mode on what it
   // CREATED; a root an older version left at 0755 was created by nobody here and would keep it.
   const owned =
@@ -260,7 +292,10 @@ export function writeOwnerOnlyFile(
   content: string | Uint8Array,
   options: IWriteOwnerOnlyFileOptions = {},
 ): void {
-  ensureOwnerOnlyDirectory(dirname(filePath));
+  ensureOwnerOnlyDirectory(
+    dirname(filePath),
+    options.durable === true ? { durable: true, syncDirectory: options.syncDirectory } : {},
+  );
   const temporaryPath = options.temporaryPath ?? `${filePath}.${process.pid}.tmp`;
   writeOwnerOnlyTemporary(
     temporaryPath,
@@ -355,7 +390,10 @@ export function stageOwnerOnlyFile(
   content: string | Uint8Array,
   options: IOwnerOnlyDurability & { readonly temporaryPath?: string } = {},
 ): IStagedOwnerOnlyFile {
-  ensureOwnerOnlyDirectory(dirname(filePath));
+  ensureOwnerOnlyDirectory(dirname(filePath), {
+    durable: true,
+    syncDirectory: options.syncDirectory,
+  });
   const temporaryPath = options.temporaryPath ?? `${filePath}.${process.pid}.tmp`;
   writeOwnerOnlyTemporary(temporaryPath, content, options.syncFile ?? fsyncSync);
   let settled = false;

@@ -86,11 +86,11 @@ function thrownBy(action: () => void): unknown {
 describe('a read that fails after the file was opened', () => {
   it('refuses the save and leaves the sealed file exactly as it was', () => {
     const dir = newStoreDir();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer: createTestArtifactSealer() } }).save(
+    new NodeSessionStore(dir, { sealing: { sealer: createTestArtifactSealer() } }).save(
       record('sess_a'),
     );
     const before = readFileSync(fileOf(dir, 'sess_a'));
-    const store = new NodeSessionStore(dir, undefined, {
+    const store = new NodeSessionStore(dir, {
       sealing: { sealer: createTestArtifactSealer() },
     });
 
@@ -109,7 +109,7 @@ describe('a load that cannot even look at the path', () => {
     () => {
       const root = newStoreDir();
       const dir = path.join(root, 'sessions');
-      const store = new NodeSessionStore(dir);
+      const store = new NodeSessionStore(dir, { sealing: 'plain' });
       store.save(record('sess_a'));
       // A directory this account cannot search: every look at the file inside fails with EACCES.
       chmodSync(dir, 0o000);

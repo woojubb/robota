@@ -50,10 +50,17 @@ export function createReplayProviderFromSource(
   });
 }
 
-/** Explicit Node-host adapter; unlike the neutral parser this conspicuously enters ambient I/O. */
+/**
+ * Explicit Node-host adapter; unlike the neutral parser this conspicuously enters ambient I/O. The
+ * replay harness holds no keys, so it reads the log `'plain'`: a sealed log is refused with fixed
+ * text rather than opened.
+ */
 export function createReplayProviderFromNodeLogFile(
   logFile: string,
   options: TReplayProviderFromSourceOptions = {},
 ): ReplayProvider {
-  return createReplayProviderFromSource(new NodeSessionLogSource(logFile), options);
+  return createReplayProviderFromSource(
+    new NodeSessionLogSource(logFile, { sealing: 'plain' }),
+    options,
+  );
 }

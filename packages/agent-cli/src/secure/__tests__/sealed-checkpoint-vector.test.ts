@@ -1,6 +1,6 @@
 /**
  * Known answer for the product's sealed edit checkpoint: one manifest and its two pre-images, sealed
- * by `KeyHolderArtifactSealer` through the framework's sealed checkpoint state to the sealing key of
+ * by `KeyHolderArtifactSealer` through the framework's edit checkpoint store to the sealing key of
  * the fixed master key the keyring's own known-answer vectors use (`fixtures/keyring-v1.json`).
  * Sealing draws fresh randomness, so the files cannot be recomputed; they were produced once from
  * source and checked in. What they pin is that a checkpoint this build wrote still opens to the same
@@ -18,7 +18,6 @@ import {
   EditCheckpointStore,
   WorkspaceTrustService,
   createDirectoryEditCheckpointState,
-  createSealedEditCheckpointState,
   createWorkspaceProjectMutation,
 } from '@robota-sdk/agent-framework';
 import { parseKeyring } from '@robota-sdk/agent-keyring';
@@ -28,7 +27,7 @@ import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
 import { KeyHolder } from '../key-holder.js';
 import { createMemoryKeyringStore } from './helpers.js';
 
-import type { IEditCheckpointStateStorage } from '@robota-sdk/agent-framework';
+import type { IArtifactContext } from '@robota-sdk/agent-core';
 
 const fixture = (name: string): string =>
   fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
@@ -74,15 +73,13 @@ const keyring = parseKeyring(readFileSync(fixture('keyring-v1.json'), 'utf8'));
 
 let dir: string;
 let holder: KeyHolder;
-let state: IEditCheckpointStateStorage;
+let sealer: KeyHolderArtifactSealer;
 
 beforeEach(async () => {
   dir = realpathSync(mkdtempSync(join(tmpdir(), 'sealed-checkpoint-vector-')));
   holder = new KeyHolder({ store: createMemoryKeyringStore(keyring), policy: { idleMs: 0 } });
   await holder.unlock({ type: 'recoveryKey', recoveryKey: FIXTURE_RECOVERY_KEY });
-  state = createSealedEditCheckpointState(createDirectoryEditCheckpointState(join(dir, 'state')), {
-    sealer: new KeyHolderArtifactSealer(holder),
-  });
+  sealer = new KeyHolderArtifactSealer(holder);
   placeFixture(SESSION, 'turn-0001');
 });
 
@@ -100,8 +97,20 @@ function placeFixture(session: string, turn: string): void {
   copyFileSync(fixture('checkpoint-v1-000002.sealed'), join(checkpoint, 'files', '000002.content'));
 }
 
+/**
+ * What the checkpoint file at `path` (`<session>/<turn>/manifest.json` or
+ * `<session>/<turn>/files/<NNNNNN>.content`) is sealed as: spelled out here, since the binding of a
+ * file to its place is what this vector pins.
+ */
+function contextOf(path: string): IArtifactContext {
+  const [session, turn, kind, file] = path.split('/');
+  return kind === 'manifest.json'
+    ? { kind: 'checkpoint-manifest', id: `${session}:${turn}` }
+    : { kind: 'checkpoint-preimage', id: `${session}:${turn}:${file!.replace('.content', '')}` };
+}
+
 function opened(path: string): Buffer {
-  return Buffer.from(state.readBytes(path, 'known answer') ?? []);
+  return Buffer.from(sealer.openBytes(readFileSync(join(dir, 'state', path)), contextOf(path)));
 }
 
 async function storeOverFixture(): Promise<EditCheckpointStore> {
@@ -134,7 +143,8 @@ async function storeOverFixture(): Promise<EditCheckpointStore> {
       status: 'approved',
       purpose: 'known answer',
     }),
-    stateStorage: state,
+    stateStorage: createDirectoryEditCheckpointState(join(dir, 'state')),
+    sealing: { sealer },
   });
 }
 

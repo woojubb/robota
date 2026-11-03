@@ -161,9 +161,7 @@ export type {
   IWorkspaceSessionRecordMigration,
   IHostToolResultSpillStore,
   ISessionRecordRestoreResult,
-  ISessionStoreOptions,
   TLockedSessionReason,
-  TSessionSealing,
   TRestoredScheduleDisposition,
 } from './interactive/index.js';
 export type {
@@ -543,7 +541,6 @@ export {
   EditCheckpointsLockedError,
   EditCheckpointsUnavailableError,
   createDirectoryEditCheckpointState,
-  createSealedEditCheckpointState,
   migrateWorkspaceEditCheckpoints,
   wrapEditCheckpointTools,
 } from './checkpoints/index.js';
@@ -760,7 +757,6 @@ export type {
 // `@robota-sdk/agent-executor` by anyone who needs them.
 export type {
   IBackgroundTaskRunner,
-  IBackgroundJobGroupSummaryOptions,
   IBackgroundJobOrchestratorOptions,
   IBackgroundTaskSpawnerGroupRequest,
   ICreateExecutionWorkspaceTaskSpawnerOptions,

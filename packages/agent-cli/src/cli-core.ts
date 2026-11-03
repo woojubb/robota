@@ -1012,7 +1012,7 @@ async function runCliCore(
     resumeSessionId = resumable.sessions[0]?.id;
     // Sealed sessions this process cannot open are not in the listing, so the latest readable
     // session may not be the latest one, and "nothing to continue" would read as "nothing saved".
-    // Say they are there whenever there are some; the run still continues or starts as before.
+    // Say they are there whenever there are some; the run still continues or starts.
     const notice = lockedSessionsNotice(resumable.locked, resumable.noKeys);
     if (notice !== undefined) process.stderr.write(`${notice}\n`);
   } else if (args.resumeId !== undefined) {

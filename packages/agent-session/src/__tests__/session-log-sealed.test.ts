@@ -3,7 +3,7 @@
  * writes each append as one sealed line and each externalized payload as a sealed sidecar under a
  * random name, so neither a line nor a file name carries what the session said. The source opens
  * them with the owner id its file name gives, strictly for the decoders that fail on any bad line and
- * tolerantly for readers that show what they can. Plain sinks and sources keep every byte as before.
+ * tolerantly for readers that show what they can. Plain sinks and sources write and read plain bytes.
  */
 import { createHash } from 'node:crypto';
 import {
@@ -64,11 +64,11 @@ function thrown(action: () => unknown): unknown {
 const bigResult = CANARY.repeat(8);
 
 describe('a plain session log', () => {
-  it('writes exactly the bytes and sidecars every earlier build wrote', () => {
+  it('writes plain bytes and content-addressed sidecars', () => {
     const logs = logDirectory();
     const sink = new NodeSessionLogSink(logs, { sealing: 'plain' });
     sink.append(SESSION, '{"a":1}\n');
-    new NodeSessionLogSink(logs).append(SESSION, '{"b":2}\n{"c":3}\n');
+    new NodeSessionLogSink(logs, { sealing: 'plain' }).append(SESSION, '{"b":2}\n{"c":3}\n');
     const serialized = JSON.stringify(bigResult);
     const reference = sink.writeJson(SESSION, digest(serialized), serialized);
 
@@ -84,7 +84,9 @@ describe('a plain session log', () => {
     mkdirSync(logs, { recursive: true });
     const text = '\n{"a":1}\n\n{"b":2}';
     writeFileSync(join(logs, `${SESSION}.jsonl`), text);
-    expect(new NodeSessionLogSource(join(logs, `${SESSION}.jsonl`)).readText()).toBe(text);
+    expect(
+      new NodeSessionLogSource(join(logs, `${SESSION}.jsonl`), { sealing: 'plain' }).readText(),
+    ).toBe(text);
   });
 
   it('meets a sealed line as one no key in this process opens', () => {
@@ -93,7 +95,7 @@ describe('a plain session log', () => {
       SESSION,
       line('user', { content: CANARY }),
     );
-    const source = new NodeSessionLogSource(join(logs, `${SESSION}.jsonl`));
+    const source = new NodeSessionLogSource(join(logs, `${SESSION}.jsonl`), { sealing: 'plain' });
     const error = thrown(() => source.readText());
     expect(error).toBeInstanceOf(ArtifactLockedError);
     expect((error as ArtifactLockedError).reason).toBe('no-keys');
@@ -308,7 +310,11 @@ describe('sealed sidecars read back through the source', () => {
   it('still resolves a plain content-addressed sidecar beside sealed ones', () => {
     const { logs, sealer } = sealedLog();
     const serialized = JSON.stringify('plain payload from an earlier build');
-    new NodeSessionLogSink(logs).writeJson(SESSION, digest(serialized), serialized);
+    new NodeSessionLogSink(logs, { sealing: 'plain' }).writeJson(
+      SESSION,
+      digest(serialized),
+      serialized,
+    );
     const source = new NodeExternalPayloadSource(logs, { sealing: { sealer }, ownerId: SESSION });
     expect(
       Buffer.from(

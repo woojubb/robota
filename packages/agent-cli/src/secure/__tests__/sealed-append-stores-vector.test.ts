@@ -45,10 +45,8 @@ import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
 import { KeyHolder } from '../key-holder.js';
 import { createMemoryKeyringStore } from './helpers.js';
 
-import type {
-  TSessionSealing,
-  TWorkspaceProjectStateDirectories,
-} from '@robota-sdk/agent-framework';
+import type { TWorkspaceProjectStateDirectories } from '@robota-sdk/agent-framework';
+import type { TArtifactSealing } from '@robota-sdk/agent-core';
 import type { IPromptHistoryBlock, IPromptHistoryEntry } from '@robota-sdk/agent-interface-session';
 
 const fixture = (name: string): string =>
@@ -83,7 +81,7 @@ async function unlockedSealer(): Promise<KeyHolderArtifactSealer> {
 
 async function readHistory(
   path: string,
-  sealing: TSessionSealing,
+  sealing: TArtifactSealing,
   blockBytes?: number,
 ): Promise<{
   readonly entries: IPromptHistoryEntry[];
@@ -322,7 +320,7 @@ describe('sealed subagent log version 1 — known answer', () => {
     });
   });
 
-  async function projectStore(sealing: TSessionSealing) {
+  async function projectStore(sealing: TArtifactSealing) {
     const root = temp('sealed-log-project-');
     const directories: TWorkspaceProjectStateDirectories = {
       sessions: join('.agent', 'sessions'),

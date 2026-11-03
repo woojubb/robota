@@ -35,7 +35,7 @@ function record(id: string): IInteractiveSessionRecord {
 function lockedStore(ids: readonly string[]) {
   const sealer = createTestArtifactSealer();
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'usage-locked-')));
-  const store = createNodeHostSessionStore(dir, undefined, { sealing: { sealer } });
+  const store = createNodeHostSessionStore(dir, { sealing: { sealer } });
   for (const id of ids) store.save(record(id));
   sealer.lock();
   return store;
@@ -89,7 +89,7 @@ describe('usage with sealed sessions', () => {
 
   it('says nothing extra when no session is locked', () => {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'usage-unlocked-')));
-    const store = createNodeHostSessionStore(dir, undefined, { sealing: 'plain' });
+    const store = createNodeHostSessionStore(dir, { sealing: 'plain' });
     store.save(record('sess_a'));
     const result = executeUsageCommand([], { userSessionStore: store }, 'test-product');
     expect(result.stderr).toBe('');
@@ -112,11 +112,11 @@ describe('usage with sealed sessions', () => {
 describe('usage with sessions sealed with keys this process does not have', () => {
   function noKeysStore(ids: readonly string[]) {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'usage-no-keys-')));
-    const writer = createNodeHostSessionStore(dir, undefined, {
+    const writer = createNodeHostSessionStore(dir, {
       sealing: { sealer: createTestArtifactSealer() },
     });
     for (const id of ids) writer.save(record(id));
-    return createNodeHostSessionStore(dir, undefined, { sealing: 'plain' });
+    return createNodeHostSessionStore(dir, { sealing: 'plain' });
   }
 
   it('says they are not in the totals without telling anyone to unlock', () => {
@@ -154,7 +154,7 @@ describe('the personal usage reporter a served runtime answers with', () => {
     const home = realpathSync(mkdtempSync(join(tmpdir(), 'usage-personal-')));
     const runtime = createTestProductRuntime('test-product', { HOME: home });
     const sessions = join(home, '.test-product', 'sessions');
-    createNodeHostSessionStore(sessions, undefined, {
+    createNodeHostSessionStore(sessions, {
       sealing: { sealer: createTestArtifactSealer() },
     }).save(record('sess_a'));
 
@@ -171,7 +171,7 @@ describe('the stored-session usage reporter', () => {
     const runtime = createTestProductRuntime('test-product', { HOME: home });
     const sealer = createTestArtifactSealer();
     const sessions = join(home, '.test-product', 'sessions');
-    createNodeHostSessionStore(sessions, undefined, { sealing: { sealer } }).save(record('sess_a'));
+    createNodeHostSessionStore(sessions, { sealing: { sealer } }).save(record('sess_a'));
 
     // The reporter builds its own store with no keys, so no unlock in this process would open it.
     expect(() => createStoredSessionUsageReporter(runtime)('sess_a')).toThrow(

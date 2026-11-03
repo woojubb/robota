@@ -52,7 +52,7 @@ describe('sessions sealed with the keyring', () => {
   it('lets a process that never unlocked write a session that an unlocked one reads', async () => {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'sealed-real-')));
     const writerHolder = await holder();
-    const writer = createNodeHostSessionStore(dir, undefined, {
+    const writer = createNodeHostSessionStore(dir, {
       sealing: { sealer: new KeyHolderArtifactSealer(writerHolder) },
     });
 
@@ -65,7 +65,7 @@ describe('sessions sealed with the keyring', () => {
 
     const readerHolder = await holder();
     await unlock(readerHolder);
-    const reader = createNodeHostSessionStore(dir, undefined, {
+    const reader = createNodeHostSessionStore(dir, {
       sealing: { sealer: new KeyHolderArtifactSealer(readerHolder) },
     });
     expect(reader.load('sess_a')).toEqual({ status: 'valid', record: record('sess_a') });
@@ -98,7 +98,7 @@ describe('sessions sealed with the keyring', () => {
     const dir = realpathSync(mkdtempSync(join(tmpdir(), 'sealed-real-')));
     const keys = await holder();
     await unlock(keys);
-    const store = createNodeHostSessionStore(dir, undefined, {
+    const store = createNodeHostSessionStore(dir, {
       sealing: { sealer: new KeyHolderArtifactSealer(keys) },
     });
     store.save(record('sess_a'));
@@ -114,7 +114,7 @@ describe('sessions sealed with the keyring', () => {
     expect(after.includes(Buffer.from(CANARY))).toBe(false);
 
     // A restarted process remembers nothing about it, and replaces nothing it cannot open.
-    const restarted = createNodeHostSessionStore(dir, undefined, {
+    const restarted = createNodeHostSessionStore(dir, {
       sealing: { sealer: new KeyHolderArtifactSealer(keys) },
     });
     expect(() => restarted.save(record('sess_a'))).toThrow(SealedSessionUnreadableError);

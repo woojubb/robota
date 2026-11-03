@@ -1,6 +1,6 @@
 import { join, relative, resolve, sep } from 'node:path';
 
-import { CheckpointTree } from '@robota-sdk/agent-session';
+import { CheckpointTree, assertSessionSealing } from '@robota-sdk/agent-session';
 
 import { EditCheckpointAuthorityIO } from './edit-checkpoint-authority-io.js';
 import { PlainEditCheckpointCatalog } from './edit-checkpoint-catalog.js';
@@ -10,7 +10,10 @@ import {
 } from './edit-checkpoint-errors.js';
 import { buildEditCheckpointInspection } from './edit-checkpoint-inspection.js';
 import { SealedEditCheckpointCatalog } from './edit-checkpoint-sealed-catalog.js';
-import { SealedEditCheckpointState } from './edit-checkpoint-sealed-state.js';
+import {
+  SealedEditCheckpointState,
+  createSealedEditCheckpointState,
+} from './edit-checkpoint-sealed-state.js';
 import {
   DEFAULT_BRANCH_ID,
   MANIFEST_FILE,
@@ -21,6 +24,7 @@ import {
   safePathSegment,
   toEditCheckpointSummary as toSummary,
 } from './edit-checkpoint-store-helpers.js';
+import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
 import type {
   IEditCheckpointCatalog,
@@ -41,6 +45,7 @@ import type {
   IWorkspaceProjectAuthority,
   IWorkspaceProjectMutation,
 } from '../workspace-trust/index.js';
+import type { TArtifactSealing } from '@robota-sdk/agent-core';
 import type { IActiveBranchPointer } from '@robota-sdk/agent-interface-session';
 
 const SNAPSHOT_PAD = 6;
@@ -55,10 +60,23 @@ interface IEditCheckpointStoreOptions {
   authority: IWorkspaceProjectAuthority;
   mutation: IWorkspaceProjectMutation;
   /**
-   * Where manifests and file pre-images are kept. Absent, they live in the project's trusted
-   * checkpoint directory; a host that must leave nothing in the project supplies state held elsewhere.
+   * How the store keeps what it writes, required: `{ sealer }` seals every manifest and pre-image
+   * bound to its session, turn and pre-image number, so one moved elsewhere does not open there, and
+   * `'plain'` keeps them as they are. A host that seals states it for every store it builds.
+   */
+  sealing: TArtifactSealing;
+  /**
+   * Where manifests and file pre-images are kept, as a location only: state that does not seal by
+   * itself. Absent, they live in the project's trusted checkpoint directory; a host that must leave
+   * nothing in the project supplies state held elsewhere.
    */
   stateStorage?: IEditCheckpointStateStorage;
+  /**
+   * With a sealer: `stateStorage` never held a plain checkpoint (state made for one process), so a
+   * plain manifest found in it can only have been planted and none is believed. Without it, a plain
+   * manifest is believed only where it is numbered below every sealed one.
+   */
+  sealedOnly?: boolean;
   /**
    * Asked before each read a person makes of the checkpoints — listing, inspecting, restoring,
    * branching — which `true` refuses as locked. A host whose checkpoints seal passes its keys' lock
@@ -89,12 +107,17 @@ export class EditCheckpointStore {
   private forkCounter = 0;
 
   constructor(options: IEditCheckpointStoreOptions) {
-    const state = options.stateStorage;
-    if (state?.seals === true && !(state instanceof SealedEditCheckpointState)) {
+    assertSessionSealing(options.sealing);
+    if (options.stateStorage?.seals === true) {
       throw new RangeError(
-        'Sealed checkpoint state comes only from createSealedEditCheckpointState.',
+        'The store seals its checkpoint state itself; give it state that does not.',
       );
     }
+    const state = createSealedEditCheckpointState(
+      options.stateStorage ?? getWorkspaceProjectStateStorage(options.authority, 'checkpoints'),
+      options.sealing,
+      options.sealedOnly === true ? { sealedOnly: true } : {},
+    );
     this.authorityIO = new EditCheckpointAuthorityIO(options.authority, options.mutation, state);
     this.catalog =
       state instanceof SealedEditCheckpointState
@@ -395,23 +418,31 @@ export class EditCheckpointStore {
 
   /**
    * SELFHOST-007: the active-branch pointer to persist on the session record (so a branch survives
-   * `--resume`). Undefined when there is no active head (a fresh/empty session).
+   * `--resume`). Undefined when there is no active head yet (a fresh/empty session); a head cleared
+   * by a rollback through the first checkpoint is a pointer with a `null` `checkpointId`, so a resume
+   * starts the next turn on a fresh root line too.
    */
   getActiveBranchPointer(sessionId: string): IActiveBranchPointer | undefined {
     const checkpointId = this.activeHead.get(sessionId);
-    if (checkpointId === undefined || checkpointId === null) return undefined;
+    if (checkpointId === undefined) return undefined;
     return { branchId: this.activeBranch.get(sessionId) ?? DEFAULT_BRANCH_ID, checkpointId };
   }
 
   /**
    * Restore a persisted pointer; absent checkpoint-tree state degrades to the linear HEAD. Sealed
    * state applies it when the checkpoint it names holds a manifest file, which a listing tells
-   * without opening anything, so the answer is the same whether or not the keys are locked.
+   * without opening anything, so the answer is the same whether or not the keys are locked. A head
+   * cleared on purpose names no checkpoint, so there is nothing to find and it always applies.
    */
   restoreActiveBranch(sessionId: string, pointer: IActiveBranchPointer | undefined): void {
     if (pointer === undefined) return;
     // drift → keep linear HEAD
-    if (!this.catalog.pointsAt(this.sessionDir(sessionId), pointer.checkpointId)) return;
+    if (
+      pointer.checkpointId !== null &&
+      !this.catalog.pointsAt(this.sessionDir(sessionId), pointer.checkpointId)
+    ) {
+      return;
+    }
     this.activeHead.set(sessionId, pointer.checkpointId);
     this.activeBranch.set(sessionId, pointer.branchId);
   }

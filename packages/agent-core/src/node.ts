@@ -44,6 +44,7 @@ export {
   PROCESS_OWNER_RECORD_NAME,
   createProcessScopedDirectory,
   inspectProcessScopedDirectories,
+  ownerOnThisMachine,
   processScopedDirectoryPrefix,
   sweepStaleProcessScopedDirectories,
 } from './utils/process-scoped-directory.js';

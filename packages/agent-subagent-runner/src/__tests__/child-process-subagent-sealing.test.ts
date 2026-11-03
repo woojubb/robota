@@ -292,6 +292,7 @@ describe('the transcript the parent reads is the one the child wrote', () => {
     async () => {
       const { cwd, logsDir, resumeSessionId } = forkSetup();
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: FORK_WORKER,
         worktreeAdapter: NO_WORKTREES,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
@@ -325,6 +326,7 @@ describe('the transcript the parent reads is the one the child wrote', () => {
         remove: () => {},
       };
       const runner = createChildProcessSubagentRunnerFactory({
+        logSealing: 'plain',
         workerEntry: FORK_WORKER,
         worktreeAdapter: worktrees,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
@@ -365,7 +367,7 @@ function pagePre3b(
   };
 }
 
-describe('a plain transcript pages exactly as before #3679 step 3b', () => {
+describe('a plain transcript pages by its display lines #3679 step 3b', () => {
   it(
     'offset for offset, past the end, negative and not a number, and with no transcript at all',
     async () => {
@@ -380,6 +382,7 @@ describe('a plain transcript pages exactly as before #3679 step 3b', () => {
       );
       writeFileSync(transcript, records.join(''));
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: ECHO_WORKER,
         worktreeAdapter: NO_WORKTREES,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
@@ -399,6 +402,7 @@ describe('a plain transcript pages exactly as before #3679 step 3b', () => {
       expect(await handle.readLog?.()).toStrictEqual(pagePre3b('agent_1', transcript));
 
       const missing = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: ECHO_WORKER,
         worktreeAdapter: NO_WORKTREES,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
@@ -941,6 +945,7 @@ describe('a child whose parent seals', () => {
         sealing: { sealer: sealedElsewhere.sealer },
       }).save(forkRecord('session_fork_unhanded', cwd));
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: SEALING_WORKER,
         worktreeAdapter: NO_WORKTREES,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,

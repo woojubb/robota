@@ -74,7 +74,7 @@ function reference(serialized: string): Record<string, unknown> {
  * lines, and a payload whose JSON is itself a reference to another payload.
  */
 function seedPlainLog(logs: string): void {
-  const logger = new FileSessionLogger(new NodeSessionLogSink(logs), {
+  const logger = new FileSessionLogger(new NodeSessionLogSink(logs, { sealing: 'plain' }), {
     externalPayloadThresholdBytes: 64,
   });
   for (const [index, id] of ['a1', 'a2'].entries()) {
@@ -113,10 +113,9 @@ function seedPlainLog(logs: string): void {
 }
 
 function contents(logs: string, sealer: IArtifactSealer | undefined): string[] {
-  const source = new NodeSessionLogSource(
-    logPath(logs),
-    sealer === undefined ? {} : { sealing: { sealer } },
-  );
+  const source = new NodeSessionLogSource(logPath(logs), {
+    sealing: sealer === undefined ? 'plain' : { sealer },
+  });
   return loadSessionLogEntries(source).map(
     (entry) => (entry.message as { content: string }).content,
   );

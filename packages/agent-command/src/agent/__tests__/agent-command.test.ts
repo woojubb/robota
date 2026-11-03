@@ -598,18 +598,18 @@ describe('agent command module', () => {
 
 /**
  * #3679 step 3b (R7): a group summary points at `/agent read` for a sealed transcript, whose path
- * reaches no content, and keeps the path otherwise. Sealedness comes from the live session; the
- * group's results carry the path, as they are saved.
+ * reaches no content, and keeps the path otherwise. The group's saved results say which is which.
  */
 describe('agent wait — a sealed transcript in the group summary', () => {
   it('names /agent read for the sealed one and the path for the plain one', async () => {
     const { executeAgentCommand } = await import('../agent-command.js');
-    const result = (taskId: string) => ({
+    const result = (taskId: string, sealed: boolean) => ({
       taskId,
       label: taskId,
       status: 'completed' as const,
       summary: `${taskId} summary`,
       outputRef: `/logs/session/subagents/${taskId}.jsonl`,
+      ...(sealed ? { transcriptSealed: true as const } : {}),
     });
     const session = createTestAgentJobHost({
       waitBackgroundJobGroup: () =>
@@ -621,9 +621,8 @@ describe('agent wait — a sealed transcript in the group summary', () => {
           status: 'completed',
           createdAt: '2026-05-01T00:00:00.000Z',
           updatedAt: '2026-05-01T00:00:02.000Z',
-          results: [result('agent_1'), result('agent_2')],
+          results: [result('agent_1', true), result('agent_2', false)],
         }),
-      isBackgroundTaskTranscriptSealed: (taskId: string) => taskId === 'agent_1',
     });
 
     const shown = await executeAgentCommand(session, 'wait group_1');

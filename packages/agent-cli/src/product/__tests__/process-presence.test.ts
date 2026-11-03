@@ -274,6 +274,37 @@ describe.skipIf(posixOnly)('a migration marker', () => {
     expect(entries('migration-')).toEqual([]);
   });
 
+  it('names a presence another machine left by its host, ahead of any pid namespace or boot', () => {
+    // Same namespace and boot as this process, so only the host name says it is not ours: a pid and a
+    // boot id of another machine mean nothing here.
+    const elsewhere = leavePresence('process-', {
+      ...readCurrentProcessIdentity(),
+      pid: 4242,
+      hostname: 'another-machine.example',
+    });
+    const unnamed = leavePresence('process-', {
+      ...readCurrentProcessIdentity(),
+      pid: 4343,
+      hostname: undefined,
+    });
+
+    const marker = writeProductMigrationMarker(runtime);
+    const others = marker.others();
+
+    expect(others.find((entry) => entry.path === elsewhere)).toMatchObject({
+      liveness: 'unknown',
+      unknownBecause: 'other-machine',
+      ownerHostname: 'another-machine.example',
+    });
+    // A record that names no host cannot be shown to be this machine's either.
+    expect(others.find((entry) => entry.path === unnamed)).toMatchObject({
+      liveness: 'unknown',
+      unknownBecause: 'other-machine',
+    });
+    expect(others.find((entry) => entry.path === unnamed)?.ownerHostname).toBeUndefined();
+    marker.release();
+  });
+
   it('sees another migration, which in turn sees this one: both refuse', async () => {
     const other = leavePresence('migration-', await liveProcess());
 

@@ -71,7 +71,7 @@ const envelope = (value: unknown, schemaVersion: unknown = SESSION_RECORD_ENVELO
 
 /** A plain store as builds before sealing left it: one record of each status the store reports. */
 function seedPlainStore(dir: string): void {
-  new NodeSessionStore(dir).save(record('valid_one'));
+  new NodeSessionStore(dir, { sealing: 'plain' }).save(record('valid_one'));
   writeFileSync(join(dir, 'corrupt_one.json'), `{"schemaVersion":1,"record":"${CANARY}`);
   writeFileSync(
     join(dir, 'unsupported_one.json'),
@@ -84,7 +84,7 @@ const IDS = ['bare_one', 'corrupt_one', 'unsupported_one', 'valid_one'];
 
 /** What a store sealing with `sealer` reports for each id; a plain store and a sealed one must agree. */
 function statuses(dir: string, sealer: IArtifactSealer): Record<string, unknown> {
-  const store = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+  const store = new NodeSessionStore(dir, { sealing: { sealer } });
   return Object.fromEntries(IDS.map((id) => [id, store.load(id)]));
 }
 
@@ -173,7 +173,7 @@ describe('migrateNodeSessionStore', () => {
 
   it('leaves a record that changed after it was read, for the next run', () => {
     const dir = directory();
-    new NodeSessionStore(dir).save(record('running_one'));
+    new NodeSessionStore(dir, { sealing: 'plain' }).save(record('running_one'));
     const saved = envelope({ ...record('running_one'), title: 'saved meanwhile' });
 
     const result = migrateNodeSessionStore(dir, {
@@ -189,7 +189,7 @@ describe('migrateNodeSessionStore', () => {
   it('leaves alone, and reports, sealed records that do not open here and names that are not ids', () => {
     const dir = directory();
     const stranger = createTestArtifactSealer();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer: stranger } }).save(record('theirs'));
+    new NodeSessionStore(dir, { sealing: { sealer: stranger } }).save(record('theirs'));
     const theirs = readFileSync(join(dir, 'theirs.json'));
     const newer = Buffer.concat([Buffer.from('RSL9'), Buffer.from(CANARY)]);
     writeFileSync(join(dir, 'newer_one.json'), newer);
@@ -228,7 +228,7 @@ describe('migrateNodeSessionStore', () => {
     'refuses a record with another name, which sealing in place would leave holding the plaintext',
     () => {
       const dir = directory();
-      new NodeSessionStore(dir).save(record('linked_one'));
+      new NodeSessionStore(dir, { sealing: 'plain' }).save(record('linked_one'));
       const backup = join(directory(), 'backup.json');
       linkSync(join(dir, 'linked_one.json'), backup);
 
@@ -264,7 +264,7 @@ describe('migrateNodeSessionStore', () => {
   it('judges a temp file against when the migration started, in a directory nothing changed since', () => {
     const dir = directory();
     const sealer = createTestArtifactSealer();
-    new NodeSessionStore(dir, undefined, { sealing: { sealer } }).save(record('sealed_one'));
+    new NodeSessionStore(dir, { sealing: { sealer } }).save(record('sealed_one'));
     const stale = join(dir, 'deleted_one.json.4242.tmp');
     writeFileSync(stale, envelope(record('deleted_one')));
     const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
@@ -284,7 +284,7 @@ describe('migrateNodeSessionStore', () => {
 
   it('removes temp files crashed writes left only when stale, and never its own', () => {
     const dir = directory();
-    new NodeSessionStore(dir).save(record('valid_one'));
+    new NodeSessionStore(dir, { sealing: 'plain' }).save(record('valid_one'));
     const stale = join(dir, 'valid_one.json.4242.tmp');
     const fresh = join(dir, 'valid_one.json.4343.tmp');
     // A temp of this process's own pid (not one this run's own write takes over) is never stale.
@@ -320,10 +320,8 @@ describe('readSessionStoreWorkingDirectories', () => {
   it('names the working directory of plain and sealed records alike, and writes nothing', () => {
     const dir = directory();
     const sealer = createTestArtifactSealer();
-    new NodeSessionStore(dir).save(record('plain_one', '/work/plain'));
-    new NodeSessionStore(dir, undefined, { sealing: { sealer } }).save(
-      record('sealed_one', '/work/sealed'),
-    );
+    new NodeSessionStore(dir, { sealing: 'plain' }).save(record('plain_one', '/work/plain'));
+    new NodeSessionStore(dir, { sealing: { sealer } }).save(record('sealed_one', '/work/sealed'));
     writeFileSync(
       join(dir, 'corrupt_one.json'),
       envelope({ id: 'corrupt_one', cwd: '/work/corrupt' }),

@@ -6,8 +6,7 @@ import {
 
 import type { ICliRuntimeContext } from './runtime-context.js';
 import type { KeyHolder } from '../secure/key-holder.js';
-import type { IArtifactSealer } from '@robota-sdk/agent-core';
-import type { TSessionSealing } from '@robota-sdk/agent-framework';
+import type { IArtifactSealer, TArtifactSealing } from '@robota-sdk/agent-core';
 
 /** Be told each time the key a process seals to is verified or changes; returns the way to stop. */
 type TWatchSealingKey = (listener: () => void) => () => void;
@@ -85,7 +84,7 @@ function productSealingOf(runtime: ICliRuntimeContext): IProductSealing | undefi
  * process is given one only where {@link productSecureMode} is on, which it is nowhere yet, so every
  * other process answers plain.
  */
-export function resolveProductSessionSealing(runtime: ICliRuntimeContext): TSessionSealing {
+export function resolveProductSessionSealing(runtime: ICliRuntimeContext): TArtifactSealing {
   const sealing = productSealingOf(runtime);
   return sealing === undefined ? 'plain' : { sealer: sealing.sealer };
 }
@@ -168,7 +167,7 @@ export function useProductKeyHolder(runtime: ICliRuntimeContext, holder: KeyHold
  * the sealing every store and the subagent log of this worker then use.
  */
 export function createProductWorkerSealing(runtime: ICliRuntimeContext): {
-  readonly bindWriteGrant: (grant: string) => TSessionSealing;
+  readonly bindWriteGrant: (grant: string) => TArtifactSealing;
 } {
   const worker = workerSealings.get(runtime) ?? { sealer: undefined, listeners: new Set() };
   workerSealings.set(runtime, worker);

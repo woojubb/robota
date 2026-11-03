@@ -70,7 +70,7 @@ export function replaceProjectStateFileIfUnchanged(
 ): boolean {
   beforeCommit?.();
   if (!unchanged(storage, name, purpose, digestOf(read))) return false;
-  storage.replaceBytes?.(name, content, purpose);
+  storage.replaceBytes(name, content, purpose);
   return true;
 }
 

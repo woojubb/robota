@@ -33,8 +33,8 @@ import {
   createInitialCliWorkspaceComposition,
 } from '../workspace-project-composition.js';
 
-import type { TSessionSealing } from '@robota-sdk/agent-framework';
 import type { IWorkspaceIdentity, IWorkspaceTrustStoreSnapshot } from '@robota-sdk/agent-framework';
+import type { TArtifactSealing } from '@robota-sdk/agent-core';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 const resolver = vi.hoisted(() => ({ sealing: 'plain' as unknown }));
@@ -53,7 +53,7 @@ afterEach(() => {
 });
 
 function sealWith(sealer: ReturnType<typeof createTestArtifactSealer>): void {
-  resolver.sealing = { sealer } satisfies TSessionSealing;
+  resolver.sealing = { sealer } satisfies TArtifactSealing;
 }
 
 function tempRoot(prefix: string): string {

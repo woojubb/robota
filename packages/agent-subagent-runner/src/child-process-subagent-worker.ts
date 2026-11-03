@@ -27,8 +27,7 @@ import type {
   ISubagentWorkerComposition,
   TParentSandboxSettings,
 } from './worker-composition.js';
-import type { ITerminalOutput, TToolArgs } from '@robota-sdk/agent-core';
-import type { TSessionSealing } from '@robota-sdk/agent-framework';
+import type { ITerminalOutput, TArtifactSealing, TToolArgs } from '@robota-sdk/agent-core';
 
 const CANCEL_EXIT_CODE = 130;
 /** DIST-006: worker mode reached without an IPC channel — a misuse, not a run that failed. */
@@ -124,7 +123,7 @@ function throwIfParentChangeFailed(): void {
 }
 
 /** Whether `sealing` seals to exactly the key `grant` names: never plain, and its own grant is `grant`. */
-function sealsTo(sealing: TSessionSealing, grant: string): boolean {
+function sealsTo(sealing: TArtifactSealing, grant: string): boolean {
   return sealing !== 'plain' && sealing.sealer.writeGrant?.() === grant;
 }
 
@@ -138,7 +137,7 @@ function sealsTo(sealing: TSessionSealing, grant: string): boolean {
 function bindParentSealing(
   payload: ISubagentWorkerStartPayload,
   composition: ISubagentWorkerComposition,
-): TSessionSealing {
+): TArtifactSealing {
   if (payload.writeGrant === undefined) return 'plain';
   if (composition.bindWriteGrant === undefined) {
     throw new Error(
@@ -189,13 +188,9 @@ async function runInitialPrompt(
     // The session id names the log and binds a sealed one, by the rule the parent reads it with.
     const sessionId = resolveSubagentLogSessionId(payload.request, payload.taskId);
     const sessionLogger = payload.logsDir
-      ? createSubagentLogger(
-          payload.request.parentSessionId,
-          payload.taskId,
-          payload.logsDir,
-          undefined,
-          sealing === 'plain' ? undefined : { sealing },
-        )
+      ? createSubagentLogger(payload.request.parentSessionId, payload.taskId, payload.logsDir, {
+          sealing,
+        })
       : undefined;
     const resumeSessionStore = openResumeSessionStore(payload, composition);
     // A sandbox restored from the parent's snapshot, or else one the child composes at its own root.

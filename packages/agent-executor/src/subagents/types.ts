@@ -55,8 +55,8 @@ export interface ISubagentJobHandle {
   readonly transcriptPath?: string;
   /**
    * The transcript at `transcriptPath` is sealed: its bytes are ciphertext to any reader without the
-   * keys, so a path handed to a hook or shown to the model reaches no content. Known only to the live
-   * handle, never stored on task state.
+   * keys, so a path handed to a hook or shown to the model reaches no content. The background-task
+   * manager projects it into the task's state (`transcriptSealed`).
    */
   readonly transcriptSealed?: true;
   result: Promise<ISubagentJobResult>;

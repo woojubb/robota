@@ -20,6 +20,7 @@ import { assertWorkspaceProjectStateStoragePair } from '../workspace-trust/proje
 
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
+import type { TArtifactSealing } from '@robota-sdk/agent-core';
 import type {
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
@@ -34,11 +35,7 @@ import type {
   ISessionStoreScan,
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
-import type {
-  ISessionStoreOptions,
-  TSessionSealing,
-  TStoredSessionFile,
-} from '@robota-sdk/agent-session';
+import type { ISessionStoreOptions, TStoredSessionFile } from '@robota-sdk/agent-session';
 
 function assertNamespace(
   storage: IWorkspaceProjectStateStorage,
@@ -122,19 +119,19 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
   private readonly sessions: IWorkspaceProjectStateStorage;
   private readonly logs: IWorkspaceProjectStateStorage;
   /** How this store keeps what it writes; its replay logs are read with the same sealing. */
-  private readonly sealing: TSessionSealing;
+  private readonly sealing: TArtifactSealing;
   /** How records are stored, and what this instance wrote or holds so it can keep saving those while locked. */
   private readonly records: StoredSessionRecords;
 
   /**
-   * @param options `sealing`: `{ sealer }` seals what `save` writes and opens what `load` reads,
-   *   replay logs included; `'plain'`, the default, writes plain records and meets a sealed file as
+   * @param options `sealing` (required): `{ sealer }` seals what `save` writes and opens what `load`
+   *   reads, replay logs included; `'plain'` writes plain records and meets a sealed file as
    *   `locked`.
    */
   constructor(
     sessions: IWorkspaceProjectStateStorage,
     logs: IWorkspaceProjectStateStorage,
-    options?: ISessionStoreOptions,
+    options: ISessionStoreOptions,
   ) {
     this.sealing = sessionSealingOf(options);
     this.records = new StoredSessionRecords(this.sealing);
@@ -149,19 +146,14 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     // A sealed file this store cannot open is a session nobody here has read; replacing it would
     // destroy the only copy — unless it is provably exactly what this instance last wrote or holds,
     // which is how a locked process goes on saving the sessions it is running. A plain or absent
-    // file is replaced exactly as before.
+    // file is replaced.
     this.records.assertReplaceable(session.id, this.readExisting(name));
     // TRANS-007: the versioned envelope, the same shape the host store and the share artifact carry;
     // sealed to the session's id by a store that seals. Replaced whole, so a write that fails part-way
-    // leaves the previous record, which this store still recognises, rather than a partial file. A
-    // storage without a whole-file replace writes in place, as every earlier build did.
+    // leaves the previous record, which this store still recognises, rather than a partial file.
     const encoded = this.records.encode(session);
     try {
-      if (this.sessions.replaceBytes !== undefined) {
-        this.sessions.replaceBytes(name, encoded.stored, 'persist project session record');
-      } else {
-        this.sessions.writeBytes(name, encoded.stored, 'persist project session record');
-      }
+      this.sessions.replaceBytes(name, encoded.stored, 'persist project session record');
     } catch (error) {
       // A step after the rename (the directory flush) can fail with the new bytes already in place;
       // they are this store's own, and the next save must know them, or one unlucky write would block
@@ -229,10 +221,22 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
    * The record this instance itself last wrote or holds, offered only while the stored file is
    * still exactly those bytes — what a writer needs when `load` says `locked` for a session it is
    * running. `undefined` for a session this instance never held, or whose file has changed since.
+   *
+   * One more answer, for the writer only: a session with no snapshot whose replay log this process
+   * cannot open now is `missing`. A session that logs before its first save is exactly that, and a
+   * save writes the snapshot beside the log and destroys nothing of it, so there is nothing to
+   * protect. A reader that is not about to write keeps hearing `locked` from {@link load}, so it
+   * never takes that log for an absent session.
    */
   loadHeld(id: string): TSessionLoadOutcome | undefined {
     assertSafeSessionId(id);
-    return this.records.held(id, this.readExisting(`${id}.json`));
+    const existing = this.readExisting(`${id}.json`);
+    const held = this.records.held(id, existing);
+    if (held !== undefined) return held;
+    if (existing.kind === 'absent' && this.loadFromReplayLog(id).status === 'locked') {
+      return { status: 'missing' };
+    }
+    return undefined;
   }
 
   /** The sealed record of `id` as a token for another store over these files (`StoredSessionRecords.exportHeld`). */

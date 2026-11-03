@@ -52,7 +52,10 @@ export interface IMigrateSessionLogsOptions {
   readonly beforeCommit?: () => void;
   /** Waits between catch-up passes over a replaced log; defaults to a short timer. */
   readonly pause?: () => Promise<void>;
-  /** Also removes temp files crashed writes left; leave it off while another writer may be running. */
+  /**
+   * Also removes the temp files crashed writes left; leave it off while another writer may be running.
+   * Off, they are still counted in `staleTemporaries` and left where they are.
+   */
   readonly sweepTemporaries?: boolean;
   /**
    * When the migration started, in milliseconds by the filesystem's clock (its marker's time): a temp
@@ -90,7 +93,7 @@ export interface ISessionLogMigration {
   readonly changed: readonly string[];
   /** Logs sealed whose catch-up failed: lines appended to the replaced file meanwhile are lost. */
   readonly catchUpFailed: readonly ISessionLogCatchUpFailure[];
-  /** Temp files crashed writes left: removed (or to remove). */
+  /** Temp files crashed writes left: removed (or to remove) with `sweepTemporaries`, else left. */
   readonly staleTemporaries: number;
 }
 
@@ -187,13 +190,11 @@ function migratePayloads(
   }, options.beforeCommit);
   result.payloads += replacements.replaced;
   result.changed.push(...replacements.changed);
-  if (options.sweepTemporaries === true) {
-    result.staleTemporaries += sweepStaleStoreTemporaries(
-      directory,
-      options.apply,
-      options.migrationStartedAt,
-    );
-  }
+  result.staleTemporaries += sweepStaleStoreTemporaries(
+    directory,
+    options.apply && options.sweepTemporaries === true,
+    options.migrationStartedAt,
+  );
   return seen;
 }
 
@@ -304,12 +305,10 @@ export async function migrateSessionLogDirectory(
       result.changed.push(...plainPayloadsSince(payloadDirectory, id, seen, options.sealer));
     }
   }
-  if (options.sweepTemporaries === true) {
-    result.staleTemporaries += sweepStaleStoreTemporaries(
-      directory,
-      options.apply,
-      options.migrationStartedAt,
-    );
-  }
+  result.staleTemporaries += sweepStaleStoreTemporaries(
+    directory,
+    options.apply && options.sweepTemporaries === true,
+    options.migrationStartedAt,
+  );
   return result;
 }

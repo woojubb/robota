@@ -617,7 +617,13 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
   function underLock(change: (token: string) => void): void {
     let token: string;
     try {
-      ensureOwnerOnlyDirectory(dirname(path), { withinRoot: root });
+      // Durable: the first `secure setup` creates `secure/` (and perhaps the root), and the keyring has
+      // no other copy, so the entries of what this creates are flushed along with the file.
+      ensureOwnerOnlyDirectory(dirname(path), {
+        withinRoot: root,
+        durable: true,
+        syncDirectory: options.durability?.syncDirectory,
+      });
       token = acquireLock();
     } catch (error) {
       if (error instanceof KeyringStoreError) throw error;

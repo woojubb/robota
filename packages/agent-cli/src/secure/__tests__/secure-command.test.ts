@@ -591,6 +591,8 @@ describe('secure change-passphrase', () => {
 
 describe('secure — a write that reached the file but was not confirmed', () => {
   it('setup says the keyring is most likely in place and to verify it', async () => {
+    // The directory exists already, so the flush that fails is the one after the rename.
+    mkdirSync(secureDirectory(), { recursive: true });
     const { code } = await secure(
       ['setup'],
       { newPassphrase: NEW_PASSPHRASE },

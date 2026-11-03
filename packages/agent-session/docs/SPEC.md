@@ -25,9 +25,10 @@ persistence paths that consume it (the store, the artifact envelope, the replay 
 - Does not own configuration resolution or context loading (owned by the framework layer).
 - Does not own the permission-evaluation algorithm or the hook execution engine (owned by
   `agent-core`); this package invokes them.
-- Owns the file-persistence _primitive_ and the stored form of a record (plain unless whoever
-  builds a store injects a sealer), not the record or port shape: `NodeSessionStore` implements
-  the store port and record type declared in `agent-interface-session`.
+- Owns the file-persistence _primitive_ and the stored form of a record (whoever builds a store
+  states whether it seals, with a sealer or `'plain'`; there is no default), not the record or port
+  shape: `NodeSessionStore` implements the store port and record type declared in
+  `agent-interface-session`.
 - No dependency on tool-registry or provider packages — tool and provider assembly, workspace
   trust, and project-path interpretation are the consuming layer's responsibility. This package
   never imports or reconstructs a workspace authority from a path.
@@ -373,17 +374,16 @@ not become a committed response merely because cancellation was also requested.
 ### Tool-result spill store
 
 Oversized tool results are spilled to disk without exposing where or what they are. The store lives in
-an unpredictable, owner-only directory (created with `mkdtemp`, mode `0700`) inside a parent the host
-supplies. A spilled result is conversation content, so a host that cares where it lands passes an
-owner-only directory of its own; omitting the parent is deprecated and keeps the earlier default under
-the shared operating-system temporary directory, so existing embedders keep working unchanged. Each
-result is written to an exclusively created `0600` file and addressed by a random, opaque
-`tool-result:` reference; a store given a sealing writes it sealed and bound to that reference, so
-the file holds no plaintext and a result moved to another reference does not open. No path, digest or payload appears in references or diagnostics, failures
-carry no secret material, and spilled results are removed on expiry and on shutdown. In a host's
-parent they are also removed when the process ends without reaching shutdown, and a directory whose
-recorded owner can no longer be alive is removed by the host's next start. The directory prefix is
-product-neutral and does not disclose the host product's name.
+an unpredictable, owner-only directory (mode `0700`) inside a parent the host supplies and must
+supply: a spilled result is conversation content, so it never goes to a directory the store picks,
+such as the shared operating-system temporary directory. Each result is written to an exclusively
+created `0600` file and addressed by a random, opaque `tool-result:` reference; a store whose sealing
+is a sealer writes it sealed and bound to that reference, so the file holds no plaintext and a result
+moved to another reference does not open. No path, digest or payload appears in references or
+diagnostics, failures carry no secret material, and spilled results are removed on expiry and on
+shutdown. They are also removed when the process ends without reaching shutdown, and a directory
+whose recorded owner can no longer be alive is removed by the host's next start. The directory
+prefix is product-neutral and does not disclose the host product's name.
 
 ## Error Taxonomy
 
@@ -415,8 +415,8 @@ product-neutral and does not disclose the host product's name.
   plain record becomes sealed the next time its session is saved. A file that opens proves it is
   bound to this id and unaltered since it was sealed, and nothing about who sealed it: sealing
   needs only the public key, which any program of the same user can read. A sealed file the keys
-  cannot open is `locked`, not corrupt: it is intact, and a later unlock reads it; a store given no
-  sealer at all says so (`no-keys`), since no unlock in its process would open it. It is also not
+  cannot open is `locked`, not corrupt: it is intact, and a later unlock reads it; a store that keeps
+  its records `'plain'` says so (`no-keys`), since no unlock in its process would open it. It is also not
   listed, since there is no record to describe, so the scan that lists also counts what it left out
   and a surface can say so. Any framing version counts as sealed, so a build never takes a newer
   build's file for plaintext and replaces it; one it does not open reads as written by a build it

@@ -119,8 +119,14 @@ function leftAlone(result: {
   ];
 }
 
-function temporaries(amount: number, tense: TTense): string[] {
+/** What a converter found of crashed writes' temp files; kept, not removed, when a process may still use them. */
+function temporaries(amount: number, tense: TTense, mayDelete: boolean): string[] {
   if (amount === 0) return [];
+  if (!mayDelete) {
+    return [
+      `  ${count(amount, 'temp file')} of crashed writes left as ${amount === 1 ? 'it is' : 'they are'}, since some processes could not be checked and may still be writing ${amount === 1 ? 'it' : 'them'}.`,
+    ];
+  }
   return [
     `  ${count(amount, 'temp file')} of crashed writes ${verb(tense, 'to remove', 'removed')}.`,
   ];
@@ -130,11 +136,12 @@ function describeRecords(
   label: string,
   result: ISessionRecordMigration | IWorkspaceSessionRecordMigration,
   tense: TTense,
+  mayDelete: boolean,
 ): string[] {
   return [
     `${label}: ${count(result.sealed, 'plain record')} ${verb(tense, 'to seal', 'sealed')} as stored, ${result.alreadySealed} already sealed.`,
     ...leftAlone(result),
-    ...temporaries(result.staleTemporaries, tense),
+    ...temporaries(result.staleTemporaries, tense, mayDelete),
   ];
 }
 
@@ -142,6 +149,7 @@ function describeLogs(
   label: string,
   result: ISessionLogMigration | IWorkspaceSessionLogMigration,
   tense: TTense,
+  mayDelete: boolean,
 ): string[] {
   return [
     `${label}: ${count(result.logs, 'log')} (${count(result.lines, 'plain line')}) and ${count(result.payloads, 'payload file')} ${verb(tense, 'to seal', 'sealed')} in place, ${result.alreadySealed} already sealed.`,
@@ -150,7 +158,7 @@ function describeLogs(
       (failure) =>
         `  ${failure.path}: the catch-up stopped (${failure.reason}) with ${count(failure.unreadBytes, 'byte')} appended to the replaced log unread; those lines are lost.`,
     ),
-    ...temporaries(result.staleTemporaries, tense),
+    ...temporaries(result.staleTemporaries, tense, mayDelete),
   ];
 }
 
@@ -160,7 +168,11 @@ const KEPT_PLAIN_REASONS = {
   'hard-linked': 'a file of it has another name, which sealing in place would leave plain',
 } as const;
 
-function describeCheckpoints(result: IEditCheckpointMigration, tense: TTense): string[] {
+function describeCheckpoints(
+  result: IEditCheckpointMigration,
+  tense: TTense,
+  mayDelete: boolean,
+): string[] {
   return [
     `Edit checkpoints: ${count(result.turnsSealed, 'turn')} ${verb(tense, 'to seal', 'sealed')}, ${count(result.turnsFinished, 'unfinished turn')} ${verb(tense, 'to finish', 'finished')} (${count(result.preimagesSealed, 'pre-image')} in all), ${result.alreadySealed} already sealed.`,
     ...result.keptPlain.map(
@@ -169,23 +181,29 @@ function describeCheckpoints(result: IEditCheckpointMigration, tense: TTense): s
     ),
     ...named('Left as they are, since they are damaged', result.damaged),
     ...leftAlone(result),
-    ...temporaries(result.staleTemporaries, tense),
+    ...temporaries(result.staleTemporaries, tense, mayDelete),
   ];
 }
 
 /**
- * Whether a converter left nothing for a rerun: nothing changed under it, no catch-up failed, and
- * nothing was refused, since a refused file keeps what it holds.
+ * Whether a converter left nothing for a rerun: nothing changed under it, no catch-up failed,
+ * nothing was refused (a refused file keeps what it holds), and no temp file of a crashed write was
+ * left in place because a process that could not be checked may still be writing it.
  */
-function finished(result: {
-  readonly changed: readonly string[];
-  readonly refused: readonly string[];
-  readonly catchUpFailed?: readonly unknown[];
-}): boolean {
+function finished(
+  result: {
+    readonly changed: readonly string[];
+    readonly refused: readonly string[];
+    readonly catchUpFailed?: readonly unknown[];
+    readonly staleTemporaries: number;
+  },
+  mayDelete: boolean,
+): boolean {
   return (
     result.changed.length === 0 &&
     result.refused.length === 0 &&
-    (result.catchUpFailed?.length ?? 0) === 0
+    (result.catchUpFailed?.length ?? 0) === 0 &&
+    (mayDelete || result.staleTemporaries === 0)
   );
 }
 
@@ -202,13 +220,23 @@ function sessionRecordsStep(): IMigrationStep {
   return {
     title: 'the session records',
     plan: async (context) => ({
-      lines: describeRecords(label(context.productRuntime), await convert(context, false), 'plan'),
+      lines: describeRecords(
+        label(context.productRuntime),
+        await convert(context, false),
+        'plan',
+        context.mayDeleteLeftovers,
+      ),
     }),
     run: async (context) => {
       const result = await convert(context, true);
       return {
-        lines: describeRecords(label(context.productRuntime), result, 'done'),
-        complete: finished(result),
+        lines: describeRecords(
+          label(context.productRuntime),
+          result,
+          'done',
+          context.mayDeleteLeftovers,
+        ),
+        complete: finished(result, context.mayDeleteLeftovers),
       };
     },
   };
@@ -227,13 +255,23 @@ function subagentTranscriptsStep(): IMigrationStep {
   return {
     title: 'the subagent transcripts',
     plan: async (context) => ({
-      lines: describeLogs(label(context.productRuntime), await convert(context, false), 'plan'),
+      lines: describeLogs(
+        label(context.productRuntime),
+        await convert(context, false),
+        'plan',
+        context.mayDeleteLeftovers,
+      ),
     }),
     run: async (context) => {
       const result = await convert(context, true);
       return {
-        lines: describeLogs(label(context.productRuntime), result, 'done'),
-        complete: finished(result),
+        lines: describeLogs(
+          label(context.productRuntime),
+          result,
+          'done',
+          context.mayDeleteLeftovers,
+        ),
+        complete: finished(result, context.mayDeleteLeftovers),
       };
     },
   };
@@ -282,6 +320,7 @@ function describeProject(
   project: ITrustedProjectRoot,
   result: IProjectMigration,
   tense: TTense,
+  mayDelete: boolean,
 ): string[] {
   const pendingPath = `${runtime.layout.projectStateDirectories.memory}/${PENDING_MEMORY_FILE}`;
   const pending = {
@@ -298,9 +337,9 @@ function describeProject(
   return [
     `Project ${project.root}:`,
     ...[
-      ...describeRecords('Session records', result.records, tense),
-      ...describeLogs('Session logs', result.logs, tense),
-      ...describeCheckpoints(result.checkpoints, tense),
+      ...describeRecords('Session records', result.records, tense, mayDelete),
+      ...describeLogs('Session logs', result.logs, tense, mayDelete),
+      ...describeCheckpoints(result.checkpoints, tense, mayDelete),
     ].map((line) => `  ${line}`),
     ...pending,
   ];
@@ -340,12 +379,16 @@ function projectsStep(options: IStoreMigrationStepOptions): IMigrationStep {
       for (const project of roots.trusted) {
         try {
           const result = migrateProject(project, context, sealer, apply);
-          lines.push(...describeProject(runtime, project, result, tense));
+          lines.push(
+            ...describeProject(runtime, project, result, tense, context.mayDeleteLeftovers),
+          );
           complete &&=
-            finished(result.records) &&
-            finished(result.logs) &&
-            finished(result.checkpoints) &&
-            result.pendingMemory !== 'refused';
+            finished(result.records, context.mayDeleteLeftovers) &&
+            finished(result.logs, context.mayDeleteLeftovers) &&
+            finished(result.checkpoints, context.mayDeleteLeftovers) &&
+            // Refused is a file to move aside; kept is plaintext a process may still be using.
+            result.pendingMemory !== 'refused' &&
+            result.pendingMemory !== 'kept';
         } catch (error) {
           if (!(error instanceof WorkspaceAuthorityRequiredError)) throw error;
           complete = false;
@@ -401,7 +444,10 @@ function describeLeftovers(leftovers: ILeftovers, tense: TTense, mayDelete: bool
 }
 
 function leftoversStep(options: IStoreMigrationStepOptions): IMigrationStep {
-  const survey = (context: IMigrationContext, apply: boolean): string[] => {
+  const survey = (
+    context: IMigrationContext,
+    apply: boolean,
+  ): { readonly lines: string[]; readonly leftInPlace: boolean } => {
     const leftovers = sweepMigrationLeftovers(context.productRuntime, {
       apply: apply && context.mayDeleteLeftovers,
       ...(options.temporaryDirectory === undefined
@@ -409,14 +455,21 @@ function leftoversStep(options: IStoreMigrationStepOptions): IMigrationStep {
         : { temporaryDirectory: options.temporaryDirectory }),
       ...(options.now === undefined ? {} : { now: options.now }),
     });
-    return describeLeftovers(leftovers, apply ? 'done' : 'plan', context.mayDeleteLeftovers);
+    return {
+      lines: describeLeftovers(leftovers, apply ? 'done' : 'plan', context.mayDeleteLeftovers),
+      // Found and not removed because a process that could not be checked may still use them.
+      leftInPlace:
+        !context.mayDeleteLeftovers &&
+        leftovers.handoffFiles + leftovers.editorDirectories + leftovers.deadProcessDirectories > 0,
+    };
   };
   return {
     title: 'the leftover files',
-    plan: (context) => ({ lines: survey(context, false) }),
+    plan: (context) => ({ lines: survey(context, false).lines }),
     run: async (context) => {
       context.recheckPresence();
-      return { lines: survey(context, true), complete: true };
+      const { lines, leftInPlace } = survey(context, true);
+      return { lines, complete: !leftInPlace };
     },
   };
 }

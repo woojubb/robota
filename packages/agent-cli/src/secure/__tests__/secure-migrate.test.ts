@@ -241,12 +241,17 @@ function age(path: string, milliseconds: number): void {
   utimesSync(path, at, at);
 }
 
-/** Another container's process, whose record carries no start time: neither alive nor gone here. */
+/**
+ * Another container's process on this machine, whose record carries no start time: neither alive nor
+ * gone here.
+ */
 function otherContainerOwner(): IProcessIdentity {
-  const { bootId } = readCurrentProcessIdentity();
+  const { bootId, hostname, machineId } = readCurrentProcessIdentity();
   return {
     pid: 4242,
     ...(bootId === undefined ? {} : { bootId }),
+    ...(hostname === undefined ? {} : { hostname }),
+    ...(machineId === undefined ? {} : { machineId }),
     pidNamespace: 'pid:[4026531999]',
   };
 }
@@ -274,7 +279,7 @@ async function trustedProject(): Promise<string> {
 async function seedEverything(): Promise<void> {
   seedHistory();
   const sessions = runtime.layout.userPaths.sessions;
-  new NodeSessionStore(sessions).save({
+  new NodeSessionStore(sessions, { sealing: 'plain' }).save({
     id: 'user_saved',
     cwd: join(home, 'project'),
     createdAt: '2026-11-01T00:00:00.000Z',
@@ -556,12 +561,7 @@ describe.skipIf(posixOnly)('secure migrate', () => {
     seedHistory();
     const before = readFileSync(historyPath(), 'utf8');
     // Another container's process, whose record carries no start time: neither alive nor gone here.
-    const { bootId } = readCurrentProcessIdentity();
-    leavePresence('process-', {
-      pid: 4242,
-      ...(bootId === undefined ? {} : { bootId }),
-      pidNamespace: 'pid:[4026531999]',
-    });
+    leavePresence('process-', otherContainerOwner());
 
     const declined = await secure(['migrate'], 'y');
     expect(declined.code).toBe(1);
@@ -576,6 +576,36 @@ describe.skipIf(posixOnly)('secure migrate', () => {
     const proceeded = await secure(['migrate'], 'proceed');
     expect(proceeded.code).toBe(0);
     expect(readFileSync(historyPath(), 'utf8')).not.toContain(CANARY);
+  });
+
+  it('labels a process left by another machine as such, with the host name its record carries', async () => {
+    await installFixtureKeyring();
+    seedHistory();
+    // Its pid namespace and boot match this process's, so only the host name tells it apart: pids and
+    // boots of another machine mean nothing here, and this must not read as "same boot".
+    leavePresence('process-', { ...otherContainerOwner(), hostname: 'another-machine.example' }, 'serve');
+
+    const declined = await secure(['migrate'], 'no');
+
+    expect(declined.code).toBe(1);
+    expect(out()).toContain('These processes could not be checked (another machine or container');
+    expect(out()).toContain(
+      'pid 4242 (start time not recorded, serve; on another machine, another-machine.example)',
+    );
+    expect(out()).not.toContain('another pid namespace');
+  });
+
+  it('labels a process of another machine whose host name was not recorded', async () => {
+    await installFixtureKeyring();
+    seedHistory();
+    const { hostname: _recorded, ...withoutHostname } = otherContainerOwner();
+    leavePresence('process-', withoutHostname, 'serve');
+
+    await secure(['migrate'], 'no');
+
+    expect(out()).toContain(
+      'pid 4242 (start time not recorded, serve; on another machine, host name not recorded)',
+    );
   });
 
   it('refuses past another migration it cannot check, and never offers proceed for one', async () => {
@@ -607,7 +637,17 @@ describe.skipIf(posixOnly)('secure migrate', () => {
   it('does not call a process of another pid namespace one of the same boot when the boots were not compared', async () => {
     await installFixtureKeyring();
     seedHistory();
-    leavePresence('process-', { pid: 4242, pidNamespace: 'pid:[4026531999]' }, 'serve');
+    const { hostname, machineId } = readCurrentProcessIdentity();
+    leavePresence(
+      'process-',
+      {
+        pid: 4242,
+        ...(hostname === undefined ? {} : { hostname }),
+        ...(machineId === undefined ? {} : { machineId }),
+        pidNamespace: 'pid:[4026531999]',
+      },
+      'serve',
+    );
 
     await secure(['migrate'], 'no');
 
@@ -633,7 +673,7 @@ describe.skipIf(posixOnly)('secure migrate', () => {
     await installFixtureKeyring();
     seedHistory();
     const sessions = runtime.layout.userPaths.sessions;
-    new NodeSessionStore(sessions).save({
+    new NodeSessionStore(sessions, { sealing: 'plain' }).save({
       id: 'user_linked',
       cwd: '/work',
       createdAt: '2026-11-01T00:00:00.000Z',
@@ -714,11 +754,68 @@ describe.skipIf(posixOnly)('secure migrate', () => {
 
     const { code } = await secure(['migrate'], 'proceed');
 
-    expect(code, out()).toBe(0);
+    // Plaintext is still there, so the run is not complete: it says to run again once the process it
+    // could not check is gone.
+    expect(code, out()).toBe(EXIT_INCOMPLETE);
+    expect(out()).toContain('secure migrate: incomplete');
+    expect(out()).toContain('run it again once those processes are gone');
     expect(existsSync(temp)).toBe(true);
     expect(existsSync(handoff)).toBe(true);
     if (pending !== undefined) expect(existsSync(pending)).toBe(true);
     expect(readFileSync(historyPath(), 'utf8')).not.toContain(CANARY);
+  });
+
+  it.each([
+    ['a crashed write\'s temp file', 'temp'],
+    ['a kept-aside hand-off', 'handoff'],
+  ] as const)(
+    'ends incomplete when proceed past an unchecked process leaves only %s',
+    async (_label, kind) => {
+      await installFixtureKeyring();
+      seedHistory();
+      const left =
+        kind === 'temp'
+          ? join(runtime.layout.userPaths.sessions, 'user_saved.json.4242.tmp')
+          : join(runtime.layout.userRoot, 'handoff', 'device_1', 'h-1.json');
+      mkdirSync(join(left, '..'), { recursive: true });
+      writeFileSync(left, CANARY);
+      age(left, 10 * 60 * 1000);
+      leavePresence('process-', otherContainerOwner());
+
+      const { code } = await secure(['migrate'], 'proceed');
+
+      expect(code, out()).toBe(EXIT_INCOMPLETE);
+      expect(existsSync(left)).toBe(true);
+    },
+  );
+
+  it.runIf(process.platform === 'linux')(
+    'ends incomplete when proceed past an unchecked process leaves only pending memory candidates',
+    async () => {
+      await installFixtureKeyring();
+      seedHistory();
+      const project = await trustedProject();
+      const pending = join(project, runtime.layout.projectStateDirectories.memory, 'pending.json');
+      mkdirSync(join(pending, '..'), { recursive: true });
+      writeFileSync(pending, JSON.stringify({ version: 1, records: [{ text: CANARY }] }));
+      leavePresence('process-', otherContainerOwner());
+
+      const { code } = await secure(['migrate'], 'proceed');
+
+      expect(code, out()).toBe(EXIT_INCOMPLETE);
+      expect(out()).toContain('left as they are, since some processes could not be checked');
+      expect(existsSync(pending)).toBe(true);
+    },
+  );
+
+  it('still completes past an unchecked process when there is nothing for it to have left', async () => {
+    await installFixtureKeyring();
+    seedHistory();
+    leavePresence('process-', otherContainerOwner());
+
+    const { code } = await secure(['migrate'], 'proceed');
+
+    expect(code, out()).toBe(0);
   });
 
   it('a plan that fails still ends with the status a repaired sealing key calls for', async () => {

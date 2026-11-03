@@ -10,10 +10,9 @@
  * that same id, so a reader that guessed another name would find nothing, or records that do not
  * open.
  *
- * A log that holds no sealed record pages exactly as every earlier build paged it, offsets
- * included. One that does counts STORED records (physical lines), never display lines: an offset then
- * names the same record whether the keys are locked or not, and only the records on the page are
- * opened.
+ * A log that holds no sealed record pages by display lines. One that does counts STORED records
+ * (physical lines), never display lines: an offset then names the same record whether the keys are
+ * locked or not, and only the records on the page are opened.
  */
 
 import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
@@ -69,24 +68,21 @@ export function resolveSubagentTranscriptPath(
  * @param parentSessionId - ID of the parent session (used as directory name)
  * @param agentId - Unique identifier for this subagent run
  * @param baseLogsDir - Root logs directory (e.g., `.agent/logs`)
- * @param options - `sealing`, as for the session stores: `{ sealer }` seals every record of the log;
- *   left out, the log is plain, as every earlier build wrote it
+ * @param options - `sealing` (required), as for the session stores: `{ sealer }` seals every record
+ *   of the log, `'plain'` writes it plain
+ * @param fs - the file system the directory is made in
  * @returns A FileSessionLogger writing to the subagent directory
  */
 export function createSubagentLogger(
   parentSessionId: string,
   _agentId: string,
   baseLogsDir: string,
+  options: ISessionStoreOptions,
   fs: IFileSystem = new NodeFileSystem(),
-  options?: ISessionStoreOptions,
 ): FileSessionLogger {
   const subagentDir = resolveSubagentLogDir(parentSessionId, baseLogsDir);
   fs.mkdirSync(subagentDir, { recursive: true });
-  return new FileSessionLogger(
-    options === undefined
-      ? new NodeSessionLogSink(subagentDir)
-      : new NodeSessionLogSink(subagentDir, options),
-  );
+  return new FileSessionLogger(new NodeSessionLogSink(subagentDir, options));
 }
 
 /**
@@ -211,9 +207,8 @@ function startIndex(offset: number, count: number): number {
 }
 
 /**
- * A page of a plain transcript, exactly as every earlier build cut it: its non-empty lines, from
- * `offset` with `slice`'s reading of it, and the next offset arithmetic too — a negative or
- * non-numeric offset included.
+ * A page of a plain transcript: its non-empty lines, from `offset` with `slice`'s reading of it, and
+ * the next offset arithmetic too — a negative or non-numeric offset included.
  */
 function plainTranscriptPage(
   text: string,
@@ -226,17 +221,18 @@ function plainTranscriptPage(
 }
 
 /**
- * One page of the transcript at `transcriptPath`, from `offset`, opened with `sealing` (plain when
- * left out). Never throws for what a record holds; `undefined` when there is no transcript. A
- * transcript with no sealed record gets the page every earlier build gave. In one with sealed
- * records `offset` is a stored record: a run of locked records reads as one fixed line, each record
- * that does not open or was sealed by a newer build as one of its own, and a sealed record still
- * being appended at the end of the file is not a record yet.
+ * One page of the transcript at `transcriptPath`, from `offset`, opened with `sealing` (required).
+ * Never throws for what a record holds; `undefined` when there is no transcript. A transcript with
+ * no sealed record pages by its plain lines. In one with sealed records `offset` is a stored record:
+ * a run of locked records reads as one fixed line, each record that does not open or was sealed by a
+ * newer build as one of its own, and a sealed record still being appended at the end of the file is
+ * not a record yet.
  */
 export function readSubagentTranscriptPage(
   transcriptPath: string,
-  options: IReadSubagentTranscriptPageOptions = {},
+  options: IReadSubagentTranscriptPageOptions,
 ): ISubagentTranscriptPage | undefined {
+  const sealing = sessionSealingOf(options);
   if (!existsSync(transcriptPath)) return undefined;
   const text = readFileSync(transcriptPath, 'utf8');
   // The stores' one rule for an append in progress drops it before anything else looks at the file,
@@ -248,7 +244,6 @@ export function readSubagentTranscriptPage(
     const wholeLines = text.slice(0, physicalLines.join('\n').length + 1);
     return plainTranscriptPage(wholeLines, options.offset ?? 0, pageLines);
   }
-  const sealing = sessionSealingOf(options);
   const records = physicalLines
     .map((line) => (line.endsWith('\r') ? line.slice(0, -1) : line))
     .filter((line) => line.length > 0);

@@ -63,7 +63,8 @@ access.
 ## Persist and resume
 
 Give the session a store and it saves itself after each turn. `createUserSessionStore()` keeps the
-records in a directory you choose.
+records in a directory you choose, and states how it keeps them: `{ sealing: 'plain' }` writes plain
+JSON.
 
 ```typescript
 import { InteractiveSession, createUserSessionStore } from '@robota-sdk/agent-framework';
@@ -71,7 +72,9 @@ import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const sessionStore = createUserSessionStore(join(homedir(), '.my-agent', 'sessions'));
+const sessionStore = createUserSessionStore(join(homedir(), '.my-agent', 'sessions'), {
+  sealing: 'plain',
+});
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const session = new InteractiveSession({
@@ -119,7 +122,9 @@ import { createUserSessionStore } from '@robota-sdk/agent-framework';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-const sessionStore = createUserSessionStore(join(homedir(), '.my-agent', 'sessions'));
+const sessionStore = createUserSessionStore(join(homedir(), '.my-agent', 'sessions'), {
+  sealing: 'plain',
+});
 
 for (const entry of sessionStore.list()) {
   const { outcome } = entry;

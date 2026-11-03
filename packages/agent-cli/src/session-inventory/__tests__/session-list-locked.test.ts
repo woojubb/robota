@@ -30,7 +30,7 @@ const NO_PEERS = () => ({ status: 'available', peers: [] }) as const;
 function sealedStores(ids: readonly string[]) {
   const sealer = createTestArtifactSealer();
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'session-list-locked-')));
-  const store = createNodeHostSessionStore(dir, undefined, { sealing: { sealer } });
+  const store = createNodeHostSessionStore(dir, { sealing: { sealer } });
   for (const id of ids) store.save(record(id));
   return { store, sealer, dir };
 }
@@ -63,7 +63,7 @@ describe('session list with sealed sessions', () => {
   });
 
   it('counts sessions sealed with keys this process does not have apart, never saying to unlock them', () => {
-    const plain = createNodeHostSessionStore(sealedStores(['sess_a']).dir, undefined, {
+    const plain = createNodeHostSessionStore(sealedStores(['sess_a']).dir, {
       sealing: 'plain',
     });
     const text = executeSessionListCommand([], {

@@ -32,7 +32,6 @@ import {
   WorkspaceSessionLogSink,
   createNodeWorkspaceTrustService,
   createProjectSessionStore,
-  createSealedEditCheckpointState,
   createWorkspaceProjectMutation,
   getWorkspaceProjectStateStorage,
   readSubagentTranscriptPage,
@@ -173,14 +172,7 @@ function checkpointStore(authority: IWorkspaceProjectAuthority, sealer?: KeyHold
       status: 'approved',
       purpose: 'canary checkpoints',
     }),
-    ...(sealer === undefined
-      ? {}
-      : {
-          stateStorage: createSealedEditCheckpointState(
-            getWorkspaceProjectStateStorage(authority, 'checkpoints'),
-            { sealer },
-          ),
-        }),
+    sealing: sealer === undefined ? 'plain' : { sealer },
   });
 }
 
@@ -195,8 +187,10 @@ async function seedProject(): Promise<void> {
   const authority = await projectAuthority();
   const sessions = getWorkspaceProjectStateStorage(authority, 'sessions');
   const logs = getWorkspaceProjectStateStorage(authority, 'session-logs');
-  createProjectSessionStore(sessions, logs).save(record('project_saved', project));
-  const logger = new FileSessionLogger(new WorkspaceSessionLogSink(logs), {
+  createProjectSessionStore(sessions, logs, { sealing: 'plain' }).save(
+    record('project_saved', project),
+  );
+  const logger = new FileSessionLogger(new WorkspaceSessionLogSink(logs, { sealing: 'plain' }), {
     externalPayloadThresholdBytes: 64,
   });
   logger.log('project_replayed', 'history_mutation', {
@@ -233,7 +227,7 @@ async function seedStateRoot(): Promise<void> {
   writeFileSync(runtime.layout.userPaths.keyring, serializeKeyring(keyring), { mode: 0o600 });
   const cwd = linux ? project : '/work';
   const sessions = runtime.layout.userPaths.sessions;
-  new NodeSessionStore(sessions).save(record('user_saved', cwd));
+  new NodeSessionStore(sessions, { sealing: 'plain' }).save(record('user_saved', cwd));
   writeFileSync(join(sessions, 'user_corrupt.json'), `{"schemaVersion":1,"record":"${CANARY}`);
   const crashed = join(sessions, 'user_saved.json.4242.tmp');
   writeFileSync(crashed, CANARY);
@@ -250,7 +244,9 @@ async function seedStateRoot(): Promise<void> {
   const subagents = join(runtime.config.storage.logRoot, 'user_saved', 'subagents');
   mkdirSync(join(subagents, 'task_1.payloads'), { recursive: true });
   logConversation(
-    new FileSessionLogger(new NodeSessionLogSink(subagents), { externalPayloadThresholdBytes: 64 }),
+    new FileSessionLogger(new NodeSessionLogSink(subagents, { sealing: 'plain' }), {
+      externalPayloadThresholdBytes: 64,
+    }),
     'task_1',
     subagents,
   );
@@ -305,6 +301,9 @@ async function unlockedSealer(): Promise<{ sealer: KeyHolderArtifactSealer; hold
 }
 
 describe.skipIf(process.platform === 'win32')('secure migrate, end to end', () => {
+  // Measured here: 0.8 s on macOS and 1.3 s on Linux, ~0.5 s of it three default-cost scrypt
+  // derivations (the keyring has no cheaper cost to give a test); 6.4 s with the CPU limited to a
+  // quarter core, where the 5 s default timed out as it did on CI. 20 s is three times that.
   it('leaves the canary nowhere but in what it lists, and everything it sealed still opens', async () => {
     if (linux) await seedProject();
     await seedStateRoot();
@@ -334,7 +333,7 @@ describe.skipIf(process.platform === 'win32')('secure migrate, end to end', () =
 
     const { sealer, holder } = await unlockedSealer();
     try {
-      const store = new NodeSessionStore(runtime.layout.userPaths.sessions, undefined, {
+      const store = new NodeSessionStore(runtime.layout.userPaths.sessions, {
         sealing: { sealer },
       });
       expect(store.load('user_saved')).toMatchObject({ status: 'valid' });
@@ -384,5 +383,5 @@ describe.skipIf(process.platform === 'win32')('secure migrate, end to end', () =
       sealer.dispose();
       holder.lock('explicit');
     }
-  });
+  }, 20_000);
 });

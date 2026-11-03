@@ -93,6 +93,7 @@ function runner(
   runnerDeps: IInProcessSubagentRunnerDeps = deps(),
 ): ChildProcessSubagentRunner {
   return new ChildProcessSubagentRunner(runnerDeps, {
+    logSealing: 'plain',
     workerEntry: FIXTURE_WORKER_ENTRY,
     worktreeAdapter: STUB_WORKTREE_ADAPTER,
     providerDefinitions: [OPENAI_LIKE],
@@ -170,6 +171,7 @@ describe('provider connection identity (alternate-endpoint canary)', () => {
     const keyName = 'SYNTHETIC_SELECTED_FILE_KEY';
     const keyValue = 'synthetic-selected-value';
     const selected = new ChildProcessSubagentRunner(deps({ apiKey: keyValue, apiKeyEnv: keyName }), {
+      logSealing: 'plain',
       workerEntry: FIXTURE_WORKER_ENTRY,
       worktreeAdapter: STUB_WORKTREE_ADAPTER,
       providerDefinitions: [OPENAI_LIKE],
@@ -191,6 +193,7 @@ describe('provider connection identity (alternate-endpoint canary)', () => {
     try {
       const run = async (value: string): Promise<Record<string, unknown>> => {
         const selected = new ChildProcessSubagentRunner(deps({ apiKey: value, apiKeyEnv: keyName }), {
+          logSealing: 'plain',
           workerEntry: FIXTURE_WORKER_ENTRY,
           worktreeAdapter: STUB_WORKTREE_ADAPTER,
           providerDefinitions: [OPENAI_LIKE],
@@ -216,6 +219,7 @@ describe('provider connection identity (alternate-endpoint canary)', () => {
     'the child refuses when its environment changed after the parent checked it',
     async () => {
       const drifting = new ChildProcessSubagentRunner(deps(), {
+        logSealing: 'plain',
         workerEntry: ENV_DRIFT_WORKER_ENTRY,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: [OPENAI_LIKE],

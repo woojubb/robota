@@ -4,10 +4,7 @@ import { parseParallelRequests, parseRunRequest, tokenizeArgs } from './agent-co
 import { formatBackgroundLogPage } from '../background/log-page-text.js';
 
 import type { IAgentRunRequest } from './agent-command-parser.js';
-import type {
-  IAgentJobHostContext,
-  IBackgroundJobGroupSummaryOptions,
-} from '@robota-sdk/agent-framework';
+import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { ISubagentJobState } from '@robota-sdk/agent-interface-execution';
 
@@ -146,7 +143,7 @@ async function executeParallel(
 
   if (wait) {
     const completed = await session.waitBackgroundJobGroup(group.id);
-    const summary = summarizeBackgroundJobGroup(completed, summaryOptionsOf(session));
+    const summary = summarizeBackgroundJobGroup(completed);
     return {
       message: formatGroupSummary(summary),
       success: true,
@@ -170,7 +167,7 @@ async function executeWait(
   const [groupId] = tokens;
   if (!groupId) return { message: 'Usage: agent wait GROUP_ID', success: false };
   const completed = await session.waitBackgroundJobGroup(groupId);
-  const summary = summarizeBackgroundJobGroup(completed, summaryOptionsOf(session));
+  const summary = summarizeBackgroundJobGroup(completed);
   return {
     message: formatGroupSummary(summary),
     success: true,
@@ -250,12 +247,6 @@ export async function executeAgentCommand(
   } catch (error) {
     return { message: formatError(error), success: false };
   }
-}
-
-/** What a group summary learns from the live session: which transcripts are sealed, never on state. */
-function summaryOptionsOf(session: IAgentJobHostContext): IBackgroundJobGroupSummaryOptions {
-  const isSealed = session.isBackgroundTaskTranscriptSealed?.bind(session);
-  return isSealed === undefined ? {} : { isTranscriptSealed: isSealed };
 }
 
 function formatGroupSummary(summary: ReturnType<typeof summarizeBackgroundJobGroup>): string {

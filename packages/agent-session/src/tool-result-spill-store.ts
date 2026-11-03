@@ -1,12 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import {
-  chmodSync,
   closeSync,
   constants,
   fsyncSync,
   linkSync,
   lstatSync,
-  mkdtempSync,
   openSync,
   readdirSync,
   rmSync,
@@ -14,7 +12,6 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { SEALED_ARTIFACT_MAX_OVERHEAD_BYTES } from '@robota-sdk/agent-core';
@@ -32,8 +29,8 @@ import type {
   IArtifactContext,
   IArtifactSealer,
   IToolResultSpillStore,
+  TArtifactSealing,
 } from '@robota-sdk/agent-core';
-import type { TSessionSealing } from './stored-session-record.js';
 
 const REFERENCE = /^tool-result:([A-Za-z0-9_-]{22,64})$/u;
 /**
@@ -74,27 +71,22 @@ export function sweepStaleToolResultSpillDirectories(parent: string): readonly s
 
 export interface INodeToolResultSpillStoreOptions {
   /**
-   * Host-owned, owner-only parent that already exists; it is used as it is. The store's directory in
-   * it records its owner, is removed when the process ends without reaching `shutdown()`, and is
-   * removed after a kill by {@link sweepStaleToolResultSpillDirectories}.
-   *
-   * Omitting it is deprecated. The store then keeps the earlier default: a private directory under
-   * the shared operating-system temporary directory, removed by `shutdown()` alone. Spilled results
-   * are conversation content, so a host that cares where tool output lands passes its own owner-only
-   * directory.
+   * Host-owned, owner-only parent that already exists; it is used as it is. Spilled results are
+   * conversation content, so they never go to a directory the store picks: the store's directory in
+   * the parent records its owner, is removed when the process ends without reaching `shutdown()`,
+   * and is removed after a kill by {@link sweepStaleToolResultSpillDirectories}.
    */
-  readonly parentDirectory?: string;
+  readonly parentDirectory: string;
   readonly retentionMs?: number;
   readonly now?: () => number;
   /** Receives a fixed, payload-free reason if an idle expiry timer cannot delete a file. */
   readonly onCleanupFailure?: (reason: 'cleanup-failed') => void;
   /**
-   * `{ sealer }` keeps every result sealed on disk, bound to its reference, as `<token>.sealed`, and
-   * opens it with the same sealer to read it back; a result that does not open reads as
-   * `read-failed`. `'plain'`, the default, writes each result as it is to `<token>.txt`, as every
-   * earlier build did.
+   * Required. `{ sealer }` keeps every result sealed on disk, bound to its reference, as
+   * `<token>.sealed`, and opens it with the same sealer to read it back; a result that does not open
+   * reads as `read-failed`. `'plain'` writes each result as it is to `<token>.txt`.
    */
-  readonly sealing?: TSessionSealing;
+  readonly sealing: TArtifactSealing;
 }
 
 interface IStoredResult {
@@ -115,16 +107,6 @@ function spillContext(token: string): IArtifactContext {
 }
 
 /**
- * The deprecated default, made as earlier releases made it: a private directory under the shared
- * operating-system temporary directory, with no owner record and no removal at process exit.
- */
-function createTemporaryDefaultDirectory(temporary: string): string {
-  const directory = mkdtempSync(join(temporary, TOOL_RESULT_SPILL_DIRECTORY_PREFIX));
-  if (process.platform !== 'win32') chmodSync(directory, 0o700);
-  return directory;
-}
-
-/**
  * Node host implementation of core's opaque, session-lifetime spill port. A sealing store keeps the
  * last result it opened in memory, so paging through a large result opens it once.
  */
@@ -141,16 +123,19 @@ export class NodeToolResultSpillStore implements IToolResultSpillStore {
   private cancelExitRemoval?: () => void;
   private closed = false;
 
-  constructor(options: INodeToolResultSpillStoreOptions = {}) {
-    const hostParent = options.parentDirectory;
-    const parent = hostParent ?? tmpdir();
+  constructor(options: INodeToolResultSpillStoreOptions) {
+    // A caller that ignores the types gets the same refusal as one that passes a bad value.
+    const parent = options?.parentDirectory;
+    if (typeof parent !== 'string' || parent.length === 0) {
+      throw new ToolResultSpillError('invalid-options');
+    }
     this.retentionMs = options.retentionMs ?? DEFAULT_RETENTION_MS;
     this.now = options.now ?? Date.now;
     this.onCleanupFailure = options.onCleanupFailure;
     if (!Number.isSafeInteger(this.retentionMs) || this.retentionMs <= 0) {
       throw new ToolResultSpillError('invalid-options');
     }
-    let sealing: TSessionSealing;
+    let sealing: TArtifactSealing;
     try {
       sealing = sessionSealingOf(options);
     } catch {
@@ -160,24 +145,19 @@ export class NodeToolResultSpillStore implements IToolResultSpillStore {
     try {
       const stat = lstatSync(parent);
       if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('unsafe parent');
-      // A host's parent is used as it is; the directory made in it is owner-only and records its
+      // The host's parent is used as it is; the directory made in it is owner-only and records its
       // owner before any result goes in.
-      this.directory =
-        hostParent === undefined
-          ? createTemporaryDefaultDirectory(parent)
-          : createProcessScopedDirectory(parent, TOOL_RESULT_SPILL_DIRECTORY_PREFIX, {
-              prepareParent: false,
-            });
+      this.directory = createProcessScopedDirectory(parent, TOOL_RESULT_SPILL_DIRECTORY_PREFIX, {
+        prepareParent: false,
+      });
       this.assertRoot();
     } catch {
       throw new ToolResultSpillError('unsafe-root');
     }
-    // In a host's parent, `shutdown()` is the normal removal; a process that ends without reaching it
-    // (an exit, or a signal nothing else handles) still leaves nothing, and one killed outright is
-    // swept at the next start by its owner record. The deprecated default keeps its earlier lifetime.
-    if (hostParent !== undefined) {
-      this.cancelExitRemoval = removeDirectoryOnProcessExit(this.directory);
-    }
+    // `shutdown()` is the normal removal; a process that ends without reaching it (an exit, or a
+    // signal nothing else handles) still leaves nothing, and one killed outright is swept at the next
+    // start by its owner record.
+    this.cancelExitRemoval = removeDirectoryOnProcessExit(this.directory);
   }
 
   private assertRoot(): void {
@@ -287,7 +267,9 @@ export class NodeToolResultSpillStore implements IToolResultSpillStore {
     if (this.opened?.reference === reference) return this.opened.content;
     this.assertRoot();
     try {
-      const bytes = new NodeExternalPayloadSource(this.directory).readBytes(
+      // The raw stored bytes: this store opens a sealed result itself, bound to its token, so the
+      // payload source only reads the file.
+      const bytes = new NodeExternalPayloadSource(this.directory, { sealing: 'plain' }).readBytes(
         entry.fileName,
         this.sealer === undefined ? MAX_SPILL_BYTES : MAX_SEALED_SPILL_BYTES,
       );

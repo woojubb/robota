@@ -33,6 +33,7 @@ import { join } from 'node:path';
 import {
   createProcessScopedDirectory,
   inspectProcessScopedDirectories,
+  ownerOnThisMachine,
   readCurrentProcessIdentity,
   readProcessStartTime,
   removeDirectoryOnProcessExit,
@@ -113,6 +114,8 @@ export interface IPresenceOptions {
 
 /** Why an entry's owner could be shown neither alive nor gone. */
 export type TPresenceUnknownReason =
+  /** Its owner record names another host name or machine id: another machine, which this one cannot probe. */
+  | 'other-machine'
   /** Its owner runs in another pid namespace (another container) of this same boot, as both boot ids say. */
   | 'other-pid-namespace'
   /** Its owner runs in another pid namespace, and whether in this boot cannot be told (a boot id is missing). */
@@ -133,6 +136,8 @@ export interface IPresenceEntry {
   readonly liveness: Exclude<TProcessOwnerLiveness, 'gone'>;
   /** Set for an `unknown` entry. */
   readonly unknownBecause?: TPresenceUnknownReason;
+  /** The host name its owner record carries, when it says so: what names another machine. */
+  readonly ownerHostname?: string;
   readonly path: string;
 }
 
@@ -193,6 +198,8 @@ function unknownReason(
   current: IProcessIdentity,
 ): TPresenceUnknownReason {
   if (owner === undefined) return 'no-owner-record';
+  // Pids, boots and namespaces of another machine mean nothing here, so this is told first.
+  if (!ownerOnThisMachine(owner, current)) return 'other-machine';
   if (owner.pidNamespace === current.pidNamespace) return 'no-start-time';
   // Two boot ids that differ make the owner gone, so here they are equal or one is missing.
   return owner.bootId !== undefined && owner.bootId === current.bootId
@@ -281,6 +288,7 @@ function entriesOf(
           ? readMode(entry.path, MIGRATION_MODES, DEFAULT_MIGRATION_MODE)
           : readMode(entry.path, MODES, UNRECORDED_MODE),
       liveness: entry.liveness,
+      ...(entry.owner?.hostname === undefined ? {} : { ownerHostname: entry.owner.hostname }),
       ...(entry.liveness === 'unknown'
         ? {
             unknownBecause: unknownReason(

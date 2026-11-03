@@ -144,7 +144,12 @@ const WHERE: Partial<Record<NonNullable<IPresenceEntry['unknownBecause']>, strin
 };
 
 function describeProcess(entry: IPresenceEntry): string {
-  const where = entry.unknownBecause === undefined ? '' : (WHERE[entry.unknownBecause] ?? '');
+  const where =
+    entry.unknownBecause === 'other-machine'
+      ? `; on another machine, ${entry.ownerHostname ?? 'host name not recorded'}`
+      : entry.unknownBecause === undefined
+        ? ''
+        : (WHERE[entry.unknownBecause] ?? '');
   return `pid ${entry.pid} (start time ${entry.startTime ?? 'not recorded'}, ${entry.mode}${where})`;
 }
 
@@ -275,7 +280,7 @@ function renderPlan(
   }
   if (unknown.length > 0) {
     lines.push(
-      'These processes could not be checked (another container, or no start time); continuing past them takes typing proceed:',
+      'These processes could not be checked (another machine or container, or no start time); continuing past them takes typing proceed:',
     );
     lines.push(...unknown.map((entry) => `  ${describeProcess(entry)}`));
   }
@@ -295,7 +300,7 @@ function renderSummary(
   const lines = [`${cliName} secure migrate: ${ending}`, ...results.map((line) => `  ${line}`)];
   if (ending === 'incomplete') {
     lines.push(
-      `Something changed while it ran, a step stopped early, or something above must be moved aside first; then run \`${cliName} secure migrate\` again to finish.`,
+      `Something changed while it ran, a step stopped early, something above must be moved aside first, or plaintext was left because a process that could not be checked may still use it (run it again once those processes are gone); then run \`${cliName} secure migrate\` again to finish.`,
     );
   }
   lines.push(...caveat(options.platform ?? process.platform));

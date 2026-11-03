@@ -31,7 +31,6 @@ import {
 import { SEALED_PREIMAGE_MAX_BYTES } from '../edit-checkpoint-authority-io.js';
 import { EditCheckpointUnreadableError } from '../edit-checkpoint-errors.js';
 import { migrateWorkspaceEditCheckpoints } from '../edit-checkpoint-migration.js';
-import { createSealedEditCheckpointState } from '../edit-checkpoint-sealed-state.js';
 import { EditCheckpointStore } from '../edit-checkpoint-store.js';
 
 import type { IWorkspaceProjectAuthority } from '../../workspace-trust/index.js';
@@ -68,9 +67,7 @@ function store(sealer?: IArtifactSealer): EditCheckpointStore {
       status: 'approved',
       purpose: 'checkpoint migration test',
     }),
-    ...(sealer === undefined
-      ? {}
-      : { stateStorage: createSealedEditCheckpointState(checkpoints(), { sealer }) }),
+    sealing: sealer === undefined ? 'plain' : { sealer },
   });
 }
 

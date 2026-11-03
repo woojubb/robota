@@ -36,8 +36,8 @@ function unreadableHints(page: IBackgroundTaskLogPage): string[] {
 }
 
 /**
- * The text `/agent read` and `/background read` show for one page of a task's log: a plain page reads
- * exactly as it always did, and a page with records it could not show says why after its lines. A
+ * The text `/agent read` and `/background read` show for one page of a task's log: a plain page is its
+ * lines, and a page with records it could not show says why after its lines. A
  * page with records always has lines — a record that cannot be shown is a fixed placeholder — so an
  * empty page has no log lines to show, whatever the reason.
  */

@@ -149,9 +149,15 @@ export abstract class InteractiveSessionBase {
   getSessionUsage(): readonly ISessionUsageRecord[] {
     return readSessionUsageRecords(this.histTracker.getHistory());
   }
-  /** ARCH-029 TC-08: one replay-validation path with no fallback branch. */
+  /**
+   * ARCH-029 TC-08: one replay-validation path with no fallback branch. The session holds no keys of
+   * its own, so a sealed project log is reported as sealed (`ArtifactLockedError`, `no-keys`)
+   * instead of being opened.
+   */
   validateCurrentSessionReplayLog(): ICommandSessionReplayValidationReport {
-    return validateReplay(this.getProjectAccess(), this.getSessionOrThrow().getSessionId());
+    return validateReplay(this.getProjectAccess(), this.getSessionOrThrow().getSessionId(), {
+      sealing: 'plain',
+    });
   }
 
   getCommandInvocationSource(): TCommandInvocationSource {
@@ -306,9 +312,6 @@ export abstract class InteractiveSessionBase {
   async waitBackgroundJobGroup(groupId: string): Promise<IBackgroundJobGroupState> {
     await this.ensureInitialized();
     return this.bgTracker.waitGroup(groupId, this.getSessionOrThrow().getSessionId());
-  }
-  isBackgroundTaskTranscriptSealed(taskId: string): boolean {
-    return this.bgTracker.isTranscriptSealed(taskId);
   }
 
   getExecutionWorkspaceSnapshot(

@@ -294,7 +294,12 @@ export type { ISession } from './session';
 
 export type { IDirent, IStats, IFileSystem, IFileSystemAsync } from './file-system';
 export type { ICredentialKey, ICredentialStore } from './credential-store';
-export type { IArtifactContext, IArtifactSealer, TArtifactKind } from './artifact-sealer';
+export type {
+  IArtifactContext,
+  IArtifactSealer,
+  TArtifactKind,
+  TArtifactSealing,
+} from './artifact-sealer';
 export { ARTIFACT_KEY_REUSE } from './artifact-sealer';
 // Issue #2056: the structured-output shape a session forwards into the agent config.
 export type { IResponseFormatConfig } from './response-format';

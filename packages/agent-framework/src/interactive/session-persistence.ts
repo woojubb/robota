@@ -28,9 +28,9 @@ import type {
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type {
+  INodeSessionStoreOptions,
   INodeToolResultSpillStoreOptions,
   ISessionStoreOptions,
-  TSessionSealing,
 } from '@robota-sdk/agent-session';
 
 export type {
@@ -41,7 +41,6 @@ export type {
 };
 export { WorkspaceSessionLogSink, WorkspaceSessionLogSource } from './workspace-session-io.js';
 export { WorkspaceProjectSessionStore } from './workspace-session-store.js';
-export type { ISessionStoreOptions, TSessionSealing };
 
 export interface IHostToolResultSpillStore extends IToolResultSpillStore {
   read(reference: string): Promise<string>;
@@ -50,13 +49,11 @@ export interface IHostToolResultSpillStore extends IToolResultSpillStore {
 
 /**
  * Explicit host-owned storage for bounded MCP result references, in `options.parentDirectory`: an
- * owner-only directory the host owns. Omitting it is deprecated and keeps the earlier default under
- * the shared operating-system temporary directory; a host that cares where tool output lands passes
- * its own directory. `options.sealing` seals each result with `{ sealer }`; left out, results are
- * plain, as every earlier build wrote them.
+ * owner-only directory the host owns; spilled results never go anywhere else. `options.sealing`
+ * (required) seals each result with `{ sealer }`, or states `'plain'`.
  */
 export function createNodeToolResultSpillStore(
-  options: INodeToolResultSpillStoreOptions = {},
+  options: INodeToolResultSpillStoreOptions,
 ): IHostToolResultSpillStore {
   return new NodeToolResultSpillStore(options);
 }
@@ -80,39 +77,38 @@ export function isSafeSessionId(id: string): boolean {
 }
 
 /**
- * Project session store over a trusted workspace's state facets. `options.sealing` seals its records
- * with `{ sealer }`; left out, they are plain, as every earlier build wrote them.
+ * Project session store over a trusted workspace's state facets. `options.sealing` (required) seals
+ * its records with `{ sealer }`, or states `'plain'`.
  */
 export function createProjectSessionStore(
   sessions: IWorkspaceProjectStateStorage,
   logs: IWorkspaceProjectStateStorage,
-  options?: ISessionStoreOptions,
+  options: ISessionStoreOptions,
 ): IInteractiveSessionStore {
   return new WorkspaceProjectSessionStore(sessions, logs, options);
 }
 
 /**
  * Explicit host-filesystem session store. This does not establish project trust. `options.sealing`
- * as for {@link createProjectSessionStore}.
+ * is required, as for {@link createProjectSessionStore}; `options.ownedRoot` is an ancestor of
+ * `baseDirectory` the host also owns, tightened along with it.
  */
 export function createNodeHostSessionStore(
   baseDirectory: string,
-  ownedRoot?: string,
-  options?: ISessionStoreOptions,
+  options: INodeSessionStoreOptions,
 ): IInteractiveSessionStore {
-  return new NodeSessionStore(baseDirectory, ownedRoot, options);
+  return new NodeSessionStore(baseDirectory, options);
 }
 
 /**
  * SCREEN-1993: the caller-selected prompt-history file, one object serving
  * both the session-side writer and the surface's newest-first source. SEC-020: the user root is
  * passed as OWNED, exactly as `createUserSessionStore` does, so it is tightened along with the file.
- * `options.sealing` seals each entry as one line with `{ sealer }`; left out, the file is plain, as
- * every earlier build wrote it.
+ * `options.sealing` (required) seals each entry as one line with `{ sealer }`, or states `'plain'`.
  */
 export function createUserPromptHistoryFile(
   history: string,
-  options?: ISessionStoreOptions,
+  options: ISessionStoreOptions,
 ): IPromptHistoryWriter & IPromptHistorySource {
   return new NodePromptHistoryFile(history, {
     ownedRoot: dirname(history),
@@ -127,13 +123,16 @@ export function createUserPromptHistoryFile(
  */
 export function createUserSessionStore(
   sessions: string,
-  options?: ISessionStoreOptions,
+  options: ISessionStoreOptions,
 ): IInteractiveSessionStore {
   // SEC-020: the user store root is passed as OWNED, so it is tightened along with the sessions
   // directory inside it. The caller owns the layout and supplies this path.
   // This is the path the restricted-workspace fallback takes, where no other writer may ever run
   // to tighten the root on its behalf.
-  return new NodeSessionStore(sessions, dirname(sessions), options);
+  return new NodeSessionStore(sessions, {
+    ownedRoot: dirname(sessions),
+    sealing: sessionSealingOf(options),
+  });
 }
 
 /** This workspace's resumable sessions, newest first; {@link listResumableSessions} also counts locked ones. */

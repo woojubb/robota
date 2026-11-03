@@ -52,14 +52,12 @@ function record(id: string, name?: string): IInteractiveSessionRecord {
 function lockedStore() {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'framework-locked-')));
   const sealer = createTestArtifactSealer();
-  const writer = new NodeSessionStore(dir, undefined, { sealing: { sealer } });
+  const writer = new NodeSessionStore(dir, { sealing: { sealer } });
   writer.save(record('sess_sealed', 'sealed name'));
-  new NodeSessionStore(dir, undefined, { sealing: 'plain' }).save(
-    record('sess_plain', 'plain name'),
-  );
+  new NodeSessionStore(dir, { sealing: 'plain' }).save(record('sess_plain', 'plain name'));
   sealer.lock();
   return {
-    store: new NodeSessionStore(dir, undefined, { sealing: { sealer } }),
+    store: new NodeSessionStore(dir, { sealing: { sealer } }),
     writer,
     sealer,
     dir,
@@ -114,10 +112,10 @@ describe('the locked-session helpers', () => {
 /** A directory holding one sealed session, read by a store given no keys at all. */
 function noKeysStore(): NodeSessionStore {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'framework-no-keys-')));
-  new NodeSessionStore(dir, undefined, { sealing: { sealer: createTestArtifactSealer() } }).save(
+  new NodeSessionStore(dir, { sealing: { sealer: createTestArtifactSealer() } }).save(
     record('sess_sealed', 'sealed name'),
   );
-  return new NodeSessionStore(dir, undefined, { sealing: 'plain' });
+  return new NodeSessionStore(dir, { sealing: 'plain' });
 }
 
 describe('a sealed session in a store that holds no keys', () => {

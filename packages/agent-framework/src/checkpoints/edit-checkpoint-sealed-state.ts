@@ -8,8 +8,7 @@ import { assertSessionSealing } from '@robota-sdk/agent-session';
 import { MANIFEST_FILE, SNAPSHOT_DIR } from './edit-checkpoint-store-helpers.js';
 
 import type { IEditCheckpointStateStorage } from './edit-checkpoint-state-storage.js';
-import type { IArtifactContext, IArtifactSealer } from '@robota-sdk/agent-core';
-import type { TSessionSealing } from '@robota-sdk/agent-session';
+import type { IArtifactContext, IArtifactSealer, TArtifactSealing } from '@robota-sdk/agent-core';
 import type { IWorkspaceDirectoryEntry } from '../workspace-trust/index.js';
 
 /** The characters `safePathSegment` leaves and turn names use; never `:` or `|`, so an id parses one way. */
@@ -48,10 +47,6 @@ export function artifactContextOf(relativePath: string): IArtifactContext | unde
     : { kind: 'checkpoint-preimage', id: `${session}:${turn}:${preimage[1]}` };
 }
 
-/** State that can replace a file whole, which sealed state writes its manifests through. */
-type TReplacingState = IEditCheckpointStateStorage &
-  Required<Pick<IEditCheckpointStateStorage, 'replaceBytes'>>;
-
 /**
  * Checkpoint state that seals every manifest and pre-image it writes, bound to the place it is
  * written, so one moved to another turn or session does not open there. A manifest replaces any file
@@ -66,7 +61,7 @@ export class SealedEditCheckpointState implements IEditCheckpointStateStorage {
   readonly seals = true;
 
   constructor(
-    private readonly inner: TReplacingState,
+    private readonly inner: IEditCheckpointStateStorage,
     private readonly sealer: IArtifactSealer,
     /** The state never held a plain checkpoint, so a plain manifest in it can only be planted. */
     readonly sealedOnly: boolean,
@@ -90,13 +85,27 @@ export class SealedEditCheckpointState implements IEditCheckpointStateStorage {
     this.writeBytes(relativePath, Buffer.from(content, 'utf8'), purpose);
   }
 
+  /** A manifest goes in whole, so a crash leaves the old one or the new; a pre-image is written in place. */
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void {
+    this.putSealed(relativePath, content, purpose, 'manifest-whole');
+  }
+
+  replaceBytes(relativePath: string, content: Uint8Array, purpose: string): void {
+    this.putSealed(relativePath, content, purpose, 'whole');
+  }
+
+  private putSealed(
+    relativePath: string,
+    content: Uint8Array,
+    purpose: string,
+    mode: 'whole' | 'manifest-whole',
+  ): void {
     const context = artifactContextOf(relativePath);
     if (context === undefined) {
       throw new RangeError('Only a checkpoint manifest or pre-image is written to sealed state.');
     }
     const sealed = this.sealer.sealBytes(content, context);
-    if (context.kind === 'checkpoint-manifest') {
+    if (mode === 'whole' || context.kind === 'checkpoint-manifest') {
       this.inner.replaceBytes(relativePath, sealed, purpose);
     } else {
       this.inner.writeBytes(relativePath, sealed, purpose);
@@ -122,28 +131,20 @@ export class SealedEditCheckpointState implements IEditCheckpointStateStorage {
 }
 
 /**
- * `state`, sealing as `sealing` says: `'plain'` returns `state` itself, so a host that keeps
- * checkpoints plain writes exactly what it always did; `{ sealer }` returns state that seals every
- * manifest and pre-image to its place in the checkpoint directory, and needs `state` to replace a file
- * whole (`replaceBytes`). A store given sealed state keeps reading the plain checkpoints written
- * before it sealed, each with its own pre-images — only those numbered below every sealed one, since
- * nothing after that is written plain — and none at all with `sealedOnly`, for state that never held a
- * plain checkpoint (one made for a single process).
+ * `state`, sealing as `sealing` says: `'plain'` returns `state` itself; `{ sealer }` returns state
+ * that seals every manifest and pre-image to its place in the checkpoint directory. A store over
+ * sealed state keeps reading the plain checkpoints written before it sealed, each with its own
+ * pre-images — only those numbered below every sealed one, since nothing after that is written
+ * plain — and none at all with `sealedOnly`, for state that never held a plain checkpoint (one made
+ * for a single process). The edit checkpoint store makes it from the `sealing` it is given.
  */
 export function createSealedEditCheckpointState(
   state: IEditCheckpointStateStorage,
-  sealing: TSessionSealing,
+  sealing: TArtifactSealing,
   options: { readonly sealedOnly?: boolean } = {},
 ): IEditCheckpointStateStorage {
   assertSessionSealing(sealing);
   if (sealing === 'plain') return state;
   if (state.seals === true) throw new RangeError('The checkpoint state already seals.');
-  if (typeof state.replaceBytes !== 'function') {
-    throw new RangeError('Sealed checkpoint state needs state that can replace a file whole.');
-  }
-  return new SealedEditCheckpointState(
-    state as TReplacingState,
-    sealing.sealer,
-    options.sealedOnly === true,
-  );
+  return new SealedEditCheckpointState(state, sealing.sealer, options.sealedOnly === true);
 }

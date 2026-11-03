@@ -2,8 +2,8 @@
  * The prompt-history file with a sealer (#3679, secure conversation). A sealing file appends each
  * entry as one sealed line that opens on its own, so the backward block reader renders newest-first
  * without any line waiting for another, and says how many prompts it could not open — locked, or no
- * keys in this process — instead of letting them look absent. A plain file is byte for byte what
- * every earlier build wrote.
+ * keys in this process — instead of letting them look absent. A plain file holds one plain JSON line
+ * per entry.
  */
 import { appendFileSync, mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -64,11 +64,11 @@ function totals(blocks: readonly IPromptHistoryBlock[]): {
 }
 
 describe('a plain prompt-history file', () => {
-  it('writes exactly the bytes every earlier build wrote', () => {
+  it('writes plain lines', () => {
     const path = historyPath();
     const file = new NodePromptHistoryFile(path, { sealing: 'plain' });
     file.append(entry(1));
-    new NodePromptHistoryFile(path).append(entry(2));
+    new NodePromptHistoryFile(path, { sealing: 'plain' }).append(entry(2));
     expect(readFileSync(path, 'utf8')).toBe(
       `${JSON.stringify(entry(1))}\n${JSON.stringify(entry(2))}\n`,
     );
@@ -76,7 +76,7 @@ describe('a plain prompt-history file', () => {
 
   it('reads blocks without an unreadable count when every line is plain', async () => {
     const path = historyPath();
-    const file = new NodePromptHistoryFile(path);
+    const file = new NodePromptHistoryFile(path, { sealing: 'plain' });
     file.append(entry(1));
     expect(await collect(file)).toEqual([{ entries: [entry(1)], skippedLines: 0 }]);
   });
@@ -126,7 +126,7 @@ describe('a sealing prompt-history file', () => {
     expect(totals(locked)).toEqual({ skippedLines: 0, locked: 2, noKeys: 0 });
     expect(locked[0]?.unreadable).toEqual({ locked: 2, noKeys: 0 });
 
-    const plain = await collect(new NodePromptHistoryFile(path));
+    const plain = await collect(new NodePromptHistoryFile(path, { sealing: 'plain' }));
     expect(texts(plain)).toEqual([`${CANARY} 0`]);
     expect(totals(plain)).toEqual({ skippedLines: 0, locked: 0, noKeys: 2 });
 

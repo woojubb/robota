@@ -10,13 +10,13 @@ import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SessionHistoryTracker } from '../interactive-session-history-tracker.js';
-import { createSealedEditCheckpointState } from '../../checkpoints/edit-checkpoint-sealed-state.js';
 import { createDirectoryEditCheckpointState } from '../../checkpoints/edit-checkpoint-state-storage.js';
 import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createWorkspaceProjectMutation } from '../../workspace-trust/index.js';
 
 import type { IEditCheckpointStateStorage } from '../../checkpoints/edit-checkpoint-state-storage.js';
+import type { TArtifactSealing } from '@robota-sdk/agent-core';
 import type { IBranchEvent } from '@robota-sdk/agent-interface-session';
 
 const SESSION = 'session_1';
@@ -36,7 +36,7 @@ afterEach(() => {
   rmSync(base, { recursive: true, force: true });
 });
 
-async function trackerOver(state: IEditCheckpointStateStorage) {
+async function trackerOver(state: IEditCheckpointStateStorage, sealing: TArtifactSealing) {
   const access = await createTrustedProjectAccessFixture(project);
   if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
   const store = new EditCheckpointStore({
@@ -46,6 +46,7 @@ async function trackerOver(state: IEditCheckpointStateStorage) {
       purpose: 'tracker checkpoint test',
     }),
     stateStorage: state,
+    sealing,
   });
   const events: IBranchEvent[] = [];
   const tracker = new SessionHistoryTracker(
@@ -63,12 +64,10 @@ async function trackerOver(state: IEditCheckpointStateStorage) {
 
 describe('a turn its checkpoint store cannot number', () => {
   it('runs without a checkpoint, and says why in the history', async () => {
-    const state = createSealedEditCheckpointState(createDirectoryEditCheckpointState(root), {
-      sealer: createTestArtifactSealer(),
-    });
+    const state = createDirectoryEditCheckpointState(root);
     mkdirSync(join(root, SESSION, 'turn-999999999'), { recursive: true });
     writeFileSync(join(root, SESSION, 'turn-999999999', 'manifest.json'), 'planted');
-    const { tracker, events } = await trackerOver(state);
+    const { tracker, events } = await trackerOver(state, { sealer: createTestArtifactSealer() });
 
     await expect(tracker.beginEditCheckpointTurn('edit things')).resolves.toBeUndefined();
     await tracker.finalizeEditCheckpointTurn();
@@ -88,9 +87,7 @@ describe('a turn its checkpoint store cannot number', () => {
 describe("the session's checkpoint listing", () => {
   it('lists and counts from one read, opening each manifest once', async () => {
     const sealer = createTestArtifactSealer();
-    const { tracker } = await trackerOver(
-      createSealedEditCheckpointState(createDirectoryEditCheckpointState(root), { sealer }),
-    );
+    const { tracker } = await trackerOver(createDirectoryEditCheckpointState(root), { sealer });
     for (const prompt of ['one', 'two']) {
       await tracker.beginEditCheckpointTurn(prompt);
       await tracker.finalizeEditCheckpointTurn();

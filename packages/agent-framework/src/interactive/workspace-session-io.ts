@@ -54,14 +54,13 @@ export class WorkspaceSessionLogSource implements ISessionLogSource, IExternalPa
   private readonly payloads: StoredPayloads;
 
   /**
-   * @param options `sealing`: `{ sealer }` opens sealed lines and payloads (plain ones still read);
-   *   `'plain'`, the default, reads plain logs as before and meets a sealed line as one no key in
-   *   this process opens.
+   * @param options `sealing` (required): `{ sealer }` opens sealed lines and payloads (plain ones
+   *   still read); `'plain'` meets a sealed line as one no key in this process opens.
    */
   constructor(
     storage: IWorkspaceProjectStateStorage,
     private readonly sessionId: string,
-    options?: ISessionStoreOptions,
+    options: ISessionStoreOptions,
   ) {
     this.storage = assertLogStorage(storage);
     assertSafeSessionId(sessionId);
@@ -122,10 +121,10 @@ export class WorkspaceSessionLogSink implements ISessionLogSink, IExternalPayloa
   private enabled = true;
 
   /**
-   * @param options `sealing`: `{ sealer }` seals every append (one sealed line per call) and every
-   *   sidecar; `'plain'`, the default, writes exactly what every earlier build wrote.
+   * @param options `sealing` (required): `{ sealer }` seals every append (one sealed line per call)
+   *   and every sidecar; `'plain'` writes plain lines and content-addressed sidecars.
    */
-  constructor(storage: IWorkspaceProjectStateStorage, options?: ISessionStoreOptions) {
+  constructor(storage: IWorkspaceProjectStateStorage, options: ISessionStoreOptions) {
     this.storage = assertLogStorage(storage);
     const sealing = sessionSealingOf(options);
     this.lines = new StoredLines(sealing, 'session-log-line');

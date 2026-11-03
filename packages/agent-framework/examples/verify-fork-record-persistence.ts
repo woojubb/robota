@@ -16,7 +16,7 @@ function assertCondition(condition: boolean, message: string): void {
 
 async function main(): Promise<void> {
   const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-fork-record-')));
-  const sessionStore = createNodeHostSessionStore(join(cwd, 'sessions'));
+  const sessionStore = createNodeHostSessionStore(join(cwd, 'sessions'), { sealing: 'plain' });
   sessionStore.save({
     id: RESUME_SESSION_ID,
     name: 'parent (fork)',

@@ -2,7 +2,7 @@
  * #3679 step 3b: how `/agent read` (model-invocable) and `/background read` show a log page whose
  * records are sealed. The page's lines already hold a fixed placeholder for what could not be opened;
  * the command says why, names "unlock" only where an unlock would help, and never says there are no
- * log lines while records exist. A plain page reads exactly as before.
+ * log lines while records exist. A plain page is its lines, with nothing added.
  */
 import { describe, expect, it } from 'vitest';
 
@@ -39,7 +39,7 @@ async function shown(
 }
 
 describe('a log page as /agent read and /background read show it', () => {
-  it('reads a plain page exactly as before', async () => {
+  it('reads a plain page as its lines', async () => {
     const { agent, background } = await shown('agent_1 0', (taskId, cursor) => ({
       taskId,
       cursor,
@@ -128,7 +128,7 @@ function textPre3b(taskId: string, page: IBackgroundTaskLogPage): string {
   return page.lines.length > 0 ? `${page.lines.join('\n')}${next}` : `No log lines: ${taskId}`;
 }
 
-describe('a plain log reads exactly as before #3679 step 3b', () => {
+describe('a plain log reads as its lines #3679 step 3b', () => {
   const log = Array.from({ length: 450 }, (_, index) => `{"event":"e${index}"}`);
 
   it.each(['0', '1', '199', '200', '449', '450', '455', '-5', 'later', undefined])(

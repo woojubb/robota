@@ -83,7 +83,7 @@ function record(id: string): IInteractiveSessionRecord {
 
 /** A replay-only session — a log and its sidecars, no snapshot — as builds before sealing wrote it. */
 function seedReplayLog(id: string): void {
-  const logger = new FileSessionLogger(new WorkspaceSessionLogSink(logs), {
+  const logger = new FileSessionLogger(new WorkspaceSessionLogSink(logs, { sealing: 'plain' }), {
     externalPayloadThresholdBytes: 64,
   });
   for (const [index, role] of (['user', 'assistant'] as const).entries()) {
@@ -103,7 +103,7 @@ function seedReplayLog(id: string): void {
 
 /** A project store as builds before sealing left it. */
 function seedPlainProject(): void {
-  const store = createProjectSessionStore(sessions, logs);
+  const store = createProjectSessionStore(sessions, logs, { sealing: 'plain' });
   store.save(record('saved_one'));
   store.save(record('saved_two'));
   writeFileSync(join(sessionsDirectory(), 'corrupt_one.json'), `{"record":"${CANARY}`);
@@ -219,7 +219,7 @@ describe.runIf(process.platform === 'linux')('migrating a trusted project sessio
 
   it('leaves a record that changed after it was read, and one sealed with other keys', () => {
     const sealer = createTestArtifactSealer();
-    createProjectSessionStore(sessions, logs).save(record('running_one'));
+    createProjectSessionStore(sessions, logs, { sealing: 'plain' }).save(record('running_one'));
     createProjectSessionStore(sessions, logs, {
       sealing: { sealer: createTestArtifactSealer() },
     }).save(record('theirs'));
@@ -238,7 +238,7 @@ describe.runIf(process.platform === 'linux')('migrating a trusted project sessio
 
   it('removes the stale temp files crashed replaces left, and keeps fresh ones', () => {
     const sealer = createTestArtifactSealer();
-    createProjectSessionStore(sessions, logs).save(record('saved_one'));
+    createProjectSessionStore(sessions, logs, { sealing: 'plain' }).save(record('saved_one'));
     // Of a record since deleted: no replace of its own name will ever sweep it.
     const stale = join(sessionsDirectory(), '.deleted_one.json.0123456789abcdef.tmp');
     const fresh = join(sessionsDirectory(), '.other.json.fedcba9876543210.tmp');

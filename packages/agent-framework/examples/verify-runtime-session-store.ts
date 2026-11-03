@@ -43,7 +43,9 @@ async function main(): Promise<void> {
     | undefined;
 
   try {
-    const sessionStore = createNodeHostSessionStore(join(cwd, 'state', 'sessions'));
+    const sessionStore = createNodeHostSessionStore(join(cwd, 'state', 'sessions'), {
+      sealing: 'plain',
+    });
     const firstScript = createScriptedProvider([{ text: FIRST_RESPONSE }]);
     const firstRuntime = createAgentRuntime({
       cwd,

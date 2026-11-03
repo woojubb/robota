@@ -55,11 +55,11 @@ describe('session analyze with locked sealed sessions', () => {
   /** One sealed session, locked; and a plain one beside it when `withReadable`. */
   async function run(argv: string[], withReadable = false): Promise<void> {
     sealer.unlock();
-    const store = createNodeHostSessionStore(dir, undefined, { sealing: { sealer } });
+    const store = createNodeHostSessionStore(dir, { sealing: { sealer } });
     store.save(record('session_1781000001000_aaa'));
     sealer.lock();
     if (withReadable) {
-      createNodeHostSessionStore(dir, undefined, { sealing: 'plain' }).save(
+      createNodeHostSessionStore(dir, { sealing: 'plain' }).save(
         record('session_1781000002000_bbb'),
       );
     }

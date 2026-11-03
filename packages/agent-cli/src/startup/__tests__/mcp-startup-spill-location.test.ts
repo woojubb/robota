@@ -1,8 +1,8 @@
 /**
  * An oversized MCP tool result is conversation content spilled to disk. Where it goes is the product's
  * decision: the owner-only state root, never the shared operating-system temporary directory, and
- * gone when the run ends. The spill store alone still defaults to that temporary directory for SDK
- * embedders, so the CLI must always hand it a parent; the first test fails the moment it does not.
+ * gone when the run ends. The spill store takes its parent from the host and has no other place to
+ * go; the first test fails the moment the CLI hands it anything but the state root.
  *
  * Drives the real startup composition against a real stdio MCP server; a permissive umask is set so a
  * mode assertion cannot pass on an inherited restrictive one.

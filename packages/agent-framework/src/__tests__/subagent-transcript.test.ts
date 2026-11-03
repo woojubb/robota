@@ -4,7 +4,7 @@
  * `/background read`, the transport and the task-detail view).
  *
  * A page's cursor counts STORED records, so an offset names the same record whether the keys are
- * locked or not, and a plain log pages exactly as it always did. Only the records on a page are
+ * locked or not, and a plain log pages by its display lines. Only the records on a page are
  * opened; a run of locked records reads as one fixed line, and nothing a page says about a record it
  * cannot open carries content, a key or a path.
  */
@@ -51,7 +51,7 @@ function transcriptFile(dir: string, id = LOG_ID): string {
 }
 
 /** What R1 always showed for a plain log: its non-empty lines, 200 a page by index. */
-function legacyPage(text: string, offset: number) {
+function plainPageOf(text: string, offset: number) {
   const lines = text.split(/\r?\n/).filter(Boolean);
   const next = Math.min(offset + 200, lines.length);
   return { lines: lines.slice(offset, next), nextOffset: next < lines.length ? next : undefined };
@@ -75,13 +75,13 @@ describe('where a subagent transcript is', () => {
     );
   });
 
-  it('is where the logger writes, plain by default and sealed when told to', () => {
+  it('is where the logger writes, plain when it says plain and sealed when it says sealed', () => {
     const dir = root();
-    const plain = createSubagentLogger('session_parent', 'agent_1', dir);
+    const plain = createSubagentLogger('session_parent', 'agent_1', dir, { sealing: 'plain' });
     plain.log('agent_1', 'session_init', { note: 'plain text' });
     plain.flush?.();
     const sealer = createTestArtifactSealer();
-    const sealed = createSubagentLogger('session_parent', 'session_fork', dir, undefined, {
+    const sealed = createSubagentLogger('session_parent', 'session_fork', dir, {
       sealing: { sealer },
     });
     sealed.log('session_fork', 'session_init', { note: 'sealed text' });
@@ -100,7 +100,7 @@ describe('where a subagent transcript is', () => {
 });
 
 describe('a page of a plain transcript', () => {
-  it('is exactly the page it always was, offsets and all', () => {
+  it('is cut by display lines, offsets and all, whoever reads it', () => {
     const file = transcriptFile(root());
     const text = Array.from({ length: 450 }, (_, index) => `{"line":${index}}`).join('\n') + '\n';
     writeFileSync(file, text);
@@ -110,20 +110,22 @@ describe('a page of a plain transcript', () => {
       for (const offset of [0, 1, 199, 200, 400, 449, 450, 455, 900, -5, Number.NaN]) {
         const page = readSubagentTranscriptPage(file, { offset, sealing });
         expect({ lines: page?.lines, nextOffset: page?.nextOffset }, `offset ${offset}`).toEqual(
-          legacyPage(text, offset),
+          plainPageOf(text, offset),
         );
         expect(page?.unreadable).toBeUndefined();
       }
     }
   });
 
-  it('drops empty lines and carriage returns as before, and is nothing when there is no file', () => {
+  it('drops empty lines and carriage returns, and is nothing when there is no file', () => {
     const file = transcriptFile(root());
     const text = 'one\r\n\r\ntwo\n\nthree';
     writeFileSync(file, text);
 
-    expect(readSubagentTranscriptPage(file)).toEqual({ lines: ['one', 'two', 'three'] });
-    expect(readSubagentTranscriptPage(`${file}.missing`)).toBeUndefined();
+    expect(readSubagentTranscriptPage(file, { sealing: 'plain' })).toEqual({
+      lines: ['one', 'two', 'three'],
+    });
+    expect(readSubagentTranscriptPage(`${file}.missing`, { sealing: 'plain' })).toBeUndefined();
   });
 });
 
@@ -210,7 +212,7 @@ describe('a page of a sealed transcript', () => {
     const file = transcriptFile(root());
     writeSealed(file, createTestArtifactSealer(), ['{"a":1}\n', '{"b":2}\n']);
 
-    expect(readSubagentTranscriptPage(file)).toEqual({
+    expect(readSubagentTranscriptPage(file, { sealing: 'plain' })).toEqual({
       lines: ['[2 sealed log records; this process has no keys to open them]'],
       unreadable: { locked: 0, noKeys: 2, doesNotOpen: 0 },
     });

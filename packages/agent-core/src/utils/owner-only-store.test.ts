@@ -51,6 +51,28 @@ afterEach(() => {
 
 const mode = (path: string): number => statSync(path).mode & 0o7777;
 
+describe('ensureOwnerOnlyDirectory — durable', () => {
+  it('flushes the parent of each directory it created, and nothing when it created none', () => {
+    const flushed: string[] = [];
+    const syncDirectory = (directory: string): void => {
+      flushed.push(directory);
+    };
+
+    ensureOwnerOnlyDirectory(join(root, 'a', 'b'), { durable: true, syncDirectory });
+    expect(flushed).toEqual([root, join(root, 'a')]);
+
+    flushed.length = 0;
+    ensureOwnerOnlyDirectory(join(root, 'a', 'b'), { durable: true, syncDirectory });
+    expect(flushed).toEqual([]);
+  });
+
+  it('flushes nothing unless asked to', () => {
+    ensureOwnerOnlyDirectory(join(root, 'c', 'd'), {
+      syncDirectory: () => expect.unreachable('a non-durable call must not flush'),
+    });
+  });
+});
+
 describe('SEC-020 — ensureOwnerOnlyDirectory', () => {
   it('TC-01: creates a directory only its owner can enter, under a permissive umask', () => {
     const target = join(root, 'sessions');
@@ -293,6 +315,43 @@ describe('writeOwnerOnlyFile — durable', () => {
     expect(mode(target)).toBe(OWNER_ONLY_FILE_MODE);
   });
 
+  it('flushes the parent of every directory the write created, outermost first, then the leaf', () => {
+    // A flushed file in a directory whose own entry was never flushed is gone with the directory.
+    const target = join(root, 'state', 'secure', 'keyring.json');
+    const flushed: string[] = [];
+
+    writeOwnerOnlyFile(target, 'keys', {
+      durable: true,
+      syncDirectory: (directory) => flushed.push(directory),
+    });
+
+    expect(flushed).toEqual([root, join(root, 'state'), join(root, 'state', 'secure')]);
+  });
+
+  it('flushes only the parent of a directory that was missing, not of one that existed', () => {
+    mkdirSync(join(root, 'state'));
+    const flushed: string[] = [];
+
+    writeOwnerOnlyFile(join(root, 'state', 'secure', 'keyring.json'), 'keys', {
+      durable: true,
+      syncDirectory: (directory) => flushed.push(directory),
+    });
+
+    expect(flushed).toEqual([join(root, 'state'), join(root, 'state', 'secure')]);
+  });
+
+  it('flushes no created directory for a write that creates none', () => {
+    mkdirSync(join(root, 'keys'));
+    const flushed: string[] = [];
+
+    writeOwnerOnlyFile(join(root, 'keys', 'keyring.json'), 'keys', {
+      durable: true,
+      syncDirectory: (directory) => flushed.push(directory),
+    });
+
+    expect(flushed).toEqual([join(root, 'keys')]);
+  });
+
   it('TC-36: a plain write flushes nothing, so existing callers keep their cost', () => {
     const target = join(root, 'plain.json');
     writeOwnerOnlyFile(target, 'x', {
@@ -449,6 +508,16 @@ describe('stageOwnerOnlyFile', () => {
     expect(order).toEqual(['flush file', 'before commit', 'flush directory']);
     expect(readFileSync(target, 'utf8')).toBe('new');
     expect(existsSync(staged.temporaryPath)).toBe(false);
+  });
+
+  it('flushes the parent of a directory it created, before the temp file is staged', () => {
+    const flushed: string[] = [];
+
+    stageOwnerOnlyFile(join(root, 'fresh', 'record.json'), 'new', {
+      syncDirectory: (directory) => flushed.push(directory),
+    }).discard();
+
+    expect(flushed).toEqual([root]);
   });
 
   it('removes the temp file when the commit hook throws or the staged file is discarded', () => {

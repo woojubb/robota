@@ -247,10 +247,10 @@ module.exports = {
       },
     },
     {
-      // #3679: the SDK's conversation store constructors (session records, session logs, the prompt
-      // history, the tool-result spill, edit checkpoints) default to plain for embedders. Every store
-      // a product package builds comes from the one factory that states how it seals, so none can be
-      // left writing plaintext beside sealed files; scripts/__tests__/session-store-construction.test.mjs.
+      // #3679: only the product factory knows the process's sealing decision. A conversation store
+      // (session records, session logs, the prompt history, the tool-result spill, edit checkpoints)
+      // built anywhere else in a product package could write plaintext beside sealed files, so every
+      // one comes from that one factory; scripts/__tests__/session-store-construction.test.mjs.
       files: [
         'packages/agent-cli/src/**/*.{ts,tsx}',
         'packages/agent-ui-terminal/src/**/*.{ts,tsx}',

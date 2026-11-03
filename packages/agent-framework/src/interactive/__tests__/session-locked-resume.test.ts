@@ -90,12 +90,10 @@ describe('resuming a sealed session whose keys are locked', () => {
     const cwd = directory();
     const sessions = directory();
     const sealer = createTestArtifactSealer();
-    new NodeSessionStore(sessions, undefined, { sealing: { sealer } }).save(
-      sealedRecord('sess_sealed', cwd),
-    );
+    new NodeSessionStore(sessions, { sealing: { sealer } }).save(sealedRecord('sess_sealed', cwd));
     sealer.lock();
     // A restarted process: its store has never written or read this session.
-    const store = new NodeSessionStore(sessions, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(sessions, { sealing: { sealer } });
 
     let refusal: unknown;
     let interactive: TestInteractive | undefined;
@@ -129,10 +127,10 @@ describe('resuming a sealed session whose keys are locked', () => {
     const sessions = directory();
     const sealer = createTestArtifactSealer();
     // Sealed with keys this process does not hold: it does not open, which is `corrupt`.
-    new NodeSessionStore(sessions, undefined, {
+    new NodeSessionStore(sessions, {
       sealing: { sealer: createTestArtifactSealer() },
     }).save(sealedRecord('sess_other', cwd));
-    const store = new NodeSessionStore(sessions, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(sessions, { sealing: { sealer } });
 
     expect(() => new TestInteractive(interactiveOptions(cwd, store, 'sess_other'))).toThrow(
       'Cannot resume session sess_other: the session store reported "corrupt" for its record.',
@@ -148,11 +146,9 @@ describe('resuming a sealed session whose keys are locked', () => {
     const cwd = directory();
     const sessions = directory();
     const sealer = createTestArtifactSealer();
-    new NodeSessionStore(sessions, undefined, { sealing: { sealer } }).save(
-      sealedRecord('sess_sealed', cwd),
-    );
+    new NodeSessionStore(sessions, { sealing: { sealer } }).save(sealedRecord('sess_sealed', cwd));
     sealer.lock();
-    const store = new NodeSessionStore(sessions, undefined, { sealing: { sealer } });
+    const store = new NodeSessionStore(sessions, { sealing: { sealer } });
 
     expect(
       () =>
@@ -168,7 +164,7 @@ describe('renaming a sealed session its process holds', () => {
   it('goes on working after the keys lock, keeping the conversation', () => {
     const sessions = directory();
     const sealer = createTestArtifactSealer();
-    const writer = new NodeSessionStore(sessions, undefined, { sealing: { sealer } });
+    const writer = new NodeSessionStore(sessions, { sealing: { sealer } });
     writer.save(sealedRecord('sess_sealed', '/work'));
     sealer.lock();
 
@@ -234,10 +230,10 @@ describe("a refused save says why, in the store's own words", () => {
   it('tells a process with no keys that nothing here opens the file, never to unlock', async () => {
     const cwd = directory();
     const sessions = directory();
-    // Built the way an embedder (and the product, until secure mode exists) builds it: plain.
+    // Built plain, as the product builds it until secure mode exists.
     const interactive = new TestInteractive({
       cwd,
-      sessionStore: new NodeSessionStore(sessions),
+      sessionStore: new NodeSessionStore(sessions, { sealing: 'plain' }),
       provider: createScriptedProvider([]).provider,
       bare: true,
       defaultTools: [],
@@ -246,7 +242,7 @@ describe("a refused save says why, in the store's own words", () => {
     const errors = refusals(interactive);
     await interactive.ready();
     // Another writer seals a record under this session's id.
-    new NodeSessionStore(sessions, undefined, {
+    new NodeSessionStore(sessions, {
       sealing: { sealer: createTestArtifactSealer() },
     }).save(sealedRecord(interactive.sessionId, cwd));
 
@@ -262,7 +258,7 @@ describe("a refused save says why, in the store's own words", () => {
     const sealer = createTestArtifactSealer();
     const interactive = new TestInteractive({
       cwd,
-      sessionStore: new NodeSessionStore(sessions, undefined, { sealing: { sealer } }),
+      sessionStore: new NodeSessionStore(sessions, { sealing: { sealer } }),
       provider: createScriptedProvider([]).provider,
       bare: true,
       defaultTools: [],

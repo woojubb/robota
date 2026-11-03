@@ -92,3 +92,10 @@ export interface IArtifactSealer {
    */
   writeGrant?(): string;
 }
+
+/**
+ * How a host keeps what it stores: sealed by `sealer`, or `'plain'`. Every store, log and file that
+ * keeps conversation content states it, because one left plain beside sealed ones by omission would
+ * write plaintext next to them.
+ */
+export type TArtifactSealing = { readonly sealer: IArtifactSealer } | 'plain';

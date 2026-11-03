@@ -122,7 +122,7 @@ describe('a fork inherits the persisted system prompt (CLI-1994 TC-04)', () => {
     const id = parent.session.getSession().getSessionId();
     // Shut the parent down first: its own persist on shutdown would otherwise rewrite the prompt.
     await parent.dispose();
-    const store = new NodeSessionStore(join(cwd, '.agent', 'sessions'));
+    const store = new NodeSessionStore(join(cwd, '.agent', 'sessions'), { sealing: 'plain' });
     store.save({ ...loadedRecord(store, id), systemPrompt: SENTINEL });
     return { cwd, id, store };
   }
@@ -216,7 +216,7 @@ describe('a /cd target keeps the recorded prompt and announces the move', () => 
     await parent.submit('Remember the number 42');
     const id = parent.session.getSession().getSessionId();
     await parent.dispose();
-    const store = new NodeSessionStore(join(cwd, '.agent', 'sessions'));
+    const store = new NodeSessionStore(join(cwd, '.agent', 'sessions'), { sealing: 'plain' });
     store.save({ ...loadedRecord(store, id), systemPrompt: SENTINEL });
 
     const moved = scriptedSession({

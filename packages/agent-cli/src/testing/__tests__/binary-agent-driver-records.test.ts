@@ -15,13 +15,13 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 import { createProductUserSessionStore } from '../../product/session-stores.js';
 import { createBinaryAgentDriver } from '../binary-agent-driver.js';
 
-import type { TSessionSealing } from '@robota-sdk/agent-framework';
+import type { TArtifactSealing } from '@robota-sdk/agent-core';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 const sealing = vi.hoisted(() => ({ current: 'plain' as unknown }));
 
 vi.mock('../../product/session-sealing.js', () => ({
-  resolveProductSessionSealing: () => sealing.current as TSessionSealing,
+  resolveProductSessionSealing: () => sealing.current as TArtifactSealing,
 }));
 
 const SESSION_ID = 'sess_driver';

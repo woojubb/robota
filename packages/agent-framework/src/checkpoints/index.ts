@@ -1,7 +1,6 @@
 export { EditCheckpointStore } from './edit-checkpoint-store.js';
 export { createDirectoryEditCheckpointState } from './edit-checkpoint-state-storage.js';
 export type { IEditCheckpointStateStorage } from './edit-checkpoint-state-storage.js';
-export { createSealedEditCheckpointState } from './edit-checkpoint-sealed-state.js';
 export { migrateWorkspaceEditCheckpoints } from './edit-checkpoint-migration.js';
 export type {
   IEditCheckpointMigration,

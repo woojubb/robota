@@ -211,7 +211,9 @@ async function runFixture(
     await client.close();
     expect(serverFailure).toBeUndefined();
     const environment = createTestProductRuntime('test-product', { HOME: home });
-    const records = createNodeHostSessionStore(environment.layout.userPaths.sessions).list();
+    const records = createNodeHostSessionStore(environment.layout.userPaths.sessions, {
+      sealing: 'plain',
+    }).list();
     expect(records).toHaveLength(1);
     const loaded = records[0].outcome;
     expect(loaded.status).toBe('valid');
