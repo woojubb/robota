@@ -26,12 +26,14 @@ export interface ICliProductLayout {
     readonly orgPolicy: string;
     readonly mcpApprovals: string;
     /**
-     * Parents of the directories one process owns while it runs: spilled tool results and the editor
-     * buffer. Owner-only, inside the state root rather than the shared temporary directory, and swept
-     * of dead processes' leftovers at startup.
+     * Parents of the directories one process owns while it runs: spilled tool results, the editor
+     * buffer, and the edit checkpoints of a run that persists no session. Owner-only, inside the
+     * state root rather than the shared temporary directory, and swept of dead processes' leftovers
+     * at startup.
      */
     readonly spill: string;
     readonly editor: string;
+    readonly ephemeralCheckpoints: string;
   };
   readonly projectStateDirectories: TWorkspaceProjectStateDirectories;
   readonly projectSettingsPaths: readonly IProjectSettingsPath[];
@@ -107,6 +109,7 @@ export function createCliRuntimeContext(
       mcpApprovals: join(userRoot, 'mcp-approvals.json'),
       spill: join(userRoot, 'spill'),
       editor: join(userRoot, 'editor'),
+      ephemeralCheckpoints: join(userRoot, 'ephemeral-checkpoints'),
     },
     projectStateDirectories: {
       sessions: join(directory, 'sessions'),

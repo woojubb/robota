@@ -818,6 +818,7 @@ async function runCliCore(
       replayProvider: args.sessionLog !== undefined,
     },
     notice: (message) => process.stderr.write(`${message}\n`),
+    persistTranscripts: !args.noSessionPersistence,
   });
 
   // ARCH-005 S2: the ONE composition call. Everything product-specific about `the product` is declared as DATA
@@ -1352,6 +1353,7 @@ async function runCliCore(
       env: productRuntime.environment,
       access: workspaceComposition.projectAccess,
       cwd,
+      persistPromptHistory: !args.noSessionPersistence,
     }),
     cliAdapter: createProductTuiCliAdapter(presentation.createDefaultTuiCliAdapter, {
       productRuntime,

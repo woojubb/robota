@@ -2,8 +2,13 @@ import { realpathSync } from 'node:fs';
 import { isAbsolute, relative, sep } from 'node:path';
 
 import {
+  createProcessScopedDirectory,
+  removeDirectoryOnProcessExit,
+} from '@robota-sdk/agent-core/node';
+import {
   EditCheckpointStore,
   WorkspaceAuthorityRequiredError,
+  createDirectoryEditCheckpointState,
   createWorkspaceProjectContributionSource,
   createNodeHostContributionSource,
   createNodeHostSettingsStore,
@@ -23,6 +28,7 @@ import {
 
 import type {
   IContributionSource,
+  IEditCheckpointStateStorage,
   IMemoryStore,
   ISettingsDocumentStore,
   ITrustedWorkspaceProjectAccess,
@@ -35,6 +41,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import { createProductUserSettingsSources } from '../product/user-settings.js';
 import { optionArgv } from '../utils/option-argv.js';
+import { EPHEMERAL_CHECKPOINT_DIRECTORY_PREFIX } from './ephemeral-state.js';
 
 export interface ICreateCliWorkspaceCompositionOptions {
   readonly cwd: string;
@@ -46,6 +53,12 @@ export interface ICreateCliWorkspaceCompositionOptions {
   readonly safeMode?: boolean;
   /** The host platform, which decides whether a trusted workspace's state can live in it. */
   readonly platform?: NodeJS.Platform;
+  /**
+   * A run that persists no session (`--no-session-persistence`): edit checkpoints still work for the
+   * run, but their pre-images and manifests live in an owner-only per-process directory under the
+   * user's state root, removed at exit, and nothing is written under the project.
+   */
+  readonly ephemeralEditCheckpoints?: boolean;
 }
 
 export interface ICliWorkspaceComposition {
@@ -177,6 +190,10 @@ function trustedEditCheckpointStore(
   options: ICreateCliWorkspaceCompositionOptions,
 ): Pick<ICliWorkspaceComposition, 'createEditCheckpointStore'> {
   if (!supportsWorkspaceProjectMutation(options.platform)) return {};
+  const ephemeralState =
+    options.ephemeralEditCheckpoints === true
+      ? ephemeralCheckpointState(options.productRuntime)
+      : undefined;
   return {
     createEditCheckpointStore: () =>
       new EditCheckpointStore({
@@ -185,7 +202,27 @@ function trustedEditCheckpointStore(
           status: 'approved',
           purpose: 'restore files from an edit checkpoint',
         }),
+        ...(ephemeralState === undefined ? {} : { stateStorage: ephemeralState() }),
       }),
+  };
+}
+
+/**
+ * The one directory every store of this process keeps its checkpoints in (stores are keyed by
+ * session id, as in the project's directory), made when the first store is, and removed at exit.
+ */
+function ephemeralCheckpointState(runtime: ICliRuntimeContext): () => IEditCheckpointStateStorage {
+  let state: IEditCheckpointStateStorage | undefined;
+  return () => {
+    if (state === undefined) {
+      const directory = createProcessScopedDirectory(
+        runtime.layout.userPaths.ephemeralCheckpoints,
+        EPHEMERAL_CHECKPOINT_DIRECTORY_PREFIX,
+      );
+      removeDirectoryOnProcessExit(directory);
+      state = createDirectoryEditCheckpointState(directory);
+    }
+    return state;
   };
 }
 

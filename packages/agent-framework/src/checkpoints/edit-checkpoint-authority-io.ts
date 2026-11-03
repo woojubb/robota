@@ -7,6 +7,7 @@ import {
 } from '../workspace-trust/index.js';
 import { assertWorkspaceProjectMutationForAuthority } from '../workspace-trust/project-mutation.js';
 
+import type { IEditCheckpointStateStorage } from './edit-checkpoint-state-storage.js';
 import type {
   IEditCheckpointFileRecord,
   IEditCheckpointManifest,
@@ -21,17 +22,26 @@ import type {
 export class EditCheckpointAuthorityIO {
   readonly cwd: string;
   private readonly reader;
-  private readonly state;
+  private readonly state: IEditCheckpointStateStorage;
   private readonly mutation;
 
-  get checkpointRootRelativePath(): string {
+  /** Absent when the state is held outside the project, so no project path can be inside it. */
+  get checkpointRootRelativePath(): string | undefined {
     return this.state.rootRelativePath;
   }
 
-  constructor(authority: IWorkspaceProjectAuthority, mutation: IWorkspaceProjectMutation) {
+  /**
+   * `stateStorage` replaces the project's own checkpoint state directory; restoring a checkpoint
+   * still writes the project's files back through `mutation`.
+   */
+  constructor(
+    authority: IWorkspaceProjectAuthority,
+    mutation: IWorkspaceProjectMutation,
+    stateStorage?: IEditCheckpointStateStorage,
+  ) {
     this.cwd = resolve(getWorkspaceProjectIdentity(authority).worktreeRoot);
     this.reader = getWorkspaceProjectReader(authority);
-    this.state = getWorkspaceProjectStateStorage(authority, 'checkpoints');
+    this.state = stateStorage ?? getWorkspaceProjectStateStorage(authority, 'checkpoints');
     this.mutation = assertWorkspaceProjectMutationForAuthority(mutation, authority);
   }
 

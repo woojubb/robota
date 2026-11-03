@@ -11,6 +11,9 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  *
  * Precedence: settings.json `promptHistory: false` turns it off; `PRODUCT_PROMPT_HISTORY=1|0` wins
  * over settings. The literal is read here, in the shell, never in a library package.
+ *
+ * A run that persists no session (`--no-session-persistence`) never writes the file, whatever the
+ * setting or the environment says; the overlay still searches what earlier runs wrote.
  */
 import { realpathSync } from 'node:fs';
 
@@ -71,11 +74,15 @@ export function createPromptHistorySurface(inputs: {
   readonly productRuntime: ICliRuntimeContext;
   readonly enabled: boolean;
   readonly project: string;
+  /** False gives the overlay its source and the session no writer. Absent, the file is written. */
+  readonly persist?: boolean;
 }): IPromptHistorySurface {
   if (!inputs.enabled) return {};
   const file = createUserPromptHistoryFile(userPaths(inputs.productRuntime).history);
   return {
-    promptHistory: { writer: file, project: inputs.project },
+    ...(inputs.persist === false
+      ? {}
+      : { promptHistory: { writer: file, project: inputs.project } }),
     promptHistorySource: file,
     promptHistoryProject: inputs.project,
   };
@@ -88,6 +95,8 @@ export function resolvePromptHistoryRenderFields(inputs: {
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly access: TWorkspaceProjectAccess;
   readonly cwd: string;
+  /** False when the run persists no session: the history file is read, never written. */
+  readonly persist?: boolean;
 }): IPromptHistorySurface {
   const enabled = resolvePromptHistoryEnablement({
     settings: readPromptHistorySetting(inputs.settings),
@@ -98,5 +107,6 @@ export function resolvePromptHistoryRenderFields(inputs: {
     enabled,
     productRuntime: inputs.productRuntime,
     project: resolvePromptHistoryProject(inputs.access, inputs.cwd),
+    ...(inputs.persist === undefined ? {} : { persist: inputs.persist }),
   });
 }

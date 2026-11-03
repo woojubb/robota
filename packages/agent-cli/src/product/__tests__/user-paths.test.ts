@@ -20,6 +20,7 @@ describe('test-product Agent user paths', () => {
       mcpApprovals: join('/first-home', '.test-product', 'mcp-approvals.json'),
       spill: join('/first-home', '.test-product', 'spill'),
       editor: join('/first-home', '.test-product', 'editor'),
+      ephemeralCheckpoints: join('/first-home', '.test-product', 'ephemeral-checkpoints'),
     });
     expect(second.sessions).toBe(join('/second-home', '.test-product', 'sessions'));
     expect(userLocalStorageRoot(createTestProductRuntime('test-product', { HOME: '/first-home' }))).toBe(join('/first-home', '.test-product'));

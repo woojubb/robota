@@ -12,7 +12,11 @@ import { goneProcessOwner, leaveProcessScopedDirectory } from '@robota-sdk/agent
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
-import { prepareSpillParentDirectory, sweepStaleEphemeralState } from '../ephemeral-state.js';
+import {
+  EPHEMERAL_CHECKPOINT_DIRECTORY_PREFIX,
+  prepareSpillParentDirectory,
+  sweepStaleEphemeralState,
+} from '../ephemeral-state.js';
 
 const DEAD_PID = 2_147_000_000;
 const roots: string[] = [];
@@ -58,15 +62,17 @@ describe('prepareSpillParentDirectory', () => {
 describe('sweepStaleEphemeralState', () => {
   it('removes what dead processes left in every scratch parent, and keeps what a live one owns', () => {
     const runtime = runtimeWithState();
-    const { spill, editor } = runtime.layout.userPaths;
+    const { spill, editor, ephemeralCheckpoints } = runtime.layout.userPaths;
     const editorPrefix = basename(runtime.vocabulary.editorTemporaryDirectoryPrefix);
     const stale = [
       leave(spill, 'agent-tool-results-', DEAD_PID),
       leave(editor, editorPrefix, DEAD_PID),
+      leave(ephemeralCheckpoints, EPHEMERAL_CHECKPOINT_DIRECTORY_PREFIX, DEAD_PID),
     ];
     const live = [
       leave(spill, 'agent-tool-results-', process.pid),
       leave(editor, editorPrefix, process.pid),
+      leave(ephemeralCheckpoints, EPHEMERAL_CHECKPOINT_DIRECTORY_PREFIX, process.pid),
     ];
 
     sweepStaleEphemeralState(runtime);

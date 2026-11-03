@@ -358,6 +358,7 @@ describe('OpenRouter connection through the App session protocol', () => {
             providerDefinitions: [restarted.bootstrap.definition],
             reproduction: { callerSuppliedDefinitions: false, replayProvider: false },
             notice: () => {},
+            persistTranscripts: true,
           });
           expect(runnerFactory).toBe(createInProcessSubagentRunner);
           const chat = vi.spyOn(restarted.bootstrap.provider, 'chat').mockResolvedValue({

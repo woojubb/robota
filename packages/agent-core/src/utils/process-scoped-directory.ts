@@ -1,12 +1,12 @@
 /**
  * Scratch directories that belong to one process and must not outlive it.
  *
- * A run that promises to leave nothing behind keeps its working data (spilled tool results, an
- * editor buffer) in directories named for the process that owns them, each holding an owner record
- * written before anything else goes in. Removal when the process ends is the job of
- * `removeDirectoryOnProcessExit`; a process that dies without running it (SIGKILL, a power loss)
- * leaves its directory behind, and {@link sweepStaleProcessScopedDirectories} removes it on a later
- * start.
+ * A run that promises to leave nothing behind keeps its working data (spilled tool results, edit
+ * checkpoint pre-images, an editor buffer) in directories named for the process that owns them, each
+ * holding an owner record written before anything else goes in. Removal when the process ends is the
+ * job of `removeDirectoryOnProcessExit`; a process that dies without running it (SIGKILL, a power
+ * loss) leaves its directory behind, and {@link sweepStaleProcessScopedDirectories} removes it on a
+ * later start.
  *
  * ## Why the owner record decides, not age and not the pid alone
  *
