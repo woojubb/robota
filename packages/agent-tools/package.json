@@ -64,7 +64,7 @@
     "zod": "^4.6.7"
   },
   "peerDependencies": {
-    "@robota-sdk/agent-core": "workspace:*"
+    "@robota-sdk/agent-core": "workspace:^"
   },
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:*",
