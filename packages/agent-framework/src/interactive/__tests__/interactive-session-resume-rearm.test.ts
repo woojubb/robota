@@ -4,6 +4,7 @@
  * missed-wake note is surfaced when its fire time elapsed while the session was closed.
  */
 
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { BackgroundTaskManager, createScheduledTaskRunner } from '@robota-sdk/agent-executor';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -146,7 +147,7 @@ function sleepingScheduledRecord(nextFireAt: string): Record<string, unknown> {
 
 function createStore(record: Record<string, unknown>) {
   const map = new Map<string, unknown>([['session_resumed', record]]);
-  return {
+  return withHoldReadClaim({
     load: vi.fn((id: string) => {
       const record = map.get(id);
       return record === undefined ? { status: 'missing' } : { status: 'valid', record };
@@ -156,7 +157,7 @@ function createStore(record: Record<string, unknown>) {
       [...map.entries()].map(([id, record]) => ({ id, outcome: { status: 'valid', record } })),
     ),
     delete: vi.fn((id: string) => map.delete(id)),
-  };
+  });
 }
 
 function history(session: InteractiveSession): IHistoryEntry[] {
@@ -326,6 +327,8 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
             expect.objectContaining({ id: rearmed!.id, status: 'cancelled' }),
           ]),
         }),
+        // Every save of the session's own record carries its claim.
+        expect.objectContaining({ claim: expect.anything() }),
       );
     } finally {
       vi.useRealTimers();

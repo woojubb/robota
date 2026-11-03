@@ -2,6 +2,7 @@
  * Tests for InteractiveSession — event-driven session wrapper.
  */
 
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { mkdtemp, rm, writeFile, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -89,7 +90,7 @@ function createControllableRun(): {
 // Minimal mock SessionStore
 function createMockSessionStore(records: Record<string, unknown> = {}) {
   const store = new Map<string, unknown>(Object.entries(records));
-  return {
+  return withHoldReadClaim({
     // TRANS-007: the port returns an outcome, so a double that returns a record (or `undefined`)
     // no longer satisfies it. The cast at the call site hid that from the compiler; the tests found
     // it at runtime instead.
@@ -102,7 +103,7 @@ function createMockSessionStore(records: Record<string, unknown> = {}) {
       [...store.entries()].map(([id, record]) => ({ id, outcome: { status: 'valid', record } })),
     ),
     delete: vi.fn((id: string) => store.delete(id)),
-  };
+  });
 }
 
 describe('InteractiveSession', () => {

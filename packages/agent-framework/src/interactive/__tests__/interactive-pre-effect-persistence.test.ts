@@ -1,3 +1,4 @@
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -7,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
 
-import type { IInteractiveSessionRecord, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord, IInteractiveSessionStore, TSessionLoadOutcome } from '@robota-sdk/agent-interface-session';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 
 describe('composed interactive pre-effect persistence', () => {
@@ -19,14 +20,14 @@ describe('composed interactive pre-effect persistence', () => {
       const record = [...records.values()][0];
       snapshots.push({ at, ...(record ? { record: structuredClone(record) } : {}) });
     };
-    const store: IInteractiveSessionStore = {
-      save: (record) => { records.set(record.id, record); },
-      load: (id) => {
+    const store: IInteractiveSessionStore = withHoldReadClaim({
+      save: (record: IInteractiveSessionRecord) => { records.set(record.id, record); },
+      load: (id: string): TSessionLoadOutcome => {
         const record = records.get(id);
         return record ? { status: 'valid', record } : { status: 'missing' };
       },
-      list: () => [], delete: (id) => { records.delete(id); },
-    };
+      list: () => [], delete: (id: string) => { records.delete(id); },
+    });
     const scripted = createScriptedProvider([
       { toolCalls: [{ name: 'Probe', args: { value: 'once' } }] },
       { text: 'finished' },

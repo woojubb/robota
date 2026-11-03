@@ -25,8 +25,10 @@ is, and when to lock stay with callers.
 - Each artifact has its own data key, sealed to the public key, and content is encrypted under it
   record by record. A wrong key, a wrong AAD, or a changed, truncated or extended byte fails the
   whole operation; plaintext is returned only after authentication.
-- The attach keypair lets an unlocked keyring prove it is the owner to a verifier. Its public half
-  is not in the keyring file, so write access to the file does not let anyone present as the owner.
+- The attach keypair lets an unlocked keyring prove it is the owner to a verifier, and the
+  authorship key, which has no public half, lets it tag what it wrote so a reader can tell the
+  owner's artifacts from ones sealed by anyone else holding the public key. Neither is in the keyring
+  file, so write access to the file does not let anyone present as the owner.
 - The sealing public key in the file is a convenience for locked writers, not a credential. Unlock
   does not depend on it, and a check after unlock reports whether the file still holds the key the
   master key derives.
@@ -53,17 +55,18 @@ is, and when to lock stay with callers.
 
 - **Memory.** Wiping is best effort and covers only buffers this package allocates. A `KeyObject`
   offers no way to overwrite its contents and a passphrase string cannot be wiped, so `lock()` only
-  stops handing out keys; it does not erase them.
+  stops handing out the keypairs; it erases only the authorship key, which is plain bytes.
 - **Truncation.** A record carries no position, so a log cut at a record boundary is still a valid
   log. Detecting missing trailing records is the caller's job (a sequence number in the AAD plus a
   trusted record count or closing record); one record cannot know what follows it.
 - **Swapped sealing public key.** The swap is detected after unlock, not prevented. Until then a
   locked writer that trusts the file seals to whatever key it holds; if an attacker planted that key,
   the artifacts are readable by the attacker and not by the owner. Already-sealed artifacts stay safe.
-- **No proof of authorship.** The sealing key is public on purpose, so anyone who has it, including a
-  program that never saw the passphrase, can produce an artifact that opens normally. Sealing keeps
-  content secret; it does not show who wrote it. A caller that feeds stored history back into a model
-  needs its own proof of authorship, and only an unlocked process can give one.
+- **Authorship needs the keys.** The sealing key is public on purpose, so anyone who has it, including
+  a program that never saw the passphrase, can produce an artifact that opens normally: sealing keeps
+  content secret and does not show who wrote it. An authorship tag does, but only an unlocked keyring
+  can make or check one, so what a locked process writes carries none, and what an untagged artifact
+  is worth is the caller's decision.
 - **Wholesale replacement.** A program that can write the keyring file can replace it with a keyring
   of its own. The owner's passphrase then fails at the next unlock, which is the only detection there
   can be; nothing sealed to the replacement is readable by the owner.
@@ -96,9 +99,9 @@ is, and when to lock stay with callers.
   rise without breaking old keyrings; the bounds stop a hostile file from using that freedom.
 - **The recovery key is derived with HKDF, not scrypt.** It is random and high-entropy, so stretching
   adds latency and no strength.
-- **Two keypairs, two labels.** The sealing and attach keys come from separate versioned HKDF
-  labels, so neither reveals nor weakens the other, and neither needs storing: both are re-derived
-  at unlock.
+- **One label per derived key.** The sealing keypair, the attach keypair and the authorship key come
+  from separate versioned HKDF labels, so none reveals or weakens another, and none needs storing:
+  all are re-derived at unlock.
 - **The slot AAD omits the sealing public key.** A binding would turn a repairable tamper (a swapped
   public key) into a lockout of the owner's own data, and it would buy no confidentiality: whoever can
   write the file can replace the slots wholesale anyway.

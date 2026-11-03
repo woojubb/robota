@@ -361,6 +361,8 @@ export function buildPooledSessionOptions(
     resumeSessionId,
     forkSession: undefined,
     sessionName: undefined,
+    // What the owner accepted at launch was one record's bytes; a pooled session is another record.
+    acceptedDigest: undefined,
   };
 }
 

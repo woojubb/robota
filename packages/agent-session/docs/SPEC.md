@@ -414,7 +414,19 @@ prefix is product-neutral and does not disclose the host product's name.
   plain and sealed files alike, so a directory part-way through a migration lists correctly and a
   plain record becomes sealed the next time its session is saved. A file that opens proves it is
   bound to this id and unaltered since it was sealed, and nothing about who sealed it: sealing
-  needs only the public key, which any program of the same user can read. A sealed file the keys
+  needs only the public key, which any program of the same user can read. So whose a record is is
+  decided when its bytes are opened — an authorship tag only unlocked keys make, bytes this store
+  wrote from the owner's content, or bytes the owner adopted by their digest — and a save tags only
+  content the store can vouch for, never an id a read handed unverified content out for. An owner
+  save the locked keys could not tag is tagged at the next unlock; neither that, an adoption nor a
+  claim touches a record handed to a process that may still be saving it, whose saves a changed file
+  would refuse, and neither the tag nor the adoption replaces bytes another writer put there since
+  they were read. A write-only child holds the record it was handed as the owner's only when the
+  process that handed it over, which holds the keys, held it so. Every store, sealing or not,
+  claims the ids its process runs, exclusively, and fences every save made under a claim once it is
+  released, so a session that outlived its claim cannot overwrite the one that took the id next; in a
+  store that seals a claimed id is also answered only from the owner's content, so a file something
+  unverifiable changed is neither merged into it nor overwritten by it. A sealed file the keys
   cannot open is `locked`, not corrupt: it is intact, and a later unlock reads it; a store that keeps
   its records `'plain'` says so (`no-keys`), since no unlock in its process would open it. It is also not
   listed, since there is no record to describe, so the scan that lists also counts what it left out
@@ -429,7 +441,8 @@ prefix is product-neutral and does not disclose the host product's name.
   check and the write are two steps, so two writers saving one session at the same moment can still
   replace each other, as plain records always could; what the check stops is a store replacing a
   sealed session nobody in its process can read, and a file that differs from what it remembers is
-  refused as changed. What it holds is memory only, bounded, and forgotten on delete. A record
+  refused as changed. What it holds is memory only, bounded except for the sessions it runs, and
+  forgotten on delete. A record
   written for a fork job another process will run is kept apart from it, so a fork never pushes out
   a running session, and is handed over once as a token naming the sealed bytes; a store that cannot
   open the file (a process with only a write grant) takes the token as a record it holds, and a store

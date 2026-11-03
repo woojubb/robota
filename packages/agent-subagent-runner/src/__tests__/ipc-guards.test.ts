@@ -217,7 +217,7 @@ describe('the sealing fields of a start payload', () => {
     expect(
       isSubagentWorkerParentMessage({
         type: 'start',
-        payload: forkPayload({ writeGrant: 'rsg1.key', resumeHeld: 'rsh1.digest.record' }),
+        payload: forkPayload({ writeGrant: 'rsg1.key', resumeHeld: 'rsh2.owner.digest.record' }),
       }),
     ).toBe(true);
   });
@@ -237,7 +237,7 @@ describe('the sealing fields of a start payload', () => {
     expect(
       isSubagentWorkerParentMessage({
         type: 'start',
-        payload: { ...validStartPayload(), resumeHeld: 'rsh1.digest.record' },
+        payload: { ...validStartPayload(), resumeHeld: 'rsh2.owner.digest.record' },
       }),
     ).toBe(false);
   });
@@ -254,5 +254,38 @@ describe('the sealing fields of a start payload', () => {
     expect(isSubagentWorkerParentMessage({ type: 'sealing_key', grant: '' })).toBe(false);
     expect(isSubagentWorkerParentMessage({ type: 'sealing_key' })).toBe(false);
     expect(isSubagentWorkerParentMessage({ type: 'sealing_key', grant: 7 })).toBe(false);
+  });
+});
+
+/**
+ * #3679 step 3e: a child handed a record reports each save of it as a `record_saved` child message,
+ * and a refused save is said on the terminal message only as `recordSaveRefused: true`.
+ */
+describe('record saves on the wire', () => {
+  it('says a refused save on a result or an error only as true', () => {
+    expect(
+      isSubagentWorkerChildMessage({ type: 'result', output: 'x', recordSaveRefused: true }),
+    ).toBe(true);
+    expect(
+      isSubagentWorkerChildMessage({ type: 'error', message: 'x', recordSaveRefused: true }),
+    ).toBe(true);
+    expect(
+      isSubagentWorkerChildMessage({ type: 'result', output: 'x', recordSaveRefused: 'yes' }),
+    ).toBe(false);
+    expect(
+      isSubagentWorkerChildMessage({
+        type: 'record_saved',
+        sessionId: 'session_fork',
+        sha256: 'a'.repeat(64),
+      }),
+    ).toBe(true);
+    expect(
+      isSubagentWorkerChildMessage({
+        type: 'record_saved',
+        sessionId: 'session_fork',
+        sha256: 'a'.repeat(64),
+        clean: true,
+      }),
+    ).toBe(false);
   });
 });

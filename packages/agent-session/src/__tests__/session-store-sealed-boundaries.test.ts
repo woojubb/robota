@@ -17,7 +17,7 @@ import { describe, expect, it } from 'vitest';
 
 import { SESSION_RECORD_ENVELOPE_VERSION } from '../session-record-codec/index.js';
 import { NodeSessionStore } from '../session-store.js';
-import { SealedSessionUnreadableError } from '../stored-session-record.js';
+import { SealedSessionUnreadableError } from '../sealed-session-refusal.js';
 
 import type { IArtifactContext, IArtifactSealer } from '@robota-sdk/agent-core';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
@@ -43,6 +43,19 @@ function record(id: string, text = CANARY): IInteractiveSessionRecord {
         state: 'complete',
       },
     ],
+  };
+}
+
+/**
+ * A valid outcome as a store that seals reports it (#3679 step 3e): it says whose the record is and
+ * which stored bytes it came from. Saves here state no provenance, so the records are unverified.
+ */
+function sealedValid(value: IInteractiveSessionRecord, authorship = 'unverified') {
+  return {
+    status: 'valid',
+    record: value,
+    authorship,
+    digest: expect.stringMatching(/^[0-9a-f]{64}$/),
   };
 }
 
@@ -91,10 +104,7 @@ describe('a store holds a session only when it wrote it or was asked to hold it'
 
     expect(thrownBy(() => store.save(record('sess_live', 'after the lock')))).toBeUndefined();
     sealer.unlock();
-    expect(store.load('sess_live')).toEqual({
-      status: 'valid',
-      record: record('sess_live', 'after the lock'),
-    });
+    expect(store.load('sess_live')).toEqual(sealedValid(record('sess_live', 'after the lock')));
   });
 
   it('does not hold what a probe read, so it cannot replace that session once the keys lock', () => {
@@ -121,13 +131,10 @@ describe('a store holds a session only when it wrote it or was asked to hold it'
     expect(resumer.load('sess_a', { hold: true }).status).toBe('valid');
     sealer.lock();
 
-    expect(resumer.loadHeld('sess_a')).toEqual({ status: 'valid', record: record('sess_a') });
+    expect(resumer.loadHeld('sess_a')).toEqual(sealedValid(record('sess_a')));
     resumer.save(record('sess_a', 'after the lock'));
     sealer.unlock();
-    expect(resumer.load('sess_a')).toEqual({
-      status: 'valid',
-      record: record('sess_a', 'after the lock'),
-    });
+    expect(resumer.load('sess_a')).toEqual(sealedValid(record('sess_a', 'after the lock')));
   });
 
   it('wipes the plaintext the sealer handed back once it is decoded', () => {

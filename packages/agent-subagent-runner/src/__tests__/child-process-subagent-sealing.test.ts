@@ -251,7 +251,7 @@ function exited(child: import('node:child_process').ChildProcess | undefined): b
 
 /** The conversation a held-record token carries. */
 function heldText(token: string): string {
-  return Buffer.from(token.split('.')[2] as string, 'base64url').toString('utf8');
+  return Buffer.from(token.split('.')[3] as string, 'base64url').toString('utf8');
 }
 
 /** The key the stand-in sealer sealed a line to, or `undefined` for a plain line. */
@@ -450,7 +450,7 @@ describe('a sealing parent’s fork job', () => {
       const payload = JSON.parse(readFileSync(payloadPath, 'utf8')) as Record<string, unknown>;
 
       const held = payload.resumeHeld as string;
-      expect(Buffer.from(held.split('.')[2] as string, 'base64url').toString('utf8')).toContain(
+      expect(Buffer.from(held.split('.')[3] as string, 'base64url').toString('utf8')).toContain(
         CANARY,
       );
       const elsewhere = JSON.stringify({
@@ -532,7 +532,10 @@ describe('a sealing parent’s fork job', () => {
 
   it('fails before preparing a worktree or spawning when the record is past the wire bound', () => {
     const { cwd, sealer } = lockedSealingParent();
-    const huge = { exportHeld: () => 'r'.repeat(32 * 1024 * 1024 + 1) };
+    const huge = {
+      load: () => ({ status: 'missing' }),
+      exportHeld: () => 'r'.repeat(32 * 1024 * 1024 + 1),
+    };
     const { runner, prepare } = isolatedRunner(createDeps({ resumeSessionStore: huge as never }), {
       workerEntry: ECHO_WORKER,
       logSealing: { sealer },
@@ -654,7 +657,8 @@ describe('a sealing parent’s fork job', () => {
       const store = createUserSessionStore(join(cwd, 'sessions'), {
         sealing: { sealer: parent.sealer },
       });
-      store.save(forkRecord('session_fork_child', cwd), { handoff: true });
+      // `/fork` writes the copy from the live session, as the owner's.
+      store.save(forkRecord('session_fork_child', cwd), { handoff: true, provenance: 'owner' });
       const runner = new ChildProcessSubagentRunner(createDeps({ resumeSessionStore: store }), {
         workerEntry: SEALING_WORKER,
         worktreeAdapter: NO_WORKTREES,

@@ -28,6 +28,9 @@ import type {
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
+  ISessionAuthorship,
+  ISessionClaim,
+  ISessionClaimOptions,
   ISessionExportOptions,
   ISessionListEntry,
   ISessionLoadOptions,
@@ -120,8 +123,10 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
   private readonly logs: IWorkspaceProjectStateStorage;
   /** How this store keeps what it writes; its replay logs are read with the same sealing. */
   private readonly sealing: TArtifactSealing;
-  /** How records are stored, and what this instance wrote or holds so it can keep saving those while locked. */
+  /** How records are stored, and what this instance claims, wrote or holds. */
   private readonly records: StoredSessionRecords;
+  /** What only a store that seals offers (`IInteractiveSessionStore.authorship`); absent from one that never does. */
+  declare readonly authorship?: ISessionAuthorship;
 
   /**
    * @param options `sealing` (required): `{ sealer }` seals what `save` writes and opens what `load`
@@ -134,44 +139,60 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     options: ISessionStoreOptions,
   ) {
     this.sealing = sessionSealingOf(options);
-    this.records = new StoredSessionRecords(this.sealing);
+    this.records = new StoredSessionRecords(this.sealing, {
+      load: (id) => this.loadFile(id),
+      current: (id) => {
+        assertSafeSessionId(id);
+        return this.readExisting(`${id}.json`);
+      },
+      replace: (id, stored) => {
+        assertSafeSessionId(id);
+        this.writeRecord(`${id}.json`, stored);
+      },
+      rebuild: (id) => this.loadFromReplayLog(id),
+    });
     this.sessions = assertNamespace(sessions, 'sessions');
     this.logs = assertNamespace(logs, 'session-logs');
     assertWorkspaceProjectStateStoragePair(this.sessions, this.logs);
+    // Only on a store that seals: a store whose records carry no authorship has nothing to adopt.
+    const authorship = this.records.authorship;
+    if (authorship !== undefined) this.authorship = authorship;
+  }
+
+  /**
+   * Claims `id` for a session this process runs, reading it in the same call
+   * (`IInteractiveSessionStore.claim`): exclusive in this store, and every later save of the id must
+   * carry the claim until it is released. In a store that seals, a claimed id is never rebuilt from
+   * its replay log, which no tag covers; a store that never seals rebuilds it as any read would.
+   */
+  claim(id: string, options?: ISessionClaimOptions): ISessionClaim {
+    assertSafeSessionId(id);
+    return this.records.claim(id, options);
+  }
+
+  /** Whether something this process runs may still write session `id` (`IInteractiveSessionStore.hasWriter`). */
+  hasWriter(id: string): boolean {
+    return this.records.hasWriter(id);
   }
 
   save(session: IInteractiveSessionRecord, options: ISessionSaveOptions = {}): void {
     assertSafeSessionId(session.id);
-    const name = `${session.id}.json`;
     // A sealed file this store cannot open is a session nobody here has read; replacing it would
     // destroy the only copy — unless it is provably exactly what this instance last wrote or holds,
     // which is how a locked process goes on saving the sessions it is running. A plain or absent
     // file is replaced.
-    this.records.assertReplaceable(session.id, this.readExisting(name));
     // TRANS-007: the versioned envelope, the same shape the host store and the share artifact carry;
-    // sealed to the session's id by a store that seals. Replaced whole, so a write that fails part-way
-    // leaves the previous record, which this store still recognises, rather than a partial file.
-    const encoded = this.records.encode(session);
-    try {
-      this.sessions.replaceBytes(name, encoded.stored, 'persist project session record');
-    } catch (error) {
-      // A step after the rename (the directory flush) can fail with the new bytes already in place;
-      // they are this store's own, and the next save must know them, or one unlucky write would block
-      // this session while the keys are locked. Only bytes provably at the path are remembered.
-      this.records.wroteIfPresent(session.id, encoded, this.readExistingQuietly(name), options);
-      throw error;
-    }
-    this.records.wrote(session.id, encoded, options);
+    // sealed to the session's id by a store that seals, and tagged when it can vouch that the content
+    // is the owner's and the keys are unlocked.
+    this.records.save(session, options);
   }
 
-  /** {@link readExisting} for a path a failed write may have left in any state: a read that fails is `unreadable`. */
-  private readExistingQuietly(name: string): TStoredSessionFile {
-    try {
-      return this.readExisting(name);
-    } catch {
-      // allow-fallback: an unreadable path proves nothing was written, so nothing is remembered.
-      return { kind: 'unreadable' };
-    }
+  /**
+   * Replaces the record file `name` whole, so a write that fails part-way leaves the previous record,
+   * which this store still recognises, rather than a partial file.
+   */
+  private writeRecord(name: string, stored: Uint8Array): void {
+    this.sessions.replaceBytes(name, stored, 'persist project session record');
   }
 
   /** What is at `name` now, for the guard before a save; a file past the read limit is `oversized`. */
@@ -197,24 +218,29 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
    * open never falls through to a reconstruction either. Nor does a snapshot past the read limit:
    * it is present, so it is `corrupt` rather than a reason to rebuild it or to take a listing down.
    *
-   * Only a load that asks to `hold` the session remembers a sealed record it opens.
+   * Only a load that asks to `hold` the session remembers a sealed record it opens. A session this
+   * process runs (claimed) is never rebuilt from its log: a log carries no authorship, so the store
+   * answers such an id from what it holds instead.
    */
   load(id: string, options: ISessionLoadOptions = {}): TSessionLoadOutcome {
-    return this.read(id, options);
+    assertSafeSessionId(id);
+    return this.records.load(id, options);
   }
 
-  /** One read of one session. */
-  private read(id: string, options: ISessionLoadOptions): TSessionLoadOutcome {
+  /** What is at session `id`'s snapshot path, read whole, for one load or listing of it. */
+  private loadFile(id: string): {
+    readonly file: TStoredSessionFile;
+    readonly unreadable: TSessionLoadOutcome;
+  } {
     assertSafeSessionId(id);
     let raw: Uint8Array | undefined;
     try {
       raw = this.sessions.readBytes(`${id}.json`, 'load project session record');
     } catch (error) {
-      if (error instanceof ProjectReadLimitExceededError) return OVERSIZED_OUTCOME;
-      throw error;
+      if (!(error instanceof ProjectReadLimitExceededError)) throw error;
+      return { file: { kind: 'oversized' }, unreadable: OVERSIZED_OUTCOME };
     }
-    if (raw !== undefined) return this.records.decode(id, raw, options);
-    return this.loadFromReplayLog(id);
+    return { file: classifyStoredSessionBytes(raw), unreadable: OVERSIZED_OUTCOME };
   }
 
   /**
@@ -230,10 +256,12 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
    */
   loadHeld(id: string): TSessionLoadOutcome | undefined {
     assertSafeSessionId(id);
-    const existing = this.readExisting(`${id}.json`);
-    const held = this.records.held(id, existing);
+    const held = this.records.loadHeld(id);
     if (held !== undefined) return held;
-    if (existing.kind === 'absent' && this.loadFromReplayLog(id).status === 'locked') {
+    if (
+      this.readExisting(`${id}.json`).kind === 'absent' &&
+      this.loadFromReplayLog(id).status === 'locked'
+    ) {
       return { status: 'missing' };
     }
     return undefined;
@@ -242,7 +270,7 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
   /** The sealed record of `id` as a token for another store over these files (`StoredSessionRecords.exportHeld`). */
   exportHeld(id: string, options?: ISessionExportOptions): string | undefined {
     assertSafeSessionId(id);
-    return this.records.exportHeld(id, this.readExisting(`${id}.json`), options);
+    return this.records.exportHeld(id, options);
   }
 
   /** Holds the record a token from another store's `exportHeld` carries (`StoredSessionRecords.importHeld`). */
@@ -316,7 +344,7 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
         issues: [{ path: '', message: 'the file name is not a usable session id' }],
       };
     }
-    return this.read(id, {});
+    return this.records.listed(id);
   }
 
   delete(id: string): void {

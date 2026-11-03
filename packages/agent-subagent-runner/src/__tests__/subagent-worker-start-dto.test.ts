@@ -372,7 +372,7 @@ describe('what a fork job puts on the wire (CLI-1994 TC-06, ARCH-044, #3679)', (
     });
     const fork = await projectStartPayload(job(FORK_SESSION_ID), DEPS, {
       providerDefinitions: TEST_PROVIDER_DEFINITIONS,
-      ...projectStartPayloadSealing(job(FORK_SESSION_ID), DEPS, 'plain'),
+      ...projectStartPayloadSealing(job(FORK_SESSION_ID), DEPS, 'plain').payload,
     });
 
     // Nothing new rides beside the request: no seed history, no transcript, no record, no grant.
@@ -423,7 +423,7 @@ describe('what a fork job puts on the wire (CLI-1994 TC-06, ARCH-044, #3679)', (
     });
     const fork = await projectStartPayload(job(FORK_SESSION_ID), deps, {
       providerDefinitions: TEST_PROVIDER_DEFINITIONS,
-      ...projectStartPayloadSealing(job(FORK_SESSION_ID), deps, { sealer }),
+      ...projectStartPayloadSealing(job(FORK_SESSION_ID), deps, { sealer }).payload,
       writeGrant: sealer.writeGrant(),
     });
 
@@ -436,7 +436,7 @@ describe('what a fork job puts on the wire (CLI-1994 TC-06, ARCH-044, #3679)', (
       'resumeSessionId',
     ]);
     const held = fork.resumeHeld as string;
-    expect(Buffer.from(held.split('.')[2] as string, 'base64url').toString('utf8')).toContain(
+    expect(Buffer.from(held.split('.')[3] as string, 'base64url').toString('utf8')).toContain(
       COPIED_CONVERSATION_TEXT,
     );
     const rest = JSON.stringify({ ...fork, resumeHeld: undefined });
@@ -448,7 +448,7 @@ describe('what a fork job puts on the wire (CLI-1994 TC-06, ARCH-044, #3679)', (
     const { sealer, deps } = sealedParent();
     const payload = await projectStartPayload(job(FORK_SESSION_ID), deps, {
       providerDefinitions: TEST_PROVIDER_DEFINITIONS,
-      ...projectStartPayloadSealing(job(FORK_SESSION_ID), deps, { sealer }),
+      ...projectStartPayloadSealing(job(FORK_SESSION_ID), deps, { sealer }).payload,
       writeGrant: sealer.writeGrant(),
     });
 
@@ -462,12 +462,15 @@ describe('what a fork job puts on the wire (CLI-1994 TC-06, ARCH-044, #3679)', (
   it('sealed: a job that resumes nothing hands over no record, and its grant is read when start is sent', () => {
     const { sealer, deps } = sealedParent();
 
-    expect(projectStartPayloadSealing(job(undefined), deps, { sealer })).toEqual({});
+    expect(projectStartPayloadSealing(job(undefined), deps, { sealer })).toEqual({ payload: {} });
   });
 
   it('sealed: a held record past its bound fails before anything is spawned, naming the limit', () => {
     const { sealer } = sealedParent();
-    const store = { exportHeld: () => 'r'.repeat(RESUME_HELD_MAX_CHARACTERS + 1) };
+    const store = {
+      load: () => ({ status: 'missing' }),
+      exportHeld: () => 'r'.repeat(RESUME_HELD_MAX_CHARACTERS + 1),
+    };
 
     expect(() =>
       projectStartPayloadSealing(
@@ -494,9 +497,9 @@ describe('what a fork job puts on the wire (CLI-1994 TC-06, ARCH-044, #3679)', (
     for (let check = 0; check < 2; check += 1) {
       expect(preflightStartPayloadSealing(job(FORK_SESSION_ID), deps, { sealer })).toBeUndefined();
     }
-    expect(projectStartPayloadSealing(job(FORK_SESSION_ID), deps, { sealer }).resumeHeld).toMatch(
-      /^rsh1\./,
-    );
+    expect(
+      projectStartPayloadSealing(job(FORK_SESSION_ID), deps, { sealer }).payload.resumeHeld,
+    ).toMatch(/^rsh2\./);
     expect(() => preflightStartPayloadSealing(job(FORK_SESSION_ID), deps, { sealer })).toThrow(
       /Unlock, then run \/fork again\./,
     );

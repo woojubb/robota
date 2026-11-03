@@ -2,6 +2,12 @@ import { PassThrough } from 'node:stream';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import {
+  SESSION_STILL_CLOSING_MESSAGE,
+  SessionAuthorshipRefusedError,
+} from '@robota-sdk/agent-framework';
+import { SessionClaimedError } from '@robota-sdk/agent-session';
+
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 
 const mock = vi.hoisted(() => ({
@@ -22,7 +28,13 @@ vi.mock('@robota-sdk/agent-framework', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@robota-sdk/agent-framework')>()),
   buildRuntimeSession: (options: Record<string, unknown>) => {
     mock.built.push(options);
-    return mock.built.length === 1 ? mock.session : mock.next.shift();
+    if (mock.built.length === 1) return mock.session;
+    const next = mock.next.shift();
+    // A construction that throws, as one does for an id a session here still holds.
+    if (next instanceof Error) throw next;
+    // A construction that restores from its own read, as one over a store that seals does.
+    if (typeof next === 'function') return (next as (built: unknown) => unknown)(options);
+    return next;
   },
 }));
 vi.mock('@robota-sdk/agent-transport-acp', () => ({
@@ -67,13 +79,15 @@ function storeWith(
     goal?: unknown;
     sessionLoops?: unknown[];
     backgroundTasks?: unknown[];
+    /** Whose a store that seals says the record is; absent from a plain store. */
+    authorship?: 'verified' | 'unverified';
   }[]
 ) {
   return {
     // `load` answers for an id the listing does not show — which is how a sealed session shows up.
     load: (id: string) => (id === 'sealed-1' ? { status: 'locked' } : { status: 'missing' }),
     list: () =>
-      records.map((record) => ({
+      records.map(({ authorship, ...record }) => ({
         id: record.id,
         outcome: {
           status: 'valid',
@@ -83,6 +97,7 @@ function storeWith(
             messages: [],
             ...record,
           },
+          ...(authorship !== undefined ? { authorship } : {}),
         },
       })),
   };
@@ -283,6 +298,25 @@ describe('ACP mode', () => {
     expect(mock.shutdown).toHaveBeenCalledOnce();
   });
 
+  // #3679 step 3e: the session the editor left still holds its record while it shuts down.
+  it('tells the editor to try again while a session of that id is still closing here', async () => {
+    const served = await serving({ sessionStore: storeWith({ id: 'stored-1' }) as never });
+    const stillClosing = { loaded: false, message: SESSION_STILL_CLOSING_MESSAGE };
+
+    mock.next = [new SessionClaimedError('stored-1', 'claimed') as never];
+    await expect(served.load('stored-1')).resolves.toEqual(stillClosing);
+    const failing = {
+      ...fakeSession('stored-1'),
+      whenInitialized: vi.fn().mockRejectedValue(new SessionClaimedError('stored-1', 'claimed')),
+    };
+    mock.next = [failing];
+    await expect(served.load('stored-1')).resolves.toEqual(stillClosing);
+
+    expect(failing.shutdown).toHaveBeenCalledOnce();
+    expect(served.slot.current).toBe(mock.session);
+    await served.stop();
+  });
+
   it('says a sealed session whose keys are locked is locked, not that it does not exist', async () => {
     const served = await serving({ sessionStore: storeWith({ id: 'stored-1' }) as never });
 
@@ -352,6 +386,53 @@ describe('ACP mode', () => {
     });
     expect(mock.built).toHaveLength(1);
     expect(mock.shutdown).not.toHaveBeenCalled();
+    await served.stop();
+  });
+
+  // #3679 step 3e: an editor cannot yet be asked whether a record nobody vouched for is the owner's.
+  it('refuses a record not verified as the owner’s, with the session’s own reason, building nothing', async () => {
+    const served = await serving({
+      sessionStore: storeWith(
+        { id: 'planted-1', authorship: 'unverified' },
+        { id: 'mine-1', authorship: 'verified' },
+      ) as never,
+    });
+    mock.next = [fakeSession('mine-1')];
+
+    await expect(served.load('planted-1')).resolves.toEqual({
+      loaded: false,
+      message: new SessionAuthorshipRefusedError('planted-1', 'unverified').message,
+    });
+    expect(mock.built).toHaveLength(1);
+    await expect(served.load('mine-1')).resolves.toEqual({ loaded: true });
+    await served.stop();
+  });
+
+  it('judges work that would run on its own on the record the session restores from, not the listing', async () => {
+    const served = await serving({ sessionStore: storeWith({ id: 'swapped-1' }) as never });
+    const restoredFrom = {
+      id: 'swapped-1',
+      cwd: '/workspace',
+      createdAt: '2026-10-18T00:00:00.000Z',
+      updatedAt: '2026-10-18T00:00:00.000Z',
+      messages: [],
+      goal: { status: 'active' },
+    };
+    // The file changed between the listing and the claim's own read: the claim reads an active goal.
+    mock.next = [
+      (options: { checkRestoredRecord?: (record: unknown) => void }) => {
+        options.checkRestoredRecord?.(restoredFrom);
+        return fakeSession('swapped-1');
+      },
+    ] as never;
+
+    await expect(served.load('swapped-1')).resolves.toEqual({
+      loaded: false,
+      message:
+        'Session swapped-1 has a goal, loop or schedule that would run on its own; resume it in ' +
+        'the terminal to stop that first.',
+    });
+    expect(served.slot.current).toBe(mock.session);
     await served.stop();
   });
 

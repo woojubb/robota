@@ -5,6 +5,7 @@
  * class lives here, beside the code that throws it, because an interface package is inert by rule.
  */
 
+import type { SessionClaimedError } from '@robota-sdk/agent-session';
 import type {
   ISessionChangeRefusal,
   ISessionDeleteRefusal,
@@ -13,6 +14,20 @@ import type {
 } from '@robota-sdk/agent-interface-session';
 
 export type { TSessionChangeRefusalCode, TSessionDeleteRefusalCode };
+
+/**
+ * What a client is told when the session it asked for cannot start because a session of that id in
+ * this process still holds its record — one that is shutting down. Fixed, so a client may show it.
+ */
+export const SESSION_STILL_CLOSING_MESSAGE = 'The session is still closing; try again.';
+
+/**
+ * What a client is told when the store refused to claim the session it asked for: still closing, or,
+ * for a record handed to a subagent process that may still save it, the store's own fixed words.
+ */
+export function claimedSessionMessage(error: SessionClaimedError): string {
+  return error.reason === 'exported' ? error.message : SESSION_STILL_CLOSING_MESSAGE;
+}
 
 export class SessionChangeRefusal extends Error implements ISessionChangeRefusal {
   override readonly name = 'SessionChangeRefusal' as const;

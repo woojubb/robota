@@ -57,6 +57,9 @@ describe('self-paced loop snapshot preservation', () => {
     expect((save.mock.calls[0]?.[0] as IInteractiveSessionRecord).sessionLoops).toEqual(
       initial.sessionLoops,
     );
-    expect(loadSessionRecord(store, initial.id, null).sessionLoops).toEqual(initial.sessionLoops);
+    expect(
+      loadSessionRecord(store, initial.id, null, store.load(initial.id, { hold: true }))
+        .sessionLoops,
+    ).toEqual(initial.sessionLoops);
   });
 });

@@ -1,6 +1,7 @@
 export { InteractiveSession } from './interactive-session.js';
 export type { IInteractiveSession } from './i-interactive-session.js';
 export {
+  ambiguousSessionNameMessage,
   createProjectSessionStore,
   createNodeHostSessionStore,
   createNodeToolResultSpillStore,
@@ -24,7 +25,10 @@ export {
   WorkspaceSessionLogSink,
   WorkspaceSessionLogSource,
 } from './session-persistence.js';
-export type { IHostToolResultSpillStore } from './session-persistence.js';
+export type { IHostToolResultSpillStore, TSessionIdResolution } from './session-persistence.js';
+// #3679 step 3e: the one way a session store is decorated, so no view drops a member of the port.
+export { decorateSessionStore } from './session-store-view.js';
+export type { TSessionStoreOverrides } from './session-store-view.js';
 export type { TLockedSessionReason } from './locked-session-wording.js';
 export {
   migrateWorkspaceProjectSessionLogs,
@@ -45,6 +49,15 @@ export type { TRestoredScheduleDisposition } from './schedule-rearm.js';
 // received becomes the copied conversation here, so no runner re-derives the injection.
 export { restoreSessionRecordIntoSession, resumeRefusal } from './interactive-session-restore.js';
 export type { ISessionRecordRestoreResult } from './interactive-session-restore.js';
+// #3679 step 3e: why a resume over a store that seals was refused, for every surface that resumes.
+export {
+  SessionAuthorshipRefusedError,
+  UNVERIFIED_SESSION_QUESTION,
+  isSessionAuthorshipRefusedError,
+  unacceptableSessionMessage,
+  unverifiedSessionNotice,
+} from './session-authorship-gate.js';
+export type { TSessionAuthorshipRefusal } from './session-authorship-gate.js';
 export type { IGenerateSessionNameOptions } from './session-naming.js';
 export type { ILivePromptTracePort } from './interactive-session-live-prompt-trace.js';
 export type {

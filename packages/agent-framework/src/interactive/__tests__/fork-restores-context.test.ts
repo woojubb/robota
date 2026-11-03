@@ -60,7 +60,12 @@ describe.runIf(process.platform === 'linux')('fork restores conversation context
   });
 
   it('TC-01: loadSessionRecord yields the source messages for injection regardless of fork', () => {
-    const restored = loadSessionRecord(store, SOURCE_ID, null);
+    const restored = loadSessionRecord(
+      store,
+      SOURCE_ID,
+      null,
+      store.load(SOURCE_ID, { hold: true }),
+    );
 
     expect(restored.pendingRestoreMessages).not.toBeNull();
     expect(restored.pendingRestoreMessages).toHaveLength(2);
@@ -73,7 +78,7 @@ describe.runIf(process.platform === 'linux')('fork restores conversation context
   it('TC-03: the source record is unmodified after a fork-style load (append-only)', () => {
     const before = storeFilePath !== undefined ? readFileSync(storeFilePath, 'utf8') : undefined;
 
-    loadSessionRecord(store, SOURCE_ID, null);
+    loadSessionRecord(store, SOURCE_ID, null, store.load(SOURCE_ID, { hold: true }));
 
     const after = storeFilePath !== undefined ? readFileSync(storeFilePath, 'utf8') : undefined;
     expect(before).toBeDefined();
@@ -82,7 +87,12 @@ describe.runIf(process.platform === 'linux')('fork restores conversation context
   });
 
   it('TC-05: plain resume keeps yielding the messages (regression)', () => {
-    const restored = loadSessionRecord(store, SOURCE_ID, null);
+    const restored = loadSessionRecord(
+      store,
+      SOURCE_ID,
+      null,
+      store.load(SOURCE_ID, { hold: true }),
+    );
     expect(restored.pendingRestoreMessages).toHaveLength(2);
   });
 });
@@ -132,7 +142,7 @@ describe('a fork inherits the persisted system prompt (CLI-1994 TC-04)', () => {
     async () => {
       const { id, store } = await persistedParent();
 
-      const restored = loadSessionRecord(store, id, null);
+      const restored = loadSessionRecord(store, id, null, store.load(id, { hold: true }));
 
       expect(restored.loadOutcome.status).toBe('valid');
       expect(restored.restoredSystemPrompt).toBe(SENTINEL);
@@ -174,7 +184,9 @@ describe('a fork inherits the persisted system prompt (CLI-1994 TC-04)', () => {
       const { cwd, id, store } = await persistedParent();
       const { systemPrompt: _dropped, ...withoutPrompt } = loadedRecord(store, id);
       store.save(withoutPrompt);
-      expect(loadSessionRecord(store, id, null).restoredSystemPrompt).toBeUndefined();
+      expect(
+        loadSessionRecord(store, id, null, store.load(id, { hold: true })).restoredSystemPrompt,
+      ).toBeUndefined();
 
       const fork = track(
         scriptedSession({

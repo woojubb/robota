@@ -156,14 +156,26 @@ These are behaviors a caller cannot infer from a type signature alone.
   with the sealing it keeps its records with, and a log it cannot read is reported the way an
   unreadable record is — locked, corrupt or unsupported, never missing and never a failed listing —
   except to the writer of a session that has logged but not yet saved, who is told it is `missing`:
-  its save writes the snapshot beside the log and destroys nothing. A resume — a fork's source
-  included — goes ahead only from a record the store read or a session never saved: a locked,
-  corrupt or unsupported record is refused, because a session started empty under its id would
-  replace it on the first save after an unlock. A save the store refuses for a sealed session is
-  reported once for each reason, in the store's own words (keys locked, no keys in this process, or
-  a file changed since it was held), and again after a save in between went through, not dropped on
-  every turn. A project session record is replaced whole and flushed, so a write that fails part-way
-  leaves the previous record; a replay log rebuilds only the session it names.
+  its save writes the snapshot beside the log and destroys nothing. A log carries no authorship, so
+  a session rebuilt from one is never the owner's, and in a store that seals an id a session here
+  runs is never rebuilt from one. A resume — a fork's source included — restores only from the read
+  of the claim its session holds on the id for as long as it runs, and only a record it may run or a
+  session never saved: a locked, corrupt or unsupported record is refused, because a session started
+  empty under its id would replace it on the first save after an unlock, and a record a store that
+  seals calls unverified is refused unless it is exactly the bytes the owner accepted, because any
+  program of the user can seal a record that opens. Accepted bytes become the owner's only once the
+  session restored from them and never through a copy, so a refused resume or a fork leaves the
+  record as it was, and what an unverified record says of itself never decides what a run resumes.
+  The claim fences every save of the id and ends however the session ends, so a session its host
+  stopped waiting for cannot overwrite the next one, and no surface opens a second session on an id
+  that has a writer in this process. A save the store refuses is reported once for each reason, in
+  the store's own words, until a save goes through. A session whose file something unverifiable
+  changed stops saving the id and acting on its own and saves its state once as a new record it
+  names, since merging the file would launder it and overwriting it could destroy newer work; a
+  refusal only the locked keys stand behind is decided at the unlock, and a session that ends while
+  either refusal stands saves that copy as it ends and reports a copy it could not write. A project
+  session record is replaced whole and flushed, so a write that fails part-way leaves the previous
+  record; a replay log rebuilds only the session it names.
 - **Fork vs. resume is exactly one bit of difference.** Resume reuses the source session id; fork
   generates a fresh id while still restoring the same messages and the parent's assembled system
   prompt verbatim — a fork inherits the parent's full assembled prompt (including any active output

@@ -5,6 +5,7 @@
  * These tests catch issues that unit tests per package miss.
  */
 
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import {
   createUserMessage,
   createAssistantMessage,
@@ -113,14 +114,14 @@ describe('IHistoryEntry cross-package integration', () => {
 
   it('persisted history round-trips through SessionStore mock', async () => {
     let savedRecord: Record<string, unknown> | null = null;
-    const mockSessionStore = {
+    const mockSessionStore = withHoldReadClaim({
       save: vi.fn((record: Record<string, unknown>) => {
         savedRecord = record;
       }),
       load: vi.fn().mockReturnValue({ status: 'missing' }),
       list: vi.fn().mockReturnValue([]),
       delete: vi.fn(),
-    };
+    });
 
     const session = new InteractiveSession({
       session: createMockSession({ runResult: 'persisted answer' }) as never,
@@ -196,7 +197,7 @@ describe('IHistoryEntry cross-package integration', () => {
       },
     ];
 
-    const mockStore = {
+    const mockStore = withHoldReadClaim({
       save: vi.fn(),
       load: vi.fn().mockReturnValue({
         status: 'valid',
@@ -211,7 +212,7 @@ describe('IHistoryEntry cross-package integration', () => {
       }),
       list: vi.fn().mockReturnValue([]),
       delete: vi.fn(),
-    };
+    });
 
     const restoreTarget = createMockSession();
 

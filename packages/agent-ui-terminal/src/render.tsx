@@ -160,6 +160,13 @@ export interface IRenderOptions {
   disableSessionLoops?: boolean;
   resolveDefaultLoopPrompt?: () => string;
   resumeSessionId?: string;
+  /**
+   * The SHA-256 of the stored record bytes the person accepted as theirs for `resumeSessionId`. Over a
+   * store that seals, a resumed record that is not shown to be the owner's is resumed only if it is
+   * exactly these bytes; the product shell sets it once the person has said the record is theirs.
+   * Applies to the startup session only: a later switch carries the digest of its own pick.
+   */
+  acceptedDigest?: string;
   showSessionPickerOnStart?: boolean;
   /** FLOW-2006: text a deep link prefilled into the composer. Never submitted on its own. */
   initialInput?: string;
@@ -269,6 +276,7 @@ export interface IRenderOptions {
 export function toChannelOptions(
   options: IRenderOptions,
   resumeSessionId?: string,
+  acceptedDigest?: string,
 ): ConstructorParameters<typeof TuiInteractionChannel>[0] {
   return {
     cwd: options.cwd,
@@ -343,6 +351,7 @@ export function toChannelOptions(
     disableSessionLoops: options.disableSessionLoops,
     resolveDefaultLoopPrompt: options.resolveDefaultLoopPrompt,
     resumeSessionId,
+    ...(acceptedDigest !== undefined ? { acceptedDigest } : {}),
     forkSession: options.forkSession,
     sessionName: options.sessionName,
     backgroundTaskRunners: options.backgroundTaskRunners,
@@ -522,6 +531,7 @@ type TAppShellOptions = Pick<
   | 'version'
   | 'sessionStore'
   | 'resumeSessionId'
+  | 'acceptedDigest'
   | 'showSessionPickerOnStart'
   | 'initialInput'
   | 'initialInputOrigin'
@@ -554,7 +564,7 @@ export interface IChannelServices {
 
 /** Where the App's channels come from, and how a session switch and an app end are decided. */
 interface IAppChannelComposition {
-  readonly createChannel: (resumeSessionId?: string) => ITuiAppChannelPort;
+  readonly createChannel: (resumeSessionId?: string, acceptedDigest?: string) => ITuiAppChannelPort;
   /** Present when the host switches sessions and the channel follows it. */
   readonly requestSessionSwitch?: (sessionId: string) => Promise<void>;
   /** Settles when the app ends without the user closing it (the connection closed). */
@@ -568,15 +578,15 @@ interface IAppChannelComposition {
 export function createInProcessChannelFactory(
   options: IRenderOptions,
   services: IChannelServices,
-): (resumeSessionId?: string) => ITuiAppChannelPort {
+): (resumeSessionId?: string, acceptedDigest?: string) => ITuiAppChannelPort {
   // Issue #3081: the move is announced by the FIRST session only — a later switch to another
   // session (a `/fork` attach) did not move anywhere.
   let pendingWorkspaceMovedFrom = options.workspaceMovedFrom;
-  return (resumeSessionId) => {
+  return (resumeSessionId, acceptedDigest) => {
     const workspaceMovedFrom = pendingWorkspaceMovedFrom;
     pendingWorkspaceMovedFrom = undefined;
     const channel = new TuiInteractionChannel({
-      ...toChannelOptions(options, resumeSessionId),
+      ...toChannelOptions(options, resumeSessionId, acceptedDigest),
       ...(options.createEditCheckpointStore !== undefined
         ? { editCheckpointStore: options.createEditCheckpointStore() }
         : {}),
@@ -648,8 +658,8 @@ async function renderStartedApp(
   // App owns which narrowed channel is active, while each channel owns its own lifecycle.
   const composition = compose({ terminalHandoff: handoffController, attention });
   let activeChannel: ITuiAppChannelPort | undefined;
-  const createChannel = (resumeSessionId?: string): ITuiAppChannelPort => {
-    activeChannel = composition.createChannel(resumeSessionId);
+  const createChannel = (resumeSessionId?: string, acceptedDigest?: string): ITuiAppChannelPort => {
+    activeChannel = composition.createChannel(resumeSessionId, acceptedDigest);
     return activeChannel;
   };
 
@@ -693,6 +703,7 @@ async function renderStartedApp(
               version={options.version}
               sessionStore={options.sessionStore}
               resumeSessionId={options.resumeSessionId}
+              acceptedDigest={options.acceptedDigest}
               showSessionPickerOnStart={options.showSessionPickerOnStart}
               initialInput={options.initialInput}
               initialInputOrigin={options.initialInputOrigin}

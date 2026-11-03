@@ -1,3 +1,4 @@
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { existsSync, mkdirSync, mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -30,11 +31,11 @@ import type {
 
 function createMemoryStore(): IInteractiveSessionStore {
   const records = new Map<string, IInteractiveSessionRecord>();
-  return {
-    save(record): void {
+  return withHoldReadClaim({
+    save(record: IInteractiveSessionRecord): void {
       records.set(record.id, record);
     },
-    load(id): TSessionLoadOutcome {
+    load(id: string): TSessionLoadOutcome {
       const record = records.get(id);
       return record === undefined ? { status: 'missing' } : { status: 'valid', record };
     },
@@ -44,10 +45,10 @@ function createMemoryStore(): IInteractiveSessionStore {
         outcome: { status: 'valid' as const, record },
       }));
     },
-    delete(id): void {
+    delete(id: string): void {
       records.delete(id);
     },
-  };
+  });
 }
 
 async function completeTurn(session: InteractiveSession, prompt: string): Promise<string> {

@@ -59,6 +59,7 @@ export function useForkAttach({
       }
       attachToForkedSession(entry, {
         hasSessionRecord: (sessionId) => sessionStore.load(sessionId).status === 'valid',
+        hasWriter: (sessionId) => sessionStore.hasWriter(sessionId),
         switchSession: onSessionSwitch,
         notify,
         ...(cliAdapter.formatResumeCommand === undefined

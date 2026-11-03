@@ -6,6 +6,7 @@
  * TC-06: listInjectionContextReferences() prevents duplicate context injection
  */
 
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { describe, it, expect, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
@@ -42,7 +43,7 @@ function createMockSession(options?: { sessionId?: string }) {
 
 function createMockSessionStore(records: Record<string, unknown> = {}) {
   const store = new Map<string, unknown>(Object.entries(records));
-  return {
+  return withHoldReadClaim({
     // TRANS-007: the port returns an outcome, so a double that returns a record (or `undefined`)
     // no longer satisfies it. The cast at the call site hid that from the compiler; the tests found
     // it at runtime instead.
@@ -55,7 +56,7 @@ function createMockSessionStore(records: Record<string, unknown> = {}) {
       [...store.entries()].map(([id, record]) => ({ id, outcome: { status: 'valid', record } })),
     ),
     delete: vi.fn((id: string) => store.delete(id)),
-  };
+  });
 }
 
 function contextRef(sourcePath: string): IContextReferenceItem {

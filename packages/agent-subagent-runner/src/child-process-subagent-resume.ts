@@ -41,7 +41,14 @@ export function resumeRequestedRecord(
     );
   }
   try {
-    restoreSessionRecordIntoSession(resumeSessionStore, resumeSessionId, childSession);
+    // The child's own writer read: of the record its parent handed it when the parent seals — the
+    // owner's only on the parent's word, which the store keeps — or else of the plain file.
+    restoreSessionRecordIntoSession(
+      resumeSessionStore,
+      resumeSessionId,
+      childSession,
+      resumeSessionStore.load(resumeSessionId, { hold: true }),
+    );
   } catch (error) {
     const refusal = sealedRecordRefusal(payload, resumeSessionId, resumeSessionStore);
     if (refusal !== undefined) throw new Error(refusal);

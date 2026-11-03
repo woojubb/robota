@@ -15,7 +15,7 @@ import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { NodeSessionStore } from '../session-store.js';
-import { SealedSessionUnreadableError } from '../stored-session-record.js';
+import { SealedSessionUnreadableError } from '../sealed-session-refusal.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 

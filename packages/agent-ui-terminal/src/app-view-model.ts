@@ -94,6 +94,19 @@ export interface IAppSessionPickerViewModel {
   readonly sessions: readonly ISessionListingEntry[];
   readonly select: (sessionId: string) => void;
   readonly cancel: () => void;
+  /**
+   * A record nothing shows the person wrote, picked from their own store: it is resumed only if they
+   * say it is theirs. Present while that question is open, in place of the list.
+   */
+  readonly pendingAcceptance: IAppSessionAcceptanceViewModel | undefined;
+}
+
+/** The question asked before an unverified record is resumed and marked as the person's. */
+export interface IAppSessionAcceptanceViewModel {
+  /** The fixed notice and the question. Nothing the record says is in it. */
+  readonly message: string;
+  /** `true`: the record is theirs, adopt and resume it. `false`: leave it as it is. */
+  readonly answer: (accepted: boolean) => void;
 }
 
 export interface IAppInputViewModel {

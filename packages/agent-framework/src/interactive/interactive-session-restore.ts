@@ -7,6 +7,7 @@ import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-s
  */
 
 import { lockedReasonOf, sealedSessionState } from './locked-session-wording.js';
+import { assertClaimedOutcomeAccepted } from './session-authorship-gate.js';
 import { isReArmableScheduledTask } from './schedule-rearm.js';
 
 import type { IInteractiveSessionStore, TSessionLoadOutcome } from './session-persistence.js';
@@ -22,7 +23,6 @@ import {
   createToolMessage,
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
-import { loadSessionForUpdate } from '@robota-sdk/agent-session';
 import type { TUniversalMessage, IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskState,
@@ -59,10 +59,10 @@ export function loadSessionRecord(
   resumeSessionId: string,
   existingSession: Session | null,
   /**
-   * The store's answer when the caller already asked (to check it first); otherwise this asks. Either
-   * way it is a load that HOLDS the session, since a resume goes on to save it.
+   * The read the session restores from, which the caller made and gated: a claim's own read, judged
+   * by whose it is. This never reads the store itself, so nothing restores from a read nobody judged.
    */
-  outcome: TSessionLoadOutcome = sessionStore.load(resumeSessionId, { hold: true }),
+  outcome: TSessionLoadOutcome,
 ): {
   /** TRANS-007: what the store concluded. `missing` is a new session; the rest are not. */
   loadOutcome: TSessionLoadOutcome;
@@ -287,21 +287,19 @@ export interface ISessionRecordRestoreResult {
  * empty in that case would be a fork that silently forgot its parent, which is the one outcome a
  * caller of this function has no way to detect.
  *
- * The child goes on to save the record, so it is read the way a writer reads it: a store that seals
- * hands back the record it wrote or holds when the keys are locked (the fork `/fork` just wrote, or
- * one handed over from another process), instead of answering `locked`.
+ * The runner passes the read it restores from, made the way a writer reads (the child goes on to save
+ * the record): an in-process runner's claim, or a write-only child's read of the record its parent
+ * handed it. Either way it is gated here as every resume is: a record a store that seals calls
+ * unverified is refused, since a job has no one to accept it.
  */
 export function restoreSessionRecordIntoSession(
   sessionStore: IInteractiveSessionStore,
   resumeSessionId: string,
   session: Session,
+  outcome: TSessionLoadOutcome,
 ): ISessionRecordRestoreResult {
-  const restored = loadSessionRecord(
-    sessionStore,
-    resumeSessionId,
-    session,
-    loadSessionForUpdate(sessionStore, resumeSessionId),
-  );
+  assertClaimedOutcomeAccepted(resumeSessionId, outcome, undefined);
+  const restored = loadSessionRecord(sessionStore, resumeSessionId, session, outcome);
   const refusal = resumeRefusal(resumeSessionId, restored.loadOutcome, false);
   if (refusal !== undefined) throw refusal;
   if (restored.restoredSystemPrompt !== undefined) {

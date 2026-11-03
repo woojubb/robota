@@ -23,13 +23,9 @@ import type {
 } from '@robota-sdk/agent-interface-session';
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 import {
-  listResumableSessions,
   lockedSessionMessage,
   lockedSessionReason,
   lockedSessionsNotice,
-  resolveReusableEmptySessionId,
-  resolveSessionIdByIdOrName,
-  resumeRefusal,
   scanSessionStore,
   InteractiveSession,
   createExternalEventGrantHistory,
@@ -126,6 +122,7 @@ import {
   SAFE_MODE_NOTICE,
 } from './startup/workspace-project-composition.js';
 import { askToTrustWorkspace, startsNewTuiSession } from './startup/interactive-trust-prompt.js';
+import { confirmResumeOnTerminal, resolveStartupResume } from './startup/startup-resume.js';
 import {
   askServeOpenTrustQuestion,
   canAskServeOpenTrustQuestion,
@@ -1004,43 +1001,33 @@ async function runCliCore(
   );
 
   const sessionStore = workspaceComposition.sessionStore;
-  let resumeSessionId: string | undefined;
-  let showSessionPickerOnStart = false;
-
-  if (args.continueMode) {
-    const resumable = listResumableSessions(sessionStore, cwd);
-    resumeSessionId = resumable.sessions[0]?.id;
-    // Sealed sessions this process cannot open are not in the listing, so the latest readable
-    // session may not be the latest one, and "nothing to continue" would read as "nothing saved".
-    // Say they are there whenever there are some; the run still continues or starts.
-    const notice = lockedSessionsNotice(resumable.locked, resumable.noKeys);
-    if (notice !== undefined) process.stderr.write(`${notice}\n`);
-  } else if (args.resumeId !== undefined) {
-    if (args.resumeId === '') {
-      showSessionPickerOnStart = true;
-    } else {
-      resumeSessionId = resolveSessionIdByIdOrName(sessionStore, args.resumeId);
-      if (resumeSessionId === undefined) {
-        process.stderr.write(`${resumeTargetNotFoundMessage(sessionStore, args.resumeId)}\n`);
-        process.exit(1);
-      }
-    }
-  } else if (args.serve && !args.noSessionPersistence) {
-    // #3289 §1: a served/daemon runtime's own launch reuses an existing empty session of this
-    // workspace instead of adding another one — nothing else can be bound to anything yet at
-    // startup, so every empty session found here is free.
-    resumeSessionId = resolveReusableEmptySessionId(sessionStore, cwd);
-  }
-  // A record that is there and unreadable (locked, corrupt, from a newer build) is refused here,
-  // once, with the words the session itself would use — before any surface starts. The terminal UI
-  // builds its session during its first render, where the same refusal would be thrown, not said.
-  if (resumeSessionId !== undefined && sessionStore !== undefined) {
-    const refusal = resumeRefusal(resumeSessionId, sessionStore.load(resumeSessionId), true);
-    if (refusal !== undefined) {
-      process.stderr.write(`${refusal.message}\n`);
-      process.exit(1);
-    }
-  }
+  // Which saved session the run starts in, and — for one not verified as the owner's — what a person
+  // at a terminal says first; a run with no one to ask refuses it (`startup-resume.ts`). A record that
+  // is there and unreadable is refused here, once, with the words the session itself would use,
+  // before any surface starts: the terminal UI builds its session during its first render, where the
+  // same refusal would be thrown, not said.
+  const startupResume = await resolveStartupResume(
+    {
+      store: sessionStore,
+      cwd,
+      continueMode: args.continueMode,
+      resumeId: args.resumeId,
+      // #3289 §1: a served/daemon runtime's own launch reuses an existing empty session of this
+      // workspace instead of adding another one — nothing else can be bound to anything yet.
+      reuseEmptySession: args.serve && !args.noSessionPersistence,
+      interactive:
+        !(args.printMode || args.goal !== undefined || args.serve || mcpServe || acp) &&
+        process.stdin.isTTY === true &&
+        process.stdout.isTTY === true,
+      confirm: confirmResumeOnTerminal,
+      write: (text) => process.stderr.write(text),
+    },
+    (idOrName) => resumeTargetNotFoundMessage(sessionStore, idOrName),
+  );
+  if (startupResume.kind === 'exit') process.exit(startupResume.code);
+  const resumeSessionId = startupResume.resumeSessionId;
+  const acceptedDigest = startupResume.acceptedDigest;
+  const showSessionPickerOnStart = startupResume.showSessionPicker === true;
 
   // SELFHOST-008 P6: one memory switch (default OFF), resolved once and threaded into print/serve/TUI.
   // Precedence there is settings ← flag ← env (env wins). CLI-2004's screen-reader switch below is
@@ -1366,6 +1353,7 @@ async function runCliCore(
       userHome: productRuntime.userHome ?? productRuntime.layout.userRoot,
     }),
     resumeSessionId,
+    ...(acceptedDigest !== undefined ? { acceptedDigest } : {}),
     showSessionPickerOnStart,
     forkSession: args.forkSession,
     ...(args.movedFrom !== undefined ? { workspaceMovedFrom: args.movedFrom } : {}),

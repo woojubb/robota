@@ -1,3 +1,4 @@
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { createServer } from 'node:http';
 
 import { describe, expect, it, vi } from 'vitest';
@@ -60,12 +61,13 @@ function record(): IInteractiveSessionRecord {
 }
 
 function store(): IInteractiveSessionStore {
-  return {
+  const double: Omit<IInteractiveSessionStore, 'claim' | 'hasWriter'> = {
     list: () => [{ id: 'sess-1', outcome: { status: 'valid', record: record() } }],
     load: () => ({ status: 'missing' }),
     save: () => undefined,
     delete: () => undefined,
   };
+  return withHoldReadClaim(double);
 }
 
 describe('explicit OTLP usage snapshot export', () => {

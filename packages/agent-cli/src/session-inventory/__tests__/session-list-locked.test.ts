@@ -110,7 +110,10 @@ describe('session list with sealed sessions', () => {
     });
     const parsed = JSON.parse(json.stdout) as Record<string, unknown>;
     expect(Object.keys(parsed).sort()).toEqual(['live', 'saved']);
-    expect(parsed['saved']).toEqual([{ id: 'sess_a', availability: 'valid', source: 'user' }]);
+    // A store that seals says whose each record is; this one was saved with no owner provenance.
+    expect(parsed['saved']).toEqual([
+      { id: 'sess_a', availability: 'valid', source: 'user', authorship: 'unverified' },
+    ]);
     const text = executeSessionListCommand([], {
       cliName: 'test-product',
       userSessionStore: store,

@@ -5,6 +5,7 @@
  * absent, and nothing here may replace it with a fresh record.
  */
 
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { mkdtempSync, readFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -70,12 +71,14 @@ describe('the locked-session helpers', () => {
     expect(scanSessionStore(lockedStore().store).locked).toBe(1);
     expect(scanSessionStore(undefined)).toEqual({ entries: [], locked: 0 });
     expect(
-      scanSessionStore({
-        load: () => ({ status: 'missing' }),
-        list: () => [],
-        save: () => undefined,
-        delete: () => undefined,
-      }),
+      scanSessionStore(
+        withHoldReadClaim({
+          load: () => ({ status: 'missing' }) as const,
+          list: () => [],
+          save: () => undefined,
+          delete: () => undefined,
+        }),
+      ),
     ).toEqual({ entries: [], locked: 0 });
   });
 
@@ -89,7 +92,12 @@ describe('the locked-session helpers', () => {
 
   it('never asks the store about an id that is not a safe session id', () => {
     const load = vi.fn(() => ({ status: 'locked' }) as const);
-    const store = { load, list: () => [], save: () => undefined, delete: () => undefined };
+    const store = withHoldReadClaim({
+      load,
+      list: () => [],
+      save: () => undefined,
+      delete: () => undefined,
+    });
     expect(isSessionLocked(store, '../../etc/passwd')).toBe(false);
     expect(isSessionLocked(store, '')).toBe(false);
     expect(load).not.toHaveBeenCalled();
@@ -149,7 +157,14 @@ describe('a sealed session in a store that holds no keys', () => {
 
   it('cannot be restored or renamed, and neither refusal says to unlock', () => {
     const store = noKeysStore();
-    expect(() => restoreSessionRecordIntoSession(store, 'sess_sealed', {} as never)).toThrow(
+    expect(() =>
+      restoreSessionRecordIntoSession(
+        store,
+        'sess_sealed',
+        {} as never,
+        store.load('sess_sealed', { hold: true }),
+      ),
+    ).toThrow(
       'Cannot resume session sess_sealed: it is sealed with keys this process does not have.',
     );
     expect(() => persistSessionRename(store, 'sess_sealed', 'new name')).toThrow(
@@ -171,10 +186,16 @@ describe('listings and lookups with a locked session in the store', () => {
 
   it('cannot find a locked session by name or id, which is why a caller asks isSessionLocked', () => {
     const { store } = lockedStore();
-    expect(resolveSessionIdByIdOrName(store, 'sealed name')).toBeUndefined();
-    expect(resolveSessionIdByIdOrName(store, 'sess_sealed')).toBeUndefined();
+    expect(resolveSessionIdByIdOrName(store, 'sealed name')).toMatchObject({ status: 'not-found' });
+    expect(resolveSessionIdByIdOrName(store, 'sess_sealed')).toMatchObject({ status: 'not-found' });
     expect(isSessionLocked(store, 'sess_sealed')).toBe(true);
-    expect(resolveSessionIdByIdOrName(store, 'plain name')).toBe('sess_plain');
+    // A plain file read by a store that seals is unverified: reached by its id, never by the name it
+    // gives itself.
+    expect(resolveSessionIdByIdOrName(store, 'plain name')).toMatchObject({ status: 'not-found' });
+    expect(resolveSessionIdByIdOrName(store, 'sess_plain')).toEqual({
+      status: 'found',
+      id: 'sess_plain',
+    });
   });
 });
 
@@ -200,9 +221,14 @@ describe('writers that read before they write', () => {
 
   it('a fork job cannot restore a locked session, and says it is locked', () => {
     const { store } = lockedStore();
-    expect(() => restoreSessionRecordIntoSession(store, 'sess_sealed', {} as never)).toThrow(
-      'Cannot resume session sess_sealed: it is sealed and locked; unlock to open it.',
-    );
+    expect(() =>
+      restoreSessionRecordIntoSession(
+        store,
+        'sess_sealed',
+        {} as never,
+        store.load('sess_sealed', { hold: true }),
+      ),
+    ).toThrow('Cannot resume session sess_sealed: it is sealed and locked; unlock to open it.');
   });
 
   it('the turn-end persist does not replace a locked session, and a strict one says why', () => {

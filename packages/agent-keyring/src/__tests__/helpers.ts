@@ -10,6 +10,12 @@ export const KNOWN_SEALING_PUBLIC_KEY_HEX =
   '4b73c35676631b6307fb28a3f70aaf47c331b86ada4996ce2f3c9f5c04cdba7a';
 export const KNOWN_ATTACH_PUBLIC_KEY_HEX =
   '92ffeb9a3ccccde96ea227ff3e2f467989d8fdc5b234e8fdcf1d159a7f56ad54';
+/** The authorship HMAC key FIXED_MASTER_KEY derives, and its tag of {@link KNOWN_AUTHORSHIP_MESSAGE}, cross-checked in Python (hmac, hashlib). */
+export const KNOWN_AUTHORSHIP_KEY_HEX =
+  '645f0686ee7ef6c5073ec8930c220db556c495be7dfdbd07f56226a0bf34e4a1';
+export const KNOWN_AUTHORSHIP_MESSAGE = 'robota/keyring known-answer authorship message v1';
+export const KNOWN_AUTHORSHIP_TAG_HEX =
+  '5067021c80974a4875b70314442ef0f6cfffe90dad155dfa9bcbe72644f0749d';
 
 export const FIXTURE_RECOVERY_KEY_BYTES: Buffer = Buffer.from(
   Array.from({ length: 20 }, (_, i) => 0xa0 + i),

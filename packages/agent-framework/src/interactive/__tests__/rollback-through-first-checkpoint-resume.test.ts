@@ -101,6 +101,8 @@ describe('a rollback through the first checkpoint, then a resume', () => {
       checkpointId: null,
     });
 
+    // A resume runs once the first session is gone: while it runs it holds its record's claim.
+    await first.shutdown();
     const resumedStore = await checkpointStore(project, state);
     const resumed = new InteractiveSession({
       cwd: project,

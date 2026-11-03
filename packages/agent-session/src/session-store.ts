@@ -6,7 +6,8 @@
  * The store directory is created on first write if it does not exist.
  *
  * Sealed records or plain ones, as the caller states when it builds the store (see
- * `stored-session-record.ts`); plain files are the JSON they always were.
+ * `stored-session-record.ts`); plain files are the JSON they always were. Only a store that seals
+ * offers `authorship`, and says whose each record it reads is.
  */
 
 import {
@@ -22,15 +23,24 @@ import {
 import { resolve, sep } from 'path';
 
 import { SEALED_ARTIFACT_MAGIC, isSealedArtifactBytes } from '@robota-sdk/agent-core';
-import { ensureOwnerOnlyDirectory, tightenExistingFile, writeOwnerOnlyFile } from '@robota-sdk/agent-core/node';
+import {
+  ensureOwnerOnlyDirectory,
+  tightenExistingFile,
+  writeOwnerOnlyFile,
+} from '@robota-sdk/agent-core/node';
 
 import { assertSafeSessionId, isSafeSessionId } from './session-id.js';
+import { classifyStoredSessionBytes } from './stored-session-codec.js';
 import { StoredSessionRecords, sessionSealingOf } from './stored-session-record.js';
 
-import type { ISessionStoreOptions, TStoredSessionFile } from './stored-session-record.js';
+import type { TStoredSessionFile } from './stored-session-codec.js';
+import type { ISessionStoreOptions } from './stored-session-record.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
+  ISessionAuthorship,
+  ISessionClaim,
+  ISessionClaimOptions,
   ISessionExportOptions,
   ISessionListEntry,
   ISessionLoadOptions,
@@ -69,6 +79,8 @@ function readRest(descriptor: number, head: Buffer): Buffer {
   }
   return bytes.subarray(0, offset);
 }
+
+const MISSING: TSessionLoadOutcome = Object.freeze({ status: 'missing' });
 
 /**
  * Most recent first, and an unreadable entry sorts last rather than being dropped.
@@ -115,8 +127,10 @@ export interface INodeSessionStoreOptions extends ISessionStoreOptions {
 export class NodeSessionStore implements IInteractiveSessionStore {
   private readonly baseDir: string;
   private readonly ownedRoot: string | undefined;
-  /** How records are stored, and what this instance wrote or holds so it can keep saving those while locked. */
+  /** How records are stored, and what this instance claims, wrote or holds. */
   private readonly records: StoredSessionRecords;
+  /** What only a store that seals offers (`IInteractiveSessionStore.authorship`); absent from one that never does. */
+  declare readonly authorship?: ISessionAuthorship;
 
   /**
    * @param baseDir the directory holding the records.
@@ -125,9 +139,34 @@ export class NodeSessionStore implements IInteractiveSessionStore {
    *   `ownedRoot`: see {@link INodeSessionStoreOptions}.
    */
   constructor(baseDir: string, options: INodeSessionStoreOptions) {
-    this.records = new StoredSessionRecords(sessionSealingOf(options));
+    this.records = new StoredSessionRecords(sessionSealingOf(options), {
+      load: (id) => this.loadFile(id),
+      current: (id) => this.readExisting(this.filePath(id)),
+      replace: (id, stored) => {
+        this.ensureDir();
+        writeOwnerOnlyFile(this.filePath(id), stored);
+      },
+    });
     this.baseDir = baseDir;
     this.ownedRoot = options.ownedRoot;
+    // Only on a store that seals: a store whose records carry no authorship has nothing to adopt.
+    const authorship = this.records.authorship;
+    if (authorship !== undefined) this.authorship = authorship;
+  }
+
+  /**
+   * Claims `id` for a session this process runs, reading it in the same call
+   * (`IInteractiveSessionStore.claim`): exclusive in this store, and every later save of the id must
+   * carry the claim until it is released.
+   */
+  claim(id: string, options?: ISessionClaimOptions): ISessionClaim {
+    this.filePath(id);
+    return this.records.claim(id, options);
+  }
+
+  /** Whether something this process runs may still write session `id` (`IInteractiveSessionStore.hasWriter`). */
+  hasWriter(id: string): boolean {
+    return this.records.hasWriter(id);
   }
 
   /**
@@ -187,28 +226,28 @@ export class NodeSessionStore implements IInteractiveSessionStore {
    */
   save(session: IInteractiveSessionRecord, options: ISessionSaveOptions = {}): void {
     this.ensureDir();
-    const path = this.filePath(session.id);
+    this.filePath(session.id);
     // A sealed file this store cannot open is a session nobody here has read; replacing it would
     // destroy the only copy — unless it is provably exactly what this instance last wrote or holds,
     // which is how a locked process goes on saving the sessions it is running. A file it could not
     // read at all may be one of those, so it is protected the same way. A plain or absent file is
     // replaced.
-    this.records.assertReplaceable(session.id, this.readExisting(path));
     // TRANS-007: the versioned envelope, not the bare record. Without a version on disk there is
     // nothing to compare, so "written by a build this one does not read" cannot be told from
     // "damaged" even in principle — and those two need different things from the user.
     // SEC-020's owner-only atomic write carries it: the envelope is WHAT is written, the mode is HOW.
-    // A store that seals writes the same envelope sealed to this session's id.
-    const encoded = this.records.encode(session);
-    writeOwnerOnlyFile(path, encoded.stored);
-    this.records.wrote(session.id, encoded, options);
+    // A store that seals writes the same envelope sealed to this session's id, tagged when it can
+    // vouch that the content is the owner's and the keys are unlocked.
+    this.records.save(session, options);
   }
 
   /**
    * What is at `path` now, for the guard before a save. Only "no such file" means there is nothing
    * to protect; a file that cannot be opened or read is `unreadable`. The first bytes tell plain from
-   * sealed, so the common plain case costs one small read, and a sealed file's body is read through
-   * the same descriptor, so the bytes judged are those of one file.
+   * sealed, so the common plain case costs one small read in a store that seals nothing, and the rest
+   * of the file is read through the same descriptor, so the bytes judged are those of one file: a
+   * sealed file's always, a plain one's in a store that seals, which must tell whether it is exactly
+   * what the store holds.
    */
   private readExisting(path: string): TStoredSessionFile {
     let descriptor: number;
@@ -220,7 +259,11 @@ export class NodeSessionStore implements IInteractiveSessionStore {
     try {
       const head = Buffer.alloc(SEALED_ARTIFACT_MAGIC.length);
       const length = readSync(descriptor, head, 0, head.length, 0);
-      if (!isSealedArtifactBytes(head.subarray(0, length))) return { kind: 'plain' };
+      if (!isSealedArtifactBytes(head.subarray(0, length))) {
+        return this.records.seals
+          ? { kind: 'plain', bytes: readRest(descriptor, head.subarray(0, length)) }
+          : { kind: 'plain' };
+      }
       return { kind: 'sealed', bytes: readRest(descriptor, head) };
     } catch {
       return { kind: 'unreadable' };
@@ -239,25 +282,35 @@ export class NodeSessionStore implements IInteractiveSessionStore {
    * is a sealed file this process cannot open right now: present and intact, so neither of the two.
    *
    * Only a load that asks to `hold` the session remembers a sealed record it opens (see
-   * {@link StoredSessionRecords.decode}); a probe and the listing remember nothing.
+   * {@link StoredSessionRecords.load}); a probe and the listing remember nothing.
    */
   load(id: string, options: ISessionLoadOptions = {}): TSessionLoadOutcome {
-    return this.read(id, options);
+    this.filePath(id);
+    return this.records.load(id, options);
   }
 
-  /** One read of one session. */
-  private read(id: string, options: ISessionLoadOptions): TSessionLoadOutcome {
+  /** What is at session `id`'s path, read whole, for one load or listing of it. */
+  private loadFile(id: string): {
+    readonly file: TStoredSessionFile;
+    readonly unreadable: TSessionLoadOutcome;
+  } {
     const path = this.filePath(id);
     let raw: Buffer;
     try {
       raw = readFileSync(path);
     } catch (error) {
-      if (errnoCode(error) === 'ENOENT') return { status: 'missing' };
+      if (errnoCode(error) === 'ENOENT') return { file: { kind: 'absent' }, unreadable: MISSING };
       // Only "no such file" is missing. A file that cannot be read — or a path that cannot even be
       // looked at — may be a session that is still there; reporting it as missing is what let a
       // recovery path run over one. Fixed text and the errno code: the error's own message names the
       // path and says nothing the code does not.
-      return { status: 'corrupt', issues: [{ path: '', message: unreadableMessage(error) }] };
+      return {
+        file: { kind: 'unreadable' },
+        unreadable: {
+          status: 'corrupt',
+          issues: [{ path: '', message: unreadableMessage(error) }],
+        },
+      };
     }
     // SEC-020 / #3679: `save` tightens a record it REWRITES, but a session that is only resumed or
     // listed keeps whatever mode its writer left — so a record from a pre-SEC-020 build stays 0644.
@@ -274,7 +327,7 @@ export class NodeSessionStore implements IInteractiveSessionStore {
     } catch {
       // allow-fallback: repairing the mode is opportunistic; reading the session is the job.
     }
-    return this.records.decode(id, raw, options);
+    return { file: classifyStoredSessionBytes(raw), unreadable: MISSING };
   }
 
   /**
@@ -284,12 +337,14 @@ export class NodeSessionStore implements IInteractiveSessionStore {
    * a session this instance never held, or whose file has changed since.
    */
   loadHeld(id: string): TSessionLoadOutcome | undefined {
-    return this.records.held(id, this.readExisting(this.filePath(id)));
+    this.filePath(id);
+    return this.records.loadHeld(id);
   }
 
   /** The sealed record of `id` as a token for another store over these files (see {@link StoredSessionRecords.exportHeld}). */
   exportHeld(id: string, options?: ISessionExportOptions): string | undefined {
-    return this.records.exportHeld(id, this.readExisting(this.filePath(id)), options);
+    this.filePath(id);
+    return this.records.exportHeld(id, options);
   }
 
   /** Holds the record a token from another store's `exportHeld` carries (see {@link StoredSessionRecords.importHeld}). */
@@ -358,7 +413,7 @@ export class NodeSessionStore implements IInteractiveSessionStore {
         issues: [{ path: '', message: 'the file name is not a usable session id' }],
       };
     }
-    return this.read(id, {});
+    return this.records.listed(id);
   }
 
   /**

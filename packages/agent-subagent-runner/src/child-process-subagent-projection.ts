@@ -101,6 +101,20 @@ export interface IProjectedSealing {
   readonly resumeHeld?: string;
 }
 
+/** A sealing parent's fork job, as the parent itself goes on knowing it: never on the wire. */
+export interface IProjectedFork {
+  /** The fork record the job runs. */
+  readonly sessionId: string;
+  /** The copy handed over was the owner's when the parent wrote it for the fork. */
+  readonly startedOwner: boolean;
+}
+
+/** {@link IProjectedSealing}, and what the parent keeps of a fork job it handed a record to. */
+export interface IProjectedStartSealing {
+  readonly payload: IProjectedSealing;
+  readonly fork?: IProjectedFork;
+}
+
 /**
  * Whether the payload can carry what the parent's sealing needs, checked BEFORE anything is made for
  * the job (a worktree, a child) so that each refusal leaves nothing behind: a sealing parent whose
@@ -132,18 +146,25 @@ export function projectStartPayloadSealing(
   job: ISubagentJobStart,
   deps: Pick<IInProcessSubagentRunnerDeps, 'resumeSessionStore'>,
   logSealing: TArtifactSealing,
-): IProjectedSealing {
+): IProjectedStartSealing {
   return exportStartPayloadSealing(job, deps, logSealing, false);
 }
 
-/** Both of the above; `keep` leaves the fork record where it is for a later export. */
+/**
+ * Both of the above; `keep` leaves the fork record where it is for a later export.
+ *
+ * Only the copy a handoff save left is handed over (`handoffOnly`), never a record opened from the
+ * file, which anyone with the public key could have sealed: when that copy is gone the job needs a
+ * fresh fork. Whose that copy was is read in the same turn as the export, as a probe of the copy the
+ * export hands over, so the parent knows whether the job started from the owner's content.
+ */
 function exportStartPayloadSealing(
   job: ISubagentJobStart,
   deps: Pick<IInProcessSubagentRunnerDeps, 'resumeSessionStore'>,
   logSealing: TArtifactSealing,
   keep: boolean,
-): IProjectedSealing {
-  if (logSealing === 'plain') return {};
+): IProjectedStartSealing {
+  if (logSealing === 'plain') return { payload: {} };
   const sealer = logSealing.sealer;
   if (sealer.writeGrant === undefined) {
     throw new BackgroundTaskError(
@@ -154,9 +175,10 @@ function exportStartPayloadSealing(
   }
   sealer.writeGrant();
   const resumeSessionId = job.request.resumeSessionId;
-  if (resumeSessionId === undefined) return {};
+  if (resumeSessionId === undefined) return { payload: {} };
   const store = deps.resumeSessionStore;
-  const resumeHeld = store?.exportHeld?.(resumeSessionId, { keep });
+  const written = keep ? undefined : store?.load(resumeSessionId);
+  const resumeHeld = store?.exportHeld?.(resumeSessionId, { keep, handoffOnly: true });
   if (resumeHeld === undefined) {
     throw new BackgroundTaskError('validation', unhandedRecordMessage(resumeSessionId, store));
   }
@@ -167,7 +189,12 @@ function exportStartPayloadSealing(
         'subagent was not started.',
     );
   }
-  return { resumeHeld };
+  const startedOwner =
+    written?.status === 'valid' && written.authorship === 'verified' && written.diverged !== true;
+  return {
+    payload: { resumeHeld },
+    fork: { sessionId: resumeSessionId, startedOwner },
+  };
 }
 
 /**
@@ -185,6 +212,13 @@ function unhandedRecordMessage(
     return (
       `Session ${resumeSessionId} is sealed and could not be handed to its subagent: the keys ` +
       'are locked and this session no longer holds the record. Unlock, then run /fork again.'
+    );
+  }
+  if (outcome?.status === 'valid' || outcome?.status === 'locked') {
+    return (
+      `Session ${resumeSessionId} could not be handed to its subagent: this session no longer ` +
+      'holds the copy /fork wrote for it, or the file changed since. The subagent was not ' +
+      'started; run /fork again.'
     );
   }
   return (
