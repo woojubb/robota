@@ -30,18 +30,15 @@ function failure(label, result) {
 }
 
 /**
- * The environment every probe runs in: the host basics and the temporary HOME, and no `PRODUCT_*` variable at
- * all, so the executable runs on the identity compiled into it. When those variables name the same product as
- * the binary (a generated product workspace) they are all honoured, a state root among them becomes required,
- * and it conflicts with `<prefix>USER_STATE_DIR`: the control would fail for a reason that has nothing to do
- * with autoloading. A loaded `.env` must also find the prefixed variable unset, since dotenv never overrides
- * one. The temporary HOME keeps the default state root away from the real one.
+ * The environment every probe runs in: the fixture's, without `<prefix>USER_STATE_DIR`, so a loaded `.env` would
+ * find it unset (dotenv never overrides a variable). A product binary needs the fixture's `PRODUCT_*` values at
+ * run time when they name its own product, and then requires `PRODUCT_USER_STATE_DIR` and the prefixed variable to
+ * agree, so a `.env` that sets the prefixed one shows either as its value in `--help` (the variables were not
+ * honoured) or as a refusal that names it (they were).
  */
 export function standaloneAutoloadEnvironment(home, stateVariable) {
   const env = fixtureProcessEnvironment(home);
-  for (const key of Object.keys(env)) {
-    if (key.startsWith('PRODUCT_') || key === stateVariable) delete env[key];
-  }
+  delete env[stateVariable];
   return env;
 }
 
@@ -77,7 +74,10 @@ export function runStandaloneAutoloadE2e(binaryPath, options = {}) {
     if (!existsSync(marker))
       throw failure('Control: the planted preload did not write its marker', control);
     rmSync(marker);
-    const directed = run(['--help'], { [stateVariable]: plantedState });
+    const directed = run(['--help'], {
+      PRODUCT_USER_STATE_DIR: plantedState,
+      [stateVariable]: plantedState,
+    });
     if (directed.status !== 0 || !directed.stdout.includes(plantedName)) {
       throw failure(
         `Control: ${stateVariable} from the environment did not show in --help`,
@@ -85,18 +85,21 @@ export function runStandaloneAutoloadE2e(binaryPath, options = {}) {
       );
     }
 
+    const loadedDotenv = (result) =>
+      result.stdout.includes(plantedName) ||
+      (result.status !== 0 && `${result.stderr ?? ''}`.includes(stateVariable));
     const version = run(['--version']);
-    if (version.status !== 0) throw failure('--version in the planted repository failed', version);
     const help = run(['--help']);
-    if (help.status !== 0) throw failure('--help in the planted repository failed', help);
     if (existsSync(marker)) {
       throw new Error('The executable ran a bunfig.toml preload from its working directory.');
     }
-    if (help.stdout.includes(plantedName)) {
+    if (loadedDotenv(version) || loadedDotenv(help)) {
       throw new Error(
         `The executable loaded ${stateVariable} from a .env file in its working directory.`,
       );
     }
+    if (version.status !== 0) throw failure('--version in the planted repository failed', version);
+    if (help.status !== 0) throw failure('--help in the planted repository failed', help);
     return 'standalone-autoload=passed; bunfig.toml preload=ignored; .env=ignored';
   } finally {
     rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });

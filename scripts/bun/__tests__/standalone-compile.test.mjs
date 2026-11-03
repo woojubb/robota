@@ -97,16 +97,15 @@ it('compiles every standalone executable through Bun.build with runtime config a
   expect(sites.filter(({ missing }) => missing.length > 0)).toEqual([]);
 });
 
-it('probes autoloading on the identity compiled into the executable', async () => {
-  // PRODUCT_* variables that name the binary's own product are all honoured, which makes a state root required
-  // and conflicts with <prefix>USER_STATE_DIR, failing the release check's control in a generated product
-  // workspace; and a .env can only be caught setting the prefixed variable if it is unset to begin with.
+it('probes autoloading with the prefixed state variable unset', async () => {
+  // dotenv never overrides a variable, so a planted .env can only show itself if the variable it sets is unset;
+  // the fixture's PRODUCT_* values stay, because a product binary needs them at run time.
   const { standaloneAutoloadEnvironment } = await import(
     '../../../packages/agent-cli/scripts/e2e-standalone-autoload.mjs'
   );
   const env = standaloneAutoloadEnvironment('/tmp/home', 'PROBE_USER_STATE_DIR');
-  expect(Object.keys(env).filter((key) => key.startsWith('PRODUCT_'))).toEqual([]);
   expect(env).not.toHaveProperty('PROBE_USER_STATE_DIR');
+  expect(env).toHaveProperty('PRODUCT_USER_STATE_DIR');
   expect(env.HOME).toBe('/tmp/home');
 });
 
