@@ -180,6 +180,38 @@ it('independently builds installers from a bound tag with separate release concu
   expect(tagging).not.toMatch(/\bsleep\s+\d+/u);
 });
 
+it('exercises Windows and macOS native code paths on every code pull request', () => {
+  const job = native.jobs['build-bun'];
+  const pullRequestValue = (expression) =>
+    JSON.parse(expression.match(/github\.event_name == 'pull_request' && '([^']*)'/u)[1]);
+  const products = pullRequestValue(job.strategy.matrix.product);
+  const targets = pullRequestValue(job.strategy.matrix.target);
+  const include = pullRequestValue(job.strategy.matrix.include);
+  const windows = { product: 'cedar', target: 'windows-x64', runner: 'windows-2025' };
+  expect(include).toContainEqual(windows);
+  // A matrix include entry only extends an existing combination when it overwrites no original value.
+  expect(products.includes(windows.product) && !targets.includes(windows.target)).toBe(true);
+  expect(job.if).toContain('developerDocs != true');
+
+  const steps = job.steps;
+  const index = (name) => requiredStepIndex(steps, name);
+  const step = steps[index('Exercise native code paths on this host')];
+  expect(step.if).toBe("github.event_name == 'pull_request' && matrix.product == 'cedar'");
+  expect(step.shell).toBe('bash');
+  for (const command of [
+    "--filter './packages/agent-file-authority' exec vitest run",
+    "--filter './packages/agent-file-authority' qualify:native",
+    "--filter './packages/agent-file-authority' qualify:bun:build",
+    'src/session-inventory/__tests__/windows-security.test.ts',
+    'src/session-inventory/__tests__/windows-control-pipe.test.ts',
+  ])
+    expect(step.run).toContain(command);
+  expect(index('Setup Bun')).toBeLessThan(index('Exercise native code paths on this host'));
+  expect(index('Exercise native code paths on this host')).toBeLessThan(
+    index('Package and exercise the unsigned desktop product'),
+  );
+});
+
 it('recovers when another release job creates the same tag during desktop publication', () => {
   const step = desktop.jobs.desktop.steps.find(
     (item) => item.name === 'Publish installers to the GitHub Release',

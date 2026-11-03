@@ -16,10 +16,12 @@ const DEFAULT_REDACTED_VALUE = '[REDACTED]';
 
 /**
  * Keys whose VALUE is a secret and must be redacted before persistence or sharing:
- * `apiKey`/`authorization`/`accessToken`/`refreshToken`/`secret`/`password`/`xApiKey` (case/`-`/`_`-insensitive).
+ * `apiKey`/`authorization`/`authToken`/`accessToken`/`refreshToken`/`secret`/`password`/`xApiKey`
+ * (case/`-`/`_`-insensitive). `authToken` is how a provider's bearer credential is stored in
+ * settings, so it must be redacted alongside `apiKey`; bare `token` stays unmatched (too broad).
  */
 export const SENSITIVE_KEY_PATTERN =
-  /^(api[-_]?key|authorization|access[-_]?token|refresh[-_]?token|secret|password|x[-_]?api[-_]?key)$/i;
+  /^(api[-_]?key|authorization|auth[-_]?token|access[-_]?token|refresh[-_]?token|secret|password|x[-_]?api[-_]?key)$/i;
 
 /** True when a key's value should be redacted. The one predicate both the logger and the artifact scrub use. */
 export function isSensitiveKey(key: string): boolean {

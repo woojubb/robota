@@ -1,5 +1,10 @@
 # @robota-sdk/agent-cli
 
+## 3.0.6
+### Patch Changes
+
+- Launch supervised runtimes, including the workspace daemon, with `--disable-sigusr1` where Node supports it, so another program of the same user cannot open their inspector, and redact `authToken` values from persisted session logs and share artifacts.
+
 ## 3.0.5
 ### Patch Changes
 

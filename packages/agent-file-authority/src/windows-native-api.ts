@@ -72,6 +72,14 @@ type TNtCreateFile = (
   extendedAttributesBytes: number,
 ) => number;
 
+type TNtSetInformationFile = (
+  handle: TNativeHandle,
+  ioStatus: IWindowsIoStatus,
+  information: object,
+  informationBytes: number,
+  informationClass: number,
+) => number;
+
 export interface IWindowsApi {
   readonly handleType: koffi.TypeObject;
   readonly unicodeStringType: koffi.TypeObject;
@@ -110,6 +118,7 @@ export interface IWindowsApi {
   ) => boolean;
   readonly getLastError: () => number;
   readonly ntCreateFile: TNtCreateFile;
+  readonly ntSetInformationFile: TNtSetInformationFile;
   readonly ntClose: (handle: TNativeHandle) => number;
 }
 
@@ -257,7 +266,7 @@ function bindInformationFunctions(
 function bindNtDll(
   library: koffi.LibraryHandle,
   types: IWindowsTypes,
-): Pick<IWindowsApi, 'ntCreateFile' | 'ntClose'> {
+): Pick<IWindowsApi, 'ntCreateFile' | 'ntSetInformationFile' | 'ntClose'> {
   return {
     ntCreateFile: library.func('NtCreateFile', 'int32_t', [
       koffi.out(koffi.pointer(types.handleType)),
@@ -272,6 +281,13 @@ function bindNtDll(
       'void *',
       'uint32_t',
     ]) as TNtCreateFile,
+    ntSetInformationFile: library.func('NtSetInformationFile', 'int32_t', [
+      types.handleType,
+      koffi.out(koffi.pointer(types.ioStatusBlockType)),
+      'void *',
+      'uint32_t',
+      'int32_t',
+    ]) as TNtSetInformationFile,
     ntClose: library.func('NtClose', 'int32_t', [types.handleType]),
   };
 }

@@ -1,5 +1,16 @@
 # @robota-sdk/agent-session
 
+## 3.0.6
+### Patch Changes
+
+- Tighten legacy world-readable session records to owner-only when the session store reads or lists them.
+- Redact `authToken` values from persisted session logs and share artifacts.
+- Updated dependencies [7c4eb0d]
+  - @robota-sdk/agent-file-authority@3.0.6
+  - @robota-sdk/agent-core@3.0.6
+  - @robota-sdk/agent-interface-execution@3.0.6
+  - @robota-sdk/agent-interface-session@3.0.6
+
 ## 3.0.5
 ### Patch Changes
 
