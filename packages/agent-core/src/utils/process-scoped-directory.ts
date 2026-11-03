@@ -14,18 +14,22 @@
  * its directory, and removing it from under that session breaks the session. The pid alone is not
  * enough either: a recycled pid keeps a dead owner's directory alive, a CLI that always runs as pid 1
  * sees its own pid in every leftover, and two containers sharing a state root each read the other's
- * live pid as dead. The owner record carries the pid with its start time, the boot and — on Linux —
- * the pid namespace, and a directory is removed only when its owner provably cannot be alive:
+ * live pid as dead. The owner record carries the machine (host name and, where readable, machine id),
+ * the pid with its start time, the boot and — on Linux — the pid namespace, and a directory is removed
+ * only when its owner provably cannot be alive:
  *
- * - it was made in an earlier boot of this machine; or
- * - it was made in this boot and pid namespace, and its pid is gone or now belongs to a process with
- *   a different start time.
+ * - it was made on this machine in an earlier boot; or
+ * - it was made on this machine in this boot and pid namespace, and its pid is gone or now belongs to
+ *   a process with a different start time.
  *
- * Anything else is kept: a directory from another pid namespace (its owner may be live in another
- * container), one whose owner record is missing or unreadable, and one whose live pid's start time
- * cannot be read. Where the platform offers no boot or start time (Windows), the pid alone decides.
- * A state root shared by separate machines is not supported: another machine's boot reads as an
- * earlier boot of this one.
+ * Anything else is kept: a directory from another machine or one whose record does not name its
+ * machine (a state root shared over a network filesystem or with a container on another kernel holds
+ * live directories whose boot differs and whose pid means nothing here, and every Linux machine
+ * reports the same initial pid namespace); one from another pid namespace (its owner may be live in
+ * another container); one whose owner record is missing or unreadable; and one whose live pid's start
+ * time cannot be read. The machine matches only when the host names do and the machine ids do, a
+ * machine id only one side could read counting as a mismatch. Where the platform offers no boot,
+ * start time or machine id (Windows), the pid alone decides on the host the record names.
  */
 
 import { lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
@@ -57,15 +61,17 @@ function ownerPid(name: string, prefix: string): number | undefined {
   return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
 }
 
+/** The owner record's optional fields, each a non-empty string when present. */
+const OWNER_FIELDS = ['startTime', 'bootId', 'pidNamespace', 'hostname', 'machineId'] as const;
+
 /** The serialized owner record; also what test fixtures write for an owner other than this process. */
 export function serializeProcessOwnerRecord(owner: IProcessIdentity): string {
-  const { pid, startTime, bootId, pidNamespace } = owner;
-  return JSON.stringify({
-    pid,
-    ...(startTime === undefined ? {} : { startTime }),
-    ...(bootId === undefined ? {} : { bootId }),
-    ...(pidNamespace === undefined ? {} : { pidNamespace }),
-  });
+  const record: Record<string, string | number> = { pid: owner.pid };
+  for (const key of OWNER_FIELDS) {
+    const value = owner[key];
+    if (value !== undefined) record[key] = value;
+  }
+  return JSON.stringify(record);
 }
 
 function optionalField(record: Record<string, unknown>, key: string): string | undefined | null {
@@ -87,16 +93,13 @@ function readOwnerRecord(directory: string): IProcessIdentity | undefined {
     const record = parsed as Record<string, unknown>;
     const pid = record['pid'];
     if (typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid <= 0) return undefined;
-    const startTime = optionalField(record, 'startTime');
-    const bootId = optionalField(record, 'bootId');
-    const pidNamespace = optionalField(record, 'pidNamespace');
-    if (startTime === null || bootId === null || pidNamespace === null) return undefined;
-    return {
-      pid,
-      ...(startTime === undefined ? {} : { startTime }),
-      ...(bootId === undefined ? {} : { bootId }),
-      ...(pidNamespace === undefined ? {} : { pidNamespace }),
-    };
+    const owner: { -readonly [K in keyof IProcessIdentity]: IProcessIdentity[K] } = { pid };
+    for (const key of OWNER_FIELDS) {
+      const value = optionalField(record, key);
+      if (value === null) return undefined;
+      if (value !== undefined) owner[key] = value;
+    }
+    return owner;
   } catch {
     // allow-fallback: an unreadable record means "owner unknown", and an unknown owner is kept.
     return undefined;
@@ -158,6 +161,18 @@ function probeProcess(pid: number): boolean {
   }
 }
 
+/**
+ * Whether `owner` ran on this machine: the host names are equal and so are the machine ids, where a
+ * machine id only one side could read counts as a different machine, since that side may be one.
+ */
+function onThisMachine(owner: IProcessIdentity, current: IProcessIdentity): boolean {
+  return (
+    owner.hostname !== undefined &&
+    owner.hostname === current.hostname &&
+    owner.machineId === current.machineId
+  );
+}
+
 /** Whether `owner` provably cannot be alive, by the rule the module documentation states. */
 function ownerIsGone(
   owner: IProcessIdentity,
@@ -165,6 +180,7 @@ function ownerIsGone(
   isAlive: (pid: number) => boolean,
   readStartTime: (pid: number) => string | undefined,
 ): boolean {
+  if (!onThisMachine(owner, current)) return false;
   if (
     owner.bootId !== undefined &&
     current.bootId !== undefined &&

@@ -5,21 +5,30 @@
  * start time tells a recycled pid from its first owner; the boot id says whether the machine has
  * restarted since, after which no process from the record can be alive; on Linux the pid namespace
  * says which pid table the number belongs to, since two containers on one kernel each have a pid 1.
+ * The machine — its host name and, where readable, its machine id — says whose pid, boot and
+ * namespace these are: files shared between machines (a home directory over NFS, a state root
+ * mounted into a container on another kernel) carry records whose pids and boots mean nothing here,
+ * and every Linux kernel reports the same number for its initial pid namespace.
  *
  * Every reader answers `undefined` rather than guessing when the platform cannot tell: "no answer" is
  * not "not running", and a caller must treat it as unknown.
  *
  * Sources: Linux reads `/proc/<pid>/stat` (start time in clock ticks since boot),
- * `/proc/sys/kernel/random/boot_id` and `/proc/self/ns/pid`. macOS reads `ps -o lstart=` (whole
- * seconds, in UTC with the C locale so every reader formats it alike) and `kern.bootsessionuuid`, and
- * has no pid namespaces. Windows has neither here: a host that can read a process creation time
- * passes its own reader, and the boot is unknown.
+ * `/proc/sys/kernel/random/boot_id`, `/proc/self/ns/pid` and `/etc/machine-id` (or the D-Bus copy).
+ * macOS reads `ps -o lstart=` (whole seconds, in UTC with the C locale so every reader formats it
+ * alike), `kern.bootsessionuuid` and the `IOPlatformUUID` that `ioreg` reports, and has no pid
+ * namespaces; either machine identifier is answered only as a keyed hash. Windows has none of these
+ * here: a host that can read a process creation time passes its own reader, the boot is unknown, and
+ * the host name alone names the machine.
  */
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync, readlinkSync } from 'node:fs';
+import { hostname } from 'node:os';
 
-/** A process as an observer on the same machine can later recognize it. */
+import { sha256Hex } from '../schema/sha256.js';
+
+/** A process as an observer can later recognize it, on its own machine or one sharing its files. */
 export interface IProcessIdentity {
   readonly pid: number;
   /** The process start time as {@link readProcessStartTime} reads it; absent when unreadable. */
@@ -28,6 +37,18 @@ export interface IProcessIdentity {
   readonly bootId?: string;
   /** The Linux pid namespace the pid belongs to; absent elsewhere. */
   readonly pidNamespace?: string;
+  /** The host name of the machine the process runs on; absent when it reads empty. */
+  readonly hostname?: string;
+  /** The machine as {@link readMachineId} reads it; absent where unreadable or not offered. */
+  readonly machineId?: string;
+}
+
+export interface IReadMachineIdOptions {
+  readonly platform?: string;
+  /** Linux file reader; defaults to reading the file as UTF-8. */
+  readonly readFile?: (path: string) => string;
+  /** macOS: the output of `ioreg -rd1 -c IOPlatformExpertDevice`; defaults to running it. */
+  readonly runIoreg?: () => string;
 }
 
 export interface IReadProcessStartTimeOptions {
@@ -124,6 +145,69 @@ export function readPidNamespace(platform: string = process.platform): string | 
   }
 }
 
+/** Where Linux keeps the machine id: systemd's file first, then the D-Bus copy older systems have. */
+const LINUX_MACHINE_ID_PATHS = ['/etc/machine-id', '/var/lib/dbus/machine-id'] as const;
+/** A Linux machine id is 32 lowercase hex digits; anything else ("uninitialized", empty) is none. */
+const LINUX_MACHINE_ID = /^[0-9a-f]{32}$/u;
+const IOREG_PLATFORM_UUID =
+  /"IOPlatformUUID"\s*=\s*"([0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12})"/u;
+const IOREG_MAX_OUTPUT_BYTES = 64 * 1024;
+/**
+ * machine-id(5) asks an application not to use the machine id itself but a hash of it under a fixed
+ * value of its own; the same holds for the platform UUID. It only has to be this application's and
+ * never change, not be secret, so it is a readable label.
+ */
+const MACHINE_ID_HASH_LABEL = 'agent-core/process-identity/machine-id/v1';
+
+function applicationSpecific(rawId: string): string {
+  return sha256Hex(`${MACHINE_ID_HASH_LABEL}:${rawId}`).slice(0, 32);
+}
+
+function runIoregPlatformExpert(): string {
+  return execFileSync('/usr/sbin/ioreg', ['-rd1', '-c', 'IOPlatformExpertDevice'], {
+    encoding: 'utf8',
+    timeout: PROBE_TIMEOUT_MS,
+    maxBuffer: IOREG_MAX_OUTPUT_BYTES,
+    env: { LC_ALL: 'C' },
+  });
+}
+
+/** The raw Linux machine id or macOS platform UUID, before it is made application-specific. */
+function readRawMachineId(options: IReadMachineIdOptions): string | undefined {
+  const platform = options.platform ?? process.platform;
+  if (platform === 'linux') {
+    const readFile = options.readFile ?? ((path: string) => readFileSync(path, 'utf8'));
+    for (const path of LINUX_MACHINE_ID_PATHS) {
+      try {
+        const id = readFile(path).trim();
+        if (LINUX_MACHINE_ID.test(id)) return id;
+      } catch {
+        // allow-fallback: a missing or unreadable file only means "try the next source".
+      }
+    }
+    return undefined;
+  }
+  if (platform === 'darwin') {
+    try {
+      return IOREG_PLATFORM_UUID.exec((options.runIoreg ?? runIoregPlatformExpert)())?.[1];
+    } catch {
+      // allow-fallback: an unreadable platform UUID is an unknown machine, never a guessed one.
+      return undefined;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * A stable identifier of this machine that survives reboots, derived from the Linux machine id or the
+ * macOS platform UUID so the raw identifier is never written anywhere. Undefined on Windows and
+ * wherever neither can be read.
+ */
+export function readMachineId(options: IReadMachineIdOptions = {}): string | undefined {
+  const raw = readRawMachineId(options);
+  return raw === undefined ? undefined : applicationSpecific(raw);
+}
+
 let currentIdentity: IProcessIdentity | undefined;
 
 /** This process, read once: none of these change while it runs. */
@@ -132,11 +216,15 @@ export function readCurrentProcessIdentity(): IProcessIdentity {
   const startTime = readProcessStartTime(process.pid);
   const bootId = readBootId();
   const pidNamespace = readPidNamespace();
+  const host = nonEmpty(hostname());
+  const machineId = readMachineId();
   currentIdentity = {
     pid: process.pid,
     ...(startTime === undefined ? {} : { startTime }),
     ...(bootId === undefined ? {} : { bootId }),
     ...(pidNamespace === undefined ? {} : { pidNamespace }),
+    ...(host === undefined ? {} : { hostname: host }),
+    ...(machineId === undefined ? {} : { machineId }),
   };
   return currentIdentity;
 }

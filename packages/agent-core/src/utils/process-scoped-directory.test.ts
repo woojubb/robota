@@ -23,7 +23,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
+import { hostname, tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
@@ -64,6 +64,21 @@ const HERE: IProcessIdentity = {
   startTime: 'started-5000',
   bootId: 'boot-a',
   pidNamespace: 'pid:[4026531836]',
+  hostname: 'host-a',
+  machineId: 'machine-a',
+};
+
+/**
+ * Another Linux machine sharing the state root (a home directory over NFS): its own boot, but the
+ * same initial pid namespace number every Linux kernel reports.
+ */
+const OTHER_MACHINE: IProcessIdentity = {
+  ...HERE,
+  pid: 4242,
+  startTime: 'started-4242',
+  bootId: 'boot-b',
+  hostname: 'host-b',
+  machineId: 'machine-b',
 };
 
 /** A directory exactly as `owner`'s run would have left it: named for its pid, record first. */
@@ -109,10 +124,12 @@ describe('createProcessScopedDirectory', () => {
       readFileSync(join(directory, OWNER_RECORD), 'utf8'),
     ) as IProcessIdentity;
     expect(record.pid).toBe(process.pid);
+    expect(record.hostname).toBe(hostname());
     if (process.platform === 'linux' || process.platform === 'darwin') {
       expect(record.startTime).toMatch(/\S/u);
       expect(record.bootId).toMatch(/\S/u);
     }
+    if (process.platform === 'darwin') expect(record.machineId).toMatch(/^[0-9a-f]{32}$/u);
     if (process.platform === 'linux') expect(record.pidNamespace).toMatch(/^pid:\[\d+\]$/u);
     if (process.platform !== 'win32') expect(mode(join(directory, OWNER_RECORD))).toBe(0o600);
   });
@@ -157,7 +174,7 @@ describe('sweepStaleProcessScopedDirectories', () => {
     expect(existsSync(own)).toBe(true);
   });
 
-  it('removes every directory from an earlier boot, even one whose pid and start time match a live process', () => {
+  it('removes what this machine left in an earlier boot, even where its pid and start time match a live process', () => {
     const beforeReboot = leftBy({
       ...HERE,
       pid: 4242,
@@ -168,6 +185,51 @@ describe('sweepStaleProcessScopedDirectories', () => {
     sweepStaleProcessScopedDirectories(root, PREFIX, world({ 4242: 'started-4242' }));
 
     expect(existsSync(beforeReboot)).toBe(false);
+  });
+
+  it('keeps the live directory of another machine sharing the state root, though its boot differs and its pid is not running here', () => {
+    const otherMachine = leftBy(OTHER_MACHINE);
+
+    expect(sweepStaleProcessScopedDirectories(root, PREFIX, world({}))).toEqual([]);
+
+    expect(existsSync(otherMachine)).toBe(true);
+  });
+
+  it('keeps a directory from a machine that differs in host name or machine id alone, whatever its boot', () => {
+    const sameBoot = { ...HERE, pid: 4242, startTime: 'started-4242' };
+    const otherHost = leftBy({ ...sameBoot, hostname: 'host-b' }, 'host01');
+    const otherId = leftBy({ ...sameBoot, machineId: 'machine-b' }, 'mach01');
+    const otherHostNoBoot = leftBy(
+      { ...sameBoot, hostname: 'host-b', bootId: undefined },
+      'host02',
+    );
+
+    expect(sweepStaleProcessScopedDirectories(root, PREFIX, world({}))).toEqual([]);
+
+    for (const path of [otherHost, otherId, otherHostNoBoot]) expect(existsSync(path)).toBe(true);
+  });
+
+  it('keeps a directory whose record does not name its machine, even from an earlier boot', () => {
+    const { hostname: _hostname, machineId: _machineId, ...unnamed } = HERE;
+    const noMachine = leftBy({ ...unnamed, pid: 4242, bootId: 'boot-0' }, 'nomac1');
+
+    expect(sweepStaleProcessScopedDirectories(root, PREFIX, world({}))).toEqual([]);
+
+    expect(existsSync(noMachine)).toBe(true);
+  });
+
+  it('keeps a directory whose machine id only one side could read, since that side may be another machine', () => {
+    const { machineId: _machineId, ...hostOnly } = HERE;
+    const earlierBoot = { pid: 4242, startTime: 'started-4242', bootId: 'boot-0' };
+
+    const recordWithout = leftBy({ ...hostOnly, ...earlierBoot }, 'noid01');
+    expect(sweepStaleProcessScopedDirectories(root, PREFIX, world({}, HERE))).toEqual([]);
+    expect(existsSync(recordWithout)).toBe(true);
+    rmSync(recordWithout, { recursive: true });
+
+    const recordWith = leftBy({ ...HERE, ...earlierBoot }, 'hasid1');
+    expect(sweepStaleProcessScopedDirectories(root, PREFIX, world({}, hostOnly))).toEqual([]);
+    expect(existsSync(recordWith)).toBe(true);
   });
 
   it('keeps the directory of a live owner whatever its age, and this process own directory', () => {
@@ -201,15 +263,17 @@ describe('sweepStaleProcessScopedDirectories', () => {
     expect(existsSync(unknown)).toBe(true);
   });
 
-  it('falls back to the pid alone where the platform offers no boot or start time', () => {
-    const bare: IProcessIdentity = { pid: 5000 };
-    const dead = leftBy({ pid: 4242 }, 'dead01');
-    const live = leftBy({ pid: 4243 }, 'live01');
+  it('falls back to the pid alone on the same host where the platform offers no boot, start time or machine id', () => {
+    const bare: IProcessIdentity = { pid: 5000, hostname: 'host-a' };
+    const dead = leftBy({ pid: 4242, hostname: 'host-a' }, 'dead01');
+    const live = leftBy({ pid: 4243, hostname: 'host-a' }, 'live01');
+    const elsewhere = leftBy({ pid: 4244, hostname: 'host-b' }, 'else01');
 
     sweepStaleProcessScopedDirectories(root, PREFIX, world({ 4243: undefined }, bare));
 
     expect(existsSync(dead)).toBe(false);
     expect(existsSync(live)).toBe(true);
+    expect(existsSync(elsewhere)).toBe(true);
   });
 
   it('keeps a directory whose owner record is missing, unreadable, foreign or a link', () => {

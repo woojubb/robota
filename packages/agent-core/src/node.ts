@@ -41,11 +41,16 @@ export {
   removeDirectoryOnProcessExit,
   removeProcessScopedDirectoriesNow,
 } from './utils/process-exit-removals.js';
-export type { IProcessIdentity, IReadProcessStartTimeOptions } from './utils/process-identity.js';
+export type {
+  IProcessIdentity,
+  IReadMachineIdOptions,
+  IReadProcessStartTimeOptions,
+} from './utils/process-identity.js';
 export {
   readBootId,
   readCurrentProcessIdentity,
   readDarwinStartTime,
+  readMachineId,
   readPidNamespace,
   readProcessStartTime,
 } from './utils/process-identity.js';

@@ -3,12 +3,14 @@
  */
 
 import { spawnSync } from 'node:child_process';
+import { hostname } from 'node:os';
 
 import { describe, expect, it } from 'vitest';
 
 import {
   readBootId,
   readCurrentProcessIdentity,
+  readMachineId,
   readPidNamespace,
   readProcessStartTime,
 } from './process-identity.js';
@@ -73,6 +75,96 @@ describe('readPidNamespace', () => {
   });
 });
 
+describe('readMachineId', () => {
+  const LINUX_ID = '0123456789abcdef0123456789abcdef';
+  const DBUS_ID = 'fedcba9876543210fedcba9876543210';
+  /** What machine-id(5) asks for: an application-specific derivation, never the raw identifier. */
+  const DERIVED = /^[0-9a-f]{32}$/u;
+
+  /** The Linux answer when exactly these files exist, with these contents. */
+  const onLinux = (entries: Readonly<Record<string, string>>): string | undefined =>
+    readMachineId({
+      platform: 'linux',
+      readFile: (path) => {
+        const content = entries[path];
+        if (content === undefined) throw new Error(`ENOENT: ${path}`);
+        return content;
+      },
+    });
+  /** The macOS answer when ioreg reports `uuid` as the platform UUID. */
+  const onMac = (uuid: string): string | undefined =>
+    readMachineId({
+      platform: 'darwin',
+      runIoreg: () =>
+        `+-o J314sAP  <class IOPlatformExpertDevice>\n    {\n      "IOPlatformSerialNumber" = "X"\n      "IOPlatformUUID" = "${uuid}"\n    }\n`,
+    });
+
+  it.runIf(process.platform === 'darwin')(
+    'names this Mac the same way on every read, without writing out its platform UUID',
+    () => {
+      const ioreg = spawnSync('/usr/sbin/ioreg', ['-rd1', '-c', 'IOPlatformExpertDevice'], {
+        encoding: 'utf8',
+      }).stdout;
+      const raw = /"IOPlatformUUID" = "([^"]+)"/u.exec(ioreg)?.[1];
+      const id = readMachineId();
+
+      expect(raw).toMatch(/\S/u);
+      expect(id).toMatch(DERIVED);
+      expect(id).toBe(onMac(raw!));
+      expect(readMachineId()).toBe(id);
+    },
+  );
+
+  it.runIf(process.platform === 'linux')(
+    'names this Linux machine the same way on every read, where it has a machine id',
+    () => {
+      const id = readMachineId();
+
+      if (id !== undefined) expect(id).toMatch(DERIVED);
+      expect(readMachineId()).toBe(id);
+    },
+  );
+
+  it('derives the Linux answer from /etc/machine-id, falling back to the D-Bus copy when it is missing, empty or not yet initialized', () => {
+    const fromEtc = onLinux({
+      '/etc/machine-id': `${LINUX_ID}\n`,
+      '/var/lib/dbus/machine-id': DBUS_ID,
+    });
+
+    expect(fromEtc).toMatch(DERIVED);
+    expect(fromEtc).not.toContain(LINUX_ID);
+    expect(fromEtc).toBe(onLinux({ '/etc/machine-id': LINUX_ID }));
+    expect(fromEtc).not.toBe(onLinux({ '/etc/machine-id': DBUS_ID }));
+    for (const etc of [undefined, '', 'uninitialized\n']) {
+      const entries: Record<string, string> = { '/var/lib/dbus/machine-id': `${DBUS_ID}\n` };
+      if (etc !== undefined) entries['/etc/machine-id'] = etc;
+      expect(onLinux(entries)).toBe(onLinux({ '/etc/machine-id': DBUS_ID }));
+    }
+    expect(onLinux({})).toBeUndefined();
+  });
+
+  it('derives the macOS answer from the IOPlatformUUID ioreg reports, and has none when ioreg fails or does not name it', () => {
+    const uuid = '12345678-ABCD-4EF0-9876-0123456789AB';
+
+    expect(onMac(uuid)).toMatch(DERIVED);
+    expect(onMac(uuid)).not.toContain(uuid.toLowerCase().replaceAll('-', ''));
+    expect(onMac(uuid)).not.toBe(onMac('12345678-ABCD-4EF0-9876-0123456789AC'));
+    expect(readMachineId({ platform: 'darwin', runIoreg: () => '{}' })).toBeUndefined();
+    expect(
+      readMachineId({
+        platform: 'darwin',
+        runIoreg: () => {
+          throw new Error('ioreg timed out');
+        },
+      }),
+    ).toBeUndefined();
+  });
+
+  it('has none on Windows, where only the host name names the machine', () => {
+    expect(readMachineId({ platform: 'win32', readFile: () => LINUX_ID })).toBeUndefined();
+  });
+});
+
 describe('readCurrentProcessIdentity', () => {
   it('describes this process with the same readers a later observer uses', () => {
     const identity = readCurrentProcessIdentity();
@@ -81,5 +173,7 @@ describe('readCurrentProcessIdentity', () => {
     expect(identity.startTime).toBe(readProcessStartTime(process.pid));
     expect(identity.bootId).toBe(readBootId());
     expect(identity.pidNamespace).toBe(readPidNamespace());
+    expect(identity.hostname).toBe(hostname());
+    expect(identity.machineId).toBe(readMachineId());
   });
 });
