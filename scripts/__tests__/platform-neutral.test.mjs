@@ -145,7 +145,8 @@ describe('platform-neutral entry check', () => {
             'src/index.ts':
               "export * from './heritage';\nexport * from './typed';\nexport * from './local';",
             'src/heritage.ts': 'export interface E extends NodeJS.EventEmitter {}',
-            'src/typed.ts': 'export type T = { data: Buffer; env: typeof process.env };',
+            'src/typed.ts':
+              'export type T = { data: Buffer; env: typeof process.env; p: typeof globalThis.process; t: ReturnType<typeof setImmediate> };',
             'src/local.ts':
               'type Buffer = Uint8Array;\nexport const read = (process: { cwd(): string }, b: Buffer) => [process.cwd(), b];',
           },
@@ -155,7 +156,7 @@ describe('platform-neutral entry check', () => {
     });
     expect((await checkPlatformNeutral(root)).sort()).toEqual(
       [
-        '@robota-sdk/a uses Node types Buffer, process: packages/a/src/index.ts → packages/a/src/typed.ts',
+        '@robota-sdk/a uses Node types Buffer, process, setImmediate: packages/a/src/index.ts → packages/a/src/typed.ts',
         '@robota-sdk/a uses Node types NodeJS: packages/a/src/index.ts → packages/a/src/heritage.ts',
       ].sort(),
     );

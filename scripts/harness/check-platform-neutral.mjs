@@ -71,24 +71,35 @@ const markers = (names, prefix) =>
 const NODE_DEFINE = markers(NODE_GLOBALS, 'node_global');
 const DOM_DEFINE = markers(DOM_GLOBALS, 'dom_global');
 
-/** Global names whose type comes from `@types/node`: a neutral declaration may not mention them. */
+/**
+ * Global names whose type comes from `@types/node`: the runtime globals above, their `NodeJS`
+ * namespace and `module`. A neutral declaration may not mention them in a type either.
+ */
 const NODE_TYPE_NAMES = new Set([
   'NodeJS',
-  'Buffer',
-  'process',
-  'global',
-  'require',
   'module',
-  '__dirname',
-  '__filename',
+  ...NODE_GLOBALS.map((name) => name.replace(/^globalThis\./u, '')).filter(
+    (name) => !name.includes('.'),
+  ),
 ]);
 
-/** The leftmost identifier of `A.B.C`, whether written as a type name or as an expression. */
-function leftmost(node) {
-  if (ts.isIdentifier(node)) return node.text;
-  if (ts.isQualifiedName(node)) return leftmost(node.left);
-  if (ts.isPropertyAccessExpression(node)) return leftmost(node.expression);
-  return undefined;
+/** The global a dotted name starts from, `A.B.C` → `A` (and `globalThis.A.B` → `A`), type or value. */
+function globalRoot(node) {
+  const segments = [];
+  for (let step = node; step;) {
+    if (ts.isIdentifier(step)) {
+      segments.unshift(step.text);
+      break;
+    }
+    if (ts.isQualifiedName(step)) {
+      segments.unshift(step.right.text);
+      step = step.left;
+    } else if (ts.isPropertyAccessExpression(step)) {
+      segments.unshift(step.name.text);
+      step = step.expression;
+    } else return undefined;
+  }
+  return segments[0] === 'globalThis' ? segments[1] : segments[0];
 }
 
 /** Names the file declares itself, so a local `Buffer` type or `process` parameter is not Node's. */
@@ -155,9 +166,9 @@ function sourceNodeReferences(file, code) {
       named = specifier(node.argument.literal);
     else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword)
       named = specifier(node.arguments[0]);
-    else if (ts.isTypeReferenceNode(node)) nodeType(leftmost(node.typeName));
-    else if (ts.isTypeQueryNode(node)) nodeType(leftmost(node.exprName));
-    else if (ts.isExpressionWithTypeArguments(node)) nodeType(leftmost(node.expression));
+    else if (ts.isTypeReferenceNode(node)) nodeType(globalRoot(node.typeName));
+    else if (ts.isTypeQueryNode(node)) nodeType(globalRoot(node.exprName));
+    else if (ts.isExpressionWithTypeArguments(node)) nodeType(globalRoot(node.expression));
     if (named !== undefined && isBuiltin(named)) builtins.add(named);
     ts.forEachChild(node, visit);
   };
