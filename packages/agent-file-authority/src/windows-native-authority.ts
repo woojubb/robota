@@ -18,7 +18,7 @@ import {
   windowsLastErrorCode,
   type IWindowsIdentity,
 } from './windows-native-read.js';
-import { classifyNtOpenFailure } from './windows-native-status.js';
+import { classifyNtOpenFailure, ntStatusHostCode } from './windows-native-status.js';
 
 import type { IFileAuthorityTestHooks } from './host-backend.js';
 
@@ -50,7 +50,9 @@ const OBJ_CASE_INSENSITIVE = 0x00000040;
 const OBJ_DONT_REPARSE = 0x00001000;
 const FILE_STANDARD_INFO_CLASS = 1;
 const FILE_ATTRIBUTE_TAG_INFO_CLASS = 9;
-const FILE_RENAME_INFO_CLASS = 3;
+// The NT class, not Win32's FileRenameInfo (3): SetFileInformationByHandle rejects a bare name
+// beside a RootDirectory (WIN32_87) and accepts only a full path, so a handle-relative rename goes to ntdll.
+const FILE_RENAME_INFORMATION_CLASS = 10;
 const FILE_DISPOSITION_INFO_CLASS = 4;
 const HANDLE_WIDTH_BITS = 64;
 const INVALID_HANDLE_VALUE = BigInt('-1');
@@ -106,7 +108,34 @@ export class WindowsNativeAuthority {
     final: boolean,
     segmentIndex: number,
   ): TNativeHandle | undefined {
-    const { handle, status } = this.issueRelativeOpen(parentHandle, segment, final, false);
+    return this.completeRelativeOpen(
+      this.issueRelativeOpen(parentHandle, segment, final, false),
+      final,
+      segmentIndex,
+    );
+  }
+
+  /**
+   * Opens a named regular file only to compare its identity. Attribute-only access is outside
+   * Windows share checks, so the writer's own still-open temporary handle cannot refuse it.
+   */
+  openIdentity(
+    parentHandle: TNativeHandle,
+    segment: string,
+    segmentIndex: number,
+  ): TNativeHandle | undefined {
+    return this.completeRelativeOpen(
+      this.issueRelativeOpen(parentHandle, segment, true, false, true),
+      true,
+      segmentIndex,
+    );
+  }
+
+  private completeRelativeOpen(
+    { handle, status }: { handle: TNativeHandle; status: number },
+    final: boolean,
+    segmentIndex: number,
+  ): TNativeHandle | undefined {
     if (status >= 0) {
       if (isInvalidHandle(handle)) throw authorityError('HOST_IO', 'open-relative');
       try {
@@ -245,15 +274,16 @@ export class WindowsNativeAuthority {
         FileName: fileName,
       };
       koffi.encode(info, this.api.renameInfoType, value);
-      if (
-        !this.api.setFileInformation(
-          handle,
-          FILE_RENAME_INFO_CLASS,
-          info,
-          koffi.sizeof(this.api.renameInfoType),
-        )
-      ) {
-        throw authorityError('HOST_IO', 'commit-write', { hostCode: this.lastErrorCode() });
+      const ioStatus: IWindowsIoStatus = { Status: 0, Information: 0 };
+      const status = this.api.ntSetInformationFile(
+        handle,
+        ioStatus,
+        info,
+        koffi.sizeof(this.api.renameInfoType),
+        FILE_RENAME_INFORMATION_CLASS,
+      );
+      if (status < 0) {
+        throw authorityError('HOST_IO', 'commit-write', { hostCode: ntStatusHostCode(status) });
       }
     } finally {
       koffi.free(info);
@@ -304,6 +334,7 @@ export class WindowsNativeAuthority {
     segment: string,
     final: boolean,
     replaceable: boolean,
+    identityOnly = false,
   ): { handle: TNativeHandle; status: number } {
     assertWindowsSegmentLength(segment);
     const unicodeName = koffi.alloc(this.api.unicodeStringType, 1);
@@ -325,14 +356,18 @@ export class WindowsNativeAuthority {
       const ioStatus: IWindowsIoStatus = { Status: 0, Information: 0 };
       // A final read cannot verify same-size in-place rewrites from identity and size alone.
       // Deny write sharing for that handle so existing and new writers cannot race the read.
-      const shareAccess = final
-        ? FILE_SHARE_READ | FILE_SHARE_DELETE
-        : FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+      const shareAccess =
+        final && !identityOnly
+          ? FILE_SHARE_READ | FILE_SHARE_DELETE
+          : FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+      const dataAccess = !final
+        ? FILE_LIST_DIRECTORY
+        : identityOnly
+          ? 0
+          : FILE_READ_DATA | (replaceable ? DELETE : 0);
       const status = this.api.ntCreateFile(
         output,
-        (final ? FILE_READ_DATA | (replaceable ? DELETE : 0) : FILE_LIST_DIRECTORY) |
-          FILE_READ_ATTRIBUTES |
-          SYNCHRONIZE,
+        dataAccess | FILE_READ_ATTRIBUTES | SYNCHRONIZE,
         attributes,
         ioStatus,
         null,
