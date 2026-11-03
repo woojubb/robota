@@ -1,7 +1,7 @@
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { createLogger } from '@robota-sdk/agent-core';
+import { createLogger, sha256Hex, utf8ByteLength } from '@robota-sdk/agent-core';
 import {
   OWNER_ONLY_FILE_MODE,
   ensureOwnerOnlyDirectory,

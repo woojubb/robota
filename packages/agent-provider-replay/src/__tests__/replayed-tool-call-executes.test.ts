@@ -85,6 +85,7 @@ describe('a replayed tool call executes against the live tool set (issue #2302)'
     });
     const chat = vi.spyOn(provider, 'chat');
     const session = new Session({
+      hookTypeExecutors: [],
       tools: [probe] as never,
       provider,
       systemMessage: 'test',

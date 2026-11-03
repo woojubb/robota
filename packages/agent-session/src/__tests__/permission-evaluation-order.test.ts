@@ -11,6 +11,7 @@ import { clearRegisteredToolProfiles, registerToolPermissionProfile } from '@rob
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { PermissionEnforcer } from '../permission-enforcer.js';
+import { createNodeWorkspacePathResolver } from '../workspace-path-resolver.js';
 
 import type { IPermissionEnforcerOptions } from '../permission-types.js';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
@@ -29,6 +30,7 @@ function makeNoopTerminal(): ITerminalOutput {
 
 function makeEnforcer(overrides: Partial<IPermissionEnforcerOptions> = {}): PermissionEnforcer {
   return new PermissionEnforcer({
+    hookTypeExecutors: [],
     sessionId: 'test-session',
     pathProtection: { protectedDirectoryNames: ['.test-product'], protectedPaths: [], writableWorktreeContainers: ['.test-product/worktrees'] },
     cwd: '/w/project',
@@ -299,6 +301,7 @@ describe('read-only commands follow symlinks before trusting a path (issue #3082
       cwd: join(root, 'ws'),
       getPermissionMode: () => 'default',
       permissionHandler: handler,
+      resolveInWorkspace: createNodeWorkspacePathResolver(join(root, 'ws')),
     });
     await expect(enforcer.checkPermission('Bash', { command: 'cat notes.txt' })).resolves.toBe(
       true,
@@ -317,6 +320,32 @@ describe('read-only commands follow symlinks before trusting a path (issue #3082
       enforcer.checkPermission('Bash', { command: 'grep -r --deref SECRET .' }),
     ).resolves.toBe(false);
     expect(handler).toHaveBeenCalledTimes(5);
+  });
+});
+
+describe('a host with no filesystem resolver (issue #3693)', () => {
+  it('does not trust a path operand, so a read-only command with one asks', async () => {
+    const handler = vi.fn().mockResolvedValue(false);
+    const enforcer = makeEnforcer({
+      cwd: '/w/project',
+      getPermissionMode: () => 'default',
+      permissionHandler: handler,
+    });
+    await expect(enforcer.checkPermission('Bash', { command: 'cat notes.txt' })).resolves.toBe(
+      false,
+    );
+    expect(handler).toHaveBeenCalledOnce();
+  });
+
+  it('still runs a read-only command that names no path without asking', async () => {
+    const handler = vi.fn().mockResolvedValue(false);
+    const enforcer = makeEnforcer({
+      cwd: '/w/project',
+      getPermissionMode: () => 'default',
+      permissionHandler: handler,
+    });
+    await expect(enforcer.checkPermission('Bash', { command: 'pwd' })).resolves.toBe(true);
+    expect(handler).not.toHaveBeenCalled();
   });
 });
 

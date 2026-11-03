@@ -23,6 +23,7 @@ function tool(name: string, run: () => Promise<string> = async () => name): Func
 
 function session(overrides: Partial<ISessionOptions> = {}): Session {
   return new Session({
+    hookTypeExecutors: [],
     cwd: '/tmp',
     tools: [tool('Read')],
     provider: {

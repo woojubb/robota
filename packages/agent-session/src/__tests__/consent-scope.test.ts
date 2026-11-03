@@ -45,6 +45,7 @@ function makeTerminal(): ITerminalOutput {
 
 function makeEnforcer(overrides: Partial<IPermissionEnforcerOptions> = {}): PermissionEnforcer {
   return new PermissionEnforcer({
+    hookTypeExecutors: [],
     sessionId: 'test-session',
     cwd: '/work',
     getPermissionMode: () => 'default',

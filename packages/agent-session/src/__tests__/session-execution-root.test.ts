@@ -37,6 +37,7 @@ const PROVIDER = {
 function construct(cwd: unknown): () => Session {
   return () =>
     new Session({
+      hookTypeExecutors: [],
       tools: [] as never,
       provider: PROVIDER as never,
       systemMessage: 'test',
@@ -65,6 +66,15 @@ describe('a session must be told where it runs (ARCH-010)', () => {
     expect(construct('workspace')).toThrow(/ABSOLUTE/);
   });
 
+  it('judges absoluteness by the path text, so a Windows root is a root on any host (issue #3693)', () => {
+    expect(construct('C:\\work\\project')).not.toThrow();
+    expect(construct('D:/work')).not.toThrow();
+    expect(construct('\\\\server\\share\\work')).not.toThrow();
+    // A drive-less or drive-relative root is anchored somewhere the text does not say.
+    expect(construct('\\work')).toThrow(/ABSOLUTE/);
+    expect(construct('C:work')).toThrow(/ABSOLUTE/);
+  });
+
   it('names what the value is FOR, so the caller can tell whether process.cwd() is right', () => {
     // An error that only says "cwd is required" gets `process.cwd()` pasted in reflexively, which is
     // the ambient read this change removed. Saying what consumes it makes that a decision.
@@ -73,6 +83,7 @@ describe('a session must be told where it runs (ARCH-010)', () => {
 
   it('constructs, and reports the root it was given', () => {
     const session = new Session({
+      hookTypeExecutors: [],
       tools: [] as never,
       provider: PROVIDER as never,
       systemMessage: 'test',

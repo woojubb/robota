@@ -1,12 +1,14 @@
 /**
- * `agent-core` runs hooks only through the executors it is handed. A session that is given none
- * still runs a configured command hook — for every event, not only the fail-closed `PreToolUse` —
- * because the session supplies the Node executors; an explicit empty list still means none.
+ * `agent-core` runs hooks only through the executors it is handed, and a platform-neutral session
+ * has no host executors of its own. A session given the Node executors runs a configured command
+ * hook — for every event, not only the fail-closed `PreToolUse` — and one given an empty list runs
+ * none; a session given no list at all is refused rather than left to run nothing silently.
  */
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -29,6 +31,7 @@ function promptHookFixture(options: Partial<ISessionOptions>): { session: Sessio
   writeFileSync(script, "require('node:fs').writeFileSync(process.argv[2], 'ran');\n");
   const hook = { type: 'command', command: `node "${script}" "${marker}"` };
   const session = new Session({
+    hookTypeExecutors: [new CommandExecutor(), new HttpExecutor()],
     cwd: dir,
     systemMessage: 'Fixture',
     model: 'test-model',
@@ -51,8 +54,8 @@ function promptHookFixture(options: Partial<ISessionOptions>): { session: Sessio
   return { session, marker };
 }
 
-describe('command hooks on a session given no executors', () => {
-  it('runs a UserPromptSubmit command hook through the Node executors', async () => {
+describe('command hooks on a session', () => {
+  it('runs a UserPromptSubmit command hook through the Node executors it is given', async () => {
     const { session, marker } = promptHookFixture({});
 
     await expect(session.run('hello')).resolves.toBe('done');
@@ -60,11 +63,17 @@ describe('command hooks on a session given no executors', () => {
     expect(existsSync(marker)).toBe(true);
   });
 
-  it('runs no command hook when the executor list is explicitly empty', async () => {
+  it('runs no command hook when the executor list is empty', async () => {
     const { session, marker } = promptHookFixture({ hookTypeExecutors: [] });
 
     await expect(session.run('hello')).resolves.toBe('done');
 
     expect(existsSync(marker)).toBe(false);
+  });
+
+  it('refuses to be built without an executor list, whatever the type system was told', () => {
+    expect(() =>
+      promptHookFixture({ hookTypeExecutors: undefined as unknown as ISessionOptions['hookTypeExecutors'] }),
+    ).toThrow(/Session requires `hookTypeExecutors`/);
   });
 });

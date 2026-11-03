@@ -125,12 +125,15 @@ cost a consumer of `runtimeParticipant`/`runtimeSelector` alone should never pay
 
 ```typescript
 import { sessionParticipant } from '@robota-sdk/agent-roundtable-robota/session';
+import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 const reviewer = sessionParticipant({
   id: 'reviewer',
   runtime: { id: 'product/reviewer', version: '1' },
   createSessionOptions: async () => ({
     cwd: process.cwd(),
+    // Required: the hook handlers this host can run (`[]` runs none); the Session has no default.
+    hookTypeExecutors: [new CommandExecutor(), new HttpExecutor()],
     provider /* an IAIProvider the host constructs */,
     tools /* the host's own tools */,
     systemMessage: 'Review the proposal and either approve or ask a question.',

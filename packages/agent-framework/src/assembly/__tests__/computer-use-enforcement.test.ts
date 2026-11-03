@@ -60,6 +60,7 @@ function makeNoopTerminal(): ITerminalOutput {
 
 function wrap(tool: IToolWithEventService, mode: TPermissionMode): IToolWithEventService {
   const enforcer = new PermissionEnforcer({
+    hookTypeExecutors: [],
     sessionId: 'test',
     cwd: '/tmp',
     getPermissionMode: () => mode,

@@ -200,6 +200,7 @@ describe('ARCH-015 Session record field preservation', () => {
     store.save(existing);
 
     const session = new Session({
+      hookTypeExecutors: [],
       cwd: scratchDir,
       tools: [],
       provider: new PreservationProvider(),

@@ -42,6 +42,7 @@ function makeNoopTerminal(): ITerminalOutput {
 
 function makeEnforcer(overrides: Partial<IPermissionEnforcerOptions> = {}): PermissionEnforcer {
   return new PermissionEnforcer({
+    hookTypeExecutors: [],
     sessionId: 'runtime-005',
     cwd: '/tmp',
     getPermissionMode: () => 'default',
@@ -216,6 +217,7 @@ describe('Session abort releases a turn parked on approval (RUNTIME-005)', () =>
       { text: 'tool was denied' },
     ]);
     const session = new Session({
+      hookTypeExecutors: [],
       cwd: process.cwd(),
       tools: [tool],
       provider,

@@ -54,6 +54,7 @@ describe('Session.shutdown — best-effort disposal (CORE-013)', () => {
 
   it('destroys the wrapped agent — run() after shutdown rejects with [LIFECYCLE] (CORE-022)', async () => {
     const session = new Session({
+      hookTypeExecutors: [],
       cwd: process.cwd(),
       tools: [] as never,
       provider: MOCK_PROVIDER as never,
@@ -68,6 +69,7 @@ describe('Session.shutdown — best-effort disposal (CORE-013)', () => {
 
   it('returns the same cached promise on repeated shutdown calls', async () => {
     const session = new Session({
+      hookTypeExecutors: [],
       cwd: process.cwd(),
       tools: [] as never,
       provider: MOCK_PROVIDER as never,

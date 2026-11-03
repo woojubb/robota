@@ -21,6 +21,7 @@ function fixture(turns: TScriptedTurn[], options: Partial<ISessionOptions> = {})
   const scripted = createScriptedProvider(turns);
   const effect = vi.fn(async () => 'effect result');
   const session = new Session({
+    hookTypeExecutors: [],
     cwd: '/tmp',
     sessionId: 'recovered-session',
     systemMessage: 'Fixture',

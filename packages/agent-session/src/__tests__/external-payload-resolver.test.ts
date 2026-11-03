@@ -186,6 +186,21 @@ describe('resolveSessionLogExternalPayloads', () => {
     );
   });
 
+  it('keeps a leading byte-order mark, which makes the payload invalid JSON (issue #3693)', () => {
+    const bytes = new TextEncoder().encode('\uFEFF{"content":"restored"}');
+    const source: IExternalPayloadSource = { readBytes: () => bytes };
+    const reference = createReference(
+      'bom.json',
+      createHash('sha256').update(bytes).digest('hex'),
+      bytes.byteLength,
+    );
+
+    expectResolutionCode(
+      () => resolveSessionLogExternalPayloads(reference, { source }),
+      'INVALID_JSON',
+    );
+  });
+
   it('ARCH-014: enforces nested-reference depth and aggregate byte limits', () => {
     const baseDirectory = createTemporaryDirectory();
     const inner = writePayload(baseDirectory, 'inner value', 'inner.json');

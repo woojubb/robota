@@ -48,6 +48,7 @@ function lower(cwd: string, store?: NodeSessionStore) {
   ]);
   const effect = vi.fn(async () => 'effect');
   const session = new Session({
+    hookTypeExecutors: [],
     cwd,
     sessionId: 'saved_owner',
     systemMessage: 'Fixture',

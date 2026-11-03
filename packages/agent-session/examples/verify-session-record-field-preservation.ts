@@ -206,6 +206,7 @@ async function main(): Promise<void> {
 
     const session = new Session({
       cwd: scratchDir,
+      hookTypeExecutors: [],
       tools: [],
       provider: new OfflineProvider(),
       systemMessage: 'live system prompt',

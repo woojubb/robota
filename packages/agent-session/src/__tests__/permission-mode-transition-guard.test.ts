@@ -6,6 +6,7 @@ import type { IAIProvider } from '@robota-sdk/agent-core';
 
 function session(): Session {
   return new Session({
+    hookTypeExecutors: [],
     cwd: process.cwd(),
     tools: [],
     provider: { name: 'mock', version: '1', chat: vi.fn() } as unknown as IAIProvider,

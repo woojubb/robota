@@ -37,6 +37,7 @@ describe('Session provider ownership', () => {
       const previous = client();
       const next = client();
       const session = new Session({
+        hookTypeExecutors: [],
         cwd: process.cwd(),
         tools: [],
         provider: previous.provider,

@@ -28,6 +28,7 @@ import {
   sessionSealingOf,
   splitStoredLines,
 } from '@robota-sdk/agent-session';
+import { registerProcessExitFlush } from '@robota-sdk/agent-session/node';
 
 import { NodeFileSystem } from '../adapters/node-file-system.js';
 
@@ -82,7 +83,9 @@ export function createSubagentLogger(
 ): FileSessionLogger {
   const subagentDir = resolveSubagentLogDir(parentSessionId, baseLogsDir);
   fs.mkdirSync(subagentDir, { recursive: true });
-  return new FileSessionLogger(new NodeSessionLogSink(subagentDir, options));
+  return new FileSessionLogger(new NodeSessionLogSink(subagentDir, options), {
+    registerExitFlush: registerProcessExitFlush,
+  });
 }
 
 /**

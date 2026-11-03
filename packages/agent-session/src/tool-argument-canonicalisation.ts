@@ -14,9 +14,7 @@
  * for the action.
  */
 
-import { isAbsolute, resolve } from 'node:path';
-
-import { getToolPermissionProfile } from '@robota-sdk/agent-core';
+import { getToolPermissionProfile, isAbsolutePath, resolvePath } from '@robota-sdk/agent-core';
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
 
@@ -28,6 +26,6 @@ export function canonicaliseToolArguments(
   const argument = getToolPermissionProfile(toolName).argument;
   if (argument === undefined || argument.kind !== 'path') return parameters;
   const value = parameters[argument.key];
-  if (typeof value !== 'string' || value === '' || isAbsolute(value)) return parameters;
-  return { ...parameters, [argument.key]: resolve(cwd, value) };
+  if (typeof value !== 'string' || value === '' || isAbsolutePath(value)) return parameters;
+  return { ...parameters, [argument.key]: resolvePath(cwd, value) };
 }

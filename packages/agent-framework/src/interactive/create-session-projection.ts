@@ -1,4 +1,5 @@
 import { FileSessionLogger, SilentSessionLogger } from '@robota-sdk/agent-session';
+import { registerProcessExitFlush } from '@robota-sdk/agent-session/node';
 
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
 import { createProjectPermissionPersistence } from './project-permission-persistence.js';
@@ -75,7 +76,9 @@ export function buildCreateSessionOptions(
     sessionLogger:
       options.sessionLogSink === undefined
         ? new SilentSessionLogger()
-        : new FileSessionLogger(options.sessionLogSink),
+        : new FileSessionLogger(options.sessionLogSink, {
+            registerExitFlush: registerProcessExitFlush,
+          }),
     ...(options.transcriptPath !== undefined ? { transcriptPath: options.transcriptPath } : {}),
     permissionHandler: options.permissionHandler,
     ...(persistProjectPermission === undefined ? {} : { persistProjectPermission }),

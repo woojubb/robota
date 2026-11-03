@@ -134,6 +134,7 @@ describe('Hook wiring in session', () => {
 
   it('should fire SessionStart hook on session creation', () => {
     new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',
@@ -150,6 +151,7 @@ describe('Hook wiring in session', () => {
 
   it('should fire UserPromptSubmit hook before AI processes input', async () => {
     const session = new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',
@@ -170,6 +172,7 @@ describe('Hook wiring in session', () => {
 
   it('should fire Stop hook after AI response completion', async () => {
     const session = new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',
@@ -190,6 +193,7 @@ describe('Hook wiring in session', () => {
 
   it('should fire SessionEnd hook once during graceful shutdown', async () => {
     const session = new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',
@@ -211,6 +215,7 @@ describe('Hook wiring in session', () => {
 
   it('should fire UserPromptSubmit before Stop in run() lifecycle', async () => {
     const session = new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',
@@ -232,6 +237,7 @@ describe('Hook wiring in session', () => {
 
   it('should pass hook config from session options to core runHooks', () => {
     new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',
@@ -273,6 +279,7 @@ describe('Hook wiring in session', () => {
 
   it('should not fire hooks when no hooks config is provided', async () => {
     const session = new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',
@@ -292,6 +299,7 @@ describe('Hook wiring in session', () => {
 
   it('should include session_id and cwd in all hook inputs', async () => {
     const session = new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',

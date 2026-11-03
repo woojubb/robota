@@ -76,6 +76,7 @@ describe('session provider web search ownership', () => {
       terminal,
       model: 'initial',
       autoCompactThreshold: false,
+      hookTypeExecutors: [],
     });
 
     expect(initial.configureNativeWebTools).not.toHaveBeenCalled();

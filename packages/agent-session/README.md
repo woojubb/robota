@@ -20,6 +20,7 @@ Requires Node.js 22.12 or later.
 
 ```typescript
 import { Session } from '@robota-sdk/agent-session';
+import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 import type { ITerminalOutput } from '@robota-sdk/agent-session';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 
@@ -34,6 +35,8 @@ const session = new Session({
   terminal,
   // Required. The session's root: hook inputs, the permission workspace and the stored record use it.
   cwd: process.cwd(),
+  // Required. The hook handlers this host can run; `[]` runs none. The session has no host default.
+  hookTypeExecutors: [new CommandExecutor(), new HttpExecutor()],
   permissions: { allow: ['Read(*)'], deny: [] },
   autoCompactThreshold: 0.75,
 });

@@ -104,6 +104,7 @@ describe('formatConversationEntries', () => {
       },
     } as IAIProvider;
     const orchestrator = new CompactionOrchestrator({
+      hookTypeExecutors: [],
       sessionId: 's',
       cwd: process.cwd(),
       model: 'm',
@@ -154,6 +155,7 @@ it('keeps resource reconciliation context and audio limitations in compaction in
     },
   } as IAIProvider;
   const orchestrator = new CompactionOrchestrator({
+    hookTypeExecutors: [],
     sessionId: 'resource-compaction',
     cwd: process.cwd(),
     model: 'fixture',
