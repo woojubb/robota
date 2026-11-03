@@ -148,7 +148,7 @@ describe('platform-neutral entry check', () => {
             'src/typed.ts':
               'export type T = { data: Buffer; env: typeof process.env; p: typeof globalThis.process; t: ReturnType<typeof setImmediate> };',
             'src/local.ts':
-              'type Buffer = Uint8Array;\nexport const read = (process: { cwd(): string }, b: Buffer) => [process.cwd(), b];',
+              'export type G = typeof globalThis.Buffer;\ntype Buffer = Uint8Array;\nexport const read = (process: { cwd(): string }, b: Buffer) => [process.cwd(), b];',
           },
         },
       },
@@ -158,6 +158,7 @@ describe('platform-neutral entry check', () => {
       [
         '@robota-sdk/a uses Node types Buffer, process, setImmediate: packages/a/src/index.ts → packages/a/src/typed.ts',
         '@robota-sdk/a uses Node types NodeJS: packages/a/src/index.ts → packages/a/src/heritage.ts',
+        '@robota-sdk/a uses Node types Buffer: packages/a/src/index.ts → packages/a/src/local.ts',
       ].sort(),
     );
   });

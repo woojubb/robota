@@ -83,7 +83,10 @@ const NODE_TYPE_NAMES = new Set([
   ),
 ]);
 
-/** The global a dotted name starts from, `A.B.C` → `A` (and `globalThis.A.B` → `A`), type or value. */
+/**
+ * The global a dotted name starts from, `A.B.C` → `A`, type or value; `globalThis.A.B` → `A`, which no
+ * local declaration can shadow.
+ */
 function globalRoot(node) {
   const segments = [];
   for (let step = node; step;) {
@@ -99,7 +102,9 @@ function globalRoot(node) {
       step = step.expression;
     } else return undefined;
   }
-  return segments[0] === 'globalThis' ? segments[1] : segments[0];
+  return segments[0] === 'globalThis'
+    ? { name: segments[1], global: true }
+    : { name: segments[0], global: false };
 }
 
 /** Names the file declares itself, so a local `Buffer` type or `process` parameter is not Node's. */
@@ -149,8 +154,9 @@ function sourceNodeReferences(file, code) {
       ? ['node']
       : [],
   );
-  const nodeType = (name) => {
-    if (name !== undefined && NODE_TYPE_NAMES.has(name) && !local.has(name)) nodeTypes.add(name);
+  const nodeType = (root) => {
+    if (root === undefined || root.name === undefined || !NODE_TYPE_NAMES.has(root.name)) return;
+    if (root.global || !local.has(root.name)) nodeTypes.add(root.name);
   };
   const specifier = (node) => (node && ts.isStringLiteralLike(node) ? node.text : undefined);
   const visit = (node) => {
