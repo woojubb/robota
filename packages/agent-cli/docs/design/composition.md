@@ -116,7 +116,7 @@ advisor tool are appended to `additionalTools` afterwards.
 ### Runners and the subagent factory
 
 The shell builds the background-task runners (`createDefaultBackgroundTaskRunners()` from
-`@robota-sdk/agent-executor`) and the subagent runner factory (`createProductSubagentRunnerFactory()`),
+`@robota-sdk/agent-executor/node`) and the subagent runner factory (`createProductSubagentRunnerFactory()`),
 passes them into the profile, and reads them back from the assembled product with
 `bindAssembledCollaborators()`. Every mode receives the instances the product holds.
 

@@ -117,6 +117,7 @@ describe('WorktreeSubagentRunner', () => {
     const runner = new WorktreeSubagentRunner({
       runner: captured.runner,
       worktreeAdapter: adapter,
+      hookTypeExecutors: [],
     });
 
     const result = await runner.start(createJob('worktree')).result;
@@ -142,6 +143,7 @@ describe('WorktreeSubagentRunner', () => {
     const runner = new WorktreeSubagentRunner({
       runner: captured.runner,
       worktreeAdapter: adapter,
+      hookTypeExecutors: [],
     });
 
     const result = await runner.start(createJob('worktree')).result;
@@ -167,7 +169,11 @@ describe('WorktreeSubagentRunner', () => {
         };
       },
     };
-    const runner = new WorktreeSubagentRunner({ runner: failingRunner, worktreeAdapter: adapter });
+    const runner = new WorktreeSubagentRunner({
+      runner: failingRunner,
+      worktreeAdapter: adapter,
+      hookTypeExecutors: [],
+    });
 
     await expect(runner.start(createJob('worktree')).result).rejects.toThrow('worker failed');
     expect(adapter.removed).toEqual([TEST_WORKTREE]);
@@ -180,7 +186,11 @@ describe('WorktreeSubagentRunner', () => {
         throw new Error('startup failed');
       },
     };
-    const runner = new WorktreeSubagentRunner({ runner: failingRunner, worktreeAdapter: adapter });
+    const runner = new WorktreeSubagentRunner({
+      runner: failingRunner,
+      worktreeAdapter: adapter,
+      hookTypeExecutors: [],
+    });
 
     expect(() => runner.start(createJob('worktree'))).toThrow('startup failed');
     expect(adapter.removed).toEqual([TEST_WORKTREE]);
@@ -201,6 +211,7 @@ describe('WorktreeSubagentRunner', () => {
     const runner = new WorktreeSubagentRunner({
       runner: cancellableRunner,
       worktreeAdapter: adapter,
+      hookTypeExecutors: [],
     });
 
     const handle = runner.start(createJob('worktree'));
@@ -230,6 +241,7 @@ describe('WorktreeSubagentRunner', () => {
     const runner = new WorktreeSubagentRunner({
       runner: cancellableRunner,
       worktreeAdapter: adapter,
+      hookTypeExecutors: [],
     });
 
     const handle = runner.start(createJob('worktree'));
@@ -250,6 +262,7 @@ describe('WorktreeSubagentRunner', () => {
     const runner = new WorktreeSubagentRunner({
       runner: captured.runner,
       worktreeAdapter: adapter,
+      hookTypeExecutors: [],
     });
 
     const result = await runner.start(createJob('worktree')).result;
@@ -269,6 +282,7 @@ describe('WorktreeSubagentRunner', () => {
     const runner = new WorktreeSubagentRunner({
       runner: captured.runner,
       worktreeAdapter: adapter,
+      hookTypeExecutors: [],
     });
 
     const result = await runner.start(createJob()).result;

@@ -23,6 +23,7 @@ import {
   type IScheduleEditPatch,
   type TBackgroundTaskRunnerEvent,
 } from '../types.js';
+import { nextScheduledFireOnOrAfter } from './scheduled-fire-time.js';
 import { resolveBackgroundTaskShellCommand } from './shell-command-resolution.js';
 
 const DEFAULT_OUTPUT_LIMIT_BYTES = 30_000;
@@ -30,23 +31,6 @@ const DEFAULT_OUTPUT_LIMIT_BYTES = 30_000;
 export interface IScheduledTaskRunnerOptions {
   timezone?: string;
   shellExecutable?: string;
-}
-
-/** Resolve an eligible slot with the same Croner semantics as the scheduled runner. */
-export function nextScheduledFireOnOrAfter(
-  cronExpression: string,
-  firstAllowedAt: Date,
-  options: IScheduledTaskRunnerOptions = {},
-): Date | null {
-  const job = new Cron(cronExpression, {
-    paused: true,
-    ...(options.timezone !== undefined ? { timezone: options.timezone } : {}),
-  });
-  try {
-    return job.nextRun(new Date(firstAllowedAt.getTime() - 1));
-  } finally {
-    job.stop();
-  }
 }
 
 interface IScheduledTaskState {

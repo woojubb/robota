@@ -1,4 +1,5 @@
 import { sumHistoryUsage } from '@robota-sdk/agent-core';
+import { processEnvResolver } from '@robota-sdk/agent-core/node';
 import {
   createProviderFromExactProfile,
   subagentExecutionRoot,
@@ -212,6 +213,7 @@ async function runInitialPrompt(
       payload.providerProfile,
       payload.request.model,
       composition.providerDefinitions,
+      processEnvResolver,
     );
     withholdProviderCredential(payload.providerProfile, payload.keepProviderCredential === true);
     // The session id names the log and binds a sealed one, by the rule the parent reads it with.

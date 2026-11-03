@@ -1,6 +1,18 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { PerformancePlugin } from '../performance-plugin';
+import type { ISystemMetricsCollector } from '../types';
 import { ConfigurationError } from '@robota-sdk/agent-core';
+
+const collector: ISystemMetricsCollector = {
+  getMemoryUsage: async () => ({
+    used: 1,
+    free: 2,
+    total: 3,
+    heap: { used: 4, total: 5 },
+  }),
+  getCPUUsage: async () => ({ user: 6, system: 7, percent: 8 }),
+  getNetworkStats: async () => undefined,
+};
 
 describe('PerformancePlugin', () => {
   let plugin: PerformancePlugin;
@@ -13,9 +25,32 @@ describe('PerformancePlugin', () => {
 
   describe('constructor', () => {
     it('creates plugin with memory strategy', () => {
-      plugin = new PerformancePlugin({ strategy: 'memory' });
+      plugin = new PerformancePlugin({ strategy: 'memory', metricsCollector: collector });
       expect(plugin.name).toBe('PerformancePlugin');
       expect(plugin.version).toBe('1.0.0');
+    });
+
+    it('creates plugin without a collector when no system monitoring is on', () => {
+      plugin = new PerformancePlugin({
+        strategy: 'memory',
+        monitorMemory: false,
+        monitorCPU: false,
+      });
+      expect(plugin.name).toBe('PerformancePlugin');
+    });
+
+    it.each([
+      { name: 'by default', options: {} },
+      { name: 'with only monitorMemory on', options: { monitorMemory: true, monitorCPU: false } },
+      { name: 'with only monitorCPU on', options: { monitorMemory: false, monitorCPU: true } },
+      {
+        name: 'with only monitorNetwork on',
+        options: { monitorMemory: false, monitorCPU: false, monitorNetwork: true },
+      },
+    ])('throws ConfigurationError without a metricsCollector $name', ({ options }) => {
+      expect(() => new PerformancePlugin({ strategy: 'memory', ...options })).toThrow(
+        ConfigurationError,
+      );
     });
 
     it('throws ConfigurationError for missing strategy', () => {
@@ -30,7 +65,9 @@ describe('PerformancePlugin', () => {
 
     it('throws ConfigurationError for unimplemented strategy', () => {
       // file, prometheus, remote, silent are valid but not implemented
-      expect(() => new PerformancePlugin({ strategy: 'file' })).toThrow(ConfigurationError);
+      expect(
+        () => new PerformancePlugin({ strategy: 'file', monitorMemory: false, monitorCPU: false }),
+      ).toThrow(ConfigurationError);
     });
   });
 
@@ -59,6 +96,7 @@ describe('PerformancePlugin', () => {
     it('records with system metrics when monitoring enabled', async () => {
       plugin = new PerformancePlugin({
         strategy: 'memory',
+        metricsCollector: collector,
         monitorMemory: true,
         monitorCPU: true,
         monitorNetwork: true,
@@ -71,8 +109,10 @@ describe('PerformancePlugin', () => {
       });
       const metrics = await plugin.getMetrics();
       expect(metrics).toHaveLength(1);
-      // Memory and CPU should be populated from NodeSystemMetricsCollector
-      // Network will be undefined as it is not fully implemented
+      // Memory and CPU come from the injected collector; this one reports no network figures
+      expect(metrics[0].memoryUsage?.heap.used).toBe(4);
+      expect(metrics[0].cpuUsage?.user).toBe(6);
+      expect(metrics[0].networkStats).toBeUndefined();
     });
   });
 

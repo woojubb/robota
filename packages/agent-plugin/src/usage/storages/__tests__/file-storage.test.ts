@@ -2,6 +2,7 @@ import { afterEach, describe, it, expect } from 'vitest';
 import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { NodePluginTextFileStore } from '../../../storage/node-text-file-store';
 import { FileUsageStorage } from '../file-storage';
 import type { IUsageStats } from '../../types';
 
@@ -24,7 +25,7 @@ describe('FileUsageStorage (PLUGIN-001: real persistence)', () => {
 
   function freshStorage(): FileUsageStorage {
     dir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-usage-')));
-    return new FileUsageStorage(join(dir, 'usage.json'));
+    return new FileUsageStorage(join(dir, 'usage.json'), new NodePluginTextFileStore());
   }
 
   afterEach(() => {

@@ -13,6 +13,7 @@
 
 import { DEFAULT_BACKGROUND_PERMISSION_POLICY, MODEL_EFFORT_VALUES } from '@robota-sdk/agent-core';
 import { SubagentManager } from '@robota-sdk/agent-executor';
+import { reportObserverFailureAsProcessWarning } from '@robota-sdk/agent-executor/node';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
@@ -180,6 +181,7 @@ function createSubagentManager(deps: IAgentToolDeps): ISubagentManager {
     deps.subagentManager ??
     new SubagentManager({
       runner: createInProcessSubagentRunner(deps),
+      onObserverFailure: (failure) => reportObserverFailureAsProcessWarning(failure),
     })
   );
 }

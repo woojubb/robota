@@ -1,8 +1,7 @@
-import jsSHA from 'jssha';
-
 import type { ICacheKey } from '../../interfaces/cache';
 import type { TModelEffortSelection } from '../../interfaces/model-effort-capability';
 import type { TUniversalMessage } from '../../interfaces/messages';
+import { sha256Hex } from '../../utils/digest';
 
 interface ICacheKeyOptions {
   temperature?: number;
@@ -40,19 +39,13 @@ export class CacheKeyBuilder {
     });
 
     return {
-      hash: this.sha256(payload),
+      hash: sha256Hex(payload),
       model,
       provider,
     };
   }
 
   computeIntegrityHash(content: string): string {
-    return this.sha256(content);
-  }
-
-  private sha256(input: string): string {
-    const shaObj = new jsSHA('SHA-256', 'TEXT');
-    shaObj.update(input);
-    return shaObj.getHash('HEX');
+    return sha256Hex(content);
   }
 }

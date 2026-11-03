@@ -97,6 +97,12 @@ export interface IPerformancePluginOptions extends IPluginOptions {
   remoteHeaders?: Record<string, string>;
   /** Maximum number of performance entries to keep in memory */
   maxEntries?: number;
+  /**
+   * Injected source of memory, CPU and network figures. Required while `monitorMemory` or
+   * `monitorCPU` is on (both are on by default); `NodeSystemMetricsCollector` from
+   * `@robota-sdk/agent-plugin/node` is the Node one.
+   */
+  metricsCollector?: ISystemMetricsCollector;
   /** Whether to monitor memory usage */
   monitorMemory?: boolean;
   /** Whether to monitor CPU usage */

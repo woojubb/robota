@@ -1,5 +1,7 @@
 import type { TUniversalMessage, IPluginOptions, IPluginStats } from '@robota-sdk/agent-core';
 
+import type { IPluginTextFileStore } from '../storage/text-file-store';
+
 /**
  * Storage strategy for conversation history
  */
@@ -36,6 +38,8 @@ export interface IConversationHistoryPluginOptions extends IPluginOptions {
   maxMessagesPerConversation?: number;
   /** File path for file storage strategy */
   filePath?: string;
+  /** Injected text-file store — required when `storage: 'file'`. */
+  fileStore?: IPluginTextFileStore;
   /** Database connection string for database storage (informational; the driver owns the connection) */
   connectionString?: string;
   /** Injected database driver — required when `storage: 'database'` (PLUGIN-002). */

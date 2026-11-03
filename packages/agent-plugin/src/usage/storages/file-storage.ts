@@ -1,45 +1,38 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
-
 import { createLogger, type ILogger, StorageError } from '@robota-sdk/agent-core';
 
 import { aggregateUsageStats } from '../aggregate-usage-stats';
 
+import type { IPluginTextFileStore } from '../../storage/text-file-store';
 import type { IUsageStorage, IUsageStats, IAggregatedUsageStats } from '../types';
 
 /**
  * File-backed usage-statistics storage.
  *
- * Records are persisted as a single JSON array at `filePath`. Writes are
- * write-through (each `save` rewrites the file), so `flush`/`close` have no
- * buffered state to drain.
+ * Records are persisted as a single JSON array at `filePath`, read and written
+ * through the injected `store`. Writes are write-through (each `save` rewrites
+ * the file), so `flush`/`close` have no buffered state to drain.
  */
 export class FileUsageStorage implements IUsageStorage {
   private filePath: string;
+  private store: IPluginTextFileStore;
   private logger: ILogger;
 
-  constructor(filePath: string) {
+  constructor(filePath: string, store: IPluginTextFileStore) {
     this.filePath = filePath;
+    this.store = store;
     this.logger = createLogger('FileUsageStorage');
   }
 
   private async readAll(): Promise<IUsageStats[]> {
-    try {
-      const raw = await readFile(this.filePath, 'utf8');
-      const stats = JSON.parse(raw) as IUsageStats[];
-      for (const stat of stats) stat.timestamp = new Date(stat.timestamp);
-      return stats;
-    } catch (error) {
-      if (error instanceof Error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
-        return [];
-      }
-      throw error;
-    }
+    const raw = await this.store.readText(this.filePath);
+    if (raw === undefined) return [];
+    const stats = JSON.parse(raw) as IUsageStats[];
+    for (const stat of stats) stat.timestamp = new Date(stat.timestamp);
+    return stats;
   }
 
   private async writeAll(stats: IUsageStats[]): Promise<void> {
-    await mkdir(dirname(this.filePath), { recursive: true });
-    await writeFile(this.filePath, JSON.stringify(stats), 'utf8');
+    await this.store.writeText(this.filePath, JSON.stringify(stats));
   }
 
   async save(entry: IUsageStats): Promise<void> {

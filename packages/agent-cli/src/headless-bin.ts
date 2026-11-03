@@ -2,7 +2,7 @@
 import { installProductProcessEnvironment } from './product/process-environment.js';
 /** RUNTIME-002: the desktop's presentation-free executable. */
 import { isSubagentWorkerModeArgv, runSubagentWorkerMain } from '@robota-sdk/agent-subagent-runner';
-import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
+import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor/node';
 
 import { installCliDiagnostics } from './bootstrap-diagnostics.js';
 import { hardenProductProcess } from './process-hardening.js';

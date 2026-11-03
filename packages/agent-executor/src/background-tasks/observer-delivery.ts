@@ -12,6 +12,8 @@
  * - every failure is reported, never swallowed, through an explicit reporter.
  */
 
+import { createLogger } from '@robota-sdk/agent-core';
+
 export interface IObserverFailure<TEvent> {
   readonly event: TEvent;
   readonly error: unknown;
@@ -24,24 +26,30 @@ export type TObserverFailureReporter<TEvent> = (failure: IObserverFailure<TEvent
 /** Default identity for hosts that do not supply their own warning code. */
 export const OBSERVER_FAILURE_WARNING_CODE = 'BACKGROUND_OBSERVER_FAILURE';
 
-/**
- * Default reporter: surface the failure as a process warning. It is visible (stderr, `warning`
- * event) without crashing the host, and it runs outside the emitter's call stack.
- */
-export function reportObserverFailureAsWarning<TEvent>(
-  failure: IObserverFailure<TEvent>,
-  code: string = OBSERVER_FAILURE_WARNING_CODE,
-): void {
+/** One line saying which observer failed on which event, and why. */
+export function describeObserverFailure<TEvent>(failure: IObserverFailure<TEvent>): string {
   const message =
     failure.error instanceof Error ? failure.error.message : String(failure.error ?? 'unknown');
   const eventType =
     typeof failure.event === 'object' && failure.event !== null && 'type' in failure.event
       ? String((failure.event as { type: unknown }).type)
       : 'unknown';
-  process.emitWarning(
-    `Background lifecycle observer #${failure.observerIndex} threw on '${eventType}': ${message}`,
-    { code },
-  );
+  return `Background lifecycle observer #${failure.observerIndex} threw on '${eventType}': ${message}`;
+}
+
+const observerLogger = createLogger('BackgroundObserver');
+
+/**
+ * Default reporter: log the failure as a warning carrying `code`, through agent-core's logger. It
+ * runs outside the emitter's call stack and never throws. The logger is silent until the host
+ * installs a sink, so a host that must see these failures injects its own reporter — the Node one is
+ * `reportObserverFailureAsProcessWarning` in `@robota-sdk/agent-executor/node`.
+ */
+export function reportObserverFailureAsLogWarning<TEvent>(
+  failure: IObserverFailure<TEvent>,
+  code: string = OBSERVER_FAILURE_WARNING_CODE,
+): void {
+  observerLogger.warn(describeObserverFailure(failure), { code });
 }
 
 /**

@@ -20,6 +20,7 @@ import {
   logToolExecutionHelper,
 } from './logging-helpers';
 
+import type { IPluginTextFileStore } from '../storage/text-file-store';
 import type {
   TLogLevel,
   ILogEntry,
@@ -42,9 +43,12 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
   version = '1.0.0';
 
   private storage: ILogStorage;
-  private pluginOptions: Required<Omit<ILoggingPluginOptions, 'formatter' | 'logger'>> & {
+  private pluginOptions: Required<
+    Omit<ILoggingPluginOptions, 'formatter' | 'logger' | 'fileStore'>
+  > & {
     formatter?: ILogFormatter;
     logger?: ILogger;
+    fileStore?: IPluginTextFileStore;
   };
   private logger: ILogger;
   private simpleLogger: ILogger;
@@ -68,6 +72,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
       strategy: options.strategy,
       level: options.level ?? 'info',
       filePath: options.filePath ?? './agent.log',
+      ...(options.fileStore && { fileStore: options.fileStore }),
       remoteEndpoint: options.remoteEndpoint ?? '',
       remoteHeaders: options.remoteHeaders ?? {},
       maxLogs: options.maxLogs ?? DEFAULT_MAX_LOGS,
@@ -89,6 +94,7 @@ export class LoggingPlugin extends AbstractPlugin<ILoggingPluginOptions, ILoggin
       this.pluginOptions.remoteEndpoint,
       this.pluginOptions.flushInterval,
       this.pluginOptions.formatter,
+      this.pluginOptions.fileStore,
     );
 
     this.logger.info('LoggingPlugin initialized', {

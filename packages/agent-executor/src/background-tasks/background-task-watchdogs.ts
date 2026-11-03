@@ -1,3 +1,4 @@
+import { getUtf8ByteLength } from './log-pages.js';
 import {
   hasRepeatedSentence,
   normalizeRepeatedText,
@@ -71,7 +72,7 @@ export class BackgroundTaskWatchdogController {
 
   applyTextGuards(task: ITrackedBackgroundTask, delta: string): void {
     if (task.request.kind !== 'agent') return;
-    task.outputBytes += Buffer.byteLength(delta, 'utf8');
+    task.outputBytes += getUtf8ByteLength(delta);
     task.textDeltas += 1;
     task.recentText = trimRecentText(
       `${task.recentText}${delta}`,

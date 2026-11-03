@@ -23,6 +23,19 @@ export function validatePerformanceOptions(options: IPerformancePluginOptions): 
       provided: options.strategy,
     });
   }
+
+  const readsSystemMetrics =
+    (options.monitorMemory ?? true) ||
+    (options.monitorCPU ?? true) ||
+    (options.monitorNetwork ?? false);
+  if (readsSystemMetrics && !options.metricsCollector) {
+    throw new ConfigurationError(
+      'A `metricsCollector` is required while memory, CPU or network monitoring is on (memory ' +
+        'and CPU are on by default) — agent-plugin is platform-neutral and reads no host ' +
+        'metrics; inject an ISystemMetricsCollector (NodeSystemMetricsCollector from ' +
+        '@robota-sdk/agent-plugin/node) or set monitorMemory and monitorCPU to false.',
+    );
+  }
 }
 
 /** Create IPerformanceStorage instance for the given strategy. @internal */

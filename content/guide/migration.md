@@ -91,7 +91,8 @@ The provider now uses Google's `@google/genai` SDK. Check your options against
 `WebhookPlugin`, their option and stats types (`ILoggingPluginOptions`, `TLimitsStrategy`,
 `TErrorHandlingStrategy`, `TWebhookEventName`, …), the usage and performance storages
 (`MemoryUsageStorage`, `FileUsageStorage`, `RemoteUsageStorage`, `SilentUsageStorage`,
-`MemoryPerformanceStorage`, `NodeSystemMetricsCollector`) and `aggregateUsageStats`.
+`MemoryPerformanceStorage`) and `aggregateUsageStats`; `NodeSystemMetricsCollector` is on
+`@robota-sdk/agent-plugin/node`.
 
 <!-- doc-example-skip: 2.x/3.0 before/after contrast — the 2.x package is not installed -->
 

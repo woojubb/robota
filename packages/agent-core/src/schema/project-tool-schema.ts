@@ -20,7 +20,7 @@
  */
 
 import { closeObjectSchemas } from './close-object-schemas';
-import { sha256Hex } from './sha256';
+import { sha256Hex } from '../utils/digest';
 
 import type {
   IObjectParameterSchema,

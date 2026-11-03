@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { createDefaultBackgroundTaskRunners } from '../background-tasks/runners/index.js';
+import { createDefaultBackgroundTaskRunners } from '../node.js';
 
 describe('createDefaultBackgroundTaskRunners — TC-17', () => {
   it('registers exactly one runner whose kind is tool-invocation', () => {
