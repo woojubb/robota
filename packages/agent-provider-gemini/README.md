@@ -67,8 +67,8 @@ Gemini offers no native web search or web fetch through this provider. A request
 
 ### Endpoint
 
-There is no `baseURL` option: the `@google/genai` client is created from `apiKey` alone. The SDK
-reads its own environment variables to choose where it connects, such as `GOOGLE_GENAI_USE_VERTEXAI`,
+There is no `baseURL` option: the `@google/genai` client is created from `apiKey` alone. On Node the
+SDK reads its own environment variables to choose where it connects, such as `GOOGLE_GENAI_USE_VERTEXAI`,
 `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_GEMINI_BASE_URL` and `GOOGLE_VERTEX_BASE_URL`,
 so set those to reach Vertex AI or another endpoint.
 

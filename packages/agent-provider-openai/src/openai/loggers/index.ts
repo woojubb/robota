@@ -1,12 +1,8 @@
 /**
- * IPayloadLogger implementations for different environments
+ * Platform-neutral IPayloadLogger implementations. The file logger is Node-only (`./node`).
  */
 
 // Interfaces
 export type { IPayloadLogger, IPayloadLoggerOptions } from '../interfaces/payload-logger';
 
-// Node.js implementation
-export { FilePayloadLogger } from './file-payload-logger';
-
-// Browser implementation
 export { ConsolePayloadLogger } from './console-payload-logger';

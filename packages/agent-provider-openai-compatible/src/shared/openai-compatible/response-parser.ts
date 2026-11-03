@@ -1,6 +1,5 @@
-import { randomUUID } from 'node:crypto';
 
-import { SilentLogger } from '@robota-sdk/agent-core';
+import { SilentLogger, randomId } from '@robota-sdk/agent-core';
 
 import { parseChatCompletionUsage } from './chat-completion-usage';
 
@@ -60,7 +59,7 @@ export class OpenAICompatibleResponseParser {
     const toolCalls = [...nativeToolCalls, ...projectedToolCalls];
 
     return {
-      id: randomUUID(),
+      id: randomId(),
       state: 'complete',
       role: 'assistant',
       content: this.projectText(
@@ -110,7 +109,7 @@ export class OpenAICompatibleResponseParser {
         // Final usage chunk (choices: []) when stream_options.include_usage is set.
         if (usage) {
           return {
-            id: randomUUID(),
+            id: randomId(),
             state: 'complete',
             role: 'assistant',
             content: '',
@@ -134,7 +133,7 @@ export class OpenAICompatibleResponseParser {
 
       if (toolCalls) {
         return {
-          id: randomUUID(),
+          id: randomId(),
           state: 'complete',
           role: 'assistant',
           content: '',
@@ -149,7 +148,7 @@ export class OpenAICompatibleResponseParser {
       }
 
       return {
-        id: randomUUID(),
+        id: randomId(),
         state: 'complete',
         role: 'assistant',
         content: this.projectText(choice.delta.content || ''),

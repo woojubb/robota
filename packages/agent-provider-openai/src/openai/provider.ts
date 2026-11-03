@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto';
-import { AbstractAIProvider } from '@robota-sdk/agent-core';
+import { AbstractAIProvider, randomId } from '@robota-sdk/agent-core';
 import { createModelEffortOutcome } from '@robota-sdk/agent-core';
 import { PERMISSIVE_TOOL_SCHEMA_PROFILE, STRICT_TOOL_SCHEMA_PROFILE } from '@robota-sdk/agent-core';
 import { resolveModelEffort } from '@robota-sdk/agent-core';
@@ -251,7 +250,7 @@ export class OpenAIProvider extends AbstractAIProvider {
       ...(this.canPropagateTraceContext()
         ? traceHeadersFor(this.effectiveBaseUrl(), options?.outboundTraceContext)
         : {}),
-      ...(this.options.durableOperations === true ? { 'Idempotency-Key': randomUUID() } : {}),
+      ...(this.options.durableOperations === true ? { 'Idempotency-Key': randomId() } : {}),
     };
   }
 
