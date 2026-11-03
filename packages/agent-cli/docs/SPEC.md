@@ -333,8 +333,11 @@ definition.
 
 **Approvals outlive the process.** The CLI keeps activation decisions in an owner-only file in the
 user's storage unless the host supplies its own `IMCPActivationApprovalStore`, and `/mcp approve`
-connects the approved server in the running session. A decision binds to the definition's
-fingerprint and security identity, so a changed definition asks again. A store that cannot be read
+connects the approved server in the running session. A person at a terminal can also add and
+approve a server in one step: `__PRODUCT_CLI_NAME__ mcp add`, or the web search question the first
+interactive start asks before MCP definitions are resolved, so the choice connects in that session.
+No other start asks, and no slash command or model-invocable path adds a server. A decision binds to
+the definition's fingerprint and security identity, so a changed definition asks again. A store that cannot be read
 reads as no decisions: it can only withhold approval, never grant it. Opted-in distributed skill
 content needs separate consent from a known local user, bound to verified instructions, complete
 frontmatter, manifest, origin, workspace and URI, and a live activation remains conditional on

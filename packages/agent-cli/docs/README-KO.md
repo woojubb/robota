@@ -34,9 +34,9 @@ macOS의 Terminal.app에서는 한국어 등 CJK 입력기가 충돌을 일으�
 
 Git 저장소 안에서 `__PRODUCT_CLI_NAME__`를 실행합니다. 먼저 이 폴더를 신뢰할지 묻습니다. 프로젝트 자체의 설정,
 훅, 스킬, 플러그인, MCP 서버는 신뢰한 워크스페이스에서만 불러옵니다. 신뢰하지 않으면 세션은
-**Restricted** 상태로 시작하며, 사용자 설정과 기본 도구만 씁니다. 처음 실행할 때는 이어서 제공자를
-고르고 그 항목(모델, 기본 URL, API 키)을 채우는 과정을 안내한 뒤, 프로필을 `<configured-user-state-dir>/settings.json`에
-저장합니다.
+**Restricted** 상태로 시작하며, 사용자 설정과 기본 도구만 씁니다. 처음 실행할 때는 웹 검색 서버를
+추가할지도 묻고([웹 검색하기](#웹-검색하기) 참고), 이어서 제공자를 고르고 그 항목(모델, 기본 URL, API 키)을 채우는
+과정을 안내한 뒤, 프로필을 `<configured-user-state-dir>/settings.json`에 저장합니다.
 
 ```bash
 cd my-project
@@ -206,6 +206,22 @@ __PRODUCT_CLI_NAME__ trust revoke --yes
 모델이 두 번째 모델에게 조언을 구하게 할 수 있습니다. [제공자](../../../content/guide/providers.md)와
 [로컬 LLM 설정](../../../content/guide/local-llm.md)을 참고하세요.
 
+### 웹 검색하기
+
+웹 검색은 두 가지 방법으로 모델에 닿으며, 둘을 함께 쓸 수 있습니다.
+
+- **모델 자체 검색.** Anthropic처럼 서버 측 검색을 제공하는 제공자는 기본적으로 그 검색을 씁니다.
+  끄려면 프로필에 `"options": { "nativeWebTools": { "webSearch": false } }`를 지정하세요.
+  `nativeWebTools`를 지정한 프로필은 쓴 그대로 적용됩니다.
+- **직접 고르는 MCP 서버.** 어떤 모델이든 MCP 서버로 검색할 수 있습니다. 처음 대화형으로 시작하면
+  Exa(`https://mcp.exa.ai/mcp`)나 Parallel(`https://mcp.parallel.ai/mcp`)을 추가할지, 건너뛸지 한 번
+  묻습니다. 둘 다 API 키가 필요 없으며, 검색어는 고른 서비스로 전송됩니다. 선택은
+  `<configured-user-state-dir>/settings.json`의 `mcpServers`에 저장되고 승인되어, 그 세션에서 바로 연결됩니다.
+  나중에는 `__PRODUCT_CLI_NAME__ mcp add exa`, `__PRODUCT_CLI_NAME__ mcp add parallel`,
+  `__PRODUCT_CLI_NAME__ mcp add <name> <https-url>`로 묻지 않고 같은 일을 할 수 있습니다. 이 경우 서버는 다음
+  실행에서 연결되며, `/mcp revoke <name>`으로 승인을 거둘 수 있습니다. 아래처럼 `mcpServers`에 검색 서버를
+  직접 선언해도 됩니다.
+
 ### MCP 서버 연결하기, 또는 에이전트 세션을 MCP로 제공하기
 
 원격 MCP 서버는 설정 파일의 `mcpServers` 아래에 선언합니다. 선언한 서버는 승인하기 전까지 연결되지
@@ -213,7 +229,8 @@ __PRODUCT_CLI_NAME__ trust revoke --yes
 실행 중인 세션에서 연결을 시도합니다. 승인은 `<configured-user-state-dir>/mcp-approvals.json`에 저장되어 다음 실행에도
 이어지며, 서버 정의나 프로젝트 신뢰가 바뀌면 다시 승인해야 합니다. OAuth를 쓰는 서버는 로그인도
 필요합니다. 세션 안에서는 `/mcp login <server>`, 터미널에서는 `__PRODUCT_CLI_NAME__ mcp login <server>`를 쓰며,
-승인된 서버는 로그인하면 실행 중인 세션에 연결됩니다.
+승인된 서버는 로그인하면 실행 중인 세션에 연결됩니다. `__PRODUCT_CLI_NAME__ mcp add <name> <https-url>`은 HTTP 서버를
+사용자 설정에 추가하고 한 번에 승인합니다.
 
 ```json
 {

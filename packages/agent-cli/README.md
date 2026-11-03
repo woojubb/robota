@@ -80,8 +80,9 @@ the complete hosted capability, including E2B; the resulting binary needs no adj
 Run `robota` inside a Git repository. It first asks whether to trust the folder: only a trusted
 workspace can load the project's own settings, hooks, skills, plugins and MCP servers. Answer no and
 the session starts **Restricted**, with your user settings and the built-in tools only. The first
-time, it then walks you through choosing a provider and filling in its fields (model, base URL, API
-key), and saves the profile to `<configured-user-state-dir>/settings.json`.
+time, it also asks whether to add a web search server (see [Search the web](#search-the-web)), then
+walks you through choosing a provider and filling in its fields (model, base URL, API key), and
+saves the profile to `<configured-user-state-dir>/settings.json`.
 
 ```bash
 cd my-project
@@ -257,16 +258,29 @@ use. Setup fills the key in as a reference to an environment variable:
 }
 ```
 
-An Anthropic profile searches the web with the model's own server-side search unless you turn it
-off: set `"options": { "nativeWebTools": { "webSearch": false } }` on the profile. A profile that
-sets `nativeWebTools` is used as written.
-
 In a session, `/provider list`, `/provider switch <profile>`, `/provider add` and `/provider test`
 manage profiles. For one run, `--provider <profile>` picks a profile (add `--set-current` to make it
 the default), `--model` overrides the model, `--fallback-model a,b` continues a turn on another model
 when the first is overloaded, `--effort <level>` sets model effort, and `--advisor <profile[:model]>`
 lets the model consult a second model. See [Providers](../../content/guide/providers.md) and
 [Local LLM setup](../../content/guide/local-llm.md).
+
+### Search the web
+
+Web search reaches the model in two ways, and you can use both.
+
+- **The model's own search.** A provider that offers server-side search, such as Anthropic,
+  searches with it by default. Turn it off by setting
+  `"options": { "nativeWebTools": { "webSearch": false } }` on the profile; a profile that sets
+  `nativeWebTools` is used as written.
+- **An MCP server you choose.** Any model can search through one. The first interactive start asks
+  once whether to add Exa (`https://mcp.exa.ai/mcp`) or Parallel (`https://mcp.parallel.ai/mcp`), or
+  to skip. Neither needs an API key, and your search queries go to the service you pick. The choice
+  is saved under `mcpServers` in `<configured-user-state-dir>/settings.json`, approved, and connected
+  in that session. Later, `robota mcp add exa`, `robota mcp add parallel` or
+  `robota mcp add <name> <https-url>` does the same without a prompt; the server connects on the next
+  start, and `/mcp revoke <name>` withdraws it. You can also declare any search server yourself under
+  `mcpServers`, as below.
 
 ### Connect MCP servers, or serve the session over MCP
 
@@ -275,6 +289,8 @@ until you approve it: `/mcp` shows each server's state, and `/mcp approve <serve
 the running session and keeps the approval in `<configured-user-state-dir>/mcp-approvals.json` for later starts. A
 server that uses OAuth also needs a sign-in — `/mcp login <server>` in a session, or
 `robota mcp login <server>` in a terminal — and connects once you sign in.
+`robota mcp add <name> <https-url>` adds an HTTP server to your user settings and approves it in
+one step.
 
 ```json
 {
