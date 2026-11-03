@@ -7,7 +7,10 @@ import { Writable } from 'node:stream';
 
 import { scrubSecrets } from '@robota-sdk/agent-core';
 
-import { resolveSelfForkWorkerEntry } from '../subagents/self-fork-worker-entry.js';
+import {
+  resolveSelfForkWorkerEntry,
+  withInspectorSignalDisabled,
+} from '../subagents/self-fork-worker-entry.js';
 import { RESTRICTED_WORKSPACE_FLAG } from '../startup/workspace-project-composition.js';
 import {
   discardSupervisedGrantHandoff,
@@ -23,19 +26,6 @@ import {
 } from './supervised-transport-token.js';
 
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
-
-/**
- * #3679: Node opens an inspector on SIGUSR1, and any same-user process can send that signal and then
- * attach to the debugger to read or drive the supervised runtime — the daemon especially, which
- * outlives its window. Disable it on the child. `--disable-sigusr1` is a Node flag (added 22.14/23.7),
- * so this applies only when the self-launch runs under a Node that accepts it; under Bun single-file
- * binaries, where SIGUSR1 does not open a Node inspector, it is skipped.
- */
-function nodeInspectorHardeningArgs(): readonly string[] {
-  if (process.versions.bun !== undefined) return [];
-  if (!process.allowedNodeEnvironmentFlags.has('--disable-sigusr1')) return [];
-  return ['--disable-sigusr1'];
-}
 
 interface IHandshakeMessage {
   readonly kind: 'ready' | 'acknowledged' | 'error';
@@ -279,7 +269,8 @@ export async function launchSupervisedSession(
   const root = grants.length > 0 ? (options.root ?? resolveSupervisedDirectory(options.productRuntime)) : undefined;
   const self = resolveSelfForkWorkerEntry();
   const entryArgs = options.entrypoint ? [options.entrypoint] : self.args;
-  const execArgs = options.execArgs ?? self.execArgv ?? [];
+  // Explicitly supplied flags keep the inspector signal closed too.
+  const execArgs = withInspectorSignalDisabled(options.execArgs ?? self.execArgv ?? []);
   const id = randomUUID();
   const discardHandoff = (): void => {
     if (root !== undefined) discardSupervisedGrantHandoff(root, id);
@@ -294,7 +285,7 @@ export async function launchSupervisedSession(
   let child: ChildProcess;
   try {
     child = spawn(self.execPath, [
-      ...nodeInspectorHardeningArgs(), ...execArgs, ...entryArgs, '--serve', '--supervised-session-id', id,
+      ...execArgs, ...entryArgs, '--serve', '--supervised-session-id', id,
       ...(options.name === undefined ? [] : [`--name=${options.name}`]),
       ...(grants.length > 0 ? ['--supervised-external-event-grants'] : []),
       ...(transportToken === undefined ? [] : [SUPERVISED_TRANSPORT_TOKEN_FLAG]),
