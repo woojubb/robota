@@ -67,7 +67,8 @@ jobs:
       matrix:
         product: ${{ fromJSON(github.event_name == 'pull_request' && '["cedar","amber"]' || '["configured"]') }}
         target: ${{ fromJSON(github.event_name == 'pull_request' && '["darwin-arm64"]' || '["linux-x64","linux-arm64","darwin-x64","darwin-arm64","windows-x64"]') }}
-        include: ${{ fromJSON(github.event_name == 'pull_request' && '[{"target":"darwin-arm64","runner":"macos-26"}]' || '[{"target":"linux-x64","runner":"ubuntu-24.04"},{"target":"linux-arm64","runner":"ubuntu-24.04-arm"},{"target":"darwin-x64","runner":"macos-26-intel"},{"target":"darwin-arm64","runner":"macos-26"},{"target":"windows-x64","runner":"windows-2025"}]') }}
+        # Pull requests also run one Windows leg: Windows native code otherwise first meets a real host at release.
+        include: ${{ fromJSON(github.event_name == 'pull_request' && '[{"target":"darwin-arm64","runner":"macos-26"},{"product":"cedar","target":"windows-x64","runner":"windows-2025"}]' ||'[{"target":"linux-x64","runner":"ubuntu-24.04"},{"target":"linux-arm64","runner":"ubuntu-24.04-arm"},{"target":"darwin-x64","runner":"macos-26-intel"},{"target":"darwin-arm64","runner":"macos-26"},{"target":"windows-x64","runner":"windows-2025"}]') }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
@@ -202,6 +203,22 @@ jobs:
           chmod +x "$binary"
           (cd "$standalone_root" && "$binary" --version)
           node packages/agent-cli/scripts/e2e-native-file-authority.mjs "$binary"
+
+      # Linux CI never reaches these hosts' native backends; run them under Node and inside a Bun binary.
+      - name: Exercise native code paths on this host
+        timeout-minutes: 10
+        if: github.event_name == 'pull_request' && matrix.product == 'cedar'
+        shell: bash
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
+        run: |
+          pnpm --filter './packages/agent-file-authority' exec vitest run --no-file-parallelism --reporter verbose
+          pnpm --filter './packages/agent-file-authority' qualify:native
+          qualifier="$RUNNER_TEMP/native-qualification${{ runner.os == 'Windows' && '.exe' || '' }}"
+          pnpm --filter './packages/agent-file-authority' qualify:bun:build -- "$qualifier"
+          "$qualifier"
+          if [ "$RUNNER_OS" = Windows ]; then
+            pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/windows-security.test.ts src/session-inventory/__tests__/windows-control-pipe.test.ts
+          fi
 
       - name: Package and exercise the unsigned desktop product
         timeout-minutes: 10
