@@ -245,8 +245,16 @@ export function runMcpAddCommand(args: readonly string[], deps: IMcpAddCommandDe
     return 1;
   }
   if (!deps.interactive) {
+    // Built from the parsed request, never the raw argv: a typed URL may carry a key in its query,
+    // and this output goes to whatever ran the command.
+    const catalogued = WEB_SEARCH_MCP_CATALOG.some(
+      (choice) => choice.id === parsed.request.name && choice.url === parsed.request.url,
+    );
+    const suggestion = catalogued
+      ? `${cliName} mcp add ${parsed.request.name}`
+      : `${cliName} mcp add ${parsed.request.name} <https-url>`;
     deps.stderr(
-      `${cliName} mcp add approves the server as you, so it runs only in an interactive terminal: run \`${cliName} mcp add ${args.join(' ')}\` there.\n`,
+      `${cliName} mcp add approves the server as you, so it runs only in an interactive terminal: run \`${suggestion}\` there.\n`,
     );
     return 1;
   }

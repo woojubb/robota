@@ -309,6 +309,17 @@ describe('runMcpAddCommand', () => {
     expect(inspectLikeStartup(f, 'exa')).not.toBe('approved');
   });
 
+  it('never repeats a typed URL in the refusal, since its query may carry a key', () => {
+    const f = fixture();
+
+    const { code, err } = run(f, ['mine', 'https://x.example/mcp?key=SECRET&a=1'], false);
+
+    expect(code).toBe(1);
+    expect(err).not.toContain('SECRET');
+    expect(err).toContain('test-product mcp add mine <https-url>');
+    expect(existsSync(f.settingsPath)).toBe(false);
+  });
+
   it('names the usage and writes nothing for a wrong invocation', () => {
     const f = fixture();
 
