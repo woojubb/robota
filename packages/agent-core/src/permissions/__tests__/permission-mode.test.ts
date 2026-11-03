@@ -13,7 +13,7 @@ import type { TPermissionMode } from '../types';
 /**
  * CORE-030 — what a permission MODE decides, which is all this package owns.
  *
- * This file used to assert that `WebFetch` and `WebSearch` are auto in every mode. That is a fact
+ * This file used to assert that the web tools are auto in every mode. That is a fact
  * about those TOOLS, and it was assertable here only because the foundation held a table of product
  * tool names — the arrangement this item removed. Which class a tool belongs to is now asserted
  * where the tool is defined (`packages/agent-tools/src/__tests__/tool-permission-profiles.test.ts`);

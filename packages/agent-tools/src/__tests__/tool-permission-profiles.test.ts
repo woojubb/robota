@@ -18,7 +18,7 @@ import { AGENT_TOOL_PERMISSION_PROFILES } from '../tool-permission-profiles.js';
 
 describe('CORE-030 — this package classifies every tool it defines', () => {
   it('reads are inspection, so they run unapproved even in plan mode', () => {
-    for (const tool of ['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch', 'CodebaseRetrieval']) {
+    for (const tool of ['Read', 'Glob', 'Grep', 'WebFetch', 'CodebaseRetrieval']) {
       expect(AGENT_TOOL_PERMISSION_PROFILES[tool]?.riskClass, tool).toBe('inspect');
       expect(evaluatePermission(tool, {}, 'plan'), tool).toBe('auto');
     }
@@ -111,7 +111,6 @@ describe('CORE-049 — this package declares the kind of every argument it scope
       Shell: 'command',
       Glob: 'text',
       Grep: 'text',
-      WebSearch: 'text',
     };
     for (const [tool, kind] of Object.entries(expected)) {
       expect(AGENT_TOOL_PERMISSION_PROFILES[tool]?.argument?.kind, tool).toBe(kind);

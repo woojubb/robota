@@ -4,7 +4,7 @@
  * "On by default" means default-on as a THRESHOLD policy, never unconditional deferral. Anthropic's
  * own guidance is that standard tool calling is the better fit under ten tools, and its SDK engages
  * search when the deferrable definitions reach a tenth of the model's context window; OpenAI and
- * Gemini document comparable bands. So at the ten resident built-ins of today's tree the answer is
+ * Gemini document comparable bands. So at the nine resident built-ins of today's tree the answer is
  * `'off'` and nothing regresses, and when a tool set crosses the band — MCP servers arriving, say —
  * it switches itself on with no flag day. An explicit setting wins over both.
  *

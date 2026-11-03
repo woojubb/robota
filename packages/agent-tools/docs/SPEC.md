@@ -5,7 +5,7 @@
 Owns the tool factory constructors, tool result types, sandbox execution ports, and sandbox
 workspace manifest contracts for the Robota SDK: ergonomic tool-construction factories that build
 `@robota-sdk/agent-core`'s `FunctionTool`, plus a set of built-in CLI tools (shell, bash, read,
-write, edit, glob, grep, web-fetch, web-search, ask-user-question) used by the agent CLI.
+write, edit, glob, grep, web-fetch, ask-user-question) used by the agent CLI.
 
 ## Boundaries
 
@@ -149,9 +149,6 @@ never happened.
   directories, Git clones) through `ISandboxClient`; provider-specific storage mounts are
   represented in the contract but report an explicit "unsupported" status until an adapter
   supplies native mount capability, rather than failing silently or faking success.
-- `IWebSearchProvider` is a duck-typed port; the default adapter is the only module holding a
-  vendor endpoint, so the tool layer itself carries no vendor URL literal and provider failures
-  surface as structured tool-result errors rather than being swallowed.
 
 ## Error handling
 

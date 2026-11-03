@@ -36,7 +36,7 @@ void session;
 
 The pack bundles:
 
-- **tools** — `Shell`, `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebFetch`, `WebSearch`,
+- **tools** — `Shell`, `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebFetch`,
   `AskUserQuestion` (from `@robota-sdk/agent-tool-defaults`' `createDefaultTools`).
 - **commandModules** — `/shell`, `/editor`, and `/git` (from `@robota-sdk/agent-command`).
 - **subagents** — `general-purpose`, `Explore`, `Plan` (agent-framework's built-in agents).

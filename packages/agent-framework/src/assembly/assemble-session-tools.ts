@@ -33,7 +33,7 @@ import type { IToolWithEventService } from '@robota-sdk/agent-core';
  * So a contributed tool whose name is NEW is additive (the axis stays open), and a contributed tool whose
  * name collides with a framework default is DROPPED rather than listed twice — it does not silently
  * displace the default. That direction is deliberate: the default tier is built with the session context
- * (`cwd` supplies the working-directory path guard, plus the sandbox client and retrieval adapter), and a
+ * (`cwd` supplies the working-directory path guard, plus the sandbox client), and a
  * context-free contribution replacing it would silently weaken those guarantees. Replacement stays fully
  * expressible — through the EXPLICIT `defaultTools` injection seam, never as a side effect of a collision.
  * That mirrors `mergeCapabilityPacks`' own rule: additive merge, never a silent override.
@@ -80,7 +80,7 @@ export async function assembleSessionTools(
   // The default tool tier is INJECTABLE. `options.defaultTools` REPLACES `createDefaultTools()` outright
   // (an empty array suppresses every framework default), mirroring NEUT-003's `builtInAgents` seam for
   // subagents. Absent ⇒ the framework tier is constructed exactly as before, WITH the session context
-  // (cwd → the working-directory path guard, sandbox client, retrieval adapter) — which is why a name
+  // (cwd → the working-directory path guard, sandbox client) — which is why a name
   // collision must never silently displace it (see `dedupeToolsByName`).
   //
   // The tier is reached by DYNAMIC import, never a static one. `@robota-sdk/agent-tool-defaults` is a
@@ -96,7 +96,6 @@ export async function assembleSessionTools(
     return createDefaultTools({
       sandboxClient: options.sandboxClient,
       cwd,
-      ...(options.retrievalAdapter ? { retrievalAdapter: options.retrievalAdapter } : {}),
     });
   };
   const defaultTools = options.defaultTools ?? (await loadDefaultTools());

@@ -68,9 +68,8 @@ __PRODUCT_CLI_NAME__ trust --yes
 ([키 바인딩 가이드](../../../content/guide/keybindings.md) 참고).
 
 에이전트는 파일·셸 도구(`Read`, `Write`, `Edit`, `Glob`, `Grep`, `Bash`), `WebFetch`,
-`WebSearch`(`BRAVE_API_KEY` 필요), `AskUserQuestion`을 쓰며, 서브에이전트와 백그라운드 작업에 일을 넘길
-수 있습니다. 신뢰한 워크스페이스에서는 프로젝트의 `AGENTS.md`와 `CLAUDE.md`를 컨텍스트로 불러오고,
-프롬프트에 `@path`를 쓰면 프로젝트 파일을 첨부합니다.
+`AskUserQuestion`을 쓰며, 서브에이전트와 백그라운드 작업에 일을 넘길 수 있습니다. 신뢰한 워크스페이스에서는
+프로젝트의 `AGENTS.md`와 `CLAUDE.md`를 컨텍스트로 불러오고, 프롬프트에 `@path`를 쓰면 프로젝트 파일을 첨부합니다.
 
 ```bash
 __PRODUCT_CLI_NAME__                              # 새 세션

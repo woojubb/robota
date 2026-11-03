@@ -1,7 +1,7 @@
 # @robota-sdk/agent-tools
 
 Tool implementations for the Robota SDK: factories for building your own tools from Zod schemas,
-the built-in tools (Shell, Read, Write, Edit, Glob, Grep, WebFetch, WebSearch, AskUserQuestion,
+the built-in tools (Shell, Read, Write, Edit, Glob, Grep, WebFetch, AskUserQuestion,
 ToolSearch), codebase retrieval and computer-use tools, and the sandbox clients that run tools
 somewhere other than the host (E2B, an OS-level sandbox, or in memory for tests).
 
@@ -85,12 +85,10 @@ carry no root, and a file tool without a root would have no boundary.
 | `createGrepTool`       | Grep            | Search file contents with a regular expression                           |
 | `createToolSearchTool` | ToolSearch      | Load the schemas of deferred tools by query or exact name                |
 | `webFetchTool`         | WebFetch        | Fetch a URL and convert HTML to text; points to a site's `llms.txt` index |
-| `webSearchTool`        | WebSearch       | Web search; the default provider is Brave Search (needs `BRAVE_API_KEY`) |
 | `askUserQuestionTool`  | AskUserQuestion | Ask the user structured questions (options, multi-select or free text)   |
 
-`webFetchTool`, `webSearchTool` and `askUserQuestionTool` are ready-made instances because they
-touch no file system; `createWebFetchTool`, `createWebSearchTool` (with your own search `provider`)
-and `createAskUserQuestionTool` build configured ones.
+`webFetchTool` and `askUserQuestionTool` are ready-made instances because they touch no file
+system; `createWebFetchTool` and `createAskUserQuestionTool` build configured ones.
 
 After an HTML page, `WebFetch` checks once per origin, under the same egress policy, whether the site
 publishes an [llms.txt](https://llmstxt.org/) index, and if so ends its result with a pointer to it.

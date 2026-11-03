@@ -68,12 +68,12 @@ describe('checkSameToolInputLimit', () => {
   it('does not interfere across different tool names', () => {
     const state = makeRoundState();
     const fetch = makeToolCall('WebFetch', '{"url":"https://x.com"}');
-    const search = makeToolCall('WebSearch', '{"url":"https://x.com"}');
+    const other = makeToolCall('Read', '{"url":"https://x.com"}');
 
     for (let i = 0; i < 3; i++) {
       checkSameToolInputLimit([fetch], state, 3);
     }
 
-    expect(() => checkSameToolInputLimit([search], state, 3)).not.toThrow();
+    expect(() => checkSameToolInputLimit([other], state, 3)).not.toThrow();
   });
 });

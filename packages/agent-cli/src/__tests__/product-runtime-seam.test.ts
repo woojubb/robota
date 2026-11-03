@@ -48,7 +48,7 @@ const PRODUCT_PACK_COMMAND_MODULE_NAMES = packCommandModuleNames(PRODUCT_PACKS);
 
 const MINIMAL_ARGS = { noUpdateCheck: true } as unknown as IParsedCliArgs;
 
-/** The ten coding tools `pack-coding` contributes — pinned so a drift fails here, not silently. */
+/** The nine coding tools `pack-coding` contributes — pinned so a drift fails here, not silently. */
 const CODING_TOOL_NAMES = [
   'Shell',
   'Bash',
@@ -58,7 +58,6 @@ const CODING_TOOL_NAMES = [
   'Glob',
   'Grep',
   'WebFetch',
-  'WebSearch',
   'AskUserQuestion',
 ];
 
@@ -156,7 +155,7 @@ describe('ARCH-007 — the kernel overlay is test-product’s single assembly pa
 
   it('SUPPRESSES the framework default tier so the packs are the SOLE source of tools (ARCH-006)', () => {
     // `defaultTools: []` REPLACES `createDefaultTools()`. Without it the framework would still contribute
-    // its own ten tools and the pack's would merely dedupe away — the pack would be decorative.
+    // its own nine tools and the pack's would merely dedupe away — the pack would be decorative.
     expect(runtimeFixtureOptions().toolOptions.defaultTools).toEqual([]);
   });
 

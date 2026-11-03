@@ -113,9 +113,9 @@ before, and every key can be rebound in `<configured-user-state-dir>/keybindings
 [keybindings guide](../../content/guide/keybindings.md)).
 
 The agent works with file and shell tools (`Read`, `Write`, `Edit`, `Glob`, `Grep`, `Bash`),
-`WebFetch`, `WebSearch` (needs a `BRAVE_API_KEY`) and `AskUserQuestion`, and can hand work to
-subagents and background tasks. Your project's `AGENTS.md` and `CLAUDE.md` are loaded as context
-in a trusted workspace, and `@path` in a prompt attaches a project file.
+`WebFetch` and `AskUserQuestion`, and can hand work to subagents and background tasks. Your
+project's `AGENTS.md` and `CLAUDE.md` are loaded as context in a trusted workspace, and `@path` in a
+prompt attaches a project file.
 
 ```bash
 robota                              # new session

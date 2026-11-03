@@ -3,10 +3,9 @@
 ## Purpose
 
 Composition leaf that assembles the SDK's own built-in default tool set — the tools every product
-session gets when its composition root supplies no tool list of its own. Two entries are
-conditional on an adapter the caller supplies (a retrieval adapter and a computer driver); there is
-no host fallback for either, so an absent adapter means an absent tool rather than a silently
-degraded one.
+session gets when its composition root supplies no tool list of its own. It holds only tools that
+need no external service, credential or adapter; a tool that does is built by the composition root
+that owns the adapter, so a default tool never fails for a missing key or silently degrades.
 
 This package composes exactly one lower-layer package (`agent-tools`); it does not bundle
 sibling `agent-tool-*` packages. It is a defaults leaf, meant to be imported only at composition

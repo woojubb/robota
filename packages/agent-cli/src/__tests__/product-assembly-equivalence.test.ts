@@ -140,7 +140,6 @@ const BASELINE_DEFAULT_TOOL_NAMES = [
   'Glob',
   'Grep',
   'WebFetch',
-  'WebSearch',
   'AskUserQuestion',
 ];
 
