@@ -231,6 +231,7 @@ jobs:
           pnpm --filter './apps/agent-app' build
           pnpm --filter './apps/agent-app' bundle:runtime
           pnpm --filter './apps/agent-app' exec electron-builder --dir --publish never -c.mac.notarize=false -c.mac.identity=null
+          pnpm --filter './apps/agent-app' test:e2e:packaged
           pnpm --filter './apps/agent-app' test:e2e:bundled
           pnpm --filter './packages/agent-cli' test:bun
 

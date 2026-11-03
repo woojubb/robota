@@ -20,6 +20,10 @@ that package's build output.
 - The renderer is hardened: context isolation, no Node integration, sandboxed, loads only local
   content, a CSP restricted to `self` plus the loopback WebSocket origin, and navigation/new-window
   lockdown — so the nonce-holding renderer cannot carry the session to an external origin.
+- The packaged app can be neither borrowed to run another program's code nor driven from outside: no Node
+  entry point, app code only from the integrity-checked asar, and no remote debugging (no fuse covers it, so the
+  app refuses to start when asked for it), because a program of the same OS user must not reach the main process
+  that holds the remote credentials. A development launch keeps these doors open, since tests drive it through them.
 - The daemon belongs to the folder the person opened, not to the window or to the folder the app
   process happened to start in: every CLI run happens in that folder, closing the window or switching
   folders leaves its daemon running, and reopening the folder reattaches to the same daemon and its
