@@ -78,7 +78,6 @@ export class FallbackProvider implements IAIProvider {
   effortTable?: IAIProvider['effortTable'];
   endpointIsVendorDefault?: IAIProvider['endpointIsVendorDefault'];
   canPropagateTraceContext?: IAIProvider['canPropagateTraceContext'];
-  configureNativeWebTools?: IAIProvider['configureNativeWebTools'];
   getCapabilities?: IAIProvider['getCapabilities'];
 
   constructor(
@@ -100,9 +99,6 @@ export class FallbackProvider implements IAIProvider {
     }
     if (primary.canPropagateTraceContext) {
       this.canPropagateTraceContext = () => primary.canPropagateTraceContext?.() ?? false;
-    }
-    if (primary.configureNativeWebTools) {
-      this.configureNativeWebTools = (request) => primary.configureNativeWebTools!(request);
     }
     if (primary.getCapabilities) this.getCapabilities = () => primary.getCapabilities!();
     // A session wires its server-tool log onto the provider it holds. Server tools run only on the

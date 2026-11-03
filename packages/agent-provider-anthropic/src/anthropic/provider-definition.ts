@@ -1,4 +1,8 @@
-import { type IProviderDefinition, type IProviderModelCatalogEntry } from '@robota-sdk/agent-core';
+import {
+  type IProviderDefinition,
+  type IProviderModelCatalogEntry,
+  type TUniversalValue,
+} from '@robota-sdk/agent-core';
 
 import { CLAUDE_MODELS } from './claude-models.js';
 import {
@@ -71,6 +75,7 @@ export function createAnthropicProviderDefinition(): IProviderDefinition {
         apiKey: requireAnthropicApiKey(config.apiKey),
         ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
         ...(config.timeout !== undefined && { timeout: config.timeout }),
+        ...(readNativeWebSearch(config.options) && { enableWebTools: true }),
         defaultModel: config.model,
       }),
   };
@@ -100,4 +105,38 @@ function requireAnthropicApiKey(apiKey: string | undefined): string {
     throw new Error('Provider anthropic requires apiKey');
   }
   return apiKey;
+}
+
+/**
+ * Whether the profile asks for Anthropic's server-side web search: `options.nativeWebTools` is
+ * `{ webSearch?: boolean }`. Anthropic offers no web fetch, so only `webFetch: false` is accepted
+ * beside it, and a misspelled or mistyped key throws instead of quietly leaving search off.
+ */
+function readNativeWebSearch(options: Record<string, TUniversalValue> | undefined): boolean {
+  const value = options?.['nativeWebTools'];
+  if (value === undefined) {
+    return false;
+  }
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    value instanceof Date
+  ) {
+    throw new Error(
+      'Provider anthropic option nativeWebTools must be an object such as { "webSearch": true }',
+    );
+  }
+  for (const [key, flag] of Object.entries(value)) {
+    if (key !== 'webSearch' && key !== 'webFetch') {
+      throw new Error(`Provider anthropic option nativeWebTools has an unknown key "${key}"`);
+    }
+    if (typeof flag !== 'boolean') {
+      throw new Error(`Provider anthropic option nativeWebTools.${key} must be a boolean`);
+    }
+  }
+  if (value['webFetch'] === true) {
+    throw new Error('Provider anthropic does not support native web fetch');
+  }
+  return value['webSearch'] === true;
 }

@@ -140,10 +140,10 @@ function validateOpenAINativeWebTools(
   }
   if (baseURL !== undefined || apiSurface === 'chat-completions') {
     throw new Error(
-      'Provider openai profile uses an OpenAI-compatible Chat Completions endpoint; native web search/fetch is not supported for this profile. Use local WebSearch/WebFetch tools or a provider with documented hosted web support.',
+      'Provider openai profile uses an OpenAI-compatible Chat Completions endpoint; native web search/fetch is not supported for this profile. Connect an MCP server that offers web search, or use a provider with documented hosted web support.',
     );
   }
   throw new Error(
-    'Provider openai native web search/fetch is not wired in this provider version. Use local WebSearch/WebFetch tools or a provider with documented hosted web support.',
+    'Provider openai native web search/fetch is not wired in this provider version. Connect an MCP server that offers web search, or use a provider with documented hosted web support.',
   );
 }
