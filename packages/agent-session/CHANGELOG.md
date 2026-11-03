@@ -4,7 +4,7 @@
 ### Patch Changes
 
 - Tighten legacy world-readable session records to owner-only when the session store reads or lists them.
-- Launch supervised runtimes, including the workspace daemon, with `--disable-sigusr1` where Node supports it, so another program of the same user cannot open their inspector, and redact `authToken` values from persisted session logs and share artifacts.
+- Redact `authToken` values from persisted session logs and share artifacts.
 - Updated dependencies [7c4eb0d]
   - @robota-sdk/agent-file-authority@3.0.6
   - @robota-sdk/agent-core@3.0.6
