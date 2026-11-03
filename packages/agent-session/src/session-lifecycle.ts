@@ -46,7 +46,7 @@ export function fireSessionStartHook(
   sessionId: string,
   cwd: string,
   hooks: Record<string, unknown> | undefined,
-  hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  hookTypeExecutors: readonly IHookTypeExecutor[],
   onStdout: (stdout: string) => void,
   permissionMode?: string,
   transcriptPath?: string,
@@ -77,7 +77,7 @@ export async function fireSessionEndHook(
   cwd: string,
   reason: TSessionEndReason,
   hooks: Record<string, unknown> | undefined,
-  hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  hookTypeExecutors: readonly IHookTypeExecutor[],
   permissionMode?: string,
   transcriptPath?: string,
 ): Promise<void> {

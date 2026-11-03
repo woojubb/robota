@@ -72,6 +72,8 @@ export function selectScope({
     for (let index = 0; index < changes.length - 1; index += 2) {
       const status = changes[index];
       const file = changes[index + 1];
+      // `pnpm lint` checks every manifest against ARCHITECTURE.md's runtime-platform lists.
+      if (file === 'ARCHITECTURE.md') return full('runtime-platform lists: ARCHITECTURE.md');
       if (/^[^/]+\.md$/.test(file) || /^\.changeset\/[^/]+\.md$/.test(file) ||
           /^(?:\.agents|\.claude)\/.*\.md$/.test(file) ||
           /^(?:packages|examples)\/[^/]+\/(?:README\.md|CHANGELOG\.md|docs\/.*\.md)$/.test(file)) {

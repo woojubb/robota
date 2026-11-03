@@ -1,4 +1,4 @@
-import { processEnvResolver, type TEnvResolver } from './env-resolver.js';
+import type { TEnvResolver } from './env-resolver.js';
 
 export const ENV_REFERENCE_PREFIX = '$ENV:';
 
@@ -12,13 +12,10 @@ export function formatEnvReference(name: string): string {
 
 /**
  * Resolve a `$ENV:<name>` reference through `resolve` (#2347): a non-reference is returned as-is; an
- * empty name is `undefined`. The resolver defaults to the host environment so existing call sites keep
- * their meaning, but this function itself never reads `process.env`.
+ * empty name is `undefined`. This function never reads `process.env`; the host environment is one
+ * resolver a composition root can pass (`processEnvResolver` from `@robota-sdk/agent-core/node`).
  */
-export function resolveEnvReference(
-  value: string,
-  resolve: TEnvResolver = processEnvResolver,
-): string | undefined {
+export function resolveEnvReference(value: string, resolve: TEnvResolver): string | undefined {
   if (!isEnvReference(value)) {
     return value;
   }
@@ -31,7 +28,7 @@ export function resolveEnvReference(
 
 export function hasUsableSecretReference(
   value: string | undefined,
-  resolve: TEnvResolver = processEnvResolver,
+  resolve: TEnvResolver,
 ): boolean {
   if (value === undefined || value.length === 0) {
     return false;

@@ -6,6 +6,7 @@ import {
   type THookEvent,
   type THooksConfig,
 } from '@robota-sdk/agent-core';
+import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 import type {
   ISubagentJobHandle,
@@ -53,7 +54,14 @@ export function createWorktreeSubagentRunner(
 }
 
 export class WorktreeSubagentRunner implements ISubagentRunner {
-  constructor(private readonly options: IWorktreeSubagentRunnerOptions) {}
+  private readonly hookTypeExecutors: readonly IHookTypeExecutor[];
+
+  constructor(private readonly options: IWorktreeSubagentRunnerOptions) {
+    this.hookTypeExecutors = options.hookTypeExecutors ?? [
+      new CommandExecutor(),
+      new HttpExecutor(),
+    ];
+  }
 
   start(job: ISubagentJobStart): ISubagentJobHandle {
     if (job.request.isolation !== 'worktree') {
@@ -66,8 +74,8 @@ export class WorktreeSubagentRunner implements ISubagentRunner {
       taskId: job.taskId,
       cwd: job.request.cwd,
     });
-    const lifecycle = createWorktreeLifecycle(this.options, worktree, job);
-    fireWorktreeHook(this.options, 'WorktreeCreate', job, worktree, false);
+    const lifecycle = createWorktreeLifecycle(this.options, this.hookTypeExecutors, worktree, job);
+    fireWorktreeHook(this.options, this.hookTypeExecutors, 'WorktreeCreate', job, worktree, false);
     const handle = this.startWrappedRunner(job, worktree, lifecycle);
 
     return this.createHandle(handle, job, worktree, lifecycle);
@@ -186,6 +194,7 @@ interface IWorktreeLifecycle {
 
 function createWorktreeLifecycle(
   options: IWorktreeSubagentRunnerOptions,
+  hookTypeExecutors: readonly IHookTypeExecutor[],
   worktree: IPreparedSubagentWorktree,
   job: ISubagentJobStart,
 ): IWorktreeLifecycle {
@@ -196,7 +205,7 @@ function createWorktreeLifecycle(
       if (!options.worktreeAdapter.isClean(worktree)) return false;
       options.worktreeAdapter.remove(worktree);
       removed = true;
-      fireWorktreeHook(options, 'WorktreeRemove', job, worktree, true);
+      fireWorktreeHook(options, hookTypeExecutors, 'WorktreeRemove', job, worktree, true);
       return true;
     },
   };
@@ -240,6 +249,7 @@ function withOptionalMetadata(
 
 function fireWorktreeHook(
   options: IWorktreeSubagentRunnerOptions,
+  hookTypeExecutors: readonly IHookTypeExecutor[],
   event: THookEvent,
   job: ISubagentJobStart,
   worktree: IPreparedSubagentWorktree,
@@ -262,7 +272,7 @@ function fireWorktreeHook(
   // that ran. Fire-and-forget is deliberate — these are notifications, not vetoes
   // (packages/agent-cli/docs/design/subagent-wiring.md) — so the result stays unawaited, but the
   // failure is now sayable. Same shape as the session hooks in agent-session.
-  void runHooks(options.hooks, event, input, options.hookTypeExecutors).catch((error: unknown) => {
+  void runHooks(options.hooks, event, input, hookTypeExecutors).catch((error: unknown) => {
     logger.warn('worktree hook failed', {
       event,
       taskId: job.taskId,

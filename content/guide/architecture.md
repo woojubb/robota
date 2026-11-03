@@ -72,8 +72,9 @@ hook execution, context-window accounting, model metadata, and the typed error c
 
 It has no dependency on any other Robota package. Everything else registers with it through its
 abstract contracts, so it can be used alone and nothing can form a dependency cycle through it.
-Node-only helpers are on a separate `@robota-sdk/agent-core/node` entry point so that the main entry
-also works in a browser.
+Its main entry is platform-neutral — it runs in a browser, a Web Worker, Node, Deno and Bun — and
+everything that needs a Node host is on the separate `@robota-sdk/agent-core/node` entry point, which
+a Node application passes in (hook executors, the process environment).
 
 ### Contracts — `agent-interface-*`
 

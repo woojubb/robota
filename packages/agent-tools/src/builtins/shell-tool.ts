@@ -30,11 +30,8 @@
 
 import { spawn } from 'node:child_process';
 
-import {
-  createBoundedOutput,
-  resolvePlatformShell,
-  subprocessTraceEnvironment,
-} from '@robota-sdk/agent-core';
+import { createBoundedOutput, subprocessTraceEnvironment } from '@robota-sdk/agent-core';
+import { resolvePlatformShell } from '@robota-sdk/agent-core/node';
 import { killProcessTree } from '@robota-sdk/agent-process';
 import { z } from 'zod';
 
@@ -47,7 +44,8 @@ import { createZodFunctionTool } from '../implementations/function-tool';
 import type { ISandboxBuiltinToolOptions } from './tool-options.js';
 import type { ICommandInvocation, ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
-import type { FunctionTool, IPlatformShell, ISubprocessTraceEnv } from '@robota-sdk/agent-core';
+import type { FunctionTool, ISubprocessTraceEnv } from '@robota-sdk/agent-core';
+import type { IPlatformShell } from '@robota-sdk/agent-core/node';
 
 // CORE-030: defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';

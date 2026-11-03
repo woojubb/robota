@@ -4,7 +4,7 @@ import {
   type IImageGenerationProvider,
   type IVideoGenerationProvider,
 } from '../interfaces/media-provider.js';
-import { processEnvResolver, type TEnvResolver } from '../utils/env-resolver.js';
+import type { TEnvResolver } from '../utils/env-resolver.js';
 
 import type {
   IMediaProviderConfig,
@@ -34,7 +34,7 @@ function firstResolved(
 export function resolveMediaProviderConfig(
   definition: IMediaProviderDefinition,
   overrides: IMediaProviderOverrides = {},
-  resolve: TEnvResolver = processEnvResolver,
+  resolve: TEnvResolver,
 ): TMediaCredentialResolution {
   const requirement = definition.credentialRequirement;
   const baseUrl =
@@ -77,7 +77,7 @@ export function resolveMediaProviderConfig(
 export function createImageProviderFromDefinition(
   definition: IMediaProviderDefinition,
   overrides: IMediaProviderOverrides = {},
-  resolve: TEnvResolver = processEnvResolver,
+  resolve: TEnvResolver,
 ): IImageGenerationProvider | undefined {
   if (definition.createImageProvider === undefined) return undefined;
   const resolved = resolveMediaProviderConfig(definition, overrides, resolve);
@@ -94,7 +94,7 @@ export function createImageProviderFromDefinition(
 export function createVideoProviderFromDefinition(
   definition: IMediaProviderDefinition,
   overrides: IMediaProviderOverrides = {},
-  resolve: TEnvResolver = processEnvResolver,
+  resolve: TEnvResolver,
 ): IVideoGenerationProvider | undefined {
   if (definition.createVideoProvider === undefined) return undefined;
   const resolved = resolveMediaProviderConfig(definition, overrides, resolve);

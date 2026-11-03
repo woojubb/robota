@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { runHooks } from '@robota-sdk/agent-core';
+import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 import { describe, it, expect, afterEach, vi } from 'vitest';
 
 import { CommandRegistry } from '../commands/command-registry.js';
@@ -34,6 +35,7 @@ import type { THooksConfig, IHookInput } from '@robota-sdk/agent-core';
 // Helpers
 // ---------------------------------------------------------------------------
 
+const nodeExecutors = [new CommandExecutor(), new HttpExecutor()];
 let tempDirs: string[] = [];
 
 async function loadConfig(cwd: string) {
@@ -259,7 +261,7 @@ describe('E2E: Hook configuration to execution', () => {
       hook_event_name: 'PreToolUse',
       tool_name: 'Bash',
     };
-    const bashResult = await runHooks(hooksConfig, 'PreToolUse', bashInput);
+    const bashResult = await runHooks(hooksConfig, 'PreToolUse', bashInput, nodeExecutors);
 
     // 5. Verify hook fired and returned exit code 2 (blocked)
     expect(bashResult.blocked).toBe(true);
@@ -272,7 +274,7 @@ describe('E2E: Hook configuration to execution', () => {
       hook_event_name: 'PreToolUse',
       tool_name: 'Read',
     };
-    const readResult = await runHooks(hooksConfig, 'PreToolUse', readInput);
+    const readResult = await runHooks(hooksConfig, 'PreToolUse', readInput, nodeExecutors);
 
     // 7. Verify hook did NOT fire (matcher doesn't match)
     expect(readResult.blocked).toBe(false);

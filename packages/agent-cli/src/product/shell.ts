@@ -1,4 +1,4 @@
-import { resolvePlatformShell } from '@robota-sdk/agent-core';
+import { resolvePlatformShell } from '@robota-sdk/agent-core/node';
 
 /** The product's host policy; neutral packages only receive the selected executable. */
 export function resolveProductShellExecutable(

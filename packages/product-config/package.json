@@ -20,6 +20,7 @@
     },
     "./node": {
       "source": "./src/node.ts",
+      "browser": null,
       "import": {
         "types": "./dist/node.d.ts",
         "default": "./dist/node.js"

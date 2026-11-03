@@ -1,4 +1,4 @@
-import { resolvePlatformShell } from '@robota-sdk/agent-core';
+import { resolvePlatformShell } from '@robota-sdk/agent-core/node';
 import { describe, expect, it } from 'vitest';
 
 import { createShellTool, createBashTool } from '../builtins/shell-tool';

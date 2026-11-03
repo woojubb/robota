@@ -8,6 +8,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { callJournaledProvider, createAbortError, runHooks } from '@robota-sdk/agent-core';
+import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 import { formatConversationEntries } from './conversation-transcript.js';
 
@@ -72,7 +73,7 @@ export class CompactionOrchestrator {
   private readonly hooks?: Record<string, unknown>;
   private readonly compactInstructions?: string;
   private readonly basePrompt?: string;
-  private readonly hookTypeExecutors?: IHookTypeExecutor[];
+  private readonly hookTypeExecutors: readonly IHookTypeExecutor[];
 
   constructor(options: ICompactionOptions) {
     this.sessionId = options.sessionId;
@@ -81,7 +82,10 @@ export class CompactionOrchestrator {
     this.hooks = options.hooks;
     this.compactInstructions = options.compactInstructions;
     this.basePrompt = options.basePrompt;
-    this.hookTypeExecutors = options.hookTypeExecutors;
+    this.hookTypeExecutors = options.hookTypeExecutors ?? [
+      new CommandExecutor(),
+      new HttpExecutor(),
+    ];
   }
 
   setModel(model: string): void {

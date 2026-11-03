@@ -10,6 +10,7 @@ import {
   type TProviderCredentialField,
   type TProviderCredentialReference,
 } from '@robota-sdk/agent-core';
+import { processEnvResolver } from '@robota-sdk/agent-core/node';
 
 import type { TProviderSettingsDocument } from './provider-settings.js';
 
@@ -24,15 +25,15 @@ export function checkSettingsDocument(
   providerDefinitions: readonly IProviderDefinition[] = [],
   environment?: Readonly<Record<string, string | undefined>>,
 ): TSettingsCheck {
-  const resolve: TEnvResolver | undefined =
-    environment === undefined ? undefined : (name) => environment[name];
+  const resolve: TEnvResolver =
+    environment === undefined ? processEnvResolver : (name) => environment[name];
   return hasUsableProviderConfig(settings, providerDefinitions, resolve) ? 'valid' : 'incomplete';
 }
 
 function hasUsableProviderConfig(
   settings: TProviderSettingsDocument,
   providerDefinitions: readonly IProviderDefinition[],
-  resolve: TEnvResolver | undefined,
+  resolve: TEnvResolver,
 ): boolean {
   if (typeof settings.currentProvider === 'string') {
     const profile = settings.providers?.[settings.currentProvider];
@@ -51,7 +52,7 @@ function isUsableProviderProfile(
   type: string | undefined,
   profile: { apiKey?: string; apiKeyRef?: TProviderCredentialReference } | undefined,
   providerDefinitions: readonly IProviderDefinition[],
-  resolve: TEnvResolver | undefined,
+  resolve: TEnvResolver,
 ): boolean {
   if (!profile) return false;
   if (!type) return hasUsableSecretReference(profile.apiKey, resolve);
@@ -72,7 +73,7 @@ function hasUsableRequiredProviderCredential(
   profile: { apiKey?: string },
   definition: IProviderDefinition,
   requirement: IProviderCredentialRequirement,
-  resolve: TEnvResolver | undefined,
+  resolve: TEnvResolver,
 ): boolean {
   return requirement.anyOf.some((field) =>
     hasUsableSecretReference(resolveProviderCredentialValue(field, profile, definition), resolve),

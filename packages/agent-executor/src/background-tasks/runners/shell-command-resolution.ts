@@ -1,4 +1,4 @@
-import { resolvePlatformShell } from '@robota-sdk/agent-core';
+import { resolvePlatformShell } from '@robota-sdk/agent-core/node';
 
 /** Minimal command shape shared by process and scheduled background-task requests. */
 export interface IBackgroundTaskShellCommand {
