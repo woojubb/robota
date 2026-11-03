@@ -596,7 +596,12 @@ Alongside the npm/Node package, `agent-cli` can be compiled to a standalone exec
 Node entry path is retained unconditionally. A literal build target must exactly match the current
 host tuple; every unsupported host is refused before compilation, leaving the previously selected
 binary generation unchanged. Native builds require the complete provider capability at build time
-and embed it so hosted execution remains independent of adjacent packages at runtime.
+and embed it, so hosted execution depends neither on adjacent packages nor on what lies where the
+executable starts: it reads no `bunfig.toml`, `.env`, `tsconfig.json` or `package.json` there, because a
+cloned repository's preload or `.env` would otherwise run code or rewrite the environment before
+workspace trust is decided. Bun's runtime variables (`BUN_OPTIONS`, `BUN_BE_BUN`) still let whoever sets
+the process environment run other code through the executable, as `NODE_OPTIONS` does for the npm
+package; that is the same OS user, and no build switch removes them.
 
 A subagent turn re-executes the running binary (`process.execPath`) rather than spawning an external
 `node` against a worker file, so the compiled binary needs no Node install for any path.

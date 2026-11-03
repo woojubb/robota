@@ -5,6 +5,8 @@ import { tmpdir } from 'node:os';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { assertEntitlementPolicy } from './macos-entitlements.mjs';
+
 const here = dirname(fileURLToPath(import.meta.url));
 
 export function runCommand(command, args) {
@@ -32,6 +34,14 @@ export function selectIdentity(output, teamId) {
   return matches[0][1];
 }
 
+// Reads the entitlements off the signed bytes, not off the plist that was handed to codesign.
+export function verifySignedEntitlements(binary, { run = runCommand } = {}) {
+  assertEntitlementPolicy(
+    run('codesign', ['--display', '--entitlements', '-', '--xml', binary]),
+    'The signed macOS runtime',
+  );
+}
+
 export function signRuntime(binary, { env = process.env, run = runCommand } = {}) {
   const identity = required(env, 'MACOS_SIGNING_IDENTITY');
   const args = [
@@ -47,6 +57,7 @@ export function signRuntime(binary, { env = process.env, run = runCommand } = {}
   if (env.CSC_KEYCHAIN) args.push('--keychain', env.CSC_KEYCHAIN);
   run('codesign', [...args, binary]);
   run('codesign', ['--verify', '--strict', '--verbose=2', binary]);
+  verifySignedEntitlements(binary, { run });
 }
 
 export function notarizeArtifact(artifact, { env = process.env, run = runCommand } = {}) {

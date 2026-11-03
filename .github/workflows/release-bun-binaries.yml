@@ -203,6 +203,7 @@ jobs:
           chmod +x "$binary"
           (cd "$standalone_root" && "$binary" --version)
           node packages/agent-cli/scripts/e2e-native-file-authority.mjs "$binary"
+          node packages/agent-cli/scripts/e2e-standalone-autoload.mjs "$binary"
 
       # Linux CI never reaches these hosts' native backends; run them under Node and inside a Bun binary.
       - name: Exercise native code paths on this host

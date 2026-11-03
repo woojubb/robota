@@ -16,6 +16,7 @@ import {
   assertStandaloneNativeRuntime,
   runNativeFileAuthorityE2e,
 } from './e2e-native-file-authority.mjs';
+import { runStandaloneAutoloadE2e } from './e2e-standalone-autoload.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const pkgDir = join(here, '..'); // packages/agent-cli
@@ -97,6 +98,14 @@ try {
   } catch (error) {
     console.error(error);
     check('native session-store fixture round-trips and stays within its platform contract', false);
+  }
+
+  try {
+    console.log(runStandaloneAutoloadE2e(standalone));
+    check('a bunfig.toml preload and .env in the working directory are ignored', true);
+  } catch (error) {
+    console.error(error);
+    check('a bunfig.toml preload and .env in the working directory are ignored', false);
   }
 } finally {
   rmSync(cleanRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });

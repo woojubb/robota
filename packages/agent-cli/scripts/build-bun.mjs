@@ -68,7 +68,16 @@ async function compileTarget(entry, outputRoot, version, key, kind, artifactName
   const result = await Bun.build({
     entrypoints: [entry],
     target: 'bun',
-    compile: { target: TARGETS[key], outfile },
+    // The executable runs only what is compiled in: a bunfig.toml `preload` or .env in the directory it
+    // starts from would otherwise run code or rewrite the environment before workspace trust is decided.
+    compile: {
+      target: TARGETS[key],
+      outfile,
+      autoloadBunfig: false,
+      autoloadDotenv: false,
+      autoloadTsconfig: false,
+      autoloadPackageJson: false,
+    },
     define: {
       __AGENT_VERSION__: JSON.stringify(version),
       __AGENT_SOURCE_VERSION__: JSON.stringify(metadata?.sourceVersion ?? version),

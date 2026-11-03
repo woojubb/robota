@@ -55,7 +55,11 @@ export async function buildProductNativeBinary(options) {
   const result = await Bun.build({
     entrypoints: [entry],
     target: 'bun',
-    compile: { target: TARGETS[host], outfile },
+    // Only compiled-in code runs: no bunfig.toml preload or .env from the directory the executable starts in.
+    compile: {
+      target: TARGETS[host], outfile,
+      autoloadBunfig: false, autoloadDotenv: false, autoloadTsconfig: false, autoloadPackageJson: false,
+    },
     define: {
       __AGENT_VERSION__: JSON.stringify(version),
       __AGENT_SOURCE_VERSION__: JSON.stringify(options.sourceVersion ?? version),
