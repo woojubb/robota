@@ -19,6 +19,9 @@ What breaks, and what to do:
   and implements `bindWriteGrant(grant)` in its worker composition; any other host passes `'plain'`.
 - `createSubagentLogger(parentSessionId, agentId, baseLogsDir, { sealing }, fs?)` requires `sealing`
   as its fourth argument, ahead of the optional file system; pass `'plain'` for a plain log.
+- `TSubagentWorkerParentMessage` gains `{ type: 'sealing_key'; grant }`, which
+  `isSubagentWorkerParentMessage` accepts: a worker of your own handles it by binding the new grant,
+  or stops when it cannot seal to it.
 
 What is new:
 

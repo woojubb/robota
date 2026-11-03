@@ -25,8 +25,9 @@ what you have.
   `createNodeHostSessionStore(dir, { sealing, ownedRoot? })` (same move of `ownedRoot`),
   `createProjectSessionStore(sessions, logs, { sealing })`, `WorkspaceProjectSessionStore`,
   `createUserPromptHistoryFile`, `WorkspaceSessionLogSink`, `WorkspaceSessionLogSource` and
-  `createNodeToolResultSpillStore`. `IWorkspaceProjectStateStorage` gains `replaceBytes`, which the
-  framework's storage implements; the project session store replaces a record whole through it.
+  `createNodeToolResultSpillStore`. `IWorkspaceProjectStateStorage.replaceBytes` is required: the
+  project session store replaces a record whole through it, so a storage of your own implements it
+  (the framework's storage does).
 
 A sealing append store writes each append as one sealed line and each log sidecar sealed under a
 random name. The log sources gain `readStoredLines()`, which returns every line as readable, locked,

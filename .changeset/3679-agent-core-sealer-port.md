@@ -10,6 +10,7 @@ store states its sealing), `ArtifactLockedError` and `ArtifactCorruptError` with
 `@robota-sdk/agent-core/node` adds the process identity readers (`readCurrentProcessIdentity`,
 `readBootId`, `readPidNamespace`, `readProcessStartTime`), and `writeOwnerOnlyFile` now also writes
 bytes and takes `durable`, `createOnly`, `beforeCommit`, `temporaryPath` and `linkFile`; a failure
-after the new content is in place throws `OwnerOnlyWriteUnconfirmedError`.
+after the new content is in place throws `OwnerOnlyWriteUnconfirmedError`. `ensureOwnerOnlyDirectory`
+takes `durable` (flush the parent of every directory it creates) and `syncDirectory`.
 
 What to do: nothing.

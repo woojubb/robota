@@ -19,8 +19,8 @@ usage. Neither is a slash command, a skill or anything a transport can reach.
 `@robota-sdk/agent-session` adds `compactPromptHistoryFile(path, { sealer })`, which rewrites the
 prompt history with every entry sealed, one per line, replaces the file by rename and catches up what
 terminals appended meanwhile, and `inspectPromptHistoryFile(path, { sealer })`.
-`@robota-sdk/agent-core/node` adds `inspectProcessScopedDirectories(parent, prefix)` and
-`stageOwnerOnlyFile(path, content)`, and `createProcessScopedDirectory` takes `readStartTime` and
-`durable`.
+`@robota-sdk/agent-core/node` adds `inspectProcessScopedDirectories(parent, prefix)`,
+`ownerOnThisMachine(owner, current)` and `stageOwnerOnlyFile(path, content)`, and
+`createProcessScopedDirectory` takes `readStartTime` and `durable`.
 
 What to do: nothing.

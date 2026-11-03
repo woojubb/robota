@@ -14,8 +14,10 @@ hand-off, `/editor` buffers in the shared temporary directory and the scratch di
 processes that are gone. What it cannot seal safely (a link or a file with another hard link,
 untrusted and non-Linux projects, the SDK's spill directories, anything that does not open with the
 keyring) is listed and left as it is. `--dry-run` shows exactly what a run would do and changes
-nothing; a run that must leave plaintext behind ends incomplete (exit 5) and says what to move aside
-first, and a run stopped part-way finishes when started again. `/rewind` names `<cli> secure migrate`
+nothing. A run that leaves plaintext which a rerun or moving a file aside would remove ends
+incomplete (exit 5) and says what to do; plaintext it can never seal (a project record or log past
+the project read limit once sealed, checkpoint turns kept plain) is listed, and the run still ends
+done. A run stopped part-way finishes when started again. `/rewind` names `<cli> secure migrate`
 for a checkpoint whose sealed copy is still waiting.
 
 `@robota-sdk/agent-session` adds `migrateNodeSessionStore`, `readSessionStoreWorkingDirectories`,

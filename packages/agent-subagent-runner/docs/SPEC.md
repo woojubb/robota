@@ -63,8 +63,9 @@ extra dependency.
   binds a sealed one, by the session it runs — the resumed record, else the task — and the parent
   reads by the same rule, also through the worktree runner. A log with no sealed record pages by its
   display lines; in a sealed one a page's offset counts stored records, so it names the same record
-  whether or not the keys are locked, and only the records on a page are opened. Whether a transcript is sealed is known only to
-  the live handle, so hooks and job summaries learn it from there, never from task state.
+  whether or not the keys are locked, and only the records on a page are opened. Whether a
+  transcript is sealed travels with its path into the persisted task state, so a task restored in a
+  later session still says that its path reaches no content.
 - **One provider connection across the boundary.** The child builds its provider from the
   parent's effective connection exactly, and never fills a gap from its own registry. Before a
   child is spawned, every environment variable that decides where that provider connects or which
