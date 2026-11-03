@@ -98,8 +98,9 @@ import { NodeSystemMetricsCollector } from '@robota-sdk/agent-plugin/node';
 new PerformancePlugin({ strategy: 'memory', metricsCollector: new NodeSystemMetricsCollector() });
 ```
 
-Memory and CPU monitoring are on by default, so the plugin throws a `ConfigurationError` at
-construction unless you pass a `metricsCollector` or set `monitorMemory` and `monitorCPU` to `false`.
+With a `metricsCollector`, memory and CPU monitoring are on unless `monitorMemory` or `monitorCPU`
+is `false`. Without one, no system metrics are recorded, and turning `monitorMemory`, `monitorCPU`
+or `monitorNetwork` on throws a `ConfigurationError` at construction.
 
 ### LimitsPlugin
 

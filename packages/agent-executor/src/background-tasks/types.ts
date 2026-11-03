@@ -209,9 +209,9 @@ export interface IBackgroundTaskManagerOptions {
   idFactory?: TBackgroundTaskIdFactory;
   eventSink?: TBackgroundTaskEventListener;
   /**
-   * ARCH-053: receives every observer (eventSink/listener) failure. Defaults to a logged warning;
-   * a Node host passes `reportObserverFailureAsProcessWarning` from `@robota-sdk/agent-executor/node`
-   * to surface it as a process warning. Never invoked from inside the failing observer's own
+   * ARCH-053: receives every observer (eventSink/listener) failure. Defaults to a `console.warn`
+   * line; a Node host passes `reportObserverFailureAsProcessWarning` from
+   * `@robota-sdk/agent-executor/node` to surface it as a process warning. Never invoked from inside the failing observer's own
    * delivery, never allowed to be silent.
    */
   onObserverFailure?: TObserverFailureReporter<TBackgroundTaskEvent>;

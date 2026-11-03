@@ -7,22 +7,26 @@
  */
 import jsSHA from 'jssha';
 
+/**
+ * Strings are encoded here rather than by jsSHA's `TEXT` input, which pairs a lone surrogate with the
+ * next character: `TextEncoder` writes U+FFFD for it, as `node:crypto` does, so two different
+ * strings never hash alike.
+ */
+const utf8 = new TextEncoder();
+
 /** SHA-256 of a string (hashed as UTF-8) or raw bytes, as lowercase hex. */
 export function sha256Hex(input: string | Uint8Array): string {
-  if (typeof input === 'string') {
-    const digest = new jsSHA('SHA-256', 'TEXT');
-    digest.update(input);
-    return digest.getHash('HEX');
-  }
   const digest = new jsSHA('SHA-256', 'UINT8ARRAY');
-  digest.update(input);
+  digest.update(typeof input === 'string' ? utf8.encode(input) : input);
   return digest.getHash('HEX');
 }
 
 /** HMAC-SHA-256 of `text` under `key` (both UTF-8), as lowercase hex. */
 export function hmacSha256Hex(key: string, text: string): string {
-  const digest = new jsSHA('SHA-256', 'TEXT', { hmacKey: { value: key, format: 'TEXT' } });
-  digest.update(text);
+  const digest = new jsSHA('SHA-256', 'UINT8ARRAY', {
+    hmacKey: { value: utf8.encode(key), format: 'UINT8ARRAY' },
+  });
+  digest.update(utf8.encode(text));
   return digest.getHash('HEX');
 }
 

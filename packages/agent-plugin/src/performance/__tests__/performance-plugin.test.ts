@@ -39,9 +39,20 @@ describe('PerformancePlugin', () => {
       expect(plugin.name).toBe('PerformancePlugin');
     });
 
-    it('monitors no system metrics by default when no collector is injected', () => {
+    it('records no system metrics by default when no collector is injected', async () => {
       plugin = new PerformancePlugin({ strategy: 'memory' });
-      expect(plugin.name).toBe('PerformancePlugin');
+      await plugin.recordMetrics({ operation: 'op', duration: 1, success: true, errorCount: 0 });
+      const [entry] = await plugin.getMetrics();
+      expect(entry?.memoryUsage).toBeUndefined();
+      expect(entry?.cpuUsage).toBeUndefined();
+    });
+
+    it('records memory and CPU by default when a collector is injected', async () => {
+      plugin = new PerformancePlugin({ strategy: 'memory', metricsCollector: collector });
+      await plugin.recordMetrics({ operation: 'op', duration: 1, success: true, errorCount: 0 });
+      const [entry] = await plugin.getMetrics();
+      expect(entry?.memoryUsage?.heap.used).toBe(4);
+      expect(entry?.cpuUsage?.user).toBe(6);
     });
 
     it.each([

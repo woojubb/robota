@@ -21,7 +21,7 @@ import {
 import { createBackgroundTaskWatchdogs } from './background-task-watchdogs.js';
 import {
   deliverToObservers,
-  reportObserverFailureAsLogWarning,
+  reportObserverFailureAsConsoleWarning,
   type TObserverFailureReporter,
 } from './observer-delivery.js';
 import { nextScheduledFireOnOrAfter } from './runners/scheduled-fire-time.js';
@@ -81,7 +81,8 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     this.eventSink = options.eventSink;
     this.onObserverFailure =
       options.onObserverFailure ??
-      ((failure) => reportObserverFailureAsLogWarning(failure, options.observerFailureWarningCode));
+      ((failure) =>
+        reportObserverFailureAsConsoleWarning(failure, options.observerFailureWarningCode));
     this.now = options.now ?? (() => new Date().toISOString());
     this.watchdogs = createBackgroundTaskWatchdogs(options, (task, reason, message) => {
       void this.failForTimeout(task, reason, message);

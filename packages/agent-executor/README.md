@@ -74,7 +74,7 @@ Task results and states are discriminated by `kind`: `exitCode` and `signalCode`
   worktree, prepared and removed by your `ISubagentWorktreeAdapter`; the `WorktreeCreate` and
   `WorktreeRemove` hooks fire around it, through the `hookTypeExecutors` you pass.
 - **Observer failures.** A throwing lifecycle observer never unwinds the manager; the failure goes
-  to `onObserverFailure`, which defaults to a warning logged through `agent-core`'s logger. A Node
+  to `onObserverFailure`, which defaults to a `console.warn` line carrying the warning code. A Node
   host passes `reportObserverFailureAsProcessWarning` to surface it as a process warning instead.
 - **Logs.** Task handles may report `logPath` and `transcriptPath`. The manager copies them into the
   task state, so a session record can store references while high-frequency output stays in

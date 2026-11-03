@@ -1,11 +1,10 @@
-import { setGlobalLoggerSink, type ILogger } from '@robota-sdk/agent-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { BackgroundTaskManager } from '../background-task-manager.js';
 import {
   OBSERVER_FAILURE_WARNING_CODE,
   deliverToObservers,
-  reportObserverFailureAsLogWarning,
+  reportObserverFailureAsConsoleWarning,
   type IObserverFailure,
 } from '../observer-delivery.js';
 import { reportObserverFailureAsProcessWarning } from '../process-warning-reporter.js';
@@ -23,22 +22,16 @@ function createResolvedRunner(): IBackgroundTaskRunner {
   };
 }
 
-/** Installs a process-wide sink that records every `warn` call, and returns what it recorded. */
-function captureLoggedWarnings(): Array<{ message: string; context: { code?: string } }> {
-  const warnings: Array<{ message: string; context: { code?: string } }> = [];
-  const sink: ILogger = {
-    debug: () => undefined,
-    info: () => undefined,
-    log: () => undefined,
-    error: () => undefined,
-    warn: (message, context) =>
-      warnings.push({ message: String(message), context: (context ?? {}) as { code?: string } }),
-  };
-  setGlobalLoggerSink(sink);
+/** Records every `console.warn` line, with no logger sink installed — as a host that set up nothing. */
+function captureConsoleWarnings(): string[] {
+  const warnings: string[] = [];
+  vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
+    warnings.push(args.map(String).join(' '));
+  });
   return warnings;
 }
 
-afterEach(() => setGlobalLoggerSink(undefined));
+afterEach(() => vi.restoreAllMocks());
 
 const request = {
   kind: 'agent' as const,
@@ -75,18 +68,18 @@ describe('deliverToObservers (ARCH-053)', () => {
     expect((failures[0]?.error as Error).message).toBe('boom');
   });
 
-  it('default reporter logs a coded warning through the logger instead of throwing', () => {
-    const warnings = captureLoggedWarnings();
-    reportObserverFailureAsLogWarning({
+  it('default reporter writes a coded console warning instead of throwing', () => {
+    const warnings = captureConsoleWarnings();
+    reportObserverFailureAsConsoleWarning({
       event: { type: 'background_task_created' },
       error: new Error('boom'),
       observerIndex: 0,
     });
     expect(warnings).toHaveLength(1);
-    expect(warnings[0]?.message).toContain('background_task_created');
-    expect(warnings[0]?.message).toContain('boom');
     expect(OBSERVER_FAILURE_WARNING_CODE).toBe('BACKGROUND_OBSERVER_FAILURE');
-    expect(warnings[0]?.context).toEqual({ code: 'BACKGROUND_OBSERVER_FAILURE' });
+    expect(warnings[0]).toMatch(/^\[BACKGROUND_OBSERVER_FAILURE\] /u);
+    expect(warnings[0]).toContain('background_task_created');
+    expect(warnings[0]).toContain('boom');
   });
 
   it('the Node reporter emits a coded process warning instead of throwing', () => {
@@ -107,8 +100,8 @@ describe('deliverToObservers (ARCH-053)', () => {
 });
 
 describe('BackgroundTaskManager observer isolation (ARCH-053)', () => {
-  it('logs with the host warning code when no custom failure reporter is supplied', async () => {
-    const warnings = captureLoggedWarnings();
+  it('warns on the console with the host warning code when no reporter or sink is supplied', async () => {
+    const warnings = captureConsoleWarnings();
     const manager = new BackgroundTaskManager({
       runners: [createResolvedRunner()],
       observerFailureWarningCode: 'ACME_BACKGROUND_OBSERVER_FAILURE',
@@ -120,7 +113,7 @@ describe('BackgroundTaskManager observer isolation (ARCH-053)', () => {
     await manager.wait(state.id);
     expect(warnings.length).toBeGreaterThan(0);
     expect(
-      warnings.every((warning) => warning.context.code === 'ACME_BACKGROUND_OBSERVER_FAILURE'),
+      warnings.every((warning) => warning.startsWith('[ACME_BACKGROUND_OBSERVER_FAILURE] ')),
     ).toBe(true);
   });
 
@@ -149,7 +142,7 @@ describe('BackgroundTaskManager observer isolation (ARCH-053)', () => {
   });
 
   it('keeps an explicit reporter ahead of the host warning code', async () => {
-    const warnings = captureLoggedWarnings();
+    const warnings = captureConsoleWarnings();
     const failures: IObserverFailure<TBackgroundTaskEvent>[] = [];
     const manager = new BackgroundTaskManager({
       runners: [createResolvedRunner()],

@@ -5,10 +5,15 @@ import { describe, expect, it, vi } from 'vitest';
 import { constantTimeEqual, hmacSha256Hex, randomHex, sha256Hex } from './digest';
 import koreanText from './__fixtures__/korean-text.json';
 
+/** Lone surrogates are not valid UTF-16; both Node and `TextEncoder` encode each as U+FFFD. */
+const loneSurrogates = ['a\uD800b', '\uDC00', 'x\uD800'];
+
 const texts = [
   '',
   'abc',
   koreanText.greetingWithGlobeEmoji,
+  ...loneSurrogates,
+  'a\uD800\uDC62',
   ...[55, 56, 63, 64, 65, 119, 120, 128, 1024].map((length) => 'a'.repeat(length)),
 ];
 
@@ -37,6 +42,10 @@ describe('sha256Hex', () => {
     const text = koreanText.greetingWithGlobeEmoji;
     expect(sha256Hex(text)).toBe(sha256Hex(new TextEncoder().encode(text)));
   });
+
+  it('does not pair a lone surrogate with the character after it', () => {
+    expect(sha256Hex('a\uD800b')).not.toBe(sha256Hex('a\uD800\uDC62'));
+  });
 });
 
 describe('hmacSha256Hex', () => {
@@ -45,6 +54,8 @@ describe('hmacSha256Hex', () => {
     { key: '', text: '' },
     { key: koreanText.greetingWithGlobeEmoji, text: koreanText.greetingWithGlobeEmoji },
     { key: 'k'.repeat(200), text: 'a'.repeat(1024) },
+    { key: '\uD800x', text: 'p' },
+    { key: 'p', text: 'a\uD800b' },
   ])('matches the Node HMAC for a $key.length-character key', ({ key, text }) => {
     expect(hmacSha256Hex(key, text)).toBe(createHmac('sha256', key).update(text).digest('hex'));
   });

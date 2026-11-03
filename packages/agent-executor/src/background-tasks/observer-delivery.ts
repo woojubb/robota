@@ -12,8 +12,6 @@
  * - every failure is reported, never swallowed, through an explicit reporter.
  */
 
-import { createLogger } from '@robota-sdk/agent-core';
-
 export interface IObserverFailure<TEvent> {
   readonly event: TEvent;
   readonly error: unknown;
@@ -37,19 +35,20 @@ export function describeObserverFailure<TEvent>(failure: IObserverFailure<TEvent
   return `Background lifecycle observer #${failure.observerIndex} threw on '${eventType}': ${message}`;
 }
 
-const observerLogger = createLogger('BackgroundObserver');
-
 /**
- * Default reporter: log the failure as a warning carrying `code`, through agent-core's logger. It
- * runs outside the emitter's call stack and never throws. The logger is silent until the host
- * installs a sink, so a host that must see these failures injects its own reporter — the Node one is
- * `reportObserverFailureAsProcessWarning` in `@robota-sdk/agent-executor/node`.
+ * Default reporter: write the failure to `console.warn`, prefixed with `code`. The console is the one
+ * sink every runtime has, so a failure stays visible on a host that installed nothing — on Node it
+ * reaches stderr, as the earlier `process.emitWarning` default did; agent-core's logger would not do,
+ * because it is silent until a host installs a sink. It runs outside the emitter's call stack and
+ * never throws. A Node host may inject
+ * `reportObserverFailureAsProcessWarning` from `@robota-sdk/agent-executor/node` instead.
  */
-export function reportObserverFailureAsLogWarning<TEvent>(
+export function reportObserverFailureAsConsoleWarning<TEvent>(
   failure: IObserverFailure<TEvent>,
   code: string = OBSERVER_FAILURE_WARNING_CODE,
 ): void {
-  observerLogger.warn(describeObserverFailure(failure), { code });
+  // eslint-disable-next-line no-console -- ARCH-053: the default must be visible on every runtime.
+  console.warn(`[${code}] ${describeObserverFailure(failure)}`);
 }
 
 /**

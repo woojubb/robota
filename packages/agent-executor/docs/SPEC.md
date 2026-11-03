@@ -116,9 +116,8 @@ The manager emits lifecycle/progress events only after the authoritative state t
 already committed, so an observer must never be able to unwind the emitter by throwing. Delivery
 isolates each observer (an optional sink first, then subscribers in registration order); a
 throwing observer does not stop delivery to the rest, and each failure is reported through a
-caller-supplied hook (default: a warning logged through `agent-core`'s logger, which is silent
-until the host installs a sink; a Node host injects a process-warning reporter) rather than
-propagated. Event payloads are
+caller-supplied hook (default: a `console.warn` line, the one sink every runtime has; a Node host
+injects a process-warning reporter) rather than propagated. Event payloads are
 cloned task snapshots or primitive progress data; consumers may project them into UI rows,
 transport messages, or logs, but must not mutate manager state directly from a listener.
 
