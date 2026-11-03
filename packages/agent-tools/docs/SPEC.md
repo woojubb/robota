@@ -18,8 +18,8 @@ write, edit, glob, grep, web-fetch, ask-user-question) used by the agent CLI.
   sandbox adapters are structural adapters an application opts into.
 - Does not own CLI manifest file parsing — YAML/JSON parsing belongs to the CLI composition layer
   and must converge into this package's workspace manifest contract.
-- The main entry is Node-only today: it exports the built-in local tools beside the function-tool
-  factories, and the separately maintained workflow library imports those tools from it.
+- The main entry exports the built-in local tools beside the function-tool factories, so it needs a
+  Node host; the separately maintained workflow library imports those tools from it.
 
 ## Contract
 

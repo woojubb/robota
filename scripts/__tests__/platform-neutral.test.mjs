@@ -26,10 +26,14 @@ function workspace({ packages, lists, thirdParty = {} }) {
     mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
     writeFileSync(path.join(root, file), content);
   };
-  for (const [name, { exports, files }] of Object.entries(packages)) {
+  for (const [name, { exports, source, files }] of Object.entries(packages)) {
     write(
       `packages/${name}/package.json`,
-      JSON.stringify({ name: `@robota-sdk/${name}`, exports }),
+      JSON.stringify({
+        name: `@robota-sdk/${name}`,
+        ...(exports && { exports }),
+        ...(source && { source }),
+      }),
     );
     for (const [file, content] of Object.entries(files)) write(`packages/${name}/${file}`, content);
   }
@@ -104,6 +108,50 @@ describe('platform-neutral entry check', () => {
         '@robota-sdk/a imports node:stream: packages/a/src/index.ts → packages/a/src/types.ts',
         '@robota-sdk/a uses Node types (NodeJS namespace): packages/a/src/index.ts → packages/a/src/types.ts',
       ]),
+    );
+  });
+
+  it('reads imports from the syntax tree, not from text that looks like code', async () => {
+    const root = workspace({
+      packages: {
+        a: {
+          exports: neutralExport(),
+          files: {
+            'src/index.ts': [
+              "export const glob = '**/*.ts'; export const f = () => import('node:fs'); /** doc */",
+              'export const g = () => import(`node:child_process`);',
+              "export type Stats = import('node:fs/promises').FileHandle;",
+            ].join('\n'),
+          },
+        },
+      },
+      lists: { neutral: ['a'] },
+    });
+    expect((await checkPlatformNeutral(root)).sort()).toEqual(
+      [
+        '@robota-sdk/a imports node:child_process: packages/a/src/index.ts',
+        '@robota-sdk/a imports node:fs: packages/a/src/index.ts',
+        '@robota-sdk/a imports node:fs/promises: packages/a/src/index.ts',
+      ].sort(),
+    );
+  });
+
+  it('checks an app shell through its source entry and refuses a listed package with none', async () => {
+    const root = workspace({
+      packages: {
+        shell: {
+          source: './src/main.tsx',
+          files: { 'src/main.tsx': 'export const env = process.env;' },
+        },
+        bare: { files: { 'src/index.ts': '' } },
+      },
+      lists: { dom: ['shell', 'bare'] },
+    });
+    expect((await checkPlatformNeutral(root)).sort()).toEqual(
+      [
+        '@robota-sdk/shell uses Node global process: packages/shell/src/main.tsx',
+        'bare is listed as Browser (DOM), but declares neither exports nor a source entry to check',
+      ].sort(),
     );
   });
 

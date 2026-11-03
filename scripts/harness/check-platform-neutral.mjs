@@ -21,6 +21,7 @@ import { builtinModules } from 'node:module';
 import path from 'node:path';
 
 import { build, transform } from 'esbuild';
+import ts from 'typescript';
 
 import { isEntryPoint } from './entrypoint.mjs';
 import { resolveWorkspaceRoot } from './shared.mjs';
@@ -42,8 +43,6 @@ export const NODE_GLOBALS = [
   '__dirname',
   '__filename',
   'require',
-  'module',
-  'exports',
   'globalThis.process',
   'globalThis.Buffer',
   'globalThis.global',
@@ -72,11 +71,42 @@ const markers = (names, prefix) =>
 const NODE_DEFINE = markers(NODE_GLOBALS, 'node_global');
 const DOM_DEFINE = markers(DOM_GLOBALS, 'dom_global');
 
-/** Any import of a Node built-in in source text, including the type-only ones esbuild erases. */
-const SOURCE_SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)["']([^"']+)["']/gu;
-const NODE_TYPES = /\bNodeJS\.|\/\/\/\s*<reference\s+types=["']node["']/u;
-const stripComments = (code) =>
-  code.replace(/\/\*[\s\S]*?\*\//gu, '').replace(/(^|[^:\\])\/\/(?!\/\s*<reference).*$/gmu, '$1');
+/**
+ * What a workspace file names from Node in its source, including what esbuild erases: type-only
+ * imports, `import('node:x')` types, the `NodeJS` namespace and a `/// <reference types="node" />`.
+ * Read from the TypeScript syntax tree, so strings and comments are never mistaken for code.
+ */
+function sourceNodeReferences(file, code) {
+  const kind = file.endsWith('.tsx')
+    ? ts.ScriptKind.TSX
+    : /\.[cm]?ts$/u.test(file)
+      ? ts.ScriptKind.TS
+      : ts.ScriptKind.JSX;
+  const source = ts.createSourceFile(file, code, ts.ScriptTarget.Latest, false, kind);
+  const builtins = new Set();
+  let nodeTypes = source.typeReferenceDirectives.some((directive) => directive.fileName === 'node');
+  const specifier = (node) => (node && ts.isStringLiteralLike(node) ? node.text : undefined);
+  const visit = (node) => {
+    let named;
+    if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node))
+      named = specifier(node.moduleSpecifier);
+    else if (
+      ts.isImportEqualsDeclaration(node) &&
+      ts.isExternalModuleReference(node.moduleReference)
+    )
+      named = specifier(node.moduleReference.expression);
+    else if (ts.isImportTypeNode(node) && ts.isLiteralTypeNode(node.argument))
+      named = specifier(node.argument.literal);
+    else if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword)
+      named = specifier(node.arguments[0]);
+    else if (ts.isQualifiedName(node) && ts.isIdentifier(node.left) && node.left.text === 'NodeJS')
+      nodeTypes = true;
+    if (named !== undefined && isBuiltin(named)) builtins.add(named);
+    ts.forEachChild(node, visit);
+  };
+  visit(source);
+  return { builtins, nodeTypes };
+}
 
 const ASSET_LOADERS = Object.fromEntries(
   ['.css', '.svg', '.png', '.woff2', '.md', '.html'].map((extension) => [extension, 'empty']),
@@ -89,10 +119,14 @@ const NODE_ONLY_LISTS = new Set(['Node host', 'Not yet neutral']);
 /** Conditions that may precede `browser: null` without a browser resolver matching them first. */
 const BEFORE_BROWSER = new Set(['source', 'types', 'node']);
 
-/** The package's JavaScript subpaths with their conditions, as written in `exports`. */
+/**
+ * The package's JavaScript subpaths with their conditions, as written in `exports`. A package that
+ * ships no importable module (an app shell) declares the entry the check reads in `source`.
+ */
 function exportEntries(manifest) {
   const { exports } = manifest;
-  if (!exports) return [];
+  if (!exports)
+    return typeof manifest.source === 'string' ? [['.', { source: manifest.source }]] : [];
   if (typeof exports === 'string' || !Object.keys(exports).some((key) => key.startsWith('.')))
     return [['.', exports]];
   return Object.entries(exports).filter(
@@ -256,21 +290,16 @@ async function checkSubpath({ root, packages, label, entryFile, allowDom }) {
 
   const problems = [];
   for (const file of parent.keys()) {
-    if (!isWorkspaceFile(file)) {
-      for (const edge of inputs[file]?.imports ?? [])
-        if (edge.external && isBuiltin(edge.path) && edge.kind !== 'dynamic-import')
-          problems.push(`${label} imports ${edge.path}: ${chain(file)}`);
-      continue;
-    }
-    if (!/\.[cm]?[jt]sx?$/u.test(file)) continue;
+    const workspace = isWorkspaceFile(file);
+    for (const edge of inputs[file]?.imports ?? [])
+      if (edge.external && isBuiltin(edge.path) && (workspace || edge.kind !== 'dynamic-import'))
+        problems.push(`${label} imports ${edge.path}: ${chain(file)}`);
+    if (!workspace || !/\.[cm]?[jt]sx?$/u.test(file)) continue;
     const code = readFileSync(path.join(root, file), 'utf8');
-    const text = stripComments(code);
-    const builtins = [...text.matchAll(SOURCE_SPECIFIER)]
-      .map((match) => match[1])
-      .filter(isBuiltin);
-    for (const builtin of new Set(builtins))
+    const named = sourceNodeReferences(file, code);
+    for (const builtin of named.builtins)
       problems.push(`${label} imports ${builtin}: ${chain(file)}`);
-    if (NODE_TYPES.test(text))
+    if (named.nodeTypes)
       problems.push(`${label} uses Node types (NodeJS namespace): ${chain(file)}`);
     const loader = file.endsWith('.tsx') ? 'tsx' : /\.[cm]?ts$/u.test(file) ? 'ts' : 'jsx';
     const define = allowDom ? NODE_DEFINE : { ...NODE_DEFINE, ...DOM_DEFINE };
@@ -326,7 +355,13 @@ function classificationProblems(lists, packages) {
   for (const { short, entries } of packages.values()) {
     const label = listed.get(short);
     listed.delete(short);
-    if (entries.length === 0) continue;
+    if (entries.length === 0) {
+      if (label !== undefined)
+        problems.push(
+          `${short} is listed as ${label}, but declares neither exports nor a source entry to check`,
+        );
+      continue;
+    }
     if (label === undefined) {
       problems.push(`${short} is not in any ARCHITECTURE.md "Runtime platforms" list`);
       continue;

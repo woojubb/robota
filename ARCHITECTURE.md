@@ -134,8 +134,8 @@ reaches, and on any package whose manifest disagrees with the lists below.
 ## Dependency and interface rule identifiers
 
 The identifiers below name architecture boundaries. The former broad dependency scans were removed
-by the minimal-harness reset; no bundle-source graph gate currently exists. This list is not a claim
-that each boundary has an automated gate. Package placement and dependency direction are shown in
+by the minimal-harness reset; the one bundle-source graph gate is the runtime-platform check above.
+This list is not a claim that each boundary has an automated gate. Package placement and dependency direction are shown in
 the System Overview diagram above. Current checks are defined in `AGENTS.md` and CI.
 
 - `FORBIDDEN-DEP` — a production dependency edge listed as forbidden (each entry carries its reason)

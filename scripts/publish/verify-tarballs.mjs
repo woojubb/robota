@@ -134,7 +134,7 @@ const BUILTIN_SPECIFIERS = new Set(builtinModules.flatMap((name) => [name, `node
 const isBuiltin = (specifier) => specifier.startsWith('node:') || BUILTIN_SPECIFIERS.has(specifier);
 const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)["']([^"']+)["']/gu;
 
-function neutralShippedProblems(tarball, manifest, files) {
+export function neutralShippedProblems(tarball, manifest, files) {
   const { exports } = manifest;
   const subpaths =
     exports &&

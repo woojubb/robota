@@ -41,6 +41,20 @@ export function workspaces(cwd, selectors = []) {
     });
 }
 
+/** Documents that are inputs to a check, so a change to one runs the full plan. */
+const FULL_PLAN_DOCUMENTS = new Map([
+  // `pnpm lint` checks every manifest against its runtime-platform lists.
+  ['ARCHITECTURE.md', 'runtime-platform lists: ARCHITECTURE.md'],
+]);
+
+/** A developer document: a change to it alone needs no workspace check. */
+export function isDeveloperDocument(file) {
+  if (FULL_PLAN_DOCUMENTS.has(file)) return false;
+  return /^[^/]+\.md$/.test(file) || /^\.changeset\/[^/]+\.md$/.test(file) ||
+    /^(?:\.agents|\.claude)\/.*\.md$/.test(file) ||
+    /^(?:packages|examples)\/[^/]+\/(?:README\.md|CHANGELOG\.md|docs\/.*\.md)$/.test(file);
+}
+
 export function selectScope({
   cwd = process.cwd(),
   event,
@@ -72,11 +86,8 @@ export function selectScope({
     for (let index = 0; index < changes.length - 1; index += 2) {
       const status = changes[index];
       const file = changes[index + 1];
-      // `pnpm lint` checks every manifest against ARCHITECTURE.md's runtime-platform lists.
-      if (file === 'ARCHITECTURE.md') return full('runtime-platform lists: ARCHITECTURE.md');
-      if (/^[^/]+\.md$/.test(file) || /^\.changeset\/[^/]+\.md$/.test(file) ||
-          /^(?:\.agents|\.claude)\/.*\.md$/.test(file) ||
-          /^(?:packages|examples)\/[^/]+\/(?:README\.md|CHANGELOG\.md|docs\/.*\.md)$/.test(file)) {
+      if (FULL_PLAN_DOCUMENTS.has(file)) return full(FULL_PLAN_DOCUMENTS.get(file));
+      if (isDeveloperDocument(file)) {
         developerDocs = true;
         continue;
       }
