@@ -24,7 +24,11 @@ Requires Node.js 22.12 or later for the `@robota-sdk/agent-session/node` adapter
 ## Quick Start
 
 ```typescript
+import { realpathSync } from 'node:fs';
+import { homedir } from 'node:os';
+
 import { Session } from '@robota-sdk/agent-session';
+import { createNodeWorkspacePathResolver } from '@robota-sdk/agent-session/node';
 import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 import type { ITerminalOutput } from '@robota-sdk/agent-session';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
@@ -42,6 +46,11 @@ const session = new Session({
   cwd: process.cwd(),
   // Required. The hook handlers this host can run; `[]` runs none. The session has no host default.
   hookTypeExecutors: [new CommandExecutor(), new HttpExecutor()],
+  // Optional on any host; a Node host passes all three so the permission gate knows the home
+  // directory, follows symlinks out of the workspace and compares directories as the filesystem does.
+  homeDirectory: homedir(),
+  resolveInWorkspace: createNodeWorkspacePathResolver(process.cwd()),
+  canonicalizePath: (path) => realpathSync(path),
   permissions: { allow: ['Read(*)'], deny: [] },
   autoCompactThreshold: 0.75,
 });
@@ -261,7 +270,7 @@ The session reads nothing from the machine it runs on. The composition root pass
 | Option                                     | Without it                                                                                                         |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------ |
 | `hookTypeExecutors` (required)             | Construction throws. `[]` runs no hook handler; on Node pass the command and HTTP executors from `agent-core/node` |
-| `homeDirectory`                            | The home directory is unknown: a bare `~` is still refused, a path under it is not expanded                        |
+| `homeDirectory`                            | The home directory is unknown: `~`, and a home-relative target that may climb out of it (`~/..`), are refused      |
 | `resolveInWorkspace`                       | A shell command with a path operand is not judged read-only                                                        |
 | `canonicalizePath`                         | A directory is compared as written, with no symlinks followed (`realpathSync` on Node)                             |
 | `registerExitFlush` of `FileSessionLogger` | A stream's buffered tail is not flushed when the process exits mid-stream                                          |

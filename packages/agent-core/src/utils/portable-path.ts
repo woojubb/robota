@@ -12,6 +12,8 @@
 
 /** `X:\` or `X:/`: a drive and a separator, the only drive-qualified form that is absolute. */
 const DRIVE_ROOT = /^([A-Za-z]:)[\\/]+/;
+/** `X:` with no separator after it: relative to drive X's own current directory. */
+const DRIVE_RELATIVE = /^([A-Za-z]:)(?![\\/])/;
 /** `\\server\share` (either slash), the share optional while a path is still being typed. */
 const UNC_ROOT = /^[\\/]{2}([^\\/]+)(?:[\\/]+([^\\/]+))?[\\/]*/;
 
@@ -121,7 +123,10 @@ function rootOf(base: string, flavour: TPathFlavour): string {
 /**
  * `relative` resolved against `base`, as `path.resolve(base, relative)` on the platform `base`
  * belongs to would — but lexically, and without ever reading the process directory. An absolute
- * `relative` stands on its own. A relative `base` gives a relative result.
+ * `relative` stands on its own. A relative `base` gives a relative result. Under a Windows base a
+ * drive-relative `relative` on the base's drive (`C:x` against `C:\repo`) resolves against the base;
+ * on another drive (`D:x`) it names that drive's current directory, which only a process can know,
+ * so it is returned as given — still not absolute.
  */
 export function resolvePath(base: string, relative: string): string {
   if (/^[A-Za-z]:[\\/]/.test(relative) || relative.startsWith('\\\\')) {
@@ -132,9 +137,21 @@ export function resolvePath(base: string, relative: string): string {
     const text = relative.startsWith('/') ? relative : `${base}/${relative}`;
     return assemble(splitPath(text, 'posix'), 'posix', false);
   }
+  // `//server/share` is a UNC root under a Windows base, as `\\server\share` is.
+  if (/^[\\/]{2}/.test(relative)) return assemble(splitPath(relative, 'win32'), 'win32', false);
+  let anchor = base;
+  let rest = relative;
+  const drive = DRIVE_RELATIVE.exec(relative);
+  if (drive !== null) {
+    const baseDrive = DRIVE_ROOT.exec(base)?.[1];
+    if (baseDrive?.toLowerCase() !== drive[1]!.toLowerCase()) return relative;
+    // The drive is spelled as `relative` spells it, as `path.win32.resolve` does.
+    anchor = drive[1]! + base.slice(baseDrive.length);
+    rest = relative.slice(drive[0].length);
+  }
   // A Windows root without a drive (`\x`, `/x`) belongs to the base's drive or share.
-  const anchored = /^[\\/]/.test(relative) && !/^[\\/]{2}/.test(relative);
-  const text = anchored ? `${rootOf(base, 'win32')}${relative}` : `${base}\\${relative}`;
+  const anchored = /^[\\/]/.test(rest);
+  const text = anchored ? `${rootOf(anchor, 'win32')}${rest}` : `${anchor}\\${rest}`;
   return assemble(splitPath(text, 'win32'), 'win32', false);
 }
 

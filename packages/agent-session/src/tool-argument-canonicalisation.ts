@@ -27,5 +27,8 @@ export function canonicaliseToolArguments(
   if (argument === undefined || argument.kind !== 'path') return parameters;
   const value = parameters[argument.key];
   if (typeof value !== 'string' || value === '' || isAbsolutePath(value)) return parameters;
-  return { ...parameters, [argument.key]: resolvePath(cwd, value) };
+  const resolved = resolvePath(cwd, value);
+  // A path relative to another drive's current directory stays as written, and the gate asks.
+  if (!isAbsolutePath(resolved)) return parameters;
+  return { ...parameters, [argument.key]: resolved };
 }

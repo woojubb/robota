@@ -4,6 +4,8 @@
  * canonicalizer. Each is optional where "unknown" has a safe meaning and required where it does not.
  */
 
+import { homedir } from 'node:os';
+
 import { clearRegisteredToolProfiles, registerToolPermissionProfile } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -114,14 +116,23 @@ describe('homeDirectory', () => {
     ).resolves.toBe(false);
   });
 
-  it('is unknown when absent, rather than read from the machine', async () => {
-    await expect(
-      enforcerFor(undefined).checkPermission('Bash', { command: 'rm -rf /home/me' }),
-    ).resolves.toBe(true);
-    // A bare `~` is still a critical target without knowing where it points.
-    await expect(
-      enforcerFor(undefined).checkPermission('Bash', { command: 'rm -rf ~' }),
-    ).resolves.toBe(false);
+  // Below the root's own top-level directories, so only a known home makes it critical.
+  it.skipIf(homedir().split(/[\\/]/).filter(Boolean).length < 2)(
+    'is unknown when absent, rather than read from the machine',
+    async () => {
+      await expect(
+        enforcerFor(undefined).checkPermission('Bash', { command: `rm -rf '${homedir()}'` }),
+      ).resolves.toBe(true);
+    },
+  );
+
+  it('still refuses, without a home, a target that is home or may climb out of it', async () => {
+    for (const command of ['rm -rf ~', 'rm -rf ~/..', 'rm -rf $HOME/../..', 'rm -rf ~/a/..']) {
+      await expect(
+        enforcerFor(undefined).checkPermission('Bash', { command }),
+        command,
+      ).resolves.toBe(false);
+    }
   });
 });
 

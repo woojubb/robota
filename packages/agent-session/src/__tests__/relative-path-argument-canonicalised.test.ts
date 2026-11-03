@@ -83,6 +83,15 @@ describe('canonicaliseToolArguments', () => {
     expect(canonicaliseToolArguments('Read', absolute, 'C:\\work')).toBe(absolute);
   });
 
+  it('resolves a drive-relative path on the workspace drive and leaves another drive’s as written', () => {
+    expect(canonicaliseToolArguments('Read', { filePath: 'C:x.ts' }, 'C:\\work')).toEqual({
+      filePath: 'C:\\work\\x.ts',
+    });
+    // `D:x` means drive D's current directory, which no text can tell: the gate judges it as written.
+    const otherDrive = { filePath: 'D:x.ts' };
+    expect(canonicaliseToolArguments('Read', otherDrive, 'C:\\work')).toBe(otherDrive);
+  });
+
   it('leaves an absolute path, a non-path kind and an unprofiled tool untouched', () => {
     const absolute = { filePath: '/elsewhere/x.ts' };
     expect(canonicaliseToolArguments('Read', absolute, ROOT)).toBe(absolute);

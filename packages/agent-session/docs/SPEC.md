@@ -224,8 +224,9 @@ absence is a safe answer rather than a guess:
 - Hook executors are required, because running a hook handler needs a host. A session built
   without a list is refused at construction rather than left to skip every configured hook; an
   empty list runs none, and a configured hook type with no executor is reported, not skipped.
-- An absent home directory is unknown: a bare `~` is still refused as a critical target, but a
-  path under it is not expanded into one the gate could match.
+- An absent home directory is unknown: `~`, and any home-relative target not provably inside it
+  (`~/..`), is refused as a critical target, and a path inside it is not expanded into one the gate
+  could match.
 - Without a workspace resolver, a shell command naming a path is not judged read-only, because a
   symlink inside the workspace can point anywhere and no filesystem can say where this one does.
 - Without a canonicalizer, the session's directory is compared as written; a host that follows

@@ -90,11 +90,23 @@ describe('resolvePath', () => {
     ['\\\\server\\share\\dir', '..\\..\\..\\a'],
     ['\\\\server\\share\\dir', '\\x'],
     ['C:\\repo', '\\\\server\\share\\a'],
+    ['C:\\repo', '//server/share/a'],
+    ['C:\\repo', 'C:a'],
+    ['C:\\repo', 'c:..\\b'],
+    ['C:\\repo', 'c:a'],
+    ['c:\\repo', 'C:a'],
+    ['C:\\repo', 'C:'],
+    ['C:\\repo', 'C:\\'],
     ['C:\\repo', ''],
   ] as const;
 
   it.each(win32Cases)('matches path.win32.resolve(%j, %j)', (base, relative) => {
     expect(resolvePath(base, relative)).toBe(win32.resolve(base, relative));
+  });
+
+  it('leaves a path relative to another drive as given, since only a process knows its directory', () => {
+    expect(resolvePath('C:\\repo', 'D:a')).toBe('D:a');
+    expect(resolvePath('\\\\server\\share', 'D:a')).toBe('D:a');
   });
 
   it('takes the flavour from the base, so a POSIX process resolves a Windows workspace path', () => {
