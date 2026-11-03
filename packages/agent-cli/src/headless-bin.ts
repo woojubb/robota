@@ -5,12 +5,16 @@ import { isSubagentWorkerModeArgv, runSubagentWorkerMain } from '@robota-sdk/age
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
 
 import { installCliDiagnostics } from './bootstrap-diagnostics.js';
+import { hardenProductProcess } from './process-hardening.js';
 import { resolveCliRuntimeContext } from './startup/product-bootstrap.js';
 import { startCliCore } from './cli-core.js';
 import { createProductSubagentComposition } from './product/subagent-composition.js';
 import { parseCliArgs } from './utils/cli-args.js';
 import { optionArgv } from './utils/option-argv.js';
 import { assertLocalWorkerPosture } from './hosted/hosted-runtime-config.js';
+
+// Same first step as the CLI executable: this executable is its own entry, and so is its worker child.
+hardenProductProcess();
 
 if (isSubagentWorkerModeArgv(optionArgv(process.argv))) {
   // The served parent's child re-executes process.execPath; this private route must survive bundling.
