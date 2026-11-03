@@ -38,7 +38,9 @@ extraResources:
 # credentials, so a program running as the same OS user must not be able to borrow the signed app: no
 # ELECTRON_RUN_AS_NODE interpreter, no NODE_OPTIONS / NODE_EXTRA_CA_CERTS injection (the remote runtime takes an
 # explicit owner-checked CA file instead), no --inspect or SIGUSR1 inspector attach, and app code is loaded only from
-# the integrity-checked app.asar. The bundled runtime under extraResources is not app code and is unaffected.
+# app.asar, which electron-builder integrity-checks on macOS and Windows (on Linux it embeds no integrity data; the
+# read-only AppImage or root-owned deb install keeps the asar unaltered). The bundled runtime under extraResources
+# is not app code and is unaffected.
 # Chromium remote debugging has no fuse: the packaged main process refuses to start when asked for it
 # (electron/launch-guard.ts). e2e/electron-fuses.mjs holds the intended values; CI reads them back from the binary.
 # Left at Electron's defaults on purpose:

@@ -16,7 +16,7 @@ async function resolvedFuses() {
 
 // The packaged main process holds the remote credentials, so a program running as the same OS user must not be able to
 // borrow the signed binary: no `ELECTRON_RUN_AS_NODE` interpreter, no `NODE_OPTIONS` injection, no `--inspect`
-// attach, and no app code loaded from anywhere but the integrity-checked asar.
+// attach, and no app code loaded from anywhere but the asar (integrity-checked on macOS and Windows).
 it('flips the Electron fuses that stop a same-user process from running code under the signed app', async () => {
   const fuses = await resolvedFuses();
   expect(fuses).toMatchObject({ version: FuseVersion.V1, ...INTENDED_FUSES });

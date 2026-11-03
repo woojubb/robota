@@ -14,7 +14,7 @@ export const { PlatformPackager } = builderRequire('app-builder-lib/out/platform
 /**
  * The packaged main process holds the remote credentials, so a program running as the same OS user must not be able to
  * borrow the binary: no `ELECTRON_RUN_AS_NODE` interpreter, no `NODE_OPTIONS` injection, no `--inspect` attach, and no
- * app code loaded from anywhere but the integrity-checked asar. Fuses not named here stay at Electron's defaults.
+ * app code loaded from anywhere but the asar (integrity-checked on macOS and Windows). Fuses not named here stay at Electron's defaults.
  */
 export const INTENDED_FUSES = Object.freeze({
   [FuseV1Options.RunAsNode]: false,
