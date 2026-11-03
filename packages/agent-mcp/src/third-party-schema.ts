@@ -35,6 +35,39 @@ const SUBSET_TYPES = new Set(['object', 'array', 'string', 'number', 'integer', 
 const STANDARD_DIALECT =
   /^https?:\/\/json-schema\.org\/(?:draft-0[4-7]\/schema|draft\/(?:2019-09|2020-12)\/schema)#?$/u;
 
+/** The keywords `IParameterSchema` declares. A narrowed node carries no other. */
+const SUBSET_KEYWORDS = new Set([
+  'type',
+  'description',
+  'enum',
+  'items',
+  'properties',
+  'required',
+  'anyOf',
+  'additionalProperties',
+  'minimum',
+  'maximum',
+  'pattern',
+  'format',
+  'default',
+]);
+
+/** Keywords that constrain no value, so dropping them leaves nothing unchecked. */
+const ANNOTATION_KEYWORDS = new Set([
+  'title',
+  'examples',
+  '$comment',
+  '$id',
+  '$anchor',
+  '$defs',
+  'definitions',
+  'deprecated',
+  'readOnly',
+  'writeOnly',
+  'contentMediaType',
+  'contentEncoding',
+]);
+
 export interface INarrowedSchema {
   /** A copy carrying only what the subset can enforce. */
   schema: IParameterSchema;
@@ -81,6 +114,21 @@ function narrowNode(input: IParameterSchema, path: string, dropped: string[]): I
       dropped.push(`${path}.$schema`);
     }
     node = portable as IParameterSchema;
+  }
+  // The copy holds only subset keywords: anything else is a constraint nothing here checks (reported)
+  // or an annotation (dropped quietly). Carrying it would hand on a schema outside the contract its
+  // type claims, which a strict reader of that contract — the session record — then refuses.
+  const keywords = Object.keys(node);
+  if (keywords.some((key) => !SUBSET_KEYWORDS.has(key))) {
+    const subset: Record<string, unknown> = {};
+    for (const key of keywords) {
+      if (SUBSET_KEYWORDS.has(key)) {
+        subset[key] = (node as Record<string, unknown>)[key];
+      } else if (!ANNOTATION_KEYWORDS.has(key)) {
+        dropped.push(`${path}.${key}`);
+      }
+    }
+    node = subset as IParameterSchema;
   }
   if (Array.isArray(node.anyOf)) {
     node = {

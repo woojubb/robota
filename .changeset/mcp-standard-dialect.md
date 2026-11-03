@@ -2,4 +2,4 @@
 '@robota-sdk/agent-mcp': patch
 ---
 
-Stop reporting a standard JSON Schema `$schema` dialect declaration as an unenforceable schema subtree, so servers such as Exa no longer print a schema warning on every start; any other dialect is still reported.
+Narrow a third-party MCP tool schema to exactly the keywords the universal subset declares. A constraint the subset cannot check (such as `minLength`) is now dropped and reported instead of being carried along, which made the session record refuse to load ("Session record cannot be updated: corrupt") once a server such as Exa was connected; annotations such as `title` are dropped quietly, and a standard JSON Schema `$schema` dialect is no longer reported as unenforceable.
