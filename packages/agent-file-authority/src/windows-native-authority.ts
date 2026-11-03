@@ -18,7 +18,7 @@ import {
   windowsLastErrorCode,
   type IWindowsIdentity,
 } from './windows-native-read.js';
-import { classifyNtOpenFailure } from './windows-native-status.js';
+import { classifyNtOpenFailure, ntStatusHostCode } from './windows-native-status.js';
 
 import type { IFileAuthorityTestHooks } from './host-backend.js';
 
@@ -50,7 +50,9 @@ const OBJ_CASE_INSENSITIVE = 0x00000040;
 const OBJ_DONT_REPARSE = 0x00001000;
 const FILE_STANDARD_INFO_CLASS = 1;
 const FILE_ATTRIBUTE_TAG_INFO_CLASS = 9;
-const FILE_RENAME_INFO_CLASS = 3;
+// The NT class, not Win32's FileRenameInfo (3): SetFileInformationByHandle expands the name as a
+// DOS path and rejects it beside a RootDirectory, so a handle-relative rename must go to ntdll.
+const FILE_RENAME_INFORMATION_CLASS = 10;
 const FILE_DISPOSITION_INFO_CLASS = 4;
 const HANDLE_WIDTH_BITS = 64;
 const INVALID_HANDLE_VALUE = BigInt('-1');
@@ -245,15 +247,16 @@ export class WindowsNativeAuthority {
         FileName: fileName,
       };
       koffi.encode(info, this.api.renameInfoType, value);
-      if (
-        !this.api.setFileInformation(
-          handle,
-          FILE_RENAME_INFO_CLASS,
-          info,
-          koffi.sizeof(this.api.renameInfoType),
-        )
-      ) {
-        throw authorityError('HOST_IO', 'commit-write', { hostCode: this.lastErrorCode() });
+      const ioStatus: IWindowsIoStatus = { Status: 0, Information: 0 };
+      const status = this.api.ntSetInformationFile(
+        handle,
+        ioStatus,
+        info,
+        koffi.sizeof(this.api.renameInfoType),
+        FILE_RENAME_INFORMATION_CLASS,
+      );
+      if (status < 0) {
+        throw authorityError('HOST_IO', 'commit-write', { hostCode: ntStatusHostCode(status) });
       }
     } finally {
       koffi.free(info);

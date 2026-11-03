@@ -27,7 +27,7 @@ package manifest rather than restated here.
 ## Design Decisions
 
 - The POSIX adapter resolves components from retained directory descriptors and commits replacement relative to the retained parent, so an ambient pathname cannot retarget the operation.
-- The Windows adapter resolves through `NtCreateFile` with `OBJECT_ATTRIBUTES.RootDirectory`, surfaces reparse points, and commits a temporary handle relative to the retained parent. A Windows `HANDLE` is never passed to Node as a numeric file descriptor.
+- The Windows adapter resolves through `NtCreateFile` with `OBJECT_ATTRIBUTES.RootDirectory`, surfaces reparse points, and commits a temporary handle relative to the retained parent through `NtSetInformationFile`, because Win32 `SetFileInformationByHandle` expands the new name as a DOS path and rejects it beside a `RootDirectory`. A Windows `HANDLE` is never passed to Node as a numeric file descriptor.
 - The final file handle denies write sharing for the bounded read, so an existing writer prevents the open and a new writer cannot change file bytes mid-read. Parent directory handles retain write sharing so unrelated namespace updates are not blocked.
 - The authority stays bound to the identity it originally opened even if that pathname is later renamed or replaced elsewhere in the namespace, and it re-checks root/file identity around each operation; a detected mutation fails the read rather than returning bytes from an indeterminate state.
 - Per-read handles close in `finally`; `close()` and the disposal path close the root idempotently.
