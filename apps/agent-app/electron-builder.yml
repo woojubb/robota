@@ -33,6 +33,31 @@ extraResources:
   # The single configured host binary produced by bundle-runtime.mjs.
   - from: resources-bin
     to: .
+# Electron fuses, flipped on the packaged binary right before electron-builder signs it (a flip invalidates the
+# signature, so this is a package-time step; it cannot be a runtime option). The main process holds the remote
+# credentials, so a program running as the same OS user must not be able to borrow the signed app: no
+# ELECTRON_RUN_AS_NODE interpreter, no NODE_OPTIONS / NODE_EXTRA_CA_CERTS injection (the remote runtime takes an
+# explicit owner-checked CA file instead), no --inspect or SIGUSR1 inspector attach, and app code is loaded only from
+# app.asar, which electron-builder integrity-checks on macOS and Windows (on Linux it embeds no integrity data; the
+# read-only AppImage or root-owned deb install keeps the asar unaltered). The bundled runtime under extraResources
+# is not app code and is unaffected.
+# Chromium remote debugging has no fuse: the packaged main process refuses to start when asked for it
+# (electron/launch-guard.ts). e2e/electron-fuses.mjs holds the intended values; CI reads them back from the binary.
+# Left at Electron's defaults on purpose:
+#  - grantFileProtocolExtraPrivileges: the window loads the renderer with loadFile (file://), and turning this off changes
+#    what that page may load. Turn it off only after the renderer is served from a custom protocol and exercised there.
+#  - enableCookieEncryption: the app sets no cookies, and enabling it is a one-way store change that adds an OS
+#    keychain dependency.
+# resetAdHocDarwinSignature: a signed build is re-signed right after the flip (the release forces code signing), but an
+# unsigned Apple Silicon build is not, and the flip breaks Electron's stock ad-hoc signature, so macOS kills it at
+# launch. The ad-hoc pass is redundant for a signed build and leaves the Bun runtime's own signature alone.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  onlyLoadAppFromAsar: true
+  enableEmbeddedAsarIntegrityValidation: true
+  resetAdHocDarwinSignature: true
 linux:
   description: '__PRODUCT_DISPLAY_NAME__ desktop app'
   target:
