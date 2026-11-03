@@ -1,6 +1,12 @@
-
 import { GoogleGenAI } from '@google/genai';
-import { AbstractAIProvider, createModelEffortOutcome, PERMISSIVE_TOOL_SCHEMA_PROFILE, toProviderError, traceHeadersFor, randomId } from '@robota-sdk/agent-core';
+import {
+  AbstractAIProvider,
+  createModelEffortOutcome,
+  PERMISSIVE_TOOL_SCHEMA_PROFILE,
+  toProviderError,
+  traceHeadersFor,
+  randomId,
+} from '@robota-sdk/agent-core';
 
 import { GEMINI_CAPABILITY_TABLE } from './capability-table';
 import { executeDirect, executeDirectStream } from './execution-helpers';
