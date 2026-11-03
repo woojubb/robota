@@ -1,3 +1,4 @@
+import { loadSessionForUpdate } from './load-session-for-update.js';
 import { assertSynchronousCheckpoint } from './synchronous-checkpoint.js';
 /**
  * Session history operations — compaction and persistence helpers.
@@ -205,7 +206,7 @@ export interface IPersistContext {
 export function persistSession(ctx: IPersistContext): TSessionLoadOutcome {
   const now = new Date().toISOString();
 
-  const outcome = ctx.sessionStore.load(ctx.sessionId);
+  const outcome = loadSessionForUpdate(ctx.sessionStore, ctx.sessionId);
   if (outcome.status !== 'valid' && outcome.status !== 'missing') {
     return outcome;
   }

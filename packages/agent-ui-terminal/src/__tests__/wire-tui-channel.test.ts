@@ -549,6 +549,29 @@ describe('WireTuiChannel', () => {
     await channel.stop();
   });
 
+  it("keeps the host's count of sealed sessions beside the sessions of the same listing", async () => {
+    const { channel, link } = await attached();
+    const listing = (lockedSessionCount?: number): TServerMessage => ({
+      type: 'sessions',
+      requestId: lastListRequestId(link.sent),
+      listing: {
+        currentSessionId: 's1',
+        sessions: [],
+        unreadableSessionIds: [],
+        ...(lockedSessionCount === undefined ? {} : { lockedSessionCount }),
+      },
+    });
+    expect(channel.getSnapshot().hostLockedSessionCount).toBeUndefined();
+
+    link.push(listing(3));
+    expect(channel.getSnapshot().hostLockedSessionCount).toBe(3);
+
+    // A later listing from a host that sends no count replaces it: none are sealed there.
+    link.push(listing());
+    expect(channel.getSnapshot().hostLockedSessionCount).toBe(0);
+    await channel.stop();
+  });
+
   it("opens the session picker on the host's answer to the listing it asked for", async () => {
     const { channel, link } = await attached();
     const intents: IUiIntentEvent[] = [];

@@ -212,6 +212,11 @@ function createResultEnvelope(task: IBackgroundTaskState): IBackgroundJobResultE
     ...(task.transcriptPath || task.logPath
       ? { outputRef: task.transcriptPath ?? task.logPath }
       : {}),
+    // The path saved in `outputRef` is only a name for a sealed transcript; the envelope says so, so
+    // a summary of a group restored in a later session still points at the command that reads it.
+    ...(task.transcriptPath && task.transcriptSealed === true
+      ? { transcriptSealed: true as const }
+      : {}),
     ...(task.error ? { error: { ...task.error } } : {}),
     ...(task.startedAt ? { startedAt: task.startedAt } : {}),
     ...(task.completedAt ? { completedAt: task.completedAt } : {}),
@@ -238,7 +243,7 @@ export function summarizeBackgroundJobGroup(
     failed,
     cancelled,
     pending: Math.max(group.taskIds.length - group.results.length, 0),
-    lines: group.results.map((result) => formatResultLine(result)),
+    lines: group.results.map(formatResultLine),
   };
 }
 
@@ -246,9 +251,17 @@ function countResults(group: IBackgroundJobGroupState, status: TBackgroundTaskSt
   return group.results.filter((result) => result.status === status).length;
 }
 
+/**
+ * A sealed transcript's path reaches no content for the user or the model, so its line names the
+ * command that reads it instead.
+ */
 function formatResultLine(result: IBackgroundJobResultEnvelope): string {
   const detail = normalizeResultDetail(result);
-  const output = result.outputRef && result.summary ? ` (output: ${result.outputRef})` : '';
+  const outputRef =
+    result.transcriptSealed === true
+      ? `sealed log; read it with /agent read ${result.taskId}`
+      : result.outputRef;
+  const output = result.outputRef && result.summary ? ` (output: ${outputRef})` : '';
   return `[${result.status}] ${result.label} ${result.taskId}: ${detail}${output}`;
 }
 

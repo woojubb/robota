@@ -382,7 +382,7 @@ describe('Subagent transcript logger', () => {
   });
 
   it('createSubagentLogger creates directory and returns logger', () => {
-    const logger = createSubagentLogger('session-123', 'agent-abc', tmpDir);
+    const logger = createSubagentLogger('session-123', 'agent-abc', tmpDir, { sealing: 'plain' });
     expect(logger).toBeDefined();
 
     // Verify the subagent directory was created

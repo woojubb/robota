@@ -23,7 +23,7 @@ try {
   process.env.PRODUCT_USER_STATE_DIR = join(root, 'state');
   const file = join(root, 'checkpoint.txt');
   writeFileSync(file, 'pending');
-  const store = createNodeHostSessionStore(join(root, 'sessions'));
+  const store = createNodeHostSessionStore(join(root, 'sessions'), { sealing: 'plain' });
   let notifyStarted!: () => void;
   const started = new Promise<void>((resolve) => {
     notifyStarted = resolve;

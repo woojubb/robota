@@ -43,7 +43,7 @@ describe('session-log external-payload replay (framework functional)', () => {
       expect(existsSync(join(source.logsDir(), reference!.relativePath))).toBe(true);
 
       const replayProvider = createReplayProviderFromSource(
-        new NodeSessionLogSource(source.transcriptPath()),
+        new NodeSessionLogSource(source.transcriptPath(), { sealing: 'plain' }),
       );
       replayWorkspace = realpathSync(mkdtempSync(join(tmpdir(), 'agent-replay-functional-')));
       replaySession = new InteractiveSession({

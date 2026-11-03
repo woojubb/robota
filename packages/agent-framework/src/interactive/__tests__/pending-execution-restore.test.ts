@@ -81,7 +81,7 @@ function lower(cwd: string, store?: NodeSessionStore) {
 }
 async function parked() {
   const cwd = directory();
-  const store = new NodeSessionStore(directory());
+  const store = new NodeSessionStore(directory(), { sealing: 'plain' });
   const source = lower(cwd, store);
   const records: TExecutionJournalRecord[] = [];
   const journal = {

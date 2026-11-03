@@ -19,8 +19,10 @@ import type {
 import type { ICommandSessionRuntime } from './session-roles.js';
 import type {
   IEditCheckpointInspection,
+  IEditCheckpointListing,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
+  IEditCheckpointUnreadableCounts,
 } from '../checkpoints/index.js';
 import type {
   IContextReferenceAddResult,
@@ -176,6 +178,10 @@ export interface ICommandHostCatalog {
 /** The edit-checkpoint tree: inspection, restore, and branching. */
 export interface ICommandHostCheckpoints {
   listEditCheckpoints(): IEditCheckpointSummary[];
+  /** The session's checkpoints that `listEditCheckpoints` leaves out because they do not open. */
+  unreadableEditCheckpoints?(): IEditCheckpointUnreadableCounts;
+  /** Both of the above from one read of the session's checkpoints. */
+  editCheckpointListing?(): IEditCheckpointListing;
   inspectEditCheckpoint(checkpointId: string): IEditCheckpointInspection;
   restoreEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult>;
   rollbackEditCheckpoint(checkpointId: string): Promise<IEditCheckpointRestoreResult>;

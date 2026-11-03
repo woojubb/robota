@@ -82,7 +82,7 @@ describe('channel factory restores persisted context (CLI-B11 TC-02)', () => {
   });
 
   it('createChannel(sessionId) over a real FileSessionStore yields usedTokens > 0', async () => {
-    const store = createNodeHostSessionStore(join(cwd, 'state', 'sessions'));
+    const store = createNodeHostSessionStore(join(cwd, 'state', 'sessions'), { sealing: 'plain' });
     const sessionId = 'b11-restore-session';
     persistConversation(store, sessionId, cwd);
 
@@ -118,7 +118,7 @@ describe('channel factory restores persisted context (CLI-B11 TC-02)', () => {
   });
 
   it('a channel created WITHOUT resumeSessionId starts with an empty context (control)', async () => {
-    const store = createNodeHostSessionStore(join(cwd, 'state', 'sessions'));
+    const store = createNodeHostSessionStore(join(cwd, 'state', 'sessions'), { sealing: 'plain' });
     persistConversation(store, 'b11-other-session', cwd);
 
     const scripted = createScriptedProvider([{ text: 'unused' }]);

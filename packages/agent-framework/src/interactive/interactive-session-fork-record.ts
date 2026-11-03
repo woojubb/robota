@@ -168,7 +168,9 @@ export function writeForkedSessionRecord(input: IWriteForkedSessionRecordInput):
     name,
     cwd: input.cwd,
   });
-  input.sessionStore.save(record);
+  // A copy for a fork job to run, not a session this process runs: a store that seals keeps it
+  // apart, for the job, and never pushes a running session out of what it holds to make room.
+  input.sessionStore.save(record, { handoff: true });
   return { sessionId: record.id, name };
 }
 

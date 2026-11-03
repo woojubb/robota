@@ -227,6 +227,7 @@ durable Roundtable execution. Unresolved forks and workspace copies are refused 
 | `NodeToolResultSpillStore`                                                                                   | Class               | Stores oversized tool results in files for the life of the session                       |
 | `sweepStaleToolResultSpillDirectories`                                                                       | Function            | Removes spill directories left behind by a process that is no longer running             |
 | `NodePromptHistoryFile`                                                                                      | Class               | Append-only prompt history file that can be read newest-first                            |
+| `compactPromptHistoryFile`, `inspectPromptHistoryFile`                                                       | Functions           | Seal the prompt history one entry per line under one sealer while terminals append       |
 
 `IContextWindowState` (the `getContextState()` result) is exported by `@robota-sdk/agent-core`.
 
@@ -241,8 +242,9 @@ durable Roundtable execution. Unresolved forks and workspace copies are refused 
 
 `IInteractiveSessionRecord` carries the full conversation and resumable state. `NodeSessionStore`
 saves the record without inspecting its payload. It is a host adapter: passing it a directory does
-not establish workspace trust. `@robota-sdk/agent-framework` instead adapts a trusted project's
-state storage to the same store port.
+not establish workspace trust. It is built with a sealing decision: `{ sealing: { sealer } }` seals
+each record, `{ sealing: 'plain' }` keeps plain JSON. `@robota-sdk/agent-framework` instead adapts a
+trusted project's state storage to the same store port.
 
 When a `Session` re-saves an existing record, it keeps the fields it does not own and refreshes only
 its live conversation, history, prompt, schema, path and timestamp fields. A resumed session must
@@ -255,6 +257,13 @@ transient.
 secret fields and stores large fields as content-addressed JSON payload files under
 `{sessionId}.payloads/`. Streaming text deltas go to the log as `text_delta` events; keep
 high-frequency output in logs and the session record focused on resumable state.
+
+`NodeSessionLogSink`, `NodeSessionLogSource` and `NodePromptHistoryFile` are built with a sealing
+decision too. With `{ sealing: { sealer } }` each append is one sealed line and each payload file is
+sealed under a random name; with `{ sealing: 'plain' }` they write plain lines. A source reads plain
+and sealed lines alike, and `readStoredLines()` says which lines it could not open (locked, damaged,
+or sealed by a newer build) where `readText()` throws. `NodeToolResultSpillStore` takes the same
+decision and the host directory it lives in.
 
 `Session.run()` forwards core execution events into the log, including `provider_request`,
 `provider_native_raw_payload`, `provider_stream_raw_delta`, `provider_response_raw`,

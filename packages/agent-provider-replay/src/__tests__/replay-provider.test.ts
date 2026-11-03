@@ -221,7 +221,7 @@ describe('ReplayProvider (INFRA-017)', () => {
 
         const provider = new ReplayProvider({
           entries,
-          externalPayloadSource: new NodeExternalPayloadSource(baseDirectory),
+          externalPayloadSource: new NodeExternalPayloadSource(baseDirectory, { sealing: 'plain' }),
         });
 
         await expect(provider.chat([])).resolves.toEqual(

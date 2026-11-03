@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, isAbsolute, resolve, win32 } from 'node:path';
+import { basename, dirname, extname, isAbsolute, resolve, win32 } from 'node:path';
 
 import {
   createStableRootedFileReader,
@@ -7,11 +7,15 @@ import {
 } from '@robota-sdk/agent-file-authority';
 
 import { SessionLogPayloadResolutionError } from './external-payload-resolution-contracts.js';
+import { StoredLines, StoredPayloads, splitStoredLines } from './stored-append-lines.js';
+import { sessionSealingOf } from './stored-session-record.js';
 
 import type {
   IExternalPayloadSource,
   ISessionLogSource,
 } from './external-payload-source-types.js';
+import type { TStoredLine } from './stored-append-lines.js';
+import type { ISessionStoreOptions } from './stored-session-record.js';
 
 export type {
   IExternalPayloadSource,
@@ -85,24 +89,65 @@ function mapStableFileAuthorityError(
   );
 }
 
+export interface INodeExternalPayloadSourceOptions extends ISessionStoreOptions {
+  /**
+   * The session the payloads belong to, which a sealed one is bound to. Left out, it is the session
+   * whose `<id>.payloads` directory the reference names, the layout every sink writes.
+   */
+  readonly ownerId?: string;
+}
+
+const PAYLOAD_DIRECTORY_SUFFIX = '.payloads';
+
+/** The session whose `<id>.payloads` directory holds a payload, or `undefined` for any other layout. */
+function payloadDirectoryOwner(segments: readonly string[]): string | undefined {
+  const directory = segments.length === 2 ? segments[0] : undefined;
+  if (directory === undefined || !directory.endsWith(PAYLOAD_DIRECTORY_SUFFIX)) return undefined;
+  return directory.slice(0, -PAYLOAD_DIRECTORY_SUFFIX.length) || undefined;
+}
+
 /** Explicit host-filesystem adapter. A file path is never accepted by the neutral parser itself. */
 export class NodeExternalPayloadSource implements IExternalPayloadSource {
   private readonly baseDirectory: string;
+  private readonly payloads: StoredPayloads;
+  private readonly ownerId: string | undefined;
 
-  constructor(baseDirectory: string) {
+  /**
+   * @param options `sealing` (required): `{ sealer }` opens sealed payloads (plain ones still
+   *   resolve); `'plain'` meets a sealed payload as one no key in this process opens.
+   */
+  constructor(baseDirectory: string, options: INodeExternalPayloadSourceOptions) {
     if (baseDirectory.trim().length === 0) {
       throw new Error('External-payload base directory must not be empty.');
     }
     this.baseDirectory = resolve(baseDirectory);
+    this.payloads = new StoredPayloads(sessionSealingOf(options));
+    this.ownerId = options.ownerId;
   }
 
   readBytes(relativePath: string, maxBytes: number): Uint8Array | undefined {
     validateMaxBytes(maxBytes);
     const segments = payloadPathSegments(relativePath);
+    const stored = this.readStored(relativePath, segments, maxBytes);
+    if (stored === undefined) return undefined;
+    return this.payloads.open(
+      stored,
+      maxBytes,
+      this.ownerId ?? payloadDirectoryOwner(segments),
+      relativePath,
+    );
+  }
+
+  /** The bytes at the path, within the raw budget a sealed payload of `maxBytes` needs. */
+  private readStored(
+    relativePath: string,
+    segments: readonly string[],
+    maxBytes: number,
+  ): Uint8Array | undefined {
     try {
       const reader = createStableRootedFileReader(this.baseDirectory);
       try {
-        return reader.readBytes(segments, maxBytes);
+        return reader.readBytes(segments, this.payloads.rawBudget(maxBytes));
       } finally {
         reader.close();
       }
@@ -121,18 +166,47 @@ export class NodeExternalPayloadSource implements IExternalPayloadSource {
   }
 }
 
-/** Explicit host-filesystem adapter for a JSONL session log. */
+/**
+ * Explicit host-filesystem adapter for a JSONL session log. The log's owner — the session id its
+ * sealed lines and payloads are bound to — is the file's stem, `<id>.jsonl`, the name every sink
+ * writes; a sealed log copied under another session's name does not open as that session's.
+ */
 export class NodeSessionLogSource implements ISessionLogSource {
   readonly externalPayloadSource: IExternalPayloadSource;
+  private readonly lines: StoredLines;
+  private readonly ownerId: string;
 
-  constructor(private readonly logFile: string) {
+  /**
+   * @param options `sealing` (required): `{ sealer }` opens sealed lines and payloads (plain ones
+   *   still read); `'plain'` meets a sealed line as one no key in this process opens.
+   */
+  constructor(
+    private readonly logFile: string,
+    options: ISessionStoreOptions,
+  ) {
     if (logFile.trim().length === 0) {
       throw new Error('Session log-file path must not be empty.');
     }
-    this.externalPayloadSource = new NodeExternalPayloadSource(dirname(logFile));
+    const sealing = sessionSealingOf(options);
+    this.lines = new StoredLines(sealing, 'session-log-line');
+    this.ownerId = basename(logFile, extname(logFile));
+    this.externalPayloadSource = new NodeExternalPayloadSource(dirname(logFile), {
+      sealing,
+      ownerId: this.ownerId,
+    });
   }
 
+  /** Strict: the plain-equivalent text, failing on the first line it cannot read (see {@link StoredLines.openText}). */
   readText(): string | undefined {
-    return existsSync(this.logFile) ? readFileSync(this.logFile, 'utf8') : undefined;
+    if (!existsSync(this.logFile)) return undefined;
+    return this.lines.openText(readFileSync(this.logFile, 'utf8'), this.ownerId);
+  }
+
+  /** Tolerant: every physical line in file order, each as this process can read it; `undefined` when there is no log. */
+  readStoredLines(): readonly TStoredLine[] | undefined {
+    if (!existsSync(this.logFile)) return undefined;
+    return splitStoredLines(readFileSync(this.logFile, 'utf8')).map((line) =>
+      this.lines.decode(line, this.ownerId),
+    );
   }
 }

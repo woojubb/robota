@@ -24,8 +24,17 @@ export interface IPromptHistoryWriter {
 /** One block of a streamed read: entries newest-first, plus the lines the block could not read. */
 export interface IPromptHistoryBlock {
   readonly entries: readonly IPromptHistoryEntry[];
-  /** Lines in this block that were not a well-formed entry — counted, never silently dropped. */
+  /**
+   * Lines in this block that were not a well-formed entry — damaged, or sealed in a format a newer
+   * build writes — counted, never silently dropped.
+   */
   readonly skippedLines: number;
+  /**
+   * Sealed prompts in this block that this process cannot open now, intact as far as anyone can
+   * tell: `locked` ones a later unlock reads, and `noKeys` ones no unlock in this process would,
+   * since it holds no keys. Absent when there are none, so a surface says "unlock" only for `locked`.
+   */
+  readonly unreadable?: { readonly locked: number; readonly noKeys: number };
 }
 
 export interface IPromptHistoryReadOptions {

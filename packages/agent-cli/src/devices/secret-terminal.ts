@@ -104,8 +104,12 @@ interface IPendingRead {
 
 type TEscapeState = 'none' | 'escape' | 'sequence';
 
-/** Turns raw key bytes into lines; keeps what was typed ahead for the next read. */
-class LineReader {
+/**
+ * Turns raw key bytes into lines; keeps what was typed ahead for the next read. Escape sequences and
+ * control characters are dropped, ctrl-C and ctrl-D cancel. The console prompt on Windows reads its
+ * secrets through this same class, so the same keystrokes give the same secret on every platform.
+ */
+export class SecretLineReader {
   private pending: IPendingRead | undefined;
   private queue = '';
   private escape: TEscapeState = 'none';
@@ -295,7 +299,7 @@ export function openSecretTerminal(
       const { input, output } = tty;
       const wasRaw = input.isRaw === true;
       const wasPaused = input.isPaused();
-      const reader = new LineReader(output);
+      const reader = new SecretLineReader(output);
       const terminal: ISecretTerminal = {
         write: (text) => {
           output.write(text);

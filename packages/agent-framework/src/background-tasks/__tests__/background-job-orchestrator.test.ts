@@ -13,6 +13,7 @@ import type {
   IBackgroundTaskStart,
 } from '@robota-sdk/agent-executor';
 import type {
+  IBackgroundJobGroupState,
   IBackgroundTaskResult,
   TBackgroundTaskRequest,
 } from '@robota-sdk/agent-interface-execution';
@@ -230,5 +231,84 @@ describe('BackgroundJobOrchestrator', () => {
         '[failed] designer agent_2: worker failed',
       ],
     });
+  });
+});
+
+/**
+ * #3679 step 3b (R7): the job-group summary goes to the user and the model. A sealed transcript's
+ * path reaches no content for either, so the summary names the command that reads it instead. The
+ * fact rides on the saved envelope, so a group restored in a later session says the same thing.
+ */
+describe('BackgroundJobOrchestrator — a sealed transcript', () => {
+  function runnerWith(sealed: boolean): IBackgroundTaskRunner<'agent'> {
+    return {
+      kind: 'agent',
+      start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
+        return {
+          taskId: task.taskId,
+          transcriptPath: `/tmp/${task.taskId}.jsonl`,
+          ...(sealed ? { transcriptSealed: true as const } : {}),
+          result: Promise.resolve({ taskId: task.taskId, kind: 'agent', output: 'the answer' }),
+          cancel: () => Promise.resolve(),
+        };
+      },
+    };
+  }
+
+  async function completedGroup(sealed: boolean) {
+    const manager = new BackgroundTaskManager({ runners: [runnerWith(sealed)] });
+    const orchestrator = new BackgroundJobOrchestrator({ manager });
+    const task = await manager.spawn(createAgentRequest('developer'));
+    const group = orchestrator.createGroup({
+      parentSessionId: 'session_parent',
+      waitPolicy: 'wait_all',
+      taskIds: [task.id],
+    });
+    const completed = await orchestrator.waitGroup(group.id);
+    // The task and its handle are gone once it is closed; the saved group still says what it did.
+    await manager.close(task.id);
+    return { completed, taskId: task.id };
+  }
+
+  it('points at /agent read instead of the path, in the summary the user and the model see', async () => {
+    const { completed } = await completedGroup(true);
+    const line = summarizeBackgroundJobGroup(completed).lines[0];
+
+    expect(line).toMatch(/ \(output: sealed log; read it with \/agent read task_\d+\)$/);
+    expect(line).not.toContain('.jsonl');
+  });
+
+  it('marks the envelope it saves and keeps the path on it, a plain transcript leaves it unmarked', async () => {
+    const sealed = await completedGroup(true);
+    const plain = await completedGroup(false);
+
+    expect(sealed.completed.results[0]).toMatchObject({
+      outputRef: `/tmp/${sealed.taskId}.jsonl`,
+      transcriptSealed: true,
+    });
+    expect(plain.completed.results[0]?.outputRef).toBe(`/tmp/${plain.taskId}.jsonl`);
+    expect(plain.completed.results[0]).not.toHaveProperty('transcriptSealed');
+  });
+
+  it('says the same in a later session, from the saved group alone', async () => {
+    const { completed } = await completedGroup(true);
+    const saved = JSON.parse(JSON.stringify(completed)) as IBackgroundJobGroupState;
+    const later = new BackgroundJobOrchestrator({
+      manager: new BackgroundTaskManager({ runners: [] }),
+      initialGroups: [saved],
+    });
+
+    const restored = later.getGroup(saved.id);
+    expect(restored).toBeDefined();
+    expect(summarizeBackgroundJobGroup(restored!)).toEqual(summarizeBackgroundJobGroup(completed));
+    expect(summarizeBackgroundJobGroup(restored!).lines[0]).toMatch(/read it with \/agent read /);
+  });
+
+  it('keeps the path for a plain transcript', async () => {
+    const { completed } = await completedGroup(false);
+
+    expect(summarizeBackgroundJobGroup(completed).lines[0]).toMatch(
+      / \(output: \/tmp\/task_\d+\.jsonl\)$/,
+    );
   });
 });

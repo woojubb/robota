@@ -37,11 +37,35 @@ extra dependency.
 - **A crash surfaces its cause.** When the child exits before producing a result, the rejection
   message includes the captured stderr tail rather than only the bare exit code, so the cause is
   visible in the error rather than only in a stream nothing read.
-- **Fork jobs never cross session content over the wire.** A job carrying only a
-  `resumeSessionId` has the child open the session store for the _parent's_ cwd, restore the
-  record there, and persist new turns back under the same id — the forked conversation's content
-  never travels through the IPC channel. A composition with no registered session store fails such
-  a job outright rather than starting it with an empty history.
+- **A fork job's conversation crosses the wire only from a sealing parent, and only as the
+  record it holds.** From a plain parent a job carries only a `resumeSessionId`: the child opens the
+  session store for the _parent's_ cwd, restores the record there, and persists new turns back under
+  the same id, and the conversation never travels through the IPC channel. A sealing parent's child
+  holds only a write grant and can never open a sealed record, so the parent hands over the record
+  its store holds — as the top-level `resumeHeld` token, never on the request, task state or
+  results, and within a fixed bound — and refuses the job before anything is made for it (a
+  worktree, a child) when it holds none, telling to unlock only when locked keys are why. That check
+  takes nothing; the record is handed over only once every other check before the spawn has passed,
+  so a job refused before then can simply be run again. Queued
+  fork jobs live only in the parent's memory (tasks are not persisted), so a parent that crashes
+  loses them and a fresh fork is the way back. A composition with no registered session store fails
+  such a job outright rather than starting it with an empty history.
+- **A child seals as its parent decided.** A sealing parent's start payload carries the write grant
+  its sealer issues when the payload is sent, which seals and opens nothing; the composition binds it
+  before anything is built, so every store and the subagent log seal to the parent's key and the
+  child never reads a keyring of its own. Binding must return a sealer whose own write grant is
+  exactly the grant it was given, so that the child is known to seal to its parent's key and nothing
+  else: a composition that cannot bind, or whose binding returns plain or a sealer with another
+  grant, fails the job rather than writing plain. When the parent's verified key changes, each child
+  already sent its payload is sent the newer grant, and one that cannot seal to it stops — before its
+  run starts when it is still being built.
+- **The parent reads the transcript the child writes, by one rule.** The child names its log, and
+  binds a sealed one, by the session it runs — the resumed record, else the task — and the parent
+  reads by the same rule, also through the worktree runner. A log with no sealed record pages by its
+  display lines; in a sealed one a page's offset counts stored records, so it names the same record
+  whether or not the keys are locked, and only the records on a page are opened. Whether a
+  transcript is sealed travels with its path into the persisted task state, so a task restored in a
+  later session still says that its path reaches no content.
 - **One provider connection across the boundary.** The child builds its provider from the
   parent's effective connection exactly, and never fills a gap from its own registry. Before a
   child is spawned, every environment variable that decides where that provider connects or which

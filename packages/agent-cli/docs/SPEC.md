@@ -102,9 +102,9 @@ must not reach the credentials beside a project.
 A session moves to another session or device only when its holder's operator pushes it; nothing
 answers a request for a session. The receiving side takes it only on a grant for that one transfer over
 that channel, signed by a device it already knows, and with its own operator's yes; it keeps the
-payload aside until it matches the manifest, and saves it without starting it. The holder lets go, and
-ends, only on the acknowledgement that the session is saved there, so two processes never run one
-conversation.
+payload aside until it matches the manifest — in memory alone when its stores seal, so no plaintext
+copy lands beside them — and saves it without starting it. The holder lets go, and ends, only on the
+acknowledgement that the session is saved there, so two processes never run one conversation.
 
 A conversation between local peers is bounded, so two agents that always answer cannot message each
 other forever: its depth and this session's answers in it are counted from what this session itself
@@ -290,6 +290,83 @@ devices — and in one session of the device at a time, since each other device 
 session that stalled long enough for another to take the mesh over closes its own as soon as it notices;
 a linked device may do only what the user's settings allow, each file and session it offers put to
 the operator at this terminal.
+
+### Keyring custody (`__PRODUCT_CLI_NAME__ secure`)
+
+The keyring file under `$PRODUCT_USER_STATE_DIR/secure` holds only what a locked process may know: the
+passphrase- and recovery-wrapped master key and the sealing public key. Every program of the same OS
+user can read it, so what protects it is the passphrase, not the mode: the length rule and the refusal
+of trivially repetitive input raise the cost of guessing offline at the key-derivation cost, and no
+rule makes a weak passphrase safe. The mode, the ownership check and the refusal of links and
+non-regular files only keep a file that is not the owner's from being read as the keyring. The file
+is the single copy of the keys and is deliberately never backed up, since an old copy would keep an
+old passphrase slot working; for the same reason a passphrase change, which wraps the same master key
+again, does not revoke a copy of the file someone already took.
+
+Every change to the file is made under one lock beside it and replaces only the keyring it was built
+from. Cooperating writers on this machine, and on other machines that share the home directory, are
+serialized by the lock, and the one that lost is told the file changed. The lock names its holder's
+host, boot and pid namespace: its pid is probed only for a holder on this machine, and any other lock
+is aged on the filesystem's clock, so neither another machine's pid nor a step of the wall clock
+breaks a fresh one. A holder stalled beyond the stale bound may still be overtaken; it checks the file
+and the lock again immediately before it commits and after it reads the result back, which reports
+that as `changed` where it can, and the window those checks leave is narrowed, not closed. A write is
+atomic, durable and read back, and one that reached the file but could not be confirmed is reported
+as most likely in place, never as nothing written.
+
+A passphrase or recovery key is typed at an interactive terminal and comes from nowhere else: not an
+argument, the environment, a pipe or a file. Every command that asks for one therefore refuses
+unless stdin is a terminal, which is also what turns away a program the model starts through its
+shell tool: that process has no controlling terminal and no input. The recovery key is shown once,
+on the secret terminal where it is wiped afterwards, and typed back before anything is saved, so a
+keyring whose key the person never held is not created. Creating a keyring does not turn secure mode
+on. Every conversation store the CLI builds — the workspace composition's and each command's own —
+comes from one factory that states how it seals, from one decision: what a later process reads is
+sealed with the keyring, and what only its own process reads back (a spilled tool result, the edit
+checkpoints of a run that persists no session) with a key made in that process's memory, which seals
+nothing else, opens whatever the keyring's lock state and ends with the process; the two are plain
+exactly together. A person's `/rewind` reads are refused while the keyring is locked whichever key
+sealed the checkpoints, so locked has one meaning for them; what the running turn reads back for
+itself is not. Every SDK store constructor requires that decision, and a lint rule refuses a value
+import of them anywhere else in the product packages, because only the factory knows the process's
+decision: a store built elsewhere could write plaintext beside sealed files. Whether secure mode is
+on is one predicate every decision that depends on it reads: the decision is plain unless it is on,
+and no process is given a key holder while it is off.
+
+Being the one construction point, the factory is also where a process records that it uses the
+stores: the first store it builds (or, for a subagent worker, the grant it binds) creates its
+presence under the state root (owner record and mode, removed when the process ends, swept once its
+owner is gone), and a `secure migrate` or `secure compact` writes its own marker before it looks. So
+whichever comes second sees the first and at least one side refuses, two of them both refuse, and no
+lock file is needed; a compaction holds no store, since writers append to the history by path and it
+catches them up, so only a migration's marker stops a store. A marker whose owner cannot be checked
+counts as running, since a migration that may be running must be treated as one that is; one that
+never got the owner record its creation writes at once, and flushes, is a crash's once that moment
+is past, and counts as gone. A presence that cannot be created is reported, never fatal, and the
+migration's plan says such processes, like those of builds without presence, are invisible to it.
+`secure migrate` and `secure compact` unlock before writing anything, since before an unlock the
+sealing key is whatever the same-user-writable file holds; they run only in secure mode, at a
+terminal, and are never a slash command, a skill or a transport request. A migration writes a
+project only when the trust service says it is trusted now, on a host that can write project state,
+through the authority that service mints: the roots records and the history name are same-user
+writable, so they are candidates, never authority, and every other root is listed and left alone.
+
+There is no unlock or lock command: unlocked keys live in the memory of the process that uses them,
+in one holder that every lock (the user, inactivity, the last client leaving, a locked screen,
+suspend) ends and that offers operations with the keys rather than the keys themselves, so after a
+lock no caller still holds one; a short-lived command could only unlock to throw the keys away.
+Unlocking is where a swapped stored sealing key is caught. From the first unlock in a process the
+holder seals to the key that unlock verified, locked or not and even when the repair of the file
+cannot be written; the mismatch is always reported, and the exit status tells a repair that completed
+from one that did not. Before that first unlock a locked writer seals to the key the file holds: that
+is the design's accepted weakness, caught at the next unlock and visible meanwhile through the
+fingerprint. A writer of an append-only store seals one data key per store and reuses it, since a
+public-key operation per line is too slow to read back; it starts a new one as soon as the verified
+key is not the one the old key was sealed to, so once an unlock has caught a swapped key nothing
+written afterwards goes on using a data key sealed to the swapped one. A lock ends every writer's
+key too, wiping it, and the next line starts a new one: a writer's key reads every line sealed under
+it, so it is key material like the data keys an unlocked holder opens to read, which are wiped with
+the keys, even though a locked process reads nothing, not even what it wrote.
 
 ### MCP client composition
 
@@ -628,6 +705,7 @@ __PRODUCT_CLI_NAME__ open '<__PRODUCT_PROTOCOL_SCHEME__://open?v=1...>' # Open a
 __PRODUCT_CLI_NAME__ trust status | --yes | revoke --yes   # Inspect/grant/revoke workspace trust
 __PRODUCT_CLI_NAME__ doctor [--repair <id> -y]     # Diagnose configuration/runtime readiness (aliases: checkup, diagnose)
 __PRODUCT_CLI_NAME__ usage [--period 30d] [--timezone UTC] [--format json]  # Local personal usage summary
+__PRODUCT_CLI_NAME__ secure setup | status | verify | change-passphrase  # Keyring for secure conversations; secrets are typed at the terminal only
 __PRODUCT_CLI_NAME__ eval ./my-eval.mjs            # Run an evals-as-code definition; exit 1 on a metric breach
 __PRODUCT_CLI_NAME__ -p "prompt"                   # Print mode (one-shot, headless)
 __PRODUCT_CLI_NAME__ --serve                       # Headless runtime host
@@ -654,10 +732,18 @@ startup errors.
 
 `--continue`/`-c` resumes the most recent session for the cwd (reusing its id); `--resume [id]`
 resumes an explicit id/name or shows a picker when omitted; `--fork-session` (combined with either)
-creates a fresh id while restoring the resumed context, leaving the original file untouched.
-`-c` with no prior session for the cwd starts a new one — identical in TUI and print mode. Print mode
+creates a fresh id while restoring the resumed context, leaving the original file untouched. `-c`
+with no prior session for the cwd starts a new one — identical in TUI and print mode. Print mode
 requires an explicit `-r <id|name>` (no interactive picker) and rejects `--no-session-persistence`
-combined with `-c`/`-r`.
+combined with `-c`/`-r`. A sealed session whose keys are locked is in no picker and is not what `-c`
+picks, because there is no record to show; so `-r` names the lock for an id, and counts the locked
+sessions for a name it cannot match, instead of reporting the session missing, and every surface
+that lists or picks sessions says how many it left out whenever some are locked — the latest
+readable session may not be the latest one — while `usage export` refuses rather than send a partial
+snapshot. A served rename or delete of a locked session names the lock instead of calling it
+unknown. Resuming a record that is there but cannot be read (locked, corrupt, or from a build this
+one does not read) is refused rather than started empty under its id, and the CLI says so before any
+surface starts, so the terminal UI never meets it in its first render.
 
 ### Destructive actions
 
@@ -701,6 +787,9 @@ commands without explicit user confirmation.
 
 - Korean IME on macOS Terminal.app can crash the terminal (SIGSEGV) during IME composition; use
   iTerm2, or rely on the CLI's blank-line workaround that stabilizes cursor position.
+- The keyring commands check that a secret is typed at an interactive terminal, not that a person
+  types it: a program that allocates a pseudo-terminal of its own and types into it is outside that
+  guard.
 - The Bun single-binary distribution's subagent-spawns-itself path (`process.execPath`) has been
   measured for the worker IPC handshake on Linux; a full end-to-end subagent turn from the compiled
   binary (which additionally needs a model provider in the child) has not been run.

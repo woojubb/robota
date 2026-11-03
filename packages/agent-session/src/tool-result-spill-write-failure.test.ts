@@ -5,20 +5,25 @@ import { join } from 'node:path';
 import { PROCESS_OWNER_RECORD_NAME } from '@robota-sdk/agent-core/node';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const flags = vi.hoisted(() => ({ failCleanup: false }));
+const flags = vi.hoisted(() => ({ failCleanup: false, resultDescriptors: new Set<number>() }));
 
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
   return {
     ...actual,
-    // Only the result write (by descriptor) runs out of space; the owner record the directory is
-    // created with is written by path and succeeds.
+    openSync: (...args: Parameters<typeof actual.openSync>) => {
+      const fd = actual.openSync(...args);
+      if (String(args[0]).endsWith('.partial')) flags.resultDescriptors.add(fd);
+      return fd;
+    },
+    // Only the result write (to its `.partial` file) runs out of space; the owner record the
+    // directory is created with is written through another descriptor and succeeds.
     writeFileSync: (
       target: Parameters<typeof actual.writeFileSync>[0],
       content: string,
       ...rest: unknown[]
     ) => {
-      if (typeof target !== 'number') {
+      if (typeof target !== 'number' || !flags.resultDescriptors.delete(target)) {
         return actual.writeFileSync(target, content, ...(rest as [never]));
       }
       const fd = target;
@@ -50,7 +55,7 @@ describe('spill write failure', () => {
   it('reports disk exhaustion without publishing a partial result or secret diagnostics', async () => {
     const root = mkdtempSync(join(tmpdir(), 'agent-spill-failure-'));
     parents.push(root);
-    const store = new NodeToolResultSpillStore({ parentDirectory: root });
+    const store = new NodeToolResultSpillStore({ sealing: 'plain', parentDirectory: root });
     const secret = 'private-payload-body';
     let caught: unknown;
     try {
@@ -68,7 +73,7 @@ describe('spill write failure', () => {
   it('distinguishes cleanup failure when a partial write cannot be removed', async () => {
     const root = mkdtempSync(join(tmpdir(), 'agent-spill-failure-'));
     parents.push(root);
-    const store = new NodeToolResultSpillStore({ parentDirectory: root });
+    const store = new NodeToolResultSpillStore({ sealing: 'plain', parentDirectory: root });
     flags.failCleanup = true;
     await expect(store.write('private-payload-body')).rejects.toMatchObject({
       code: 'cleanup-failed',

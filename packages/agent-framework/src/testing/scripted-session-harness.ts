@@ -228,7 +228,9 @@ export class ScriptedSessionHarness {
       },
     };
     const persistenceDir = join(this.cwd, '.agent', 'sessions');
-    this.sessionStore = options.persistence ? new NodeSessionStore(persistenceDir) : undefined;
+    this.sessionStore = options.persistence
+      ? new NodeSessionStore(persistenceDir, { sealing: 'plain' })
+      : undefined;
     let userSettingsPath: string | undefined;
     if (options.permissions !== undefined || options.hooks !== undefined) {
       userSettingsPath = join(this.cwd, '.agent-test-user-settings.json');
@@ -261,7 +263,9 @@ export class ScriptedSessionHarness {
       ...(options.allowedTools ? { allowedTools: options.allowedTools } : {}),
       ...(options.deniedTools ? { deniedTools: options.deniedTools } : {}),
       ...(this.sessionStore ? { sessionStore: this.sessionStore } : {}),
-      sessionLogSink: new NodeSessionLogSink(join(this.cwd, '.agent', 'logs')),
+      sessionLogSink: new NodeSessionLogSink(join(this.cwd, '.agent', 'logs'), {
+        sealing: 'plain',
+      }),
       ...(options.resumeSessionId ? { resumeSessionId: options.resumeSessionId } : {}),
       ...(options.forkSession ? { forkSession: options.forkSession } : {}),
       ...(options.workspaceMovedFrom !== undefined

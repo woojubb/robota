@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { calculateModelCost } from '@robota-sdk/agent-core';
+import { ArtifactLockedError, calculateModelCost } from '@robota-sdk/agent-core';
 import type {
   ICommandCostBudget,
   ICommandCostBudgetAdapter,
@@ -565,6 +565,77 @@ describe('createSessionCommandModule', () => {
 
     expect(result?.success).toBe(false);
     expect(result?.message).toContain('PROVIDER_NATIVE_RAW_PAYLOAD_MISSING');
+    expect(result?.data).toEqual({
+      logFile: '/workspace/.fixture-state/logs/session_1.jsonl',
+      entryCount: 2,
+      issueCount: 1,
+      ok: false,
+    });
+  });
+
+  it('says a sealed session log cannot be validated, and names unlock only when the keys are locked', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+    const validateWith = (reason: 'locked' | 'no-keys') => ({
+      ...createCommandContext(),
+      validateCurrentSessionReplayLog: () => {
+        throw new ArtifactLockedError(reason);
+      },
+    });
+
+    const locked = await executor.execute('validate-session', validateWith('locked'), '');
+    expect(locked).toMatchObject({
+      success: false,
+      message: 'The session log is sealed and locked; unlock to validate it.',
+    });
+
+    const noKeys = await executor.execute('validate-session', validateWith('no-keys'), '');
+    expect(noKeys?.success).toBe(false);
+    expect(noKeys?.message).toBe(
+      'The session log is sealed and this process has no keys to open it, so it cannot be validated here.',
+    );
+    expect(noKeys?.message).not.toMatch(/unlock/i);
+  });
+
+  it('keeps every other validation failure an error', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+    const failure = new Error('the log is not JSON');
+    const context = {
+      ...createCommandContext(),
+      validateCurrentSessionReplayLog: () => {
+        throw failure;
+      },
+    };
+    await expect(executor.execute('validate-session', context, '')).rejects.toBe(failure);
+  });
+
+  it('reports the replay validation data unchanged', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+    const context = {
+      ...createCommandContext(),
+      validateCurrentSessionReplayLog: () => ({
+        logFile: '/workspace/.fixture-state/logs/session_1.jsonl',
+        entryCount: 2,
+        validation: {
+          ok: false,
+          issues: [
+            {
+              code: 'PROVIDER_NATIVE_RAW_PAYLOAD_MISSING' as const,
+              message: 'Provider request exec-1:1 has no provider-native payload.',
+              executionId: 'exec-1',
+              round: 1,
+            },
+          ],
+        },
+      }),
+    };
+
+    const result = await executor.execute('validate-session', context, '');
     expect(result?.data).toEqual({
       logFile: '/workspace/.fixture-state/logs/session_1.jsonl',
       entryCount: 2,

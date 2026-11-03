@@ -126,6 +126,7 @@ function maximalRecord(): IInteractiveSessionRecord {
         unread: false,
         logPath: '/logs/t1.log',
         transcriptPath: '/logs/t1.jsonl',
+        transcriptSealed: true,
         worktreePath: '/wt/t1',
         branchName: 'feat/t1',
         worktreeStatus: 'clean',
@@ -234,6 +235,7 @@ function maximalRecord(): IInteractiveSessionRecord {
             status: 'completed',
             summary: 'ok',
             outputRef: '/logs/t1.log',
+            transcriptSealed: true,
             startedAt: '2026-08-01T00:01:00.000Z',
             completedAt: '2026-08-01T00:02:00.000Z',
             error: { category: 'runner', message: 'noted', recoverable: false },
@@ -596,6 +598,7 @@ describe('decodeInteractiveSessionRecord — TC-03 every nested family reports i
     ['tool schema', 'toolSchemas[0].name', null],
     ['parameter schema', 'toolSchemas[0].parameters.properties.path.type', 'stringy'],
     ['background task', 'backgroundTasks[0].depth', 'deep'],
+    ['background task sealed flag', 'backgroundTasks[0].transcriptSealed', false],
     ['background task result', 'backgroundTasks[0].result.output', 12],
     ['background task result exitCode', 'backgroundTasks[1].result.exitCode', 'x'],
     ['background task error', 'backgroundTasks[0].error.category', 'nope'],
@@ -604,6 +607,7 @@ describe('decodeInteractiveSessionRecord — TC-03 every nested family reports i
     ['background task event payload', 'backgroundTaskEvents[0].task.id', null],
     ['job group', 'backgroundJobGroups[0].waitPolicy', 'whenever'],
     ['job group result', 'backgroundJobGroups[0].results[0].status', 'nearly'],
+    ['job group result sealed flag', 'backgroundJobGroups[0].results[0].transcriptSealed', 'yes'],
     ['job group event', 'backgroundJobGroupEvents[0].group.taskIds', 't1'],
     ['skill activation', 'skillActivationEvents[0].mode', 'sideways'],
     ['memory event', 'memoryEvents[0].type', 'memory_candidate_eaten'],
@@ -625,6 +629,22 @@ describe('decodeInteractiveSessionRecord — TC-03 every nested family reports i
   it('reports a missing required nested field at its own path', () => {
     const outcome = decodeInteractiveSessionRecord(persistedWith('goal.objective', undefined));
     expect(issuePaths(outcome)).toContain('goal.objective');
+  });
+
+  it('reads a cleared branch head: a null checkpoint id is a head cleared on purpose', () => {
+    const outcome = decodeInteractiveSessionRecord(
+      persistedWith('activeBranch', { branchId: 'branch-1', checkpointId: null }),
+    );
+    if (outcome.status !== 'valid') throw new Error('expected valid');
+    expect(outcome.record.activeBranch).toEqual({ branchId: 'branch-1', checkpointId: null });
+  });
+
+  it('still requires the checkpoint id: absent is a defect, only null clears the head', () => {
+    const outcome = decodeInteractiveSessionRecord(
+      persistedWith('activeBranch.checkpointId', undefined),
+    );
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('activeBranch.checkpointId');
   });
 });
 

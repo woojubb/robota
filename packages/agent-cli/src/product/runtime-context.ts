@@ -25,6 +25,10 @@ export interface ICliProductLayout {
     readonly workspaceTrust: string;
     readonly orgPolicy: string;
     readonly mcpApprovals: string;
+    /** Directory for secure-conversation key custody; owner-only. */
+    readonly secure: string;
+    /** The passphrase- and recovery-wrapped master key; readable only by the account that owns it. */
+    readonly keyring: string;
     /**
      * Parents of the directories one process owns while it runs: spilled tool results, the editor
      * buffer, and the edit checkpoints of a run that persists no session. Owner-only, inside the
@@ -34,6 +38,11 @@ export interface ICliProductLayout {
     readonly spill: string;
     readonly editor: string;
     readonly ephemeralCheckpoints: string;
+    /**
+     * One owner-only directory per running process that built a conversation store, and one per
+     * running `secure migrate`, so each side sees the other; each is removed when its process ends.
+     */
+    readonly presence: string;
   };
   readonly projectStateDirectories: TWorkspaceProjectStateDirectories;
   readonly projectSettingsPaths: readonly IProjectSettingsPath[];
@@ -107,9 +116,12 @@ export function createCliRuntimeContext(
       workspaceTrust: join(userRoot, 'workspace-trust.json'),
       orgPolicy: join(userRoot, 'org-policy.json'),
       mcpApprovals: join(userRoot, 'mcp-approvals.json'),
+      secure: join(userRoot, 'secure'),
+      keyring: join(userRoot, 'secure', 'keyring.json'),
       spill: join(userRoot, 'spill'),
       editor: join(userRoot, 'editor'),
       ephemeralCheckpoints: join(userRoot, 'ephemeral-checkpoints'),
+      presence: join(userRoot, 'presence'),
     },
     projectStateDirectories: {
       sessions: join(directory, 'sessions'),
@@ -151,6 +163,7 @@ export function createCliRuntimeContext(
       'credentials',
       'mcp-credentials',
       'remote-host-identity.json',
+      'secure',
     ].map((entry) => join(userRoot, entry)),
   };
   return freeze({

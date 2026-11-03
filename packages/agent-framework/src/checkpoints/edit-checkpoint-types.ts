@@ -20,6 +20,8 @@ export interface IEditCheckpointFileRecord {
   originalPath: string;
   existed: boolean;
   snapshotFile?: string;
+  /** The pre-image's size when it was captured, recorded by a store whose state seals. */
+  byteLength?: number;
 }
 
 export interface IEditCheckpointManifest extends IEditCheckpointSummary {
@@ -47,11 +49,27 @@ export interface IEditCheckpointFileInspection {
   restoreAction: TEditCheckpointFileRestoreAction;
   snapshotAvailable: boolean;
   snapshotSizeBytes?: number;
+  /** `recorded`: the size is the one recorded at capture, not measured from the stored pre-image. */
+  snapshotSizeSource?: 'recorded';
 }
 
 export interface IEditCheckpointInspectionPlan {
   checkpointIds: string[];
   fileCount: number;
+  /** A checkpoint in the range that does not open, so the restore or rollback would be refused. */
+  blockedBy?: { checkpointId: string; reason: 'damaged' | 'newer' };
+}
+
+/** How many of a session's edit checkpoints do not open, by why; `list` leaves them out. */
+export interface IEditCheckpointUnreadableCounts {
+  damaged: number;
+  newer: number;
+}
+
+/** A session's edit checkpoints that open, and how many do not, from one read. */
+export interface IEditCheckpointListing {
+  checkpoints: IEditCheckpointSummary[];
+  unreadable: IEditCheckpointUnreadableCounts;
 }
 
 export interface IEditCheckpointInspection {

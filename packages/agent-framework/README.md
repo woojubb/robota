@@ -201,6 +201,7 @@ const sessionStore =
     ? createProjectSessionStore(
         getWorkspaceProjectStateStorage(projectAccess.authority, 'sessions'),
         getWorkspaceProjectStateStorage(projectAccess.authority, 'session-logs'),
+        { sealing: 'plain' }, // every store states how it keeps its records
       )
     : undefined;
 

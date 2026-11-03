@@ -64,7 +64,10 @@ async function run(mode: string): Promise<void> {
         repositoryMaxChars: 500,
         spillStore: {
           write: (content) => {
-            spillStore ??= createNodeToolResultSpillStore({ parentDirectory: home });
+            spillStore ??= createNodeToolResultSpillStore({
+              sealing: 'plain',
+              parentDirectory: home,
+            });
             return spillStore.write(content);
           },
         },

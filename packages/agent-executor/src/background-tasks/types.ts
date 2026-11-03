@@ -105,6 +105,8 @@ interface IBaseBackgroundTaskHandle {
   readonly pid?: number;
   readonly logPath?: string;
   readonly transcriptPath?: string;
+  /** The transcript is sealed (see `ISubagentJobHandle.transcriptSealed`); the manager projects it into task state. */
+  readonly transcriptSealed?: true;
   cancel(reason?: string): Promise<void>;
   send?(input: IBackgroundTaskInput): Promise<void>;
   readLog?(cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;

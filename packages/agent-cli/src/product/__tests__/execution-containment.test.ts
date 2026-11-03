@@ -45,7 +45,7 @@ describe('test-product execution containment', () => {
     const hidden = sandbox.client?.policy().denyRead.map((entry) => entry.path) ?? [];
     // Paths are made real (macOS `/var` is `/private/var`), so compare the user-root-relative tail.
     const state = basename(runtime.layout.userRoot);
-    for (const entry of ['settings.json', 'credentials', 'mcp-credentials', 'remote-host-identity.json']) {
+    for (const entry of ['settings.json', 'credentials', 'mcp-credentials', 'remote-host-identity.json', 'secure']) {
       expect(hidden.some((path) => path.endsWith(join(state, entry)))).toBe(true);
     }
     expect(hidden.some((path) => path.endsWith(state))).toBe(false);

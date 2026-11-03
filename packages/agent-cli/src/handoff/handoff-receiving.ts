@@ -2,6 +2,8 @@
  * How this side takes a session pushed to it, whichever carrier brought it: the grant is checked
  * against the sender's device certificate as this side holds it, the operator here is asked through
  * the connection's authority, and the session is kept aside, verified and saved — never started.
+ * Kept aside in memory alone when this side's session stores seal, decided by the product's one
+ * sealing decision at each arrival.
  */
 
 import {
@@ -13,6 +15,7 @@ import {
   type TRecordPersister,
 } from '@robota-sdk/agent-interface-session-mobility';
 
+import { resolveProductSessionSealing } from '../product/session-sealing.js';
 import { createHandoffConsent } from './handoff-consent.js';
 import { checkHandoffGrant } from './handoff-grant.js';
 import { receiveHandoff, type TReceiveHandoffOutcome } from './handoff-receive.js';
@@ -108,6 +111,7 @@ export function createHandoffReceiver(
         consent,
         composition: receiving.composition,
         root: receiving.root,
+        payloadInMemory: resolveProductSessionSealing(receiving.productRuntime) !== 'plain',
         resolveCredential: receiving.resolveCredential,
         persist: receiving.persist,
         committed,

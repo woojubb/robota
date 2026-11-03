@@ -99,13 +99,16 @@ export class CheckpointTree {
   /**
    * The chain from `id` up to (and including) the root — nearest first. Empty if `id` is unknown. Only
    * REGISTERED nodes are included: a dangling `parentId` (edge to a node not in the tree — possible on
-   * manifest drift/corruption) terminates the walk rather than emitting a phantom id.
+   * manifest drift/corruption) terminates the walk rather than emitting a phantom id, and so does an
+   * edge back to a node already in the chain, which only damaged edges can form.
    */
   ancestors(id: string): string[] {
     const chain: string[] = [];
+    const seen = new Set<string>();
     let cursor: string | undefined = id;
-    while (cursor !== undefined && this.nodes.has(cursor)) {
+    while (cursor !== undefined && this.nodes.has(cursor) && !seen.has(cursor)) {
       chain.push(cursor);
+      seen.add(cursor);
       cursor = this.nodes.get(cursor)!.parentId;
     }
     return chain;

@@ -4,7 +4,11 @@ import {
   subagentExecutionRoot,
   verifyConnectionEnvironment,
 } from '@robota-sdk/agent-executor';
-import { createSubagentLogger, createSubagentSession } from '@robota-sdk/agent-framework';
+import {
+  createSubagentLogger,
+  createSubagentSession,
+  resolveSubagentLogSessionId,
+} from '@robota-sdk/agent-framework';
 
 import {
   isSubagentWorkerParentMessage,
@@ -23,7 +27,7 @@ import type {
   ISubagentWorkerComposition,
   TParentSandboxSettings,
 } from './worker-composition.js';
-import type { ITerminalOutput, TToolArgs } from '@robota-sdk/agent-core';
+import type { ITerminalOutput, TArtifactSealing, TToolArgs } from '@robota-sdk/agent-core';
 
 const CANCEL_EXIT_CODE = 130;
 /** DIST-006: worker mode reached without an IPC channel — a misuse, not a run that failed. */
@@ -53,8 +57,12 @@ let permissionRequestSequence = 0;
 /** The parent's sandbox settings most recently sent after a change, newer than the start payload's. */
 let latestParentSandboxSettings: TParentSandboxSettings | undefined;
 let composedSandbox: ISubagentComposedSandbox | undefined;
-/** Why a change of the parent's sandbox settings could not be taken; the run then ends with it. */
-let sandboxSettingsFailure: string | undefined;
+/** Why a change the parent sent after `start` could not be taken; the job then ends with it. */
+let parentChangeFailure: string | undefined;
+/** The parent's write grant most recently sent after a change, newer than the start payload's. */
+let latestWriteGrant: string | undefined;
+/** Whether this child bound its parent's grant at start, so a newer one is taken as it comes. */
+let sealingBound = false;
 let running: Promise<void> = Promise.resolve();
 
 function sendChildMessage(message: TSubagentWorkerChildMessage): void {
@@ -101,11 +109,61 @@ function readSessionUsage(
   }
 }
 
+/** What a child says when it cannot follow its parent's new key: it stops rather than seal to the old one. */
+const SEALING_KEY_NOT_FOLLOWED =
+  'subagent worker: the parent now seals to another key and this subagent could not seal to it, ' +
+  'so it stopped rather than go on sealing to the key its parent replaced.';
+
+/**
+ * A change the parent sent while this child was being built, and that it could not take, stops the
+ * job before its run starts: the run would otherwise write under what the parent has replaced.
+ */
+function throwIfParentChangeFailed(): void {
+  if (parentChangeFailure !== undefined) throw new Error(parentChangeFailure);
+}
+
+/** Whether `sealing` seals to exactly the key `grant` names: never plain, and its own grant is `grant`. */
+function sealsTo(sealing: TArtifactSealing, grant: string): boolean {
+  return sealing !== 'plain' && sealing.sealer.writeGrant?.() === grant;
+}
+
+/**
+ * How this child seals, as its parent decided: plain when the payload carries no grant, else the
+ * sealing the composition binds from the grant — before anything is built, so every store the
+ * composition opens afterwards seals the same way. A composition that cannot bind one, or binds one
+ * that is plain or seals to another key, fails the job: a child whose parent seals never writes plain
+ * or to a key its parent did not hand it.
+ */
+function bindParentSealing(
+  payload: ISubagentWorkerStartPayload,
+  composition: ISubagentWorkerComposition,
+): TArtifactSealing {
+  if (payload.writeGrant === undefined) return 'plain';
+  if (composition.bindWriteGrant === undefined) {
+    throw new Error(
+      `subagent worker: job ${payload.taskId} must seal what it writes, but this composition ` +
+        'cannot seal. Register ISubagentWorkerComposition.bindWriteGrant at the composition ' +
+        'root. The subagent was not started.',
+    );
+  }
+  const grant = latestWriteGrant ?? payload.writeGrant;
+  const sealing = composition.bindWriteGrant(grant);
+  if (!sealsTo(sealing, grant)) {
+    throw new Error(
+      `subagent worker: job ${payload.taskId} must seal to the key its parent handed it, but this ` +
+        "composition's bindWriteGrant returned a sealing that does not. The subagent was not started.",
+    );
+  }
+  sealingBound = true;
+  return sealing;
+}
+
 async function runInitialPrompt(
   payload: ISubagentWorkerStartPayload,
   composition: ISubagentWorkerComposition,
 ): Promise<void> {
   try {
+    const sealing = bindParentSealing(payload, composition);
     // The parent compared this environment before spawning; repeat it before anything is built, so
     // a change between spawn and start cannot send the parent's credential elsewhere.
     if (!verifyConnectionEnvironment(payload.connectionCheck, process.env)) {
@@ -119,6 +177,7 @@ async function runInitialPrompt(
       payload.sandboxProjection,
       composition.sandboxFactories,
     );
+    throwIfParentChangeFailed();
     // Exactly as the parent resolved it: no defaults from this process's own registry.
     const provider = createProviderFromExactProfile(
       payload.providerProfile,
@@ -126,8 +185,12 @@ async function runInitialPrompt(
       composition.providerDefinitions,
     );
     withholdProviderCredential(payload.providerProfile, payload.keepProviderCredential === true);
+    // The session id names the log and binds a sealed one, by the rule the parent reads it with.
+    const sessionId = resolveSubagentLogSessionId(payload.request, payload.taskId);
     const sessionLogger = payload.logsDir
-      ? createSubagentLogger(payload.request.parentSessionId, payload.taskId, payload.logsDir)
+      ? createSubagentLogger(payload.request.parentSessionId, payload.taskId, payload.logsDir, {
+          sealing,
+        })
       : undefined;
     const resumeSessionStore = openResumeSessionStore(payload, composition);
     // A sandbox restored from the parent's snapshot, or else one the child composes at its own root.
@@ -168,7 +231,7 @@ async function runInitialPrompt(
       cwd: subagentExecutionRoot(payload),
       provider,
       terminal: NOOP_TERMINAL,
-      sessionId: payload.request.resumeSessionId ?? payload.taskId,
+      sessionId,
       ...(resumeSessionStore !== undefined ? { sessionStore: resumeSessionStore } : {}),
       ...(sessionLogger ? { sessionLogger } : {}),
       permissionMode: payload.permissionMode,
@@ -202,9 +265,10 @@ async function runInitialPrompt(
       permissionHandler: requestParentPermission,
     });
     resumeRequestedRecord(payload, session, resumeSessionStore);
+    throwIfParentChangeFailed();
     const output = await session.run(payload.request.prompt);
-    if (sandboxSettingsFailure !== undefined) {
-      sendTerminalMessageAndExit({ type: 'error', message: sandboxSettingsFailure }, 0);
+    if (parentChangeFailure !== undefined) {
+      sendTerminalMessageAndExit({ type: 'error', message: parentChangeFailure }, 0);
       return;
     }
     if (cancelled) {
@@ -222,8 +286,8 @@ async function runInitialPrompt(
     sendTerminalMessageAndExit({ type: 'result', output, ...(usage ? { usage } : {}) }, 0);
   } catch (error) {
     // allow-fallback: child process must report errors to parent via IPC, not crash silently; exit follows the IPC flush (CORE-024 RUNTIME-20)
-    if (sandboxSettingsFailure !== undefined) {
-      sendTerminalMessageAndExit({ type: 'error', message: sandboxSettingsFailure }, 0);
+    if (parentChangeFailure !== undefined) {
+      sendTerminalMessageAndExit({ type: 'error', message: parentChangeFailure }, 0);
       return;
     }
     if (cancelled) {
@@ -333,9 +397,31 @@ function followParentSandboxSettings(settings: TParentSandboxSettings): void {
   try {
     composedSandbox?.applyParentSettings?.(settings);
   } catch (error) {
-    sandboxSettingsFailure ??= error instanceof Error ? error.message : String(error);
+    parentChangeFailure ??= error instanceof Error ? error.message : String(error);
     session?.abort();
   }
+}
+
+/**
+ * The key the parent seals to was verified or changed while this child runs: everything it seals
+ * from now on goes to the new grant's key. A grant not bound yet is taken at start; a child its
+ * parent started plain stays plain. One the composition cannot take — it throws, or what it binds
+ * does not seal to the new grant's key — stops the job with fixed text (before its run, when the
+ * child is still being built), since sealing on to a key the parent has replaced is what this
+ * message prevents.
+ */
+function followParentSealingKey(grant: string, composition: ISubagentWorkerComposition): void {
+  latestWriteGrant = grant;
+  if (!sealingBound) return;
+  let followed = false;
+  try {
+    followed = sealsTo(composition.bindWriteGrant?.(grant) ?? 'plain', grant);
+  } catch {
+    // allow-fallback: the composition's own reason is not what the parent is told; the run stops below.
+  }
+  if (followed) return;
+  parentChangeFailure ??= SEALING_KEY_NOT_FOLLOWED;
+  session?.abort();
 }
 
 /**
@@ -377,6 +463,9 @@ export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): 
         break;
       case 'sandbox_settings':
         followParentSandboxSettings(message.settings);
+        break;
+      case 'sealing_key':
+        followParentSealingKey(message.grant, composition);
         break;
       case 'permission_response':
         resolvePendingPermissionRequest(message.requestId, message.result);

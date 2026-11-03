@@ -5,6 +5,7 @@ import { basename } from 'node:path';
 
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { isTurnNotRunError, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { loadSessionForUpdate } from '@robota-sdk/agent-session';
 
 import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import { InteractiveSessionBase } from './interactive-session-base.js';
@@ -22,7 +23,7 @@ import {
   resolveUiIntentRequester,
 } from './interactive-session-host-actions.js';
 import { initializeInteractiveSessionAsync } from './interactive-session-init.js';
-import { persistSession } from './interactive-session-persistence.js';
+import { createRefusedSaveReporter, persistSession } from './interactive-session-persistence.js';
 import { createPromptHistoryRecorder } from './interactive-session-prompt-history.js';
 import { createProjectPermissionPersistence } from './project-permission-persistence.js';
 import { resolveUserSettingsProviderSwitchAsync } from './interactive-session-provider-switch.js';
@@ -31,7 +32,7 @@ import { buildModelListSnapshot } from '../command-api/provider/provider-model-c
 import { FallbackProvider } from '../routing/fallback-provider.js';
 import { applyModelFallback } from '../routing/model-fallback-chain.js';
 import { persistSessionRename } from './interactive-session-rename.js';
-import { loadSessionRecord } from './interactive-session-restore.js';
+import { loadSessionRecord, resumeRefusal } from './interactive-session-restore.js';
 import { InteractiveSessionRuntimeTools } from './interactive-session-runtime-tools.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { loadSessionPluginSkills } from './session-plugin-skills.js';
@@ -294,6 +295,10 @@ export class InteractiveSession
   private readonly resolveDefaultLoopPrompt?: () => string;
   private readonly userSettingsSources: readonly INodeHostSettingsSource[];
   private readonly statusPush: SessionStatusPush;
+  /** A save the store refused for a sealed session is said once, through the out-of-turn error path. */
+  private readonly reportRefusedSave = createRefusedSaveReporter((error) =>
+    this.reportBackgroundError(error, 'persistence'),
+  );
 
   constructor(options: TInteractiveSessionOptions) {
     super();
@@ -310,7 +315,7 @@ export class InteractiveSession
       readCommitted: () => {
         const id = this.session?.getSessionId();
         if (!id || !this.sessionStore) return undefined;
-        const outcome = this.sessionStore.load(id);
+        const outcome = loadSessionForUpdate(this.sessionStore, id);
         return outcome.status === 'valid'
           ? (outcome.record.sessionLoops ?? [])
           : outcome.status === 'missing'
@@ -600,15 +605,24 @@ export class InteractiveSession
 
   private restoreSessionRecordIfNeeded(options: TInteractiveSessionOptions): void {
     if (!options.resumeSessionId || !this.sessionStore) return;
+    // A record that is there and unreadable here (locked above all) is refused, never resumed empty
+    // under its id: after an unlock the first save would replace the conversation with the empty one.
+    const outcome = this.sessionStore.load(options.resumeSessionId, { hold: true });
+    const refusal = resumeRefusal(options.resumeSessionId, outcome, true);
+    if (refusal !== undefined) throw refusal;
     if (
-      this.startedAsFork ||
-      ('workspaceMovedFrom' in options && options.workspaceMovedFrom !== undefined)
-    ) {
-      const source = this.sessionStore.load(options.resumeSessionId);
-      if (source.status === 'valid' && source.record.pendingExecution)
-        throw new Error('Resolve the pending execution before copying its conversation');
-    }
-    const restored = loadSessionRecord(this.sessionStore, options.resumeSessionId, this.session);
+      (this.startedAsFork ||
+        ('workspaceMovedFrom' in options && options.workspaceMovedFrom !== undefined)) &&
+      outcome.status === 'valid' &&
+      outcome.record.pendingExecution
+    )
+      throw new Error('Resolve the pending execution before copying its conversation');
+    const restored = loadSessionRecord(
+      this.sessionStore,
+      options.resumeSessionId,
+      this.session,
+      outcome,
+    );
     this.histTracker.restoreState({
       history: restored.history,
       memoryEvents: restored.memoryEvents,
@@ -2035,6 +2049,7 @@ export class InteractiveSession
       this.histTracker.getActiveBranchPointer(),
       strict,
       loopStateOverride ?? this.selfPacedLoops.snapshotForOrdinarySave(),
+      this.reportRefusedSave,
     );
   }
 

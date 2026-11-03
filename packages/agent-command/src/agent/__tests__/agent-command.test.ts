@@ -595,3 +595,43 @@ describe('agent command module', () => {
     expect(result?.uiIntents).toBeUndefined();
   });
 });
+
+/**
+ * #3679 step 3b (R7): a group summary points at `/agent read` for a sealed transcript, whose path
+ * reaches no content, and keeps the path otherwise. The group's saved results say which is which.
+ */
+describe('agent wait — a sealed transcript in the group summary', () => {
+  it('names /agent read for the sealed one and the path for the plain one', async () => {
+    const { executeAgentCommand } = await import('../agent-command.js');
+    const result = (taskId: string, sealed: boolean) => ({
+      taskId,
+      label: taskId,
+      status: 'completed' as const,
+      summary: `${taskId} summary`,
+      outputRef: `/logs/session/subagents/${taskId}.jsonl`,
+      ...(sealed ? { transcriptSealed: true as const } : {}),
+    });
+    const session = createTestAgentJobHost({
+      waitBackgroundJobGroup: () =>
+        Promise.resolve({
+          id: 'group_1',
+          parentSessionId: 'test-session-id',
+          waitPolicy: 'wait_all',
+          taskIds: ['agent_1', 'agent_2'],
+          status: 'completed',
+          createdAt: '2026-05-01T00:00:00.000Z',
+          updatedAt: '2026-05-01T00:00:02.000Z',
+          results: [result('agent_1', true), result('agent_2', false)],
+        }),
+    });
+
+    const shown = await executeAgentCommand(session, 'wait group_1');
+
+    expect(shown.message).toContain(
+      '[completed] agent_1 agent_1: agent_1 summary (output: sealed log; read it with /agent read agent_1)',
+    );
+    expect(shown.message).toContain(
+      '[completed] agent_2 agent_2: agent_2 summary (output: /logs/session/subagents/agent_2.jsonl)',
+    );
+  });
+});

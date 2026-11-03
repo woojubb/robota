@@ -664,7 +664,7 @@ describe('saved pending execution admission', () => {
     async (mode) => {
       const directory = mkdtempSync(join(tmpdir(), 'session-pending-'));
       try {
-        const store = new NodeSessionStore(directory);
+        const store = new NodeSessionStore(directory, { sealing: 'plain' });
         const saved = journalFixture();
         const source = fixture([action], { sessionStore: store });
         const parked = await source.session.runRecoverable('original input', {
@@ -696,7 +696,7 @@ describe('atomic recovery checkpoints', () => {
   it('saves open intent before effects and clears the marker with the settled history', async () => {
     const directory = mkdtempSync(join(tmpdir(), 'session-checkpoint-'));
     try {
-      const store = new NodeSessionStore(directory);
+      const store = new NodeSessionStore(directory, { sealing: 'plain' });
       const saved = journalFixture();
       const f = fixture([action, { text: 'done' }], { ...allowed, sessionStore: store });
       f.effect.mockImplementation(async () => {
@@ -964,7 +964,7 @@ describe('saved recovery contract and error precedence', () => {
     const record = { ...snapshot, createdAt: now, updatedAt: now };
     const directory = mkdtempSync(join(tmpdir(), 'pending-codec-'));
     try {
-      const store = new NodeSessionStore(directory);
+      const store = new NodeSessionStore(directory, { sealing: 'plain' });
       store.save(record);
       expect(
         JSON.parse(readFileSync(join(directory, 'approval-session.json'), 'utf8')).schemaVersion,
@@ -1013,7 +1013,7 @@ it('keeps retained history reads from mutating a pending conversation', async ()
 it('uses a configured checkpoint callback instead of also saving to the lower store', async () => {
   const directory = mkdtempSync(join(tmpdir(), 'checkpoint-owner-'));
   try {
-    const store = new NodeSessionStore(directory);
+    const store = new NodeSessionStore(directory, { sealing: 'plain' });
     const save = vi.spyOn(store, 'save');
     const checkpointHistory = vi.fn();
     const f = fixture([action, { text: 'done' }], { ...allowed, sessionStore: store, checkpointHistory });

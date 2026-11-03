@@ -49,7 +49,10 @@ const options = {
       ? [] : ['--permission-mode', process.env['PRODUCT_TEST_PERMISSION_MODE']]),
   ]),
   provider,
-  sessionStore: sessionsDirectory === undefined ? {} : createUserSessionStore(sessionsDirectory),
+  sessionStore:
+    sessionsDirectory === undefined
+      ? {}
+      : createUserSessionStore(sessionsDirectory, { sealing: 'plain' }),
   ...(sessionsDirectory === undefined ? {} : { sessionDirectory: createServeSessionDirectory() }),
   backgroundTaskRunners: [],
   subagentRunnerFactory: () => { throw new Error('fixture never starts a subagent'); },

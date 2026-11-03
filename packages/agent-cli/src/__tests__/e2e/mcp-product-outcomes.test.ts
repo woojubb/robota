@@ -189,7 +189,9 @@ async function runChain(
     expect(JSON.stringify(result)).toContain('Done');
     await client.close();
     const environment = createTestProductRuntime('test-product', { HOME: home });
-    const records = createNodeHostSessionStore(environment.layout.userPaths.sessions).list();
+    const records = createNodeHostSessionStore(environment.layout.userPaths.sessions, {
+      sealing: 'plain',
+    }).list();
     const valid = records.filter((entry) => entry.outcome.status === 'valid');
     expect(valid).toHaveLength(1);
     const loaded = valid[0].outcome;

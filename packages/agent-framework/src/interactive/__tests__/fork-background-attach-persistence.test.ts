@@ -30,7 +30,7 @@ describe('background fork persistence for attach (BEHAVIOR-2675)', () => {
 
   it('updates the fork record while leaving the parent record separate', async () => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-2675-')));
-    const store = new NodeSessionStore(join(cwd, 'sessions'));
+    const store = new NodeSessionStore(join(cwd, 'sessions'), { sealing: 'plain' });
     const copiedMessages = [
       {
         id: 'copied-user',

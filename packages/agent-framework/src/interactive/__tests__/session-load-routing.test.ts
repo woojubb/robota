@@ -303,6 +303,7 @@ describe.runIf(process.platform === 'linux')(
       if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
       new WorkspaceSessionLogSink(
         getWorkspaceProjectStateStorage(access.authority, 'session-logs'),
+        { sealing: 'plain' },
       ).append('log-only', `${lines.join('\n')}\n`);
       return root;
     }

@@ -5,7 +5,15 @@
  * composition. Nothing here is a double of the protocol; only the operator and the store are scripted.
  */
 
-import { mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, existsSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  realpathSync,
+  rmSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -18,10 +26,13 @@ import { createDeviceIdentityService } from '../../devices/device-identity-servi
 import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
 import { loadDevicePrivateKeys } from '../../devices/identity-keys.js';
 import { readIdentityState } from '../../devices/identity-state.js';
+import { overrideProductSecureMode, useProductKeyHolder } from '../../product/session-sealing.js';
 import {
   startLocalPeerMessaging,
   type IPeerMessaging,
 } from '../../remote-control/local-peer-messaging.js';
+import { KeyHolder } from '../../secure/key-holder.js';
+import { createMemoryKeyringStore, fixtureKeyring } from '../../secure/__tests__/helpers.js';
 import { createHandoffComposition } from '../handoff-composition-root.js';
 import {
   checkHandoffGrant,
@@ -42,14 +53,33 @@ import { createHandoffReceiver } from '../handoff-receiving.js';
 import { openHandoffWire } from '../handoff-wire.js';
 
 import type { TReceiveHandoffOutcome } from '../handoff-receive.js';
+import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 import type { ICredentialStore } from '@robota-sdk/agent-core';
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type {
+  IInteractiveSessionRecord,
+  TSessionLoadOutcome,
+} from '@robota-sdk/agent-interface-session';
 import type {
   ICapabilityApprovalRequest,
   IFileFrameChannel,
   IHandoffManifest,
   IOperatorApprover,
 } from '@robota-sdk/agent-interface-session-mobility';
+
+/** Every memory sink the receivers made, so a test can tell whether one still holds a session. */
+const memorySinks = vi.hoisted(() => [] as { take(): Buffer }[]);
+
+vi.mock('../../peer-files/quarantine.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../peer-files/quarantine.js')>();
+  return {
+    ...actual,
+    createMemoryFileSink: (...args: Parameters<typeof actual.createMemoryFileSink>) => {
+      const sink = actual.createMemoryFileSink(...args);
+      memorySinks.push(sink);
+      return sink;
+    },
+  };
+});
 
 const composition = createHandoffComposition();
 
@@ -192,6 +222,10 @@ interface IDestinationOptions {
   readonly persist?: (record: IInteractiveSessionRecord) => boolean;
   /** B takes hand-offs at all. */
   readonly takesHandoffs?: boolean;
+  /** The runtime the receivers decide with; the file's own by default. */
+  readonly receiverRuntime?: ICliRuntimeContext;
+  /** What B's receiver sees of each hand-off channel; the channel itself by default. */
+  readonly receiverChannel?: (channel: IFileFrameChannel) => IFileFrameChannel;
 }
 
 /**
@@ -203,7 +237,7 @@ async function sessions(options: IDestinationOptions = {}) {
   const outcomes: TReceiveHandoffOutcome[] = [];
   const receiverFor = (approver: IOperatorApprover | undefined) => {
     const receive = createHandoffReceiver({
-      productRuntime,
+      productRuntime: options.receiverRuntime ?? productRuntime,
       root,
       composition,
       identity: () => readHandoffIdentity(root, productRuntime),
@@ -221,7 +255,7 @@ async function sessions(options: IDestinationOptions = {}) {
         localHandoffArrival(
           { sessionId, root, productRuntime, ...(approver !== undefined ? { approver } : {}) },
           sender,
-          channel,
+          options.receiverChannel?.(channel) ?? channel,
         ),
       ).then((outcome) => outcomes.push(outcome));
   };
@@ -354,6 +388,97 @@ describe('TC-10 / TC-01: a full hand-off between two sessions over the peer chan
     expect(saved[0]?.messages[1]?.metadata).toEqual({ driverId: 'peer:C', turnSource: 'peer' });
     expect(JSON.stringify(saved[0]?.history)).toContain('"turnSource":"peer"');
     expect(JSON.stringify(saved[0]?.history)).toContain('"driverId":"peer:C"');
+  }, 30_000);
+});
+
+describe('where the payload waits until it is saved', () => {
+  const CANARY = 'CANARY-handoff-3e7a-what-the-session-said';
+
+  /** Every file under this test's home and scratch roots whose bytes hold `needle`. */
+  function filesHolding(needle: string): string[] {
+    const walk = (directory: string): string[] =>
+      readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+        const full = path.join(directory, entry.name);
+        if (entry.isDirectory()) return walk(full);
+        return entry.isFile() && readFileSync(full).includes(Buffer.from(needle)) ? [full] : [];
+      });
+    return [home, scratch].flatMap(walk);
+  }
+
+  /** Pushes a session holding the canary, and looks at the disk while B saves it. */
+  async function pushCanary(receiverRuntime?: ICliRuntimeContext) {
+    const kept: IInteractiveSessionRecord[] = [];
+    let duringSave: { readonly holding: string[]; readonly handoffArea: boolean } | undefined;
+    const { a } = await sessions({
+      approver: operator(true),
+      ...(receiverRuntime !== undefined ? { receiverRuntime } : {}),
+      persist: (session) => {
+        duringSave = {
+          holding: filesHolding(CANARY),
+          handoffArea: existsSync(path.join(root, 'handoff')),
+        };
+        kept.push(session);
+        return true;
+      },
+    });
+    const { outcome } = await push(a, { session: record([message(0, CANARY)]) }).result;
+    expect(outcome.phase).toBe('committed');
+    expect(kept.map((session) => session.messages[0]?.content)).toEqual([CANARY]);
+    return { duringSave };
+  }
+
+  it('is a file in the aside directory, under the hand-off id, while records are kept plain', async () => {
+    const { duringSave } = await pushCanary();
+
+    expect(duringSave).toEqual({
+      holding: [path.join(aside(), 'handoff-1.json')],
+      handoffArea: true,
+    });
+    await expect.poll(() => keptAside(), { timeout: 10_000 }).toEqual([]);
+  }, 30_000);
+
+  async function sealingRuntime(): Promise<ICliRuntimeContext> {
+    const { keyring } = await fixtureKeyring();
+    const runtime = createTestRuntimeContext(root);
+    overrideProductSecureMode(runtime, true);
+    useProductKeyHolder(
+      runtime,
+      new KeyHolder({ store: createMemoryKeyringStore(keyring), policy: { idleMs: 0 } }),
+    );
+    return runtime;
+  }
+
+  it('is memory alone once records are sealed: nothing on disk holds it, and the aside directory is never made', async () => {
+    const { duringSave } = await pushCanary(await sealingRuntime());
+
+    expect(duringSave).toEqual({ holding: [], handoffArea: false });
+    expect(filesHolding(CANARY)).toEqual([]);
+    expect(existsSync(path.join(root, 'handoff'))).toBe(false);
+  }, 30_000);
+
+  it('is not held in memory once the transfer fails after the payload was committed', async () => {
+    memorySinks.length = 0;
+    const { a, saved, outcomes } = await sessions({
+      approver: operator(true),
+      receiverRuntime: await sealingRuntime(),
+      // The verified payload is committed, then telling the source so fails.
+      receiverChannel: (channel) => ({
+        ...channel,
+        send: (frame) => {
+          if (frame.includes('"t":"file-done"')) throw new Error('the connection closed');
+          channel.send(frame);
+        },
+      }),
+    });
+
+    const { outcome } = await push(a, { session: record([message(0, CANARY)]) }).result;
+
+    expect(outcome.phase).not.toBe('committed');
+    await expect.poll(() => outcomes.length, { timeout: 10_000 }).toBe(1);
+    expect(outcomes[0]).toMatchObject({ received: false });
+    expect(saved).toEqual([]);
+    expect(memorySinks).toHaveLength(1);
+    expect(() => memorySinks[0]!.take()).toThrow('The memory sink holds no committed content.');
   }, 30_000);
 });
 
@@ -611,6 +736,41 @@ describe('the /handoff adapter over the peer channel', () => {
       { deviceId: 'B', name: 'another session on this machine' },
     ]);
     expect(await handoff.staysBehind()).toEqual({ uncommittedChanges: true, subprocesses: 1 });
+  }, 30_000);
+
+  it('tells a sealed, locked session from one with nothing saved, and sends nothing for either', async () => {
+    const { a, saved } = await sessions({ approver: operator(true) });
+    const store = (outcome: TSessionLoadOutcome) => ({
+      load: () => outcome,
+      save: () => {},
+      list: () => [],
+      delete: () => {},
+    });
+
+    const locked = await adapter(a, { sessionStore: store({ status: 'locked' }) }).handoff.transfer(
+      'B',
+    );
+    expect(locked).toMatchObject({
+      stillMine: true,
+      reason: 'this session is sealed and locked; unlock to hand it off',
+    });
+    // No unlock in this process opens a session sealed with keys it does not have.
+    const noKeys = await adapter(a, {
+      sessionStore: store({ status: 'locked', reason: 'no-keys' }),
+    }).handoff.transfer('B');
+    expect(noKeys).toMatchObject({
+      stillMine: true,
+      reason:
+        'this session is sealed with keys this process does not have, so it cannot be handed off',
+    });
+    const missing = await adapter(a, {
+      sessionStore: store({ status: 'missing' }),
+    }).handoff.transfer('B');
+    expect(missing).toMatchObject({
+      stillMine: true,
+      reason: 'this session has nothing saved to hand off yet',
+    });
+    expect(saved).toHaveLength(0);
   }, 30_000);
 
   it('lists the devices linked over the device mesh beside the sessions', async () => {

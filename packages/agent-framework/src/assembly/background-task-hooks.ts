@@ -65,6 +65,8 @@ export function fireSubagentLifecycleHook(
       ? {
           agent_transcript_path: event.task.transcriptPath,
           transcript_path: event.task.transcriptPath,
+          // A sealed transcript's path reaches no content: the hook learns that, never the plaintext.
+          ...(event.task.transcriptSealed === true ? { transcript_sealed: true as const } : {}),
         }
       : {}),
     ...(event.task.error?.message || event.task.timeoutReason

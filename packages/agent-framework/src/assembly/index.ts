@@ -21,4 +21,17 @@ export type { ISubagentPromptOptions, TSubagentSuffix } from './subagent-prompts
 export { createSubagentSession } from './create-subagent-session.js';
 export { sandboxApprovalFor } from './sandbox-approval.js';
 export type { ISubagentOptions, ISubagentParentContext } from './create-subagent-session.js';
-export { createSubagentLogger, resolveSubagentLogDir } from './subagent-logger.js';
+export {
+  createSubagentLogger,
+  migrateSubagentTranscripts,
+  readSubagentTranscriptPage,
+  resolveSubagentLogDir,
+  resolveSubagentLogSessionId,
+  resolveSubagentTranscriptPath,
+} from './subagent-logger.js';
+export type {
+  IReadSubagentTranscriptPageOptions,
+  ISubagentTranscriptMigration,
+  ISubagentTranscriptPage,
+  ISubagentTranscriptUnreadable,
+} from './subagent-logger.js';

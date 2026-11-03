@@ -245,14 +245,18 @@ describe('resolveSessionLogExternalPayloads', () => {
   it('ARCH-042: rejects an oversized Node payload before returning its bytes', () => {
     const baseDirectory = createTemporaryDirectory();
     writeFileSync(join(baseDirectory, 'large.json'), JSON.stringify('too large'));
-    const source = new NodeExternalPayloadSource(baseDirectory);
+    const source = new NodeExternalPayloadSource(baseDirectory, { sealing: 'plain' });
 
     expectResolutionCode(() => source.readBytes('large.json', 1), 'MAX_TOTAL_BYTES_EXCEEDED');
   });
 
   it('ARCH-042: rejects an empty explicit Node payload root', () => {
-    expect(() => new NodeExternalPayloadSource('')).toThrow(/base directory/i);
-    expect(() => new NodeExternalPayloadSource('   ')).toThrow(/base directory/i);
+    expect(() => new NodeExternalPayloadSource('', { sealing: 'plain' })).toThrow(
+      /base directory/i,
+    );
+    expect(() => new NodeExternalPayloadSource('   ', { sealing: 'plain' })).toThrow(
+      /base directory/i,
+    );
   });
 
   it('PAYLOAD-2153: reports an unsupported stable host capability distinctly', () => {
@@ -261,7 +265,11 @@ describe('resolveSessionLogExternalPayloads', () => {
     const platform = vi.spyOn(process, 'platform', 'get').mockReturnValue('freebsd');
     try {
       expectResolutionCode(
-        () => new NodeExternalPayloadSource(baseDirectory).readBytes('payload.json', 64),
+        () =>
+          new NodeExternalPayloadSource(baseDirectory, { sealing: 'plain' }).readBytes(
+            'payload.json',
+            64,
+          ),
         'STABLE_PAYLOAD_READ_UNAVAILABLE',
       );
     } finally {
@@ -295,7 +303,7 @@ describe('resolveSessionLogExternalPayloads', () => {
 });
 
 function payloadOptions(baseDirectory: string): { source: NodeExternalPayloadSource } {
-  return { source: new NodeExternalPayloadSource(baseDirectory) };
+  return { source: new NodeExternalPayloadSource(baseDirectory, { sealing: 'plain' }) };
 }
 
 function createTemporaryDirectory(): string {

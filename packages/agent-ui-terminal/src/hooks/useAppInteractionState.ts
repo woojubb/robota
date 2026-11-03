@@ -75,6 +75,7 @@ export function useAppInteractionState(options: IOptions): IAppInteractionState 
     setTransportVisible: screens.setShowTransportTUI,
     sessionStore: options.sessionStore,
     hostSessions: options.state.hostSessions,
+    hostLockedSessionCount: options.state.hostLockedSessionCount,
     sessionPickerVisible: screens.showSessionPicker,
     setSessionPickerVisible: screens.setShowSessionPicker,
     onSessionSwitch: options.onSessionSwitch,

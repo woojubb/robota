@@ -34,6 +34,7 @@ export {
   createNodeWorkspaceTrustService,
   createNodeWorkspaceTrustStore,
 } from './node-host-workspace-trust.js';
+export type { INodeWorkspaceTrustStoreOptions } from './node-host-workspace-trust.js';
 
 export type {
   IRestrictedWorkspaceProjectAccess,

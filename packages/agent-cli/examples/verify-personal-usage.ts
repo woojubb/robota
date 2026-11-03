@@ -83,7 +83,9 @@ const record: IInteractiveSessionRecord = {
 
 try {
   const productRuntime = createTestProductRuntime('test-product', { HOME: isolatedHome });
-  const store = createNodeHostSessionStore(productRuntime.layout.userPaths.sessions);
+  const store = createNodeHostSessionStore(productRuntime.layout.userPaths.sessions, {
+    sealing: 'plain',
+  });
   store.save(record);
 
   const run = (args: readonly string[]) =>

@@ -25,7 +25,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
+import { BUILT_IN_AGENTS, SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
@@ -404,6 +404,25 @@ describe('ARCH-005 S2 — the assembled test-product runtime matches the pre-cha
       BASELINE_DEFAULT_TOOL_NAMES,
     );
     expect(PRODUCT_DEFAULT_AGENT_NAME).toBe(BASELINE_DEFAULT_AGENT_NAME);
+  });
+
+  it('offers the model no command or tool that reaches the keyring, a passphrase or secure mode', () => {
+    // Key custody is a credential action: the person types the passphrase at a terminal and the model
+    // may only suggest it. There is no `/secure` command in this assembly, and nothing the model is
+    // offered (a command, a subcommand of one, or a default tool) names or describes the keyring.
+    const { commandModules } = assembleProductFixture();
+    const commands = commandModules.flatMap((module) => [...(module.systemCommands ?? [])]);
+    const keyCustody = /\bsecure\b|keyring|passphrase|recovery[- ]?key|\bunlock\b/i;
+
+    expect(commands.map((command) => command.name).filter((name) => keyCustody.test(name))).toEqual([]);
+    const offered = new SystemCommandExecutor(commands).listModelInvocableCommands();
+    expect(offered.length).toBeGreaterThan(0);
+    expect(offered.filter((descriptor) => keyCustody.test(JSON.stringify(descriptor)))).toEqual([]);
+    expect(
+      createDefaultTools({ cwd: EQUIVALENCE_CWD })
+        .map((tool) => tool.getName())
+        .filter((name) => keyCustody.test(name)),
+    ).toEqual([]);
   });
 
   it('resolves presets identically (built-ins reachable through the instance registry)', () => {

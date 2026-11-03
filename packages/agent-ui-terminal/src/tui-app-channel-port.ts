@@ -64,6 +64,8 @@ export interface ITuiChannelSnapshot {
    * live says which rows run now and how many clients are on each; the picker shows both.
    */
   hostSessions?: readonly ISessionListingEntry[];
+  /** How many sealed sessions the host's listing left out while its keys are locked; absent ⇒ none. */
+  hostLockedSessionCount?: number;
   /**
    * Changes when the transcript starts over for another session while the App keeps this channel.
    * The terminal prints the transcript once and counts what it printed, so a new transcript is

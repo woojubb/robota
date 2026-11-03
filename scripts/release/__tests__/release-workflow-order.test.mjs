@@ -212,6 +212,23 @@ it('exercises Windows and macOS native code paths on every code pull request', (
   );
 });
 
+it('runs the keyring package smoke under the Bun the job installs, on pull requests only', () => {
+  // The keyring SPEC says the package runs unchanged on Bun; this is the only place that is checked.
+  const steps = native.jobs['build-bun'].steps;
+  const index = (name) => requiredStepIndex(steps, name);
+  const step = steps[index('Smoke the keyring package under Bun')];
+  expect(step.if).toBe("github.event_name == 'pull_request' && matrix.product == 'cedar'");
+  expect(step.shell).toBe('bash');
+  expect(step.run).toContain("pnpm --filter './packages/agent-keyring' build");
+  expect(step.run).toContain("pnpm --filter './packages/agent-keyring' smoke:bun");
+  expect(index('Setup Bun')).toBeLessThan(index('Smoke the keyring package under Bun'));
+  expect(index('Exercise native code paths on this host')).toBeLessThan(
+    index('Smoke the keyring package under Bun'),
+  );
+  // No new permissions, secrets or triggers: the step only runs repository code.
+  expect(step.env).toBeUndefined();
+});
+
 it('recovers when another release job creates the same tag during desktop publication', () => {
   const step = desktop.jobs.desktop.steps.find(
     (item) => item.name === 'Publish installers to the GitHub Release',

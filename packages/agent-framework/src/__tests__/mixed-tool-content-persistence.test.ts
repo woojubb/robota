@@ -49,7 +49,7 @@ it('restores runtime mixed tool history through the real session file codec', as
   });
   try {
     await first.run('observe');
-    const store = new NodeSessionStore(join(root, 'sessions'));
+    const store = new NodeSessionStore(join(root, 'sessions'), { sealing: 'plain' });
     store.save({
       id: 'mixed-session',
       cwd: root,
@@ -58,7 +58,9 @@ it('restores runtime mixed tool history through the real session file codec', as
       messages: first.getHistory(),
     });
     await first.destroy();
-    const loaded = new NodeSessionStore(join(root, 'sessions')).load('mixed-session');
+    const loaded = new NodeSessionStore(join(root, 'sessions'), { sealing: 'plain' }).load(
+      'mixed-session',
+    );
     expect(loaded.status).toBe('valid');
     if (loaded.status !== 'valid') throw new Error('Session codec rejected mixed observations');
     expect(loaded.record.messages.find((message) => message.role === 'tool')).toMatchObject({

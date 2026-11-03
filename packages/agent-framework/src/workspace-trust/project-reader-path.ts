@@ -9,7 +9,8 @@ import type {
 } from './types.js';
 import type { Stats } from 'node:fs';
 
-const MAX_PROJECT_READ_BYTES = Number('4194304');
+/** The most any project read returns, whatever a caller asks for. */
+export const MAX_PROJECT_READ_BYTES = Number('4194304');
 
 export class ProjectReadLimitExceededError extends WorkspaceAuthorityRequiredError {
   constructor(

@@ -2,24 +2,15 @@ import { realpathSync } from 'node:fs';
 import { isAbsolute, relative, sep } from 'node:path';
 
 import {
-  createProcessScopedDirectory,
-  removeDirectoryOnProcessExit,
-} from '@robota-sdk/agent-core/node';
-import {
-  EditCheckpointStore,
   WorkspaceAuthorityRequiredError,
-  createDirectoryEditCheckpointState,
   createWorkspaceProjectContributionSource,
   createNodeHostContributionSource,
   createNodeHostSettingsStore,
   createNodeWorkspaceTrustService,
-  createProjectSessionStore,
   createRestrictedWorkspaceProjectAccess,
-  createUserSessionStore,
   createWorkspaceProjectSettingsSources,
   createWorkspaceProjectSettingsStore,
   createWorkspaceMemoryStore,
-  createWorkspaceProjectMutation,
   getWorkspaceProjectIdentity,
   getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
@@ -27,8 +18,8 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import type {
+  EditCheckpointStore,
   IContributionSource,
-  IEditCheckpointStateStorage,
   IMemoryStore,
   ISettingsDocumentStore,
   ITrustedWorkspaceProjectAccess,
@@ -39,9 +30,13 @@ import type {
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
+import {
+  createProductEditCheckpointStoreFactory,
+  createProductProjectSessionStore,
+  createProductUserSessionStore,
+} from '../product/session-stores.js';
 import { createProductUserSettingsSources } from '../product/user-settings.js';
 import { optionArgv } from '../utils/option-argv.js';
-import { EPHEMERAL_CHECKPOINT_DIRECTORY_PREFIX } from './ephemeral-state.js';
 
 export interface ICreateCliWorkspaceCompositionOptions {
   readonly cwd: string;
@@ -190,39 +185,12 @@ function trustedEditCheckpointStore(
   options: ICreateCliWorkspaceCompositionOptions,
 ): Pick<ICliWorkspaceComposition, 'createEditCheckpointStore'> {
   if (!supportsWorkspaceProjectMutation(options.platform)) return {};
-  const ephemeralState =
-    options.ephemeralEditCheckpoints === true
-      ? ephemeralCheckpointState(options.productRuntime)
-      : undefined;
   return {
-    createEditCheckpointStore: () =>
-      new EditCheckpointStore({
-        authority,
-        mutation: createWorkspaceProjectMutation(authority, {
-          status: 'approved',
-          purpose: 'restore files from an edit checkpoint',
-        }),
-        ...(ephemeralState === undefined ? {} : { stateStorage: ephemeralState() }),
-      }),
-  };
-}
-
-/**
- * The one directory every store of this process keeps its checkpoints in (stores are keyed by
- * session id, as in the project's directory), made when the first store is, and removed at exit.
- */
-function ephemeralCheckpointState(runtime: ICliRuntimeContext): () => IEditCheckpointStateStorage {
-  let state: IEditCheckpointStateStorage | undefined;
-  return () => {
-    if (state === undefined) {
-      const directory = createProcessScopedDirectory(
-        runtime.layout.userPaths.ephemeralCheckpoints,
-        EPHEMERAL_CHECKPOINT_DIRECTORY_PREFIX,
-      );
-      removeDirectoryOnProcessExit(directory);
-      state = createDirectoryEditCheckpointState(directory);
-    }
-    return state;
+    createEditCheckpointStore: createProductEditCheckpointStoreFactory(
+      authority,
+      options.productRuntime,
+      { ephemeral: options.ephemeralEditCheckpoints === true },
+    ),
   };
 }
 
@@ -244,7 +212,8 @@ function trustedMemoryStore(
 /**
  * Where a host cannot prove a project write stays under the trusted root, the project store would
  * refuse every save; the workspace's sessions go to the user's store instead, where listing finds
- * them by their working directory. Nothing is written under the project root either way.
+ * them by their working directory. Nothing is written under the project root either way. Both stores
+ * come from the product factory, so both seal exactly as every other store of this process does.
  */
 function trustedSessionStore(
   authority: ITrustedWorkspaceProjectAccess['authority'],
@@ -252,15 +221,12 @@ function trustedSessionStore(
 ): Pick<ICliWorkspaceComposition, 'sessionStore' | 'sessionStoreScope'> {
   if (!supportsWorkspaceProjectMutation(options.platform)) {
     return {
-      sessionStore: createUserSessionStore(options.productRuntime.layout.userPaths.sessions),
+      sessionStore: createProductUserSessionStore(options.productRuntime),
       sessionStoreScope: 'user',
     };
   }
   return {
-    sessionStore: createProjectSessionStore(
-      getWorkspaceProjectStateStorage(authority, 'sessions'),
-      getWorkspaceProjectStateStorage(authority, 'session-logs'),
-    ),
+    sessionStore: createProductProjectSessionStore(authority, options.productRuntime),
     sessionStoreScope: 'project',
   };
 }
@@ -316,7 +282,7 @@ export function createCliWorkspaceComposition(
       skillRoots: options.productRuntime.layout.skillRoots,
       settingsSources: createProductUserSettingsSources(options.productRuntime),
       settingsStores: [userSettingsStore],
-      sessionStore: createUserSessionStore(options.productRuntime.layout.userPaths.sessions),
+      sessionStore: createProductUserSessionStore(options.productRuntime),
       sessionStoreScope: 'user',
     };
   }

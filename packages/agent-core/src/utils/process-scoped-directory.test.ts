@@ -31,6 +31,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   createProcessScopedDirectory,
+  inspectProcessScopedDirectories,
   processScopedDirectoryPrefix,
   sweepStaleProcessScopedDirectories,
   type ISweepProcessScopedDirectoriesOptions,
@@ -142,6 +143,109 @@ describe('createProcessScopedDirectory', () => {
 
     expect(existsSync(join(directory, OWNER_RECORD))).toBe(true);
     if (process.platform !== 'win32') expect(mode(parent)).toBe(0o755);
+  });
+
+  it('records the start time a host reader gives for this process, as a Windows host passes its own', () => {
+    const readStartTime = vi.fn((_pid: number) => 'creation-time-from-the-host');
+
+    const directory = createProcessScopedDirectory(join(root, 'parent'), PREFIX, {
+      readStartTime,
+    });
+
+    expect(readStartTime).toHaveBeenCalledWith(process.pid);
+    const record = JSON.parse(
+      readFileSync(join(directory, OWNER_RECORD), 'utf8'),
+    ) as IProcessIdentity;
+    expect(record).toMatchObject({ pid: process.pid, startTime: 'creation-time-from-the-host' });
+  });
+
+  it('flushes the owner record and the directory holding it before returning, when durable', () => {
+    const flushed: string[] = [];
+
+    const directory = createProcessScopedDirectory(join(root, 'parent'), PREFIX, {
+      durable: true,
+      syncFile: () => flushed.push('record'),
+      syncDirectory: (path) => flushed.push(path),
+    });
+
+    expect(flushed).toEqual(['record', directory]);
+    expect(readdirSync(directory)).toEqual([OWNER_RECORD]);
+  });
+});
+
+describe('inspectProcessScopedDirectories', () => {
+  it('tells an owner alive, gone or unknown, and removes nothing', () => {
+    const alive = leftBy({ ...HERE, pid: 4242, startTime: 'started-4242' }, 'alive1');
+    const recycled = leftBy({ ...HERE, pid: 4243, startTime: 'started-4243' }, 'recyc1');
+    const gone = leftBy({ ...HERE, pid: 4244, startTime: 'started-4244' }, 'gone01');
+    const otherNamespace = leftBy({ ...HERE, pid: 4245, pidNamespace: 'pid:[1]' }, 'other1');
+    const unreadableStart = leftBy({ ...HERE, pid: 4246, startTime: 'started-4246' }, 'nostr1');
+    const noRecordedStart = leftBy(
+      { pid: 4247, bootId: HERE.bootId, pidNamespace: HERE.pidNamespace },
+      'norec1',
+    );
+    const own = leftBy(HERE, 'own001');
+
+    const entries = inspectProcessScopedDirectories(
+      root,
+      PREFIX,
+      world({ 4242: 'started-4242', 4243: 'started-later', 4245: 'x', 4246: undefined, 4247: 'y' }),
+    );
+
+    expect(Object.fromEntries(entries.map((entry) => [entry.path, entry.liveness]))).toEqual({
+      [alive]: 'alive',
+      [recycled]: 'gone',
+      [gone]: 'gone',
+      [otherNamespace]: 'unknown',
+      [unreadableStart]: 'unknown',
+      [noRecordedStart]: 'unknown',
+      [own]: 'alive',
+    });
+    for (const path of [recycled, gone]) expect(existsSync(path)).toBe(true);
+  });
+
+  it('never calls another machine’s owner alive, though its pid and start time match a live process here', () => {
+    const otherMachine = leftBy({ ...OTHER_MACHINE, bootId: HERE.bootId }, 'mach01');
+
+    const entries = inspectProcessScopedDirectories(
+      root,
+      PREFIX,
+      world({ [OTHER_MACHINE.pid]: OTHER_MACHINE.startTime }),
+    );
+
+    expect(entries.map((entry) => [entry.path, entry.liveness])).toEqual([
+      [otherMachine, 'unknown'],
+    ]);
+  });
+
+  it('carries each owner record, and names a directory without one by the pid in its name', () => {
+    leftBy({ ...HERE, pid: 4242, startTime: 'started-4242' });
+    const noRecord = join(root, `${PREFIX}4243-norec1`);
+    mkdirSync(noRecord);
+
+    const entries = inspectProcessScopedDirectories(
+      root,
+      PREFIX,
+      world({ 4242: 'started-4242', 4243: 'z' }),
+    );
+
+    expect(
+      entries.map(({ name, pid, owner, liveness }) => ({ name, pid, owner, liveness })),
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          name: `${PREFIX}4242-abc123`,
+          pid: 4242,
+          owner: { ...HERE, pid: 4242, startTime: 'started-4242' },
+          liveness: 'alive',
+        },
+        { name: `${PREFIX}4243-norec1`, pid: 4243, owner: undefined, liveness: 'unknown' },
+      ]),
+    );
+  });
+
+  it('answers nothing for a parent that does not exist', () => {
+    expect(inspectProcessScopedDirectories(join(root, 'absent'), PREFIX)).toEqual([]);
   });
 });
 

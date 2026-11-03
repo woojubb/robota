@@ -34,6 +34,7 @@ async function main(): Promise<void> {
   const projectAccess = await createSessionEventRenderingProjectAccess(cwd);
   assertCondition(projectAccess.status === 'trusted', 'scenario project access was not trusted');
   const editCheckpointStore = new EditCheckpointStore({
+    sealing: 'plain',
     authority: projectAccess.authority,
     mutation: createWorkspaceProjectMutation(projectAccess.authority, {
       status: 'approved',

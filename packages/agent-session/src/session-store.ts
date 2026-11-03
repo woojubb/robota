@@ -4,56 +4,70 @@
  * The caller explicitly supplies a host-owned base directory.
  * This adapter does not interpret that directory as a trusted project root.
  * The store directory is created on first write if it does not exist.
+ *
+ * Sealed records or plain ones, as the caller states when it builds the store (see
+ * `stored-session-record.ts`); plain files are the JSON they always were.
  */
 
-import { readFileSync, existsSync, unlinkSync, readdirSync } from 'fs';
+import {
+  closeSync,
+  existsSync,
+  fstatSync,
+  openSync,
+  readFileSync,
+  readSync,
+  readdirSync,
+  unlinkSync,
+} from 'fs';
 import { resolve, sep } from 'path';
 
+import { SEALED_ARTIFACT_MAGIC, isSealedArtifactBytes } from '@robota-sdk/agent-core';
 import { ensureOwnerOnlyDirectory, tightenExistingFile, writeOwnerOnlyFile } from '@robota-sdk/agent-core/node';
 
 import { assertSafeSessionId, isSafeSessionId } from './session-id.js';
-import {
-  SESSION_RECORD_ENVELOPE_VERSION,
-  decodeVersionedInteractiveSessionRecord,
-} from './session-record-codec/index.js';
+import { StoredSessionRecords, sessionSealingOf } from './stored-session-record.js';
 
+import type { ISessionStoreOptions, TStoredSessionFile } from './stored-session-record.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
+  ISessionExportOptions,
   ISessionListEntry,
+  ISessionLoadOptions,
+  ISessionSaveOptions,
+  ISessionStoreScan,
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
 
-/** A read failure described without leaking the whole error object into a persisted diagnostic. */
-function describeError(error: unknown): string {
-  return error instanceof Error ? error.message : 'unknown error';
+function errnoCode(error: unknown): unknown {
+  return typeof error === 'object' && error !== null
+    ? (error as { readonly code?: unknown }).code
+    : undefined;
 }
 
-/** Decode stored bytes into an outcome, keeping "not JSON" and "not a record" the same answer. */
-function decodeStoredSession(raw: string): TSessionLoadOutcome {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(raw) as unknown;
-  } catch {
-    return {
-      status: 'corrupt',
-      issues: [{ path: '', message: 'the session file is not JSON' }],
-    };
+/** What a load reports for a record it could not read: fixed text, and the errno code when there is one. */
+function unreadableMessage(error: unknown): string {
+  const code = errnoCode(error);
+  return typeof code === 'string' && /^E[A-Z0-9]+$/.test(code)
+    ? `could not read the session file (${code})`
+    : 'could not read the session file';
+}
+
+/**
+ * The rest of a file whose first bytes `head` holds, read through the same descriptor, so the bytes
+ * judged are the bytes of one file. Reads to the size the descriptor reported: a file that grew since
+ * is then not the bytes any store remembers, which fails closed.
+ */
+function readRest(descriptor: number, head: Buffer): Buffer {
+  const bytes = Buffer.alloc(Math.max(fstatSync(descriptor).size, head.length));
+  head.copy(bytes, 0);
+  let offset = head.length;
+  while (offset < bytes.length) {
+    const read = readSync(descriptor, bytes, offset, bytes.length - offset, offset);
+    if (read === 0) break;
+    offset += read;
   }
-  const outcome = decodeVersionedInteractiveSessionRecord(parsed);
-  if (outcome.status === 'valid') return { status: 'valid', record: outcome.record };
-  if (outcome.status === 'unsupported') {
-    return {
-      status: 'unsupported',
-      schemaVersion: outcome.schemaVersion,
-      ...(outcome.cwd !== undefined ? { cwd: outcome.cwd } : {}),
-    };
-  }
-  return {
-    status: 'corrupt',
-    issues: outcome.issues,
-    ...(outcome.cwd !== undefined ? { cwd: outcome.cwd } : {}),
-  };
+  return bytes.subarray(0, offset);
 }
 
 /**
@@ -62,10 +76,34 @@ function decodeStoredSession(raw: string): TSessionLoadOutcome {
  * An entry with no record has no `updatedAt` to sort by; giving it the epoch keeps it present and
  * out of the way, which is the whole point of listing it at all.
  */
+/** How many of `entries` are `locked`, by why: the keys are locked, or this store holds none. */
+function countLeftOut(entries: readonly ISessionListEntry[]): Omit<ISessionStoreScan, 'entries'> {
+  let locked = 0;
+  let noKeys = 0;
+  for (const { outcome } of entries) {
+    if (outcome.status !== 'locked') continue;
+    if (outcome.reason === 'no-keys') noKeys += 1;
+    else locked += 1;
+  }
+  return noKeys === 0 ? { locked } : { locked, noKeys };
+}
+
 function compareListEntriesByRecency(left: ISessionListEntry, right: ISessionListEntry): number {
   const at = (entry: ISessionListEntry): number =>
     entry.outcome.status === 'valid' ? new Date(entry.outcome.record.updatedAt).getTime() : 0;
   return at(right) - at(left);
+}
+
+/** How a {@link NodeSessionStore} is built. */
+export interface INodeSessionStoreOptions extends ISessionStoreOptions {
+  /**
+   * An ancestor of the store's directory the HOST also owns, tightened along with it (SEC-020).
+   * Optional because this adapter does not interpret its base directory as a trusted root and must
+   * not guess that a parent belongs to the product — which of them do is composition's knowledge.
+   * Left out, a store root that already exists keeps whatever mode it was given: the leaf is made
+   * 0700 and the directory above it is not touched.
+   */
+  readonly ownedRoot?: string;
 }
 
 /**
@@ -77,18 +115,19 @@ function compareListEntriesByRecency(left: ISessionListEntry, right: ISessionLis
 export class NodeSessionStore implements IInteractiveSessionStore {
   private readonly baseDir: string;
   private readonly ownedRoot: string | undefined;
+  /** How records are stored, and what this instance wrote or holds so it can keep saving those while locked. */
+  private readonly records: StoredSessionRecords;
 
   /**
    * @param baseDir the directory holding the records.
-   * @param ownedRoot an ancestor of `baseDir` the HOST also owns, tightened along with it (SEC-020).
-   *   Optional because this adapter does not interpret its base directory as a trusted root and must
-   *   not guess that a parent belongs to the product — which of them do is composition's knowledge.
-   *   Omitting it leaves a store root an older version created at whatever mode it was given, which
-   *   is what review of PR #2224 found: the leaf was 0700 and the directory above it was not.
+   * @param options `sealing` (required): `{ sealer }` seals what `save` writes and opens what `load`
+   *   reads; `'plain'` writes plain JSON and reports a sealed file it finds as `locked`.
+   *   `ownedRoot`: see {@link INodeSessionStoreOptions}.
    */
-  constructor(baseDir: string, ownedRoot?: string) {
+  constructor(baseDir: string, options: INodeSessionStoreOptions) {
+    this.records = new StoredSessionRecords(sessionSealingOf(options));
     this.baseDir = baseDir;
-    this.ownedRoot = ownedRoot;
+    this.ownedRoot = options.ownedRoot;
   }
 
   /**
@@ -146,41 +185,79 @@ export class NodeSessionStore implements IInteractiveSessionStore {
    * the mode after the write would leave a window in which the full transcript was world-readable
    * on disk.
    */
-  save(session: IInteractiveSessionRecord): void {
+  save(session: IInteractiveSessionRecord, options: ISessionSaveOptions = {}): void {
     this.ensureDir();
+    const path = this.filePath(session.id);
+    // A sealed file this store cannot open is a session nobody here has read; replacing it would
+    // destroy the only copy — unless it is provably exactly what this instance last wrote or holds,
+    // which is how a locked process goes on saving the sessions it is running. A file it could not
+    // read at all may be one of those, so it is protected the same way. A plain or absent file is
+    // replaced.
+    this.records.assertReplaceable(session.id, this.readExisting(path));
     // TRANS-007: the versioned envelope, not the bare record. Without a version on disk there is
     // nothing to compare, so "written by a build this one does not read" cannot be told from
     // "damaged" even in principle — and those two need different things from the user.
     // SEC-020's owner-only atomic write carries it: the envelope is WHAT is written, the mode is HOW.
-    writeOwnerOnlyFile(
-      this.filePath(session.id),
-      JSON.stringify({ schemaVersion: SESSION_RECORD_ENVELOPE_VERSION, record: session }, null, 2),
-    );
+    // A store that seals writes the same envelope sealed to this session's id.
+    const encoded = this.records.encode(session);
+    writeOwnerOnlyFile(path, encoded.stored);
+    this.records.wrote(session.id, encoded, options);
   }
 
   /**
-   * Load a session by its ID, saying WHICH of the four things happened.
-   *
-   * `undefined` used to answer all four — never saved, damaged, written by a build this one cannot
-   * read, and the read failed — and a caller that meant to preserve fields it does not own then
-   * treated "damaged" as "no prior record" and overwrote the file. The outcome type is what removes
-   * that, by making the caller answer the question it was not asking.
+   * What is at `path` now, for the guard before a save. Only "no such file" means there is nothing
+   * to protect; a file that cannot be opened or read is `unreadable`. The first bytes tell plain from
+   * sealed, so the common plain case costs one small read, and a sealed file's body is read through
+   * the same descriptor, so the bytes judged are those of one file.
    */
-  load(id: string): TSessionLoadOutcome {
-    const path = this.filePath(id);
-    if (!existsSync(path)) {
-      return { status: 'missing' };
-    }
-    let raw: string;
+  private readExisting(path: string): TStoredSessionFile {
+    let descriptor: number;
     try {
-      raw = readFileSync(path, 'utf-8');
+      descriptor = openSync(path, 'r');
     } catch (error) {
-      // A file that exists and cannot be read is NOT missing. Reporting it as missing is what let a
-      // recovery path run over a session that was still there.
-      return {
-        status: 'corrupt',
-        issues: [{ path: '', message: `could not read the session file: ${describeError(error)}` }],
-      };
+      return errnoCode(error) === 'ENOENT' ? { kind: 'absent' } : { kind: 'unreadable' };
+    }
+    try {
+      const head = Buffer.alloc(SEALED_ARTIFACT_MAGIC.length);
+      const length = readSync(descriptor, head, 0, head.length, 0);
+      if (!isSealedArtifactBytes(head.subarray(0, length))) return { kind: 'plain' };
+      return { kind: 'sealed', bytes: readRest(descriptor, head) };
+    } catch {
+      return { kind: 'unreadable' };
+    } finally {
+      closeSync(descriptor);
+    }
+  }
+
+  /**
+   * Load a session by its ID, saying WHICH of the five things happened.
+   *
+   * `undefined` used to answer the first four — never saved, damaged, written by a build this one
+   * cannot read, and the read failed — and a caller that meant to preserve fields it does not own
+   * then treated "damaged" as "no prior record" and overwrote the file. The outcome type is what
+   * removes that, by making the caller answer the question it was not asking. The fifth, `locked`,
+   * is a sealed file this process cannot open right now: present and intact, so neither of the two.
+   *
+   * Only a load that asks to `hold` the session remembers a sealed record it opens (see
+   * {@link StoredSessionRecords.decode}); a probe and the listing remember nothing.
+   */
+  load(id: string, options: ISessionLoadOptions = {}): TSessionLoadOutcome {
+    return this.read(id, options);
+  }
+
+  /** One read of one session. */
+  private read(id: string, options: ISessionLoadOptions): TSessionLoadOutcome {
+    const path = this.filePath(id);
+    let raw: Buffer;
+    try {
+      raw = readFileSync(path);
+    } catch (error) {
+      if (errnoCode(error) === 'ENOENT') return { status: 'missing' };
+      // Only "no such file" is missing. A file that cannot be read — or a path that cannot even be
+      // looked at — may be a session that is still there; reporting it as missing is what let a
+      // recovery path run over one. Fixed text and the errno code: the error's own message names the
+      // path and says nothing the code does not.
+      return { status: 'corrupt', issues: [{ path: '', message: unreadableMessage(error) }] };
     }
     // SEC-020 / #3679: `save` tightens a record it REWRITES, but a session that is only resumed or
     // listed keeps whatever mode its writer left — so a record from a pre-SEC-020 build stays 0644.
@@ -197,7 +274,28 @@ export class NodeSessionStore implements IInteractiveSessionStore {
     } catch {
       // allow-fallback: repairing the mode is opportunistic; reading the session is the job.
     }
-    return decodeStoredSession(raw);
+    return this.records.decode(id, raw, options);
+  }
+
+  /**
+   * The record this instance itself last wrote or holds, offered only while the file on disk is
+   * still exactly those bytes. It is what a writer needs when `load` says `locked` for a session it
+   * is running: the keys that read it back are locked, the copy it holds is not. `undefined` for
+   * a session this instance never held, or whose file has changed since.
+   */
+  loadHeld(id: string): TSessionLoadOutcome | undefined {
+    return this.records.held(id, this.readExisting(this.filePath(id)));
+  }
+
+  /** The sealed record of `id` as a token for another store over these files (see {@link StoredSessionRecords.exportHeld}). */
+  exportHeld(id: string, options?: ISessionExportOptions): string | undefined {
+    return this.records.exportHeld(id, this.readExisting(this.filePath(id)), options);
+  }
+
+  /** Holds the record a token from another store's `exportHeld` carries (see {@link StoredSessionRecords.importHeld}). */
+  importHeld(id: string, token: string): void {
+    this.filePath(id);
+    this.records.importHeld(id, token);
   }
 
   /**
@@ -207,16 +305,38 @@ export class NodeSessionStore implements IInteractiveSessionStore {
    * `load` and then hides two of them from the surface a person browses has moved the defect rather
    * than removed it: the difference a user experiences is between "my session vanished" and "my
    * session needs a different build".
+   *
+   * The one exception is a sealed session this process cannot open: there is no record to describe
+   * (no title, no time, no workspace), so it is not an entry, and {@link scan} is how a surface
+   * still says that some sessions are there.
    */
   list(): readonly ISessionListEntry[] {
+    return this.scan().entries;
+  }
+
+  /**
+   * The listing and how many sealed sessions it left out because they cannot be opened right now,
+   * from one read of each file, counted by why: locked keys, or no keys here at all. A record that
+   * cannot be read has nothing to show, so the counts are what keep those sessions from looking gone.
+   */
+  scan(): ISessionStoreScan {
+    const all = this.readAll();
+    return {
+      entries: all
+        .filter((entry) => entry.outcome.status !== 'locked')
+        .sort(compareListEntriesByRecency),
+      ...countLeftOut(all),
+    };
+  }
+
+  private readAll(): ISessionListEntry[] {
     if (!existsSync(this.baseDir)) {
       return [];
     }
     return readdirSync(this.baseDir)
       .filter((file) => file.endsWith('.json'))
       .map((file) => file.slice(0, -'.json'.length))
-      .map((id) => ({ id, outcome: this.outcomeForListedId(id) }))
-      .sort(compareListEntriesByRecency);
+      .map((id) => ({ id, outcome: this.outcomeForListedId(id) }));
   }
 
   /**
@@ -238,7 +358,7 @@ export class NodeSessionStore implements IInteractiveSessionStore {
         issues: [{ path: '', message: 'the file name is not a usable session id' }],
       };
     }
-    return this.load(id);
+    return this.read(id, {});
   }
 
   /**
@@ -247,6 +367,7 @@ export class NodeSessionStore implements IInteractiveSessionStore {
    */
   delete(id: string): void {
     const path = this.filePath(id);
+    this.records.forget(id);
     if (existsSync(path)) {
       unlinkSync(path);
     }

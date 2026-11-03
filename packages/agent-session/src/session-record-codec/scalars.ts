@@ -64,6 +64,13 @@ export function decodeBoolean(
   return undefined;
 }
 
+/** Decode a flag the contract declares as the literal `true`: present means true, `false` is a defect. */
+export function decodeTrue(value: unknown, path: string, issues: TDecodeIssues): true | undefined {
+  if (value === true) return true;
+  addIssue(issues, path, `expected true, received ${describeValue(value)}`);
+  return undefined;
+}
+
 /** Decode a member of a string-literal union, naming the permitted members when it is not one. */
 export function decodeLiteral<TLiteral extends string>(
   value: unknown,

@@ -1,10 +1,8 @@
 import { spawn } from 'node:child_process';
 import type { ChildProcess } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 
 import {
-  createBackgroundTaskLogPage,
+  BackgroundTaskError,
   createWorktreeSubagentRunner,
   subagentExecutionRoot,
   type ISubagentJobHandle,
@@ -12,14 +10,23 @@ import {
   type ISubagentRunner,
   type ISubagentWorktreeAdapter,
 } from '@robota-sdk/agent-executor';
+import {
+  readSubagentTranscriptPage,
+  resolveSubagentLogSessionId,
+  resolveSubagentTranscriptPath,
+} from '@robota-sdk/agent-framework';
 import { DEFAULT_KILL_GRACE_MS } from '@robota-sdk/agent-process';
 
 import {
+  preflightStartPayloadSealing,
   projectProviderConnection,
   projectStartPayload,
+  projectStartPayloadSealing,
   type IProjectedConnection,
+  type IProjectedSealing,
 } from './child-process-subagent-projection.js';
 import {
+  cancelUnstartedChild,
   createCancellationResult,
   createChildProcessSubagentResult,
 } from './child-process-subagent-runner-result.js';
@@ -39,6 +46,7 @@ import type { TParentSandboxSettings } from './worker-composition.js';
 import type {
   IProviderDefinition,
   IProviderDefinitionConfig,
+  TArtifactSealing,
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type {
@@ -106,6 +114,27 @@ export interface IChildProcessSubagentRunnerOptions {
    * follows it too.
    */
   watchParentSandboxSettings?: (listener: (settings: TParentSandboxSettings) => void) => () => void;
+  /**
+   * How the children keep their logs, from the composition root's one sealing decision; required, so
+   * a host cannot leave children writing plain transcripts beside sealed stores. With a sealer, every
+   * start payload carries the write grant the sealer issues when the payload is sent (a job is
+   * refused before anything is made for it when the sealer cannot issue one), a fork job carries the
+   * record the parent's store holds, handles say their transcript is sealed, and `readLog` opens with
+   * this sealing. With `'plain'`, children write plain transcripts and a sealed one is not opened.
+   */
+  logSealing: TArtifactSealing;
+  /**
+   * Be told that the key the parent seals to was verified or changed; returns the way to stop. The
+   * runner then re-reads its write grant and sends it to every running child whose grant differs
+   * (see {@link ChildProcessSubagentRunner.refreshWriteGrant}). Watched only while children run.
+   */
+  watchSealingKey?: (listener: () => void) => () => void;
+}
+
+/** A child that seals and was sent `start`, and the grant the last message it was sent carried. */
+interface ISealingChild {
+  readonly child: ChildProcess;
+  grant: string;
 }
 
 export function createChildProcessSubagentRunnerFactory(
@@ -136,6 +165,10 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   private readonly keepProviderCredential: boolean;
   private readonly parentSandboxSettings?: () => TParentSandboxSettings | undefined;
   private readonly watchParentSandboxSettings?: IChildProcessSubagentRunnerOptions['watchParentSandboxSettings'];
+  private readonly logSealing: TArtifactSealing;
+  private readonly watchSealingKey?: IChildProcessSubagentRunnerOptions['watchSealingKey'];
+  private readonly sealingChildren = new Set<ISealingChild>();
+  private unwatchSealingKey: (() => void) | undefined;
 
   constructor(
     private readonly deps: IInProcessSubagentRunnerDeps,
@@ -156,6 +189,31 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     this.keepProviderCredential = options.keepProviderCredential === true;
     this.parentSandboxSettings = options.parentSandboxSettings;
     this.watchParentSandboxSettings = options.watchParentSandboxSettings;
+    const logSealing: unknown = options.logSealing;
+    if (
+      logSealing !== 'plain' &&
+      (typeof logSealing !== 'object' ||
+        logSealing === null ||
+        typeof (logSealing as { readonly sealer?: unknown }).sealer !== 'object' ||
+        (logSealing as { readonly sealer?: unknown }).sealer === null)
+    ) {
+      // A caller that ignores the types is refused, as one that passes a bad value is.
+      throw new TypeError(
+        "The runner states how its children keep their logs: { sealer }, or 'plain'.",
+      );
+    }
+    this.logSealing = options.logSealing;
+    this.watchSealingKey = options.watchSealingKey;
+  }
+
+  /**
+   * Refuses, before anything is made for it, a job whose payload could not carry what the parent's
+   * sealing needs (see {@link preflightStartPayloadSealing}): the worktree runner calls this before it
+   * prepares a worktree. It takes nothing — a fork record stays with the store until {@link start}
+   * hands it over — so a job that fails in between can be run again.
+   */
+  preflight(job: ISubagentJobStart): void {
+    preflightStartPayloadSealing(job, this.deps, this.logSealing);
   }
 
   start(job: ISubagentJobStart): ISubagentJobHandle {
@@ -176,6 +234,10 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       this.expectedEnvironment ?? process.env,
       env,
     );
+    // Also before spawning: a job that cannot carry what its parent's sealing needs — a grant, a
+    // fork record the keys cannot hand over, a record past the wire bound — never starts a child.
+    // A fork record is handed over here, once, after the other checks before the spawn have passed.
+    const sealing = projectStartPayloadSealing(job, this.deps, this.logSealing);
     const child = spawn(
       entry.execPath,
       [...(entry.execArgv ?? []), ...entry.args, SUBAGENT_WORKER_MODE_FLAG],
@@ -202,7 +264,14 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       child,
       killGraceMs: this.killGraceMs,
     };
-    const payload = this.createStartPayload(job, connection);
+    let payload: Promise<ISubagentWorkerStartPayload>;
+    try {
+      payload = this.createStartPayload(job, connection, sealing);
+    } catch (error) {
+      // The child would wait for a `start` that is never coming; it must not outlive the refusal.
+      void cancelUnstartedChild(runtime);
+      throw error;
+    }
     // Issue #3288 §1: owned here (not inside the result controller) so `cancel()` below can abort it
     // the moment cancellation is REQUESTED — a still-parked permission ask must not outlive that
     // decision by however long the child takes to confirm it. The controller also aborts it on its
@@ -216,6 +285,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
         ? { handshakeBudgetMs: this.handshakeBudgetMs }
         : {}),
       resolveTranscriptPath: (request) => this.resolveTranscriptPath(request),
+      beforeStart: (startPayload) => this.sealStartPayload(child, startPayload),
       permissionAbort,
       ...(permissionApprover !== undefined ? { permissionApprover } : {}),
     });
@@ -227,11 +297,15 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     // "unhandled" during that window; real consumers still await it and receive the rejection.
     void result.catch(() => undefined);
     const transcriptPath = this.resolveTranscriptPath(job);
+    const logSealing = this.logSealing;
 
     return {
       taskId: job.taskId,
       ...(child.pid !== undefined && { pid: child.pid }),
       ...(transcriptPath !== undefined && { transcriptPath, logPath: transcriptPath }),
+      // The child seals its log with this runner's grant; the task state carries the fact on.
+      ...(transcriptPath !== undefined &&
+        logSealing !== 'plain' && { transcriptSealed: true as const }),
       result,
       cancel: async (reason?: string) => {
         // Issue #3288 §1: dismiss a still-parked permission ask before anything else — the GUI must
@@ -245,9 +319,55 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       },
       ...(transcriptPath !== undefined && {
         readLog: async (cursor?: IBackgroundTaskLogCursor) =>
-          readTranscriptLog(job.taskId, transcriptPath, cursor),
+          readTranscriptLog(job.taskId, transcriptPath, cursor, logSealing),
       }),
     };
+  }
+
+  /**
+   * Re-reads the write grant this runner's sealer issues and sends it (`sealing_key`) to every
+   * running child that was sent `start` with another — what a composition root calls when the key it
+   * seals to is verified or changes, so a child started before the parent's first unlock seals to the
+   * verified key from then on. A child not sent `start` yet gets the grant in its payload instead.
+   * Resolves once each message was handed to its channel.
+   */
+  async refreshWriteGrant(): Promise<void> {
+    if (this.logSealing === 'plain' || this.sealingChildren.size === 0) return;
+    const grant = this.logSealing.sealer.writeGrant?.();
+    if (grant === undefined) return;
+    const sends: Promise<void>[] = [];
+    for (const sealing of this.sealingChildren) {
+      if (sealing.grant === grant || !sealing.child.connected) continue;
+      // allow-fallback: a child whose channel is gone has exited and seals nothing more.
+      sends.push(
+        sendWorkerMessage(sealing.child, { type: 'sealing_key', grant }).catch(() => undefined),
+      );
+      sealing.grant = grant;
+    }
+    await Promise.all(sends);
+  }
+
+  /**
+   * The payload as `start` sends it, in the same turn as the send: with the grant this runner's
+   * sealer issues now, so a key verified between spawning and sending reaches the child in the
+   * payload itself, and with the child among those {@link refreshWriteGrant} reaches from now on —
+   * never earlier, so no newer grant travels ahead of the payload it would have to replace.
+   */
+  private sealStartPayload(
+    child: ChildProcess,
+    payload: ISubagentWorkerStartPayload,
+  ): ISubagentWorkerStartPayload {
+    if (this.logSealing === 'plain') return payload;
+    const writeGrant = this.logSealing.sealer.writeGrant?.();
+    if (writeGrant === undefined) {
+      throw new BackgroundTaskError(
+        'validation',
+        'This session seals its logs, but its sealer no longer hands its sealing to a subagent; ' +
+          'the subagent was not started.',
+      );
+    }
+    this.followSealingKey(child, writeGrant);
+    return { ...payload, writeGrant };
   }
 
   /**
@@ -261,6 +381,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   private createStartPayload(
     job: ISubagentJobStart,
     connection: IProjectedConnection,
+    sealing: IProjectedSealing,
   ): Promise<ISubagentWorkerStartPayload> {
     const parentSandboxSettings = this.parentSandboxSettings?.();
     return projectStartPayload(job, this.deps, {
@@ -269,7 +390,34 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       ...(this.logsDir !== undefined ? { logsDir: this.logsDir } : {}),
       ...(this.keepProviderCredential ? { keepProviderCredential: true } : {}),
       ...(parentSandboxSettings !== undefined ? { parentSandboxSettings } : {}),
+      ...sealing,
     });
+  }
+
+  /**
+   * Keeps a sealing child among those {@link refreshWriteGrant} reaches until it exits, and watches
+   * the parent's sealing key only while any is running. A child started plain stays plain, and one
+   * whose channel is already gone is never added, since it would never say it exited.
+   */
+  private followSealingKey(child: ChildProcess, grant: string): void {
+    if (!child.connected) return;
+    const sealing: ISealingChild = { child, grant };
+    this.sealingChildren.add(sealing);
+    if (this.sealingChildren.size === 1 && this.watchSealingKey !== undefined) {
+      // allow-fallback: a grant that cannot be read now leaves each child on the one it has.
+      this.unwatchSealingKey = this.watchSealingKey(() => {
+        void this.refreshWriteGrant().catch(() => undefined);
+      });
+    }
+    // A child that never started emits `error` and no `exit`; either ends it, and twice is harmless.
+    const done = (): void => {
+      this.sealingChildren.delete(sealing);
+      if (this.sealingChildren.size > 0) return;
+      this.unwatchSealingKey?.();
+      this.unwatchSealingKey = undefined;
+    };
+    child.once('exit', done);
+    child.once('error', done);
   }
 
   private forwardSandboxSettingChanges(child: ChildProcess): void {
@@ -284,9 +432,14 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     child.once('error', unwatch);
   }
 
+  /** Where the child writes its log, by the rule the child names it with (a fork's: the fork id). */
   private resolveTranscriptPath(job: ISubagentJobStart): string | undefined {
     if (!this.logsDir) return undefined;
-    return join(this.logsDir, job.request.parentSessionId, 'subagents', `${job.taskId}.jsonl`);
+    return resolveSubagentTranscriptPath(
+      this.logsDir,
+      job.request.parentSessionId,
+      resolveSubagentLogSessionId(job.request, job.taskId),
+    );
   }
 
   /**
@@ -309,18 +462,33 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   }
 }
 
+/**
+ * A page of the child's transcript (R1). The cursor counts stored records, so an offset names the
+ * same record whether the keys are locked or not; only the records on the page are opened, and
+ * `unreadable` says how many of them could not be shown.
+ */
 function readTranscriptLog(
   taskId: string,
   transcriptPath: string,
-  cursor?: IBackgroundTaskLogCursor,
+  cursor: IBackgroundTaskLogCursor | undefined,
+  sealing: TArtifactSealing,
 ): IBackgroundTaskLogPage {
-  if (!existsSync(transcriptPath)) {
+  const page = readSubagentTranscriptPage(transcriptPath, {
+    sealing,
+    ...(cursor !== undefined ? { offset: cursor.offset } : {}),
+  });
+  if (page === undefined) {
     return {
       taskId,
       cursor,
       lines: [],
     };
   }
-  const lines = readFileSync(transcriptPath, 'utf8').split(/\r?\n/).filter(Boolean);
-  return createBackgroundTaskLogPage(taskId, lines, cursor);
+  return {
+    taskId,
+    cursor,
+    nextCursor: page.nextOffset === undefined ? undefined : { offset: page.nextOffset },
+    lines: [...page.lines],
+    ...(page.unreadable === undefined ? {} : { unreadable: { ...page.unreadable } }),
+  };
 }

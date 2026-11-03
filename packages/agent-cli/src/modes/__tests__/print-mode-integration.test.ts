@@ -138,7 +138,9 @@ async function runPrint(
   beforeExit?: () => Promise<void>,
   orgPolicy?: IOrgPolicy,
 ): Promise<number> {
-  const sessionStore = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'));
+  const sessionStore = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
+    sealing: 'plain',
+  });
   try {
     await runPrintMode(
       createTestProductRuntime(), cwd,
@@ -211,7 +213,9 @@ describe('print mode session resume integration (CLI-063)', () => {
     const exitCode = await runPrint(cwd, 'Remember this number: 42', provider);
 
     expect(exitCode).toBe(0);
-    const store = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'));
+    const store = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    });
     expect(store.list()).toHaveLength(1);
   });
 
@@ -219,7 +223,9 @@ describe('print mode session resume integration (CLI-063)', () => {
     const first = createRecordingProvider('first answer');
     await runPrint(cwd, 'Remember this number: 42', first.provider);
 
-    const store = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'));
+    const store = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    });
     const priorId = store.list()[0]?.id;
     expect(priorId).toBeDefined();
 
@@ -242,7 +248,9 @@ describe('print mode session resume integration (CLI-063)', () => {
     expect(contents).toContain('first answer');
     expect(contents).toContain('What number did I ask you to remember?');
 
-    const ids = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'))
+    const ids = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    })
       .list()
       .map((record) => record.id);
     expect(ids).toEqual([priorId]);
@@ -252,7 +260,9 @@ describe('print mode session resume integration (CLI-063)', () => {
     const first = createRecordingProvider('first answer');
     await runPrint(cwd, 'Remember this number: 42', first.provider);
 
-    const store = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'));
+    const store = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    });
     const priorEntry = store.list()[0];
     if (priorEntry?.outcome.status !== 'valid') {
       throw new Error(
@@ -279,7 +289,9 @@ describe('print mode session resume integration (CLI-063)', () => {
     expect(contents).toContain('And in the fork?');
     expect(contents).toContain('Remember this number: 42');
 
-    const afterEntries = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions')).list();
+    const afterEntries = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    }).list();
     const after = afterEntries.flatMap((e) =>
       e.outcome.status === 'valid' ? [e.outcome.record] : [],
     );
@@ -349,7 +361,9 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
 
   it('print mode: the composed addition arrives on the projection, not from a second helper call', async () => {
     const { provider, lastMessages } = createRecordingProvider('ok');
-    const sessionStore = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'));
+    const sessionStore = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    });
     try {
       await runPrintMode(
         createTestProductRuntime(), cwd,

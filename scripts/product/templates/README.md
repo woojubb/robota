@@ -214,6 +214,7 @@ The [packages index](__PROJECT_DOCS_URL__/en/packages/) on the docs site covers 
 | [`@robota-sdk/agent-telemetry-otel`](https://www.npmjs.com/package/@robota-sdk/agent-telemetry-otel)       | OpenTelemetry spans and GenAI metrics for agent runs and live prompt traces, GenAI or `agent.*` names |
 | [`@robota-sdk/agent-process`](https://www.npmjs.com/package/@robota-sdk/agent-process)                     | Child-process tree termination (`killProcessTree`)                                                    |
 | [`@robota-sdk/agent-file-authority`](https://www.npmjs.com/package/@robota-sdk/agent-file-authority)       | Bounded, root-relative file reads for Node.js                                                         |
+| [`@robota-sdk/agent-keyring`](https://www.npmjs.com/package/@robota-sdk/agent-keyring)                     | Key custody and public-key sealing for secure conversations (`node:crypto` only)                      |
 
 **Multi-agent conversation** — coordinate independent agents and people in a shared conversation:
 

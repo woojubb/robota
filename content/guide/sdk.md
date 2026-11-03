@@ -84,7 +84,7 @@ Each of those is switched on by an explicit option:
 | Read user settings files                             | `userSettingsSources`                                                            |
 | Discover skills                                      | `contributionSources` and `skillRoots`                                           |
 | Load bundle plugins                                  | `pluginDirectories`                                                              |
-| Save and resume sessions                             | `sessionStore` (for example `createNodeHostSessionStore(dir)`)                   |
+| Save and resume sessions                             | `sessionStore` (for example `createNodeHostSessionStore(dir, { sealing })`)      |
 | Write replayable session logs                        | `sessionLogSink`                                                                 |
 | Replace the default tools                            | `defaultTools` (an empty array removes them all)                                 |
 | Add your own tools                                   | `additionalTools`                                                                |

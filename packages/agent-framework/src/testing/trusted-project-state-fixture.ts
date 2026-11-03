@@ -85,6 +85,7 @@ export async function createTrustedProjectSessionStoreFixture(
   return createProjectSessionStore(
     getWorkspaceProjectStateStorage(access.authority, 'sessions'),
     getWorkspaceProjectStateStorage(access.authority, 'session-logs'),
+    { sealing: 'plain' },
   );
 }
 

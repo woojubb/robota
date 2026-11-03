@@ -195,7 +195,7 @@ describe('ARCH-015 Session record field preservation', () => {
   it('preserves every non-owned field while refreshing Session-owned fields', async () => {
     const scratchDir = realpathSync(mkdtempSync(join(tmpdir(), 'arch-015-')));
     scratchDirs.push(scratchDir);
-    const store = new NodeSessionStore(join(scratchDir, 'sessions'));
+    const store = new NodeSessionStore(join(scratchDir, 'sessions'), { sealing: 'plain' });
     const existing = createExistingRecord();
     store.save(existing);
 

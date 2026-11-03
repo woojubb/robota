@@ -24,13 +24,13 @@ const assistantMessage = {
 
 describe('session log replay support', () => {
   it('ARCH-042: rejects an empty Node session-log path before deriving sidecar authority', () => {
-    expect(() => new NodeSessionLogSource('')).toThrow(/log-file path/i);
-    expect(() => new NodeSessionLogSource('   ')).toThrow(/log-file path/i);
+    expect(() => new NodeSessionLogSource('', { sealing: 'plain' })).toThrow(/log-file path/i);
+    expect(() => new NodeSessionLogSource('   ', { sealing: 'plain' })).toThrow(/log-file path/i);
   });
 
   it('redacts sensitive fields and stores large payloads by content-addressed reference', () => {
     const logDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-log-')));
-    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir), {
+    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir, { sealing: 'plain' }), {
       externalPayloadThresholdBytes: 32,
     });
 
@@ -69,7 +69,7 @@ describe('session log replay support', () => {
     'ARCH-014: loadSessionLogEntries hydrates externalized values before replay',
     () => {
       const logDir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-log-hydration-')));
-      const logger = new FileSessionLogger(new NodeSessionLogSink(logDir), {
+      const logger = new FileSessionLogger(new NodeSessionLogSink(logDir, { sealing: 'plain' }), {
         externalPayloadThresholdBytes: 32,
       });
 
@@ -86,7 +86,7 @@ describe('session log replay support', () => {
       });
 
       const [entry] = loadSessionLogEntries(
-        new NodeSessionLogSource(join(logDir, 'hydrated_session.jsonl')),
+        new NodeSessionLogSource(join(logDir, 'hydrated_session.jsonl'), { sealing: 'plain' }),
       );
 
       expect(entry?.message).toEqual(

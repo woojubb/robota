@@ -238,7 +238,9 @@ describe('read-only local session inventory', () => {
     try {
       process.env['HOME'] = home;
       process.env['XDG_RUNTIME_DIR'] = join(home, 'runtime');
-      createUserSessionStore(createTestProductRuntime().layout.userPaths.sessions).save({
+      createUserSessionStore(createTestProductRuntime().layout.userPaths.sessions, {
+        sealing: 'plain',
+      }).save({
         id: 'user-held-session',
         cwd: workspace,
         createdAt: '2026-09-26T00:00:00.000Z',

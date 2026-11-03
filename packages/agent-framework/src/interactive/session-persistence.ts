@@ -5,10 +5,14 @@ import {
   NodeSessionStore,
   NodeToolResultSpillStore,
   isSafeSessionId as sessionIsSafeSessionId,
+  sessionSealingOf,
   sweepStaleToolResultSpillDirectories as sessionSweepStaleToolResultSpillDirectories,
 } from '@robota-sdk/agent-session';
 
+import { lockedReasonOf, sealedSessionState } from './locked-session-wording.js';
 import { WorkspaceProjectSessionStore } from './workspace-session-store.js';
+
+import type { TLockedSessionReason } from './locked-session-wording.js';
 
 // Session persistence contracts SSOT relocated to @robota-sdk/agent-interface-session (DATA-001).
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
@@ -20,9 +24,14 @@ import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   IResumableSessionSummary,
+  ISessionStoreScan,
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
-import type { INodeToolResultSpillStoreOptions } from '@robota-sdk/agent-session';
+import type {
+  INodeSessionStoreOptions,
+  INodeToolResultSpillStoreOptions,
+  ISessionStoreOptions,
+} from '@robota-sdk/agent-session';
 
 export type {
   IInteractiveSessionRecord,
@@ -40,12 +49,11 @@ export interface IHostToolResultSpillStore extends IToolResultSpillStore {
 
 /**
  * Explicit host-owned storage for bounded MCP result references, in `options.parentDirectory`: an
- * owner-only directory the host owns. Omitting it is deprecated and keeps the earlier default under
- * the shared operating-system temporary directory; a host that cares where tool output lands passes
- * its own directory.
+ * owner-only directory the host owns; spilled results never go anywhere else. `options.sealing`
+ * (required) seals each result with `{ sealer }`, or states `'plain'`.
  */
 export function createNodeToolResultSpillStore(
-  options: INodeToolResultSpillStoreOptions = {},
+  options: INodeToolResultSpillStoreOptions,
 ): IHostToolResultSpillStore {
   return new NodeToolResultSpillStore(options);
 }
@@ -68,49 +76,101 @@ export function isSafeSessionId(id: string): boolean {
   return sessionIsSafeSessionId(id);
 }
 
+/**
+ * Project session store over a trusted workspace's state facets. `options.sealing` (required) seals
+ * its records with `{ sealer }`, or states `'plain'`.
+ */
 export function createProjectSessionStore(
   sessions: IWorkspaceProjectStateStorage,
   logs: IWorkspaceProjectStateStorage,
+  options: ISessionStoreOptions,
 ): IInteractiveSessionStore {
-  return new WorkspaceProjectSessionStore(sessions, logs);
+  return new WorkspaceProjectSessionStore(sessions, logs, options);
 }
 
-/** Explicit host-filesystem session store. This does not establish project trust. */
+/**
+ * Explicit host-filesystem session store. This does not establish project trust. `options.sealing`
+ * is required, as for {@link createProjectSessionStore}; `options.ownedRoot` is an ancestor of
+ * `baseDirectory` the host also owns, tightened along with it.
+ */
 export function createNodeHostSessionStore(
   baseDirectory: string,
-  ownedRoot?: string,
+  options: INodeSessionStoreOptions,
 ): IInteractiveSessionStore {
-  return new NodeSessionStore(baseDirectory, ownedRoot);
+  return new NodeSessionStore(baseDirectory, options);
 }
 
 /**
  * SCREEN-1993: the caller-selected prompt-history file, one object serving
  * both the session-side writer and the surface's newest-first source. SEC-020: the user root is
  * passed as OWNED, exactly as `createUserSessionStore` does, so it is tightened along with the file.
+ * `options.sealing` (required) seals each entry as one line with `{ sealer }`, or states `'plain'`.
  */
 export function createUserPromptHistoryFile(
   history: string,
+  options: ISessionStoreOptions,
 ): IPromptHistoryWriter & IPromptHistorySource {
-  return new NodePromptHistoryFile(history, { ownedRoot: dirname(history) });
+  return new NodePromptHistoryFile(history, {
+    ownedRoot: dirname(history),
+    sealing: sessionSealingOf(options),
+  });
 }
 
 /**
  * User-level session store at a caller-selected directory. Symmetric to {@link createProjectSessionStore};
- * there is no user-level replay-log directory, so it reads persisted records only.
+ * there is no user-level replay-log directory, so it reads persisted records only. `options.sealing`
+ * as for {@link createProjectSessionStore}.
  */
-export function createUserSessionStore(sessions: string): IInteractiveSessionStore {
+export function createUserSessionStore(
+  sessions: string,
+  options: ISessionStoreOptions,
+): IInteractiveSessionStore {
   // SEC-020: the user store root is passed as OWNED, so it is tightened along with the sessions
   // directory inside it. The caller owns the layout and supplies this path.
   // This is the path the restricted-workspace fallback takes, where no other writer may ever run
   // to tighten the root on its behalf.
-  return new NodeSessionStore(sessions, dirname(sessions));
+  return new NodeSessionStore(sessions, {
+    ownedRoot: dirname(sessions),
+    sealing: sessionSealingOf(options),
+  });
 }
 
+/** This workspace's resumable sessions, newest first; {@link listResumableSessions} also counts locked ones. */
 export function listResumableSessionSummaries(
   sessionStore: IInteractiveSessionStore | undefined,
   cwd: string,
 ): IResumableSessionSummary[] {
-  return (sessionStore?.list() ?? [])
+  return listResumableSessions(sessionStore, cwd).sessions;
+}
+
+/**
+ * One pass over a store: what it lists, and how many sealed sessions it left out because they cannot
+ * be opened right now. A store that cannot scan holds no sealed records, so it has none to leave out.
+ */
+export function scanSessionStore(
+  sessionStore: IInteractiveSessionStore | undefined,
+): ISessionStoreScan {
+  if (sessionStore === undefined) return { entries: [], locked: 0 };
+  return sessionStore.scan?.() ?? { entries: sessionStore.list(), locked: 0 };
+}
+
+/**
+ * This workspace's resumable sessions, newest first, and how many sealed sessions the store left out
+ * — locked ones and ones sealed with keys this process does not have — from one scan, for a surface
+ * that lists sessions or picks one and must say that they are there (see
+ * {@link lockedSessionsNotice}). A sealed session's workspace cannot be told, so the counts are the
+ * whole store's.
+ */
+export function listResumableSessions(
+  sessionStore: IInteractiveSessionStore | undefined,
+  cwd: string,
+): {
+  readonly sessions: IResumableSessionSummary[];
+  readonly locked: number;
+  readonly noKeys: number;
+} {
+  const scan = scanSessionStore(sessionStore);
+  const sessions = scan.entries
     .flatMap((entry) => (entry.outcome.status === 'valid' ? [entry.outcome.record] : []))
     .filter((session) => session.cwd === cwd)
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
@@ -126,6 +186,7 @@ export function listResumableSessionSummaries(
         ...(title !== undefined ? { title } : {}),
       };
     });
+  return { sessions, locked: scan.locked, noKeys: scan.noKeys ?? 0 };
 }
 
 /**
@@ -170,6 +231,66 @@ function unreadableOutcomeCwd(outcome: TSessionLoadOutcome): string | undefined 
   return outcome.status === 'corrupt' || outcome.status === 'unsupported'
     ? outcome.cwd
     : undefined;
+}
+
+/**
+ * Why session `id` exists, sealed, and this store cannot open it right now — `undefined` when that is
+ * not so. What a surface asks before it says a session "was not found": a locked session is not in a
+ * listing, but it is there, and the reason decides whether an unlock would open it. An id that is not
+ * a safe session id names no file, so it is never locked. A probe: the store remembers nothing it
+ * read here.
+ */
+export function lockedSessionReason(
+  sessionStore: IInteractiveSessionStore | undefined,
+  id: string,
+): TLockedSessionReason | undefined {
+  if (sessionStore === undefined || !sessionIsSafeSessionId(id)) return undefined;
+  const outcome = sessionStore.load(id);
+  return outcome.status === 'locked' ? lockedReasonOf(outcome) : undefined;
+}
+
+/** Whether session `id` exists, sealed, and this store cannot open it right now; see {@link lockedSessionReason}. */
+export function isSessionLocked(
+  sessionStore: IInteractiveSessionStore | undefined,
+  id: string,
+): boolean {
+  return lockedSessionReason(sessionStore, id) !== undefined;
+}
+
+/** The fixed answer for a session that is present but sealed out of reach, saying to unlock only when that would open it. */
+export function lockedSessionMessage(
+  sessionId: string,
+  reason: TLockedSessionReason = 'locked',
+): string {
+  const state = sealedSessionState(reason);
+  return reason === 'locked'
+    ? `Session ${sessionId} is ${state}; unlock to open it.`
+    : `Session ${sessionId} is ${state}.`;
+}
+
+/**
+ * The one note every surface adds where it lists sessions or picks one while some are sealed out of
+ * reach — a listing leaves those out, so without it they would read as gone. `locked` are sealed with
+ * the keys locked, which an unlock opens; `noKeys` are sealed with keys this process does not have,
+ * which no unlock here opens. `undefined` when there are none, so a surface says nothing then.
+ */
+export function lockedSessionsNotice(locked: number, noKeys = 0): string | undefined {
+  const notes: string[] = [];
+  if (locked > 0) {
+    notes.push(
+      locked === 1
+        ? '1 saved session is sealed and locked; unlock to open it.'
+        : `${locked} saved sessions are sealed and locked; unlock to open them.`,
+    );
+  }
+  if (noKeys > 0) {
+    notes.push(
+      noKeys === 1
+        ? '1 saved session is sealed with keys this process does not have.'
+        : `${noKeys} saved sessions are sealed with keys this process does not have.`,
+    );
+  }
+  return notes.length === 0 ? undefined : notes.join(' ');
 }
 
 export function resolveLatestSessionId(
@@ -218,7 +339,8 @@ export function resolveSessionIdByIdOrName(
   idOrName: string,
 ): string | undefined {
   // A name lives on the record, so only a readable entry can be matched by name. An unreadable one
-  // can still be matched by its id, which is what a user holding an old id would type.
+  // can still be matched by its id, which is what a user holding an old id would type. A locked one
+  // is not listed at all, so neither matches; `isSessionLocked` is how a caller says why.
   const match = (sessionStore?.list() ?? []).find(
     (entry) =>
       entry.id === idOrName ||

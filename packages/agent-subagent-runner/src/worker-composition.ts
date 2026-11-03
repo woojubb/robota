@@ -2,8 +2,12 @@ import type {
   IHookTypeExecutor,
   IProviderDefinition,
   IToolWithEventService,
+  TArtifactSealing,
 } from '@robota-sdk/agent-core';
-import type { ISubagentOptions, restoreSessionRecordIntoSession } from '@robota-sdk/agent-framework';
+import type {
+  ISubagentOptions,
+  restoreSessionRecordIntoSession,
+} from '@robota-sdk/agent-framework';
 
 /**
  * The session record store a fork job's `resumeSessionId` names a record in, typed FROM the one
@@ -121,6 +125,21 @@ export interface ISubagentWorkerComposition {
    * as such, rather than starting with an empty conversation that looks like a fork.
    */
   readonly openSessionStore?: (context: { readonly cwd: string }) => TResumeSessionStore;
+
+  /**
+   * How the child seals, decided by its parent: called with the start payload's write grant BEFORE
+   * the worker builds anything, so every store the composition then opens (`openSessionStore`)
+   * seals the same way, and returns the sealing the worker keeps the subagent log with. Called again
+   * with each newer grant the parent sends while the child runs (its verified key changed); the
+   * composition then seals to that key from now on. The grant carries no secret, and the child never
+   * reads a keyring of its own.
+   *
+   * Each call must return a sealer whose own `writeGrant()` is exactly the grant it was given: a
+   * `'plain'` return, or a sealer with another grant (or none), fails the job — before anything is
+   * built at start, and stops it for a newer grant. Absent ⇒ this composition cannot seal, and a job
+   * whose payload carries a grant FAILS before anything is built — never silently plain.
+   */
+  readonly bindWriteGrant?: (grant: string) => TArtifactSealing;
 
   /**
    * A sandbox the child composes itself at its execution root, rather than restoring one from a

@@ -225,6 +225,13 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
       );
     }
     const loaded = deps.sessionStore.load(session.getSessionId());
+    if (loaded.status === 'locked') {
+      return stopped(
+        loaded.reason === undefined
+          ? 'this session is sealed and locked; unlock to hand it off'
+          : 'this session is sealed with keys this process does not have, so it cannot be handed off',
+      );
+    }
     if (loaded.status !== 'valid') {
       return stopped('this session has nothing saved to hand off yet');
     }

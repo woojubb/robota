@@ -63,6 +63,7 @@ async function createStore(cwd: string): Promise<EditCheckpointStore> {
   const access = await createTrustedProjectAccessFixture(cwd);
   if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
   return new EditCheckpointStore({
+    sealing: 'plain',
     authority: access.authority,
     mutation: createWorkspaceProjectMutation(access.authority, {
       status: 'approved',
@@ -92,6 +93,7 @@ describe('EditCheckpointStore', () => {
     expect(
       () =>
         new EditCheckpointStore({
+          sealing: 'plain',
           authority: leftAccess.authority,
           mutation: foreignMutation,
         }),

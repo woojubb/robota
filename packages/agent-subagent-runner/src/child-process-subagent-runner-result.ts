@@ -29,6 +29,15 @@ import type {
  */
 const DEFAULT_HANDSHAKE_BUDGET_MS = 30_000;
 
+/**
+ * Cancels a spawned child that will never be sent `start` — the job failed between the spawn and the
+ * send — on the path a timeout takes: the IPC cancel, then signals after the grace. Resolves once it
+ * has exited; never rejects, since a child that cannot be signalled is already gone.
+ */
+export function cancelUnstartedChild(runtime: IChildProcessRuntime): Promise<void> {
+  return cancelChildProcess(runtime, 'Subagent worker was not started').catch(() => undefined);
+}
+
 export interface ICancellationResult {
   promise: Promise<ISubagentJobResult>;
   reject(reason?: string): void;
@@ -47,6 +56,12 @@ export interface IChildProcessSubagentResultOptions {
    */
   payload: Promise<ISubagentWorkerStartPayload>;
   resolveTranscriptPath: (job: ISubagentJobStart) => string | undefined;
+  /**
+   * The payload as it is sent, called in the same turn as the send: what can change between building
+   * the payload and sending it (the grant a sealing parent's child gets) is read here. A throw fails
+   * the job, and nothing is sent.
+   */
+  beforeStart?: (payload: ISubagentWorkerStartPayload) => ISubagentWorkerStartPayload;
   /**
    * Issue #3288 §1: how a child's own tool call gets a human's yes/no — the parent session's own
    * approver, already bound to this job's requester identity by the caller. Absent ⇒ the parent has
@@ -117,7 +132,7 @@ class ChildProcessSubagentResultController {
     // reported": there is nothing left to send, and sending a partial payload would start a child
     // that looks sandboxed while sharing none of the parent's state.
     this.payload = options.payload.catch((error) => {
-      this.rejectOnce(error instanceof Error ? error : new Error(String(error)));
+      this.cancelThenRejectOnce(error instanceof Error ? error : new Error(String(error)));
       return undefined;
     });
     this.timeoutTimer = createTimeoutTimer(this.options.runtime, (error) => this.rejectOnce(error));
@@ -155,11 +170,13 @@ class ChildProcessSubagentResultController {
     this.started = true;
     const { child } = this.options.runtime;
     void this.payload
-      .then((payload) =>
-        payload === undefined ? undefined : sendWorkerMessage(child, { type: 'start', payload }),
-      )
+      .then((payload) => {
+        if (payload === undefined) return undefined;
+        const sent = this.options.beforeStart?.(payload) ?? payload;
+        return sendWorkerMessage(child, { type: 'start', payload: sent });
+      })
       .catch((error) => {
-        this.rejectOnce(error instanceof Error ? error : new Error(String(error)));
+        this.cancelThenRejectOnce(error instanceof Error ? error : new Error(String(error)));
       });
   };
 
@@ -278,6 +295,20 @@ class ChildProcessSubagentResultController {
     if (this.settled) return;
     this.settled = true;
     void this.settleAfterPendingPermissionRequests(() => this.reject(error));
+  };
+
+  /**
+   * The job failed before its child was sent `start` (the payload could not be built or sent): the
+   * child would wait for it until the parent exits, so it is cancelled first and the job rejects once
+   * it has exited. Settled at once, so the exit the cancel causes never reads as a crash.
+   */
+  private readonly cancelThenRejectOnce = (error: Error): void => {
+    if (this.settled) return;
+    const exited = cancelUnstartedChild(this.options.runtime);
+    this.settled = true;
+    void this.settleAfterPendingPermissionRequests(() => {
+      void exited.then(() => this.reject(error));
+    });
   };
 
   /**

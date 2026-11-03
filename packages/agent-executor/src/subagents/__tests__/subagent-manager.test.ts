@@ -221,3 +221,55 @@ describe('SubagentManager', () => {
     expect(manager.get(created.id)).toBeUndefined();
   });
 });
+
+/**
+ * #3679 step 3b: whether a subagent's transcript is sealed is the runner's handle's to say, and the
+ * manager projects it into the task state, which is persisted: a task restored in a later session,
+ * a job-group result and a hook all say the same thing as the live task.
+ */
+describe('SubagentManager — a sealed transcript is part of the task state', () => {
+  function sealedRunner(sealed: boolean): ISubagentRunner {
+    return {
+      start(job: ISubagentJobStart): ISubagentJobHandle {
+        return {
+          taskId: job.taskId,
+          transcriptPath: `/logs/${job.taskId}.jsonl`,
+          ...(sealed ? { transcriptSealed: true as const } : {}),
+          result: Promise.resolve({ taskId: job.taskId, output: 'done' }),
+          cancel: () => Promise.resolve(),
+        };
+      },
+    };
+  }
+
+  it('shows on the task, the job state and every snapshot from the start, through the end', async () => {
+    const manager = new SubagentManager({ runner: sealedRunner(true) });
+    const tasks = manager.getBackgroundTaskManager();
+    const seen: Array<boolean | undefined> = [];
+    tasks.subscribe((event) => {
+      if (event.type === 'background_task_updated' || event.type === 'background_task_completed') {
+        seen.push(event.task.transcriptSealed);
+      }
+    });
+
+    const created = await manager.spawn(createSpawnRequest('Work'));
+    expect(tasks.get(created.id)?.transcriptSealed).toBe(true);
+    expect(manager.get(created.id)?.transcriptSealed).toBe(true);
+    await manager.wait(created.id);
+
+    expect(tasks.get(created.id)?.transcriptSealed).toBe(true);
+    expect(tasks.get(created.id)?.transcriptPath).toBe(`/logs/${created.id}.jsonl`);
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.every((flag) => flag === true)).toBe(true);
+  });
+
+  it('is absent for a plain transcript', async () => {
+    const manager = new SubagentManager({ runner: sealedRunner(false) });
+    const created = await manager.spawn(createSpawnRequest('Work'));
+    await manager.wait(created.id);
+
+    const state = manager.getBackgroundTaskManager().get(created.id);
+    expect(state?.transcriptPath).toBeDefined();
+    expect(state).not.toHaveProperty('transcriptSealed');
+  });
+});

@@ -57,8 +57,9 @@ async function main(): Promise<void> {
   const productRuntime = createTestProductRuntime('test-product', { HOME: cwd });
   const projectAccess = await createSessionEventDeliveryProjectAccess(cwd, productRuntime);
   assertCondition(projectAccess.status === 'trusted', 'scenario project access was not trusted');
-  const store = createNodeHostSessionStore(join(cwd, productRuntime.layout.projectStateDirectories.sessions));
+  const store = createNodeHostSessionStore(join(cwd, productRuntime.layout.projectStateDirectories.sessions), { sealing: 'plain' });
   const editCheckpointStore = new EditCheckpointStore({
+    sealing: 'plain',
     authority: projectAccess.authority,
     mutation: createWorkspaceProjectMutation(projectAccess.authority, {
       status: 'approved',

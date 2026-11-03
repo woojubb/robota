@@ -277,7 +277,7 @@ describe('a session built with the CLI options for a trusted workspace', () => {
     // the session instead of asking it for its id (which failed every `-c` run with a store).
     const cwd = tempRoot('test-product-rewind-resume-');
     const filePath = join(cwd, 'example.txt');
-    const sessionStore = createNodeHostSessionStore(tempRoot('test-product-rewind-resume-sessions-'));
+    const sessionStore = createNodeHostSessionStore(tempRoot('test-product-rewind-resume-sessions-'), { sealing: 'plain' });
     const pointer = { branchId: 'main', checkpointId: 'turn-0001' };
     const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: tempRoot('test-product-rewind-resume-user-') }),
       cwd,

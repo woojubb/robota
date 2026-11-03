@@ -274,7 +274,8 @@ declare const provider: IAIProvider;
 const runtime = createAgentRuntime({
   cwd: process.cwd(),
   provider,
-  sessionStore: createNodeHostSessionStore('/var/lib/my-bot/sessions'),
+  // Every store states how it keeps its records: `{ sealing: 'plain' }` writes them as plain JSON.
+  sessionStore: createNodeHostSessionStore('/var/lib/my-bot/sessions', { sealing: 'plain' }),
 });
 
 // Channel or thread id → session id

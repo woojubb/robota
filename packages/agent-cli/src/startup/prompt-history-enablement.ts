@@ -17,10 +17,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  */
 import { realpathSync } from 'node:fs';
 
-import {
-  createUserPromptHistoryFile,
-  getWorkspaceProjectIdentity,
-} from '@robota-sdk/agent-framework';
+import { getWorkspaceProjectIdentity } from '@robota-sdk/agent-framework';
 
 import type {
   IPromptHistoryOptions,
@@ -28,7 +25,7 @@ import type {
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { IPromptHistorySource } from '@robota-sdk/agent-interface-session';
-import { userPaths } from '../product/user-paths.js';
+import { createProductPromptHistoryFile } from '../product/session-stores.js';
 
 const PROMPT_HISTORY_ENV = 'PRODUCT_PROMPT_HISTORY';
 
@@ -78,7 +75,7 @@ export function createPromptHistorySurface(inputs: {
   readonly persist?: boolean;
 }): IPromptHistorySurface {
   if (!inputs.enabled) return {};
-  const file = createUserPromptHistoryFile(userPaths(inputs.productRuntime).history);
+  const file = createProductPromptHistoryFile(inputs.productRuntime);
   return {
     ...(inputs.persist === false
       ? {}

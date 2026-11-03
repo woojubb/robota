@@ -251,6 +251,62 @@ describe('serve session directory (#3189)', () => {
     expect(buildSession).not.toHaveBeenCalled();
   });
 
+  it('refuses a sealed session whose keys are locked by name, not as an unknown one', async () => {
+    const base = STORED();
+    const store = {
+      ...base,
+      load: (id: string) => (id === 'sealed' ? ({ status: 'locked' } as const) : base.load(id)),
+    };
+    const { directory, buildSession } = served(fakeSession('a'), store);
+    const { directory: view } = directory.bind('drive');
+
+    expect(await refusalOf(view.switchSession('sealed'))).toBe('unreadable');
+    await expect(view.switchSession('sealed')).rejects.toThrow(
+      'Session sealed is sealed and locked; unlock to open it.',
+    );
+    expect(await refusalOf(view.switchSession('nope'))).toBe('unknown_session');
+    expect(buildSession).not.toHaveBeenCalled();
+  });
+
+  it('lists how many sessions are sealed and locked, and names the lock on rename and delete', async () => {
+    const base = STORED();
+    const store = {
+      ...base,
+      load: (id: string) => (id === 'sealed' ? ({ status: 'locked' } as const) : base.load(id)),
+      scan: () => ({ entries: base.list(), locked: 2 }),
+    };
+    const { directory } = served(fakeSession('a'), store);
+    const { directory: view } = directory.bind('drive');
+
+    const listing = view.listSessions();
+    expect(listing.lockedSessionCount).toBe(2);
+    expect(listing.sessions.map((session) => session.id)).toEqual(['b', 'a']);
+    await expect(view.renameSession('sealed', 'x')).rejects.toThrow(
+      'Session sealed is sealed and locked; unlock to open it.',
+    );
+    await expect(view.deleteSession('sealed')).rejects.toThrow(
+      'Session sealed is sealed and locked; unlock to open it.',
+    );
+    await expect(view.deleteSession('nope')).rejects.toThrow('No session nope in this workspace.');
+  });
+
+  it('counts every sealed session it cannot open, keys locked or not here, under the one key', () => {
+    const base = STORED();
+    const store = { ...base, scan: () => ({ entries: base.list(), locked: 1, noKeys: 2 }) };
+    const { directory } = served(fakeSession('a'), store);
+
+    const listing = directory.bind('drive').directory.listSessions();
+
+    expect(listing.lockedSessionCount).toBe(3);
+    // Why each does not open stays in this process: the listing gains no key for it.
+    expect(Object.keys(listing).sort()).toEqual([
+      'currentSessionId',
+      'lockedSessionCount',
+      'sessions',
+      'unreadableSessionIds',
+    ]);
+  });
+
   it.each([
     [
       'a turn is running',

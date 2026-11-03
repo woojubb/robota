@@ -39,7 +39,7 @@ describe.skipIf(process.platform === 'win32')('SessionStore legacy repair is non
   it('load() and list() still return the record when the mode repair throws', () => {
     const baseDir = mkdtempSync(join(tmpdir(), 'agent-store-foreign-'));
     try {
-      const store = new NodeSessionStore(baseDir);
+      const store = new NodeSessionStore(baseDir, { sealing: 'plain' });
       store.save(record);
       const path = join(baseDir, 'foreign.json');
       // Real chmod to 0644 (setup) — only the repair attempt on this path is forced to throw.

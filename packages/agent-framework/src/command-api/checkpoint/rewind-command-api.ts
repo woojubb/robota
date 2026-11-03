@@ -2,6 +2,7 @@ import type {
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
+  IEditCheckpointUnreadableCounts,
 } from '../../checkpoints/index.js';
 import type { ICommandHostCheckpoints } from '../host-context.js';
 import type { ICommand } from '../types.js';
@@ -33,6 +34,20 @@ export function listCommandEditCheckpoints(
   context: ICommandHostCheckpoints,
 ): readonly IEditCheckpointSummary[] {
   return context.listEditCheckpoints();
+}
+
+/**
+ * The checkpoints that open and how many the listing left out because they do not, from one read
+ * where the host offers it; `unreadable` is absent where the host cannot say.
+ */
+export function readCommandEditCheckpointListing(context: ICommandHostCheckpoints): {
+  readonly checkpoints: IEditCheckpointSummary[];
+  readonly unreadable?: IEditCheckpointUnreadableCounts;
+} {
+  if (context.editCheckpointListing !== undefined) return context.editCheckpointListing();
+  const checkpoints = context.listEditCheckpoints();
+  const unreadable = context.unreadableEditCheckpoints?.();
+  return unreadable === undefined ? { checkpoints } : { checkpoints, unreadable };
 }
 
 export function inspectCommandEditCheckpoint(

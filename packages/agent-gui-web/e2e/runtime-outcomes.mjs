@@ -638,7 +638,7 @@ try {
       : undefined;
   const store =
     workspaceComposition?.sessionStore ??
-    createNodeHostSessionStore(environment.layout.userPaths.sessions);
+    createNodeHostSessionStore(environment.layout.userPaths.sessions, { sealing: 'plain' });
   const records = store.list();
   assert.equal(records.length, 1);
   const loaded = records[0].outcome;

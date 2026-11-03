@@ -37,7 +37,7 @@ function writeLog(
   const logFile = join(logs, `${sessionId}.jsonl`);
   writeFileSync(logFile, lines.join('\n'), 'utf8');
   return {
-    source: new NodeSessionLogSource(logFile),
+    source: new NodeSessionLogSource(logFile, { sealing: 'plain' }),
     reference: join('.agent', 'logs', `${sessionId}.jsonl`),
   };
 }

@@ -57,7 +57,7 @@ describe('SessionStore — session id path traversal (SEC-006)', () => {
   beforeEach(() => {
     root = realpathSync(mkdtempSync(join(tmpdir(), 'sec006-store-')));
     baseDir = join(root, 'sessions');
-    store = new NodeSessionStore(baseDir);
+    store = new NodeSessionStore(baseDir, { sealing: 'plain' });
   });
   afterEach(() => {
     rmSync(root, { recursive: true, force: true });
@@ -116,7 +116,7 @@ describe('FileSessionLogger — session id path traversal (SEC-006)', () => {
   });
 
   it('does not append to a path outside the log directory', () => {
-    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir));
+    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir, { sealing: 'plain' }));
     // the logger swallows its own errors by design (logging must never break a session), so the
     // observable contract is that NO file appears outside logDir
     logger.log('../escaped', 'session_init', {});
@@ -124,7 +124,7 @@ describe('FileSessionLogger — session id path traversal (SEC-006)', () => {
   });
 
   it('still writes a normal session log', () => {
-    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir));
+    const logger = new FileSessionLogger(new NodeSessionLogSink(logDir, { sealing: 'plain' }));
     logger.log('session_1730000000000_abc', 'session_init', {});
     expect(existsSync(join(logDir, 'session_1730000000000_abc.jsonl'))).toBe(true);
   });
@@ -143,14 +143,14 @@ describe('NodeSessionLogSink direct path boundaries', () => {
   });
 
   it('rejects a traversing session id when the public sink is called directly', () => {
-    const sink = new NodeSessionLogSink(logDir);
+    const sink = new NodeSessionLogSink(logDir, { sealing: 'plain' });
 
     expect(() => sink.append('../escaped', '{}\n')).toThrow(/session id/i);
     expect(existsSync(join(root, 'escaped.jsonl'))).toBe(false);
   });
 
   it('rejects non-content-addressed and path-shaped payload digests', () => {
-    const sink = new NodeSessionLogSink(logDir);
+    const sink = new NodeSessionLogSink(logDir, { sealing: 'plain' });
     const serialized = '{"safe":true}';
     const actualDigest = createHash('sha256').update(serialized).digest('hex');
 

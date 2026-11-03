@@ -33,7 +33,9 @@ try {
     cwd: sourceWorkspacePath,
     provider: sourceProvider,
     resumeSessionId: 'arch-014-source',
-    sessionLogSink: new NodeSessionLogSink(join(sourceWorkspacePath, 'state', 'logs')),
+    sessionLogSink: new NodeSessionLogSink(join(sourceWorkspacePath, 'state', 'logs'), {
+      sealing: 'plain',
+    }),
     bare: true,
     permissionMode: 'bypassPermissions',
   });
@@ -52,7 +54,9 @@ try {
   if (!sidecarExists)
     throw new Error(`External payload sidecar is missing: ${reference.relativePath}`);
 
-  const replayProvider = createReplayProviderFromSource(new NodeSessionLogSource(transcriptPath));
+  const replayProvider = createReplayProviderFromSource(
+    new NodeSessionLogSource(transcriptPath, { sealing: 'plain' }),
+  );
   replayWorkspace = mkdtempSync(join(tmpdir(), 'agent-arch-014-replay-'));
   const replayWorkspacePath = replayWorkspace;
   replaySession = new InteractiveSession({

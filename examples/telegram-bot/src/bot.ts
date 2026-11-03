@@ -33,7 +33,7 @@ const bot = new Bot(BOT_TOKEN);
 const runtime = createAgentRuntime({
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: ANTHROPIC_API_KEY }),
-  sessionStore: createNodeHostSessionStore(join(STATE_ROOT, 'sessions')),
+  sessionStore: createNodeHostSessionStore(join(STATE_ROOT, 'sessions'), { sealing: 'plain' }),
 });
 
 const chatSessions = new Map<number, string>();

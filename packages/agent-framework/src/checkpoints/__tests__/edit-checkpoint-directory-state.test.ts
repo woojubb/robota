@@ -23,7 +23,10 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
-import { createWorkspaceProjectMutation } from '../../workspace-trust/index.js';
+import {
+  WorkspaceAuthorityRequiredError,
+  createWorkspaceProjectMutation,
+} from '../../workspace-trust/index.js';
 import { EditCheckpointStore } from '../edit-checkpoint-store.js';
 import {
   createDirectoryEditCheckpointState,
@@ -73,6 +76,7 @@ async function storeKeepingStateIn(
       purpose: 'checkpoint directory state test',
     }),
     stateStorage: state,
+    sealing: 'plain',
   });
 }
 
@@ -123,6 +127,33 @@ describe('createDirectoryEditCheckpointState', () => {
     expect(existsSync(join(base, 'escape.txt'))).toBe(false);
   });
 
+  it('replaces a file whole, owner-only, leaving nothing beside it', () => {
+    const root = join(base, 'state');
+    const state = createDirectoryEditCheckpointState(root);
+    state.writeText(
+      's/turn-0001/manifest.json',
+      'what was there, longer than what replaces it',
+      't',
+    );
+
+    state.replaceBytes!('s/turn-0001/manifest.json', Buffer.from('new'), 't');
+    state.replaceBytes!('s/turn-0002/manifest.json', Buffer.from('first'), 't');
+
+    expect(readFileSync(join(root, 's/turn-0001/manifest.json'), 'utf8')).toBe('new');
+    expect(readFileSync(join(root, 's/turn-0002/manifest.json'), 'utf8')).toBe('first');
+    expect(filesUnder(root)).toEqual(['s/turn-0001/manifest.json', 's/turn-0002/manifest.json']);
+    if (process.platform === 'win32') return;
+    expect(mode(join(root, 's/turn-0001/manifest.json'))).toBe(0o600);
+    expect(mode(join(root, 's/turn-0002'))).toBe(0o700);
+  });
+
+  it('refuses to read a directory as a file, as the project reader refuses one', () => {
+    const state = createDirectoryEditCheckpointState(join(base, 'state'));
+    state.writeText('a/sub/one.txt', 'one', 'test');
+
+    expect(() => state.readBytes('a/sub', 'test')).toThrow(WorkspaceAuthorityRequiredError);
+  });
+
   it.skipIf(process.platform === 'win32')(
     'does not follow a link planted in the directory to read or write outside it',
     () => {
@@ -134,7 +165,10 @@ describe('createDirectoryEditCheckpointState', () => {
 
       expect(() => state.readText('link.txt', 'test')).toThrow();
       expect(() => state.writeText('link.txt', 'overwritten', 'test')).toThrow();
+      // A replace puts a file in the link's place; it never writes through it.
+      state.replaceBytes!('link.txt', Buffer.from('replaced'), 'test');
       expect(readFileSync(outside, 'utf8')).toBe('outside content');
+      expect(state.readText('link.txt', 'test')).toBe('replaced');
     },
   );
 });

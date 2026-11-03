@@ -119,6 +119,11 @@ export interface IWorkspaceProjectStateStorage {
   readBytes(relativePath: string, purpose: string, maxBytes?: number): Uint8Array | undefined;
   writeText(relativePath: string, content: string, purpose: string): void;
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void;
+  /**
+   * Replaces the file whole: a failure before the new content is in place leaves the previous file as
+   * it was.
+   */
+  replaceBytes(relativePath: string, content: Uint8Array, purpose: string): void;
   appendText(relativePath: string, content: string, purpose: string): void;
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[];
   deleteFile(relativePath: string, purpose: string): boolean;

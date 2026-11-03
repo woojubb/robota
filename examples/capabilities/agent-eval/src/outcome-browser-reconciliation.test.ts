@@ -79,7 +79,7 @@ test('foreign dialect metadata is adapted before a tool schema crosses the sessi
     const tool = createDiscoveredTool(entry, {
       callTool: async () => ({ content: [], isError: false }),
     });
-    const store = createNodeHostSessionStore(root);
+    const store = createNodeHostSessionStore(root, { sealing: 'plain' });
     const record = {
       id: 'browser-session',
       cwd: root,
@@ -91,7 +91,7 @@ test('foreign dialect metadata is adapted before a tool schema crosses the sessi
       toolSchemas: [tool.schema],
     };
     store.save(record);
-    const loaded = createNodeHostSessionStore(root).load(record.id);
+    const loaded = createNodeHostSessionStore(root, { sealing: 'plain' }).load(record.id);
     assert.equal(loaded.status, 'valid');
     if (loaded.status === 'valid') assert.deepEqual(loaded.record.toolSchemas, [tool.schema]);
     // The codec remains strict: bypassing adaptation must still reject the foreign declaration.

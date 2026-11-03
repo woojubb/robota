@@ -211,7 +211,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
 
   it('binds transports to a slot that follows a switch to another session (#3189)', async () => {
     const registry = stubRegistry();
-    const store = createNodeHostSessionStore(join(homeRoot, 'sessions'));
+    const store = createNodeHostSessionStore(join(homeRoot, 'sessions'), { sealing: 'plain' });
     const bindTransports = vi.fn();
     const host = await startRuntimeHost({
       session: { cwd, provider: stubProvider(), sessionStore: store },

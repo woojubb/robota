@@ -326,6 +326,32 @@ describe('Node host workspace trust', () => {
       },
     );
   });
+
+  it.skipIf(process.platform === 'win32')(
+    'reads a group-readable store as it is when told not to tighten it, and tightens it otherwise',
+    async () => {
+      const root = tempRoot('agent-workspace-readonly-');
+      gitInit(root);
+      const storeRoot = tempRoot('agent-workspace-store-');
+      const storePath = join(storeRoot, 'trust.json');
+      const resolver = createNodeWorkspaceIdentityResolver();
+      await new WorkspaceTrustService({
+        identityResolver: resolver,
+        store: createNodeWorkspaceTrustStore(storePath),
+      }).grant(root);
+      chmodSync(storePath, 0o644);
+
+      const readOnly = createNodeWorkspaceTrustStore(storePath, { tightenOnRead: false });
+      await expect(readOnly.inspect(resolver.resolve(root))).resolves.toMatchObject({
+        state: 'trusted',
+      });
+      await expect(readOnly.listGrants?.()).resolves.toHaveLength(1);
+      expect(statSync(storePath).mode & 0o777).toBe(0o644);
+
+      await createNodeWorkspaceTrustStore(storePath).listGrants?.();
+      expect(statSync(storePath).mode & 0o777).toBe(0o600);
+    },
+  );
 });
 
 describe('repository key', () => {

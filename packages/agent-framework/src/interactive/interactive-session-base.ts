@@ -49,8 +49,10 @@ import type {
 } from '../background-tasks/index.js';
 import type {
   IEditCheckpointInspection,
+  IEditCheckpointListing,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
+  IEditCheckpointUnreadableCounts,
 } from '../checkpoints/edit-checkpoint-types.js';
 import type { ICommandSessionReplayValidationReport } from '../command-api/index.js';
 import type {
@@ -147,9 +149,15 @@ export abstract class InteractiveSessionBase {
   getSessionUsage(): readonly ISessionUsageRecord[] {
     return readSessionUsageRecords(this.histTracker.getHistory());
   }
-  /** ARCH-029 TC-08: one replay-validation path with no fallback branch. */
+  /**
+   * ARCH-029 TC-08: one replay-validation path with no fallback branch. The session holds no keys of
+   * its own, so a sealed project log is reported as sealed (`ArtifactLockedError`, `no-keys`)
+   * instead of being opened.
+   */
   validateCurrentSessionReplayLog(): ICommandSessionReplayValidationReport {
-    return validateReplay(this.getProjectAccess(), this.getSessionOrThrow().getSessionId());
+    return validateReplay(this.getProjectAccess(), this.getSessionOrThrow().getSessionId(), {
+      sealing: 'plain',
+    });
   }
 
   getCommandInvocationSource(): TCommandInvocationSource {
@@ -215,6 +223,12 @@ export abstract class InteractiveSessionBase {
   }
   listEditCheckpoints(): IEditCheckpointSummary[] {
     return this.histTracker.listEditCheckpoints();
+  }
+  unreadableEditCheckpoints(): IEditCheckpointUnreadableCounts {
+    return this.histTracker.unreadableEditCheckpoints();
+  }
+  editCheckpointListing(): IEditCheckpointListing {
+    return this.histTracker.editCheckpointListing();
   }
   inspectEditCheckpoint(checkpointId: string): IEditCheckpointInspection {
     return this.histTracker.inspectEditCheckpoint(checkpointId);

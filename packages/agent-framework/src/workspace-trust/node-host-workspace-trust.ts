@@ -194,10 +194,10 @@ export function createNodeWorkspaceIdentityResolver(): IWorkspaceIdentityResolve
   });
 }
 
-function readPersistedTrustStore(filePath: string): IPersistedTrustStore {
+function readPersistedTrustStore(filePath: string, tighten: boolean): IPersistedTrustStore {
   if (!existsSync(filePath)) return { version: TRUST_STORE_VERSION, grants: [] };
   try {
-    tightenExistingFile(filePath);
+    if (tighten) tightenExistingFile(filePath);
     const raw = readFileSync(filePath, 'utf8');
     return assertPersistedStore(JSON.parse(raw) as TJsonValue, filePath);
   } catch (error) {
@@ -210,9 +210,23 @@ function writePersistedTrustStore(filePath: string, store: IPersistedTrustStore)
   writeOwnerOnlyFile(filePath, `${JSON.stringify(store, null, 2)}\n`);
 }
 
+/** How a Node trust store reads its file. */
+export interface INodeWorkspaceTrustStoreOptions {
+  /**
+   * `false` reads the file as it is, never narrowing a mode an older version left wide, for a caller
+   * that promises to change nothing on disk (a dry run); grants and revocations still write it
+   * owner-only. Defaults to `true`.
+   */
+  readonly tightenOnRead?: boolean;
+}
+
 /** Create the owner-only, replacement-safe persistent grant store used by the Node host. */
-export function createNodeWorkspaceTrustStore(filePath: string): IWorkspaceTrustStore {
-  const readStore = (): IPersistedTrustStore => readPersistedTrustStore(filePath);
+export function createNodeWorkspaceTrustStore(
+  filePath: string,
+  options: INodeWorkspaceTrustStoreOptions = {},
+): IWorkspaceTrustStore {
+  const readStore = (): IPersistedTrustStore =>
+    readPersistedTrustStore(filePath, options.tightenOnRead !== false);
   const writeStore = (store: IPersistedTrustStore): void =>
     writePersistedTrustStore(filePath, store);
 

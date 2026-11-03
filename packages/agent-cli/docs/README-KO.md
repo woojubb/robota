@@ -292,6 +292,21 @@ __PRODUCT_CLI_NAME__ trust revoke --yes
 
 [기기와 원격 제어](../../../content/guide/devices-and-remote.md)를 참고하세요.
 
+### 보안 대화용 키링 만들기
+
+```bash
+__PRODUCT_CLI_NAME__ secure setup              # 키링 생성. 복구 키는 한 번만 보여 줍니다
+__PRODUCT_CLI_NAME__ secure status             # 키링 파일, 슬롯, 키 지문 (패스프레이즈 불필요)
+__PRODUCT_CLI_NAME__ secure verify             # 잠금 해제 후 저장된 키 확인 (--recovery: 복구 키 사용)
+__PRODUCT_CLI_NAME__ secure change-passphrase  # 새 패스프레이즈 설정 (--recovery: 잊은 패스프레이즈 재설정)
+```
+
+패스프레이즈와 복구 키는 요청할 때 터미널에서 직접 입력하며, 인자로 주거나 환경 변수나 파이프에서
+읽지 않으므로 에이전트의 셸 도구처럼 자기 터미널이 없는 프로그램은 대신 실행할 수 없습니다. 내 계정으로
+실행되는 모든 프로그램이 키링 파일을 읽을 수 있으므로, 이 파일을 지키는 것은 패스프레이즈(12자 이상, 짧은
+패턴을 되풀이한 것이 아닌 것)입니다. 키링 파일은 키의 유일한 사본이며, 패스프레이즈를 바꿔도 누군가 이미
+가져간 사본은 막지 못합니다. 키링을 만드는 것만으로는 세션이 저장되는 방식이 바뀌지 않습니다.
+
 ### 설정과 사용량 확인하기
 
 ```bash
@@ -326,6 +341,7 @@ CLI가 `<configured-user-state-dir>/` 아래에 두는 그 밖의 파일:
 | `themes/`              | 직접 만든 `/theme` 테마                                            |
 | `plugins/`             | 설치한 플러그인 (프로젝트는 자체 `<configured-project-state-dir>/plugins/`를 둘 수 있음)  |
 | `mcp-credentials/`     | MCP 서버용 OAuth 토큰, 본인만 읽을 수 있음                         |
+| `secure/keyring.json`  | 보안 대화용 키링, 패스프레이즈와 복구 키로 보호됨                  |
 
 ## 코드에서 쓰기
 

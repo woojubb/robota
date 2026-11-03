@@ -27,7 +27,7 @@ function newStore(): { store: NodeSessionStore; root: string; baseDir: string } 
   const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'sec-2240-')));
   dirs.push(root);
   const baseDir = path.join(root, 'sessions');
-  return { store: new NodeSessionStore(baseDir), root, baseDir };
+  return { store: new NodeSessionStore(baseDir, { sealing: 'plain' }), root, baseDir };
 }
 
 function record(id: string): IInteractiveSessionRecord {

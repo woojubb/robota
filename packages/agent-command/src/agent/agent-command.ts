@@ -1,6 +1,7 @@
 import { summarizeBackgroundJobGroup } from '@robota-sdk/agent-framework';
 
 import { parseParallelRequests, parseRunRequest, tokenizeArgs } from './agent-command-parser.js';
+import { formatBackgroundLogPage } from '../background/log-page-text.js';
 
 import type { IAgentRunRequest } from './agent-command-parser.js';
 import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
@@ -182,9 +183,8 @@ async function executeRead(
   if (!agentId) return { message: 'Usage: agent read AGENT_ID [OFFSET]', success: false };
   const cursor = offset ? { offset: Number.parseInt(offset, 10) } : undefined;
   const page = await session.readBackgroundTaskLog(agentId, cursor);
-  const next = page.nextCursor ? `\nNext offset: ${page.nextCursor.offset}` : '';
   return {
-    message: page.lines.length > 0 ? `${page.lines.join('\n')}${next}` : `No log lines: ${agentId}`,
+    message: formatBackgroundLogPage(agentId, page),
     success: true,
     data: { agentId, nextOffset: page.nextCursor?.offset },
   };

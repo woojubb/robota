@@ -14,6 +14,8 @@ import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
 
 import { runSessionAnalyze } from '../session-analyze-command.js';
 
+import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+
 function sessionRecord(id: string, cwd: string): unknown {
   const t = (ms: number): string => new Date(1_781_000_000_000 + ms).toISOString();
   return {
@@ -81,8 +83,12 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
 
   async function run(
     argv: string[],
-    store = createNodeHostSessionStore(join(project, '.test-product', 'sessions')),
-    userStore = createNodeHostSessionStore(join(home, '.test-product', 'sessions')),
+    store = createNodeHostSessionStore(join(project, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    }),
+    userStore = createNodeHostSessionStore(join(home, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    }),
   ): Promise<void> {
     try {
       await runSessionAnalyze(argv, project, store, userStore);
@@ -127,13 +133,16 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     const dir = join(project, '.test-product', 'sessions');
     writeSession(dir, 'session_1781000001000_aaa', project);
     writeSession(dir, 'session_1781000002000_bbb', project);
-    const store = createNodeHostSessionStore(dir);
-    const list = vi.spyOn(store, 'list');
+    const store = createNodeHostSessionStore(dir, {
+      sealing: 'plain',
+    }) as Required<IInteractiveSessionStore>;
+    // One pass gives both the readable records and how many sealed ones were left out.
+    const scan = vi.spyOn(store, 'scan');
 
     await run(['--session', '1781000002000'], store);
 
     const out = stdout.join('');
-    expect(list).toHaveBeenCalledOnce();
+    expect(scan).toHaveBeenCalledOnce();
     expect(out).toContain('session_1781000002000_bbb');
     expect(out).not.toContain('session_1781000001000_aaa');
   });
@@ -143,14 +152,20 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     const dir = join(project, '.test-product', 'sessions');
     writeSession(join(home, '.test-product', 'sessions'), id, home);
     writeSession(dir, id, project);
-    const store = createNodeHostSessionStore(dir);
+    const store = createNodeHostSessionStore(dir, {
+      sealing: 'plain',
+    }) as Required<IInteractiveSessionStore>;
     const list = vi.spyOn(store, 'list').mockImplementation(() => {
+      throw new Error('exact session lookup enumerated the store');
+    });
+    const scan = vi.spyOn(store, 'scan').mockImplementation(() => {
       throw new Error('exact session lookup enumerated the store');
     });
 
     await run(['--session', id], store);
 
     expect(list).not.toHaveBeenCalled();
+    expect(scan).not.toHaveBeenCalled();
     expect(stdout.join('')).toContain(id);
     expect(stdout.join('')).toContain(`cwd: ${project}`);
     expect(stdout.join('')).not.toContain(`cwd: ${home}`);
@@ -160,8 +175,10 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     const id = 'session_1781000002000_user';
     const userDirectory = join(home, '.test-product', 'sessions');
     writeSession(userDirectory, id, home);
-    const userStore = createNodeHostSessionStore(userDirectory);
-    const projectStore = createNodeHostSessionStore(join(project, '.test-product', 'sessions'));
+    const userStore = createNodeHostSessionStore(userDirectory, { sealing: 'plain' });
+    const projectStore = createNodeHostSessionStore(join(project, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    });
     const userList = vi.spyOn(userStore, 'list').mockImplementation(() => {
       throw new Error('exact lookup enumerated the injected user store');
     });
@@ -190,7 +207,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
   it('does not send an unsafe session selector to an exact store lookup', async () => {
     const dir = join(project, '.test-product', 'sessions');
     writeSession(dir, 'session_1781000001000_aaa', project);
-    const store = createNodeHostSessionStore(dir);
+    const store = createNodeHostSessionStore(dir, { sealing: 'plain' });
     const load = vi.spyOn(store, 'load');
 
     await run(['--session', '../outside'], store);
@@ -260,7 +277,7 @@ describe('runSessionAnalyze integration (OBS-001)', () => {
     const dir = join(project, '.test-product', 'sessions');
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, `${id}.json`), JSON.stringify({ schemaVersion: 1, record }), 'utf8');
-    const store = createNodeHostSessionStore(dir);
+    const store = createNodeHostSessionStore(dir, { sealing: 'plain' });
     const list = vi.spyOn(store, 'list').mockImplementation(() => {
       throw new Error('exact usage lookup enumerated the store');
     });

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "sealingPublicKey": "S3PDVnZjG2MH-yij9wqvR8MxuGraSZbOLzyfXATNuno",
+  "slots": [
+    {
+      "id": "BSuNhJoNIIOA2MM1VUsXYg",
+      "type": "passphrase",
+      "kdf": {
+        "algorithm": "scrypt",
+        "N": 131072,
+        "r": 8,
+        "p": 1,
+        "salt": "0Qv4qMa3OvgcDF9eFqExDQ"
+      },
+      "iv": "pkFJv5arSD8useGU",
+      "wrappedKey": "c7imvonyCA9GAwCOf8BmFWtQaiDBLm1Farv9S3D5YpFegST_YV7w87ws0u69ppN9"
+    },
+    {
+      "id": "HTws5i75-WV7H-xswoQbEQ",
+      "type": "recovery",
+      "iv": "c61f5DrELmrz6FsB",
+      "wrappedKey": "-FvFhexFSR2bVxkb72LURxYZ6b7PWk0jItxcCtaYkl1NPD1ObjJJC1-JGkGIPmdG"
+    }
+  ]
+}

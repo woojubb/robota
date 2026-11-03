@@ -67,5 +67,8 @@ describe('child-process subagent transcripts', () => {
     const { options } = childProcessFactory(false);
 
     expect(options).not.toHaveProperty('logsDir');
+    // The children still seal as this process decides (here plain: it holds no keys), so a fork
+    // record or a store a child opens follows the same decision as when transcripts are kept.
+    expect(options.logSealing).toBe('plain');
   });
 });

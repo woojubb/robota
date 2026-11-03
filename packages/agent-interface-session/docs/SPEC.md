@@ -53,14 +53,25 @@ only — it never exposes a reusable absolute record path (transcript references
 logger/source owner). A writer that updates only part of a loaded record must preserve every field
 it does not own before overwriting its authoritative fields.
 
-A load reports which of four things happened — valid, missing, corrupt, or unsupported — rather
-than a bare `record | undefined`, because that collapsed "no such session" and "the snapshot is
-unreadable" into one answer a caller could not act on differently. The store decodes the record
-envelope and validates its shape (which is inspection); no field's value ever changes which of the
-four outcomes is reported, so the store holds no domain policy of its own. A corrupt or unsupported
-outcome may still carry the record's `cwd`, read on a best-effort basis from bytes that otherwise
-failed to decode, so a caller can tell which workspace an unreadable record belongs to without being
-handed content it could not validate.
+A load reports which of five things happened — valid, missing, corrupt, unsupported, or locked —
+rather than a bare `record | undefined`, because that collapsed "no such session" and "the snapshot
+is unreadable" into one answer a caller could not act on differently. A locked record is sealed and
+intact, and this process holds no key that opens it right now: it is neither missing (a recovery
+path would run over a session that is still there) nor corrupt (a later unlock reads it), so it
+carries nothing but why (locked keys, no keys in this process at all, or a held session whose file
+changed), a writer treats it like corrupt (except for a session its own store still holds,
+which that store hands back), and a listing leaves it out while the same scan says how many were
+left, the locked apart from those no unlock in this process would open. A load says whether it is a
+resume or a writer's read, which holds the session, or a probe, which leaves nothing behind in the
+store; a save says whether its record is one this process runs or one it hands to another (a fork
+job). A sealed record crosses to another store only as a token that
+carries its plaintext and names the sealed bytes it came from — the one way a process that holds no
+keys (only a write grant) can continue a session — so it goes only where the record may go. The store decodes the record envelope and validates its
+shape (which is inspection); no field's value but the record's own id, which must be the id it is
+stored under, ever changes which of the five outcomes is reported, so the store holds no domain
+policy of its own. A corrupt or unsupported outcome may still carry the record's `cwd`, read on a
+best-effort basis from bytes that otherwise failed to decode, so a caller can tell which workspace
+an unreadable record belongs to without being handed content it could not validate.
 
 Self-paced repeats keep their stable identity and lifecycle in the session record, not in a
 disposable scheduled-task id. A waiting loop records its next allowed instant and the reason for

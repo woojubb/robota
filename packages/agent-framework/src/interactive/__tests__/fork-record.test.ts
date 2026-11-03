@@ -105,7 +105,7 @@ describe('buildForkedSessionRecord (CLI-1994)', () => {
 
   beforeEach(() => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-1994-fork-')));
-    store = new NodeSessionStore(join(cwd, 'sessions'));
+    store = new NodeSessionStore(join(cwd, 'sessions'), { sealing: 'plain' });
     store.save(sourceRecord(cwd));
   });
 

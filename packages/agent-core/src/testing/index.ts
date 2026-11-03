@@ -21,6 +21,13 @@ export type {
 export { loadToolSchemaProjectionFixtures } from './tool-schema-projection-fixtures.js';
 export type { IToolSchemaProjectionFixtures } from './tool-schema-projection-fixtures.js';
 
+// An in-memory IArtifactSealer for the tests of packages that write sealed artifacts, so they need no keyring.
+export { createTestArtifactSealer, openTestWriteGrant } from './artifact-sealer-double.js';
+export type {
+  IArtifactSealerDouble,
+  IArtifactSealerDoubleOptions,
+} from './artifact-sealer-double.js';
+
 // Process-scoped directories as another run left them, owner record included, for host sweep tests.
 export {
   goneProcessOwner,

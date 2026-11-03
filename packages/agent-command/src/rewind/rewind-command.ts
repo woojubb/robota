@@ -1,7 +1,8 @@
 import {
+  EditCheckpointUnreadableError,
   EditCheckpointsUnavailableError,
   inspectCommandEditCheckpoint,
-  listCommandEditCheckpoints,
+  readCommandEditCheckpointListing,
   restoreCommandEditCheckpoint,
   rollbackCommandEditCheckpoint,
   forkCommandEditCheckpoint,
@@ -12,8 +13,10 @@ import {
 import type {
   ICommandHostCheckpoints,
   IEditCheckpointInspection,
+  IEditCheckpointInspectionPlan,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
+  IEditCheckpointUnreadableCounts,
 } from '@robota-sdk/agent-framework';
 import type { ICommandProductVocabulary } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
@@ -41,7 +44,25 @@ function formatPrompt(prompt: string): string {
   return `${compact.slice(0, PROMPT_PREVIEW_LENGTH - ELLIPSIS_LENGTH)}...`;
 }
 
-function formatList(checkpoints: readonly IEditCheckpointSummary[]): ICommandResult {
+/** The line saying how many checkpoints do not open, and why; none when every one opens. */
+function formatUnreadable(counts: IEditCheckpointUnreadableCounts): string[] {
+  const total = counts.damaged + counts.newer;
+  if (total === 0) return [];
+  const reasons = [
+    ...(counts.damaged > 0 ? [`${counts.damaged} damaged`] : []),
+    ...(counts.newer > 0 ? [`${counts.newer} written by a newer build`] : []),
+  ];
+  const subject =
+    total === 1
+      ? '1 checkpoint does not open and is'
+      : `${total} checkpoints do not open and are`;
+  return [`${subject} not listed: ${reasons.join(', ')}.`];
+}
+
+function formatList(
+  checkpoints: readonly IEditCheckpointSummary[],
+  unreadable: IEditCheckpointUnreadableCounts | undefined,
+): ICommandResult {
   const lines =
     checkpoints.length > 0
       ? checkpoints.map(
@@ -51,11 +72,18 @@ function formatList(checkpoints: readonly IEditCheckpointSummary[]): ICommandRes
             )}`,
         )
       : ['(no edit checkpoints)'];
+  const unreadableLines = unreadable === undefined ? [] : formatUnreadable(unreadable);
 
   return {
-    message: ['Edit checkpoints:', ...lines].join('\n'),
+    message: ['Edit checkpoints:', ...lines, ...unreadableLines].join('\n'),
     success: true,
-    data: { count: checkpoints.length, checkpoints: [...checkpoints] },
+    data: {
+      count: checkpoints.length,
+      checkpoints: [...checkpoints],
+      ...(unreadableLines.length > 0 && unreadable !== undefined
+        ? { unreadable: { damaged: unreadable.damaged, newer: unreadable.newer } }
+        : {}),
+    },
   };
 }
 
@@ -63,12 +91,22 @@ function formatCheckpointIds(ids: readonly string[]): string {
   return ids.length > 0 ? ids.join(', ') : '(none)';
 }
 
+/** Why a plan would be refused, when a checkpoint in its range does not open. */
+function formatRefusal(plan: IEditCheckpointInspectionPlan): string {
+  if (plan.blockedBy === undefined) return '';
+  const why = plan.blockedBy.reason === 'newer' ? 'was written by a newer build' : 'is damaged';
+  return ` (refused: ${plan.blockedBy.checkpointId} ${why})`;
+}
+
 function formatInspection(inspection: IEditCheckpointInspection): ICommandResult {
   const fileLines =
     inspection.capturedFiles.length > 0
       ? inspection.capturedFiles.map((file) => {
+          const recorded = file.snapshotSizeSource === 'recorded' ? ' (recorded)' : '';
           const size =
-            file.snapshotSizeBytes === undefined ? '' : ` size=${file.snapshotSizeBytes}B`;
+            file.snapshotSizeBytes === undefined
+              ? ''
+              : ` size=${file.snapshotSizeBytes}B${recorded}`;
           return `- ${file.relativePath} action=${file.restoreAction} snapshot=${String(
             file.snapshotAvailable,
           )}${size}`;
@@ -83,10 +121,10 @@ function formatInspection(inspection: IEditCheckpointInspection): ICommandResult
       ...fileLines,
       `Restore later checkpoints: files=${inspection.restoreToCheckpoint.fileCount} checkpoints=${formatCheckpointIds(
         inspection.restoreToCheckpoint.checkpointIds,
-      )}`,
+      )}${formatRefusal(inspection.restoreToCheckpoint)}`,
       `Rollback through checkpoint: files=${inspection.rollbackThroughCheckpoint.fileCount} checkpoints=${formatCheckpointIds(
         inspection.rollbackThroughCheckpoint.checkpointIds,
-      )}`,
+      )}${formatRefusal(inspection.rollbackThroughCheckpoint)}`,
     ].join('\n'),
     success: true,
     data: { inspection },
@@ -135,21 +173,37 @@ function unavailableMessage(error: EditCheckpointsUnavailableError, cliName?: st
     : `Edit checkpoints need a trusted workspace: run ${cliName} trust --yes, then restart ${cliName}.`;
 }
 
+/** A pre-image a stopped migration left plain is repaired by running it again, which this names. */
+function unfinishedMigrationMessage(
+  error: EditCheckpointUnreadableError,
+  cliName?: string,
+): string {
+  if (!error.unfinishedMigration || cliName === undefined) return error.message;
+  return (
+    `A pre-image of edit checkpoint ${error.checkpointId} is still plain under its sealed manifest: ` +
+    `a migration stopped part-way; run ${cliName} secure migrate again to finish it. Nothing was restored; ` +
+    'restoring to a checkpoint after it still works.'
+  );
+}
+
 function formatError(error: Error | string, cliName?: string): ICommandResult {
   return {
     message:
       error instanceof EditCheckpointsUnavailableError
         ? unavailableMessage(error, cliName)
-        : error instanceof Error
-          ? error.message
-          : String(error),
+        : error instanceof EditCheckpointUnreadableError
+          ? unfinishedMigrationMessage(error, cliName)
+          : error instanceof Error
+            ? error.message
+            : String(error),
     success: false,
   };
 }
 
 function list(context: TRewindCommandContext): ICommandResult {
   try {
-    return formatList(listCommandEditCheckpoints(context));
+    const listing = readCommandEditCheckpointListing(context);
+    return formatList(listing.checkpoints, listing.unreadable);
   } catch (error) {
     return formatError(error instanceof Error ? error : String(error), context.getCommandProductVocabulary?.()?.cliName);
   }

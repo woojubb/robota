@@ -51,6 +51,7 @@ SDK packages (@robota-sdk/*)
                         analytics,transport,tui}
   Foundation            agent-core
   Leaves                agent-process · agent-file-authority · agent-remote-pairing ·
+                        agent-keyring (key custody and public-key sealing on node:crypto) ·
                         agent-organization (public canonical JSON and budget contracts) ·
                         agent-organization-host (private Node broker and durable authority) ·
                         agent-roundtable (no @robota-sdk dependency)

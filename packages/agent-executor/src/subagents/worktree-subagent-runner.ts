@@ -60,6 +60,8 @@ export class WorktreeSubagentRunner implements ISubagentRunner {
       return this.options.runner.start(job);
     }
 
+    // What the inner runner would refuse, it refuses before a worktree exists or a hook fires.
+    this.options.runner.preflight?.(job);
     const worktree = this.options.worktreeAdapter.prepare({
       taskId: job.taskId,
       cwd: job.request.cwd,
@@ -90,9 +92,14 @@ export class WorktreeSubagentRunner implements ISubagentRunner {
     worktree: IPreparedSubagentWorktree,
     lifecycle: IWorktreeLifecycle,
   ): ISubagentJobHandle {
+    // The transcript lives where the inner runner put it, whatever directory the job ran in, so the
+    // paths, the paged read and the sealedness of the inner handle are this handle's too.
     const wrapped: ISubagentJobHandle = {
       taskId: handle.taskId,
       ...(handle.pid !== undefined ? { pid: handle.pid } : {}),
+      ...(handle.logPath !== undefined ? { logPath: handle.logPath } : {}),
+      ...(handle.transcriptPath !== undefined ? { transcriptPath: handle.transcriptPath } : {}),
+      ...(handle.transcriptSealed === true ? { transcriptSealed: true as const } : {}),
       result: handle.result
         .then((result) => finalizeWorktreeResult(result, this.options, worktree, lifecycle))
         .catch((error) => {
@@ -107,6 +114,8 @@ export class WorktreeSubagentRunner implements ISubagentRunner {
     };
     const send = handle.send;
     if (send) wrapped.send = (prompt) => send(prompt);
+    const readLog = handle.readLog;
+    if (readLog) wrapped.readLog = (cursor) => readLog(cursor);
     return wrapped;
   }
 }
