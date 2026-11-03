@@ -1,5 +1,10 @@
 # @robota-sdk/agent-app
 
+## 3.0.7
+### Patch Changes
+
+  - @robota-sdk/product-config@3.0.7
+
 ## 3.0.6
 ### Patch Changes
 
