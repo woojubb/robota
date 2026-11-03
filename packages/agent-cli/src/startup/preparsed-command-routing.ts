@@ -51,6 +51,8 @@ import {
   resolveInitialCliWorkspaceProjectAccess,
 } from './workspace-project-composition.js';
 import { runMcpLoginCommand, runMcpLogoutCommand } from './mcp-login-command.js';
+import { runMcpAddCommand } from './mcp-add-server.js';
+import { resolveMcpApprovalStore } from './mcp-approval-file-store.js';
 import { runWorkspaceTrustCommand } from './workspace-trust-command.js';
 import { optionArgv } from '../utils/option-argv.js';
 import {
@@ -499,6 +501,17 @@ export async function runPreparsedCliCommand(
       settingsSources: composition.settingsSources,
       env: productRuntime.environment,
       productRuntime,
+      stdout: (text) => process.stdout.write(text),
+      stderr: (text) => process.stderr.write(text),
+    });
+    return true;
+  }
+  if (argv[SUBCOMMAND_INDEX] === 'mcp' && argv[ACTION_INDEX] === 'add') {
+    process.exitCode = runMcpAddCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
+      productRuntime,
+      settingsSources: composition.settingsSources,
+      env: productRuntime.environment,
+      approvalStore: resolveMcpApprovalStore(options.mcpApprovalStore, productRuntime),
       stdout: (text) => process.stdout.write(text),
       stderr: (text) => process.stderr.write(text),
     });
