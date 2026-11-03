@@ -91,29 +91,34 @@ describe('WindowsNativeAuthority handle-relative replacement', () => {
     const sourceHandle = BigInt(42);
     const parentHandle = BigInt(7);
     let decoded: IWindowsRenameInfo | undefined;
-    const setFileInformation = vi.fn(
+    const ntSetInformationFile = vi.fn(
       (
         handle: TNativeHandle,
-        informationClass: number,
+        _ioStatus: object,
         information: object,
         informationBytes: number,
+        informationClass: number,
       ) => {
         expect(handle).toBe(sourceHandle);
-        expect(informationClass).toBe(3);
+        expect(informationClass).toBe(10);
         expect(informationBytes).toBe(koffi.sizeof(renameInfoType));
         decoded = koffi.decode(information, renameInfoType) as IWindowsRenameInfo;
-        return true;
+        return 0;
       },
     );
+    // Win32 SetFileInformationByHandle rejects a name beside a RootDirectory with WIN32_87.
+    const setFileInformation = vi.fn(() => false);
     Reflect.set(authority, 'api', {
       renameInfoType,
+      ntSetInformationFile,
       setFileInformation,
-      getLastError: () => 0,
+      getLastError: () => 87,
     });
 
     authority.renameTo(sourceHandle, parentHandle, 'result.txt', true);
 
-    expect(setFileInformation).toHaveBeenCalledOnce();
+    expect(ntSetInformationFile).toHaveBeenCalledOnce();
+    expect(setFileInformation).not.toHaveBeenCalled();
     expect(decoded?.ReplaceIfExists).toBe(1);
     expect(decoded?.RootDirectory).toBe(parentHandle);
     expect(decoded?.FileNameLength).toBe(Buffer.byteLength('result.txt', 'utf16le'));
@@ -134,13 +139,13 @@ describe('WindowsNativeAuthority handle-relative replacement', () => {
     let decoded: IWindowsRenameInfo | undefined;
     Reflect.set(authority, 'api', {
       renameInfoType,
-      setFileInformation: (
+      ntSetInformationFile: (
         _handle: TNativeHandle,
-        _informationClass: number,
+        _ioStatus: object,
         information: object,
       ) => {
         decoded = koffi.decode(information, renameInfoType) as IWindowsRenameInfo;
-        return true;
+        return 0;
       },
       getLastError: () => 0,
     });
@@ -148,6 +153,30 @@ describe('WindowsNativeAuthority handle-relative replacement', () => {
     authority.renameTo(BigInt(42), BigInt(7), 'result.txt', false);
 
     expect(decoded?.ReplaceIfExists).toBe(0);
+  });
+
+  it('refuses the commit with the NT status when the native rename fails', () => {
+    const authority = uninitializedAuthority();
+    const handleType = koffi.pointer('TestStableFailedRenameHandle', koffi.opaque());
+    const renameInfoType = koffi.struct('TestStableFailedRenameInfo', {
+      ReplaceIfExists: 'uint8_t',
+      RootDirectory: handleType,
+      FileNameLength: 'uint32_t',
+      FileName: koffi.array('uint16_t', 256, 'Typed'),
+    });
+    const STATUS_OBJECT_NAME_COLLISION = -1073741771;
+    Reflect.set(authority, 'api', {
+      renameInfoType,
+      ntSetInformationFile: () => STATUS_OBJECT_NAME_COLLISION,
+      getLastError: () => 0,
+    });
+
+    expect(() => authority.renameTo(BigInt(42), BigInt(7), 'result.txt', false)).toThrow(
+      expect.objectContaining({
+        code: 'HOST_IO',
+        context: { operation: 'commit-write', hostCode: 'NTSTATUS_0xc0000035' },
+      }),
+    );
   });
 });
 
@@ -198,6 +227,56 @@ describe('WindowsNativeAuthority read sharing', () => {
     expect(shares).toHaveLength(2);
     expect(shares[0] & 0x2).toBe(0x2);
     expect(shares[1] & 0x2).toBe(0);
+  });
+
+  it('opens a committed name for identity without data access, so open writers cannot refuse it', () => {
+    const authority = uninitializedAuthority();
+    const handleType = koffi.pointer('TestStableIdentityHandle', koffi.opaque());
+    const unicodeStringType = koffi.struct('TestStableIdentityUnicodeString', {
+      Length: 'uint16_t',
+      MaximumLength: 'uint16_t',
+      Buffer: koffi.pointer('char16_t'),
+    });
+    const objectAttributesType = koffi.struct('TestStableIdentityObjectAttributes', {
+      Length: 'uint32_t',
+      RootDirectory: handleType,
+      ObjectName: koffi.pointer(unicodeStringType),
+      Attributes: 'uint32_t',
+      SecurityDescriptor: 'void *',
+      SecurityQualityOfService: 'void *',
+    });
+    const opens: { access: number; share: number }[] = [];
+    Reflect.set(authority, 'api', {
+      unicodeStringType,
+      objectAttributesType,
+      ntCreateFile: (
+        output: TNativeHandle[],
+        desiredAccess: number,
+        _attributes: object,
+        _ioStatus: object,
+        _allocationSize: null,
+        _fileAttributes: number,
+        shareAccess: number,
+      ) => {
+        opens.push({ access: desiredAccess, share: shareAccess });
+        output[0] = BigInt(42);
+        return 0;
+      },
+    });
+    const inspected: boolean[] = [];
+    Reflect.set(authority, 'assertSafeHandle', (_handle: TNativeHandle, directory: boolean) => {
+      inspected.push(directory);
+    });
+
+    expect(authority.openIdentity(BigInt(1), 'result.txt', 0)).toBe(BigInt(42));
+
+    const FILE_READ_DATA = 0x1;
+    const FILE_WRITE_DATA = 0x2;
+    const DELETE = 0x10000;
+    expect(opens).toHaveLength(1);
+    expect(opens[0].access & (FILE_READ_DATA | FILE_WRITE_DATA | DELETE)).toBe(0);
+    expect(opens[0].share & 0x7).toBe(0x7);
+    expect(inspected).toEqual([false]);
   });
 
   it('refuses Windows components that cannot be represented exactly', () => {

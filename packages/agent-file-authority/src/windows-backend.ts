@@ -135,10 +135,9 @@ export class WindowsStableFileHostBackend implements IStableFileHostBackend {
       this.native.renameTo(temporaryHandle, parentHandle, targetName, false);
       targetInstalled = true;
 
-      const committedHandle = this.native.openRelative(
+      const committedHandle = this.native.openIdentity(
         parentHandle,
         targetName,
-        true,
         relativeSegments.length - 1,
       );
       if (committedHandle === undefined) throw authorityError('FILE_CHANGED', 'commit-write');

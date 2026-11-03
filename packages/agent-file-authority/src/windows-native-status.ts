@@ -29,6 +29,10 @@ const UNSAFE_STATUSES = new Set([
   STATUS_IO_REPARSE_TAG_NOT_HANDLED,
 ]);
 
+export function ntStatusHostCode(status: number): string {
+  return `NTSTATUS_0x${(status >>> 0).toString(HEX_RADIX)}`;
+}
+
 export function classifyNtOpenFailure(status: number): INtOpenFailure {
   const normalized = status >>> 0;
   return {
@@ -39,6 +43,6 @@ export function classifyNtOpenFailure(status: number): INtOpenFailure {
       : UNSAFE_STATUSES.has(normalized)
         ? 'unsafe'
         : 'host-io',
-    hostCode: `NTSTATUS_0x${normalized.toString(HEX_RADIX)}`,
+    hostCode: ntStatusHostCode(status),
   };
 }

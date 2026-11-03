@@ -53,6 +53,7 @@ function fakeNative(entries: Map<TNativeHandle, IEntry>, parentReachable: () => 
       if (parent === ROOT && name === 'parent') return parentReachable() ? PARENT : undefined;
       return named(name);
     },
+    openIdentity: (_parent: TNativeHandle, name: string) => named(name),
     renameTo: (
       handle: TNativeHandle,
       _parent: TNativeHandle,
@@ -111,5 +112,26 @@ describe('Windows rooted writer race handling', () => {
     expect(entries.get(ORIGINAL)).toMatchObject({ name: 'note.txt', content: 'original' });
     expect(entries.get(TEMPORARY)?.deleted).toBe(true);
     expect(entries.get(TEMPORARY)?.name).toMatch(/^\.atomic-tmp-/u);
+  });
+
+  it('verifies the committed target without a data open the open temporary handle would refuse', () => {
+    const entries = new Map<TNativeHandle, IEntry>([
+      [ORIGINAL, { id: BigInt(3), name: 'note.txt', content: 'original' }],
+    ]);
+    const native = fakeNative(entries, () => true);
+    // On Windows a data open that denies write sharing fails while the temporary handle is open.
+    const openRelative = native.openRelative;
+    native.openRelative = (parent: TNativeHandle, name: string) => {
+      if (name === 'note.txt' && entries.get(TEMPORARY)?.name === 'note.txt') {
+        throw authorityError('HOST_IO', 'open-file', { hostCode: 'NTSTATUS_0xc0000043' });
+      }
+      return openRelative(parent, name);
+    };
+    const backend = backendWithNative(native);
+
+    backend.writeUtf8(['note.txt'], 'replacement', {});
+
+    expect(entries.get(TEMPORARY)).toMatchObject({ name: 'note.txt', content: 'replacement' });
+    expect(entries.get(ORIGINAL)?.deleted).toBe(true);
   });
 });
