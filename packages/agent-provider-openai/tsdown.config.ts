@@ -23,5 +23,6 @@ export default defineConfig({
   entry: {
     index: 'src/index.ts',
     'loggers/index': 'src/openai/loggers/index.ts',
+    node: 'src/node.ts',
   },
 });

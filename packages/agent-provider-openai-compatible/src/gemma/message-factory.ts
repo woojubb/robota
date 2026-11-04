@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
 import type { IToolCall, TUniversalMessage } from '@robota-sdk/agent-core';
 import type OpenAI from 'openai';
@@ -8,7 +8,7 @@ export function createStreamTextMessage(
   finishReason: OpenAI.Chat.ChatCompletionChunk.Choice['finish_reason'],
 ): TUniversalMessage {
   return {
-    id: randomUUID(),
+    id: randomId(),
     role: 'assistant',
     content,
     state: 'complete',
@@ -25,7 +25,7 @@ export function createStreamToolCallMessage(
   finishReason: OpenAI.Chat.ChatCompletionChunk.Choice['finish_reason'],
 ): TUniversalMessage {
   return {
-    id: randomUUID(),
+    id: randomId(),
     role: 'assistant',
     content: '',
     toolCalls,

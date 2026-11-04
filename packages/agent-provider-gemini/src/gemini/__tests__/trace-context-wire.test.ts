@@ -105,8 +105,12 @@ describe('Gemini trusted trace context', () => {
     expect(seen.map((request) => request.traceparent)).toEqual([null, null, null]);
     vi.stubEnv('GOOGLE_GEMINI_BASE_URL', undefined);
 
+    // Outside Vertex mode the SDK ignores the Vertex base URL and sends to the Gemini API.
     vi.stubEnv('GOOGLE_VERTEX_BASE_URL', 'https://vertex.example.com');
+    expect(new GeminiProvider({ apiKey: 'test-key' }).canPropagateTraceContext()).toBe(true);
+    vi.stubEnv('GOOGLE_GENAI_USE_VERTEXAI', 'true');
     expect(new GeminiProvider({ apiKey: 'test-key' }).canPropagateTraceContext()).toBe(false);
+    vi.stubEnv('GOOGLE_GENAI_USE_VERTEXAI', undefined);
     vi.stubEnv('GOOGLE_VERTEX_BASE_URL', undefined);
 
     vi.stubEnv('GOOGLE_GENAI_USE_VERTEXAI', 'true');

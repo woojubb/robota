@@ -179,8 +179,10 @@ unchanged. See [Provider failures](../../content/guide/error-handling.md#provide
 - `OpenAIProvider` and its option types (`IOpenAIProviderOptions`, `TOpenAIApiSurface`, and others).
 - `createOpenAIProviderDefinition()`: the provider definition used by Robota's built-in provider
   registry.
-- `@robota-sdk/agent-provider-openai/loggers`: `FilePayloadLogger` (Node.js, writes log files with
-  owner-only permissions) and `ConsolePayloadLogger` (browser console).
+- `@robota-sdk/agent-provider-openai/loggers`: `ConsolePayloadLogger` (writes to the console on any
+  runtime).
+- `@robota-sdk/agent-provider-openai/node`: `FilePayloadLogger` (Node.js, writes log files with
+  owner-only permissions).
 
 ## Related packages
 

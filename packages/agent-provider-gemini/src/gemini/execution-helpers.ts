@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
 import { hasImagePart, buildResponseModalities, buildGenerationConfig } from './image-operations';
 import {
@@ -131,7 +131,7 @@ async function* streamResponseChunks(
       options?.onTextDelta?.(text);
       yield withProviderRequestId(
         {
-          id: randomUUID(),
+          id: randomId(),
           role: 'assistant',
           content: text,
           state: 'complete' as const,
@@ -238,7 +238,7 @@ async function assembleStreamingChatResponse(
   }
   const content = textParts.join('');
   const message: TUniversalMessage = {
-    id: randomUUID(),
+    id: randomId(),
     role: 'assistant',
     content,
     parts: content.length > 0 ? [{ type: 'text', text: content }] : [],
@@ -305,7 +305,7 @@ function convertStreamChunk(chunk: GenerateContentResponse): TUniversalMessage |
     typeof usageMetadata.totalTokenCount === 'number'
   ) {
     return {
-      id: randomUUID(),
+      id: randomId(),
       role: 'assistant',
       content: null,
       state: 'complete',
