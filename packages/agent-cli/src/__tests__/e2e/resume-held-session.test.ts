@@ -1,8 +1,10 @@
 /**
  * Resuming a session another process has open, through the real CLI (print mode over the scripted
- * provider): `-r <id>` and `-c` are refused with the store's own words, which name the process that
- * holds the session and the command that releases a marker whose process ended, and they start
- * nothing over it. Once that process lets go, the same resume runs.
+ * provider, and the real terminal UI): `-r <id>` and `-c` are refused with the store's own words,
+ * which name the process that holds the session and the command that releases a marker whose process
+ * ended, and they start nothing over it. Once that process lets go, the same resume runs. The
+ * terminal UI builds its session in its first render, where a refusal must end the run with those
+ * words, not with Ink's error screen.
  *
  * The workspace is trusted, so the sessions live in the project's store on Linux and in the user's
  * store elsewhere (project writes are Linux-only); the CLI composes whichever applies.
@@ -19,9 +21,16 @@ import {
 } from '@robota-sdk/agent-core/node';
 import { createScriptedProvider, leaveProcessMarker } from '@robota-sdk/agent-core/testing';
 import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import {
+  createDefaultTuiCliAdapter,
+  createNodeKeybindingsSource,
+  renderApp,
+} from '@robota-sdk/agent-ui-terminal';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { startCli } from '../../cli.js';
+import { startCliCore } from '../../cli-core.js';
+import { createThemeSurface } from '../../startup/theme-surface.js';
 import { createTestProductRuntime } from '../helpers/product-runtime.js';
 import { createTrustedWorkspaceProjectAccess } from '../helpers/trusted-workspace-project-access.js';
 
@@ -42,15 +51,32 @@ function scriptedDefinition(scripted: IScriptedProvider): IProviderDefinition {
   };
 }
 
+/** The real terminal UI, with the parts that would take over this process replaced by spies. */
+function terminalUi() {
+  return {
+    createThemeSurface,
+    createNodeKeybindingsSource,
+    createDefaultTuiCliAdapter,
+    renderApp,
+    renderSupervisedSessionView: vi.fn(),
+    renderAttachedApp: vi.fn(),
+    installTuiProcessGuards: vi.fn(),
+    setLiveChannel: vi.fn(),
+  };
+}
+
 async function run(
   project: string,
   argv: string[],
-): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  presentation?: ReturnType<typeof terminalUi>,
+): Promise<{ exitCode: number; stdout: string; stderr: string; failure: Error | undefined }> {
   process.argv = ['node', 'test-product', ...argv];
   const stdout: string[] = [];
   const stderr: string[] = [];
-  vi.spyOn(process.stdout, 'write').mockImplementation(((chunk: unknown) => {
+  // The terminal UI waits for each frame's write to complete.
+  vi.spyOn(process.stdout, 'write').mockImplementation(((chunk: unknown, ...rest: unknown[]) => {
     stdout.push(String(chunk));
+    for (const argument of rest) if (typeof argument === 'function') argument();
     return true;
   }) as never);
   vi.spyOn(process.stderr, 'write').mockImplementation(((chunk: unknown) => {
@@ -58,26 +84,31 @@ async function run(
     return true;
   }) as never);
   let exitCode = -1;
+  let failure: Error | undefined;
   try {
-    await startCli({
+    const options = {
       productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
       providerDefinitions: [
         scriptedDefinition(createScriptedProvider([{ text: 'RESUMED_REPLY' }])),
       ],
       projectAccess: await createTrustedWorkspaceProjectAccess(project),
-    });
+    };
+    if (presentation === undefined) await startCli(options);
+    else await startCliCore(options, () => [], presentation as never);
     throw new Error('startCli returned without process.exit');
   } catch (error) {
     const match = /^process\.exit:(\d+)$/.exec(
       error instanceof Error ? error.message : String(error),
     );
-    if (!match) throw error;
-    exitCode = Number(match[1]);
+    // A run that fails before it exits is the entry's to report: it says the message and exits 1.
+    if (match) exitCode = Number(match[1]);
+    else if (presentation !== undefined && error instanceof Error) failure = error;
+    else throw error;
   } finally {
     vi.mocked(process.stdout.write).mockRestore();
     vi.mocked(process.stderr.write).mockRestore();
   }
-  return { exitCode, stdout: stdout.join(''), stderr: stderr.join('') };
+  return { exitCode, stdout: stdout.join(''), stderr: stderr.join(''), failure };
 }
 
 /** A live process other than this one: the one that started this test worker. */
@@ -142,6 +173,28 @@ describe('resuming a session another process has open', () => {
     expect(result.stdout).not.toContain('RESUMED_REPLY');
     expect(readFileSync(join(sessionsDirectory, `${HELD_ID}.json`), 'utf8')).toBe(before);
   });
+
+  it.each([
+    ['-r <id>', ['-r', HELD_ID]],
+    ['-c', ['-c']],
+  ])(
+    'the terminal UI under %s ends with the store’s words, with no error screen, and starts nothing',
+    async (_flag, argv) => {
+      const ui = terminalUi();
+
+      const result = await run(project, argv, ui);
+
+      expect(result.failure?.message).toContain(
+        `Session ${HELD_ID} is open in another process (pid ${process.ppid}`,
+      );
+      expect(result.failure?.message).toContain(`test-product session release ${HELD_ID} --force`);
+      expect(result.exitCode).toBe(-1);
+      expect(result.stdout).not.toContain('ERROR');
+      expect(result.stdout).not.toMatch(/\.tsx?:\d+/);
+      expect(ui.setLiveChannel).not.toHaveBeenCalled();
+      expect(readFileSync(join(sessionsDirectory, `${HELD_ID}.json`), 'utf8')).toBe(before);
+    },
+  );
 
   it('-c is refused the same way for the latest session, and both run once the process lets go', async () => {
     const refused = await run(project, ['-p', 'hi', '-c']);

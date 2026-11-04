@@ -41,3 +41,7 @@ child-process fork therefore has one writer, and attaching to it is refused unti
 crashed or planted process left: on its own it removes only a marker whose process has ended, and
 `--force` removes one whose process may still run only at a terminal and after a y/N. `secure migrate`
 leaves a session open in another process as it is and names it.
+
+A terminal start whose resumed session another process holds now ends with the store's refusal, as print
+mode does, instead of Ink's error screen; `@robota-sdk/agent-framework` exports `claimRefusalMessage`
+for it.

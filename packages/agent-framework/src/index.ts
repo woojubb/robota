@@ -1028,6 +1028,7 @@ export {
   SessionChangeRefusal,
   SessionDeleteRefusal,
   claimedSessionMessage,
+  claimRefusalMessage,
 } from './runtime/index.js';
 export type {
   ISessionPoolOptions,

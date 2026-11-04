@@ -30,4 +30,5 @@ export {
   SessionChangeRefusal,
   SessionDeleteRefusal,
   claimedSessionMessage,
+  claimRefusalMessage,
 } from './session-change-refusal.js';

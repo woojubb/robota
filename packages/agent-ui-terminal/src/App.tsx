@@ -1,3 +1,5 @@
+import { claimRefusalMessage } from '@robota-sdk/agent-framework';
+import { useApp } from 'ink';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import AppView from './AppView.js';
@@ -81,9 +83,9 @@ interface IFailedSwitch {
   readonly options: ISessionSwitchOptions | undefined;
 }
 
-function useActiveChannel(props: IProps): IActiveChannel {
+function useActiveChannel(props: IProps, firstChannel: ITuiAppChannelPort): IActiveChannel {
   const [state, setState] = useState(() => ({
-    channel: openChannel(props.createChannel, props.resumeSessionId, props.acceptedDigest),
+    channel: firstChannel,
     sessionId: props.resumeSessionId,
   }));
   const [showPicker, setShowPicker] = useState(props.showSessionPickerOnStart ?? false);
@@ -136,9 +138,47 @@ function useActiveChannel(props: IProps): IActiveChannel {
   return { state, showPicker, error, switching: isSwitching, switchSession, retrySwitch };
 }
 
+type TFirstChannel = { readonly channel: ITuiAppChannelPort } | { readonly refusal: string };
+
+/**
+ * The first channel, or the words of the store's refusal to claim the session the run resumes. That
+ * refusal is the one failure of this call that is a message, not a defect: the person is told which
+ * process holds the session, and nothing is started over it. Any other failure is Ink's, as before.
+ */
+function openFirstChannel(props: IProps): TFirstChannel {
+  try {
+    const channel = openChannel(props.createChannel, props.resumeSessionId, props.acceptedDigest);
+    return { channel };
+  } catch (error) {
+    const refusal = claimRefusalMessage(error);
+    if (refusal === undefined) throw error;
+    return { refusal };
+  }
+}
+
+/** Ends the run with the refusal's words as its error; the run's entry says them, once, and exits. */
+function EndOnRefusal(props: { readonly message: string }): null {
+  const { exit } = useApp();
+  useEffect(() => {
+    exit(new Error(props.message));
+  }, [exit, props.message]);
+  return null;
+}
+
 /** React composition shell. Concrete framework objects stay outside the React tree. */
 export default function App(props: IProps): React.ReactElement {
-  const active = useActiveChannel(props);
+  const [first] = useState(() => openFirstChannel(props));
+  return 'refusal' in first ? (
+    <EndOnRefusal message={first.refusal} />
+  ) : (
+    <ActiveApp {...props} firstChannel={first.channel} />
+  );
+}
+
+function ActiveApp(
+  props: IProps & { readonly firstChannel: ITuiAppChannelPort },
+): React.ReactElement {
+  const active = useActiveChannel(props, props.firstChannel);
 
   return (
     <TuiCliAdapterProvider value={props.cliAdapter}>
