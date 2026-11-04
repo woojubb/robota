@@ -56,7 +56,10 @@ function convertUserParts(
         source: { type: 'url', url: part.uri },
       });
     } else {
-      blocks.push({ type: 'text', text: nonVisualObservationText(part) ?? 'Unsupported observation' });
+      blocks.push({
+        type: 'text',
+        text: nonVisualObservationText(part) ?? 'Unsupported observation',
+      });
     }
   }
   return blocks;
@@ -149,19 +152,68 @@ export function convertToAnthropicFormat(messages: TUniversalMessage[]): Anthrop
   });
 }
 
+/** Text from a web page, with what could steer a terminal or spoof the line around it removed. */
+function printableTitle(title: string | null): string {
+  return (title ?? '').replace(/[\p{Cc}\p{Cf}]+/gu, ' ').trim();
+}
+
+/** A page-supplied address as it would open, or undefined when it is not a web address. */
+function webAddress(url: string): string | undefined {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.href : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A headed, numbered list of web sources; empty when none of them is a web address. */
+function formatSourceList(
+  heading: string,
+  sources: ReadonlyArray<{ title: string | null; url: string }>,
+): string {
+  const lines = sources.flatMap(({ title, url }) => {
+    const address = webAddress(url);
+    if (address === undefined) return [];
+    const printable = printableTitle(title);
+    return [printable ? `${printable}\n   ${address}` : address];
+  });
+  return lines.length > 0
+    ? `${heading}\n${lines.map((line, i) => `${i + 1}. ${line}`).join('\n')}`
+    : '';
+}
+
 /** Format a WebSearchToolResultBlock into readable text. */
 export function formatWebSearchResults(block: Anthropic.Messages.WebSearchToolResultBlock): string {
   if (!Array.isArray(block.content)) return '';
 
-  const results = block.content
-    .filter(
+  return formatSourceList(
+    '[Web Search Results]',
+    block.content.filter(
       (r): r is Anthropic.Messages.WebSearchResultBlock =>
         r.type === 'web_search_result' && 'title' in r && 'url' in r,
-    )
-    .map((r, i) => `${i + 1}. ${r.title}\n   ${r.url}`)
-    .join('\n');
+    ),
+  );
+}
 
-  return results ? `[Web Search Results]\n${results}` : '';
+/**
+ * The web sources a reply cites, one per address in first-cited order. Anthropic's documentation
+ * asks for citations to be shown with the output, and they arrive beside the text rather than in it.
+ */
+export function formatCitedSources(citations: readonly Anthropic.Messages.TextCitation[]): string {
+  const webSources = citations.filter(
+    (citation): citation is Anthropic.Messages.CitationsWebSearchResultLocation =>
+      citation.type === 'web_search_result_location',
+  );
+  const seen = new Set<string>();
+  return formatSourceList(
+    '[Sources]',
+    webSources.filter(({ url }) => {
+      if (seen.has(url)) return false;
+      seen.add(url);
+      return true;
+    }),
+  );
 }
 
 /**
