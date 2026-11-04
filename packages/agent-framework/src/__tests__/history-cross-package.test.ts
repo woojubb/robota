@@ -15,8 +15,11 @@ import { describe, it, expect, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive/interactive-session.js';
 import koreanText from './__fixtures__/korean-text.json';
+import { createTestFrameworkHost } from '../testing/framework-host.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 function createMockSession(options?: {
   runResult?: string;
@@ -62,6 +65,7 @@ describe('IHistoryEntry cross-package integration', () => {
 
   it('history accumulates user + assistant entries across multiple submits', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession({ runResult: 'answer' }) as never,
       cwd: '/tmp',
     } as never);
@@ -82,6 +86,7 @@ describe('IHistoryEntry cross-package integration', () => {
   it('tool-start and tool-end events are recorded in history', async () => {
     const mockSession = createMockSession({ runResult: 'done' });
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     } as never);
@@ -124,6 +129,7 @@ describe('IHistoryEntry cross-package integration', () => {
     });
 
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession({ runResult: 'persisted answer' }) as never,
       sessionStore: mockSessionStore,
     } as never);
@@ -144,6 +150,7 @@ describe('IHistoryEntry cross-package integration', () => {
     mockSessionStore.load.mockReturnValue({ status: 'valid', record: savedRecord });
 
     const restored = new InteractiveSession({
+      host: testHost,
       session: createMockSession() as never,
       sessionStore: mockSessionStore,
       resumeSessionId: 'test-session-id',
@@ -217,6 +224,7 @@ describe('IHistoryEntry cross-package integration', () => {
     const restoreTarget = createMockSession();
 
     new InteractiveSession({
+      host: testHost,
       session: restoreTarget as never,
       cwd: '/tmp',
       sessionStore: mockStore,
@@ -268,6 +276,7 @@ describe('IHistoryEntry cross-package integration', () => {
 
   it('all history entries have id, timestamp, category, type', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession({ runResult: 'test' }) as never,
       cwd: '/tmp',
     } as never);

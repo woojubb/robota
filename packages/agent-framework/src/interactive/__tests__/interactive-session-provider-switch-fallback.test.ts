@@ -16,8 +16,11 @@ import { InteractiveSession } from '../interactive-session.js';
 import { resolveUserSettingsProviderSwitch } from '../interactive-session-provider-switch.js';
 
 import { ProviderError } from '@robota-sdk/agent-core';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 function createMockSession() {
   return {
@@ -104,6 +107,7 @@ function startSession(allowedProviders?: string[], entries = ['openai', 'gemini'
   });
   const mockSession = { ...createMockSession(), swapProvider: vi.fn() };
   const session = new InteractiveSession({
+    host: testHost,
     session: mockSession,
     cwd: '/tmp',
     provider,

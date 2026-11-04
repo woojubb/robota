@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
 import { PeerMessageIngress } from '../peer-message-ingress.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
 import type { ISubmitOptions } from '@robota-sdk/agent-interface-session';
@@ -15,6 +16,8 @@ import type {
   IPeerMessage,
   IPeerMessageIngress,
 } from '@robota-sdk/agent-interface-session-mobility';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * Two kinds of input from elsewhere, and how each is treated:
@@ -52,6 +55,7 @@ const write = (name: string): TScriptedTurn => ({
 async function receiver(turns: readonly TScriptedTurn[]) {
   const scripted = createScriptedProvider(turns);
   const session = new InteractiveSession({
+    host: testHost,
     cwd: workspace,
     projectAccess: await createTrustedProjectAccessFixture(workspace),
     provider: scripted.provider,

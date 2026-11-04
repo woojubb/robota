@@ -24,9 +24,12 @@ import {
   restoreAgentDefinition,
   restoreParentContext,
 } from '../subagent-worker-start-dto.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { ISubagentJobStart } from '@robota-sdk/agent-executor';
 import type { IAgentDefinition, IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 /** The parent's registry: the runner refuses a provider it has no definition for. */
 const TEST_PROVIDER_DEFINITIONS: readonly IProviderDefinition[] = [
@@ -139,6 +142,7 @@ describe('subagent worker start DTOs (ARCH-044, issue #2047)', () => {
 
 describe('child-process effort projection (BEHAVIOR-009)', () => {
   const DEPS: IInProcessSubagentRunnerDeps = {
+    host: testHost,
     config: {
       defaultTrustLevel: 'moderate',
       currentProvider: 'openai',
@@ -205,6 +209,7 @@ describe('child-process permission mode projection', () => {
         },
       },
       {
+        host: testHost,
         config: {
           defaultTrustLevel: 'moderate',
           currentProvider: 'openai',
@@ -255,6 +260,7 @@ describe('what a fork job puts on the wire (CLI-1994 TC-06, ARCH-044, #3679)', (
   const PROVIDER_SECRET = 'sk-tc06-provider-secret';
 
   const DEPS: IInProcessSubagentRunnerDeps = {
+    host: testHost,
     config: {
       defaultTrustLevel: 'moderate',
       currentProvider: 'openai',

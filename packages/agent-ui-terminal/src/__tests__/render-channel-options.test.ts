@@ -6,11 +6,15 @@ import type { IPromptHistoryOptions } from '@robota-sdk/agent-framework';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import { toChannelOptions } from '../render.js';
 import { buildTuiSessionOptions } from '../tui-session-options.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import type { IRenderOptions } from '../render.js';
+
+const testHost = createTestFrameworkHost();
 
 describe('toChannelOptions', () => {
   it('keeps host model identifiers through render, channel, and session', () => {
     const channel = toChannelOptions({
+      host: testHost,
       cwd: '/tmp/project',
       provider: {} as IAIProvider,
       cliAdapter: {} as ITuiCliAdapter,
@@ -33,6 +37,7 @@ describe('toChannelOptions', () => {
 
   it('keeps safe mode (no instructions, plugins or settings hooks) through render, channel, and session', () => {
     const channel = toChannelOptions({
+      host: testHost,
       cwd: '/tmp/project',
       provider: {} as IAIProvider,
       cliAdapter: {} as ITuiCliAdapter,
@@ -47,6 +52,7 @@ describe('toChannelOptions', () => {
   it('preserves host permission baselines through render, channel, and session', () => {
     const baselinePermissionAllow = ['Read(custom/**)'];
     const channel = toChannelOptions({
+      host: testHost,
       cwd: '/tmp/project',
       provider: {} as IAIProvider,
       cliAdapter: {} as ITuiCliAdapter,
@@ -61,6 +67,7 @@ describe('toChannelOptions', () => {
   it('keeps the host task-context selection through render, channel, and session', () => {
     const taskContext = { enabled: true, dir: 'custom/tasks' };
     const channel = toChannelOptions({
+      host: testHost,
       cwd: '/test-project',
       provider: {} as IAIProvider,
       cliAdapter: {} as ITuiCliAdapter,
@@ -80,6 +87,7 @@ describe('toChannelOptions', () => {
     const sources = [createNodeHostContributionSource('/test-project')];
     const skillRoots = [{ root: 'custom/skills', kind: 'skills' as const }];
     const channel = toChannelOptions({
+      host: testHost,
       cwd: '/test-project',
       provider: {} as IAIProvider,
       cliAdapter: {} as ITuiCliAdapter,
@@ -97,6 +105,7 @@ describe('toChannelOptions', () => {
   it('keeps the host user settings sources through render, channel, and session', () => {
     const sources = [createNodeHostSettingsSource('user', '/test-home/settings.json')];
     const channel = toChannelOptions({
+      host: testHost,
       cwd: '/tmp/project',
       provider: {} as IAIProvider,
       cliAdapter: {} as ITuiCliAdapter,
@@ -107,6 +116,7 @@ describe('toChannelOptions', () => {
 
   it('forwards the loop kill switch through the channel to the session', () => {
     const options = toChannelOptions({
+      host: testHost,
       cwd: '/tmp/project',
       provider: {} as IAIProvider,
       cliAdapter: {} as ITuiCliAdapter,
@@ -118,6 +128,7 @@ describe('toChannelOptions', () => {
 
   it('TC-02: threads allowedTools and deniedTools into the channel options', () => {
     const renderOptions: IRenderOptions = {
+      host: testHost,
       cwd: '/tmp/project',
       provider: {} as IAIProvider,
       cliAdapter: {} as ITuiCliAdapter,
@@ -133,6 +144,7 @@ describe('toChannelOptions', () => {
 
   it('leaves tool filters undefined when not provided', () => {
     const channelOptions = toChannelOptions({
+      host: testHost,
       cwd: '/tmp/project',
       provider: {} as IAIProvider,
       cliAdapter: {} as ITuiCliAdapter,
@@ -143,6 +155,7 @@ describe('toChannelOptions', () => {
 
   it('CLI-076: threads the display modelId into the channel model override', () => {
     const channelOptions = toChannelOptions({
+      host: testHost,
       cwd: '/tmp/project',
       provider: {} as IAIProvider,
       cliAdapter: {} as ITuiCliAdapter,
@@ -154,6 +167,7 @@ describe('toChannelOptions', () => {
 
   it('CLI-076: leaves model undefined when no modelId is resolved', () => {
     const channelOptions = toChannelOptions({
+      host: testHost,
       cwd: '/tmp/project',
       provider: {} as IAIProvider,
       cliAdapter: {} as ITuiCliAdapter,
@@ -164,6 +178,7 @@ describe('toChannelOptions', () => {
   it('carries the host external-event verifier factory to the session options', () => {
     const factory = () => ({ verify: async () => ({ admitted: true as const }) });
     const channelOptions = toChannelOptions({
+      host: testHost,
       cwd: '/tmp/project',
       provider: {} as IAIProvider,
       cliAdapter: {} as ITuiCliAdapter,
@@ -176,6 +191,7 @@ describe('toChannelOptions', () => {
   it('SCREEN-1993: projects the prompt-history writer to the channel and on to the session options', () => {
     const promptHistory = { writer: { append: () => undefined }, project: '/p' };
     const channelOptions = toChannelOptions({
+      host: testHost,
       cwd: '/tmp/project',
       provider: {} as IAIProvider,
       cliAdapter: {} as ITuiCliAdapter,
@@ -191,6 +207,7 @@ describe('toChannelOptions', () => {
     expect(
       session(
         toChannelOptions({
+          host: testHost,
           cwd: '/tmp/project',
           provider: {} as IAIProvider,
           cliAdapter: {} as ITuiCliAdapter,

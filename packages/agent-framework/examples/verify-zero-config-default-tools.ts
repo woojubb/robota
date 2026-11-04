@@ -5,6 +5,9 @@ import { join } from 'node:path';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
 import { createAgentRuntime, type InteractiveSession } from '../src/index.js';
+import { createTestFrameworkHost } from '../src/testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * ARCH-035 S-1 — a zero-config session still receives the default tool tier, and
@@ -57,7 +60,7 @@ async function main(): Promise<void> {
 
   try {
     const script = createScriptedProvider([{ text: RESPONSE }]);
-    const runtime = createAgentRuntime({ cwd, provider: script.provider });
+    const runtime = createAgentRuntime({ host: testHost, cwd, provider: script.provider });
 
     // No `defaultTools` anywhere — this is the zero-config path the extraction exists to preserve.
     const created = runtime.createSession({});

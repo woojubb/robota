@@ -109,6 +109,7 @@ import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first
 import { offerWebSearchMcpServer } from './startup/first-run-web-search.js';
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 import { buildCommandSetupOrExit } from './startup/command-setup.js';
 import {
   areSessionLoopsDisabled,
@@ -209,6 +210,7 @@ function readHandedOverTransportTokenOrExit(): string | undefined {
 
 export async function startCliCore(
   initialOptions: IStartCliOptions,
+  host: IFrameworkHost,
   createBackgroundTaskRunners: (shellExecutable?: string) => IBackgroundTaskRunner[],
   presentation?: ICliPresentation,
 ): Promise<void> {
@@ -262,6 +264,7 @@ export async function startCliCore(
   try {
     await runCliCore(
       options,
+      host,
       createBackgroundTaskRunners,
       presentation,
       initialInput,
@@ -277,6 +280,7 @@ export async function startCliCore(
 
 async function runCliCore(
   options: IStartCliOptions,
+  host: IFrameworkHost,
   createBackgroundTaskRunners: (shellExecutable?: string) => IBackgroundTaskRunner[],
   presentation?: ICliPresentation,
   initialInput?: string,
@@ -307,6 +311,7 @@ async function runCliCore(
       telemetryEnvironment,
       presentation?.renderSupervisedSessionView,
       presentation,
+      host,
     )
   )
     return;
@@ -465,6 +470,7 @@ async function runCliCore(
     // needs no preset, packs, transports or session; see `eval-command.ts` for the equivalence boundary.
     const composition = createInitialCliWorkspaceComposition(cwd, startupOptions);
     process.exitCode = await runEvalCommand(process.argv.slice(3), cwd, {
+      host,
       settingsSources: composition.settingsSources,
       projectAccess: composition.projectAccess,
       environment: productRuntime.environment,
@@ -941,6 +947,7 @@ async function runCliCore(
     observerFailureWarningCode,
   } = buildProductRuntimeOptions({
     product,
+    host,
     cwd,
     provider,
     selectedCommandModules: selectProductCommandModules(
@@ -1077,6 +1084,7 @@ async function runCliCore(
   if (args.printMode || args.goal) {
     const printRun = runPrintMode(
       productRuntime,
+      host,
       cwd,
       args,
       provider,
@@ -1127,6 +1135,7 @@ async function runCliCore(
     if (protocolStdout === undefined) throw new Error('Protocol stdout was not reserved');
     const sessionOptions = buildServeSessionOptions({
       productRuntime,
+      host,
       cwd,
       ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
       args,
@@ -1214,6 +1223,7 @@ async function runCliCore(
   if (args.serve) {
     const serveRun = runServeMode({
       productRuntime,
+      host,
       cwd,
       ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
       args,
@@ -1310,6 +1320,7 @@ async function runCliCore(
   });
 
   const tuiRun = presentation.renderApp({
+    host,
     productDisplayName: `${productRuntime.config.identity.displayName}`,
     ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
     modelCommandToolPrefix,

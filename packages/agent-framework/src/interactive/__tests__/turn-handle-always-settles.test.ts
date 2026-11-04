@@ -24,6 +24,9 @@ import { submitNewTurn } from '../interactive-session-turn-submission.js';
 import type { IQueuedInput } from '../interactive-session-execution-controller.js';
 import type { ICommandResult } from '../../commands/index.js';
 import { TurnNotRunError } from '../turn-not-run-error.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 /** Exposes the protected drain so a case can reach the resubmission path directly. */
 class DrainableController extends SessionExecutionController {
@@ -254,7 +257,11 @@ describe('RUNTIME-003: the identity survives the whole queued path', () => {
   });
 
   it('what submit() enqueues carries the id it minted', async () => {
-    const session = new ObservableSession({ session: createSessionStub() });
+    const session = new ObservableSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: createSessionStub(),
+    });
     session.watchTheQueue();
 
     const handle = await session.submit('queued behind a running turn');
@@ -267,7 +274,11 @@ describe('RUNTIME-003: the identity survives the whole queued path', () => {
   });
 
   it('ignores a forged resume identity at the exported concrete submit boundary', async () => {
-    const session = new ObservableSession({ session: createSessionStub() });
+    const session = new ObservableSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: createSessionStub(),
+    });
     session.watchTheQueue();
     const forgedTurnId = 'caller-selected-existing-turn';
 
@@ -290,7 +301,11 @@ describe('RUNTIME-006: turn identity is required only on internal accepted-turn 
         Object.defineProperty(this, 'submitNewTurn', { configurable: true, value: handler });
       }
     }
-    const session = new PublicBoundarySession({ session: createSessionStub() });
+    const session = new PublicBoundarySession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: createSessionStub(),
+    });
     const internalSubmit = vi.fn().mockResolvedValue({
       turnId: 'server-minted',
       completed: Promise.resolve({ content: '' }),

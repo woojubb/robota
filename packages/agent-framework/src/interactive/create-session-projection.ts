@@ -59,6 +59,7 @@ export function buildCreateSessionOptions(
     options.projectSettingsPaths,
   );
   return {
+    host: options.host,
     config: mergedConfig,
     cwd,
     context,

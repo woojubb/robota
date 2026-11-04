@@ -12,10 +12,13 @@ import { describe, expect, it } from 'vitest';
 
 import { projectProviderConnection } from '../child-process-subagent-projection.js';
 import { ChildProcessSubagentRunner } from '../index.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { ISubagentJobStart, ISubagentWorktreeAdapter } from '@robota-sdk/agent-executor';
 import type { IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 const FIXTURE_WORKER_ENTRY = {
   execPath: process.execPath,
@@ -49,6 +52,7 @@ function deps(
   provider: Partial<IInProcessSubagentRunnerDeps['config']['provider']> = {},
 ): IInProcessSubagentRunnerDeps {
   return {
+    host: testHost,
     config: {
       defaultTrustLevel: 'moderate',
       currentProvider: 'openai',

@@ -6,9 +6,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICommandModule } from '../../commands/index.js';
 import type { ISessionStatusSnapshot } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 function runtimeSession(state: { mode: string; usedTokens: number }): Record<string, unknown> {
   return {
@@ -71,6 +74,7 @@ function setup(): {
 } {
   const state = { mode: 'default', usedTokens: 0 };
   const session = new InteractiveSession({
+    host: testHost,
     session: runtimeSession(state) as never,
     cwd: '/tmp',
     commandModules: [commands(state)],

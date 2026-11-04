@@ -22,11 +22,14 @@ import {
   describeProviderDestination,
   rememberProviderDestination,
 } from '../provider-destination.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IAdvisorControllerOptions, IAdvisorConsultRequest } from '../advisor-controller.js';
 import type { IAdvisorSessionAccess } from '../advisor-tool.js';
 import type { ICreateSessionOptions } from '../../assembly/create-session-types.js';
 import type { IAIProvider, IHistoryEntry, TUniversalMessage } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 type TChat = ReturnType<typeof vi.fn>;
 
@@ -641,6 +644,8 @@ describe('Advisor tool in assembled sessions', () => {
     // The host records where the main provider sends requests when it builds it.
     rememberProviderDestination(main, MAIN);
     return {
+      cwd: process.cwd(),
+      host: testHost,
       config: {
         defaultTrustLevel: 'safe',
         provider: { name: 'vendor-a', model: 'main-model', apiKey: undefined },
@@ -740,6 +745,7 @@ describe('Advisor tool in assembled sessions', () => {
     const parentTools = bindAdvisorTools([createAdvisorTool(controller(advisor))], () => parent);
     const base = options();
     const child = createSubagentSession({
+      host: testHost,
       agentDefinition: { name: 'worker', description: 'w', systemPrompt: 'Work.' },
       parentConfig: base.config,
       parentContext: base.context,

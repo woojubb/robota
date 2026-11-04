@@ -4,6 +4,7 @@ import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor/node';
 
 import type { InteractiveSession } from '../interactive/interactive-session.js';
+import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { buildRuntimeSession } from './runtime-host.js';
 import {
   WorkspaceAuthorityRequiredError,
@@ -15,6 +16,7 @@ import { isWorkspacePathContained } from '../workspace-trust/project-reader-path
 import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
 import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { ICommandHostAdapters, ICommandModule } from '../commands/index.js';
 import type { CommandRegistry, IRemoteCommandPolicy } from '../commands/index.js';
 import type { IInteractiveSessionStore } from '../interactive/index.js';
@@ -25,6 +27,8 @@ import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robot
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 export interface IAgentRuntimeConfig {
+  /** The platform the runtime's sessions run on; `{}` is a host with nothing to lend. See `IFrameworkHost`. */
+  host: IFrameworkHost;
   cwd: string;
   provider: IAIProvider;
   /** Host-owned initial project decision. Absence produces an observable Restricted runtime. */
@@ -85,6 +89,7 @@ export interface IAgentRuntime {
 }
 
 export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
+  requireFrameworkHost(config.host, 'createAgentRuntime');
   const backgroundTaskRunners =
     config.backgroundTaskRunners ?? createDefaultBackgroundTaskRunners();
   const commandModules = config.commandModules ?? [];
@@ -126,6 +131,7 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
     createSession(opts: IHeadlessSessionOptions): InteractiveSession {
       const effectiveSessionStore = 'sessionStore' in opts ? opts.sessionStore : sessionStore;
       return buildRuntimeSession({
+        host: config.host,
         cwd: config.cwd,
         provider: config.provider,
         projectAccess,

@@ -17,6 +17,7 @@ import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { createSubagentLogger, resolveSubagentLogDir } from '../assembly/subagent-logger.js';
 import { createNodeHostContributionSourcesFixture } from '../testing/contribution-source-fixture.js';
 import { storeAgentToolDeps, retrieveAgentToolDeps } from '../tools/agent-tool.js';
+import { createTestFrameworkHost } from '../testing/framework-host.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IResolvedConfig } from '../config/config-types.js';
@@ -64,6 +65,8 @@ import type {
   THooksConfig,
 } from '@robota-sdk/agent-core';
 import type { ITerminalOutput } from '@robota-sdk/agent-session';
+
+const testHost = createTestFrameworkHost();
 
 function makeTool(name: string): IToolWithEventService {
   return {
@@ -129,6 +132,7 @@ describe('Subagent integration', () => {
       PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'echo unexpected' }] }],
     };
     createSubagentSession({
+      host: testHost,
       agentDefinition: getBuiltInAgent('general-purpose')!,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -168,6 +172,7 @@ describe('Subagent integration', () => {
 
     const depsKey = {}; // opaque key for this test
     const agentToolDeps = {
+      host: testHost,
       config,
       context,
       tools,
@@ -185,6 +190,7 @@ describe('Subagent integration', () => {
 
     // Create session with that definition
     createSubagentSession({
+      host: testHost,
       agentDefinition: exploreDef!,
       parentConfig: config,
       parentContext: context,
@@ -217,6 +223,7 @@ describe('Subagent integration', () => {
     expect(exploreDef!.disallowedTools).toEqual(['Write', 'Edit']);
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: exploreDef!,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -257,6 +264,7 @@ describe('Subagent integration', () => {
     expect(generalDef).toBeDefined();
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: generalDef!,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -287,6 +295,7 @@ describe('Subagent integration', () => {
     for (const agentDef of BUILT_IN_AGENTS) {
       vi.clearAllMocks();
       createSubagentSession({
+        host: testHost,
         agentDefinition: agentDef,
         parentConfig: makeParentConfig(),
         parentContext: makeParentContext(),

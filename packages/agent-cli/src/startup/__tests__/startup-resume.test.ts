@@ -33,6 +33,7 @@ import {
   unverifiedNameMessage,
   type IStartupResumeInput,
 } from '../startup-resume.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IArtifactSealerDouble } from '@robota-sdk/agent-core/testing';
 import type {
@@ -40,6 +41,8 @@ import type {
   IInteractiveSessionStore,
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 const CWD = '/work/project';
 const roots: string[] = [];
@@ -271,6 +274,7 @@ describe('-r over a store that seals', () => {
 
     // The session raises the accepted bytes once it has restored from them.
     const session = new InteractiveSession({
+      host: testHost,
       cwd: CWD,
       sessionStore: w.store,
       resumeSessionId: 'sess_planted',
@@ -304,6 +308,7 @@ describe('-r over a store that seals', () => {
     expect(
       () =>
         new InteractiveSession({
+          host: testHost,
           cwd: CWD,
           sessionStore: w.store,
           resumeSessionId: 'sess_planted',
@@ -475,6 +480,7 @@ describe('-r <unverified id> --fork-session', () => {
     expect(
       () =>
         new InteractiveSession({
+          host: testHost,
           cwd: CWD,
           sessionStore: w.store,
           resumeSessionId: 'sess_parked',

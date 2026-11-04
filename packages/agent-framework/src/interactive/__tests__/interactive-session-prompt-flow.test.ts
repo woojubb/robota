@@ -10,9 +10,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IAskRequestEvent, IPromptResolvedEvent } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
+
+const testHost = createTestFrameworkHost();
 
 function createSessionStub(): Session {
   return {
@@ -35,13 +38,21 @@ function createSessionStub(): Session {
 
 describe('InteractiveSession transport-neutral ask flow (REMOTE-007)', () => {
   it('TC-04c: getUserInteraction() returns undefined with no ask_request listener (headless contract preserved)', () => {
-    const session = new InteractiveSession({ session: createSessionStub() });
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: createSessionStub(),
+    });
     // No surface subscribed → the command port is ABSENT, so headless /exit, /clear, /mode proceed.
     expect(session.getUserInteraction()).toBeUndefined();
   });
 
   it('TC-04c: subscribing a surface to ask_request makes the command port PRESENT (per-call gate)', () => {
-    const session = new InteractiveSession({ session: createSessionStub() });
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: createSessionStub(),
+    });
     const handler = (): void => {};
     session.on('ask_request', handler);
     expect(session.getUserInteraction()).toBeDefined();
@@ -51,7 +62,11 @@ describe('InteractiveSession transport-neutral ask flow (REMOTE-007)', () => {
   });
 
   it('the command-port ask emits ask_request through the real emitter and resolveAsk settles it', async () => {
-    const session = new InteractiveSession({ session: createSessionStub() });
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: createSessionStub(),
+    });
     const asks: IAskRequestEvent[] = [];
     session.on('ask_request', (event) => asks.push(event));
 
@@ -71,7 +86,11 @@ describe('InteractiveSession transport-neutral ask flow (REMOTE-007)', () => {
   });
 
   it('reconcile-on-detach: a parked ask cancels when the last surface unsubscribes mid-prompt', async () => {
-    const session = new InteractiveSession({ session: createSessionStub() });
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: createSessionStub(),
+    });
     const handler = (): void => {};
     session.on('ask_request', handler);
 
@@ -81,7 +100,11 @@ describe('InteractiveSession transport-neutral ask flow (REMOTE-007)', () => {
   });
 
   it('TC-03c: abort() drains a parked ask (the awaiting caller settles cancelled — no hang)', async () => {
-    const session = new InteractiveSession({ session: createSessionStub() });
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: createSessionStub(),
+    });
     const resolved: IPromptResolvedEvent[] = [];
     session.on('ask_request', () => {});
     session.on('prompt_resolved', (event) => resolved.push(event));
@@ -93,7 +116,11 @@ describe('InteractiveSession transport-neutral ask flow (REMOTE-007)', () => {
   });
 
   it('TC-03c: cancelQueue() also drains parked prompts', async () => {
-    const session = new InteractiveSession({ session: createSessionStub() });
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: createSessionStub(),
+    });
     session.on('ask_request', () => {});
     const pending = session.getUserInteraction()!.ask({ id: 'r', title: 't' });
     session.cancelQueue();
@@ -101,7 +128,11 @@ describe('InteractiveSession transport-neutral ask flow (REMOTE-007)', () => {
   });
 
   it('resolvePermission/resolveAsk for an unknown id are safe no-ops', () => {
-    const session = new InteractiveSession({ session: createSessionStub() });
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: createSessionStub(),
+    });
     expect(() => session.resolvePermission('nope', true)).not.toThrow();
     expect(() => session.resolveAsk('nope', { type: 'cancelled' })).not.toThrow();
   });
@@ -109,7 +140,11 @@ describe('InteractiveSession transport-neutral ask flow (REMOTE-007)', () => {
 
 describe('SCREEN-1992 main-thread needs-input (TC-05)', () => {
   it('a parked ask flips the main-thread entry to needs-input with a question headline, and settling clears it', async () => {
-    const session = new InteractiveSession({ session: createSessionStub() });
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: createSessionStub(),
+    });
     const asks: IAskRequestEvent[] = [];
     const states: string[] = [];
     session.on('ask_request', (event) => asks.push(event));

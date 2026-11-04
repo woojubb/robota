@@ -7,8 +7,11 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
 import { createSessionStub } from './helpers/session-stub.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ISessionLoopState } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 function loop(loopId: string, phase: ISessionLoopState['phase']): ISessionLoopState {
   return { loopId, phase } as ISessionLoopState;
@@ -18,7 +21,11 @@ function sessionWith(loops: ISessionLoopState[]): {
   session: InteractiveSession;
   stop: ReturnType<typeof vi.fn>;
 } {
-  const session = new InteractiveSession({ session: createSessionStub(), cwd: '/tmp' });
+  const session = new InteractiveSession({
+    host: testHost,
+    session: createSessionStub(),
+    cwd: '/tmp',
+  });
   vi.spyOn(session, 'listSelfPacedLoops').mockReturnValue(loops);
   const stop = vi.fn().mockResolvedValue(undefined);
   vi.spyOn(session, 'stopSelfPacedLoop').mockImplementation(stop);

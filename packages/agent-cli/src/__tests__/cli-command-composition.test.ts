@@ -16,6 +16,7 @@ import { createHeadlessTransport } from '@robota-sdk/agent-framework';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { startCli } from '../cli.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type {
   IAIProvider,
@@ -28,6 +29,8 @@ import type {
   IProviderCommandSettingsAdapter,
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 const createProviderSettingsAdapter = (cwd: string): IProviderCommandSettingsAdapter => {
   const userHome = process.env.HOME ?? process.env.USERPROFILE ?? '/';
@@ -220,6 +223,7 @@ describe('default CLI command composition', () => {
   it('runs permissions mode changes through headless slash-command execution', async () => {
     const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-headless-permissions-')));
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: createFakeProvider(),
       config: {
@@ -290,6 +294,7 @@ describe('default CLI command composition', () => {
       }),
     );
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: createFakeProvider(),
       config: {

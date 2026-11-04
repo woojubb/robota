@@ -30,6 +30,7 @@ import { createUserSessionStore } from '@robota-sdk/agent-framework';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ChildProcessSubagentRunner, createChildProcessSubagentRunnerFactory } from '../index.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 const spawned = vi.hoisted(() => ({ children: [] as import('node:child_process').ChildProcess[] }));
 vi.mock('node:child_process', async (importOriginal) => {
@@ -57,6 +58,8 @@ import type {
   TBackgroundTaskEvent,
 } from '@robota-sdk/agent-interface-execution';
 import type { TResumeSessionStore } from '../index.js';
+
+const testHost = createTestFrameworkHost();
 
 /** A session record, typed from the store port this package resumes through. */
 type IInteractiveSessionRecord = Parameters<TResumeSessionStore['save']>[0];
@@ -97,6 +100,7 @@ function createDeps(
   extra: Partial<IInProcessSubagentRunnerDeps> = {},
 ): IInProcessSubagentRunnerDeps {
   return {
+    host: testHost,
     config: {
       defaultTrustLevel: 'moderate',
       currentProvider: 'openai',

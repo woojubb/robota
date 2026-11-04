@@ -5,8 +5,11 @@ import { runServeMode, type IServeModeOptions } from '../../../modes/serve-mode.
 import { createServeSessionDirectory } from '../../../modes/serve-session-directory.js';
 import { parseCliArgs } from '../../../utils/cli-args.js';
 import { readSupervisedTransportToken } from '../../supervised-transport-token.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 const id = process.argv[process.argv.indexOf('--supervised-session-id') + 1];
 const nameArg = process.argv.find((arg) => arg.startsWith('--name='));
@@ -33,6 +36,7 @@ const provider: IAIProvider = {
 
 const never = new Promise<never>(() => undefined);
 const options = {
+  host: testHost,
   productRuntime: createTestProductRuntime('test-product', { PRODUCT_USER_STATE_DIR: supervisedRoot }),
   cwd: process.cwd(),
   supervisedRoot,

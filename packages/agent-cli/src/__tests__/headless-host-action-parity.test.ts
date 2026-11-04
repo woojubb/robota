@@ -22,9 +22,12 @@ import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createProgrammaticAgent } from '@robota-sdk/agent-framework';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { ICommandHostAdapters, ICommandModule } from '@robota-sdk/agent-framework';
 import type { IAgentDriver, InteractionEvent } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 /** The minimal runtime-session stub the InteractiveSession wraps (no provider turn is run here). */
 function createRuntimeSession(): Record<string, unknown> {
@@ -51,6 +54,8 @@ function createRuntimeSession(): Record<string, unknown> {
 /** A zero-surface session: NOTHING subscribes to its events — the pure headless embedding. */
 function headlessSession(adapters: ICommandHostAdapters): InteractiveSession {
   return new InteractiveSession({
+    host: testHost,
+    cwd: process.cwd(),
     session: createRuntimeSession() as never,
     commandModules: [createLanguageCommandModule(), createSettingsCommandModule()],
     commandHostAdapters: adapters,
@@ -133,6 +138,7 @@ describe('CMD-004 Stage D — programmatic driver surface (no adapters wired)', 
   it('a host action reaching an adapter-less programmatic embedding fails EXPLICITLY, visibly in the command-result', async () => {
     const scripted = createScriptedProvider([{ text: 'unused' }]);
     driver = createProgrammaticAgent({
+      host: testHost,
       provider: scripted.provider,
       cwd,
       commandModules: [RELOAD_LANGUAGE_MODULE],

@@ -26,12 +26,15 @@ import {
   contentOf,
 } from '../../interactive/__tests__/helpers/sealed-session-fixtures.js';
 import { createInProcessSubagentRunner } from '../in-process-subagent-runner.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IInProcessSubagentRunnerDeps } from '../in-process-subagent-runner.js';
 import type { IResolvedConfig } from '../../config/config-types.js';
 import type { IArtifactSealerDouble } from '@robota-sdk/agent-core/testing';
 import type { ITerminalOutput, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { ISubagentJobStart } from '@robota-sdk/agent-executor';
+
+const testHost = createTestFrameworkHost();
 
 const PARENT_TEXT = 'CANARY-3e2-parent-conversation-77b1';
 const FORGED_TEXT = 'CANARY-3e2-swapped-fork-record-e4c0';
@@ -97,6 +100,7 @@ describe('a fork job in this process over a store that seals', () => {
     store = new NodeSessionStore(dir, { sealing: { sealer } });
     scripted = createScriptedProvider([{ text: 'the fork answers' }]);
     deps = {
+      host: testHost,
       config: CONFIG,
       context: { agentsMd: '', projectNotesMd: '' },
       tools: [],

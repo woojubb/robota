@@ -10,6 +10,9 @@ import { createNodeHostSettingsSource } from '../../config/settings-source.js';
 import { TEST_PROJECT_SETTINGS_PATHS } from '../../testing/project-settings-path-fixture.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/index.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 let root: string;
 let cwd: string;
@@ -39,6 +42,7 @@ function addPlugin(name: string, type: 'prompt' | 'agent'): string {
 async function start(): Promise<Error | undefined> {
   try {
     await createInteractiveSession({
+      host: testHost,
       cwd,
       projectAccess: await createTrustedProjectAccessFixture(cwd),
       projectSettingsPaths: TEST_PROJECT_SETTINGS_PATHS,
@@ -97,6 +101,7 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
     });
 
     const error = await createInteractiveSession({
+      host: testHost,
       cwd,
       projectAccess: await createTrustedProjectAccessFixture(cwd),
       userSettingsSources: [
@@ -116,6 +121,7 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
 
     await expect(
       createInteractiveSession({
+        host: testHost,
         cwd,
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
         provider: createScriptedProvider([]).provider,
@@ -130,6 +136,7 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
 
     await expect(
       createInteractiveSession({
+        host: testHost,
         cwd,
         projectAccess: await createTrustedProjectAccessFixture(cwd),
         projectSettingsPaths: TEST_PROJECT_SETTINGS_PATHS,
@@ -150,6 +157,7 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
 
     await expect(
       createInteractiveSession({
+        host: testHost,
         cwd,
         projectAccess: await createTrustedProjectAccessFixture(cwd),
         projectSettingsPaths: TEST_PROJECT_SETTINGS_PATHS,

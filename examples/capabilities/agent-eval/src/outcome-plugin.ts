@@ -28,6 +28,10 @@ import { ReplayProvider } from '@robota-sdk/agent-provider-replay';
 
 import { summarizeTrials, type IOutcomeTrial } from './outcome-report.js';
 import { assertStaleState, type IStateObservation } from './outcome-state.js';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+
+const host = createNodeFrameworkHost({ createDefaultTools });
 
 class ObservedReplayProvider extends ReplayProvider {
   readonly requests: TUniversalMessage[][] = [];
@@ -193,7 +197,7 @@ try {
         ],
       });
       const start = performance.now();
-      const result = await createSessionRunFn(createAgentRuntime({ cwd: root, provider }), {
+      const result = await createSessionRunFn(createAgentRuntime({ host, cwd: root, provider }), {
         bare: true,
         permissionMode: 'acceptEdits',
         additionalTools: tools,

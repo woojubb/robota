@@ -13,6 +13,9 @@ import type {
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { SessionExecutionController } from '../interactive-session-execution-controller.js';
 import { createSessionStub } from './helpers/session-stub.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 function holdForeground(interactive: InteractiveSession): {
   controller: SessionExecutionController;
@@ -80,6 +83,7 @@ function setup(
     delete: vi.fn(),
   });
   const interactive = new InteractiveSession({
+    host: testHost,
     session,
     sessionStore: store as never,
     cwd: '/workspace',
@@ -206,6 +210,7 @@ describe('session-loop creation durability', () => {
     await vi.waitFor(() => expect(interactive.listSelfPacedLoops()[0]?.phase).toBe('waiting'));
     const oldTimerCount = manager.list().filter((task) => task.metadata?.['sessionLoopSelfPaced']).length;
     const resumed = new InteractiveSession({
+      host: testHost,
       session: interactive.getSession(),
       sessionStore: store as never,
       resumeSessionId: 'loop_durable',
@@ -253,6 +258,7 @@ describe('session-loop creation durability', () => {
       }] as never,
     });
     const resumed = new InteractiveSession({
+      host: testHost,
       session: interactive.getSession(),
       sessionStore: store as never,
       resumeSessionId: 'loop_durable',

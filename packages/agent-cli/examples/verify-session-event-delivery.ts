@@ -13,8 +13,11 @@ import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk
 
 import { createSessionEventDeliveryProjectAccess } from './session-event-delivery-project-access.js';
 import { createTestProductRuntime } from '../src/__tests__/helpers/product-runtime.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { TServerMessage } from '@robota-sdk/agent-transport';
+
+const testHost = createTestFrameworkHost();
 
 // Contained — ARCH-047. Project mutation (the Write tool that produces edit checkpoints) is
 // available only on Linux (project-relative-writer.ts refuses other hosts by design), so this
@@ -67,6 +70,7 @@ async function main(): Promise<void> {
     }),
   });
   const session = new InteractiveSession({
+    host: testHost,
     cwd,
     provider: script.provider,
     projectAccess,

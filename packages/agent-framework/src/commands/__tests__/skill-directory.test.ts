@@ -13,8 +13,11 @@ import { createContributionSourcesForProjectAccess } from '../../contributions/i
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../../interactive/interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICommandHostContext, ICommandModule } from '../index.js';
+
+const testHost = createTestFrameworkHost();
 
 /** The routing the product's `/skills <name>` command performs. */
 const skillsModule = {
@@ -101,6 +104,7 @@ describe('${CLAUDE_SKILL_DIR}', () => {
     );
     const run = vi.fn().mockResolvedValue('done');
     const session = new InteractiveSession({
+      host: testHost,
       session: {
         getCwd: () => cwd,
         run,

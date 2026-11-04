@@ -22,6 +22,7 @@ import { PrintTerminal } from '../../print-terminal.js';
 import { createOpenRouterConnectionHost } from '../../startup/openrouter-connection-host.js';
 import { createSetupPlaceholderProvider } from '../../startup/setup-placeholder-provider.js';
 import { buildServeSessionOptions } from '../serve-mode.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type {
   IAIProvider,
@@ -35,6 +36,8 @@ import type {
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
+
+const testHost = createTestFrameworkHost();
 
 type TAskFrame = Extract<TServerMessage, { type: 'ask_request' }>;
 
@@ -181,6 +184,7 @@ async function fixture(
   const requestRestart = vi.fn();
   const session = new InteractiveSession({
     ...buildServeSessionOptions({
+      host: testHost,
       productRuntime: createTestProductRuntime('test-product', { HOME: home }),
       cwd: directory,
       args: { noSessionPersistence: true },
@@ -369,6 +373,7 @@ describe('OpenRouter connection through the App session protocol', () => {
             state: 'complete',
           });
           const runner = runnerFactory({
+            host: testHost,
             config: {
               defaultTrustLevel: 'moderate',
               provider: config,

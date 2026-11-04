@@ -10,8 +10,11 @@ import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { describe, it, expect, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IContextReferenceItem } from '../../context/context-reference-inventory.js';
+
+const testHost = createTestFrameworkHost();
 
 function createMockSession(options?: { sessionId?: string }) {
   return {
@@ -94,6 +97,7 @@ describe('RESUME-001: session resume context recovery', () => {
       });
 
       const session = new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/project',
         sessionStore: mockStore as never,
@@ -120,6 +124,7 @@ describe('RESUME-001: session resume context recovery', () => {
       });
 
       const session = new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/project',
         sessionStore: mockStore as never,
@@ -149,6 +154,7 @@ describe('RESUME-001: session resume context recovery', () => {
 
       const received: unknown[] = [];
       const session = new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/project',
         sessionStore: mockStore as never,
@@ -187,6 +193,7 @@ describe('RESUME-001: session resume context recovery', () => {
       });
 
       new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/project',
         sessionStore: mockStore as never,
@@ -213,6 +220,7 @@ describe('RESUME-001: session resume context recovery', () => {
       });
 
       new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/project',
         sessionStore: mockStore as never,
@@ -236,6 +244,7 @@ describe('RESUME-001: session resume context recovery', () => {
       });
 
       new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/project',
         sessionStore: mockStore as never,
@@ -263,6 +272,7 @@ describe('RESUME-001: session resume context recovery', () => {
       });
 
       const session = new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/project',
         sessionStore: mockStore as never,
@@ -299,6 +309,7 @@ describe('RESUME-001: session resume context recovery', () => {
       });
 
       const session = new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/project',
         sessionStore: mockStore as never,
@@ -326,6 +337,7 @@ describe('RESUME-001: session resume context recovery', () => {
       });
 
       const session = new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/project',
         sessionStore: mockStore as never,
@@ -350,6 +362,7 @@ describe('RESUME-001: session resume context recovery', () => {
       const mockStore = createMockSessionStore();
 
       const session = new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/project',
         sessionStore: mockStore as never,

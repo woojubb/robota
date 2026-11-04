@@ -30,6 +30,7 @@ import type { IProviderDefinition, TProviderCredentialResolver } from '@robota-s
 import type {
   IEvalDefinition,
   IEvalReport,
+  IFrameworkHost,
   INodeHostSettingsSource,
   TEvalRunFn,
   TSettingsSource,
@@ -38,6 +39,8 @@ import type {
 
 /** Injection seams so the exit-code contract test can run without a live provider (TC-03). */
 export interface IRunEvalDeps {
+  /** The platform the default run source's sessions run on; required unless `runFn` is given. */
+  host?: IFrameworkHost;
   /** Override the run source (default: built from the CLI-resolved provider). */
   runFn?: TEvalRunFn;
   /** Override definition loading (default: dynamic `import()` of the module path). */
@@ -118,7 +121,13 @@ async function buildDefaultRunFn(cwd: string, deps: IRunEvalDeps): Promise<TEval
       ? config
       : await deps.resolveProviderCredential(config);
   const provider = createProviderFromConfig(resolved, definitions);
+  const host =
+    deps.host ??
+    (() => {
+      throw new Error('Eval startup requires a framework host.');
+    })();
   const runtime = createAgentRuntime({
+    host,
     cwd,
     provider,
     userSettingsSources: settingsSources.filter(

@@ -14,10 +14,13 @@ import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { attachLocalPeerMessaging } from '../host-action-adapters.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { ILocalPeerPresence } from '../../remote-control/local-peer-presence.js';
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
 import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 let root: string;
 let guardedDirectory: string;
@@ -55,6 +58,7 @@ async function liveSession(sessionId: string, turns: readonly TScriptedTurn[]) {
     localPeers: { list: () => [], ownSessionId: () => sessionId },
   };
   const session = new InteractiveSession({
+    host: testHost,
     cwd: workspace,
     provider: scripted.provider,
     bare: true,

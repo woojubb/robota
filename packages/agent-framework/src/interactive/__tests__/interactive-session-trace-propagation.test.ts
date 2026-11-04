@@ -7,9 +7,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { outboundTraceContextFor } from '@robota-sdk/agent-core';
 
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IRunTraceContext } from '@robota-sdk/agent-core';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+
+const testHost = createTestFrameworkHost();
 
 const ORIGIN = 'https://api.example.com';
 const CALL_ID = '123e4567-e89b-42d3-a456-426614174000';
@@ -87,6 +90,7 @@ describe('trusted trace context propagation', () => {
     });
     const enqueue = vi.fn();
     const session = new InteractiveSession({
+      host: testHost,
       session: mock.session as never,
       cwd: '/tmp',
       livePromptTrace: { enqueue, traceContextPropagation: { allowedOrigins: [ORIGIN] } },
@@ -109,6 +113,7 @@ describe('trusted trace context propagation', () => {
     for (const livePromptTrace of [undefined, { enqueue: vi.fn() }]) {
       const mock = createMockSession(async () => 'response');
       const session = new InteractiveSession({
+        host: testHost,
         session: mock.session as never,
         cwd: '/tmp',
         ...(livePromptTrace ? { livePromptTrace } : {}),
@@ -123,6 +128,7 @@ describe('trusted trace context propagation', () => {
     const mock = createMockSession(async () => 'response');
     const enqueue = vi.fn();
     const session = new InteractiveSession({
+      host: testHost,
       session: mock.session as never,
       cwd: '/tmp',
       livePromptTrace: {
@@ -145,6 +151,7 @@ describe('trusted trace context propagation', () => {
   it('passes no trace context for an empty origin list and no subprocess class', async () => {
     const mock = createMockSession(async () => 'response');
     const session = new InteractiveSession({
+      host: testHost,
       session: mock.session as never,
       cwd: '/tmp',
       livePromptTrace: {
@@ -166,6 +173,7 @@ describe('trusted trace context propagation', () => {
         return 'response';
       });
       return new InteractiveSession({
+        host: testHost,
         session: mock.session as never,
         cwd: '/tmp',
         livePromptTrace: {

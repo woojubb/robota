@@ -20,6 +20,9 @@ import {
   listSupervisedSessions,
   startSupervisedControl,
 } from '../supervised-session-control.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 function readGeneration(root: string, id: string): string {
   return String((JSON.parse(readFileSync(join(root, id, 'state.json'), 'utf8')) as { generation?: unknown }).generation);
@@ -407,6 +410,7 @@ describe('session view command', () => {
     const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
     const { InteractiveSession } = await import('@robota-sdk/agent-framework');
     const session = new InteractiveSession({
+      host: testHost,
       session: {
         run: vi.fn().mockResolvedValue('answer'), abort: vi.fn(), clearHistory: vi.fn(),
         getHistory: vi.fn().mockReturnValue([]), injectMessage: vi.fn(),
@@ -468,6 +472,7 @@ describe('session view command', () => {
     vi.stubEnv('HOME', scratch);
     const { InteractiveSession, createRestrictedWorkspaceProjectAccess } = await import('@robota-sdk/agent-framework');
     const session = new InteractiveSession({
+      host: testHost,
       session: {
         run: vi.fn().mockResolvedValue('answer'), abort: vi.fn(), clearHistory: vi.fn(),
         getHistory: vi.fn().mockReturnValue([]), injectMessage: vi.fn(),

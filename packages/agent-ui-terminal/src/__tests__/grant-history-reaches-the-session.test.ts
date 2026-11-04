@@ -10,13 +10,17 @@ import { describe, expect, it } from 'vitest';
 
 import { toChannelOptions } from '../render.js';
 import { buildTuiSessionOptions } from '../tui-session-options.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IRenderOptions } from '../render.js';
+
+const testHost = createTestFrameworkHost();
 
 describe('#3189: the grant history survives the TUI projection', () => {
   it('carries the same history instance into every session it builds', () => {
     const history = createExternalEventGrantHistory();
     const options = {
+      host: testHost,
       cwd: '/work',
       provider: {} as never,
       externalEventGrantHistory: history,

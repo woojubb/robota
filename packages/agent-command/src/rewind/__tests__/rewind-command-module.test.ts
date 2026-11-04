@@ -10,6 +10,9 @@ import {
   InteractiveSession,
 } from '@robota-sdk/agent-framework';
 import { RewindCommandSource, createRewindCommandModule, executeRewindCommand } from '../index.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 function createCheckpoint(overrides: Partial<IEditCheckpointSummary> = {}): IEditCheckpointSummary {
   return {
@@ -76,6 +79,8 @@ function createMockRuntimeSession() {
 
 function createInteractiveSession(commandProductVocabulary?: { cliName: string; displayName: string }): InteractiveSession {
   return new InteractiveSession({
+    host: testHost,
+    cwd: process.cwd(),
     session: createMockRuntimeSession() as never,
     commandModules: [createRewindCommandModule()],
     commandProductVocabulary,

@@ -5,6 +5,9 @@ import { join } from 'node:path';
 
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 const startup = vi.hoisted(() => ({ compose: vi.fn() }));
 vi.mock('../startup/mcp-startup.js', async (original) => ({
@@ -42,6 +45,7 @@ async function composedWith(argv: readonly string[]): Promise<{
           productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
           projectAccess: createRestrictedWorkspaceProjectAccess('untrusted'),
         },
+        testHost,
         () => [],
       ),
     ).rejects.toThrow('composition inspected');

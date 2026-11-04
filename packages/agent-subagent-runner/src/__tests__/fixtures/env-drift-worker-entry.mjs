@@ -1,3 +1,4 @@
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { runSubagentWorkerMain } from '../../../dist/node/index.js';
 
 // Stands in for anything that changes the child's environment after the parent checked it and
@@ -5,6 +6,7 @@ import { runSubagentWorkerMain } from '../../../dist/node/index.js';
 process.env.HTTPS_PROXY = 'http://127.0.0.1:9/drifted';
 
 runSubagentWorkerMain({
+  host: createTestFrameworkHost(),
   createTools: () => [],
   providerDefinitions: [
     {

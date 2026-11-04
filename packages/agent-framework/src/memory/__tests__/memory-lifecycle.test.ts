@@ -8,7 +8,10 @@ import { SemanticMemoryStore } from '../semantic-memory-store.js';
 import { vi } from 'vitest';
 import { InteractiveSession } from '../../interactive/interactive-session.js';
 import { AutomaticMemoryController } from '../automatic-memory-controller.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 const roots: string[] = [];
 const sessions: InteractiveSession[] = [];
@@ -87,7 +90,13 @@ describe.runIf(process.platform === 'linux')('durable memory lifecycle', () => {
       env: {},
     };
     await store.append({ type: 'project', topic: 'build', text: 'Use npm for builds.' });
-    const session = new InteractiveSession({ cwd: root, provider, config, memoryStore: store });
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: root,
+      provider,
+      config,
+      memoryStore: store,
+    });
     sessions.push(session);
     const system = () =>
       calls
@@ -105,6 +114,7 @@ describe.runIf(process.platform === 'linux')('durable memory lifecycle', () => {
     await session.submit('Check the current instructions again.');
     expect(system()).not.toContain('Use pnpm');
     const restarted = new InteractiveSession({
+      host: testHost,
       cwd: root,
       provider,
       config,

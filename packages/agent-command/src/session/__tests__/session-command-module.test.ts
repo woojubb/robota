@@ -11,8 +11,10 @@ import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-fra
 import { createSessionCommandModule } from '../session-command-module.js';
 import {
   createTestCommandHost,
-  createTestSessionRuntime,
+  createTestSessionRuntime, createTestFrameworkHost,
 } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 function createRuntime() {
   return createTestSessionRuntime({
@@ -301,6 +303,8 @@ describe('createSessionCommandModule', () => {
       getEventService: () => ({ subscribe: () => {}, unsubscribe: () => {} }),
     };
     const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: runtime as never,
       commandModules: [createSessionCommandModule()],
     });

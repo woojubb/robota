@@ -7,6 +7,9 @@ import { EditCheckpointStore, createWorkspaceProjectMutation } from '@robota-sdk
 
 import { createSessionEventRenderingProjectAccess } from './session-event-rendering-project-access.js';
 import { TuiInteractionChannel } from '../src/index.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 // Contained — ARCH-047. Project mutation (the Write tool that produces edit checkpoints) is
 // available only on Linux (project-relative-writer.ts refuses other hosts by design), so this
@@ -43,6 +46,7 @@ async function main(): Promise<void> {
   });
   const deliveryFailures: Array<{ message: string; event: string }> = [];
   const channel = new TuiInteractionChannel({
+    host: testHost,
     cwd,
     provider: script.provider,
     projectAccess,

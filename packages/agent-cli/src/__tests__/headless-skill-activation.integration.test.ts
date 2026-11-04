@@ -14,6 +14,9 @@ import type {
   TInteractiveSessionOptions,
 } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '@robota-sdk/agent-framework';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 type TStandardSessionOptions = Extract<
   TInteractiveSessionOptions,
@@ -294,6 +297,7 @@ describe('headless transport skill activation integration', () => {
     );
     const observed = createSkillToolCallingProvider();
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: observed.provider,
       projectAccess: await createTrustedProjectAccess(cwd),
@@ -371,6 +375,7 @@ describe('headless transport skill activation integration', () => {
     );
     const observed = createPromptObservingProvider('Headless slash skill activated');
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: observed.provider,
       projectAccess: await createTrustedProjectAccess(cwd),
@@ -431,6 +436,7 @@ describe('headless transport skill activation integration', () => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-headless-unknown-tool-')));
     const observed = createUnknownToolCallingProvider();
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: observed.provider,
       config: createConfig(),

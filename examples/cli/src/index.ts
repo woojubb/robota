@@ -17,6 +17,10 @@ import { fstatSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { createQuery } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+
+const host = createNodeFrameworkHost({ createDefaultTools });
 
 function resolveProvider() {
   if (process.env.ANTHROPIC_API_KEY) {
@@ -56,6 +60,8 @@ async function main(): Promise<void> {
   }
 
   const query = createQuery({
+    host,
+    cwd: process.cwd(),
     provider: resolveProvider(),
     onTextDelta: (delta) => process.stdout.write(delta),
   });

@@ -27,6 +27,7 @@ import { createUserSessionStore } from '@robota-sdk/agent-framework';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ChildProcessSubagentRunner } from '../index.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 const spawned = vi.hoisted(() => ({
   children: [] as import('node:child_process').ChildProcess[],
@@ -58,6 +59,8 @@ import type {
 import type { ISubagentJobStart, ISubagentWorktreeAdapter } from '@robota-sdk/agent-executor';
 import type { IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
 import type { TResumeSessionStore } from '../index.js';
+
+const testHost = createTestFrameworkHost();
 
 type IInteractiveSessionRecord = Parameters<TResumeSessionStore['save']>[0];
 
@@ -95,6 +98,7 @@ function directory(prefix: string): string {
 
 function createDeps(store: TResumeSessionStore): IInProcessSubagentRunnerDeps {
   return {
+    host: testHost,
     config: {
       defaultTrustLevel: 'moderate',
       currentProvider: 'openai',

@@ -6,6 +6,9 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
 import type { IMemoryBudget, IMemoryStore, IPerTurnRecallConfig } from '../src/index.js';
 import { InteractiveSession } from '../src/index.js';
+import { createTestFrameworkHost } from '../src/testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const PROMPT = 'MEM-2055 how do I rotate the deploy key?';
 const RECALL_BODY = '### deploy\nThe staging deploy key rotates every 30 days.';
@@ -43,6 +46,7 @@ async function main(): Promise<void> {
   try {
     const { provider } = createScriptedProvider([{ text: 'ok' }]);
     session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider,
       bare: true,

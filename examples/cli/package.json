@@ -12,7 +12,8 @@
   },
   "dependencies": {
     "@robota-sdk/agent-framework": "^3.0.0-beta.67",
-    "@robota-sdk/agent-provider-anthropic": "^3.0.0-beta.67"
+    "@robota-sdk/agent-provider-anthropic": "^3.0.0-beta.67",
+    "@robota-sdk/agent-tool-defaults": "^3.0.0-beta.67"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

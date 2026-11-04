@@ -10,12 +10,15 @@ import { afterAll, describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
 import { createPromptHistoryRecorder } from '../interactive-session-prompt-history.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type {
   IPromptHistoryEntry,
   IPromptHistoryWriter,
 } from '@robota-sdk/agent-interface-session';
 import type { IAIProvider } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 function recordingWriter(): IPromptHistoryWriter & { readonly entries: IPromptHistoryEntry[] } {
   const entries: IPromptHistoryEntry[] = [];
@@ -120,6 +123,7 @@ describe('InteractiveSession wires the recorder into the turn (SCREEN-1993 TC-02
   it('appends the typed prompt of a completed owner turn with the session id and project', async () => {
     const writer = recordingWriter();
     const session = new InteractiveSession({
+      host: testHost,
       cwd: PROJECT_DIR,
       provider: provider(),
       bare: true,
@@ -142,6 +146,7 @@ describe('InteractiveSession wires the recorder into the turn (SCREEN-1993 TC-02
       },
     };
     const session = new InteractiveSession({
+      host: testHost,
       cwd: PROJECT_DIR,
       provider: provider(),
       bare: true,
@@ -160,6 +165,7 @@ describe('InteractiveSession wires the recorder into the turn (SCREEN-1993 TC-02
 
   it('writes nothing when no writer is supplied', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       cwd: PROJECT_DIR,
       provider: provider(),
       bare: true,

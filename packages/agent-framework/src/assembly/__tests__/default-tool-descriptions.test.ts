@@ -7,10 +7,13 @@ import {
   buildSessionSystemPrompt,
   formatDeferredToolRoster,
 } from '../create-session-runtime.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICreateSessionOptions } from '../create-session-types.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { ITerminalOutput } from '@robota-sdk/agent-session';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * ARCH-035 SPLIT this file rather than moving it. The tool-assembly cases went to
@@ -47,6 +50,8 @@ const NOOP_TERMINAL: ITerminalOutput = {
 
 function makeOptions(): ICreateSessionOptions {
   return {
+    host: testHost,
+    cwd: process.cwd(),
     config: {
       defaultTrustLevel: 'safe',
       provider: { name: 'test', model: 'test-model', apiKey: undefined },

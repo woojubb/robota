@@ -21,6 +21,9 @@ import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { Session } from '@robota-sdk/agent-session';
 import type { IScheduledBackgroundTaskRequest } from '@robota-sdk/agent-interface-execution';
 import { createSessionStub as createSharedSessionStub } from './helpers/session-stub.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 function createSessionStub(): Session {
   // Through the shared helper, with the two members this file's cases actually need: a session id
@@ -105,7 +108,11 @@ async function setupSession(): Promise<{
   const manager = new BackgroundTaskManager({ runners: [runner] });
   const sessionStub = createSessionStub();
   storeAgentToolDeps(sessionStub, { backgroundTaskManager: manager } as unknown as IAgentToolDeps);
-  const session = new InteractiveSession({ session: sessionStub });
+  const session = new InteractiveSession({
+    host: testHost,
+    cwd: process.cwd(),
+    session: sessionStub,
+  });
   // Touch a background API so the tracker subscribes to the manager.
   session.listBackgroundTasks();
   await Promise.resolve();

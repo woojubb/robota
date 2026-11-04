@@ -21,7 +21,9 @@ import { createDefaultCommandModules } from '@robota-sdk/agent-command';
 import type { IProviderCommandSettingsAdapter } from '@robota-sdk/agent-command';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 
+declare const host: IFrameworkHost; // `createNodeFrameworkHost({ createDefaultTools })` on Node
 declare const provider: IAIProvider;
 declare const providerDefinitions: readonly IProviderDefinition[]; // e.g. agent-builtin-providers
 declare const providerSettingsAdapter: IProviderCommandSettingsAdapter; // reads/writes provider profiles
@@ -37,7 +39,7 @@ const { modules, unknownModuleNames } = createDefaultCommandModules({
 });
 void unknownModuleNames;
 
-const runtime = createAgentRuntime({ cwd, provider, commandModules: modules });
+const runtime = createAgentRuntime({ host, cwd, provider, commandModules: modules });
 ```
 
 Each module also has its own factory, so you can compose a smaller set by hand:

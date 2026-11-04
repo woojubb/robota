@@ -20,6 +20,7 @@ import {
   createProgrammaticAgent,
   ProgrammaticInteractionChannel,
 } from '../../programmatic/index.js';
+import { createTestFrameworkHost } from '../../../testing/framework-host.js';
 
 import type { IAgentDriver } from '@robota-sdk/agent-interface-session';
 import type {
@@ -27,6 +28,8 @@ import type {
   IWorkspaceTrustStore,
   IWorkspaceTrustStoreSnapshot,
 } from '../../../workspace-trust/types.js';
+
+const testHost = createTestFrameworkHost();
 
 class TrustedProjectStore implements IWorkspaceTrustStore {
   inspect(): Promise<IWorkspaceTrustStoreSnapshot> {
@@ -58,7 +61,7 @@ describe('programmatic in-process agent driver (INFRA-019)', () => {
 
   it('TC-01/02: send() drives a real turn and the scripted assistant reply is captured as data', async () => {
     const scripted = createScriptedProvider([{ text: 'DRIVEN_ANSWER_42' }]);
-    driver = createProgrammaticAgent({ provider: scripted.provider, cwd });
+    driver = createProgrammaticAgent({ host: testHost, provider: scripted.provider, cwd });
 
     await driver.start();
     await driver.send('hello');
@@ -93,6 +96,7 @@ describe('programmatic in-process agent driver (INFRA-019)', () => {
       { text: 'edit done' },
     ]);
     driver = createProgrammaticAgent({
+      host: testHost,
       provider: scripted.provider,
       cwd,
       permissionMode: 'bypassPermissions',
@@ -126,7 +130,12 @@ describe('programmatic in-process agent driver (INFRA-019)', () => {
     expect(projectAccess.status).toBe('trusted');
 
     const scripted = createScriptedProvider([{ text: 'authority observed' }]);
-    driver = createProgrammaticAgent({ provider: scripted.provider, cwd, projectAccess });
+    driver = createProgrammaticAgent({
+      host: testHost,
+      provider: scripted.provider,
+      cwd,
+      projectAccess,
+    });
     await driver.start();
     await driver.send('inspect project context');
 
@@ -140,6 +149,7 @@ describe('programmatic in-process agent driver (INFRA-019)', () => {
     writeFileSync(settingsPath, JSON.stringify({ language: canary }), 'utf8');
     const scripted = createScriptedProvider([{ text: 'settings observed' }]);
     driver = createProgrammaticAgent({
+      host: testHost,
       provider: scripted.provider,
       cwd,
       userSettingsSources: [createNodeHostSettingsSource('user', settingsPath)],
@@ -154,7 +164,7 @@ describe('programmatic in-process agent driver (INFRA-019)', () => {
 
   it('TC-04: queueUserAction pre-answers an askUser; empty queue resolves to cancelled', async () => {
     const scripted = createScriptedProvider([{ text: 'noop' }]);
-    driver = createProgrammaticAgent({ provider: scripted.provider, cwd });
+    driver = createProgrammaticAgent({ host: testHost, provider: scripted.provider, cwd });
     await driver.start();
 
     // Exercise the unified ask contract in isolation (the FIFO queue the driver's queueUserAction feeds).

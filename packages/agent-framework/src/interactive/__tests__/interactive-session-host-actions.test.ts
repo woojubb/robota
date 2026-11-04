@@ -18,10 +18,13 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICommandHostAdapters } from '../../command-api/host-adapters.js';
 import type { ICommandModule, ICommandResult } from '../../commands/index.js';
 import type { IUiIntentEvent } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 function createRuntimeSession(): Record<string, unknown> {
   return {
@@ -65,6 +68,8 @@ function createSession(
   modules: ICommandModule[],
 ): InteractiveSession {
   return new InteractiveSession({
+    host: testHost,
+    cwd: process.cwd(),
     session: createRuntimeSession() as never,
     commandModules: modules,
     commandHostAdapters: adapters,

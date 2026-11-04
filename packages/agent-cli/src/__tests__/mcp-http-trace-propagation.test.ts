@@ -20,11 +20,14 @@ import {
   createDiscoveredTool,
   openMcpSession,
 } from '@robota-sdk/agent-mcp';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { createNodeHttpEgress } from '@robota-sdk/agent-mcp/node';
 
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import type { IMCPCatalogToolEntry } from '@robota-sdk/agent-mcp';
 import type { IncomingHttpHeaders, Server } from 'node:http';
+
+const testHost = createTestFrameworkHost();
 
 interface IFakeServer {
   readonly url: string;
@@ -123,6 +126,7 @@ describe('MCP HTTP trace propagation through a real session', () => {
     ]);
     const enqueue = vi.fn();
     const session = new InteractiveSession({
+      host: testHost,
       cwd: home,
       provider: scripted.provider,
       bare: true,

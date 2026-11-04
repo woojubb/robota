@@ -94,7 +94,7 @@ OpenAI provider's `baseURL` (see the [providers guide](./content/guide/providers
 the Anthropic provider:
 
 ```bash
-npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-framework @robota-sdk/agent-tool-defaults @robota-sdk/agent-provider-anthropic
 ```
 
 With `ANTHROPIC_API_KEY` set, save this example as `query.mjs`. It shuts down the session when the
@@ -102,9 +102,13 @@ query finishes:
 
 ```javascript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const query = createQuery({
+	host: createNodeFrameworkHost({ createDefaultTools }),
+	cwd: process.cwd(),
 	provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
 	model: 'claude-sonnet-4-6',
 });

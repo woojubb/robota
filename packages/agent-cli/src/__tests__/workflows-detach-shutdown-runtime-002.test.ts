@@ -40,6 +40,7 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
 import { buildCommandSetup } from '../startup/command-setup.js';
 import { productProjectStateDirectories } from '../product/project-state-directories.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type {
   ICommandModule,
@@ -51,6 +52,8 @@ import type {
 } from '@robota-sdk/agent-framework';
 import type { IAIProvider, IProviderDefinition, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
+
+const testHost = createTestFrameworkHost();
 const PRODUCT_PROJECT_STATE_DIRECTORIES = productProjectStateDirectories(createTestProductRuntime());
 
 
@@ -204,6 +207,7 @@ describe('RUNTIME-002 (#2845): the served host owns a live detached /workflows r
     const scripted = createScriptedProvider([{ text: 'unused' }]);
     handle = await startRuntimeHost({
       session: {
+        host: testHost,
         provider: scripted.provider,
         cwd: root,
         projectAccess: access,

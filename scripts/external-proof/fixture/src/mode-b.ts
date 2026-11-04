@@ -10,9 +10,14 @@
 import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 import { ACME_PROVIDER_SETTINGS, acmeReviewerPreset } from './acme.js';
 import { check, checkEqual, checkThrows, mode, note, section } from './harness.js';
+
+/** The platform the proof's sessions run on: this Node process, with the framework's default tools. */
+const host = createNodeFrameworkHost({ createDefaultTools });
 
 export function runModeB(): void {
   mode('MODE B — author your own preset in code and layer it');
@@ -73,7 +78,7 @@ export function runModeB(): void {
 
   section('B3 — the posture reaches the real session options');
   const options = product.buildRuntimeOptions({
-    session: { cwd: process.cwd(), provider: product.provider!, bare: true },
+    session: { host, cwd: process.cwd(), provider: product.provider!, bare: true },
   });
   checkEqual(
     "the default preset's permissionMode is overlaid onto the session options",
@@ -83,6 +88,7 @@ export function runModeB(): void {
   note('the overlay only fills permissionMode when the shell left it unset — the shell still wins');
   const explicit = product.buildRuntimeOptions({
     session: {
+      host,
       cwd: process.cwd(),
       provider: product.provider!,
       bare: true,

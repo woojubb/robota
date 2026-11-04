@@ -20,6 +20,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { createSetupPlaceholderProvider } from '../../startup/setup-placeholder-provider.js';
 import { buildServeSessionOptions } from '../serve-mode.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 type AskFrame = Extract<TServerMessage, { type: 'ask_request' }>;
 
@@ -63,6 +66,7 @@ function fixture(initialSettings: TProviderSettingsDocument = {}) {
   };
   const session = new InteractiveSession({
     ...buildServeSessionOptions({
+      host: testHost,
       productRuntime: createTestProductRuntime('test-product', { HOME: home }),
       cwd: directory,
       args: { noSessionPersistence: true },

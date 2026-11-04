@@ -7,12 +7,15 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
 import { SessionAutoNaming } from '../session-auto-naming.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type {
   IInteractiveSessionEvents,
   TInteractiveEventName,
 } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 interface IFakeProvider extends IAIProvider {
   chat: ReturnType<typeof vi.fn>;
@@ -76,6 +79,7 @@ describe('InteractiveSession auto-naming (#3189)', () => {
     const provider = fakeProvider('refactor-auth-middleware');
     const renamed = vi.fn();
     const session = new InteractiveSession({
+      host: testHost,
       session: runtimeSession(provider) as never,
       cwd: '/tmp',
       autoName: true,
@@ -98,6 +102,7 @@ describe('InteractiveSession auto-naming (#3189)', () => {
   it('does not name a session unless the host turns it on', async () => {
     const provider = fakeProvider('never-used');
     const session = new InteractiveSession({
+      host: testHost,
       session: runtimeSession(provider) as never,
       cwd: '/tmp',
     });
@@ -112,6 +117,7 @@ describe('InteractiveSession auto-naming (#3189)', () => {
   it('keeps a name the session already has', async () => {
     const provider = fakeProvider('generated-title');
     const session = new InteractiveSession({
+      host: testHost,
       session: runtimeSession(provider) as never,
       cwd: '/tmp',
       sessionName: 'given-name',
@@ -130,6 +136,7 @@ describe('InteractiveSession auto-naming (#3189)', () => {
     const provider = fakeProvider(title.promise);
     const renamed = vi.fn();
     const session = new InteractiveSession({
+      host: testHost,
       session: runtimeSession(provider) as never,
       cwd: '/tmp',
       autoName: true,
@@ -151,6 +158,7 @@ describe('InteractiveSession auto-naming (#3189)', () => {
     const second = fakeProvider('from-second');
     const runtime = runtimeSession(first);
     const session = new InteractiveSession({
+      host: testHost,
       session: runtime as never,
       cwd: '/tmp',
       provider: first,

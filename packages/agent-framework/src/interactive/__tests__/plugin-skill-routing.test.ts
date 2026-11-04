@@ -10,8 +10,11 @@ import { InteractiveSession } from '../interactive-session.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/index.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICommandHostContext, ICommandModule } from '../../command-api/index.js';
+
+const testHost = createTestFrameworkHost();
 
 /** The routing the product's `/skills <name>` command performs. */
 const skillsModule = {
@@ -108,6 +111,7 @@ async function sessionWith(options: {
   writeFileSync(settingsPath, JSON.stringify({ enabledPlugins: options.enabledPlugins ?? {} }));
   const run = vi.fn().mockResolvedValue('done');
   const session = new InteractiveSession({
+    host: testHost,
     session: {
       getCwd: () => options.cwd,
       run,
@@ -157,6 +161,7 @@ describe('a bundle plugin skill', () => {
     writeFileSync(settingsPath, '{}');
     vi.stubEnv('HOME', home);
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: createScriptedProvider([]).provider,
       contributionSources: createNodeHostContributionSourcesFixture(cwd),

@@ -7,8 +7,11 @@ import { ConnectionAuthority } from '@robota-sdk/agent-interface-session-mobilit
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * A task another of the user's devices delegates runs under this session's ordinary permissions: the
@@ -28,6 +31,7 @@ afterEach(() => rmSync(join(workspace, '..'), { recursive: true, force: true }))
 function receiver(turns: readonly TScriptedTurn[]) {
   const scripted = createScriptedProvider(turns);
   const session = new InteractiveSession({
+    host: testHost,
     cwd: workspace,
     provider: scripted.provider,
     bare: true,

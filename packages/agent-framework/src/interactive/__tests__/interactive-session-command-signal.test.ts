@@ -12,8 +12,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICommandHostContext, ICommandModule } from '../../commands/index.js';
+
+const testHost = createTestFrameworkHost();
 
 function mockSession(cwd: string) {
   return {
@@ -80,6 +83,7 @@ describe('a command cancelled before its skill submits a turn', () => {
     );
     const inner = mockSession(cwd);
     const session = new InteractiveSession({
+      host: testHost,
       session: inner as never,
       cwd,
       contributionSources: createNodeHostContributionSourcesFixture(cwd),

@@ -11,6 +11,9 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createInteractiveSession } from '../interactive-session-init.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const originalHome = process.env.HOME;
 let root: string;
@@ -28,6 +31,7 @@ afterEach(() => {
 describe('plugin skills at session start', () => {
   it('are named in the prompt the session builds', async () => {
     const { session } = await createInteractiveSession({
+      host: testHost,
       cwd: root,
       provider: createScriptedProvider([]).provider,
       onTextDelta: () => {},

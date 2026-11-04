@@ -17,10 +17,13 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createTestFrameworkHost } from '../testing/framework-host.js';
 
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { TGuardrail } from '@robota-sdk/agent-core';
 import type { IInteractiveSessionStandardOptions } from '../interactive/interactive-session-options.js';
+
+const testHost = createTestFrameworkHost();
 
 const sessionCtorCalls: Array<Record<string, unknown>> = [];
 
@@ -141,6 +144,8 @@ describe('SEC-016: the built-in executors survive a non-empty executor array', (
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -165,6 +170,8 @@ describe('SEC-016: the built-in executors survive a non-empty executor array', (
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -184,6 +191,8 @@ describe('SEC-016: the built-in executors survive a non-empty executor array', (
     const custom = { type: 'command' as const, execute: vi.fn() };
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -210,6 +219,7 @@ describe('issue #2875: explicit built-in hook executor restriction', () => {
 
     await initializeInteractiveSessionAsync(
       {
+        host: testHost,
         cwd: '/restricted-hook-executors',
         provider: createMockProvider(),
         bare: true,
@@ -230,6 +240,7 @@ describe('issue #2875: explicit built-in hook executor restriction', () => {
     await expect(
       initializeInteractiveSessionAsync(
         {
+          host: testHost,
           cwd: '/restricted-hook-executors',
           provider: createMockProvider(),
           bare: true,
@@ -250,6 +261,7 @@ describe('issue #2875: explicit built-in hook executor restriction', () => {
 
     await initializeInteractiveSessionAsync(
       {
+        host: testHost,
         cwd: '/restricted-hook-executors',
         provider: createMockProvider(),
         bare: true,
@@ -274,6 +286,8 @@ describe('createSession registers the guardrail machinery (pre-existing, previou
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -293,6 +307,8 @@ describe('createSession registers the guardrail machinery (pre-existing, previou
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -306,6 +322,8 @@ describe('createSession registers the guardrail machinery (pre-existing, previou
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -322,6 +340,8 @@ describe('createSession registers the guardrail machinery (pre-existing, previou
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig({
         PreToolUse: [
           { matcher: 'Bash', hooks: [{ type: 'guardrail', guardrails: ['neverPasses'] }] },
@@ -357,6 +377,7 @@ describe('ARCH-013 stage 3 — the PUBLIC surface carries the guardrail port (th
 
     await initializeInteractiveSessionAsync(
       {
+        host: testHost,
         cwd: '/arch-013-stage-3-public',
         provider: createMockProvider(),
         bare: true,
@@ -377,6 +398,7 @@ describe('ARCH-013 stage 3 — the PUBLIC surface carries the guardrail port (th
 
     await initializeInteractiveSessionAsync(
       {
+        host: testHost,
         cwd: '/arch-013-stage-3-public',
         provider: createMockProvider(),
         bare: true,
@@ -413,6 +435,7 @@ describe('ARCH-013 stage 3 — the port is pinned to the PUBLISHED construction 
     // and red-proves. Two readers checked that pass-through by hand; it is the one link in this file
     // carried by review rather than by execution.
     const options: IInteractiveSessionStandardOptions = {
+      host: testHost,
       cwd: '/arch-013-stage-3-seam',
       provider: createMockProvider(),
       bare: true,
@@ -435,6 +458,7 @@ describe('issue #3082: an organization policy turns auto mode off', () => {
 
     await initializeInteractiveSessionAsync(
       {
+        host: testHost,
         cwd: '/org-policy-auto-mode',
         provider: createMockProvider(),
         bare: true,
@@ -445,6 +469,7 @@ describe('issue #3082: an organization policy turns auto mode off', () => {
     );
     await initializeInteractiveSessionAsync(
       {
+        host: testHost,
         cwd: '/org-policy-auto-mode',
         provider: createMockProvider(),
         bare: true,

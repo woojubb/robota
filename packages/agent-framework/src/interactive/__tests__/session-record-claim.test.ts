@@ -36,6 +36,7 @@ import {
   turn,
   writeOwnerRecord,
 } from './helpers/sealed-session-fixtures.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type {
   IInteractiveSessionRecord,
@@ -45,6 +46,8 @@ import type {
   ISessionLoadOptions,
   ISessionSaveOptions,
 } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 const OWNER_TEXT = 'CANARY-3e2-owner-conversation-41d8';
 const FORGED_TEXT = 'CANARY-3e2-forged-conversation-9c02';
@@ -212,7 +215,12 @@ describe('where a session claims its record', () => {
     const inner = (
       await started(sessionOptions(cwd, new NodeSessionStore(directory(), { sealing: 'plain' })))
     ).getSession();
-    const injected = construct({ session: inner, cwd, sessionStore: store }).session!;
+    const injected = construct({
+      host: testHost,
+      session: inner,
+      cwd,
+      sessionStore: store,
+    }).session!;
     expect(claimable(store, injected.sessionId)).toBe(false);
 
     // A served runtime's pool builds its sessions from the same recipe.

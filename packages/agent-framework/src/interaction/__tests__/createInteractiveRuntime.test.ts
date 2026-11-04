@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { createInteractiveRuntimeForTesting } from '../../testing/index.js';
 import { createInteractiveRuntime as createProductionInteractiveRuntime } from '../createInteractiveRuntime.js';
 import { MockInteractionChannel } from './MockInteractionChannel.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IInteractiveSession } from '../../interactive/i-interactive-session.js';
 import type { IInteractiveRuntimeTestOptions } from '../createInteractiveRuntime.js';
@@ -11,6 +12,8 @@ import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { ICommandListEntry } from '../../commands/index.js';
 import type { IInteractiveSessionEvents, TInteractiveEventName } from '../../interactive/types.js';
+
+const testHost = createTestFrameworkHost();
 
 type Handler = IInteractiveSessionEvents[TInteractiveEventName];
 
@@ -151,6 +154,7 @@ describe('createInteractiveRuntime', () => {
 
   it('rejects a missing provider at production session assembly', async () => {
     const runtime = createProductionInteractiveRuntime({
+      host: testHost,
       channel,
       commandModules: [],
       cwd: process.cwd(),
@@ -162,6 +166,7 @@ describe('createInteractiveRuntime', () => {
 
   it('rejects an empty cwd at production session assembly', async () => {
     const runtime = createProductionInteractiveRuntime({
+      host: testHost,
       channel,
       commandModules: [],
       cwd: '',

@@ -2,7 +2,10 @@ import { expect, it, vi } from 'vitest';
 import { InteractiveSession } from '../interactive-session.js';
 import { publicTurnOptions } from '../interactive-session-turn-submission.js';
 import { createSessionStub } from './helpers/session-stub.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import type { ICommand } from '../../command-api/types.js';
+
+const testHost = createTestFrameworkHost();
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -45,7 +48,7 @@ function fixture() {
     getModelId: () => 'test-model',
     getPermissionMode: () => 'default',
   } as never);
-  const session = new SkillSession({ session: parent, cwd: process.cwd() });
+  const session = new SkillSession({ host: testHost, session: parent, cwd: process.cwd() });
   const activation = {
     content: 'Verified $ARGUMENTS',
     validate: vi.fn(async () => undefined),
