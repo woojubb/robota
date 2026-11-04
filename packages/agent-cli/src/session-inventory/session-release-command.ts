@@ -21,7 +21,8 @@ import {
   getWorkspaceProjectStateStorage,
   projectSessionClaimsDirectory,
 } from '@robota-sdk/agent-framework';
-import { SESSION_CLAIMS_DIRECTORY, isSafeSessionId } from '@robota-sdk/agent-session';
+import { isSafeSessionId } from '@robota-sdk/agent-session';
+import { SESSION_CLAIMS_DIRECTORY } from '@robota-sdk/agent-session/node';
 
 import { openSecretTerminal } from '../devices/secret-terminal.js';
 import { isYes } from '../remote-control/operator-approval.js';
