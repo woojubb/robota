@@ -78,7 +78,11 @@ export interface IRuntimeLinkDeps {
   /** The bytes after the request line that arrived with it. */
   readonly rest?: Uint8Array;
   readonly handshakeTimeoutMs?: number;
-  /** Called once the handshake admitted the client; the ports it returns serve that link. */
+  /**
+   * Called once the handshake admitted the client; the ports it returns serve that link. The opening
+   * custody notice is always the first frame the client sees: whatever `admit` sends through the link
+   * goes out right after it, in the order it was sent.
+   */
   readonly admit: (link: IAdmittedRuntimeLink) => IRuntimeLinkPorts;
 }
 
@@ -114,9 +118,24 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
   );
   timer.unref?.();
 
+  /**
+   * What `admit` asked to send, as writes to run once the opening custody notice is out; `undefined`
+   * outside that window. A frame's counter is taken when it is sealed, so the notice is sealed first.
+   */
+  let held: Array<() => void> | undefined;
+
+  const sendSealed = (kind: 'session' | 'owner', bytes: Uint8Array): void => {
+    const write = (): void => {
+      if (link === undefined || link.closed || stream.destroyed) return;
+      stream.write(encodeLinkFrame(link.seal(kind, bytes)));
+    };
+    if (held !== undefined) held.push(write);
+    else write();
+  };
+
   const sendOwner = (message: TRuntimeMessage): void => {
     if (link === undefined || link.closed || stream.destroyed) return;
-    stream.write(encodeLinkFrame(link.seal('owner', encodeRuntimeMessage(message))));
+    sendSealed('owner', encodeRuntimeMessage(message));
   };
 
   /** Whether one more request may wait; a peer that floods the desk loses the link. */
@@ -226,7 +245,7 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
       if (bytes.length > SESSION_FRAME_MAX_BYTES)
         throw new RangeError('A session message over the frame bound.');
       if (link === undefined || link.closed || stream.destroyed) return;
-      stream.write(encodeLinkFrame(link.seal('session', bytes)));
+      sendSealed('session', bytes);
     },
     notifyCustody(state: IRuntimeCustodyState): void {
       sendOwner({ op: 'custody', state: { unlocked: state.unlocked, certified: state.certified } });
@@ -255,8 +274,13 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
           link = responder.accept(frame).link;
           clearTimeout(timer);
           step = 'linked';
+          const early: Array<() => void> = [];
+          held = early;
           ports = deps.admit(admitted);
-          admitted.notifyCustody(ports.desk.custody());
+          const custody = ports.desk.custody();
+          held = undefined;
+          admitted.notifyCustody(custody);
+          for (const write of early) write();
           return;
         }
         onSealed(frame, ports!, link!);

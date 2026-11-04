@@ -28,8 +28,11 @@ import {
   openOwnerLink,
   openSpawnerLink,
   serveRuntimeLink,
+  type IAdmittedRuntimeLink,
   type IRuntimeCustodyState,
+  type IRuntimeLinkPorts,
 } from '../index.js';
+import { decodeRuntimeMessage } from '../owner-vocabulary.js';
 import {
   BINDING,
   connect,
@@ -64,9 +67,15 @@ interface IStartedRuntime {
   readonly port: number;
 }
 
-/** A runtime that ran its spawner exchange and serves its control endpoint. */
+/**
+ * A runtime that ran its spawner exchange and serves its control endpoint; `onAdmit` runs inside
+ * the runtime's `admit`, where a runtime may already want to send something.
+ */
 async function startRuntime(
-  options: { readonly handshakeTimeoutMs?: number } = {},
+  options: {
+    readonly handshakeTimeoutMs?: number;
+    readonly onAdmit?: (link: IAdmittedRuntimeLink) => void;
+  } = {},
 ): Promise<IStartedRuntime> {
   const identity = createRuntimeIdentity();
   const exchange = startSpawnerExchange();
@@ -74,7 +83,12 @@ async function startRuntime(
     identity.answerSpawnerExchange(exchange.message),
   );
   const runtime = recordingRuntime(identity);
-  const server = await listen(controlEndpoint(identity, runtime.admit, options));
+  const admit = (link: IAdmittedRuntimeLink): IRuntimeLinkPorts => {
+    const ports = runtime.admit(link);
+    options.onAdmit?.(link);
+    return ports;
+  };
+  const server = await listen(controlEndpoint(identity, admit, options));
   servers.push(server);
   return { identity, spawnerKey, instancePublicKey, runtime, port: server.port };
 }
@@ -141,6 +155,48 @@ describe('a spawner link', () => {
     runtime.record.links[0]!.sendSession(JSON.stringify({ type: 'text_delta', delta: 'hi' }));
     await until(() => received.length === 1);
     expect(received).toEqual([{ type: 'text_delta', delta: 'hi' }]);
+    client.close();
+  });
+});
+
+describe('what a runtime sends from inside admit', () => {
+  const early = (link: IAdmittedRuntimeLink): void => {
+    link.sendSession(JSON.stringify({ type: 'text_delta', delta: 'early' }));
+    link.notifyCustody({ unlocked: true, certified: false });
+  };
+
+  it('goes out after the custody notice, in the order it was sent', async () => {
+    const { spawnerKey, instancePublicKey, port } = await startRuntime({ onAdmit: early });
+    const socket = await connect(port);
+    const reader = frameReader(socket);
+    const initiator = createLinkInitiator({ mode: 'spawner', spawnerKey, instancePublicKey });
+    socket.write(Buffer.concat([Buffer.from(LINK_REQUEST_LINE), frame(initiator.hello())]));
+    const { proof, link } = initiator.answer((await reader.next())!);
+    socket.write(frame(proof));
+
+    const opened = [];
+    for (let index = 0; index < 3; index += 1) opened.push(link.open((await reader.next())!));
+    expect(opened.map((frame) => frame.kind)).toEqual(['owner', 'session', 'owner']);
+    expect(decodeRuntimeMessage(opened[0]!.plaintext)).toEqual({
+      op: 'custody',
+      state: { unlocked: false, certified: false },
+    });
+    expect(JSON.parse(opened[1]!.plaintext.toString('utf8'))).toEqual({
+      type: 'text_delta',
+      delta: 'early',
+    });
+    expect(decodeRuntimeMessage(opened[2]!.plaintext)).toEqual({
+      op: 'custody',
+      state: { unlocked: true, certified: false },
+    });
+    socket.destroy();
+  });
+
+  it('does not make the client refuse the link it was just admitted to', async () => {
+    const { spawnerKey, instancePublicKey, runtime, port } = await startRuntime({ onAdmit: early });
+    const client = await openSpawnerLink(await connect(port), spawnerKey, instancePublicKey);
+    await until(() => client.custody.unlocked);
+    expect(runtime.record.links[0]!.closed).toBe(false);
     client.close();
   });
 });
