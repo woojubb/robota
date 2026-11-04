@@ -63,6 +63,11 @@ endpoint reads the request line stay with the runtime that serves the link.
   descriptors it was given, but a Windows child inherits every inheritable handle still open, so the
   close has to come before the first spawn and cannot be left to the platform. One synchronous
   call leaves no room between reading and closing for anything else to run.
+- **The runtime's read of the pair has no deadline of its own.** A synchronous read of a blocking
+  descriptor cannot be interrupted, and a deadline would protect no one: only the program that
+  started the runtime can leave it waiting, by holding the pair open and saying nothing, and that
+  costs only that program a runtime that never serves. Its own timeout destroys its end of the pair,
+  which ends the read.
 - **Ending a link flushes before it cuts.** A runtime ends a spawner's link right after answering
   the certification, and a link destroyed at once would drop that answer; the grace is bounded so a
   client that never reads cannot hold the socket open.

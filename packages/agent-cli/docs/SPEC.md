@@ -162,27 +162,19 @@ environment or command line (a process's initial environment stays readable to e
 same user), hands its connection URL to a caller that named its start, so the token leaves only as that URL
 and never in human-readable output.
 
-In secure mode the same endpoint admits by what can be proved, not by who may open the socket. A
-program of the same user is told liveness, activity, directory and whether the runtime is certified,
-and may stop it, lock it (locking needs no proof, since a program that could abuse it could stop or
-kill the runtime, while unlocking always needs one) or start an owner link. What names the work (its
-name, PR and event grants), `connect`, `attach` and every management command do not exist for such a
-program: the owner's requests reach the same handlers only inside an owner link, which proves the
-owner first, and the whole `status` is one of them. One table decides every command in both modes, so
-a command added without a decision does not compile. The request line is read as bytes, because the
-link's handshake follows it in the same chunk and no text decoding may rewrite it.
-
-One custody decides who is admitted, by standing. Until a spawner certifies the runtime only that
-spawner is admitted: it may drive the session it starts and certify the runtime once, then its links
-end and no spawner is admitted again, and it may never list, switch to, rename or delete a stored
-session or learn what the runtime is called, since it holds no read keys. After that only the owner
-is admitted, and only the owner unlocks, by handing the runtime read keys over the link. The runtime
-seals to the granted key even when the keyring file holds another one, and reports that instead of
-repairing the file, which takes the passphrase. The keys go away on the owner's request, on the open
-lock command, when the last link closes, and after fifteen minutes in which the owner did nothing;
-sending a prompt, answering one or changing the runtime is the owner, while paging, refreshing,
-acknowledging and anything a spawner or an observer sends are not, because a viewer left open must
-not keep the keys open. Locking never closes a link, and every change is told to every link.
+In secure mode the same endpoint admits by what can be proved, not by who may open the socket, and
+standing is the only authority. A program of the same user is told liveness and whether the runtime
+is certified, and may stop it, lock it or start an owner link; everything else, what names the work
+included, is the owner's and exists only inside an owner link, which proves the owner first. Taking
+access away needs no proof, since a program that could abuse that could stop or kill the runtime,
+while giving it always does. A spawner may certify the runtime once and drive what it starts, and its
+part ends at certification for good; it never reads or touches what the owner stored, because it
+holds no read keys. Only what the person at the keyboard does counts as activity toward the idle
+lock, so a viewer left open cannot keep keys open, and a lock never closes a link. A keyring file
+that holds another sealing key than the owner's is reported and never repaired, because repair takes
+the passphrase. One table decides every command in both modes, so a command added without a
+decision does not compile. The request line is read as bytes, because the link's handshake follows
+it in the same chunk and no text decoding may rewrite it.
 
 Observability has two independently gated paths. `usage export` is an explicit,
 local-only action over the same authorized stores as local usage reporting: its aggregate usage,
