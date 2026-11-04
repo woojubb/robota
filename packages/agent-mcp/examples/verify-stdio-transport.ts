@@ -7,13 +7,9 @@ import { join } from 'node:path';
 const root = mkdtempSync(join(tmpdir(), 'verify-mcp-stdio-'));
 process.env['HOME'] = root;
 
-const {
-  createStdioAdapter,
-  MCPActivationAdmissionService,
-  MCPDefinitionRegistry,
-  openMcpSession,
-  MCPStdioError,
-} = await import('../src/index.js');
+const { MCPActivationAdmissionService, MCPDefinitionRegistry, openMcpSession, MCPStdioError } =
+  await import('../src/index.js');
+const { createStdioAdapter } = await import('../src/node.js');
 const { StdioClientTransport } = await import('@modelcontextprotocol/client/stdio');
 
 const fixturePath = fileURLToPath(new URL('./stdio-fixture-server.mjs', import.meta.url));

@@ -7,11 +7,12 @@ import { admitHttpEndpoint, constructStreamableHttpTransport } from '../client/t
 import type { IMockMcpServer } from './mock-mcp-server.js';
 import type { IMCPSession } from '../client/session.js';
 import type { IEgressPolicy } from '@robota-sdk/agent-core/node';
+import { createNodeHttpEgress } from '../node/http-egress.js';
 
 const LOOPBACK_POLICY: IEgressPolicy = { allowedHosts: ['127.0.0.1'] };
 
 async function openSessionAgainst(server: IMockMcpServer): Promise<IMCPSession> {
-  const admission = await admitHttpEndpoint({ url: server.url }, { policy: LOOPBACK_POLICY });
+  const admission = await admitHttpEndpoint({ url: server.url }, { egress: createNodeHttpEgress({ policy: LOOPBACK_POLICY }) });
   if (!admission.ok) {
     throw new Error(`test setup: admission unexpectedly refused: ${admission.reason}`);
   }

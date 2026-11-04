@@ -12,6 +12,7 @@ import { decodeEntry } from '../definition/decode.js';
 import { classifyMcpFailure } from '../supervisor/connection.js';
 
 import type { TEgressLookup } from '@robota-sdk/agent-core/node';
+import { createNodeHttpEgress } from '../node/http-egress.js';
 
 const lookup: TEgressLookup = async () => ['203.0.113.9'];
 const NOTIFICATION = { jsonrpc: '2.0' as const, method: 'notifications/initialized' };
@@ -60,7 +61,7 @@ async function send(
   headers: Record<string, string> = {},
 ): Promise<{ calls: ICall[]; error: unknown }> {
   const { fetch: fetchStub, calls } = stubFetch(statuses);
-  const adapter = createStreamableHttpAdapter({ fetch: fetchStub, lookup });
+  const adapter = createStreamableHttpAdapter({ egress: createNodeHttpEgress({ fetch: fetchStub, lookup }) });
   const admission = await adapter.admit({
     url: 'https://mcp.example.test/mcp',
     headers,
@@ -152,7 +153,7 @@ describe('client authentication port', () => {
 describe('authentication on the connect path', () => {
   it('reaches the supervisor typed, so a refused credential is classified auth, not retried', async () => {
     const { fetch: fetchStub } = stubFetch([401, 401]);
-    const adapter = createStreamableHttpAdapter({ fetch: fetchStub, lookup });
+    const adapter = createStreamableHttpAdapter({ egress: createNodeHttpEgress({ fetch: fetchStub, lookup }) });
     const admission = await adapter.admit({
       url: 'https://mcp.example.test/mcp',
       authentication: {
@@ -206,7 +207,7 @@ describe('declared but unsupported authentication', () => {
   });
 
   it('refuses to admit a server whose declared authentication is unsupported', async () => {
-    const adapter = createStreamableHttpAdapter({ lookup });
+    const adapter = createStreamableHttpAdapter({ egress: createNodeHttpEgress({ lookup }) });
     const admission = await adapter.admit({
       url: 'https://mcp.example.test/mcp',
       unsupportedAuthentication: ['future-scheme'],

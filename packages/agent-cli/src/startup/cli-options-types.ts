@@ -3,11 +3,8 @@ import type {
   IProviderDefinition,
   IToolResultAdmissionOptions,
 } from '@robota-sdk/agent-core';
-import type {
-  IMCPActivationApprovalStore,
-  IMCPHttpTransportDeps,
-  IMCPStdioAuthority,
-} from '@robota-sdk/agent-mcp';
+import type { IMCPActivationApprovalStore } from '@robota-sdk/agent-mcp';
+import type { IMCPStdioAuthority, INodeHttpEgressOptions } from '@robota-sdk/agent-mcp/node';
 import type {
   ICommandMCPActivationAdapter,
   ICommandModule,
@@ -56,7 +53,7 @@ export interface IStartCliOptions {
   /** Host-owned approval state, shared with the canonical MCP activation controller. */
   mcpApprovalStore?: IMCPActivationApprovalStore;
   /** Host-owned HTTP transport policy; never supplied by MCP settings or a remote caller. */
-  mcpHttpTransportDeps?: IMCPHttpTransportDeps;
+  mcpHttpTransportDeps?: INodeHttpEgressOptions;
   /** Local embedding-host policy; worker hosts supply their own, never a serialized host function. */
   toolExecutionPolicy?: IAgentConfig['toolExecutionPolicy'];
   /** Host-configured character limits; generic admission validates the ordering and ceiling. */

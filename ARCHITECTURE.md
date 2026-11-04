@@ -119,7 +119,7 @@ reaches, and on any package whose manifest disagrees with the lists below.
   `agent-telemetry-otel`, `agent-provider-anthropic`, `agent-provider-openai`,
   `agent-provider-openai-compatible`, `agent-provider-gemini`, `agent-provider-bytedance`,
   `agent-builtin-providers`, `agent-capability-pack`, `agent-transport`, `product-config`,
-  `agent-plugin`, `agent-executor`, `agent-session`, `agent-transport-http`
+  `agent-plugin`, `agent-executor`, `agent-session`, `agent-transport-http`, `agent-mcp`
 - **Browser (DOM)**: `agent-ui-web`, `agent-transport-webrtc-web`, `agent-gui-web` — free of Node
   like the neutral packages, and they also need a DOM.
 - **Node host**: `agent-cli`, `agent-ui-terminal`, `agent-process`, `agent-file-authority`,
@@ -128,7 +128,7 @@ reaches, and on any package whose manifest disagrees with the lists below.
   `agent-provider-replay`, `agent-keyring` — they exist to drive a Node host (a terminal, child
   processes, the file system, listeners, stdio, `node:crypto` key custody), so their main entry is
   Node-only.
-- **Not yet neutral**: `agent-tools`, `agent-mcp`, `agent-framework`,
+- **Not yet neutral**: `agent-tools`, `agent-framework`,
   `agent-command`, `agent-preset`, `agent-product` — Node-only today; each becomes
   platform-neutral, with its Node adapters behind `./node`.
 

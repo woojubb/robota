@@ -23,6 +23,7 @@ import type { IMCPSession } from '../client/session.js';
 import type { IMCPHttpEndpoint } from '../client/transport.js';
 import type { Tool } from '@modelcontextprotocol/server';
 import type { ServerResponse } from 'node:http';
+import { createNodeHttpEgress } from '../node/http-egress.js';
 
 const tool = {
   name: 'echo',
@@ -112,7 +113,7 @@ async function open(
 ): Promise<IMCPSession> {
   const admitted = await admitHttpEndpoint(
     { url, ...endpoint },
-    { policy: { allowedHosts: ['127.0.0.1'] } },
+    { egress: createNodeHttpEgress({ policy: { allowedHosts: ['127.0.0.1'] } }) },
   );
   if (!admitted.ok) throw new Error(admitted.reason);
   session = await openMcpSession({

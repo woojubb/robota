@@ -2,7 +2,7 @@ import { createHash, createHmac } from 'node:crypto';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { constantTimeEqual, hmacSha256Hex, randomHex, sha256Hex } from './digest';
+import { constantTimeEqual, hmacSha256Hex, randomHex, sha1Hex, sha256Hex } from './digest';
 import koreanText from './__fixtures__/korean-text.json';
 
 /** Lone surrogates are not valid UTF-16; both Node and `TextEncoder` encode each as U+FFFD. */
@@ -46,6 +46,26 @@ describe('sha256Hex', () => {
   it('does not pair a lone surrogate with the character after it', () => {
     expect(sha256Hex('a\uD800b')).not.toBe(sha256Hex('a\uD800\uDC62'));
   });
+});
+
+describe('sha1Hex', () => {
+  it('matches the known abc vector', () => {
+    expect(sha1Hex('abc')).toBe('a9993e364706816aba3e25717850c26c9cd0d89d');
+  });
+
+  it.each(texts.map((input) => ({ input, byteLength: new TextEncoder().encode(input).length })))(
+    'matches the Node digest of a string of $byteLength bytes',
+    ({ input }) => {
+      expect(sha1Hex(input)).toBe(createHash('sha1').update(input).digest('hex'));
+    },
+  );
+
+  it.each(texts.map((input) => ({ input, bytes: new TextEncoder().encode(input) })))(
+    'matches the Node digest of $bytes.length raw bytes',
+    ({ bytes }) => {
+      expect(sha1Hex(bytes)).toBe(createHash('sha1').update(bytes).digest('hex'));
+    },
+  );
 });
 
 describe('hmacSha256Hex', () => {

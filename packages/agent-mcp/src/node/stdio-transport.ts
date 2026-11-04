@@ -3,34 +3,18 @@ import { spawn } from 'node:child_process';
 
 import { deserializeMessage, serializeMessage } from '@modelcontextprotocol/client';
 import { DEFAULT_INHERITED_ENV_VARS } from '@modelcontextprotocol/client/stdio';
+import { MCPStdioError } from '../client/stdio-error.js';
 import {
   DEFAULT_MCP_RECEIVE_BYTES,
   SKILL_RESOURCE_RECEIVE_BYTES,
   skillReceiveBudgetEnabled,
-} from './receive-budget.js';
+} from '../client/receive-budget.js';
 
 import type { IMCPStdioSnapshot } from './stdio-types.js';
 import type { JSONRPCMessage, Transport } from '@modelcontextprotocol/client';
 import type { ChildProcessWithoutNullStreams } from 'node:child_process';
 
 const MAX_STDERR_COUNT = 65_536;
-
-export class MCPStdioError extends Error {
-  constructor(
-    readonly reason:
-      | 'authority'
-      | 'start'
-      | 'early-exit'
-      | 'send'
-      | 'cancelled'
-      | 'cleanup'
-      | 'receive-limit'
-      | 'receive-invalid',
-  ) {
-    super(`Stdio transport ${reason}`);
-    this.name = 'MCPStdioError';
-  }
-}
 
 function bounded<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise<T>((resolve, reject) => {

@@ -35,6 +35,7 @@ const {
   buildCatalog,
   createDiscoveredTool,
 } = await import('@robota-sdk/agent-mcp');
+const { createNodeHttpEgress } = await import('@robota-sdk/agent-mcp/node');
 
 import type { IMCPCatalogToolEntry } from '@robota-sdk/agent-mcp';
 
@@ -212,10 +213,12 @@ async function run(): Promise<void> {
   const workspaceDir = mkdtempSync(join(tmpdir(), 'verify-mcp-background-cwd-'));
 
   try {
-    const adapter = createStreamableHttpAdapter({
-      lookup: async () => ['127.0.0.1'],
-      policy: { allowedHosts: ['127.0.0.1'] },
-    });
+    const adapter = createStreamableHttpAdapter(
+      { egress: createNodeHttpEgress({
+        lookup: async () => ['127.0.0.1'],
+        policy: { allowedHosts: ['127.0.0.1'] },
+      }) },
+    );
     const admission = await adapter.admit({ url: mock.url });
     if (!admission.ok) {
       throw new Error(`adapter refused the mock endpoint: ${admission.message}`);

@@ -14,6 +14,7 @@
 
 import { selectClientAuthMethod } from '@modelcontextprotocol/client';
 
+import { utf8ToBase64 } from '../../bytes.js';
 import { fetchIssuerMetadata } from './discovery.js';
 import { MCPOAuthError, asOAuthError } from './errors.js';
 import { createOAuthFetch } from './network.js';
@@ -114,7 +115,7 @@ function clientAuthentication(
   ]);
   if (method === 'client_secret_basic' && credential.clientSecret !== undefined) {
     const pair = `${credential.clientId}:${credential.clientSecret}`;
-    return { Authorization: `Basic ${Buffer.from(pair, 'utf8').toString('base64')}` };
+    return { Authorization: `Basic ${utf8ToBase64(pair)}` };
   }
   body.set('client_id', credential.clientId);
   if (method === 'client_secret_post' && credential.clientSecret !== undefined) {

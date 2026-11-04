@@ -5,6 +5,7 @@ import { openMcpSession } from '../client/session.js';
 import { admitHttpEndpoint, constructStreamableHttpTransport } from '../client/transport.js';
 
 import type { IMCPSession } from '../client/session.js';
+import { createNodeHttpEgress } from '../node/http-egress.js';
 
 const VERSION = '2026-07-28';
 const CLIENT_CAPABILITIES = 'io.modelcontextprotocol/clientCapabilities';
@@ -70,7 +71,7 @@ async function open(options: IFixtureOptions): Promise<IMCPSession> {
   if (!address || typeof address === 'string') throw new Error('No listener');
   const admitted = await admitHttpEndpoint(
     { url: `http://127.0.0.1:${address.port}` },
-    { policy: { allowedHosts: ['127.0.0.1'] } },
+    { egress: createNodeHttpEgress({ policy: { allowedHosts: ['127.0.0.1'] } }) },
   );
   if (!admitted.ok) throw new Error(admitted.reason);
   session = await openMcpSession({

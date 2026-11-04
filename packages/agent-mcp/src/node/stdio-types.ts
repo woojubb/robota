@@ -5,9 +5,8 @@
  * types without importing back from `stdio.ts`, which previously created import cycles between
  * `stdio.ts` and each of them.
  */
-import type { IMCPActivationRequest } from '../mcp-activation.js';
+import type { IMCPActivationAdmission, IMCPActivationRequest } from '../mcp-activation.js';
 import type { IMCPServerDefinitionResolved } from '../definition/types.js';
-import type { IMCPActivationAdmission } from '../mcp-activation.js';
 
 export interface IMCPStdioExecutable {
   readonly command: string;

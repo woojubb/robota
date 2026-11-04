@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { discoverMCPOAuthServer } from '../client/oauth/discovery.js';
 import { MCPOAuthError } from '../client/oauth/errors.js';
 import { createOAuthFetch } from '../client/oauth/network.js';
+import { createNodeOAuthNetwork } from '../node/oauth-network.js';
 import { AS_URL, MCP_URL, createFakeOAuthServer } from './fixtures/fake-oauth-server.js';
 
 import type { IMCPOAuthConfig } from '../definition/types.js';
@@ -21,7 +22,7 @@ function discover(
   return discoverMCPOAuthServer({
     serverUrl: extra.serverUrl ?? MCP_URL,
     config,
-    fetch: createOAuthFetch({ fetch: server.fetch, lookup: server.lookup }),
+    fetch: createOAuthFetch(createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup })),
     ...(extra.resourceMetadataUrl === undefined
       ? {}
       : { resourceMetadataUrl: extra.resourceMetadataUrl }),
@@ -148,7 +149,9 @@ describe('OAuth discovery', () => {
     const refused = discoverMCPOAuthServer({
       serverUrl: MCP_URL,
       config: {},
-      fetch: createOAuthFetch({ fetch: server.fetch, lookup: async () => ['10.0.0.8'] }),
+      fetch: createOAuthFetch(
+        createNodeOAuthNetwork({ fetch: server.fetch, lookup: async () => ['10.0.0.8'] }),
+      ),
     });
     expect(await reasonOf(refused)).toBe('egress-refused');
     expect(server.requests).toHaveLength(0);

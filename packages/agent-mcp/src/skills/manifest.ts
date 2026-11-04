@@ -1,4 +1,7 @@
-import { createHash } from 'node:crypto';
+import { sha256Hex } from '@robota-sdk/agent-core';
+
+import { base64ToBytes } from '../bytes.js';
+
 import type { IMCPServerIdentity } from '../catalog/types.js';
 import type { IMCPSkillEntry, IMCPSkillResource } from './types.js';
 
@@ -112,18 +115,16 @@ export function parseSkillEntry(raw: unknown, identity: IMCPServerIdentity): IMC
     });
     if (!seen.has(raw.uri)) return invalid();
   }
-  const manifestFingerprint = createHash('sha256')
-    .update(
-      canonical({
-        uri: raw.uri,
-        frontmatter,
-        resources:
-          resources === 'dynamic'
-            ? resources
-            : [...resources].sort((a, b) => (a.uri < b.uri ? -1 : a.uri > b.uri ? 1 : 0)),
-      }),
-    )
-    .digest('hex');
+  const manifestFingerprint = sha256Hex(
+    canonical({
+      uri: raw.uri,
+      frontmatter,
+      resources:
+        resources === 'dynamic'
+          ? resources
+          : [...resources].sort((a, b) => (a.uri < b.uri ? -1 : a.uri > b.uri ? 1 : 0)),
+    }),
+  );
   return { identity: { ...identity }, uri: raw.uri, frontmatter, resources, manifestFingerprint };
 }
 
@@ -145,20 +146,20 @@ export function verifySkillResource(
     )
   )
     throw new MCPSkillError('invalid-resource');
-  let bytes: Buffer;
-  if (typeof raw.text === 'string') bytes = Buffer.from(raw.text, 'utf8');
+  let bytes: Uint8Array;
+  if (typeof raw.text === 'string') bytes = new TextEncoder().encode(raw.text);
   else {
     if (typeof raw.blob !== 'string') throw new MCPSkillError('invalid-resource');
     try {
       // Match standard resource decoding, including omitted padding and ASCII whitespace,
       // without a repeating regexp that can overflow on a supported 16 MiB binary file.
-      bytes = Buffer.from(atob(raw.blob), 'latin1');
+      bytes = base64ToBytes(raw.blob);
     } catch {
       throw new MCPSkillError('invalid-resource');
     }
   }
   if (bytes.byteLength !== manifest.size) throw new MCPSkillError('size-mismatch');
-  const digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+  const digest = `sha256:${sha256Hex(bytes)}`;
   if (digest !== manifest.digest) throw new MCPSkillError('digest-mismatch');
   return {
     uri,
