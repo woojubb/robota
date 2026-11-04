@@ -165,10 +165,9 @@ function printableTitle(title: string | null): string {
 }
 
 /**
- * A page-supplied address as it would open, or undefined when it is not a web address. Brackets and
- * backticks stay legal after the host, where markdown would read them as a link that shows one address
- * and opens another, so they print encoded, as a browser sends them. The origin drops any `user@`, which
- * could pass for the host.
+ * A page-supplied address, or undefined when it is not a web address. Brackets and backticks stay
+ * legal after the host, where markdown would read them as a link that shows one address and opens
+ * another, so they print percent-encoded. The origin drops any `user@`, which could pass for the host.
  */
 function webAddress(url: string): string | undefined {
   try {
