@@ -26,6 +26,8 @@ import { randomId } from '../utils/random-id';
 import { bindWithOwnerPath } from '../event-service/index';
 import { createSystemMessage } from '../managers/conversation-message-factory';
 
+import { PROVIDER_CONTINUATION_METADATA_KEY } from '../interfaces/messages';
+
 import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
 import type { TMessageState } from '../interfaces/messages';
 import type { ConversationStore } from '../managers/conversation-history-manager';
@@ -238,6 +240,7 @@ export async function executeRound(
   }
 
   const messageState: TMessageState = fullContext.signal?.aborted ? 'interrupted' : 'complete';
+  const continuation = assistantResponse.metadata?.[PROVIDER_CONTINUATION_METADATA_KEY];
   conversationStore.commitAssistant(messageState, {
     round: currentRound,
     usageObservationId,
@@ -246,6 +249,9 @@ export async function executeRound(
     providerCallId,
     modelId: routeModel(route, resolved.aiProviderInfo.model),
     ...usageMetadata,
+    ...(typeof continuation === 'string' && {
+      [PROVIDER_CONTINUATION_METADATA_KEY]: continuation,
+    }),
   });
   const committedAssistantMessage = conversationStore.getMessages().at(-1);
   fullContext.onExecutionEvent?.('assistant_message_committed', {

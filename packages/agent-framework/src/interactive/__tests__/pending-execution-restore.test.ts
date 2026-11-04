@@ -15,7 +15,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FunctionTool, clearRegisteredToolProfiles } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import type { TExecutionJournalRecord } from '@robota-sdk/agent-core';
-import { Session, NodeSessionStore } from '@robota-sdk/agent-session';
+import { Session } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 import { InteractiveSession } from '../interactive-session.js';
 import { persistSession } from '../interactive-session-persistence.js';
@@ -48,6 +49,7 @@ function lower(cwd: string, store?: NodeSessionStore) {
   ]);
   const effect = vi.fn(async () => 'effect');
   const session = new Session({
+    hookTypeExecutors: [],
     cwd,
     sessionId: 'saved_owner',
     systemMessage: 'Fixture',

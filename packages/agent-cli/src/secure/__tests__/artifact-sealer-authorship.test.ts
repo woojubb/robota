@@ -13,7 +13,7 @@ import { setFlagsFromString } from 'node:v8';
 import { runInNewContext } from 'node:vm';
 
 import { isArtifactLockedError } from '@robota-sdk/agent-core';
-import { NodeSessionStore } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { describe, expect, it } from 'vitest';
 
 import {

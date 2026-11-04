@@ -1,3 +1,5 @@
+import type { TUniversalValue } from './types';
+
 export interface IProviderFunctionCallingCapability {
   supported: boolean;
   reason?: string;
@@ -86,6 +88,43 @@ function assertNativeWebToolAvailable(
       `Provider ${providerName} supports native ${label} but it is not enabled.${formatCapabilityReason(capability.reason)}`,
     );
   }
+}
+
+/**
+ * Whether a profile asks for hosted web search: `options.nativeWebTools` is `{ webSearch?: boolean }`.
+ * This option has no hosted web fetch to turn on, so only `webFetch: false` is accepted beside it, and
+ * a misspelled or mistyped key throws instead of quietly leaving search off.
+ */
+export function readNativeWebSearchOption(
+  providerName: string,
+  options: Record<string, TUniversalValue> | undefined,
+): boolean {
+  const value = options?.['nativeWebTools'];
+  if (value === undefined) {
+    return false;
+  }
+  if (
+    value === null ||
+    typeof value !== 'object' ||
+    Array.isArray(value) ||
+    value instanceof Date
+  ) {
+    throw new Error(
+      `Provider ${providerName} option nativeWebTools must be an object such as { "webSearch": true }`,
+    );
+  }
+  for (const [key, flag] of Object.entries(value)) {
+    if (key !== 'webSearch' && key !== 'webFetch') {
+      throw new Error(`Provider ${providerName} option nativeWebTools has an unknown key "${key}"`);
+    }
+    if (typeof flag !== 'boolean') {
+      throw new Error(`Provider ${providerName} option nativeWebTools.${key} must be a boolean`);
+    }
+  }
+  if (value['webFetch'] === true) {
+    throw new Error(`Provider ${providerName} does not support native web fetch`);
+  }
+  return value['webSearch'] === true;
 }
 
 function formatCapabilityReason(reason: string | undefined): string {

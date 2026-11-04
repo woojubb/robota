@@ -56,7 +56,7 @@ function createOrchestrator(): CompactionOrchestrator {
     cwd: '/tmp',
     model: 'test-model',
     hooks: undefined,
-    hookTypeExecutors: undefined,
+    hookTypeExecutors: [],
   });
 }
 

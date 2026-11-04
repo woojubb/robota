@@ -6,7 +6,9 @@ limits, logging, performance metrics, usage tracking and webhooks. Each plugin e
 after a run, on error, and so on).
 
 Plugins are opt-in: neither the SDK nor the agent runtime CLI adds them by default. You pass plugin
-instances to `ConversationAgent` in `plugins`.
+instances to `ConversationAgent` in `plugins`. The main entry is platform-neutral: it runs in a
+browser, a Web Worker, Node, Deno and Bun, and owns no file system or process access. What needs a
+Node host is on `@robota-sdk/agent-plugin/node`, and you pass it in (see Node adapters).
 
 ## Installation
 
@@ -61,6 +63,7 @@ new ConversationHistoryPlugin({ storage: 'memory' });
 ```
 
 The `database` strategy needs a `databaseDriver` you supply; this package ships no database driver.
+The `file` strategy needs a `fileStore` you supply (see Node adapters).
 
 ### LoggingPlugin
 
@@ -84,6 +87,21 @@ import { UsagePlugin } from '@robota-sdk/agent-plugin';
 new UsagePlugin({ strategy: 'memory' });
 ```
 
+### PerformancePlugin
+
+Records operation durations, and memory and CPU figures from a collector you supply.
+
+```typescript
+import { PerformancePlugin } from '@robota-sdk/agent-plugin';
+import { NodeSystemMetricsCollector } from '@robota-sdk/agent-plugin/node';
+
+new PerformancePlugin({ strategy: 'memory', metricsCollector: new NodeSystemMetricsCollector() });
+```
+
+With a `metricsCollector`, memory and CPU monitoring are on unless `monitorMemory` or `monitorCPU`
+is `false`. Without one, no system metrics are recorded, and turning `monitorMemory`, `monitorCPU`
+or `monitorNetwork` on throws a `ConfigurationError` at construction.
+
 ### LimitsPlugin
 
 Enforces rate limits and usage quotas.
@@ -103,6 +121,27 @@ Fires HTTP webhooks on agent lifecycle events with optional HMAC signing.
 import { WebhookPlugin } from '@robota-sdk/agent-plugin';
 
 new WebhookPlugin({ endpoints: [{ url: 'https://example.com/hook' }] });
+```
+
+## Node adapters
+
+`@robota-sdk/agent-plugin/node` holds the host-bound pieces, and the plugins never default to them:
+
+- `NodePluginTextFileStore` is an `IPluginTextFileStore` over the local file system. Pass it as
+  `fileStore` to `ConversationHistoryPlugin`, `LoggingPlugin` or `UsagePlugin` with their `file`
+  strategy; without a `fileStore` that strategy throws a `ConfigurationError` at construction.
+- `NodeSystemMetricsCollector` reads memory and CPU from the Node process; pass it as
+  `metricsCollector` to `PerformancePlugin`.
+
+```typescript
+import { UsagePlugin } from '@robota-sdk/agent-plugin';
+import { NodePluginTextFileStore } from '@robota-sdk/agent-plugin/node';
+
+new UsagePlugin({
+  strategy: 'file',
+  filePath: './usage.json',
+  fileStore: new NodePluginTextFileStore(),
+});
 ```
 
 ## Dependencies

@@ -47,6 +47,7 @@ it('retains every ordered receipt through repeated compaction independently of a
     agent,
     aiProvider: scripted.provider,
     compactionOrchestrator: new CompactionOrchestrator({
+      hookTypeExecutors: [],
       sessionId: 'receipt-fixture',
       cwd: '/tmp',
       model: 'test-model',

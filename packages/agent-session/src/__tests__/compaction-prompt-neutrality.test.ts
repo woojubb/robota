@@ -46,6 +46,7 @@ function createHistory(): TUniversalMessage[] {
 
 function createOrchestrator(overrides: Partial<ICompactionOptions> = {}): CompactionOrchestrator {
   return new CompactionOrchestrator({
+    hookTypeExecutors: [],
     sessionId: 'neut-005-test',
     cwd: process.cwd(),
     model: 'test-model',

@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
-import { NodeSessionStore } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { saveReceivedSession } from '../handoff-receiving.js';

@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
-import { NodeSessionLogSink } from '@robota-sdk/agent-session';
+import { NodeSessionLogSink } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createReplayProviderFromNodeLogFile } from '../index.js';

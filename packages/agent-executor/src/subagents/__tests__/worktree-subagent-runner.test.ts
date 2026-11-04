@@ -117,6 +117,7 @@ describe('WorktreeSubagentRunner', () => {
     const runner = new WorktreeSubagentRunner({
       runner: captured.runner,
       worktreeAdapter: adapter,
+      hookTypeExecutors: [],
     });
 
     const result = await runner.start(createJob('worktree')).result;
@@ -142,6 +143,7 @@ describe('WorktreeSubagentRunner', () => {
     const runner = new WorktreeSubagentRunner({
       runner: captured.runner,
       worktreeAdapter: adapter,
+      hookTypeExecutors: [],
     });
 
     const result = await runner.start(createJob('worktree')).result;
@@ -167,7 +169,11 @@ describe('WorktreeSubagentRunner', () => {
         };
       },
     };
-    const runner = new WorktreeSubagentRunner({ runner: failingRunner, worktreeAdapter: adapter });
+    const runner = new WorktreeSubagentRunner({
+      runner: failingRunner,
+      worktreeAdapter: adapter,
+      hookTypeExecutors: [],
+    });
 
     await expect(runner.start(createJob('worktree')).result).rejects.toThrow('worker failed');
     expect(adapter.removed).toEqual([TEST_WORKTREE]);
@@ -180,7 +186,11 @@ describe('WorktreeSubagentRunner', () => {
         throw new Error('startup failed');
       },
     };
-    const runner = new WorktreeSubagentRunner({ runner: failingRunner, worktreeAdapter: adapter });
+    const runner = new WorktreeSubagentRunner({
+      runner: failingRunner,
+      worktreeAdapter: adapter,
+      hookTypeExecutors: [],
+    });
 
     expect(() => runner.start(createJob('worktree'))).toThrow('startup failed');
     expect(adapter.removed).toEqual([TEST_WORKTREE]);
@@ -201,6 +211,7 @@ describe('WorktreeSubagentRunner', () => {
     const runner = new WorktreeSubagentRunner({
       runner: cancellableRunner,
       worktreeAdapter: adapter,
+      hookTypeExecutors: [],
     });
 
     const handle = runner.start(createJob('worktree'));
@@ -230,6 +241,7 @@ describe('WorktreeSubagentRunner', () => {
     const runner = new WorktreeSubagentRunner({
       runner: cancellableRunner,
       worktreeAdapter: adapter,
+      hookTypeExecutors: [],
     });
 
     const handle = runner.start(createJob('worktree'));
@@ -250,6 +262,7 @@ describe('WorktreeSubagentRunner', () => {
     const runner = new WorktreeSubagentRunner({
       runner: captured.runner,
       worktreeAdapter: adapter,
+      hookTypeExecutors: [],
     });
 
     const result = await runner.start(createJob('worktree')).result;
@@ -269,6 +282,7 @@ describe('WorktreeSubagentRunner', () => {
     const runner = new WorktreeSubagentRunner({
       runner: captured.runner,
       worktreeAdapter: adapter,
+      hookTypeExecutors: [],
     });
 
     const result = await runner.start(createJob()).result;
@@ -337,6 +351,7 @@ describe('WorktreeSubagentRunner keeps the transcript of the handle it wraps', (
     const runner = new WorktreeSubagentRunner({
       runner: inner,
       worktreeAdapter: createAdapter(true),
+      hookTypeExecutors: [],
     });
 
     const handle = runner.start(createJob('worktree'));
@@ -354,6 +369,7 @@ describe('WorktreeSubagentRunner keeps the transcript of the handle it wraps', (
     const runner = new WorktreeSubagentRunner({
       runner: createCapturedRunner().runner,
       worktreeAdapter: createAdapter(true),
+      hookTypeExecutors: [],
     });
 
     const handle = runner.start(createJob('worktree'));
@@ -390,9 +406,11 @@ describe('WorktreeSubagentRunner runs the inner runner’s preflight first', () 
       },
     };
 
-    new WorktreeSubagentRunner({ runner: inner, worktreeAdapter: adapter }).start(
-      createJob('worktree'),
-    );
+    new WorktreeSubagentRunner({
+      runner: inner,
+      worktreeAdapter: adapter,
+      hookTypeExecutors: [],
+    }).start(createJob('worktree'));
 
     expect(order).toEqual(['preflight agent_1 unprepared', 'prepare', 'start prepared']);
     expect(started.map((args) => args.length)).toEqual([1]);

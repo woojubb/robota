@@ -10,7 +10,8 @@
  */
 
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
-import { NodeSessionStore, isSessionClaimedError } from '@robota-sdk/agent-session';
+import { isSessionClaimedError } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { buildRuntimeSession, startRuntimeHost } from '../../runtime/runtime-host.js';

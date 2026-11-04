@@ -1,13 +1,13 @@
 import { dirname } from 'node:path';
 
+import { isSafeSessionId as sessionIsSafeSessionId } from '@robota-sdk/agent-session';
 import {
   NodePromptHistoryFile,
   NodeSessionStore,
   NodeToolResultSpillStore,
-  isSafeSessionId as sessionIsSafeSessionId,
   sessionSealingOf,
   sweepStaleToolResultSpillDirectories as sessionSweepStaleToolResultSpillDirectories,
-} from '@robota-sdk/agent-session';
+} from '@robota-sdk/agent-session/node';
 
 import { lockedReasonOf, sealedSessionState } from './locked-session-wording.js';
 import { WorkspaceProjectSessionStore } from './workspace-session-store.js';
@@ -33,7 +33,7 @@ import type {
   INodeSessionStoreOptions,
   INodeToolResultSpillStoreOptions,
   ISessionStoreOptions,
-} from '@robota-sdk/agent-session';
+} from '@robota-sdk/agent-session/node';
 
 export type {
   IInteractiveSessionRecord,

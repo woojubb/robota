@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { describe, it, expect, afterEach } from 'vitest';
+import { NodePluginTextFileStore } from '../../storage/node-text-file-store';
 import { ConversationHistoryPlugin } from '../conversation-history-plugin';
 import { ConfigurationError, PluginError } from '@robota-sdk/agent-core';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
@@ -64,9 +65,20 @@ describe('ConversationHistoryPlugin', () => {
     });
 
     it('throws when file storage is missing filePath', () => {
-      expect(() => new ConversationHistoryPlugin({ storage: 'file', filePath: '' })).toThrow(
-        ConfigurationError,
-      );
+      expect(
+        () =>
+          new ConversationHistoryPlugin({
+            storage: 'file',
+            filePath: '',
+            fileStore: new NodePluginTextFileStore(),
+          }),
+      ).toThrow(ConfigurationError);
+    });
+
+    it('throws when file storage is missing a fileStore', () => {
+      expect(
+        () => new ConversationHistoryPlugin({ storage: 'file', filePath: '/tmp/history.json' }),
+      ).toThrow(ConfigurationError);
     });
 
     it('throws when database storage is missing a databaseDriver (PLUGIN-002)', () => {

@@ -38,6 +38,7 @@ const history = [
 
 function createOrchestrator(): CompactionOrchestrator {
   return new CompactionOrchestrator({
+    hookTypeExecutors: [],
     sessionId: 'session-trigger',
     cwd: '/tmp/arch-016',
     model: 'offline-model',

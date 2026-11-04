@@ -2,11 +2,8 @@ import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import {
-  NodeSessionStore,
-  deserializeSessionArtifact,
-  serializeSessionArtifact,
-} from '@robota-sdk/agent-session';
+import { deserializeSessionArtifact, serializeSessionArtifact } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { describe, expect, it } from 'vitest';
 
 import { loadSessionRecord } from '../interactive-session-restore.js';

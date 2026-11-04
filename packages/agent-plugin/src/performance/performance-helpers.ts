@@ -23,6 +23,15 @@ export function validatePerformanceOptions(options: IPerformancePluginOptions): 
       provided: options.strategy,
     });
   }
+
+  const explicitlyMonitored = options.monitorMemory || options.monitorCPU || options.monitorNetwork;
+  if (explicitlyMonitored && !options.metricsCollector) {
+    throw new ConfigurationError(
+      'A `metricsCollector` is required to monitor memory, CPU or network — agent-plugin is ' +
+        'platform-neutral and reads no host metrics; inject an ISystemMetricsCollector ' +
+        '(NodeSystemMetricsCollector from @robota-sdk/agent-plugin/node).',
+    );
+  }
 }
 
 /** Create IPerformanceStorage instance for the given strategy. @internal */

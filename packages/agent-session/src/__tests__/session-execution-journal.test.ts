@@ -25,6 +25,7 @@ afterEach(async () => {
 function fixture(options: Partial<ISessionOptions> = {}) {
   const scripted = createScriptedProvider([{ text: 'summary' }, { text: 'answer' }]);
   const session = new Session({
+    hookTypeExecutors: [],
     cwd: '/tmp',
     tools: [],
     systemMessage: 'Test session',

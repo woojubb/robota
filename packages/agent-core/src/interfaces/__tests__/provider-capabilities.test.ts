@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { AbstractAIProvider } from '../../abstracts/abstract-ai-provider';
 import type { TUniversalMessage } from '../messages';
+import { readNativeWebSearchOption } from '../provider-capabilities';
 import {
   assertProviderNativeWebToolsAvailable,
   getProviderCapabilities,
@@ -205,5 +206,29 @@ describe('provider capabilities', () => {
     ).toThrow(
       'Provider qwen supports native web search but it is not enabled. Enable builtInWebTools.webSearch or builtInWebTools.webFetch.',
     );
+  });
+});
+
+describe('readNativeWebSearchOption', () => {
+  it('reads the flag, off when the option or the key is absent', () => {
+    expect(readNativeWebSearchOption('test', undefined)).toBe(false);
+    expect(readNativeWebSearchOption('test', {})).toBe(false);
+    expect(readNativeWebSearchOption('test', { nativeWebTools: {} })).toBe(false);
+    expect(readNativeWebSearchOption('test', { nativeWebTools: { webSearch: false } })).toBe(false);
+    expect(readNativeWebSearchOption('test', { nativeWebTools: { webSearch: true } })).toBe(true);
+    expect(
+      readNativeWebSearchOption('test', { nativeWebTools: { webSearch: true, webFetch: false } }),
+    ).toBe(true);
+  });
+
+  it.each([
+    [true, 'must be an object'],
+    [null, 'must be an object'],
+    [['webSearch'], 'must be an object'],
+    [{ websearch: true }, 'unknown key "websearch"'],
+    [{ webSearch: 'yes' }, 'nativeWebTools.webSearch must be a boolean'],
+    [{ webFetch: true }, 'does not support native web fetch'],
+  ])('throws on %j instead of leaving search off', (nativeWebTools, message) => {
+    expect(() => readNativeWebSearchOption('test', { nativeWebTools })).toThrow(message);
   });
 });

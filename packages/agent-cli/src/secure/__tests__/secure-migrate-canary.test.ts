@@ -38,14 +38,13 @@ import {
   resolveSubagentTranscriptPath,
 } from '@robota-sdk/agent-framework';
 import { serializeKeyring } from '@robota-sdk/agent-keyring';
+import { FileSessionLogger, loadSessionLogEntries } from '@robota-sdk/agent-session';
 import {
-  FileSessionLogger,
   NodePromptHistoryFile,
   NodeSessionLogSink,
   NodeSessionLogSource,
   NodeSessionStore,
-  loadSessionLogEntries,
-} from '@robota-sdk/agent-session';
+} from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';

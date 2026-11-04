@@ -1,6 +1,16 @@
 import { randomId } from '@robota-sdk/agent-core';
 
+import { PROVIDER_CONTINUATION_METADATA_KEY } from '@robota-sdk/agent-core';
+
 import { streamWithAbort } from './responses-stream-utils';
+import {
+  addWebSearchUsage,
+  collectWebSearchUsage,
+  createEmptyWebSearchUsage,
+  isWebSearchCallItem,
+  mergeWebSearchUsage,
+  webSearchMetadata,
+} from './responses-web-search';
 
 import type {
   IOpenAIResponsesErrorEvent,
@@ -13,7 +23,9 @@ import type {
   TOpenAIResponsesOutputItem,
   TOpenAIResponsesStreamEvent,
 } from './responses-types';
+import type { IOpenAIWebSearchUsage } from './responses-web-search';
 import type {
+  IAssistantMessage,
   IToolCall,
   ITokenUsageWithCacheRead,
   TTextDeltaCallback,
@@ -28,7 +40,14 @@ const THOUGHT_PART_SEPARATOR = '\n\n';
 type TResponsesMessageUsage = Omit<ITokenUsageWithCacheRead, 'totalTokens'> &
   Partial<Pick<ITokenUsageWithCacheRead, 'totalTokens'>>;
 
-interface IOpenAIResponsesStreamAssemblyOptions {
+/** What the request that produced the response carried, which decides what its metadata may claim. */
+interface IOpenAIResponsesParseOptions {
+  hostedWebSearch?: boolean;
+  /** Who may send the reply's items back (see `encodeResponsesContinuation`); absent for an unstored request. */
+  replayScope?: string;
+}
+
+interface IOpenAIResponsesStreamAssemblyOptions extends IOpenAIResponsesParseOptions {
   stream: AsyncIterable<TOpenAIResponsesStreamEvent>;
   onTextDelta?: TTextDeltaCallback;
   onThinkingDelta?: TThinkingDeltaCallback;
@@ -59,10 +78,12 @@ interface IOpenAIResponsesStreamState {
   completedResponse?: IOpenAIResponsesResponse;
   reasoning: IOpenAIResponsesReasoningMetadata;
   thought: IOpenAIResponsesThoughtStreamState;
+  webSearch: IOpenAIWebSearchUsage;
 }
 
 export function parseOpenAIResponsesResponse(
   response: IOpenAIResponsesResponse,
+  options?: IOpenAIResponsesParseOptions,
 ): TUniversalMessage {
   assertUsableResponse(response);
   const output = response.output ?? [];
@@ -72,6 +93,9 @@ export function parseOpenAIResponsesResponse(
     toolCalls: extractFunctionToolCalls(output),
     response,
     reasoning: collectReasoningMetadata(output),
+    hostedWebSearch: options?.hostedWebSearch === true,
+    replayScope: options?.replayScope,
+    webSearch: collectWebSearchUsage(output),
   });
 }
 
@@ -83,6 +107,7 @@ export async function assembleOpenAIResponsesStream(
     toolCalls: [],
     reasoning: createEmptyReasoningMetadata(),
     thought: { sentText: false },
+    webSearch: createEmptyWebSearchUsage(),
   };
 
   for await (const event of streamWithAbort(options.stream, options.signal)) {
@@ -90,13 +115,15 @@ export async function assembleOpenAIResponsesStream(
   }
 
   if (state.completedResponse !== undefined) {
-    return buildMessageFromCompletedResponse(state);
+    return buildMessageFromCompletedResponse(state, options);
   }
 
   return buildAssistantMessage({
     content: state.textParts.join(''),
     toolCalls: state.toolCalls,
     reasoning: state.reasoning,
+    hostedWebSearch: options.hostedWebSearch === true,
+    webSearch: state.webSearch,
   });
 }
 
@@ -127,6 +154,7 @@ function applyStreamEvent(
   if (event.type === 'response.completed') {
     state.completedResponse = event.response;
     mergeReasoningMetadata(state.reasoning, collectReasoningMetadata(event.response.output ?? []));
+    mergeWebSearchUsage(state.webSearch, collectWebSearchUsage(event.response.output ?? []));
     return;
   }
 
@@ -180,10 +208,15 @@ function applyOutputItem(
   }
   if (isReasoningOutputItem(item)) {
     mergeReasoningMetadata(state.reasoning, collectReasoningMetadata([item]));
+    return;
   }
+  addWebSearchUsage(state.webSearch, collectWebSearchUsage([item]));
 }
 
-function buildMessageFromCompletedResponse(state: IOpenAIResponsesStreamState): TUniversalMessage {
+function buildMessageFromCompletedResponse(
+  state: IOpenAIResponsesStreamState,
+  options: IOpenAIResponsesParseOptions,
+): TUniversalMessage {
   const response = state.completedResponse;
   if (response === undefined) {
     throw new Error('OpenAI Responses stream completed without response metadata');
@@ -204,6 +237,9 @@ function buildMessageFromCompletedResponse(state: IOpenAIResponsesStreamState): 
     toolCalls: responseToolCalls.length > 0 ? responseToolCalls : state.toolCalls,
     response,
     reasoning,
+    hostedWebSearch: options.hostedWebSearch === true,
+    replayScope: options.replayScope,
+    webSearch: state.webSearch,
   });
 }
 
@@ -212,6 +248,9 @@ function buildAssistantMessage(input: {
   toolCalls: IToolCall[];
   response?: IOpenAIResponsesResponse;
   reasoning: IOpenAIResponsesReasoningMetadata;
+  hostedWebSearch: boolean;
+  replayScope?: string;
+  webSearch: IOpenAIWebSearchUsage;
 }): TUniversalMessage {
   return {
     id: randomId(),
@@ -222,7 +261,13 @@ function buildAssistantMessage(input: {
     ...(input.toolCalls.length > 0 && { toolCalls: input.toolCalls }),
     ...(input.response?.usage !== undefined && { usage: mapUsage(input.response.usage) }),
     metadata: {
-      ...buildMetadata(input.response, input.reasoning),
+      ...buildMetadata(
+        input.response,
+        input.reasoning,
+        input.hostedWebSearch,
+        input.webSearch,
+        input.replayScope,
+      ),
       ...(input.response?.usage !== undefined && {
         usageProvenance:
           input.response.usage.input_tokens !== undefined &&
@@ -238,7 +283,11 @@ function buildAssistantMessage(input: {
 function buildMetadata(
   response: IOpenAIResponsesResponse | undefined,
   reasoning: IOpenAIResponsesReasoningMetadata,
+  hostedWebSearch: boolean,
+  webSearch: IOpenAIWebSearchUsage,
+  replayScope: string | undefined,
 ): NonNullable<TUniversalMessage['metadata']> {
+  const continuation = encodeResponsesContinuation(response, replayScope);
   return {
     providerApiSurface: 'responses',
     ...(response?.id !== undefined && { responseId: response.id }),
@@ -249,7 +298,78 @@ function buildMetadata(
       reasoningSummaries: reasoning.reasoningSummaries,
     }),
     ...(reasoning.hasEncryptedReasoning && { hasEncryptedReasoning: true }),
+    ...webSearchMetadata(hostedWebSearch, webSearch),
+    ...(continuation !== undefined && { [PROVIDER_CONTINUATION_METADATA_KEY]: continuation }),
   };
+}
+
+/**
+ * The reply's own output items, for the next request to send back as they came: hosted search
+ * results exist only on OpenAI's side, named by these items, and a search item is refused without
+ * its reasoning item, so the reply goes back whole. They are recorded with the scope that may send
+ * them back, because they belong to the account and model that made them. A reply with no function
+ * call ends its turn and is never sent back in-turn; an unstored one has no items on OpenAI's side
+ * to find.
+ */
+function encodeResponsesContinuation(
+  response: IOpenAIResponsesResponse | undefined,
+  replayScope: string | undefined,
+): string | undefined {
+  const output = response?.output ?? [];
+  const searchedAndCalled =
+    output.some(isWebSearchCallItem) && output.some(isFunctionCallOutputItem);
+  if (replayScope === undefined || response?.store === false || !searchedAndCalled) {
+    return undefined;
+  }
+  return JSON.stringify({ replayScope, openaiOutput: output });
+}
+
+/**
+ * The output items to send back for a message, or undefined to rebuild it from the message. A
+ * continuation from another provider, one recorded under another replay scope (another model, or
+ * another provider instance, whose account, retention and restarts the items do not share), or items
+ * that no longer say what the message says because something rewrote it, are not sent: the message
+ * is what the conversation holds.
+ */
+export function decodeResponsesContinuation(
+  message: IAssistantMessage,
+  replayScope: string,
+): TOpenAIResponsesOutputItem[] | undefined {
+  const encoded = message.metadata?.[PROVIDER_CONTINUATION_METADATA_KEY];
+  if (typeof encoded !== 'string') {
+    return undefined;
+  }
+  const output = parseOpenAIOutput(encoded, replayScope);
+  if (output === undefined) {
+    return undefined;
+  }
+  const calls = extractFunctionToolCalls(output);
+  const messageCalls = message.toolCalls ?? [];
+  const sameCalls =
+    calls.length === messageCalls.length &&
+    calls.every((call, index) => {
+      const messageCall = messageCalls[index];
+      return (
+        call.id === messageCall?.id &&
+        call.function.name === messageCall.function.name &&
+        call.function.arguments === messageCall.function.arguments
+      );
+    });
+  return extractMessageText(output) === (message.content ?? '') && sameCalls ? output : undefined;
+}
+
+function parseOpenAIOutput(
+  encoded: string,
+  replayScope: string,
+): TOpenAIResponsesOutputItem[] | undefined {
+  try {
+    const parsed = JSON.parse(encoded) as { replayScope?: unknown; openaiOutput?: unknown };
+    return parsed.replayScope === replayScope && Array.isArray(parsed.openaiOutput)
+      ? (parsed.openaiOutput as TOpenAIResponsesOutputItem[])
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function mapUsage(usage: IOpenAIResponsesUsage): TResponsesMessageUsage {

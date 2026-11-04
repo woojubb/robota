@@ -18,10 +18,10 @@ import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
 /**
  * Build the executor registry, built-ins first.
  *
- * The session resolves an omitted executor list to the built-ins — an UNDEFINED-ONLY fallback. An
- * empty array suppresses the built-ins; a non-empty array REPLACES them. So before
- * this seeding, supplying any one of `providerFactory` / `sessionFactory` / `guardrails` /
- * `additionalHookExecutors` made the array non-empty and silently deregistered `command` and
+ * The session runs exactly the executors it is given — it has no built-ins of its own: an empty
+ * array runs no hook handler and a non-empty array is the whole registry. So without this seeding,
+ * supplying any one of `providerFactory` / `sessionFactory` / `guardrails` /
+ * `additionalHookExecutors` would make the array non-empty and silently deregister `command` and
  * `http` — two executors the caller never named. Under a fail-open PreToolUse that was a silent
  * skip; once PreToolUse fails closed on an unregistered executor (SEC-016), the same config denies
  * EVERY tool call.

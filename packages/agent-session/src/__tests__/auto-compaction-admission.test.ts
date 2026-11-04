@@ -32,6 +32,7 @@ function fixture(options: Partial<ISessionOptions> = {}) {
     },
   };
   const session = new Session({
+    hookTypeExecutors: [],
     cwd: process.cwd(), tools: [], provider, model: SMALL, systemMessage: 'system',
     terminal: {
       write: vi.fn(), writeLine: vi.fn(), writeMarkdown: vi.fn(), writeError: vi.fn(),

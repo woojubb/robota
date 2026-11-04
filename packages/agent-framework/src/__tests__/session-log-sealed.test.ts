@@ -23,7 +23,8 @@ import { join } from 'node:path';
 
 import { ArtifactLockedError } from '@robota-sdk/agent-core';
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
-import { FileSessionLogger, NodeSessionLogSink } from '@robota-sdk/agent-session';
+import { FileSessionLogger } from '@robota-sdk/agent-session';
+import { NodeSessionLogSink } from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -36,7 +37,7 @@ import { validateWorkspaceSessionReplayLog } from '../interactive/workspace-sess
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
-import type { ISessionStoreOptions } from '@robota-sdk/agent-session';
+import type { ISessionStoreOptions } from '@robota-sdk/agent-session/node';
 
 const CANARY = 'CANARY-0b7d-what-the-project-session-said';
 const SESSION = 'session_sealed_replay';

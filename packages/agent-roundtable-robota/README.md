@@ -120,17 +120,27 @@ metering every provider call it makes, and mapping its one supported wait shape 
 approval, `robota-session/approval`) onto the roundtable's own wait/resume protocol.
 
 It is imported from the `/session` subpath, not the package root: `sessionParticipant` pulls in
-`@robota-sdk/agent-session` — and, through it, `@robota-sdk/agent-file-authority`'s native binary — a
-cost a consumer of `runtimeParticipant`/`runtimeSelector` alone should never pay:
+`@robota-sdk/agent-session`, a cost a consumer of `runtimeParticipant`/`runtimeSelector` alone should
+never pay. A Node host also passes the session's host ports, as below:
 
 ```typescript
+import { realpathSync } from 'node:fs';
+import { homedir } from 'node:os';
+
 import { sessionParticipant } from '@robota-sdk/agent-roundtable-robota/session';
+import { createNodeWorkspacePathResolver } from '@robota-sdk/agent-session/node';
+import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 const reviewer = sessionParticipant({
   id: 'reviewer',
   runtime: { id: 'product/reviewer', version: '1' },
   createSessionOptions: async () => ({
     cwd: process.cwd(),
+    // Required: the hook handlers this host can run (`[]` runs none); the Session has no default.
+    hookTypeExecutors: [new CommandExecutor(), new HttpExecutor()],
+    homeDirectory: homedir(),
+    resolveInWorkspace: createNodeWorkspacePathResolver(process.cwd()),
+    canonicalizePath: (path) => realpathSync(path),
     provider /* an IAIProvider the host constructs */,
     tools /* the host's own tools */,
     systemMessage: 'Review the proposal and either approve or ask a question.',

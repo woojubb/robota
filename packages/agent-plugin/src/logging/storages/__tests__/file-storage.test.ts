@@ -2,6 +2,7 @@ import { afterEach, describe, it, expect } from 'vitest';
 import { mkdtempSync, readFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { NodePluginTextFileStore } from '../../../storage/node-text-file-store';
 import { FileLogStorage } from '../file-storage';
 import type { ILogEntry } from '../../types';
 
@@ -20,7 +21,7 @@ describe('FileLogStorage (PLUGIN-001: real persistence)', () => {
   function freshStorage(): FileLogStorage {
     dir = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-log-')));
     filePath = join(dir, 'app.log');
-    return new FileLogStorage(filePath);
+    return new FileLogStorage(filePath, new NodePluginTextFileStore());
   }
 
   afterEach(() => {

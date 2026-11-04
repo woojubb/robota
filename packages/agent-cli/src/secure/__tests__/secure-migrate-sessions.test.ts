@@ -11,7 +11,7 @@ import { join } from 'node:path';
 
 import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework';
 import { serializeKeyring } from '@robota-sdk/agent-keyring';
-import { NodeSessionStore } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';

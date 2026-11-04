@@ -28,6 +28,7 @@ describe('compaction request', () => {
       },
     } as IAIProvider;
     const orchestrator = new CompactionOrchestrator({
+      hookTypeExecutors: [],
       sessionId: 'compaction-context-window',
       cwd: process.cwd(),
       model: 'session-model',

@@ -34,11 +34,8 @@ import {
   getWorkspaceProjectStateStorage,
 } from '@robota-sdk/agent-framework';
 import { parseKeyring } from '@robota-sdk/agent-keyring';
-import {
-  NodePromptHistoryFile,
-  NodeSessionLogSource,
-  loadSessionLogEntries,
-} from '@robota-sdk/agent-session';
+import { loadSessionLogEntries } from '@robota-sdk/agent-session';
+import { NodePromptHistoryFile, NodeSessionLogSource } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { KeyHolderArtifactSealer } from '../artifact-sealer.js';

@@ -120,7 +120,8 @@ the layers above it.
 `agent-session` wraps a `Robota` instance in a `Session`: tool calls pass through permission checks
 and hooks, context usage is tracked, the conversation is compacted when it grows too large, and
 records can be persisted through a store port. It receives its provider and tools already built;
-it never constructs them.
+it never constructs them. Its main entry is platform-neutral; the file-backed store and log sink are
+on `@robota-sdk/agent-session/node`.
 
 `agent-executor` provides background-task lifecycles (queueing, cancellation, snapshots) and the
 subagent job ports.

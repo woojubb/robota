@@ -73,6 +73,8 @@ export interface IAggregatedUsageStats {
 
 import type { IPluginOptions, IPluginStats } from '@robota-sdk/agent-core';
 
+import type { IPluginTextFileStore } from '../storage/text-file-store';
+
 /**
  * Configuration options for usage plugin
  */
@@ -81,6 +83,8 @@ export interface IUsagePluginOptions extends IPluginOptions {
   strategy: TUsageTrackingStrategy;
   /** File path for file strategy */
   filePath?: string;
+  /** Injected text-file store — required for the file strategy. */
+  fileStore?: IPluginTextFileStore;
   /** Remote endpoint for remote strategy */
   remoteEndpoint?: string;
   /** Headers for remote logging */

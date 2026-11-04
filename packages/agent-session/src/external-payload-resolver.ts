@@ -1,10 +1,10 @@
-import { createHash } from 'node:crypto';
+import { sha256Hex } from '@robota-sdk/agent-core';
 
 import { validateExternalPayloadReference } from './external-payload-file-reader.js';
 import { SessionLogPayloadResolutionError } from './external-payload-resolution-contracts.js';
 
 import type { ISessionLogPayloadResolutionOptions } from './external-payload-resolution-contracts.js';
-import type { IExternalPayloadSource } from './session-log-sources.js';
+import type { IExternalPayloadSource } from './external-payload-source-types.js';
 import type { IExternalPayloadReference } from './session-logger.js';
 
 export { SessionLogPayloadResolutionError } from './external-payload-resolution-contracts.js';
@@ -14,6 +14,9 @@ export type {
   TSessionLogPayloadResolutionErrorCode,
 } from './external-payload-resolution-contracts.js';
 
+// A leading byte-order mark is content, not framing: it must still make the JSON invalid, as it did
+// when the bytes were decoded with Node's `Buffer`.
+const PAYLOAD_DECODER = new TextDecoder('utf-8', { ignoreBOM: true });
 const DEFAULT_MAX_DEPTH = 32;
 const DEFAULT_MAX_TOTAL_MIB = 64;
 const BYTES_PER_KIB = 1024;
@@ -187,7 +190,7 @@ function readExternalPayloadJson(
       },
     );
   }
-  const actualSha256 = createHash('sha256').update(bytes).digest('hex');
+  const actualSha256 = sha256Hex(bytes);
   if (actualSha256 !== reference.sha256) {
     throw new SessionLogPayloadResolutionError(
       'SHA256_MISMATCH',
@@ -196,7 +199,7 @@ function readExternalPayloadJson(
     );
   }
   try {
-    return JSON.parse(Buffer.from(bytes).toString('utf8')) as unknown;
+    return JSON.parse(PAYLOAD_DECODER.decode(bytes)) as unknown;
   } catch (error) {
     throw new SessionLogPayloadResolutionError(
       'INVALID_JSON',

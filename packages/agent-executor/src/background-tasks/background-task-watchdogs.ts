@@ -1,3 +1,5 @@
+import { utf8ByteLength } from '@robota-sdk/agent-core';
+
 import {
   hasRepeatedSentence,
   normalizeRepeatedText,
@@ -71,7 +73,7 @@ export class BackgroundTaskWatchdogController {
 
   applyTextGuards(task: ITrackedBackgroundTask, delta: string): void {
     if (task.request.kind !== 'agent') return;
-    task.outputBytes += Buffer.byteLength(delta, 'utf8');
+    task.outputBytes += utf8ByteLength(delta);
     task.textDeltas += 1;
     task.recentText = trimRecentText(
       `${task.recentText}${delta}`,

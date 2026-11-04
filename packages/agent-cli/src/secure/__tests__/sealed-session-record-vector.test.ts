@@ -22,7 +22,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { KeyringError, getSealingPublicKey, parseKeyring } from '@robota-sdk/agent-keyring';
-import { NodeSessionStore } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { KeyHolderArtifactSealer } from '../artifact-sealer.js';

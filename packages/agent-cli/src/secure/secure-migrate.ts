@@ -76,7 +76,7 @@ import type {
   TPromptHistoryCompaction,
   TPromptHistoryInspection,
   TPromptHistoryRefusal,
-} from '@robota-sdk/agent-session';
+} from '@robota-sdk/agent-session/node';
 
 export type {
   IMigrationContext,

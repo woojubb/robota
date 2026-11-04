@@ -39,6 +39,7 @@ function makeNoopTerminal(): ITerminalOutput {
 
 function makeEnforcer(overrides: Partial<IPermissionEnforcerOptions> = {}): PermissionEnforcer {
   return new PermissionEnforcer({
+    hookTypeExecutors: [],
     sessionId: 'test-session',
     cwd: '/tmp',
     getPermissionMode: () => 'default',
@@ -272,6 +273,7 @@ describe('PermissionEnforcer — a preset re-applied live (ARCH-040 Group C)', (
       {
         permissions: { allow: ['Base(*)', 'First(*)'], deny: [] },
         presetFreePermissions: { allow: ['Base(*)'], deny: [] },
+        hookTypeExecutors: [],
         terminal: makeNoopTerminal(),
       } as never,
       'test-session',

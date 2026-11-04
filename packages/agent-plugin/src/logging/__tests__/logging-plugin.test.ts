@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ConfigurationError, PluginError } from '@robota-sdk/agent-core';
+import { NodePluginTextFileStore } from '../../storage/node-text-file-store';
 
 // Mock logger before importing LoggingPlugin
 vi.mock('@robota-sdk/agent-core', async (importOriginal) => {
@@ -109,7 +110,18 @@ describe('LoggingPlugin', () => {
     });
 
     it('should throw when file strategy has no filePath', () => {
-      expect(() => new LoggingPlugin({ strategy: 'file', filePath: '' })).toThrow(
+      expect(
+        () =>
+          new LoggingPlugin({
+            strategy: 'file',
+            filePath: '',
+            fileStore: new NodePluginTextFileStore(),
+          }),
+      ).toThrow(ConfigurationError);
+    });
+
+    it('should throw when file strategy has no fileStore', () => {
+      expect(() => new LoggingPlugin({ strategy: 'file', filePath: '/tmp/agent.log' })).toThrow(
         ConfigurationError,
       );
     });

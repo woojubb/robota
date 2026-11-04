@@ -1,5 +1,6 @@
 import { randomId } from '@robota-sdk/agent-core';
 
+import { buildGeminiToolFields, usesGoogleSearch, contentsForModel } from './google-search';
 import { hasImagePart, buildResponseModalities, buildGenerationConfig } from './image-operations';
 import {
   convertToGeminiRequestFormat,
@@ -7,6 +8,12 @@ import {
   convertToolsToGeminiFormat,
 } from './message-converter';
 import { readGeminiResponseId, withProviderRequestId } from './provider-request-id';
+import {
+  createGeminiReplyRecord,
+  geminiReplyMetadata,
+  recordGeminiResponse,
+  type IGeminiReplyRecord,
+} from './reply-record';
 import { toGeminiFunctionCallingConfig } from './tool-schema-converter';
 
 import type { IGeminiProviderOptions } from './types';
@@ -46,6 +53,8 @@ export async function executeDirect(
   const requestFormat = convertToGeminiRequestFormat(messages);
   const genConfig = buildGenerationConfig(messages, providerOptions, { ...options, model });
   const request = buildGenerateContentRequest(
+    client,
+    providerOptions,
     model,
     requestFormat.contents,
     genConfig,
@@ -63,7 +72,15 @@ export async function executeDirect(
       'Gemini response did not include an image part while IMAGE modality was requested.',
     );
   }
-  return withProviderRequestId(convertedResponse, readGeminiResponseId(result));
+  const record = createGeminiReplyRecord();
+  recordGeminiResponse(record, result, convertedResponse);
+  const metadata = geminiReplyMetadata(record, usesGoogleSearch(request));
+  return withProviderRequestId(
+    Object.keys(metadata).length > 0
+      ? { ...convertedResponse, metadata: { ...convertedResponse.metadata, ...metadata } }
+      : convertedResponse,
+    readGeminiResponseId(result),
+  );
 }
 
 /**
@@ -90,6 +107,8 @@ export async function* executeDirectStream(
   const requestFormat = convertToGeminiRequestFormat(messages);
   const genConfig = buildGenerationConfig(messages, providerOptions, { ...options, model });
   const request = buildGenerateContentRequest(
+    client,
+    providerOptions,
     model,
     requestFormat.contents,
     genConfig,
@@ -101,13 +120,26 @@ export async function* executeDirectStream(
   const stream = await client.models.generateContentStream(
     withRequestHeaders(request, requestHeaders),
   );
-  yield* streamResponseChunks(stream, options, providerName);
+  const record = createGeminiReplyRecord();
+  yield* streamResponseChunks(stream, options, providerName, record);
+  const metadata = geminiReplyMetadata(record, usesGoogleSearch(request));
+  if (Object.keys(metadata).length > 0) {
+    yield {
+      id: randomId(),
+      role: 'assistant',
+      content: null,
+      state: 'complete',
+      timestamp: new Date(),
+      metadata,
+    };
+  }
 }
 
 async function* streamResponseChunks(
   stream: AsyncIterable<GenerateContentResponse>,
   options: IChatOptions | undefined,
   providerName: string,
+  record: IGeminiReplyRecord,
 ): AsyncIterable<TUniversalMessage> {
   let sequence = 0;
   // The first non-empty responseId seen across chunks; if chunks disagree, this keeps the first.
@@ -119,6 +151,7 @@ async function* streamResponseChunks(
       providerRequestId = readGeminiResponseId(chunk);
     }
     const convertedChunk = convertStreamChunk(chunk);
+    recordGeminiResponse(record, chunk, convertedChunk);
     if (convertedChunk) {
       if (typeof convertedChunk.content === 'string') {
         options?.onTextDelta?.(convertedChunk.content);
@@ -144,21 +177,15 @@ async function* streamResponseChunks(
 }
 
 function buildGenerateContentRequest(
+  client: GoogleGenAI,
+  providerOptions: IGeminiProviderOptions,
   model: string,
   contents: Content[],
   generationOptions: GenerateContentParameters['config'],
   options?: IChatOptions,
   systemInstruction?: string,
 ): GenerateContentParameters {
-  const config: GenerateContentParameters['config'] = { ...generationOptions };
-  if (options?.tools && options.tools.length > 0) {
-    config.tools = [{ functionDeclarations: convertToolsToGeminiFormat(options.tools) }];
-    if (options.toolChoice !== undefined) {
-      config.toolConfig = {
-        functionCallingConfig: toGeminiFunctionCallingConfig(options.toolChoice),
-      };
-    }
-  }
+  const config: NonNullable<GenerateContentParameters['config']> = { ...generationOptions };
   if (systemInstruction) {
     config.systemInstruction = systemInstruction;
   }
@@ -169,11 +196,38 @@ function buildGenerateContentRequest(
   } else if (options?.responseFormat?.type === 'json_object') {
     config.responseMimeType = 'application/json';
   }
+  const functionTools =
+    options?.tools && options.tools.length > 0
+      ? { functionDeclarations: convertToolsToGeminiFormat(options.tools) }
+      : undefined;
+  const toolFields = buildGeminiToolFields({
+    enabled: providerOptions.enableWebTools === true,
+    model,
+    vertex: isVertexClient(client),
+    options,
+    config,
+    hasFunctionTools: functionTools !== undefined,
+    functionTools,
+  });
+  Object.assign(config, toolFields);
+  if (
+    functionTools !== undefined &&
+    toolFields.toolConfig === undefined &&
+    options?.toolChoice !== undefined
+  ) {
+    config.toolConfig = {
+      functionCallingConfig: toGeminiFunctionCallingConfig(options.toolChoice),
+    };
+  }
   return {
     model,
-    contents,
+    contents: contentsForModel(contents, model, isVertexClient(client)),
     config,
   };
+}
+
+function isVertexClient(client: GoogleGenAI): boolean {
+  return (client as { vertexai?: unknown }).vertexai === true;
 }
 
 function resolveGeminiModel(
@@ -232,7 +286,7 @@ async function assembleStreamingChatResponse(
         providerRequestId = chunkProviderRequestId;
       }
       if (Object.keys(rest).length > 0) {
-        metadata = rest as TUniversalMessage['metadata'];
+        metadata = { ...metadata, ...rest } as TUniversalMessage['metadata'];
       }
     }
   }
@@ -264,7 +318,10 @@ function withRequestHeaders(
     ...request,
     config: {
       ...config,
-      httpOptions: { ...config.httpOptions, headers: { ...config.httpOptions?.headers, ...headers } },
+      httpOptions: {
+        ...config.httpOptions,
+        headers: { ...config.httpOptions?.headers, ...headers },
+      },
     },
   };
 }

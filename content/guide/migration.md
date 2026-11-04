@@ -91,7 +91,8 @@ The provider now uses Google's `@google/genai` SDK. Check your options against
 `WebhookPlugin`, their option and stats types (`ILoggingPluginOptions`, `TLimitsStrategy`,
 `TErrorHandlingStrategy`, `TWebhookEventName`, …), the usage and performance storages
 (`MemoryUsageStorage`, `FileUsageStorage`, `RemoteUsageStorage`, `SilentUsageStorage`,
-`MemoryPerformanceStorage`, `NodeSystemMetricsCollector`) and `aggregateUsageStats`.
+`MemoryPerformanceStorage`) and `aggregateUsageStats`; `NodeSystemMetricsCollector` is on
+`@robota-sdk/agent-plugin/node`.
 
 <!-- doc-example-skip: 2.x/3.0 before/after contrast — the 2.x package is not installed -->
 
@@ -128,7 +129,9 @@ replacement. Choose by what you need:
 - A ready-made agent session with built-in file, shell and web tools, permissions, hooks, context
   compaction and persistence: `InteractiveSession`, `createQuery()` or `createAgentRuntime()` from
   `@robota-sdk/agent-framework`. See [Using the SDK](./sdk.md).
-- The session layer on its own: `Session` from `@robota-sdk/agent-session`.
+- The session layer on its own: `Session` from `@robota-sdk/agent-session`, with its file-system
+  adapters (`NodeSessionStore` and the log, spill and prompt-history files) on
+  `@robota-sdk/agent-session/node`.
 
 ### Multi-agent work
 

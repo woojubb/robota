@@ -80,6 +80,7 @@ const MOCK_TERMINAL = {
 
 function createSession(): Session {
   return new Session({
+    hookTypeExecutors: [],
     cwd: process.cwd(),
     tools: [] as never,
     provider: createMockProvider(),
@@ -166,6 +167,7 @@ describe('CORE-031 — nothing to summarise is a no-op, not a summary', () => {
 
   it('the orchestrator treats an empty history as a broken invariant, never a summary', async () => {
     const orchestrator = new CompactionOrchestrator({
+      hookTypeExecutors: [],
       sessionId: 'core-031-test',
       cwd: process.cwd(),
       model: 'test-model',

@@ -46,6 +46,7 @@ describe('a tool instance shared by several sessions', () => {
     const tool = sharedTool('Shared');
     const wrap = (sessionId: string): IToolWithEventService => {
       const enforcer = new PermissionEnforcer({
+        hookTypeExecutors: [],
         sessionId,
         cwd: '/tmp',
         getPermissionMode: () => 'default',
@@ -76,6 +77,7 @@ describe('a tool instance shared by several sessions', () => {
     const tool = sharedTool('Shared');
     const makeSession = (): Session =>
       new Session({
+        hookTypeExecutors: [],
         cwd: '/tmp',
         tools: [tool],
         provider: {

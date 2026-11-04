@@ -43,3 +43,7 @@ It does declare whether the configured endpoint is the vendor default, as a bool
 ### Log file permissions
 
 The file-based payload logger writes a summary of each Chat Completions request — request metadata, not prompt or response content — to a caller-supplied log directory. It creates that directory and each log file with owner-only permissions rather than inheriting the process umask, since the directory is caller-supplied and the files record the caller's own request history.
+
+### A searching reply goes back as OpenAI's items, only within its turn
+
+Hosted search results exist only on OpenAI's side, named by a reply's output items, so a reply that searched and called functions is sent back whole on the later requests of its turn that carry the search tool. `previous_response_id` is not used: the conversation held here, which compaction can rewrite, stays what the model is given. Those items belong to the account and model that made them, OpenAI keeps them for a limited time, and it has none for an unstored response, so only the provider instance that recorded a reply sends it back, on the same model, until the next user message, and only on a request that declares the tool, since OpenAI backends are reported to refuse search items otherwise. Everything else is rebuilt from text, because losing the search costs less than failing: a fallback to another model or account, a resumed session and the forced summary must not fail on items they cannot use.

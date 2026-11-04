@@ -8,9 +8,12 @@
  * a process that would send it elsewhere.
  */
 
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-
-import { findProviderDefinition } from '@robota-sdk/agent-core';
+import {
+  constantTimeEqual,
+  findProviderDefinition,
+  hmacSha256Hex,
+  randomHex,
+} from '@robota-sdk/agent-core';
 
 import type { ISerializableProviderProfile } from '../background-tasks/types.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
@@ -32,6 +35,9 @@ export const TRANSPORT_ENVIRONMENT: readonly string[] = [
   'SSL_CERT_DIR',
   'NODE_OPTIONS',
 ];
+
+/** A process environment: any variable may be unset. */
+type TEnvironment = Readonly<Record<string, string | undefined>>;
 
 const ENV_REFERENCE_PREFIX = '$ENV:';
 
@@ -63,8 +69,8 @@ export function connectionEnvironmentNames(
 /** The first name whose value differs between the two environments; `undefined` when none does. */
 export function findConnectionEnvironmentDivergence(
   names: readonly string[],
-  expected: NodeJS.ProcessEnv,
-  actual: NodeJS.ProcessEnv,
+  expected: TEnvironment,
+  actual: TEnvironment,
 ): string | undefined {
   return names.find((name) => (expected[name] ?? '') !== (actual[name] ?? ''));
 }
@@ -81,25 +87,23 @@ export interface IConnectionEnvironmentCheck {
   readonly digest: string;
 }
 
-function digestOf(names: readonly string[], env: NodeJS.ProcessEnv, nonce: string): string {
+function digestOf(names: readonly string[], env: TEnvironment, nonce: string): string {
   const values = names.map((name) => [name, env[name] ?? null]);
-  return createHmac('sha256', nonce).update(JSON.stringify(values)).digest('hex');
+  return hmacSha256Hex(nonce, JSON.stringify(values));
 }
 
 export function sealConnectionEnvironment(
   names: readonly string[],
-  env: NodeJS.ProcessEnv,
+  env: TEnvironment,
 ): IConnectionEnvironmentCheck {
-  const nonce = randomBytes(32).toString('hex');
+  const nonce = randomHex(32);
   return { names: [...names], nonce, digest: digestOf(names, env, nonce) };
 }
 
 /** Whether `env` holds the values the check was sealed over. */
 export function verifyConnectionEnvironment(
   check: IConnectionEnvironmentCheck,
-  env: NodeJS.ProcessEnv,
+  env: TEnvironment,
 ): boolean {
-  const expected = Buffer.from(check.digest, 'hex');
-  const actual = Buffer.from(digestOf(check.names, env, check.nonce), 'hex');
-  return expected.length === actual.length && timingSafeEqual(expected, actual);
+  return constantTimeEqual(check.digest, digestOf(check.names, env, check.nonce));
 }

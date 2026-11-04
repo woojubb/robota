@@ -1,4 +1,5 @@
 import { nonVisualObservationText } from '@robota-sdk/agent-core';
+import { decodeResponsesContinuation } from './responses-parser';
 import type {
   IOpenAIResponsesFunctionTool,
   IOpenAIResponsesMessageInput,
@@ -12,10 +13,20 @@ import type {
   TUniversalMessagePart,
 } from '@robota-sdk/agent-core';
 
+/**
+ * A reply goes back as OpenAI's own items only while its turn runs, and only under the scope that
+ * recorded it: its search results are kept for a limited time and belong to one account and model,
+ * so a turn that is over, another scope or none, on a request that cannot send them, reads the reply
+ * from its text.
+ */
 export function convertToOpenAIResponsesInput(
   messages: TUniversalMessage[],
+  replayScope?: string,
 ): TOpenAIResponsesInputItem[] {
-  return messages.flatMap((message) => convertMessage(message));
+  const turnStart = messages.map((message) => message.role).lastIndexOf('user');
+  return messages.flatMap((message, index) =>
+    convertMessage(message, index > turnStart ? replayScope : undefined),
+  );
 }
 
 /**
@@ -43,7 +54,10 @@ export function convertToOpenAIResponsesTools(
   return converted.length > 0 ? converted : undefined;
 }
 
-function convertMessage(message: TUniversalMessage): TOpenAIResponsesInputItem[] {
+function convertMessage(
+  message: TUniversalMessage,
+  replayScope: string | undefined,
+): TOpenAIResponsesInputItem[] {
   if (message.role === 'user') {
     return [createMessageInput('user', getUserContent(message.content, message.parts))];
   }
@@ -70,10 +84,18 @@ function convertMessage(message: TUniversalMessage): TOpenAIResponsesInputItem[]
       },
     ];
   }
-  return convertAssistantMessage(message);
+  return convertAssistantMessage(message, replayScope);
 }
 
-function convertAssistantMessage(message: IAssistantMessage): TOpenAIResponsesInputItem[] {
+function convertAssistantMessage(
+  message: IAssistantMessage,
+  replayScope: string | undefined,
+): TOpenAIResponsesInputItem[] {
+  const continuation =
+    replayScope !== undefined ? decodeResponsesContinuation(message, replayScope) : undefined;
+  if (continuation !== undefined) {
+    return continuation;
+  }
   const items: TOpenAIResponsesInputItem[] = [];
   if (message.content && message.content.length > 0) {
     items.push(createMessageInput('assistant', message.content));
@@ -114,10 +136,11 @@ function convertPart(part: TUniversalMessagePart): TOpenAIResponsesInputContent 
   if (part.type === 'image_uri') {
     return { type: 'input_image', image_url: part.uri };
   }
-  if (part.type === 'image_inline') return {
-    type: 'input_image',
-    image_url: `data:${part.mimeType};base64,${part.data}`,
-  };
+  if (part.type === 'image_inline')
+    return {
+      type: 'input_image',
+      image_url: `data:${part.mimeType};base64,${part.data}`,
+    };
   return { type: 'input_text', text: nonVisualObservationText(part) ?? 'Unsupported observation' };
 }
 

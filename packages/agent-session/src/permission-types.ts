@@ -1,5 +1,5 @@
 import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
-import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
+import type { IPathProtectionPolicy, TResolveInWorkspace } from '@robota-sdk/agent-core';
 /**
  * Permission types — interfaces and type aliases for permission enforcement.
  */
@@ -88,8 +88,19 @@ export interface IPermissionEnforcerOptions {
    * lets it run without a prompt.
    */
   commandSandbox?: ICommandSandboxApproval;
-  /** Where `~` and `$HOME` point for critical-path removal checks. Defaults to the OS home directory. */
+  /**
+   * Where `~` and `$HOME` point for the gate's path checks. Absent, the home directory is unknown:
+   * a bare `~` is still refused as a critical target, but a path written under it is not expanded,
+   * so it cannot match a protected path.
+   */
   homeDirectory?: string;
+  /**
+   * Where a path a shell command names really is, symlinks followed (a host with a filesystem
+   * supplies it). Absent, a command with a path operand is not read-only.
+   */
+  resolveInWorkspace?: TResolveInWorkspace;
+  /** The host's canonical spelling of a directory; absent, a path is compared as written. */
+  canonicalizePath?: (path: string) => string;
   /**
    * ARCH-040 Group C (issue #1934): the rules BEFORE any preset contributed.
    *
@@ -120,8 +131,8 @@ export interface IPermissionEnforcerOptions {
     /** The source's view of the result, for a surface that can host one; never model context. */
     view?: IToolAppView;
   }) => void;
-  /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
-  hookTypeExecutors?: IHookTypeExecutor[];
+  /** The executors that run hook handlers; required, there is no host default. */
+  hookTypeExecutors: readonly IHookTypeExecutor[];
   /** Absolute path to session transcript file — passed to PreToolUse hook inputs as transcript_path */
   transcriptPath?: string;
   /** Called when the user selects "allow for project" — persists the tool pattern to project settings. */

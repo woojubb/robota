@@ -5,7 +5,8 @@ import { join } from 'node:path';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 import { afterEach, describe, expect, expectTypeOf, it } from 'vitest';
 
-import { NodeSessionStore, Session } from '../index.js';
+import { Session } from '../index.js';
+import { NodeSessionStore } from '../session-store.js';
 
 import type {
   IChatOptions,
@@ -200,6 +201,7 @@ describe('ARCH-015 Session record field preservation', () => {
     store.save(existing);
 
     const session = new Session({
+      hookTypeExecutors: [],
       cwd: scratchDir,
       tools: [],
       provider: new PreservationProvider(),

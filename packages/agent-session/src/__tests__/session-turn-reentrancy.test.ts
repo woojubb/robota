@@ -65,6 +65,7 @@ function blockingProvider() {
 
 function makeSession(provider: unknown) {
   return new Session({
+    hookTypeExecutors: [],
     cwd: process.cwd(),
     tools: [] as never,
     provider: provider as never,

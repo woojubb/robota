@@ -58,6 +58,7 @@ function defaultModelOf(extra: Record<string, unknown>): Record<string, unknown>
   constructorSpy.mockClear();
   new Session({
     cwd: process.cwd(),
+    hookTypeExecutors: [],
     tools: [],
     provider: MOCK_PROVIDER as never,
     systemMessage: 'test',

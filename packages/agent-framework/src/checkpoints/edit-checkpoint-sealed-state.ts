@@ -3,7 +3,7 @@ import {
   isCurrentSealedArtifactBytes,
   isSealedArtifactBytes,
 } from '@robota-sdk/agent-core';
-import { assertSessionSealing } from '@robota-sdk/agent-session';
+import { assertSessionSealing } from '@robota-sdk/agent-session/node';
 
 import { MANIFEST_FILE, SNAPSHOT_DIR } from './edit-checkpoint-store-helpers.js';
 

@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { applyPresetToolLists } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
+import { nodeSessionPorts } from './node-session-ports.js';
 import { sandboxApprovalFor } from './sandbox-approval.js';
 import { sessionAdvisorAccess } from '../advisor/advisor-tool.js';
 import { createModelPermissionClassifier } from './model-permission-classifier.js';
@@ -296,6 +297,7 @@ export async function createSession(
     sessionLogger: options.sessionLogger,
     transcriptPath: options.transcriptPath,
     hookTypeExecutors,
+    ...nodeSessionPorts(cwd),
     agentName: options.agentName,
     ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),

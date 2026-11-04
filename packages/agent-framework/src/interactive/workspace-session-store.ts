@@ -2,15 +2,17 @@ import { isArtifactCorruptError, isArtifactLockedError } from '@robota-sdk/agent
 import {
   SessionLogDecodeError,
   SessionLogPayloadResolutionError,
-  StoredSessionRecords,
   assertSafeSessionId,
-  classifyStoredSessionBytes,
-  sessionSealingOf,
   decodeInteractiveSessionRecord,
   isSafeSessionId,
   loadSessionLogEntries,
   replaySessionLogEntries,
 } from '@robota-sdk/agent-session';
+import {
+  StoredSessionRecords,
+  classifyStoredSessionBytes,
+  sessionSealingOf,
+} from '@robota-sdk/agent-session/node';
 
 import { deriveBackgroundJobGroups, deriveBackgroundTasks } from './session-replay-state.js';
 import { WorkspaceSessionLogSource } from './workspace-session-io.js';
@@ -38,7 +40,7 @@ import type {
   ISessionStoreScan,
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
-import type { ISessionStoreOptions, TStoredSessionFile } from '@robota-sdk/agent-session';
+import type { ISessionStoreOptions, TStoredSessionFile } from '@robota-sdk/agent-session/node';
 
 function assertNamespace(
   storage: IWorkspaceProjectStateStorage,

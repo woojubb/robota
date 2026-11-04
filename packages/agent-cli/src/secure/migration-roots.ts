@@ -32,7 +32,7 @@ import {
 import {
   readPromptHistoryProjects,
   readSessionStoreWorkingDirectories,
-} from '@robota-sdk/agent-session';
+} from '@robota-sdk/agent-session/node';
 
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { IArtifactSealer } from '@robota-sdk/agent-core';

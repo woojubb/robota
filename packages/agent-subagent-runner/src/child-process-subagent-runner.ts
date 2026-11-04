@@ -15,6 +15,7 @@ import {
   resolveSubagentLogSessionId,
   resolveSubagentTranscriptPath,
 } from '@robota-sdk/agent-framework';
+import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 import { DEFAULT_KILL_GRACE_MS } from '@robota-sdk/agent-process';
 
 import {
@@ -149,7 +150,7 @@ export function createChildProcessSubagentRunnerFactory(
       runner,
       worktreeAdapter: options.worktreeAdapter,
       hooks: deps.config.hooks,
-      hookTypeExecutors: deps.hookTypeExecutors,
+      hookTypeExecutors: deps.hookTypeExecutors ?? [new CommandExecutor(), new HttpExecutor()],
     });
   };
 }

@@ -39,13 +39,17 @@ vi.mock('@robota-sdk/agent-session', () => ({
       // no-op
     }
   },
-  NodeSessionLogSink: class MockNodeSessionLogSink {
-    constructor(public readonly logDir: string) {}
-  },
   SilentSessionLogger: class MockSilentSessionLogger {
     log(): void {
       // no-op
     }
+  },
+}));
+
+vi.mock('@robota-sdk/agent-session/node', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/agent-session/node')>()),
+  NodeSessionLogSink: class MockNodeSessionLogSink {
+    constructor(public readonly logDir: string) {}
   },
 }));
 

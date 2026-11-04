@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { NodePluginTextFileStore } from '../../storage/node-text-file-store';
 import { UsagePlugin } from '../usage-plugin';
 import { ConfigurationError } from '@robota-sdk/agent-core';
 
@@ -36,7 +37,15 @@ describe('UsagePlugin', () => {
     });
 
     it('throws ConfigurationError for file strategy without filePath', () => {
-      expect(() => new UsagePlugin({ strategy: 'file' })).toThrow(ConfigurationError);
+      expect(
+        () => new UsagePlugin({ strategy: 'file', fileStore: new NodePluginTextFileStore() }),
+      ).toThrow(ConfigurationError);
+    });
+
+    it('throws ConfigurationError for file strategy without a fileStore', () => {
+      expect(() => new UsagePlugin({ strategy: 'file', filePath: '/tmp/usage.json' })).toThrow(
+        ConfigurationError,
+      );
     });
 
     it('throws ConfigurationError for remote strategy without endpoint', () => {
@@ -269,6 +278,7 @@ describe('UsagePlugin', () => {
       plugin = new UsagePlugin({
         strategy: 'file',
         filePath,
+        fileStore: new NodePluginTextFileStore(),
         aggregateStats: false,
       });
       expect(plugin.name).toBe('UsagePlugin');
@@ -278,6 +288,7 @@ describe('UsagePlugin', () => {
       plugin = new UsagePlugin({
         strategy: 'file',
         filePath,
+        fileStore: new NodePluginTextFileStore(),
         aggregateStats: false,
       });
       await expect(

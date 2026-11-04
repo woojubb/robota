@@ -53,6 +53,7 @@ function gatedTools(answer: boolean, deny: string[] = []) {
     return answer;
   };
   const enforcer = new PermissionEnforcer({
+    hookTypeExecutors: [],
     sessionId: 'editor-files',
     cwd: root,
     getPermissionMode: () => 'default',

@@ -1,6 +1,7 @@
 import { join, relative, resolve, sep } from 'node:path';
 
-import { CheckpointTree, assertSessionSealing } from '@robota-sdk/agent-session';
+import { CheckpointTree } from '@robota-sdk/agent-session';
+import { assertSessionSealing } from '@robota-sdk/agent-session/node';
 
 import { EditCheckpointAuthorityIO } from './edit-checkpoint-authority-io.js';
 import { PlainEditCheckpointCatalog } from './edit-checkpoint-catalog.js';
