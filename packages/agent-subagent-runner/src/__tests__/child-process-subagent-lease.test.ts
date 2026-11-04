@@ -19,6 +19,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createUserSessionStore, resolveExecutionAttach } from '@robota-sdk/agent-framework';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ChildProcessSubagentRunner } from '../index.js';
@@ -104,6 +105,7 @@ function forkRecord(cwd: string): IInteractiveSessionRecord {
 
 function createDeps(store: TResumeSessionStore): IInProcessSubagentRunnerDeps {
   return {
+    host: createTestFrameworkHost(),
     config: {
       defaultTrustLevel: 'moderate',
       currentProvider: 'openai',

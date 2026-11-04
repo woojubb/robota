@@ -20,6 +20,7 @@ import {
   readProcessStartTime,
 } from '@robota-sdk/agent-core/node';
 import { createScriptedProvider, leaveProcessMarker } from '@robota-sdk/agent-core/testing';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
 import {
   createDefaultTuiCliAdapter,
@@ -41,6 +42,7 @@ const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-held-resu
 const ORIGINAL_ARGV = process.argv;
 const ORIGINAL_HOME = process.env.HOME;
 const HELD_ID = 'session_held_elsewhere';
+const testHost = createTestFrameworkHost();
 
 function scriptedDefinition(scripted: IScriptedProvider): IProviderDefinition {
   return {
@@ -94,7 +96,7 @@ async function run(
       projectAccess: await createTrustedWorkspaceProjectAccess(project),
     };
     if (presentation === undefined) await startCli(options);
-    else await startCliCore(options, () => [], presentation as never);
+    else await startCliCore(options, testHost, () => [], presentation as never);
     throw new Error('startCli returned without process.exit');
   } catch (error) {
     const match = /^process\.exit:(\d+)$/.exec(
