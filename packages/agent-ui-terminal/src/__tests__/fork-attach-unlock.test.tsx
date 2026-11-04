@@ -135,6 +135,22 @@ describe('attaching to a fork sealed with the keys locked', () => {
     }
   });
 
+  it('asks nothing when attach would be refused anyway, and says why', async () => {
+    const { store } = storeOf(() => ({ status: 'locked' }));
+    // A job still writing the fork's record: attach would add a second writer.
+    store.claim(FORK);
+    const keys = custody('readable');
+    const probe = attachWith(store, keys.port);
+
+    probe.attach(forkEntry());
+    await vi.waitFor(() => expect(probe.addEntry).toHaveBeenCalled());
+    probe.done();
+
+    expect(keys.ensureReadable).not.toHaveBeenCalled();
+    expect(probe.onSessionSwitch).not.toHaveBeenCalled();
+    expect(probe.said()).toContain('already has a writer');
+  });
+
   it('asks nothing for a fork sealed with keys this process does not have', async () => {
     const { store } = storeOf(() => ({ status: 'locked', reason: 'no-keys' }));
     const keys = custody('readable');
