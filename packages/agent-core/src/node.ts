@@ -67,10 +67,20 @@ export {
   createProcessMarkerMemory,
   createProcessMarkers,
 } from './utils/process-marker.js';
+export { removeDirectoryOnProcessExit, runProcessEndNow } from './utils/process-exit-removals.js';
+export type {
+  IEnableOwnChildSessionsOptions,
+  IExecFileInChildSessionOptions,
+  TChildSessionOptions,
+  TExecFileCallback,
+} from './utils/child-session.js';
 export {
-  removeDirectoryOnProcessExit,
-  removeProcessScopedDirectoriesNow,
-} from './utils/process-exit-removals.js';
+  enableOwnChildSessions,
+  endWithProcess,
+  execFileInChildSession,
+  signalChildGroup,
+  withChildSession,
+} from './utils/child-session.js';
 export type {
   IProcessIdentity,
   IReadMachineIdOptions,

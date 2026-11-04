@@ -22,7 +22,7 @@ import { join } from 'node:path';
 
 import {
   PROCESS_OWNER_RECORD_NAME,
-  removeProcessScopedDirectoriesNow,
+  runProcessEndNow,
 } from '@robota-sdk/agent-core/node';
 import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -154,7 +154,7 @@ describe('edit checkpoints of a run that persists no session', () => {
     expect(readdirSync(parent)).toHaveLength(1);
 
     // What every ending runs: exit, the handled signals, and the crash policy before it rethrows.
-    removeProcessScopedDirectoriesNow();
+    runProcessEndNow();
 
     expect(readdirSync(parent)).toEqual([]);
   });
