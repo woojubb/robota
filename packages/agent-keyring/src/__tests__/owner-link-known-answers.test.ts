@@ -10,21 +10,13 @@ import { fileURLToPath } from 'node:url';
 
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import {
-  createLinkResponder,
-  openOwnerHandover,
-  parseKeyring,
-  type IOwnerHandover,
-} from '../index.js';
-import { createLinkInitiatorWith, deriveFrameKeys, transcriptHash } from '../owner-link.js';
-import { createRuntimeIdentityWith } from '../runtime-identity.js';
-import { startSpawnerExchangeWith } from '../spawner-exchange.js';
+import { openOwnerHandover, parseKeyring, type IOwnerHandover } from '../index.js';
+import { deriveFrameKeys, transcriptHash } from '../owner-link.js';
 import {
   FIXTURE_RECOVERY_KEY,
   KAT_BINDING,
   KAT_CERTIFICATE_HEX,
   KAT_INSTANCE_PUBLIC_KEY_HEX,
-  KAT_INSTANCE_SEED,
   KNOWN_AUTHORSHIP_MESSAGE,
   KNOWN_AUTHORSHIP_TAG_HEX,
   KNOWN_SEALING_PUBLIC_KEY_HEX,
@@ -34,10 +26,9 @@ import {
 import {
   KAT_FRAMES,
   KAT_OWNER_LINK,
-  KAT_RUNTIME_EXCHANGE_SEED,
-  KAT_SPAWNER_EPHEMERAL_SEED,
   KAT_SPAWNER_LINK,
-  fixedEntropy,
+  katOwnerLink,
+  katSpawnerLink,
 } from './link-helpers.js';
 
 const fixture = parseKeyring(
@@ -52,52 +43,9 @@ beforeAll(async () => {
   });
 });
 
-/** The KAT runtime: fixed instance key, exchange and handshake ephemerals, and handshake nonce. */
-function katRuntime(link: typeof KAT_SPAWNER_LINK | typeof KAT_OWNER_LINK) {
-  const identity = createRuntimeIdentityWith(
-    fixedEntropy(
-      [KAT_INSTANCE_SEED, KAT_RUNTIME_EXCHANGE_SEED, link.responderSeed],
-      [link.responderNonce],
-    ),
-  );
-  const exchange = startSpawnerExchangeWith(fixedEntropy([KAT_SPAWNER_EPHEMERAL_SEED]));
-  const result = exchange.complete(identity.answerSpawnerExchange(exchange.message));
-  return { identity, ...result };
-}
-
-function spawnerLink() {
-  const { identity, spawnerKey, instancePublicKey } = katRuntime(KAT_SPAWNER_LINK);
-  const initiator = createLinkInitiatorWith(
-    { mode: 'spawner', spawnerKey, instancePublicKey },
-    fixedEntropy([KAT_SPAWNER_LINK.initiatorSeed], [KAT_SPAWNER_LINK.initiatorNonce]),
-  );
-  const responder = createLinkResponder(identity, KAT_BINDING);
-  const hello = initiator.hello();
-  const challenge = responder.challenge(hello);
-  const { proof, link } = initiator.answer(challenge);
-  const accepted = responder.accept(proof);
-  return { hello, challenge, proof, initiatorLink: link, ...accepted };
-}
-
-function ownerLink() {
-  const { identity, spawnerKey } = katRuntime(KAT_OWNER_LINK);
-  identity.installTrustRoot(owner.certify(identity.instancePublicKey, KAT_BINDING), KAT_BINDING);
-  spawnerKey.wipe();
-  const initiator = createLinkInitiatorWith(
-    { mode: 'owner', handover: owner },
-    fixedEntropy([KAT_OWNER_LINK.initiatorSeed], [KAT_OWNER_LINK.initiatorNonce]),
-  );
-  const responder = createLinkResponder(identity, KAT_BINDING);
-  const hello = initiator.hello();
-  const challenge = responder.challenge(hello);
-  const { proof, link } = initiator.answer(challenge);
-  const accepted = responder.accept(proof);
-  return { hello, challenge, proof, initiatorLink: link, ...accepted };
-}
-
 describe('owner link known answers', () => {
   it('runs the spawner-mode handshake to the pinned bytes', () => {
-    const { hello, challenge, proof, standing, initiatorLink } = spawnerLink();
+    const { hello, challenge, proof, standing, initiatorLink } = katSpawnerLink();
     expect(hex(hello)).toBe(KAT_SPAWNER_LINK.hello);
     expect(hex(challenge)).toBe(KAT_SPAWNER_LINK.challenge);
     expect(hex(proof)).toBe(KAT_SPAWNER_LINK.proof);
@@ -107,7 +55,7 @@ describe('owner link known answers', () => {
   });
 
   it('runs the owner-mode handshake to the pinned bytes, with the pinned certificate', () => {
-    const { hello, challenge, proof, standing, initiatorLink } = ownerLink();
+    const { hello, challenge, proof, standing, initiatorLink } = katOwnerLink(owner);
     expect(hex(hello)).toBe(KAT_OWNER_LINK.hello);
     expect(hex(challenge)).toBe(KAT_OWNER_LINK.challenge);
     expect(hex(challenge)).toContain(KAT_CERTIFICATE_HEX);
@@ -141,7 +89,7 @@ describe('owner link known answers', () => {
   });
 
   it('seals one frame of each kind to the pinned bytes, and opens them on the other end', () => {
-    const spawner = spawnerLink();
+    const spawner = katSpawnerLink();
     const session = spawner.initiatorLink.seal('session', bytesOf(KAT_FRAMES.session.plaintext));
     const ownerFrame = spawner.initiatorLink.seal('owner', bytesOf(KAT_FRAMES.owner.plaintext));
     const reply = spawner.link.seal('owner', bytesOf(KAT_FRAMES.ownerReply.plaintext));
@@ -156,7 +104,7 @@ describe('owner link known answers', () => {
       KAT_FRAMES.ownerReply.plaintext,
     );
 
-    const ownerSide = ownerLink();
+    const ownerSide = katOwnerLink(owner);
     const grant = ownerSide.initiatorLink.sealReadGrant(owner);
     expect(hex(grant)).toBe(KAT_FRAMES.grant.sealed);
     const keys = ownerSide.link.openReadGrant(grant);

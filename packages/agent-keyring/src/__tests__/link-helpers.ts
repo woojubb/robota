@@ -8,6 +8,7 @@ import { Buffer } from 'node:buffer';
 
 import {
   LinkRefusedError,
+  createLinkResponder,
   createRuntimeIdentity,
   startSpawnerExchange,
   type ILinkBinding,
@@ -17,6 +18,10 @@ import {
   type TLinkRefusalReason,
 } from '../index.js';
 import type { ILinkEntropy } from '../link-entropy.js';
+import { createLinkInitiatorWith } from '../owner-link.js';
+import { createRuntimeIdentityWith } from '../runtime-identity.js';
+import { startSpawnerExchangeWith } from '../spawner-exchange.js';
+import { KAT_BINDING, KAT_INSTANCE_SEED } from './helpers.js';
 
 /** 32 bytes counting up from `start`, wrapping at 0xff. */
 export function sequence(start: number): Buffer {
@@ -146,6 +151,51 @@ export const KAT_FRAMES = {
       '03eb5c10891695ed702816ead24afe1b6f2feb114b1a146adb8b0f32304e2b289bba493055e01e173516c2912e527b1d148d7d11ba240792e1b5d042dd010a169677552aa2a64e6f8d51c256d3ed4d90406b',
   },
 } as const;
+
+/** The KAT runtime: fixed instance key, exchange and handshake ephemerals, and handshake nonce. */
+export function katRuntime(link: typeof KAT_SPAWNER_LINK | typeof KAT_OWNER_LINK) {
+  const identity = createRuntimeIdentityWith(
+    fixedEntropy(
+      [KAT_INSTANCE_SEED, KAT_RUNTIME_EXCHANGE_SEED, link.responderSeed],
+      [link.responderNonce],
+    ),
+  );
+  const exchange = startSpawnerExchangeWith(fixedEntropy([KAT_SPAWNER_EPHEMERAL_SEED]));
+  const result = exchange.complete(identity.answerSpawnerExchange(exchange.message));
+  return { identity, ...result };
+}
+
+/** The fixed-value spawner link, established: every message of its handshake and both ends. */
+export function katSpawnerLink() {
+  const { identity, spawnerKey, instancePublicKey } = katRuntime(KAT_SPAWNER_LINK);
+  const initiator = createLinkInitiatorWith(
+    { mode: 'spawner', spawnerKey, instancePublicKey },
+    fixedEntropy([KAT_SPAWNER_LINK.initiatorSeed], [KAT_SPAWNER_LINK.initiatorNonce]),
+  );
+  const responder = createLinkResponder(identity, KAT_BINDING);
+  const hello = initiator.hello();
+  const challenge = responder.challenge(hello);
+  const { proof, link } = initiator.answer(challenge);
+  const accepted = responder.accept(proof);
+  return { hello, challenge, proof, initiatorLink: link, ...accepted };
+}
+
+/** The fixed-value owner link, established between the KAT runtime and `owner`. */
+export function katOwnerLink(owner: IOwnerHandover) {
+  const { identity, spawnerKey } = katRuntime(KAT_OWNER_LINK);
+  identity.installTrustRoot(owner.certify(identity.instancePublicKey, KAT_BINDING), KAT_BINDING);
+  spawnerKey.wipe();
+  const initiator = createLinkInitiatorWith(
+    { mode: 'owner', handover: owner },
+    fixedEntropy([KAT_OWNER_LINK.initiatorSeed], [KAT_OWNER_LINK.initiatorNonce]),
+  );
+  const responder = createLinkResponder(identity, KAT_BINDING);
+  const hello = initiator.hello();
+  const challenge = responder.challenge(hello);
+  const { proof, link } = initiator.answer(challenge);
+  const accepted = responder.accept(proof);
+  return { hello, challenge, proof, initiatorLink: link, ...accepted };
+}
 
 /** The fixture keyring's sealing seed, the grant's first secret (HKDF in Python). */
 export const KAT_FIXTURE_SEALING_SEED_HEX =

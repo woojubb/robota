@@ -8,6 +8,7 @@
  */
 import { Buffer } from 'node:buffer';
 import {
+  createCipheriv,
   createHash,
   createHmac,
   createPrivateKey,
@@ -44,7 +45,14 @@ import {
   lengthPrefixed,
   tamper,
 } from './helpers.js';
-import { certifiedRuntime, fixedEntropy, refusalOf, spawnedRuntime } from './link-helpers.js';
+import {
+  KAT_OWNER_LINK,
+  certifiedRuntime,
+  fixedEntropy,
+  katOwnerLink,
+  refusalOf,
+  spawnedRuntime,
+} from './link-helpers.js';
 
 const fixture = parseKeyring(
   readFileSync(fileURLToPath(new URL('./fixtures/keyring-v1.json', import.meta.url)), 'utf8'),
@@ -667,11 +675,38 @@ describe('a read grant', () => {
     expect(responderLink.closed).toBe(true);
   });
 
-  it('refuses a grant whose content is not one, however it was sealed', () => {
+  it('refuses a grant cut short: it does not authenticate', () => {
     const { initiatorLink, responderLink } = establishedPair();
     const grant = initiatorLink.sealReadGrant(owner);
     expect(codeOf(() => responderLink.openReadGrant(grant.subarray(0, grant.length - 1)))).toBe(
       'decryption-failed',
     );
+  });
+
+  describe('sealed by hand under the key of a known link', () => {
+    /** A grant-kind frame as the initiator would seal it (counter 0), but around any content. */
+    const sealGrantContent = (content: Uint8Array): Buffer => {
+      const key = Buffer.from(KAT_OWNER_LINK.initiatorToResponder, 'hex');
+      const cipher = createCipheriv('aes-256-gcm', key, Buffer.alloc(12), { authTagLength: 16 });
+      cipher.setAAD(Buffer.from([1, 3]));
+      const body = Buffer.concat([cipher.update(content), cipher.final()]);
+      return Buffer.concat([Buffer.from([3]), body, cipher.getAuthTag()]);
+    };
+    const content = (version: number, length: number): Buffer =>
+      Buffer.concat([Buffer.from([version]), randomBytes(length - 1)]);
+
+    it('opens content of exactly the right shape, so the builder is right', () => {
+      const { link } = katOwnerLink(owner);
+      link.openReadGrant(sealGrantContent(content(1, 65))).lock();
+      expect(link.closed).toBe(false);
+    });
+
+    it('refuses authentic content that is not a grant: the wrong length or the wrong version', () => {
+      for (const wrong of [content(1, 64), content(1, 66), content(2, 65)]) {
+        const { link } = katOwnerLink(owner);
+        expect(refusalOf(() => link.openReadGrant(sealGrantContent(wrong)))).toBe('malformed');
+        expect(link.closed).toBe(true);
+      }
+    });
   });
 });
