@@ -6,17 +6,19 @@ import { hostedAdmissionError } from './hosted-runtime-config.js';
 import { HostedRuntimeController } from './hosted-runtime-controller.js';
 import { createE2BHostedRuntimeExecutorFactory } from './e2b-hosted-executor.js';
 import { loadE2BSdk } from './e2b-sdk.js';
+import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 
-import type { TConfigEnvironment } from '@robota-sdk/product-config';
+import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { IStartCliOptions } from '../startup/cli-options-types.js';
 import type { IHostedRuntimeInvocation } from './hosted-runtime-types.js';
 
 /** Hosted process lifecycle stays separate from local launch/workspace composition. */
 export async function runHostedRuntime(
   options: IStartCliOptions,
-  environment: TConfigEnvironment,
-  cliName: string,
+  productRuntime: ICliRuntimeContext,
 ): Promise<void> {
+  const environment = productRuntime.environment;
+  const cliName = productRuntime.config.identity.cliName;
   if (options.toolExecutionPolicy !== undefined) {
     throw hostedAdmissionError(
       'host tool scheduling functions cannot cross the task-worker boundary; configure policy in the worker host',
@@ -80,7 +82,12 @@ export async function runHostedRuntime(
           'mandatory task worker execution adapter is unavailable; host execution is refused',
         );
       }
-      return factory(admission, signal, invocation);
+      // A served task opens its loopback ingress while its executor starts, under the ingress row.
+      return invocation.mode === 'serve'
+        ? startListener(SECURE_SURFACES['hosted-ingress'], productRuntime, () =>
+            factory(admission, signal, invocation),
+          )
+        : factory(admission, signal, invocation);
     },
   });
   const stop = (): void => {

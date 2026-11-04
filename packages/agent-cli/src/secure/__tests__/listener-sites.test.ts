@@ -33,6 +33,8 @@ const LISTENER_SITES: Readonly<Record<string, readonly TListenerSurface[]>> = {
   'packages/agent-transport-webrtc/src/mesh-mdns.ts': ['device-mesh'],
   'packages/agent-transport-webrtc/src/mainline-dht-store.ts': ['device-mesh'],
   'packages/agent-cli/src/startup/openrouter-oauth.ts': ['oauth-callback'],
+  // The product's MCP sign-in opens the Node host's callback listener here, under its row.
+  'packages/agent-cli/src/startup/mcp-oauth-host.ts': ['oauth-callback'],
   'packages/agent-mcp/src/node/oauth-callback.ts': ['oauth-callback'],
   // The sign-in calls the listener the host injected; the Node host's is `node/oauth-callback.ts`.
   'packages/agent-mcp/src/client/oauth/login.ts': ['oauth-callback'],
@@ -45,14 +47,20 @@ const LISTENER_GATES: { readonly [S in TListenerSurface]: readonly string[] } = 
   'serve-http': ['packages/agent-cli/src/modes/serve-mode.ts'],
   'serve-monitor': ['packages/agent-cli/src/modes/serve-mode.ts'],
   'mcp-http': ['packages/agent-cli/src/modes/mcp-serve-mode.ts'],
-  'external-events': ['packages/agent-cli/src/modes/serve-mode.ts'],
-  'hosted-ingress': [],
+  'external-events': [
+    'packages/agent-cli/src/cli-core.ts',
+    'packages/agent-cli/src/modes/serve-mode.ts',
+  ],
+  'hosted-ingress': ['packages/agent-cli/src/hosted/hosted-runtime-startup.ts'],
   'hosted-desktop-gateway': [],
   'desktop-remote-bridge': [],
-  'local-peers': [],
-  'remote-control': [],
+  'local-peers': ['packages/agent-cli/src/startup/host-action-adapters.ts'],
+  'remote-control': ['packages/agent-cli/src/remote-control/remote-control-controller.ts'],
   'device-mesh': [],
-  'oauth-callback': [],
+  'oauth-callback': [
+    'packages/agent-cli/src/startup/mcp-oauth-host.ts',
+    'packages/agent-cli/src/startup/openrouter-connection-host.ts',
+  ],
 };
 
 const scan = scanProductSources();

@@ -21,13 +21,16 @@ import {
   createFileOAuthCredentialStore,
   createFileOAuthRefreshLock,
   createNodeOAuthNetwork,
-  loopbackOAuthCallbackListener,
 } from '@robota-sdk/agent-mcp/node';
 
 import { openInBrowser } from './browser-opener.js';
 import { HiddenPromptTooLongError, promptHiddenLine } from './hidden-prompt.js';
 import { resolveMcpDefinitions } from './mcp-definition-sources.js';
-import { MAX_PASTED_REDIRECT_LENGTH, mcpCredentialDirectory } from './mcp-oauth-host.js';
+import {
+  MAX_PASTED_REDIRECT_LENGTH,
+  mcpCredentialDirectory,
+  productOAuthCallbackListener,
+} from './mcp-oauth-host.js';
 
 import type { TSettingsSource } from '@robota-sdk/agent-framework';
 import type {
@@ -189,7 +192,7 @@ export async function runMcpLoginCommand(
       store: createFileOAuthCredentialStore(directory),
       lock: createFileOAuthRefreshLock(directory),
       network: createNodeOAuthNetwork(deps.network),
-      callbackListener: loopbackOAuthCallbackListener,
+      callbackListener: productOAuthCallbackListener(deps.productRuntime),
       ...(deps.callbackTimeoutMs === undefined
         ? {}
         : { callbackTimeoutMs: deps.callbackTimeoutMs }),
