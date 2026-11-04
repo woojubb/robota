@@ -129,7 +129,7 @@ export async function* executeDirectStream(
   const metadata = geminiReplyMetadata(record, usesGoogleSearch(request));
   if (Object.keys(metadata).length > 0) {
     yield {
-      id: randomUUID(),
+      id: randomId(),
       role: 'assistant',
       content: null,
       state: 'complete',

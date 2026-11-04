@@ -153,13 +153,15 @@ export interface IProviderDefinition {
   connectionMethods?: readonly ('api-key' | 'browser')[];
   /**
    * The provider-hosted web tools the provider vouches for through `options.nativeWebTools`, answered
-   * for the profile being built because it can depend on where that profile connects. A host only
-   * sets the option by default where it is declared here. A tool left out, or an absent function, is
-   * no such claim: asking for it explicitly either fails or is the caller's own claim about that
-   * endpoint, as the provider's capabilities then report.
+   * for the profile being built and the environment its client reads, because they can depend on
+   * where that profile connects. The host passes that environment: a platform-neutral provider cannot
+   * read it for itself. A host only sets the option by default where it is declared here. A tool left
+   * out, or an absent function, is no such claim: asking for it explicitly either fails or is the
+   * caller's own claim about that endpoint, as the provider's capabilities then report.
    */
   nativeWebTools?: (
     profile: Pick<IProviderDefinitionConfig, 'baseURL' | 'options'>,
+    environment: Readonly<Record<string, string | undefined>>,
   ) => readonly (keyof IProviderNativeWebToolRequest)[];
   defaults?: IProviderProfileDefaults;
   /**

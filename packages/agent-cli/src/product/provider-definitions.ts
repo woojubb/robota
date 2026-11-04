@@ -28,7 +28,7 @@ function withNativeWebSearchDefault(definition: IProviderDefinition): IProviderD
     createProvider: (config) =>
       definition.createProvider(
         config.options?.['nativeWebTools'] === undefined &&
-          definition.nativeWebTools?.(config).includes('webSearch') === true
+          definition.nativeWebTools?.(config, process.env).includes('webSearch') === true
           ? { ...config, options: { ...config.options, nativeWebTools: { webSearch: true } } }
           : config,
       ),

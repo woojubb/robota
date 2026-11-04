@@ -490,25 +490,24 @@ describe('hosted web search in the provider definition', () => {
   const profile = { name: 'openai', model: 'gpt-4o', apiKey: 'sk-test' };
 
   it('declares web search for a profile on the vendor Responses API', () => {
-    expect(definition.nativeWebTools?.({})).toEqual(['webSearch']);
-    expect(definition.nativeWebTools?.({ options: { apiSurface: 'responses' } })).toEqual([
+    expect(definition.nativeWebTools?.({}, {})).toEqual(['webSearch']);
+    expect(definition.nativeWebTools?.({ options: { apiSurface: 'responses' } }, {})).toEqual([
       'webSearch',
     ]);
   });
 
   it('declares nothing for a custom baseURL or Chat Completions', () => {
-    expect(definition.nativeWebTools?.({ baseURL: 'http://localhost:1234/v1' })).toEqual([]);
-    expect(definition.nativeWebTools?.({ options: { apiSurface: 'chat-completions' } })).toEqual(
-      [],
-    );
+    expect(definition.nativeWebTools?.({ baseURL: 'http://localhost:1234/v1' }, {})).toEqual([]);
+    expect(
+      definition.nativeWebTools?.({ options: { apiSurface: 'chat-completions' } }, {}),
+    ).toEqual([]);
   });
 
   it('declares nothing while OPENAI_BASE_URL redirects the SDK, and ignores an empty one', () => {
-    vi.stubEnv('OPENAI_BASE_URL', 'https://gateway.example.com/v1');
-    expect(definition.nativeWebTools?.({})).toEqual([]);
+    const redirected = { OPENAI_BASE_URL: 'https://gateway.example.com/v1' };
+    expect(definition.nativeWebTools?.({}, redirected)).toEqual([]);
 
-    vi.stubEnv('OPENAI_BASE_URL', '');
-    expect(definition.nativeWebTools?.({})).toEqual(['webSearch']);
+    expect(definition.nativeWebTools?.({}, { OPENAI_BASE_URL: '' })).toEqual(['webSearch']);
   });
 
   it('builds a provider with search on from the profile option', () => {

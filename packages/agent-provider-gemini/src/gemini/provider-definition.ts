@@ -37,7 +37,10 @@ export function createGeminiProviderDefinition(): IProviderDefinition {
     description: 'Google Gemini series — free tier available.',
     category: 'cloud-free',
     // The SDK reads these base URLs on its own: with one set, the endpoint is one we cannot vouch for.
-    nativeWebTools: () => (hasGeminiBaseUrlEnvironment() ? [] : ['webSearch']),
+    nativeWebTools: (_profile, environment) =>
+      environment['GOOGLE_GEMINI_BASE_URL'] || environment['GOOGLE_VERTEX_BASE_URL']
+        ? []
+        : ['webSearch'],
     // Interim provider-level cost (ARCH-PROVIDER-003), migrated from the former llm-text-gemini node.
     costPerTokenUsd: 0.0005,
     defaults: {
@@ -92,11 +95,6 @@ export function createGeminiProviderDefinition(): IProviderDefinition {
         ...(readNativeWebSearchOption('gemini', config.options) && { enableWebTools: true }),
       }),
   };
-}
-
-function hasGeminiBaseUrlEnvironment(): boolean {
-  if (typeof process === 'undefined') return false;
-  return Boolean(process.env['GOOGLE_GEMINI_BASE_URL'] || process.env['GOOGLE_VERTEX_BASE_URL']);
 }
 
 function requireApiKey(apiKey: string | undefined): string {

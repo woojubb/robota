@@ -476,10 +476,10 @@ describe('profile option nativeWebTools', () => {
   it('declares web search and enables it only when the profile asks', () => {
     const definition = createGeminiProviderDefinition();
 
-    expect(definition.nativeWebTools?.({})).toEqual(['webSearch']);
-    vi.stubEnv('GOOGLE_GEMINI_BASE_URL', 'https://gateway.example.com');
-    expect(definition.nativeWebTools?.({})).toEqual([]);
-    vi.stubEnv('GOOGLE_GEMINI_BASE_URL', undefined);
+    expect(definition.nativeWebTools?.({}, {})).toEqual(['webSearch']);
+    const gateway = 'https://gateway.example.com';
+    expect(definition.nativeWebTools?.({}, { GOOGLE_GEMINI_BASE_URL: gateway })).toEqual([]);
+    expect(definition.nativeWebTools?.({}, { GOOGLE_VERTEX_BASE_URL: gateway })).toEqual([]);
     expect(
       definition.createProvider(profile()).getCapabilities?.().nativeWebTools.webSearch.enabled,
     ).toBe(false);

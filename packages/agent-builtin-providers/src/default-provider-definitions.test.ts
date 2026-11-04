@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 
 import { createDefaultProviderDefinitions } from './default-provider-definitions.js';
 
@@ -7,16 +7,6 @@ import { createDefaultProviderDefinitions } from './default-provider-definitions
  * ByteDance is a media/video provider and remains outside the chat provider set.
  */
 describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
-  // A developer's own gateway variable would change which profiles OpenAI declares search for.
-  beforeEach(() => {
-    vi.stubEnv('OPENAI_BASE_URL', '');
-    vi.stubEnv('GOOGLE_GEMINI_BASE_URL', '');
-    vi.stubEnv('GOOGLE_VERTEX_BASE_URL', '');
-  });
-  afterEach(() => {
-    vi.unstubAllEnvs();
-  });
-
   it('appends OpenRouter while preserving the original chat provider order', () => {
     const types = createDefaultProviderDefinitions().map((d) => d.type);
     expect(types).toEqual([
@@ -53,7 +43,11 @@ describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
     // provider does not honour, or an honoured option it does not declare, would let them drift.
     for (const definition of createDefaultProviderDefinitions()) {
       const profiles = [
-        { ...(definition.defaults?.baseURL !== undefined && { baseURL: definition.defaults.baseURL }) },
+        {
+          ...(definition.defaults?.baseURL !== undefined && {
+            baseURL: definition.defaults.baseURL,
+          }),
+        },
         { baseURL: 'http://localhost:1234/v1' },
         { options: { apiSurface: 'chat-completions' } },
       ];
@@ -67,7 +61,7 @@ describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
             options: { ...profile.options, nativeWebTools: { webSearch: true } },
           });
         const label = `${definition.type} ${JSON.stringify(profile)}`;
-        if (definition.nativeWebTools?.(profile).includes('webSearch') === true) {
+        if (definition.nativeWebTools?.(profile, {}).includes('webSearch') === true) {
           expect(build().getCapabilities?.().nativeWebTools.webSearch.enabled, label).toBe(true);
         } else {
           let enabled = false;
@@ -82,7 +76,7 @@ describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
     }
     expect(
       createDefaultProviderDefinitions()
-        .filter((d) => d.nativeWebTools?.({}).includes('webSearch') === true)
+        .filter((d) => d.nativeWebTools?.({}, {}).includes('webSearch') === true)
         .map((d) => d.type),
     ).toEqual(['anthropic', 'openai', 'gemini']);
   });

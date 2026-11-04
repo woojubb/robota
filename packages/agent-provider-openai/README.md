@@ -158,8 +158,8 @@ call follows.
 A provider profile built through `createOpenAIProviderDefinition()` turns search on with the same
 option, `"options": { "nativeWebTools": { "webSearch": true } }`. The value is read strictly: another
 key or a non-boolean is an error. The definition declares web search only for a profile with no
-`baseURL`, no `apiSurface: 'chat-completions'` and no `OPENAI_BASE_URL` in the environment, so a host's
-default skips endpoints it cannot vouch for.
+`baseURL`, no `apiSurface: 'chat-completions'` and no `OPENAI_BASE_URL` in the environment the host
+passes it, so a host's default skips endpoints it cannot vouch for.
 
 ## Options
 

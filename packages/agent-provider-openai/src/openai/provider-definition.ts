@@ -66,8 +66,8 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
     // organization and project the others name.
     destinationEnvironment: ['OPENAI_BASE_URL', 'OPENAI_ORG_ID', 'OPENAI_PROJECT_ID'],
     // The SDK falls back to OPENAI_BASE_URL: with it set, the endpoint is one we cannot vouch for.
-    nativeWebTools: (profile) =>
-      runsOpenAIHostedTools(profile) && !hasOpenAIBaseUrlEnvironment() ? ['webSearch'] : [],
+    nativeWebTools: (profile, environment) =>
+      runsOpenAIHostedTools(profile) && !environment['OPENAI_BASE_URL'] ? ['webSearch'] : [],
     createProvider: (config) => {
       const parallelToolCalls = parseParallelToolCalls(
         config.options?.parallelToolCalls,
@@ -118,9 +118,4 @@ function runsOpenAIHostedTools(
   profile: Pick<IProviderDefinitionConfig, 'baseURL' | 'options'>,
 ): boolean {
   return profile.baseURL === undefined && readApiSurface(profile.options) !== 'chat-completions';
-}
-
-function hasOpenAIBaseUrlEnvironment(): boolean {
-  const value = typeof process === 'undefined' ? undefined : process.env['OPENAI_BASE_URL'];
-  return value !== undefined && value !== '';
 }
