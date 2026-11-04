@@ -17,6 +17,7 @@ export const ATTACH_KEY_LABEL = 'robota/keyring/v1/attach-ed25519';
 const PKCS8_X25519_PREFIX = Buffer.from('302e020100300506032b656e04220420', 'hex');
 const PKCS8_ED25519_PREFIX = Buffer.from('302e020100300506032b657004220420', 'hex');
 const SPKI_X25519_PREFIX = Buffer.from('302a300506032b656e032100', 'hex');
+const SPKI_ED25519_PREFIX = Buffer.from('302a300506032b6570032100', 'hex');
 const SPKI_PREFIX_BYTES = SPKI_X25519_PREFIX.length;
 
 export interface IKeyPair {
@@ -59,8 +60,24 @@ export function x25519PublicKeyFromRaw(raw: Uint8Array): KeyObject {
   }
 }
 
+/** An Ed25519 public key object from its raw 32 bytes, from any realm (see `isBytes`). */
+export function ed25519PublicKeyFromRaw(raw: Uint8Array): KeyObject {
+  if (!isBytes(raw) || raw.length !== KEY_BYTES) {
+    throw new KeyringError('invalid-argument', 'A public key must be exactly 32 bytes.');
+  }
+  try {
+    return createPublicKey({
+      key: Buffer.concat([SPKI_ED25519_PREFIX, raw]),
+      format: 'der',
+      type: 'spki',
+    });
+  } catch {
+    throw new KeyringError('invalid-argument', 'The public key is not a valid Ed25519 key.');
+  }
+}
+
 /** A keypair from a derived seed; a host that cannot build one fails as `kdf-failed`, whatever it threw. */
-function keyPairFromSeed(prefix: Buffer, seed: Buffer): IKeyPair {
+function keyPairFromSeed(prefix: Buffer, seed: Uint8Array): IKeyPair {
   const pkcs8 = Buffer.concat([prefix, seed]);
   try {
     const privateKey = createPrivateKey({ key: pkcs8, format: 'der', type: 'pkcs8' });
@@ -69,6 +86,31 @@ function keyPairFromSeed(prefix: Buffer, seed: Buffer): IKeyPair {
     throw new KeyringError('kdf-failed', 'The key derivation could not run on this host.');
   } finally {
     wipe(pkcs8);
+  }
+}
+
+/** The X25519 keypair a 32-byte seed makes: what a sealing seed, derived or granted, becomes. */
+export function x25519KeyPairFromSeed(seed: Uint8Array): IKeyPair {
+  return keyPairFromSeed(PKCS8_X25519_PREFIX, seed);
+}
+
+/** The Ed25519 keypair a 32-byte seed makes. */
+export function ed25519KeyPairFromSeed(seed: Uint8Array): IKeyPair {
+  return keyPairFromSeed(PKCS8_ED25519_PREFIX, seed);
+}
+
+/** The sealing keypair's seed; the caller wipes it. */
+export function deriveSealingSeed(masterKey: Uint8Array): Buffer {
+  return hkdf32(masterKey, SEALING_KEY_LABEL);
+}
+
+/** The attach keypair alone, for the one holder that may have it (the owner handover). */
+export function deriveAttachKeyPair(masterKey: Uint8Array): IKeyPair {
+  const attachSeed = hkdf32(masterKey, ATTACH_KEY_LABEL);
+  try {
+    return keyPairFromSeed(PKCS8_ED25519_PREFIX, attachSeed);
+  } finally {
+    wipe(attachSeed);
   }
 }
 

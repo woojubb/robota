@@ -7,6 +7,7 @@ import {
   checkSealingPublicKey,
   fingerprint,
   getSealingPublicKey,
+  openOwnerHandover,
   parseKeyring,
   serializeKeyring,
   unlockWithPassphrase,
@@ -80,14 +81,24 @@ describe('the checked-in version-1 keyring', () => {
   it('still unlocks with the passphrase, as typed in a different Unicode form', async () => {
     const unlocked = await unlockWithPassphrase(keyring, FIXTURE_PASSPHRASE_AS_TYPED);
     expect(hex(unlocked.sealing.publicKey)).toBe(KNOWN_SEALING_PUBLIC_KEY_HEX);
-    expect(hex(unlocked.attach.publicKey)).toBe(KNOWN_ATTACH_PUBLIC_KEY_HEX);
     expect(checkSealingPublicKey(keyring, unlocked)).toEqual({ matches: true });
   });
 
   it('still unlocks with the recovery key', async () => {
     const unlocked = await unlockWithRecoveryKey(keyring, FIXTURE_RECOVERY_KEY);
     expect(hex(unlocked.sealing.publicKey)).toBe(KNOWN_SEALING_PUBLIC_KEY_HEX);
-    expect(hex(unlocked.attach.publicKey)).toBe(KNOWN_ATTACH_PUBLIC_KEY_HEX);
+  });
+
+  it('still opens an owner handover holding the pinned attach key, with either credential', async () => {
+    for (const credential of [
+      { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE_AS_TYPED },
+      { type: 'recoveryKey', recoveryKey: FIXTURE_RECOVERY_KEY },
+    ] as const) {
+      const handover = await openOwnerHandover(keyring, credential);
+      const root = handover.certify(new Uint8Array(32), { runtimeId: 'r', generation: 'g' });
+      expect(hex(root.attachPublicKey)).toBe(KNOWN_ATTACH_PUBLIC_KEY_HEX);
+      handover.dispose();
+    }
   });
 
   it('yields the authorship key of its master key once unlocked', async () => {

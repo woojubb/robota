@@ -16,6 +16,7 @@ import {
   getSealingPublicKey,
   KeyringError,
   openBlob,
+  openOwnerHandover,
   parseKeyring,
   sealBlob,
   serializeKeyring,
@@ -112,15 +113,38 @@ assert.equal(
   Buffer.from(fixtureKeys.sealing.publicKey).toString('hex'),
   '4b73c35676631b6307fb28a3f70aaf47c331b86ada4996ce2f3c9f5c04cdba7a',
 );
-assert.equal(
-  Buffer.from(fixtureKeys.attach.publicKey).toString('hex'),
-  '92ffeb9a3ccccde96ea227ff3e2f467989d8fdc5b234e8fdcf1d159a7f56ad54',
-);
+assert.equal('attach' in fixtureKeys, false, 'an unlock yields read keys only');
 const fixtureViaRecovery = await unlockWithRecoveryKey(
   fixture,
   'M2GT-58X4-MPKA-FA59-NANT-SBDE-NYRB-3CNK',
 );
-assert.deepEqual(fixtureViaRecovery.attach.publicKey, fixtureKeys.attach.publicKey);
+assert.deepEqual(fixtureViaRecovery.sealing.publicKey, fixtureKeys.sealing.publicKey);
+
+// The attach key lives only in an owner handover, whose certificate is pinned (Ed25519 signing).
+const handover = await openOwnerHandover(fixture, {
+  type: 'recoveryKey',
+  recoveryKey: 'M2GT-58X4-MPKA-FA59-NANT-SBDE-NYRB-3CNK',
+});
+const instance = Buffer.from(
+  '2543b92ff1095511476adc8369db6ddc933665a11978dda1404ee1066ca9559d',
+  'hex',
+);
+const binding = {
+  runtimeId: '6f1c2d3e-4b5a-4c6d-8e9f-0a1b2c3d4e5f',
+  generation: 'AAECAwQFBgcICQoLDA0ODw',
+};
+const root = handover.certify(instance, binding);
+assert.equal(
+  Buffer.from(root.attachPublicKey).toString('hex'),
+  '92ffeb9a3ccccde96ea227ff3e2f467989d8fdc5b234e8fdcf1d159a7f56ad54',
+);
+assert.equal(
+  Buffer.from(root.certificate).toString('hex'),
+  '9d76a228a4824881c96050ff31eaa9287dc99efe238c592aab67189ef16fe5b6' +
+    'ad90e67b84f5334e771534ec0496d9a5edeae8568c0f92d73a3ae252638e1302',
+);
+assert.equal(handover.sealingKeyMatches, true);
+handover.dispose();
 
 // Both module formats of the published entry points behave alike.
 const cjs = createRequire(import.meta.url)('../dist/node/index.cjs');

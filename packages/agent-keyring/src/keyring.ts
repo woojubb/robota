@@ -4,7 +4,12 @@ import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { deriveAuthorshipKey } from './authorship.js';
 import { decodeKeyringField, toBase64Url, wipe } from './bytes.js';
 import { KeyringError } from './errors.js';
-import { deriveKeyPairs, type IDerivedKeyPairs } from './key-pairs.js';
+import {
+  deriveKeyPairs,
+  deriveSealingSeed,
+  x25519KeyPairFromSeed,
+  type IDerivedKeyPairs,
+} from './key-pairs.js';
 import {
   assertScryptParametersInBounds,
   DEFAULT_SCRYPT_PARAMETERS,
@@ -23,7 +28,7 @@ import {
 } from './keyring-types.js';
 import { deriveRecoveryKek, newSlotId, unwrapMasterKey, wrapMasterKey } from './keyslot.js';
 import { formatRecoveryKey, parseRecoveryKey, RECOVERY_KEY_BYTES } from './recovery-key.js';
-import { createUnlockedKeys, type IUnlockedKeys } from './unlocked-keys.js';
+import { createReadKeys, type IReadKeys } from './read-keys.js';
 
 /** What proves the right to open a keyring. A tagged union so a future credential is one more member. */
 export type TKeyringCredential =
@@ -42,7 +47,7 @@ export interface ICreatedKeyring {
    * anywhere and cannot be shown again, so the caller must present it exactly once.
    */
   readonly recoveryKey: string;
-  readonly unlocked: IUnlockedKeys;
+  readonly unlocked: IReadKeys;
 }
 
 export interface IAssembleKeyringInput {
@@ -122,14 +127,14 @@ export async function createKeyring(options: ICreateKeyringOptions): Promise<ICr
     return {
       keyring,
       recoveryKey: formatRecoveryKey(recoveryKeyBytes),
-      unlocked: createUnlockedKeys(pairs, deriveAuthorshipKey(masterKey)),
+      unlocked: createReadKeys(pairs.sealing, deriveAuthorshipKey(masterKey)),
     };
   } finally {
     wipe(passphrase, masterKey, recoveryKeyBytes);
   }
 }
 
-interface IRecoveredMasterKey {
+export interface IRecoveredMasterKey {
   readonly masterKey: Buffer;
   readonly slotId: string;
 }
@@ -191,7 +196,11 @@ function recoverWithRecoveryKey(keyring: IKeyring, recoveryKeyText: unknown): IR
   }
 }
 
-async function recoverMasterKey(
+/**
+ * The master key `credential` opens, and the slot it opened. The caller owns and wipes it; nothing
+ * outside this package ever sees one.
+ */
+export async function recoverMasterKey(
   keyring: IKeyring,
   credential: TKeyringCredential,
 ): Promise<IRecoveredMasterKey> {
@@ -205,33 +214,29 @@ async function recoverMasterKey(
   }
 }
 
-async function unlock(keyring: IKeyring, credential: TKeyringCredential): Promise<IUnlockedKeys> {
+async function unlock(keyring: IKeyring, credential: TKeyringCredential): Promise<IReadKeys> {
   const document = validateKeyring(keyring);
   const { masterKey } = await recoverMasterKey(document, credential);
+  const sealingSeed = deriveSealingSeed(masterKey);
   try {
-    return createUnlockedKeys(deriveKeyPairs(masterKey), deriveAuthorshipKey(masterKey));
+    return createReadKeys(x25519KeyPairFromSeed(sealingSeed), deriveAuthorshipKey(masterKey));
   } finally {
-    wipe(masterKey);
+    wipe(masterKey, sealingSeed);
   }
 }
 
 /**
- * Unlocks with the passphrase. Costs one scrypt run per passphrase slot (~160 ms at the default
+ * Unlocks with the passphrase, for reading: the read keys and nothing that proves ownership (see
+ * `openOwnerHandover` for that). Costs one scrypt run per passphrase slot (~160 ms at the default
  * cost, off the event loop). The stored sealing public key is NOT consulted — see
  * {@link checkSealingPublicKey}.
  */
-export function unlockWithPassphrase(
-  keyring: IKeyring,
-  passphrase: string,
-): Promise<IUnlockedKeys> {
+export function unlockWithPassphrase(keyring: IKeyring, passphrase: string): Promise<IReadKeys> {
   return unlock(keyring, { type: 'passphrase', passphrase });
 }
 
 /** Unlocks with the recovery key shown at creation (case-insensitive, hyphens optional). */
-export function unlockWithRecoveryKey(
-  keyring: IKeyring,
-  recoveryKey: string,
-): Promise<IUnlockedKeys> {
+export function unlockWithRecoveryKey(keyring: IKeyring, recoveryKey: string): Promise<IReadKeys> {
   return unlock(keyring, { type: 'recoveryKey', recoveryKey });
 }
 
@@ -279,17 +284,24 @@ export async function changePassphrase(
  */
 export function checkSealingPublicKey(
   keyring: IKeyring,
-  unlocked: IUnlockedKeys,
+  keys: Pick<IReadKeys, 'sealing'>,
 ): { matches: boolean } {
-  const stored = getSealingPublicKey(keyring);
-  const derived = unlocked.sealing.publicKey;
-  return { matches: stored.length === derived.length && timingSafeEqual(stored, derived) };
+  return { matches: sealingPublicKeyMatches(keyring, keys.sealing.publicKey) };
 }
 
-/** A copy of the keyring whose stored sealing public key is the one derived from the unlocked keys. */
-export function repairSealingPublicKey(keyring: IKeyring, unlocked: IUnlockedKeys): IKeyring {
+/** Whether the keyring's stored sealing public key is `derived`, compared in constant time. */
+export function sealingPublicKeyMatches(keyring: IKeyring, derived: Uint8Array): boolean {
+  const stored = getSealingPublicKey(keyring);
+  return stored.length === derived.length && timingSafeEqual(stored, derived);
+}
+
+/** A copy of the keyring whose stored sealing public key is the one derived from the read keys. */
+export function repairSealingPublicKey(
+  keyring: IKeyring,
+  keys: Pick<IReadKeys, 'sealing'>,
+): IKeyring {
   return validateKeyring({
     ...validateKeyring(keyring),
-    sealingPublicKey: toBase64Url(unlocked.sealing.publicKey),
+    sealingPublicKey: toBase64Url(keys.sealing.publicKey),
   });
 }

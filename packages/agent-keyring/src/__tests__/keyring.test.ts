@@ -17,8 +17,9 @@ import {
   type ICreatedKeyring,
   type IKeyring,
   type IPassphraseKeyslot,
+  type IReadKeys,
   type IRecoveryKeyslot,
-  type IUnlockedKeys,
+  openOwnerHandover,
 } from '../index.js';
 import { toBase64Url } from '../bytes.js';
 import { deriveKeyPairs } from '../key-pairs.js';
@@ -33,7 +34,7 @@ beforeAll(async () => {
   created = await createKeyring({ passphrase: PASSPHRASE });
 });
 
-function privateKeyHex(keys: IUnlockedKeys): string {
+function privateKeyHex(keys: IReadKeys): string {
   return hex(keys.sealing.privateKey.export({ format: 'der', type: 'pkcs8' }));
 }
 
@@ -65,10 +66,17 @@ describe('createKeyring', () => {
     expect(serializeKeyring(created.keyring)).not.toContain(created.recoveryKey);
   });
 
-  it('has no place in the file for the attach public key or any secret', () => {
+  it('has no place in the file for the attach public key or any secret', async () => {
     const text = serializeKeyring(created.keyring);
     expect(Object.keys(JSON.parse(text))).toEqual(['version', 'sealingPublicKey', 'slots']);
-    const attach = Buffer.from(created.unlocked.attach.publicKey);
+    const handover = await openOwnerHandover(created.keyring, {
+      type: 'recoveryKey',
+      recoveryKey: created.recoveryKey,
+    });
+    const attach = Buffer.from(
+      handover.certify(Buffer.alloc(32, 1), { runtimeId: 'r', generation: 'g' }).attachPublicKey,
+    );
+    handover.dispose();
     for (const spelling of [
       attach.toString('hex'),
       attach.toString('base64'),
@@ -99,7 +107,6 @@ describe('unlocking', () => {
     const unlocked = await unlockWithPassphrase(created.keyring, PASSPHRASE);
     expect(unlocked.locked).toBe(false);
     expect(hex(unlocked.sealing.publicKey)).toBe(hex(created.unlocked.sealing.publicKey));
-    expect(hex(unlocked.attach.publicKey)).toBe(hex(created.unlocked.attach.publicKey));
     expect(privateKeyHex(unlocked)).toBe(privateKeyHex(created.unlocked));
   });
 
@@ -308,7 +315,6 @@ describe('lock', () => {
     unlocked.lock();
     expect(unlocked.locked).toBe(true);
     expect(codeOf(() => unlocked.sealing)).toBe('keys-locked');
-    expect(codeOf(() => unlocked.attach)).toBe('keys-locked');
     expect(codeOf(() => checkSealingPublicKey(created.keyring, unlocked))).toBe('keys-locked');
     unlocked.lock();
     expect(unlocked.locked).toBe(true);

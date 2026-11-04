@@ -3,7 +3,8 @@
  * `node:crypto` only. A passphrase and a recovery key each unwrap one master key; the master key
  * derives an X25519 sealing keypair, an Ed25519 attach keypair and an HMAC authorship key; artifacts
  * are encrypted under per-artifact keys that are sealed to the public sealing key, so a locked process
- * can still write, and only an unlocked one can tag what it wrote.
+ * can still write, and only an unlocked one can tag what it wrote. An unlock yields the read keys;
+ * the attach key stays inside a short-lived owner handover, which certifies runtimes.
  */
 export { KeyringError } from './errors.js';
 export type { TKeyringErrorCode } from './errors.js';
@@ -29,7 +30,10 @@ export {
 } from './keyring.js';
 export type { ICreateKeyringOptions, ICreatedKeyring, TKeyringCredential } from './keyring.js';
 
-export type { IUnlockedKeys } from './unlocked-keys.js';
+export type { IReadKeys } from './read-keys.js';
+export { openOwnerHandover } from './owner-handover.js';
+export type { IOwnerHandover } from './owner-handover.js';
+export type { ILinkBinding, ITrustRoot } from './runtime-certificate.js';
 export type { IKeyPair } from './key-pairs.js';
 export { generateTransientSealingKeyPair } from './key-pairs.js';
 
