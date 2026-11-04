@@ -63,7 +63,13 @@ export interface ISubagentJobHandle {
   readonly transcriptSealed?: true;
   result: Promise<ISubagentJobResult>;
   cancel(reason?: string): Promise<void>;
-  send?(prompt: string): Promise<void>;
+  /**
+   * Hands the job a follow-up prompt, to run as its next turn after the one in flight. The job ends
+   * only once every turn it accepted has run, and a prompt it cannot take — it has ended, or is
+   * ending — is refused with a rejection, never dropped. Required: the `send` control is offered for
+   * every running agent, so a runner without it would offer a control that always refuses.
+   */
+  send(prompt: string): Promise<void>;
   readLog?(cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;
 }
 
