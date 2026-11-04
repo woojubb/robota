@@ -31,9 +31,9 @@
         "properties": { "known": { "type": "string" } },
         "$defs": { "Query": { "type": "string" } }
       },
-      "shortText": {
-        "type": "string",
-        "minLength": 3
+      "evenCount": {
+        "type": "integer",
+        "multipleOf": 2
       }
     },
     "required": ["refOnly"]

@@ -212,14 +212,14 @@ export interface IOpenAIProviderOptions {
    * response content. Not called on the Responses API surface.
    *
    * Use different implementations based on your environment:
-   * - FilePayloadLogger: Node.js file-based logging
-   * - ConsolePayloadLogger: Browser console-based logging
+   * - FilePayloadLogger (`@robota-sdk/agent-provider-openai/node`): Node.js file-based logging
+   * - ConsolePayloadLogger (`@robota-sdk/agent-provider-openai/loggers`): console logging on any runtime
    * - Custom: Implement IPayloadLogger interface
    *
    * @example
    * ```typescript
    * // Node.js
-   * import { FilePayloadLogger } from '@robota-sdk/agent-provider-openai/loggers';
+   * import { FilePayloadLogger } from '@robota-sdk/agent-provider-openai/node';
    * const provider = new OpenAIProvider({
    *   client: openaiClient,
    *   payloadLogger: new FilePayloadLogger({ logDir: './logs/openai' })

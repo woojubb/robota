@@ -9,6 +9,7 @@
  * of a valid record decodes as valid.
  */
 
+import { PARAMETER_SCHEMA_KEYWORDS } from '@robota-sdk/agent-core';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -18,6 +19,7 @@ import {
   decodeVersionedInteractiveSessionRecord,
 } from '../session-record-codec/index.js';
 
+import type { IParameterSchema } from '@robota-sdk/agent-core';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 import type { TSessionRecordDecodeOutcome } from '../session-record-codec/index.js';
 
@@ -93,6 +95,9 @@ function maximalRecord(): IInteractiveSessionRecord {
           properties: {
             path: { type: 'string', description: 'the path' },
             depth: { type: 'integer', minimum: 0, maximum: 9, default: 1 },
+            query: { type: 'string', minLength: 1, maxLength: 4096 },
+            tags: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 5 },
+            labels: { type: 'object', minProperties: 1, maxProperties: 9 },
             mode: { enum: ['a', 'b'] },
             either: { anyOf: [{ type: 'string' }, { type: 'number' }] },
             list: { type: 'array', items: { type: 'string' }, additionalProperties: false },
@@ -484,6 +489,49 @@ describe('decodeInteractiveSessionRecord — TC-02 a maximal record round-trips'
   });
 });
 
+describe('decodeInteractiveSessionRecord — every subset keyword survives a reload', () => {
+  /** One value per `IParameterSchema` member: a new member fails to compile until it is added. */
+  const everyMember: { [K in keyof Required<IParameterSchema>]: IParameterSchema[K] } = {
+    type: 'string',
+    description: 'a node',
+    enum: ['a', 'b'],
+    items: { type: 'string' },
+    properties: { nested: { type: 'string' } },
+    required: ['nested'],
+    anyOf: [{ type: 'string' }],
+    additionalProperties: false,
+    minimum: 1,
+    maximum: 2,
+    minLength: 0,
+    maxLength: 3,
+    minItems: 0,
+    maxItems: 4,
+    minProperties: 0,
+    maxProperties: 5,
+    pattern: '^a',
+    format: 'uri',
+    default: 'a',
+  };
+
+  it('covers the subset the projector derives from the type', () => {
+    expect(Object.keys(everyMember).sort()).toEqual([...PARAMETER_SCHEMA_KEYWORDS].sort());
+  });
+
+  it.each(PARAMETER_SCHEMA_KEYWORDS)(
+    '%s is declared and decoded, not refused or dropped',
+    (key) => {
+      const node = { [key]: everyMember[key] };
+      const outcome = decodeInteractiveSessionRecord(
+        persistedWith('toolSchemas[0].parameters.properties.path', node),
+      );
+
+      expect(issuePaths(outcome)).toEqual([]);
+      const decoded = outcome.status === 'valid' ? outcome.record.toolSchemas?.[0] : undefined;
+      expect(decoded?.parameters.properties['path']).toEqual(node);
+    },
+  );
+});
+
 describe('decodeInteractiveSessionRecord — background task result kind discrimination (#2079)', () => {
   it('rejects an agent-kind result carrying process-only exitCode', () => {
     const outcome = decodeInteractiveSessionRecord(
@@ -597,6 +645,9 @@ describe('decodeInteractiveSessionRecord — TC-03 every nested family reports i
     ['history entry', 'history[0].category', 5],
     ['tool schema', 'toolSchemas[0].name', null],
     ['parameter schema', 'toolSchemas[0].parameters.properties.path.type', 'stringy'],
+    ['negative size bound', 'toolSchemas[0].parameters.properties.query.minLength', -1],
+    ['fractional size bound', 'toolSchemas[0].parameters.properties.tags.maxItems', 1.5],
+    ['textual size bound', 'toolSchemas[0].parameters.properties.labels.minProperties', '1'],
     ['background task', 'backgroundTasks[0].depth', 'deep'],
     ['background task sealed flag', 'backgroundTasks[0].transcriptSealed', false],
     ['background task result', 'backgroundTasks[0].result.output', 12],

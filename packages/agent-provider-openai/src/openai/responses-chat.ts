@@ -1,6 +1,4 @@
-import { randomUUID } from 'node:crypto';
-
-import { toProviderError } from '@robota-sdk/agent-core';
+import { toProviderError, randomId } from '@robota-sdk/agent-core';
 
 import {
   observeProviderNativeRawPayloadStream,
@@ -246,7 +244,7 @@ function buildResponsesStreamingRequest(
 
 function createStreamDeltaMessage(delta: string): TUniversalMessage {
   return {
-    id: randomUUID(),
+    id: randomId(),
     role: 'assistant',
     content: delta,
     state: 'complete',

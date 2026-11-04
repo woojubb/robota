@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
 import { parseChatCompletionUsage } from './chat-completion-usage';
 
@@ -198,7 +198,7 @@ function buildMessage(
   const toolCalls = buildAllToolCalls(state);
 
   return {
-    id: randomUUID(),
+    id: randomId(),
     role: 'assistant',
     content: state.textParts.join(''),
     state: 'complete',

@@ -147,26 +147,26 @@ const provider = new OpenAIProvider({
 
 ### Configuration options
 
-| Option                      | Type                                       | Required                       | Description                                                                                          |
-| --------------------------- | ------------------------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| `apiKey`                    | `string`                                   | Yes (unless `client` provided) | OpenAI API key                                                                                       |
-| `client`                    | `OpenAI`                                   | No                             | Pre-built OpenAI SDK client                                                                          |
-| `organization`              | `string`                                   | No                             | OpenAI organization ID                                                                               |
-| `baseURL`                   | `string`                                   | No                             | Any OpenAI-compatible endpoint — gateways, Azure, vLLM, local                                        |
-| `defaultModel`              | `string`                                   | No                             | Model used when a request names none                                                                 |
-| `timeout`                   | `number`                                   | No                             | Request timeout in milliseconds                                                                      |
-| `apiSurface`                | `'responses' \| 'chat-completions'`        | No                             | API surface (default: `responses` for OpenAI, `chat-completions` when `baseURL` is set)              |
-| `responseFormat`            | `'text' \| 'json_object' \| 'json_schema'` | No                             | Response format                                                                                      |
-| `jsonSchema`                | `IOpenAIJsonSchemaDefinition`              | No                             | Schema for `responseFormat: 'json_schema'`                                                           |
-| `reasoning`                 | `IOpenAIResponsesReasoningOptions`         | No                             | Reasoning `effort` and `summary` for reasoning models (Responses API)                                |
-| `store`                     | `boolean`                                  | No                             | Whether OpenAI stores Responses API results                                                          |
-| `includeEncryptedReasoning` | `boolean`                                  | No                             | Include encrypted reasoning items for stateless continuation                                         |
-| `strictTools`               | `boolean`                                  | No                             | Strict function-parameter validation (rewrites tool schemas for strict mode)                         |
-| `nativeWebTools`            | `IOpenAINativeWebToolsOptions`             | No                             | Hosted `webSearch` on OpenAI's own Responses API; `true` throws on a custom endpoint or Chat Completions |
-| `includeStreamUsage`        | `boolean`                                  | No                             | Request token usage on streaming turns (default `true`; turn off for endpoints that reject it)       |
-| `payloadLogger`             | `IPayloadLogger`                           | No                             | Receives a summary of each Chat Completions request (loggers in `.../agent-provider-openai/loggers`) |
-| `executor`                  | `IExecutor`                                | No                             | Remote or local executor override                                                                    |
-| `logger`                    | `ILogger`                                  | No                             | Internal logger (default: silent)                                                                    |
+| Option                      | Type                                       | Required                       | Description                                                                                                                                                                  |
+| --------------------------- | ------------------------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apiKey`                    | `string`                                   | Yes (unless `client` provided) | OpenAI API key                                                                                                                                                               |
+| `client`                    | `OpenAI`                                   | No                             | Pre-built OpenAI SDK client                                                                                                                                                  |
+| `organization`              | `string`                                   | No                             | OpenAI organization ID                                                                                                                                                       |
+| `baseURL`                   | `string`                                   | No                             | Any OpenAI-compatible endpoint — gateways, Azure, vLLM, local                                                                                                                |
+| `defaultModel`              | `string`                                   | No                             | Model used when a request names none                                                                                                                                         |
+| `timeout`                   | `number`                                   | No                             | Request timeout in milliseconds                                                                                                                                              |
+| `apiSurface`                | `'responses' \| 'chat-completions'`        | No                             | API surface (default: `responses` for OpenAI, `chat-completions` when `baseURL` is set)                                                                                      |
+| `responseFormat`            | `'text' \| 'json_object' \| 'json_schema'` | No                             | Response format                                                                                                                                                              |
+| `jsonSchema`                | `IOpenAIJsonSchemaDefinition`              | No                             | Schema for `responseFormat: 'json_schema'`                                                                                                                                   |
+| `reasoning`                 | `IOpenAIResponsesReasoningOptions`         | No                             | Reasoning `effort` and `summary` for reasoning models (Responses API)                                                                                                        |
+| `store`                     | `boolean`                                  | No                             | Whether OpenAI stores Responses API results                                                                                                                                  |
+| `includeEncryptedReasoning` | `boolean`                                  | No                             | Include encrypted reasoning items for stateless continuation                                                                                                                 |
+| `strictTools`               | `boolean`                                  | No                             | Strict function-parameter validation (rewrites tool schemas for strict mode)                                                                                                 |
+| `nativeWebTools`            | `IOpenAINativeWebToolsOptions`             | No                             | Hosted `webSearch` on OpenAI's own Responses API; `true` throws on a custom endpoint or Chat Completions                                                                     |
+| `includeStreamUsage`        | `boolean`                                  | No                             | Request token usage on streaming turns (default `true`; turn off for endpoints that reject it)                                                                               |
+| `payloadLogger`             | `IPayloadLogger`                           | No                             | Receives a summary of each Chat Completions request (`ConsolePayloadLogger` in `.../agent-provider-openai/loggers`, `FilePayloadLogger` in `.../agent-provider-openai/node`) |
+| `executor`                  | `IExecutor`                                | No                             | Remote or local executor override                                                                                                                                            |
+| `logger`                    | `ILogger`                                  | No                             | Internal logger (default: silent)                                                                                                                                            |
 
 ### Through an AI gateway
 
@@ -236,20 +236,20 @@ const provider = new GeminiProvider({
 
 ### Configuration options
 
-| Option                      | Type                                 | Required | Description                                                     |
-| --------------------------- | ------------------------------------ | -------- | --------------------------------------------------------------- |
-| `apiKey`                    | `string`                             | Yes      | Google AI API key                                               |
-| `defaultModel`              | `string`                             | No       | Model used when a request names none                            |
-| `enableWebTools`            | `boolean`                            | No       | Attach Google Search grounding (default: off); a profile sets `nativeWebTools.webSearch`|
-| `responseMimeType`          | `'text/plain' \| 'application/json'` | No       | Response format                                                 |
-| `responseSchema`            | object                               | No       | Schema for JSON output                                          |
-| `responseJsonSchema`        | object                               | No       | JSON Schema for structured output (instead of `responseSchema`) |
-| `thinkingConfig`            | `IGeminiThinkingConfig`              | No       | Thinking mode settings                                          |
-| `safetySettings`            | `IGeminiSafetySetting[]`             | No       | Per-category safety thresholds                                  |
-| `toolConfig`                | object                               | No       | Function-calling config passed to Gemini                        |
-| `defaultResponseModalities` | `Array<'TEXT' \| 'IMAGE'>`           | No       | Default response modalities, e.g. text and image                |
-| `imageCapableModels`        | `string[]`                           | No       | Models allowed to return images; others are refused             |
-| `executor`                  | `IExecutor`                          | No       | Remote or local executor override                               |
+| Option                      | Type                                 | Required | Description                                                                              |
+| --------------------------- | ------------------------------------ | -------- | ---------------------------------------------------------------------------------------- |
+| `apiKey`                    | `string`                             | Yes      | Google AI API key                                                                        |
+| `defaultModel`              | `string`                             | No       | Model used when a request names none                                                     |
+| `enableWebTools`            | `boolean`                            | No       | Attach Google Search grounding (default: off); a profile sets `nativeWebTools.webSearch` |
+| `responseMimeType`          | `'text/plain' \| 'application/json'` | No       | Response format                                                                          |
+| `responseSchema`            | object                               | No       | Schema for JSON output                                                                   |
+| `responseJsonSchema`        | object                               | No       | JSON Schema for structured output (instead of `responseSchema`)                          |
+| `thinkingConfig`            | `IGeminiThinkingConfig`              | No       | Thinking mode settings                                                                   |
+| `safetySettings`            | `IGeminiSafetySetting[]`             | No       | Per-category safety thresholds                                                           |
+| `toolConfig`                | object                               | No       | Function-calling config passed to Gemini                                                 |
+| `defaultResponseModalities` | `Array<'TEXT' \| 'IMAGE'>`           | No       | Default response modalities, e.g. text and image                                         |
+| `imageCapableModels`        | `string[]`                           | No       | Models allowed to return images; others are refused                                      |
+| `executor`                  | `IExecutor`                          | No       | Remote or local executor override                                                        |
 
 ### Thinking mode
 

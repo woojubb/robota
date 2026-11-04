@@ -165,6 +165,7 @@ export {
   hasUsableSecretReference,
 } from './utils/env-ref.js';
 export { createRecordEnvResolver } from './utils/env-resolver.js';
+export { randomId } from './utils/random-id.js';
 export { createBoundedOutput } from './utils/bounded-output.js';
 export { shellArgumentForDisplay } from './utils/shell-argument.js';
 export type {

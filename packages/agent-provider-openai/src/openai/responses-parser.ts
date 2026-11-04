@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
 import { PROVIDER_CONTINUATION_METADATA_KEY } from '@robota-sdk/agent-core';
 
@@ -253,7 +253,7 @@ function buildAssistantMessage(input: {
   webSearch: IOpenAIWebSearchUsage;
 }): TUniversalMessage {
   return {
-    id: randomUUID(),
+    id: randomId(),
     role: 'assistant',
     content: input.content,
     state: 'complete',

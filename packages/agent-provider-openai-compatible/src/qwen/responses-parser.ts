@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
 import { streamWithAbort } from './responses-stream-utils';
 
@@ -168,7 +168,7 @@ function buildAssistantMessage(input: {
   enabledBuiltInTools: readonly TQwenBuiltInWebToolName[];
 }): TUniversalMessage {
   return {
-    id: randomUUID(),
+    id: randomId(),
     role: 'assistant',
     content: input.content,
     state: 'complete',

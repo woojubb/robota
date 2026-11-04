@@ -1,5 +1,3 @@
-import { randomUUID } from 'node:crypto';
-
 import { GoogleGenAI } from '@google/genai';
 import {
   AbstractAIProvider,
@@ -7,6 +5,7 @@ import {
   PERMISSIVE_TOOL_SCHEMA_PROFILE,
   toProviderError,
   traceHeadersFor,
+  randomId,
 } from '@robota-sdk/agent-core';
 
 import { GEMINI_CAPABILITY_TABLE } from './capability-table';
@@ -49,6 +48,15 @@ function readGeminiClientBaseUrl(client: GoogleGenAI): string | undefined {
   } catch {
     return undefined;
   }
+}
+
+/**
+ * Whether the client was given a base URL instead of the SDK default — by an option, or by the SDK's
+ * own `GOOGLE_GEMINI_BASE_URL` override, which it applies to the client it constructs.
+ */
+function hasGeminiBaseUrlOverride(client: GoogleGenAI): boolean {
+  const own = (client as unknown as { httpOptions?: { baseUrl?: unknown } }).httpOptions?.baseUrl;
+  return typeof own === 'string' && own.length > 0;
 }
 
 function originOf(url: string): string | undefined {
@@ -200,15 +208,15 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
 
   /**
    * Only the Gemini API's own endpoint, reached through the client this provider built, can carry
-   * trace context: an executor sends elsewhere, and a base-URL environment override or Vertex mode
-   * sends to an origin this provider does not know, and a base URL the SDK does not let it read
-   * cannot be compared. Each of those answers false.
+   * trace context: an executor sends elsewhere, a base-URL override or Vertex mode sends to an origin
+   * this provider does not know, and a base URL the SDK does not let it read cannot be compared. Each
+   * of those answers false. Both overrides are read from the client the SDK built, not from the
+   * environment, so the answer is what the client will actually do.
    */
   canPropagateTraceContext(): boolean {
     if (this.executor || !this.client) return false;
     if ((this.client as { vertexai?: unknown }).vertexai === true) return false;
-    const env = typeof process === 'undefined' ? {} : process.env;
-    if (env['GOOGLE_GEMINI_BASE_URL'] || env['GOOGLE_VERTEX_BASE_URL']) return false;
+    if (hasGeminiBaseUrlOverride(this.client)) return false;
     const effective = readGeminiClientBaseUrl(this.client);
     if (effective === undefined || originOf(effective) !== GEMINI_API_ORIGIN) return false;
     return true;
@@ -261,7 +269,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
     }
 
     const message: TUniversalMessage = {
-      id: randomUUID(),
+      id: randomId(),
       role: 'user',
       content: request.prompt,
       state: 'complete' as const,
@@ -300,7 +308,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
     }
 
     const message: TUniversalMessage = {
-      id: randomUUID(),
+      id: randomId(),
       role: 'user',
       content: request.prompt,
       state: 'complete' as const,
@@ -353,7 +361,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
     messageParts.push({ type: 'text', text: request.prompt });
 
     const message: TUniversalMessage = {
-      id: randomUUID(),
+      id: randomId(),
       role: 'user',
       content: request.prompt,
       state: 'complete' as const,

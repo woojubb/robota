@@ -77,7 +77,7 @@ export interface IToolSchemaProjectionFixtures {
   readonly rootAnyOf: IToolSchema;
   /** A nested (non-root) optional `anyOf` that already admits `null` — legitimate union usage. */
   readonly nestedAnyOfOptional: IToolSchema;
-  /** `$ref`/`oneOf`/`allOf`-only nodes, annotations, `patternProperties`, `$defs`, `minLength`. */
+  /** `$ref`/`oneOf`/`allOf`-only nodes, annotations, `patternProperties`, `$defs`, `multipleOf`. */
   readonly unknownKeywords: IToolSchema;
   /** A property named `__proto__` — refused before any spread. */
   readonly prototypeKey: IToolSchema;

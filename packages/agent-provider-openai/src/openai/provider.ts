@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto';
-import { AbstractAIProvider } from '@robota-sdk/agent-core';
+import { AbstractAIProvider, randomId } from '@robota-sdk/agent-core';
 import { createModelEffortOutcome } from '@robota-sdk/agent-core';
 import { PERMISSIVE_TOOL_SCHEMA_PROFILE, STRICT_TOOL_SCHEMA_PROFILE } from '@robota-sdk/agent-core';
 import { resolveModelEffort } from '@robota-sdk/agent-core';
@@ -53,7 +52,7 @@ export class OpenAIProvider extends AbstractAIProvider {
   // A reply's items belong to the account that made them and OpenAI keeps them for a limited time,
   // so only the instance that recorded them sends them back, which also leaves out a process that
   // restarted.
-  private readonly replayOwner = randomUUID();
+  private readonly replayOwner = randomId();
 
   /**
    * Optional callback for text deltas during streaming.
@@ -259,7 +258,7 @@ export class OpenAIProvider extends AbstractAIProvider {
       ...(this.canPropagateTraceContext()
         ? traceHeadersFor(this.effectiveBaseUrl(), options?.outboundTraceContext)
         : {}),
-      ...(this.options.durableOperations === true ? { 'Idempotency-Key': randomUUID() } : {}),
+      ...(this.options.durableOperations === true ? { 'Idempotency-Key': randomId() } : {}),
     };
   }
 

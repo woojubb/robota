@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
 import type { Part, FunctionCall, GenerateContentResponse } from '@google/genai';
 import type {
@@ -44,7 +44,7 @@ export function convertFromGeminiResponse(response: GenerateContentResponse): TU
   const collectedParts = collectGeminiParts(content.parts);
 
   const result: TUniversalMessage = {
-    id: randomUUID(),
+    id: randomId(),
     state: 'complete' as const,
     role: 'assistant',
     content: collectedParts.textValues.length > 0 ? collectedParts.textValues.join('') : null,

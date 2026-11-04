@@ -181,3 +181,45 @@ describe('strictTools on the Chat Completions surface (#3209)', () => {
     expect(tool?.function.parameters).toEqual(NESTED_TOOL.parameters);
   });
 });
+
+describe('strict tools — size bounds the strict wire refuses', () => {
+  const BOUNDED_TOOL: IToolSchema = {
+    name: 'search',
+    description: 'Searches',
+    parameters: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', minLength: 1, maxLength: 4096 },
+        tags: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 5 },
+        labels: { type: 'object', minProperties: 1, maxProperties: 9 },
+      },
+      required: ['query', 'tags', 'labels'],
+    },
+  };
+
+  it.each([
+    ['Responses', sendChat, {}],
+    ['Chat Completions', sendChatCompletions, { baseURL: 'https://example.test/v1' }],
+  ] as const)('%s receives a schema strict mode accepts', async (_surface, send, options) => {
+    const provider = new OpenAIProvider({ apiKey: 'sk-test', strictTools: true, ...options });
+    const requestParams = await send(provider, [BOUNDED_TOOL]);
+    const [tool] = requestParams.tools as Array<Record<string, unknown>>;
+    const wire = JSON.stringify(tool);
+
+    for (const refused of ['minLength', 'maxLength', 'minProperties', 'maxProperties']) {
+      expect(wire, refused).not.toContain(refused);
+    }
+    expect(wire).toContain('"minItems":1');
+    expect(wire).toContain('"maxItems":5');
+    expect(wire).toContain('Schema note:');
+  });
+
+  it('forwards them all verbatim with strict tools off', async () => {
+    const provider = new OpenAIProvider({ apiKey: 'sk-test' });
+    const requestParams = await sendChat(provider, [BOUNDED_TOOL]);
+    const [tool] = requestParams.tools as Array<Record<string, unknown>>;
+
+    expect(tool.parameters).toEqual(BOUNDED_TOOL.parameters);
+    expect(tool.description).toBe(BOUNDED_TOOL.description);
+  });
+});

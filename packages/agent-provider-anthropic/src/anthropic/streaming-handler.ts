@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
 import { formatWebSearchResults } from './message-converter';
 import { awaitWithProviderRequestId } from './provider-request-id';
@@ -163,7 +163,7 @@ export async function streamAndAssemble(
   const textContent = textParts.join('') || '';
 
   const result: TUniversalMessage = {
-    id: randomUUID(),
+    id: randomId(),
     role: 'assistant',
     content: textContent,
     state: 'complete' as const,
@@ -200,7 +200,7 @@ function buildPartialResult(
 ): TUniversalMessage {
   const partialText = textParts.join('') || '';
   const partialResult: TUniversalMessage = {
-    id: randomUUID(),
+    id: randomId(),
     role: 'assistant',
     content: partialText,
     state: 'complete' as const,
@@ -243,7 +243,7 @@ export function* toUniversalStreamChunks(
 ): Generator<TUniversalMessage> {
   if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
     yield {
-      id: randomUUID(),
+      id: randomId(),
       role: 'assistant',
       content: chunk.delta.text,
       state: 'complete' as const,
