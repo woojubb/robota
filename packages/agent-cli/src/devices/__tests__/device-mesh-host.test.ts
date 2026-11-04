@@ -12,6 +12,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';
 import { createDeviceIdentityService } from '../device-identity-service.js';
 import { createDeviceMeshHost } from '../device-mesh-host.js';
+import { overrideProductSecureMode } from '../../product/session-sealing.js';
+import { SECURE_SURFACES } from '../../secure/secure-surfaces.js';
 import { parseMeshSettings } from '../mesh-settings.js';
 import { scriptedOperator } from './fake-secret-terminal.js';
 import { createTestRuntimeContext } from './runtime-context-fixture.js';
@@ -422,6 +424,23 @@ describe('opening the mesh at startup', () => {
     await mesh.start({ operatorApprover: APPROVER });
     expect(mesh.status()).toMatchObject({ state: 'failed', reason: 'address in use' });
     expect(said.join('\n')).toContain('address in use');
+  });
+
+  it('in secure mode opens nothing and says why, and the session goes on', async () => {
+    await withIdentity();
+    const { open } = fakeOpen();
+    const said: string[] = [];
+    const mesh = host({ mesh: { enabled: true, options: NO_INTERNET } }, open, said);
+    const { secure } = SECURE_SURFACES['device-mesh'];
+    overrideProductSecureMode(productRuntime, true);
+    try {
+      await mesh.start({ operatorApprover: APPROVER });
+    } finally {
+      overrideProductSecureMode(productRuntime, false);
+    }
+    expect(open).not.toHaveBeenCalled();
+    expect(mesh.status()).toMatchObject({ state: 'failed' });
+    expect(said.join('\n')).toContain(secure.admit === 'none' ? secure.reason : 'a reason');
   });
 
   it('closes the mesh on exit', async () => {

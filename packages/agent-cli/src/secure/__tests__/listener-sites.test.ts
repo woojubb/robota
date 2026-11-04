@@ -56,11 +56,25 @@ const LISTENER_GATES: { readonly [S in TListenerSurface]: readonly string[] } = 
   'desktop-remote-bridge': [],
   'local-peers': ['packages/agent-cli/src/startup/host-action-adapters.ts'],
   'remote-control': ['packages/agent-cli/src/remote-control/remote-control-controller.ts'],
-  'device-mesh': [],
+  'device-mesh': [
+    'packages/agent-cli/src/devices/device-enrollment.ts',
+    'packages/agent-cli/src/devices/device-mesh-host.ts',
+  ],
   'oauth-callback': [
     'packages/agent-cli/src/startup/mcp-oauth-host.ts',
     'packages/agent-cli/src/startup/openrouter-connection-host.ts',
   ],
+};
+
+/**
+ * Rows no product call site opens, each with why. Their sites are named above, so a new one still
+ * fails the scan; what is missing is a product call site to carry the row.
+ */
+const UNGATED: Partial<Record<TListenerSurface, string>> = {
+  'hosted-desktop-gateway':
+    'It opens no listener: it attaches to a server its deployer passes in, and no product process constructs it.',
+  'desktop-remote-bridge':
+    'The desktop app has no secure-mode input and cannot import this table until the desktop owner surface (3f PR 7) gives it one.',
 };
 
 const scan = scanProductSources();
@@ -91,6 +105,11 @@ describe('listener gates', () => {
       calls.filter((call) => call.surface === undefined).map((call) => `${path}:${call.line}`),
     );
     expect(unnamed).toEqual([]);
+  });
+
+  it('opens every listener row through a product call site, except the rows named as ungated', () => {
+    const ungated = LISTENER_SURFACES.filter((surface) => LISTENER_GATES[surface].length === 0);
+    expect(ungated).toEqual(Object.keys(UNGATED));
   });
 
   it('opens each row through exactly the gates listed for it', () => {

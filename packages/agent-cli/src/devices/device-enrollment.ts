@@ -48,6 +48,7 @@ import {
 } from '@robota-sdk/agent-transport-webrtc';
 
 import { withExclusiveFileLock } from '../credentials/exclusive-file-lock.js';
+import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 import { DeviceIdentityError } from './device-identity-error.js';
 import { deviceIdentityCredentialKeys, importPublicKey, storeKeyPair } from './identity-keys.js';
 import { checked, nextSeq } from './identity-lists.js';
@@ -392,8 +393,11 @@ export async function offerEnrollment(
 ): Promise<TOutcome<IDevicesAddResult>> {
   const code = generateEnrollmentCode();
   const material = await deriveEnrollmentMaterial(options.productRuntime.cryptoContext, code);
-  options.showCode(code, options.now() + (options.ttlMs ?? ENROLLMENT_CODE_TTL_MS));
-  const proven = await awaitProvenDevice(options, material);
+  // Linking a device opens WebRTC peers of its own, outside the mesh host, under the mesh's row.
+  const proven = await startListener(SECURE_SURFACES['device-mesh'], options.productRuntime, () => {
+    options.showCode(code, options.now() + (options.ttlMs ?? ENROLLMENT_CODE_TTL_MS));
+    return awaitProvenDevice(options, material);
+  });
   // Nobody can use the code any more: the listener is gone, and so is the relay presence with it.
   options.relay.close();
   if (typeof proven !== 'object') return refuse(proven);
@@ -555,15 +559,17 @@ export async function joinEnrollment(
   const kaKey = await spkiOf(kaPair.publicKey);
 
   let channel: IEnrollmentChannel;
-  const dialing = dialEnrollment({
-    relay: options.relay,
-    inbound: options.material.joinerInbox,
-    outbound: options.material.existingInbox,
-    ...(options.iceServers !== undefined ? { iceServers: options.iceServers } : {}),
-    ...(options.connectTimeoutMs !== undefined
-      ? { connectTimeoutMs: options.connectTimeoutMs }
-      : {}),
-  });
+  const dialing = startListener(SECURE_SURFACES['device-mesh'], options.productRuntime, () =>
+    dialEnrollment({
+      relay: options.relay,
+      inbound: options.material.joinerInbox,
+      outbound: options.material.existingInbox,
+      ...(options.iceServers !== undefined ? { iceServers: options.iceServers } : {}),
+      ...(options.connectTimeoutMs !== undefined
+        ? { connectTimeoutMs: options.connectTimeoutMs }
+        : {}),
+    }),
+  );
   const interrupted = new Promise<TDevicesRefusal>((resolve) => {
     const on = (signal: AbortSignal | undefined, reason: TDevicesRefusal): void => {
       if (signal?.aborted === true) resolve(reason);
