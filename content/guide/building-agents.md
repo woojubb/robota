@@ -221,9 +221,11 @@ const response = await agent.run('What time is it in Seoul, and is it warm there
 
 ### Built-in tools
 
-`@robota-sdk/agent-tools` also ships the tools the `__PRODUCT_CLI_NAME__` CLI gives its agent. File and shell tools
-are factories that take the directory they may work in — `createReadTool({ cwd })` — because a file
-tool with no root would have no boundary.
+`@robota-sdk/agent-tools` also ships the tools the `__PRODUCT_CLI_NAME__` CLI gives its agent. The shell, file,
+search and `WebFetch` tools need a Node host, so they are on `@robota-sdk/agent-tools/node`; the
+main entry holds the function-tool factories, `AskUserQuestion` and the sandbox ports and clients.
+File and shell tools are factories that take the directory they may work in —
+`createReadTool({ cwd })` — because a file tool with no root would have no boundary.
 
 | Factory or instance   | Tool name         | What it does                                                      |
 | --------------------- | ----------------- | ----------------------------------------------------------------- |
@@ -235,7 +237,7 @@ tool with no root would have no boundary.
 | `createGlobTool`      | `Glob`            | Finds files by glob pattern                                       |
 | `createGrepTool`      | `Grep`            | Searches file contents with a regular expression                  |
 | `webFetchTool`        | `WebFetch`        | Fetches a URL and returns its text                                |
-| `askUserQuestionTool` | `AskUserQuestion` | Asks the user a question and waits for the answer                 |
+| `askUserQuestionTool` | `AskUserQuestion` | Asks the user a question and waits for the answer (main entry)    |
 
 `createDefaultTools({ cwd })` from `@robota-sdk/agent-tool-defaults` returns this whole set at once.
 When you give these tools to a bare `Robota`, no permission prompts run — the agent can use them

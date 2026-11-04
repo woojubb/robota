@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createBashTool, createReadTool } from '../index.js';
+import { createBashTool, createReadTool } from '../node.js';
 import { E2BSandboxClient } from '../sandbox/e2b-sandbox-client.js';
 import type { IE2BSandboxAdapter } from '../sandbox/e2b-sandbox-client.js';
 

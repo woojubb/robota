@@ -1,13 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { IToolWithEventService, TToolParameters } from '@robota-sdk/agent-core';
-import {
-  E2BSandboxClient,
-  InMemorySandboxClient,
-  createBashTool,
-  createEditTool,
-  createReadTool,
-  createWriteTool,
-} from '../index.js';
+import { E2BSandboxClient, InMemorySandboxClient } from '../index.js';
+import { createBashTool, createEditTool, createReadTool, createWriteTool } from '../node.js';
 import type { ISandboxRunOptions, IToolInvocationResult } from '../index.js';
 
 /**

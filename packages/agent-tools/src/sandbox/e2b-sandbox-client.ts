@@ -119,7 +119,10 @@ export class E2BSandboxClient implements ISandboxClient {
     const content = await this.withWorker((sandbox) => sandbox.files.read(path));
     if (typeof content !== 'string' && !(content instanceof Uint8Array))
       throw new Error('E2B file response is invalid.');
-    return typeof content === 'string' ? content : Buffer.from(content).toString('utf8');
+    // `ignoreBOM` keeps a leading byte-order mark in the text, as the file holds it.
+    return typeof content === 'string'
+      ? content
+      : new TextDecoder('utf-8', { ignoreBOM: true }).decode(content);
   }
 
   async writeFile(path: string, content: string): Promise<void> {

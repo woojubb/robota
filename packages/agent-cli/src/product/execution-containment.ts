@@ -7,12 +7,12 @@
  * confinement on and off live; on any other platform commands run on the host.
  */
 import { inspectSettingsLayers } from '@robota-sdk/agent-framework';
+import { describeExecutionContainment } from '@robota-sdk/agent-tools';
 import {
   DEFAULT_OS_SANDBOX_SETTINGS,
-  describeExecutionContainment,
   detectOsSandbox,
   OsSandboxClient,
-} from '@robota-sdk/agent-tools';
+} from '@robota-sdk/agent-tools/node';
 
 import type { IDoctorCheck } from '@robota-sdk/agent-command';
 import type {
@@ -22,11 +22,8 @@ import type {
   TSettingsData,
   TSettingsSource,
 } from '@robota-sdk/agent-framework';
-import type {
-  IOsSandboxAvailability,
-  IOsSandboxSettings,
-  ISandboxClient,
-} from '@robota-sdk/agent-tools';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import type { IOsSandboxAvailability, IOsSandboxSettings } from '@robota-sdk/agent-tools/node';
 
 export interface IProductSandbox {
   /** Absent where the platform has no backend. */

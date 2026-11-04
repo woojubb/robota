@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { CommandExitError, Sandbox } from 'e2b/dist/index.mjs';
-import { createReadTool } from '@robota-sdk/agent-tools';
+import { createReadTool } from '@robota-sdk/agent-tools/node';
 import { connectE2BTaskWorker } from '../e2b-task-worker.js';
 import { admitHostedRuntime } from '../hosted-runtime-admission.js';
 import { hostedFixture } from './hosted-fixture.js';

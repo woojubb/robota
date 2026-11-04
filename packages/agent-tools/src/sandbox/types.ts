@@ -85,9 +85,31 @@ export interface IWorkspaceManifest {
   permissions?: IWorkspaceManifestPermissions;
 }
 
+/** One name inside a host directory, as a manifest's `localDir` copy needs to tell it. */
+export interface IWorkspaceHostDirectoryEntry {
+  readonly name: string;
+  /** Only a `file` is copied and only a `directory` is entered; anything else (a link, a socket) is skipped. */
+  readonly kind: 'file' | 'directory' | 'other';
+}
+
+/**
+ * The host's files, as the applicator reads them for a `localFile` or `localDir` entry. The library
+ * has no host of its own: a manifest that names no local entry applies without one, and a local
+ * entry is refused when none is given.
+ */
+export interface IWorkspaceHostFiles {
+  /** The host directory a relative `src` is read from. An absolute `src` is read as written. */
+  readonly root: string;
+  /** The file's text; `path` is an absolute host path. */
+  readText(path: string): Promise<string>;
+  /** The names in a directory; `path` is an absolute host path. */
+  readDirectory(path: string): Promise<readonly IWorkspaceHostDirectoryEntry[]>;
+}
+
 export interface IWorkspaceManifestApplyOptions {
   targetRoot?: string;
-  hostRoot?: string;
+  /** Reads the host for `localFile` and `localDir` entries. Absent, such an entry is refused. */
+  hostFiles?: IWorkspaceHostFiles;
 }
 
 export type TWorkspaceManifestApplyStatus = 'applied' | 'unsupported';

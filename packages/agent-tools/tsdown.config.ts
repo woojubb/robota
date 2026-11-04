@@ -2,7 +2,7 @@ import { defineConfig } from 'tsdown';
 
 export default defineConfig([
   {
-    entry: { index: 'src/index.ts' },
+    entry: { index: 'src/index.ts', node: 'src/node.ts' },
     // Each format ships its own declarations: .d.ts for import, .d.cts for require.
     format: { esm: {}, cjs: {} },
     outDir: 'dist/node',

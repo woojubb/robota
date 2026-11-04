@@ -13,8 +13,7 @@
  *   guess, never a thrown error, so the model can continue autonomously.
  */
 
-import { randomUUID } from 'node:crypto';
-
+import { randomId } from '@robota-sdk/agent-core';
 import { z } from 'zod';
 
 import { createZodFunctionTool } from '../implementations/function-tool';
@@ -101,7 +100,7 @@ function toActionRequest(question: TQuestion): IActionRequest {
   );
   const multi = question.multiSelect === true && options.length > 1;
   return {
-    id: `ask_${randomUUID()}`,
+    id: `ask_${randomId()}`,
     title: question.question,
     ...(question.header !== undefined ? { description: question.header } : {}),
     ...(options.length > 0

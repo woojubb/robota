@@ -2,7 +2,7 @@
 
 The Robota SDK's built-in default tool set. `createDefaultTools()` builds the tools an agent session
 gets when its composition root supplies no tool list of its own, using the tool factories from
-`@robota-sdk/agent-tools`. It implements no tool itself. File tools that run on the host are
+`@robota-sdk/agent-tools` and `@robota-sdk/agent-tools/node`. It implements no tool itself. File tools that run on the host are
 contained by the `cwd` you pass; with a `sandboxClient` that has its own filesystem, file paths go to
 the sandbox and `cwd` does not confine them. Import it at a composition root (the place that
 assembles an agent), not from library code.

@@ -6,7 +6,7 @@ import { mkdtemp, writeFile, mkdir, rm, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createGrepTool } from '@robota-sdk/agent-tools';
+import { createGrepTool } from '@robota-sdk/agent-tools/node';
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
