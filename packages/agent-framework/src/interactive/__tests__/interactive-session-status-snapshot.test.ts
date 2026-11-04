@@ -6,8 +6,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
+import type { TInteractiveSessionOptions } from '../interactive-session.js';
 import type { IGoalState } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 function mockSession(): Record<string, unknown> {
   return {
@@ -30,6 +34,7 @@ function mockSession(): Record<string, unknown> {
 describe('InteractiveSession.getStatusSnapshot', () => {
   it('reads the session, model, settings and context in one snapshot', () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession() as never,
       cwd: '/tmp',
       sessionName: 'parity-test',
@@ -47,12 +52,16 @@ describe('InteractiveSession.getStatusSnapshot', () => {
   });
 
   it('reports no workspace when the session has no cwd set', () => {
-    const session = new InteractiveSession({ session: mockSession() as never });
+    // `cwd` is a required option; a JavaScript consumer is not type-checked and can still omit it.
+    const session = new InteractiveSession({
+      host: testHost,
+      session: mockSession() as never,
+    } as unknown as TInteractiveSessionOptions);
     expect(session.getStatusSnapshot()).not.toHaveProperty('workspace');
   });
 
   it('carries the goal being pursued, so every client can show its progress', () => {
-    const session = new InteractiveSession({ session: mockSession() as never, cwd: '/tmp' });
+    const session = new InteractiveSession({ host: testHost, session: mockSession() as never, cwd: '/tmp' });
     const goal: IGoalState = {
       id: 'g',
       objective: 'Make the tests pass',
@@ -67,12 +76,13 @@ describe('InteractiveSession.getStatusSnapshot', () => {
   });
 
   it('leaves the name out of an unnamed session', () => {
-    const session = new InteractiveSession({ session: mockSession() as never, cwd: '/tmp' });
+    const session = new InteractiveSession({ host: testHost, session: mockSession() as never, cwd: '/tmp' });
     expect(session.getStatusSnapshot()).not.toHaveProperty('sessionName');
   });
 
   it('#3282 §3: reports setupRequired when constructed with it, so a client shows a setup screen', () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession() as never,
       cwd: '/tmp',
       setupRequired: true,
@@ -81,7 +91,7 @@ describe('InteractiveSession.getStatusSnapshot', () => {
   });
 
   it('#3282 §3: leaves setupRequired out for every ordinary session (absent, never false)', () => {
-    const session = new InteractiveSession({ session: mockSession() as never, cwd: '/tmp' });
+    const session = new InteractiveSession({ host: testHost, session: mockSession() as never, cwd: '/tmp' });
     expect(session.getStatusSnapshot()).not.toHaveProperty('setupRequired');
   });
 });

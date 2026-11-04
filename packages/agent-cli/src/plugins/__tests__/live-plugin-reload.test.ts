@@ -9,6 +9,9 @@ import { createNodeHostContributionSource, InteractiveSession } from '@robota-sd
 import { describe, expect, it, vi } from 'vitest';
 
 import { createDefaultPluginCommandAdapter } from '../default-plugin-command-adapter.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 describe('production plugin reload', () => {
   it('removes runnable skills and the model catalogue when the real adapter cannot parse settings', async () => {
@@ -29,6 +32,7 @@ describe('production plugin reload', () => {
     const settingsPath = join(home, '.test-product', 'settings.json');
     writeFileSync(settingsPath, '{}');
     const session = new InteractiveSession({
+      host: testHost,
       cwd: home,
       provider: createScriptedProvider([]).provider,
       contributionSources: [createNodeHostContributionSource(home)],

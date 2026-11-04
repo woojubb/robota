@@ -8,6 +8,9 @@ import { createReplayProviderFromSource } from '@robota-sdk/agent-provider-repla
 import { NodeSessionLogSink, NodeSessionLogSource } from '@robota-sdk/agent-session/node';
 
 import { InteractiveSession } from '../src/index.js';
+import { createTestFrameworkHost } from '../src/testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const LARGE_RESPONSE = `ARCH_014_LARGE:${'x'.repeat(40 * 1024)}`;
 const SENTINEL_RESPONSE = 'ARCH_014_SENTINEL';
@@ -30,6 +33,7 @@ try {
     { text: SENTINEL_RESPONSE },
   ]).provider;
   sourceSession = new InteractiveSession({
+    host: testHost,
     cwd: sourceWorkspacePath,
     provider: sourceProvider,
     resumeSessionId: 'arch-014-source',
@@ -60,6 +64,7 @@ try {
   replayWorkspace = mkdtempSync(join(tmpdir(), 'agent-arch-014-replay-'));
   const replayWorkspacePath = replayWorkspace;
   replaySession = new InteractiveSession({
+    host: testHost,
     cwd: replayWorkspacePath,
     provider: replayProvider,
     bare: true,

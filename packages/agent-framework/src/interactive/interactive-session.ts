@@ -7,6 +7,7 @@ import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-co
 import { isTurnNotRunError, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 import { loadSessionForUpdate } from '@robota-sdk/agent-session';
 
+import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import { InteractiveSessionBase } from './interactive-session-base.js';
 import { SessionExecutionController } from './interactive-session-execution-controller.js';
@@ -323,6 +324,7 @@ export class InteractiveSession
 
   constructor(options: TInteractiveSessionOptions) {
     super();
+    requireFrameworkHost(options.host, 'InteractiveSession');
     this.providerEnvironment = 'environment' in options ? options.environment : undefined;
     this.resolveProviderCredential =
       'resolveProviderCredential' in options ? options.resolveProviderCredential : undefined;

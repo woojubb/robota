@@ -9,6 +9,9 @@ import {
   createNodeHostSessionStore,
   type InteractiveSession,
 } from '../src/index.js';
+import { createTestFrameworkHost } from '../src/testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const FIRST_PROMPT = 'ARCH-023 remember runtime-default-store';
 const FIRST_RESPONSE = 'ARCH-023 stored runtime-default-store';
@@ -48,6 +51,7 @@ async function main(): Promise<void> {
     });
     const firstScript = createScriptedProvider([{ text: FIRST_RESPONSE }]);
     const firstRuntime = createAgentRuntime({
+      host: testHost,
       cwd,
       provider: firstScript.provider,
       sessionStore,
@@ -65,6 +69,7 @@ async function main(): Promise<void> {
 
     const secondScript = createScriptedProvider([{ text: SECOND_RESPONSE }]);
     const secondRuntime = createAgentRuntime({
+      host: testHost,
       cwd,
       provider: secondScript.provider,
       sessionStore,

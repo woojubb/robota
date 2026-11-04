@@ -10,6 +10,7 @@ import {
   LivePromptContentAccumulator,
   utf8Prefix,
 } from '../interactive-session-live-prompt-content.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type {
   ILivePromptContentBatch,
@@ -21,6 +22,8 @@ import type {
   IPromptHistoryWriter,
   ISubmitOptions,
 } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 type TListener = (event: string, data: Record<string, unknown>) => void;
 
@@ -82,6 +85,7 @@ function build(
   const onFailure = vi.fn();
   const mock = createMockSession(options.run ?? (async () => 'the answer'));
   const session = new InteractiveSession({
+    host: testHost,
     session: mock as never,
     cwd: '/tmp',
     livePromptTrace: {
@@ -222,6 +226,7 @@ describe('live prompt content capture', () => {
     const traces: ILivePromptTraceBatch[] = [];
     const onFailure = vi.fn();
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession(async () => 'ok') as never,
       cwd: '/tmp',
       livePromptTrace: {

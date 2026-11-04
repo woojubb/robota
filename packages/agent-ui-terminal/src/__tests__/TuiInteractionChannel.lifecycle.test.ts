@@ -72,6 +72,7 @@ vi.mock('@robota-sdk/agent-framework', async () => {
 
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 import { TUI_SESSION_EVENT_CLASSIFICATION } from '../tui-session-events.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
@@ -80,6 +81,8 @@ import type {
   IInteractiveSession,
   TInteractiveEventName,
 } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -142,6 +145,7 @@ function makeChannel(opts?: {
   onSessionEventDeliveryError?: (error: Error, event: TInteractiveEventName) => void;
 }): TuiInteractionChannel {
   return new TuiInteractionChannel({
+    host: testHost,
     cwd: SESSION_CWD,
     provider: {} as IAIProvider,
     ...opts,

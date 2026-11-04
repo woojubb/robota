@@ -13,8 +13,11 @@ import {
   resolvePromptHistoryProject,
   resolvePromptHistoryRenderFields,
 } from '../prompt-history-enablement.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 const roots: string[] = [];
 afterEach(() => {
@@ -121,7 +124,7 @@ describe('prompt-history composition (SCREEN-1993 TC-07)', () => {
   });
 
   it('the serve projection carries no writer: prompt intake is TUI state', () => {
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: {
         permissionMode: undefined,

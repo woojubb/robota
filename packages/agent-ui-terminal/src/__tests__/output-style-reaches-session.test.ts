@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { toChannelOptions } from '../render.js';
 import { buildTuiSessionOptions } from '../tui-session-options.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IRenderOptions } from '../render.js';
 import type { ITuiInteractionChannelOptions } from '../TuiInteractionChannel.js';
 import type { IOutputStylePrompt } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 const STYLE: IOutputStylePrompt = {
   id: 'concise',
@@ -16,7 +19,7 @@ const STYLE: IOutputStylePrompt = {
 };
 
 const renderOptions = (over: Partial<IRenderOptions> = {}): IRenderOptions =>
-  ({ cwd: '/w', provider: {}, ...over }) as IRenderOptions;
+  ({ host: testHost, cwd: '/w', provider: {}, ...over }) as IRenderOptions;
 
 describe('CLI-1988 output-style projection', () => {
   it('preserves the resolved style from render options through the TUI session options', () => {

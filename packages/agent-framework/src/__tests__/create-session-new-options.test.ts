@@ -14,10 +14,13 @@ import { InMemorySandboxClient } from '@robota-sdk/agent-tools';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { createNodeHostContributionSourcesFixture } from '../testing/contribution-source-fixture.js';
+import { createTestFrameworkHost } from '../testing/framework-host.js';
 
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
+
+const testHost = createTestFrameworkHost();
 
 // Capture all Session constructor calls to inspect the options passed
 const sessionCtorCalls: Array<Record<string, unknown>> = [];
@@ -91,6 +94,8 @@ describe('createSession — generated session id', () => {
   it('replaces retained startup memory and keeps the replacement through later prompt rebuilds', async () => {
     const { createSession } = await import('../assembly/create-session.js');
     const created = await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '', memoryMd: 'Use npm for builds.' },
       terminal: MOCK_TERMINAL,
@@ -115,6 +120,8 @@ describe('createSession — generated session id', () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -135,6 +142,8 @@ describe('createSession — project permission persistence', () => {
   it('does not install a project settings writer without a host persistence capability', async () => {
     const { createSession } = await import('../assembly/create-session.js');
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -148,6 +157,8 @@ describe('createSession — project permission persistence', () => {
     const { createSession } = await import('../assembly/create-session.js');
     const persistProjectPermission = vi.fn();
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -172,6 +183,8 @@ describe('createSession — allowedTools option', () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -190,6 +203,8 @@ describe('createSession — allowedTools option', () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -212,6 +227,8 @@ describe('createSession — allowedTools option', () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -231,6 +248,8 @@ describe('createSession — allowedTools option', () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -256,6 +275,8 @@ describe('createSession — appendSystemPrompt option', () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -273,6 +294,8 @@ describe('createSession — appendSystemPrompt option', () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -290,6 +313,8 @@ describe('createSession — appendSystemPrompt option', () => {
     const extraText = 'You must respond only in JSON format.';
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -307,6 +332,8 @@ describe('createSession — appendSystemPrompt option', () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -339,6 +366,7 @@ describe('createSession — appendSystemPrompt option', () => {
 
     try {
       await createSession({
+        host: testHost,
         config: baseConfig(),
         cwd,
         contributionSources: createNodeHostContributionSourcesFixture(cwd),
@@ -370,6 +398,8 @@ describe('createSession — command descriptor tool guidance', () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -406,6 +436,7 @@ describe('createSession — command descriptor tool guidance', () => {
 
     try {
       await createSession({
+        host: testHost,
         config: baseConfig(),
         cwd,
         contributionSources: createNodeHostContributionSourcesFixture(cwd),
@@ -436,6 +467,7 @@ describe('createSession — command descriptor tool guidance', () => {
 
     try {
       await createSession({
+        host: testHost,
         config: baseConfig(),
         cwd,
         contributionSources: createNodeHostContributionSourcesFixture(cwd),
@@ -480,6 +512,7 @@ describe('createSession — command descriptor tool guidance', () => {
     );
     try {
       await createSession({
+        host: testHost,
         config: baseConfig(),
         cwd,
         context: { agentsMd: '', projectNotesMd: '' },
@@ -505,6 +538,8 @@ describe('createSession — command descriptor tool guidance', () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -547,6 +582,8 @@ describe('createSession — provider timeout option', () => {
     config.provider.timeout = 4321;
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config,
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -560,6 +597,8 @@ describe('createSession — provider timeout option', () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -582,6 +621,8 @@ describe('createSession — sandbox client option', () => {
     });
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -608,6 +649,8 @@ describe('createSession — sandbox client option', () => {
     });
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -660,6 +703,8 @@ describe('createSession — subagent runner factory option', () => {
     });
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: 'agent context', projectNotesMd: 'claude context' },
       terminal: MOCK_TERMINAL,
@@ -686,6 +731,8 @@ describe('createSession — PRESET-004 execution capabilities', () => {
     const subagentRunnerFactory = vi.fn().mockReturnValue({ start: vi.fn() });
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: 'agent context', projectNotesMd: 'claude context' },
       terminal: MOCK_TERMINAL,
@@ -707,6 +754,8 @@ describe('createSession — PRESET-004 execution capabilities', () => {
     const subagentRunnerFactory = vi.fn().mockReturnValue({ start: vi.fn() });
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
@@ -720,6 +769,8 @@ describe('createSession — PRESET-004 execution capabilities', () => {
   it('TC-09: selfVerification is accepted and threaded onto the assembly options', async () => {
     const { createSession } = await import('../assembly/create-session.js');
     const options = {
+      host: testHost,
+      cwd: process.cwd(),
       config: baseConfig(),
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,

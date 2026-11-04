@@ -2,12 +2,13 @@
  * createQuery() — factory that returns a prompt-only convenience function.
  *
  * Usage:
- *   const query = createQuery({ provider });
+ *   const query = createQuery({ host, cwd: process.cwd(), provider });
  *   const answer = await query('What files are here?');
  */
 
 import { realpathSync } from 'node:fs';
 
+import { requireFrameworkHost } from './host/require-framework-host.js';
 import { buildRuntimeSession } from './runtime/runtime-host.js';
 import {
   WorkspaceAuthorityRequiredError,
@@ -19,14 +20,17 @@ import { isWorkspacePathContained } from './workspace-trust/project-reader-path.
 import type { TInteractivePermissionHandler } from './interactive/types.js';
 import type { InteractiveSession } from './interactive/interactive-session.js';
 import type { INodeHostSettingsSource } from './config/node-host-settings-source.js';
+import type { IFrameworkHost } from './host/framework-host.js';
 import type { TWorkspaceProjectAccess } from './workspace-trust/index.js';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 
 export interface ICreateQueryOptions {
+  /** The platform the query runs on; `{}` is a host with nothing to lend. See `IFrameworkHost`. */
+  host: IFrameworkHost;
   /** AI provider instance (required). */
   provider: IAIProvider;
-  /** Working directory. Defaults to process.cwd(). */
-  cwd?: string;
+  /** The absolute working directory the query runs in. */
+  cwd: string;
   /** Host-owned initial project decision. Absence produces an observable Restricted query. */
   projectAccess?: TWorkspaceProjectAccess;
   /** Explicit user settings layers for this query's session. */
@@ -89,14 +93,21 @@ async function submitQuery(
  *
  * ```typescript
  * import { createQuery } from '@robota-sdk/agent-framework';
+ * import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
  * import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+ * import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
  *
- * const query = createQuery({ provider: new AnthropicProvider({ apiKey: '...' }) });
+ * const query = createQuery({
+ *   host: createNodeFrameworkHost({ createDefaultTools }),
+ *   cwd: process.cwd(),
+ *   provider: new AnthropicProvider({ apiKey: '...' }),
+ * });
  * const answer = await query('List all TypeScript files');
  * ```
  */
 export function createQuery(options: ICreateQueryOptions): TQueryFunction {
-  const cwd = options.cwd ?? process.cwd();
+  requireFrameworkHost(options.host, 'createQuery');
+  const { cwd } = options;
   const projectAccess =
     options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable', cwd);
   // Contained — ARCH-048. These boundaries reject cross-root pairs until one canonical project-root
@@ -118,6 +129,7 @@ export function createQuery(options: ICreateQueryOptions): TQueryFunction {
     }
   }
   const session = buildRuntimeSession({
+    host: options.host,
     cwd,
     provider: options.provider,
     projectAccess,

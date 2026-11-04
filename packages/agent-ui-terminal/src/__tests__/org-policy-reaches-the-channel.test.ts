@@ -22,13 +22,16 @@ import { describe, expect, it, vi } from 'vitest';
 import { toChannelOptions } from '../render.js';
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 import { buildTuiSessionOptions } from '../tui-session-options.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IRenderOptions } from '../render.js';
+
+const testHost = createTestFrameworkHost();
 
 const POLICY = { blockedCommands: ['clear'], adminContact: 'ops@x' };
 
 function renderOptions(extra: Partial<IRenderOptions> = {}): IRenderOptions {
-  return { cwd: '/work', provider: {} as never, ...extra } as IRenderOptions;
+  return { host: testHost, cwd: '/work', provider: {} as never, ...extra } as IRenderOptions;
 }
 
 describe('CLI-083: the TUI projection carries the org policy', () => {

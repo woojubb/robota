@@ -36,6 +36,9 @@ import {
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { DEFERRED_TOOL_ROSTER_HEADER } from '../assembly/deferred-tool-roster.js';
 import { ToolCallHandoffTool, isToolCallHandoff } from '../assembly/tool-call-handoff.js';
+import { createTestFrameworkHost } from '../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 function makeTool(name: string): IToolWithEventService {
   return {
@@ -109,6 +112,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ disallowedTools: ['Write', 'Edit'] });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -132,6 +136,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ disallowedTools: ['Shell'] });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -151,6 +156,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ tools: ['Read', 'Grep'] });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -176,6 +182,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef();
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -196,6 +203,7 @@ describe('createSubagentSession', () => {
 
   it('removes the host-named spawn tool from a child session', () => {
     createSubagentSession({
+      host: testHost,
       agentDefinition: makeAgentDef(),
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -214,6 +222,7 @@ describe('createSubagentSession', () => {
 
   it('keeps an unannotated coincidental projected agent command when the role is absent', () => {
     createSubagentSession({
+      host: testHost,
       agentDefinition: makeAgentDef(),
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -233,6 +242,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ model: 'haiku' });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -250,6 +260,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ effort: 'high' });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -267,6 +278,7 @@ describe('createSubagentSession', () => {
   it('resolves the model from the role map (primary of the role’s fallback chain)', () => {
     const agent = makeAgentDef({ role: 'planner' }); // no explicit model alias
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -288,6 +300,7 @@ describe('createSubagentSession', () => {
   it('lets an explicit model alias win over the role map', () => {
     const agent = makeAgentDef({ role: 'planner', model: 'haiku' });
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -304,6 +317,7 @@ describe('createSubagentSession', () => {
   it('falls back to the parent model when the role is not in the map', () => {
     const agent = makeAgentDef({ role: 'unmapped-role' });
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -322,6 +336,7 @@ describe('createSubagentSession', () => {
   it('picks the chain entry that matches the parent provider (skips a foreign-provider primary)', () => {
     const agent = makeAgentDef({ role: 'planner' });
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -343,6 +358,7 @@ describe('createSubagentSession', () => {
   it('falls back to the parent model when no chain entry targets the parent provider', () => {
     const agent = makeAgentDef({ role: 'planner' });
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -360,6 +376,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ model: 'sonnet' });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -377,6 +394,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ model: 'opus' });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -394,6 +412,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ model: 'claude-3-5-haiku-20241022' });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -411,6 +430,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef(); // no model field
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig({
         provider: { name: 'anthropic', model: 'claude-opus-4-6', apiKey: 'key' },
@@ -430,6 +450,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ systemPrompt: 'You are a code explorer.' });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext({
@@ -455,6 +476,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ systemPrompt: 'You are a worker.' });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -474,6 +496,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ maxTurns: 5 });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -492,6 +515,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef();
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -512,6 +536,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef();
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -533,6 +558,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef();
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: config,
       parentContext: makeParentContext(),
@@ -555,6 +581,7 @@ describe('createSubagentSession', () => {
     });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -578,6 +605,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef();
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: config,
       parentContext: makeParentContext(),
@@ -598,6 +626,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ tools: ['NonExistent', 'AlsoMissing'] });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -616,6 +645,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ model: 'gpt-4o-mini' });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -639,6 +669,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ tools: ['Read', 'Agent', 'command_agent', 'Grep'] });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -661,6 +692,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef();
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -679,6 +711,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ systemPrompt: 'Test prompt.' });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -700,6 +733,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef();
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: config,
       parentContext: makeParentContext(),
@@ -717,6 +751,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef({ systemPrompt: 'Agent prompt.' });
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext({ projectNotesMd: undefined, agentsMd: undefined }),
@@ -736,6 +771,7 @@ describe('createSubagentSession', () => {
     const agent = makeAgentDef(); // no maxTurns
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -772,6 +808,7 @@ describe('createSubagentSession', () => {
     // reach it with the parent's (possibly wrapped) tool list, so exercising it here covers both
     // callers by construction.
     createSubagentSession({
+      host: testHost,
       agentDefinition: agent,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -807,6 +844,7 @@ describe('CLI-1990 review — the residency contract crosses into the child', ()
       makeTool(TOOL_SEARCH_TOOL_NAME),
     ];
     createSubagentSession({
+      host: testHost,
       agentDefinition: makeAgentDef({ tools: ['Read', 'Grep'] }),
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -831,6 +869,7 @@ describe('CLI-1990 review — the residency contract crosses into the child', ()
   it('refuses a child whose deferred tool has no loader anywhere in the parent', () => {
     expect(() =>
       createSubagentSession({
+        host: testHost,
         agentDefinition: makeAgentDef({ tools: ['Read', 'Grep'] }),
         parentConfig: makeParentConfig(),
         parentContext: makeParentContext(),
@@ -844,6 +883,7 @@ describe('CLI-1990 review — the residency contract crosses into the child', ()
 
   it('leaves a child with no deferred tool exactly as before — no roster, no loader added', () => {
     createSubagentSession({
+      host: testHost,
       agentDefinition: makeAgentDef({ tools: ['Read'] }),
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),

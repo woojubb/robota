@@ -7,11 +7,14 @@ vi.mock('../../assembly/create-subagent-session.js', () => ({
 }));
 
 import { createInProcessSubagentRunner } from '../in-process-subagent-runner.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IInProcessSubagentRunnerDeps } from '../in-process-subagent-runner.js';
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { IResolvedConfig } from '../../config/config-types.js';
 import type { ISubagentJobStart } from '@robota-sdk/agent-executor';
+
+const testHost = createTestFrameworkHost();
 
 const DEFINITION: IAgentDefinition = {
   name: 'worker',
@@ -22,6 +25,7 @@ const DEFINITION: IAgentDefinition = {
 
 function deps(): IInProcessSubagentRunnerDeps {
   return {
+    host: testHost,
     config: { provider: {}, hooks: undefined } as unknown as IResolvedConfig,
     context: {},
     tools: [],

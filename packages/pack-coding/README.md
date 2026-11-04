@@ -14,8 +14,10 @@ npm install @robota-sdk/pack-coding
 ## Usage
 
 ```ts
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createCodingPack } from '@robota-sdk/pack-coding';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
 declare const providerDefinitions: readonly IProviderDefinition[];
@@ -30,7 +32,8 @@ const product = assembleProduct({
   packs: [createCodingPack({ cwd })],
 });
 
-const session = product.buildRuntime({ session: { cwd, provider } });
+const host = createNodeFrameworkHost({ createDefaultTools });
+const session = product.buildRuntime({ session: { host, cwd, provider } });
 void session;
 ```
 

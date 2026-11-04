@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 
 import { toChannelOptions } from '../render.js';
 import { buildTuiSessionOptions } from '../tui-session-options.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IRenderOptions } from '../render.js';
 import type { ITuiInteractionChannelOptions } from '../TuiInteractionChannel.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * #1844 — the provider definitions must survive the whole mapping chain.
@@ -23,7 +26,7 @@ const DEFINITIONS = [
 ] as unknown as readonly IProviderDefinition[];
 
 const renderOptions = (over: Partial<IRenderOptions> = {}): IRenderOptions =>
-  ({ cwd: '/w', provider: {}, ...over }) as IRenderOptions;
+  ({ host: testHost, cwd: '/w', provider: {}, ...over }) as IRenderOptions;
 
 describe('#1844 — provider definitions reach the session', () => {
   it('render options carry them into the channel options', () => {
@@ -34,6 +37,7 @@ describe('#1844 — provider definitions reach the session', () => {
 
   it('channel options carry them into the session options', () => {
     const session = buildTuiSessionOptions({
+      host: testHost,
       cwd: '/w',
       provider: {},
       providerDefinitions: DEFINITIONS,
@@ -57,6 +61,7 @@ describe('#1844 — provider definitions reach the session', () => {
     // the honest shape for "this surface did not provide them", and it also keeps
     // `exactOptionalPropertyTypes` callers from having to pass undefined.
     const session = buildTuiSessionOptions({
+      host: testHost,
       cwd: '/w',
       provider: {},
     } as unknown as ITuiInteractionChannelOptions);

@@ -45,10 +45,13 @@ import {
 import { productDefaultAgentName } from '../product/preset-defaults.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
 import { resolveShellPreset } from '../startup/preset-selection.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { ICommandModule } from '@robota-sdk/agent-framework';
 import type { IPreset } from '@robota-sdk/agent-preset';
+
+const testHost = createTestFrameworkHost();
 const PRODUCT_DEFAULT_AGENT_NAME = productDefaultAgentName(createTestProductRuntime());
 
 
@@ -247,7 +250,7 @@ function assembleProductFixture(
 describe('ARCH-005 S2 — the assembled test-product runtime matches the pre-change baseline', () => {
   it('supplies test-product Agent provider recovery guidance through the product profile', () => {
     const { product } = assembleProductFixture();
-    const options = product.buildRuntimeOptions({ session: { session: {} as never } });
+    const options = product.buildRuntimeOptions({ session: { host: testHost, cwd: process.cwd(), session: {} as never } });
 
     expect(options.providerErrorGuidance?.authentication).toContain('/provider');
     expect(options.providerErrorGuidance?.authentication).toContain(join(EQUIVALENCE_CWD, '.test-product', 'settings.json'));
@@ -385,6 +388,7 @@ describe('ARCH-005 S2 — the assembled test-product runtime matches the pre-cha
 
     const options = product.buildRuntimeOptions({
       session: {
+        host: testHost,
         cwd: EQUIVALENCE_CWD,
         provider: createScriptedProvider([{ text: 'ok' }]).provider,
       },

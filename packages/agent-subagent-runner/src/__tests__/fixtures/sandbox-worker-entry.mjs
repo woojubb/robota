@@ -7,6 +7,7 @@ import { appendFileSync } from 'node:fs';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { runSubagentWorkerMain } from '../../../dist/node/index.js';
 
 const RECORD_PATH = process.env.SANDBOX_RECORD_PATH;
@@ -52,6 +53,7 @@ function scriptedProvider() {
 }
 
 runSubagentWorkerMain({
+  host: createTestFrameworkHost(),
   createTools: ({ sandboxClient }) => {
     record({ toolsGotComposedSandbox: sandboxClient === SANDBOX });
     return [

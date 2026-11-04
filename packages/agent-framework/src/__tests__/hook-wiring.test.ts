@@ -52,6 +52,9 @@ vi.mock('@robota-sdk/agent-core', async () => {
 
 // Use Session directly since createSession just wires config through
 import { Session } from '@robota-sdk/agent-session';
+import { createTestFrameworkHost } from '../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const MOCK_TERMINAL = {
   write: vi.fn(),
@@ -329,6 +332,8 @@ describe('Hook wiring via createSession', () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     const session = await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: {
         defaultTrustLevel: 'moderate',
         provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
@@ -358,6 +363,8 @@ describe('Hook wiring via createSession', () => {
     const mockSessionFactory = vi.fn();
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: {
         defaultTrustLevel: 'moderate',
         provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },

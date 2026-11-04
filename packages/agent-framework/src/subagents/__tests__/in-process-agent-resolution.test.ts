@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createInProcessSubagentRunner } from '../in-process-subagent-runner.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IInProcessSubagentRunnerDeps } from '../in-process-subagent-runner.js';
 import type { ISubagentJobStart } from '@robota-sdk/agent-executor';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * Issue #1854 — the ORDER both runners resolve an agent type in, and the fact that this one reads
@@ -21,6 +24,7 @@ const RESOLUTION_FAILURE = /Unknown agent type/;
 
 function deps(extra: Partial<IInProcessSubagentRunnerDeps>): IInProcessSubagentRunnerDeps {
   return {
+    host: testHost,
     config: { provider: {}, hooks: undefined },
     context: {},
     tools: [],

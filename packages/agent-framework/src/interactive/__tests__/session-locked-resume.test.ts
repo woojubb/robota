@@ -20,11 +20,14 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
 import { persistSessionRename } from '../interactive-session-rename.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
 } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 const CANARY = 'CANARY-9a7c1e-sealed-conversation';
 
@@ -78,6 +81,7 @@ function sealedRecord(id: string, cwd: string): IInteractiveSessionRecord {
 
 function interactiveOptions(cwd: string, store: IInteractiveSessionStore, resumeSessionId: string) {
   return {
+    host: testHost,
     cwd,
     sessionStore: store,
     resumeSessionId,
@@ -194,6 +198,7 @@ describe('a save the store refuses', () => {
       delete: () => undefined,
     });
     const interactive = new TestInteractive({
+      host: testHost,
       cwd,
       sessionStore: refusing,
       provider: createScriptedProvider([]).provider,
@@ -234,6 +239,7 @@ describe("a refused save says why, in the store's own words", () => {
     const sessions = directory();
     // Built plain, as the product builds it until secure mode exists.
     const interactive = new TestInteractive({
+      host: testHost,
       cwd,
       sessionStore: new NodeSessionStore(sessions, { sealing: 'plain' }),
       provider: createScriptedProvider([]).provider,
@@ -262,6 +268,7 @@ describe("a refused save says why, in the store's own words", () => {
     const sessions = directory();
     const sealer = createTestArtifactSealer();
     const interactive = new TestInteractive({
+      host: testHost,
       cwd,
       sessionStore: new NodeSessionStore(sessions, { sealing: { sealer } }),
       provider: createScriptedProvider([]).provider,
@@ -296,6 +303,7 @@ describe("a refused save says why, in the store's own words", () => {
       delete: () => undefined,
     });
     const interactive = new TestInteractive({
+      host: testHost,
       cwd,
       sessionStore: store,
       provider: createScriptedProvider([]).provider,

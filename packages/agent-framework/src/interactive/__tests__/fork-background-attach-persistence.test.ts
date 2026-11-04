@@ -14,6 +14,9 @@ import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createAgentRuntime } from '../../runtime/session-runtime.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const PARENT_ID = 'session_cli-1994-parent';
 const FORK_ID = 'session_cli-1994-fork';
@@ -59,6 +62,7 @@ describe('background fork persistence for attach (BEHAVIOR-2675)', () => {
     const parentBefore = store.load(PARENT_ID);
     const scripted = createScriptedProvider([{ text: RESPONSE }]);
     const runtime = createAgentRuntime({
+      host: testHost,
       cwd,
       provider: scripted.provider,
       sessionStore: store,

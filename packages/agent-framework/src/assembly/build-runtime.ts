@@ -62,6 +62,7 @@ export function buildAgentRuntime(
     );
     agentDefinitions = agentLoader.loadAll();
     agentToolDeps = {
+      host: options.host,
       pathProtection: options.pathProtection,
       config: options.config,
       context: options.context,

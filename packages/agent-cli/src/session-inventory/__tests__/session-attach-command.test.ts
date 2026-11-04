@@ -21,8 +21,11 @@ import {
   startSupervisedControl,
   type ISupervisedControl,
 } from '../supervised-session-control.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { TServerMessage } from '@robota-sdk/agent-transport';
+
+const testHost = createTestFrameworkHost();
 
 const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
 
@@ -64,7 +67,7 @@ interface ITarget {
 async function withTarget(prefix: string, run: (target: ITarget) => Promise<void>): Promise<void> {
   const scratch = mkdtempSync(join(tmpdir(), prefix));
   const root = join(scratch, 'supervised');
-  const session = new InteractiveSession({ session: runtime() as never, cwd: '/tmp' });
+  const session = new InteractiveSession({ host: testHost, session: runtime() as never, cwd: '/tmp' });
   const start = (): Promise<ISupervisedControl> => startSupervisedControl(
     ID, () => undefined, root, () => session.getLocalActivityStatus(), undefined, undefined,
     () => 'Morning review', undefined, undefined, undefined, { session },

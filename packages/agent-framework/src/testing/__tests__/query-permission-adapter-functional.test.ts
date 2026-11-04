@@ -7,6 +7,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
 import { createQuery } from '../../query.js';
+import { createTestFrameworkHost } from '../framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const roots: string[] = [];
 
@@ -32,6 +35,7 @@ describe('createQuery canonical permission adapter (ARCH-017)', () => {
     ]);
     const permissionHandler = vi.fn().mockResolvedValue(true);
     const query = createQuery({
+      host: testHost,
       cwd,
       provider: script.provider,
       permissionMode: 'default',
@@ -61,6 +65,7 @@ describe('createQuery canonical permission adapter (ARCH-017)', () => {
       { text: 'continued' },
     ]);
     const query = createQuery({
+      host: testHost,
       cwd,
       provider: script.provider,
       permissionMode: 'default',

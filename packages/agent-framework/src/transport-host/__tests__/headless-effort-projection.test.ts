@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IHeadlessInteractionChannelOptions } from '../headless/HeadlessInteractionChannel.js';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * ARCH-013 — the same field, at the surface that also had to remember it.
@@ -28,6 +31,7 @@ function projectedOptions(
 ): Record<string, unknown> {
   buildRuntimeSession.mockClear();
   const channel = new HeadlessInteractionChannel({
+    host: testHost,
     cwd: '/tmp',
     shellExec: () => '',
     ...(effort !== undefined ? { effort } : {}),

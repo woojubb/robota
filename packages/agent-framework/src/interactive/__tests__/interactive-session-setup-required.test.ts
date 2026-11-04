@@ -9,8 +9,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 function placeholderProvider(): IAIProvider {
   return {
@@ -26,7 +29,12 @@ function placeholderProvider(): IAIProvider {
 describe('InteractiveSession — setup required (#3282 §3)', () => {
   it('refuses a submitted turn outright instead of reaching the placeholder provider', async () => {
     const provider = placeholderProvider();
-    const session = new InteractiveSession({ cwd: '/tmp', provider, setupRequired: true });
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: '/tmp',
+      provider,
+      setupRequired: true,
+    });
     await expect(session.submit('hello')).rejects.toThrow('Connect a model provider to start.');
     // Never reached the provider — the guard is a refusal, not a failed call.
     expect(provider.chat).not.toHaveBeenCalled();
@@ -41,7 +49,7 @@ describe('InteractiveSession — setup required (#3282 §3)', () => {
       supportsTools: () => false,
       validateConfig: () => true,
     };
-    const session = new InteractiveSession({ cwd: '/tmp', provider });
+    const session = new InteractiveSession({ host: testHost, cwd: '/tmp', provider });
     // It still fails (no real session store/init in this minimal fixture) — the point is that failure
     // is not the setup-required rejection, i.e. the guard did not fire.
     let message: string | undefined;

@@ -77,9 +77,12 @@ import {
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IAIProvider, IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IExecutionResult } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 /** The session's working directory: private to this run, never a fixed name under /tmp. */
 const SESSION_CWD = mkdtempSync(join(tmpdir(), 'agent-test-tui-display-'));
@@ -104,6 +107,7 @@ function emitSessionEvent(channel: TuiInteractionChannel, event: string, ...args
 
 function makeChannel(provider: IAIProvider = {} as IAIProvider): TuiInteractionChannel {
   return new TuiInteractionChannel({
+    host: testHost,
     cwd: SESSION_CWD,
     provider,
   });

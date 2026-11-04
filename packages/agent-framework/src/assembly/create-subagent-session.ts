@@ -19,6 +19,7 @@ import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 import { Session } from '@robota-sdk/agent-session';
 
 import { formatDeferredToolRoster } from './deferred-tool-roster.js';
+import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { createModelPermissionClassifier } from './model-permission-classifier.js';
 import { nodeSessionPorts } from './node-session-ports.js';
 import { assembleSubagentPrompt } from './subagent-prompts.js';
@@ -32,6 +33,7 @@ import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ISystemCommandSemanticRoles } from '../command-api/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
 import type { IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
 import type {
@@ -72,6 +74,8 @@ export interface ISubagentParentContext {
 
 /** Options for creating a subagent session. */
 export interface ISubagentOptions {
+  /** The platform the subagent runs on; `{}` is a host with nothing to lend. See `IFrameworkHost`. */
+  host: IFrameworkHost;
   readonly pathProtection?: IPathProtectionPolicy;
   /** Agent definition (built-in or custom). */
   agentDefinition: IAgentDefinition;
@@ -248,6 +252,7 @@ function carryResidencyContract(
  * agent definition, then returns a new Session instance.
  */
 export function createSubagentSession(options: ISubagentOptions): Session {
+  requireFrameworkHost(options.host, 'createSubagentSession');
   const { agentDefinition, parentConfig, parentContext, parentTools, terminal } = options;
 
   // Filter tools based on agent definition constraints

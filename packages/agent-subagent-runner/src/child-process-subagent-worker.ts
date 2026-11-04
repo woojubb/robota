@@ -244,6 +244,7 @@ async function runInitialPrompt(
         : undefined;
     const toolSandbox = restoredSandbox ?? composedSandbox?.client;
     session = createSubagentSession({
+      host: composition.host,
       // ARCH-044 (issue #2047): explicit restore from the wire DTOs into the runtime models.
       agentDefinition: restoreAgentDefinition(payload.agentDefinition),
       parentConfig: payload.parentConfig,

@@ -9,6 +9,9 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createSessionStub as createSharedSessionStub } from './helpers/session-stub.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 function createSessionStoreStub() {
   const records = new Map<string, unknown>();
@@ -65,6 +68,8 @@ describe('MCP-004 TC-08: restore reconciliation for a tool-invocation task', () 
     });
 
     new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: sessionStub,
       sessionStore: sessionStore as never,
       resumeSessionId: 'session_stale_tool_call',

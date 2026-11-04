@@ -252,6 +252,7 @@ export async function initializeInteractiveSessionAsync(
   if (checkpointStore !== undefined) deps.setEditCheckpointStore(checkpointStore);
 
   const created = await createInteractiveSession({
+    host: options.host,
     cwd: options.cwd,
     provider: options.provider,
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),

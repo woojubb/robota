@@ -6,8 +6,11 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createAgentRuntime } from '../../index.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IInProcessSubagentRunnerDeps, InteractiveSession } from '../../index.js';
+
+const testHost = createTestFrameworkHost();
 
 describe('a subagent takes the parent mode it starts under', () => {
   const sessions: InteractiveSession[] = [];
@@ -23,6 +26,7 @@ describe('a subagent takes the parent mode it starts under', () => {
     dirs.push(cwd);
     let deps: IInProcessSubagentRunnerDeps | undefined;
     const runtime = createAgentRuntime({
+      host: testHost,
       cwd,
       provider: createScriptedProvider([]).provider,
       commandModules: [{ name: 'needs-agents', sessionRequirements: ['runtime'] }],

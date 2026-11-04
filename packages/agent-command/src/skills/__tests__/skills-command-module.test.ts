@@ -11,10 +11,12 @@ import {
 import { createSkillsCommandModule } from '../skills-command-module.js';
 import {
   createTestCommandHost,
-  type ICreateTestCommandHostOptions,
+  type ICreateTestCommandHostOptions, createTestFrameworkHost,
 } from '@robota-sdk/agent-framework/testing';
 
 import type { IWorkspaceIdentity, IWorkspaceTrustStore } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 async function createTrustedProjectAccess(cwd: string) {
   const root = realpathSync(cwd);
@@ -170,6 +172,7 @@ describe('createSkillsCommandModule', () => {
     createTempSkill(cwd);
     const parentSession = makeParentSession();
     const session = new InteractiveSession({
+      host: testHost,
       session: parentSession as never,
       cwd,
       projectAccess: await createTrustedProjectAccess(cwd),

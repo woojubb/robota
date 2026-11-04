@@ -29,6 +29,9 @@ export {
   createMemoryTransportSettingsRepository,
 } from './transport-host/transport-settings-repository.js';
 
+// ── The platform the host lends: the `host` every session, runtime and query takes ────────
+export type { IAsyncScope, IFrameworkHost } from './host/framework-host.js';
+
 // ── Explicit workspace project authority (ARCH-042) ────────
 export {
   WorkspaceAuthorityRequiredError,

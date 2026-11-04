@@ -16,7 +16,8 @@
     "@robota-sdk/agent-provider-anthropic": "^3.0.1",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-mcp": "workspace:*",
-    "@robota-sdk/agent-provider-replay": "workspace:*"
+    "@robota-sdk/agent-provider-replay": "workspace:*",
+    "@robota-sdk/agent-tool-defaults": "^3.0.1"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

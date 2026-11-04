@@ -10,8 +10,11 @@ import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js'
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createWorkspaceProjectMutation } from '../../workspace-trust/index.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IAIProvider, IAssistantMessage } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * Rolling back through a session's first checkpoint clears the branch head on purpose: the next turn
@@ -82,6 +85,7 @@ describe('a rollback through the first checkpoint, then a resume', () => {
     const sessions = new NodeSessionStore(join(TMP_BASE, 'sessions'), { sealing: 'plain' });
 
     const first = new InteractiveSession({
+      host: testHost,
       cwd: project,
       provider: createProvider(),
       bare: true,
@@ -105,6 +109,7 @@ describe('a rollback through the first checkpoint, then a resume', () => {
     await first.shutdown();
     const resumedStore = await checkpointStore(project, state);
     const resumed = new InteractiveSession({
+      host: testHost,
       cwd: project,
       provider: createProvider(),
       bare: true,

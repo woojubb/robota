@@ -6,7 +6,7 @@
 `agent-session`, `agent-tools`, `agent-executor`, and the `agent-interface-transport` type contracts
 into a single, provider-neutral SDK surface. `InteractiveSession` is the primary entry point,
 preserving observed tool outcomes across live and restored presentation without replaying effects; a
-`createQuery({ provider })` factory covers single-shot prompt use; `createAgentRuntime()` composes a
+`createQuery({ host, cwd, provider })` factory covers single-shot prompt use; `createAgentRuntime()` composes a
 headless/multi-session runtime.
 
 This package owns config loading, context loading (AGENTS.md/CLAUDE.md discovery), command
@@ -46,6 +46,14 @@ React/Ink UI.
   deliberately own a host path, but never satisfy an authority parameter, and command modules must
   not assemble settings/project paths themselves — they go through host adapters or command-facing
   common APIs.
+- **The platform and the working directory are passed in, never assumed.** A session, subagent,
+  runtime or query takes a required `host` (`IFrameworkHost`, what the platform lends) and a required
+  absolute `cwd`. Neither has a default, because a default would be whichever process the framework
+  happens to run in. Every host member is optional and an absent one means that capability is off, so
+  `{}` is a valid host; a Node composition root builds one with `createNodeFrameworkHost` from the
+  `./node` subpath. A missing `host` throws at construction instead of reading as a host that lends
+  nothing, because an untyped caller would otherwise get sessions without a capability and no
+  explanation.
 - **Every user- and project-scoped location is host-supplied, and the framework never infers or falls
   back to one.** Storage roots, project settings and state directories, user settings sources,
   plugin/skill/agent-definition roots, permission baselines, and task-context directories are all

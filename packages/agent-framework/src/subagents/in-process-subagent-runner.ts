@@ -7,6 +7,7 @@ import { advisorToolLineLabel } from '../advisor/advisor-tool.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { sandboxApprovalFor } from '../assembly/sandbox-approval.js';
+import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { restoreSessionRecordIntoSession } from '../interactive/interactive-session-restore.js';
 import { assertClaimedOutcomeAccepted } from '../interactive/session-authorship-gate.js';
 import { decorateSessionStore } from '../interactive/session-store-view.js';
@@ -16,6 +17,7 @@ import type { ISubagentOptions } from '../assembly/create-subagent-session.js';
 import type { ISystemCommandSemanticRoles } from '../command-api/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type {
   IInteractiveSessionStore,
   TSessionLoadOutcome,
@@ -41,6 +43,8 @@ type TSubagentToolExecutionEvent = Parameters<
 >[0];
 
 export interface IInProcessSubagentRunnerDeps {
+  /** The platform the parent session runs on; every subagent it spawns runs on the same one. */
+  host: IFrameworkHost;
   readonly pathProtection?: IPathProtectionPolicy;
   config: IResolvedConfig;
   /**
@@ -322,6 +326,7 @@ export function subagentCommandSandbox(
 }
 
 export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps): ISubagentRunner {
+  requireFrameworkHost(deps.host, 'createInProcessSubagentRunner');
   return {
     start(job: ISubagentJobStart): ISubagentJobHandle {
       assertSupportedIsolation(job);
@@ -343,6 +348,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
   ): ISubagentJobHandle {
     const resumeSessionId = job.request.resumeSessionId;
     const session = createSubagentSession({
+      host: deps.host,
       pathProtection: deps.pathProtection,
       agentDefinition: applyRequestOverrides(definition, job),
       parentConfig: parentConfigWithEffectiveRules(deps),

@@ -78,6 +78,7 @@ import type {
   ICommandHostAdapters,
   ICommandModule,
   ICommandProcessAdapter,
+  IFrameworkHost,
   IRemoteCommandPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
@@ -102,6 +103,8 @@ export type IServeModePresetOptions = Partial<IPresetSurfaceOptions>;
 
 export interface IServeModeOptions {
   productRuntime: ICliRuntimeContext;
+  /** The platform the served sessions run on. */
+  host: IFrameworkHost;
   cwd: string;
   livePromptTrace?: ILivePromptTracePort;
   /** Explicit host-owned control root for isolated embedded runtimes and tests. */
@@ -226,6 +229,7 @@ export interface IServeModeOptions {
 export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveSessionOptions {
   const { args, preset } = opts;
   return {
+    host: opts.host,
     cwd: opts.cwd,
     ...(opts.livePromptTrace ? { livePromptTrace: opts.livePromptTrace } : {}),
     provider: opts.provider,

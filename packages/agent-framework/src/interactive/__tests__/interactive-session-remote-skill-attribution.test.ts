@@ -11,10 +11,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICommandHostContext, ICommandModule } from '../../commands/index.js';
 import type { ILivePromptContentBatch } from '@robota-sdk/agent-interface-analytics';
 import type { IPromptHistoryEntry } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 function mockSession(cwd: string) {
   return {
@@ -91,6 +94,7 @@ describe('remote skill attribution', () => {
     const history: IPromptHistoryEntry[] = [];
     const traces = vi.fn();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession(cwd) as never,
       cwd,
       contributionSources: createNodeHostContributionSourcesFixture(cwd),

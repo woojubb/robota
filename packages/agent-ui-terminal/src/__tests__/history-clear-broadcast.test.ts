@@ -15,6 +15,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 const READY_DEADLINE_MS = 10_000;
 const POLL_MS = 25;
@@ -39,6 +42,7 @@ describe('CMD-004 Stage E — history_cleared broadcast clears the TUI transcrip
   it('a host-side conversation clear empties the transcript without any command-result path', async () => {
     const scripted = createScriptedProvider([{ text: 'unused in this test' }]);
     channel = new TuiInteractionChannel({
+      host: testHost,
       cwd: process.cwd(),
       provider: scripted.provider,
     });

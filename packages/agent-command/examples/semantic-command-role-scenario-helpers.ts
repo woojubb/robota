@@ -13,6 +13,9 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import { config, terminal } from './semantic-command-role-project-access.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 export type TSubagentSession = ReturnType<typeof createSubagentSession>;
 
@@ -40,6 +43,7 @@ export function createTrackedSubagent(
   commandSemanticRoles?: ISystemCommandSemanticRoles,
 ): TSubagentSession {
   const session = createSubagentSession({
+    host: testHost,
     agentDefinition: { name: 'worker', description: 'Worker', systemPrompt: 'Work' },
     parentConfig: config,
     parentContext: { agentsMd: '', projectNotesMd: '' },
@@ -171,6 +175,7 @@ export async function verifyOmissionBehaviors(options: {
     systemCommands: unannotatedCommands,
   };
   const unannotatedInteractive = new InteractiveSession({
+    host: testHost,
     session: options.injectedSession as never,
     cwd,
     projectAccess,

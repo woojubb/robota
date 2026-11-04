@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildSessionSystemPrompt } from '../create-session-runtime.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICreateSessionOptions } from '../create-session-types.js';
 import type { ISystemPromptParams } from '../../context/system-prompt-builder.js';
 import type { ITerminalOutput } from '@robota-sdk/agent-session';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * PRESET-014: the `rebuildSystemMessage` closure returned by `buildSessionSystemPrompt` tracks a
@@ -34,6 +37,8 @@ function selfVerificationOnlyBuilder(params: ISystemPromptParams): string {
 
 function makeOptions(persona?: string): ICreateSessionOptions {
   return {
+    host: testHost,
+    cwd: process.cwd(),
     config: {
       defaultTrustLevel: 'safe',
       provider: { name: 'test', model: 'test-model', apiKey: undefined },
@@ -49,6 +54,8 @@ function makeOptions(persona?: string): ICreateSessionOptions {
 
 function makeSelfVerificationOptions(selfVerification?: boolean): ICreateSessionOptions {
   return {
+    host: testHost,
+    cwd: process.cwd(),
     config: {
       defaultTrustLevel: 'safe',
       provider: { name: 'test', model: 'test-model', apiKey: undefined },

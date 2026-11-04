@@ -11,6 +11,7 @@ import type {
   IAutomaticMemoryConfig,
   IBackgroundTaskRunner,
   ICommandHostAdapters,
+  IFrameworkHost,
   IOutputStylePrompt,
   IOrgPolicy,
   IProviderErrorGuidance,
@@ -48,6 +49,8 @@ import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transpo
  * interactive surface at all, and a surface nobody can find is a surface people forget.
  */
 export interface ITuiInteractionChannelOptions {
+  /** The platform the TUI's sessions run on; `{}` is a host with nothing to lend. */
+  host: IFrameworkHost;
   livePromptTrace?: ILivePromptTracePort;
   /**
    * Provider definitions, forwarded to the session so `/provider switch` can construct the provider

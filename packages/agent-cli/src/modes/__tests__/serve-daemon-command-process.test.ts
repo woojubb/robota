@@ -14,10 +14,13 @@ import { createLanguageCommandModule, createResetCommandModule } from '@robota-s
 import { InteractiveSession, startRuntimeHost } from '@robota-sdk/agent-framework';
 import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IServeModeOptions } from '../serve-mode.js';
 import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
+
+const testHost = createTestFrameworkHost();
 
 const shutdown = vi.fn(async (_reason?: string) => undefined);
 
@@ -88,7 +91,7 @@ function serveOptions(
   args: Partial<IServeModeOptions['args']>,
   adapters: ICommandHostAdapters,
 ): IServeModeOptions {
-  return {productRuntime: createTestProductRuntime(),
+  return { host: testHost,productRuntime: createTestProductRuntime(),
     cwd: '/work/project',
     args: args as IServeModeOptions['args'],
     provider: {} as IServeModeOptions['provider'],
@@ -148,6 +151,8 @@ function attachClient(
   adapters: ICommandHostAdapters,
 ): (name: string, args: string) => Promise<TServerMessage> {
   const session = new InteractiveSession({
+    host: testHost,
+    cwd: process.cwd(),
     session: createRuntimeSession() as never,
     commandModules: [createLanguageCommandModule(), createResetCommandModule()],
     commandHostAdapters: adapters,

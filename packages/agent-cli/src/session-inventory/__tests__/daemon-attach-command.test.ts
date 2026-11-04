@@ -13,9 +13,12 @@ import {
   type ISupervisedControl,
   type ISupervisedSessionRow,
 } from '../supervised-session-control.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IAttachedAppPresentation } from '../../startup/attached-app-render.js';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
+
+const testHost = createTestFrameworkHost();
 
 const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
 const GENERATION = 'Gq3vK8mP2xR9tY5wZ1aB4c';
@@ -76,7 +79,7 @@ async function withDaemon(
   run: (daemon: { root: string; listeners: (event: string) => number }) => Promise<void>,
 ): Promise<void> {
   const root = join(scratch, 'supervised');
-  const session = new InteractiveSession({ session: runtime() as never, cwd: workspace });
+  const session = new InteractiveSession({ host: testHost, session: runtime() as never, cwd: workspace });
   const control: ISupervisedControl = await startSupervisedControl(
     ID, () => undefined, root, () => session.getLocalActivityStatus(), () => workspace, undefined,
     () => 'Main daemon', undefined, undefined, undefined, { session },

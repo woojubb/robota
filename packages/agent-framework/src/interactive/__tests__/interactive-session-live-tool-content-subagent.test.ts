@@ -13,6 +13,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { createInProcessSubagentRunner } from '../../subagents/in-process-subagent-runner.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { IResolvedConfig } from '../../config/config-types.js';
@@ -28,6 +29,8 @@ import type {
   ILivePromptContentBatch,
   ILivePromptTraceBatch,
 } from '@robota-sdk/agent-interface-analytics';
+
+const testHost = createTestFrameworkHost();
 
 const TIMEOUT = 20_000;
 const WORKER: IAgentDefinition = { name: 'worker', description: 'Worker', systemPrompt: 'Work' };
@@ -76,6 +79,7 @@ describe('live tool content and subagents', () => {
       { text: 'parent done' },
     ]);
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: parent.provider,
       bare: true,
@@ -102,6 +106,7 @@ describe('live tool content and subagents', () => {
         { text: 'child done' },
       ]);
       const runner = createInProcessSubagentRunner({
+        host: testHost,
         config: {
           defaultTrustLevel: 'full',
           provider: { name: 'scripted', model: 'scripted-model', apiKey: undefined },

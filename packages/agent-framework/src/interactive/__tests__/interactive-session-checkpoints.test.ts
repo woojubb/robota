@@ -16,8 +16,11 @@ import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js'
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createWorkspaceProjectMutation } from '../../workspace-trust/index.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IAIProvider, IAssistantMessage, TUniversalMessage } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-interactive-checkpoints-')));
 const ORIGINAL_HOME = process.env.HOME;
@@ -107,6 +110,7 @@ describe.runIf(process.platform === 'linux')('InteractiveSession edit checkpoint
       assistantMessage('second done'),
     ]);
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider,
       bare: true,
@@ -151,6 +155,7 @@ describe.runIf(process.platform === 'linux')('InteractiveSession edit checkpoint
       assistantMessage('first done'),
     ]);
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider,
       bare: true,

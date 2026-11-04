@@ -18,9 +18,12 @@ import { InteractiveSession, createNodeHostSettingsSource } from '@robota-sdk/ag
 import { MCPActivationAdmissionService, MCPDefinitionRegistry } from '@robota-sdk/agent-mcp';
 import { createStdioAdapter } from '@robota-sdk/agent-mcp/node';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { TSubprocessTraceClass } from '@robota-sdk/agent-core';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+
+const testHost = createTestFrameworkHost();
 
 const AMBIENT = '00-99999999999999999999999999999999-8888888888888888-01';
 const PRINT = '"${TRACEPARENT:--}|${TRACESTATE:--}"';
@@ -177,6 +180,7 @@ describe.runIf(process.platform !== 'win32')(
       ]);
       const enqueue = vi.fn();
       const session = new InteractiveSession({
+        host: testHost,
         cwd: home,
         provider: scripted.provider,
         bare: true,

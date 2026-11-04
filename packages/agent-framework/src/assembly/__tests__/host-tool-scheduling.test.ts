@@ -9,7 +9,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../../interactive/interactive-session.js';
 import { createSession } from '../create-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import type { ICreateSessionOptions } from '../create-session-types.js';
+
+const testHost = createTestFrameworkHost();
 
 type Policy = NonNullable<IAgentConfig['toolExecutionPolicy']>;
 const names = ['First', 'Dependent', 'Independent'];
@@ -49,6 +52,7 @@ async function fixture(
     { text: 'done' },
   ]);
   const options = {
+    host: testHost,
     cwd: root,
     config: {
       defaultTrustLevel: 'safe' as const,

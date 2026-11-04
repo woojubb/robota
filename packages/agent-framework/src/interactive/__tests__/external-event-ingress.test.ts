@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createExternalEventGrantHistory, ExternalEventIngress } from '../external-event-ingress.js';
 import { InteractiveSession } from '../interactive-session.js';
 import { TurnNotRunError } from '../turn-not-run-error.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type {
   IAccessTokenVerifier,
@@ -13,6 +14,8 @@ import type {
 } from '@robota-sdk/agent-interface-transport';
 import type { ISubmitOptions, ITurnHandle } from '@robota-sdk/agent-interface-session';
 import type { IAIProvider } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 const NOW = Date.UTC(2026, 8, 26, 12, 0, 0);
 
@@ -203,6 +206,7 @@ describe('the host builds each grant verifier from the grant itself (#3072)', ()
 
   it('a session without a host verifier factory opens no grant', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       cwd: process.cwd(),
       provider: mockProvider(okChat()),
       bare: true,
@@ -292,6 +296,7 @@ describe('revoking a grant (#3072)', () => {
         timestamp: new Date(),
       }));
     const session = new InteractiveSession({
+      host: testHost,
       cwd: process.cwd(),
       externalEventVerifierFactory: () => admitAll,
       provider: mockProvider(chat),
@@ -758,6 +763,7 @@ const okChat = () =>
 describe('external events on a real InteractiveSession (#3072)', () => {
   it('enforces the bypass invariant at the real setter and reserves external attribution', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       cwd: process.cwd(),
       externalEventVerifierFactory: () => admitAll,
       provider: mockProvider(okChat()),
@@ -805,6 +811,7 @@ describe('external events on a real InteractiveSession (#3072)', () => {
         }),
     );
     const session = new InteractiveSession({
+      host: testHost,
       cwd: process.cwd(),
       externalEventVerifierFactory: () => admitAll,
       provider: mockProvider(chat),
@@ -828,6 +835,7 @@ describe('external events on a real InteractiveSession (#3072)', () => {
   it('runs an admitted external turn without model tools, without changing the next operator turn', async () => {
     const chat = okChat();
     const session = new InteractiveSession({
+      host: testHost,
       cwd: process.cwd(),
       externalEventVerifierFactory: () => admitAll,
       provider: mockProvider(chat),
@@ -867,6 +875,7 @@ describe('external events on a real InteractiveSession (#3072)', () => {
         timestamp: new Date(),
       }));
     const session = new InteractiveSession({
+      host: testHost,
       cwd: process.cwd(),
       externalEventVerifierFactory: () => admitAll,
       provider: mockProvider(chat),
@@ -915,6 +924,7 @@ describe('external events on a real InteractiveSession (#3072)', () => {
         }),
     );
     const session = new InteractiveSession({
+      host: testHost,
       cwd: process.cwd(),
       externalEventVerifierFactory: () => admitAll,
       provider: mockProvider(chat),

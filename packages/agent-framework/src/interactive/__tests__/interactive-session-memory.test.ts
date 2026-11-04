@@ -13,6 +13,9 @@ import { InteractiveSession } from '../interactive-session.js';
 
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
 import { loadedRecordOrMissing } from './session-load-helpers.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-interactive-memory-')));
 const ORIGINAL_HOME = process.env.HOME;
@@ -63,6 +66,7 @@ describe('InteractiveSession memory command integration', () => {
       const provider = createProvider('noted');
       const sessionStore = await createTrustedProjectSessionStoreFixture(cwd);
       const session = new InteractiveSession({
+        host: testHost,
         cwd,
         provider,
         bare: true,
@@ -91,11 +95,7 @@ describe('InteractiveSession memory command integration', () => {
         topic: 'build',
         text: 'Use pnpm for package scripts.',
       });
-      const session = new InteractiveSession({
-        cwd,
-        provider,
-        bare: true,
-      });
+      const session = new InteractiveSession({ host: testHost, cwd, provider, bare: true });
 
       await session.submit('How should I run package scripts?');
 
@@ -109,6 +109,7 @@ describe('InteractiveSession memory command integration', () => {
   it('Given no injected memory module When /memory is requested Then SDK core does not own it', async () => {
     const cwd = makeProject();
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: createProvider('ok'),
       bare: true,

@@ -21,6 +21,7 @@ import {
   getWorkspaceProjectReader,
   readSettingsSourceText,
 } from '../src/index.js';
+import { createTestFrameworkHost } from '../src/testing/framework-host.js';
 
 import type {
   IWorkspaceIdentity,
@@ -29,6 +30,8 @@ import type {
   IWorkspaceTrustStoreSnapshot,
   TWorkspaceProjectAccess,
 } from '../src/index.js';
+
+const testHost = createTestFrameworkHost();
 
 const CONTEXT_CANARY = 'ARCH_042_CONTEXT_CANARY';
 const SETTINGS_CANARY = 'ARCH_042_SETTINGS_CANARY';
@@ -178,7 +181,11 @@ async function main(): Promise<void> {
       'utf8',
     );
 
-    const restrictedRuntime = createAgentRuntime({ cwd: projectRoot, provider: scripted.provider });
+    const restrictedRuntime = createAgentRuntime({
+      host: testHost,
+      cwd: projectRoot,
+      provider: scripted.provider,
+    });
     assertCondition(
       restrictedRuntime.projectAccess.status === 'restricted',
       'capabilityless runtime construction was not Restricted',
@@ -193,6 +200,7 @@ async function main(): Promise<void> {
       'explicit project grant was not trusted',
     );
     const authorizedRuntime = createAgentRuntime({
+      host: testHost,
       cwd: projectRoot,
       provider: scripted.provider,
       projectAccess: authorizedAccess,

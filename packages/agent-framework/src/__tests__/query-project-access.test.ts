@@ -7,6 +7,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { createQuery, createRestrictedWorkspaceProjectAccess } from '../index.js';
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
+import { createTestFrameworkHost } from '../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 describe('createQuery project access', () => {
   const roots: string[] = [];
@@ -17,7 +20,7 @@ describe('createQuery project access', () => {
 
   it('reports Restricted access when the host supplies no project decision', () => {
     const scripted = createScriptedProvider([]);
-    const query = createQuery({ provider: scripted.provider });
+    const query = createQuery({ host: testHost, cwd: process.cwd(), provider: scripted.provider });
 
     expect(query.projectAccess).toMatchObject({
       status: 'restricted',
@@ -28,7 +31,12 @@ describe('createQuery project access', () => {
   it('retains an explicit host decision on the returned query function', () => {
     const projectAccess = createRestrictedWorkspaceProjectAccess('revoked', '/workspace');
     const scripted = createScriptedProvider([]);
-    const query = createQuery({ provider: scripted.provider, projectAccess });
+    const query = createQuery({
+      host: testHost,
+      cwd: process.cwd(),
+      provider: scripted.provider,
+      projectAccess,
+    });
 
     expect(query.projectAccess).toBe(projectAccess);
   });
@@ -41,7 +49,7 @@ describe('createQuery project access', () => {
     const scripted = createScriptedProvider([]);
 
     expect(() =>
-      createQuery({ cwd: queryRoot, provider: scripted.provider, projectAccess }),
+      createQuery({ host: testHost, cwd: queryRoot, provider: scripted.provider, projectAccess }),
     ).toThrow('Trusted project access does not cover the requested working directory.');
   });
 
@@ -54,7 +62,8 @@ describe('createQuery project access', () => {
     const scripted = createScriptedProvider([]);
 
     expect(
-      createQuery({ cwd: queryRoot, provider: scripted.provider, projectAccess }).projectAccess,
+      createQuery({ host: testHost, cwd: queryRoot, provider: scripted.provider, projectAccess })
+        .projectAccess,
     ).toBe(projectAccess);
   });
 });

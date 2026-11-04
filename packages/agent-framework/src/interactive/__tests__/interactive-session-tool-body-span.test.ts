@@ -12,8 +12,11 @@ import {
 
 import { collectSpanEntries } from '../interactive-session-execution.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
+
+const testHost = createTestFrameworkHost();
 
 type TListener = (event: string, data: Record<string, unknown>) => void;
 
@@ -93,6 +96,7 @@ describe('minted tool body spans', () => {
     });
     const enqueue = vi.fn();
     const session = new InteractiveSession({
+      host: testHost,
       session: mock as never,
       cwd: '/tmp',
       livePromptTrace: { enqueue },
@@ -135,6 +139,7 @@ describe('minted tool body spans', () => {
     });
     const enqueue = vi.fn();
     const session = new InteractiveSession({
+      host: testHost,
       session: mock as never,
       cwd: '/tmp',
       livePromptTrace: { enqueue },

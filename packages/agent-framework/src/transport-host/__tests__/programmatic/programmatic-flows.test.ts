@@ -16,9 +16,12 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createProgrammaticAgent } from '../../programmatic/index.js';
+import { createTestFrameworkHost } from '../../../testing/framework-host.js';
 
 import type { ICommandModule } from '../../../command-api/command-module.js';
 import type { IAgentDriver, InteractionEvent } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 function commandResults(
   events: readonly InteractionEvent[],
@@ -84,7 +87,7 @@ describe('IAgentDriver conversation + slash flows (TEST-009 Phase 2)', () => {
 
   it('carries multi-turn conversation context across sends', async () => {
     const scripted = createScriptedProvider([{ text: 'NOTED_42' }, { text: 'IT_WAS_42' }]);
-    driver = createProgrammaticAgent({ provider: scripted.provider, cwd });
+    driver = createProgrammaticAgent({ host: testHost, provider: scripted.provider, cwd });
     await driver.start();
 
     await driver.send('Remember the number 42');
@@ -103,6 +106,7 @@ describe('IAgentDriver conversation + slash flows (TEST-009 Phase 2)', () => {
   it('runs a slash command and surfaces a command-result event', async () => {
     const scripted = createScriptedProvider([{ text: 'unused' }]);
     driver = createProgrammaticAgent({
+      host: testHost,
       provider: scripted.provider,
       cwd,
       commandModules: [PING_MODULE],
@@ -116,6 +120,7 @@ describe('IAgentDriver conversation + slash flows (TEST-009 Phase 2)', () => {
   it('drives the ask seam: queueUserAction confirms a self-asking command; empty queue cancels it', async () => {
     const scripted = createScriptedProvider([{ text: 'unused' }, { text: 'unused' }]);
     driver = createProgrammaticAgent({
+      host: testHost,
       provider: scripted.provider,
       cwd,
       commandModules: [CONFIRM_MODULE],

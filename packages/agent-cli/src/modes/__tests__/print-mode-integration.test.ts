@@ -20,11 +20,14 @@ import {
   buildPresetSurfaceOptions,
   toSessionOptions,
 } from '../../startup/preset-surface-options.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IPrintModeSessionResolution } from '../print-mode.js';
 import type { IParsedCliArgs } from '../../utils/cli-args.js';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { IOrgPolicy } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 const policyHome = vi.hoisted(() => ({ value: '' }));
 
@@ -143,7 +146,7 @@ async function runPrint(
   });
   try {
     await runPrintMode(
-      createTestProductRuntime(), cwd,
+      createTestProductRuntime(), testHost, cwd,
       makeArgs({ positional: [prompt] }),
       provider,
       sessionStore,
@@ -366,7 +369,7 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
     });
     try {
       await runPrintMode(
-        createTestProductRuntime(), cwd,
+        createTestProductRuntime(), testHost, cwd,
         makeArgs({ positional: ['hello'] }),
         provider,
         sessionStore,
@@ -393,7 +396,7 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
     // `TInteractiveSessionOptions` is a union, and the injected member has no `appendSystemPrompt`
     // because it takes an already-built session. Serve always builds the standard member, so the
     // read is narrowed here rather than by widening the framework's public surface for a test.
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd,
       args: makeArgs({}),
       preset: { cliAppendSystemPrompt: 'SERVED-ADDITION' },
@@ -403,7 +406,7 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
 
   it('serve mode forwards the host live trace port to its session', () => {
     const livePromptTrace = { enqueue: vi.fn() };
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd, args: makeArgs({}), preset: {}, livePromptTrace,
     } as never);
     expect(options.livePromptTrace).toBe(livePromptTrace);
@@ -438,7 +441,7 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
     // ignored under `-p` and `--serve` — the half-applied divergence the item exists to close,
     // reintroduced at two of three shells. The projection test above cannot catch it: it asserts the
     // surfaces ACCEPT the field, which is a compile-time property, not that they READ it.
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd,
       args: makeArgs({ allowedTools: 'FromFlag', deniedTools: 'FromFlag' }),
       preset: { allowedTools: ['FromPreset'], deniedTools: ['DeniedByPreset'] },

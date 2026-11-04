@@ -10,7 +10,7 @@ import {
   getWorkspaceProjectStateStorage,
 } from '@robota-sdk/agent-framework';
 import { MemoryCommandSource, createMemoryCommandModule, executeMemoryCommand } from '../index.js';
-import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
+import { createTestCommandHost, createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type {
   IMemoryStore,
@@ -19,6 +19,8 @@ import type {
   IWorkspaceTrustStore,
   IWorkspaceTrustStoreSnapshot,
 } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 // SEC-003 (js/insecure-temporary-file): `mkdtempSync` yields a 0700 directory with an unpredictable
 // name, so no other user can pre-create or read the paths this suite writes under it.
@@ -110,6 +112,7 @@ async function createInteractiveSession(
   const runtime = createMockRuntimeSession();
   runtime.getPermissionMode.mockReturnValue(permissionMode);
   return new InteractiveSession({
+    host: testHost,
     cwd,
     session: runtime as never,
     memoryStore: await createMemoryStore(cwd),

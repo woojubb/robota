@@ -22,10 +22,13 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { useSideEffects } from '../hooks/useSideEffects.js';
 import { TuiCliAdapterProvider } from '../tui-cli-adapter-context.js';
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IUseSideEffectsOptions } from '../hooks/side-effects-types.js';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { ICommandModule } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 const READY_DEADLINE_MS = 10_000;
 const POLL_MS = 25;
@@ -78,6 +81,7 @@ describe('TC-10 — /rename persists host-side and the TUI title follows the bro
   it('host executes the rename; the TUI updates its title from session_renamed only', async () => {
     const scripted = createScriptedProvider([{ text: 'unused in this test' }]);
     channel = new TuiInteractionChannel({
+      host: testHost,
       cwd: process.cwd(),
       provider: scripted.provider,
       sessionName: 'Before Rename',

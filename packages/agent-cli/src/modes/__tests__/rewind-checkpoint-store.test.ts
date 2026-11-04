@@ -22,10 +22,13 @@ import { runPrintMode } from '../print-mode.js';
 import { buildPooledSessionOptions, buildServeSessionOptions } from '../serve-mode.js';
 import { createCliWorkspaceComposition } from '../../startup/workspace-project-composition.js';
 import { productProjectStateDirectories } from '../../product/project-state-directories.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IServeModeOptions } from '../serve-mode.js';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { IWorkspaceIdentity, InteractiveSession } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 const PRODUCT_PROJECT_STATE_DIRECTORIES = productProjectStateDirectories(createTestProductRuntime());
 
 
@@ -111,7 +114,7 @@ function editingProvider(): IAIProvider {
 }
 
 function serveOptions(cwd: string, overrides: Partial<IServeModeOptions> = {}): IServeModeOptions {
-  return {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
+  return { host: testHost,productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
     cwd,
     args: {
       permissionMode: 'acceptEdits',
@@ -264,7 +267,7 @@ describe('a session built with the CLI options for a trusted workspace', () => {
       {},
     ];
     params[30] = store;
-    params.unshift(createTestProductRuntime());
+    params.unshift(createTestProductRuntime(), testHost);
 
     await expect(run(...params)).rejects.toThrow('exit 0');
 

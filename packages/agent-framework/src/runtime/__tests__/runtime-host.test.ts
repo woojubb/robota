@@ -19,9 +19,12 @@ import {
   listResumableSessionSummaries,
 } from '../../interactive/session-persistence.js';
 import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { ITransportLifecycleRegistryView } from '@robota-sdk/agent-interface-transport';
+
+const testHost = createTestFrameworkHost();
 
 function stubProvider(): IAIProvider {
   return {
@@ -99,7 +102,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     const registry = stubRegistry();
     const bindTransports = vi.fn();
     const host = await startRuntimeHost({
-      session: { cwd, provider: stubProvider() },
+      session: { host: testHost, cwd, provider: stubProvider() },
       transportRegistry: registry,
       bindTransports,
     });
@@ -160,7 +163,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     try {
       const registry = stubRegistry();
       const host = await startRuntimeHost({
-        session: { cwd, provider: stubProvider() },
+        session: { host: testHost, cwd, provider: stubProvider() },
         transportRegistry: registry,
       });
       await host.shutdown();
@@ -191,7 +194,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
   it('shutdown() stops the transports and is idempotent', async () => {
     const registry = stubRegistry();
     const host = await startRuntimeHost({
-      session: { cwd, provider: stubProvider() },
+      session: { host: testHost, cwd, provider: stubProvider() },
       transportRegistry: registry,
     });
 
@@ -204,7 +207,9 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
   });
 
   it('runs without a transport registry (no-op lifecycle)', async () => {
-    const host = await startRuntimeHost({ session: { cwd, provider: stubProvider() } });
+    const host = await startRuntimeHost({
+      session: { host: testHost, cwd, provider: stubProvider() },
+    });
     expect(host.session.current).toBeInstanceOf(InteractiveSession);
     await expect(host.shutdown()).resolves.toBeUndefined();
   });
@@ -214,7 +219,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     const store = createNodeHostSessionStore(join(homeRoot, 'sessions'), { sealing: 'plain' });
     const bindTransports = vi.fn();
     const host = await startRuntimeHost({
-      session: { cwd, provider: stubProvider(), sessionStore: store },
+      session: { host: testHost, cwd, provider: stubProvider(), sessionStore: store },
       transportRegistry: registry,
       bindTransports,
     });
@@ -222,7 +227,12 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     expect(bound).toBe(host.session);
     const first = host.session.current;
 
-    const next = buildRuntimeSession({ cwd, provider: stubProvider(), sessionStore: store });
+    const next = buildRuntimeSession({
+      host: testHost,
+      cwd,
+      provider: stubProvider(),
+      sessionStore: store,
+    });
     await next.whenInitialized();
     // Saved once initialized, so a host can list it before making it current.
     expect(listResumableSessionSummaries(store, cwd).map((row) => row.id)).toContain(
@@ -240,7 +250,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
   it('shutdown() drains every pooled session, the primary included (#3189)', async () => {
     const registry = stubRegistry();
     const host = await startRuntimeHost({
-      session: { cwd, provider: stubProvider() },
+      session: { host: testHost, cwd, provider: stubProvider() },
       transportRegistry: registry,
       pool: {},
     });
@@ -263,7 +273,9 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
   });
 
   it('holds one session and no pool unless asked for one (#3189)', async () => {
-    const host = await startRuntimeHost({ session: { cwd, provider: stubProvider() } });
+    const host = await startRuntimeHost({
+      session: { host: testHost, cwd, provider: stubProvider() },
+    });
     expect(host.pool).toBeUndefined();
     await host.shutdown();
   });
@@ -277,7 +289,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
       outcome: failed,
     });
     const host = await startRuntimeHost({
-      session: { cwd, provider: stubProvider() },
+      session: { host: testHost, cwd, provider: stubProvider() },
       transportRegistry: registry,
     });
 
@@ -301,9 +313,9 @@ describe('buildRuntimeSession recipe invariants', () => {
   });
 
   it('rejects an empty working directory before constructing a session', () => {
-    expect(() => buildRuntimeSession({ cwd: '', provider: stubProvider() })).toThrow(
-      'buildRuntimeSession: cwd is required',
-    );
+    expect(() =>
+      buildRuntimeSession({ host: testHost, cwd: '', provider: stubProvider() }),
+    ).toThrow('buildRuntimeSession: cwd is required');
   });
 
   it('rejects an empty injected-session branch before construction', () => {

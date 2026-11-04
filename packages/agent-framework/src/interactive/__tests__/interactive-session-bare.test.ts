@@ -11,6 +11,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 // Mock loadContext — bare mode must skip this
 // Paths are relative to the test file location (interactive/__tests__/)
@@ -116,6 +119,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
+      host: testHost,
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
@@ -130,6 +134,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
+      host: testHost,
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
@@ -144,6 +149,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
+      host: testHost,
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
@@ -158,6 +164,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
+      host: testHost,
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: false,
@@ -175,6 +182,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
+      host: testHost,
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: false,
@@ -189,6 +197,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
+      host: testHost,
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       // bare not specified → default false behavior
@@ -203,6 +212,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     const session = await createInteractiveSession({
+      host: testHost,
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
@@ -219,6 +229,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
+      host: testHost,
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
@@ -255,6 +266,7 @@ describe('createInteractiveSession — skipConfiguredHooks (issue #3082)', () =>
 
     constructed.mockClear();
     await createInteractiveSession({
+      host: testHost,
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       onTextDelta: NOOP_DELTA,
@@ -264,6 +276,7 @@ describe('createInteractiveSession — skipConfiguredHooks (issue #3082)', () =>
 
     constructed.mockClear();
     await createInteractiveSession({
+      host: testHost,
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       skipConfiguredHooks: true,
@@ -313,14 +326,14 @@ describe('initializeInteractiveSessionAsync — skipConfiguredHooks reaches the 
 
     constructed.mockClear();
     await initializeInteractiveSessionAsync(
-      { cwd: SESSION_CWD, provider: createMockProvider(), skipConfiguredHooks: true },
+      { host: testHost, cwd: SESSION_CWD, provider: createMockProvider(), skipConfiguredHooks: true },
       deps,
     );
     expect(JSON.stringify(constructed.mock.calls[0]?.[0]?.hooks ?? {})).not.toContain('HOOKMARK');
 
     constructed.mockClear();
     await initializeInteractiveSessionAsync(
-      { cwd: SESSION_CWD, provider: createMockProvider() },
+      { host: testHost, cwd: SESSION_CWD, provider: createMockProvider() },
       deps,
     );
     expect(JSON.stringify(constructed.mock.calls[0]?.[0]?.hooks)).toContain('HOOKMARK');

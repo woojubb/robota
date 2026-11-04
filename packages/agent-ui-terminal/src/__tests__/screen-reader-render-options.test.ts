@@ -20,11 +20,14 @@ import {
   writeScreenReaderAnnouncement,
 } from '../screen-reader-announcement.js';
 import { toChannelOptions } from '../render.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IRenderOptions } from '../render.js';
 import type { IKeybindingsSource } from '../keybindings/node-keybindings-source.js';
 import type { IHistoryEntry, IAIProvider } from '@robota-sdk/agent-core';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
+
+const testHost = createTestFrameworkHost();
 
 const inkRender = vi.hoisted(() =>
   vi.fn(
@@ -49,6 +52,7 @@ vi.mock('../App.js', () => ({
 
 function baseOptions(): IRenderOptions {
   return {
+    host: testHost,
     cwd: '/tmp/project',
     provider: {} as IAIProvider,
     cliAdapter: {} as ITuiCliAdapter,

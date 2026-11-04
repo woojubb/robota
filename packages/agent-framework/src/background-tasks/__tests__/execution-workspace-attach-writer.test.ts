@@ -19,6 +19,7 @@ import { writeForkedSessionRecord } from '../../interactive/interactive-session-
 import { createInProcessSubagentRunner } from '../../subagents/in-process-subagent-runner.js';
 import { resolveExecutionAttach } from '../execution-workspace-attach.js';
 import { createExecutionWorkspaceSnapshot } from '../execution-workspace-projection.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IResolvedConfig } from '../../config/config-types.js';
 import type { ITerminalOutput, TUniversalMessage } from '@robota-sdk/agent-core';
@@ -28,6 +29,8 @@ import type {
   IExecutionWorkspaceEntry,
   TBackgroundTaskStatus,
 } from '@robota-sdk/agent-interface-execution';
+
+const testHost = createTestFrameworkHost();
 
 const NOOP_TERMINAL: ITerminalOutput = {
   write: () => {},
@@ -161,6 +164,7 @@ describe('attaching to a fork that has a writer in this process', () => {
     const store = new NodeSessionStore(dir, { sealing: 'plain' });
     const forkId = fork(store);
     const runner = createInProcessSubagentRunner({
+      host: testHost,
       config: CONFIG,
       context: { agentsMd: '', projectNotesMd: '' },
       tools: [],

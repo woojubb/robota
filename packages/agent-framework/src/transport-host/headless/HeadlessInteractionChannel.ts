@@ -6,6 +6,7 @@
  */
 
 import { createHeadlessRunner, type TOutputFormat } from './headless-runner.js';
+import { requireFrameworkHost } from '../../host/require-framework-host.js';
 import { buildRuntimeSession } from '../../runtime/runtime-host.js';
 
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
@@ -14,6 +15,7 @@ import type { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-stor
 import type { INodeHostSettingsSource, IProjectSettingsPath } from '../../config/settings-source.js';
 import type { IResolvedConfig } from '../../config/config-types.js';
 import type { IContributionSource } from '../../contributions/index.js';
+import type { IFrameworkHost } from '../../host/framework-host.js';
 import type { ISkillRootDescriptor } from '../../commands/skill-source.js';
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { ICommandHostAdapters } from '../../command-api/host-adapters.js';
@@ -34,6 +36,8 @@ import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-sessi
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 
 export interface IHeadlessInteractionChannelOptions {
+  /** The platform the session runs on; `{}` is a host with nothing to lend. */
+  host: IFrameworkHost;
   cwd: string;
   livePromptTrace?: ILivePromptTracePort;
   provider: IAIProvider;
@@ -143,6 +147,7 @@ export class HeadlessInteractionChannel {
   private exitCode = 0;
 
   constructor(options: IHeadlessInteractionChannelOptions) {
+    requireFrameworkHost(options.host, 'HeadlessInteractionChannel');
     if (typeof options.shellExec !== 'function') {
       throw new Error('Headless shell execution must be provided by the host.');
     }
@@ -181,6 +186,7 @@ export class HeadlessInteractionChannel {
     // RUNTIME-001: build through the shared construction seam (agent-framework), not a private
     // `buildRuntimeSession` — one recipe kernel across the TUI, print, and --serve.
     return buildRuntimeSession({
+      host: this.opts.host,
       cwd: this.opts.cwd,
       ...(this.opts.livePromptTrace ? { livePromptTrace: this.opts.livePromptTrace } : {}),
       provider: this.opts.provider,

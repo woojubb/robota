@@ -19,6 +19,7 @@ import { createServer } from 'node:http';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 
@@ -38,6 +39,8 @@ const {
 const { createNodeHttpEgress } = await import('@robota-sdk/agent-mcp/node');
 
 import type { IMCPCatalogToolEntry } from '@robota-sdk/agent-mcp';
+
+const testHost = createTestFrameworkHost();
 
 function assertCondition(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -269,6 +272,7 @@ async function run(): Promise<void> {
       ]);
 
       const session = new InteractiveSession({
+        host: testHost,
         cwd: workspaceDir,
         provider: scripted.provider,
         bare: true,

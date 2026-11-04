@@ -15,6 +15,9 @@ import {
   isSubagentWorkerChildMessage,
   isSubagentWorkerParentMessage,
 } from '../index.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 /** Every child the runner spawns, so a test can ask whether one is still running. */
 const spawned = vi.hoisted(() => ({ children: [] as import('node:child_process').ChildProcess[] }));
@@ -60,6 +63,7 @@ const STUB_WORKTREE_ADAPTER: ISubagentWorktreeAdapter = {
 
 function createDeps(): IInProcessSubagentRunnerDeps {
   return {
+    host: testHost,
     config: {
       defaultTrustLevel: 'moderate',
       currentProvider: 'openai',

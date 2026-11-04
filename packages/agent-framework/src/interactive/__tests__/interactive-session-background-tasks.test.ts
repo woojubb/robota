@@ -14,11 +14,14 @@ import type {
 } from '@robota-sdk/agent-executor';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import { createSessionStub as createSharedSessionStub } from './helpers/session-stub.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import type {
   IBackgroundTaskLogPage,
   IBackgroundTaskResult,
   TBackgroundTaskEvent,
 } from '@robota-sdk/agent-interface-execution';
+
+const testHost = createTestFrameworkHost();
 
 function createSessionStoreStub() {
   const records = new Map<string, unknown>();
@@ -71,7 +74,11 @@ describe('InteractiveSession background task integration', () => {
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
     } as unknown as IAgentToolDeps);
-    const interactiveSession = new InteractiveSession({ session: sessionStub });
+    const interactiveSession = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: sessionStub,
+    });
     const events: TBackgroundTaskEvent['type'][] = [];
 
     interactiveSession.on('background_task_event', (event) => {
@@ -95,7 +102,11 @@ describe('InteractiveSession background task integration', () => {
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
     } as unknown as IAgentToolDeps);
-    const interactiveSession = new InteractiveSession({ session: sessionStub });
+    const interactiveSession = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: sessionStub,
+    });
 
     const created = await manager.spawn(createAgentRequest('Find files'));
     await manager.wait(created.id);
@@ -114,7 +125,11 @@ describe('InteractiveSession background task integration', () => {
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
     } as unknown as IAgentToolDeps);
-    const interactiveSession = new InteractiveSession({ session: sessionStub });
+    const interactiveSession = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: sessionStub,
+    });
     const workspaceEvents: IExecutionWorkspaceEvent[] = [];
     interactiveSession.on('execution_workspace_event', (event) => {
       workspaceEvents.push(event);
@@ -156,7 +171,11 @@ describe('InteractiveSession background task integration', () => {
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
     } as unknown as IAgentToolDeps);
-    const interactiveSession = new InteractiveSession({ session: sessionStub });
+    const interactiveSession = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: sessionStub,
+    });
 
     const created = await manager.spawn(createAgentRequest('Read logs'));
     const entry = interactiveSession
@@ -188,6 +207,8 @@ describe('InteractiveSession background task integration', () => {
       backgroundTaskManager: manager,
     } as unknown as IAgentToolDeps);
     new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: sessionStub,
       sessionStore: sessionStore as never,
     });
@@ -220,6 +241,8 @@ describe('InteractiveSession background task integration', () => {
       backgroundTaskManager: manager,
     } as unknown as IAgentToolDeps);
     const interactiveSession = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: sessionStub,
       sessionStore: sessionStore as never,
     });
@@ -278,7 +301,11 @@ describe('InteractiveSession background task integration', () => {
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
     } as unknown as IAgentToolDeps);
-    const interactiveSession = new InteractiveSession({ session: sessionStub });
+    const interactiveSession = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: sessionStub,
+    });
 
     const created = await manager.spawn(createAgentRequest('Find files'));
     await interactiveSession.shutdown({
@@ -324,6 +351,8 @@ describe('InteractiveSession background task integration', () => {
     });
 
     new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: sessionStub,
       sessionStore: sessionStore as never,
       resumeSessionId: 'session_stale',
@@ -365,7 +394,11 @@ describe('InteractiveSession background task integration', () => {
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
     } as unknown as IAgentToolDeps);
-    const interactiveSession = new InteractiveSession({ session: sessionStub });
+    const interactiveSession = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: sessionStub,
+    });
 
     const created = await manager.spawn(createAgentRequest('Find files'));
     await manager.wait(created.id);

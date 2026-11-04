@@ -42,6 +42,7 @@ import type {
   IToolWithEventService,
 } from '@robota-sdk/agent-core';
 import type { ISubagentWorktreeAdapter } from '@robota-sdk/agent-executor';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 
 declare const providerConfig: IProviderDefinitionConfig;
 // The concrete worktree adapter (git/fs I/O) is owned and injected by the composition root.
@@ -50,12 +51,16 @@ declare const worktreeAdapter: ISubagentWorktreeAdapter;
 // Your product's tool surface, built at the CHILD's execution root. This package composes nothing:
 // there is no default tool set or provider registry to fall back to.
 declare const createMyTools: (context: { readonly cwd: string }) => IToolWithEventService[];
+// The platform the child's session runs on; the child is its own process, so it builds its own
+// (`createNodeFrameworkHost` from `@robota-sdk/agent-framework/node` on Node).
+declare const myHost: IFrameworkHost;
 declare const myProviderDefinitions: readonly IProviderDefinition[];
 
 // Your entry is the worker. Dispatch before starting your app, so a subagent child re-enters here
 // instead of booting the whole product.
 if (isSubagentWorkerModeArgv(process.argv)) {
   runSubagentWorkerMain({
+    host: myHost,
     createTools: createMyTools,
     providerDefinitions: myProviderDefinitions,
   });

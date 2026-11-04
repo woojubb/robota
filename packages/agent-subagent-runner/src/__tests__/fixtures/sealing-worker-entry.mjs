@@ -20,6 +20,7 @@ import { join } from 'node:path';
 import { ArtifactCorruptError, ArtifactLockedError } from '@robota-sdk/agent-core';
 import { createUserSessionStore } from '@robota-sdk/agent-framework';
 
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { runSubagentWorkerMain } from '../../../dist/node/index.js';
 
 const RECORD_PATH = process.env.SEALING_FIXTURE_RECORD;
@@ -111,6 +112,7 @@ async function waitForFile(path) {
 const holdIfAsked = () => waitForFile(HOLD_UNTIL);
 
 runSubagentWorkerMain({
+  host: createTestFrameworkHost(),
   createTools: () => [],
   sandboxFactories: {
     fixture: async (snapshotId) => {
