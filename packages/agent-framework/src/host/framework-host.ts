@@ -55,8 +55,11 @@ export interface IFrameworkHost {
   readonly git?: IGitProcessPort;
   /** Builds the executors that run a hook's handlers; absent, none run and a declared hook is refused. */
   readonly createHookExecutors?: (options: { shell?: string }) => IHookTypeExecutor[];
-  /** Builds the background task runners; absent, a task fails with "No runner for task kind". */
-  readonly createBackgroundTaskRunners?: () => IBackgroundTaskRunner[];
+  /**
+   * Builds the background task runners, given the shell a command task runs under when the product
+   * chose one; absent, a task fails with "No runner for task kind".
+   */
+  readonly createBackgroundTaskRunners?: (shellExecutable?: string) => IBackgroundTaskRunner[];
   /** Builds the session's default tool tier; absent, a session has no default tier. */
   readonly createDefaultTools?: (context: {
     cwd: string;

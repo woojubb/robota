@@ -105,7 +105,12 @@ describe('createNodeFrameworkHost', () => {
       'command',
       'http',
     ]);
-    expect(host.createBackgroundTaskRunners?.().length).toBeGreaterThan(0);
+    const kinds = host.createBackgroundTaskRunners?.().map((runner) => runner.kind);
+    expect(kinds?.length).toBeGreaterThan(0);
+    // The shell a product chose reaches the command runners, as it does for `agent-cli`.
+    expect(host.createBackgroundTaskRunners?.('/bin/sh').map((runner) => runner.kind)).toEqual(
+      kinds,
+    );
     const scope = host.createAsyncScope?.<string>();
     expect(scope).toBeInstanceOf(AsyncLocalStorage);
     expect(scope?.getStore()).toBeUndefined();
