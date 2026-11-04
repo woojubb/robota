@@ -69,6 +69,8 @@ describe('productProviderDefinitions native web search default', () => {
     received.length = 0;
     // A developer's own gateway variable would change which profiles OpenAI declares search for.
     vi.stubEnv('OPENAI_BASE_URL', '');
+    vi.stubEnv('GOOGLE_GEMINI_BASE_URL', '');
+    vi.stubEnv('GOOGLE_VERTEX_BASE_URL', '');
   });
   afterEach(() => {
     vi.unstubAllEnvs();

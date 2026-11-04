@@ -10,6 +10,8 @@ describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
   // A developer's own gateway variable would change which profiles OpenAI declares search for.
   beforeEach(() => {
     vi.stubEnv('OPENAI_BASE_URL', '');
+    vi.stubEnv('GOOGLE_GEMINI_BASE_URL', '');
+    vi.stubEnv('GOOGLE_VERTEX_BASE_URL', '');
   });
   afterEach(() => {
     vi.unstubAllEnvs();

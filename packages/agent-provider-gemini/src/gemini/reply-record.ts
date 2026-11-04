@@ -110,11 +110,18 @@ export function decodeGeminiContinuation(message: IAssistantMessage): Part[] | u
   const parts = parseGeminiParts(encoded);
   if (parts === undefined) return undefined;
   const text = parts.map((part) => part.text ?? '').join('');
-  const callIds = parts.flatMap((part) => (part.functionCall ? [part.functionCall.id] : []));
-  const messageCallIds = (message.toolCalls ?? []).map((call) => call.id);
+  const calls = parts.flatMap((part) => (part.functionCall ? [part.functionCall] : []));
+  const messageCalls = message.toolCalls ?? [];
   const sameCalls =
-    callIds.length === messageCallIds.length &&
-    callIds.every((id, index) => id === messageCallIds[index]);
+    calls.length === messageCalls.length &&
+    calls.every((call, index) => {
+      const messageCall = messageCalls[index];
+      return (
+        call.id === messageCall?.id &&
+        call.name === messageCall.function.name &&
+        JSON.stringify(call.args ?? {}) === messageCall.function.arguments
+      );
+    });
   return text === (message.content ?? '') && sameCalls ? parts : undefined;
 }
 

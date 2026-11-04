@@ -362,6 +362,25 @@ describe('sending the model its own parts back', () => {
     expect(response.functionResponse.id).toBe(call.functionCall.id);
   });
 
+  it('sends a signed call without server-side steps in Vertex mode, where the SDK refuses them', async () => {
+    replies.push([
+      reply([
+        SERVER_TOOL_CALL,
+        SERVER_TOOL_RESPONSE,
+        { functionCall: { id: 'c1', name: 'read_file', args: {} }, thoughtSignature: SIGNATURE },
+      ]),
+    ]);
+    const first = await provider().chat([message], { tools: [tool] });
+
+    vi.stubEnv('GOOGLE_GENAI_USE_VERTEXAI', 'true');
+    await provider().chat([message, first, message]);
+
+    const model = bodies.at(-1)?.contents.find((content) => content.role === 'model');
+    expect(model?.parts).toEqual([
+      { functionCall: { id: 'c1', name: 'read_file', args: {} }, thoughtSignature: SIGNATURE },
+    ]);
+  });
+
   it('keeps nothing extra for a plain reply', async () => {
     replies.push([reply([{ text: 'Hello.', thoughtSignature: SIGNATURE }])]);
 
@@ -383,6 +402,18 @@ describe('sending the model its own parts back', () => {
   it.each([
     ['text', { content: 'edited' }],
     ['tool calls', { toolCalls: [] }],
+    [
+      'tool call arguments',
+      {
+        toolCalls: [
+          {
+            id: 'c1',
+            type: 'function',
+            function: { name: 'read_file', arguments: '{"path":"REDACTED"}' },
+          },
+        ],
+      },
+    ],
     ['encoding', { metadata: { providerContinuation: 'not json' } }],
     ['owner', { metadata: { providerContinuation: '{"anthropicBlocks":[]}' } }],
   ])('rebuilds the parts when the %s no longer matches', async (_label, change) => {
@@ -446,6 +477,9 @@ describe('profile option nativeWebTools', () => {
     const definition = createGeminiProviderDefinition();
 
     expect(definition.nativeWebTools?.({})).toEqual(['webSearch']);
+    vi.stubEnv('GOOGLE_GEMINI_BASE_URL', 'https://gateway.example.com');
+    expect(definition.nativeWebTools?.({})).toEqual([]);
+    vi.stubEnv('GOOGLE_GEMINI_BASE_URL', undefined);
     expect(
       definition.createProvider(profile()).getCapabilities?.().nativeWebTools.webSearch.enabled,
     ).toBe(false);

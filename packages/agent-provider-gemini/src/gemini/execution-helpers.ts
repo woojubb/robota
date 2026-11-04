@@ -50,7 +50,9 @@ export async function executeDirect(
     );
   }
 
-  const requestFormat = convertToGeminiRequestFormat(messages);
+  const requestFormat = convertToGeminiRequestFormat(messages, {
+    serverSideToolSteps: !isVertexClient(client),
+  });
   const genConfig = buildGenerationConfig(messages, providerOptions, { ...options, model });
   const request = buildGenerateContentRequest(
     client,
@@ -104,7 +106,9 @@ export async function* executeDirectStream(
     throw new Error('Google provider does not support streaming image modality responses.');
   }
 
-  const requestFormat = convertToGeminiRequestFormat(messages);
+  const requestFormat = convertToGeminiRequestFormat(messages, {
+    serverSideToolSteps: !isVertexClient(client),
+  });
   const genConfig = buildGenerationConfig(messages, providerOptions, { ...options, model });
   const request = buildGenerateContentRequest(
     client,
@@ -203,7 +207,7 @@ function buildGenerateContentRequest(
   const toolFields = buildGeminiToolFields({
     enabled: providerOptions.enableWebTools === true,
     model,
-    vertex: (client as { vertexai?: unknown }).vertexai === true,
+    vertex: isVertexClient(client),
     options,
     config,
     hasFunctionTools: functionTools !== undefined,
@@ -224,6 +228,10 @@ function buildGenerateContentRequest(
     contents,
     config,
   };
+}
+
+function isVertexClient(client: GoogleGenAI): boolean {
+  return (client as { vertexai?: unknown }).vertexai === true;
 }
 
 function resolveGeminiModel(

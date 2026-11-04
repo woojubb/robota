@@ -65,7 +65,9 @@ the table), either static field is rejected.
 `enableWebTools: true` adds Google Search grounding to requests; Google runs the searches and no local
 tool is registered. A profile built through `createGeminiProviderDefinition()` sets it with
 `"options": { "nativeWebTools": { "webSearch": true } }`, read strictly: another key or a non-boolean is
-an error. This provider has no hosted web fetch, and a request that requires one fails.
+an error. The definition declares web search only without `GOOGLE_GEMINI_BASE_URL` or
+`GOOGLE_VERTEX_BASE_URL` in the environment, so a host's default skips endpoints it cannot vouch for.
+This provider has no hosted web fetch, and a request that requires one fails.
 
 - **Models.** Search can join function tools on Gemini 3 and later, which Google documents as a
   preview; there the request also sets `includeServerSideToolInvocations` and `VALIDATED` function

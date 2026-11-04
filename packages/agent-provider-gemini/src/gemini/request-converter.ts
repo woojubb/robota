@@ -22,6 +22,11 @@ export interface IGeminiMessageConversionResult {
   systemInstruction?: string;
 }
 
+export interface IGeminiRequestConversionOptions {
+  /** False where the transport refuses server-side tool steps, as the SDK does in Vertex mode. */
+  serverSideToolSteps?: boolean;
+}
+
 /**
  * Maps universal message parts to Gemini-compatible parts.
  * Supports text and inline image parts; throws on unsupported part types.
@@ -71,6 +76,7 @@ export function convertToGeminiFormat(messages: TUniversalMessage[]): Content[] 
  */
 export function convertToGeminiRequestFormat(
   messages: TUniversalMessage[],
+  conversion: IGeminiRequestConversionOptions = {},
 ): IGeminiMessageConversionResult {
   const contents: Content[] = [];
   const systemInstructionParts: string[] = [];
@@ -84,7 +90,7 @@ export function convertToGeminiRequestFormat(
       continue;
     }
     if (msg.role === 'assistant') {
-      contents.push(convertAssistantMessage(msg as IAssistantMessage));
+      contents.push(convertAssistantMessage(msg as IAssistantMessage, conversion));
       continue;
     }
     if (msg.role === 'tool') {
@@ -141,10 +147,19 @@ export function convertToGeminiFormatWithInlineSystem(messages: TUniversalMessag
   });
 }
 
-function convertAssistantMessage(assistantMsg: IAssistantMessage): Content {
+function convertAssistantMessage(
+  assistantMsg: IAssistantMessage,
+  conversion: IGeminiRequestConversionOptions = {},
+): Content {
   const modelParts = decodeGeminiContinuation(assistantMsg);
   if (modelParts !== undefined) {
-    return { role: 'model', parts: modelParts };
+    return {
+      role: 'model',
+      parts:
+        conversion.serverSideToolSteps === false
+          ? modelParts.filter((part) => !part.toolCall && !part.toolResponse)
+          : modelParts,
+    };
   }
   const parts: Part[] = [];
   const mappedAssistantParts = mapMessagePartsToGeminiParts(assistantMsg);
