@@ -33,3 +33,6 @@ export {
   goneProcessOwner,
   leaveProcessScopedDirectory,
 } from './process-scoped-directory-fixture.js';
+
+// Process markers as another process left them, for tests of a store or a command that meets one.
+export { leaveProcessMarker } from './process-marker-fixture.js';

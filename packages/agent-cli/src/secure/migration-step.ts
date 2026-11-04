@@ -65,6 +65,8 @@ export interface IMigratedSessionsMarked {
   readonly locked: number;
   /** Changed after the run sealed them, so left unverified. */
   readonly changed: number;
+  /** The ids of sessions open in another process, which the marking left unverified. */
+  readonly held: readonly string[];
   /** The sessions that could not be marked at all, by where they are; they stay unverified. */
   readonly unmarked: readonly IUnmarkedSessions[];
 }

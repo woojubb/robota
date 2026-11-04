@@ -21,6 +21,7 @@ const STORE_MEMBERS = {
   exportHeld: true,
   importHeld: true,
   claim: true,
+  lend: true,
   hasWriter: true,
   authorship: true,
   delete: true,

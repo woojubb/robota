@@ -85,7 +85,11 @@ const CHILD_ANSWER = 'the child process answers';
 
 const roots: string[] = [];
 afterEach(() => {
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  // A fork job's child and the parent's follower let the record's marker go just after the job's
+  // result, so a removal can meet a marker or break lock written meanwhile; Node retries ENOTEMPTY.
+  for (const root of roots.splice(0)) {
+    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 25 });
+  }
   spawned.children.length = 0;
   spawned.messages.length = 0;
   spawned.rewriteSend = undefined;
@@ -354,10 +358,16 @@ describe('a sealing parent’s fork job, once its child is gone', () => {
       await vi.waitFor(() => expect(readRecordEvents(recordPath)).toContainEqual({ chat: true }), {
         timeout: 15_000,
       });
-      // Something that only has the public key replaces the record while the child runs.
-      createUserSessionStore(join(cwd, 'sessions'), {
-        sealing: { sealer: parent.sealer },
-      }).save(forkRecord(cwd, 'planted while the child ran'));
+      // Something that only has the public key, and keeps no writer marker, replaces the record
+      // while the child runs.
+      const elsewhere = join(directory('countersign-planted-'), 'sessions');
+      createUserSessionStore(elsewhere, { sealing: { sealer: parent.sealer } }).save(
+        forkRecord(cwd, 'planted while the child ran'),
+      );
+      writeFileSync(
+        join(cwd, 'sessions', `${FORK_ID}.json`),
+        readFileSync(join(elsewhere, `${FORK_ID}.json`)),
+      );
       writeFileSync(marker, '');
       const failure = await handle.result.then(
         () => undefined,

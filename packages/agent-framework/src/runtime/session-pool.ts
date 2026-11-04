@@ -17,9 +17,8 @@
  */
 
 import { isTerminalBackgroundTaskStatus } from '@robota-sdk/agent-executor';
-import { isSessionClaimedError } from '@robota-sdk/agent-session';
 
-import { SessionChangeRefusal, claimedSessionMessage } from './session-change-refusal.js';
+import { SessionChangeRefusal, claimChangeRefusal } from './session-change-refusal.js';
 import { SessionSlot, shutdownSessionBounded } from './session-slot.js';
 
 import type {
@@ -259,6 +258,22 @@ export class SessionPool<TSession extends IInteractiveSession> {
     return rows;
   }
 
+  /**
+   * Closes the live session `sessionId` before its record is deleted, when nobody is on it and it has
+   * no work in progress, and resolves once it has shut down and let its record go; a session already
+   * closing is waited for. `false` when it is still in use (a client on it, a lease held, work in
+   * progress) or is the primary, which this pool never closes.
+   */
+  async retire(sessionId: string): Promise<boolean> {
+    const entry = this.findLive(sessionId);
+    if (entry !== undefined) {
+      if (entry.primary || entry.clients > 0 || entry.holds > 0 || this.busy(entry)) return false;
+      this.close(entry, 'session deleted');
+    }
+    await this.closing.get(sessionId);
+    return true;
+  }
+
   /** Shut every session down in parallel, each bounded, the primary included. Idempotent. */
   shutdownAll(message = 'runtime host stopped'): Promise<void> {
     if (this.drained !== undefined) return this.drained;
@@ -475,11 +490,9 @@ async function whenInitialized(session: unknown): Promise<void> {
 }
 
 function startFailed(error: unknown): SessionChangeRefusal {
-  // Something here still holds the record — a session of that id shutting down, or a job or child
-  // process the record was handed to — so the client is told to come back, not that it failed.
-  if (isSessionClaimedError(error)) {
-    return new SessionChangeRefusal('still_closing', claimedSessionMessage(error));
-  }
+  // A lent fork's subagent is among the holders that run on, named in the store's words.
+  const refused = claimChangeRefusal(error);
+  if (refused !== undefined) return refused;
   const reason = error instanceof Error ? error.message : String(error);
   return new SessionChangeRefusal('start_failed', `The session could not be started: ${reason}`);
 }

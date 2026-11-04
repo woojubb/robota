@@ -115,11 +115,13 @@ describe('a fork record a subagent still saves', () => {
       handoff: true,
       provenance: 'owner',
     });
+    const lease = parent.lend('sess_fork');
     const child = new NodeSessionStore(dir, {
       sealing: { sealer: openTestWriteGrant(sealer.writeGrant()) },
     });
     child.importHeld('sess_fork', parent.exportHeld('sess_fork') as string);
-    child.save(record('sess_fork', cwd, 'the child turn'));
+    const claim = child.claim('sess_fork', { lease: lease.nonce });
+    child.save(record('sess_fork', cwd, 'the child turn'), { claim });
     const accepted = digestOfFile(dir, 'sess_fork');
 
     const { session } = construct(
@@ -127,7 +129,9 @@ describe('a fork record a subagent still saves', () => {
     );
 
     expect(session).toBeUndefined();
-    expect(() => child.save(record('sess_fork', cwd, 'the next child turn'))).not.toThrow();
+    expect(() =>
+      child.save(record('sess_fork', cwd, 'the next child turn'), { claim }),
+    ).not.toThrow();
   });
 });
 

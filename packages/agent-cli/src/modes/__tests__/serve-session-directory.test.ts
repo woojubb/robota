@@ -3,13 +3,21 @@
  * not leave its session, and that a switch or a new session moves that client alone.
  */
 
+import { createHash } from 'node:crypto';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { readCurrentProcessIdentity, readProcessStartTime } from '@robota-sdk/agent-core/node';
+import { leaveProcessMarker } from '@robota-sdk/agent-core/testing';
 import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { SessionAuthorshipRefusedError, SessionPool } from '@robota-sdk/agent-framework';
 import {
   isSessionChangeRefusal,
   isSessionDeleteRefusal,
 } from '@robota-sdk/agent-interface-session';
-import { describe, expect, it, vi } from 'vitest';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createServeSessionDirectory } from '../serve-session-directory.js';
 
@@ -49,7 +57,7 @@ function record(id: string, updatedAt: string, cwd = CWD): IInteractiveSessionRe
 function storeOf(
   entries: ISessionListEntry[],
 ): IInteractiveSessionStore & { entries: ISessionListEntry[] } {
-  const store: Omit<IInteractiveSessionStore, 'claim' | 'hasWriter'> & {
+  const store: Omit<IInteractiveSessionStore, 'claim' | 'lend' | 'hasWriter'> & {
     entries: ISessionListEntry[];
   } = {
     entries,
@@ -110,7 +118,7 @@ function fakeSession(id: string, init: () => Promise<void> = async () => undefin
 
 function served(
   primary: TFakeSession,
-  store: ReturnType<typeof storeOf>,
+  store: IInteractiveSessionStore,
   build: (resumeSessionId: string | undefined) => TFakeSession = (resumeSessionId) =>
     fakeSession(resumeSessionId ?? 'fresh'),
   options: { maxLive?: number; stopping?: () => boolean } = {},
@@ -333,7 +341,7 @@ describe('serve session directory (#3189)', () => {
         verified('mine', '2026-09-01T00:00:00Z'),
         empty(unverified('planted-empty', '2026-09-02T00:00:00Z')),
       ]);
-      const { directory, buildSession } = served(fakeSession('mine'), store);
+      const { directory, buildSession } = served(fakeSession('primary'), store);
       const binding = directory.bind('drive');
 
       await binding.directory.newSession();
@@ -779,13 +787,172 @@ describe('serve session directory (#3189)', () => {
           outcome: { status: 'valid', record: record('only', '2026-09-01T00:00:00Z') },
         },
       ]);
-      const { directory, buildSession } = served(fakeSession('only'), store);
+      const { directory, buildSession } = served(fakeSession('primary'), store);
       const binding = directory.bind('drive');
+      await binding.directory.switchSession('only');
 
       await binding.directory.deleteSession('only');
 
       expect(buildSession).toHaveBeenCalledWith(undefined);
       expect(binding.session.current.id).toBe('fresh');
+      expect(store.entries.map((entry) => entry.id)).toEqual([]);
+    });
+
+    it('closes the session it deletes first, so its record is not written again from here', async () => {
+      const b = fakeSession('b');
+      const { directory } = served(fakeSession('a'), STORED(), () => b);
+      const binding = directory.bind('drive');
+      await binding.directory.switchSession('b');
+      await binding.directory.switchSession('a');
+
+      await binding.directory.deleteSession('b');
+
+      expect(b.shutdown).toHaveBeenCalled();
+    });
+
+    it('refuses to delete the runtime’s first session, which stays open here', async () => {
+      const { directory } = served(fakeSession('a'), STORED());
+      const binding = directory.bind('drive');
+      await binding.directory.switchSession('b');
+
+      expect(await deleteRefusalOf(binding.directory.deleteSession('a'))).toBe('running');
+    });
+
+    it('says the runtime’s first session stays open until the runtime stops, not that it will close', async () => {
+      const { directory } = served(fakeSession('a'), STORED());
+      const binding = directory.bind('drive');
+      await binding.directory.switchSession('b');
+
+      const refusal = await binding.directory.deleteSession('a').then(
+        () => undefined,
+        (reason: unknown) => reason,
+      );
+
+      expect(refusal).toMatchObject({
+        code: 'running',
+        message:
+          'This is the session this runtime started with. It stays open until the runtime stops; ' +
+          'delete it after that.',
+      });
+    });
+
+    it('refuses the runtime’s first session before it moves the client that is on it', async () => {
+      const store = STORED();
+      const { directory, buildSession } = served(fakeSession('a'), store);
+      const binding = directory.bind('drive');
+
+      expect(await deleteRefusalOf(binding.directory.deleteSession('a'))).toBe('running');
+
+      expect(binding.session.current.id).toBe('a');
+      expect(buildSession).not.toHaveBeenCalled();
+      expect(store.entries.map((entry) => entry.id)).toContain('a');
+    });
+
+    describe('a session another writer holds', () => {
+      const directories: string[] = [];
+      afterEach(() => {
+        for (const directory of directories.splice(0)) {
+          rmSync(directory, { recursive: true, force: true });
+        }
+      });
+
+      /** A real store over a temp directory, holding the stored sessions `a` and `b`. */
+      function realStore(): { store: NodeSessionStore; claims: string } {
+        const dir = realpathSync(mkdtempSync(join(tmpdir(), 'serve-directory-')));
+        directories.push(dir);
+        const store = new NodeSessionStore(dir, { sealing: 'plain' });
+        store.save(record('a', '2026-09-01T00:00:00Z'));
+        store.save(record('b', '2026-09-02T00:00:00Z'));
+        return { store, claims: join(dir, 'claims') };
+      }
+
+      /** A live process other than this one: the one that started this test worker. */
+      function anotherLiveProcess() {
+        const { startTime: _ignored, ...here } = readCurrentProcessIdentity();
+        const startTime = readProcessStartTime(process.ppid);
+        return { ...here, pid: process.ppid, ...(startTime === undefined ? {} : { startTime }) };
+      }
+
+      async function refusalOfDelete(change: Promise<void>): Promise<unknown> {
+        return change.then(
+          () => undefined,
+          (reason: unknown) => reason,
+        );
+      }
+
+      it('is refused to rename and to delete with has_writer, naming the process that holds it', async () => {
+        const { store, claims } = realStore();
+        const holder = anotherLiveProcess();
+        leaveProcessMarker(claims, 'b', holder);
+        const { directory } = served(fakeSession('a'), store);
+        const binding = directory.bind('drive');
+
+        const rename = await binding.directory.renameSession('b', 'renamed').then(
+          () => undefined,
+          (reason: unknown) => reason,
+        );
+        expect(rename).toMatchObject({ name: 'SessionChangeRefusal', code: 'has_writer' });
+        expect((rename as Error).message).toContain(`pid ${holder.pid}`);
+
+        const deletion = await refusalOfDelete(binding.directory.deleteSession('b'));
+        expect(deletion).toMatchObject({ name: 'SessionDeleteRefusal', code: 'has_writer' });
+        expect((deletion as Error).message).toContain(`pid ${holder.pid}`);
+        expect(store.load('b')).toMatchObject({ status: 'valid', record: { id: 'b' } });
+      });
+
+      it('tells a client to come back, not that another writer holds it, while a session of this process is still closing', async () => {
+        const { store } = realStore();
+        // A session of `b` in this process that has left the pool's live list but not yet let its
+        // claim go: the one writer a client can simply wait out.
+        const closing = store.claim('b');
+        const { directory } = served(fakeSession('a'), store);
+        const binding = directory.bind('drive');
+
+        const rename = await binding.directory.renameSession('b', 'renamed').then(
+          () => undefined,
+          (reason: unknown) => reason,
+        );
+        expect(rename).toMatchObject({ name: 'SessionChangeRefusal', code: 'still_closing' });
+
+        const deletion = await refusalOfDelete(binding.directory.deleteSession('b'));
+        expect(deletion).toMatchObject({ name: 'SessionDeleteRefusal', code: 'running' });
+        expect((deletion as Error).message).toBe((rename as Error).message);
+
+        closing.release();
+        await binding.directory.deleteSession('b');
+        expect(store.load('b')).toEqual({ status: 'missing' });
+      });
+
+      it('names the child of a lent fork the same way, and lets go once the lease ends', async () => {
+        const { store, claims } = realStore();
+        const lease = store.lend('b');
+        const { directory } = served(fakeSession('a'), store);
+        const binding = directory.bind('drive');
+
+        // The child has not taken the marker over yet: a subagent this process started holds it.
+        const early = await binding.directory.renameSession('b', 'renamed').then(
+          () => undefined,
+          (reason: unknown) => reason,
+        );
+        expect(early).toMatchObject({ code: 'has_writer' });
+        expect((early as Error).message).toContain('subagent this process started');
+
+        // The child took it over: the refusal names its pid.
+        const child = anotherLiveProcess();
+        leaveProcessMarker(
+          claims,
+          'b',
+          child,
+          createHash('sha256').update(lease.nonce).digest('hex'),
+        );
+        const deletion = await refusalOfDelete(binding.directory.deleteSession('b'));
+        expect(deletion).toMatchObject({ code: 'has_writer' });
+        expect((deletion as Error).message).toContain(`pid ${child.pid}`);
+
+        lease.end();
+        await binding.directory.deleteSession('b');
+        expect(store.load('b')).toEqual({ status: 'missing' });
+      });
     });
   });
 });

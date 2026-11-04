@@ -521,6 +521,7 @@ async function offerMigratedSessions(
   let adopted = 0;
   let locked = 0;
   let changed = 0;
+  const held: string[] = [];
   const unmarked: IUnmarkedSessions[] = [];
   // Each step's sessions are marked on their own: one that cannot be reached does not stop the rest.
   for (const { title, sessions } of migrated) {
@@ -529,6 +530,7 @@ async function offerMigratedSessions(
       adopted += result.adopted;
       locked += result.locked;
       changed += result.changed;
+      held.push(...result.held);
       unmarked.push(...result.unmarked);
     } catch (error) {
       unmarked.push({
@@ -538,14 +540,18 @@ async function offerMigratedSessions(
       });
     }
   }
-  options.stdout(`${markedMessage(adopted, locked, changed, unmarked)}\n`);
+  options.stdout(`${markedMessage(adopted, locked, changed, held, unmarked)}\n`);
 }
 
-/** What a marking says it did: the marked, the ones the keys locked before, the changed, and each store it could not reach. */
+/**
+ * What a marking says it did: the marked, the ones the keys locked before, the changed, the ones open
+ * in another process, and each store it could not reach.
+ */
 function markedMessage(
   adopted: number,
   locked: number,
   changed: number,
+  held: readonly string[],
   unmarked: readonly IUnmarkedSessions[],
 ): string {
   const parts = [`Marked ${count(adopted, 'migrated session')} as yours.`];
@@ -559,6 +565,12 @@ function markedMessage(
   if (changed > 0) {
     parts.push(
       `${count(changed, 'other')} changed after this run sealed ${changed === 1 ? 'it and stays' : 'them and stay'} unverified.`,
+    );
+  }
+  if (held.length > 0) {
+    parts.push(
+      `Not marked, since open in another process: ${held.join(', ')}; ` +
+        `${held.length === 1 ? 'it stays' : 'they stay'} unverified.`,
     );
   }
   for (const { where, count: amount, failure } of unmarked) {

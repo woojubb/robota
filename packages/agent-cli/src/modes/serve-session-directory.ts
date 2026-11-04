@@ -13,6 +13,8 @@ import {
   SessionAuthorshipRefusedError,
   SessionChangeRefusal,
   SessionDeleteRefusal,
+  claimChangeRefusal,
+  claimDeleteRefusal,
   isSessionBusy,
   listResumableSessionSummaries,
   listResumableSessions,
@@ -77,7 +79,20 @@ export interface IServeSessionPool<TSession, TSlot extends { readonly current: T
     readonly clients: number;
     readonly session: TSession;
   }[];
+  /**
+   * Closes the live session `sessionId` nobody is on and nothing runs in, resolving once it let its
+   * record go, so the record can be deleted; `false` when it cannot be closed now.
+   */
+  retire(sessionId: string): Promise<boolean>;
 }
+
+/**
+ * What a client is told when it deletes the session the runtime started with: the pool never closes
+ * it, so waiting for it to close would wait for nothing.
+ */
+const PRIMARY_SESSION_DELETE_MESSAGE =
+  'This is the session this runtime started with. It stays open until the runtime stops; delete it ' +
+  'after that.';
 
 /** What the served runtime lends the directory once its host has started. */
 export interface IServeSessionDirectoryHost<
@@ -317,7 +332,13 @@ export function createServeSessionDirectory<
               'time it saves. Switch to it to rename it, or wait for it to close.',
           );
         }
-        persistSessionRename(target.store, sessionId, name);
+        try {
+          persistSessionRename(target.store, sessionId, name);
+        } catch (error) {
+          // A writer this pool does not run — another process, a subagent the record is lent to, or a
+          // session of this process still closing — refuses the write itself, in words that name it.
+          throw claimChangeRefusal(error) ?? error;
+        }
       },
       async deleteSession(sessionId) {
         if (target.isStopping?.() === true) {
@@ -358,6 +379,10 @@ export function createServeSessionDirectory<
             );
           }
         }
+        // Refused before this binding is moved: nothing here lets the primary's record go.
+        if (liveEntry?.session === target.primary) {
+          throw new SessionDeleteRefusal('running', PRIMARY_SESSION_DELETE_MESSAGE);
+        }
         if (isCurrent) {
           // Switch this binding away before the record it is on disappears: to another session of
           // this workspace when one exists, newest first, or a fresh one when this was the only one.
@@ -367,7 +392,21 @@ export function createServeSessionDirectory<
           )?.id;
           await changeTo(nextExisting);
         }
-        target.store.delete(sessionId);
+        // The pool's own session of that id lets the record go first; one it cannot close now has a
+        // client or work again, and anything else that writes the record is another writer, which
+        // refuses the delete itself in words that name it.
+        if (!(await target.pool.retire(sessionId))) {
+          throw new SessionDeleteRefusal(
+            'running',
+            'This session is still open in this runtime, with a client or work in progress; wait ' +
+              'for it to close, then delete it.',
+          );
+        }
+        try {
+          target.store.delete(sessionId);
+        } catch (error) {
+          throw claimDeleteRefusal(error) ?? error;
+        }
       },
     };
 

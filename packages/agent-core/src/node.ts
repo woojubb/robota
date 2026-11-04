@@ -46,10 +46,27 @@ export {
   PROCESS_OWNER_RECORD_NAME,
   createProcessScopedDirectory,
   inspectProcessScopedDirectories,
-  ownerOnThisMachine,
   processScopedDirectoryPrefix,
   sweepStaleProcessScopedDirectories,
 } from './utils/process-scoped-directory.js';
+export type { IProcessOwnerProbes } from './utils/process-owner-record.js';
+export {
+  classifyProcessOwner,
+  ownerOnThisMachine,
+  serializeProcessOwnerRecord,
+} from './utils/process-owner-record.js';
+export type {
+  IProcessMarkerSteps,
+  IProcessMarkersOptions,
+  TProcessMarkerMemory,
+} from './utils/process-marker.js';
+export {
+  PROCESS_MARKER_BREAK_LOCK_STALE_MS,
+  PROCESS_MARKER_SUFFIX,
+  ProcessMarkerError,
+  createProcessMarkerMemory,
+  createProcessMarkers,
+} from './utils/process-marker.js';
 export {
   removeDirectoryOnProcessExit,
   removeProcessScopedDirectoriesNow,

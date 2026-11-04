@@ -116,6 +116,7 @@ export type {
   ISessionClaim,
   ISessionClaimOptions,
   ISessionExportOptions,
+  ISessionLease,
   ISessionListEntry,
   ISessionLoadOptions,
   ISessionRecordDecodeIssue,

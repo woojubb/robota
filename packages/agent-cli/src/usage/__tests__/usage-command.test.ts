@@ -67,7 +67,7 @@ function record(id: string, totalTokens: number): IInteractiveSessionRecord {
 }
 
 function store(entries: readonly ISessionListEntry[]): IInteractiveSessionStore {
-  const double: Omit<IInteractiveSessionStore, 'claim' | 'hasWriter'> = {
+  const double: Omit<IInteractiveSessionStore, 'claim' | 'lend' | 'hasWriter'> = {
     list: () => entries,
     load: () => ({ status: 'missing' }),
     save: () => undefined,
@@ -92,7 +92,9 @@ describe('test-product usage', () => {
           { id: 'future', outcome: { status: 'unsupported', schemaVersion: 99 } },
         ]),
         now: new Date('2026-09-06T03:00:00.000Z'),
-      }, 'test-product');
+      },
+      'test-product',
+    );
 
     expect(result.exitCode).toBe(0);
     expect(result.stderr).toBe('');
@@ -122,7 +124,9 @@ describe('test-product usage', () => {
           ]),
           projectSessionStore: store([{ id: 'shared', outcome: projectOutcome }]),
           now: new Date('2026-09-06T03:00:00.000Z'),
-        }, 'test-product');
+        },
+        'test-product',
+      );
 
       expect(JSON.parse(result.stdout)).toMatchObject({
         totals: { sessions: 1, turns: 1, totalTokens: 5 },
@@ -136,16 +140,20 @@ describe('test-product usage', () => {
 
   it('rejects invalid periods without reading session stores', () => {
     let listed = false;
-    const result = executeUsageCommand(['--period', '14d'], {
-      userSessionStore: {
-        ...store([]),
-        list: () => {
-          listed = true;
-          return [];
+    const result = executeUsageCommand(
+      ['--period', '14d'],
+      {
+        userSessionStore: {
+          ...store([]),
+          list: () => {
+            listed = true;
+            return [];
+          },
         },
+        now: new Date('2026-09-06T03:00:00.000Z'),
       },
-      now: new Date('2026-09-06T03:00:00.000Z'),
-    }, 'test-product');
+      'test-product',
+    );
 
     expect(result).toEqual({
       exitCode: 1,
@@ -157,15 +165,19 @@ describe('test-product usage', () => {
 
   it('shows subcommand help without reading session stores', () => {
     let listed = false;
-    const result = executeUsageCommand(['--help'], {
-      userSessionStore: {
-        ...store([]),
-        list: () => {
-          listed = true;
-          return [];
+    const result = executeUsageCommand(
+      ['--help'],
+      {
+        userSessionStore: {
+          ...store([]),
+          list: () => {
+            listed = true;
+            return [];
+          },
         },
       },
-    }, 'test-product');
+      'test-product',
+    );
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('Usage: test-product usage');
@@ -175,7 +187,9 @@ describe('test-product usage', () => {
   it('returns a versioned empty report when both configured stores are empty', () => {
     const result = executeUsageCommand(
       ['--period', '7d', '--timezone', 'UTC', '--format', 'json'],
-      { userSessionStore: store([]), now: new Date('2026-09-06T03:00:00.000Z') }, 'test-product');
+      { userSessionStore: store([]), now: new Date('2026-09-06T03:00:00.000Z') },
+      'test-product',
+    );
 
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toMatchObject({
@@ -190,13 +204,16 @@ describe('test-product usage', () => {
       ...store([]),
       load: () => ({ status: 'valid', record: value }),
     });
-    const reporter = createStoredSessionUsageReporter(createTestProductRuntime(), loadStore(projectRecord));
+    const reporter = createStoredSessionUsageReporter(
+      createTestProductRuntime(),
+      loadStore(projectRecord),
+    );
 
     // The reporter creates its user store internally; the valid project result must win before it.
     expect(reporter('shared')).toMatchObject({ sessionId: 'shared', totalTokens: 25 });
   });
 
-  it('never leaks a session\'s cwd or message content into the JSON report (#3289 §4)', () => {
+  it("never leaks a session's cwd or message content into the JSON report (#3289 §4)", () => {
     const sentinel = 'PROMPT_CONTENT_MUST_NOT_APPEAR';
     const leaky: IInteractiveSessionRecord = {
       id: 'leaky-session',
@@ -256,7 +273,9 @@ describe('test-product usage', () => {
           { id: 'leaky-session', outcome: { status: 'valid', record: leaky } },
         ]),
         now: new Date('2026-09-06T03:00:00.000Z'),
-      }, 'test-product');
+      },
+      'test-product',
+    );
 
     expect(result.exitCode).toBe(0);
     expect(JSON.parse(result.stdout)).toMatchObject({ totals: { sessions: 1, totalTokens: 10 } });

@@ -1,4 +1,5 @@
 import { isArtifactCorruptError, isArtifactLockedError } from '@robota-sdk/agent-core';
+import { createProcessMarkers } from '@robota-sdk/agent-core/node';
 import {
   SessionLogDecodeError,
   SessionLogPayloadResolutionError,
@@ -9,6 +10,7 @@ import {
   replaySessionLogEntries,
 } from '@robota-sdk/agent-session';
 import {
+  SESSION_CLAIMS_DIRECTORY,
   StoredSessionRecords,
   classifyStoredSessionBytes,
   sessionSealingOf,
@@ -18,7 +20,10 @@ import { deriveBackgroundJobGroups, deriveBackgroundTasks } from './session-repl
 import { WorkspaceSessionLogSource } from './workspace-session-io.js';
 import { assertWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import { ProjectReadLimitExceededError } from '../workspace-trust/project-reader-path.js';
-import { assertWorkspaceProjectStateStoragePair } from '../workspace-trust/project-state-storage.js';
+import {
+  assertWorkspaceProjectStateStoragePair,
+  workspaceProjectStateDirectoryPath,
+} from '../workspace-trust/project-state-storage.js';
 
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
@@ -34,6 +39,7 @@ import type {
   ISessionClaim,
   ISessionClaimOptions,
   ISessionExportOptions,
+  ISessionLease,
   ISessionListEntry,
   ISessionLoadOptions,
   ISessionSaveOptions,
@@ -119,6 +125,17 @@ const PAYLOAD_UNREADABLE_OUTCOME: TSessionLoadOutcome = Object.freeze({
   ]),
 });
 
+/**
+ * The directory a trusted project's session store keeps its writer markers in, beside its records:
+ * what a host command that releases a marker (`session release`) inspects.
+ */
+export function projectSessionClaimsDirectory(sessions: IWorkspaceProjectStateStorage): string {
+  return workspaceProjectStateDirectoryPath(
+    assertNamespace(sessions, 'sessions'),
+    SESSION_CLAIMS_DIRECTORY,
+  );
+}
+
 /** Project session record adapter backed only by runtime-minted state facets. */
 export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
   private readonly sessions: IWorkspaceProjectStateStorage;
@@ -133,7 +150,7 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
   /**
    * @param options `sealing` (required): `{ sealer }` seals what `save` writes and opens what `load`
    *   reads, replay logs included; `'plain'` writes plain records and meets a sealed file as
-   *   `locked`.
+   *   `locked`. `releaseCommand`: see `ISessionStoreOptions`.
    */
   constructor(
     sessions: IWorkspaceProjectStateStorage,
@@ -141,21 +158,29 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     options: ISessionStoreOptions,
   ) {
     this.sealing = sessionSealingOf(options);
-    this.records = new StoredSessionRecords(this.sealing, {
-      load: (id) => this.loadFile(id),
-      current: (id) => {
-        assertSafeSessionId(id);
-        return this.readExisting(`${id}.json`);
-      },
-      replace: (id, stored) => {
-        assertSafeSessionId(id);
-        this.writeRecord(`${id}.json`, stored);
-      },
-      rebuild: (id) => this.loadFromReplayLog(id),
-    });
     this.sessions = assertNamespace(sessions, 'sessions');
     this.logs = assertNamespace(logs, 'session-logs');
     assertWorkspaceProjectStateStoragePair(this.sessions, this.logs);
+    // The writer markers are published by hard links, which no facet call makes, so the claims
+    // directory beside the records is reached by its path, checked through the authority-gated facet.
+    const markers = createProcessMarkers(projectSessionClaimsDirectory(this.sessions));
+    this.records = new StoredSessionRecords(
+      this.sealing,
+      {
+        load: (id) => this.loadFile(id),
+        current: (id) => {
+          assertSafeSessionId(id);
+          return this.readExisting(`${id}.json`);
+        },
+        replace: (id, stored) => {
+          assertSafeSessionId(id);
+          this.writeRecord(`${id}.json`, stored);
+        },
+        rebuild: (id) => this.loadFromReplayLog(id),
+      },
+      markers,
+      options.releaseCommand === undefined ? {} : { releaseCommand: options.releaseCommand },
+    );
     // Only on a store that seals: a store whose records carry no authorship has nothing to adopt.
     const authorship = this.records.authorship;
     if (authorship !== undefined) this.authorship = authorship;
@@ -163,17 +188,25 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
 
   /**
    * Claims `id` for a session this process runs, reading it in the same call
-   * (`IInteractiveSessionStore.claim`): exclusive in this store, and every later save of the id must
-   * carry the claim until it is released. In a store that seals, a claimed id is never rebuilt from
-   * its replay log, which no tag covers; a store that never seals rebuilds it as any read would.
+   * (`IInteractiveSessionStore.claim`): exclusive across processes and store instances, and every
+   * later save of the id must carry the claim until it is released. In a store that seals, a claimed
+   * id is never rebuilt from its replay log, which no tag covers; a store that never seals rebuilds it
+   * as any read would.
    */
   claim(id: string, options?: ISessionClaimOptions): ISessionClaim {
     assertSafeSessionId(id);
     return this.records.claim(id, options);
   }
 
-  /** Whether something this process runs may still write session `id` (`IInteractiveSessionStore.hasWriter`). */
+  /** Lends `id` to another process that will write it (`IInteractiveSessionStore.lend`). */
+  lend(id: string): ISessionLease {
+    assertSafeSessionId(id);
+    return this.records.lend(id);
+  }
+
+  /** Whether session `id` may have a writer now (`IInteractiveSessionStore.hasWriter`). */
   hasWriter(id: string): boolean {
+    assertSafeSessionId(id);
     return this.records.hasWriter(id);
   }
 
@@ -349,10 +382,12 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     return this.records.listed(id);
   }
 
+  /** Deletes session `id`'s record, holding its writer marker: refused while another writer holds it. */
   delete(id: string): void {
     assertSafeSessionId(id);
-    this.records.forget(id);
-    this.sessions.deleteFile(`${id}.json`, 'delete project session record');
+    this.records.delete(id, () => {
+      this.sessions.deleteFile(`${id}.json`, 'delete project session record');
+    });
   }
 
   /**

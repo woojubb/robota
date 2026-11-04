@@ -2,7 +2,7 @@
 // sink and source, the spill store and prompt-history file, and the process hooks. The main entry is
 // platform-neutral (ARCHITECTURE.md "Runtime platforms") and takes each of these by injection.
 
-export { NodeSessionStore } from './session-store.js';
+export { NodeSessionStore, SESSION_CLAIMS_DIRECTORY } from './session-store.js';
 export type { INodeSessionStoreOptions } from './session-store.js';
 // Sealed session records: the one object both session stores write and read through, so the user's
 // directory and the trusted project's cannot disagree about what a sealed or plain file means. A store

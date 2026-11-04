@@ -21,6 +21,7 @@ export {
   resolveReusableEmptySessionId,
   resolveSessionIdByIdOrName,
   scanSessionStore,
+  projectSessionClaimsDirectory,
   WorkspaceProjectSessionStore,
   WorkspaceSessionLogSink,
   WorkspaceSessionLogSource,

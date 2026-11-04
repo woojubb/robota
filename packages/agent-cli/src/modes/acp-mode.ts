@@ -158,7 +158,8 @@ function createSessionLoader(
         },
       });
     } catch (error) {
-      // The session this connection just left still holds the record while it shuts down.
+      // The session this connection just left still holds the record while it shuts down, or a
+      // subagent of a fork runs on it: the store's words say which.
       if (isSessionClaimedError(error)) return refuse(claimedSessionMessage(error));
       if (error instanceof AcpLoadRefusedError || isSessionAuthorshipRefusedError(error)) {
         return refuse(error.message);

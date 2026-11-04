@@ -92,10 +92,12 @@ contract is authoritative for how the TUI releases resources on session switch a
   subsystem can never block process exit because session shutdown is time-bounded.
 - On session switch, nothing of the old session reaches what shows the new one: a channel that owns
   its session is fully stopped before the new one becomes active, and on stop failure stays selected
-  with input disabled until a retry succeeds, rather than silently creating a second live channel; a
-  channel attached to a host asks the host to switch and, when the host does, drops the old
-  session's questions unanswered, re-reads everything it shows and prints the new transcript from
-  its start.
+  with input disabled until a retry succeeds, rather than silently creating a second live channel. A
+  session another writer holds is refused in the store's words before the old one stops, so the
+  person stays on it; a writer that took the id since sends them back to the session they were on,
+  never to a retry of the refused id. A channel attached to a host asks the host to switch and, when
+  the host does, drops the old session's questions unanswered, re-reads everything it shows and
+  prints the new transcript from its start.
 - The permission queue and the user-action queue are both drained on abort, cancel, and shutdown:
   every queued or in-flight action resolves (as cancelled or denied) rather than dangling — an
   unresolved permission promise would hang the tool that is waiting on it, and a queue drain that

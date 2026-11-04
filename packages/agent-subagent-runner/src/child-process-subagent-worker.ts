@@ -19,12 +19,17 @@ import {
   type TSubagentWorkerWireValue,
 } from './child-process-subagent-ipc.js';
 import { reportRecordSaves } from './child-process-subagent-record-saves.js';
-import { openResumeSessionStore, resumeRequestedRecord } from './child-process-subagent-resume.js';
+import {
+  claimRequestedRecord,
+  openResumeSessionStore,
+  resumeRequestedRecord,
+} from './child-process-subagent-resume.js';
 import { restoreAgentDefinition, restoreParentContext } from './subagent-worker-start-dto.js';
 import { restoreProjectedSandbox } from './worker-composition.js';
 import { withholdProviderCredential } from './worker-credential.js';
 
 import type { IRecordSaveReporter } from './child-process-subagent-record-saves.js';
+import type { IClaimedResumeRecord } from './child-process-subagent-resume.js';
 import type {
   ISubagentComposedSandbox,
   ISubagentWorkerComposition,
@@ -72,6 +77,16 @@ let sealingBound = false;
 let running: Promise<void> = Promise.resolve();
 /** A sealing parent handed this child a record: what has been seen of its saves. */
 let recordSaves: IRecordSaveReporter | undefined;
+/** The claim this child holds, under its parent's lease, on the record it resumes. */
+let claimedRecord: IClaimedResumeRecord | undefined;
+
+/**
+ * Ends this child's claim on the record it resumes, removing its writer marker; every way out of the
+ * process runs it, after the session's last save. Idempotent.
+ */
+function releaseClaimedRecord(): void {
+  claimedRecord?.release();
+}
 
 function sendChildMessage(message: TSubagentWorkerChildMessage): void {
   if (process.send) {
@@ -113,6 +128,7 @@ function sendTerminalMessageAndExit(message: TSubagentWorkerChildMessage, exitCo
   const exitOnce = (): void => {
     if (exited) return;
     exited = true;
+    releaseClaimedRecord();
     process.exit(exitCode);
   };
   if (process.send) {
@@ -225,12 +241,19 @@ async function runInitialPrompt(
       : undefined;
     const openedStore = openResumeSessionStore(payload, composition);
     const resumeSessionId = payload.request.resumeSessionId;
+    // The record is this child's to write only under the lease its parent lent it: claimed before
+    // anything reads it, released on every way out of the process.
+    claimedRecord = claimRequestedRecord(payload, openedStore);
+    if (claimedRecord !== undefined) process.once('exit', releaseClaimedRecord);
+    const claimedStore = claimedRecord?.store ?? openedStore;
     // A sealing parent that handed a record over hears of each save of it, to vouch for it.
     recordSaves =
-      openedStore !== undefined && payload.resumeHeld !== undefined && resumeSessionId !== undefined
-        ? reportRecordSaves(openedStore, resumeSessionId, sendChildMessage)
+      claimedStore !== undefined &&
+      payload.resumeHeld !== undefined &&
+      resumeSessionId !== undefined
+        ? reportRecordSaves(claimedStore, resumeSessionId, sendChildMessage)
         : undefined;
-    const resumeSessionStore = recordSaves?.store ?? openedStore;
+    const resumeSessionStore = recordSaves?.store ?? claimedStore;
     // A sandbox restored from the parent's snapshot, or else one the child composes at its own root.
     // Only a composed sandbox approves commands, from the instance its tools run under; a restored one
     // approves none, so the child asks where the parent might not: stricter, never looser.
@@ -303,7 +326,7 @@ async function runInitialPrompt(
       // never learned it was asked.
       permissionHandler: requestParentPermission,
     });
-    resumeRequestedRecord(payload, session, resumeSessionStore);
+    resumeRequestedRecord(payload, session, resumeSessionStore, claimedRecord);
     recordSaves?.restored();
     throwIfParentChangeFailed();
     const output = await session.run(payload.request.prompt);
@@ -407,6 +430,7 @@ async function cancelWorker(reason?: string): Promise<void> {
   session?.abort();
   sendChildMessage({ type: 'cancelled', reason });
   await session?.shutdown({ reason: 'other' }).catch(() => undefined); // allow-fallback: shutdown during cancel — process will exit regardless
+  releaseClaimedRecord();
   setTimeout(() => process.exit(CANCEL_EXIT_CODE), 0);
 }
 
@@ -521,7 +545,9 @@ export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): 
   process.on('disconnect', () => {
     cancelled = true;
     session?.abort();
-    void session?.shutdown({ reason: 'other' }).catch(() => undefined); // allow-fallback: cleanup on disconnect — process will exit regardless
+    void (session?.shutdown({ reason: 'other' }) ?? Promise.resolve())
+      .catch(() => undefined) // allow-fallback: cleanup on disconnect — process will exit regardless
+      .then(releaseClaimedRecord);
   });
 
   // ARCH-021: declare what this child composed. This is a VERIFICATION channel — the built-binary

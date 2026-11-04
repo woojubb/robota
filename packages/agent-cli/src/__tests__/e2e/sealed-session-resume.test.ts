@@ -169,7 +169,11 @@ describe('resuming a sealed session this process holds no keys for', () => {
     expect(readFileSync(join(sessionsDirectory, `${LOCKED_ID}.json`)).equals(sealedBefore)).toBe(
       true,
     );
-    expect(readdirSync(sessionsDirectory)).toEqual([`${LOCKED_ID}.json`]);
+    // Its claim's writer marker went with the refused resume; the claims directory is left empty.
+    expect(readdirSync(sessionsDirectory).filter((name) => name !== 'claims')).toEqual([
+      `${LOCKED_ID}.json`,
+    ]);
+    expect(readdirSync(join(sessionsDirectory, 'claims'))).toEqual([]);
   });
 
   it('-r <id> still says not found for an id that is not there, when no session is locked', async () => {

@@ -199,8 +199,8 @@ export interface ICreateExecutionWorkspaceSnapshotInput {
   readonly selectedEntryId?: string;
   readonly filter?: IExecutionWorkspaceFilter;
   /**
-   * Whether something this process runs may still write session `sessionId`'s record — the session
-   * store's own answer (`IInteractiveSessionStore.hasWriter`). A fork whose record has one is not
+   * Whether session `sessionId`'s record may have a writer now, in this process or another — the
+   * session store's own answer (`IInteractiveSessionStore.hasWriter`). A fork whose record has one is not
    * offered `attach`, which would open the record as a second writer; attaching asks the same fact.
    */
   readonly sessionHasWriter: (sessionId: string) => boolean;

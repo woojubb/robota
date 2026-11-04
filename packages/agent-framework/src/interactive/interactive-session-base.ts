@@ -74,11 +74,7 @@ import type {
 } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
-import type {
-  IHistoryEntry,
-  TUniversalMessage,
-  IContextWindowState,
-} from '@robota-sdk/agent-core';
+import type { IHistoryEntry, TUniversalMessage, IContextWindowState } from '@robota-sdk/agent-core';
 import type { IScheduleEditPatch } from '@robota-sdk/agent-executor';
 import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
 import type {
@@ -105,7 +101,7 @@ export abstract class InteractiveSessionBase {
   protected abstract ensureInitialized(): Promise<void>;
   protected abstract getCwd(): string;
   protected abstract getProjectAccess(): TWorkspaceProjectAccess;
-  /** Whether something this process runs may still write session `sessionId`'s record (its store's `hasWriter`). */
+  /** Whether session `sessionId`'s record may have a writer now, here or in another process (its store's `hasWriter`). */
   protected abstract sessionRecordHasWriter(sessionId: string): boolean;
   /** SCREEN-1992: the parked permission/ask the main thread waits on; the subclass owns the registry. */
   protected abstract getPendingRequest(): IExecutionPendingRequest | undefined;

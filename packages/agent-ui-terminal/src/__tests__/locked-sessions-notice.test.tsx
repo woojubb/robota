@@ -29,7 +29,7 @@ function storeOf(
   entries: readonly ISessionListEntry[] = [],
 ): IInteractiveSessionStore & { readonly reads: { count: number } } {
   const reads = { count: 0 };
-  const store: Omit<IInteractiveSessionStore, 'claim' | 'hasWriter'> & {
+  const store: Omit<IInteractiveSessionStore, 'claim' | 'lend' | 'hasWriter'> & {
     readonly reads: { count: number };
   } = {
     reads,

@@ -159,6 +159,7 @@ export {
   unverifiedSessionNotice,
   SessionRenameUnavailableError,
   persistSessionRename,
+  projectSessionClaimsDirectory,
   WorkspaceProjectSessionStore,
   WorkspaceSessionLogSink,
   WorkspaceSessionLogSource,
@@ -1026,7 +1027,10 @@ export {
   SESSION_STILL_CLOSING_MESSAGE,
   SessionChangeRefusal,
   SessionDeleteRefusal,
+  claimChangeRefusal,
+  claimDeleteRefusal,
   claimedSessionMessage,
+  claimRefusalMessage,
 } from './runtime/index.js';
 export type {
   ISessionPoolOptions,

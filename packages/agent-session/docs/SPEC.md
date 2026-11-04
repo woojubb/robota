@@ -445,13 +445,20 @@ prefix is product-neutral and does not disclose the host product's name.
   decided when its bytes are opened — an authorship tag only unlocked keys make, bytes this store
   wrote from the owner's content, or bytes the owner adopted by their digest — and a save tags only
   content the store can vouch for, never an id a read handed unverified content out for. An owner
-  save the locked keys could not tag is tagged at the next unlock; neither that, an adoption nor a
-  claim touches a record handed to a process that may still be saving it, whose saves a changed file
-  would refuse, and neither the tag nor the adoption replaces bytes another writer put there since
-  they were read. A write-only child holds the record it was handed as the owner's only when the
+  save the locked keys could not tag is tagged at the next unlock only while the store holds the id's
+  writer marker or can take it; neither that nor an adoption touches an id another writer holds — a
+  process it is lent to, whose saves a changed file would refuse — and neither replaces bytes another
+  writer put there since they were read. A write-only child holds the record it was handed as the owner's only when the
   process that handed it over, which holds the keys, held it so. Every store, sealing or not,
-  claims the ids its process runs, exclusively, and fences every save made under a claim once it is
-  released, so a session that outlived its claim cannot overwrite the one that took the id next; in a
+  claims the ids its process runs, exclusively across every process and store instance over the same
+  files: a claim holds the id's writer marker in a directory beside the records, so a second opener
+  anywhere is refused and told which process holds it, and every other write of the id — a save
+  without a claim, a delete, an adoption, a tag at unlock — holds the marker for that write. A claim
+  fences every save made under it once it is released or its marker is no longer its own, so a
+  session that outlived its claim, or lost its marker to a break, cannot overwrite the one that took
+  the id next; a read made only to copy a session takes no marker, so a session another process runs
+  can still be copied. The marker is a coordination device and never a trust anchor: any program of
+  the same user can plant or remove one, so a planted marker denies service until it is released. In a
   store that seals a claimed id is also answered only from the owner's content, so a file something
   unverifiable changed is neither merged into it nor overwritten by it. A sealed file the keys
   cannot open is `locked`, not corrupt: it is intact, and a later unlock reads it; a store that keeps
@@ -464,15 +471,18 @@ prefix is product-neutral and does not disclose the host product's name.
   wrote or was asked to hold by a resume or a writer's read, a digest of the sealed bytes and the
   record behind them, and keeps saving that session while the keys are locked for as long as the
   file is provably exactly what it put there. A read that only looks remembers nothing, so it can
-  neither push a held session out of that bounded memory nor keep plaintext it was shown. The
-  check and the write are two steps, so two writers saving one session at the same moment can still
-  replace each other, as plain records always could; what the check stops is a store replacing a
-  sealed session nobody in its process can read, and a file that differs from what it remembers is
-  refused as changed. What it holds is memory only, bounded except for the sessions it runs, and
-  forgotten on delete — except that a record handed to another process stays handed over until that
-  process is done, since deleting the file does not stop it saving. A record
+  neither push a held session out of that bounded memory nor keep plaintext it was shown. What
+  the check stops is a store replacing a sealed session nobody in its process can read, and a file
+  that differs from what it remembers is refused as changed. What it holds is memory only, bounded
+  except for the sessions it runs, and forgotten on delete. A record
   written for a fork job another process will run is kept apart from it, so a fork never pushes out
-  a running session, and is handed over once as a token naming the sealed bytes; a store that cannot
+  a running session, and is handed over once as a token naming the sealed bytes. Its id is lent to that
+  process for as long as it runs, in every store: the lend publishes the writer marker with the digest
+  of a nonce only that process is given, which it claims the id with, taking the marker over, and the
+  lender ends the lease once the process is gone, whoever holds the marker then — so neither a
+  surface nor a second process opens it meanwhile, and it cannot be deleted under that process, whose
+  pid a refusal names once it took the marker over; only a session of this store that has not let its
+  claim go is a refusal to wait out; a store that cannot
   open the file (a process with only a write grant) takes the token as a record it holds, and a store
   that seals nothing refuses it, since it would write the record in plaintext over the sealed one. Sealing
   protects what is inside the file; file names, sizes and modification times stay visible, because

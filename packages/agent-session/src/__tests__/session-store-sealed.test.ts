@@ -26,6 +26,7 @@ import {
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
+import { createProcessMarkers } from '@robota-sdk/agent-core/node';
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
 import { describe, expect, it } from 'vitest';
 
@@ -51,11 +52,15 @@ function decodeStoredSessionBytes(
   sealer: IArtifactSealer | undefined,
 ): ReturnType<StoredSessionRecords['load']> {
   if (sealer !== undefined) return openStoredSessionRecord(id, stored, sealer);
-  return new StoredSessionRecords('plain', {
-    load: () => ({ file: { kind: 'plain', bytes: stored }, unreadable: { status: 'missing' } }),
-    current: () => ({ kind: 'absent' }),
-    replace: () => undefined,
-  }).load(id);
+  return new StoredSessionRecords(
+    'plain',
+    {
+      load: () => ({ file: { kind: 'plain', bytes: stored }, unreadable: { status: 'missing' } }),
+      current: () => ({ kind: 'absent' }),
+      replace: () => undefined,
+    },
+    createProcessMarkers(path.join(newStoreDir(), 'claims')),
+  ).load(id);
 }
 
 function newStoreDir(): string {

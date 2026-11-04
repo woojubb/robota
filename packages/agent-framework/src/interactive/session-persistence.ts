@@ -42,7 +42,10 @@ export type {
   TSessionLoadOutcome,
 };
 export { WorkspaceSessionLogSink, WorkspaceSessionLogSource } from './workspace-session-io.js';
-export { WorkspaceProjectSessionStore } from './workspace-session-store.js';
+export {
+  WorkspaceProjectSessionStore,
+  projectSessionClaimsDirectory,
+} from './workspace-session-store.js';
 
 export interface IHostToolResultSpillStore extends IToolResultSpillStore {
   read(reference: string): Promise<string>;
@@ -134,6 +137,7 @@ export function createUserSessionStore(
   return new NodeSessionStore(sessions, {
     ownedRoot: dirname(sessions),
     sealing: sessionSealingOf(options),
+    ...(options.releaseCommand === undefined ? {} : { releaseCommand: options.releaseCommand }),
   });
 }
 

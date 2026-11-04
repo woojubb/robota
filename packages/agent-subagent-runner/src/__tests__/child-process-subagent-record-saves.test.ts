@@ -1,8 +1,9 @@
 /**
- * #3679 step 3e: the parent vouches for a fork record its write-only child saved — exactly the bytes
- * the child last reported, only once the child has both exited and disconnected, and only when the
- * job started from the owner's content and no save was refused. The child side reports each save of
- * its fork record and remembers a refused one.
+ * #3679: the parent follows the fork record it lent to a child — it ends the lease once the child has
+ * both exited and disconnected — and a sealing parent then vouches for what the write-only child
+ * saved: exactly the bytes the child last reported, and only when the job started from the owner's
+ * content and no save was refused. The child side reports each save of its fork record and remembers
+ * a refused one.
  *
  * The child here is a stand-in emitter, so the order of `message`, `exit` and `disconnect` is the
  * test's to choose — Node delivers buffered messages before `disconnect`, but `exit` can come first.
@@ -36,7 +37,11 @@ const DIGEST = 'a'.repeat(64);
 
 const roots: string[] = [];
 afterEach(() => {
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  // A fork job's child and the parent's follower let the record's marker go just after the job's
+  // result, so a removal can meet a marker or break lock written meanwhile; Node retries ENOTEMPTY.
+  for (const root of roots.splice(0)) {
+    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 25 });
+  }
 });
 
 /** A sessions directory inside a fresh root, which the store may tighten as it owns it. */
@@ -78,17 +83,23 @@ class FakeChild extends EventEmitter {
   }
 }
 
-/** A sealing parent that wrote the fork record for a handoff, and a write-only child that saved it. */
+/**
+ * A sealing parent that wrote the fork record for a handoff and lent it, and a write-only child that
+ * claimed it under the lease, saved it and let it go.
+ */
 function forkedParent(options: { readonly locked?: boolean } = {}) {
   const dir = directory();
   const sealer: IArtifactSealerDouble = createTestArtifactSealer();
   const parent = createUserSessionStore(dir, { sealing: { sealer } });
   parent.save(forkRecord('the parent conversation'), { handoff: true, provenance: 'owner' });
+  const lease = parent.lend(FORK_ID);
   const child = createUserSessionStore(dir, {
     sealing: { sealer: openTestWriteGrant(sealer.writeGrant()) },
   });
   child.importHeld?.(FORK_ID, parent.exportHeld?.(FORK_ID) as string);
-  child.save(forkRecord('the child turn'));
+  const claim = child.claim(FORK_ID, { lease: lease.nonce });
+  child.save(forkRecord('the child turn'), { claim });
+  claim.release();
   if (options.locked === true) sealer.lock();
   const digestOnDisk = (): string =>
     createHash('sha256')
@@ -99,21 +110,31 @@ function forkedParent(options: { readonly locked?: boolean } = {}) {
     const outcome = createUserSessionStore(dir, { sealing: { sealer } }).load(FORK_ID);
     return outcome.status === 'valid' ? outcome.authorship : outcome.status;
   };
-  return { dir, sealer, parent, child, digestOnDisk, seenFresh };
+  return { dir, sealer, parent, child, lease, digestOnDisk, seenFresh };
 }
 
+type TFollow = Parameters<typeof followForkRecordSaves>[1];
+
+/** A lease the follower can only end, recording that it did. */
+function stubLease(calls: string[] = []): TFollow['lease'] {
+  return { nonce: 'lease-nonce', end: vi.fn(() => calls.push('end')) };
+}
+
+/** Follows `child` lent under `lease`; vouched for unless `startedOwner` is `'never'`. */
 function follow(
   child: FakeChild,
-  store: Parameters<typeof followForkRecordSaves>[1]['store'],
-  startedOwner = true,
+  store: TFollow['store'],
+  startedOwner: boolean | 'never' = true,
+  lease: TFollow['lease'] = stubLease(),
 ): TCountersignOutcome[] {
   const settled: TCountersignOutcome[] = [];
-  followForkRecordSaves(child as unknown as ChildProcess, {
+  const follower = followForkRecordSaves(child as unknown as ChildProcess, {
     sessionId: FORK_ID,
-    startedOwner,
+    lease,
     store,
     onSettled: (outcome) => settled.push(outcome),
   });
+  if (startedOwner !== 'never') follower.vouch(startedOwner);
   return settled;
 }
 
@@ -135,9 +156,9 @@ describe('the record_saved message', () => {
   });
 
   it('is never vouched for when malformed', () => {
-    const { parent, digestOnDisk, seenFresh } = forkedParent();
+    const { parent, lease, digestOnDisk, seenFresh } = forkedParent();
     const child = new FakeChild();
-    const settled = follow(child, parent);
+    const settled = follow(child, parent, true, lease);
 
     child.emit('message', {
       type: 'record_saved',
@@ -154,9 +175,9 @@ describe('the record_saved message', () => {
 
 describe('the parent’s countersign of a fork job', () => {
   it('raises the bytes the job last reported, once the child exited and disconnected', () => {
-    const { parent, digestOnDisk, seenFresh } = forkedParent();
+    const { parent, lease, digestOnDisk, seenFresh } = forkedParent();
     const child = new FakeChild();
-    const settled = follow(child, parent);
+    const settled = follow(child, parent, true, lease);
 
     child.report(digestOnDisk());
     child.emit('exit', 0, null);
@@ -169,9 +190,9 @@ describe('the parent’s countersign of a fork job', () => {
   });
 
   it('counts a report the child sent after its result', () => {
-    const { parent, digestOnDisk, seenFresh } = forkedParent();
+    const { parent, lease, digestOnDisk, seenFresh } = forkedParent();
     const child = new FakeChild();
-    const settled = follow(child, parent);
+    const settled = follow(child, parent, true, lease);
 
     child.report(DIGEST);
     child.emit('message', { type: 'result', output: 'done' });
@@ -183,9 +204,9 @@ describe('the parent’s countersign of a fork job', () => {
   });
 
   it('waits for the last message when the exit comes first', () => {
-    const { parent, digestOnDisk, seenFresh } = forkedParent();
+    const { parent, lease, digestOnDisk, seenFresh } = forkedParent();
     const child = new FakeChild();
-    const settled = follow(child, parent);
+    const settled = follow(child, parent, true, lease);
 
     child.report(DIGEST);
     child.emit('exit', 0, null);
@@ -199,18 +220,18 @@ describe('the parent’s countersign of a fork job', () => {
 
   it('raises nothing for a refused save, or a job not started from the owner’s content', () => {
     {
-      const { parent, digestOnDisk, seenFresh } = forkedParent();
+      const { parent, lease, digestOnDisk, seenFresh } = forkedParent();
       const child = new FakeChild();
-      const settled = follow(child, parent);
+      const settled = follow(child, parent, true, lease);
       child.report(digestOnDisk());
       child.emit('message', { type: 'error', message: 'x', recordSaveRefused: true });
       child.end();
       expect(settled).toEqual(['not-vouched']);
       expect(seenFresh()).toBe('unverified');
     }
-    const { parent, digestOnDisk, seenFresh } = forkedParent();
+    const { parent, lease, digestOnDisk, seenFresh } = forkedParent();
     const child = new FakeChild();
-    const settled = follow(child, parent, false);
+    const settled = follow(child, parent, false, lease);
     child.report(digestOnDisk());
     child.end();
     expect(settled).toEqual(['not-vouched']);
@@ -218,9 +239,9 @@ describe('the parent’s countersign of a fork job', () => {
   });
 
   it('raises nothing when the file is no longer the bytes reported', () => {
-    const { parent, seenFresh } = forkedParent();
+    const { parent, lease, seenFresh } = forkedParent();
     const child = new FakeChild();
-    const settled = follow(child, parent);
+    const settled = follow(child, parent, true, lease);
 
     child.report(DIGEST);
     child.end();
@@ -230,9 +251,9 @@ describe('the parent’s countersign of a fork job', () => {
   });
 
   it('defers the raise while the keys are locked, and the unlock settles it', () => {
-    const { parent, sealer, digestOnDisk, dir } = forkedParent({ locked: true });
+    const { parent, sealer, lease, digestOnDisk, dir } = forkedParent({ locked: true });
     const child = new FakeChild();
-    const settled = follow(child, parent);
+    const settled = follow(child, parent, true, lease);
 
     child.report(digestOnDisk());
     child.end();
@@ -246,12 +267,9 @@ describe('the parent’s countersign of a fork job', () => {
     expect(outcome.status === 'valid' && outcome.authorship).toBe('verified');
   });
 
-  it('ends the export before anything else, whatever it decides, and only once', () => {
+  it('ends the lease before anything else, decides only once, and raises nothing unreported', () => {
     const calls: string[] = [];
     const authorship = {
-      exportEnded: vi.fn((id: string) => {
-        calls.push(`exportEnded:${id}`);
-      }),
       adopt: vi.fn((id: string, digest: string) => {
         calls.push(`adopt:${id}:${digest}`);
         return 'adopted' as const;
@@ -261,41 +279,58 @@ describe('the parent’s countersign of a fork job', () => {
     };
     const store = { authorship };
     const child = new FakeChild();
-    follow(child, store);
+    follow(child, store, true, stubLease(calls));
     child.report(DIGEST);
     child.end();
     child.end();
 
-    expect(calls).toEqual([`exportEnded:${FORK_ID}`, `adopt:${FORK_ID}:${DIGEST}`]);
+    expect(calls).toEqual(['end', `adopt:${FORK_ID}:${DIGEST}`]);
 
     const silent = new FakeChild();
     const quiet = {
-      exportEnded: vi.fn(),
       adopt: vi.fn(),
       heldDigest: vi.fn(),
       onUnlock: vi.fn(() => () => undefined),
     };
-    follow(silent, { authorship: quiet });
+    const lease = stubLease();
+    follow(silent, { authorship: quiet }, true, lease);
     silent.end();
-    expect(quiet.exportEnded).toHaveBeenCalledWith(FORK_ID);
+    expect(lease.end).toHaveBeenCalledOnce();
     expect(quiet.adopt).not.toHaveBeenCalled();
+  });
+
+  it('ends the lease of a plain parent’s job, which it never vouches for', () => {
+    const dir = directory();
+    const parent = createUserSessionStore(dir, { sealing: 'plain' });
+    parent.save(forkRecord('the parent conversation'), { handoff: true });
+    const lease = parent.lend(FORK_ID);
+    const child = new FakeChild();
+
+    const settled = follow(child, parent, 'never', lease);
+    expect(parent.hasWriter(FORK_ID)).toBe(true);
+    child.report(DIGEST);
+    child.end();
+
+    expect(settled).toEqual(['not-vouched']);
+    expect(parent.hasWriter(FORK_ID)).toBe(false);
   });
 
   it('settles a child that never started, which sends neither exit nor disconnect', () => {
     const authorship = {
-      exportEnded: vi.fn(),
       adopt: vi.fn(),
       heldDigest: vi.fn(),
       onUnlock: vi.fn(() => () => undefined),
     };
     const child = new FakeChild();
     child.pid = undefined;
-    const settled = follow(child, { authorship });
+    const lease = stubLease();
+    const settled = follow(child, { authorship }, true, lease);
 
     child.emit('error', new Error('spawn ENOENT'));
 
     expect(settled).toEqual(['not-vouched']);
-    expect(authorship.exportEnded).toHaveBeenCalledWith(FORK_ID);
+    expect(lease.end).toHaveBeenCalledOnce();
+    expect(authorship.adopt).not.toHaveBeenCalled();
   });
 });
 

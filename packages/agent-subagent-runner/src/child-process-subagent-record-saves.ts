@@ -1,12 +1,17 @@
 /**
- * #3679 step 3e: how a sealing parent comes to vouch for the fork record its write-only child saved.
+ * #3679: how a parent follows the fork record it lent to a child process, and how a sealing parent
+ * comes to vouch for what that child saved.
  *
- * Sealing needs only the public key, so the child — which holds no keys — writes its fork record
- * untagged, and a record nobody vouched for prompts on its next resume. The parent can vouch for it,
- * but only for exactly the bytes the child wrote, and only when what the child started from was the
- * owner's: so a child handed a record says, after each save of it, which bytes it wrote
- * (`record_saved`), and the parent raises the last of those bytes once the child has both exited and
- * disconnected — when no report can still be on its way.
+ * The record is lent to the child for as long as it runs (`IInteractiveSessionStore.lend`), so it has
+ * one writer: the child, under its own claim. Once the child has both exited and disconnected — when
+ * no report can still be on its way — the parent ends the lease, in either mode.
+ *
+ * Sealing needs only the public key, so a write-only child writes its fork record untagged, and a
+ * record nobody vouched for prompts on its next resume. The parent can vouch for it, but only for
+ * exactly the bytes the child wrote, and only when what the child started from was the owner's: so a
+ * child handed a record says, after each save of it, which bytes it wrote (`record_saved`), and the
+ * parent raises the last of those bytes after the lease has ended, holding the record's writer marker
+ * for the raise.
  */
 
 import { decorateSessionStore } from '@robota-sdk/agent-framework';
@@ -106,39 +111,51 @@ export type TCountersignOutcome =
   /** Nothing was raised: the job did not start from the owner's content, or a save was refused. */
   | 'not-vouched';
 
-export interface IForkRecordCountersign {
+export interface IForkRecordFollow {
   /** The fork record the job runs. */
   readonly sessionId: string;
-  /** The record the child was handed was the owner's when the parent wrote it for the fork. */
-  readonly startedOwner: boolean;
+  /** The lease the record was lent to the child under; ended once the child is gone. */
+  readonly lease: ReturnType<TResumeSessionStore['lend']>;
+  /** The parent's store, which raises the child's last save when the follow vouches. */
   readonly store: TCountersignStore;
   /** Told what was decided, once. */
   readonly onSettled?: (outcome: TCountersignOutcome) => void;
 }
 
+/** What a follower is told after it is attached: whether the child's saves may be vouched for. */
+export interface IForkRecordFollower {
+  /**
+   * A sealing parent handed the record over: `startedOwner` says the copy was the owner's when the
+   * parent wrote it for the fork. Without this call nothing is raised.
+   */
+  vouch(startedOwner: boolean): void;
+}
+
 /**
- * The parent's own listener for a fork job's record saves: it keeps the child's last report, and once
- * the child has both exited and disconnected — every message it sent is in, including any sent after
- * its result — it ends the export, so the record may be raised and tagged again, and raises the last
- * reported bytes to the owner's when the job started from the owner's content and no save was
- * refused. Raising is bound to those bytes: a file that changed since raises nothing, and while the
- * keys are locked it is settled at the next unlock. It outlives the job's result, and anything it
- * cannot do raises nothing.
+ * The parent's own listener for a fork job's child: it keeps the child's last report of a record
+ * save, and once the child has both exited and disconnected — every message it sent is in, including
+ * any sent after its result — it ends the lease, and then, when told to vouch, raises the last
+ * reported bytes to the owner's if the job started from the owner's content and no save was refused.
+ * Raising is bound to those bytes and holds the record's writer marker: a file that changed since,
+ * or a record another writer took meanwhile, raises nothing, and while the keys are locked it is
+ * settled at the next unlock. It outlives the job's result, and anything it cannot do raises nothing.
+ * It is attached as soon as the child exists, so a start that fails after the lend still ends it.
  */
 export function followForkRecordSaves(
   child: ChildProcess,
-  countersign: IForkRecordCountersign,
-): void {
+  follow: IForkRecordFollow,
+): IForkRecordFollower {
   let last: ISubagentWorkerRecordSavedMessage | undefined;
   let refused = false;
   let exited = false;
   let disconnected = !child.connected;
   let settled = false;
+  let startedOwner: boolean | undefined;
   const onMessage = (message: TSubagentWorkerWireValue): void => {
     // The union's own guard, the strict one: a malformed report fails the job and is never vouched for.
     if (!isSubagentWorkerChildMessage(message)) return;
     if (message.type === 'record_saved') {
-      if (message.sessionId === countersign.sessionId) last = message;
+      if (message.sessionId === follow.sessionId) last = message;
       return;
     }
     if ((message.type === 'result' || message.type === 'error') && message.recordSaveRefused) {
@@ -151,17 +168,16 @@ export function followForkRecordSaves(
     child.off('message', onMessage);
     let outcome: TCountersignOutcome = 'not-vouched';
     try {
-      // The export ends first, so a raise deferred while the keys are locked is settled at the unlock.
-      countersign.store.authorship?.exportEnded(countersign.sessionId);
-      if (countersign.startedOwner && last !== undefined && !refused) {
-        outcome =
-          countersign.store.authorship?.adopt(countersign.sessionId, last.sha256) ?? 'changed';
+      // The lease ends first: the child is gone, and the raise takes the record's marker for itself.
+      follow.lease.end();
+      if (startedOwner === true && last !== undefined && !refused) {
+        outcome = follow.store.authorship?.adopt(follow.sessionId, last.sha256) ?? 'changed';
       }
     } catch {
       // allow-fallback: a record the parent could not vouch for stays unverified and prompts on resume.
       outcome = 'changed';
     }
-    countersign.onSettled?.(outcome);
+    follow.onSettled?.(outcome);
   };
   child.on('message', onMessage);
   child.once('exit', () => {
@@ -179,4 +195,9 @@ export function followForkRecordSaves(
     disconnected = true;
     settle();
   });
+  return {
+    vouch: (owner) => {
+      startedOwner ??= owner;
+    },
+  };
 }

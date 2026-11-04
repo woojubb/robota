@@ -144,10 +144,12 @@ export class SessionRecordClaim {
   /**
    * Claims `id` and returns the outcome the session restores from, gated: a record a store that seals
    * calls unverified is refused unless it is the accepted bytes, and the claim let go. A `copy` keeps
-   * the claim only until {@link copied}, and never raises what it copies.
+   * the claim only until {@link copied}, takes no writer marker, and never raises what it copies.
    */
   readForRestore(id: string, copy: boolean): TSessionLoadOutcome {
-    const claim = this.#store.claim(id);
+    // A copy reads what was last saved and takes no writer marker, so a session another process runs
+    // can still be copied; its own new id is claimed fresh before its first save.
+    const claim = this.#store.claim(id, copy ? { copy: true } : undefined);
     try {
       assertClaimedOutcomeAccepted(id, claim.outcome, this.#acceptedDigest);
     } catch (error) {
@@ -169,8 +171,8 @@ export class SessionRecordClaim {
 
   /**
    * The session restored from the claimed record: accepted bytes are raised to the owner's now, once.
-   * Throws when the store will not raise them — they changed, or a subagent may still be saving them —
-   * so the session never runs a record it could not make the owner's.
+   * Throws when the store will not raise them — they changed, or another writer holds them — so the
+   * session never runs a record it could not make the owner's.
    */
   restored(): void {
     const accepted = this.#toAdopt;
@@ -182,7 +184,7 @@ export class SessionRecordClaim {
     if (result === 'adopted' || result === 'pending') return;
     throw new SessionAuthorshipRefusedError(
       accepted.id,
-      result === 'exported' ? 'exported' : 'changed-since-accepted',
+      result === 'has_writer' ? 'has_writer' : 'changed-since-accepted',
     );
   }
 

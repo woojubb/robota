@@ -13,7 +13,8 @@
  * CLI-1994 moved the whole payload builder here from the runner's private method, for the same
  * reason: the ARCH-044 boundary — a plain fork job's conversation never crosses this wire, and a
  * sealing parent's crosses only as the held-record token — is a property of THIS projection, and a
- * test can only pin it against the code that actually produces the payload.
+ * test can only pin it against the code that actually produces the payload. A fork job also carries
+ * the nonce of the lease its record is lent under, in either mode, and nothing of the record with it.
  */
 
 import { findProviderDefinition } from '@robota-sdk/agent-core';
@@ -94,6 +95,8 @@ export interface IStartPayloadOptions {
   readonly writeGrant?: string;
   /** From {@link projectStartPayloadSealing}: a sealing parent's fork job's held record. */
   readonly resumeHeld?: string;
+  /** A fork job's lease nonce, from the parent store's `lend`. */
+  readonly resumeLease?: string;
 }
 
 /** What a sealing parent's fork job hands its child beside the grant; nothing otherwise. */
@@ -129,10 +132,39 @@ export function preflightStartPayloadSealing(
   logSealing: TArtifactSealing,
 ): void {
   exportStartPayloadSealing(job, deps, logSealing, true);
+  preflightForkRecordWriter(job, deps);
 }
 
 /**
- * What the payload carries for how the parent keeps its subagent logs, with the same refusals as
+ * Refuses, before anything is made for it, a fork job whose record the parent could not lend: the
+ * parent keeps no session store, or the record has a writer already (another session or process has
+ * it open). Only looks: the lend itself is made when the job starts.
+ */
+export function preflightForkRecordWriter(
+  job: ISubagentJobStart,
+  deps: Pick<IInProcessSubagentRunnerDeps, 'resumeSessionStore'>,
+): void {
+  const resumeSessionId = job.request.resumeSessionId;
+  if (resumeSessionId === undefined) return;
+  const store = deps.resumeSessionStore;
+  if (store === undefined) {
+    throw new BackgroundTaskError(
+      'validation',
+      `Session ${resumeSessionId} cannot be handed to a subagent: this session keeps no session ` +
+        'store to lend it from. The subagent was not started.',
+    );
+  }
+  if (store.hasWriter(resumeSessionId)) {
+    throw new BackgroundTaskError(
+      'validation',
+      `Session ${resumeSessionId} already has a writer — another session or process has it open — ` +
+        'so it cannot be handed to a subagent. The subagent was not started.',
+    );
+  }
+}
+
+/**
+ * What the payload carries for how the parent keeps its subagent logs, with the sealing refusals of
  * {@link preflightStartPayloadSealing}.
  *
  * A plain parent adds nothing: its child keeps its log plain and reads a fork record from the store
@@ -140,10 +172,8 @@ export function preflightStartPayloadSealing(
  * only to see that it can: the payload carries the grant as it stands when `start` is sent. For a
  * fork job it hands over the record its store holds (`exportHeld`), since a child never holds the
  * keys that open a sealed one — only once every refusal above has been checked on a look that takes
- * nothing. A handed-over record stays exported until the follower of its child ends that, so this
- * is called only once the child exists, and the child is followed at once. Exporting hands over a
- * fork record `/fork` just wrote once, so a job that fails after this point needs a fresh `/fork`
- * while the keys are locked.
+ * nothing. Exporting hands over a fork record `/fork` just wrote once, so this is called only once the
+ * child exists, and a job that fails after this point needs a fresh `/fork` while the keys are locked.
  */
 export function projectStartPayloadSealing(
   job: ISubagentJobStart,
@@ -181,7 +211,7 @@ function exportStartPayloadSealing(
   if (resumeSessionId === undefined) return { payload: {} };
   const store = deps.resumeSessionStore;
   // Every check is made on a look that takes nothing; the record is handed over only once nothing
-  // can refuse the job any more, since a handed-over record stays exported until its child is gone.
+  // can refuse the job any more, since the copy `/fork` left is handed over once.
   const looked = store?.exportHeld?.(resumeSessionId, { keep: true, handoffOnly: true });
   if (looked === undefined) {
     throw new BackgroundTaskError('validation', unhandedRecordMessage(resumeSessionId, store));
@@ -333,6 +363,7 @@ export function projectStartPayload(
     ...(options.keepProviderCredential ? { keepProviderCredential: true as const } : {}),
     ...(options.writeGrant !== undefined ? { writeGrant: options.writeGrant } : {}),
     ...(options.resumeHeld !== undefined ? { resumeHeld: options.resumeHeld } : {}),
+    ...(options.resumeLease !== undefined ? { resumeLease: options.resumeLease } : {}),
   };
   return projectSandbox(deps).then((sandbox) => ({ ...base, ...sandbox }));
 }

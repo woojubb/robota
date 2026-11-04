@@ -9,7 +9,7 @@
  */
 
 import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -249,10 +249,16 @@ describe("a refused save says why, in the store's own words", () => {
     closers.push(() => interactive.shutdown());
     const errors = refusals(interactive);
     await interactive.ready();
-    // Another writer seals a record under this session's id.
-    new NodeSessionStore(sessions, {
+    // Another writer seals a record under this session's id, past the marker this session holds.
+    const elsewhere = realpathSync(mkdtempSync(join(tmpdir(), 'locked-resume-elsewhere-')));
+    new NodeSessionStore(elsewhere, {
       sealing: { sealer: createTestArtifactSealer() },
     }).save(sealedRecord(interactive.sessionId, cwd));
+    writeFileSync(
+      join(sessions, `${interactive.sessionId}.json`),
+      readFileSync(join(elsewhere, `${interactive.sessionId}.json`)),
+    );
+    rmSync(elsewhere, { recursive: true, force: true });
 
     await interactive.setPlan('an objective');
 

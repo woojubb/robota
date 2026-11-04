@@ -77,9 +77,10 @@ carries its plaintext and names the sealed bytes it came from — the one way a 
 keys (only a write grant) can continue a session — so it goes only where the record may go; it says
 whether the store that issued it held the record as the owner's, the only word a process without
 keys has for that, and the receiving process can say which bytes it wrote since, the only bytes the
-owner's process may then vouch for. Whether something this process runs may still write an id is
-the store's to say, from its claims and its exports, so a surface never opens a second writer of a
-record. The store decodes the record envelope and validates its
+owner's process may then vouch for. Whether an id has a writer is the store's to say — from its own
+claims and lends, and from the writer markers every process over the same files keeps beside the
+records — so a surface never opens a second writer of a record, in this process or another; a
+record another process runs is lent to it, never handed over without a writer. The store decodes the record envelope and validates its
 shape (which is inspection); no field's value but the record's own id, which must be the id it is
 stored under, ever changes which of the five outcomes is reported, so the store holds no domain
 policy of its own. A corrupt or unsupported outcome may still carry the record's `cwd`, read on a

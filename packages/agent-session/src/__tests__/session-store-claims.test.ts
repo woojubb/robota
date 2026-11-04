@@ -108,6 +108,20 @@ function thrownBy(action: () => unknown): unknown {
   throw new Error('expected the call to throw');
 }
 
+/**
+ * `value` saved by another of the owner's processes over session `id`'s file, past this store's writer
+ * marker: what a process that keeps no marker (an older build) or a same-user program could write.
+ */
+function savedElsewhere(
+  dir: string,
+  sealer: IArtifactSealerDouble,
+  value: IInteractiveSessionRecord,
+): void {
+  const elsewhere = newStoreDir();
+  storeOf(elsewhere, sealer).save(value, { provenance: 'owner' });
+  writeFileSync(fileOf(dir, value.id), readFileSync(fileOf(elsewhere, value.id)));
+}
+
 /** A running session: claimed fresh and saved once as the owner's. */
 function runningSession(dir: string, sealer: IArtifactSealerDouble, id = 'sess_run') {
   const store = storeOf(dir, sealer);
@@ -160,7 +174,7 @@ describe('a claimed id whose file something unverifiable replaced', () => {
     const sealer = createTestArtifactSealer();
     const { store, claim } = runningSession(dir, sealer);
     // Another of the owner's processes saved the session; while locked it cannot be shown to be theirs.
-    storeOf(dir, sealer).save(record('sess_run', 'saved elsewhere'), { provenance: 'owner' });
+    savedElsewhere(dir, sealer, record('sess_run', 'saved elsewhere'));
     sealer.lock();
 
     expect(store.load('sess_run', { hold: true })).toEqual({ status: 'locked' });
@@ -177,7 +191,7 @@ describe('a claimed id whose file something unverifiable replaced', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
     const { store, claim } = runningSession(dir, sealer);
-    storeOf(dir, sealer).save(record('sess_run', 'saved elsewhere'), { provenance: 'owner' });
+    savedElsewhere(dir, sealer, record('sess_run', 'saved elsewhere'));
 
     expect(loadSessionForUpdate(store, 'sess_run')).toMatchObject({
       status: 'valid',
@@ -231,9 +245,10 @@ describe('claims', () => {
 
     const error = thrownBy(() => claimOf(store, 'sess_a', true));
     expect(isSessionClaimedError(error)).toBe(true);
-    expect((error as { code?: unknown }).code).toBe('SESSION_CLAIMED');
+    expect(error).toMatchObject({ code: 'SESSION_CLAIMED', reason: 'has_writer' });
     expect((error as Error).message).toBe(
-      'Session sess_a is already claimed by a session running in this process.',
+      `Session sess_a is already open in this process (pid ${process.pid}): a session running or ` +
+        'still closing here. Try again once that has ended.',
     );
   });
 
@@ -246,7 +261,7 @@ describe('claims', () => {
     const second = claimOf(store, 'sess_a');
     first.release();
 
-    expect(() => claimOf(store, 'sess_a')).toThrow(/already claimed/);
+    expect(() => claimOf(store, 'sess_a')).toThrow(/already open in this process/);
     expect(() =>
       store.save(record('sess_a'), { claim: second, provenance: 'owner' }),
     ).not.toThrow();
@@ -270,7 +285,7 @@ describe('claims', () => {
     );
     expect((fenced as { reason?: unknown }).reason).toBe('released');
     const tokenless = thrownBy(() => store.save(record('sess_a', 'from a one-shot writer')));
-    expect((tokenless as { reason?: unknown }).reason).toBe('claimed');
+    expect((tokenless as { reason?: unknown }).reason).toBe('has_writer');
     const otherId = claimOf(store, 'sess_b', true);
     expect(() => store.save(record('sess_a'), { claim: otherId })).toThrow(
       /claim it was saved under/,
@@ -454,36 +469,40 @@ describe('tagging at unlock', () => {
     expect(readFileSync(fileOf(dir, 'sess_a')).equals(replaced)).toBe(true);
   });
 
-  it('never tags a handoff save, nor an id exported to a child, which would refuse its saves', () => {
+  it('never tags a handoff save, nor an id lent to a child, which would refuse its saves', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer({ locked: true });
     const store = storeOf(dir, sealer);
     store.save(record('sess_fork'), { handoff: true, provenance: 'owner' });
-    const claim = claimOf(store, 'sess_exported', true);
-    store.save(record('sess_exported'), { claim, provenance: 'owner' });
-    expect(store.exportHeld?.('sess_exported')).toMatch(/^rsh2\./);
+    const claim = claimOf(store, 'sess_lent', true);
+    store.save(record('sess_lent'), { claim, provenance: 'owner' });
+    claim.release();
+    store.lend('sess_lent');
     const fork = readFileSync(fileOf(dir, 'sess_fork'));
-    const exported = readFileSync(fileOf(dir, 'sess_exported'));
+    const lent = readFileSync(fileOf(dir, 'sess_lent'));
 
     sealer.unlock();
 
     expect(readFileSync(fileOf(dir, 'sess_fork')).equals(fork)).toBe(true);
-    expect(readFileSync(fileOf(dir, 'sess_exported')).equals(exported)).toBe(true);
+    expect(readFileSync(fileOf(dir, 'sess_lent')).equals(lent)).toBe(true);
   });
 
-  it('settles a countersign deferred while locked, even for an id exported to the child', () => {
+  it('settles a countersign deferred while locked, once the lease to the child has ended', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer({ locked: true });
     const store = storeOf(dir, sealer);
     store.save(record('sess_fork'), { handoff: true, provenance: 'owner' });
+    const lease = store.lend('sess_fork');
     const token = store.exportHeld?.('sess_fork') as string;
     const child = new NodeSessionStore(dir, {
       sealing: { sealer: openTestWriteGrant(sealer.writeGrant()) },
     });
     child.importHeld?.('sess_fork', token);
-    child.save(record('sess_fork', 'the child turn'));
-    // The countersign ends the export first, as the child has exited.
-    store.authorship?.exportEnded('sess_fork');
+    const childClaim = child.claim('sess_fork', { lease: lease.nonce });
+    child.save(record('sess_fork', 'the child turn'), { claim: childClaim });
+    childClaim.release();
+    // The countersign ends the lease first, as the child has exited.
+    lease.end();
 
     expect(store.authorship?.adopt('sess_fork', digestOfFile(dir, 'sess_fork'))).toBe('pending');
     sealer.unlock();
@@ -519,17 +538,18 @@ describe('an export that asks for the handoff copy only', () => {
   });
 });
 
-describe('the end of an export to a child', () => {
+describe('the end of a lease to a child', () => {
   it('lets an unlock tag the id again, which it never does while the child may still save it', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer({ locked: true });
-    const { store } = runningSession(dir, sealer, 'sess_exported');
-    expect(store.exportHeld?.('sess_exported')).toMatch(/^rsh2\./);
+    const { store, claim } = runningSession(dir, sealer, 'sess_lent');
+    claim.release();
+    const lease = store.lend('sess_lent');
 
-    store.authorship?.exportEnded('sess_exported');
+    lease.end();
     sealer.unlock();
 
-    expect(authorshipSeenFresh(dir, 'sess_exported', sealer)).toBe('verified');
+    expect(authorshipSeenFresh(dir, 'sess_lent', sealer)).toBe('verified');
   });
 });
 
@@ -580,7 +600,7 @@ describe('claims in a store that seals nothing', () => {
 
     expect(isSessionClaimedError(thrownBy(() => store.claim('sess_plain')))).toBe(true);
     expect((thrownBy(() => store.save(record('sess_plain'))) as { reason?: unknown }).reason).toBe(
-      'claimed',
+      'has_writer',
     );
     first.release();
     const second = store.claim('sess_plain');
@@ -595,22 +615,26 @@ describe('claims in a store that seals nothing', () => {
   });
 });
 
-describe('adopting a record handed to a child that still saves it', () => {
+describe('adopting a record lent to a child that still saves it', () => {
   it('raises nothing and leaves the file, so the child’s next save still goes through', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
     const parent = storeOf(dir, sealer);
     parent.save(record('sess_fork'), { handoff: true, provenance: 'owner' });
+    const lease = parent.lend('sess_fork');
     const child = new NodeSessionStore(dir, {
       sealing: { sealer: openTestWriteGrant(sealer.writeGrant()) },
     });
     child.importHeld('sess_fork', parent.exportHeld('sess_fork') as string);
-    child.save(record('sess_fork', 'the child turn'));
+    const claim = child.claim('sess_fork', { lease: lease.nonce });
+    child.save(record('sess_fork', 'the child turn'), { claim });
     const before = readFileSync(fileOf(dir, 'sess_fork'));
 
-    expect(parent.authorship?.adopt('sess_fork', digestOfFile(dir, 'sess_fork'))).toBe('exported');
+    expect(parent.authorship?.adopt('sess_fork', digestOfFile(dir, 'sess_fork'))).toBe(
+      'has_writer',
+    );
     expect(readFileSync(fileOf(dir, 'sess_fork')).equals(before)).toBe(true);
-    expect(() => child.save(record('sess_fork', 'the next child turn'))).not.toThrow();
+    expect(() => child.save(record('sess_fork', 'the next child turn'), { claim })).not.toThrow();
   });
 });
 
@@ -630,8 +654,8 @@ function sealerWritingDuringTag(
     tagAuthorship(bytes, context) {
       if (!written && !base.isLocked && context.id === id) {
         written = true;
-        // Another of the owner's processes, unlocked, saves the session in between.
-        storeOf(dir, base).save(newer, { provenance: 'owner' });
+        // Another of the owner's processes, unlocked, saves the session in between, past the marker.
+        savedElsewhere(dir, base, newer);
       }
       return base.tagAuthorship(bytes, context);
     },
@@ -667,42 +691,42 @@ describe('a raise or a tag at unlock that another owner process’s write overta
   });
 });
 
-describe('an id handed to a child that may still save it', () => {
-  it('cannot be claimed until the export ends, and can be then', () => {
+describe('an id lent to a child that may still save it', () => {
+  it('cannot be claimed until the lease ends, and can be then', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();
     const store = storeOf(dir, sealer);
     store.save(record('sess_fork'), { handoff: true, provenance: 'owner' });
+    const lease = store.lend('sess_fork');
     expect(store.exportHeld?.('sess_fork', { handoffOnly: true })).toBeDefined();
     expect(store.load('sess_fork')).toMatchObject({ status: 'valid', authorship: 'verified' });
 
     const refusal = thrownBy(() => claimOf(store, 'sess_fork'));
     expect(isSessionClaimedError(refusal)).toBe(true);
-    expect(refusal).toMatchObject({ sessionId: 'sess_fork', reason: 'exported' });
+    expect(refusal).toMatchObject({ sessionId: 'sess_fork', reason: 'has_writer' });
 
-    store.authorship?.exportEnded('sess_fork');
+    lease.end();
     const claim = claimOf(store, 'sess_fork');
     expect(claim.outcome).toMatchObject({ status: 'valid', authorship: 'verified' });
     claim.release();
   });
 
-  it('stays handed over when its record is deleted, until the export ends', () => {
+  it('cannot be deleted while it is lent, since the child may still save it', () => {
     const dir = newStoreDir();
     const store = storeOf(dir, createTestArtifactSealer());
     store.save(record('sess_fork'), { handoff: true, provenance: 'owner' });
-    expect(store.exportHeld?.('sess_fork', { handoffOnly: true })).toBeDefined();
+    const lease = store.lend('sess_fork');
 
-    store.delete('sess_fork');
-
-    // The child it went to may still save it, so deleting the file starts no second writer here.
+    expect(thrownBy(() => store.delete('sess_fork'))).toMatchObject({ reason: 'has_writer' });
     expect(store.hasWriter('sess_fork')).toBe(true);
-    expect(thrownBy(() => claimOf(store, 'sess_fork'))).toMatchObject({ reason: 'exported' });
-    store.authorship?.exportEnded('sess_fork');
+    lease.end();
+    store.delete('sess_fork');
     expect(store.hasWriter('sess_fork')).toBe(false);
+    expect(store.load('sess_fork')).toEqual({ status: 'missing' });
   });
 });
 
-describe('whether an id has a writer in this process', () => {
+describe('whether an id has a writer', () => {
   it('is so while a session claims it, in a store that seals nothing too, and not once it lets go', () => {
     for (const store of [
       storeOf(newStoreDir(), createTestArtifactSealer()),
@@ -716,16 +740,16 @@ describe('whether an id has a writer in this process', () => {
     }
   });
 
-  it('is so while the record is handed to a child, and not once the export ends', () => {
+  it('is so while the record is lent to a child, and not once the lease ends', () => {
     const dir = newStoreDir();
     const store = storeOf(dir, createTestArtifactSealer());
     store.save(record('sess_fork'), { handoff: true, provenance: 'owner' });
     expect(store.hasWriter('sess_fork')).toBe(false);
 
-    store.exportHeld?.('sess_fork', { handoffOnly: true });
+    const lease = store.lend('sess_fork');
     expect(store.hasWriter('sess_fork')).toBe(true);
 
-    store.authorship?.exportEnded('sess_fork');
+    lease.end();
     expect(store.hasWriter('sess_fork')).toBe(false);
   });
 });

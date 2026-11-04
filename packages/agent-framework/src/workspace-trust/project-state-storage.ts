@@ -1,3 +1,4 @@
+import { lstatSync } from 'node:fs';
 import { join, sep } from 'node:path';
 
 import { assertProjectReadPurpose, workspacePathSegments } from './project-reader-path.js';
@@ -26,6 +27,8 @@ const projectStateStorages = new WeakMap<object, IWorkspaceProjectAuthority>();
 interface IMigrationAccess {
   readonly boundary: IWorkspaceProjectMutationBoundary;
   readonly projectRelativePath: (relativePath: string, allowRoot: boolean) => string;
+  /** The trusted root the storage's paths are relative to. */
+  readonly worktreeRoot: string;
 }
 
 /** What a store's migration does with a minted storage beyond the public facet. */
@@ -128,6 +131,7 @@ export function getWorkspaceProjectStateStorage(
     boundary: mutationBoundary,
     projectRelativePath: (relativePath, allowRoot) =>
       storage.projectRelativePath(relativePath, allowRoot),
+    worktreeRoot: identity.worktreeRoot,
   });
   return storage as IWorkspaceProjectStateStorage;
 }
@@ -204,6 +208,38 @@ export function workspaceProjectStateLinkCount(
 ): number | undefined {
   const access = migrationAccessOf(storage);
   return access.boundary.linkCount(access.projectRelativePath(relativePath, false));
+}
+
+/**
+ * The absolute path of directory `relativeDirectory` of `storage`, for a host mechanism that must
+ * address it by path — the writer markers of a project's session store, which hard links publish. No
+ * segment from the trusted root down to it may be a link or anything but a directory, since one would
+ * put what is kept there outside the project; a segment not made yet ends the check, and the caller
+ * makes it. Internal to the framework.
+ */
+export function workspaceProjectStateDirectoryPath(
+  storage: IWorkspaceProjectStateStorage,
+  relativeDirectory: string,
+): string {
+  const access = migrationAccessOf(storage);
+  const relative = access.projectRelativePath(relativeDirectory, true);
+  let current = access.worktreeRoot;
+  for (const segment of relative.split(sep).filter((part) => part.length > 0)) {
+    current = join(current, segment);
+    let stat;
+    try {
+      stat = lstatSync(current);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') break;
+      throw error;
+    }
+    if (stat.isSymbolicLink() || !stat.isDirectory()) {
+      throw new WorkspaceAuthorityRequiredError(
+        'A project state directory is a link or not a directory, so it may lie outside the project.',
+      );
+    }
+  }
+  return join(access.worktreeRoot, relative);
 }
 
 /** New content for a file of a storage, flushed beside it until {@link commit} puts it in place. */

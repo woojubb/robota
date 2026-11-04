@@ -28,20 +28,10 @@ import { hostname } from 'node:os';
 
 import { sha256Hex } from './digest.js';
 
-/** A process as an observer can later recognize it, on its own machine or one sharing its files. */
-export interface IProcessIdentity {
-  readonly pid: number;
-  /** The process start time as {@link readProcessStartTime} reads it; absent when unreadable. */
-  readonly startTime?: string;
-  /** The machine boot the process runs in; absent where the platform offers none. */
-  readonly bootId?: string;
-  /** The Linux pid namespace the pid belongs to; absent elsewhere. */
-  readonly pidNamespace?: string;
-  /** The host name of the machine the process runs on; absent when it reads empty. */
-  readonly hostname?: string;
-  /** The machine as {@link readMachineId} reads it; absent where unreadable or not offered. */
-  readonly machineId?: string;
-}
+import type { IProcessIdentity } from '../interfaces/process-marker.js';
+
+// The identity is a neutral contract (a marker port names its holder by it); it is read here.
+export type { IProcessIdentity };
 
 export interface IReadMachineIdOptions {
   readonly platform?: string;

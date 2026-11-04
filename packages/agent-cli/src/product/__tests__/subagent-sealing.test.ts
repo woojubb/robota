@@ -251,22 +251,25 @@ describe('a product subagent worker’s fork record', () => {
     const sessions = runtime.layout.userPaths.sessions;
     const parentStore = createUserSessionStore(sessions, { sealing: { sealer } });
     parentStore.save(record('sess_fork'), { handoff: true, provenance: 'owner' });
+    const lease = parentStore.lend('sess_fork');
     const token = parentStore.exportHeld?.('sess_fork') as string;
     const composition = createProductSubagentComposition(runtime);
     composition.bindWriteGrant?.(sealer.writeGrant());
     const child = composition.openSessionStore?.({ cwd: directory('worker-cwd-') });
     child?.importHeld?.('sess_fork', token);
+    const claim = child?.claim('sess_fork', { lease: lease.nonce });
 
-    child?.save(record('sess_fork', 'the child turn'));
+    child?.save(record('sess_fork', 'the child turn'), { claim });
     const held = child?.authorship?.heldDigest('sess_fork');
 
     const digest = createHash('sha256')
       .update(readFileSync(join(sessions, 'sess_fork.json')))
       .digest('hex');
     expect(held).toBe(digest);
-    // Raising a record still handed to a child is refused until its export ends.
-    expect(parentStore.authorship?.adopt('sess_fork', digest)).toBe('exported');
-    parentStore.authorship?.exportEnded('sess_fork');
+    // Raising a record lent to a child is refused until the lease ends.
+    expect(parentStore.authorship?.adopt('sess_fork', digest)).toBe('has_writer');
+    claim?.release();
+    lease.end();
     expect(parentStore.authorship?.adopt('sess_fork', digest)).toBe('adopted');
     const seen = createUserSessionStore(sessions, { sealing: { sealer } }).load('sess_fork');
     expect(seen.status === 'valid' && seen.authorship).toBe('verified');

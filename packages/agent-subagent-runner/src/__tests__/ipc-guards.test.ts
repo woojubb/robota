@@ -204,7 +204,7 @@ describe('the sealing fields of a start payload', () => {
       unknown
     >;
     payload.request.resumeSessionId = 'session_fork';
-    return { ...payload, ...extra };
+    return { ...payload, resumeLease: 'lease-nonce', ...extra };
   };
 
   it('accepts a grant, and a held record beside the id it resumes', () => {
@@ -231,6 +231,20 @@ describe('the sealing fields of a start payload', () => {
     expect(isSubagentWorkerParentMessage({ type: 'start', payload: forkPayload(extra) })).toBe(
       false,
     );
+  });
+
+  it('rejects a fork job with no lease, and a lease beside no session to resume', () => {
+    const { resumeLease: _ignored, ...unleased } = forkPayload({});
+    expect(isSubagentWorkerParentMessage({ type: 'start', payload: unleased })).toBe(false);
+    expect(
+      isSubagentWorkerParentMessage({ type: 'start', payload: forkPayload({ resumeLease: '' }) }),
+    ).toBe(false);
+    expect(
+      isSubagentWorkerParentMessage({
+        type: 'start',
+        payload: { ...validStartPayload(), resumeLease: 'lease-nonce' },
+      }),
+    ).toBe(false);
   });
 
   it('rejects a held record with no session to resume', () => {

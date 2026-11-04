@@ -6,7 +6,11 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { NodeSessionStore } from '../session-store.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { clearRegisteredToolProfiles, FunctionTool, createAssistantMessage } from '@robota-sdk/agent-core';
+import {
+  clearRegisteredToolProfiles,
+  FunctionTool,
+  createAssistantMessage,
+} from '@robota-sdk/agent-core';
 import { createScriptedProvider, type TScriptedTurn } from '@robota-sdk/agent-core/testing';
 import type {
   IToolWaitRequest,
@@ -743,6 +747,7 @@ describe('atomic recovery checkpoints', () => {
       },
       list: () => [],
       claim: () => ({ outcome: { status: 'missing' as const }, release: () => undefined }),
+      lend: () => ({ nonce: 'lease', end: () => undefined }),
       hasWriter: () => false,
       delete: () => undefined,
     };
@@ -1002,13 +1007,13 @@ describe('saved recovery contract and error precedence', () => {
   });
 });
 
-
 it('keeps retained history reads from mutating a pending conversation', async () => {
   const f = await waiting();
   const before = f.source.session.getConversationSnapshot();
   const history = f.source.session.getHistory();
   const assistant = history.findLast((message) => message.role === 'assistant');
-  if (assistant?.role !== 'assistant' || !assistant.toolCalls) throw new Error('Expected open round');
+  if (assistant?.role !== 'assistant' || !assistant.toolCalls)
+    throw new Error('Expected open round');
   assistant.toolCalls[0].function.name = 'mutated';
   expect(f.source.session.getConversationSnapshot()).toEqual(before);
 });
@@ -1019,11 +1024,19 @@ it('uses a configured checkpoint callback instead of also saving to the lower st
     const store = new NodeSessionStore(directory, { sealing: 'plain' });
     const save = vi.spyOn(store, 'save');
     const checkpointHistory = vi.fn();
-    const f = fixture([action, { text: 'done' }], { ...allowed, sessionStore: store, checkpointHistory });
-    await expect(f.session.runRecoverable('input', { executionJournal: journalFixture().journal })).resolves.toMatchObject({ status: 'completed' });
+    const f = fixture([action, { text: 'done' }], {
+      ...allowed,
+      sessionStore: store,
+      checkpointHistory,
+    });
+    await expect(
+      f.session.runRecoverable('input', { executionJournal: journalFixture().journal }),
+    ).resolves.toMatchObject({ status: 'completed' });
     expect(checkpointHistory).toHaveBeenCalled();
     expect(save).not.toHaveBeenCalled();
-  } finally { rmSync(directory, { recursive: true, force: true }); }
+  } finally {
+    rmSync(directory, { recursive: true, force: true });
+  }
 });
 
 describe('reviewed transition ownership and primary errors', () => {
@@ -1032,17 +1045,29 @@ describe('reviewed transition ownership and primary errors', () => {
     f.session.injectMessage('user', 'old conversation');
     let entered!: () => void;
     let release!: () => void;
-    const started = new Promise<void>((resolve) => { entered = resolve; });
-    const held = new Promise<void>((resolve) => { release = resolve; });
+    const started = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     const chat = f.provider.chat.bind(f.provider);
     f.provider.chat = async (messages, options) => {
-      if (options?.toolChoice === 'none') { entered(); await held; return createAssistantMessage('summary'); }
+      if (options?.toolChoice === 'none') {
+        entered();
+        await held;
+        return createAssistantMessage('summary');
+      }
       return chat(messages, options);
     };
     const compacting = f.session.compact();
     await started;
     try {
-      await expect(f.session.runRecoverable('concurrent input', { executionJournal: journalFixture().journal })).rejects.toMatchObject({ name: 'SessionBusyError' });
+      await expect(
+        f.session.runRecoverable('concurrent input', {
+          executionJournal: journalFixture().journal,
+        }),
+      ).rejects.toMatchObject({ name: 'SessionBusyError' });
       expect(f.session.getPendingExecution()).toBeUndefined();
     } finally {
       release();
@@ -1056,16 +1081,31 @@ describe('reviewed transition ownership and primary errors', () => {
     const diagnostic = new Error('diagnostic sink failure');
     let rejectSave = false;
     const f = fixture([action], {
-      checkpointHistory: () => { if (rejectSave) throw new Error('secondary save failure'); },
-      sessionLogger: { log(_id, event, data) {
-        if (event === 'error' && String(data.message).startsWith('Session checkpoint failed')) throw diagnostic;
-      } },
+      checkpointHistory: () => {
+        if (rejectSave) throw new Error('secondary save failure');
+      },
+      sessionLogger: {
+        log(_id, event, data) {
+          if (event === 'error' && String(data.message).startsWith('Session checkpoint failed'))
+            throw diagnostic;
+        },
+      },
     });
     const saved = journalFixture();
     const parked = await f.session.runRecoverable('input', { executionJournal: saved.journal });
     if (parked.status !== 'waiting') throw new Error('Expected wait');
     rejectSave = true;
-    await expect(f.session.resumeRecoverable({ executionId: parked.requests[0].executionId, journal: { ...saved.journal, read: async () => { throw primary; } } })).rejects.toBe(primary);
+    await expect(
+      f.session.resumeRecoverable({
+        executionId: parked.requests[0].executionId,
+        journal: {
+          ...saved.journal,
+          read: async () => {
+            throw primary;
+          },
+        },
+      }),
+    ).rejects.toBe(primary);
     await expect(f.session.run('other')).rejects.toThrow('checkpoint()');
     expect(f.effect).not.toHaveBeenCalled();
     rejectSave = false;
@@ -1073,19 +1113,33 @@ describe('reviewed transition ownership and primary errors', () => {
   });
 });
 
-it.each(['wait data', 'nested metadata'])('preserves own JSON prototype-named keys in %s', async (target) => {
-  const f = await waiting();
-  const snapshot = f.source.session.getConversationSnapshot();
-  if (!snapshot.pendingExecution) throw new Error('Expected pending snapshot');
-  const payload = { ['__proto__']: { own: 'retained' }, constructor: 'ordinary JSON field', nested: { ['__proto__']: { deep: true } } };
-  const scores = { ['__proto__']: 42, constructor: 8 };
-  snapshot.pendingExecution.requests[0].data = payload;
-  snapshot.messages[0].metadata = { scores };
-  const record = { ...snapshot, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
-  const restored = deserializeSessionArtifact(serializeSessionArtifact(record));
-  const actual = target === 'wait data' ? restored.pendingExecution?.requests[0].data : restored.messages[0].metadata?.scores;
-  expect(actual).toEqual(target === 'wait data' ? payload : scores);
-  if (typeof actual !== 'object' || actual === null) throw new Error('Expected decoded map');
-  expect(Object.hasOwn(actual, '__proto__')).toBe(true);
-  expect(Object.getPrototypeOf(actual)).toBe(Object.prototype);
-});
+it.each(['wait data', 'nested metadata'])(
+  'preserves own JSON prototype-named keys in %s',
+  async (target) => {
+    const f = await waiting();
+    const snapshot = f.source.session.getConversationSnapshot();
+    if (!snapshot.pendingExecution) throw new Error('Expected pending snapshot');
+    const payload = {
+      ['__proto__']: { own: 'retained' },
+      constructor: 'ordinary JSON field',
+      nested: { ['__proto__']: { deep: true } },
+    };
+    const scores = { ['__proto__']: 42, constructor: 8 };
+    snapshot.pendingExecution.requests[0].data = payload;
+    snapshot.messages[0].metadata = { scores };
+    const record = {
+      ...snapshot,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    const restored = deserializeSessionArtifact(serializeSessionArtifact(record));
+    const actual =
+      target === 'wait data'
+        ? restored.pendingExecution?.requests[0].data
+        : restored.messages[0].metadata?.scores;
+    expect(actual).toEqual(target === 'wait data' ? payload : scores);
+    if (typeof actual !== 'object' || actual === null) throw new Error('Expected decoded map');
+    expect(Object.hasOwn(actual, '__proto__')).toBe(true);
+    expect(Object.getPrototypeOf(actual)).toBe(Object.prototype);
+  },
+);
