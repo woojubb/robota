@@ -121,10 +121,17 @@ export class LinkSession implements ILinkSessionSink {
     });
     this.#bound = {
       handler,
+      // Each step runs whatever the one before did: a binding or a slot is never kept for a link that is gone.
       release: () => {
-        handler.cleanup();
-        binding.release();
-        releaseSurface();
+        try {
+          handler.cleanup();
+        } finally {
+          try {
+            binding.release();
+          } finally {
+            releaseSurface();
+          }
+        }
       },
       // Only a driver the owner proved acts: an observer's refused input and a spawner's are not the owner at the keyboard.
       countsInput: this.#standing === 'owner' && mode === 'drive',

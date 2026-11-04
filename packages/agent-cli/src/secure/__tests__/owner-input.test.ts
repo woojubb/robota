@@ -78,11 +78,13 @@ describe('owner control requests', () => {
       .map(([command]) => command)
       .sort();
     expect(acting).toEqual(
-      ['attach', 'events-revoke', 'link-pr', 'rename', 'take-daemon-role', 'unlink-pr'].sort(),
+      ['events-revoke', 'link-pr', 'rename', 'take-daemon-role', 'unlink-pr'].sort(),
     );
     expect(isOwnerControlAct('rename')).toBe(true);
     expect(isOwnerControlAct('status')).toBe(false);
     expect(isOwnerControlAct('events-list')).toBe(false);
+    // Binding a session is a viewer arriving, not a person acting, whatever role it asks for.
+    expect(isOwnerControlAct('attach')).toBe(false);
   });
 
   it('count nothing that is not a command', () => {

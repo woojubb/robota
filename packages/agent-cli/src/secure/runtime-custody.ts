@@ -148,7 +148,6 @@ export class RuntimeCustody implements IRuntimeAdmission {
   }
 
   #admit(link: IAdmittedRuntimeLink, context: IRuntimeAdmissionContext): IRuntimeLinkPorts {
-    this.#links.add(link);
     const session = new LinkSession({
       link,
       target: this.#options.attachTarget,
@@ -156,11 +155,14 @@ export class RuntimeCustody implements IRuntimeAdmission {
       nextDriverId: () => `attach:${(this.#drivers += 1)}`,
       onOwnerInput: () => this.#options.holder.touch(),
     });
-    return {
+    const ports = {
       desk: this.#deskOf(link, session, context),
       sessions: this.#sessionsOf(link),
       session,
     };
+    // Counted only once its ports exist: a link counted here is one whose `closed` will be called.
+    this.#links.add(link);
+    return ports;
   }
 
   #deskOf(link: IAdmittedRuntimeLink, session: LinkSession, context: IRuntimeAdmissionContext): IOwnerLinkDesk {
@@ -186,18 +188,19 @@ export class RuntimeCustody implements IRuntimeAdmission {
       },
       control: (request) => {
         // Binding a session is what a spawner is admitted for; every other command is the owner's.
-        if (request.command === 'attach') {
-          if (isOwner) this.#options.holder.touch();
-          return { ...session.bind(request.fields['mode']) };
-        }
+        if (request.command === 'attach') return { ...session.bind(request.fields['mode']) };
         requireOwner();
         if (isOwnerControlAct(request.command)) this.#options.holder.touch();
         return answerOf(context, request);
       },
       closed: () => {
-        session.end();
         this.#links.delete(link);
-        if (this.#links.size === 0) this.#options.holder.lock('last-client-detached');
+        try {
+          session.end();
+        } finally {
+          // The keys go with the last link whatever the host's cleanup of its binding did.
+          if (this.#links.size === 0) this.#options.holder.lock('last-client-detached');
+        }
       },
     };
   }

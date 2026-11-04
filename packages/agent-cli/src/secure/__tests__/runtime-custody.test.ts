@@ -15,6 +15,7 @@ import {
   createRuntimeIdentity,
   openOwnerHandover,
   startSpawnerExchange,
+  unlockWithPassphrase,
   type IKeyring,
   type IOwnerHandover,
   type IRuntimeIdentity,
@@ -41,6 +42,7 @@ import {
   OTHER_PASSPHRASE,
   createMemoryKeyringStore,
   withSwappedSealingKey,
+  type IMemoryKeyringStore,
 } from './helpers.js';
 
 import type { ISessionBinder, ISessionDirectory } from '@robota-sdk/agent-interface-session';
@@ -134,6 +136,9 @@ interface IStarted {
   readonly rename: ReturnType<typeof vi.fn>;
   readonly directory: ReturnType<typeof directoryDouble>;
   readonly released: ReturnType<typeof vi.fn>;
+  /** The keyring file the holder checks grants against, and what it was when the runtime started. */
+  readonly store: IMemoryKeyringStore;
+  readonly file: IKeyring | undefined;
 }
 
 const scratch: string[] = [];
@@ -157,6 +162,8 @@ interface IStartOptions {
   readonly closeFlushTimeoutMs?: number;
   /** Binds each link through a binder over the directory double, as a serving runtime does. */
   readonly withBinder?: boolean;
+  /** The binder's `release` fails, as a host that cannot tell a client it is gone might. */
+  readonly releaseThrows?: boolean;
 }
 
 async function start(options: IStartOptions = {}): Promise<IStarted> {
@@ -174,13 +181,16 @@ async function start(options: IStartOptions = {}): Promise<IStarted> {
     : options.swappedFile
       ? withSwappedSealingKey(keyring, strangerKeyring)
       : keyring;
-  const holder = new KeyHolder({ store: createMemoryKeyringStore(file), timers });
+  const store = createMemoryKeyringStore(file);
+  const holder = new KeyHolder({ store, timers });
   const locks: TLockReason[] = [];
   holder.onLock((reason) => locks.push(reason));
   const runtime = runtimeOf(async () => 'answer');
   const session = new InteractiveSession({ host: testHost, session: runtime as never, cwd: '/tmp' });
   const directory = directoryDouble();
-  const released = vi.fn();
+  const released = vi.fn(() => {
+    if (options.releaseThrows) throw new Error('The host could not release the binding.');
+  });
   const binder: ISessionBinder<IProtocolSession> = {
     bind: () => ({ session, directory: directory as unknown as ISessionDirectory, release: released }),
   };
@@ -206,7 +216,7 @@ async function start(options: IStartOptions = {}): Promise<IStarted> {
   const socketPath = join(root, readdirSync(root).find((name) => name.endsWith('.sock'))!);
   return {
     root, socketPath, custody, holder, spawnerKey, instancePublicKey, session, runtime, timers, locks,
-    rename, directory, released,
+    rename, directory, released, store, file,
   };
 }
 
@@ -305,6 +315,35 @@ describe.skipIf(process.platform === 'win32')('a runtime before anyone certified
     expect(started.rename).not.toHaveBeenCalled();
   });
 
+  it('lets its spawner answer the prompts of what it started', async () => {
+    const started = await start();
+    const spawner = await spawnerLink(started);
+    const heard = hear(spawner);
+    await attach(spawner, 'drive');
+    const registry = (
+      started.session as unknown as {
+        promptRegistry: {
+          requestPermission(name: string, args: never): Promise<boolean>;
+          requestAsk(request: { id: string; title: string }): Promise<unknown>;
+        };
+      }
+    ).promptRegistry;
+
+    const permission = registry.requestPermission('Bash', {} as never);
+    const permissionRequest = await heard.waitFor('permission_request');
+    spawner.session.send({ type: 'permission-response', id: permissionRequest.event.id, result: true });
+    await expect(permission).resolves.toBe(true);
+
+    const ask = registry.requestAsk({ id: 'q1', title: 'Which framework?' });
+    const askRequest = await heard.waitFor('ask_request');
+    spawner.session.send({
+      type: 'ask-response',
+      id: askRequest.event.id,
+      response: { type: 'answer', values: ['React'] },
+    });
+    await expect(ask).resolves.toEqual({ type: 'answer', values: ['React'] });
+  });
+
   it('lets its spawner start a session and nothing of the stored ones', async () => {
     const started = await start({ withBinder: true });
     const spawner = await spawnerLink(started);
@@ -367,17 +406,22 @@ describe.skipIf(process.platform === 'win32')('a certified runtime and its owner
     expect(await first.unlock()).toBe('verified');
 
     expect(started.holder.isUnlocked).toBe(true);
+    expect(started.store.saves).toEqual([]);
     await vi.waitFor(() => expect(told).toEqual([true]));
     expect(second.custody.unlocked).toBe(true);
   });
 
-  it('reports a swapped sealing key in the file and seals to the granted key', async () => {
+  it('reports a swapped sealing key in the file, leaves the file as it is and seals to the granted key', async () => {
     const started = await certified({ swappedFile: true });
     const client = await ownerLink(started);
+    const granted = (await unlockWithPassphrase(keyring, FIXTURE_PASSPHRASE)).sealing.publicKey;
 
     expect(await client.unlock()).toBe('mismatch');
 
     expect(started.holder.isUnlocked).toBe(true);
+    expect(started.store.saves).toEqual([]);
+    expect(started.store.current()).toBe(started.file);
+    expect(Buffer.from(started.holder.sealingPublicKey())).toEqual(Buffer.from(granted));
   });
 
   it('refuses a grant when it has no keyring file to check it against, and holds no keys', async () => {
@@ -450,18 +494,21 @@ describe.skipIf(process.platform === 'win32')('a certified runtime and its owner
 });
 
 describe.skipIf(process.platform === 'win32')('what locks a runtime', () => {
-  it('locks on an owner request with its reason, and keeps the link open', async () => {
-    const started = await certified();
-    const client = await ownerLink(started);
-    await client.unlock();
+  it.each(['explicit', 'screen-lock', 'suspend'] as const)(
+    'locks on an owner request for %s, and keeps the link open',
+    async (reason) => {
+      const started = await certified();
+      const client = await ownerLink(started);
+      await client.unlock();
 
-    await client.lock('screen-lock');
+      await client.lock(reason);
 
-    expect(started.holder.isUnlocked).toBe(false);
-    expect(started.locks).toEqual(['screen-lock']);
-    await vi.waitFor(() => expect(client.custody.unlocked).toBe(false));
-    expect(await client.control({ command: 'status', fields: {} })).toMatchObject({ status: 'running' });
-  });
+      expect(started.holder.isUnlocked).toBe(false);
+      expect(started.locks).toEqual([reason]);
+      await vi.waitFor(() => expect(client.custody.unlocked).toBe(false));
+      expect(await client.control({ command: 'status', fields: {} })).toMatchObject({ status: 'running' });
+    },
+  );
 
   it('locks when the last link closes, and not before', async () => {
     const started = await certified();
@@ -546,6 +593,25 @@ describe.skipIf(process.platform === 'win32')('what locks a runtime', () => {
     expect(started.locks).toEqual([]);
   });
 
+  it('does not count binding, re-binding or a refused bind as the owner at the keyboard', async () => {
+    const started = await certified();
+    const first = await ownerLink(started);
+    await first.unlock();
+    expect(await attach(first, 'drive')).toMatchObject({ status: 'attached' });
+
+    started.timers.advance(IDLE_MS - 60_000);
+    // A viewer that reconnects, binds again or asks for what it cannot have is not a person typing.
+    expect(await attach(first, 'drive')).toEqual({ status: 'refused', reason: 'already-attached' });
+    expect(await attach(first, 'both')).toEqual({ status: 'refused', reason: 'unsupported-attach' });
+    const second = await ownerLink(started);
+    expect(await attach(second, 'observe')).toMatchObject({ status: 'attached' });
+    const third = await ownerLink(started);
+    expect(await attach(third, 'drive')).toMatchObject({ status: 'attached' });
+    started.timers.advance(60_000);
+
+    expect(started.locks).toEqual(['idle']);
+  });
+
   it('does not count the spawner at the keyboard', async () => {
     const started = await start();
     const touch = vi.spyOn(started.holder, 'touch');
@@ -628,6 +694,37 @@ describe.skipIf(process.platform === 'win32')('the session protocol over a link'
     expect(await attach(extra, 'observe')).toEqual({ status: 'refused', reason: 'attach-limit' });
     bound[0]!.close();
     await bound[0]!.closed;
+    await vi.waitFor(async () => expect(await attach(extra, 'observe')).toMatchObject({ status: 'attached' }));
+  });
+
+  it('locks when the last link closes even if the host cannot release its binding', async () => {
+    const started = await certified({ withBinder: true, releaseThrows: true });
+    const client = await ownerLink(started);
+    await client.unlock();
+    await attach(client, 'drive');
+
+    client.close();
+    await client.closed;
+
+    await vi.waitFor(() => expect(started.holder.isUnlocked).toBe(false));
+    expect(started.locks).toEqual(['last-client-detached']);
+    expect(started.released).toHaveBeenCalledTimes(1);
+  });
+
+  it('takes a surface slot back even if the host cannot release its binding', async () => {
+    const started = await certified({ withBinder: true, releaseThrows: true });
+    const bound: IOwnerRuntimeLinkClient[] = [];
+    for (let index = 0; index < MAX_ATTACHED_SURFACES; index += 1) {
+      const client = await ownerLink(started);
+      expect(await attach(client, 'observe')).toMatchObject({ status: 'attached' });
+      bound.push(client);
+    }
+    const extra = await ownerLink(started);
+    expect(await attach(extra, 'observe')).toEqual({ status: 'refused', reason: 'attach-limit' });
+
+    bound[0]!.close();
+    await bound[0]!.closed;
+
     await vi.waitFor(async () => expect(await attach(extra, 'observe')).toMatchObject({ status: 'attached' }));
   });
 

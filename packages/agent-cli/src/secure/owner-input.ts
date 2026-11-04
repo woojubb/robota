@@ -83,7 +83,8 @@ export const OWNER_CONTROL_ACTS: Readonly<Record<TControlCommandName, boolean>> 
   link: false,
   connect: false,
   'events-list': false,
-  attach: true,
+  // A viewer arriving, re-binding or being refused is not a person acting, whatever role it asks for.
+  attach: false,
   rename: true,
   'link-pr': true,
   'unlink-pr': true,
