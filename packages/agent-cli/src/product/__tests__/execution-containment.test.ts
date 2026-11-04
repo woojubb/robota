@@ -13,7 +13,7 @@ import {
   sandboxStartupProblem,
 } from '../execution-containment.js';
 
-import type { IOsSandboxAvailability } from '@robota-sdk/agent-tools';
+import type { IOsSandboxAvailability } from '@robota-sdk/agent-tools/node';
 
 /** Issues #3081, #3082 — the product composes its sandbox from settings, and the doctor reports it. */
 const linux: IOsSandboxAvailability = { backend: 'bubblewrap', executable: 'bwrap', missing: [] };

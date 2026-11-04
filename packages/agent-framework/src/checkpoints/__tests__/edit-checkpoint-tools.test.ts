@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, rmSync, readFileSync, mkdtempSync, realpathSync 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createWriteTool } from '@robota-sdk/agent-tools';
+import { createWriteTool } from '@robota-sdk/agent-tools/node';
 import { describe, expect, it, afterEach, vi } from 'vitest';
 
 import { wrapEditCheckpointTools } from '../edit-checkpoint-tools.js';

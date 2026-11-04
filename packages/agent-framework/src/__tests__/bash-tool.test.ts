@@ -6,7 +6,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createBashTool } from '@robota-sdk/agent-tools';
+import { createBashTool } from '@robota-sdk/agent-tools/node';
 import { describe, expect, it, onTestFinished } from 'vitest';
 
 import type { TToolParameters } from '@robota-sdk/agent-core';

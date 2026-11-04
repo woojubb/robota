@@ -9,7 +9,7 @@ import { findProviderDefinition } from '@robota-sdk/agent-core';
 import { TRANSPORT_ENVIRONMENT } from '@robota-sdk/agent-executor';
 import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import { createGoalStatusTool, sandboxApprovalFor } from '@robota-sdk/agent-framework';
-import { OsSandboxClient } from '@robota-sdk/agent-tools';
+import { OsSandboxClient } from '@robota-sdk/agent-tools/node';
 import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 import { commandEnvironment, isWithheldFromCommands } from './command-environment.js';
@@ -31,7 +31,8 @@ import type { ISubagentWorkerComposition } from '@robota-sdk/agent-subagent-runn
 import type { TSubagentRunnerFactory } from '@robota-sdk/agent-framework';
 import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 import type { ICodingPackOptions } from '@robota-sdk/pack-coding';
-import type { IOsSandboxSettings, ISandboxClient } from '@robota-sdk/agent-tools';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import type { IOsSandboxSettings } from '@robota-sdk/agent-tools/node';
 import type { IProviderDefinition, IToolWithEventService } from '@robota-sdk/agent-core';
 
 type TProductPack = ReturnType<typeof createProductCapabilityPacks>[number];

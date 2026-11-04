@@ -44,9 +44,11 @@ class RecordingBrowserPage implements IBrowserPageAdapter {
     };
   }
 
+  screenshotBytes: Uint8Array = new Uint8Array([1, 2, 3]);
+
   async screenshot(): Promise<Uint8Array> {
     this.calls.push('screenshot');
-    return new Uint8Array([1, 2, 3]);
+    return this.screenshotBytes;
   }
 
   async waitForTimeout(ms: number): Promise<void> {
@@ -95,6 +97,34 @@ describe('PageComputerDriver', () => {
 
     await driver.act({ type: 'wait', ms: 42 });
     expect(page.calls).toContain('wait(42)');
+  });
+
+  // The encoder is platform-neutral (`btoa`, no `Buffer`); Node's own encoding is the reference.
+  it.each([
+    ['every byte value', Uint8Array.from({ length: 256 }, (_unused, index) => index)],
+    ['no bytes', new Uint8Array(0)],
+    ['one byte', new Uint8Array([255])],
+    ['two bytes', new Uint8Array([0, 128])],
+    [
+      'several encoder chunks, with a remainder',
+      Uint8Array.from({ length: 0x8000 * 3 + 2 }, (_unused, index) => index % 256),
+    ],
+  ])('encodes %s to the base64 Node gives', async (_label, bytes) => {
+    const page = new RecordingBrowserPage();
+    page.screenshotBytes = bytes;
+    const driver = new PageComputerDriver({ page });
+
+    const perceived = await driver.screenshot();
+
+    expect(perceived?.data).toBe(Buffer.from(bytes).toString('base64'));
+  });
+
+  it('passes an already-encoded screenshot through unchanged', async () => {
+    const page = new RecordingBrowserPage();
+    page.screenshot = async () => 'AQID' as unknown as Uint8Array;
+    const driver = new PageComputerDriver({ page });
+
+    expect((await driver.screenshot())?.data).toBe('AQID');
   });
 
   it('rejects a drag with fewer than 2 path points (public-API guard)', async () => {
