@@ -34,3 +34,6 @@ export {
 export { createTestAgentJobHost } from './agent-job-host-double.js';
 
 export { createInteractiveRuntimeForTesting } from './interactive-runtime.js';
+
+// The Node host with the real default tools, for the `host` every session, runtime and query takes.
+export { createTestFrameworkHost } from './framework-host.js';
