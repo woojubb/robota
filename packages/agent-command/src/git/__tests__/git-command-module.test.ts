@@ -5,7 +5,11 @@ import { join } from 'node:path';
 
 import { afterAll, afterEach, describe, expect, it } from 'vitest';
 
-import { scriptedSession, type ScriptedSessionHarness } from '@robota-sdk/agent-framework/testing';
+import {
+  createTestCommandHost,
+  scriptedSession,
+  type ScriptedSessionHarness,
+} from '@robota-sdk/agent-framework/testing';
 
 import { createDefaultCommandModules } from '../../default/default-command-modules.js';
 import { createHelpCommandModule } from '../../help/help-command-module.js';
@@ -43,7 +47,12 @@ const providerSettingsAdapter: IProviderCommandSettingsAdapter = {
 const USER_LOCAL_STORAGE_ROOT = mkdtempSync(join(tmpdir(), 'agent-test-test-'));
 afterAll(() => rmSync(USER_LOCAL_STORAGE_ROOT, { recursive: true, force: true }));
 
-const BASE_OPTIONS = { cwd: '/tmp', userLocalStorageRoot: USER_LOCAL_STORAGE_ROOT, providerDefinitions, providerSettingsAdapter } as const;
+const BASE_OPTIONS = {
+  cwd: '/tmp',
+  userLocalStorageRoot: USER_LOCAL_STORAGE_ROOT,
+  providerDefinitions,
+  providerSettingsAdapter,
+} as const;
 
 const STATUS_FIXTURE = '# branch.head main\0? scratch.log\0';
 
@@ -92,6 +101,24 @@ describe('executeGitCommand verb parse', () => {
     expect(unknown.message).toContain('push');
     expect((await executeGitCommand(context, '', port)).message).toContain('Usage: /git');
     expect(port.calls).toHaveLength(1);
+  });
+});
+
+describe('/git on a host that supplies no git process', () => {
+  it('is listed in the default set and says it is unavailable for every verb, running nothing', async () => {
+    const command = createDefaultCommandModules(BASE_OPTIONS)
+      .modules.flatMap((module) => module.systemCommands ?? [])
+      .find((candidate) => candidate.name === 'git');
+    expect(command).toBeDefined();
+
+    for (const args of ['status', 'diff --staged', 'commit feat: x', 'push', '']) {
+      const result = await command!.execute(createTestCommandHost(), args);
+      expect(result, args).toMatchObject({
+        success: false,
+        message: expect.stringMatching(/unavailable on this host/),
+      });
+    }
+    expect(createGitCommandModule().systemCommands?.[0]?.name).toBe('git');
   });
 });
 

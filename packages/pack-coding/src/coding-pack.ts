@@ -1,6 +1,7 @@
 import { createGitCommandModule } from '@robota-sdk/agent-command';
 import { createEditorCommandModule, createShellCommandModule } from '@robota-sdk/agent-command/node';
 import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
+import { createGitProcess } from '@robota-sdk/agent-framework/node';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
@@ -102,7 +103,7 @@ export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
     commandModules: [
       createShellCommandModule(options.shellExecutable),
       createEditorCommandModule(options.editorTemporaryDirectoryPrefix),
-      createGitCommandModule(),
+      createGitCommandModule({ port: createGitProcess() }),
     ],
     subagents: BUILT_IN_AGENTS,
   };

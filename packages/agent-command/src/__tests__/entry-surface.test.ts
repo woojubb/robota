@@ -33,6 +33,14 @@ describe('command entry surfaces', () => {
     expect(Object.keys(MainEntry)).not.toContain(name);
   });
 
+  it.each(['createGitProcess', 'gitEnvironment'])(
+    '%s, which starts a process, is on neither entry: the host passes the process in',
+    (name) => {
+      expect(Object.keys(MainEntry)).not.toContain(name);
+      expect(Object.keys(NodeEntry)).not.toContain(name);
+    },
+  );
+
   it('keeps the default assembly and the commands that take a host capability on the main entry', () => {
     for (const name of [
       'createDefaultCommandModules',

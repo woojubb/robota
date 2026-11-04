@@ -3,7 +3,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * FLOW-2006: the node wiring for `the product open <url>` — the only place this feature touches the host.
  *
  * It composes the deps from what the repository already owns: the node workspace-trust store and
- * identity resolver (`agent-framework`) and the argv-only git port (`agent-command`, BEHAVIOR-2437).
+ * identity resolver (`agent-framework`) and the argv-only git port (`agent-framework/node`, BEHAVIOR-2437).
  * No new runner, no second parser over `workspace-trust.json`.
  */
 import {

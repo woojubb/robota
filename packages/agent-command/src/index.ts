@@ -19,11 +19,7 @@ export {
   executeGitCommand,
   GitCommandSource,
   type IGitCommandModuleOptions,
-  type IGitProcessPort,
-  type IGitProcessRunOptions,
   type TGitCommandContext,
-  type TGitProcessFailureReason,
-  type TGitProcessOutcome,
 } from './git/index.js';
 // OBSERVABILITY-1991: named rather than `export *` — the star form is frozen debt in this barrel.
 export {

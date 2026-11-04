@@ -12,7 +12,7 @@ presets and styles, and the registries that resolve them.
 npm install @robota-sdk/agent-preset @robota-sdk/agent-framework
 ```
 
-Requires Node.js 22.12 or later for the `@robota-sdk/agent-preset/node` directory loader.
+Requires Node.js 22.12 or later.
 
 ## Presets
 

@@ -49,6 +49,7 @@ import type { IProviderDefinition, TProviderCredentialResolver } from '@robota-s
 import type {
   IOrgPolicy,
   IContributionSource,
+  IGitProcessPort,
   ISkillRootDescriptor,
   ICommandModule,
   IProviderCommandSettingsAdapter,
@@ -107,6 +108,11 @@ export interface IDefaultCommandModulesOptions {
    * no keys for them to open or drop.
    */
   keyCustodyPort?: IKeyCustodyCommandPort;
+  /**
+   * The process `/git` runs git through; a Node host passes `createGitProcess()` from
+   * `@robota-sdk/agent-framework/node`. Absent, `/git` is registered and says it is unavailable on this host.
+   */
+  gitProcess?: IGitProcessPort;
   /** OBSERVABILITY-1991: host-composed doctor inputs; absence means `/doctor` is not registered. */
   doctorInputs?: IDoctorInputs;
   /**
@@ -176,6 +182,7 @@ export function createDefaultCommandModules({
   doctorInputs,
   doctorDeps,
   doctorDisplay,
+  gitProcess,
   formatForkResumeCommand,
   loopOptions,
   enabledCommandModules,
@@ -202,7 +209,7 @@ export function createDefaultCommandModules({
     createForkCommandModule(formatForkResumeCommand),
     createGoalCommandModule(),
     createPlanCommandModule(),
-    createGitCommandModule(),
+    createGitCommandModule({ port: gitProcess }),
     createKeybindingsCommandModule(keybindingsFilePort, keybindingsEditor),
     createThemeCommandModule(themeCataloguePort),
     ...(doctorInputs === undefined

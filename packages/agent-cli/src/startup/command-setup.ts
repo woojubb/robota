@@ -25,6 +25,7 @@ import {
 } from '../update-check/update-check.js';
 import type { ICliUpdateNotice } from '../update-check/update-check.js';
 import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
+import { createGitProcess } from '@robota-sdk/agent-framework/node';
 import type { IRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import { createDefaultCommandModules } from '@robota-sdk/agent-command';
 import { createNodeDoctorDeps, openFileInEditor } from '@robota-sdk/agent-command/node';
@@ -308,6 +309,7 @@ export function buildCommandSetup(
     skillRoots: workspaceComposition.skillRoots,
     ...(keybindingsFilePort === undefined ? {} : { keybindingsFilePort }),
     keybindingsEditor: openFileInEditor,
+    gitProcess: createGitProcess(),
     ...(themeCataloguePort === undefined ? {} : { themeCataloguePort }),
     // `/devices`: identity state under the configured user root/devices, keys in the host credential store, and the
     // recovery phrase only on this process's own terminal.

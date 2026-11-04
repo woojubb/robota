@@ -94,11 +94,15 @@ command, or runs a command on the user's terminal is on `/node`, and a Node host
 | `openFileInEditor`                                                      | Opens a file in `$VISUAL`, `$EDITOR` or `vi`; pass as `keybindingsEditor` so `/keybindings` can open it |
 | `createTerminalClientCommands`                                          | The commands an attached terminal runs in its own process                                               |
 
+`/git` runs through the process a host passes as `gitProcess`, `createGitProcess()` from
+`@robota-sdk/agent-framework/node`.
+
 What a command does when the host supplies none of it:
 
 | Absent                | Behaviour                                                                                         |
 | --------------------- | ------------------------------------------------------------------------------------------------- |
 | `doctorDeps`          | `/doctor` is listed and answers that it is unavailable on this host; nothing is probed or written |
+| `gitProcess`          | `/git` is listed and answers that it is unavailable on this host; no process starts               |
 | `keybindingsEditor`   | `/keybindings` answers that the editor is unavailable here, and creates no file                   |
 | `providerEnvironment` | `/provider` and `/model` read a `$ENV:` credential reference as unset                             |
 

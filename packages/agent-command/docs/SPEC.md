@@ -31,11 +31,12 @@ selects product directories or reconstructs project reads from `cwd`.
 
 **Host commands (`./node`).** A command whose whole purpose is the host — `/shell` and `/editor` hand the
 user's terminal to a child process — lives on `@robota-sdk/agent-command/node`, and so do the adapters
-a command takes by injection. The main entry names no Node module, and the default assembly builds no
-host command: a Node product adds them beside it, so a host that is not Node never lists a command it
-cannot run. A command that needs a host capability for part of its work takes that capability as a
-port; without it the command is still listed and says it is unavailable there, rather than failing or
-claiming work it did not do.
+a command takes by injection. The main entry names no Node module and holds no host default: the
+default assembly omits the commands whose whole purpose is the host, which a Node product adds beside
+it, so a host that is not Node never lists a command it cannot run. A command that needs a host
+capability for part of its work (`/doctor` its probes, `/keybindings` its editor, `/git` its process)
+takes that capability as a port; without it the command is still listed and says it is unavailable
+there, rather than failing or claiming work it did not do.
 
 **User-local commands.** The direct command and the assembled slash command share the host-supplied
 storage root for inspection and memory operations; neither chooses a home directory itself when the
@@ -79,8 +80,8 @@ the daemon, and does so even without the port, so a missing port cannot send it 
 port the command still exists and answers that key bindings belong to the configured CLI terminal, so a host
 without a terminal never replies "Unknown command".
 
-**`/git` (host-only, blocking).** Every verb runs through an injected process port whose production
-implementation is argv-only (`execFile`, `shell: false`, so no token is ever parsed as shell syntax),
+**`/git` (host-only, blocking).** Every verb runs through an injected process port, absent on a host
+that has none (then `/git` says it is unavailable), whose production implementation is argv-only (`execFile`, `shell: false`, so no token is ever parsed as shell syntax),
 closes stdin immediately, caps output, bounds the child by a timeout, and never throws — every way a
 run can end is a typed outcome (`exited` with the exit code as data, or `failed` with a closed set of
 reasons). The child environment strips only the variables git exports into hooks that redirect it to

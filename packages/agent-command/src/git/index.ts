@@ -1,13 +1,3 @@
-// The git process port and the status/diff readers moved to `@robota-sdk/agent-framework` (#3282
-// §4c) so the Project panel's session-level reads and this command run through the exact same
-// functions; re-exported here so an existing `from '@robota-sdk/agent-command'` import keeps working.
-// The Node process that runs git, `createGitProcess`, is `@robota-sdk/agent-framework/node`'s.
-export {
-  type IGitProcessPort,
-  type IGitProcessRunOptions,
-  type TGitProcessFailureReason,
-  type TGitProcessOutcome,
-} from '@robota-sdk/agent-framework';
 export {
   createGitCommandEntry,
   createGitCommandModule,

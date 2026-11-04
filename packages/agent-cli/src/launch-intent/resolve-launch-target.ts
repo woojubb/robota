@@ -10,8 +10,7 @@
  */
 import { echoValue } from './launch-intent.js';
 
-import type { IGitProcessPort } from '@robota-sdk/agent-command';
-import type { IWorkspaceTrustGrant } from '@robota-sdk/agent-framework';
+import type { IGitProcessPort, IWorkspaceTrustGrant } from '@robota-sdk/agent-framework';
 
 import type { ILaunchIntent } from './launch-intent.js';
 
