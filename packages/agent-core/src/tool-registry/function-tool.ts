@@ -90,12 +90,7 @@ export class FunctionTool implements IFunctionTool {
 
     // Validate parameters before execution
     if (!this.validate(parameters)) {
-      const errors = getValidationErrors(
-        parameters,
-        this.schema.parameters.required || [],
-        this.schema.parameters.properties || {},
-        this.schema.parameters.additionalProperties,
-      );
+      const errors = getValidationErrors(parameters, this.schema.parameters);
       throw new ValidationError(`Invalid parameters for tool "${toolName}": ${errors.join(', ')}`);
     }
 
@@ -168,26 +163,14 @@ export class FunctionTool implements IFunctionTool {
    * Validate parameters (simple boolean result)
    */
   validate(parameters: TToolParameters): boolean {
-    return (
-      getValidationErrors(
-        parameters,
-        this.schema.parameters.required || [],
-        this.schema.parameters.properties || {},
-        this.schema.parameters.additionalProperties,
-      ).length === 0
-    );
+    return getValidationErrors(parameters, this.schema.parameters).length === 0;
   }
 
   /**
    * Validate tool parameters with detailed result
    */
   validateParameters(parameters: TToolParameters): IParameterValidationResult {
-    return validateToolParameters(
-      parameters,
-      this.schema.parameters.required || [],
-      this.schema.parameters.properties || {},
-      this.schema.parameters.additionalProperties,
-    );
+    return validateToolParameters(parameters, this.schema.parameters);
   }
 
   /**

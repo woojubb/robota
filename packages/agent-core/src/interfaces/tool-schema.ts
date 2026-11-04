@@ -57,6 +57,13 @@ export interface IParameterSchema {
   additionalProperties?: boolean | IParameterSchema;
   minimum?: number;
   maximum?: number;
+  /** Characters, as JSON Schema counts them: code points, not UTF-16 units. */
+  minLength?: number;
+  maxLength?: number;
+  minItems?: number;
+  maxItems?: number;
+  minProperties?: number;
+  maxProperties?: number;
   pattern?: string;
   format?: string;
   default?: TParameterDefaultValue;

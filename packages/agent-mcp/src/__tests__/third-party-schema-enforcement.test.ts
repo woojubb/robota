@@ -19,6 +19,7 @@
  * completely, and report the unenforceable paths rather than passing over them in silence.
  */
 
+import { FunctionTool, ToolRegistry, validateAgainstJsonSchema } from '@robota-sdk/agent-core';
 import { describe, expect, it, vi } from 'vitest';
 
 import { buildCatalog } from '../catalog/build.js';
@@ -233,7 +234,9 @@ describe('narrowing projects every node onto the subset keywords', () => {
     const properties = (schema['properties'] ?? {}) as Record<string, unknown>;
     return [
       ...own,
-      ...Object.entries(properties).flatMap(([key, child]) => keysOutsideSubset(child, `${path}.${key}`)),
+      ...Object.entries(properties).flatMap(([key, child]) =>
+        keysOutsideSubset(child, `${path}.${key}`),
+      ),
       ...keysOutsideSubset(schema['items'], `${path}[]`),
       ...((schema['anyOf'] as unknown[] | undefined) ?? []).flatMap((child, index) =>
         keysOutsideSubset(child, `${path}.anyOf[${index}]`),
@@ -245,13 +248,32 @@ describe('narrowing projects every node onto the subset keywords', () => {
   }
 
   it('drops a constraint the subset cannot check and reports it, so the copy stays inside the contract', () => {
-    // The shape a real search server (Exa) declares: string length constraints the subset lacks.
     const declared = {
       type: 'object',
       properties: {
-        query: { type: 'string', minLength: 1, description: 'search query' },
+        count: { type: 'integer', multipleOf: 2, description: 'an even count' },
+        tags: { type: 'array', items: { type: 'string', const: 'a' }, uniqueItems: true },
+      },
+      required: ['count'],
+      additionalProperties: false,
+    } as unknown as IParameterSchema;
+
+    const { schema, unenforceable } = narrowToUniversalSubset(declared);
+
+    expect(keysOutsideSubset(schema)).toEqual([]);
+    expect(unenforceable).toEqual(['.count.multipleOf', '.tags.uniqueItems', '.tags[].const']);
+    expect(schema.required).toEqual(['count']);
+    expect(schema.properties?.['count']).toEqual({ type: 'integer', description: 'an even count' });
+  });
+
+  it('keeps a size bound and enforces it, so the shape Exa declares has nothing to report', () => {
+    const declared = {
+      type: 'object',
+      properties: {
+        query: { type: 'string', minLength: 1 },
         objective: { type: 'string', minLength: 1, maxLength: 4096 },
-        tags: { type: 'array', items: { type: 'string', minLength: 2 }, minItems: 1 },
+        tags: { type: 'array', items: { type: 'string', minLength: 2 }, minItems: 1, maxItems: 2 },
+        labels: { type: 'object', minProperties: 1, maxProperties: 2 },
       },
       required: ['query', 'objective'],
       additionalProperties: false,
@@ -259,16 +281,91 @@ describe('narrowing projects every node onto the subset keywords', () => {
 
     const { schema, unenforceable } = narrowToUniversalSubset(declared);
 
-    expect(keysOutsideSubset(schema)).toEqual([]);
-    expect(unenforceable).toEqual([
-      '.query.minLength',
-      '.objective.minLength',
-      '.objective.maxLength',
-      '.tags.minItems',
-      '.tags[].minLength',
+    expect(unenforceable).toEqual([]);
+    expect(schema).toEqual(declared);
+    expect(validateAgainstJsonSchema(schema, { query: '', objective: 'a' }, '')).toEqual([
+      '.query: size 0 is below minLength 1',
     ]);
-    expect(schema.required).toEqual(['query', 'objective']);
-    expect(schema.properties?.['query']).toEqual({ type: 'string', description: 'search query' });
+    expect(
+      validateAgainstJsonSchema(schema, { query: 'a', objective: 'a'.repeat(4097) }, ''),
+    ).toEqual(['.objective: size 4097 is above maxLength 4096']);
+    expect(validateAgainstJsonSchema(schema, { query: 'a', objective: 'a', tags: [] }, '')).toEqual(
+      ['.tags: size 0 is below minItems 1'],
+    );
+    expect(
+      validateAgainstJsonSchema(schema, { query: 'a', objective: 'a', labels: {} }, ''),
+    ).toEqual(['.labels: size 0 is below minProperties 1']);
+  });
+
+  it('keeps a size bound inside a union branch, the nullable shape Pydantic emits', () => {
+    const declared = {
+      type: 'object',
+      properties: {
+        client_model: {
+          anyOf: [{ maxLength: 100, type: 'string' }, { type: 'null' }],
+          default: null,
+        },
+      },
+    } as unknown as IParameterSchema;
+
+    const { schema, unenforceable } = narrowToUniversalSubset(declared);
+
+    expect(unenforceable).toEqual([]);
+    expect(validateAgainstJsonSchema(schema, { client_model: null }, '')).toEqual([]);
+    expect(
+      validateAgainstJsonSchema(schema, { client_model: 'a'.repeat(101) }, '').join(' '),
+    ).toContain('size 101 is above maxLength 100');
+  });
+
+  it.each([
+    ['negative', -1],
+    ['fractional', 1.5],
+    ['textual', '1'],
+    ['null', null],
+  ])(
+    'drops and reports a %s size bound, which could be neither checked nor persisted',
+    (_label, bound) => {
+      const declared = {
+        type: 'object',
+        properties: { query: { type: 'string', minLength: bound, maxLength: 9 } },
+      } as unknown as IParameterSchema;
+
+      const { schema, unenforceable } = narrowToUniversalSubset(declared);
+
+      expect(unenforceable).toEqual(['.query.minLength']);
+      expect(schema.properties?.['query']).toEqual({ type: 'string', maxLength: 9 });
+    },
+  );
+
+  it('replaces an inexpressible union branch, so the tool still registers and accepts the value', () => {
+    // The shape Parallel `web_decisions.advanced_settings` declares. Stripping `$ref` used to leave
+    // `{}` in the union, which registration refuses: with that server connected, every turn failed.
+    const declared = {
+      type: 'object',
+      properties: {
+        advanced_settings: {
+          anyOf: [{ $ref: '#/$defs/AdvancedDecisionSettings' }, { type: 'null' }],
+          default: null,
+        },
+      },
+      $defs: { AdvancedDecisionSettings: { type: 'object' } },
+    } as unknown as IObjectParameterSchema;
+
+    const { schema, unenforceable } = narrowToUniversalSubset(declared);
+
+    expect(unenforceable).toEqual(['.advanced_settings.anyOf[0]']);
+    expect(
+      validateAgainstJsonSchema(schema, { advanced_settings: { location: 'us' } }, ''),
+    ).toEqual([]);
+    expect(validateAgainstJsonSchema(schema, { advanced_settings: null }, '')).toEqual([]);
+    expect(() =>
+      new ToolRegistry().register(
+        new FunctionTool(
+          { name: 'decide', description: 'decide', parameters: schema as IObjectParameterSchema },
+          async () => 'ran',
+        ),
+      ),
+    ).not.toThrow();
   });
 
   it('drops annotations without reporting them, since they constrain nothing', () => {
@@ -276,7 +373,9 @@ describe('narrowing projects every node onto the subset keywords', () => {
       type: 'object',
       title: 'Search',
       $comment: 'generated',
-      properties: { q: { type: 'string', title: 'Query', examples: ['robota'], deprecated: false } },
+      properties: {
+        q: { type: 'string', title: 'Query', examples: ['robota'], deprecated: false },
+      },
     } as unknown as IParameterSchema;
 
     const { schema, unenforceable } = narrowToUniversalSubset(declared);

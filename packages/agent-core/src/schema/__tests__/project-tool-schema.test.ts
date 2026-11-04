@@ -402,8 +402,8 @@ describe('MCP-005 TC-04 — closure family and the Schema note', () => {
     const noteOccurrences = projection.tool.description.split('Schema note:').length - 1;
     expect(noteOccurrences).toBe(1);
     expect(projection.tool.description).toContain(`not shown to ${STRICT.providerName}`);
-    // minLength is a validation keyword, so it is named in the note.
-    expect(projection.tool.description).toMatch(/keyword-stripped@\/properties\/shortText/);
+    // multipleOf is a validation keyword, so it is named in the note.
+    expect(projection.tool.description).toMatch(/keyword-stripped@\/properties\/evenCount/);
   });
 
   it('a projection that stripped only annotations has a description byte-identical to the input', () => {
@@ -458,7 +458,7 @@ describe('MCP-005 TC-12 — seeded fuzz generator', () => {
     const kind = pick(rng, ['string', 'number', 'integer', 'boolean'] as const);
     const schema: Record<string, unknown> = { type: kind };
     if (rng() < 0.3) schema.title = 'generated title';
-    if (rng() < 0.2) schema.minLength = 1;
+    if (rng() < 0.2) schema.multipleOf = 1;
     const example = kind === 'string' ? 'x' : kind === 'boolean' ? true : 1;
     return { schema, example, hasStructuralOnlyNode: false };
   }

@@ -92,6 +92,25 @@ function convertParameterSchema(schema: IParameterSchema): Schema {
   if (typeof schema.maximum === 'number') {
     convertedSchema.maximum = schema.maximum;
   }
+  // Gemini types its counts as strings: int64 in proto3 JSON.
+  if (typeof schema.minLength === 'number') {
+    convertedSchema.minLength = String(schema.minLength);
+  }
+  if (typeof schema.maxLength === 'number') {
+    convertedSchema.maxLength = String(schema.maxLength);
+  }
+  if (typeof schema.minItems === 'number') {
+    convertedSchema.minItems = String(schema.minItems);
+  }
+  if (typeof schema.maxItems === 'number') {
+    convertedSchema.maxItems = String(schema.maxItems);
+  }
+  if (typeof schema.minProperties === 'number') {
+    convertedSchema.minProperties = String(schema.minProperties);
+  }
+  if (typeof schema.maxProperties === 'number') {
+    convertedSchema.maxProperties = String(schema.maxProperties);
+  }
   if (schema.pattern) {
     convertedSchema.pattern = schema.pattern;
   }

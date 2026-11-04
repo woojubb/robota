@@ -80,3 +80,42 @@ describe('convertToolsToGeminiFormat — nested subset members survive (CORE-039
     expect(declaration?.parameters?.properties?.['choice']?.type).toBeUndefined();
   });
 });
+
+/**
+ * Gemini's `Schema` carries the subset's size bounds, typed as strings (int64 in proto3 JSON). A
+ * member the fixed-list mapper does not copy is dropped without a trace, so each one is asserted.
+ */
+describe('convertToolsToGeminiFormat — size bounds', () => {
+  it('carries every size bound as a string, including a bound of zero', () => {
+    const [declaration] = convertToolsToGeminiFormat([
+      {
+        name: 'bounded',
+        description: 'bounded',
+        parameters: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', minLength: 0, maxLength: 4096 },
+            tags: {
+              type: 'array',
+              items: { type: 'string', maxLength: 8 },
+              minItems: 1,
+              maxItems: 5,
+            },
+            labels: { type: 'object', minProperties: 1, maxProperties: 9 },
+            note: { anyOf: [{ type: 'string', maxLength: 100 }, { type: 'null' }] },
+          },
+        },
+      },
+    ]);
+    const properties = declaration.parameters?.properties ?? {};
+
+    expect(properties['query']).toMatchObject({ minLength: '0', maxLength: '4096' });
+    expect(properties['tags']).toMatchObject({
+      minItems: '1',
+      maxItems: '5',
+      items: { maxLength: '8' },
+    });
+    expect(properties['labels']).toMatchObject({ minProperties: '1', maxProperties: '9' });
+    expect(properties['note']?.anyOf?.[0]).toMatchObject({ maxLength: '100' });
+  });
+});
