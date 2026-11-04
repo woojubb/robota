@@ -9,10 +9,10 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { readCurrentProcessIdentity } from '../utils/process-identity.js';
+import { serializeProcessOwnerRecord } from '../utils/process-owner-record.js';
 import {
   PROCESS_OWNER_RECORD_NAME,
   processScopedDirectoryPrefix,
-  serializeProcessOwnerRecord,
 } from '../utils/process-scoped-directory.js';
 
 import type { IProcessIdentity } from '../utils/process-identity.js';

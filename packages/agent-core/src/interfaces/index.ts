@@ -302,5 +302,18 @@ export type {
   TArtifactSealing,
 } from './artifact-sealer';
 export { ARTIFACT_KEY_REUSE } from './artifact-sealer';
+export type {
+  IProcessIdentity,
+  IProcessMarkerAcquireOptions,
+  IProcessMarkerHandle,
+  IProcessMarkerHolder,
+  IProcessMarkerRemoveOptions,
+  IProcessMarkers,
+  TProcessMarkerAcquireResult,
+  TProcessMarkerRemoveResult,
+  TProcessMarkerState,
+  TProcessMarkerTakeOverResult,
+  TProcessOwnerLiveness,
+} from './process-marker';
 // Issue #2056: the structured-output shape a session forwards into the agent config.
 export type { IResponseFormatConfig } from './response-format';

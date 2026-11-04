@@ -8,45 +8,29 @@
  * loss) leaves its directory behind, and {@link sweepStaleProcessScopedDirectories} removes it on a
  * later start.
  *
- * ## Why the owner record decides, not age and not the pid alone
- *
- * Age cannot tell a stale directory from a live one: an idle session can go hours without touching
- * its directory, and removing it from under that session breaks the session. The pid alone is not
- * enough either: a recycled pid keeps a dead owner's directory alive, a CLI that always runs as pid 1
- * sees its own pid in every leftover, and two containers sharing a state root each read the other's
- * live pid as dead. The owner record carries the machine (host name and, where readable, machine id),
- * the pid with its start time, the boot and — on Linux — the pid namespace, and a directory is removed
- * only when its owner provably cannot be alive:
- *
- * - it was made on this machine in an earlier boot; or
- * - it was made on this machine in this boot and pid namespace, and its pid is gone or now belongs to
- *   a process with a different start time.
- *
- * Anything else is kept: a directory from another machine or one whose record does not name its
- * machine (a state root shared over a network filesystem or with a container on another kernel holds
- * live directories whose boot differs and whose pid means nothing here, and every Linux machine
- * reports the same initial pid namespace); one from another pid namespace (its owner may be live in
- * another container); one whose owner record is missing or unreadable; and one whose live pid's start
- * time cannot be read. The machine matches only when the host names do and the machine ids do, a
- * machine id only one side could read counting as a mismatch. Where the platform offers no boot,
- * start time or machine id (Windows), the pid alone decides on the host the record names.
+ * A directory is removed only when its owner record says its owner is `gone`, by the rule
+ * `process-owner-record.ts` states, which exclusive markers judge their owners by too.
  */
 
-import { lstatSync, mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { lstatSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { ensureOwnerOnlyDirectory, writeOwnerOnlyFile } from './owner-only-store.js';
-import { readCurrentProcessIdentity, readProcessStartTime } from './process-identity.js';
+import {
+  classifyProcessOwner,
+  readProcessOwnerRecordFile,
+  serializeProcessOwnerRecord,
+} from './process-owner-record.js';
+import { readCurrentProcessIdentity } from './process-identity.js';
 
 import type { IOwnerOnlyDurability } from './owner-only-store.js';
-import type { IProcessIdentity } from './process-identity.js';
+import type { IProcessOwnerProbes } from './process-owner-record.js';
+import type { IProcessIdentity, TProcessOwnerLiveness } from '../interfaces/process-marker.js';
 
 /** `mkdtemp` appends exactly six characters from this alphabet. */
 const RANDOM_SUFFIX = '[A-Za-z0-9]{6}';
 /** The owner record every process-scoped directory carries; an owner removing its directory removes it too. */
 export const PROCESS_OWNER_RECORD_NAME = '.owner.json';
-const MAX_OWNER_RECORD_BYTES = 4096;
-const MAX_OWNER_FIELD_LENGTH = 256;
 
 /** What a directory named `prefix` + pid is called before `mkdtemp` adds its random suffix. */
 export function processScopedDirectoryPrefix(prefix: string, pid: number = process.pid): string {
@@ -62,49 +46,9 @@ function ownerPid(name: string, prefix: string): number | undefined {
   return Number.isSafeInteger(pid) && pid > 0 ? pid : undefined;
 }
 
-/** The owner record's optional fields, each a non-empty string when present. */
-const OWNER_FIELDS = ['startTime', 'bootId', 'pidNamespace', 'hostname', 'machineId'] as const;
-
-/** The serialized owner record; also what test fixtures write for an owner other than this process. */
-export function serializeProcessOwnerRecord(owner: IProcessIdentity): string {
-  const record: Record<string, string | number> = { pid: owner.pid };
-  for (const key of OWNER_FIELDS) {
-    const value = owner[key];
-    if (value !== undefined) record[key] = value;
-  }
-  return JSON.stringify(record);
-}
-
-function optionalField(record: Record<string, unknown>, key: string): string | undefined | null {
-  const value = record[key];
-  if (value === undefined) return undefined;
-  return typeof value === 'string' && value.length > 0 && value.length <= MAX_OWNER_FIELD_LENGTH
-    ? value
-    : null;
-}
-
 /** The owner record in `directory`, or undefined when it is missing, a link, oversized or malformed. */
 function readOwnerRecord(directory: string): IProcessIdentity | undefined {
-  try {
-    const path = join(directory, PROCESS_OWNER_RECORD_NAME);
-    const stat = lstatSync(path);
-    if (!stat.isFile() || stat.size > MAX_OWNER_RECORD_BYTES) return undefined;
-    const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown;
-    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return undefined;
-    const record = parsed as Record<string, unknown>;
-    const pid = record['pid'];
-    if (typeof pid !== 'number' || !Number.isSafeInteger(pid) || pid <= 0) return undefined;
-    const owner: { -readonly [K in keyof IProcessIdentity]: IProcessIdentity[K] } = { pid };
-    for (const key of OWNER_FIELDS) {
-      const value = optionalField(record, key);
-      if (value === null) return undefined;
-      if (value !== undefined) owner[key] = value;
-    }
-    return owner;
-  } catch {
-    // allow-fallback: an unreadable record means "owner unknown", and an unknown owner is kept.
-    return undefined;
-  }
+  return readProcessOwnerRecordFile(join(directory, PROCESS_OWNER_RECORD_NAME));
 }
 
 export interface ICreateProcessScopedDirectoryOptions extends IOwnerOnlyDurability {
@@ -159,7 +103,9 @@ export function createProcessScopedDirectory(
         ? {
             durable: true,
             ...(options.syncFile === undefined ? {} : { syncFile: options.syncFile }),
-            ...(options.syncDirectory === undefined ? {} : { syncDirectory: options.syncDirectory }),
+            ...(options.syncDirectory === undefined
+              ? {}
+              : { syncDirectory: options.syncDirectory }),
           }
         : {},
     );
@@ -171,76 +117,8 @@ export function createProcessScopedDirectory(
   return directory;
 }
 
-export interface ISweepProcessScopedDirectoriesOptions {
-  /** This process. Defaults to the real one; injectable so tests need no real pids, boots or namespaces. */
-  readonly current?: IProcessIdentity;
-  /** Whether a pid exists in this pid namespace. Defaults to a signal-0 probe. */
-  readonly isProcessAlive?: (pid: number) => boolean;
-  /** A live pid's start time as the owner record carries it. Defaults to {@link readProcessStartTime}. */
-  readonly readStartTime?: (pid: number) => string | undefined;
-}
-
-function probeProcess(pid: number): boolean {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch (error) {
-    // EPERM means the process exists under another account; only ESRCH means it is gone.
-    return (error as NodeJS.ErrnoException).code !== 'ESRCH';
-  }
-}
-
-/**
- * Whether `owner` ran on this machine: the host names are equal and so are the machine ids, where a
- * machine id only one side could read counts as a different machine, since that side may be one.
- */
-export function ownerOnThisMachine(owner: IProcessIdentity, current: IProcessIdentity): boolean {
-  return (
-    owner.hostname !== undefined &&
-    owner.hostname === current.hostname &&
-    owner.machineId === current.machineId
-  );
-}
-
-/** Whether `owner` provably cannot be alive, by the rule the module documentation states. */
-function ownerIsGone(
-  owner: IProcessIdentity,
-  current: IProcessIdentity,
-  isAlive: (pid: number) => boolean,
-  readStartTime: (pid: number) => string | undefined,
-): boolean {
-  if (!ownerOnThisMachine(owner, current)) return false;
-  if (
-    owner.bootId !== undefined &&
-    current.bootId !== undefined &&
-    owner.bootId !== current.bootId
-  ) {
-    return true;
-  }
-  if (owner.pidNamespace !== current.pidNamespace) return false;
-  const ownPid = owner.pid === current.pid;
-  if (!ownPid && !isAlive(owner.pid)) return true;
-  if (owner.startTime === undefined) return false;
-  const liveStartTime = ownPid ? current.startTime : readStartTime(owner.pid);
-  return liveStartTime !== undefined && liveStartTime !== owner.startTime;
-}
-
-/**
- * Whether `owner` is provably running: on this machine, in this pid namespace, with a start time
- * recorded, and its pid alive now with that same start time. A recycled pid fails the start-time
- * comparison; another machine's initial pid namespace carries the same number as this one's.
- */
-function ownerIsAlive(
-  owner: IProcessIdentity,
-  current: IProcessIdentity,
-  isAlive: (pid: number) => boolean,
-  readStartTime: (pid: number) => string | undefined,
-): boolean {
-  if (!ownerOnThisMachine(owner, current)) return false;
-  if (owner.pidNamespace !== current.pidNamespace || owner.startTime === undefined) return false;
-  if (owner.pid === current.pid) return current.startTime === owner.startTime;
-  return isAlive(owner.pid) && readStartTime(owner.pid) === owner.startTime;
-}
+/** How a sweep or an inspection probes owners; see {@link IProcessOwnerProbes}. */
+export type ISweepProcessScopedDirectoriesOptions = IProcessOwnerProbes;
 
 /** A process-scoped directory as found: its owner record, when one names the pid its name carries. */
 interface IScopedDirectory {
@@ -278,14 +156,7 @@ function* scopedDirectories(parent: string, prefix: string): Generator<IScopedDi
   }
 }
 
-/** What can be told about the owner of a process-scoped directory. */
-export type TProcessOwnerLiveness =
-  /** Running: this pid namespace, and its pid alive with the start time the record carries. */
-  | 'alive'
-  /** Provably not running, by the rule the module documentation states. */
-  | 'gone'
-  /** Neither can be shown: another pid namespace, no start time recorded or readable, no owner record. */
-  | 'unknown';
+export type { TProcessOwnerLiveness };
 
 export interface IProcessScopedDirectoryEntry {
   readonly name: string;
@@ -308,8 +179,6 @@ export function inspectProcessScopedDirectories(
   prefix: string,
   options: ISweepProcessScopedDirectoriesOptions = {},
 ): readonly IProcessScopedDirectoryEntry[] {
-  const isAlive = options.isProcessAlive ?? probeProcess;
-  const readStartTime = options.readStartTime ?? ((pid: number) => readProcessStartTime(pid));
   let current = options.current;
   const entries: IProcessScopedDirectoryEntry[] = [];
   for (const { name, path, pid, owner } of scopedDirectories(parent, prefix)) {
@@ -318,13 +187,7 @@ export function inspectProcessScopedDirectories(
       continue;
     }
     current ??= readCurrentProcessIdentity();
-    let liveness: TProcessOwnerLiveness = 'unknown';
-    try {
-      if (ownerIsGone(owner, current, isAlive, readStartTime)) liveness = 'gone';
-      else if (ownerIsAlive(owner, current, isAlive, readStartTime)) liveness = 'alive';
-    } catch {
-      // allow-fallback: a probe that failed told nothing, which is exactly `unknown`.
-    }
+    const liveness = classifyProcessOwner(owner, { ...options, current });
     entries.push({ name, path, pid, owner, liveness });
   }
   return entries;
@@ -344,15 +207,13 @@ export function sweepStaleProcessScopedDirectories(
   prefix: string,
   options: ISweepProcessScopedDirectoriesOptions = {},
 ): readonly string[] {
-  const isAlive = options.isProcessAlive ?? probeProcess;
-  const readStartTime = options.readStartTime ?? ((pid: number) => readProcessStartTime(pid));
   let current = options.current;
   const removed: string[] = [];
   for (const { name, path, owner } of scopedDirectories(parent, prefix)) {
     if (owner === undefined) continue;
     try {
       current ??= readCurrentProcessIdentity();
-      if (!ownerIsGone(owner, current, isAlive, readStartTime)) continue;
+      if (classifyProcessOwner(owner, { ...options, current }) !== 'gone') continue;
       rmSync(path, { recursive: true, force: true });
       removed.push(name);
     } catch {
