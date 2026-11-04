@@ -18,7 +18,11 @@
  * (`enforcement-architecture.md`, "Silence is not success").
  */
 
-import { createLogger, validateAgainstJsonSchema } from '@robota-sdk/agent-core';
+import {
+  PARAMETER_SCHEMA_KEYWORDS,
+  createLogger,
+  validateAgainstJsonSchema,
+} from '@robota-sdk/agent-core';
 
 import type {
   IParameterSchema,
@@ -36,20 +40,16 @@ const STANDARD_DIALECT =
   /^https?:\/\/json-schema\.org\/(?:draft-0[4-7]\/schema|draft\/(?:2019-09|2020-12)\/schema)#?$/u;
 
 /** The keywords `IParameterSchema` declares. A narrowed node carries no other. */
-const SUBSET_KEYWORDS = new Set([
-  'type',
-  'description',
-  'enum',
-  'items',
-  'properties',
-  'required',
-  'anyOf',
-  'additionalProperties',
-  'minimum',
-  'maximum',
-  'pattern',
-  'format',
-  'default',
+const SUBSET_KEYWORDS = new Set<string>(PARAMETER_SCHEMA_KEYWORDS);
+
+/** Keywords whose value must be a non-negative integer, so a server can get them wrong. */
+const SIZE_BOUND_KEYWORDS = new Set([
+  'minLength',
+  'maxLength',
+  'minItems',
+  'maxItems',
+  'minProperties',
+  'maxProperties',
 ]);
 
 /** Keywords that constrain no value, so dropping them leaves nothing unchecked. */
@@ -103,6 +103,16 @@ function isExpressible(node: IParameterSchema): boolean {
   return typeof node.type === 'string' && SUBSET_TYPES.has(node.type);
 }
 
+/**
+ * Whether a narrowed node may carry this keyword. A malformed size bound is a constraint nothing can
+ * check, and the session record's strict decoder refuses it just as it would an unknown keyword.
+ */
+function isCarried(key: string, value: unknown): boolean {
+  if (!SUBSET_KEYWORDS.has(key)) return false;
+  if (!SIZE_BOUND_KEYWORDS.has(key)) return true;
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+}
+
 function narrowNode(input: IParameterSchema, path: string, dropped: string[]): IParameterSchema {
   let node = input;
   // A dialect declaration is not part of the portable schema contract, so it never persists. A
@@ -118,12 +128,13 @@ function narrowNode(input: IParameterSchema, path: string, dropped: string[]): I
   // The copy holds only subset keywords: anything else is a constraint nothing here checks (reported)
   // or an annotation (dropped quietly). Carrying it would hand on a schema outside the contract its
   // type claims, which a strict reader of that contract — the session record — then refuses.
-  const keywords = Object.keys(node);
-  if (keywords.some((key) => !SUBSET_KEYWORDS.has(key))) {
+  const record = node as Record<string, unknown>;
+  const keywords = Object.keys(record);
+  if (keywords.some((key) => !isCarried(key, record[key]))) {
     const subset: Record<string, unknown> = {};
     for (const key of keywords) {
-      if (SUBSET_KEYWORDS.has(key)) {
-        subset[key] = (node as Record<string, unknown>)[key];
+      if (isCarried(key, record[key])) {
+        subset[key] = record[key];
       } else if (!ANNOTATION_KEYWORDS.has(key)) {
         dropped.push(`${path}.${key}`);
       }
@@ -133,9 +144,14 @@ function narrowNode(input: IParameterSchema, path: string, dropped: string[]): I
   if (Array.isArray(node.anyOf)) {
     node = {
       ...node,
-      anyOf: node.anyOf.map((child, index) =>
-        narrowNode(child, `${path}.anyOf[${index}]`, dropped),
-      ),
+      anyOf: node.anyOf.map((child, index) => {
+        const childPath = `${path}.anyOf[${index}]`;
+        if (isExpressible(child)) return narrowNode(child, childPath, dropped);
+        // Narrowing a `$ref` branch in place would leave `{}`, which registration refuses and no
+        // value matches. The accepts-anything branch makes the union admit what the server admits.
+        dropped.push(childPath);
+        return anyValueNode();
+      }),
     };
   }
   if (typeof node.additionalProperties === 'object' && node.additionalProperties !== null) {

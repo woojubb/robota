@@ -391,7 +391,13 @@ describe('AnthropicProvider', () => {
       });
 
       const messages: TUniversalMessage[] = [
-        { id: 'msg-1', state: 'complete' as const, role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
       const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
 
@@ -402,7 +408,13 @@ describe('AnthropicProvider', () => {
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(makeTextResponse('ok')));
 
       const messages: TUniversalMessage[] = [
-        { id: 'msg-1', state: 'complete' as const, role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
       const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
 
@@ -575,6 +587,55 @@ describe('AnthropicProvider', () => {
       // The string branch is not an object node, so nothing is forced onto it.
       expect(branches?.[0]?.['additionalProperties']).toBeUndefined();
       expect(sent['additionalProperties']).toBe(false);
+    });
+
+    it('leaves out the bounds output_config.format answers with a 400', async () => {
+      const apiResponse = makeTextResponse('{"title": "ok"}');
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(apiResponse));
+
+      const messages: TUniversalMessage[] = [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Report please',
+          timestamp: new Date(),
+        },
+      ];
+      const schema = {
+        type: 'object',
+        minProperties: 1,
+        maxProperties: 9,
+        properties: {
+          title: { type: 'string', minLength: 1, maxLength: 80, pattern: '^T' },
+          score: { type: 'integer', minimum: 0, maximum: 9 },
+          tags: {
+            type: 'array',
+            items: { type: 'string', maxLength: 8 },
+            minItems: 1,
+            maxItems: 5,
+          },
+        },
+        required: ['title'],
+      };
+      await provider.chat(messages, {
+        model: 'claude-3-opus-20240229',
+        responseFormat: { type: 'json_schema', name: 'report', schema },
+      });
+
+      const params = mockClient.messages.create.mock.calls[0][0] as {
+        output_config: { format: { schema: Record<string, unknown> } };
+      };
+      expect(params.output_config.format.schema).toEqual({
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          title: { type: 'string', pattern: '^T' },
+          score: { type: 'integer' },
+          tags: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['title'],
+      });
     });
 
     it('omits output_config for non-json_schema response formats', async () => {
@@ -1179,16 +1240,26 @@ describe('AnthropicProvider', () => {
       });
 
       const messages: TUniversalMessage[] = [
-        { id: 'msg-1', state: 'complete' as const, role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
 
       const chunks: TUniversalMessage[] = [];
-      for await (const chunk of provider.chatStream(messages, { model: 'claude-3-opus-20240229' })) {
+      for await (const chunk of provider.chatStream(messages, {
+        model: 'claude-3-opus-20240229',
+      })) {
         chunks.push(chunk);
       }
 
       expect(chunks).toHaveLength(2);
-      expect(chunks.every((chunk) => chunk.metadata?.providerRequestId === 'req_stream_1')).toBe(true);
+      expect(chunks.every((chunk) => chunk.metadata?.providerRequestId === 'req_stream_1')).toBe(
+        true,
+      );
     });
 
     it('never fabricates a request ID when the client has no withResponse (older SDK or test double)', async () => {
@@ -1198,11 +1269,19 @@ describe('AnthropicProvider', () => {
       mockClient.messages.create.mockResolvedValue(asyncChunks);
 
       const messages: TUniversalMessage[] = [
-        { id: 'msg-1', state: 'complete' as const, role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
 
       const chunks: TUniversalMessage[] = [];
-      for await (const chunk of provider.chatStream(messages, { model: 'claude-3-opus-20240229' })) {
+      for await (const chunk of provider.chatStream(messages, {
+        model: 'claude-3-opus-20240229',
+      })) {
         chunks.push(chunk);
       }
 

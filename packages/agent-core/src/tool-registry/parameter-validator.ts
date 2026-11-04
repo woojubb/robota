@@ -1,4 +1,4 @@
-import { validateAgainstJsonSchema } from '../schema/structured-output.js';
+import { sizeBoundIssues, validateAgainstJsonSchema } from '../schema/structured-output.js';
 
 import type { IParameterSchema } from '../interfaces/provider';
 import type { IParameterValidationResult, TToolParameters } from '../interfaces/tool';
@@ -8,8 +8,8 @@ import type { TUniversalValue } from '../interfaces/types';
  * Validate one parameter against its schema node. Returns the issues found; empty means valid.
  *
  * CORE-039: exactly ONE thing lives here — the leaf TYPE mismatch and its caller-facing wording
- * (`Parameter "x" must be a string`), which callers depend on. Everything else — enum, numeric
- * bounds, pattern, a nested object's own properties and requirements, a union's branches — is
+ * (`Parameter "x" must be a string`), which callers depend on. Everything else — enum, numeric and
+ * size bounds, pattern, a nested object's own properties and requirements, a union's branches — is
  * `validateAgainstJsonSchema`'s, the single complete walk over the subset.
  *
  * The split is by CONCERN, not by kind. Delegating only some kinds is what made constraint
@@ -98,18 +98,18 @@ function describeValue(value: TUniversalValue): string {
 }
 
 /**
- * Collect all validation errors for the given parameters against a schema.
+ * Collect all validation errors for the given parameters against a tool's root schema.
  */
 export function getValidationErrors(
   parameters: TToolParameters,
-  schemaRequired: string[],
-  schemaProperties: Record<string, IParameterSchema>,
-  additionalProperties?: boolean | IParameterSchema,
+  schema: IParameterSchema,
 ): string[] {
-  const errors: string[] = [];
+  const { additionalProperties } = schema;
+  const schemaProperties = schema.properties ?? {};
+  const errors = sizeBoundIssues(schema, parameters, 'Parameters');
 
   // Check required parameters
-  for (const field of schemaRequired) {
+  for (const field of schema.required ?? []) {
     if (!(field in parameters)) {
       errors.push(`Missing required parameter: ${field}`);
     }
@@ -141,16 +141,9 @@ export function getValidationErrors(
  */
 export function validateToolParameters(
   parameters: TToolParameters,
-  schemaRequired: string[],
-  schemaProperties: Record<string, IParameterSchema>,
-  additionalProperties?: boolean | IParameterSchema,
+  schema: IParameterSchema,
 ): IParameterValidationResult {
-  const errors = getValidationErrors(
-    parameters,
-    schemaRequired,
-    schemaProperties,
-    additionalProperties,
-  );
+  const errors = getValidationErrors(parameters, schema);
   return {
     isValid: errors.length === 0,
     errors,

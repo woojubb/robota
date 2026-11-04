@@ -219,9 +219,10 @@ An MCP tool's `inputSchema` is authored by a third-party server. Handing an expr
 schema to a strict validator unchanged would refuse _every_ payload for that tool once the schema
 used a construct the universal subset cannot express — breaking a working tool over a limitation
 that is this repo's, not the server's. So the validator narrows instead of refusing:
-inexpressible property subtrees are _replaced_ with an accepts-anything node rather than deleted
-(deleting a key from a closed object schema would turn the server's own declared parameter into an
-"unexpected additional property" and refuse the payload for the opposite reason); `required` is
+inexpressible property subtrees and union branches are _replaced_ with an accepts-anything node
+rather than deleted (deleting a key from a closed object schema would turn the server's own declared
+parameter into an "unexpected additional property" and refuse the payload for the opposite reason,
+and a union branch emptied in place matches nothing and fails registration); `required` is
 carried through untouched, because a narrowed property is one whose value cannot be checked, not
 one that stopped being required; everything expressible is still enforced completely, including
 nested objects and array items; and the dropped paths are reported once per tool (narrowing is a

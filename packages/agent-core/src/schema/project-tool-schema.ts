@@ -36,7 +36,7 @@ export const TOOL_SCHEMA_PROJECTION_MAX_DEPTH = 32;
 export const TOOL_SCHEMA_PROJECTION_MAX_NODES = 2000;
 
 /**
- * Every member `IParameterSchema` declares (CORE-039, `../interfaces/tool-schema.ts:48-63`), derived
+ * Every member `IParameterSchema` declares (CORE-039, `../interfaces/tool-schema.ts`), derived
  * ONCE at the type level rather than hand-typed a second time. `Required<IParameterSchema>` forces
  * this record literal to gain or lose a property whenever the interface does — a missing or
  * extraneous key here is a compile error, not a silent drift.
@@ -53,6 +53,12 @@ const PARAMETER_SCHEMA_KEYWORD_RECORD: TParameterSchemaKeywordRecord = {
   additionalProperties: true,
   minimum: true,
   maximum: true,
+  minLength: true,
+  maxLength: true,
+  minItems: true,
+  maxItems: true,
+  minProperties: true,
+  maxProperties: true,
   pattern: true,
   format: true,
   default: true,
@@ -136,14 +142,16 @@ export const PERMISSIVE_TOOL_SCHEMA_PROFILE: TToolSchemaProjectionProfileBase = 
 
 /**
  * OpenAI Responses and Chat Completions with `strictTools: true`. Replaces the converter's own
- * `closeObjectSchemas` call — one closure, in one place.
+ * `closeObjectSchemas` call — one closure, in one place. Strict mode documents `minItems`/`maxItems`
+ * but not the string-length or property-count bounds, so those stay off its wire; the local walk
+ * still enforces them against the unprojected schema.
  */
 export const STRICT_TOOL_SCHEMA_PROFILE: TToolSchemaProjectionProfileBase = {
   closedObjects: true,
   requireAllProperties: true,
   optionalAsNullable: true,
   unknownKeywords: 'strip',
-  unsupportedMembers: [],
+  unsupportedMembers: ['minLength', 'maxLength', 'minProperties', 'maxProperties'],
   maxDepth: TOOL_SCHEMA_PROJECTION_MAX_DEPTH,
   maxNodes: TOOL_SCHEMA_PROJECTION_MAX_NODES,
 };

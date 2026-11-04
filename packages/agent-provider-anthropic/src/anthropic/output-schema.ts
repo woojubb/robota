@@ -9,6 +9,23 @@ import type {
 } from '@robota-sdk/agent-core';
 
 /**
+ * Bounds `output_config.format` answers with a 400. Only a `minItems` of 0 or 1 is accepted, and that
+ * one is not worth a value test: every bound stays enforced by the core-side validate-and-retry loop,
+ * which reads the consumer's own schema, so leaving it off the wire costs the model a hint and
+ * nothing else.
+ */
+const UNSUPPORTED_BOUNDS = [
+  'minimum',
+  'maximum',
+  'minLength',
+  'maxLength',
+  'minItems',
+  'maxItems',
+  'minProperties',
+  'maxProperties',
+];
+
+/**
  * Map a `json_schema` response format onto Anthropic's native structured-output
  * surface (`output_config.format`, CORE-015). Other formats have no Anthropic
  * equivalent and rely on the core-side validation loop.
@@ -32,10 +49,9 @@ export function buildOutputConfig(
       ...(options?.responseFormat?.type === 'json_schema' && {
         format: {
           type: 'json_schema' as const,
-          schema: closeObjectSchemas(options.responseFormat.schema) as Record<
-            string,
-            TUniversalValue
-          >,
+          schema: closeObjectSchemas(options.responseFormat.schema, {
+            omitKeywords: UNSUPPORTED_BOUNDS,
+          }) as Record<string, TUniversalValue>,
         },
       }),
     },
