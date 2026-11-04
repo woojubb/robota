@@ -137,7 +137,7 @@ describe('Subagent integration', () => {
     });
 
     const childOptions = mockSessionConstructor.mock.calls[0]![0] as {
-      hookTypeExecutors?: IHookTypeExecutor[];
+      hookTypeExecutors: IHookTypeExecutor[];
     };
     expect(childOptions.hookTypeExecutors).toEqual([]);
     const result = await runHooks(

@@ -8,7 +8,8 @@ remembers (a passphrase) or keeps (a recovery key) becomes the keys that protect
 and how artifacts are sealed to a public key so that writing never needs the secret.
 
 It is pure computation over `node:crypto`: no file or network I/O, no native module, no
-`@robota-sdk` dependency. It runs unchanged on Node.js and Bun and can sit beneath any package.
+`@robota-sdk` dependency. It runs unchanged on Node.js and Bun. It is a Node host package, so only
+Node-only code may depend on it.
 Where the keyring file lives, who may write it, how strong a passphrase must be, what an artifact
 is, and when to lock stay with callers.
 

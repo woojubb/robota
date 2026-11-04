@@ -2,7 +2,7 @@ import { createHook } from 'node:async_hooks';
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 
-import { UnsupportedShellError, resolvePlatformShell } from '@robota-sdk/agent-core';
+import { UnsupportedShellError, resolvePlatformShell } from '@robota-sdk/agent-core/node';
 import {
   createManagedShellProcessRunner,
   createScheduledTaskRunner,

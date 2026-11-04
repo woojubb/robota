@@ -17,17 +17,4 @@ export default defineConfig([
     }),
     deps: { neverBundle: [/^@robota-sdk\/.*/] },
   },
-  {
-    entry: { browser: 'src/browser.ts' },
-    format: ['esm'],
-    outDir: 'dist/browser',
-    platform: 'browser',
-    dts: true,
-    sourcemap: false,
-    treeshake: true,
-    minify: true,
-    outExtensions: () => ({ js: '.js', dts: '.d.ts' }),
-    deps: { neverBundle: [/^@robota-sdk\/.*/] },
-    define: { 'process.env.NODE_ENV': '"production"' },
-  },
 ]);

@@ -22,6 +22,7 @@ import type { IPermissionEnforcerOptions, IPermissionRefusal } from './permissio
 import type { TSessionLogData } from './session-logger.js';
 import type {
   IHookInput,
+  IHookTypeExecutor,
   IEventService,
   IToolExecutionContext,
   IToolResult,
@@ -68,7 +69,7 @@ export interface IToolWrapperDeps {
   readonly terminal: ITerminalOutput;
   readonly transcriptPath?: string;
   readonly onToolExecution?: IPermissionEnforcerOptions['onToolExecution'];
-  readonly hookTypeExecutors?: IPermissionEnforcerOptions['hookTypeExecutors'];
+  readonly hookTypeExecutors: readonly IHookTypeExecutor[];
   getPermissionMode: IPermissionEnforcerOptions['getPermissionMode'];
   log(event: string, detail: TSessionLogData): void;
   checkPermission(

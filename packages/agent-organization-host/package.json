@@ -9,6 +9,7 @@
   "exports": {
     ".": {
       "source": "./src/index.ts",
+      "browser": null,
       "import": {
         "types": "./dist/node/index.d.ts",
         "default": "./dist/node/index.js"

@@ -11,6 +11,7 @@
   "exports": {
     ".": {
       "source": "./src/index.ts",
+      "browser": null,
       "node": {
         "import": {
           "types": "./dist/node/index.d.ts",
@@ -34,6 +35,7 @@
     },
     "./google": {
       "source": "./src/google.ts",
+      "browser": null,
       "node": {
         "import": {
           "types": "./dist/node/google/index.d.ts",

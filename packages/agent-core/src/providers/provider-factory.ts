@@ -4,7 +4,7 @@ import {
   getProviderCredentialRequirement,
 } from '../interfaces/provider-definition.js';
 import { ENV_REFERENCE_PREFIX, isEnvReference, resolveEnvReference } from '../utils/env-ref.js';
-import { processEnvResolver, type TEnvResolver } from '../utils/env-resolver.js';
+import type { TEnvResolver } from '../utils/env-resolver.js';
 
 import type {
   IProviderDefinition,
@@ -26,8 +26,8 @@ import type { TUniversalValue } from '../interfaces/types.js';
  * the one credential-resolution path instead of re-reading `process.env` (ARCH-PROVIDER-003).
  *
  * #2347: the environment is INJECTED as `resolve`. This function is deterministic from its arguments
- * and that resolver; it never reads `process.env` itself (guarded by the `provider-env-resolution`
- * scan). The default is the host environment so composition roots need not pass one.
+ * and that resolver; it never reads `process.env` itself. A composition root with a host passes
+ * `processEnvResolver` from `@robota-sdk/agent-core/node`.
  */
 export function normalizeProviderConfig(
   settings: {
@@ -40,7 +40,7 @@ export function normalizeProviderConfig(
     options?: Record<string, TUniversalValue>;
   },
   providerDefinitions: readonly IProviderDefinition[],
-  resolve: TEnvResolver = processEnvResolver,
+  resolve: TEnvResolver,
 ): IProviderDefinitionConfig {
   const defaults = findProviderDefinition(providerDefinitions, settings.name)?.defaults ?? {};
   const model = settings.model ?? defaults.model;

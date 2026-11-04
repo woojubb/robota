@@ -15,6 +15,7 @@ import {
   getProviderCredentialRequirement,
   hasUsableSecretReference,
 } from '@robota-sdk/agent-core';
+import { processEnvResolver } from '@robota-sdk/agent-core/node';
 
 import type { IProviderProfileSettings } from './provider-settings.js';
 import type { IProviderDefinition, TProviderCredentialField } from '@robota-sdk/agent-core';
@@ -62,7 +63,8 @@ function connectionState(
   if (profile.apiKeyRef !== undefined) return undefined;
   const requirement = getProviderCredentialRequirement(definition);
   if (requirement === undefined) return undefined;
-  const resolve = environment === undefined ? undefined : (name: string) => environment[name];
+  const resolve =
+    environment === undefined ? processEnvResolver : (name: string) => environment[name];
   const hasCredential = requirement.anyOf.some((field) =>
     hasUsableSecretReference(credentialValue(profile, definition, field), resolve),
   );

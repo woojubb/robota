@@ -19,6 +19,7 @@
     },
     "./session": {
       "source": "./src/session.ts",
+      "browser": null,
       "import": {
         "types": "./dist/session.d.ts",
         "default": "./dist/session.js"

@@ -21,7 +21,6 @@ export {
   type TProviderFailureReason,
 } from './provider-failure';
 export * from './periodic-task';
-export * from './platform-shell';
 export {
   buildTraceparent,
   isMintedSpanId,

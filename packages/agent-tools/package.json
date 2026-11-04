@@ -8,12 +8,7 @@
   "exports": {
     ".": {
       "source": "./src/index.ts",
-      "browser": {
-        "import": {
-          "types": "./dist/browser/browser.d.ts",
-          "default": "./dist/browser/browser.js"
-        }
-      },
+      "browser": null,
       "node": {
         "import": {
           "types": "./dist/node/index.d.ts",

@@ -2,8 +2,8 @@ import {
   resolveEnvReference,
   normalizeProviderConfig,
   createProviderFromConfig,
-  processEnvResolver,
 } from '@robota-sdk/agent-core';
+import { processEnvResolver } from '@robota-sdk/agent-core/node';
 
 import type { ISerializableProviderProfile } from '../background-tasks/types.js';
 import type { IAIProvider, IProviderDefinition, TEnvResolver } from '@robota-sdk/agent-core';

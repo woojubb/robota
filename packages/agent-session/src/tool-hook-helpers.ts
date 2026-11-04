@@ -78,7 +78,7 @@ export interface IPreToolGateOutcome {
 export async function runPreToolHook(
   hooks: Record<string, unknown> | undefined,
   hookInput: IHookInput,
-  hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  hookTypeExecutors: readonly IHookTypeExecutor[],
   hookTraceEnv?: ISubprocessTraceEnv,
 ): Promise<IToolResult | null> {
   return (await runPreToolGate(hooks, hookInput, hookTypeExecutors, hookTraceEnv)).refusal;
@@ -88,7 +88,7 @@ export async function runPreToolHook(
 export async function runPreToolGate(
   hooks: Record<string, unknown> | undefined,
   hookInput: IHookInput,
-  hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  hookTypeExecutors: readonly IHookTypeExecutor[],
   hookTraceEnv?: ISubprocessTraceEnv,
 ): Promise<IPreToolGateOutcome> {
   let input = hookInput;
@@ -132,7 +132,7 @@ export async function runPreToolGate(
 async function evaluatePreToolHooks(
   hooks: Record<string, unknown> | undefined,
   hookInput: IHookInput,
-  hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  hookTypeExecutors: readonly IHookTypeExecutor[],
   hookTraceEnv?: ISubprocessTraceEnv,
 ): Promise<{ result: IToolResult | null; hookResult: TRunHooksResult }> {
   const hookResult = await runHooks(
@@ -235,7 +235,7 @@ export function firePostToolHook(
   hooks: Record<string, unknown> | undefined,
   hookInput: IHookInput,
   result: IToolResult,
-  hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  hookTypeExecutors: readonly IHookTypeExecutor[],
   hookTraceEnv?: ISubprocessTraceEnv,
 ): void {
   const postHookInput: IHookInput = {

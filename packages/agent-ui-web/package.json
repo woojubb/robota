@@ -29,11 +29,13 @@
     },
     "./styles/theme.css": {
       "types": "./src/styles/theme.css.d.mts",
+      "style": "./src/styles/theme.css",
       "browser": "./src/styles/theme.css",
       "import": "./src/styles/theme.css"
     },
     "./styles/surface.css": {
       "types": "./src/styles/surface.css.d.mts",
+      "style": "./src/styles/surface.css",
       "browser": "./src/styles/surface.css",
       "import": "./src/styles/surface.css"
     },

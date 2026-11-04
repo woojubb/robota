@@ -45,7 +45,7 @@ export interface ICompactContext {
   compactionOrchestrator: CompactionOrchestrator;
   contextTracker: ContextWindowTracker;
   hooks: Record<string, unknown> | undefined;
-  hookTypeExecutors: IHookTypeExecutor[] | undefined;
+  hookTypeExecutors: readonly IHookTypeExecutor[];
   onCompactCallback: ((summary: string) => void) | undefined;
   onCompactEventCallback: ((event: ICompactEvent) => void) | undefined;
   trigger: TCompactTrigger;

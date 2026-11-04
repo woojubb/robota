@@ -26,13 +26,13 @@ A hooks configuration (`THooksConfig`) maps an event name to a list of hook grou
 A hook definition (`THookDefinition`) has one of five types. Each type needs a registered executor
 (`IHookTypeExecutor`):
 
-| Type        | What it does                                                              | Executor                                                                                  |
-| ----------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `command`   | Runs a shell command with the hook input as JSON on stdin                 | `CommandExecutor` (`@robota-sdk/agent-core/node`); a default when no executors are passed |
-| `http`      | POSTs the hook input as JSON to a URL                                     | `HttpExecutor` (`@robota-sdk/agent-core/node`); a default when no executors are passed    |
-| `prompt`    | Asks a model to judge the hook input                                      | `PromptExecutor` (`@robota-sdk/agent-framework`), which needs a provider factory          |
-| `agent`     | Runs a subagent session on the hook input                                 | `AgentExecutor` (`@robota-sdk/agent-framework`), which needs a session factory            |
-| `guardrail` | Runs registered guardrail functions in parallel; the first failure blocks | `GuardrailExecutor` (`@robota-sdk/agent-core`), which needs the guardrails registered     |
+| Type        | What it does                                                              | Executor                                                                              |
+| ----------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `command`   | Runs a shell command with the hook input as JSON on stdin                 | `CommandExecutor` (`@robota-sdk/agent-core/node`)                                     |
+| `http`      | POSTs the hook input as JSON to a URL                                     | `HttpExecutor` (`@robota-sdk/agent-core/node`)                                        |
+| `prompt`    | Asks a model to judge the hook input                                      | `PromptExecutor` (`@robota-sdk/agent-framework`), which needs a provider factory      |
+| `agent`     | Runs a subagent session on the hook input                                 | `AgentExecutor` (`@robota-sdk/agent-framework`), which needs a session factory        |
+| `guardrail` | Runs registered guardrail functions in parallel; the first failure blocks | `GuardrailExecutor` (`@robota-sdk/agent-core`), which needs the guardrails registered |
 
 ## How a hook answers
 

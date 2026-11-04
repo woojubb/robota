@@ -10,6 +10,7 @@ import {
   ExecutionRecoveryError,
   ExecutionSuspendedError,
 } from '@robota-sdk/agent-core';
+import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 import { SessionBase } from './session-base.js';
 import {
@@ -118,7 +119,7 @@ export class Session extends SessionBase {
   private readonly sessionStore?: IInteractiveSessionStore;
   private readonly checkpointHistoryCallback?: () => void;
   private readonly hooks?: Record<string, unknown>;
-  private readonly hookTypeExecutors?: IHookTypeExecutor[];
+  private readonly hookTypeExecutors: readonly IHookTypeExecutor[];
   private readonly onTextDeltaCallback?: (delta: string) => void;
   private readonly onThinkingDeltaCallback?: (delta: string) => void;
   private readonly onContextUpdateCallback?: (state: IContextWindowState) => void;
@@ -172,7 +173,10 @@ export class Session extends SessionBase {
     this.wrapAddedTools = options.wrapAddedTools;
     this.sessionLogger = options.sessionLogger;
     this.hooks = options.hooks;
-    this.hookTypeExecutors = options.hookTypeExecutors;
+    this.hookTypeExecutors = options.hookTypeExecutors ?? [
+      new CommandExecutor(),
+      new HttpExecutor(),
+    ];
     this.onTextDeltaCallback = options.onTextDelta;
     this.onThinkingDeltaCallback = options.onThinkingDelta;
     this.onContextUpdateCallback = options.onContextUpdate;

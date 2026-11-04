@@ -11,6 +11,7 @@
 - Keeps all provider-specific transport behavior in provider packages. Core must not branch on concrete provider names or model names.
 - Keeps package-specific domain contracts owned once and reused through public surfaces.
 - Does not own workflow visualization or session persistence; session persistence belongs to the session layer.
+- The main entry is platform-neutral, so the agent loop runs wherever its consumer does. It has no host default: hooks run only through the executors a caller passes, and `$ENV:` references resolve only through the resolver a caller passes; what needs a Node host is on `./node`.
 - **Zero dependency on other agent-\* packages.** `agent-core` must never import any other `@robota-sdk/agent-*` package as a production dependency. This is the foundation of the layered assembly architecture: other agent-\* packages register with agent-core through its abstract contracts; agent-core never depends on them. Plugins were externalized to external plugin packages specifically to preserve this constraint.
 
 ## Architecture
