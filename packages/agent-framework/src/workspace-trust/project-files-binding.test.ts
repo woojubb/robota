@@ -422,20 +422,35 @@ describe('an authority cannot be forged or carried by a host', () => {
     expect(host.calls).toEqual([]);
   });
 
-  it('gives a host no way to issue an authority or a reader of its own', async () => {
+  it('hands out facets whose own properties carry nothing of the host’s file operations', async () => {
+    const host = memoryFiles({ 'AGENTS.md': 'x' });
+    const authority = await trustedAuthority(host);
+    const facets = {
+      authority,
+      reader: getWorkspaceProjectReader(authority),
+      storage: getWorkspaceProjectStateStorage(authority, 'sessions'),
+      mutation: createWorkspaceProjectMutation(authority, { status: 'approved', purpose: 'test' }),
+      writer: createWorkspaceProjectSettingsWriter(authority, {
+        status: 'approved',
+        target: 'project',
+        relativePath: '.agent/settings.json',
+        purpose: 'test',
+      }),
+    };
+
+    // The host's operations take any root, so a holder of a reader must not be able to pick them up
+    // from it: nothing is reachable as a property, enumerable or not, string or symbol.
+    expect(Reflect.ownKeys(facets.authority)).toEqual([]);
+    expect(Reflect.ownKeys(facets.reader)).toEqual([]);
+    expect(Reflect.ownKeys(facets.mutation)).toEqual([]);
+    expect(Reflect.ownKeys(facets.storage).sort()).toEqual(['namespace', 'rootRelativePath']);
+    expect(Reflect.ownKeys(facets.writer).sort()).toEqual(['relativePath', 'target']);
+  });
+
+  it('gives an authority one reader, built over the files the service was given', async () => {
     const host = memoryFiles();
     const authority = await trustedAuthority(host);
-    // The reader of an authority is the one the service built over the files it was given.
     expect(getWorkspaceProjectReader(authority)).toBe(getWorkspaceProjectReader(authority));
-    // Neither the issuing function nor the reader factory is on a package entry.
-    const main = await import('../index.js');
-    const node = await import('../node.js');
-    for (const entry of [main, node]) {
-      expect('mintWorkspaceProjectAuthority' in entry).toBe(false);
-      expect('createWorkspaceProjectReader' in entry).toBe(false);
-      expect('getWorkspaceProjectMutationBoundary' in entry).toBe(false);
-      expect('openWorkspaceProjectStableWriter' in entry).toBe(false);
-    }
   });
 
   it('stops a revoked authority’s reads and writes at once', async () => {

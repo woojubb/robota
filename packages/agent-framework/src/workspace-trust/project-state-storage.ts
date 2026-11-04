@@ -33,64 +33,71 @@ const migrationAccesses = new WeakMap<object, IMigrationAccess>();
 class WorkspaceProjectStateStorage {
   readonly namespace: TWorkspaceProjectStateNamespace;
   readonly rootRelativePath: string;
+  // `#` so no property of the facet carries the authority, the reader or the host's writer.
+  readonly #authority: IWorkspaceProjectAuthority;
+  readonly #reader: IWorkspaceProjectReader;
+  readonly #mutationBoundary: IWorkspaceProjectMutationBoundary;
 
   constructor(
     namespace: TWorkspaceProjectStateNamespace,
     rootRelativePath: string,
-    private readonly authority: IWorkspaceProjectAuthority,
-    private readonly reader: IWorkspaceProjectReader,
-    private readonly mutationBoundary: IWorkspaceProjectMutationBoundary,
+    authority: IWorkspaceProjectAuthority,
+    reader: IWorkspaceProjectReader,
+    mutationBoundary: IWorkspaceProjectMutationBoundary,
   ) {
     this.namespace = namespace;
     this.rootRelativePath = rootRelativePath;
+    this.#authority = authority;
+    this.#reader = reader;
+    this.#mutationBoundary = mutationBoundary;
   }
 
   readText(relativePath: string, purpose: string): string | undefined {
-    assertWorkspaceProjectAuthority(this.authority);
-    return this.reader.readText(this.projectRelativePath(relativePath), purpose);
+    assertWorkspaceProjectAuthority(this.#authority);
+    return this.#reader.readText(this.projectRelativePath(relativePath), purpose);
   }
 
   readBytes(relativePath: string, purpose: string, maxBytes?: number): Uint8Array | undefined {
-    assertWorkspaceProjectAuthority(this.authority);
-    return this.reader.readBytes(this.projectRelativePath(relativePath), purpose, maxBytes);
+    assertWorkspaceProjectAuthority(this.#authority);
+    return this.#reader.readBytes(this.projectRelativePath(relativePath), purpose, maxBytes);
   }
 
   writeText(relativePath: string, content: string, purpose: string): void {
-    assertWorkspaceProjectAuthority(this.authority);
+    assertWorkspaceProjectAuthority(this.#authority);
     this.writeBytes(relativePath, textEncoder.encode(content), purpose);
   }
 
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void {
-    assertWorkspaceProjectAuthority(this.authority);
+    assertWorkspaceProjectAuthority(this.#authority);
     assertProjectReadPurpose(purpose);
-    this.mutationBoundary.write(this.projectRelativePath(relativePath), content);
+    this.#mutationBoundary.write(this.projectRelativePath(relativePath), content);
   }
 
   replaceBytes(relativePath: string, content: Uint8Array, purpose: string): void {
-    assertWorkspaceProjectAuthority(this.authority);
+    assertWorkspaceProjectAuthority(this.#authority);
     assertProjectReadPurpose(purpose);
-    this.mutationBoundary.replace(this.projectRelativePath(relativePath), content);
+    this.#mutationBoundary.replace(this.projectRelativePath(relativePath), content);
   }
 
   appendText(relativePath: string, content: string, purpose: string): void {
-    assertWorkspaceProjectAuthority(this.authority);
+    assertWorkspaceProjectAuthority(this.#authority);
     assertProjectReadPurpose(purpose);
-    this.mutationBoundary.append(this.projectRelativePath(relativePath), content);
+    this.#mutationBoundary.append(this.projectRelativePath(relativePath), content);
   }
 
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[] {
-    assertWorkspaceProjectAuthority(this.authority);
-    return this.reader.listDirectory(this.projectRelativePath(relativePath, true), purpose);
+    assertWorkspaceProjectAuthority(this.#authority);
+    return this.#reader.listDirectory(this.projectRelativePath(relativePath, true), purpose);
   }
 
   deleteFile(relativePath: string, purpose: string): boolean {
-    assertWorkspaceProjectAuthority(this.authority);
+    assertWorkspaceProjectAuthority(this.#authority);
     assertProjectReadPurpose(purpose);
-    return this.mutationBoundary.delete(this.projectRelativePath(relativePath));
+    return this.#mutationBoundary.delete(this.projectRelativePath(relativePath));
   }
 
   projectRelativePath(relativePath: string, allowRoot = false): string {
-    assertWorkspaceProjectAuthority(this.authority);
+    assertWorkspaceProjectAuthority(this.#authority);
     const segments = workspacePathSegments(relativePath, allowRoot);
     if (segments.length === 0) return this.rootRelativePath;
     // The path is spelled with the separator the host spelled its root with (`.robota\sessions` is a

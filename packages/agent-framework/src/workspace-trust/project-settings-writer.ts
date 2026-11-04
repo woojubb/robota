@@ -18,18 +18,20 @@ const projectSettingsWriters = new WeakMap<object, IWorkspaceProjectAuthority>()
 class WorkspaceProjectSettingsWriter {
   readonly target: TWorkspaceProjectSettingsTarget;
   readonly relativePath: string;
+  readonly #write: (content: string) => void;
 
   constructor(
     target: IWorkspaceProjectSettingsWriter['target'],
     relativePath: string,
-    private readonly write: (content: string) => void,
+    write: (content: string) => void,
   ) {
     this.target = target;
     this.relativePath = relativePath;
+    this.#write = write;
   }
 
   writeText(content: string): void {
-    this.write(content);
+    this.#write(content);
   }
 }
 

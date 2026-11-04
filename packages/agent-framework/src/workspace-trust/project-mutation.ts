@@ -96,21 +96,24 @@ export function prepareWorkflowJsonMutation(authority: IWorkspaceProjectAuthorit
 }
 
 class WorkspaceProjectMutation {
-  constructor(
-    private readonly authority: IWorkspaceProjectAuthority,
-    private readonly boundary: IWorkspaceProjectMutationBoundary,
-  ) {}
+  readonly #authority: IWorkspaceProjectAuthority;
+  readonly #boundary: IWorkspaceProjectMutationBoundary;
+
+  constructor(authority: IWorkspaceProjectAuthority, boundary: IWorkspaceProjectMutationBoundary) {
+    this.#authority = authority;
+    this.#boundary = boundary;
+  }
 
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void {
-    assertWorkspaceProjectAuthority(this.authority);
+    assertWorkspaceProjectAuthority(this.#authority);
     assertProjectReadPurpose(purpose);
-    this.boundary.write(relativePath, content);
+    this.#boundary.write(relativePath, content);
   }
 
   deleteFile(relativePath: string, purpose: string): boolean {
-    assertWorkspaceProjectAuthority(this.authority);
+    assertWorkspaceProjectAuthority(this.#authority);
     assertProjectReadPurpose(purpose);
-    return this.boundary.delete(relativePath);
+    return this.#boundary.delete(relativePath);
   }
 }
 
@@ -126,10 +129,7 @@ export function createWorkspaceProjectMutation(
   }
   assertProjectReadPurpose(decision.purpose);
   const mutation = Object.freeze(
-    new WorkspaceProjectMutation(
-      accepted,
-      getWorkspaceProjectMutationBoundary(accepted),
-    ),
+    new WorkspaceProjectMutation(accepted, getWorkspaceProjectMutationBoundary(accepted)),
   );
   projectMutations.set(mutation, accepted);
   return mutation as IWorkspaceProjectMutation;

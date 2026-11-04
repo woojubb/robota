@@ -53,49 +53,61 @@ function throwProjectReadLimitExceeded(maxBytes: number): never {
 }
 
 class WorkspaceProjectReader {
+  // Private for real (`#`): the reader is handed to code that must stay inside the trusted root, and
+  // the host's file operations take any root, so no property of the reader may carry them.
+  readonly #projectFiles: IWorkspaceProjectFiles;
+  readonly #identity: IWorkspaceIdentity;
+  readonly #identityResolver: IWorkspaceIdentityResolver;
+  readonly #assertActive: () => void;
+
   constructor(
-    private readonly projectFiles: IWorkspaceProjectFiles,
-    private readonly identity: IWorkspaceIdentity,
-    private readonly identityResolver: IWorkspaceIdentityResolver,
-    private readonly assertActive: () => void,
-  ) {}
+    projectFiles: IWorkspaceProjectFiles,
+    identity: IWorkspaceIdentity,
+    identityResolver: IWorkspaceIdentityResolver,
+    assertActive: () => void,
+  ) {
+    this.#projectFiles = projectFiles;
+    this.#identity = identity;
+    this.#identityResolver = identityResolver;
+    this.#assertActive = assertActive;
+  }
 
   readText(relativePath: string, purpose: string): string | undefined {
-    this.assertActive();
+    this.#assertActive();
     const bytes = this.readBytes(relativePath, purpose);
     return bytes === undefined ? undefined : utf8Decode(bytes);
   }
 
   readBytes(relativePath: string, purpose: string, maxBytes?: number): Uint8Array | undefined {
-    this.assertActive();
+    this.#assertActive();
     assertProjectReadPurpose(purpose);
     const segments = workspacePathSegments(relativePath);
     const limit = resolveProjectReadLimit(maxBytes);
     try {
       return readProjectBytes(
-        this.projectFiles,
-        this.identity,
-        this.identityResolver,
+        this.#projectFiles,
+        this.#identity,
+        this.#identityResolver,
         segments,
         limit,
       );
     } finally {
-      this.assertActive();
+      this.#assertActive();
     }
   }
 
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[] {
-    this.assertActive();
+    this.#assertActive();
     assertProjectReadPurpose(purpose);
     const segments = workspacePathSegments(relativePath, true);
-    return this.projectFiles.listDirectory(this.identity, this.identityResolver, segments);
+    return this.#projectFiles.listDirectory(this.#identity, this.#identityResolver, segments);
   }
 
   inspectKind(relativePath: string, purpose: string): TWorkspaceContributionKind | undefined {
-    this.assertActive();
+    this.#assertActive();
     assertProjectReadPurpose(purpose);
     const segments = workspacePathSegments(relativePath, true);
-    return this.projectFiles.inspectKind(this.identity, this.identityResolver, segments);
+    return this.#projectFiles.inspectKind(this.#identity, this.#identityResolver, segments);
   }
 
   readTextAlongAncestors(
@@ -103,7 +115,7 @@ class WorkspaceProjectReader {
     filename: string,
     purpose: string,
   ): readonly IWorkspaceAncestorTextEntry[] {
-    this.assertActive();
+    this.#assertActive();
     assertProjectReadPurpose(purpose);
     const startSegments = workspacePathSegments(startRelativeDirectory, true);
     const filenameSegments = workspacePathSegments(filename);
@@ -116,7 +128,7 @@ class WorkspaceProjectReader {
       // Spelled with the separator of the root's own platform (`\` under `C:\repo`), as `node:path`
       // spelled it; a read splits it back into segments whichever separator it has.
       const relativePath = [...directory, filenameSegments[0]].join(
-        separatorOf(this.identity.worktreeRoot),
+        separatorOf(this.#identity.worktreeRoot),
       );
       const content = this.readText(relativePath, purpose);
       if (content !== undefined) entries.push({ relativePath, content });

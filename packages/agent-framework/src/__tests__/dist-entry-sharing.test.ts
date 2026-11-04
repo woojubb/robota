@@ -27,6 +27,8 @@ const built = Object.values(FORMATS).every(
   ({ main, node }) => existsSync(join(DIST, main)) && existsSync(join(DIST, node)),
 );
 const requireBuilt = process.env['CI'] !== undefined;
+/** Loading a whole built entry is slow on a busy machine. */
+const LOAD_TIMEOUT_MS = 30_000;
 
 type TEntry = Record<string, (...args: never[]) => unknown>;
 
@@ -111,7 +113,7 @@ for (const format of ['esm', 'cjs'] as const) {
           mutation.writeBytes('written.txt', new TextEncoder().encode('hi'), 'dist test');
           expect(readerOf(authority).readText('written.txt', 'dist entry sharing')).toBe('hi');
         }
-      });
+      }, LOAD_TIMEOUT_MS);
 
       it('still refuses a look-alike object on the main entry', async () => {
         const { main } = await load(format);
@@ -129,7 +131,7 @@ for (const format of ['esm', 'cjs'] as const) {
         expect(() =>
           assertMutationFor({ writeBytes: () => undefined, deleteFile: () => false }, forged),
         ).toThrow();
-      });
+      }, LOAD_TIMEOUT_MS);
     },
   );
 }

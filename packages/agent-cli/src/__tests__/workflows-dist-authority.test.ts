@@ -29,6 +29,8 @@ const built = ['index.js', 'index.cjs', 'node.js', 'node.cjs'].every((name) =>
   existsSync(join(FRAMEWORK_DIST, name)),
 );
 const requireBuilt = process.env['CI'] !== undefined;
+/** Each case starts a Node process that loads two built packages. */
+const SPAWN_TIMEOUT_MS = 60_000;
 
 const roots: string[] = [];
 afterEach(() => {
@@ -72,6 +74,7 @@ describe.skipIf(!built && !requireBuilt)(
         expect(result['listing']).toEqual(expect.arrayContaining(['AGENTS.md', '.workflows']));
         if (process.platform === 'linux') expect(result['written']).toBe('{}');
       },
+      SPAWN_TIMEOUT_MS,
     );
   },
 );
