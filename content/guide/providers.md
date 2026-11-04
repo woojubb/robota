@@ -102,7 +102,8 @@ const provider = new AnthropicProvider({
 | `enableWebTools` | `boolean`   | No                             | Attach Anthropic's server-side `web_search` tool to requests (default: off) |
 
 A provider profile sets the same thing with `"options": { "nativeWebTools": { "webSearch": true } }`;
-the CLI turns it on by default for an Anthropic profile that does not set `nativeWebTools`.
+the CLI turns it on by default for an Anthropic, OpenAI or Gemini profile that does not set
+`nativeWebTools`, wherever that provider can run it.
 
 ### With a pre-built client
 
@@ -161,7 +162,7 @@ const provider = new OpenAIProvider({
 | `store`                     | `boolean`                                  | No                             | Whether OpenAI stores Responses API results                                                                                                                                  |
 | `includeEncryptedReasoning` | `boolean`                                  | No                             | Include encrypted reasoning items for stateless continuation                                                                                                                 |
 | `strictTools`               | `boolean`                                  | No                             | Strict function-parameter validation (rewrites tool schemas for strict mode)                                                                                                 |
-| `nativeWebTools`            | `IOpenAINativeWebToolsOptions`             | No                             | OpenAI's hosted `webSearch` / `webFetch` tools (not available on custom endpoints)                                                                                           |
+| `nativeWebTools`            | `IOpenAINativeWebToolsOptions`             | No                             | Hosted `webSearch` on OpenAI's own Responses API; `true` throws on a custom endpoint or Chat Completions                                                                     |
 | `includeStreamUsage`        | `boolean`                                  | No                             | Request token usage on streaming turns (default `true`; turn off for endpoints that reject it)                                                                               |
 | `payloadLogger`             | `IPayloadLogger`                           | No                             | Receives a summary of each Chat Completions request (`ConsolePayloadLogger` in `.../agent-provider-openai/loggers`, `FilePayloadLogger` in `.../agent-provider-openai/node`) |
 | `executor`                  | `IExecutor`                                | No                             | Remote or local executor override                                                                                                                                            |
@@ -235,19 +236,20 @@ const provider = new GeminiProvider({
 
 ### Configuration options
 
-| Option                      | Type                                 | Required | Description                                                     |
-| --------------------------- | ------------------------------------ | -------- | --------------------------------------------------------------- |
-| `apiKey`                    | `string`                             | Yes      | Google AI API key                                               |
-| `defaultModel`              | `string`                             | No       | Model used when a request names none                            |
-| `responseMimeType`          | `'text/plain' \| 'application/json'` | No       | Response format                                                 |
-| `responseSchema`            | object                               | No       | Schema for JSON output                                          |
-| `responseJsonSchema`        | object                               | No       | JSON Schema for structured output (instead of `responseSchema`) |
-| `thinkingConfig`            | `IGeminiThinkingConfig`              | No       | Thinking mode settings                                          |
-| `safetySettings`            | `IGeminiSafetySetting[]`             | No       | Per-category safety thresholds                                  |
-| `toolConfig`                | object                               | No       | Function-calling config passed to Gemini                        |
-| `defaultResponseModalities` | `Array<'TEXT' \| 'IMAGE'>`           | No       | Default response modalities, e.g. text and image                |
-| `imageCapableModels`        | `string[]`                           | No       | Models allowed to return images; others are refused             |
-| `executor`                  | `IExecutor`                          | No       | Remote or local executor override                               |
+| Option                      | Type                                 | Required | Description                                                                              |
+| --------------------------- | ------------------------------------ | -------- | ---------------------------------------------------------------------------------------- |
+| `apiKey`                    | `string`                             | Yes      | Google AI API key                                                                        |
+| `defaultModel`              | `string`                             | No       | Model used when a request names none                                                     |
+| `enableWebTools`            | `boolean`                            | No       | Attach Google Search grounding (default: off); a profile sets `nativeWebTools.webSearch` |
+| `responseMimeType`          | `'text/plain' \| 'application/json'` | No       | Response format                                                                          |
+| `responseSchema`            | object                               | No       | Schema for JSON output                                                                   |
+| `responseJsonSchema`        | object                               | No       | JSON Schema for structured output (instead of `responseSchema`)                          |
+| `thinkingConfig`            | `IGeminiThinkingConfig`              | No       | Thinking mode settings                                                                   |
+| `safetySettings`            | `IGeminiSafetySetting[]`             | No       | Per-category safety thresholds                                                           |
+| `toolConfig`                | object                               | No       | Function-calling config passed to Gemini                                                 |
+| `defaultResponseModalities` | `Array<'TEXT' \| 'IMAGE'>`           | No       | Default response modalities, e.g. text and image                                         |
+| `imageCapableModels`        | `string[]`                           | No       | Models allowed to return images; others are refused                                      |
+| `executor`                  | `IExecutor`                          | No       | Remote or local executor override                                                        |
 
 ### Thinking mode
 

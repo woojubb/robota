@@ -480,7 +480,7 @@ describe('GeminiProvider - chatStream', () => {
     });
   });
 
-  it('rejects unsupported native web tools in chat and chatStream', async () => {
+  it('rejects native web tools it is not running in chat and chatStream', async () => {
     const provider = new GeminiProvider({ apiKey: 'test-key' });
     const messages = [
       {
@@ -494,7 +494,7 @@ describe('GeminiProvider - chatStream', () => {
 
     await expect(
       provider.chat(messages, { model: 'gemini-pro', nativeWebTools: { webSearch: true } }),
-    ).rejects.toThrow('Provider gemini does not support native web search');
+    ).rejects.toThrow('Provider gemini supports native web search but it is not enabled');
     await expect(async () => {
       for await (const _chunk of provider.chatStream(messages, {
         model: 'gemini-pro',

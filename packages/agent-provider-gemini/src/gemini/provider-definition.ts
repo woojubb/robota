@@ -1,3 +1,5 @@
+import { readNativeWebSearchOption } from '@robota-sdk/agent-core';
+
 import {
   GEMINI_MODEL_LAST_VERIFIED_AT,
   GEMINI_MODEL_SOURCE_URL,
@@ -34,6 +36,11 @@ export function createGeminiProviderDefinition(): IProviderDefinition {
     displayName: 'Gemini',
     description: 'Google Gemini series — free tier available.',
     category: 'cloud-free',
+    // The SDK reads these base URLs on its own: with one set, the endpoint is one we cannot vouch for.
+    nativeWebTools: (_profile, environment) =>
+      environment['GOOGLE_GEMINI_BASE_URL'] || environment['GOOGLE_VERTEX_BASE_URL']
+        ? []
+        : ['webSearch'],
     // Interim provider-level cost (ARCH-PROVIDER-003), migrated from the former llm-text-gemini node.
     costPerTokenUsd: 0.0005,
     defaults: {
@@ -85,6 +92,7 @@ export function createGeminiProviderDefinition(): IProviderDefinition {
       new GeminiProvider({
         apiKey: requireApiKey(config.apiKey),
         defaultModel: config.model,
+        ...(readNativeWebSearchOption('gemini', config.options) && { enableWebTools: true }),
       }),
   };
 }

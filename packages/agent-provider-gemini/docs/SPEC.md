@@ -16,8 +16,16 @@ and register it directly.
   assistant message for a function-call chunk or a usage-only terminal chunk. When `chat()` uses its
   streaming assembly path (`onTextDelta` set), it returns one complete assistant message assembled from
   all stream chunks.
-- Requests containing `nativeWebTools` are validated by both `chat()` and `chatStream()`. Gemini does
-  not advertise native web tools, so such a request fails explicitly instead of being silently ignored.
+- Requests containing `nativeWebTools` are validated by both `chat()` and `chatStream()`, so a request
+  that requires a hosted tool this provider is not running fails explicitly instead of being silently
+  ignored. Google Search is a construction choice and rides only on requests that can carry it: a model
+  that cannot search next to function tools keeps the function tools, because an agent's work needs them.
+- **Model parts return as they came.** A reply's signed function calls and server-side tool steps reach
+  the next request verbatim through the provider continuation, because Gemini refuses a signed call
+  without its signature and expects those steps echoed. The steps go wherever the model can run them,
+  whatever that request's tools, because a reply with its context cut can be refused. They stay out in
+  Vertex mode, where the SDK refuses them, and on a model that cannot combine tools. If the parts no longer say what the
+  message says, the message wins and they are rebuilt from it.
 - **Model effort.** A verified model selection sends Gemini's `thinkingConfig.thinkingLevel` control,
   preserves unrelated `thinkingConfig` fields, and rejects a conflicting static `thinkingLevel` or
   `thinkingBudget`. `auto` reports the documented default while omitting a control; unknown models and

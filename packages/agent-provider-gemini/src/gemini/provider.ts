@@ -10,6 +10,7 @@ import {
 
 import { GEMINI_CAPABILITY_TABLE } from './capability-table';
 import { executeDirect, executeDirectStream } from './execution-helpers';
+import { geminiProviderCapabilities } from './google-search';
 import { mapImageInputSourceToPart } from './image-operations';
 import { runImageRequest } from './image-request';
 import {
@@ -20,6 +21,7 @@ import {
 
 import type { IGeminiProviderOptions } from './types';
 import type {
+  IProviderCapabilities,
   IProviderCapabilityTable,
   IProviderModelEffortTable,
   TUniversalMessage,
@@ -83,12 +85,19 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
   override readonly version = '1.0.0';
   public onTextDelta?: TTextDeltaCallback;
 
+  /**
+   * When true, Google Search joins every request that can carry it. Fixed at construction
+   * (`enableWebTools` option): whoever builds the provider decides, nothing flips it.
+   */
+  readonly enableWebTools: boolean;
+
   private readonly client?: GoogleGenAI;
   private readonly options: IGeminiProviderOptions;
 
   constructor(options: IGeminiProviderOptions) {
     super();
     this.options = options;
+    this.enableWebTools = options.enableWebTools === true;
 
     if (options.executor) {
       this.executor = options.executor;
@@ -373,6 +382,14 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
 
   override supportsTools(): boolean {
     return true;
+  }
+
+  override getCapabilities(): IProviderCapabilities {
+    return geminiProviderCapabilities(
+      this.enableWebTools,
+      this.options.defaultModel,
+      (this.client as { vertexai?: unknown } | undefined)?.vertexai === true,
+    );
   }
 
   override validateConfig(): boolean {

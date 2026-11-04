@@ -134,8 +134,32 @@ models, the effort is reported as not applied and no native field is sent. When 
 effort, a static `reasoning` option's `effort` must equal the value sent; a different value, or any
 value when no native effort is sent, is rejected.
 
-Native web search and web fetch are not available through this provider on either surface. Setting
-`nativeWebTools.webSearch` or `nativeWebTools.webFetch` to `true` makes the constructor throw.
+`nativeWebTools: { webSearch: true }` adds OpenAI's hosted `web_search` tool to requests on OpenAI's
+own Responses API; OpenAI runs the searches and bills them per search, and no local tool is
+registered. A custom `baseURL` or Chat Completions has no such tool, so the constructor throws there.
+`webFetch: true` always throws: this provider has no separate hosted web fetch.
+
+A request leaves the tool out when its `toolChoice` is anything but `auto` (a forced choice asks for a
+function you will run), when the call sets `nativeWebTools.webSearch: false`, with `minimal` reasoning,
+and on models whose OpenAI model page lists no web search (`gpt-4.1-nano`, `o1`, `o1-pro`, `o3-mini`,
+`gpt-3.5`, `gpt-4`). A model missing from that list fails with OpenAI's own error naming the tool.
+When the request carried the tool, the result's `metadata` has `providerBuiltInToolsEnabled`,
+`openaiWebSearchCalls`, `providerBuiltInToolsUsed` and `openaiWebSearchCitations` (the cited URLs; the
+reply text already holds them inline).
+
+A reply that searched and called a function goes back whole on the later requests of its turn that
+carry the search tool, because the search results exist only on OpenAI's side, named by those items.
+They belong to the account and model that made them, so only the provider instance that recorded the
+reply sends it back, on the same model. A later turn, a request without the tool such as the forced
+summary, a fallback to another model or profile and a resumed session read that reply from its text, as does a reply under `store: false` or whose response says it was not stored,
+where OpenAI has no items to find. In those cases the model can lose what it found once a function
+call follows.
+
+A provider profile built through `createOpenAIProviderDefinition()` turns search on with the same
+option, `"options": { "nativeWebTools": { "webSearch": true } }`. The value is read strictly: another
+key or a non-boolean is an error. The definition declares web search only for a profile with no
+`baseURL`, no `apiSurface: 'chat-completions'` and no `OPENAI_BASE_URL` in the environment the host
+passes it, so a host's default skips endpoints it cannot vouch for.
 
 ## Options
 
@@ -158,7 +182,7 @@ required; the constructor throws otherwise.
 | `reasoning`                 | `IOpenAIResponsesReasoningOptions`         | Responses API reasoning controls (`effort`, `summary`).                                                         |
 | `store`                     | `boolean`                                  | Responses API only: whether OpenAI stores the response; when unset, OpenAI's default applies.                   |
 | `includeEncryptedReasoning` | `boolean`                                  | Responses API only: asks for encrypted reasoning items, so reasoning can continue without server-side state.    |
-| `nativeWebTools`            | `IOpenAINativeWebToolsOptions`             | Not supported: `true` for `webSearch` or `webFetch` throws (see above).                                         |
+| `nativeWebTools`            | `IOpenAINativeWebToolsOptions`             | Hosted web search on OpenAI's own Responses API (`webSearch`); elsewhere `true` throws (see above).             |
 | `includeStreamUsage`        | `boolean`                                  | Requests token usage on streaming Chat Completions turns (default `true`).                                      |
 | `client`                    | `OpenAI`                                   | A pre-built `openai` client, used instead of `apiKey`.                                                          |
 | `executor`                  | `IExecutor`                                | Delegates chat calls to an executor instead of calling the API directly.                                        |

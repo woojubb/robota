@@ -2,7 +2,7 @@ import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { buildCommandSetup } from '../../startup/command-setup.js';
@@ -36,6 +36,16 @@ const ANTHROPIC: IProviderDefinitionConfig = {
   apiKey: 'sk-ant-test',
 };
 const OPENAI: IProviderDefinitionConfig = { name: 'openai', model: 'gpt-5.1', apiKey: 'sk-test' };
+const GEMINI: IProviderDefinitionConfig = {
+  name: 'gemini',
+  model: 'gemini-3-flash-preview',
+  apiKey: 'gemini-test',
+};
+const DEEPSEEK: IProviderDefinitionConfig = {
+  name: 'deepseek',
+  model: 'deepseek-chat',
+  apiKey: 'deepseek-test',
+};
 
 function definitionFor(
   definitions: readonly IProviderDefinition[],
@@ -57,6 +67,13 @@ function webSearchEnabled(
 describe('productProviderDefinitions native web search default', () => {
   beforeEach(() => {
     received.length = 0;
+    // A developer's own gateway variable would change which profiles OpenAI declares search for.
+    vi.stubEnv('OPENAI_BASE_URL', '');
+    vi.stubEnv('GOOGLE_GEMINI_BASE_URL', '');
+    vi.stubEnv('GOOGLE_VERTEX_BASE_URL', '');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('turns native web search on for an Anthropic profile without options', () => {
@@ -85,13 +102,34 @@ describe('productProviderDefinitions native web search default', () => {
     expect(received.at(-1)).toBe(empty);
   });
 
-  it('leaves every other provider definition untouched', () => {
-    const provider = definitionFor(productProviderDefinitions(), 'openai').createProvider(OPENAI);
+  it.each([
+    ['OpenAI', OPENAI],
+    ['Gemini', GEMINI],
+  ])('turns it on for a %s profile without options', (_label, profile) => {
+    expect(webSearchEnabled(productProviderDefinitions(), profile)).toBe(true);
+    expect(received.at(-1)?.options).toEqual({ nativeWebTools: { webSearch: true } });
+  });
 
-    // The OpenAI definition throws on `nativeWebTools.webSearch: true`, so a default leaked to it
-    // would fail the build of the provider instead of reaching this line.
-    expect(provider.getCapabilities?.().nativeWebTools.webSearch.enabled).toBe(false);
+  it.each([
+    ['a compatible endpoint', { ...OPENAI, baseURL: 'http://localhost:1234/v1' }],
+    ['Chat Completions', { ...OPENAI, options: { apiSurface: 'chat-completions' } }],
+  ])('builds an OpenAI profile on %s untouched', (_label, profile) => {
+    // The OpenAI definition throws on `nativeWebTools.webSearch: true` here, so a default leaked to
+    // such a profile would fail the build of the provider instead of reaching this line.
+    expect(webSearchEnabled(productProviderDefinitions(), profile)).toBe(false);
+    expect(received.at(-1)).toBe(profile);
+  });
+
+  it('leaves an OpenAI profile alone while OPENAI_BASE_URL redirects the SDK', () => {
+    vi.stubEnv('OPENAI_BASE_URL', 'https://gateway.example.com/v1');
+
+    expect(webSearchEnabled(productProviderDefinitions(), OPENAI)).toBe(false);
     expect(received.at(-1)).toBe(OPENAI);
+  });
+
+  it('leaves a provider definition that declares nothing untouched', () => {
+    expect(webSearchEnabled(productProviderDefinitions(), DEEPSEEK)).toBe(false);
+    expect(received.at(-1)).toBe(DEEPSEEK);
   });
 });
 

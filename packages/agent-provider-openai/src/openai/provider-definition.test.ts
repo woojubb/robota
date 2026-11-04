@@ -51,7 +51,7 @@ describe('createOpenAIProviderDefinition', () => {
     expect(provider.name).toBe('openai');
   });
 
-  it('rejects native web tools for OpenAI-compatible baseURL profiles', () => {
+  it('rejects hosted web search for OpenAI-compatible baseURL profiles', () => {
     const definition = createOpenAIProviderDefinition();
 
     expect(() =>
@@ -61,14 +61,13 @@ describe('createOpenAIProviderDefinition', () => {
         apiKey: 'lm-studio',
         baseURL: 'http://localhost:1234/v1',
         options: {
-          builtInWebTools: {
+          nativeWebTools: {
             webSearch: true,
-            webFetch: true,
           },
         },
       }),
     ).toThrow(
-      'Provider openai profile uses an OpenAI-compatible Chat Completions endpoint; native web search/fetch is not supported for this profile.',
+      "Provider openai profile uses an OpenAI-compatible endpoint or Chat Completions; hosted web search runs only on OpenAI's own Responses API.",
     );
   });
 });

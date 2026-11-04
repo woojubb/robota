@@ -79,6 +79,7 @@ export {
   assertProviderNativeWebToolsAvailable,
   createDefaultProviderCapabilities,
   getProviderCapabilities,
+  readNativeWebSearchOption,
 } from './interfaces';
 
 export { isImageGenerationProvider, isVideoGenerationProvider } from './interfaces/media-provider';
@@ -114,6 +115,7 @@ export type {
 
 // Message type guards and utilities
 export {
+  PROVIDER_CONTINUATION_METADATA_KEY,
   isUserMessage,
   isAssistantMessage,
   isSystemMessage,

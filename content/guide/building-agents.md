@@ -112,8 +112,13 @@ A few provider-specific notes:
   web search (`web_search_20250305`) when you build it with `enableWebTools: true` (a profile sets
   `"options": { "nativeWebTools": { "webSearch": true } }`); its `onServerToolUse` callback fires
   when a search runs. Nothing turns this on for you: whoever builds the provider decides.
+- **OpenAI** can use its hosted `web_search` tool on its own Responses API when you build it with
+  `nativeWebTools: { webSearch: true }` (a profile sets the same under `options`).
 - **Gemini** sends the system prompt as `systemInstruction` and accepts `responseSchema` or
-  `responseJsonSchema`, `safetySettings` and `thinkingConfig` options.
+  `responseJsonSchema`, `safetySettings` and `thinkingConfig` options. It can use Google Search
+  grounding when you build it with `enableWebTools: true` (a profile sets
+  `"options": { "nativeWebTools": { "webSearch": true } }`). On Gemini 3 and later search works next to
+  function calling; on Gemini 2 a request with function tools goes without it.
 - **Gemma** filters Gemma's reasoning markers and turns tool calls written as text into real tool
   calls.
 - **Qwen** can enable its own hosted web search and extraction with `builtInWebTools`.
