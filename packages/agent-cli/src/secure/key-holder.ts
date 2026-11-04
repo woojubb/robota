@@ -56,6 +56,13 @@ export type TLockReason = 'explicit' | 'idle' | 'last-client-detached' | 'screen
 /** `verified`: the stored sealing public key was the one the keys derive. `repaired`: it was not, and the file now holds the right one. */
 export type TSealingKeyOutcome = 'verified' | 'repaired';
 
+/**
+ * What a read grant found in the keyring file: `verified`, or `mismatch` (the file holds another
+ * sealing public key than the granted keys derive). A runtime that takes a grant holds no credential
+ * to repair the file with, so it reports the mismatch and leaves the file as it is.
+ */
+export type TGrantSealingKeyOutcome = 'verified' | 'mismatch';
+
 export interface IKeyHolderPolicy {
   /** Lock after this many milliseconds without `touch()`; 0 disables the idle lock. */
   readonly idleMs: number;
@@ -311,6 +318,27 @@ export class KeyHolder {
       if (this.#keys !== unlocked) unlocked.lock();
       throw error;
     }
+  }
+
+  /**
+   * Takes read keys an owner delivered over an owner link, for a runtime that has no terminal and
+   * never sees the passphrase. The granted sealing key becomes the verified one at once, as in an
+   * unlock, so sealing follows the owner's key whatever the file says. The file is only compared with
+   * it: a different key is reported as `mismatch` and the file is left alone, since repairing it
+   * takes the credential and belongs to `secure verify` at a terminal. The holder owns the keys from
+   * here and locks them with its own lock; a refusal leaves them to the caller, which locks them.
+   * Throws `keys-locked` for keys that are locked already, and `KeyringStoreError('missing')` when
+   * there is no keyring file to check against.
+   */
+  unlockWithGrant(keys: IReadKeys): TGrantSealingKeyOutcome {
+    const loaded = this.#store.load();
+    if (loaded.status === 'missing') throw new KeyringStoreError('missing', this.#store.path);
+    // Reading `sealing` is what fails for locked keys, before anything about this holder changes.
+    this.#verifySealingKey(keys.sealing.publicKey);
+    const matches = checkSealingPublicKey(loaded.keyring, keys).matches;
+    this.#install(keys);
+    this.#announceUnlock();
+    return matches ? 'verified' : 'mismatch';
   }
 
   /** Drops the keys and cancels the idle timer. A no-op, and silent, when already locked. */

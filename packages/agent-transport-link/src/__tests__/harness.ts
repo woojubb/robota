@@ -101,7 +101,7 @@ export function readRequestLine(
 export function controlEndpoint(
   identity: IRuntimeIdentity,
   admit: (link: IAdmittedRuntimeLink) => IRuntimeLinkPorts,
-  options: { readonly handshakeTimeoutMs?: number } = {},
+  options: { readonly handshakeTimeoutMs?: number; readonly closeFlushTimeoutMs?: number } = {},
 ): (socket: Socket) => void {
   return (socket) => {
     void readRequestLine(socket).then((request) => {
@@ -122,6 +122,9 @@ export function controlEndpoint(
         admit,
         ...(options.handshakeTimeoutMs !== undefined
           ? { handshakeTimeoutMs: options.handshakeTimeoutMs }
+          : {}),
+        ...(options.closeFlushTimeoutMs !== undefined
+          ? { closeFlushTimeoutMs: options.closeFlushTimeoutMs }
           : {}),
       });
     });
