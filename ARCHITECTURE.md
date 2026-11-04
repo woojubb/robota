@@ -123,8 +123,9 @@ reaches, and on any package whose manifest disagrees with the lists below.
 - **Node host**: `agent-cli`, `agent-ui-terminal`, `agent-process`, `agent-file-authority`,
   `agent-organization-host`, `agent-tool-defaults`, `pack-coding`, `agent-subagent-runner`,
   `agent-transport-ws`, `agent-transport-mcp`, `agent-transport-acp`, `agent-transport-webrtc`,
-  `agent-provider-replay` — they exist to drive a Node host (a terminal, child processes, the file
-  system, listeners, stdio), so their main entry is Node-only.
+  `agent-provider-replay`, `agent-keyring` — they exist to drive a Node host (a terminal, child
+  processes, the file system, listeners, stdio, `node:crypto` key custody), so their main entry is
+  Node-only.
 - **Not yet neutral**: `agent-provider-anthropic`, `agent-provider-openai`,
   `agent-provider-openai-compatible`, `agent-provider-gemini`, `agent-builtin-providers`,
   `agent-plugin`, `agent-executor`, `agent-session`, `agent-tools`, `agent-mcp`, `agent-transport-http`,
