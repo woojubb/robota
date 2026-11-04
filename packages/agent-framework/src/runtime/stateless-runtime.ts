@@ -26,6 +26,14 @@ export interface IStatelessRuntimeConfig {
 
 export function createStatelessRuntime(config: IStatelessRuntimeConfig): IAgentRuntime {
   requireFrameworkHost(config.host, 'createStatelessRuntime');
+  // The runtime hands this to every session it creates, which refuses a missing root only when one
+  // is created; say so here, where the caller can still see which call omitted it.
+  if (typeof config.cwd !== 'string' || config.cwd.length === 0) {
+    throw new Error(
+      'createStatelessRuntime requires `cwd`: the absolute path its sessions run in. Pass ' +
+        '`process.cwd()` explicitly if that is genuinely what you mean.',
+    );
+  }
   const runtime = createAgentRuntime({
     host: config.host,
     cwd: config.cwd,

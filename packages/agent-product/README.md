@@ -15,7 +15,9 @@ npm install @robota-sdk/agent-product
 ## Usage
 
 ```ts
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { assembleProduct } from '@robota-sdk/agent-product';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
@@ -37,7 +39,9 @@ const product = assembleProduct({
 // The external repo binds product.buildRuntime(...) to ITS OWN presentation/transport.
 // A provider passed in the session options would take precedence over the constructed one.
 if (product.provider === undefined) throw new Error('no provider configured');
-const session = product.buildRuntime({ session: { cwd, provider: product.provider } });
+// The platform the session runs on, and the directory it works in: the kernel assumes neither.
+const host = createNodeFrameworkHost({ createDefaultTools });
+const session = product.buildRuntime({ session: { host, cwd, provider: product.provider } });
 void product.acceptedPacks;
 void product.rejectedCapabilities;
 void product.rejectedPacks;

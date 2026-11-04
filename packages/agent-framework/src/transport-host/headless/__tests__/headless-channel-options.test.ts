@@ -64,6 +64,7 @@ describe('HeadlessInteractionChannel session options', () => {
     expect(
       () =>
         new HeadlessInteractionChannel({
+          host: testHost,
           cwd: process.cwd(),
           provider: {} as IAIProvider,
           outputFormat: 'text',
@@ -262,6 +263,7 @@ describe('HeadlessInteractionChannel session options', () => {
   it('forwards the resolved organization policy unchanged to the session', async () => {
     const orgPolicy = { blockedCommands: ['clear'], adminContact: 'ops@example.test' };
     const channel = new HeadlessInteractionChannel({
+      host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
       outputFormat: 'text',

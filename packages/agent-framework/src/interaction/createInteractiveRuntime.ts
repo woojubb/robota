@@ -1,4 +1,5 @@
 import { parseInput } from './input-parser.js';
+import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { buildRuntimeSession } from '../runtime/runtime-host.js';
 
 import type { IInteractionChannel } from './IInteractionChannel.js';
@@ -116,6 +117,7 @@ function wireSessionEvents(session: IInteractiveSession, channel: IInteractionCh
 }
 
 export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): IInteractiveRuntime {
+  requireFrameworkHost(options.host, 'createInteractiveRuntime');
   const {
     provider,
     cwd,

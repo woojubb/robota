@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -22,6 +23,7 @@ const MEMBERS: Record<keyof IFrameworkHost, true> = {
   env: true,
   files: true,
   git: true,
+  readGitRemotes: true,
   createHookExecutors: true,
   createBackgroundTaskRunners: true,
   createDefaultTools: true,
@@ -98,6 +100,31 @@ describe('createNodeFrameworkHost', () => {
   it('runs git as a process', async () => {
     const outcome = await host.git?.run(['--version'], { cwd: root });
     expect(outcome?.kind === 'exited' ? outcome.stdout : outcome).toMatch(/^git version /);
+  });
+
+  it('lists the remotes of a repository once each, and none outside one', async () => {
+    const repo = join(root, 'repo');
+    mkdirSync(repo);
+    execFileSync('git', ['init', '--quiet'], { cwd: repo });
+    execFileSync('git', ['remote', 'add', 'origin', 'https://example.test/a.git'], { cwd: repo });
+    execFileSync('git', ['remote', 'add', 'mirror', 'https://example.test/a.git'], { cwd: repo });
+    expect(await host.readGitRemotes?.(repo)).toEqual(['https://example.test/a.git']);
+    expect(await host.readGitRemotes?.(root)).toEqual([]);
+  });
+
+  it('reads remotes in the environment a judged push runs in, where `git` runs scrubbed', async () => {
+    const repo = join(root, 'elsewhere');
+    const outside = join(root, 'outside');
+    mkdirSync(repo);
+    mkdirSync(outside);
+    execFileSync('git', ['init', '--quiet'], { cwd: repo });
+    execFileSync('git', ['remote', 'add', 'origin', 'https://example.test/b.git'], { cwd: repo });
+    vi.stubEnv('GIT_DIR', join(repo, '.git'));
+    // A `git push` run from `outside` would reach the repository GIT_DIR names, so those are the
+    // remotes the classifier has to be told; the host's own runner drops GIT_DIR and sees none.
+    expect(await host.readGitRemotes?.(outside)).toEqual(['https://example.test/b.git']);
+    const scrubbed = await host.git?.run(['remote', '-v'], { cwd: outside });
+    expect(scrubbed?.kind === 'exited' ? scrubbed.exitCode : scrubbed).not.toBe(0);
   });
 
   it('builds the command and HTTP hook executors, the default runners and an async scope', async () => {

@@ -3,10 +3,12 @@ import { describe, expect, it } from 'vitest';
 
 import { createSession } from '../assembly/create-session.js';
 import { createQuery } from '../query.js';
+import { createStatelessRuntime } from '../runtime/stateless-runtime.js';
 import { createTestFrameworkHost } from '../testing/framework-host.js';
 
 import type { ICreateSessionOptions } from '../assembly/create-session-types.js';
 import type { ICreateQueryOptions } from '../query.js';
+import type { IStatelessRuntimeConfig } from '../runtime/stateless-runtime.js';
 
 /**
  * The working directory is passed in, never read from the process. `createSession` and
@@ -20,6 +22,11 @@ describe('a missing cwd is refused instead of defaulting to the process director
   it('createQuery', () => {
     const options = { host, provider } as unknown as ICreateQueryOptions;
     expect(() => createQuery(options)).toThrow(/cwd is required/u);
+  });
+
+  it('createStatelessRuntime, before it returns a runtime with no root', () => {
+    const config = { host, provider } as unknown as IStatelessRuntimeConfig;
+    expect(() => createStatelessRuntime(config)).toThrow(/^createStatelessRuntime requires `cwd`/u);
   });
 
   it('createSession', async () => {
