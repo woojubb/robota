@@ -1,6 +1,8 @@
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { MockInstance } from 'vitest';
+
 import { createHeadlessRunner } from '../headless-runner.js';
 
 import type { IHeadlessOutput } from '../headless-runner.js';
@@ -49,8 +51,8 @@ const RESULT = {
   contextState: {},
 } as unknown as IExecutionResult;
 
-let processStdout: ReturnType<typeof vi.spyOn>;
-let processStderr: ReturnType<typeof vi.spyOn>;
+let processStdout: MockInstance<typeof process.stdout.write>;
+let processStderr: MockInstance<typeof process.stderr.write>;
 beforeEach(() => {
   processStdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
   processStderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
