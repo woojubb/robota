@@ -204,6 +204,12 @@ These are behaviors a caller cannot infer from a type signature alone.
   runs only for the operator's own command, never for a connected surface or the model, whichever
   command asked. UI-only intents (opening a picker, a settings screen) are fire-and-forget: with no
   surface listening they are a defined no-op, and that never affects the host-action half.
+- **A command never reads another command's source.** Where the host tracks async context, every
+  command sees the source, driver and locality it was started with, however many run at once. A host
+  that does not (a browser) admits one user or remote command at a time and refuses a second in plain
+  words, because one slot read by two overlapping commands would hand each the other's source and a
+  model command could then read as a user's. Model commands may overlap: they all carry the same scope,
+  and they are what runs inside the turn or fork a skill command started.
 - **Local peer status is display-only.** Host-observed activity, independently verified process
   liveness and the verified workspace relation never grant authority over the peer or identify a persisted session record, and a passive
   observer can never keep a request alive after its last answering surface leaves.

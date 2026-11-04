@@ -255,6 +255,7 @@ describe('default CLI command composition', () => {
 
     try {
       const transport = createHeadlessTransport({
+        output: { stdout: process.stdout, stderr: process.stderr },
         outputFormat: 'json',
         prompt: '/permissions plan',
       });
@@ -326,6 +327,7 @@ describe('default CLI command composition', () => {
 
     try {
       const transport = createHeadlessTransport({
+        output: { stdout: process.stdout, stderr: process.stderr },
         outputFormat: 'json',
         prompt: '/provider',
       });

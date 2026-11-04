@@ -255,7 +255,9 @@ const session = runtime.createSession({ permissionMode: 'plan' });
 `startRuntimeHost()` adds transport start/stop and a bounded shutdown on top of it; the CLI's
 `<cli-name> --serve` uses both. `SessionPool` keeps several live sessions for a runtime that serves more
 than one client. Headless output is available through `createHeadlessRunner` and
-`createHeadlessTransport`, and `createProgrammaticAgent` drives a session from code.
+`createHeadlessTransport`, and `createProgrammaticAgent` drives a session from code. The headless pieces
+own no streams: each takes a required `output` (`{ stdout, stderr }`, anything with `write(text)`), and a
+Node process passes `process.stdout` and `process.stderr`.
 
 ## Permissions
 

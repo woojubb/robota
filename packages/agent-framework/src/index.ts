@@ -10,7 +10,9 @@ export { HeadlessInteractionChannel } from './transport-host/headless/HeadlessIn
 export type { IHeadlessInteractionChannelOptions } from './transport-host/headless/HeadlessInteractionChannel.js';
 export { createHeadlessRunner, OUTPUT_FORMATS } from './transport-host/headless/headless-runner.js';
 export type {
+  IHeadlessOutput,
   IHeadlessRunnerOptions,
+  IHeadlessTextSink,
   TOutputFormat,
 } from './transport-host/headless/headless-runner.js';
 export { createHeadlessTransport } from './transport-host/headless/headless-transport.js';
@@ -949,12 +951,10 @@ export { resolveGitBranchFromNodeHost } from './git/git-branch.js';
 // session-level reads and the `/git` command run through the exact SAME functions — never a second,
 // possibly-drifting implementation of "what changed" or "what does this diff show".
 export {
-  createGitProcess,
   executeGitDiff,
   executeGitStatus,
   formatGitStatus,
   gitDiffArgv,
-  gitEnvironment,
   gitFailureMessage,
   isNotAGitRepositoryFailure,
   parseGitDiffArgs,
@@ -963,16 +963,12 @@ export {
   parseUnifiedDiffLines,
   readProjectGitDiff,
   readProjectGitStatus,
-  GIT_DEFAULT_TIMEOUT_MS,
   GIT_DIFF_USAGE,
-  GIT_ENV_DENYLIST,
-  GIT_MAX_OUTPUT_BYTES,
   GIT_STATUS_ARGS,
   MAX_PROJECT_DIFF_LINES,
   MAX_STATUS_FILES,
 } from './git/index.js';
 export type {
-  ICreateGitProcessOptions,
   IGitDiffArgs,
   IGitProcessPort,
   IGitProcessRunOptions,

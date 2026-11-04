@@ -4,6 +4,9 @@ import { describe, it, expect, vi } from 'vitest';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import { createHeadlessRunner } from '../headless-runner.js';
 
+/** The streams a Node composition root hands the headless runner; tests spy on them. */
+const processOutput = { stdout: process.stdout, stderr: process.stderr };
+
 describe('createHeadlessRunner initialization', () => {
   it('stream-json reads the session id after submit initializes the session', async () => {
     const stdoutWriteSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
@@ -33,7 +36,11 @@ describe('createHeadlessRunner initialization', () => {
     });
 
     try {
-      const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });
+      const runner = createHeadlessRunner({
+        session,
+        output: processOutput,
+        outputFormat: 'stream-json',
+      });
       const exitCode = await runner.run('test prompt');
 
       expect(exitCode).toBe(0);

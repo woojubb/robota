@@ -317,6 +317,7 @@ describe('headless transport skill activation integration', () => {
 
     try {
       const transport = createHeadlessTransport({
+        output: { stdout: process.stdout, stderr: process.stderr },
         outputFormat: 'json',
         prompt: 'Use repository writing rules for docs/architecture.md',
       });
@@ -395,6 +396,7 @@ describe('headless transport skill activation integration', () => {
 
     try {
       const transport = createHeadlessTransport({
+        output: { stdout: process.stdout, stderr: process.stderr },
         outputFormat: 'json',
         prompt: '/audit src/index.ts',
       });
@@ -447,6 +449,7 @@ describe('headless transport skill activation integration', () => {
 
     try {
       const transport = createHeadlessTransport({
+        output: { stdout: process.stdout, stderr: process.stderr },
         outputFormat: 'json',
         prompt: 'Spawn agents in parallel',
       });

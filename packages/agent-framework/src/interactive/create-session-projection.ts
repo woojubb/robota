@@ -1,5 +1,4 @@
 import { FileSessionLogger, SilentSessionLogger } from '@robota-sdk/agent-session';
-import { registerProcessExitFlush } from '@robota-sdk/agent-session/node';
 
 import { NOOP_TERMINAL } from './interactive-session-execution.js';
 import { createProjectPermissionPersistence } from './project-permission-persistence.js';
@@ -57,6 +56,7 @@ export function buildCreateSessionOptions(
   const persistProjectPermission = createProjectPermissionPersistence(
     options.projectAccess,
     options.projectSettingsPaths,
+    options.host,
   );
   return {
     host: options.host,
@@ -78,7 +78,9 @@ export function buildCreateSessionOptions(
       options.sessionLogSink === undefined
         ? new SilentSessionLogger()
         : new FileSessionLogger(options.sessionLogSink, {
-            registerExitFlush: registerProcessExitFlush,
+            // The host says how its process ends; without it a log loses the buffered tail of an
+            // abnormal exit and nothing else.
+            registerExitFlush: options.host.registerExitFlush,
           }),
     ...(options.transcriptPath !== undefined ? { transcriptPath: options.transcriptPath } : {}),
     permissionHandler: options.permissionHandler,

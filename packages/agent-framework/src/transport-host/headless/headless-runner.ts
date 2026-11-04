@@ -15,6 +15,7 @@ export {
   writeJsonResult,
 } from './headless-output.js';
 
+import type { IHeadlessOutput } from './headless-output.js';
 import type { IHeadlessSession } from './headless-session.js';
 import type { IModelEffortResolution } from '../../effort/effort-resolution.js';
 import type { IProviderErrorGuidance } from '../../utils/error-humanizer.js';
@@ -23,6 +24,7 @@ import type { TOutputFormat } from './headless-output-format.js';
 
 export { OUTPUT_FORMATS } from './headless-output-format.js';
 export type { TOutputFormat } from './headless-output-format.js';
+export type { IHeadlessOutput, IHeadlessTextSink } from './headless-output.js';
 
 /** RUNTIME-36: normalize a caught unknown into an Error for the error/exit-code handlers. */
 function toError(error: unknown): Error {
@@ -36,6 +38,8 @@ export interface IHeadlessGoalOptions {
 
 export interface IHeadlessRunnerOptions {
   session: IHeadlessSession;
+  /** Where results and diagnostics are written; the framework has no streams of its own. */
+  output: IHeadlessOutput;
   outputFormat: TOutputFormat;
   /** Optional startup resolution projected into ordinary print results. */
   effortResolution?: IModelEffortResolution;
@@ -46,16 +50,17 @@ export function createHeadlessRunner(options: IHeadlessRunnerOptions): {
   run: (prompt: string) => Promise<number>;
   runGoal: (objective: string, goalOptions?: IHeadlessGoalOptions) => Promise<number>;
 } {
-  const { session, outputFormat, effortResolution, providerErrorGuidance } = options;
+  const { session, output, outputFormat, effortResolution, providerErrorGuidance } = options;
   return {
     run: (prompt: string): Promise<number> => {
       if (outputFormat === 'text')
-        return runTextFormat(session, prompt, effortResolution, providerErrorGuidance);
-      if (outputFormat === 'json') return runJsonFormat(session, prompt, effortResolution);
-      return runStreamJsonFormat(session, prompt, effortResolution);
+        return runTextFormat(output, session, prompt, effortResolution, providerErrorGuidance);
+      if (outputFormat === 'json') return runJsonFormat(output, session, prompt, effortResolution);
+      return runStreamJsonFormat(output, session, prompt, effortResolution);
     },
     runGoal: (objective: string, goalOptions: IHeadlessGoalOptions = {}): Promise<number> =>
       runGoalFormat(
+        output,
         session,
         objective,
         goalOptions,
@@ -72,6 +77,7 @@ export function createHeadlessRunner(options: IHeadlessRunnerOptions): {
  * if it stopped at a bound (max-iterations / no-progress / cancelled), or 1 on a turn error.
  */
 function runGoalFormat(
+  output: IHeadlessOutput,
   session: IHeadlessSession,
   objective: string,
   goalOptions: IHeadlessGoalOptions,
@@ -86,17 +92,25 @@ function runGoalFormat(
       session.off('goal_event', onGoal);
     };
     const onComplete = (result: IExecutionResult): void => {
-      if (result.response) process.stdout.write(result.response + '\n');
+      if (result.response) output.stdout.write(result.response + '\n');
     };
     const onError = (error: Error): void => {
       cleanup();
       if (outputFormat === 'text')
-        process.stderr.write(humanizeApiError(error, providerErrorGuidance) + '\n');
-      else writeJsonResult(getSessionId(session), '', 'error', error);
+        output.stderr.write(humanizeApiError(error, providerErrorGuidance) + '\n');
+      else writeJsonResult(output, getSessionId(session), '', 'error', error);
       resolve(1);
     };
     const onGoal = (event: IGoalEvent): void =>
-      writeGoalStoppedResult(session, event, outputFormat, effortResolution, cleanup, resolve);
+      writeGoalStoppedResult(
+        output,
+        session,
+        event,
+        outputFormat,
+        effortResolution,
+        cleanup,
+        resolve,
+      );
 
     session.on('complete', onComplete);
     session.on('error', onError);
@@ -141,6 +155,7 @@ function createExitCodeLatch(): {
 }
 
 async function runTextFormat(
+  output: IHeadlessOutput,
   session: IHeadlessSession,
   prompt: string,
   effortResolution?: IModelEffortResolution,
@@ -155,23 +170,23 @@ async function runTextFormat(
   const onComplete = (result: IExecutionResult): void =>
     latch.finalize(0, () => {
       cleanup();
-      process.stdout.write(result.response + '\n');
+      output.stdout.write(result.response + '\n');
       if (effortResolution !== undefined) {
-        process.stdout.write(formatEffortResolution(effortResolution) + '\n');
+        output.stdout.write(formatEffortResolution(effortResolution) + '\n');
       }
     });
   const onInterrupted = (result: IExecutionResult): void =>
     latch.finalize(0, () => {
       cleanup();
-      if (result.response) process.stdout.write(result.response + '\n');
+      if (result.response) output.stdout.write(result.response + '\n');
       if (effortResolution !== undefined) {
-        process.stdout.write(formatEffortResolution(effortResolution) + '\n');
+        output.stdout.write(formatEffortResolution(effortResolution) + '\n');
       }
     });
   const onError = (error: Error): void =>
     latch.finalize(1, () => {
       cleanup();
-      process.stderr.write(humanizeApiError(error, providerErrorGuidance) + '\n');
+      output.stderr.write(humanizeApiError(error, providerErrorGuidance) + '\n');
     });
 
   session.on('complete', onComplete);
@@ -183,7 +198,7 @@ async function runTextFormat(
     if (cmd.kind === 'command-result') {
       latch.finalize(cmd.result.success ? 0 : 1, () => {
         cleanup();
-        process.stdout.write(cmd.result.message + '\n');
+        output.stdout.write(cmd.result.message + '\n');
       });
     } else if (cmd.kind !== 'session-execution') {
       // CI-001: AWAIT submit so the turn's trailing work (persistSession / checkpoint finalize) drains
@@ -197,6 +212,7 @@ async function runTextFormat(
 }
 
 async function runJsonFormat(
+  output: IHeadlessOutput,
   session: IHeadlessSession,
   prompt: string,
   effortResolution?: IModelEffortResolution,
@@ -207,7 +223,13 @@ async function runJsonFormat(
     session.off('interrupted', onInterrupted);
     session.off('error', onError);
   };
-  const handlers = createJsonFormatHandlers(session, effortResolution, cleanup, latch.finalize);
+  const handlers = createJsonFormatHandlers(
+    output,
+    session,
+    effortResolution,
+    cleanup,
+    latch.finalize,
+  );
   const { onComplete, onInterrupted, onError } = handlers;
 
   session.on('complete', onComplete);
@@ -220,6 +242,7 @@ async function runJsonFormat(
       latch.finalize(cmd.result.success ? 0 : 1, () => {
         cleanup();
         writeJsonResult(
+          output,
           getSessionId(session),
           cmd.result.message,
           cmd.result.success ? 'success' : 'error',
@@ -238,6 +261,7 @@ async function runJsonFormat(
 }
 
 async function runStreamJsonFormat(
+  output: IHeadlessOutput,
   session: IHeadlessSession,
   prompt: string,
   effortResolution?: IModelEffortResolution,
@@ -247,10 +271,11 @@ async function runStreamJsonFormat(
   // callback; guard so a terminal event and the catch below cannot both write (see createExitCodeLatch).
   const settleFromEvent = (code: number): void => latch.finalize(code, () => undefined);
   const cleanup = subscribeStreamJsonEvents(
+    output,
     session,
     getSessionId,
     (sessionId, result, subtype, error) =>
-      writeJsonResult(sessionId, result, subtype, error, effortData(effortResolution)),
+      writeJsonResult(output, sessionId, result, subtype, error, effortData(effortResolution)),
     settleFromEvent,
   );
 
@@ -260,6 +285,7 @@ async function runStreamJsonFormat(
       latch.finalize(cmd.result.success ? 0 : 1, () => {
         cleanup();
         writeJsonResult(
+          output,
           getSessionId(session),
           cmd.result.message,
           cmd.result.success ? 'success' : 'error',
@@ -275,7 +301,7 @@ async function runStreamJsonFormat(
     // RUNTIME-36: route a thrown slash-command / failed submit to a non-zero exit instead of hanging.
     latch.finalize(1, () => {
       cleanup();
-      writeJsonResult(getSessionId(session), '', 'error', toError(error));
+      writeJsonResult(output, getSessionId(session), '', 'error', toError(error));
     });
   }
   return latch.value();

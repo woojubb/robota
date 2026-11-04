@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import { buildCreateSessionOptions } from '../create-session-projection.js';
 
 import type { ICommandModule } from '../../command-api/command-module.js';
@@ -23,7 +24,12 @@ const DEPS: ICreateSessionProjectionDeps = {
 };
 
 function initOptions(extra: Partial<IInitOptions>): IInitOptions {
-  return { cwd: '/cmd-008', provider: {} as never, ...extra } as IInitOptions;
+  return {
+    host: createTestFrameworkHost(),
+    cwd: '/cmd-008',
+    provider: {} as never,
+    ...extra,
+  } as IInitOptions;
 }
 
 describe('CMD-008 — sessionRequirements is a demand switch', () => {

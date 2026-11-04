@@ -14,6 +14,7 @@
 import type { TPromptHistoryRecorder } from './interactive-session-prompt-history.js';
 import type { ILivePromptTracePort } from './interactive-session-live-prompt-trace.js';
 import type { IExecutionResult } from './types.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
@@ -26,6 +27,8 @@ export interface IExecutionControllerCallbacks {
   getSession: () => Session;
   getSessionOrThrow: () => Session;
   getCwd: () => string;
+  /** The host's file access; absent, an Edit diff carries no context lines from the file. */
+  files?: IFrameworkHost['files'];
   getProjectAccess: () => TWorkspaceProjectAccess;
   providerErrorGuidance?: IProviderErrorGuidance;
   promptFileReferenceTag?: string;

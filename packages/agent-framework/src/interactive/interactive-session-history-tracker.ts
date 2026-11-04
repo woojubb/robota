@@ -1,6 +1,4 @@
-import { randomUUID } from 'node:crypto';
-
-import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import { createSystemMessage, messageToHistoryEntry, randomId } from '@robota-sdk/agent-core';
 
 import {
   addInteractiveContextReference,
@@ -19,7 +17,6 @@ import {
 } from '../memory/memory-event-format.js';
 import { EditCheckpointNumberingExhaustedError } from '../checkpoints/edit-checkpoint-errors.js';
 import { EditCheckpointsUnavailableError } from '../checkpoints/edit-checkpoints-unavailable-error.js';
-import { supportsWorkspaceProjectMutation } from '../workspace-trust/index.js';
 
 import type { IHistoryTrackerState } from './session-history-state.js';
 import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
@@ -72,6 +69,8 @@ export class SessionHistoryTracker {
     private readonly emitMemoryEvent: (event: IMemoryEvent) => void,
     editCheckpointStore: EditCheckpointStore | null = null,
     emitBranchEvent: (event: IBranchEvent) => void = () => undefined,
+    /** The host's `supportsProjectMutation`; absent, the host cannot keep a checkpoint on disk. */
+    private readonly supportsProjectMutation: boolean | undefined = undefined,
   ) {
     this.editCheckpointStore = editCheckpointStore;
     this.branchEvents = new SessionBranchEvents(
@@ -291,7 +290,7 @@ export class SessionHistoryTracker {
     this.memoryEvents.push(event);
     if (VISIBLE_MEMORY_EVENT_TYPES.has(event.type)) {
       this.history.push({
-        id: randomUUID(),
+        id: randomId(),
         timestamp: new Date(event.at),
         category: 'event',
         type: 'memory-event',
@@ -351,7 +350,7 @@ export class SessionHistoryTracker {
     this.skillActivationEvents.push(event);
     if (appendHistory) {
       this.history.push({
-        id: randomUUID(),
+        id: randomId(),
         timestamp: new Date(event.timestamp),
         category: 'event',
         type: 'skill-activation',
@@ -375,7 +374,7 @@ export class SessionHistoryTracker {
    * would not bring checkpoints back, so naming trust there would send the user the wrong way.
    */
   private noStoreReason(): TEditCheckpointsUnavailableReason {
-    if (!supportsWorkspaceProjectMutation()) return 'host-cannot-write-project';
+    if (this.supportsProjectMutation !== true) return 'host-cannot-write-project';
     if (this.workspace.projectAccess.status !== 'trusted') return 'restricted-workspace';
     return 'no-checkpoint-store';
   }

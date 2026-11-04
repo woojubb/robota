@@ -40,7 +40,10 @@ export function projectCompactEvent(
 export function projectToolExecution(
   activeTools: IToolState[],
   history: ReturnType<SessionHistoryTracker['getHistory']>,
-  callbacks: Pick<IExecutionControllerCallbacks, 'getCwd' | 'emit' | 'modelCommandToolNames'>,
+  callbacks: Pick<
+    IExecutionControllerCallbacks,
+    'getCwd' | 'files' | 'emit' | 'modelCommandToolNames'
+  >,
   commitActiveTools: (tools: IToolState[]) => void,
   event: {
     type: 'start' | 'end';
@@ -96,7 +99,7 @@ export function projectToolExecution(
       );
       callbacks.emit('tool_start', refused);
     }
-    const finished = applyToolEnd(streamingState, event, cwd);
+    const finished = applyToolEnd(streamingState, event, cwd, callbacks.files);
     commitActiveTools(streamingState.activeTools);
     if (finished) callbacks.emit('tool_end', finished);
   }

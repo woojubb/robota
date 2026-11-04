@@ -8,6 +8,21 @@ import type { IExecutionResult, IGoalEvent } from '@robota-sdk/agent-interface-s
 /** Exit code for a goal that stopped cleanly without being satisfied. */
 export const GOAL_NOT_SATISFIED_EXIT_CODE = 2;
 
+/** Somewhere text can be written; a Node `process.stdout` is one. */
+export interface IHeadlessTextSink {
+  write(text: string): unknown;
+}
+
+/**
+ * Where a headless run writes: results on `stdout`, diagnostics on `stderr`. The framework owns no
+ * streams of its own, so a Node composition root passes `{ stdout: process.stdout, stderr:
+ * process.stderr }` and any other host passes whatever carries its output.
+ */
+export interface IHeadlessOutput {
+  readonly stdout: IHeadlessTextSink;
+  readonly stderr: IHeadlessTextSink;
+}
+
 /**
  * #3282 §2 — the same plain wording `/effort` itself reports (`EFFORT_LEVEL_LABELS`), replacing the
  * earlier `Model effort: requested=…, effective=…, source=…, disposition=…` internal-field dump for
@@ -29,6 +44,7 @@ export function effortData(
 }
 
 export function writeGoalStoppedResult(
+  output: IHeadlessOutput,
   session: IHeadlessSession,
   event: IGoalEvent,
   outputFormat: TOutputFormat,
@@ -44,12 +60,13 @@ export function writeGoalStoppedResult(
     ? `Goal satisfied after ${goal.iterations} iteration(s).`
     : `Goal stopped: ${goal.stopReason} (after ${goal.iterations} iteration(s)).`;
   if (outputFormat === 'text') {
-    (satisfied ? process.stdout : process.stderr).write(summary + '\n');
+    (satisfied ? output.stdout : output.stderr).write(summary + '\n');
     if (effortResolution !== undefined && satisfied) {
-      process.stdout.write(formatEffortResolution(effortResolution) + '\n');
+      output.stdout.write(formatEffortResolution(effortResolution) + '\n');
     }
   } else {
     writeJsonResult(
+      output,
       getSessionId(session),
       summary,
       satisfied ? 'success' : 'error',
@@ -67,6 +84,7 @@ export interface IJsonFormatHandlers {
 }
 
 export function createJsonFormatHandlers(
+  output: IHeadlessOutput,
   session: IHeadlessSession,
   effortResolution: IModelEffortResolution | undefined,
   cleanup: () => void,
@@ -75,6 +93,7 @@ export function createJsonFormatHandlers(
   const writeSuccess = (result: IExecutionResult): void => {
     cleanup();
     writeJsonResult(
+      output,
       getSessionId(session),
       result.response,
       'success',
@@ -88,7 +107,7 @@ export function createJsonFormatHandlers(
     onError: (error: Error): void =>
       finalize(1, () => {
         cleanup();
-        writeJsonResult(getSessionId(session), '', 'error', error);
+        writeJsonResult(output, getSessionId(session), '', 'error', error);
       }),
   };
 }
@@ -105,6 +124,7 @@ export function resolveErrorCode(error: Error): string {
 }
 
 export function writeJsonResult(
+  output: IHeadlessOutput,
   sessionId: string,
   result: string,
   subtype: 'success' | 'error',
@@ -121,8 +141,8 @@ export function writeJsonResult(
     payload['error_code'] = resolveErrorCode(error);
   }
   if (data !== undefined) payload['data'] = data;
-  const output = JSON.stringify(payload);
-  process.stdout.write(output + '\n');
+  const line = JSON.stringify(payload);
+  output.stdout.write(line + '\n');
 }
 
 export function getSessionId(session: IHeadlessSession): string {

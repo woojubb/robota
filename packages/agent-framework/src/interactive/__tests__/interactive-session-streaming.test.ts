@@ -1,15 +1,17 @@
 import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, posix, win32 } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import { projectToolExecution } from '../interactive-session-execution-events.js';
 
 import {
   applyToolEnd,
   applyToolStart,
   pushToolSummaryToHistory,
+  toWorkspaceRelativeDisplayPath,
 } from '../interactive-session-streaming.js';
 
 import type { IStreamingState } from '../interactive-session-streaming.js';
@@ -151,6 +153,8 @@ describe('a tool call names its source view by reference', () => {
   });
 });
 
+const testHost = createTestFrameworkHost();
+
 describe('interactive-session-streaming edit diffs', () => {
   let tmpDir: string | undefined;
 
@@ -204,6 +208,7 @@ describe('interactive-session-streaming edit diffs', () => {
         toolResultData: JSON.stringify({ success: true, startLine: 7 }),
       },
       tmpDir,
+      testHost.files,
     );
 
     expect(finished?.diffFile).toBe('example.md');
@@ -216,6 +221,36 @@ describe('interactive-session-streaming edit diffs', () => {
         { type: 'add', text: 'line one', lineNumber: 7 },
       ]),
     );
+  });
+
+  it('builds an Edit diff from its arguments alone, reading no file, when the host lends none', () => {
+    // The file really is there and has context around the edit: none of it may reach the diff.
+    const filePath = makeTempFile('before one\nbefore two\nline one\nafter one\n');
+    const state = createState();
+    applyToolStart(
+      state,
+      { toolName: 'Edit', toolArgs: { filePath, oldString: 'line one', newString: 'line 1' } },
+      undefined,
+      tmpDir,
+    );
+
+    const finished = applyToolEnd(
+      state,
+      {
+        type: 'end',
+        toolName: 'Edit',
+        toolArgs: { filePath, oldString: 'line one', newString: 'line 1' },
+        success: true,
+        toolResultData: JSON.stringify({ success: true, startLine: 3 }),
+      },
+      tmpDir,
+    );
+
+    expect(finished?.diffFile).toBe('example.md');
+    expect(finished?.diffLines).toEqual([
+      { type: 'remove', text: 'line one', lineNumber: 3 },
+      { type: 'add', text: 'line 1', lineNumber: 3 },
+    ]);
   });
 
   it('persists tool-summary diff metadata for later TUI rendering', () => {
@@ -468,5 +503,73 @@ describe('an `end` with no matching `start` (CORE-027)', () => {
       applyToolEnd(state, { type: 'end', toolName: 'never-started', success: false }),
     ).toBeNull();
     expect(state.activeTools[0]?.isRunning).toBe(true);
+  });
+});
+
+describe('toWorkspaceRelativeDisplayPath', () => {
+  it.each([
+    ['/work', '/work/src/a.ts', 'src/a.ts'],
+    ['/work', 'src/a.ts', 'src/a.ts'],
+    ['/work', 'src/../lib/b.ts', 'lib/b.ts'],
+    ['/work', '/etc/hosts', '/etc/hosts'],
+    ['/work', '../elsewhere/c.ts', '../elsewhere/c.ts'],
+    ['/work', '/work', '/work'],
+  ])('on a POSIX workspace %s shows %s as %s', (cwd, filePath, shown) => {
+    expect(toWorkspaceRelativeDisplayPath(cwd, filePath)).toBe(shown);
+  });
+
+  it.each([
+    ['C:\\work', 'C:\\work\\src\\a.ts', 'src\\a.ts'],
+    ['C:\\work', 'src/a.ts', 'src\\a.ts'],
+    // A differently spelled workspace folder does not round-trip to the same absolute path, as under
+    // `path.win32`: the path is shown as given rather than guessed at.
+    ['C:\\work', 'C:\\WORK\\src\\a.ts', 'C:\\WORK\\src\\a.ts'],
+    ['C:\\work', 'C:\\other\\a.ts', 'C:\\other\\a.ts'],
+    // Another drive is its own root; a drive-relative name on it needs that drive's directory, which
+    // only a process could say, so it is shown as given.
+    ['C:\\work', 'D:\\data\\a.ts', 'D:\\data\\a.ts'],
+    ['C:\\work', 'D:a.ts', 'D:a.ts'],
+  ])('on a Windows workspace %s shows %s as %s', (cwd, filePath, shown) => {
+    expect(toWorkspaceRelativeDisplayPath(cwd, filePath)).toBe(shown);
+  });
+
+  it('shows a path unchanged when the workspace itself has no absolute form', () => {
+    expect(toWorkspaceRelativeDisplayPath('work', 'src/a.ts')).toBe('src/a.ts');
+  });
+
+  // The function used `node:path`; it must answer as `path.posix` and `path.win32` do for the same input.
+  const viaNodePath = (platform: typeof posix, cwd: string, filePath: string): string => {
+    const absolute = platform.resolve(cwd, filePath);
+    const relative = platform.relative(cwd, absolute);
+    const within =
+      relative.length > 0 &&
+      !relative.startsWith('..') &&
+      platform.resolve(cwd, relative) === absolute;
+    return within ? relative : filePath;
+  };
+
+  it.each([
+    ['/work', '/work/src/a.ts'],
+    ['/work/', 'src/a.ts'],
+    ['/work', './src/./a.ts'],
+    ['/work', 'src/../../x'],
+    ['/work', '/workspace/a.ts'],
+    ['/work', '/work/..hidden/a.ts'],
+    ['/', 'a.ts'],
+  ])('answers as path.posix does for %s and %s', (cwd, filePath) => {
+    expect(toWorkspaceRelativeDisplayPath(cwd, filePath)).toBe(viaNodePath(posix, cwd, filePath));
+  });
+
+  it.each([
+    ['C:\\work', 'C:\\work\\src\\a.ts'],
+    ['C:\\work', 'src/a.ts'],
+    ['C:\\work', 'C:/work/src/a.ts'],
+    ['C:\\work\\', 'src\\a.ts'],
+    ['C:\\work', 'C:\\WORK\\src\\a.ts'],
+    ['C:\\work', 'D:\\data\\a.ts'],
+    ['C:\\work', '..\\other\\a.ts'],
+    ['\\\\server\\share\\work', 'src\\a.ts'],
+  ])('answers as path.win32 does for %s and %s', (cwd, filePath) => {
+    expect(toWorkspaceRelativeDisplayPath(cwd, filePath)).toBe(viaNodePath(win32, cwd, filePath));
   });
 });

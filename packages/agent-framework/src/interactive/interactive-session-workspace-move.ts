@@ -5,11 +5,7 @@
  * session there; this session only decides whether it may leave, where to, and what conversation
  * travels. It never mutates its own workspace (ARCH-043).
  */
-import { realpathSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { isAbsolute, resolve } from 'node:path';
-
-import { evaluatePermission } from '@robota-sdk/agent-core';
+import { evaluatePermission, isAbsolutePath, resolvePath } from '@robota-sdk/agent-core';
 
 // The `Cd` rule is judged by the profile this package registers; import it where it is used.
 import '../tools/tool-permission-profiles.js';
@@ -18,6 +14,7 @@ import { buildForkedSessionRecord } from './interactive-session-fork-record.js';
 
 import type { TForkSourceSession } from './interactive-session-fork-record.js';
 import type { IWorkspaceMoveRequest } from '../command-api/host-adapters.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IWorkspacePolicy } from '../workspace-trust/index.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
@@ -37,7 +34,13 @@ export interface IPrepareWorkspaceMoveInput {
   };
   readonly source: TForkSourceSession;
   readonly sessionName: string;
-  readonly homeDirectory?: string;
+  /**
+   * What the platform lends a move: its file access and path canonicalizer decide that the target is
+   * a directory and not the one the session is already in, and its home directory is what `~`
+   * means. Without file access or a canonicalizer no move is possible; without a home directory only
+   * `~` is.
+   */
+  readonly host: Pick<IFrameworkHost, 'homeDirectory' | 'files' | 'canonicalizePath'>;
 }
 
 function expandHome(path: string, home: string): string {
@@ -59,16 +62,33 @@ export function prepareWorkspaceMove(input: IPrepareWorkspaceMoveInput): IWorksp
   }
   const requested = input.requestedPath.trim();
   if (requested === '') throw new Error('Usage: /cd <directory>');
-  const expanded = expandHome(requested, input.homeDirectory ?? homedir());
-  const absolute = isAbsolute(expanded) ? expanded : resolve(input.workspace.cwd, expanded);
+  const { files, canonicalizePath, homeDirectory } = input.host;
+  if (files === undefined || canonicalizePath === undefined) {
+    throw new Error(
+      'Moving to another directory needs file access and path resolution, and this host supplies ' +
+        'neither.',
+    );
+  }
+  let expanded = requested;
+  if (requested === '~' || requested.startsWith('~/')) {
+    if (homeDirectory === undefined) {
+      throw new Error(
+        "`~` stands for the home directory, and this host doesn't supply one. Give the full path.",
+      );
+    }
+    expanded = expandHome(requested, homeDirectory);
+  }
+  const absolute = isAbsolutePath(expanded) ? expanded : resolvePath(input.workspace.cwd, expanded);
   let targetCwd: string;
   try {
-    targetCwd = realpathSync(absolute);
+    targetCwd = canonicalizePath(absolute);
   } catch {
     throw new Error(`No such directory: ${absolute}`);
   }
-  if (!statSync(targetCwd).isDirectory()) throw new Error(`Not a directory: ${targetCwd}`);
-  if (targetCwd === realpathSync(input.workspace.cwd)) {
+  if (!files.sync.statSync(targetCwd).isDirectory()) {
+    throw new Error(`Not a directory: ${targetCwd}`);
+  }
+  if (targetCwd === canonicalizePath(input.workspace.cwd)) {
     throw new Error(`Already in ${targetCwd}.`);
   }
   // The user asked for this move themselves, so only a DENY refuses it; an ask rule is answered by

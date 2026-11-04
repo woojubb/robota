@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import { buildCreateSessionOptions } from '../create-session-projection.js';
 
 import type { ICreateSessionProjectionDeps } from '../create-session-projection.js';
@@ -31,7 +32,12 @@ const DEPS: ICreateSessionProjectionDeps = {
 };
 
 function initOptions(extra: Partial<IInitOptions>): IInitOptions {
-  return { cwd: '/arch-013-stage-3', provider: {} as never, ...extra } as IInitOptions;
+  return {
+    host: createTestFrameworkHost(),
+    cwd: '/arch-013-stage-3',
+    provider: {} as never,
+    ...extra,
+  } as IInitOptions;
 }
 
 describe('ARCH-013 stage 3 — a consumer can supply the guardrail registry', () => {

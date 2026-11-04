@@ -17,11 +17,8 @@ export * from './editor/index.js';
 export {
   createGitCommandEntry,
   createGitCommandModule,
-  createGitProcess,
   executeGitCommand,
-  gitEnvironment,
   GitCommandSource,
-  type ICreateGitProcessOptions,
   type IGitCommandModuleOptions,
   type IGitProcessPort,
   type IGitProcessRunOptions,

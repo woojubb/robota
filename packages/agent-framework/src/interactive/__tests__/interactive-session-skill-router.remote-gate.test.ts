@@ -7,6 +7,9 @@ import { stubSubmit } from './helpers/session-stub.js';
 import type { ICommandHostContext, ICommandModule, ISystemCommand } from '../../commands/index.js';
 import type { IRemoteCommandPolicy } from '../../commands/index.js';
 import { createTestCommandHost } from '../../testing/command-host-double.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * REMOTE-006 — local == remote. A transport-origin (`source==='remote'`) command runs exactly as a locally-typed
@@ -42,6 +45,7 @@ function makeRouter(commands: ISystemCommand[], policy?: IRemoteCommandPolicy): 
     async () => '',
     async () => ({}) as never,
     (execute) => execute(),
+    testHost.createAsyncScope,
     undefined,
     policy,
   );

@@ -1,11 +1,5 @@
 export {
-  createGitProcess,
-  gitEnvironment,
   gitFailureMessage,
-  GIT_DEFAULT_TIMEOUT_MS,
-  GIT_ENV_DENYLIST,
-  GIT_MAX_OUTPUT_BYTES,
-  type ICreateGitProcessOptions,
   type IGitProcessPort,
   type IGitProcessRunOptions,
   type TGitProcessFailureReason,

@@ -22,7 +22,7 @@ import {
 } from '@robota-sdk/agent-session/node';
 
 import { NodeFileSystem, NodeFileSystemAsync } from './adapters/node-file-system.js';
-import { createGitProcess } from './git/git-process.js';
+import { createGitProcess } from './git/node-git-process.js';
 import { readNodeGitRemotes } from './git/read-git-remotes.js';
 import { supportsWorkspaceProjectMutation } from './workspace-trust/project-relative-writer.js';
 
@@ -69,14 +69,14 @@ export function createNodeFrameworkHost(options: ICreateNodeFrameworkHostOptions
   };
 }
 
-// Providers, plugins and user-local (#3693, providers-plugins lane): the Node-only parts of files that
-// are otherwise neutral. The neutral modules take the file system as a required parameter; this is
-// the adapter a Node composition root passes.
+// Providers, plugins and user-local: the Node-only parts of files that are otherwise neutral. The
+// neutral modules take the file system as a required parameter; this is the adapter a Node
+// composition root passes.
 export { NodeFileSystem, NodeFileSystemAsync } from './adapters/node-file-system.js';
 export { loadOrgPolicy } from './command-api/org-policy/org-policy-loader.js';
 export { checkNodeHostSettingsFile } from './command-api/provider/node-host-settings-check.js';
 
-// Lane Z (assembly): the subagent transcript, a log file written and paged through Node's `fs`.
+// The subagent transcript: a log file written and paged through Node's `fs`.
 export {
   createSubagentLogger,
   migrateSubagentTranscripts,
@@ -91,3 +91,13 @@ export type {
   ISubagentTranscriptPage,
   ISubagentTranscriptUnreadable,
 } from './assembly/subagent-logger.js';
+
+// The git process that runs `git` for project status and diff.
+export {
+  createGitProcess,
+  gitEnvironment,
+  GIT_DEFAULT_TIMEOUT_MS,
+  GIT_ENV_DENYLIST,
+  GIT_MAX_OUTPUT_BYTES,
+} from './git/node-git-process.js';
+export type { ICreateGitProcessOptions } from './git/node-git-process.js';

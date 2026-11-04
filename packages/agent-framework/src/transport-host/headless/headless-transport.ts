@@ -9,7 +9,7 @@ import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transp
 
 import { createHeadlessRunner } from './headless-runner.js';
 
-import type { TOutputFormat } from './headless-runner.js';
+import type { IHeadlessOutput, TOutputFormat } from './headless-runner.js';
 import type { IHeadlessSession } from './headless-session.js';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
@@ -19,6 +19,8 @@ import type {
 } from '@robota-sdk/agent-interface-transport';
 
 export interface IHeadlessTransportOptions {
+  /** Where results and diagnostics are written; the framework has no streams of its own. */
+  output: IHeadlessOutput;
   /** Output format: 'text', 'json', or 'stream-json'. */
   outputFormat: TOutputFormat;
   /** The prompt to execute. */
@@ -55,7 +57,11 @@ export function createHeadlessTransport(options: IHeadlessTransportOptions): IHe
       if (active) throw createLifecycleError('already-started');
       active = true;
       const runGeneration = ++generation;
-      const runner = createHeadlessRunner({ session, outputFormat: options.outputFormat });
+      const runner = createHeadlessRunner({
+        session,
+        output: options.output,
+        outputFormat: options.outputFormat,
+      });
       completion = runner.run(options.prompt).then((code): TTransportRunOutcome => {
         if (runGeneration === generation) exitCode = code;
         return code === 0

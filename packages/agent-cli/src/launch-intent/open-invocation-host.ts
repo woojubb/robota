@@ -6,11 +6,11 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * identity resolver (`agent-framework`) and the argv-only git port (`agent-command`, BEHAVIOR-2437).
  * No new runner, no second parser over `workspace-trust.json`.
  */
-import { createGitProcess } from '@robota-sdk/agent-command';
 import {
   createNodeWorkspaceIdentityResolver,
   createNodeWorkspaceTrustStore,
 } from '@robota-sdk/agent-framework';
+import { createGitProcess } from '@robota-sdk/agent-framework/node';
 import { statSync } from 'node:fs';
 import { realpathSync } from 'node:fs';
 import { join } from 'node:path';

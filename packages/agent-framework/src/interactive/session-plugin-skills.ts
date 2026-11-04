@@ -1,5 +1,4 @@
-import { existsSync, realpathSync } from 'node:fs';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { relativeSegments, resolvePath } from '@robota-sdk/agent-core';
 
 import { PluginCommandSource } from '../commands/plugin-source.js';
 import { loadHostBundlePluginsFromScopes } from '../plugins/index.js';
@@ -41,12 +40,18 @@ export function requireSessionPluginFiles(fs: IFileSystem | undefined): IFileSys
 function insideTrustedWorktree(
   directory: string,
   access: Extract<TWorkspaceProjectAccess, { status: 'trusted' }>,
+  fs: IFileSystem,
 ): boolean {
   try {
-    const root = realpathSync(getWorkspaceProjectIdentity(access.authority).worktreeRoot);
-    const target = existsSync(directory) ? realpathSync(directory) : resolve(directory);
-    const remainder = relative(root, target);
-    return remainder !== '..' && !remainder.startsWith(`..${sep}`) && !isAbsolute(remainder);
+    const root = fs.realpathSync(getWorkspaceProjectIdentity(access.authority).worktreeRoot);
+    // A folder that does not exist yet is judged by its own text; a relative one names a place only
+    // the process directory could say, so it has no answer and is not admitted.
+    const target = fs.existsSync(directory)
+      ? fs.realpathSync(directory)
+      : resolvePath(directory, '.');
+    // No path from the root to the target (another drive, a relative form) is not containment.
+    const segments = relativeSegments(root, target);
+    return segments !== undefined && segments[0] !== '..';
   } catch {
     // An authority that no longer resolves cannot admit executable project plugin content.
     return false;
@@ -56,15 +61,18 @@ function insideTrustedWorktree(
 /**
  * The plugin directories a session may load, most specific first. Project plugins may contain
  * executable hooks, so that scope is included only after the host has granted workspace trust, and
- * only when it lies inside the trusted worktree.
+ * only when it lies inside the trusted worktree. A host that lends no files cannot show that, so it
+ * never admits the project scope.
  */
 export function sessionPluginDirectories(scope: ISessionPluginScope): string[] {
   const access = scope.projectAccess;
   const project = scope.pluginDirectories?.project;
+  const fs = scope.fs;
   return [
     ...(access?.status === 'trusted' &&
     project !== undefined &&
-    insideTrustedWorktree(project, access)
+    fs !== undefined &&
+    insideTrustedWorktree(project, access, fs)
       ? [project]
       : []),
     ...(scope.pluginDirectories?.user !== undefined ? [scope.pluginDirectories.user] : []),

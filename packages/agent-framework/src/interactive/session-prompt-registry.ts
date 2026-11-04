@@ -28,6 +28,7 @@ import { resolvePath } from '@robota-sdk/agent-core';
 
 import { buildDiffState } from './interactive-session-streaming.js';
 
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IActionRequest, TActionResponse, TToolArgs } from '@robota-sdk/agent-core';
 import type { IExecutionPendingRequest } from '@robota-sdk/agent-interface-execution';
 import type {
@@ -104,6 +105,8 @@ export interface ISessionPromptRegistryDeps {
    * when that differs from the workspace. Absent ⇒ neither field is attached (legacy callers).
    */
   getCwd?: () => string;
+  /** The host's file access; absent, an Edit preview carries no context lines from the file. */
+  files?: IFrameworkHost['files'];
   /**
    * Optional backstop timeout (ms). Armed when a prompt parks with a live surface; the unconditional
    * last resort so a surface that died without unsubscribing cannot hang the prompt forever. Omit to
@@ -147,7 +150,7 @@ export class SessionPromptRegistry {
     const requesterDriverId = this.deps.getActiveDriverId?.() ?? undefined;
     const cwd = this.deps.getCwd?.();
     // #3288 §2: the SAME diff builder `tool_end` uses — a no-op ({}) for any tool that isn't Edit/Write.
-    const { diffLines, diffFile } = buildDiffState({ toolName, toolArgs }, cwd);
+    const { diffLines, diffFile } = buildDiffState({ toolName, toolArgs }, cwd, this.deps.files);
     const shellCwd = resolveShellCwdIfDifferent(toolName, toolArgs, cwd);
     return new Promise<TPermissionResultValue>((resolvePrompt) => {
       let onSettle: (() => void) | undefined;

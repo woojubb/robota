@@ -15,6 +15,10 @@ import { HeadlessInteractionChannel } from '../HeadlessInteractionChannel.js';
 import { createTestFrameworkHost } from '../../../testing/framework-host.js';
 
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import type { IHeadlessOutput } from '../headless-runner.js';
+
+/** The streams a Node composition root hands the headless channel. */
+const processOutput: IHeadlessOutput = { stdout: process.stdout, stderr: process.stderr };
 
 const testHost = createTestFrameworkHost();
 
@@ -67,6 +71,7 @@ async function runBashInPrintMode(sandboxClient?: ISandboxClient): Promise<strin
       { toolCalls: [{ name: 'Bash', args: { command: 'npm test' } }] },
       { text: 'finished' },
     ]).provider,
+    output: processOutput,
     outputFormat: 'text',
     shellExec: () => '',
     bare: true,

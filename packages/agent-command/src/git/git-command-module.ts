@@ -6,7 +6,8 @@
  */
 import { executeGitCommit } from './git-commit.js';
 
-import { createGitProcess, executeGitDiff, executeGitStatus } from '@robota-sdk/agent-framework';
+import { executeGitDiff, executeGitStatus } from '@robota-sdk/agent-framework';
+import { createGitProcess } from '@robota-sdk/agent-framework/node';
 
 import type {
   ICommandHostUserInteraction,

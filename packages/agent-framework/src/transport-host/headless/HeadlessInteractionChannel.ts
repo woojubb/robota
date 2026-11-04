@@ -5,7 +5,7 @@
  * not in the caller. print-mode.ts constructs this and calls run().
  */
 
-import { createHeadlessRunner, type TOutputFormat } from './headless-runner.js';
+import { createHeadlessRunner, type IHeadlessOutput, type TOutputFormat } from './headless-runner.js';
 import { requireFrameworkHost } from '../../host/require-framework-host.js';
 import { buildRuntimeSession } from '../../runtime/runtime-host.js';
 
@@ -58,6 +58,8 @@ export interface IHeadlessInteractionChannelOptions {
   taskContext?: IResolvedConfig['taskContext'];
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
+  /** Where results and diagnostics are written; the framework has no streams of its own. */
+  output: IHeadlessOutput;
   outputFormat: TOutputFormat;
   /**
    * CLI-076: the resolved model id (the same value the CLI header displays). Forwarded verbatim to the
@@ -158,6 +160,7 @@ export class HeadlessInteractionChannel {
     const session = this.createSession();
     const runner = createHeadlessRunner({
       session,
+      output: this.opts.output,
       outputFormat: this.opts.outputFormat,
       providerErrorGuidance: this.opts.providerErrorGuidance,
       effortResolution: this.opts.effortResolution,
@@ -174,6 +177,7 @@ export class HeadlessInteractionChannel {
     const session = this.createSession();
     const runner = createHeadlessRunner({
       session,
+      output: this.opts.output,
       outputFormat: this.opts.outputFormat,
       providerErrorGuidance: this.opts.providerErrorGuidance,
       effortResolution: this.opts.effortResolution,

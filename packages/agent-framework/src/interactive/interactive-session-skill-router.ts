@@ -4,8 +4,7 @@
  * and all command/skill invocation logic.
  */
 
-import { AsyncLocalStorage } from 'node:async_hooks';
-
+import { createSlotScope } from './slot-async-scope.js';
 import { toCommandListEntry, toSkillListEntry } from './interactive-session-command-projections.js';
 import {
   executeSkill,
@@ -19,6 +18,7 @@ import { createSkillActivationEvent } from '../commands/skill-activation-events.
 
 import type { TSubmitFn } from './interactive-session-execution-contracts.js';
 import type { ICommandHostContext } from '../command-api/index.js';
+import type { IAsyncScope, IFrameworkHost } from '../host/framework-host.js';
 import type {
   ICommand,
   ICommandHostAdapters,
@@ -52,6 +52,24 @@ interface ISkillResourceWindow {
   closed: boolean;
 }
 
+/** What the in-flight command's own call chain reads: who ran it, from where, and its cancellation. */
+interface ICommandScope {
+  readonly source: TCommandInvocationSource;
+  readonly originDriverId: TDriverId | undefined;
+  readonly locality: TCommandSurfaceLocality | undefined;
+  /** The caller's cancellation: it reaches the turn a skill starts and the work before it. */
+  readonly signal?: AbortSignal;
+}
+
+/**
+ * What a user or remote command is told when it arrives while another command runs on a host that
+ * cannot tell the two apart (see `SessionSkillRouter`'s constructor).
+ */
+const COMMAND_ALREADY_RUNNING: ICommandResult = {
+  success: false,
+  message: 'Another command is already running on this host. Wait for it to finish.',
+};
+
 function normalizeNameToken(name: string): string {
   return name.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
 }
@@ -63,7 +81,20 @@ function getQualifiedSkillName(rawInput?: string): string | undefined {
 }
 
 export class SessionSkillRouter {
-  private readonly forkResourceWindow = new AsyncLocalStorage<ISkillResourceWindow>();
+  private readonly forkResourceWindow: IAsyncScope<ISkillResourceWindow>;
+  /**
+   * The in-flight command's source and, for CMD-004, its origin driver id (REMOTE-014 E5
+   * server-assigned). Scoped to that command's own async chain, not shared fields: two commands in
+   * flight at once each see their own, and neither can overwrite or strand the other's.
+   */
+  private readonly commandScope: IAsyncScope<ICommandScope>;
+  /**
+   * Set when the host tracks no async context. The scopes are then single slots, correct only for
+   * work nested in the command that set them, so commands are admitted by `admitCommand` instead of
+   * being told apart by their call chain.
+   */
+  private readonly singleFlight: boolean;
+  private commandsInFlight = 0;
   private skillWindow?: {
     readonly turnId: string | symbol;
     readonly stop: AbortController;
@@ -125,17 +156,13 @@ export class SessionSkillRouter {
   private readonly skillCommandSource: SkillCommandSource;
   private readonly commandHostAdapters?: ICommandHostAdapters;
   /**
-   * The in-flight command's source and, for CMD-004, its origin driver id (REMOTE-014 E5
-   * server-assigned). Scoped to that command's own async chain, not shared fields: two commands in
-   * flight at once each see their own, and neither can overwrite or strand the other's.
+   * `createAsyncScope` is the host's `createAsyncScope`, which lets each command's scope follow its
+   * own call chain. A host without one (a browser) is served by a single slot instead, so the router
+   * admits one user or remote command at a time and answers a second with a refusal: a slot read
+   * by two overlapping commands would hand one of them the other's source, and a model command could
+   * then read as a user's. Model commands all carry the same scope, so any number of them may overlap,
+   * and they are the only commands that run inside another command's turn or fork.
    */
-  private readonly commandScope = new AsyncLocalStorage<{
-    readonly source: TCommandInvocationSource;
-    readonly originDriverId: TDriverId | undefined;
-    readonly locality: TCommandSurfaceLocality | undefined;
-    /** The caller's cancellation: it reaches the turn a skill starts and the work before it. */
-    readonly signal?: AbortSignal;
-  }>();
   constructor(
     commandModules: readonly ICommandModule[],
     contributionSources: readonly IContributionSource[],
@@ -166,6 +193,7 @@ export class SessionSkillRouter {
     private readonly onBlockingCommand: (
       execute: () => Promise<ICommandResult>,
     ) => Promise<ICommandResult>,
+    createAsyncScope: IFrameworkHost['createAsyncScope'],
     private readonly shellExec?: TShellExecFn,
     /** Optional remote-command policy (REMOTE-006). Undefined → allow (local == remote); provide one only to opt into a restriction. */
     private readonly remoteCommandPolicy?: IRemoteCommandPolicy,
@@ -180,6 +208,10 @@ export class SessionSkillRouter {
       signal: AbortSignal | undefined,
     ) => Promise<void>,
   ) {
+    this.singleFlight = createAsyncScope === undefined;
+    this.forkResourceWindow =
+      createAsyncScope?.<ISkillResourceWindow>() ?? createSlotScope<ISkillResourceWindow>();
+    this.commandScope = createAsyncScope?.<ICommandScope>() ?? createSlotScope<ICommandScope>();
     this.allCommandModules = commandModules;
     this.commandExecutor = new SystemCommandExecutor(
       commandModules.flatMap((module) => module.systemCommands ?? []),
@@ -345,6 +377,43 @@ export class SessionSkillRouter {
     locality?: TCommandSurfaceLocality,
     signal?: AbortSignal,
   ): Promise<ICommandResult> {
+    const leave = this.admitCommand(source);
+    if (leave === undefined) return { ...COMMAND_ALREADY_RUNNING };
+    try {
+      return await this.runCommandInScope(source, command, args, originDriverId, locality, signal);
+    } finally {
+      leave();
+    }
+  }
+
+  /**
+   * Whether a command from `source` may start now, and how it says it is done; `undefined` refuses it.
+   *
+   * With a host async scope every command is admitted: its scope follows its own call chain. Without
+   * one, a user or remote command starts only when nothing else runs, since two would read each
+   * other's scope. A model command always starts: its scope is the same fixed value whichever run
+   * reads it, and it is what a skill's or a fork's own turn runs inside the command that began it.
+   */
+  private admitCommand(source: TCommandInvocationSource): (() => void) | undefined {
+    if (!this.singleFlight) return () => undefined;
+    if (source !== 'model' && this.commandsInFlight > 0) return undefined;
+    this.commandsInFlight += 1;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.commandsInFlight -= 1;
+    };
+  }
+
+  private async runCommandInScope(
+    source: TCommandInvocationSource,
+    command: ISystemCommand,
+    args: string,
+    originDriverId: TDriverId | undefined,
+    locality: TCommandSurfaceLocality | undefined,
+    signal: AbortSignal | undefined,
+  ): Promise<ICommandResult> {
     const scope = { source, originDriverId, locality, ...(signal !== undefined ? { signal } : {}) };
     return this.commandScope.run(scope, async () => {
       // REMOTE-006: local == remote — a transport-origin command runs exactly as a locally-typed one (pairing is
@@ -368,10 +437,16 @@ export class SessionSkillRouter {
   }
 
   async executeModelCommand(name: string, args: string): Promise<ICommandResult | null> {
-    return this.commandScope.run(
-      { source: 'model', originDriverId: undefined, locality: undefined },
-      () => this.commandExecutor.executeModelInvocable(name, this.getSession(), args),
-    );
+    const leave = this.admitCommand('model');
+    if (leave === undefined) return { ...COMMAND_ALREADY_RUNNING };
+    try {
+      return await this.commandScope.run(
+        { source: 'model', originDriverId: undefined, locality: undefined },
+        () => this.commandExecutor.executeModelInvocable(name, this.getSession(), args),
+      );
+    } finally {
+      leave();
+    }
   }
 
   async executeSkillCommandByName(

@@ -159,6 +159,7 @@ export async function runPrintMode(
     ...(contributionSources !== undefined ? { contributionSources } : {}),
     ...(skillRoots !== undefined ? { skillRoots } : {}),
     ...(taskContext !== undefined ? { taskContext } : {}),
+    output: { stdout: process.stdout, stderr: process.stderr },
     outputFormat: args.outputFormat ?? 'text',
     // CLI-076: forward the resolved model so `--model` takes effect (an invalid model then surfaces the
     // provider's error and a non-zero exit, instead of a silent substitution succeeding with exit 0).

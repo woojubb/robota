@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import {
   SessionPromptRegistry,
   type ISessionPromptRegistryDeps,
@@ -30,6 +31,8 @@ interface IHarness {
   setListeners(event: 'permission_request' | 'ask_request', n: number): void;
 }
 
+const testHost = createTestFrameworkHost();
+
 function harness(backstopMs?: number, cwd = '/workspace'): IHarness {
   const counts: Record<'permission_request' | 'ask_request', number> = {
     permission_request: 1,
@@ -44,6 +47,7 @@ function harness(backstopMs?: number, cwd = '/workspace'): IHarness {
     emitPromptResolved: (e) => resolvedEvents.push(e),
     countListeners: (event) => counts[event],
     getCwd: () => cwd,
+    files: testHost.files,
     ...(backstopMs !== undefined ? { backstopMs } : {}),
   };
   return {
