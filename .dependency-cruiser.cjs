@@ -64,6 +64,18 @@ module.exports = {
       },
       to: { path: '^packages/agent-ui-terminal/src/key-custody/user-read-request-mint\\.ts$' },
     },
+    {
+      name: 'user-read-request-record',
+      severity: 'error',
+      comment:
+        'The record of minted requests is the runtime check behind the mint rule: only the mint adds ' +
+        'to it and only the port guard reads it, so nothing else can make a request the holder accepts.',
+      from: {
+        pathNot:
+          '^packages/agent-ui-terminal/src/key-custody/(user-read-request-mint|key-custody-port)\\.ts$',
+      },
+      to: { path: '^packages/agent-ui-terminal/src/key-custody/minted-read-requests\\.ts$' },
+    },
   ],
   options: {
     doNotFollow: {

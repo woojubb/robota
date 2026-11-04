@@ -24,7 +24,9 @@ export type { ITerminalCapabilityOverrides } from './terminal-capabilities-conte
 export type { TScreenReaderChannel } from './screen-reader-announcement.js';
 export type { IScreenReaderPacingOverrides } from './screen-reader-pacing.js';
 export type { ITuiCliAdapter } from './tui-cli-adapter.js';
-// #3679 3f: the product implements the port; the mint that makes its requests is not exported.
+// #3679 3f: the product implements the port and checks each request with the guard; the mint that
+// makes the requests is not exported.
+export { isUserReadRequest } from './key-custody/key-custody-port.js';
 export type {
   IKeyCustodyPort,
   TReadability,

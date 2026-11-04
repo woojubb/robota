@@ -363,11 +363,12 @@ holds one, and each unlock is announced so what was written while locked can be 
 short-lived command could only unlock to throw the keys away. A terminal session holding keys is
 unlocked where it runs instead, by the local unlock gate: store reads never say why they read (many
 are not the person's), so the reason lives on the prompt, which opens only for a read the terminal UI
-says the person started — a request only its action modules can mint, from a key press — or for
-`/unlock`, a user-only command, and `/lock` drops the keys. The passphrase is then asked on the secret
-terminal while the session has handed the terminal over, one question at a time, and never where
-nobody can answer, so nothing the model runs can open the prompt and nothing typed there reaches the
-conversation.
+says the person started — a request its action modules mint from a key press, which the import rule
+keeps every other module from minting and the gate checks against the mint's record, refusing one
+it did not make — or for `/unlock`, a user-only command, and `/lock` drops the keys. The passphrase
+is then asked on the secret terminal while the session has handed the terminal over, one question at
+a time, and never where nobody can answer, so no command or tool the model runs opens the prompt and
+nothing typed there reaches the conversation.
 Unlocking is where a swapped stored sealing key is caught. From the first unlock in a process the
 holder seals to the key that unlock verified, locked or not and even when the repair of the file
 cannot be written; the mismatch is always reported, and the exit status tells a repair that completed

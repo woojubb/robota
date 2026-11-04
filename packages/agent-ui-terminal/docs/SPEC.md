@@ -186,9 +186,11 @@ byte-identically.
 ### Reads that need the keys
 
 A read the person starts from this terminal on a record sealed while the keys are locked asks the
-host's key custody port to unlock for it, with a request only this package's action modules can mint
-from the person's key press; `deps:check` names those modules, so nothing else — and nothing the model
-runs — can make one. The prompt is asked only for an action the framework would honour, and without a
+host's key custody port to unlock for it, with a request this package's action modules mint from the
+person's key press. Two checks keep that request theirs: `deps:check` refuses an import of the mint,
+or of its record of what it made, from any other module, and the port's holder accepts only a request
+that record holds, so one built any other way — a cast of the same shape included — asks nothing. The
+prompt is asked only for an action the framework would honour, and without a
 port (secure mode off) nothing is asked and nothing reads differently. While the terminal is handed
 over to another program, the composer's stdin proxy forwards nothing: what is typed then belongs to
 whoever has the terminal, including a passphrase the console prompt reads through the same stream.

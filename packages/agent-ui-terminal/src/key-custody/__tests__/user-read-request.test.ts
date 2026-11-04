@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
+import { isUserReadRequest } from '../key-custody-port.js';
 import { mintUserReadRequest } from '../user-read-request-mint.js';
 
 import type { TReadPurpose, TUserReadRequest } from '../key-custody-port.js';
@@ -23,5 +24,15 @@ describe('a user read request', () => {
     const forged: TUserReadRequest = { purpose };
 
     expect(forged.purpose).toBe(purpose);
+  });
+
+  it('is recognised only when the mint made it: a cast of the same shape is not', () => {
+    expect(isUserReadRequest(mintUserReadRequest('continue-fork'))).toBe(true);
+
+    const cast = Object.freeze({ purpose: 'continue-fork' }) as unknown as TUserReadRequest;
+    expect(isUserReadRequest(cast)).toBe(false);
+    for (const value of [undefined, null, 'continue-fork', { purpose: 'continue-fork' }]) {
+      expect(isUserReadRequest(value), String(value)).toBe(false);
+    }
   });
 });

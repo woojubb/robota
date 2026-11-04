@@ -2,7 +2,8 @@
  * The local unlock gate: where this process asks for the passphrase, and whether it may ask at all.
  *
  * Locked is write-only. A process asks only when a read the person started needs the keys — the
- * terminal UI's `ensureReadable`, whose request only its action modules can mint — or when the person
+ * terminal UI's `ensureReadable`, whose request only its action modules can mint, and which refuses
+ * one the mint did not make — or when the person
  * runs `/unlock`. It asks on the secret terminal while the live session has handed the terminal over,
  * so nothing typed reaches the session's input, prompt history or conversation; and it never waits
  * where nobody can answer: without a live session that can hand its terminal over, or without a
@@ -14,6 +15,7 @@
  */
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { fingerprint } from '@robota-sdk/agent-keyring';
+import { isUserReadRequest } from '@robota-sdk/agent-ui-terminal';
 
 import { SecretInputCancelled } from '../devices/secret-terminal.js';
 import { terminalHandoffHostOf } from '../remote-control/operator-approval.js';
@@ -191,6 +193,9 @@ export function createProcessKeyCustody(options: IProcessKeyCustodyOptions): IPr
 
   const port: IKeyCustodyPort = {
     async ensureReadable(request: TUserReadRequest): Promise<TReadability> {
+      // The type admits a cast; the mint's record does not. A request it did not make asks nothing
+      // and says nothing about the keys.
+      if (!isUserReadRequest(request)) return 'unavailable';
       if (holder.isUnlocked) return 'readable';
       if (open !== undefined) return (await joinOpen(open)).readability;
       const current = channel;

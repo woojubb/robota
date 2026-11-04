@@ -30,9 +30,25 @@ import type { ITerminalHandoffHost } from '../../remote-control/operator-approva
 import type { IKeyring } from '@robota-sdk/agent-keyring';
 import type { TUserReadRequest } from '@robota-sdk/agent-ui-terminal';
 
-/** What the terminal UI's attach action mints; only its mint makes one, so the test stands in for it. */
-const CONTINUE_FORK = (): TUserReadRequest =>
-  Object.freeze({ purpose: 'continue-fork' }) as TUserReadRequest;
+/**
+ * The terminal UI's own mint and guard, from source: the package exports neither the mint nor its
+ * record, so this file runs the package's guard from the same source the mint records into, as the
+ * built bundle does in the product.
+ */
+const source = vi.hoisted(() => ({
+  mint: '../../../../agent-ui-terminal/src/key-custody/user-read-request-mint.js',
+  port: '../../../../agent-ui-terminal/src/key-custody/key-custody-port.js',
+}));
+vi.mock('@robota-sdk/agent-ui-terminal', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  ...((await import(source.port)) as object),
+}));
+const { mintUserReadRequest } = (await import(source.mint)) as {
+  mintUserReadRequest: (purpose: 'continue-fork') => TUserReadRequest;
+};
+
+/** What the terminal UI's attach action mints. */
+const CONTINUE_FORK = (): TUserReadRequest => mintUserReadRequest('continue-fork');
 
 interface IHarness {
   readonly holder: KeyHolder;
@@ -143,6 +159,21 @@ describe('a read the person started, while the keys are locked', () => {
     await expect(h.custody.port.ensureReadable(CONTINUE_FORK())).resolves.toBe('readable');
     expect(h.openTerminal).not.toHaveBeenCalled();
     expect(h.host.handovers()).toBe(0);
+  });
+});
+
+describe('a request the terminal UI did not mint', () => {
+  it('opens no prompt and changes nothing, even shaped exactly like one', async () => {
+    const h = await harness();
+    // What any module could write: the brand is a type, so a cast gets past the compiler.
+    const forged = Object.freeze({ purpose: 'continue-fork' }) as unknown as TUserReadRequest;
+
+    await expect(h.custody.port.ensureReadable(forged)).resolves.toBe('unavailable');
+
+    expect(h.openTerminal).not.toHaveBeenCalled();
+    expect(h.host.handovers()).toBe(0);
+    expect(h.holder.isUnlocked).toBe(false);
+    expect(h.notices).toEqual([]);
   });
 });
 
