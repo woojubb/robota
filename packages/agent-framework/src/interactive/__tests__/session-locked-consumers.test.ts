@@ -115,6 +115,26 @@ describe('the locked-session helpers', () => {
     );
     expect(lockedSessionsNotice(0)).toBeUndefined();
   });
+
+  it('names the unlock command where the surface has one, and only for locked keys', () => {
+    expect(lockedSessionMessage('sess_a', 'locked', '/unlock')).toBe(
+      'Session sess_a is sealed and locked; run `/unlock` to open it.',
+    );
+    expect(lockedSessionsNotice(1, 0, '/unlock')).toBe(
+      '1 saved session is sealed and locked; run `/unlock` to open it.',
+    );
+    expect(lockedSessionsNotice(4, 2, '/unlock')).toBe(
+      '4 saved sessions are sealed and locked; run `/unlock` to open them. ' +
+        '2 saved sessions are sealed with keys this process does not have.',
+    );
+    // No unlock here opens keys this process does not have, so none is named for them.
+    expect(lockedSessionMessage('sess_a', 'no-keys', '/unlock')).toBe(
+      'Session sess_a is sealed with keys this process does not have.',
+    );
+    expect(lockedSessionsNotice(0, 1, '/unlock')).toBe(
+      '1 saved session is sealed with keys this process does not have.',
+    );
+  });
 });
 
 /** A directory holding one sealed session, read by a store given no keys at all. */

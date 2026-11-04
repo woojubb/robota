@@ -179,7 +179,8 @@ within a scope, an older entry identical to a newer one is dropped so only the m
 occurrence remains. Exactly one load runs per open, and inserting, executing, or cancelling the
 search all abort it rather than let it run to completion unobserved. Sealed prompts the load could
 not open are counted as it goes and named with the search, so they never read as a shorter
-history; it says to unlock only when the keys are locked, not when this process has none. The
+history; it says to unlock only when the keys are locked, not when this process has none, and names
+`/unlock` where this terminal has it, as the resume picker's locked notice does. The
 composer's draft is never mutated while the overlay is open, so cancelling restores it
 byte-identically.
 

@@ -2,6 +2,7 @@ import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-co
 import { listResumableSessions, lockedSessionsNotice } from '@robota-sdk/agent-framework';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { useUnlockCommand } from '../tui-cli-adapter-context.js';
 import { usePluginCallbacks } from './usePluginCallbacks.js';
 import { RESUME_CANCELLED_NOTICE, useSessionSelection } from './useSessionSelection.js';
 
@@ -71,6 +72,7 @@ export function useAppOverlays(options: IOptions): IAppOverlays {
   }, [options.addEntry, options.setSessionPickerVisible]);
   // The store is read once each time the picker opens, not on every render of the app: a listing
   // decodes every saved session, and the app re-renders on every keystroke and streamed token.
+  const unlockCommand = useUnlockCommand();
   const listing = useMemo(() => {
     if (!options.sessionPickerVisible) return undefined;
     if (options.hostSessions !== undefined) {
@@ -82,9 +84,10 @@ export function useAppOverlays(options: IOptions): IAppOverlays {
     const local = listResumableSessions(options.sessionStore, options.cwd);
     return {
       sessions: local.sessions,
-      sealedNotice: lockedSessionsNotice(local.locked, local.noKeys),
+      sealedNotice: lockedSessionsNotice(local.locked, local.noKeys, unlockCommand),
     };
   }, [
+    unlockCommand,
     options.sessionPickerVisible,
     options.hostSessions,
     options.hostLockedSessionCount,

@@ -2,6 +2,7 @@
 '@robota-sdk/agent-ui-terminal': minor
 '@robota-sdk/agent-command': minor
 '@robota-sdk/agent-cli': minor
+'@robota-sdk/agent-framework': minor
 ---
 
 The local unlock gate for secure conversations (issue #3679), dormant until secure mode can be turned
@@ -15,6 +16,9 @@ on: no product process is given a key holder yet, so nothing below runs and noth
 - `@robota-sdk/agent-command` adds `/unlock` and `/lock` (`createKeyCustodyCommandModule`,
   `IKeyCustodyCommandPort`), user-only, registered by `createDefaultCommandModules` only when given a
   `keyCustodyPort`.
+- `@robota-sdk/agent-framework`: `lockedSessionMessage` and `lockedSessionsNotice` take an optional
+  `unlockCommand` and name it for locked keys; without one the wording is unchanged. The TUI passes
+  `/unlock` where it has the key custody, in the resume picker, Ctrl+R and fork attach.
 - `@robota-sdk/agent-cli` composes the gate for the TUI in secure mode: the passphrase is asked on the
   secret terminal inside the terminal handoff, one question at a time, never where nobody can answer.
 

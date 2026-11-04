@@ -21,6 +21,7 @@ import { numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { isInteractiveColorTerminal } from './terminal-capabilities.js';
+import { useUnlockCommand } from './tui-cli-adapter-context.js';
 import { usePalette } from './theme/index.js';
 
 import type { IHistorySearchView } from './history-search/useHistorySearch.js';
@@ -46,11 +47,12 @@ function formatSkippedLines(count: number): string {
   return `${count} unreadable ${count === 1 ? 'line' : 'lines'} skipped`;
 }
 
-/** Sealed prompts an unlock would let the search read. */
-function formatLockedPrompts(count: number): string {
+/** Sealed prompts an unlock would let the search read; names the unlock command where there is one. */
+function formatLockedPrompts(count: number, unlockCommand: string | undefined): string {
+  const unlock = unlockCommand === undefined ? 'unlock' : `run \`${unlockCommand}\``;
   return count === 1
-    ? '1 prompt is sealed and locked; unlock to search it.'
-    : `${count} prompts are sealed and locked; unlock to search them.`;
+    ? `1 prompt is sealed and locked; ${unlock} to search it.`
+    : `${count} prompts are sealed and locked; ${unlock} to search them.`;
 }
 
 /** Sealed prompts no unlock in this process would read, so the notice never says "unlock". */
@@ -121,10 +123,13 @@ function StateLine({ view }: { readonly view: IHistorySearchView }): React.React
 /** What the search could not open: listed so sealed prompts never read as a shorter history. */
 function SealedPromptsNotice({ view }: { readonly view: IHistorySearchView }): React.ReactElement {
   const palette = usePalette();
+  const unlockCommand = useUnlockCommand();
   const { locked, noKeys } = view.unreadable;
   return (
     <>
-      {locked > 0 ? <Text color={palette.text.warning}>{formatLockedPrompts(locked)}</Text> : null}
+      {locked > 0 ? (
+        <Text color={palette.text.warning}>{formatLockedPrompts(locked, unlockCommand)}</Text>
+      ) : null}
       {noKeys > 0 ? <Text color={palette.text.warning}>{formatNoKeysPrompts(noKeys)}</Text> : null}
     </>
   );

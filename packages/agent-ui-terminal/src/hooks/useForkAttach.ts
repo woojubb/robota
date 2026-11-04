@@ -17,7 +17,7 @@ import { useCallback } from 'react';
 
 import { attachToForkedSession } from '../flows/fork-attach-flow.js';
 import { mintUserReadRequest } from '../key-custody/user-read-request-mint.js';
-import { useTuiCliAdapter } from '../tui-cli-adapter-context.js';
+import { useTuiCliAdapter, useUnlockCommand } from '../tui-cli-adapter-context.js';
 
 import type { TReadability } from '../key-custody/key-custody-port.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
@@ -34,12 +34,16 @@ export interface IUseForkAttachOptions {
 }
 
 /** What is said when the person did not unlock: the fixed lock wording, then where to unlock. */
-function stillLocked(sessionId: string, readability: Exclude<TReadability, 'readable'>): string {
+function stillLocked(
+  sessionId: string,
+  readability: Exclude<TReadability, 'readable'>,
+  unlockCommand: string,
+): string {
   const why =
     readability === 'declined'
       ? 'It was not unlocked'
       : 'The passphrase could not be asked for here';
-  return `Session ${sessionId} is sealed and locked. ${why}; run \`/unlock\` at this terminal, then attach again.`;
+  return `Session ${sessionId} is sealed and locked. ${why}; run \`${unlockCommand}\` at this terminal, then attach again.`;
 }
 
 /**
@@ -52,6 +56,7 @@ export function useForkAttach({
   addEntry,
 }: IUseForkAttachOptions): (entry: IExecutionWorkspaceEntry) => void {
   const cliAdapter = useTuiCliAdapter();
+  const unlockCommand = useUnlockCommand();
   return useCallback(
     (entry: IExecutionWorkspaceEntry): void => {
       const notify = (message: string): void =>
@@ -78,23 +83,23 @@ export function useForkAttach({
       // The passphrase is asked for on the switch itself, so only an attach the framework would
       // honour asks: a fork still being written, or one that has ended, is refused without a prompt.
       const unlockThenSwitch = (target: string): void => {
-        if (keys === undefined || lockedReason === undefined) {
+        if (keys === undefined || unlockCommand === undefined || lockedReason === undefined) {
           onSessionSwitch(target);
           return;
         }
         void keys.ensureReadable(mintUserReadRequest('continue-fork')).then(
           (readability) => {
             if (readability !== 'readable') {
-              notify(stillLocked(target, readability));
+              notify(stillLocked(target, readability, unlockCommand));
               return;
             }
             // Read again: what the unlock opened decides, not what was true before it.
             const reason = lockedSessionReason(sessionStore, target);
             if (reason === undefined) onSessionSwitch(target);
-            else notify(lockedSessionMessage(target, reason));
+            else notify(lockedSessionMessage(target, reason, unlockCommand));
           },
           // allow-fallback: a holder that failed to ask leaves the fork locked, which is said.
-          () => notify(stillLocked(target, 'unavailable')),
+          () => notify(stillLocked(target, 'unavailable', unlockCommand)),
         );
       };
       attachToForkedSession(entry, {
@@ -110,6 +115,6 @@ export function useForkAttach({
           : { formatResumeCommand: cliAdapter.formatResumeCommand }),
       });
     },
-    [addEntry, cliAdapter, onSessionSwitch, sessionStore],
+    [addEntry, cliAdapter, onSessionSwitch, sessionStore, unlockCommand],
   );
 }
