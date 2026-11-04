@@ -65,8 +65,11 @@ export interface IFrameReading {
   readonly rest?: Uint8Array;
   /** The largest frame allowed next; asked before each frame. */
   readonly maxBytes: () => number;
-  /** One whole frame. May end the stream; nothing more is read once it has. */
-  readonly onFrame: (frame: Buffer) => void;
+  /**
+   * One whole frame. May end the stream; nothing more is read once it has. Returning `'yield'` stops
+   * the reading for the rest of this tick, so a caller woken by this frame runs before the next one.
+   */
+  readonly onFrame: (frame: Buffer) => void | 'yield';
   /** The stream ended, errored, or sent a frame over its bound. Called once. */
   readonly onEnd: () => void;
 }
@@ -83,7 +86,9 @@ export function readLinkFrames(stream: Duplex, reading: IFrameReading): void {
     ended = true;
     reading.onEnd();
   };
+  let yielded = false;
   const drain = (): void => {
+    if (yielded) return;
     try {
       for (
         let frame = reader.next(reading.maxBytes());
@@ -91,8 +96,20 @@ export function readLinkFrames(stream: Duplex, reading: IFrameReading): void {
         frame = reader.next(reading.maxBytes())
       ) {
         if (stream.destroyed) return;
-        reading.onFrame(frame);
+        const outcome = reading.onFrame(frame);
         if (stream.destroyed) return;
+        if (outcome === 'yield') {
+          // Paused, so nothing more arrives (and the stream cannot end) until the frames kept so far
+          // have been read: the pause is one tick, and holds no more than one chunk.
+          yielded = true;
+          stream.pause();
+          setImmediate(() => {
+            yielded = false;
+            drain();
+            if (!yielded) stream.resume();
+          });
+          return;
+        }
       }
     } catch {
       // A frame over its bound, or a handler that failed: either way this link is over.

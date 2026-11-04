@@ -36,7 +36,11 @@ import {
   type IRuntimeLinkPorts,
 } from '../index.js';
 import { MAX_REQUESTS_IN_FLIGHT } from '../link-bounds.js';
-import { decodeRuntimeMessage, encodeOwnerRequest } from '../owner-vocabulary.js';
+import {
+  decodeRuntimeMessage,
+  encodeOwnerRequest,
+  encodeRuntimeMessage,
+} from '../owner-vocabulary.js';
 import {
   BINDING,
   connect,
@@ -199,9 +203,58 @@ describe('what a runtime sends from inside admit', () => {
   it('does not make the client refuse the link it was just admitted to', async () => {
     const { spawnerKey, instancePublicKey, runtime, port } = await startRuntime({ onAdmit: early });
     const client = await openSpawnerLink(await connect(port), spawnerKey, instancePublicKey);
-    await until(() => client.custody.unlocked);
+    // Listeners attached as the open resolves hear what was sent behind the notice.
+    const received: unknown[] = [];
+    client.session.onMessage((message) => received.push(message));
+    await until(() => client.custody.unlocked && received.length === 1, 1_000);
+    expect(received).toEqual([{ type: 'text_delta', delta: 'early' }]);
     expect(runtime.record.links[0]!.closed).toBe(false);
     client.close();
+  });
+});
+
+describe('what a runtime sends right behind its custody notice', () => {
+  /** A certified runtime, by hand, that writes the notice and a session message in one write. */
+  async function behindTheNotice(finish: (socket: Socket, bytes: Buffer) => void) {
+    const identity = createRuntimeIdentity();
+    const exchange = startSpawnerExchange();
+    exchange.complete(identity.answerSpawnerExchange(exchange.message)).spawnerKey.wipe();
+    identity.installTrustRoot(owner.certify(identity.instancePublicKey, BINDING), BINDING);
+    const server = await listen(
+      handRuntime(identity, (socket, link) => {
+        const notice = encodeRuntimeMessage({
+          op: 'custody',
+          state: { unlocked: false, certified: true },
+        });
+        const message = Buffer.from(JSON.stringify({ type: 'text_delta', delta: 'behind' }));
+        finish(
+          socket,
+          Buffer.concat([frame(link.seal('owner', notice)), frame(link.seal('session', message))]),
+        );
+      }),
+    );
+    servers.push(server);
+    return server.port;
+  }
+
+  it('reaches listeners attached as the open resolves', async () => {
+    const port = await behindTheNotice((socket, bytes) => socket.write(bytes));
+    const client = await openOwnerLink(await connect(port), owner);
+    const received: unknown[] = [];
+    client.session.onMessage((message) => received.push(message));
+    await until(() => received.length === 1, 1_000);
+    expect(received).toEqual([{ type: 'text_delta', delta: 'behind' }]);
+    client.close();
+  });
+
+  it('reaches them though the runtime closed the stream right behind it', async () => {
+    const port = await behindTheNotice((socket, bytes) => socket.end(bytes));
+    const client = await openOwnerLink(await connect(port), owner);
+    const received: unknown[] = [];
+    client.session.onMessage((message) => received.push(message));
+    await until(() => received.length === 1, 1_000);
+    expect(received).toEqual([{ type: 'text_delta', delta: 'behind' }]);
+    await client.closed;
   });
 });
 

@@ -352,7 +352,7 @@ function openRuntimeLink(
 
     readLinkFrames(stream, {
       maxBytes: () => (link === undefined ? LINK_CHALLENGE_MAX_BYTES : SEALED_FRAME_MAX_BYTES),
-      onFrame: (frame) => {
+      onFrame: (frame): void | 'yield' => {
         if (client !== undefined) {
           try {
             client.receive(frame);
@@ -387,6 +387,8 @@ function openRuntimeLink(
             auth.mode === 'owner' ? auth.handover : undefined,
           );
           resolve(client);
+          // The caller attaches its listeners as the open resolves; frames behind the notice wait for that.
+          return 'yield';
         } catch {
           fail();
         }
@@ -410,7 +412,9 @@ function openRuntimeLink(
  * Opens a spawner link on `stream`, already connected to the runtime's control endpoint, with the
  * key and instance key the spawner exchange gave. Rejects with `LinkRefusedError` when the runtime
  * is not the one the exchange started, before sending anything secret-derived, and with
- * `OwnerLinkClosedError` when the runtime closes or does not admit the link in time.
+ * `OwnerLinkClosedError` when the runtime closes or does not admit the link in time. Listeners
+ * attached in the same tick the open resolves receive everything the runtime sends after its
+ * custody notice.
  */
 export async function openSpawnerLink(
   stream: Duplex,
@@ -424,7 +428,9 @@ export async function openSpawnerLink(
 /**
  * Opens an owner link on `stream` with the owner's handover. Rejects with `LinkRefusedError` when the
  * runtime shows no certificate the handover's attach key made for it (an impostor, a runtime nobody
- * certified, or one another keyring certified), before sending anything secret-derived.
+ * certified, or one another keyring certified), before sending anything secret-derived. Listeners
+ * attached in the same tick the open resolves receive everything the runtime sends after its
+ * custody notice.
  */
 export async function openOwnerLink(
   stream: Duplex,
