@@ -140,10 +140,10 @@ export interface ICreateSessionOptions {
   /** Host-selected resource/dependency policy, independent of permission admission. */
   toolExecutionPolicy?: ISessionOptions['toolExecutionPolicy'];
   /**
-   * ARCH-006: REPLACES the framework's `createDefaultTools()` tier for this session; `[]` suppresses every
-   * framework default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's
-   * `builtInAgents` seam for subagents. Absent ⇒ the framework tier is constructed as before
-   * (byte-identical). The injected tools are used as given — the framework cannot re-bind the session
+   * ARCH-006: REPLACES the host's default tool tier (`host.createDefaultTools`) for this session; `[]`
+   * suppresses every default so a product's capability packs can own the whole tool surface. Mirrors
+   * NEUT-003's `builtInAgents` seam for subagents. Absent ⇒ the tier the host builds for the session,
+   * or none when the host lends no `createDefaultTools`. The injected tools are used as given — the framework cannot re-bind the session
    * context (`cwd`/`sandboxClient`) onto an already-constructed tool, so an injected replacement for a
    * context-sensitive default must carry that context itself.
    */

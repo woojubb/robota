@@ -83,7 +83,7 @@ export interface IAgentRuntime {
 
 export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
   requireFrameworkHost(config.host, 'createAgentRuntime');
-  // A host that lends no runner factory has no runner: a task then fails with "No runner for task kind".
+  // A host that lends no runner factory has no runner: the manager then refuses a task ("No background task runner registered for kind").
   const backgroundTaskRunners =
     config.backgroundTaskRunners ?? config.host.createBackgroundTaskRunners?.() ?? [];
   const commandModules = config.commandModules ?? [];

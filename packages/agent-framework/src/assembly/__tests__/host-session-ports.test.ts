@@ -199,6 +199,33 @@ describe('a host that lends less than the Node host', () => {
     expect(options.hookTypeExecutors).toEqual([]);
   });
 
+  describe('a subagent whose host lends no hook executors', () => {
+    const declared = {
+      PostToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'true' }] }],
+    };
+
+    it('refuses a declared hook on an advisory event, naming the type and the host member', () => {
+      expect(() => subagent({}, { hooks: declared })).toThrow(
+        /"command" \(no command executor: the host lends none \(`host\.createHookExecutors`\)/u,
+      );
+      expect(constructed).toHaveLength(0);
+    });
+
+    it('runs on when it declares no hook', () => {
+      expect(() => subagent({}, { hooks: {} })).not.toThrow();
+      expect(() => subagent({})).not.toThrow();
+    });
+
+    it('keeps an explicit executor list, the empty one included, as its parent chose it', () => {
+      expect(() => subagent({}, { hooks: declared, hookTypeExecutors: [] })).not.toThrow();
+      expect(onlyOptions().hookTypeExecutors).toEqual([]);
+    });
+
+    it('is not refused when the host builds executors', () => {
+      expect(() => subagent(testHost, { hooks: declared })).not.toThrow();
+    });
+  });
+
   it('passes exactly the members it lends, and builds the resolver for the session root', async () => {
     const canonicalizePath = (path: string): string => path;
     const createWorkspacePathResolver = vi.fn(() => () => undefined);

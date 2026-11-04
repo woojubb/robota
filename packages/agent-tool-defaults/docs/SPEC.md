@@ -11,9 +11,10 @@ This package composes exactly one lower-layer package (`agent-tools`); it does n
 sibling `agent-tool-*` packages. It is a defaults leaf, meant to be imported only at composition
 roots — not something a mid-layer assembly library owns, publishes, and self-consumes.
 
-The framework package still offers this tier to zero-config consumers, but reaches it only through
-a dynamic import, never statically and never by re-export — a re-export would restore a direct
-dependency this package's extraction was meant to remove.
+The framework package offers this tier to a session only through its host: the composition root
+passes `createDefaultTools` to `createNodeFrameworkHost`, and the session asks `host.createDefaultTools`.
+The framework imports this package nowhere in its runtime code and never re-exports it — a re-export
+would restore a direct dependency this package's extraction was meant to remove.
 
 ## Contract and guarantees
 
