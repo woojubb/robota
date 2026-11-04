@@ -144,7 +144,6 @@ export {
 } from './workspace-trust/node-host-workspace-trust.js';
 export type { INodeWorkspaceTrustStoreOptions } from './workspace-trust/node-host-workspace-trust.js';
 export { createNodeWorkspaceProjectFiles } from './workspace-trust/node-project-files.js';
-export { workspaceProjectStateDirectoryPath } from './workspace-trust/node-project-state-directory.js';
 export { inspectPreTrustProjectPaths } from './workspace-trust/pretrust-contribution-inspector.js';
 export type {
   IPreTrustProjectPathInspection,
@@ -152,7 +151,7 @@ export type {
 } from './workspace-trust/pretrust-contribution-inspector.js';
 export { supportsWorkspaceProjectMutation } from './workspace-trust/project-relative-writer.js';
 
-// Lane W (#3693): edit checkpoints and the stores that keep a session. They seal and migrate through
+// Edit checkpoints and the stores that keep a session. They seal and migrate through
 // `@robota-sdk/agent-session/node`; a host with no files passes its own `IEditCheckpointStore` and
 // `IInteractiveSessionStore`, which the main entry types.
 export { EditCheckpointStore } from './checkpoints/edit-checkpoint-store.js';

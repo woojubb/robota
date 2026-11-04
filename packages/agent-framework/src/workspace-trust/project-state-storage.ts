@@ -216,19 +216,24 @@ export function workspaceProjectStateLinkCount(
 
 /**
  * What a host mechanism that must address directory `relativeDirectory` of `storage` by path needs to
- * build that path: the trusted root as plain text and the directory relative to it. The caller joins
- * them and checks each segment on its own file system; this holds no file access. Internal to the
- * framework and exported from no entry: it returns two strings, never the boundary, the access
- * record or a function that takes a root.
+ * build that path: the trusted root as plain text and the segments from it down to the directory.
+ * The segments are split by the one splitter the reads use, which takes both separators, because a
+ * host keeps the spelling of its own layout (`.agent\sessions` or `.agent/sessions`) and a caller
+ * that split the spelled path on its own platform's separator could see one segment where there are
+ * several. The caller joins them and checks each on its own file system; this holds no file access.
+ * Internal to the framework and exported from no entry: it returns a string and a list of strings,
+ * never the boundary, the access record or a function that takes a root.
  */
 export function workspaceProjectStateDirectoryParts(
   storage: IWorkspaceProjectStateStorage,
   relativeDirectory: string,
-): { readonly worktreeRoot: string; readonly relativeDirectory: string } {
+): { readonly worktreeRoot: string; readonly segments: readonly string[] } {
   const access = migrationAccessOf(storage);
   return Object.freeze({
     worktreeRoot: access.worktreeRoot,
-    relativeDirectory: access.projectRelativePath(relativeDirectory, true),
+    segments: Object.freeze([
+      ...workspacePathSegments(access.projectRelativePath(relativeDirectory, true), true),
+    ]),
   });
 }
 

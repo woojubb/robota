@@ -31,7 +31,6 @@ describe('the Node adapters of the plugin, user-local, provider and org-policy m
     'checkNodeHostSettingsFile',
     'resolveGitBranchFromNodeHost',
     'validateWorkspaceSessionReplayLog',
-    'workspaceProjectStateDirectoryPath',
     'projectSessionClaimsDirectory',
   ] as const;
 
@@ -60,10 +59,12 @@ describe('the Node adapters of the plugin, user-local, provider and org-policy m
   });
 });
 
-describe('the parts a Node adapter walks to address a project state directory', () => {
-  it('are on no entry: the root and relative directory stay with the framework', () => {
-    expect(Object.keys(MainEntry)).not.toContain('workspaceProjectStateDirectoryParts');
-    expect(Object.keys(NodeEntry)).not.toContain('workspaceProjectStateDirectoryParts');
+describe('the walk that addresses a project state directory by path', () => {
+  it('and the parts it walks are on no entry: only the session store beside them uses them', () => {
+    for (const name of ['workspaceProjectStateDirectoryParts', 'workspaceProjectStateDirectoryPath']) {
+      expect(Object.keys(MainEntry), name).not.toContain(name);
+      expect(Object.keys(NodeEntry), name).not.toContain(name);
+    }
   });
 });
 

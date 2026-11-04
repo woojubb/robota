@@ -1,6 +1,6 @@
 /**
  * The neutral half of addressing a project state directory by path: it hands out the trusted root as
- * text and the directory relative to it, and touches no file. The walk that proves the path stays
+ * text and the segments down to the directory, and touches no file. The walk that proves the path stays
  * inside the project is the Node adapter's (`node-project-state-directory.test.ts`).
  */
 
@@ -36,17 +36,19 @@ describe('workspaceProjectStateDirectoryParts', () => {
 
     const parts = workspaceProjectStateDirectoryParts(storage, 'claims');
 
-    expect(parts).toEqual({ worktreeRoot: root, relativeDirectory: join('.agent', 'sessions', 'claims') });
+    expect(parts).toEqual({ worktreeRoot: root, segments: ['.agent', 'sessions', 'claims'] });
     expect(nodeFs.lstatSync).not.toHaveBeenCalled();
   });
 
-  it('hands out two strings and nothing that acts on a root', async () => {
+  it('hands out a root string and segment strings, nothing that acts on a root', async () => {
     const storage = await createTrustedProjectStateFixture(root, 'sessions');
     const parts = workspaceProjectStateDirectoryParts(storage, 'claims');
 
-    expect(Object.keys(parts).sort()).toEqual(['relativeDirectory', 'worktreeRoot']);
-    expect(Object.values(parts).every((value) => typeof value === 'string')).toBe(true);
+    expect(Object.keys(parts).sort()).toEqual(['segments', 'worktreeRoot']);
+    expect(typeof parts.worktreeRoot).toBe('string');
+    expect(parts.segments.every((segment) => typeof segment === 'string')).toBe(true);
     expect(Object.isFrozen(parts)).toBe(true);
+    expect(Object.isFrozen(parts.segments)).toBe(true);
   });
 
   it('keeps the refusal of a path that leaves the storage', async () => {
