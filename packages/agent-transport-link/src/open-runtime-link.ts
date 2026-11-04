@@ -331,7 +331,12 @@ function openRuntimeLink(
     const fail = (): void => {
       stream.destroy();
     };
-    const timer = setTimeout(fail, options.timeoutMs ?? DEFAULT_OPEN_TIMEOUT_MS);
+    // Rejects itself: a stream that does not report its own close must not leave the opening waiting.
+    const timer = setTimeout(() => {
+      fail();
+      link?.close();
+      reject(new OwnerLinkClosedError());
+    }, options.timeoutMs ?? DEFAULT_OPEN_TIMEOUT_MS);
     timer.unref?.();
 
     readLinkFrames(stream, {

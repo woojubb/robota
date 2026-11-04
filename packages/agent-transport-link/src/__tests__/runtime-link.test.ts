@@ -6,8 +6,11 @@
  * not decode, a frame over its bound and a handshake that never finishes.
  */
 import { Buffer } from 'node:buffer';
+import { once } from 'node:events';
+import type { Socket } from 'node:net';
+import { Duplex, PassThrough } from 'node:stream';
 
-import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
   createLinkInitiator,
@@ -24,6 +27,7 @@ import {
   OwnerRequestRefusedError,
   openOwnerLink,
   openSpawnerLink,
+  serveRuntimeLink,
   type IRuntimeCustodyState,
 } from '../index.js';
 import {
@@ -312,5 +316,71 @@ describe('the client', () => {
     await expect(pending).rejects.toBeInstanceOf(OwnerLinkClosedError);
     await client.closed;
     await expect(client.lock('explicit')).rejects.toBeInstanceOf(OwnerLinkClosedError);
+  });
+});
+
+/** How an opening ended, or `'never settled'`: an open that waits forever is the failure under test. */
+async function outcomeOf(opening: Promise<unknown>, withinMs = 2_000): Promise<unknown> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const never = new Promise<string>((resolve) => {
+    timer = setTimeout(() => resolve('never settled'), withinMs);
+  });
+  try {
+    return await Promise.race([opening.then(() => 'opened', (error: unknown) => error), never]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** A stream that takes writes, never answers, and ignores `destroy`. */
+class StuckStream extends Duplex {
+  override _read(): void {}
+  override _write(_chunk: unknown, _encoding: string, done: () => void): void {
+    done();
+  }
+  override destroy(): this {
+    return this;
+  }
+}
+
+describe('a stream that cannot answer', () => {
+  it('rejects an opening on a stream that is already closed, as a closed link', async () => {
+    const { spawnerKey, instancePublicKey, port } = await startRuntime();
+    const openings = [
+      (stream: Socket) =>
+        openSpawnerLink(stream, spawnerKey, instancePublicKey, { timeoutMs: 200 }),
+      (stream: Socket) => openOwnerLink(stream, owner, { timeoutMs: 200 }),
+    ];
+    for (const open of openings) {
+      const socket = await connect(port);
+      const closed = once(socket, 'close');
+      socket.destroy();
+      await closed;
+      expect(await outcomeOf(open(socket))).toBeInstanceOf(OwnerLinkClosedError);
+    }
+  });
+
+  it('rejects an opening at its timeout as a closed link, whatever the stream does when destroyed', async () => {
+    const { spawnerKey, instancePublicKey } = await startRuntime();
+    const opening = openSpawnerLink(new StuckStream(), spawnerKey, instancePublicKey, {
+      timeoutMs: 50,
+    });
+    expect(await outcomeOf(opening)).toBeInstanceOf(OwnerLinkClosedError);
+  });
+
+  it('serves a stream that is already closed by admitting nothing and releasing its handshake timer', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      const stream = new PassThrough();
+      stream.destroy();
+      await once(stream, 'close');
+      const admit = vi.fn();
+      serveRuntimeLink(stream, { identity: createRuntimeIdentity(), binding: BINDING, admit });
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(admit).not.toHaveBeenCalled();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

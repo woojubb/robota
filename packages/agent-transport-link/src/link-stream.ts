@@ -71,7 +71,10 @@ export interface IFrameReading {
   readonly onEnd: () => void;
 }
 
-/** Reads frames off `stream` until it ends; a frame over its bound destroys the stream. */
+/**
+ * Reads frames off `stream` until it ends; a frame over its bound destroys the stream. A stream that
+ * is already destroyed or closed reads nothing and ends on the next tick.
+ */
 export function readLinkFrames(stream: Duplex, reading: IFrameReading): void {
   const reader = new LinkFrameReader();
   let ended = false;
@@ -111,4 +114,6 @@ export function readLinkFrames(stream: Duplex, reading: IFrameReading): void {
   if (reading.rest !== undefined) reader.push(reading.rest);
   drain();
   stream.resume();
+  // A stream that is over before it is read emits no `close` to wait for, and a link must still end.
+  if (stream.destroyed) process.nextTick(end);
 }
