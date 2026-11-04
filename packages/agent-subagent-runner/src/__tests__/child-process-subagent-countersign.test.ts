@@ -85,7 +85,11 @@ const CHILD_ANSWER = 'the child process answers';
 
 const roots: string[] = [];
 afterEach(() => {
-  for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
+  // A fork job's child and the parent's follower let the record's marker go just after the job's
+  // result, so a removal can meet a marker or break lock written meanwhile; Node retries ENOTEMPTY.
+  for (const root of roots.splice(0)) {
+    rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 25 });
+  }
   spawned.children.length = 0;
   spawned.messages.length = 0;
   spawned.rewriteSend = undefined;
