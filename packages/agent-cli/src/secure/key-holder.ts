@@ -5,7 +5,8 @@
  * `KeyObject`, so every way of locking (the user, inactivity, the last client leaving, a locked
  * screen, suspend) ends here and "are the keys still usable in this process" has exactly one answer.
  * Locking drops the holder's references; it cannot erase key material the runtime still holds (see
- * `IUnlockedKeys`).
+ * `IReadKeys`). What it holds is the read keys and nothing more: an unlock never yields the attach
+ * key, so nothing in this process can present itself as the owner to a verifier.
  *
  * Unlocking is also where a swapped sealing public key is caught, because that check needs the keys.
  * From the first unlock in this process the holder keeps the key it verified and seals to it, locked
@@ -42,7 +43,7 @@ import {
   unlockWithPassphrase,
   unlockWithRecoveryKey,
   type IKeyring,
-  type IUnlockedKeys,
+  type IReadKeys,
   type TKeyringCredential,
 } from '@robota-sdk/agent-keyring';
 
@@ -225,7 +226,7 @@ export function createNodeTimers(): IKeyHolderTimers {
   };
 }
 
-function unlockWith(keyring: IKeyring, credential: TKeyringCredential): Promise<IUnlockedKeys> {
+function unlockWith(keyring: IKeyring, credential: TKeyringCredential): Promise<IReadKeys> {
   switch (credential.type) {
     case 'passphrase':
       return unlockWithPassphrase(keyring, credential.passphrase);
@@ -246,7 +247,7 @@ export class KeyHolder {
   readonly #unlockListeners = new Set<() => void>();
   readonly #sealingKeyListeners = new Set<() => void>();
   readonly #openedDataKeys = new OpenedDataKeys();
-  #keys: IUnlockedKeys | undefined;
+  #keys: IReadKeys | undefined;
   /** The public key the last unlock derived; kept for good, since a public key is not secret. */
   #verifiedSealingKey: Uint8Array | undefined;
   #idleTimer: IKeyHolderTimer | undefined;
@@ -462,12 +463,12 @@ export class KeyHolder {
     }
   }
 
-  #requireKeys(): IUnlockedKeys {
+  #requireKeys(): IReadKeys {
     if (this.#keys === undefined) throw new KeyringError('keys-locked', 'The keys are locked.');
     return this.#keys;
   }
 
-  #install(unlocked: IUnlockedKeys): void {
+  #install(unlocked: IReadKeys): void {
     this.#openedDataKeys.wipe();
     this.#keys?.lock();
     this.#idleTimer?.clear();

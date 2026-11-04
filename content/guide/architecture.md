@@ -169,6 +169,7 @@ never drags in these defaults.
 | `agent-transport-mcp`    | Exposes a session as an MCP server (stdio and Streamable HTTP)  |
 | `agent-transport-acp`    | Serves a session to an editor as an ACP agent over stdio        |
 | `agent-transport-webrtc` | Peer-to-peer WebRTC data channels (remote control, device mesh) |
+| `agent-transport-link`   | Owner link to a local runtime, admitted by proof                |
 
 A transport is a thin adapter: it turns protocol messages into session calls (submit, abort,
 commands, permission answers) and sends session events back. Transports implement

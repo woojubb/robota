@@ -3,10 +3,11 @@
  * `node:crypto` only. A passphrase and a recovery key each unwrap one master key; the master key
  * derives an X25519 sealing keypair, an Ed25519 attach keypair and an HMAC authorship key; artifacts
  * are encrypted under per-artifact keys that are sealed to the public sealing key, so a locked process
- * can still write, and only an unlocked one can tag what it wrote.
+ * can still write, and only an unlocked one can tag what it wrote. An unlock yields the read keys;
+ * the attach key stays inside a short-lived owner handover, which certifies runtimes.
  */
-export { KeyringError } from './errors.js';
-export type { TKeyringErrorCode } from './errors.js';
+export { KeyringError, LinkRefusedError } from './errors.js';
+export type { TKeyringErrorCode, TLinkRefusalReason } from './errors.js';
 
 export type {
   IKeyring,
@@ -29,7 +30,36 @@ export {
 } from './keyring.js';
 export type { ICreateKeyringOptions, ICreatedKeyring, TKeyringCredential } from './keyring.js';
 
-export type { IUnlockedKeys } from './unlocked-keys.js';
+export type { IReadKeys } from './read-keys.js';
+export { openOwnerHandover } from './owner-handover.js';
+export type { IOwnerHandover } from './owner-handover.js';
+export type { ILinkBinding, ITrustRoot } from './runtime-certificate.js';
+export { SpawnerKey, startSpawnerExchange } from './spawner-exchange.js';
+export type { ISpawnerExchange, ISpawnerExchangeResult } from './spawner-exchange.js';
+export { createRuntimeIdentity } from './runtime-identity.js';
+export type { IRuntimeIdentity } from './runtime-identity.js';
+export {
+  LINK_CHALLENGE_MAX_BYTES,
+  LINK_HELLO_BYTES,
+  LINK_PROOF_MAX_BYTES,
+  createLinkInitiator,
+  createLinkResponder,
+} from './owner-link.js';
+export type { ILinkInitiator, ILinkResponder, TLinkInitiatorAuth } from './owner-link.js';
+export {
+  LINK_FRAME_MAX_PLAINTEXT_BYTES,
+  LINK_FRAME_OVERHEAD_BYTES,
+  LINK_GRANT_FRAME_BYTES,
+  linkFrameKind,
+} from './link-frames.js';
+export type {
+  IEstablishedLink,
+  IInitiatorLink,
+  IResponderLink,
+  TLinkDataFrameKind,
+  TLinkFrameKind,
+  TLinkMode,
+} from './link-frames.js';
 export type { IKeyPair } from './key-pairs.js';
 export { generateTransientSealingKeyPair } from './key-pairs.js';
 

@@ -8,6 +8,9 @@ import {
   changePassphrase,
   checkSealingPublicKey,
   createKeyring,
+  createLinkInitiator,
+  createLinkResponder,
+  createRuntimeIdentity,
   decryptRecord,
   encryptRecord,
   fingerprint,
@@ -15,10 +18,14 @@ import {
   generateTransientSealingKeyPair,
   getSealingPublicKey,
   KeyringError,
+  LinkRefusedError,
+  linkFrameKind,
   openBlob,
+  openOwnerHandover,
   parseKeyring,
   sealBlob,
   serializeKeyring,
+  startSpawnerExchange,
   unlockWithPassphrase,
   unlockWithRecoveryKey,
 } from '../dist/node/index.js';
@@ -112,15 +119,93 @@ assert.equal(
   Buffer.from(fixtureKeys.sealing.publicKey).toString('hex'),
   '4b73c35676631b6307fb28a3f70aaf47c331b86ada4996ce2f3c9f5c04cdba7a',
 );
-assert.equal(
-  Buffer.from(fixtureKeys.attach.publicKey).toString('hex'),
-  '92ffeb9a3ccccde96ea227ff3e2f467989d8fdc5b234e8fdcf1d159a7f56ad54',
-);
+assert.equal('attach' in fixtureKeys, false, 'an unlock yields read keys only');
 const fixtureViaRecovery = await unlockWithRecoveryKey(
   fixture,
   'M2GT-58X4-MPKA-FA59-NANT-SBDE-NYRB-3CNK',
 );
-assert.deepEqual(fixtureViaRecovery.attach.publicKey, fixtureKeys.attach.publicKey);
+assert.deepEqual(fixtureViaRecovery.sealing.publicKey, fixtureKeys.sealing.publicKey);
+
+// The attach key lives only in an owner handover, whose certificate is pinned (Ed25519 signing).
+const handover = await openOwnerHandover(fixture, {
+  type: 'recoveryKey',
+  recoveryKey: 'M2GT-58X4-MPKA-FA59-NANT-SBDE-NYRB-3CNK',
+});
+const instance = Buffer.from(
+  '2543b92ff1095511476adc8369db6ddc933665a11978dda1404ee1066ca9559d',
+  'hex',
+);
+const binding = {
+  runtimeId: '6f1c2d3e-4b5a-4c6d-8e9f-0a1b2c3d4e5f',
+  generation: 'AAECAwQFBgcICQoLDA0ODw',
+};
+const root = handover.certify(instance, binding);
+assert.equal(
+  Buffer.from(root.attachPublicKey).toString('hex'),
+  '92ffeb9a3ccccde96ea227ff3e2f467989d8fdc5b234e8fdcf1d159a7f56ad54',
+);
+assert.equal(
+  Buffer.from(root.certificate).toString('hex'),
+  '9d76a228a4824881c96050ff31eaa9287dc99efe238c592aab67189ef16fe5b6' +
+    'ad90e67b84f5334e771534ec0496d9a5edeae8568c0f92d73a3ae252638e1302',
+);
+assert.equal(handover.sealingKeyMatches, true);
+
+// The spawner exchange (X25519, SHA-256, HKDF), a spawner-mode owner link over its key (HMAC,
+// Ed25519, AES-256-GCM frames), certification of what that link proved, then an owner-mode link
+// carrying a read grant that opens what was sealed to the fixture keyring.
+const identity = createRuntimeIdentity();
+const exchange = startSpawnerExchange();
+const exchanged = exchange.complete(identity.answerSpawnerExchange(exchange.message));
+assert.deepEqual(exchanged.instancePublicKey, identity.instancePublicKey);
+assert.equal(identity.spawnerKeyHeld, true);
+
+function handshake(auth) {
+  const initiator = createLinkInitiator(auth);
+  const responder = createLinkResponder(identity, binding);
+  const { proof, link } = initiator.answer(responder.challenge(initiator.hello()));
+  return { client: link, ...responder.accept(proof) };
+}
+
+const spawnerLink = handshake({ mode: 'spawner', ...exchanged });
+assert.equal(spawnerLink.standing, 'spawner');
+assert.deepEqual(spawnerLink.client.binding, binding);
+const frame = spawnerLink.client.seal('owner', plaintext);
+assert.equal(linkFrameKind(frame), 'owner');
+assert.deepEqual(spawnerLink.link.open(frame), {
+  kind: 'owner',
+  plaintext: Buffer.from(plaintext),
+});
+assert.throws(
+  () => spawnerLink.link.open(frame),
+  (error) => error instanceof KeyringError && error.code === 'decryption-failed',
+);
+
+identity.installTrustRoot(
+  handover.certify(spawnerLink.client.instancePublicKey, spawnerLink.client.binding),
+  spawnerLink.client.binding,
+);
+exchanged.spawnerKey.wipe();
+assert.equal(identity.certified, true);
+assert.equal(identity.spawnerKeyHeld, false);
+// Spawner standing ended with the install: a hello asking for it (mode byte 1) is refused.
+const spawnerHello = createLinkInitiator({ mode: 'owner', handover }).hello();
+spawnerHello[1] = 1;
+assert.throws(
+  () => createLinkResponder(identity, binding).challenge(spawnerHello),
+  (error) => error instanceof LinkRefusedError && error.reason === 'spawner-unavailable',
+);
+
+const ownerLink = handshake({ mode: 'owner', handover });
+assert.equal(ownerLink.standing, 'owner');
+const granted = ownerLink.link.openReadGrant(ownerLink.client.sealReadGrant(handover));
+const fixtureBlob = sealBlob(getSealingPublicKey(fixture), plaintext, aad);
+assert.deepEqual(openBlob(granted.sealing.privateKey, fixtureBlob, aad), Buffer.from(plaintext));
+assert.equal('attach' in granted, false);
+granted.lock();
+ownerLink.client.close();
+ownerLink.link.close();
+handover.dispose();
 
 // Both module formats of the published entry points behave alike.
 const cjs = createRequire(import.meta.url)('../dist/node/index.cjs');

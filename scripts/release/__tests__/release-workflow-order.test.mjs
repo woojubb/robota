@@ -212,19 +212,21 @@ it('exercises Windows and macOS native code paths on every code pull request', (
   );
 });
 
-it('runs the keyring package smoke under the Bun the job installs, on pull requests only', () => {
-  // The keyring SPEC says the package runs unchanged on Bun; this is the only place that is checked.
+it('runs the keyring and owner-link smokes under the Bun the job installs, on pull requests only', () => {
+  // Both SPECs say the package runs unchanged on Bun; this is the only place that is checked.
   const steps = native.jobs['build-bun'].steps;
   const index = (name) => requiredStepIndex(steps, name);
-  const step = steps[index('Smoke the keyring package under Bun')];
+  const name = 'Smoke the keyring and owner-link packages under Bun';
+  const step = steps[index(name)];
   expect(step.if).toBe("github.event_name == 'pull_request' && matrix.product == 'cedar'");
   expect(step.shell).toBe('bash');
   expect(step.run).toContain("pnpm --filter './packages/agent-keyring' build");
   expect(step.run).toContain("pnpm --filter './packages/agent-keyring' smoke:bun");
-  expect(index('Setup Bun')).toBeLessThan(index('Smoke the keyring package under Bun'));
-  expect(index('Exercise native code paths on this host')).toBeLessThan(
-    index('Smoke the keyring package under Bun'),
-  );
+  // The carrier's own build needs its workspace dependencies built first.
+  expect(step.run).toContain("pnpm --filter '{./packages/agent-transport-link}...' build");
+  expect(step.run).toContain("pnpm --filter './packages/agent-transport-link' smoke:bun");
+  expect(index('Setup Bun')).toBeLessThan(index(name));
+  expect(index('Exercise native code paths on this host')).toBeLessThan(index(name));
   // No new permissions, secrets or triggers: the step only runs repository code.
   expect(step.env).toBeUndefined();
 });

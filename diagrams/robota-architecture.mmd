@@ -51,6 +51,7 @@ graph TD
     TCAR[agent-transport-ws · agent-transport-mcp · agent-transport-acp]
     THTTP[agent-transport-http]
     TWEBRTC[agent-transport-webrtc]
+    TLINK[agent-transport-link<br/>owner link carrier]
   end
 
   subgraph Presentation["Presentation"]
@@ -108,6 +109,7 @@ graph TD
   %% Transports
   CORE & IFA & IFCE & IFS & IFM & IFT --> TCORE
   TCORE --> TCAR & THTTP & TWEBRTC
+  TCORE & KR --> TLINK
   PAIR --> TWEBRTC
 
   %% Presentation
