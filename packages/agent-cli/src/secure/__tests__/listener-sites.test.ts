@@ -40,12 +40,12 @@ const LISTENER_SITES: Readonly<Record<string, readonly TListenerSurface[]>> = {
 
 /** For each row, the product files whose `startListener(SECURE_SURFACES[row], …)` opens it. */
 const LISTENER_GATES: { readonly [S in TListenerSurface]: readonly string[] } = {
-  'control-socket': [],
-  'websocket-transport': [],
-  'serve-http': [],
-  'serve-monitor': [],
-  'mcp-http': [],
-  'external-events': [],
+  'control-socket': ['packages/agent-cli/src/modes/serve-mode.ts'],
+  'websocket-transport': ['packages/agent-cli/src/product/runtime-plumbing.ts'],
+  'serve-http': ['packages/agent-cli/src/modes/serve-mode.ts'],
+  'serve-monitor': ['packages/agent-cli/src/modes/serve-mode.ts'],
+  'mcp-http': ['packages/agent-cli/src/modes/mcp-serve-mode.ts'],
+  'external-events': ['packages/agent-cli/src/modes/serve-mode.ts'],
   'hosted-ingress': [],
   'hosted-desktop-gateway': [],
   'desktop-remote-bridge': [],

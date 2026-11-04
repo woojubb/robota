@@ -45,6 +45,8 @@ vi.mock('@robota-sdk/agent-transport-mcp', async (importOriginal) => ({
 }));
 
 import { runMcpServeMode } from '../mcp-serve-mode.js';
+import { overrideProductSecureMode } from '../../product/session-sealing.js';
+import { SecureSurfaceRefusedError } from '../../secure/secure-surfaces.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 import type { IMcpRemoteHttpHostOptions } from '@robota-sdk/agent-transport-mcp';
@@ -232,4 +234,27 @@ describe('MCP serve startup lifecycle', () => {
       }
     },
   );
+});
+
+describe('MCP over HTTP in secure mode', () => {
+  it('is refused before the host starts, and writes no bearer file', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'test-product-mcp-http-secure-'));
+    const tokenFile = join(root, 'token');
+    mock.httpStart.mockClear();
+    mock.httpStop.mockResolvedValue(undefined);
+    mock.shutdown.mockResolvedValue(undefined);
+    const runtime = createTestProductRuntime();
+    overrideProductSecureMode(runtime, true);
+    try {
+      await expect(
+        runMcpServeMode(runtime, { host: testHost } as TInteractiveSessionOptions, '1', new PassThrough(), {
+          tokenFile,
+        }),
+      ).rejects.toBeInstanceOf(SecureSurfaceRefusedError);
+      expect(mock.httpStart).not.toHaveBeenCalled();
+      await expect(access(tokenFile)).rejects.toThrow();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });
