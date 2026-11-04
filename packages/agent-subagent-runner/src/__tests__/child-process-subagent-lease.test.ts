@@ -18,7 +18,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createUserSessionStore, resolveExecutionAttach } from '@robota-sdk/agent-framework';
+import { resolveExecutionAttach } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

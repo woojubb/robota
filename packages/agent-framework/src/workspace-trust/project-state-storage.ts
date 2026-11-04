@@ -2,6 +2,7 @@ import { assertProjectReadPurpose, workspacePathSegments } from './project-reade
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 import {
   assertWorkspaceProjectAuthority,
+  getWorkspaceProjectIdentity,
   getWorkspaceProjectMutationBoundary,
   getWorkspaceProjectReader,
   getWorkspaceProjectStateDirectories,
@@ -117,6 +118,7 @@ export function getWorkspaceProjectStateStorage(
   if (typeof rootRelativePath !== 'string') {
     throw new WorkspaceAuthorityRequiredError('Unknown project state namespace.');
   }
+  const identity = getWorkspaceProjectIdentity(accepted);
   const reader = getWorkspaceProjectReader(accepted);
   const mutationBoundary = getWorkspaceProjectMutationBoundary(accepted);
   const storage = Object.freeze(

@@ -144,6 +144,7 @@ export {
 } from './workspace-trust/node-host-workspace-trust.js';
 export type { INodeWorkspaceTrustStoreOptions } from './workspace-trust/node-host-workspace-trust.js';
 export { createNodeWorkspaceProjectFiles } from './workspace-trust/node-project-files.js';
+export { workspaceProjectStateDirectoryPath } from './workspace-trust/node-project-state-directory.js';
 export { inspectPreTrustProjectPaths } from './workspace-trust/pretrust-contribution-inspector.js';
 export type {
   IPreTrustProjectPathInspection,

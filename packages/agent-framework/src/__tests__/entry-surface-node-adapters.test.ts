@@ -31,6 +31,8 @@ describe('the Node adapters of the plugin, user-local, provider and org-policy m
     'checkNodeHostSettingsFile',
     'resolveGitBranchFromNodeHost',
     'validateWorkspaceSessionReplayLog',
+    'workspaceProjectStateDirectoryPath',
+    'projectSessionClaimsDirectory',
   ] as const;
 
   it('are exported from ./node and not from the main entry', () => {
@@ -55,6 +57,13 @@ describe('the Node adapters of the plugin, user-local, provider and org-policy m
     ]) {
       expect(typeof (MainEntry as Record<string, unknown>)[name], name).toBe('function');
     }
+  });
+});
+
+describe('the parts a Node adapter walks to address a project state directory', () => {
+  it('are on no entry: the root and relative directory stay with the framework', () => {
+    expect(Object.keys(MainEntry)).not.toContain('workspaceProjectStateDirectoryParts');
+    expect(Object.keys(NodeEntry)).not.toContain('workspaceProjectStateDirectoryParts');
   });
 });
 
