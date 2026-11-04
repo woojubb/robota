@@ -216,7 +216,7 @@ __PRODUCT_CLI_NAME__ trust revoke --yes
   `nativeWebTools`를 지정한 프로필은 쓴 그대로 적용됩니다. 이 CLI의 도구와 함께 쓸 수 있는
   검색 도구를 업체가 제공하지 않는 경우에는 꺼져 있습니다. 사용자 지정 `baseURL`, Chat Completions,
   `OPENAI_BASE_URL`을 쓰는 OpenAI 프로필과 `gpt-4.1-nano`처럼 웹 검색이 없는 OpenAI 모델이
-  여기에 해당합니다.
+  여기에 해당합니다. Anthropic 답변이 웹을 인용하면 끝에 `[Sources]` 목록이 붙습니다.
   Gemini는 프로필에 `"webSearch": true`를 지정할 때만 검색하며, Gemini 3 이상이 필요합니다.
   Google [약관](https://ai.google.dev/gemini-api/terms)은 검색 기반 결과를 보여 주고 저장하는 데
   조건을 두고 있고, 터미널은 약관이 요구하는 검색 제안을 표시할 수 없으니 먼저 읽어 보세요.

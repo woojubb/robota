@@ -1,6 +1,6 @@
 import { randomId } from '@robota-sdk/agent-core';
 
-import { formatWebSearchResults } from './message-converter';
+import { formatCitedSources, formatWebSearchResults } from './message-converter';
 import { awaitWithProviderRequestId } from './provider-request-id';
 
 import type Anthropic from '@anthropic-ai/sdk';
@@ -61,6 +61,7 @@ export async function streamAndAssemble(
   let currentToolId = '';
   let currentToolName = '';
   let currentToolJson = '';
+  const citations: Anthropic.Messages.TextCitation[] = [];
   let usage = { input_tokens: 0, output_tokens: 0 };
   let sawUsageStart = false;
   let sawUsageEnd = false;
@@ -118,6 +119,8 @@ export async function streamAndAssemble(
           if (event.delta.type === 'text_delta') {
             textParts.push(event.delta.text);
             onTextDelta(event.delta.text);
+          } else if (event.delta.type === 'citations_delta') {
+            citations.push(event.delta.citation);
           } else if (event.delta.type === 'input_json_delta') {
             currentToolJson += event.delta.partial_json;
           }
@@ -158,6 +161,12 @@ export async function streamAndAssemble(
   // If aborted via break (not via catch), return partial response
   if (signal?.aborted) {
     return buildPartialResult(textParts, toolCalls, usage, model, providerRequestId);
+  }
+
+  const citedSources = formatCitedSources(citations);
+  if (citedSources) {
+    textParts.push(`\n\n${citedSources}`);
+    onTextDelta(`\n\n${citedSources}`);
   }
 
   const textContent = textParts.join('') || '';

@@ -274,7 +274,8 @@ Web search reaches the model in two ways, and you can use both.
   `"options": { "nativeWebTools": { "webSearch": false } }` on the profile; a profile that sets
   `nativeWebTools` is used as written. It stays off where the vendor offers no such tool next to
   this CLI's own tools: an OpenAI profile with a custom `baseURL`, Chat Completions or
-  `OPENAI_BASE_URL`, and an OpenAI model without web search such as `gpt-4.1-nano`.
+  `OPENAI_BASE_URL`, and an OpenAI model without web search such as `gpt-4.1-nano`. An Anthropic
+  reply that cites the web ends with a `[Sources]` list.
   Gemini searches only when its profile sets `"webSearch": true`, on Gemini 3 or later: Google's
   [terms](https://ai.google.dev/gemini-api/terms) attach conditions to showing and storing grounded
   results, and a terminal cannot show the search suggestions they call for, so read them first.
