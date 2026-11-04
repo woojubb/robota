@@ -288,7 +288,7 @@ module.exports = {
                   'Build conversation stores with packages/agent-cli/src/product/session-stores.ts, which states how they seal.',
               },
               {
-                name: '@robota-sdk/agent-session',
+                name: '@robota-sdk/agent-session/node',
                 importNames: [
                   'NodeSessionStore',
                   'NodePromptHistoryFile',

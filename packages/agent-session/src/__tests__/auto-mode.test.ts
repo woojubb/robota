@@ -46,6 +46,7 @@ function makeEnforcer(
   mode: { current: TPermissionMode } = { current: 'auto' },
 ): PermissionEnforcer {
   return new PermissionEnforcer({
+    hookTypeExecutors: [],
     sessionId: 'test-session',
     cwd: '/w/project',
     homeDirectory: '/home/me',

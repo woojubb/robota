@@ -40,7 +40,7 @@ import {
   serializeKeyring,
   type IKeyring,
 } from '@robota-sdk/agent-keyring';
-import { NodePromptHistoryFile, NodeSessionStore } from '@robota-sdk/agent-session';
+import { NodePromptHistoryFile, NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';

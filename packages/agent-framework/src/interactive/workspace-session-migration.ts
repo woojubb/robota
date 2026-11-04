@@ -17,16 +17,16 @@
  * (`project-state-replacement.ts`).
  */
 import { createHash } from 'node:crypto';
+import { isSafeSessionId } from '@robota-sdk/agent-session';
 import {
   countPlainSessionLogLines,
   isPlainSessionRecordOf,
-  isSafeSessionId,
   sealSessionLogText,
   sealStoredPayloadBytes,
   sealStoredSessionBytes,
   storedPayloadMigrationState,
   storedSessionMigrationState,
-} from '@robota-sdk/agent-session';
+} from '@robota-sdk/agent-session/node';
 
 import { assertWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import { MAX_PROJECT_READ_BYTES } from '../workspace-trust/project-reader-path.js';
@@ -40,7 +40,7 @@ import { sweepWorkspaceProjectStateTemporaries } from '../workspace-trust/projec
 
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
-import type { ISessionLogMigration } from '@robota-sdk/agent-session';
+import type { ISessionLogMigration } from '@robota-sdk/agent-session/node';
 
 const RECORD_EXTENSION = '.json';
 const LOG_EXTENSION = '.jsonl';

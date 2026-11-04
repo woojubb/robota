@@ -6,8 +6,6 @@
  * conversation management.
  */
 
-import { homedir } from 'node:os';
-
 import {
   allowRulesForAutoMode,
   applyPresetToolLists,
@@ -22,7 +20,6 @@ import {
   requiresFreshApproval,
   runHooks,
 } from '@robota-sdk/agent-core';
-import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 import { decideApproval } from './abortable-approval.js';
 import { checkpointedApproval, hasCheckpointedApproval } from './checkpointed-approval.js';
@@ -31,7 +28,7 @@ import { consentScopeFor } from './consent-scope.js';
 import { buildHookInput, runPreToolGate } from './tool-hook-helpers.js';
 import { PermissionDenialLog } from './permission-denial-log.js';
 import { wrapToolWithPermission } from './tool-permission-wrapper.js';
-import { createWorkspacePathResolver } from './workspace-path-resolver.js';
+import { requireHookTypeExecutors } from './require-hook-type-executors.js';
 
 import type {
   IPermissionEnforcerOptions,
@@ -112,8 +109,9 @@ export class PermissionEnforcer {
   private readonly permissionPolicy?: IPermissionEnforcerOptions['permissionPolicy'];
   private readonly taskPermissions?: IPermissionEnforcerOptions['taskPermissions'];
   private readonly pathProtection: IPermissionEnforcerOptions['pathProtection'];
-  private readonly homeDirectory: string;
-  private readonly resolveInWorkspace: TResolveInWorkspace;
+  private readonly homeDirectory: string | undefined;
+  private readonly resolveInWorkspace: TResolveInWorkspace | undefined;
+  private readonly canonicalizePath: (path: string) => string;
   private readonly commandSandbox?: IPermissionEnforcerOptions['commandSandbox'];
   private readonly denials = new PermissionDenialLog();
   /** A turn a peer's message started is in progress: the one place the reply to that peer exists. */
@@ -141,17 +139,18 @@ export class PermissionEnforcer {
     this.promptForApprovalFn = options.promptForApprovalFn;
     this.sessionLogger = options.sessionLogger;
     this.onToolExecution = options.onToolExecution;
-    this.hookTypeExecutors = options.hookTypeExecutors ?? [
-      new CommandExecutor(),
-      new HttpExecutor(),
-    ];
+    this.hookTypeExecutors = requireHookTypeExecutors(
+      options.hookTypeExecutors,
+      'PermissionEnforcer',
+    );
     this.transcriptPath = options.transcriptPath;
     this.onProjectAllowTool = options.onProjectAllowTool;
     this.permissionPolicy = options.permissionPolicy;
     this.taskPermissions = options.taskPermissions;
-    this.homeDirectory = options.homeDirectory ?? homedir();
+    this.homeDirectory = options.homeDirectory;
     this.pathProtection = options.pathProtection;
-    this.resolveInWorkspace = createWorkspacePathResolver(options.cwd);
+    this.resolveInWorkspace = options.resolveInWorkspace;
+    this.canonicalizePath = options.canonicalizePath ?? ((path) => path);
     this.commandSandbox = options.commandSandbox;
     if (options.permissionClassifier !== undefined) {
       this.autoMode = new AutoModeGate(options.permissionClassifier);
@@ -421,7 +420,13 @@ export class PermissionEnforcer {
     // Existing host denials still bind if current policy or remembered consent became permissive.
     return (
       (await checkpointedApproval(
-        { sessionId: this.sessionId, cwd: this.cwd, toolName, toolArgs },
+        {
+          sessionId: this.sessionId,
+          cwd: this.cwd,
+          toolName,
+          toolArgs,
+          canonicalizePath: this.canonicalizePath,
+        },
         scope.continuation,
         false,
       )) ?? true
@@ -458,12 +463,14 @@ export class PermissionEnforcer {
     };
     const where = {
       cwd: this.cwd,
-      homeDirectory: this.homeDirectory,
+      ...(this.homeDirectory !== undefined ? { homeDirectory: this.homeDirectory } : {}),
       pathProtection: this.pathProtection,
     };
     const decision = evaluatePermission(toolName, toolArgs, mode, rules, {
       ...where,
-      resolveInWorkspace: this.resolveInWorkspace,
+      ...(this.resolveInWorkspace !== undefined
+        ? { resolveInWorkspace: this.resolveInWorkspace }
+        : {}),
       sandboxAutoApproved:
         scope.sandboxed !== false && this.sandboxAutoApproves(toolName, toolArgs),
       ...(policy?.ceiling !== undefined ? { ceiling: policy.ceiling } : {}),
@@ -566,7 +573,13 @@ export class PermissionEnforcer {
     if ((this.checkpointedApprovals && !alreadyAllowed) || hasCheckpointedApproval(continuation)) {
       if (signal?.aborted || interaction !== 'interactive') return false;
       const allowed = await checkpointedApproval(
-        { sessionId: this.sessionId, cwd: this.cwd, toolName, toolArgs },
+        {
+          sessionId: this.sessionId,
+          cwd: this.cwd,
+          toolName,
+          toolArgs,
+          canonicalizePath: this.canonicalizePath,
+        },
         continuation,
         true,
       );

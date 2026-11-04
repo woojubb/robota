@@ -15,7 +15,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { NodePromptHistoryFile } from '../prompt-history-file.js';
 import { NodeExternalPayloadSource, NodeSessionLogSource } from '../session-log-sources.js';
-import { NodeSessionLogSink } from '../session-log-sinks.js';
+import { NodeSessionLogSink } from '../node-session-log-sink.js';
 import { NodeSessionStore } from '../session-store.js';
 import { NodeToolResultSpillStore, ToolResultSpillError } from '../tool-result-spill-store.js';
 

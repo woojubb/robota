@@ -129,7 +129,9 @@ replacement. Choose by what you need:
 - A ready-made agent session with built-in file, shell and web tools, permissions, hooks, context
   compaction and persistence: `InteractiveSession`, `createQuery()` or `createAgentRuntime()` from
   `@robota-sdk/agent-framework`. See [Using the SDK](./sdk.md).
-- The session layer on its own: `Session` from `@robota-sdk/agent-session`.
+- The session layer on its own: `Session` from `@robota-sdk/agent-session`, with its file-system
+  adapters (`NodeSessionStore` and the log, spill and prompt-history files) on
+  `@robota-sdk/agent-session/node`.
 
 ### Multi-agent work
 

@@ -14,6 +14,7 @@ function setup(
   const events: { name: string; data: Record<string, unknown> }[] = [];
   bus.subscribe((name, data) => events.push({ name, data }));
   const enforcer = new PermissionEnforcer({
+    hookTypeExecutors: [],
     sessionId: 'private-session',
     cwd: '/tmp',
     getPermissionMode: () => permissionMode,

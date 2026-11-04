@@ -9,6 +9,11 @@ execution, and registered source attribution alongside their call identity, hook
 conversation compaction, and optional persistence through `IInteractiveSessionStore`. It is the
 primary runtime used by the CLI application via the framework's assembly layer.
 
+Its main entry is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun and
+reaches no Node built-in or global. What needs a host — the file system, the process, the home
+directory — is either behind the `./node` subpath or an injected port; the package has no host
+default, so a composition root decides what a session may touch.
+
 The package also owns the **runtime codec** for the persisted session record: the record's type
 is owned by `agent-interface-session`, but a decoder is a mechanism, and an interface package
 publishes contracts and vocabulary rather than mechanisms. The codec lives beside the
@@ -27,7 +32,7 @@ persistence paths that consume it (the store, the artifact envelope, the replay 
   `agent-core`); this package invokes them.
 - Owns the file-persistence _primitive_ and the stored form of a record (whoever builds a store
   states whether it seals, with a sealer or `'plain'`; there is no default), not the record or port
-  shape: `NodeSessionStore` implements the store port and record type declared in
+  shape: `NodeSessionStore` (on `./node`) implements the store port and record type declared in
   `agent-interface-session`.
 - No dependency on tool-registry or provider packages — tool and provider assembly, workspace
   trust, and project-path interpretation are the consuming layer's responsibility. This package
@@ -211,14 +216,36 @@ A session runs one turn at a time:
   settle. Injected classifiers, hooks and tools own their own model calls and must declare their
   journal integration separately.
 
+### Host ports
+
+A session has no default for anything that comes from the machine it runs on, and each port's
+absence is a safe answer rather than a guess:
+
+- Hook executors are required, because running a hook handler needs a host. A session built
+  without a list is refused at construction rather than left to skip every configured hook; an
+  empty list runs none, and a configured hook type with no executor is reported, not skipped.
+- An absent home directory is unknown: `~`, and any home-relative target not provably inside it
+  (`~/..`), is refused as a critical target, and a path inside it is not expanded into one the gate
+  could match.
+- Without a workspace resolver, a shell command naming a path is not judged read-only, because a
+  symlink inside the workspace can point anywhere and no filesystem can say where this one does.
+- Without a canonicalizer, the session's directory is compared as written; a host that follows
+  symlinks supplies the function so a saved snapshot, journal or approval names the same directory
+  in whatever spelling it was written.
+- A log buffers its streamed tail and flushes it on exit only through a host-supplied registrar;
+  one registrar is handed one flush for every logger, so a process has one exit listener however
+  many loggers it creates.
+
 ### Execution root
 
-A session's working directory is a required construction input, not derived from the process's
-own ambient working directory. Without an explicit root, every hook input, the permission
-enforcer's root, and the persisted record would inherit process state rather than the session's
-own — which previously caused a subagent to run in its parent's directory instead of its own
-workspace. It is readable back so a fork or subagent derived from a session can ask which root
-that session actually uses instead of re-deriving one that could disagree.
+A session's working directory is a required construction input, not derived from the process's own
+ambient working directory, and must be absolute in either platform's spelling — a drive or UNC root
+counts on a POSIX host too, since a session may drive a workspace on the other platform. Without an
+explicit root, every hook input, the permission enforcer's root, and the persisted record would
+inherit process state rather than the session's own — which previously caused a subagent to run in
+its parent's directory instead of its own workspace. It is readable back so a fork or subagent
+derived from a session can ask which root that session actually uses instead of re-deriving one that
+could disagree.
 
 ### Permission and consent semantics
 

@@ -42,6 +42,7 @@ function createHistory(): TUniversalMessage[] {
 
 function createOrchestrator(): CompactionOrchestrator {
   return new CompactionOrchestrator({
+    hookTypeExecutors: [],
     sessionId: 'core-019-test',
     cwd: process.cwd(),
     model: 'test-model',

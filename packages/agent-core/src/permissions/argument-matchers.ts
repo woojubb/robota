@@ -8,6 +8,7 @@
  * lexical and IDN mapping goes through the WHATWG `URL` the platform provides.
  */
 
+import { isAbsolutePathLike, normalisePathText } from '../utils/portable-path.js';
 import { hasUnquotedCommandSeparator, splitCommandSegments } from './command-segments.js';
 /**
  * What kind of thing a tool's primary argument is — which decides how a pattern is matched against
@@ -166,34 +167,6 @@ function segmentGlobToRegex(glob: string): RegExp {
     })
     .join('');
   return new RegExp(`^${body}$`);
-}
-
-/** `/…` on every platform; `X:/…` is absolute too, so a Windows argument is judged, not dropped. */
-function isAbsolutePathLike(normalised: string): boolean {
-  return normalised.startsWith('/') || /^[A-Za-z]:(?=\/|$)/.test(normalised);
-}
-
-/**
- * `\` → `/`, `.`/`..` collapsed lexically (no filesystem access, no Node builtin), a drive letter
- * lower-cased (case-insensitive filesystems). A leading `..` on an absolute path stays at the root,
- * as `path.posix.normalize` does; on a relative path it is kept, so `../x` remains `../x`.
- */
-function normalisePathText(text: string): string {
-  const slashed = text.replace(/\\/g, '/');
-  const absolute = slashed.startsWith('/');
-  const out: string[] = [];
-  for (const segment of slashed.split('/')) {
-    if (segment === '' || segment === '.') continue;
-    if (segment === '..') {
-      if (out.length > 0 && out[out.length - 1] !== '..') out.pop();
-      else if (!absolute) out.push('..');
-      continue;
-    }
-    out.push(segment);
-  }
-  const joined = (absolute ? '/' : '') + out.join('/');
-  const normalised = joined === '' ? '.' : joined;
-  return normalised.replace(/^[A-Za-z]:(?=\/|$)/, (drive) => drive.toLowerCase());
 }
 
 /** The `path` matcher: separators and `.`/`..` normalised lexically; a relative argument under an absolute pattern is unevaluable. */

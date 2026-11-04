@@ -1,7 +1,8 @@
+import { utf8ByteLength } from '@robota-sdk/agent-core';
+
 import type { IBackgroundTaskLogCursor, IBackgroundTaskLogPage } from './types.js';
 
 const DEFAULT_TRUNCATION_MARKER = '\n[output truncated]\n';
-const UTF8_ENCODER = new TextEncoder();
 
 export const DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE = 200;
 
@@ -27,7 +28,7 @@ export function createLimitedOutputCapture(
     appendOutput(text: string): void {
       if (truncated) return;
       const remaining = options.limitBytes - capturedBytes;
-      const byteLength = getUtf8ByteLength(text);
+      const byteLength = utf8ByteLength(text);
       if (byteLength <= remaining) {
         chunks.push(text);
         capturedBytes += byteLength;
@@ -70,15 +71,11 @@ export function createBackgroundTaskLogPage(
   };
 }
 
-export function getUtf8ByteLength(text: string): number {
-  return UTF8_ENCODER.encode(text).byteLength;
-}
-
 function sliceUtf8ByByteLength(text: string, limitBytes: number): string {
   let usedBytes = 0;
   let endIndex = 0;
   for (const char of text) {
-    const byteLength = getUtf8ByteLength(char);
+    const byteLength = utf8ByteLength(char);
     if (usedBytes + byteLength > limitBytes) {
       break;
     }

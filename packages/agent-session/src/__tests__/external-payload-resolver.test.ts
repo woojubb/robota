@@ -11,8 +11,9 @@ import {
   type TSessionLogPayloadResolutionErrorCode,
 } from '../external-payload-resolver.js';
 
+import type { IExternalPayloadSource } from '../external-payload-source-types.js';
 import type { IExternalPayloadReference } from '../session-logger.js';
-import { NodeExternalPayloadSource, type IExternalPayloadSource } from '../session-log-sources.js';
+import { NodeExternalPayloadSource } from '../session-log-sources.js';
 
 const temporaryDirectories: string[] = [];
 
@@ -182,6 +183,21 @@ describe('resolveSessionLogExternalPayloads', () => {
 
     expectResolutionCode(
       () => resolveSessionLogExternalPayloads(reference, payloadOptions(baseDirectory)),
+      'INVALID_JSON',
+    );
+  });
+
+  it('keeps a leading byte-order mark, which makes the payload invalid JSON (issue #3693)', () => {
+    const bytes = new TextEncoder().encode('\uFEFF{"content":"restored"}');
+    const source: IExternalPayloadSource = { readBytes: () => bytes };
+    const reference = createReference(
+      'bom.json',
+      createHash('sha256').update(bytes).digest('hex'),
+      bytes.byteLength,
+    );
+
+    expectResolutionCode(
+      () => resolveSessionLogExternalPayloads(reference, { source }),
       'INVALID_JSON',
     );
   });

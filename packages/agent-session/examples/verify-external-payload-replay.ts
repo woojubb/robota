@@ -5,10 +5,10 @@ import { join } from 'node:path';
 
 import {
   loadSessionLogEntries,
-  NodeSessionLogSource,
   replaySessionLogEntries,
   SessionLogPayloadResolutionError,
 } from '@robota-sdk/agent-session';
+import { NodeSessionLogSource } from '@robota-sdk/agent-session/node';
 
 const sessionId = 'stable-replay-example';
 const fixtureRoot = mkdtempSync(join(tmpdir(), 'agent-stable-replay-'));

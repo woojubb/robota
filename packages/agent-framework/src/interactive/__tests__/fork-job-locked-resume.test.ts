@@ -13,7 +13,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
-import { NodeSessionStore, loadSessionForUpdate } from '@robota-sdk/agent-session';
+import { loadSessionForUpdate } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { describe, expect, it, vi } from 'vitest';
 
 import { writeForkedSessionRecord } from '../interactive-session-fork-record.js';

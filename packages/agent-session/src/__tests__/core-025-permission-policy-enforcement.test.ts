@@ -29,6 +29,7 @@ function makeNoopTerminal(): ITerminalOutput {
 // pre-empt the mode, all these calls would return `true`; that was the bypass hole CORE-025 closes.
 function makeEnforcer(overrides: Partial<IPermissionEnforcerOptions> = {}): PermissionEnforcer {
   return new PermissionEnforcer({
+    hookTypeExecutors: [],
     sessionId: 'test-session',
     cwd: '/tmp',
     getPermissionMode: () => 'bypassPermissions',

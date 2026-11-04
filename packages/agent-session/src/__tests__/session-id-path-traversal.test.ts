@@ -19,7 +19,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { FileSessionLogger } from '../session-logger.js';
-import { NodeSessionLogSink } from '../session-log-sinks.js';
+import { NodeSessionLogSink } from '../node-session-log-sink.js';
 import { NodeSessionStore } from '../session-store.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';

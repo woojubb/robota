@@ -23,7 +23,7 @@ import {
   createRecordingProvider,
 } from '@robota-sdk/agent-core/testing';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor/node';
-import { NodeSessionLogSink, NodeSessionStore } from '@robota-sdk/agent-session';
+import { NodeSessionLogSink, NodeSessionStore } from '@robota-sdk/agent-session/node';
 import type { IContributionSource } from '../contributions/contribution-source.js';
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 

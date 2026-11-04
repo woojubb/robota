@@ -12,15 +12,18 @@ import { isSafeSessionId } from './session-id.js';
 import { SESSION_LOG_SCHEMA_VERSION } from './session-log-events.js';
 import { normalizeLogData } from './session-log-payload.js';
 
+import type { TLogNormalizationOptions } from './session-log-payload.js';
 import type { ISessionLogSink } from './session-log-sinks.js';
 import type {
   IFileSessionLoggerOptions,
+  TRegisterExitFlush,
   TSessionLogData,
 } from './session-log-reference-types.js';
 
 export type {
   IExternalPayloadReference,
   IFileSessionLoggerOptions,
+  TRegisterExitFlush,
   TSessionLogData,
   TSessionLogValue,
 } from './session-log-reference-types.js';
@@ -47,21 +50,28 @@ const HOT_PATH_FLUSH_BYTES = 64 * 1024;
  * tail of a stream exists only in memory. A normal shutdown closes that window by itself — the
  * `session_shutdown` event is not a hot-path event, so it flushes before writing — but an abnormal
  * exit would not, and a replay log missing its last exchange is a worse defect than the one being
- * fixed. `exit` handlers may only do synchronous work, which is exactly what `flush` does.
+ * fixed. `exit` handlers may only do synchronous work, which is exactly what `flush` does. Whether
+ * and how the process's exit is observed is the host's to say (`registerExitFlush`): a neutral
+ * logger has no process to watch.
  */
 const liveLoggers = new Set<FileSessionLogger>();
-let exitHookInstalled = false;
+/** Registrars already handed {@link flushLiveLoggers}: one exit listener per host, not per logger. */
+const registrars = new WeakSet<TRegisterExitFlush>();
 
-function ensureExitFlush(loggerInstance: FileSessionLogger): void {
+function flushLiveLoggers(): void {
+  for (const live of liveLoggers) {
+    live.flush();
+  }
+}
+
+function ensureExitFlush(
+  loggerInstance: FileSessionLogger,
+  registerExitFlush: TRegisterExitFlush | undefined,
+): void {
   liveLoggers.add(loggerInstance);
-  if (exitHookInstalled) return;
-  if (typeof process === 'undefined' || typeof process.on !== 'function') return;
-  exitHookInstalled = true;
-  process.on('exit', () => {
-    for (const live of liveLoggers) {
-      live.flush();
-    }
-  });
+  if (registerExitFlush === undefined || registrars.has(registerExitFlush)) return;
+  registrars.add(registerExitFlush);
+  registerExitFlush(flushLiveLoggers);
 }
 
 const BYTES_PER_KIB = 1024;
@@ -95,7 +105,8 @@ export interface ISessionLogger {
  * Each line is a self-contained JSON object with timestamp, sessionId, event, and data.
  */
 export class FileSessionLogger implements ISessionLogger {
-  private readonly options: Required<IFileSessionLoggerOptions>;
+  private readonly options: TLogNormalizationOptions;
+  private readonly registerExitFlush: TRegisterExitFlush | undefined;
   /** Buffered hot-path lines, per session file. Keyed by session id (CORE-029). */
   private readonly pending = new Map<string, string[]>();
   private pendingBytes = 0;
@@ -109,6 +120,7 @@ export class FileSessionLogger implements ISessionLogger {
         options.externalPayloadThresholdBytes ?? DEFAULT_EXTERNAL_PAYLOAD_THRESHOLD_BYTES,
       redactedValue: options.redactedValue ?? DEFAULT_REDACTED_VALUE,
     };
+    this.registerExitFlush = options.registerExitFlush;
   }
 
   log(sessionId: string, event: string, data: TSessionLogData): void {
@@ -169,7 +181,7 @@ export class FileSessionLogger implements ISessionLogger {
   }
 
   private buffer(sessionId: string, entry: string): void {
-    ensureExitFlush(this);
+    ensureExitFlush(this, this.registerExitFlush);
     const lines = this.pending.get(sessionId) ?? [];
     lines.push(entry);
     this.pending.set(sessionId, lines);

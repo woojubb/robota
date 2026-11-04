@@ -22,8 +22,7 @@
  * the digest now lives only inside the sealed line, where the resolver still checks it against the
  * bytes it opens, so two sealed sidecars swapped with each other are caught. Dedupe is in-process.
  */
-import { createHash, randomBytes } from 'node:crypto';
-import { join } from 'node:path';
+import { randomBytes } from 'node:crypto';
 
 import {
   ArtifactCorruptError,
@@ -39,7 +38,7 @@ import {
 
 import { SessionLogPayloadResolutionError } from './external-payload-resolution-contracts.js';
 import { SessionLogDecodeError } from './session-log-codec/index.js';
-import { assertSafeSessionId } from './session-id.js';
+import { createSessionLogExternalPayloadReference } from './session-log-sinks.js';
 import { assertSessionSealing } from './stored-session-record.js';
 
 import type { IExternalPayloadReference } from './session-log-reference-types.js';
@@ -193,34 +192,9 @@ export function openedText(stored: Iterable<TStoredLine>): string {
   return parts.join(NEWLINE);
 }
 
-const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 /** 16 random bytes: a name no one can derive from the payload or guess. */
 const SEALED_PAYLOAD_NAME_BYTES = 16;
 const SEALED_PAYLOAD_EXTENSION = '.sealed';
-
-function assertContentAddress(sha256: string, serialized: string): void {
-  const actualSha256 = createHash('sha256').update(serialized).digest('hex');
-  if (!SHA256_PATTERN.test(sha256) || sha256 !== actualSha256) {
-    throw new Error('Invalid sha256: external JSON payloads require their exact content digest.');
-  }
-}
-
-/** Canonical validation and construction for every session-log external-payload reference. */
-export function createSessionLogExternalPayloadReference(
-  sessionId: string,
-  sha256: string,
-  serialized: string,
-): IExternalPayloadReference {
-  assertSafeSessionId(sessionId);
-  assertContentAddress(sha256, serialized);
-  return {
-    kind: 'external-payload',
-    encoding: 'json',
-    sha256,
-    byteLength: Buffer.byteLength(serialized),
-    relativePath: join(`${sessionId}.payloads`, `${sha256}.json`),
-  };
-}
 
 /** One sidecar a sink is asked to write. */
 export interface IStoredPayloadWrite {
@@ -286,7 +260,8 @@ export class StoredPayloads {
     const known = written.get(sha256);
     if (known !== undefined) return { ...reference, relativePath: known };
     const name = randomBytes(SEALED_PAYLOAD_NAME_BYTES).toString('base64url');
-    const relativePath = join(`${sessionId}.payloads`, `${name}${SEALED_PAYLOAD_EXTENSION}`);
+    // Always `/`, like a plain reference: every reader accepts either slash.
+    const relativePath = `${sessionId}.payloads/${name}${SEALED_PAYLOAD_EXTENSION}`;
     const plain = Buffer.from(serialized, 'utf8');
     let data: Uint8Array;
     try {

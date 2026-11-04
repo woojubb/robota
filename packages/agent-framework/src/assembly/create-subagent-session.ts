@@ -15,10 +15,12 @@ import {
   assertResidentToolRemains,
   isToolDeniedOutright,
 } from '@robota-sdk/agent-core';
+import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 import { Session } from '@robota-sdk/agent-session';
 
 import { formatDeferredToolRoster } from './deferred-tool-roster.js';
 import { createModelPermissionClassifier } from './model-permission-classifier.js';
+import { nodeSessionPorts } from './node-session-ports.js';
 import { assembleSubagentPrompt } from './subagent-prompts.js';
 import { unwrapToolCallHandoff } from './tool-call-handoff.js';
 import { bindAdvisorTools, sessionAdvisorAccess } from '../advisor/advisor-tool.js';
@@ -328,7 +330,9 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     permissionHandler: options.permissionHandler,
     ...(options.commandSandbox !== undefined ? { commandSandbox: options.commandSandbox } : {}),
     hooks: options.hooks,
-    hookTypeExecutors: options.hookTypeExecutors,
+    // This package drives a Node host, so an unspecified list is the built-in command and HTTP pair.
+    hookTypeExecutors: options.hookTypeExecutors ?? [new CommandExecutor(), new HttpExecutor()],
+    ...nodeSessionPorts(options.cwd),
     onTextDelta: options.onTextDelta,
     onToolExecution: options.onToolExecution,
   });

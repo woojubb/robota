@@ -1,4 +1,8 @@
-import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
+import type {
+  IToolAppView,
+  TResolveInWorkspace,
+  TUniversalMessagePart,
+} from '@robota-sdk/agent-core';
 import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 /**
  * Session types — interfaces and type aliases for Session construction.
@@ -189,8 +193,31 @@ export interface ISessionOptions {
   sessionLogger?: ISessionLogger;
   /** Host-projected transcript path for hook compatibility; never inferred from a record store. */
   transcriptPath?: string;
-  /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
-  hookTypeExecutors?: IHookTypeExecutor[];
+  /**
+   * The executors that run hook handlers. REQUIRED: the shell and HTTP executors drive a Node host,
+   * so a platform-neutral session has no default for them. A Node composition root passes
+   * `[new CommandExecutor(), new HttpExecutor()]` from `@robota-sdk/agent-core/node`, `[]` runs no
+   * handler — a configured hook is then reported as having no executor, not silently skipped.
+   */
+  hookTypeExecutors: readonly IHookTypeExecutor[];
+  /**
+   * Where `~` and `$HOME` point for the permission gate's path checks. Absent, the home directory is
+   * unknown: a bare `~` is still refused as a critical target, but a path written under it is not
+   * expanded, so it cannot match a protected path.
+   */
+  homeDirectory?: string;
+  /**
+   * Where a path a shell command names really is, symlinks followed, or `undefined` when outside the
+   * workspace (agent-core `TResolveInWorkspace`). Needs a filesystem, so a host supplies it; absent,
+   * a command with a path operand is not judged read-only.
+   */
+  resolveInWorkspace?: TResolveInWorkspace;
+  /**
+   * The host's canonical spelling of a directory (symlinks followed), used to compare the session's
+   * `cwd` with the one a saved snapshot, journal or approval names. Absent, the path is compared as
+   * written.
+   */
+  canonicalizePath?: (path: string) => string;
   /** Name reported to the ConversationAgent agent config. Defaults to 'agent' if not provided. */
   agentName?: string;
   /**

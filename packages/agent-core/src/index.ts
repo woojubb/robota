@@ -163,6 +163,8 @@ export {
 } from './utils/env-ref.js';
 export { createRecordEnvResolver } from './utils/env-resolver.js';
 export { randomId } from './utils/random-id.js';
+export { utf8ByteLength } from './utils/utf8-byte-length.js';
+export { isAbsolutePath, joinPath, resolvePath } from './utils/portable-path.js';
 export { constantTimeEqual, hmacSha256Hex, randomHex, sha256Hex } from './utils/digest.js';
 export { createBoundedOutput } from './utils/bounded-output.js';
 export { shellArgumentForDisplay } from './utils/shell-argument.js';

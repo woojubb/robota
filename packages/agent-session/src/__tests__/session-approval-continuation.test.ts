@@ -30,6 +30,7 @@ function fixture(turns: TScriptedTurn[], options: Partial<ISessionOptions> = {})
   const effect = vi.fn(async () => 'effect result');
   const approval = vi.fn(async () => true);
   const session = new Session({
+    hookTypeExecutors: [],
     cwd: '/tmp',
     sessionId: 'approval-session',
     systemMessage: 'Fixture',

@@ -99,6 +99,7 @@ function hostOptions(
 ): SessionHostOptions {
   return {
     cwd: process.cwd(),
+    hookTypeExecutors: [],
     tools: [],
     provider,
     systemMessage: 'Fixture host',

@@ -1,3 +1,5 @@
+import { randomId } from '@robota-sdk/agent-core';
+
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
 interface IReceipt {
@@ -59,7 +61,7 @@ export function collectCompactionToolReceipts(history: readonly TUniversalMessag
 
 export function compactionReceiptMessage(receipts: string[]): TUniversalMessage {
   return {
-    id: crypto.randomUUID(),
+    id: randomId(),
     timestamp: new Date(),
     state: 'complete',
     role: 'assistant',

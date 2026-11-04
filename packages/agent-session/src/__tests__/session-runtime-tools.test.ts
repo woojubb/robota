@@ -16,6 +16,7 @@ function fixture(
     async (_args, context) => execute(context),
   );
   const session = new Session({
+    hookTypeExecutors: [],
     cwd: '/tmp',
     tools: [tool],
     provider: {

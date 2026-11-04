@@ -554,6 +554,7 @@ describe('/mcp login inside a session', () => {
       reportDiagnostic: (message) => diagnostics.push(message),
     });
     const session = new Session({
+      hookTypeExecutors: [],
       cwd: userHome,
       tools: [...(options.sessionTools ?? []), ...(await composition.connect())],
       provider: {

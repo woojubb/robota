@@ -47,6 +47,13 @@ export function buildPermissionEnforcer(
     sessionLogger: options.sessionLogger,
     onToolExecution: options.onToolExecution,
     hookTypeExecutors: options.hookTypeExecutors,
+    ...(options.homeDirectory !== undefined ? { homeDirectory: options.homeDirectory } : {}),
+    ...(options.resolveInWorkspace !== undefined
+      ? { resolveInWorkspace: options.resolveInWorkspace }
+      : {}),
+    ...(options.canonicalizePath !== undefined
+      ? { canonicalizePath: options.canonicalizePath }
+      : {}),
     transcriptPath,
     onProjectAllowTool: options.onProjectAllowTool,
     // CORE-025: forward the background/subagent task permission policy + its own allow/deny lists.

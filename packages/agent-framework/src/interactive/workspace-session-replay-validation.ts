@@ -7,7 +7,7 @@ import {
 
 import type { ICommandSessionReplayValidationReport } from '../command-api/index.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
-import type { ISessionStoreOptions } from '@robota-sdk/agent-session';
+import type { ISessionStoreOptions } from '@robota-sdk/agent-session/node';
 
 /**
  * The replay-validation report for a session's project log. `options.sealing` (required) opens a

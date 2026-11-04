@@ -25,7 +25,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { NodeSessionLogSink } from '../session-log-sinks.js';
+import { NodeSessionLogSink } from '../node-session-log-sink.js';
 import { NodeSessionStore } from '../session-store.js';
 import { loadedOrMissing } from './store-load-helpers.js';
 
