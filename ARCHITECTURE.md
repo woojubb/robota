@@ -38,7 +38,8 @@ SDK packages (@robota-sdk/*)
   Assembly              agent-framework: InteractiveSession, createQuery, createAgentRuntime,
                         runtime host (buildRuntimeSession / startRuntimeHost behind robota --serve)
   Transports            agent-transport (wire protocol, delivery), and the carriers built on it:
-                        agent-transport-ws · -http · -mcp · -acp · -webrtc
+                        agent-transport-ws · -http · -mcp · -acp · -webrtc ·
+                        -link (the owner link: proven admission to a local runtime)
   Runtime               agent-session · agent-executor · agent-tool-defaults ·
                         agent-roundtable-robota (runs a session or agent as a roundtable participant and
                         selectors) ·
@@ -125,9 +126,9 @@ reaches, and on any package whose manifest disagrees with the lists below.
 - **Node host**: `agent-cli`, `agent-ui-terminal`, `agent-process`, `agent-file-authority`,
   `agent-organization-host`, `agent-tool-defaults`, `pack-coding`, `agent-subagent-runner`,
   `agent-transport-ws`, `agent-transport-mcp`, `agent-transport-acp`, `agent-transport-webrtc`,
-  `agent-provider-replay`, `agent-keyring` — they exist to drive a Node host (a terminal, child
-  processes, the file system, listeners, stdio, `node:crypto` key custody), so their main entry is
-  Node-only.
+  `agent-transport-link`, `agent-provider-replay`, `agent-keyring` — they exist to drive a Node host
+  (a terminal, child processes, the file system, listeners, stdio, local sockets, `node:crypto` key
+  custody), so their main entry is Node-only.
 - **Not yet neutral**: `agent-tools`, `agent-framework`,
   `agent-command`, `agent-preset`, `agent-product` — Node-only today; each becomes
   platform-neutral, with its Node adapters behind `./node`.
@@ -159,7 +160,7 @@ the System Overview diagram above. Current checks are defined in `AGENTS.md` and
   `agent-interface-*` family is judged once, by `INTERFACE-DEPS`. One exception:
   `agent-provider-openai` builds on `agent-provider-openai-compatible` (its `/shared` subpath), because
   the OpenAI wire protocol is the base both implement and there is no `agent-provider` parent to hold
-  it. `pnpm deps:check` enforces the provider part of this rule.
+  it. `pnpm deps:check` enforces the provider and transport parts of this rule.
 - `UNDECLARED-IMPORT` — every `@robota-sdk/*` workspace package a production source file imports is
   declared in one of the importing package's `dependencies`, `peerDependencies` or
   `devDependencies`; "undeclared" is absence from all three, so a manifest rule such as
