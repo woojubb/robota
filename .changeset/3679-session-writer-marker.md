@@ -5,6 +5,7 @@
 '@robota-sdk/agent-framework': minor
 '@robota-sdk/agent-subagent-runner': minor
 '@robota-sdk/agent-cli': minor
+'@robota-sdk/agent-ui-terminal': minor
 ---
 
 One session has one writer across processes. Every claim of a session id now holds the id's writer
@@ -29,7 +30,10 @@ Every write of an id holds its marker, and a save whose marker another process b
 (`hasUnclaimedWriter`), the `exported` claim refusal and the `exported` adopt result.
 `TSessionClaimRefusal` is `has_writer | released`, `TSessionAdoptResult` has `has_writer` in place of
 `exported`, and `has_writer` is a session change and delete refusal code. A store may name its release
-command for a refusal (`releaseCommand`).
+command for a refusal (`releaseCommand`). A refusal of a record lent to a subagent names the
+subagent's process once it took the marker over, and says a subagent this process started holds it
+before (`holder.lent`); `SessionClaimedError.closing` is true only for a session of this process that
+has not let its claim go, which is the one refusal a caller may wait out (`still_closing`).
 
 `@robota-sdk/agent-subagent-runner`: the parent lends a fork job's record before it spawns the child,
 in either mode; the lease nonce rides on the start payload (`resumeLease`); the child claims its
@@ -44,4 +48,6 @@ leaves a session open in another process as it is and names it.
 
 A terminal start whose resumed session another process holds now ends with the store's refusal, as print
 mode does, instead of Ink's error screen; `@robota-sdk/agent-framework` exports `claimRefusalMessage`
-for it.
+for it. `@robota-sdk/agent-ui-terminal`: picking a session another process or a subagent holds in the
+resume picker leaves the person on their session, with the store's words as a notice, instead of
+stopping it and blocking the UI on a retry of the same refusal.
