@@ -480,7 +480,9 @@ prefix is product-neutral and does not disclose the host product's name.
   process for as long as it runs, in every store: the lend publishes the writer marker with the digest
   of a nonce only that process is given, which it claims the id with, taking the marker over, and the
   lender ends the lease once the process is gone, whoever holds the marker then — so neither a
-  surface nor a second process opens it meanwhile, and it cannot be deleted under that process; a store that cannot
+  surface nor a second process opens it meanwhile, and it cannot be deleted under that process, whose
+  pid a refusal names once it took the marker over; only a session of this store that has not let its
+  claim go is a refusal to wait out; a store that cannot
   open the file (a process with only a write grant) takes the token as a record it holds, and a store
   that seals nothing refuses it, since it would write the record in plaintext over the sealed one. Sealing
   protects what is inside the file; file names, sizes and modification times stay visible, because

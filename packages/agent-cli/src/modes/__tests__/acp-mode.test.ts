@@ -317,6 +317,30 @@ describe('ACP mode', () => {
     await served.stop();
   });
 
+  // #3679 3f: a fork's child is lent from this runtime's store, so a load of its id is refused as the
+  // child's, in the store's words; this process holds the marker until the child takes it over.
+  it('tells the editor a subagent holds a lent session, not that it is closing', async () => {
+    const served = await serving({ sessionStore: storeWith({ id: 'stored-1' }) as never });
+    const lent = new SessionClaimedError('stored-1', 'has_writer', {
+      holder: { self: true, liveness: 'alive', lent: true },
+    });
+    const refusal = { loaded: false, message: lent.message };
+
+    mock.next = [lent as never];
+    await expect(served.load('stored-1')).resolves.toEqual(refusal);
+    const failing = {
+      ...fakeSession('stored-1'),
+      whenInitialized: vi.fn().mockRejectedValue(lent),
+    };
+    mock.next = [failing];
+    await expect(served.load('stored-1')).resolves.toEqual(refusal);
+
+    expect(lent.message).toContain('subagent');
+    expect(lent.message).not.toBe(SESSION_STILL_CLOSING_MESSAGE);
+    expect(served.slot.current).toBe(mock.session);
+    await served.stop();
+  });
+
   it('says a sealed session whose keys are locked is locked, not that it does not exist', async () => {
     const served = await serving({ sessionStore: storeWith({ id: 'stored-1' }) as never });
 

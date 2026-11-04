@@ -248,7 +248,7 @@ describe('claims', () => {
     expect(error).toMatchObject({ code: 'SESSION_CLAIMED', reason: 'has_writer' });
     expect((error as Error).message).toBe(
       `Session sess_a is already open in this process (pid ${process.pid}): a session running or ` +
-        'still closing here, or a subagent it is handed to. Try again once that has ended.',
+        'still closing here. Try again once that has ended.',
     );
   });
 

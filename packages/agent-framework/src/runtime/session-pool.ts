@@ -492,10 +492,9 @@ async function whenInitialized(session: unknown): Promise<void> {
 
 function startFailed(error: unknown): SessionChangeRefusal {
   if (isSessionClaimedError(error)) {
-    // Something in this process still holds the record — a session of that id shutting down, or a
-    // job it was lent to that has not started — so the client is told to come back. Any other holder
-    // is another process, named in the store's words.
-    return error.holder?.self === true
+    // A session of that id in this process that is shutting down is the one writer the client can wait
+    // out. Any other holder, a lent fork's subagent included, runs on, and is named in the store's words.
+    return error.closing
       ? new SessionChangeRefusal('still_closing', claimedSessionMessage(error))
       : new SessionChangeRefusal('has_writer', claimedSessionMessage(error));
   }

@@ -249,7 +249,10 @@ export class StoredSessionRecords {
     if (published.status !== 'acquired') {
       throw this.#claims.refusal(id, 'has_writer', { holder: writerHolderOf(published.holder) });
     }
-    const unlend = this.#claims.lend(id);
+    const unlend = this.#claims.lend(id, () => {
+      const marker = this.#markers.inspect(id);
+      return marker.status === 'held' ? marker.holder : undefined;
+    });
     let ended = false;
     return Object.freeze({
       nonce,

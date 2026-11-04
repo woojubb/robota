@@ -177,8 +177,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   record as it was, and what an unverified record says of itself never decides what a run resumes.
   The claim fences every save of the id and ends however the session ends, so a session its host
   stopped waiting for cannot overwrite the next one, and no surface opens a second session on an id
-  that has a writer, in this process or another: a served pool tells its client to try again for a
-  writer here and names the other process otherwise. A save the store refuses is reported once for each reason, in
+  that has a writer, in this process or another: a served pool tells its client to try again only for
+  a session of its own that is still closing, and names whoever holds the id otherwise, a fork's
+  subagent included. A save the store refuses is reported once for each reason, in
   the store's own words, until a save goes through. A session whose file something unverifiable
   changed stops saving the id and acting on its own and saves its state once as a new record it
   names, since merging the file would launder it and overwriting it could destroy newer work; a

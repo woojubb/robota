@@ -9,8 +9,9 @@
  * longer its own, is refused, so a session that outlived its claim (a shutdown that timed out, a
  * marker another process broke) cannot overwrite the writer that holds the id after it. A lend
  * publishes the marker with a lease digest for another process to take over, and counts as a writer
- * here until it ends. Every store keeps them, sealing or not, so no store lets a session run
- * unclaimed.
+ * here until it ends; a refusal of a lent id names the process it went to once that took the marker
+ * over, and says a subagent this process started holds it before. Every store keeps them, sealing or
+ * not, so no store lets a session run unclaimed.
  */
 
 import type {
@@ -39,9 +40,11 @@ export interface ISessionWriterHolder {
   readonly hostname?: string;
   /** The holder's start time, where the platform reads one. */
   readonly startTime?: string;
-  /** This process holds it: a session running or closing here, or a lend not yet taken over. */
+  /** This process holds it: a session of this store running or closing here, or a lend not yet taken over. */
   readonly self: boolean;
   readonly liveness: TProcessOwnerLiveness;
+  /** The id is lent: the holder is the subagent this process started, or this process until it takes over. */
+  readonly lent?: true;
 }
 
 /** How a store words its refusals: the command that releases a marker whose holder is not running. */
@@ -99,11 +102,19 @@ function holderText(holder: ISessionWriterHolder): string {
 
 function hasWriterMessage(sessionId: string, details: ISessionClaimRefusalDetails): string {
   const holder = details.holder ?? selfWriterHolder(details.ownProcess);
+  if (holder.lent === true) {
+    // The lend ends when the subagent has exited, so nothing here is released by hand.
+    return holder.self
+      ? `Session ${sessionId} is lent to a subagent this process started, which has not taken it up ` +
+          'yet; try again once that subagent has finished.'
+      : `Session ${sessionId} is lent to a subagent this process started (${holderText(holder)}), ` +
+          'which writes it; try again once that subagent has finished.';
+  }
   if (holder.self) {
     const pid = details.ownProcess === undefined ? '' : ` (pid ${details.ownProcess.pid})`;
     return (
       `Session ${sessionId} is already open in this process${pid}: a session ` +
-      'running or still closing here, or a subagent it is handed to. Try again once that has ended.'
+      'running or still closing here. Try again once that has ended.'
     );
   }
   const release = details.releaseCommand?.(sessionId);
@@ -150,6 +161,11 @@ export class SessionClaimedError extends Error {
   readonly reason: TSessionClaimRefusal;
   /** Who holds the id, for a `has_writer` refusal. */
   readonly holder: ISessionWriterHolder | undefined;
+  /**
+   * A session of this process holds the id and has not let its claim go, so a caller may try again
+   * once it has. Not so for a lend, which runs until its subagent has exited, nor for another process.
+   */
+  readonly closing: boolean;
 
   constructor(
     sessionId: string,
@@ -164,6 +180,7 @@ export class SessionClaimedError extends Error {
       reason === 'has_writer'
         ? (details.holder ?? selfWriterHolder(details.ownProcess))
         : undefined;
+    this.closing = this.holder?.self === true && this.holder.lent !== true;
   }
 }
 
@@ -179,6 +196,11 @@ export function isSessionClaimedError(error: unknown): error is SessionClaimedEr
   );
 }
 
+/** One lend: the id's marker's holder now, which is the subagent once it took the marker over. */
+interface ILend {
+  readonly holder: () => IProcessMarkerHolder | undefined;
+}
+
 /** One live claim: its handle once the claim's own read is done, and its writer marker. */
 interface IClaimState {
   handle?: ISessionClaim;
@@ -189,7 +211,7 @@ interface IClaimState {
 /** The live claims and lends of one store, by id. */
 export class SessionClaims {
   readonly #live = new Map<string, IClaimState>();
-  readonly #lent = new Map<string, object>();
+  readonly #lent = new Map<string, ILend>();
   readonly #words: ISessionClaimRefusalWords;
   readonly #ownProcess: ISessionClaimProcess | undefined;
 
@@ -223,7 +245,23 @@ export class SessionClaims {
 
   /** Throws `has_writer` when `id` is claimed or lent in this store already. */
   assertUnclaimed(id: string): void {
-    if (this.#live.has(id) || this.#lent.has(id)) throw this.refusal(id, 'has_writer');
+    if (this.#live.has(id) || this.#lent.has(id)) throw this.#heldRefusal(id);
+  }
+
+  /**
+   * `has_writer` for an id this store claims or lends. A claim is a session of this process, running
+   * or closing; a lend names the process it went to once that took the marker over, and says a
+   * subagent this process started holds it before.
+   */
+  #heldRefusal(id: string): SessionClaimedError {
+    const lend = this.#lent.get(id);
+    if (lend === undefined) return this.refusal(id, 'has_writer');
+    const marker = lend.holder();
+    const holder =
+      marker === undefined || marker.self
+        ? selfWriterHolder(this.#ownProcess)
+        : writerHolderOf(marker);
+    return this.refusal(id, 'has_writer', { holder: { ...holder, lent: true } });
   }
 
   /**
@@ -279,7 +317,7 @@ export class SessionClaims {
       if (live.marker !== undefined && !live.marker.holds()) throw this.refusal(id, 'released');
       return live.marker;
     }
-    if (live !== undefined || this.#lent.has(id)) throw this.refusal(id, 'has_writer');
+    if (live !== undefined || this.#lent.has(id)) throw this.#heldRefusal(id);
     return undefined;
   }
 
@@ -289,19 +327,22 @@ export class SessionClaims {
    * or whose claim lost its marker; `undefined` for an id this store does not claim.
    */
   markerForWrite(id: string): IProcessMarkerHandle | undefined {
-    if (this.#lent.has(id)) throw this.refusal(id, 'has_writer');
+    if (this.#lent.has(id)) throw this.#heldRefusal(id);
     const live = this.#live.get(id);
     if (live === undefined) return undefined;
     if (live.marker === undefined || !live.marker.holds()) throw this.refusal(id, 'has_writer');
     return live.marker;
   }
 
-  /** Records `id` as lent until the returned end runs; the caller checked that it is unclaimed. */
-  lend(id: string): () => void {
-    const token = {};
-    this.#lent.set(id, token);
+  /**
+   * Records `id` as lent until the returned end runs; the caller checked that it is unclaimed.
+   * `holder` reads the id's marker, which a refusal of the lent id names.
+   */
+  lend(id: string, holder: () => IProcessMarkerHolder | undefined): () => void {
+    const lend: ILend = { holder };
+    this.#lent.set(id, lend);
     return () => {
-      if (this.#lent.get(id) === token) this.#lent.delete(id);
+      if (this.#lent.get(id) === lend) this.#lent.delete(id);
     };
   }
 }

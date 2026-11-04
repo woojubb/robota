@@ -9,6 +9,7 @@
  * every save it makes while it runs carries the claim.
  */
 
+import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
 import { readCurrentProcessIdentity, readProcessStartTime } from '@robota-sdk/agent-core/node';
@@ -56,6 +57,13 @@ const OWNER_TEXT = 'CANARY-3e2-owner-conversation-41d8';
 const FORGED_TEXT = 'CANARY-3e2-forged-conversation-9c02';
 
 afterEach(cleanUpSealedSessionFixtures);
+
+/** A live process other than this one — the one that started this test worker. */
+function anotherLiveProcess() {
+  const { startTime: _ignored, ...here } = readCurrentProcessIdentity();
+  const startTime = readProcessStartTime(process.ppid);
+  return { ...here, pid: process.ppid, ...(startTime === undefined ? {} : { startTime }) };
+}
 
 /** Waits until nothing the session started on its own is still running. */
 async function settle(session: { isExecuting(): boolean; getPendingCount(): number }) {
@@ -286,14 +294,7 @@ describe('where a session claims its record', () => {
     const dir = directory();
     const sealer = createTestArtifactSealer();
     writeOwnerRecord(dir, sealer, record('sess_elsewhere', cwd, OWNER_TEXT));
-    // A live process other than this one — the one that started this test worker — holds it.
-    const { startTime: _ignored, ...here } = readCurrentProcessIdentity();
-    const startTime = readProcessStartTime(process.ppid);
-    leaveProcessMarker(join(dir, 'claims'), 'sess_elsewhere', {
-      ...here,
-      pid: process.ppid,
-      ...(startTime === undefined ? {} : { startTime }),
-    });
+    leaveProcessMarker(join(dir, 'claims'), 'sess_elsewhere', anotherLiveProcess());
     const store = sealedStore(dir, sealer);
 
     const host = await startRuntimeHost({ session: sessionOptions(cwd, store), pool: {} });
@@ -306,7 +307,7 @@ describe('where a session claims its record', () => {
     await host.shutdown();
   });
 
-  it('tells a pool client to try again while a record is lent from this process', async () => {
+  it('tells a pool client a subagent this process started holds a record lent from it, with has_writer', async () => {
     const cwd = directory();
     const dir = directory();
     const sealer = createTestArtifactSealer();
@@ -314,12 +315,42 @@ describe('where a session claims its record', () => {
     store.save(record('sess_handed', cwd, OWNER_TEXT), { handoff: true, provenance: 'owner' });
     const lease = store.lend('sess_handed');
 
+    // The child has not taken the marker over yet.
     const host = await startRuntimeHost({ session: sessionOptions(cwd, store), pool: {} });
-    await expect(host.pool!.acquire('sess_handed')).rejects.toMatchObject({
-      name: 'SessionChangeRefusal',
-      code: 'still_closing',
-      message: SESSION_STILL_CLOSING_MESSAGE,
-    });
+    const refusal = await host.pool!.acquire('sess_handed').then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(refusal).toMatchObject({ name: 'SessionChangeRefusal', code: 'has_writer' });
+    expect((refusal as Error).message).toContain('subagent this process started');
+    expect((refusal as Error).message).not.toBe(SESSION_STILL_CLOSING_MESSAGE);
+    lease.end();
+    await host.shutdown();
+  });
+
+  it('names the child that took a lent record over, with has_writer, not that the session is closing', async () => {
+    const cwd = directory();
+    const dir = directory();
+    const sealer = createTestArtifactSealer();
+    const store = sealedStore(dir, sealer);
+    store.save(record('sess_handed', cwd, OWNER_TEXT), { handoff: true, provenance: 'owner' });
+    const lease = store.lend('sess_handed');
+    // The child process took the marker over, keeping the lease's digest.
+    const child = anotherLiveProcess();
+    leaveProcessMarker(
+      join(dir, 'claims'),
+      'sess_handed',
+      child,
+      createHash('sha256').update(lease.nonce).digest('hex'),
+    );
+
+    const host = await startRuntimeHost({ session: sessionOptions(cwd, store), pool: {} });
+    const refusal = await host.pool!.acquire('sess_handed').then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(refusal).toMatchObject({ name: 'SessionChangeRefusal', code: 'has_writer' });
+    expect((refusal as Error).message).toContain(`pid ${child.pid}`);
     lease.end();
     await host.shutdown();
   });

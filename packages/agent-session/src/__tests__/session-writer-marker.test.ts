@@ -93,6 +93,8 @@ describe('a session claimed by one store instance', () => {
       sessionId: 'sess_a',
       reason: 'has_writer',
       holder: { pid: process.pid, self: true },
+      // A session of this store that has not let go: the one refusal a caller may wait out.
+      closing: true,
     });
     expect(second.hasWriter('sess_a')).toBe(true);
     claim.release();
@@ -212,6 +214,47 @@ describe('lending a session to another process', () => {
     lease.end();
     expect(parent.hasWriter('sess_fork')).toBe(false);
     expect(existsSync(path.join(claimsOf(dir), 'sess_fork.owner'))).toBe(false);
+  });
+
+  it('refuses the lent id as a subagent holding it, and names the child once it took the marker over', () => {
+    const dir = newStoreDir();
+    const parent = plain(dir);
+    const lease = parent.lend('sess_fork');
+
+    // The child has not taken the marker over yet: only the lend shows who will write.
+    const starting = thrownBy(() => parent.claim('sess_fork')) as Error;
+    expect(starting).toMatchObject({
+      reason: 'has_writer',
+      closing: false,
+      holder: { self: true, lent: true },
+    });
+    expect(starting.message).toContain('subagent this process started');
+
+    // The child took it over: the refusal names the child, which is not this process.
+    const child = liveOtherProcess();
+    leaveProcessMarker(
+      claimsOf(dir),
+      'sess_fork',
+      child,
+      createHash('sha256').update(lease.nonce).digest('hex'),
+    );
+    const running = thrownBy(() => parent.claim('sess_fork')) as Error;
+    expect(running).toMatchObject({
+      reason: 'has_writer',
+      closing: false,
+      holder: { pid: child.pid, self: false, lent: true },
+    });
+    expect(running.message).toContain(`pid ${child.pid}`);
+    expect(running.message).toContain('subagent this process started');
+
+    // A write of the lent id is refused in the same words.
+    const rename = thrownBy(() => parent.save(record('sess_fork'))) as Error;
+    expect(rename).toMatchObject({ reason: 'has_writer', closing: false });
+    expect(rename.message).toContain(`pid ${child.pid}`);
+    const removal = thrownBy(() => parent.delete('sess_fork')) as Error;
+    expect(removal).toMatchObject({ reason: 'has_writer', closing: false });
+    expect(removal.message).toContain(`pid ${child.pid}`);
+    lease.end();
   });
 
   it('hands the marker over only for the right nonce, and the end removes it from the child too', () => {

@@ -19,16 +19,17 @@ export type { TSessionChangeRefusalCode, TSessionDeleteRefusalCode };
 
 /**
  * What a client is told when the session it asked for cannot start because a session of that id in
- * this process still holds its record — one that is shutting down. Fixed, so a client may show it.
+ * this process has not let its claim go — one that is shutting down. Fixed, so a client may show it.
  */
 export const SESSION_STILL_CLOSING_MESSAGE = 'The session is still closing; try again.';
 
 /**
  * What a client is told when the store refused to claim the session it asked for: still closing, for
- * a writer in this process, or else the store's own words, which name the process that holds it.
+ * a session of this process that has not let its claim go, or else the store's own words, which name
+ * who holds it: another process, or the subagent a fork's record is lent to.
  */
 export function claimedSessionMessage(error: SessionClaimedError): string {
-  return error.holder?.self === true ? SESSION_STILL_CLOSING_MESSAGE : error.message;
+  return error.closing ? SESSION_STILL_CLOSING_MESSAGE : error.message;
 }
 
 /**
