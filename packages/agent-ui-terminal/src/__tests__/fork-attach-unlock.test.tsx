@@ -39,7 +39,7 @@ const READABLE: TSessionLoadOutcome = {
 /** A store whose fork record is locked until `open()`, recording every call made to it. */
 function storeOf(outcome: () => TSessionLoadOutcome) {
   const calls: string[] = [];
-  const store: Omit<IInteractiveSessionStore, 'claim' | 'hasWriter'> = {
+  const store: Omit<IInteractiveSessionStore, 'claim' | 'lend' | 'hasWriter'> = {
     list: () => [],
     load: (id) => {
       calls.push(`load:${id}`);
