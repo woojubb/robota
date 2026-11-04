@@ -335,8 +335,11 @@ on is one predicate every decision that depends on it reads: the decision is pla
 and no process is given a key holder while it is off. What every surface may be while it is on is
 one exhaustive table, and every listener a product process opens goes through the one gate that
 reads its row, at the call site that starts it, so the libraries that open listeners keep their
-constructors. Any program of the same user can present a token, a login or "the same user", so a
-listener that admits by one of them never binds in secure mode; plain mode opens what it always did.
+constructors. Any program of the same user can satisfy an admission by a token it can read, a login
+or "the same user", so in secure mode a listener admitting that way does not start when it reaches a
+session or a token; the control socket admits only owner links, and the OAuth sign-in callback opens
+under its own rule (loopback, bound by a fresh path or a required state, consumed by its first match,
+timed out) because it reaches no session. Plain mode opens what it always did.
 
 Being the one construction point, the factory is also where a process records that it uses the
 stores: the first store it builds (or, for a subagent worker, the grant it binds) creates its

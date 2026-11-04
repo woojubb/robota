@@ -1,13 +1,16 @@
 /**
  * What every product surface may be in secure mode, and the one gate every listener opens through.
  *
- * Any program running as the same user can connect to every local socket and port, so in secure mode
- * a listener that admits by a token, a login or "same user" admits that program too. The table gives
- * each surface (a way the product runs, or a listener it opens) its plain disposition, which plain
- * mode keeps, and its secure one. It is exhaustive over the surface unions, so a surface added
- * without a decision fails to build. Product code opens a listener only through `startListener`,
- * whose first argument is the listener's row, so no listener starts without one; the listener-sites
- * scan test names every place in product code that opens one and the row it belongs to.
+ * Any program running as the same user can connect to every local socket and port, so a listener
+ * whose admission such a program can satisfy (a token it can read, a login, "the same user") admits
+ * that program too. The table gives each surface (a way the product runs, or a listener it opens)
+ * its plain disposition, which plain mode keeps, and its secure one: such a listener does not start
+ * when it reaches a session or a token, the control socket opens for owner links, and the OAuth
+ * callbacks open under their rule because they reach no session. It is exhaustive over the surface
+ * unions, so a surface added without a decision fails to build. This package opens each listener
+ * through `startListener`, at the call site that starts it, with the listener's row as its first
+ * argument; the listener-sites scan test names every place in product code that can open one, the
+ * row it belongs to, and the rows no product call site gates yet.
  *
  * Plain mode never reads a secure disposition: `startListener` opens exactly what it opened before.
  */
@@ -51,8 +54,9 @@ export type TProcessDisposition =
   | { readonly admit: 'owner-link'; readonly unlock: 'grant' };
 
 /**
- * How a listener admits in secure mode. `owner-link`: it opens, and admits open commands plus owner
- * links only. `oauth-callback`: it opens under the callback rule its plain disposition states.
+ * How a listener admits in secure mode. `owner-link`: the gate opens it; limiting it to open commands
+ * plus owner links is the control endpoint's own admission, not the gate's. `oauth-callback`: it
+ * opens under the callback rule its plain disposition states.
  * `none`: it does not start, and `reason` is the fixed product copy it is refused with.
  */
 export type TListenerDisposition =
