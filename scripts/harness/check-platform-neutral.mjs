@@ -191,9 +191,9 @@ const ASSET_LOADERS = Object.fromEntries(
   ['.css', '.svg', '.png', '.woff2', '.md', '.html'].map((extension) => [extension, 'empty']),
 );
 
-/** The lists in ARCHITECTURE.md "Runtime platforms"; the last two are Node-only. */
-export const PLATFORM_LISTS = ['Platform-neutral', 'Browser (DOM)', 'Node host', 'Not yet neutral'];
-const NODE_ONLY_LISTS = new Set(['Node host', 'Not yet neutral']);
+/** The lists in ARCHITECTURE.md "Runtime platforms": every package is in exactly one; only the last is Node-only. */
+export const PLATFORM_LISTS = ['Platform-neutral', 'Browser (DOM)', 'Node host'];
+const NODE_ONLY_LISTS = new Set(['Node host']);
 
 /** Conditions that may precede `browser: null` without a browser resolver matching them first. */
 const BEFORE_BROWSER = new Set(['source', 'types', 'node']);
