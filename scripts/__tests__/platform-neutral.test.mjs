@@ -257,6 +257,54 @@ describe('platform-neutral entry check', () => {
     ]);
   });
 
+  it('reports a neutral subpath that maps a node or browser condition, at any depth', async () => {
+    const root = workspace({
+      packages: {
+        split: {
+          exports: {
+            '.': {
+              source: './src/index.ts',
+              node: { import: './dist/node/index.js' },
+              browser: { import: './dist/browser/index.js' },
+              default: './dist/node/index.js',
+            },
+          },
+          files: { 'src/index.ts': 'export const a = 1;' },
+        },
+        nested: {
+          exports: {
+            '.': { source: './src/index.ts', import: { node: './dist/index.js' } },
+            './extra': { source: './src/index.ts', require: { browser: './dist/index.cjs' } },
+          },
+          files: { 'src/index.ts': 'export const a = 1;' },
+        },
+        one: {
+          exports: {
+            '.': {
+              source: './src/index.ts',
+              import: { types: './dist/index.d.ts', default: './dist/index.js' },
+              require: { types: './dist/index.d.cts', default: './dist/index.cjs' },
+            },
+            './node': {
+              source: './src/index.ts',
+              browser: null,
+              node: './dist/node.js',
+            },
+          },
+          files: { 'src/index.ts': 'export const a = 1;' },
+        },
+      },
+      lists: { neutral: ['split', 'nested', 'one'] },
+    });
+    expect((await checkPlatformNeutral(root)).sort()).toEqual(
+      [
+        '@robota-sdk/split maps the node and browser conditions, but a platform-neutral subpath is one file for every runtime',
+        '@robota-sdk/nested maps the node condition, but a platform-neutral subpath is one file for every runtime',
+        '@robota-sdk/nested/extra maps the browser condition, but a platform-neutral subpath is one file for every runtime',
+      ].sort(),
+    );
+  });
+
   it('does not inspect a Node-only subpath', async () => {
     const root = workspace({
       packages: {

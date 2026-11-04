@@ -108,10 +108,11 @@ library has no host default.
 
 An export subpath is Node-only exactly when its `exports` entry maps `"browser": null`. Every other
 subpath is platform-neutral under every condition, because a Worker, Deno or Bun resolves `default`,
-not `browser`. A third-party dependency of a neutral entry may load a Node module only lazily, behind
-its own runtime detection. `pnpm lint` runs `scripts/harness/check-platform-neutral.mjs`, which
-bundles every neutral subpath and fails on any Node built-in, Node global or Node-only subpath it
-reaches, and on any package whose manifest disagrees with the lists below.
+not `browser`, so it ships one build and maps no `node` or `browser` condition. A third-party
+dependency of a neutral entry may load a Node module only lazily, behind its own runtime detection.
+`pnpm lint` runs `scripts/harness/check-platform-neutral.mjs`, which bundles every neutral subpath and
+fails on any Node built-in, Node global or Node-only subpath it reaches, on a `node` or `browser`
+condition a neutral subpath maps, and on any package whose manifest disagrees with the lists below.
 
 - **Platform-neutral**: `agent-interface-analytics`, `agent-interface-command`,
   `agent-interface-execution`, `agent-interface-session`, `agent-interface-session-mobility`,
