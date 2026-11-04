@@ -101,14 +101,46 @@ describe('sources a reply cites', () => {
   it('prints a page-supplied title and URL without what could steer a terminal', async () => {
     const { content } = await replyFrom([
       textDelta('Text.'),
-      citationDelta(citation('https://example.com/a', 'Safe\u001b[2J\u0007 ‮title\n2. Forged')),
+      citationDelta(
+        citation('https://example.com/a', 'Safe\u001b[2J\u0007 \u202Etitle\n2. Forged'),
+      ),
       citationDelta(citation('javascript:alert(1)', 'Not a web address')),
       citationDelta(citation('not a url', 'Not an address at all')),
     ]);
 
     expect(content).toBe(
-      'Text.\n\n[Sources]\n1. Safe [2J   title 2. Forged\n   https://example.com/a',
+      'Text.\n\n[Sources]\n1. Safe 2J title 2. Forged\n   https://example.com/a',
     );
+  });
+
+  it.each([
+    [
+      'a link that shows one address and opens another',
+      '[https://bank.example/](https://evil.example/)',
+    ],
+    ['a reference definition', '[1]: https://evil.example/'],
+    ['an image', '![](https://evil.example/x.png)'],
+    ['raw HTML', '<a href="https://evil.example/">bank</a>'],
+    ['a code span that hides the line', '`bank`'],
+  ])('leaves no markdown or HTML syntax in a title holding %s', async (_label, title) => {
+    const { content } = await replyFrom([
+      textDelta('Text.'),
+      citationDelta(citation('https://example.com/a', title)),
+    ]);
+
+    const printed = content.split('[Sources]\n1. ')[1]?.split('\n')[0] ?? '';
+    expect(printed).not.toMatch(/[[\]<>`]/);
+  });
+
+  it('lists an address once whatever spelling each citation used', async () => {
+    const { content } = await replyFrom([
+      textDelta('Text.'),
+      citationDelta(citation('https://example.com', 'First')),
+      citationDelta(citation('HTTPS://Example.COM/', 'Second')),
+      citationDelta(citation('https://example.com:443/', 'Third')),
+    ]);
+
+    expect(content).toBe('Text.\n\n[Sources]\n1. First\n   https://example.com/');
   });
 
   it('keeps the search results list to web addresses and printable titles too', async () => {
@@ -125,7 +157,7 @@ describe('sources a reply cites', () => {
       },
     ]);
 
-    expect(content).toContain('[Web Search Results]\n1. Good [2J\n   https://example.com/a');
+    expect(content).toContain('[Web Search Results]\n1. Good 2J\n   https://example.com/a');
     expect(content).not.toContain('javascript:');
   });
 });

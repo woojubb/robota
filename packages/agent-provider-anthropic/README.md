@@ -62,10 +62,11 @@ With `enableWebTools` on, Anthropic's `web_search` server tool is included in re
 it, so no local tool is registered. A call with `toolChoice: 'none'` leaves it out. Web fetch is not
 offered by this provider.
 
-`chat()` writes the search into the reply text: the query, a `[Web Search Results]` list, and at the
-end a `[Sources]` list of what the reply cites, one per address. Anthropic's documentation asks for
+`chat()` writes the search into the reply text: a search marker, a `[Web Search Results]` list, and at
+the end a `[Sources]` list of what the reply cites, one per address. Anthropic's documentation asks for
 citations to be shown with the output, and they otherwise arrive beside the text. Titles and addresses
-come from web pages, so control characters are removed and only `http(s)` addresses are listed.
+come from web pages, so control characters and markdown link syntax are removed from titles, and only
+`http(s)` addresses are listed.
 `chatStream()` carries neither list.
 
 The choice is made when the provider is built and nothing switches it on afterwards, so a session or

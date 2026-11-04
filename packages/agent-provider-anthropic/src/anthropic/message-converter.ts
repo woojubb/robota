@@ -152,9 +152,16 @@ export function convertToAnthropicFormat(messages: TUniversalMessage[]): Anthrop
   });
 }
 
-/** Text from a web page, with what could steer a terminal or spoof the line around it removed. */
+/**
+ * Text from a web page, reduced to words. Control and format characters could steer a terminal or
+ * reorder the line, and every surface renders the reply as markdown, where brackets, angle brackets
+ * and backticks could make a link that shows one address and opens another.
+ */
 function printableTitle(title: string | null): string {
-  return (title ?? '').replace(/[\p{Cc}\p{Cf}]+/gu, ' ').trim();
+  return (title ?? '')
+    .replace(/[\p{Cc}\p{Cf}[\]<>`]+/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 /** A page-supplied address as it would open, or undefined when it is not a web address. */
@@ -167,14 +174,16 @@ function webAddress(url: string): string | undefined {
   }
 }
 
-/** A headed, numbered list of web sources; empty when none of them is a web address. */
+/** A headed, numbered list with one line per web address; empty when there is no web address. */
 function formatSourceList(
   heading: string,
   sources: ReadonlyArray<{ title: string | null; url: string }>,
 ): string {
+  const seen = new Set<string>();
   const lines = sources.flatMap(({ title, url }) => {
     const address = webAddress(url);
-    if (address === undefined) return [];
+    if (address === undefined || seen.has(address)) return [];
+    seen.add(address);
     const printable = printableTitle(title);
     return [printable ? `${printable}\n   ${address}` : address];
   });
@@ -201,18 +210,12 @@ export function formatWebSearchResults(block: Anthropic.Messages.WebSearchToolRe
  * asks for citations to be shown with the output, and they arrive beside the text rather than in it.
  */
 export function formatCitedSources(citations: readonly Anthropic.Messages.TextCitation[]): string {
-  const webSources = citations.filter(
-    (citation): citation is Anthropic.Messages.CitationsWebSearchResultLocation =>
-      citation.type === 'web_search_result_location',
-  );
-  const seen = new Set<string>();
   return formatSourceList(
     '[Sources]',
-    webSources.filter(({ url }) => {
-      if (seen.has(url)) return false;
-      seen.add(url);
-      return true;
-    }),
+    citations.filter(
+      (citation): citation is Anthropic.Messages.CitationsWebSearchResultLocation =>
+        citation.type === 'web_search_result_location',
+    ),
   );
 }
 
