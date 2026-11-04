@@ -103,3 +103,12 @@ describe('TransportRegistry option delivery (TRANS-002) over an injected reposit
     expect(registry.getAll()[0]?.config).toEqual({ enabled: false, options: { port: 9000 } });
   });
 });
+
+describe('TransportRegistry settings storage', () => {
+  it('has no file default: a settings path is refused, naming the repositories to pass', () => {
+    expect(() => new TransportRegistry('/tmp/settings.json' as never)).toThrow(
+      /ITransportSettingsRepository.*createFileTransportSettingsRepository/s,
+    );
+    expect(() => new TransportRegistry(undefined as never)).toThrow(TypeError);
+  });
+});

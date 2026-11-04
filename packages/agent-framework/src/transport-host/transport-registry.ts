@@ -52,6 +52,14 @@ export class TransportRegistry {
    * `@robota-sdk/agent-framework/node`, any other host a repository over its own storage.
    */
   constructor(settings: ITransportSettingsRepository) {
+    if (typeof settings?.readAll !== 'function' || typeof settings.write !== 'function') {
+      throw new TypeError(
+        'TransportRegistry requires an ITransportSettingsRepository. On Node pass ' +
+          'createFileTransportSettingsRepository(path) from @robota-sdk/agent-framework/node; ' +
+          'otherwise pass a repository over your own storage, or ' +
+          'createMemoryTransportSettingsRepository().',
+      );
+    }
     this.settings = new TransportSettingsView(settings);
   }
 
