@@ -1,4 +1,5 @@
 import { nonVisualObservationText } from '@robota-sdk/agent-core';
+import { decodeResponsesContinuation } from './responses-parser';
 import type {
   IOpenAIResponsesFunctionTool,
   IOpenAIResponsesMessageInput,
@@ -15,7 +16,10 @@ import type {
 export function convertToOpenAIResponsesInput(
   messages: TUniversalMessage[],
 ): TOpenAIResponsesInputItem[] {
-  return messages.flatMap((message) => convertMessage(message));
+  // A reply goes back as OpenAI's own items only while its turn runs: its search results are kept
+  // for a limited time, so a turn that is over is read from its text.
+  const turnStart = messages.map((message) => message.role).lastIndexOf('user');
+  return messages.flatMap((message, index) => convertMessage(message, index > turnStart));
 }
 
 /**
@@ -43,7 +47,7 @@ export function convertToOpenAIResponsesTools(
   return converted.length > 0 ? converted : undefined;
 }
 
-function convertMessage(message: TUniversalMessage): TOpenAIResponsesInputItem[] {
+function convertMessage(message: TUniversalMessage, inTurn: boolean): TOpenAIResponsesInputItem[] {
   if (message.role === 'user') {
     return [createMessageInput('user', getUserContent(message.content, message.parts))];
   }
@@ -70,10 +74,17 @@ function convertMessage(message: TUniversalMessage): TOpenAIResponsesInputItem[]
       },
     ];
   }
-  return convertAssistantMessage(message);
+  return convertAssistantMessage(message, inTurn);
 }
 
-function convertAssistantMessage(message: IAssistantMessage): TOpenAIResponsesInputItem[] {
+function convertAssistantMessage(
+  message: IAssistantMessage,
+  inTurn: boolean,
+): TOpenAIResponsesInputItem[] {
+  const continuation = inTurn ? decodeResponsesContinuation(message) : undefined;
+  if (continuation !== undefined) {
+    return continuation;
+  }
   const items: TOpenAIResponsesInputItem[] = [];
   if (message.content && message.content.length > 0) {
     items.push(createMessageInput('assistant', message.content));

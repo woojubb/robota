@@ -144,7 +144,7 @@ function addCitationUrls(usage: IOpenAIWebSearchUsage, urls: readonly string[]):
   }
 }
 
-function isWebSearchCallItem(
+export function isWebSearchCallItem(
   item: TOpenAIResponsesOutputItem,
 ): item is IOpenAIResponsesWebSearchCallOutputItem {
   return item.type === 'web_search_call';

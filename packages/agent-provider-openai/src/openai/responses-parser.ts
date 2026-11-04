@@ -1,10 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
+import { PROVIDER_CONTINUATION_METADATA_KEY } from '@robota-sdk/agent-core';
+
 import { streamWithAbort } from './responses-stream-utils';
 import {
   addWebSearchUsage,
   collectWebSearchUsage,
   createEmptyWebSearchUsage,
+  isWebSearchCallItem,
   mergeWebSearchUsage,
   webSearchMetadata,
 } from './responses-web-search';
@@ -22,6 +25,7 @@ import type {
 } from './responses-types';
 import type { IOpenAIWebSearchUsage } from './responses-web-search';
 import type {
+  IAssistantMessage,
   IToolCall,
   ITokenUsageWithCacheRead,
   TTextDeltaCallback,
@@ -39,6 +43,8 @@ type TResponsesMessageUsage = Omit<ITokenUsageWithCacheRead, 'totalTokens'> &
 /** What the request that produced the response carried, which decides what its metadata may claim. */
 interface IOpenAIResponsesParseOptions {
   hostedWebSearch?: boolean;
+  /** The request's `store` option: an unstored reply leaves OpenAI nothing to find if it is sent back. */
+  store?: boolean;
 }
 
 interface IOpenAIResponsesStreamAssemblyOptions extends IOpenAIResponsesParseOptions {
@@ -88,6 +94,7 @@ export function parseOpenAIResponsesResponse(
     response,
     reasoning: collectReasoningMetadata(output),
     hostedWebSearch: options?.hostedWebSearch === true,
+    store: options?.store,
     webSearch: collectWebSearchUsage(output),
   });
 }
@@ -108,7 +115,7 @@ export async function assembleOpenAIResponsesStream(
   }
 
   if (state.completedResponse !== undefined) {
-    return buildMessageFromCompletedResponse(state, options.hostedWebSearch === true);
+    return buildMessageFromCompletedResponse(state, options);
   }
 
   return buildAssistantMessage({
@@ -208,7 +215,7 @@ function applyOutputItem(
 
 function buildMessageFromCompletedResponse(
   state: IOpenAIResponsesStreamState,
-  hostedWebSearch: boolean,
+  options: IOpenAIResponsesParseOptions,
 ): TUniversalMessage {
   const response = state.completedResponse;
   if (response === undefined) {
@@ -230,7 +237,8 @@ function buildMessageFromCompletedResponse(
     toolCalls: responseToolCalls.length > 0 ? responseToolCalls : state.toolCalls,
     response,
     reasoning,
-    hostedWebSearch,
+    hostedWebSearch: options.hostedWebSearch === true,
+    store: options.store,
     webSearch: state.webSearch,
   });
 }
@@ -241,6 +249,7 @@ function buildAssistantMessage(input: {
   response?: IOpenAIResponsesResponse;
   reasoning: IOpenAIResponsesReasoningMetadata;
   hostedWebSearch: boolean;
+  store?: boolean;
   webSearch: IOpenAIWebSearchUsage;
 }): TUniversalMessage {
   return {
@@ -252,7 +261,13 @@ function buildAssistantMessage(input: {
     ...(input.toolCalls.length > 0 && { toolCalls: input.toolCalls }),
     ...(input.response?.usage !== undefined && { usage: mapUsage(input.response.usage) }),
     metadata: {
-      ...buildMetadata(input.response, input.reasoning, input.hostedWebSearch, input.webSearch),
+      ...buildMetadata(
+        input.response,
+        input.reasoning,
+        input.hostedWebSearch,
+        input.webSearch,
+        input.store,
+      ),
       ...(input.response?.usage !== undefined && {
         usageProvenance:
           input.response.usage.input_tokens !== undefined &&
@@ -270,7 +285,9 @@ function buildMetadata(
   reasoning: IOpenAIResponsesReasoningMetadata,
   hostedWebSearch: boolean,
   webSearch: IOpenAIWebSearchUsage,
+  store: boolean | undefined,
 ): NonNullable<TUniversalMessage['metadata']> {
+  const continuation = encodeResponsesContinuation(response, store);
   return {
     providerApiSurface: 'responses',
     ...(response?.id !== undefined && { responseId: response.id }),
@@ -282,7 +299,69 @@ function buildMetadata(
     }),
     ...(reasoning.hasEncryptedReasoning && { hasEncryptedReasoning: true }),
     ...webSearchMetadata(hostedWebSearch, webSearch),
+    ...(continuation !== undefined && { [PROVIDER_CONTINUATION_METADATA_KEY]: continuation }),
   };
+}
+
+/**
+ * The reply's own output items, for the next request to send back as they came: hosted search
+ * results exist only on OpenAI's side, named by these items, and a search item is refused without
+ * its reasoning item, so the reply goes back whole. A reply with no function call ends its turn and
+ * is never sent back in-turn; an unstored one has no items on OpenAI's side to find.
+ */
+function encodeResponsesContinuation(
+  response: IOpenAIResponsesResponse | undefined,
+  store: boolean | undefined,
+): string | undefined {
+  const output = response?.output ?? [];
+  const searchedAndCalled =
+    output.some(isWebSearchCallItem) && output.some(isFunctionCallOutputItem);
+  if (!searchedAndCalled || store === false || response?.store === false) {
+    return undefined;
+  }
+  return JSON.stringify({ openaiOutput: output });
+}
+
+/**
+ * The output items to send back for a message, or undefined to rebuild it from the message. A
+ * continuation from another provider, or items that no longer say what the message says because
+ * something rewrote it, are not sent: the message is what the conversation holds.
+ */
+export function decodeResponsesContinuation(
+  message: IAssistantMessage,
+): TOpenAIResponsesOutputItem[] | undefined {
+  const encoded = message.metadata?.[PROVIDER_CONTINUATION_METADATA_KEY];
+  if (typeof encoded !== 'string') {
+    return undefined;
+  }
+  const output = parseOpenAIOutput(encoded);
+  if (output === undefined) {
+    return undefined;
+  }
+  const calls = extractFunctionToolCalls(output);
+  const messageCalls = message.toolCalls ?? [];
+  const sameCalls =
+    calls.length === messageCalls.length &&
+    calls.every((call, index) => {
+      const messageCall = messageCalls[index];
+      return (
+        call.id === messageCall?.id &&
+        call.function.name === messageCall.function.name &&
+        call.function.arguments === messageCall.function.arguments
+      );
+    });
+  return extractMessageText(output) === (message.content ?? '') && sameCalls ? output : undefined;
+}
+
+function parseOpenAIOutput(encoded: string): TOpenAIResponsesOutputItem[] | undefined {
+  try {
+    const parsed = JSON.parse(encoded) as { openaiOutput?: unknown };
+    return Array.isArray(parsed.openaiOutput)
+      ? (parsed.openaiOutput as TOpenAIResponsesOutputItem[])
+      : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 function mapUsage(usage: IOpenAIResponsesUsage): TResponsesMessageUsage {

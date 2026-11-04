@@ -2,12 +2,23 @@
  * Hosted web search on OpenAI's own Responses API: when a `web_search` tool joins a request, how the
  * result reports it, and where the option is accepted at all.
  */
+import {
+  AbstractTool,
+  ConversationAgent,
+  PROVIDER_CONTINUATION_METADATA_KEY,
+} from '@robota-sdk/agent-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { OpenAIProvider } from '../provider';
 import { createOpenAIProviderDefinition } from '../provider-definition';
 
-import type { IChatOptions, IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
+import type {
+  IAssistantMessage,
+  IChatOptions,
+  IToolResult,
+  IToolSchema,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
 import type OpenAI from 'openai';
 
 const WEB_SEARCH_TOOL = { type: 'web_search' };
@@ -559,5 +570,294 @@ describe('hosted web search in the provider definition', () => {
         options: { apiSurface: 'chat-completions', nativeWebTools: { webSearch: true } },
       }),
     ).toThrow(message);
+  });
+});
+
+describe('sending a searching reply back', () => {
+  const REASONING = { type: 'reasoning', id: 'rs_1', summary: [] };
+  const SEARCH = {
+    type: 'web_search_call',
+    id: 'ws_1',
+    status: 'completed',
+    action: { type: 'search', query: 'node 24' },
+  };
+  const NARRATION = {
+    type: 'message',
+    id: 'msg_1',
+    role: 'assistant',
+    status: 'completed',
+    content: [
+      {
+        type: 'output_text',
+        text: 'Looking.',
+        annotations: [{ type: 'url_citation', url: 'https://example.com/a', title: 'a' }],
+      },
+    ],
+  };
+  const CALL = {
+    type: 'function_call',
+    id: 'fc_1',
+    call_id: 'call_1',
+    name: 'lookup',
+    arguments: '{"key":"a"}',
+    status: 'completed',
+  };
+  const SEARCHING_OUTPUT = [REASONING, SEARCH, NARRATION, CALL];
+
+  function searchingReply(
+    output: unknown[] = SEARCHING_OUTPUT,
+    fields: Record<string, unknown> = {},
+  ): Record<string, unknown> {
+    return {
+      id: 'resp-2',
+      model: 'gpt-4o',
+      output_text: 'Looking.',
+      output,
+      status: 'completed',
+      ...fields,
+    };
+  }
+
+  const toolResult: TUniversalMessage = {
+    id: 't1',
+    role: 'tool',
+    content: 'found',
+    toolCallId: 'call_1',
+    state: 'complete',
+    timestamp: new Date(),
+  };
+  const nextUser: TUniversalMessage = {
+    id: 'u2',
+    role: 'user',
+    content: 'And Node 25?',
+    state: 'complete',
+    timestamp: new Date(),
+  };
+  const toolOutput = { type: 'function_call_output', call_id: 'call_1', output: 'found' };
+
+  // What a reply is rebuilt as: its text, then its calls without the IDs OpenAI gave them.
+  const REBUILT = [
+    { role: 'assistant', content: 'Looking.' },
+    { type: 'function_call', call_id: 'call_1', name: 'lookup', arguments: '{"key":"a"}' },
+  ];
+
+  /** The `input` of the last request `history` produces. */
+  async function inputAfter(
+    { provider, create }: ReturnType<typeof setup>,
+    history: TUniversalMessage[],
+  ): Promise<Array<Record<string, unknown>>> {
+    await provider.chat(history, { tools: [lookupTool] });
+    return (create.mock.calls.at(-1)?.[0] as { input: Array<Record<string, unknown>> }).input;
+  }
+
+  async function firstReply(
+    target: ReturnType<typeof setup>,
+    chatOptions: IChatOptions = {},
+  ): Promise<IAssistantMessage> {
+    return (await target.provider.chat(messages, {
+      tools: [lookupTool],
+      ...chatOptions,
+    })) as IAssistantMessage;
+  }
+
+  class LookupTool extends AbstractTool {
+    readonly schema = lookupTool;
+
+    protected async executeImpl(): Promise<IToolResult> {
+      return { success: true, data: 'found' };
+    }
+  }
+
+  it('returns the whole reply on the next request of a tool round', async () => {
+    // The agent streams its requests, so each answer is a stream.
+    const target = setup(searching());
+    target.create
+      .mockResolvedValueOnce(
+        eventsFrom([
+          { type: 'response.output_text.delta', delta: 'Looking.' },
+          { type: 'response.completed', response: searchingReply() },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        eventsFrom([
+          { type: 'response.output_text.delta', delta: 'Done.' },
+          { type: 'response.completed', response: completedResponse() },
+        ]),
+      );
+    const agent = new ConversationAgent({
+      name: 'wire',
+      aiProviders: [target.provider],
+      defaultModel: { provider: target.provider.name, model: 'gpt-4o' },
+      tools: [new LookupTool()],
+    });
+
+    await agent.run('What changed in Node 24?');
+
+    expect(target.create).toHaveBeenCalledTimes(2);
+    const { input } = target.create.mock.calls[1]?.[0] as { input: unknown[] };
+    const start = input.findIndex((item) => (item as { type?: string }).type === 'reasoning');
+    expect(input.slice(start, start + SEARCHING_OUTPUT.length)).toEqual(SEARCHING_OUTPUT);
+    expect(input.slice(start + SEARCHING_OUTPUT.length)).toEqual([toolOutput]);
+  });
+
+  it('records the same reply from a stream and sends it back whole', async () => {
+    const target = setup(searching(), completedResponse());
+    target.create.mockResolvedValueOnce(
+      eventsFrom([
+        { type: 'response.output_text.delta', delta: 'Looking.' },
+        { type: 'response.completed', response: searchingReply() },
+      ]),
+    );
+    const deltas: string[] = [];
+
+    const first = await firstReply(target, { onTextDelta: (delta) => deltas.push(delta) });
+
+    expect(deltas).toEqual(['Looking.']);
+    expect(first.metadata?.[PROVIDER_CONTINUATION_METADATA_KEY]).toBe(
+      JSON.stringify({ openaiOutput: SEARCHING_OUTPUT }),
+    );
+    expect(await inputAfter(target, [...messages, first, toolResult])).toEqual([
+      expect.objectContaining({ role: 'user' }),
+      ...SEARCHING_OUTPUT,
+      toolOutput,
+    ]);
+  });
+
+  it('rebuilds the reply from its text once a new user message follows it', async () => {
+    const target = setup(searching(), searchingReply());
+    const first = await firstReply(target);
+
+    expect(await inputAfter(target, [...messages, first, toolResult])).toContainEqual(REASONING);
+    expect(await inputAfter(target, [...messages, first, toolResult, nextUser])).toEqual([
+      { role: 'user', content: 'hello' },
+      ...REBUILT,
+      toolOutput,
+      { role: 'user', content: 'And Node 25?' },
+    ]);
+  });
+
+  it.each([
+    ['the provider option', { store: false }, {}],
+    ['the response', {}, { store: false }],
+  ])('keeps nothing of a reply that %s says was not stored', async (_label, options, fields) => {
+    const control = await firstReply(setup(searching(), searchingReply()));
+    expect(control.metadata).toHaveProperty(PROVIDER_CONTINUATION_METADATA_KEY);
+
+    const target = setup(searching(options), searchingReply(SEARCHING_OUTPUT, fields));
+    const first = await firstReply(target);
+
+    expect(first.metadata).not.toHaveProperty(PROVIDER_CONTINUATION_METADATA_KEY);
+    expect(await inputAfter(target, [...messages, first, toolResult])).toEqual([
+      { role: 'user', content: 'hello' },
+      ...REBUILT,
+      toolOutput,
+    ]);
+  });
+
+  describe('keeps nothing of a reply', () => {
+    it('that searched without calling a function', async () => {
+      const first = await firstReply(
+        setup(searching(), searchingReply([REASONING, SEARCH, NARRATION])),
+      );
+
+      expect(first.metadata).not.toHaveProperty(PROVIDER_CONTINUATION_METADATA_KEY);
+    });
+
+    it('that called a function without searching', async () => {
+      const first = await firstReply(
+        setup(searching(), searchingReply([REASONING, NARRATION, CALL])),
+      );
+
+      expect(first.metadata).not.toHaveProperty(PROVIDER_CONTINUATION_METADATA_KEY);
+    });
+
+    it('from a stream when the provider option says it was not stored', async () => {
+      const target = setup(
+        searching({ store: false }),
+        eventsFrom([
+          { type: 'response.output_text.delta', delta: 'Looking.' },
+          { type: 'response.completed', response: searchingReply() },
+        ]),
+      );
+
+      const first = await firstReply(target, { onTextDelta: () => undefined });
+
+      expect(first.toolCalls).toHaveLength(1);
+      expect(first.metadata).not.toHaveProperty(PROVIDER_CONTINUATION_METADATA_KEY);
+    });
+
+    it('from a stream that ended without a completed response', async () => {
+      const target = setup(
+        searching(),
+        eventsFrom([
+          { type: 'response.output_item.done', item: SEARCH },
+          { type: 'response.output_item.done', item: CALL },
+          { type: 'response.output_text.delta', delta: 'Looking.' },
+        ]),
+      );
+
+      const first = await firstReply(target, { onTextDelta: () => undefined });
+
+      expect(first.toolCalls).toHaveLength(1);
+      expect(first.metadata).not.toHaveProperty(PROVIDER_CONTINUATION_METADATA_KEY);
+    });
+  });
+
+  describe('a recorded reply the conversation no longer agrees with', () => {
+    const continuation = JSON.stringify({ openaiOutput: SEARCHING_OUTPUT });
+
+    function recorded(
+      change: Record<string, unknown> = {},
+      encoded: string = continuation,
+    ): TUniversalMessage {
+      return {
+        id: 'a1',
+        role: 'assistant',
+        content: 'Looking.',
+        state: 'complete',
+        timestamp: new Date(),
+        toolCalls: [
+          {
+            id: 'call_1',
+            type: 'function',
+            function: { name: 'lookup', arguments: '{"key":"a"}' },
+          },
+        ],
+        metadata: { [PROVIDER_CONTINUATION_METADATA_KEY]: encoded },
+        ...change,
+      } as TUniversalMessage;
+    }
+
+    it('goes back whole while it still agrees', async () => {
+      const input = await inputAfter(setup(searching()), [...messages, recorded(), toolResult]);
+
+      expect(input).toContainEqual(SEARCH);
+    });
+
+    it.each([
+      ['text', recorded({ content: 'edited' })],
+      [
+        'call arguments',
+        recorded({
+          toolCalls: [
+            {
+              id: 'call_1',
+              type: 'function',
+              function: { name: 'lookup', arguments: '{"key":"REDACTED"}' },
+            },
+          ],
+        }),
+      ],
+      ['owner', recorded({}, '{"geminiParts":[]}')],
+      ['encoding', recorded({}, 'not json')],
+    ])('is rebuilt when its %s differs', async (_label, message) => {
+      const input = await inputAfter(setup(searching()), [...messages, message, toolResult]);
+
+      expect(input.map((item) => item['type'])).not.toContain('web_search_call');
+      expect(input.map((item) => item['type'])).not.toContain('reasoning');
+      expect(input).toContainEqual(
+        expect.objectContaining({ type: 'function_call', call_id: 'call_1' }),
+      );
+    });
   });
 });

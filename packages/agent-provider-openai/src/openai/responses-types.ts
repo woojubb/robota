@@ -43,7 +43,9 @@ export interface IOpenAIResponsesFunctionCallOutputInput {
 export type TOpenAIResponsesInputItem =
   | IOpenAIResponsesMessageInput
   | IOpenAIResponsesFunctionCallInput
-  | IOpenAIResponsesFunctionCallOutputInput;
+  | IOpenAIResponsesFunctionCallOutputInput
+  // A reply's own items go back as they came.
+  | TOpenAIResponsesOutputItem;
 
 export interface IOpenAIResponsesFunctionTool {
   type: 'function';
@@ -181,6 +183,8 @@ export interface IOpenAIResponsesResponse {
   usage?: IOpenAIResponsesUsage;
   status?: string;
   error?: IOpenAIResponsesErrorBody | null;
+  /** The response says whether it was stored; an unstored one leaves nothing to find later. */
+  store?: boolean;
 }
 
 export interface IOpenAIResponsesTextDeltaEvent {

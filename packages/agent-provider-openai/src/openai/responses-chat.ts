@@ -96,7 +96,10 @@ export async function chatWithOpenAIResponsesApi(
       payload: response,
     });
     return withProviderRequestId(
-      parseOpenAIResponsesResponse(response, { hostedWebSearch }),
+      parseOpenAIResponsesResponse(response, {
+        hostedWebSearch,
+        store: input.providerOptions.store,
+      }),
       readOpenAIRequestId(response),
     );
   } catch (error) {
@@ -160,6 +163,7 @@ async function chatWithOpenAIResponsesStreamingAssembly(
       onThinkingDelta: input.chatOptions?.onThinkingDelta,
       signal: input.chatOptions?.signal,
       hostedWebSearch,
+      store: input.providerOptions.store,
     });
     return withProviderRequestId(assembled, providerRequestId);
   } catch (error) {
