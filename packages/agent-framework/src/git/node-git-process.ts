@@ -6,8 +6,9 @@
  * is bounded by a timeout, and every way a run can end is a typed outcome rather than a throw. Exit
  * codes are DATA: `diff --cached --quiet` answers with 1, and that is an answer, not an error.
  */
-import { execFile } from 'node:child_process';
 import { constants } from 'node:os';
+
+import { execFileInChildSession } from '@robota-sdk/agent-core/node';
 
 import type { ExecFileException } from 'node:child_process';
 import type {
@@ -111,7 +112,10 @@ function toOutcome(
   );
 }
 
-/** The production port: argv-only `execFile`, stdin closed, output capped, timeout bounded. */
+/**
+ * The production port: argv-only `execFile`, stdin closed, output capped, timeout bounded. git runs
+ * repository configuration, so in secure mode it gets its own session (`execFileInChildSession`).
+ */
 export function createGitProcess(options: ICreateGitProcessOptions = {}): IGitProcessPort {
   const executable = options.executable ?? 'git';
   return {
@@ -119,7 +123,7 @@ export function createGitProcess(options: ICreateGitProcessOptions = {}): IGitPr
       const timeoutMs = runOptions.timeoutMs ?? GIT_DEFAULT_TIMEOUT_MS;
       const env = gitEnvironment(options.env ?? process.env);
       return new Promise<TGitProcessOutcome>((resolve) => {
-        const child = execFile(
+        const child = execFileInChildSession(
           executable,
           [...args],
           {

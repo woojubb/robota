@@ -2,7 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 
-import { tightenExistingFile, writeOwnerOnlyFile } from '@robota-sdk/agent-core/node';
+import {
+  tightenExistingFile,
+  withChildSession,
+  writeOwnerOnlyFile,
+} from '@robota-sdk/agent-core/node';
 
 import { createNodeWorkspaceProjectFiles } from './node-project-files.js';
 import { WorkspaceTrustService } from './workspace-trust-service.js';
@@ -38,11 +42,13 @@ interface IPersistedTrustStore {
 
 function runGit(cwd: string, args: readonly string[]): string {
   try {
-    return execFileSync('git', [...args], {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
+    // The trust check runs before trust exists, on a repository's own configuration: in secure mode
+    // git gets its own session.
+    return execFileSync(
+      'git',
+      [...args],
+      withChildSession({ cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }),
+    ).trim();
   } catch (error) {
     throw new Error(`Git workspace identity is unavailable for ${cwd}`, { cause: error });
   }

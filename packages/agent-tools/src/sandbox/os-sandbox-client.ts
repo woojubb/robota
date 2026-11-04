@@ -31,7 +31,11 @@ import { homedir, tmpdir } from 'node:os';
 import { basename, isAbsolute, resolve } from 'node:path';
 
 import { splitCommandSegments } from '@robota-sdk/agent-core';
-import { resolvePlatformShell } from '@robota-sdk/agent-core/node';
+import {
+  endWithProcess,
+  resolvePlatformShell,
+  withChildSession,
+} from '@robota-sdk/agent-core/node';
 
 import {
   bubblewrapArguments,
@@ -95,7 +99,11 @@ export interface IDetectOsSandboxOptions {
 const SEATBELT_EXECUTABLE = '/usr/bin/sandbox-exec';
 
 function defaultProbe(command: string, args: readonly string[]): { ok: boolean; detail?: string } {
-  const result = spawnSync(command, [...args], { timeout: 5_000, encoding: 'utf8' });
+  const result = spawnSync(
+    command,
+    [...args],
+    withChildSession({ timeout: 5_000, encoding: 'utf8' }),
+  );
   if (result.error !== undefined) return { ok: false, detail: result.error.message };
   const detail = (result.stderr ?? '').trim().split('\n')[0];
   return result.status === 0 ? { ok: true } : { ok: false, ...(detail ? { detail } : {}) };
@@ -226,16 +234,27 @@ export class OsSandboxClient implements ISandboxClient {
   private readonly watchers = new Set<(settings: IOsSandboxSettings) => void>();
 
   constructor(options: IOsSandboxClientOptions) {
-    if (!/^[a-zA-Z0-9._-]+$/.test(options.projectStateDirectory) || ['.', '..'].includes(options.projectStateDirectory)) {
+    if (
+      !/^[a-zA-Z0-9._-]+$/.test(options.projectStateDirectory) ||
+      ['.', '..'].includes(options.projectStateDirectory)
+    ) {
       throw new Error('A safe project state directory is required');
     }
-    if (!isAbsolute(options.userQuarantineDirectory)) throw new Error('An absolute quarantine directory is required');
+    if (!isAbsolute(options.userQuarantineDirectory))
+      throw new Error('An absolute quarantine directory is required');
     this.projectStateDirectory = options.projectStateDirectory;
     this.userQuarantineDirectory = options.userQuarantineDirectory;
     this.pathProtection = Object.freeze({
-      protectedDirectoryNames: Object.freeze([...new Set([options.projectStateDirectory, ...(options.pathProtection?.protectedDirectoryNames ?? [])])]),
+      protectedDirectoryNames: Object.freeze([
+        ...new Set([
+          options.projectStateDirectory,
+          ...(options.pathProtection?.protectedDirectoryNames ?? []),
+        ]),
+      ]),
       protectedPaths: Object.freeze([...(options.pathProtection?.protectedPaths ?? [])]),
-      writableWorktreeContainers: Object.freeze([...(options.pathProtection?.writableWorktreeContainers ?? [])]),
+      writableWorktreeContainers: Object.freeze([
+        ...(options.pathProtection?.writableWorktreeContainers ?? []),
+      ]),
     });
     this.root = realPathOrSelf(options.root);
     this.availability = options.availability;
@@ -305,7 +324,8 @@ export class OsSandboxClient implements ISandboxClient {
     // read-only and nothing the host writes there is caught up in `restoreProtectedEntries`.
     if (
       !this.protectedEntryStates().some(
-        (state) => state.path === `${this.root}/${this.projectStateDirectory}` && state.kind === 'symlink',
+        (state) =>
+          state.path === `${this.root}/${this.projectStateDirectory}` && state.kind === 'symlink',
       )
     ) {
       mkdirSync(`${this.root}/${this.projectStateDirectory}`, { recursive: true });
@@ -437,10 +457,10 @@ export class OsSandboxClient implements ISandboxClient {
    */
   private quarantineRoot(before: readonly IProtectedEntryState[]): string {
     const stateRoot = `${this.root}/${this.projectStateDirectory}`;
-    const wasDirectory = before.some((state) => state.path === stateRoot && state.kind === 'present');
-    return wasDirectory
-      ? `${stateRoot}/sandbox-quarantine`
-      : this.userQuarantineDirectory;
+    const wasDirectory = before.some(
+      (state) => state.path === stateRoot && state.kind === 'present',
+    );
+    return wasDirectory ? `${stateRoot}/sandbox-quarantine` : this.userQuarantineDirectory;
   }
 
   private setAside(path: string, quarantine: string): string {
@@ -497,11 +517,17 @@ export class OsSandboxClient implements ISandboxClient {
       const extra = invocation.inputDescriptors ?? [];
       let child: ReturnType<typeof spawn>;
       try {
-        child = spawn(invocation.command, [...invocation.args], {
-          cwd: invocation.cwd,
-          stdio: ['ignore', 'pipe', 'pipe', ...extra.map(() => 'pipe' as const)],
-          ...(options.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
-        });
+        child = endWithProcess(
+          spawn(
+            invocation.command,
+            [...invocation.args],
+            withChildSession({
+              cwd: invocation.cwd,
+              stdio: ['ignore', 'pipe', 'pipe', ...extra.map(() => 'pipe' as const)],
+              ...(options.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
+            }),
+          ),
+        );
       } catch (error) {
         invocation.afterExit?.();
         reject(error instanceof Error ? error : new Error(String(error)));

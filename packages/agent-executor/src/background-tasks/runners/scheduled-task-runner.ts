@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 
+import { endWithProcess, withChildSession } from '@robota-sdk/agent-core/node';
 import { killProcessTree } from '@robota-sdk/agent-process';
 import { Cron, type CronOptions } from 'croner';
 
@@ -191,12 +192,20 @@ function runOneFire(state: IScheduledTaskState): void {
     { ...state.request, command },
     { executable: state.shellExecutable },
   );
-  const child = spawn(shell.executable, shell.args, {
-    cwd: state.request.cwd,
-    env: { ...process.env, ...(state.request.env ?? {}) },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: SPAWN_DETACHED,
-  });
+  // As a background process task: its own session on POSIX, and in secure mode it ends with this
+  // process.
+  const child = endWithProcess(
+    spawn(
+      shell.executable,
+      shell.args,
+      withChildSession({
+        cwd: state.request.cwd,
+        env: { ...process.env, ...(state.request.env ?? {}) },
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: SPAWN_DETACHED,
+      }),
+    ),
+  );
   state.currentChild = child;
 
   // CORE-024 (RUNTIME-18): croner `protect: true` skips a fire while the previous one still runs,
