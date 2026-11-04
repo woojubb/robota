@@ -8,7 +8,7 @@ import {
   createRestrictedWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 
-import { inspectPathFacts } from '../doctor-node-deps.js';
+import { createNodeDoctorDeps, inspectPathFacts } from '../doctor-node-deps.js';
 
 import type { IDoctorDeps, IDoctorInputs } from '../doctor-types.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
@@ -59,6 +59,7 @@ function fixtureDeps(
   probes: { host: string; port: number }[],
 ): IDoctorDeps {
   const resolvable = new Set(options.resolvable ?? []);
+  const nodeDeps = createNodeDoctorDeps({});
   return {
     probeEndpoint: async (host, port) => {
       probes.push({ host, port });
@@ -70,6 +71,11 @@ function fixtureDeps(
     inspectPath: inspectPathFacts,
     resolveCommand: (command) => resolvable.has(command.split(/\s+/)[0] ?? command),
     ownerOnlyGuarantee: () => options.guarantee ?? 'posix-mode',
+    // The repair writers are the Node host's own: the repair tests assert on the files they leave.
+    // The plugin and skill probes read the fixture HOME through the Node host's files.
+    files: nodeDeps.files,
+    ensureOwnerOnlyDirectory: nodeDeps.ensureOwnerOnlyDirectory,
+    writeSettings: nodeDeps.writeSettings,
   };
 }
 

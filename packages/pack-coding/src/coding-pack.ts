@@ -1,8 +1,5 @@
-import {
-  createEditorCommandModule,
-  createGitCommandModule,
-  createShellCommandModule,
-} from '@robota-sdk/agent-command';
+import { createGitCommandModule } from '@robota-sdk/agent-command';
+import { createEditorCommandModule, createShellCommandModule } from '@robota-sdk/agent-command/node';
 import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 

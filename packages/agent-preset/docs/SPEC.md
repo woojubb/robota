@@ -40,9 +40,10 @@ than being silently dropped.
 
 ### External preset loading
 
-User-authored presets are loaded at runtime from a JSON file per preset in a directory supplied by
-the product shell. The neutral package does not choose the user's home, a product-specific storage
-root, or a default agent name. Each file is parsed and validated with a manual type-guard (no schema
+User-authored presets are loaded at runtime from a JSON file per preset, handed to the package as
+named files by the product shell; the Node entry lists a directory of them. The package reads no file
+on its own and does not choose the user's home, a product-specific storage root, or a default agent
+name. Each file is parsed and validated with a manual type-guard (no schema
 library); the untrusted effort field is validated through the framework's shared parser so external
 presets accept the same effort vocabulary as built-ins. Loading applies a conflict policy and
 returns the survivors as a value — it registers nothing globally, so a second load in the same
@@ -54,9 +55,8 @@ Conflict policy:
 - Built-ins always win — an external preset whose id collides with a built-in is rejected, and
   built-in ids can never be overridden. A duplicate id among external presets is also rejected,
   keeping the first.
-- Per-file isolation — a parse or validation failure is recorded against its file and that file is
-  skipped; the rest of the directory still loads. A missing directory yields an empty result, never
-  an error.
+- Per-file isolation — a read, parse or validation failure is recorded against its file and that file
+  is skipped; the rest still load. A missing directory yields an empty result, never an error.
 
 The output-style registry applies the same shape of precedence for style files: built-in styles win
 on id collision, and a per-file parse or validation failure is isolated rather than aborting the

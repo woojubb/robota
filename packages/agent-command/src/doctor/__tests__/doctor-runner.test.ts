@@ -1,11 +1,11 @@
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import {
   createNodeHostSettingsSource,
   createRestrictedWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderDoctorReport } from '../doctor-render.js';
 import { applyDoctorRepair, planDoctorRepair } from '../doctor-repair.js';
@@ -368,6 +368,34 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(
       await applyDoctorRepair('storage.user', f.inputs, f.deps, async () => true),
     ).toMatchObject({ applied: false });
+  });
+
+  it('TC-07: a repair writes through the host-supplied writers, never through a writer of the package', async () => {
+    const f = fixture({ env: {} });
+    installBrokenHome(f);
+    const path = join(f.home, '.fixture-product', 'settings.json');
+    const writeSettings = vi.fn();
+    const ensureOwnerOnlyDirectory = vi.fn();
+    const deps = { ...f.deps, writeSettings, ensureOwnerOnlyDirectory };
+
+    const settings = await applyDoctorRepair(
+      'settings.user.fixture-product',
+      f.inputs,
+      deps,
+      async () => true,
+    );
+    expect(settings.applied).toBe(true);
+    expect(writeSettings).toHaveBeenCalledExactlyOnceWith(path, {});
+    expect(readFileSync(path, 'utf8')).toBe('');
+
+    rmSync(join(f.home, '.fixture-product', 'sessions'), { recursive: true, force: true });
+    const storage = await applyDoctorRepair('storage.user', f.inputs, deps, async () => true);
+    expect(storage.applied).toBe(true);
+    expect(ensureOwnerOnlyDirectory).toHaveBeenCalledExactlyOnceWith(
+      join(f.home, '.fixture-product', 'sessions'),
+      { withinRoot: join(f.home, '.fixture-product') },
+    );
+    expect(existsSync(join(f.home, '.fixture-product', 'sessions'))).toBe(false);
   });
 
   it('TC-05 (skills): a skill definition session discovery throws on is a fail check, not a warning', async () => {

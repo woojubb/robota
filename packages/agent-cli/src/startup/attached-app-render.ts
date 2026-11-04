@@ -8,7 +8,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * run here too, as the plain TUI runs them.
  */
 import { productProviderDefinitions } from '../product/provider-definitions.js';
-import { createTerminalClientCommands } from '@robota-sdk/agent-command';
+import { createTerminalClientCommands } from '@robota-sdk/agent-command/node';
 import { applyAppearanceSettings } from '@robota-sdk/agent-framework';
 
 import { reloadPluginCommandSource } from '../plugins/default-plugin-command-source-loader.js';

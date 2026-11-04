@@ -41,7 +41,8 @@ The pack bundles:
 
 - **tools** — `Shell`, `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebFetch`,
   `AskUserQuestion` (from `@robota-sdk/agent-tool-defaults`' `createDefaultTools`).
-- **commandModules** — `/shell`, `/editor`, and `/git` (from `@robota-sdk/agent-command`).
+- **commandModules** — `/shell`, `/editor` (from `@robota-sdk/agent-command/node`), and `/git` (from
+  `@robota-sdk/agent-command`).
 - **subagents** — `general-purpose`, `Explore`, `Plan` (agent-framework's built-in agents).
 
 `createCodingPack` passes its `cwd` and optional `sandboxClient` straight to the default tool factory,

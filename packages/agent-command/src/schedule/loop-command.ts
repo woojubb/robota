@@ -1,8 +1,6 @@
 /** Fixed or self-paced session-local repetition. */
 
-import { randomUUID } from 'node:crypto';
-
-import { selectAction } from '@robota-sdk/agent-core';
+import { randomId, selectAction } from '@robota-sdk/agent-core';
 import { isLoopStopVerb } from '@robota-sdk/agent-framework';
 
 import { jitterFixedLoop } from './loop-jitter.js';
@@ -380,7 +378,7 @@ async function createLoop(
   }
   const cadence = chooseCadence(parsed.requestedMs);
   const label = `${LOOP_LABEL}${parsed.instruction.slice(0, MAX_LABEL_LENGTH)}`;
-  const loopId = `loop_${randomUUID()}`;
+  const loopId = `loop_${randomId()}`;
   const jitter = jitterFixedLoop(loopId, cadence);
   const nowMs = Date.now();
   const firstAllowedAt = new Date(nowMs + parsed.requestedMs).toISOString();

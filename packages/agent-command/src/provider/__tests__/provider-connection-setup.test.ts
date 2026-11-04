@@ -558,22 +558,26 @@ describe('service connection setup', () => {
     expect(result.hostActions).toBeUndefined();
   });
 
-  it('does not find an environment reference in process.env when the command has no environment', async () => {
-    vi.stubEnv('ROUTER_KEY_ONLY_IN_PROCESS', 'synthetic-process-secret');
-    const { options, connect, read } = fixture();
-    const { env: _ignored, ...withoutEnvironment } = options;
-    const { context, requests } = scriptedContext([
-      { type: 'answer', values: ['api-key'] },
-      { type: 'answer', values: [], text: '$ENV:ROUTER_KEY_ONLY_IN_PROCESS' },
-      { type: 'cancelled' },
-    ]);
+  it('reads an environment reference as unset when the host supplies no environment, whatever the process holds', async () => {
+    vi.stubEnv('ROUTER_KEY', 'synthetic-process-secret');
+    try {
+      const { options, connect, read } = fixture();
+      const { env: _hostEnvironment, ...withoutEnvironment } = options;
+      const { context, requests } = scriptedContext([
+        { type: 'answer', values: ['api-key'] },
+        { type: 'answer', values: [], text: '$ENV:ROUTER_KEY' },
+        { type: 'cancelled' },
+      ]);
 
-    const result = await executeProviderCommand(context, 'add openrouter', withoutEnvironment);
+      const result = await executeProviderCommand(context, 'add openrouter', withoutEnvironment);
 
-    expect(connect).not.toHaveBeenCalled();
-    expect(requests[2]?.description).toContain('Set its variable');
-    expect(read()).toEqual({});
-    expect(result.hostActions).toBeUndefined();
+      expect(connect).not.toHaveBeenCalled();
+      expect(requests[2]?.description).toContain('Set its variable');
+      expect(read()).toEqual({});
+      expect(result.hostActions).toBeUndefined();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('reads an environment reference through a resolver, as a host without a process passes one', async () => {

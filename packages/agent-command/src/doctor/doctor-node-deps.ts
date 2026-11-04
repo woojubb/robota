@@ -1,9 +1,14 @@
-/** Node defaults for {@link IDoctorDeps}: a TCP connect probe and read-only filesystem facts. */
+/**
+ * The Node host's {@link IDoctorDeps}: a TCP connect probe, read-only filesystem facts, `PATH`
+ * resolution, and the two writers a confirmed repair uses.
+ */
 import { accessSync, constants, existsSync, statSync, type Stats } from 'node:fs';
 import { createConnection } from 'node:net';
 import { delimiter, isAbsolute, join } from 'node:path';
 
-import { ownerOnlyGuarantee } from '@robota-sdk/agent-core/node';
+import { ensureOwnerOnlyDirectory, ownerOnlyGuarantee } from '@robota-sdk/agent-core/node';
+import { writeSettings } from '@robota-sdk/agent-framework';
+import { NodeFileSystem } from '@robota-sdk/agent-framework/node';
 
 import type { IDoctorDeps, IDoctorEndpointProbeResult, IDoctorPathFacts } from './doctor-types.js';
 
@@ -84,5 +89,8 @@ export function createNodeDoctorDeps(
     inspectPath: inspectPathFacts,
     resolveCommand: (command) => resolveCommandOnPath(command, env),
     ownerOnlyGuarantee: () => ownerOnlyGuarantee(),
+    files: new NodeFileSystem(),
+    ensureOwnerOnlyDirectory: (directory, options) => ensureOwnerOnlyDirectory(directory, options),
+    writeSettings,
   };
 }

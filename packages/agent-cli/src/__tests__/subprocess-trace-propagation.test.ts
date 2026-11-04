@@ -10,7 +10,7 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { spawnInherited } from '@robota-sdk/agent-command';
+import { spawnInherited } from '@robota-sdk/agent-command/node';
 import { FunctionTool } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { createManagedShellProcessRunner } from '@robota-sdk/agent-executor/node';

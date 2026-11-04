@@ -27,6 +27,7 @@ import type { ICliUpdateNotice } from '../update-check/update-check.js';
 import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import type { IRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import { createDefaultCommandModules } from '@robota-sdk/agent-command';
+import { createNodeDoctorDeps, openFileInEditor } from '@robota-sdk/agent-command/node';
 import { createDevicesCommandPort } from '../devices/index.js';
 import type {
   IDevicesMeshStatus,
@@ -272,8 +273,9 @@ export function buildCommandSetup(
     resolveCliRuntimeContext(options).environment,
   );
   // The pack-supplied modules are excluded from the base; `assembleProduct` merges them back in from the
-  // profile's packs. `unknownModuleNames` is not read here — every excluded name is a real module, and the
-  // preset delta's unknown-name diagnostics are computed by the shell against the MERGED superset.
+  // profile's packs. `unknownModuleNames` is not read here — a pack may supply a module the default set
+  // does not build (`/shell` and `/editor` live on `agent-command/node`), and the preset delta's
+  // unknown-name diagnostics are computed by the shell against the MERGED superset.
   // CLI-083 (issue #2287). This call is where `loadOrgPolicy()` used to be: `48ebec353` added it,
   // `92596bc6f` removed it two days later while slimming this file, and four implemented enforcement
   // sites have been unreachable since. Nothing failed, because the parameter is optional and its
@@ -295,7 +297,6 @@ export function buildCommandSetup(
   const { modules: baseCommandModules } = createDefaultCommandModules({
     cwd,
     userLocalStorageRoot: userLocalStorageRoot(productRuntime),
-    editorTemporaryDirectoryPrefix: productRuntime.vocabulary.editorTemporaryDirectoryPrefix,
     providerDefinitions,
     providerSettingsAdapter,
     providerConnectionHost,
@@ -306,6 +307,7 @@ export function buildCommandSetup(
     contributionSources: workspaceComposition.contributionSources,
     skillRoots: workspaceComposition.skillRoots,
     ...(keybindingsFilePort === undefined ? {} : { keybindingsFilePort }),
+    keybindingsEditor: openFileInEditor,
     ...(themeCataloguePort === undefined ? {} : { themeCataloguePort }),
     // `/devices`: identity state under the configured user root/devices, keys in the host credential store, and the
     // recovery phrase only on this process's own terminal.
@@ -317,6 +319,7 @@ export function buildCommandSetup(
     }),
     ...(keyCustodyPort === undefined ? {} : { keyCustodyPort }),
     doctorInputs,
+    doctorDeps: createNodeDoctorDeps({ ...doctorInputs.env }),
     doctorDisplay: productRuntime.vocabulary.doctorSlash,
     formatForkResumeCommand: productRuntime.vocabulary.resumeCommand,
     loopOptions: {

@@ -384,7 +384,7 @@ export function examinedPackageCount() {
  * governed before the widening, and it has no findings to freeze.
  */
 const FROZEN_FINDING_COUNTS = {
-  'agent-command': 27,
+  'agent-command': 25,
   // The utils barrel re-exports only `isAbortFailure` from abort-classification: 20 → 19.
   // The platform-shell `export *` left the main entry with the platform-neutral work: 19 → 18.
   'agent-core': 18,

@@ -11,12 +11,8 @@
  */
 import { createInterface } from 'node:readline';
 
-import {
-  applyDoctorRepair,
-  createNodeDoctorDeps,
-  renderDoctorReport,
-  runDoctor,
-} from '@robota-sdk/agent-command';
+import { applyDoctorRepair, renderDoctorReport, runDoctor } from '@robota-sdk/agent-command';
+import { createNodeDoctorDeps } from '@robota-sdk/agent-command/node';
 import { productProviderDefinitions } from '../product/provider-definitions.js';
 
 import { buildDoctorInputs, resolveDoctorProjectAccess } from './doctor-inputs.js';

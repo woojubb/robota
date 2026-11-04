@@ -5,8 +5,6 @@
  * provenance, `readProviderSettings` for the runtime-equivalent provider resolution. The probe adds
  * no reader of its own; that is the CLI-067 discipline the old `diagnose` command broke three times.
  */
-import { basename, dirname } from 'node:path';
-
 import { findProviderDefinition } from '@robota-sdk/agent-core';
 import { inspectSettingsLayers, readProviderSettings } from '@robota-sdk/agent-framework';
 
@@ -24,14 +22,23 @@ const HTTP_PORT = 80;
 const HTTPS_PORT = 443;
 
 /**
+ * The name of the directory a settings file lives in, without its leading dot. Both separators split
+ * it: a project-relative path a Windows host joined reads `.robota\settings.json`, which a lexical
+ * helper that takes the platform from the text would see as one POSIX file name.
+ */
+function settingsDirectoryName(path: string): string {
+  const segments = path.split(/[\\/]+/).filter((segment) => segment.length > 0);
+  return (segments[segments.length - 2] ?? '').replace(/^\./, '');
+}
+
+/**
  * `settings.<scope>.<family>` — the id a user types into `--repair`. The family is the name of the
  * directory the file lives in, without its leading dot, so the id follows whatever layout the host
  * composed rather than a product name written here.
  */
 export function settingsCheckId(source: TSettingsSource): string {
   const path = source.kind === 'host' ? source.path : source.relativePath;
-  const family = basename(dirname(path)).replace(/^\./, '');
-  return `settings.${source.scope}.${family}`;
+  return `settings.${source.scope}.${settingsDirectoryName(path)}`;
 }
 
 /** The check id of the host's own user settings file — the settings repair target. */

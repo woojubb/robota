@@ -6,7 +6,6 @@ import { createCompactCommandModule } from '../compact/index.js';
 import { createContextCommandModule } from '../context/index.js';
 import { createDevicesCommandModule } from '../devices/index.js';
 import { createDoctorCommandModule } from '../doctor/index.js';
-import { createEditorCommandModule } from '../editor/index.js';
 import { createAdvisorCommandModule } from '../advisor/index.js';
 import { createEffortCommandModule } from '../effort/index.js';
 import { createExitCommandModule } from '../exit/index.js';
@@ -37,16 +36,15 @@ import { createRewindCommandModule } from '../rewind/index.js';
 import { createScheduleCommandModule } from '../schedule/index.js';
 import { createSessionCommandModule } from '../session/index.js';
 import { createSettingsCommandModule } from '../settings/index.js';
-import { createShellCommandModule } from '../shell/index.js';
 import { createSkillsCommandModule } from '../skills/index.js';
 import { createStatusLineCommandModule } from '../statusline/index.js';
 import { createThemeCommandModule } from '../theme/index.js';
 import { createUserLocalCommandModule } from '../user-local/index.js';
 
 import type { IDevicesCommandPort } from '../devices/index.js';
-import type { IDoctorDisplayVocabulary, IDoctorInputs } from '../doctor/index.js';
+import type { IDoctorDeps, IDoctorDisplayVocabulary, IDoctorInputs } from '../doctor/index.js';
 import type { IKeyCustodyCommandPort } from '../key-custody/index.js';
-import type { IKeybindingsFilePort } from '../keybindings/index.js';
+import type { IKeybindingsFilePort, TOpenFileInEditor } from '../keybindings/index.js';
 import type { IProviderDefinition, TProviderCredentialResolver } from '@robota-sdk/agent-core';
 import type {
   IOrgPolicy,
@@ -63,8 +61,6 @@ import type { IThemeCataloguePort } from '@robota-sdk/agent-interface-command';
 export interface IDefaultCommandModulesOptions {
   cwd: string;
   userLocalStorageRoot: string;
-  /** Product-owned prefix for the interactive editor's temporary directory. */
-  editorTemporaryDirectoryPrefix?: string;
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
   providerDefinitions: readonly IProviderDefinition[];
@@ -91,6 +87,11 @@ export interface IDefaultCommandModulesOptions {
   /** Optional TUI-owned file capability; absent, `/keybindings` says it belongs to an interactive terminal. */
   keybindingsFilePort?: IKeybindingsFilePort;
   /**
+   * How `/keybindings` opens that file in the user's editor; a Node host passes `openFileInEditor`
+   * from `@robota-sdk/agent-command/node`. Absent, `/keybindings` says it cannot open an editor here.
+   */
+  keybindingsEditor?: TOpenFileInEditor;
+  /**
    * SCREEN-2002: the surface's theme catalogue. Absent (print mode, `--serve`), `/theme` is still
    * listed and says it belongs to an interactive terminal, which runs it when attached.
    */
@@ -108,6 +109,11 @@ export interface IDefaultCommandModulesOptions {
   keyCustodyPort?: IKeyCustodyCommandPort;
   /** OBSERVABILITY-1991: host-composed doctor inputs; absence means `/doctor` is not registered. */
   doctorInputs?: IDoctorInputs;
+  /**
+   * The probes and writers `/doctor` runs through; a Node host passes `createNodeDoctorDeps` from
+   * `@robota-sdk/agent-command/node`. Absent, `/doctor` is registered and says it is unavailable.
+   */
+  doctorDeps?: IDoctorDeps;
   /** Product-owned diagnostic wording; absent keeps `/doctor` product-neutral. */
   doctorDisplay?: IDoctorDisplayVocabulary;
   /** Product-owned command to resume a saved fork; absent yields neutral host guidance. */
@@ -157,17 +163,18 @@ export interface IDefaultCommandModulesResult {
 export function createDefaultCommandModules({
   cwd: _cwd,
   userLocalStorageRoot,
-  editorTemporaryDirectoryPrefix,
   contributionSources,
   skillRoots,
   providerDefinitions,
   providerSettingsAdapter,
   orgPolicy,
   keybindingsFilePort,
+  keybindingsEditor,
   themeCataloguePort,
   devicesPort,
   keyCustodyPort,
   doctorInputs,
+  doctorDeps,
   doctorDisplay,
   formatForkResumeCommand,
   loopOptions,
@@ -195,14 +202,12 @@ export function createDefaultCommandModules({
     createForkCommandModule(formatForkResumeCommand),
     createGoalCommandModule(),
     createPlanCommandModule(),
-    createShellCommandModule(),
-    createEditorCommandModule(editorTemporaryDirectoryPrefix),
     createGitCommandModule(),
-    createKeybindingsCommandModule(keybindingsFilePort),
+    createKeybindingsCommandModule(keybindingsFilePort, keybindingsEditor),
     createThemeCommandModule(themeCataloguePort),
     ...(doctorInputs === undefined
       ? []
-      : [createDoctorCommandModule(doctorInputs, undefined, doctorDisplay)]),
+      : [createDoctorCommandModule(doctorInputs, doctorDeps, doctorDisplay)]),
     createMemoryCommandModule(),
     createMCPActivationCommandModule(),
     createUserLocalCommandModule(userLocalStorageRoot),

@@ -1,6 +1,3 @@
-import { resolveEditor } from '../editor/resolve-editor.js';
-import { spawnInherited } from '../shell/spawn-inherited.js';
-
 import type {
   ICommandHostTerminalHandoff,
   ICommandHostWorkspace,
@@ -12,6 +9,13 @@ import type { ICommand, ICommandResult, ICommandSource } from '@robota-sdk/agent
 export interface IKeybindingsFilePort {
   ensureFile(): Promise<string>;
 }
+
+/**
+ * Opens `path` in the user's editor on the terminal the command holds, and resolves with the editor's
+ * exit code. Starting a process is the host's, so a Node host passes `openFileInEditor` from
+ * `@robota-sdk/agent-command/node`; without one the command says it cannot open an editor here.
+ */
+export type TOpenFileInEditor = (path: string, cwd: string) => Promise<number>;
 
 export function createKeybindingsCommandEntry(): ICommand {
   return {
@@ -36,16 +40,14 @@ const KEYBINDINGS_UNAVAILABLE =
 export async function executeKeybindingsCommand(
   file: IKeybindingsFilePort | undefined,
   context: ICommandHostTerminalHandoff & ICommandHostWorkspace,
+  openInEditor: TOpenFileInEditor | undefined,
 ): Promise<ICommandResult> {
   if (!file) return { success: false, message: KEYBINDINGS_UNAVAILABLE };
-  if (!context.canHandoffTerminal()) {
+  if (!context.canHandoffTerminal() || openInEditor === undefined) {
     return { success: false, message: 'Keybindings editor is unavailable here.' };
   }
   const path = await file.ensureFile();
-  const editor = resolveEditor();
-  const exitCode = await context.runWithTerminal(() =>
-    spawnInherited(editor.command, [...editor.args, path], context.getCwd()),
-  );
+  const exitCode = await context.runWithTerminal(() => openInEditor(path, context.getCwd()));
   if (exitCode !== 0) {
     return {
       success: false,
@@ -66,6 +68,7 @@ export class KeybindingsCommandSource implements ICommandSource {
 
 export function createKeybindingsCommandModule(
   file: IKeybindingsFilePort | undefined,
+  openInEditor?: TOpenFileInEditor,
 ): ICommandModule {
   const entry = createKeybindingsCommandEntry();
   const command: ISystemCommand = {
@@ -78,7 +81,7 @@ export function createKeybindingsCommandModule(
     runner: entry.runner,
     surfaces: entry.surfaces,
     lifecycle: 'inline',
-    execute: (context) => executeKeybindingsCommand(file, context),
+    execute: (context) => executeKeybindingsCommand(file, context, openInEditor),
   };
   return {
     name: 'agent-command-keybindings',

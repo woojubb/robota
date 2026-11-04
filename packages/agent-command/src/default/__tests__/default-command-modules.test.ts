@@ -2,7 +2,9 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it, onTestFinished } from 'vitest';
+
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
@@ -10,6 +12,9 @@ import type {
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
 
+import { createDoctorFixture } from '../../doctor/__tests__/doctor-fixture.js';
+import { createEditorCommandModule } from '../../editor/index.js';
+import { createShellCommandModule } from '../../shell/index.js';
 import { createDefaultCommandModules } from '../default-command-modules.js';
 
 /** User-local storage lives in a private per-run directory, never a fixed name under /tmp. */
@@ -53,12 +58,13 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
 
   it('TC-04: neither enabled nor disabled given → full default set unchanged (no-regression)', () => {
     const names = moduleNames(baseOptions);
-    // No-regression: the default set length is the documented 32 modules (SELFHOST-002 added
+    // No-regression: the default set length is the documented 37 modules (SELFHOST-002 added
     // `/plan`; PEER-004 added `/peers`; CLI-1994 added `/fork`; MCP-2520 added `/mcp`; CLI-1988 added
     // `/output-style`; FLOW-008 added `/effort`; `/advisor` joined beside it; #3282 §2 added `/model`).
     // The list below is the assertion that matters — a length on its own can be restored by any
     // substitution, and the count exists only to catch an addition that also removed something.
-    expect(names).toHaveLength(39);
+    // `/shell` and `/editor` are host commands on `./node`, which a Node product adds beside this set.
+    expect(names).toHaveLength(37);
     expect(names).toEqual([
       'agent-command-skills',
       'agent-command-help',
@@ -76,8 +82,6 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
       'agent-command-fork',
       'agent-command-goal',
       'agent-command-plan',
-      'agent-command-shell',
-      'agent-command-editor',
       'agent-command-git',
       'agent-command-keybindings',
       'agent-command-theme',
@@ -103,6 +107,34 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     ]);
   });
 
+  it('builds no host command: `/shell` and `/editor` are on ./node, a Node product adds them', () => {
+    const names = moduleNames(baseOptions);
+    expect(names).not.toContain('agent-command-shell');
+    expect(names).not.toContain('agent-command-editor');
+    expect(createShellCommandModule().name).toBe('agent-command-shell');
+    expect(createEditorCommandModule().name).toBe('agent-command-editor');
+  });
+
+  it('lists /doctor once the host composed its inputs, and runs it only through the probes the host supplies', async () => {
+    const fixture = createDoctorFixture({ env: {} });
+    onTestFinished(() => fixture.cleanup());
+    const doctorOf = (options: Partial<Parameters<typeof createDefaultCommandModules>[0]>) =>
+      createDefaultCommandModules({ ...baseOptions, ...options })
+        .modules.flatMap((module) => module.systemCommands ?? [])
+        .find((command) => command.name === 'doctor');
+
+    expect(doctorOf({})).toBeUndefined();
+    const withoutProbes = doctorOf({ doctorInputs: fixture.inputs });
+    expect(withoutProbes).toBeDefined();
+    expect(await withoutProbes!.execute(createTestCommandHost(), '')).toMatchObject({
+      success: false,
+      message: expect.stringMatching(/unavailable on this host/),
+    });
+    const withProbes = doctorOf({ doctorInputs: fixture.inputs, doctorDeps: fixture.deps });
+    const report = await withProbes!.execute(createTestCommandHost(), '');
+    expect(report.message).not.toMatch(/unavailable on this host/);
+  });
+
   it('TC-01: enabledCommandModules whitelist keeps exactly the listed module names', () => {
     const names = moduleNames({ ...baseOptions, enabledCommandModules: [HELP, AGENT] });
     expect(new Set(names)).toEqual(new Set([HELP, AGENT]));
@@ -122,7 +154,12 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
   });
 
   it('#3189: exactly /editor, /keybindings, /shell and /theme run on the terminal client', () => {
-    const { modules } = createDefaultCommandModules(baseOptions);
+    // `/shell` and `/editor` are host commands on `./node`: a Node product adds them to the default set.
+    const modules = [
+      ...createDefaultCommandModules(baseOptions).modules,
+      createShellCommandModule(),
+      createEditorCommandModule(),
+    ];
     const TERMINAL_CLIENT = ['editor', 'keybindings', 'shell', 'theme'];
 
     // The executable commands: what the runtime keeps in its catalog and what the listing reads.
@@ -196,12 +233,12 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
   it('INFRA-032: an unknown disabled name (short form) is reported as unknown', () => {
     const result = createDefaultCommandModules({
       ...baseOptions,
-      disabledCommandModules: ['editor'],
+      disabledCommandModules: ['plan'],
     });
-    // The short form "editor" matches no module name (agent-command-editor stays enabled)…
-    expect(result.modules.map((module) => module.name)).toContain('agent-command-editor');
+    // The short form "plan" matches no module name (agent-command-plan stays enabled)…
+    expect(result.modules.map((module) => module.name)).toContain('agent-command-plan');
     // …and is surfaced rather than silently ignored.
-    expect(result.unknownModuleNames).toEqual([{ name: 'editor', kind: 'disabled' }]);
+    expect(result.unknownModuleNames).toEqual([{ name: 'plan', kind: 'disabled' }]);
   });
 
   it('INFRA-032: all names matching → unknownModuleNames is empty', () => {

@@ -29,6 +29,14 @@ non-fatal notice instead of failing closed or pretending the name took effect. S
 consumes only the explicit contribution sources and ordered skill/command roots it is given; it never
 selects product directories or reconstructs project reads from `cwd`.
 
+**Host commands (`./node`).** A command whose whole purpose is the host — `/shell` and `/editor` hand the
+user's terminal to a child process — lives on `@robota-sdk/agent-command/node`, and so do the adapters
+a command takes by injection. The main entry names no Node module, and the default assembly builds no
+host command: a Node product adds them beside it, so a host that is not Node never lists a command it
+cannot run. A command that needs a host capability for part of its work takes that capability as a
+port; without it the command is still listed and says it is unavailable there, rather than failing or
+claiming work it did not do.
+
 **User-local commands.** The direct command and the assembled slash command share the host-supplied
 storage root for inspection and memory operations; neither chooses a home directory itself when the
 host omits that root, and memory curation preserves the user's control across authenticated attached
@@ -55,14 +63,17 @@ themselves return facts, never raw file content. Repair is a closed, product-neu
 repair is planned, confirmed through the caller's prompt, then **re-planned immediately before
 writing** and refused if the id is unknown, the state is not repairable, the state changed since
 planning, or the check is already clean — in every refusal case, nothing is written. The doctor
-performs no write of its own outside an explicit, confirmed repair.
+performs no write of its own outside an explicit, confirmed repair, and every probe and writer it runs
+through is the host's (`IDoctorDeps`): on a host that supplies none, `/doctor` says it is unavailable
+instead of reporting checks it never ran.
 Report titles, product-readiness summaries, repair command text, and provider/trust remediation
 are host-selected display vocabulary. Without host wording, diagnostics stay product-neutral. The
 same report data and repair decisions are used by slash and shell routes.
 
 **`/keybindings`.** The command knows nothing about the keybindings schema, defaults, contexts,
 watcher, or TUI implementation — it only asks an injected capability port to ensure the user document
-and hands back the returned path. Key bindings belong to the terminal the user sits at, so that
+and an injected opener to show the returned path in the user's editor; without the opener it answers
+that no editor can be opened here and creates no file. Key bindings belong to the terminal the user sits at, so that
 terminal runs the command: one attached to a workspace daemon runs it in its own process, never on
 the daemon, and does so even without the port, so a missing port cannot send it there. Without that
 port the command still exists and answers that key bindings belong to the configured CLI terminal, so a host
