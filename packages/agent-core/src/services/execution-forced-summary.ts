@@ -1,3 +1,4 @@
+import { RUN_INSTRUCTION_METADATA_KEY } from '../interfaces/messages';
 import { announceAppend, observeExecutionCleanup } from './execution-event-helpers';
 import { captureExecutionCheckpoint } from './execution-checkpoint';
 import { callJournaledProvider } from './execution-journal';
@@ -81,6 +82,9 @@ export async function forceSummaryCall(
         content: syntheticMsg,
         state: 'complete' as const,
         timestamp: new Date(),
+        // An instruction inside the running turn, not a prompt: a provider that finds the turn's
+        // start from the last user message must not take this for it.
+        metadata: { [RUN_INSTRUCTION_METADATA_KEY]: true },
       },
     ];
     const systemMsg = config.systemMessage ?? '';

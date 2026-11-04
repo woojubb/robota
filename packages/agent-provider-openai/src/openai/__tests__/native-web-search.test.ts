@@ -645,8 +645,9 @@ describe('sending a searching reply back', () => {
   async function inputAfter(
     { provider, create }: ReturnType<typeof setup>,
     history: TUniversalMessage[],
+    chatOptions: IChatOptions = {},
   ): Promise<Array<Record<string, unknown>>> {
-    await provider.chat(history, { tools: [lookupTool] });
+    await provider.chat(history, { tools: [lookupTool], ...chatOptions });
     return (create.mock.calls.at(-1)?.[0] as { input: Array<Record<string, unknown>> }).input;
   }
 
@@ -713,9 +714,8 @@ describe('sending a searching reply back', () => {
     const first = await firstReply(target, { onTextDelta: (delta) => deltas.push(delta) });
 
     expect(deltas).toEqual(['Looking.']);
-    expect(first.metadata?.[PROVIDER_CONTINUATION_METADATA_KEY]).toBe(
-      JSON.stringify({ openaiOutput: SEARCHING_OUTPUT }),
-    );
+    const recorded = first.metadata?.[PROVIDER_CONTINUATION_METADATA_KEY] as string;
+    expect(JSON.parse(recorded).openaiOutput).toEqual(SEARCHING_OUTPUT);
     expect(await inputAfter(target, [...messages, first, toolResult])).toEqual([
       expect.objectContaining({ role: 'user' }),
       ...SEARCHING_OUTPUT,
@@ -804,41 +804,34 @@ describe('sending a searching reply back', () => {
   });
 
   describe('a recorded reply the conversation no longer agrees with', () => {
-    const continuation = JSON.stringify({ openaiOutput: SEARCHING_OUTPUT });
+    /** A real reply, changed after it was recorded, sent back on the instance that recorded it. */
+    async function inputWith(
+      change: (reply: IAssistantMessage) => IAssistantMessage,
+    ): Promise<Array<Record<string, unknown>>> {
+      const target = setup(searching(), searchingReply());
+      const first = await firstReply(target);
+      return inputAfter(target, [...messages, change(first), toolResult]);
+    }
 
-    function recorded(
-      change: Record<string, unknown> = {},
-      encoded: string = continuation,
-    ): TUniversalMessage {
+    function withContinuation(reply: IAssistantMessage, encoded: string): IAssistantMessage {
       return {
-        id: 'a1',
-        role: 'assistant',
-        content: 'Looking.',
-        state: 'complete',
-        timestamp: new Date(),
-        toolCalls: [
-          {
-            id: 'call_1',
-            type: 'function',
-            function: { name: 'lookup', arguments: '{"key":"a"}' },
-          },
-        ],
-        metadata: { [PROVIDER_CONTINUATION_METADATA_KEY]: encoded },
-        ...change,
-      } as TUniversalMessage;
+        ...reply,
+        metadata: { ...reply.metadata, [PROVIDER_CONTINUATION_METADATA_KEY]: encoded },
+      };
     }
 
     it('goes back whole while it still agrees', async () => {
-      const input = await inputAfter(setup(searching()), [...messages, recorded(), toolResult]);
+      const input = await inputWith((reply) => reply);
 
       expect(input).toContainEqual(SEARCH);
     });
 
-    it.each([
-      ['text', recorded({ content: 'edited' })],
+    it.each<[string, (reply: IAssistantMessage) => IAssistantMessage]>([
+      ['text', (reply) => ({ ...reply, content: 'edited' })],
       [
         'call arguments',
-        recorded({
+        (reply) => ({
+          ...reply,
           toolCalls: [
             {
               id: 'call_1',
@@ -848,10 +841,18 @@ describe('sending a searching reply back', () => {
           ],
         }),
       ],
-      ['owner', recorded({}, '{"geminiParts":[]}')],
-      ['encoding', recorded({}, 'not json')],
-    ])('is rebuilt when its %s differs', async (_label, message) => {
-      const input = await inputAfter(setup(searching()), [...messages, message, toolResult]);
+      ['owner', (reply) => withContinuation(reply, '{"geminiParts":[]}')],
+      [
+        'scope',
+        (reply) =>
+          withContinuation(
+            reply,
+            JSON.stringify({ replayScope: 'another/gpt-4o', openaiOutput: SEARCHING_OUTPUT }),
+          ),
+      ],
+      ['encoding', (reply) => withContinuation(reply, 'not json')],
+    ])('is rebuilt when its %s differs', async (_label, change) => {
+      const input = await inputWith(change);
 
       expect(input.map((item) => item['type'])).not.toContain('web_search_call');
       expect(input.map((item) => item['type'])).not.toContain('reasoning');
@@ -859,5 +860,67 @@ describe('sending a searching reply back', () => {
         expect.objectContaining({ type: 'function_call', call_id: 'call_1' }),
       );
     });
+  });
+
+  describe('a reply recorded for another sender', () => {
+    const rebuilt = [{ role: 'user', content: 'hello' }, ...REBUILT, toolOutput];
+    const whole = [{ role: 'user', content: 'hello' }, ...SEARCHING_OUTPUT, toolOutput];
+
+    it('is rebuilt on another model, and goes back whole on the model that recorded it', async () => {
+      const target = setup(searching(), searchingReply());
+      const first = await firstReply(target);
+      const history = [...messages, first, toolResult];
+
+      expect(await inputAfter(target, history, { model: 'gpt-4.1' })).toEqual(rebuilt);
+      expect((target.create.mock.calls.at(-1)?.[0] as { model: string }).model).toBe('gpt-4.1');
+      expect(await inputAfter(target, history, { model: 'gpt-4o' })).toEqual(whole);
+    });
+
+    it("is rebuilt by another provider instance: another profile's account, or a restarted process", async () => {
+      const recorder = setup(searching(), searchingReply());
+      const first = await firstReply(recorder);
+      const history = [...messages, first, toolResult];
+
+      expect(await inputAfter(setup(searching()), history)).toEqual(rebuilt);
+      expect(await inputAfter(recorder, history)).toEqual(whole);
+    });
+  });
+
+  it('sends the reply whole to the forced summary that ends the tool loop', async () => {
+    // The summary's instruction is added by the run inside the turn, so it is not a new prompt.
+    const target = setup(searching());
+    target.create
+      .mockResolvedValueOnce(
+        eventsFrom([
+          { type: 'response.output_text.delta', delta: 'Looking.' },
+          { type: 'response.completed', response: searchingReply() },
+        ]),
+      )
+      .mockResolvedValueOnce(
+        eventsFrom([
+          { type: 'response.output_text.delta', delta: 'Summary.' },
+          { type: 'response.completed', response: completedResponse() },
+        ]),
+      );
+    const agent = new ConversationAgent({
+      name: 'wire',
+      aiProviders: [target.provider],
+      defaultModel: { provider: target.provider.name, model: 'gpt-4o' },
+      tools: [new LookupTool()],
+    });
+
+    await agent.run('What changed in Node 24?', { maxExecutionRounds: 1 });
+
+    expect(target.create).toHaveBeenCalledTimes(2);
+    const request = target.create.mock.calls[1]?.[0] as TRequest & { input: unknown[] };
+    const start = request.input.findIndex(
+      (item) => (item as { type?: string }).type === 'reasoning',
+    );
+    expect(request.input.slice(start, start + SEARCHING_OUTPUT.length)).toEqual(SEARCHING_OUTPUT);
+    expect(request.input.slice(start + SEARCHING_OUTPUT.length)).toEqual([
+      toolOutput,
+      { role: 'user', content: expect.stringContaining('Tool round limit reached') },
+    ]);
+    expect(request.tools ?? []).not.toContainEqual(WEB_SEARCH_TOOL);
   });
 });

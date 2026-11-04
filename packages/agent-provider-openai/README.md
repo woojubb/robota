@@ -148,10 +148,12 @@ When the request carried the tool, the result's `metadata` has `providerBuiltInT
 reply text already holds them inline).
 
 A reply that searched and called a function goes back whole on the requests that finish its turn,
-because the search results exist only on OpenAI's side, named by those items. Later turns read that
-reply from its text. With `store: false`, or when a response says it was not stored, OpenAI has no
-such items to find, so the reply is rebuilt from its text and the model can lose what it found once a
-function call follows.
+because the search results exist only on OpenAI's side, named by those items. They belong to the
+account and model that made them, so only the provider instance that recorded the reply sends it back,
+on the same model. A later turn, a fallback to another model or profile and a resumed session read that
+reply from its text, as does a reply under `store: false` or whose response says it was not stored,
+where OpenAI has no items to find. In those cases the model can lose what it found once a function
+call follows.
 
 A provider profile built through `createOpenAIProviderDefinition()` turns search on with the same
 option, `"options": { "nativeWebTools": { "webSearch": true } }`. The value is read strictly: another

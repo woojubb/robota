@@ -44,12 +44,16 @@ export interface IOpenAIResponsesChatOptions {
   onTextDelta?: TTextDeltaCallback;
   /** Per-request headers (trusted `traceparent`), sent after the raw request payload is captured. */
   requestHeaders?: Readonly<Record<string, string>>;
+  /** Names the provider instance, so a reply's items are sent back only by the one that recorded them. */
+  replayOwner: string;
 }
 
-/** A request's wire body, with the one decision about its tools the response parser also needs. */
+/** A request's wire body, with the decisions about it the response parser also needs. */
 interface IResponsesRequest<TParams> {
   params: TParams;
   hostedWebSearch: boolean;
+  /** Who may send this reply's items back: this instance on this model. Absent when unstored. */
+  replayScope: string | undefined;
 }
 
 interface IResponsesStreamMessageQueue {
@@ -78,7 +82,7 @@ export async function chatWithOpenAIResponsesApi(
   }
 
   try {
-    const { params: requestParams, hostedWebSearch } = buildResponsesRequest(input);
+    const { params: requestParams, hostedWebSearch, replayScope } = buildResponsesRequest(input);
     input.chatOptions?.onProviderNativeRawPayload?.({
       provider: 'openai',
       apiSurface: 'responses',
@@ -96,10 +100,7 @@ export async function chatWithOpenAIResponsesApi(
       payload: response,
     });
     return withProviderRequestId(
-      parseOpenAIResponsesResponse(response, {
-        hostedWebSearch,
-        store: input.providerOptions.store,
-      }),
+      parseOpenAIResponsesResponse(response, { hostedWebSearch, replayScope }),
       readOpenAIRequestId(response),
     );
   } catch (error) {
@@ -137,7 +138,11 @@ async function chatWithOpenAIResponsesStreamingAssembly(
   }
 
   try {
-    const { params: requestParams, hostedWebSearch } = buildResponsesStreamingRequest(input);
+    const {
+      params: requestParams,
+      hostedWebSearch,
+      replayScope,
+    } = buildResponsesStreamingRequest(input);
     input.chatOptions?.onProviderNativeRawPayload?.({
       provider: 'openai',
       apiSurface: 'responses',
@@ -163,7 +168,7 @@ async function chatWithOpenAIResponsesStreamingAssembly(
       onThinkingDelta: input.chatOptions?.onThinkingDelta,
       signal: input.chatOptions?.signal,
       hostedWebSearch,
-      store: input.providerOptions.store,
+      replayScope,
     });
     return withProviderRequestId(assembled, providerRequestId);
   } catch (error) {
@@ -181,6 +186,9 @@ function buildResponsesRequest(
     );
   }
 
+  // OpenAI has no items for an unstored response, so there is nothing to send back for one.
+  const replayScope =
+    input.providerOptions.store === false ? undefined : `${input.replayOwner}/${model}`;
   const textConfig = buildOpenAIResponsesTextConfig(input.providerOptions);
   // Native effort mapping: thread the per-call reasoning-effort dial onto the Responses
   // API `reasoning.effort` parameter, merged with any static reasoning options.
@@ -206,7 +214,7 @@ function buildResponsesRequest(
     ...extraBodyWire(input.extraBody),
     model,
     ...parallelToolCallsWire(input.parallelToolCalls),
-    input: convertToOpenAIResponsesInput(input.messages),
+    input: convertToOpenAIResponsesInput(input.messages, replayScope),
     ...(tools !== undefined && {
       tools,
       tool_choice: toOpenAIResponsesToolChoice(input.chatOptions?.toolChoice),
@@ -226,14 +234,14 @@ function buildResponsesRequest(
     }),
     ...(input.providerOptions.store !== undefined && { store: input.providerOptions.store }),
   };
-  return { params, hostedWebSearch };
+  return { params, hostedWebSearch, replayScope };
 }
 
 function buildResponsesStreamingRequest(
   input: IOpenAIResponsesChatOptions,
 ): IResponsesRequest<IOpenAIResponsesRequestStreaming> {
-  const { params, hostedWebSearch } = buildResponsesRequest(input);
-  return { params: { ...params, stream: true }, hostedWebSearch };
+  const { params, ...request } = buildResponsesRequest(input);
+  return { params: { ...params, stream: true }, ...request };
 }
 
 function createStreamDeltaMessage(delta: string): TUniversalMessage {

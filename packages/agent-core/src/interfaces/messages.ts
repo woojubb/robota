@@ -29,6 +29,13 @@ export type TUniversalMessageMetadata = Record<
 export const PROVIDER_CONTINUATION_METADATA_KEY = 'providerContinuation';
 
 /**
+ * Metadata key marking a user-role message the run itself added to one request: an instruction
+ * inside a running turn, not a new prompt. A provider that reads the last user message as where the
+ * turn starts skips a message marked with it.
+ */
+export const RUN_INSTRUCTION_METADATA_KEY = 'runInstruction';
+
+/**
  * Universal multimodal message part contracts.
  */
 export interface ITextMessagePart {

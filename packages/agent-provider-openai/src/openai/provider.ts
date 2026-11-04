@@ -50,6 +50,10 @@ export class OpenAIProvider extends AbstractAIProvider {
   private readonly extraBody: TOpenAIExtraBody | undefined;
   private readonly payloadLogger: IPayloadLogger | undefined;
   private readonly responseParser: OpenAIResponseParser;
+  // A reply's items belong to the account that made them and OpenAI keeps them for a limited time,
+  // so only the instance that recorded them sends them back, which also leaves out a process that
+  // restarted.
+  private readonly replayOwner = randomUUID();
 
   /**
    * Optional callback for text deltas during streaming.
@@ -128,6 +132,7 @@ export class OpenAIProvider extends AbstractAIProvider {
         extraBody: this.extraBody,
         onTextDelta: this.onTextDelta,
         requestHeaders: this.traceRequestHeaders(resolvedOptions),
+        replayOwner: this.replayOwner,
       });
       this.publishModelEffortOutcome(resolvedOptions);
       return response;
@@ -201,6 +206,7 @@ export class OpenAIProvider extends AbstractAIProvider {
         extraBody: this.extraBody,
         onTextDelta: this.onTextDelta,
         requestHeaders: this.traceRequestHeaders(resolvedOptions),
+        replayOwner: this.replayOwner,
       });
       this.publishModelEffortOutcome(resolvedOptions);
       return;

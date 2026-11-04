@@ -199,7 +199,7 @@ Provider packages own their native SDK request/response/stream objects and repor
 
 ## Provider Continuation
 
-A provider may set opaque text on its response under `PROVIDER_CONTINUATION_METADATA_KEY` for what it needs back on a later request to continue that reply, such as a vendor's signed reasoning. It is the one piece of a response's provider metadata the committed assistant message keeps, because the provider stays stateless and a resumed or replayed session must carry it; this package never reads it, and a provider that did not write it ignores it.
+A provider may set opaque text on its response under `PROVIDER_CONTINUATION_METADATA_KEY` for what it needs back on a later request to continue that reply, such as a vendor's signed reasoning. It is the one piece of a response's provider metadata the committed assistant message keeps, because the provider stays stateless and a resumed or replayed session must carry it; this package never reads it, and a provider that did not write it ignores it. A user-role message the run itself adds to one request, such as the forced summary's instruction, carries `RUN_INSTRUCTION_METADATA_KEY`, so a provider that reads the last user message as where the turn starts does not mistake it for a prompt.
 
 ## Trusted Trace Context
 

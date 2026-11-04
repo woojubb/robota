@@ -43,8 +43,8 @@ type TResponsesMessageUsage = Omit<ITokenUsageWithCacheRead, 'totalTokens'> &
 /** What the request that produced the response carried, which decides what its metadata may claim. */
 interface IOpenAIResponsesParseOptions {
   hostedWebSearch?: boolean;
-  /** The request's `store` option: an unstored reply leaves OpenAI nothing to find if it is sent back. */
-  store?: boolean;
+  /** Who may send the reply's items back (see `encodeResponsesContinuation`); absent for an unstored request. */
+  replayScope?: string;
 }
 
 interface IOpenAIResponsesStreamAssemblyOptions extends IOpenAIResponsesParseOptions {
@@ -94,7 +94,7 @@ export function parseOpenAIResponsesResponse(
     response,
     reasoning: collectReasoningMetadata(output),
     hostedWebSearch: options?.hostedWebSearch === true,
-    store: options?.store,
+    replayScope: options?.replayScope,
     webSearch: collectWebSearchUsage(output),
   });
 }
@@ -238,7 +238,7 @@ function buildMessageFromCompletedResponse(
     response,
     reasoning,
     hostedWebSearch: options.hostedWebSearch === true,
-    store: options.store,
+    replayScope: options.replayScope,
     webSearch: state.webSearch,
   });
 }
@@ -249,7 +249,7 @@ function buildAssistantMessage(input: {
   response?: IOpenAIResponsesResponse;
   reasoning: IOpenAIResponsesReasoningMetadata;
   hostedWebSearch: boolean;
-  store?: boolean;
+  replayScope?: string;
   webSearch: IOpenAIWebSearchUsage;
 }): TUniversalMessage {
   return {
@@ -266,7 +266,7 @@ function buildAssistantMessage(input: {
         input.reasoning,
         input.hostedWebSearch,
         input.webSearch,
-        input.store,
+        input.replayScope,
       ),
       ...(input.response?.usage !== undefined && {
         usageProvenance:
@@ -285,9 +285,9 @@ function buildMetadata(
   reasoning: IOpenAIResponsesReasoningMetadata,
   hostedWebSearch: boolean,
   webSearch: IOpenAIWebSearchUsage,
-  store: boolean | undefined,
+  replayScope: string | undefined,
 ): NonNullable<TUniversalMessage['metadata']> {
-  const continuation = encodeResponsesContinuation(response, store);
+  const continuation = encodeResponsesContinuation(response, replayScope);
   return {
     providerApiSurface: 'responses',
     ...(response?.id !== undefined && { responseId: response.id }),
@@ -306,35 +306,40 @@ function buildMetadata(
 /**
  * The reply's own output items, for the next request to send back as they came: hosted search
  * results exist only on OpenAI's side, named by these items, and a search item is refused without
- * its reasoning item, so the reply goes back whole. A reply with no function call ends its turn and
- * is never sent back in-turn; an unstored one has no items on OpenAI's side to find.
+ * its reasoning item, so the reply goes back whole. They are recorded with the scope that may send
+ * them back, because they belong to the account and model that made them. A reply with no function
+ * call ends its turn and is never sent back in-turn; an unstored one has no items on OpenAI's side
+ * to find.
  */
 function encodeResponsesContinuation(
   response: IOpenAIResponsesResponse | undefined,
-  store: boolean | undefined,
+  replayScope: string | undefined,
 ): string | undefined {
   const output = response?.output ?? [];
   const searchedAndCalled =
     output.some(isWebSearchCallItem) && output.some(isFunctionCallOutputItem);
-  if (!searchedAndCalled || store === false || response?.store === false) {
+  if (replayScope === undefined || response?.store === false || !searchedAndCalled) {
     return undefined;
   }
-  return JSON.stringify({ openaiOutput: output });
+  return JSON.stringify({ replayScope, openaiOutput: output });
 }
 
 /**
  * The output items to send back for a message, or undefined to rebuild it from the message. A
- * continuation from another provider, or items that no longer say what the message says because
- * something rewrote it, are not sent: the message is what the conversation holds.
+ * continuation from another provider, one recorded under another replay scope (another model, or
+ * another provider instance, whose account, retention and restarts the items do not share), or items
+ * that no longer say what the message says because something rewrote it, are not sent: the message
+ * is what the conversation holds.
  */
 export function decodeResponsesContinuation(
   message: IAssistantMessage,
+  replayScope: string,
 ): TOpenAIResponsesOutputItem[] | undefined {
   const encoded = message.metadata?.[PROVIDER_CONTINUATION_METADATA_KEY];
   if (typeof encoded !== 'string') {
     return undefined;
   }
-  const output = parseOpenAIOutput(encoded);
+  const output = parseOpenAIOutput(encoded, replayScope);
   if (output === undefined) {
     return undefined;
   }
@@ -353,10 +358,13 @@ export function decodeResponsesContinuation(
   return extractMessageText(output) === (message.content ?? '') && sameCalls ? output : undefined;
 }
 
-function parseOpenAIOutput(encoded: string): TOpenAIResponsesOutputItem[] | undefined {
+function parseOpenAIOutput(
+  encoded: string,
+  replayScope: string,
+): TOpenAIResponsesOutputItem[] | undefined {
   try {
-    const parsed = JSON.parse(encoded) as { openaiOutput?: unknown };
-    return Array.isArray(parsed.openaiOutput)
+    const parsed = JSON.parse(encoded) as { replayScope?: unknown; openaiOutput?: unknown };
+    return parsed.replayScope === replayScope && Array.isArray(parsed.openaiOutput)
       ? (parsed.openaiOutput as TOpenAIResponsesOutputItem[])
       : undefined;
   } catch {
