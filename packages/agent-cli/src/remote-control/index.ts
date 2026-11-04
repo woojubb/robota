@@ -6,7 +6,7 @@ import { createHostCredentialStore } from '../credentials/select-credential-stor
 import { userLocalStorageRoot } from '../product/user-paths.js';
 import { loadOrCreateHostIdentity } from './host-identity.js';
 import { parseIceServers } from './ice-config.js';
-import { createTerminalOperatorApprover, type ITerminalHandoffHost } from './operator-approval.js';
+import { createTerminalOperatorApprover, terminalHandoffHostOf } from './operator-approval.js';
 import { renderQrToTerminal } from './render-qr.js';
 import { readWebrtcOption, readWebrtcRawOption } from './webrtc-settings.js';
 import { RemoteControlController } from './remote-control-controller.js';
@@ -32,20 +32,6 @@ interface ILiveChannel {
 
 export { RemoteControlController } from './remote-control-controller.js';
 export type { IRemoteControlControllerDeps } from './remote-control-controller.js';
-
-/** The live session's terminal hand-off, when the session has one. */
-function terminalHandoffHostOf(
-  session: IInteractiveSession | undefined,
-): ITerminalHandoffHost | undefined {
-  const candidate = session as Partial<ITerminalHandoffHost> | undefined;
-  if (
-    typeof candidate?.canHandoffTerminal !== 'function' ||
-    typeof candidate.runWithTerminal !== 'function'
-  ) {
-    return undefined;
-  }
-  return candidate as ITerminalHandoffHost;
-}
 
 /**
  * Build the `/remote-control` controller at the composition root. The returned `setChannel` is called from
