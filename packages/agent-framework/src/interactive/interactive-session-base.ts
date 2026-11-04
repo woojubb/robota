@@ -101,8 +101,6 @@ export abstract class InteractiveSessionBase {
   protected abstract ensureInitialized(): Promise<void>;
   protected abstract getCwd(): string;
   protected abstract getProjectAccess(): TWorkspaceProjectAccess;
-  /** Whether session `sessionId`'s record may have a writer now, here or in another process (its store's `hasWriter`). */
-  protected abstract sessionRecordHasWriter(sessionId: string): boolean;
   /** The host's reader for a session's project log; the subclass owns the host. */
   protected abstract getSessionReplayValidator(): IFrameworkHost['validateSessionReplayLog'];
   /** SCREEN-1992: the parked permission/ask the main thread waits on; the subclass owns the registry. */
@@ -331,7 +329,6 @@ export abstract class InteractiveSessionBase {
         bgTracker: this.bgTracker,
         pendingRequest: () => this.getPendingRequest(),
         selfPacedLoops: () => this.getSelfPacedLoopWorkspaceSummaries(),
-        sessionHasWriter: (sessionId) => this.sessionRecordHasWriter(sessionId),
       },
       options,
     );

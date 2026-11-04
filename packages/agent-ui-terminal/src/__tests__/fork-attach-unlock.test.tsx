@@ -1,7 +1,8 @@
 /**
- * #3679 3f: attaching to a fork whose record is sealed with the keys locked is a read the person
- * started, so it asks for the passphrase — once, through the keys' holder — and attaches when that
- * unlocks. Without a holder (secure mode off) it reads the store exactly as before and never asks.
+ * #3679 3f: continuing a fork that has ended, whose record is sealed with the keys locked, is a read
+ * the person started, so it asks for the passphrase — once, through the keys' holder — and switches
+ * when that unlocks. Following a fork that is still running reads no record, so it never asks, locked
+ * or not. Without a holder (secure mode off) it reads the store exactly as before and never asks.
  */
 import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { render } from 'ink-testing-library';
@@ -51,15 +52,15 @@ function storeOf(outcome: () => TSessionLoadOutcome) {
   return { store: withHoldReadClaim(store), calls };
 }
 
-function forkEntry(): IExecutionWorkspaceEntry {
+function forkEntry(status: 'running' | 'completed' = 'completed'): IExecutionWorkspaceEntry {
   return {
     id: 'task:agent_1',
     sourceId: 'agent_1',
     kind: 'background_task',
     taskKind: 'agent',
     origin: { kind: 'slash_command', sessionId: 'session_parent' },
-    status: 'running',
-    state: 'working',
+    status,
+    state: status === 'running' ? 'working' : 'completed',
     title: 'experiment',
     subtitle: 'general-purpose',
     unread: false,
@@ -82,9 +83,10 @@ function custody(answer: TReadability, onAsk: () => void = () => undefined) {
 function attachWith(store: IInteractiveSessionStore, keyCustody?: IKeyCustodyPort) {
   const addEntry = vi.fn();
   const onSessionSwitch = vi.fn();
+  const select = vi.fn();
   let attach!: (entry: IExecutionWorkspaceEntry) => void;
   function Probe(): React.ReactElement {
-    attach = useForkAttach({ sessionStore: store, onSessionSwitch, addEntry });
+    attach = useForkAttach({ sessionStore: store, onSessionSwitch, select, addEntry });
     return <></>;
   }
   const adapter = (keyCustody === undefined ? {} : { keyCustody }) as ITuiCliAdapter;
@@ -98,6 +100,7 @@ function attachWith(store: IInteractiveSessionStore, keyCustody?: IKeyCustodyPor
     said: () => addEntry.mock.calls.map(([entry]) => JSON.stringify(entry)).join('\n'),
     addEntry,
     onSessionSwitch,
+    select,
     done: () => view.unmount(),
   };
 }
@@ -148,7 +151,7 @@ describe('attaching to a fork sealed with the keys locked', () => {
 
     expect(keys.ensureReadable).not.toHaveBeenCalled();
     expect(probe.onSessionSwitch).not.toHaveBeenCalled();
-    expect(probe.said()).toContain('already has a writer');
+    expect(probe.said()).toContain('still has a writer');
   });
 
   it('asks nothing for a fork sealed with keys this process does not have', async () => {
@@ -162,6 +165,28 @@ describe('attaching to a fork sealed with the keys locked', () => {
 
     expect(keys.ensureReadable).not.toHaveBeenCalled();
     expect(probe.onSessionSwitch).not.toHaveBeenCalled();
+  });
+});
+
+describe('following a fork that is still running, whatever the lock', () => {
+  it('asks nothing and reads nothing, so a locked or unreadable record changes nothing', async () => {
+    for (const outcome of [
+      { status: 'locked' } as const,
+      { status: 'locked', reason: 'no-keys' } as const,
+    ]) {
+      const { store, calls } = storeOf(() => outcome);
+      const keys = custody('readable');
+      const probe = attachWith(store, keys.port);
+
+      probe.attach(forkEntry('running'));
+      probe.done();
+
+      expect(probe.select).toHaveBeenCalledWith('task:agent_1');
+      expect(keys.ensureReadable).not.toHaveBeenCalled();
+      expect(probe.onSessionSwitch).not.toHaveBeenCalled();
+      expect(probe.addEntry).not.toHaveBeenCalled();
+      expect(calls).toEqual([]);
+    }
   });
 });
 

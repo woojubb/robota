@@ -119,6 +119,7 @@ export function useAppWorkspaceState(options: IOptions): IAppWorkspaceState {
     read: options.read,
     sessionStore: options.sessionStore,
     onSessionSwitch: options.onSessionSwitch,
+    select: options.select,
     addEntry: options.addEntry,
   });
   const switcher = useSwitcherActions(options.setSwitcherVisible);

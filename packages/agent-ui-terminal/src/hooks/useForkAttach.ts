@@ -4,15 +4,18 @@
  * `App.tsx` is a file the size floor has already frozen as debt, where the rule is "split instead of
  * extending" — so the handler lives beside the other App hooks. The decision itself is neither here
  * nor there: `attachToForkedSession` asks the framework, which owns when `attach` is offered and
- * when it is honoured.
+ * what it does.
  *
- * #3679 3f: the person pressing attach on a fork sealed while the keys are locked is a read they
- * started, so this handler — one of the UI action modules the mint admits — asks the keys' holder to
- * unlock for it (`continue-fork`) and attaches once that opens the record.
+ * #3679 3f: attaching to a job that is still running FOLLOWS it — the entry is selected, nothing
+ * else — so it reads no record: it needs no session store and asks for no passphrase, locked or not.
+ * Continuing a fork that has ended is the ordinary switch: the person pressing attach on a fork
+ * sealed while the keys are locked is a read they started, so this handler — one of the UI action
+ * modules the mint admits — asks the keys' holder to unlock for it (`continue-fork`) and switches
+ * once that opens the record.
  */
 
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import { lockedSessionMessage, lockedSessionReason } from '@robota-sdk/agent-framework';
+import { attachKind, lockedSessionMessage, lockedSessionReason } from '@robota-sdk/agent-framework';
 import { useCallback } from 'react';
 
 import { attachToForkedSession } from '../flows/fork-attach-flow.js';
@@ -25,10 +28,15 @@ import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execu
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export interface IUseForkAttachOptions {
-  /** Absent when the surface persists nothing; attach then refuses, saying so. */
+  /**
+   * Absent when this terminal is attached to a host's session or persists nothing: it then asks the
+   * host to switch, and the host's refusal is what continuing a fork is told.
+   */
   readonly sessionStore: IInteractiveSessionStore | undefined;
   /** The surface's session-switch path — the same one the session picker takes. */
   readonly onSessionSwitch: (sessionId: string) => void;
+  /** Selects a workspace entry: the view a followed job is watched, and steered, in. */
+  readonly select: (entryId: string) => void;
   /** Where a refusal is written, so it reaches the operator instead of disappearing. */
   readonly addEntry: (entry: IHistoryEntry) => void;
 }
@@ -47,12 +55,14 @@ function stillLocked(
 }
 
 /**
- * Attach to a forked conversation: point this terminal at the fork's own session record. A VIEW
- * switch, never a merge — the parent's record is not read, written or joined either way.
+ * Attach to a fork: follow the job while it runs, or point this terminal at the fork's own session
+ * record once it has ended. A VIEW switch, never a merge — the parent's record is not read, written
+ * or joined either way.
  */
 export function useForkAttach({
   sessionStore,
   onSessionSwitch,
+  select,
   addEntry,
 }: IUseForkAttachOptions): (entry: IExecutionWorkspaceEntry) => void {
   const cliAdapter = useTuiCliAdapter();
@@ -61,10 +71,21 @@ export function useForkAttach({
     (entry: IExecutionWorkspaceEntry): void => {
       const notify = (message: string): void =>
         addEntry(messageToHistoryEntry(createSystemMessage(message)));
-      // A surface composed without a session store cannot open another session's record. Said
-      // plainly rather than reported as "the record is missing", which is a different fact.
-      if (sessionStore === undefined) {
-        notify('This surface has no session store, so it cannot attach to a forked session.');
+      const resume = {
+        followTask: (followed: IExecutionWorkspaceEntry) => select(followed.id),
+        notify,
+        ...(cliAdapter.formatResumeCommand === undefined
+          ? {}
+          : { formatResumeCommand: cliAdapter.formatResumeCommand }),
+      };
+      // Following reads no record, so it needs no store and no unlock; a surface with no store hands a
+      // continue to its host, whose switch refuses a record that cannot be opened in its own words.
+      if (attachKind(entry) !== 'continue' || sessionStore === undefined) {
+        attachToForkedSession(entry, {
+          ...resume,
+          facts: { kind: 'host' },
+          switchSession: onSessionSwitch,
+        });
         return;
       }
       // A fork written sealed whose keys have locked since is present, not gone; "no longer in the
@@ -81,7 +102,7 @@ export function useForkAttach({
         }
       }
       // The passphrase is asked for on the switch itself, so only an attach the framework would
-      // honour asks: a fork still being written, or one that has ended, is refused without a prompt.
+      // honour asks: a fork whose record still has a writer is refused without a prompt.
       const unlockThenSwitch = (target: string): void => {
         if (keys === undefined || unlockCommand === undefined || lockedReason === undefined) {
           onSessionSwitch(target);
@@ -103,18 +124,18 @@ export function useForkAttach({
         );
       };
       attachToForkedSession(entry, {
-        // A record the unlock can open is there; the switch asks for it.
-        hasSessionRecord: (target) =>
-          (target === sessionId && lockedReason === 'locked') ||
-          sessionStore.load(target).status === 'valid',
-        hasWriter: (target) => sessionStore.hasWriter(target),
+        ...resume,
+        facts: {
+          kind: 'store',
+          // A record the unlock can open is there; the switch asks for it.
+          hasSessionRecord: (target) =>
+            (target === sessionId && lockedReason === 'locked') ||
+            sessionStore.load(target).status === 'valid',
+          hasWriter: (target) => sessionStore.hasWriter(target),
+        },
         switchSession: unlockThenSwitch,
-        notify,
-        ...(cliAdapter.formatResumeCommand === undefined
-          ? {}
-          : { formatResumeCommand: cliAdapter.formatResumeCommand }),
       });
     },
-    [addEntry, cliAdapter, onSessionSwitch, sessionStore, unlockCommand],
+    [addEntry, cliAdapter, onSessionSwitch, select, sessionStore, unlockCommand],
   );
 }

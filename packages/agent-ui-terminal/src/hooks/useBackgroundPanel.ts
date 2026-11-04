@@ -28,9 +28,11 @@ export interface IUseBackgroundPanelOptions {
   /** The panel's data, and the re-read trigger — the detail follows a running task's output. */
   readonly snapshot: IExecutionWorkspaceSnapshot | null;
   readonly read: (entryId: string) => Promise<IExecutionDetailPage>;
-  /** Absent ⇒ this surface cannot open another session's record, and attach says so. */
+  /** Absent ⇒ this surface has no store of its own: continuing a fork is asked of its host. */
   readonly sessionStore: IInteractiveSessionStore | undefined;
   readonly onSessionSwitch: (sessionId: string) => void;
+  /** Selects a workspace entry: how attaching follows a running job. */
+  readonly select: (entryId: string) => void;
   readonly addEntry: (entry: IHistoryEntry) => void;
 }
 
@@ -52,6 +54,7 @@ export function useBackgroundPanel(inputs: IUseBackgroundPanelOptions): IBackgro
   const attachToFork = useForkAttach({
     sessionStore: inputs.sessionStore,
     onSessionSwitch: inputs.onSessionSwitch,
+    select: inputs.select,
     addEntry: inputs.addEntry,
   });
   return { entry, detail, attachToFork };

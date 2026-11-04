@@ -219,8 +219,8 @@ function forkEntry(resumeSessionId: string | undefined): IExecutionWorkspaceEntr
     kind: 'background_task',
     taskKind: 'agent',
     origin: { kind: 'slash_command', sessionId: 'session_parent' },
-    status: 'running',
-    state: 'working',
+    status: 'completed',
+    state: 'completed',
     title: 'experiment',
     subtitle: 'general-purpose',
     unread: false,
@@ -237,7 +237,7 @@ function attachWith(store: IInteractiveSessionStore) {
   const onSessionSwitch = vi.fn();
   let attach!: (entry: IExecutionWorkspaceEntry) => void;
   function Probe(): React.ReactElement {
-    attach = useForkAttach({ sessionStore: store, onSessionSwitch, addEntry });
+    attach = useForkAttach({ sessionStore: store, onSessionSwitch, select: vi.fn(), addEntry });
     return <></>;
   }
   const view = render(
