@@ -342,6 +342,69 @@ describe.skipIf(!POSIX)('execFile in a child session', () => {
     });
   }
 
+  // The program has already exited and a descendant still holds its output. On a timeout or an
+  // overflow `execFile` lets go of the pipes, so it settles at once rather than when the descendant
+  // ends. An abort it ignores once the program has exited, waiting for the output to close; in a
+  // child session the abort ends the group, so the call settles at once with the same result.
+  const leftBehind: Array<{
+    name: string;
+    args: string[];
+    options: Parameters<typeof execFileInChildSession>[2];
+    abortAfterMs?: number;
+    plainWaitsForDescendant?: boolean;
+  }> = [
+    { name: 'a timeout', args: ['-c', 'sleep 3 & echo $!'], options: { timeout: 500 } },
+    {
+      name: 'too much output',
+      args: ['-c', '(sleep 0.3; head -c 5000 /dev/zero; sleep 3) & exit 0'],
+      options: { maxBuffer: 100 },
+    },
+    {
+      name: 'an abort',
+      args: ['-c', 'sleep 3 & echo $!'],
+      options: {},
+      abortAfterMs: 500,
+      plainWaitsForDescendant: true,
+    },
+  ];
+
+  for (const testCase of leftBehind) {
+    it(`settles on ${testCase.name} as execFile does while a descendant holds the output`, async () => {
+      const timed = async (): Promise<{ result: Record<string, unknown>; ms: number }> => {
+        const started = Date.now();
+        const result = await runBoth(
+          '/bin/sh',
+          testCase.args,
+          testCase.options,
+          testCase.abortAfterMs,
+        );
+        const descendant = Number(String(result.stdout).trim());
+        if (descendant > 0) strays.add(descendant);
+        return { result, ms: Date.now() - started };
+      };
+      const plain = await timed();
+      enableOwnChildSessions();
+      const own = await timed();
+      const picked = ({
+        result,
+      }: {
+        result: Record<string, unknown>;
+      }): Record<string, unknown> => ({
+        code: result.code,
+        killed: result.killed,
+        signal: result.signal,
+        name: result.name,
+      });
+
+      if (testCase.plainWaitsForDescendant === true) expect(plain.ms).toBeGreaterThan(2500);
+      else expect(plain.ms).toBeLessThan(1500);
+      expect(own.ms).toBeLessThan(1500);
+      expect(picked(own)).toEqual(picked(plain));
+      const descendant = Number(String(own.result.stdout).trim());
+      if (descendant > 0) expect(await goneWithin([descendant], 3000)).toBe(true);
+    }, 15_000);
+  }
+
   it('starts the program in its own group, so its descendants go with it', async () => {
     enableOwnChildSessions();
     const group = await new Promise<string>((resolve) => {

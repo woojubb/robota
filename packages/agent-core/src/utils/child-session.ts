@@ -41,7 +41,9 @@
  *
  * `execFile` forwards only a fixed set of options to `spawn`, and `detached` is not among them. So
  * {@link execFileInChildSession} runs `execFile` itself while the policy is off — plain spawning is
- * unchanged — and while on, runs the same contract over `spawn`.
+ * unchanged — and while on, runs the same contract over `spawn`: a timeout, an overflow or an abort
+ * lets go of the pipes and settles as `execFile` does, and ends the whole group, which is held until
+ * the call settles because a descendant can outlive the program.
  */
 
 import { execFile, spawn } from 'node:child_process';
@@ -214,22 +216,26 @@ function execFileOverSpawn(
   const encoding = options.encoding ?? 'utf8';
   const maxBuffer = options.maxBuffer ?? EXEC_FILE_MAX_BUFFER;
   const killSignal = options.killSignal ?? 'SIGTERM';
-  const child = endWithProcess(
-    spawn(
-      file,
-      [...args],
-      withChildSession({
-        cwd: options.cwd,
-        env: options.env,
-        uid: options.uid,
-        gid: options.gid,
-        shell: options.shell,
-        windowsHide: options.windowsHide,
-        windowsVerbatimArguments: options.windowsVerbatimArguments,
-        stdio: 'pipe' as const,
-      }),
-    ),
+  const child = spawn(
+    file,
+    [...args],
+    withChildSession({
+      cwd: options.cwd,
+      env: options.env,
+      uid: options.uid,
+      gid: options.gid,
+      shell: options.shell,
+      windowsHide: options.windowsHide,
+      windowsVerbatimArguments: options.windowsVerbatimArguments,
+      stdio: 'pipe' as const,
+    }),
   );
+  // The leader's pid is the group's id. Unlike `endWithProcess`, the group is held until the call
+  // settles rather than until the leader exits: a descendant the program left behind may still hold
+  // its output, and a call that gives up must end it too.
+  const group = child.pid;
+  const releaseGroup =
+    group === undefined ? (): void => undefined : endProcessGroupOnProcessExit(group);
   const stdout: Buffer[] = [];
   const stderr: Buffer[] = [];
   let stdoutBytes = 0;
@@ -241,18 +247,45 @@ function execFileOverSpawn(
 
   const kill = (): void => {
     killed = true;
-    signalChildGroup(child, killSignal);
+    // As `execFile` does: let go of the pipes, so the call settles once the program has ended even
+    // while a descendant still holds them.
+    child.stdout?.destroy();
+    child.stderr?.destroy();
+    if (group !== undefined) {
+      try {
+        process.kill(-group, killSignal);
+        return;
+      } catch {
+        // allow-fallback: the group has ended; only the leader can be left to signal.
+      }
+    }
+    child.kill(killSignal);
   };
   const text = (parts: Buffer[]): string => Buffer.concat(parts).toString(encoding);
+  // `execFile` settles an abort of a running program at once. An abort after the program has
+  // exited does not fail the call there, which waits for the output to close; here the group is
+  // ended, so a descendant holding the output goes too and the call settles as the program ended.
   const onAbort = (): void => {
+    if (child.exitCode !== null || child.signalCode !== null) {
+      if (group !== undefined) {
+        try {
+          process.kill(-group, killSignal);
+        } catch {
+          // allow-fallback: nothing of the group is left; the output is closing already.
+        }
+      }
+      return;
+    }
     failure ??= abortError(options.signal?.reason);
     kill();
+    finish(failure);
   };
   const finish = (error: ExecFileException | null): void => {
     if (settled) return;
     settled = true;
     if (timer !== undefined) clearTimeout(timer);
     options.signal?.removeEventListener('abort', onAbort);
+    releaseGroup();
     callback(error, text(stdout), text(stderr));
   };
   const collect = (parts: Buffer[], stream: 'stdout' | 'stderr') => (chunk: Buffer) => {
