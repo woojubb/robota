@@ -163,6 +163,27 @@ describe('platform-neutral entry check', () => {
     );
   });
 
+  it("reports Node's BufferEncoding type, but not a file's own union of that name", async () => {
+    const root = workspace({
+      packages: {
+        a: {
+          exports: neutralExport(),
+          files: {
+            'src/index.ts': "export * from './node-encoding';\nexport * from './own-encoding';",
+            'src/node-encoding.ts':
+              'export interface IPort { read(path: string, encoding: BufferEncoding): string }',
+            'src/own-encoding.ts':
+              "type BufferEncoding = 'utf8' | 'utf-8';\nexport const read = (encoding: BufferEncoding) => encoding;",
+          },
+        },
+      },
+      lists: { neutral: ['a'] },
+    });
+    expect(await checkPlatformNeutral(root)).toEqual([
+      '@robota-sdk/a uses Node types BufferEncoding: packages/a/src/index.ts → packages/a/src/node-encoding.ts',
+    ]);
+  });
+
   it('checks an app shell through its source entry and refuses a listed package with none', async () => {
     const root = workspace({
       packages: {

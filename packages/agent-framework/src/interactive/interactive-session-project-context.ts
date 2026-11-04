@@ -1,8 +1,7 @@
-import { relative, resolve } from 'node:path';
-
 import { loadConfigWithHookSources } from '../config/config-loader.js';
 import { createWorkspaceProjectSettingsSources } from '../config/settings-source.js';
 import { loadContext } from '../context/context-loader.js';
+import { resolveProjectPromptStart } from '../context/prompt-file-reference-paths.js';
 import { detectProject } from '../context/project-detector.js';
 import {
   createRestrictedWorkspaceProjectAccess,
@@ -78,9 +77,9 @@ export async function loadInteractiveProjectContext(
       ? undefined
       : {
           reader: projectReader,
-          startRelativeDirectory: relative(
+          startRelativeDirectory: resolveProjectPromptStart(
             projectAccess.identity.worktreeRoot,
-            resolve(options.cwd),
+            options.cwd,
           ),
         };
   const loadedConfig = await resolveInteractiveProjectConfig(options, projectAccess);

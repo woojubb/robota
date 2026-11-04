@@ -2,7 +2,7 @@
  * Plugin hooks merger — merges plugin hooks into session config.
  */
 
-import { join, dirname } from 'node:path';
+import { dirnamePath, joinPath } from '@robota-sdk/agent-core';
 
 import type { ILoadedBundlePlugin } from './bundle-plugin-types.js';
 import type { IHookDefinitionSource } from '../config/config-merge.js';
@@ -10,7 +10,11 @@ import type { THooksConfig } from '@robota-sdk/agent-core';
 
 /** Build plugin env vars for a plugin. */
 function buildPluginEnv(plugin: ILoadedBundlePlugin): Record<string, string> {
-  const dataDir = join(dirname(dirname(plugin.pluginDir)), 'data', plugin.manifest.name);
+  const dataDir = joinPath(
+    dirnamePath(dirnamePath(plugin.pluginDir)),
+    'data',
+    plugin.manifest.name,
+  );
   return {
     CLAUDE_PLUGIN_ROOT: plugin.pluginDir,
     CLAUDE_PLUGIN_PATH: plugin.pluginDir,
@@ -71,7 +75,7 @@ export function mergePluginHooksWithSources(plugins: readonly ILoadedBundlePlugi
             hookSources.push({
               event,
               type: definition.type,
-              source: join(plugin.pluginDir, 'hooks', 'hooks.json'),
+              source: joinPath(plugin.pluginDir, 'hooks', 'hooks.json'),
             });
           }
         }

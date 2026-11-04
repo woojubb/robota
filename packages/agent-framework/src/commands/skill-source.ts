@@ -1,5 +1,6 @@
-import { join, basename } from 'node:path';
+import { basenamePath, joinPath } from '@robota-sdk/agent-core';
 
+import { joinRootRelative } from '../contributions/root-relative-path.js';
 import { decodeFrontmatter } from '../frontmatter/frontmatter-decoder.js';
 import { FrontmatterDecodeError } from '../frontmatter/frontmatter-error.js';
 import { reportRefusedDefinition } from '../frontmatter/frontmatter-refusal-report.js';
@@ -18,7 +19,7 @@ function decodeSkill(
   source: IContributionSource,
 ): ISkillFrontmatter | undefined {
   const result = decodeFrontmatter({
-    source: join(source.displayName, file),
+    source: joinPath(source.displayName, file),
     content,
     profile: 'skill',
   });
@@ -84,13 +85,13 @@ function scanSkillsDir(skillsDir: string, source: IContributionSource): IDiscove
 
   for (const entry of entries) {
     if (entry.kind !== 'directory') continue;
-    const skillFile = join(skillsDir, entry.name, 'SKILL.md');
+    const skillFile = joinRootRelative(skillsDir, entry.name, 'SKILL.md');
     if (source.inspectKind(skillFile, 'inspect skill definition') !== 'file') continue;
 
     const content = source.readText(skillFile, 'load skill definition');
     if (content === undefined) continue;
     const frontmatter = decodeSkill(content, skillFile, source);
-    const skillDirectory = source.locate?.(join(skillsDir, entry.name));
+    const skillDirectory = source.locate?.(joinRootRelative(skillsDir, entry.name));
     commands.push(discovered(frontmatter, content, entry.name, skillDirectory));
   }
 
@@ -106,11 +107,11 @@ function scanCommandsDir(commandsDir: string, source: IContributionSource): IDis
 
   for (const entry of entries) {
     if (entry.kind !== 'file' || !entry.name.endsWith('.md')) continue;
-    const filePath = join(commandsDir, entry.name);
+    const filePath = joinRootRelative(commandsDir, entry.name);
     const content = source.readText(filePath, 'load command definition');
     if (content === undefined) continue;
     const frontmatter = decodeSkill(content, filePath, source);
-    const fallbackName = basename(entry.name, '.md');
+    const fallbackName = basenamePath(entry.name, '.md');
     commands.push(discovered(frontmatter, content, fallbackName, source.locate?.(commandsDir)));
   }
 
@@ -222,7 +223,7 @@ function inspectFrontmatter(
   content: string,
 ): ISkillSourceSkip | undefined {
   const decoded = decodeFrontmatter({
-    source: join(source.displayName, file),
+    source: joinPath(source.displayName, file),
     content,
     profile: 'skill',
   });
@@ -256,14 +257,14 @@ function inspectRoot(
     let file: string;
     if (kind === 'skills') {
       if (entry.kind !== 'directory') continue;
-      file = join(root, entry.name, 'SKILL.md');
+      file = joinRootRelative(root, entry.name, 'SKILL.md');
       if (source.inspectKind(file, 'inspect skill definition') !== 'file') {
-        skipped.push({ path: join(root, entry.name), reason: 'missing-skill-file' });
+        skipped.push({ path: joinRootRelative(root, entry.name), reason: 'missing-skill-file' });
         continue;
       }
     } else {
       if (entry.kind !== 'file' || !entry.name.endsWith('.md')) continue;
-      file = join(root, entry.name);
+      file = joinRootRelative(root, entry.name);
     }
     const content = source.readText(file, 'inspect skill definition');
     if (content === undefined) {
@@ -273,7 +274,9 @@ function inspectRoot(
     const finding = inspectFrontmatter(source, file, content);
     if (finding !== undefined) skipped.push(finding);
     if (finding !== undefined && finding.reason !== 'frontmatter-missing') continue;
-    discovered.push(kind === 'skills' ? basename(join(file, '..')) : basename(entry.name, '.md'));
+    discovered.push(
+      kind === 'skills' ? basenamePath(joinPath(file, '..')) : basenamePath(entry.name, '.md'),
+    );
   }
   return { ...base, present: true, discovered, skipped };
 }

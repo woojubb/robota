@@ -6,7 +6,7 @@
  * job that makes `ITurnHandle.completed` able to promise it always settles.
  */
 
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
 import { TurnNotRunError } from './turn-not-run-error.js';
 
@@ -36,7 +36,7 @@ export class TurnSettlerRegistry {
    * anything with it, so a turn that ends synchronously still finds its settler.
    */
   begin(): { turnId: string; completed: Promise<IExecutionResult> } {
-    const turnId = randomUUID();
+    const turnId = randomId();
     let settle!: { resolve: (r: IExecutionResult) => void; reject: (e: Error) => void };
     const completed = new Promise<IExecutionResult>((resolve, reject) => {
       settle = { resolve, reject };

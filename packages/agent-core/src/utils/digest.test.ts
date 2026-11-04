@@ -13,6 +13,10 @@ const texts = [
   'abc',
   koreanText.greetingWithGlobeEmoji,
   ...loneSurrogates,
+  // A byte-order mark is an ordinary character to the digest: Node hashes its three bytes.
+  '\uFEFF',
+  '\uFEFFabc',
+  'a\uFEFFb',
   'a\uD800\uDC62',
   ...[55, 56, 63, 64, 65, 119, 120, 128, 1024].map((length) => 'a'.repeat(length)),
 ];
@@ -37,6 +41,16 @@ describe('sha256Hex', () => {
       expect(sha256Hex(bytes)).toBe(createHash('sha256').update(bytes).digest('hex'));
     },
   );
+
+  it('matches the Node digest of a 4 MiB string and of its bytes', () => {
+    const unit = `\uFEFF${koreanText.greetingWithGlobeEmoji}a\uD800b\u{1F600}`;
+    const text = unit.repeat(Math.ceil((4 * 1024 * 1024) / unit.length));
+    const bytes = new TextEncoder().encode(text);
+    expect(bytes.length).toBeGreaterThanOrEqual(4 * 1024 * 1024);
+    const expected = createHash('sha256').update(text).digest('hex');
+    expect(sha256Hex(text)).toBe(expected);
+    expect(sha256Hex(bytes)).toBe(expected);
+  });
 
   it('hashes a string and its UTF-8 bytes identically', () => {
     const text = koreanText.greetingWithGlobeEmoji;
@@ -76,8 +90,16 @@ describe('hmacSha256Hex', () => {
     { key: 'k'.repeat(200), text: 'a'.repeat(1024) },
     { key: '\uD800x', text: 'p' },
     { key: 'p', text: 'a\uD800b' },
+    { key: '\uFEFFk', text: '\uFEFFp' },
   ])('matches the Node HMAC for a $key.length-character key', ({ key, text }) => {
     expect(hmacSha256Hex(key, text)).toBe(createHmac('sha256', key).update(text).digest('hex'));
+  });
+
+  it('matches the Node HMAC of a 4 MiB text', () => {
+    const text = 'a\u{1F600}€'.repeat(Math.ceil((4 * 1024 * 1024) / 8));
+    expect(hmacSha256Hex('secret', text)).toBe(
+      createHmac('sha256', 'secret').update(text).digest('hex'),
+    );
   });
 });
 

@@ -15,7 +15,7 @@
  * it only sizes the spawned task's `maxRuntimeMs` for `/tasks`.
  */
 
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
 import type { IToolCallHandoffProvenance } from './tool-call-handoff-types.js';
 import type {
@@ -226,7 +226,7 @@ async function executeToolCallHandoff(
 
   // Threshold won the race: commit to the background path. Nothing above this line runs again for
   // this call — a `settled` resolution from here on is read by the runner, not by this function.
-  const token = (deps.createAdoptionToken ?? randomUUID)();
+  const token = (deps.createAdoptionToken ?? randomId)();
   const release = deps.runner.adopt(token, {
     settled,
     abort: (reason: string) => controller.abort(reason),

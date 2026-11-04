@@ -68,4 +68,47 @@ describe('project contribution inventory', () => {
       ),
     ).toEqual([]);
   });
+
+  describe('instruction files along the working directory', () => {
+    const instructionIds = (cwdRelative: string) =>
+      listFrameworkProjectContributionPaths(cwdRelative)
+        .filter((path) => path.id.startsWith('instructions:'))
+        .map((path) => path.relativePath);
+
+    it('names each ancestor directory of the working directory, root first', () => {
+      expect(instructionIds('packages/app')).toEqual([
+        'AGENTS.md',
+        'CLAUDE.md',
+        'packages/AGENTS.md',
+        'packages/CLAUDE.md',
+        'packages/app/AGENTS.md',
+        'packages/app/CLAUDE.md',
+      ]);
+    });
+
+    // A Windows host's `relative()` spells the working directory with backslashes; reading the text
+    // with its own separator would see one segment and lose every ancestor.
+    it('reads a working directory spelled with backslashes as the same ancestors', () => {
+      expect(instructionIds('packages\\app')).toEqual(instructionIds('packages/app'));
+      expect(instructionIds('a\\b\\c').length).toBe(8);
+    });
+
+    it.each(['/repo', '\\repo', 'C:\\repo', 'c:/repo'])(
+      'refuses the rooted working directory %j',
+      (cwdRelative) => {
+        expect(() => listFrameworkProjectContributionPaths(cwdRelative)).toThrow(
+          /requires a relative cwd/,
+        );
+      },
+    );
+
+    it.each(['..', 'a/../b', 'a\\..\\b', './a', 'a//b'])(
+      'refuses the working directory %j, which does not stay inside the project root',
+      (cwdRelative) => {
+        expect(() => listFrameworkProjectContributionPaths(cwdRelative)).toThrow(
+          /must stay inside the project root/,
+        );
+      },
+    );
+  });
 });

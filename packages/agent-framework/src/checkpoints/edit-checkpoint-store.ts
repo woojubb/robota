@@ -1,4 +1,4 @@
-import { join, relative, resolve, sep } from 'node:path';
+import { join, relative, resolve } from 'node:path';
 
 import { CheckpointTree } from '@robota-sdk/agent-session';
 import { assertSessionSealing } from '@robota-sdk/agent-session/node';
@@ -21,6 +21,7 @@ import {
   SNAPSHOT_DIR,
   checkpointIdOf,
   checkpointTreeNodesOf,
+  isInsideCheckpointRoot,
   resolveContainedSnapshotPath,
   safePathSegment,
   toEditCheckpointSummary as toSummary,
@@ -175,8 +176,7 @@ export class EditCheckpointStore {
       relativePath.length === 0 ||
       relativePath.startsWith('..') ||
       resolve(this.cwd, relativePath) !== originalPath ||
-      (checkpointRoot !== undefined &&
-        (relativePath === checkpointRoot || relativePath.startsWith(`${checkpointRoot}${sep}`)))
+      (checkpointRoot !== undefined && isInsideCheckpointRoot(relativePath, checkpointRoot))
     ) {
       return;
     }

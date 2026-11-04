@@ -1,7 +1,8 @@
-import { join, basename } from 'node:path';
+import { basenamePath, joinPath } from '@robota-sdk/agent-core';
 
 import { BUILT_IN_AGENTS } from './built-in-agents.js';
 import { decodeFrontmatter } from '../frontmatter/frontmatter-decoder.js';
+import { joinRootRelative } from '../contributions/root-relative-path.js';
 import { reportRefusedDefinition } from '../frontmatter/frontmatter-refusal-report.js';
 
 import type { IAgentDefinition } from './agent-definition-types.js';
@@ -34,15 +35,15 @@ function scanAgentsDir(dir: string, source: IContributionSource): IDiscoveredAge
   for (const entry of entries) {
     if (entry.kind !== 'file' || !entry.name.endsWith('.md')) continue;
 
-    const filePath = join(dir, entry.name);
+    const filePath = joinRootRelative(dir, entry.name);
     const content = source.readText(filePath, 'load agent definition');
     if (content === undefined) continue;
     const decoded = decodeFrontmatter({
-      source: join(source.displayName, filePath),
+      source: joinPath(source.displayName, filePath),
       content,
       profile: 'agent',
     });
-    const fallbackName = basename(entry.name, '.md');
+    const fallbackName = basenamePath(entry.name, '.md');
     if (!decoded.ok) {
       // A refused definition is skipped by path; the other agents still load.
       reportRefusedDefinition('agent', decoded.diagnostics);
@@ -57,7 +58,7 @@ function scanAgentsDir(dir: string, source: IContributionSource): IDiscoveredAge
       systemPrompt: body === content ? body : body.trim(),
       // #3282 §4: the same display path `decodeFrontmatter` was given above — where a person reading
       // the agent switcher would look to find or edit this definition.
-      definedIn: join(source.displayName, filePath),
+      definedIn: joinPath(source.displayName, filePath),
     };
 
     if (frontmatter.model !== undefined) agent.model = frontmatter.model;

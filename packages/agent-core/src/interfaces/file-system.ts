@@ -1,3 +1,9 @@
+/**
+ * The text encodings a file port reads and writes. A literal union rather than Node's global
+ * `BufferEncoding`, so this contract names no Node type (ARCHITECTURE.md "Runtime platforms").
+ */
+export type TFileEncoding = 'utf8' | 'utf-8';
+
 export interface IDirent {
   name: string;
   isFile(): boolean;
@@ -14,8 +20,8 @@ export interface IStats {
 
 export interface IFileSystem {
   existsSync(path: string): boolean;
-  readFileSync(path: string, encoding: BufferEncoding): string;
-  writeFileSync(path: string, data: string, encoding?: BufferEncoding): void;
+  readFileSync(path: string, encoding: TFileEncoding): string;
+  writeFileSync(path: string, data: string, encoding?: TFileEncoding): void;
   mkdirSync(path: string, options?: { recursive?: boolean }): void;
   readdirSync(path: string): string[];
   readdirSync(path: string, options: { withFileTypes: true }): IDirent[];
@@ -38,12 +44,12 @@ export interface IFileSystemAsync {
   access(path: string, mode?: number): Promise<void>;
   copyFile(src: string, dest: string, flags?: number): Promise<void>;
   mkdir(path: string, options?: { recursive?: boolean }): Promise<void>;
-  readFile(path: string, encoding: BufferEncoding): Promise<string>;
+  readFile(path: string, encoding: TFileEncoding): Promise<string>;
   readdir(path: string): Promise<string[]>;
   readdir(path: string, options: { withFileTypes: true }): Promise<IDirent[]>;
   realpath(path: string): Promise<string>;
   rename(oldPath: string, newPath: string): Promise<void>;
   rm(path: string, options?: { recursive?: boolean; force?: boolean }): Promise<void>;
   stat(path: string): Promise<IStats>;
-  writeFile(path: string, data: string, encoding?: BufferEncoding): Promise<void>;
+  writeFile(path: string, data: string, encoding?: TFileEncoding): Promise<void>;
 }

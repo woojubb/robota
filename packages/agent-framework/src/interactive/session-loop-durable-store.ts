@@ -1,6 +1,6 @@
 /** The strict write is the publication point for a self-paced loop transition. */
 
-import { isDeepStrictEqual } from 'node:util';
+import { isJsonEqual } from '@robota-sdk/agent-core';
 
 import type { ISessionLoopState } from '@robota-sdk/agent-interface-session';
 
@@ -62,7 +62,7 @@ export class DurableSessionLoopStore {
       } catch {
         committed = undefined;
       }
-      if (!isDeepStrictEqual(committed, candidate)) {
+      if (!isJsonEqual(committed, candidate)) {
         if (committed === undefined) {
           this.suspended = true;
           throw new Error('Self-paced loop write outcome is uncertain; admission is suspended.', {

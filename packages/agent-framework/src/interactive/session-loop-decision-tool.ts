@@ -1,7 +1,7 @@
 /** Provider-neutral, per-turn decision signal for self-paced session loops. */
 
+import { isJsonEqual } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
 
 import '../tools/tool-permission-profiles.js';
@@ -54,7 +54,7 @@ export function extractSelfPacedLoopDecision(
     }
     if (typeof value !== 'object' || value === null || Array.isArray(value)) return null;
     const matching = toolExecutions.filter((execution) => execution.name === LOOP_DECISION_TOOL_NAME);
-    if (matching.length !== 1 || !matching[0]?.success || !isDeepStrictEqual(matching[0].args, value)) {
+    if (matching.length !== 1 || !matching[0]?.success || !isJsonEqual(matching[0].args, value)) {
       return null;
     }
     const args = value as Record<string, unknown>;

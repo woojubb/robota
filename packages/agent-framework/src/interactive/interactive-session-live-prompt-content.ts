@@ -4,6 +4,8 @@
  * pre-truncates, with a margin above the host's bound so the host's exact cut happens after
  * redaction has seen the text around it, and bounds what one turn may hold.
  */
+import { utf8ByteLength } from '@robota-sdk/agent-core';
+
 import { stringifyBounded, utf8Prefix } from './interactive-session-live-content-bounded.js';
 import { isOwnerPromptTurn } from './interactive-session-prompt-history.js';
 
@@ -34,7 +36,7 @@ function capture(
   maxBytes: number,
   partial: boolean,
 ): ILivePromptContentItem {
-  const originalBytes = Buffer.byteLength(text, 'utf8');
+  const originalBytes = utf8ByteLength(text);
   const kept = utf8Prefix(text, maxBytes + LIVE_CONTENT_PRETRUNCATE_MARGIN_BYTES);
   return {
     kind,
@@ -113,7 +115,7 @@ export class LivePromptContentAccumulator {
         const output = call.output ?? '';
         // Slice before measuring: the bound, not the output, decides what this costs.
         const text = utf8Prefix(output.slice(0, bound), bound);
-        return { text, originalBytes: Buffer.byteLength(output, 'utf8'), truncated: text.length !== output.length };
+        return { text, originalBytes: utf8ByteLength(output), truncated: text.length !== output.length };
       }, tool);
     }
   }
@@ -134,7 +136,7 @@ export class LivePromptContentAccumulator {
       this.omit(kind);
       return;
     }
-    const bytes = Buffer.byteLength(item.text, 'utf8');
+    const bytes = utf8ByteLength(item.text);
     if (this.toolBytes + bytes > this.toolBudgetBytes) {
       this.omit(kind);
       return;

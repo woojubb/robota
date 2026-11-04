@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
 import type {
   IQueuedInput,
@@ -46,7 +46,7 @@ export class InteractiveSessionRuntimeTools implements ISessionRuntimeTools {
     controller.activeDriverId = options?.driverId ?? null;
     // This call's events are recognised by their id, not by the claim: a model's call can end while
     // this one holds the claim, and only this call's own events are a direct call's.
-    const executionId = options?.executionId ?? randomUUID();
+    const executionId = options?.executionId ?? randomId();
     controller.directCallIds.add(executionId);
     const execution = (async () => {
       await this.deps.ensureInitialized();

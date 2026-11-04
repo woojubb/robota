@@ -1,9 +1,10 @@
-import { isAbsolute, relative } from 'node:path';
+import { isAbsolutePath, relativePath, utf8ByteLength } from '@robota-sdk/agent-core';
 
 import {
   createContextReferenceItem,
   upsertContextReference,
 } from '../context/context-reference-inventory.js';
+import { resolveProjectPromptStart } from '../context/prompt-file-reference-paths.js';
 import {
   formatPromptFileReferenceDiagnostics,
   hasBlockingPromptFileReferenceDiagnostics,
@@ -41,7 +42,7 @@ export async function addInteractiveContextReference(
   }
   const result = await resolvePromptFileReferencePaths([path], {
     reader: getWorkspaceProjectReader(projectAccess.authority),
-    startRelativeDirectory: relative(projectAccess.identity.worktreeRoot, cwd),
+    startRelativeDirectory: resolveProjectPromptStart(projectAccess.identity.worktreeRoot, cwd),
     reason: 'manual',
   });
   if (hasBlockingPromptFileReferenceDiagnostics(result.diagnostics)) {
@@ -99,17 +100,17 @@ export function createSystemContextReferenceItems(
 ): IContextReferenceItem[] {
   const now = new Date().toISOString();
   return entries.map((entry) => {
-    const relativePath = isAbsolute(entry.filePath)
-      ? relative(cwd, entry.filePath)
+    const entryPath = isAbsolutePath(entry.filePath)
+      ? relativePath(cwd, entry.filePath)
       : entry.filePath;
     return {
-      id: `system:${relativePath}`,
+      id: `system:${entryPath}`,
       sourcePath: entry.filePath,
-      relativePath,
-      originalReference: relativePath,
+      relativePath: entryPath,
+      originalReference: entryPath,
       loadType: 'system' as const,
       status: 'active' as const,
-      byteLength: Buffer.byteLength(entry.content, 'utf-8'),
+      byteLength: utf8ByteLength(entry.content),
       loadedAt: now,
       lastUsedAt: now,
     };

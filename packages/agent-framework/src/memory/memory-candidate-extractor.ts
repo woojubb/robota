@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha256Hex } from '@robota-sdk/agent-core';
 
 import { KOREAN_MEMORY_CUES } from './memory-locale-cues.js';
 
@@ -58,7 +58,7 @@ const MAX_CANDIDATE_TEXT_LENGTH = 240;
 const HASH_ID_LENGTH = 12;
 
 function hashCandidate(seed: string): string {
-  return `mem_${createHash('sha256').update(seed).digest('hex').slice(0, HASH_ID_LENGTH)}`;
+  return `mem_${sha256Hex(seed).slice(0, HASH_ID_LENGTH)}`;
 }
 
 function normalizeText(text: string): string {

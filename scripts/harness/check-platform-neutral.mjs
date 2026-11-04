@@ -73,11 +73,13 @@ const DOM_DEFINE = markers(DOM_GLOBALS, 'dom_global');
 
 /**
  * Global names whose type comes from `@types/node`: the runtime globals above, their `NodeJS`
- * namespace and `module`. A neutral declaration may not mention them in a type either.
+ * namespace, `module` and `BufferEncoding`. A neutral declaration may not mention them in a type
+ * either.
  */
 const NODE_TYPE_NAMES = new Set([
   'NodeJS',
   'module',
+  'BufferEncoding',
   ...NODE_GLOBALS.map((name) => name.replace(/^globalThis\./u, '')).filter(
     (name) => !name.includes('.'),
   ),

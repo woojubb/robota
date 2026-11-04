@@ -7,7 +7,42 @@ import { describe, expect, it } from 'vitest';
 import {
   isTelemetrySensitiveKey,
   stringifyBounded,
+  utf8Prefix,
 } from '../interactive-session-live-content-bounded.js';
+
+/** What `utf8Prefix` did while it still read and wrote through Buffer. */
+function bufferPrefix(text: string, maxBytes: number): string {
+  const bytes = Buffer.from(text, 'utf8');
+  if (bytes.byteLength <= maxBytes) return text;
+  let end = Math.max(0, maxBytes);
+  while (end > 0 && ((bytes[end] ?? 0) & 0xc0) === 0x80) end -= 1;
+  return bytes.subarray(0, end).toString('utf8');
+}
+
+describe('utf8Prefix', () => {
+  it.each([
+    '',
+    'abc',
+    'a\uFEFFb',
+    '\uFEFFabc',
+    '\uFEFF',
+    'é€😀\u4e2d',
+    '😀😀😀',
+    'a\uD800b',
+    '\uDC00x',
+    'x\uD800',
+  ])('cuts %j as Buffer did at every byte count', (text) => {
+    for (let maxBytes = -1; maxBytes <= 20; maxBytes += 1) {
+      expect(utf8Prefix(text, maxBytes), `${JSON.stringify(text)} at ${maxBytes}`).toBe(
+        bufferPrefix(text, maxBytes),
+      );
+    }
+  });
+
+  it('keeps a leading byte-order mark that a default TextDecoder would drop', () => {
+    expect(utf8Prefix('\uFEFFhello', 4)).toBe('\uFEFFh');
+  });
+});
 
 describe('isTelemetrySensitiveKey', () => {
   it.each<[string, unknown]>([

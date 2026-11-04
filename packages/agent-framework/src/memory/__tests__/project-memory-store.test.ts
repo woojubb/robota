@@ -76,6 +76,26 @@ describe('ProjectMemoryStore', () => {
     expect(memory.truncated).toBe(true);
   });
 
+  it('Given a MEMORY.md that starts with a byte-order mark When the byte cap cuts it Then the cut is the one Buffer made, mark and all', async () => {
+    const cwd = makeProject();
+    const memoryDir = join(cwd, '.agent', 'memory');
+    mkdirSync(memoryDir, { recursive: true });
+    // Two-byte characters after a three-byte mark: the cap lands in the middle of a character.
+    const raw = '\uFEFF' + 'é'.repeat(MEMORY_INDEX_MAX_BYTES);
+    writeFileSync(join(memoryDir, 'MEMORY.md'), raw, 'utf8');
+    const store = await makeStore(cwd);
+
+    const memory = store.loadStartupMemory();
+
+    const expected = Buffer.from(raw, 'utf8')
+      .subarray(0, MEMORY_INDEX_MAX_BYTES)
+      .toString('utf8')
+      .trimEnd();
+    expect(memory.content.startsWith('\uFEFF')).toBe(true);
+    expect(memory.content).toBe(expected);
+    expect(memory.truncated).toBe(true);
+  });
+
   // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
   it.runIf(process.platform === 'linux')(
     'Given a memory item When appending Then index and topic files are created',

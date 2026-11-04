@@ -8,9 +8,7 @@
  * message stays on its own line.
  */
 
-import { randomBytes } from 'node:crypto';
-
-import { CONTEXT_ESTIMATE_CHARS_PER_TOKEN } from '@robota-sdk/agent-core';
+import { CONTEXT_ESTIMATE_CHARS_PER_TOKEN, randomHex } from '@robota-sdk/agent-core';
 import { formatConversationEntries } from '@robota-sdk/agent-session';
 
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
@@ -86,7 +84,7 @@ function assemble(
  * prompt is never dropped; when it alone does not fit, there is no request (`undefined`).
  */
 export function buildAdvisorRequest(input: IAdvisorRequestInput): IAdvisorRequest | undefined {
-  const nonce = input.nonce ?? randomBytes(8).toString('hex');
+  const nonce = input.nonce ?? randomHex(8);
   const question = input.question?.trim() || DEFAULT_QUESTION;
   // The system prompt is sent once, in its own block; the session's history carries it again.
   const messages = input.history.filter((message) => message.role !== 'system');

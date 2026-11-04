@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
 import type {
   IPromptFileReferenceDiagnostic,
@@ -57,7 +57,7 @@ export function createPromptFileReferenceHistoryEntry(
 ): IHistoryEntry<IPromptFileReferenceHistoryData> {
   const records = toPromptFileReferenceRecords(references);
   return {
-    id: `prompt_file_reference_${randomUUID()}`,
+    id: `prompt_file_reference_${randomId()}`,
     timestamp: new Date(),
     category: 'event',
     type: 'prompt-file-reference',

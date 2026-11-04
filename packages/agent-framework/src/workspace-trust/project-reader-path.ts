@@ -1,4 +1,4 @@
-import { isAbsolute, relative, sep, win32 } from 'node:path';
+import { isRootedPath, relativeSegments } from '@robota-sdk/agent-core';
 
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 
@@ -7,7 +7,6 @@ import type {
   IWorkspaceIdentityResolver,
   TWorkspaceContributionKind,
 } from './types.js';
-import type { Stats } from 'node:fs';
 
 /** The most any project read returns, whatever a caller asks for. */
 export const MAX_PROJECT_READ_BYTES = Number('4194304');
@@ -41,7 +40,16 @@ export function resolveProjectReadLimit(maxBytes?: number): number {
   return Math.min(maxBytes ?? MAX_PROJECT_READ_BYTES, MAX_PROJECT_READ_BYTES);
 }
 
-export function workspaceContributionKind(metadata: Stats): TWorkspaceContributionKind {
+/** The part of a `Stats` a project read classifies by. */
+interface IProjectReadMetadata {
+  isSymbolicLink(): boolean;
+  isFile(): boolean;
+  isDirectory(): boolean;
+}
+
+export function workspaceContributionKind(
+  metadata: IProjectReadMetadata,
+): TWorkspaceContributionKind {
   if (metadata.isSymbolicLink()) return 'link';
   if (metadata.isFile()) return 'file';
   if (metadata.isDirectory()) return 'directory';
@@ -49,18 +57,15 @@ export function workspaceContributionKind(metadata: Stats): TWorkspaceContributi
 }
 
 export function isWorkspacePathContained(root: string, candidate: string): boolean {
-  const remainder = relative(root, candidate);
-  return (
-    remainder === '' ||
-    (remainder !== '..' && !remainder.startsWith(`..${sep}`) && !isAbsolute(remainder))
-  );
+  // No relative path (another root, or a path that is not absolute) is not containment.
+  const segments = relativeSegments(root, candidate);
+  return segments !== undefined && segments[0] !== '..';
 }
 
 export function workspacePathSegments(value: string, allowRoot = false): readonly string[] {
   if (
     value.includes('\0') ||
-    isAbsolute(value) ||
-    win32.isAbsolute(value) ||
+    isRootedPath(value) ||
     (value.length === 0 && !allowRoot)
   ) {
     refuseProjectRead('Project reads require a root-relative path.');
