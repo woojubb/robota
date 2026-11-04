@@ -110,7 +110,8 @@ describe('child-process-subagent-worker: the child session gets a permissionHand
   function realMessageHandler(): (message: unknown) => void {
     const listeners = process.listeners('message') as ((message: unknown) => void)[];
     const handler = listeners.at(-1);
-    if (handler === undefined) throw new Error('runSubagentWorkerMain registered no message listener');
+    if (handler === undefined)
+      throw new Error('runSubagentWorkerMain registered no message listener');
     return handler;
   }
 

@@ -8,14 +8,18 @@
  * alone: a sealed record that does not open here, or that a newer build sealed, is left as it is and
  * reported. A file whose name is not a session id, anything that is not a regular file, and a file
  * with another hard link (replacing it would leave the plaintext under the other name) is never
- * touched. Every sealed record is written beside its file and flushed before any is put in place;
- * each replace is then atomic, and is made only if the file still holds the bytes that were read, so
- * a record a running process saved meanwhile is left for the next run.
+ * touched, and neither is a record whose writer marker stands for a process not provably gone: it may
+ * be saving it now. Every sealed record is written beside its file and flushed before any is put in
+ * place; each replace is then atomic, and is made only if the file still holds the bytes that were
+ * read, so a record a running process saved meanwhile is left for the next run.
  */
 import { lstatSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { createProcessMarkers } from '@robota-sdk/agent-core/node';
+
 import { isSafeSessionId } from './session-id.js';
+import { SESSION_CLAIMS_DIRECTORY } from './session-store.js';
 import { sweepStaleStoreTemporaries } from './stale-temporaries.js';
 import { readRegularFile, replaceStagedFiles } from './staged-replacements.js';
 import { openStoredSessionRecord } from './stored-session-authorship.js';
@@ -69,6 +73,11 @@ export interface ISessionRecordMigration {
   readonly refused: readonly string[];
   /** Records that changed while being sealed: left as they are, for the next run. */
   readonly changed: readonly string[];
+  /**
+   * The ids of records open in another process — their writer marker stands for an owner not
+   * provably gone — left as they are, for a run after it has closed.
+   */
+  readonly held: readonly string[];
   /** Temp files crashed writes left with a record in them: removed (or to remove) with `sweepTemporaries`, else left. */
   readonly staleTemporaries: number;
   /**
@@ -122,9 +131,11 @@ export function migrateNodeSessionStore(
     unsafeNames: [] as string[],
     refused,
     changed: [] as string[],
+    held: [] as string[],
     staleTemporaries: 0,
     sealedRecords: [] as ISealedSessionRecord[],
   };
+  const markers = createProcessMarkers(join(baseDir, SESSION_CLAIMS_DIRECTORY));
   const staged: (ISealedSessionRecord & { readonly path: string })[] = [];
   const replacements = replaceStagedFiles((stage) => {
     for (const name of files) {
@@ -132,6 +143,11 @@ export function migrateNodeSessionStore(
       const id = name.slice(0, -RECORD_EXTENSION.length);
       if (!isSafeSessionId(id)) {
         result.unsafeNames.push(path);
+        continue;
+      }
+      const writer = markers.inspect(id);
+      if (writer.status === 'held' && writer.holder.liveness !== 'gone') {
+        result.held.push(id);
         continue;
       }
       const read = readRegularFile(path);

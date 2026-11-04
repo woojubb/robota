@@ -1,11 +1,10 @@
 /**
  * A fork job whose start fails before its child can be followed leaves its record free (#3679).
  *
- * Handing a sealed fork record to a child marks it exported: nothing in this process may claim it,
- * adopt it or tag it while the child may still save it, and only the parent's follower of the
- * child ends that. So a start that fails before the follower exists must not have exported the
- * record at all — a record past the wire bound, or a spawn that throws — or the id would stay
- * unclaimable for the life of the process.
+ * A fork record is lent to its child: nothing may claim it, adopt it or tag it while the child may
+ * still save it, and the parent's follower of the child ends the lease. So a start refused before
+ * the lend — a record past the wire bound — lends nothing, and a spawn that throws after it ends the
+ * lease at once, or the id would stay unclaimable for the life of the process.
  */
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -163,7 +162,7 @@ function claimable(store: TResumeSessionStore): boolean {
 }
 
 describe('a fork job whose start fails before its child is followed', () => {
-  it('leaves a record past the wire bound unexported and free to claim', () => {
+  it('leaves a record past the wire bound unlent and free to claim', () => {
     // Its handover token, base64 of the envelope, is past the 32 MiB bound.
     const { cwd, store, runner } = sealingParent('x'.repeat(25 * 1024 * 1024));
 
@@ -174,7 +173,7 @@ describe('a fork job whose start fails before its child is followed', () => {
     expect(claimable(store)).toBe(true);
   });
 
-  it('leaves the record unexported and free to claim when the spawn itself throws', () => {
+  it('ends the lease, leaving the record free to claim, when the spawn itself throws', () => {
     const { cwd, store, runner } = sealingParent('the parent conversation');
     spawning.fails = true;
 

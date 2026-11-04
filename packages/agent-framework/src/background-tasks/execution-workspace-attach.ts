@@ -13,9 +13,9 @@
  *   - the entry is not a fork (no `resumeSessionId`) — there is no second session to switch to;
  *   - the task reached a terminal status — its session is finished, so attaching would open a
  *     transcript that cannot be continued as a live session;
- *   - the record has a writer in this process — the job runs it here, or a child process it was
- *     handed to may still save it — so the session attaching would build is a second writer of one
- *     record; the projection reads the same fact (the store's `hasWriter`) and does not offer it;
+ *   - the record has a writer — the job runs it here, or the child process it is lent to may still
+ *     save it — so the session attaching would build is a second writer of one record; the
+ *     projection reads the same fact (the store's `hasWriter`) and does not offer it;
  *   - the record is gone from the store — the copy was deleted, and a surface that switched anyway
  *     would open an empty session that looks like a fork whose conversation was lost.
  */
@@ -39,8 +39,9 @@ export interface IResolveExecutionAttachInput {
    */
   readonly hasSessionRecord: (sessionId: string) => boolean;
   /**
-   * Whether something this process runs may still write the forked record — the store's own
-   * `hasWriter`, the fact the projection decides the offer by, so the offer and the honour agree.
+   * Whether the forked record may have a writer now — the store's own `hasWriter`, which sees a
+   * child process it is lent to, the fact the projection decides the offer by, so the offer and the
+   * honour agree.
    */
   readonly hasWriter: (sessionId: string) => boolean;
 }

@@ -159,6 +159,7 @@ export {
   unverifiedSessionNotice,
   SessionRenameUnavailableError,
   persistSessionRename,
+  projectSessionClaimsDirectory,
   WorkspaceProjectSessionStore,
   WorkspaceSessionLogSink,
   WorkspaceSessionLogSource,

@@ -9,6 +9,8 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { readCurrentProcessIdentity, readProcessStartTime } from '@robota-sdk/agent-core/node';
+import { leaveProcessMarker } from '@robota-sdk/agent-core/testing';
 import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework';
 import { serializeKeyring } from '@robota-sdk/agent-keyring';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
@@ -169,6 +171,26 @@ describe('the sessions a migration sealed from plaintext', () => {
     expect(questions).toEqual(['Migrate now? [y/N] ', acceptMigratedQuestion(2)]);
     expect(out()).toContain('Marked 2 migrated sessions as yours.');
     expect(await authorshipOf(['plain_one', 'plain_two'])).toEqual(['verified', 'verified']);
+  });
+
+  it('leave a session open in another process plain, naming it, and seal the rest', async () => {
+    await installFixtureKeyring();
+    seedPlainSessions();
+    // A live process other than this one holds plain_two's writer marker.
+    const { startTime: _ignored, ...here } = readCurrentProcessIdentity();
+    const startTime = readProcessStartTime(process.ppid);
+    leaveProcessMarker(join(runtime.layout.userPaths.sessions, 'claims'), 'plain_two', {
+      ...here,
+      pid: process.ppid,
+      ...(startTime === undefined ? {} : { startTime }),
+    });
+    const before = readFileSync(join(runtime.layout.userPaths.sessions, 'plain_two.json'));
+
+    await migrate(['y', 'y'], true);
+
+    expect(out()).toMatch(/open in another process[^\n]*: plain_two\./);
+    expect(readFileSync(join(runtime.layout.userPaths.sessions, 'plain_two.json'))).toEqual(before);
+    expect((await authorshipOf(['plain_one']))[0]).not.toBe('locked');
   });
 
   it('stay unverified at anything but yes, and the run says each asks on its first resume', async () => {

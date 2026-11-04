@@ -14,6 +14,10 @@ import { isDoctorCommandName, runDoctorRoute } from './doctor-route.js';
 import { runtimeVersion } from './version.js';
 import { runSessionAnalyze } from '../session-analyzer/session-analyze-command.js';
 import { runSessionListCommand } from '../session-inventory/session-list-command.js';
+import {
+  productSessionClaimsLocations,
+  runSessionReleaseCommand,
+} from '../session-inventory/session-release-command.js';
 import { launchSupervisedSession } from '../session-inventory/supervised-session-launch.js';
 import {
   resolveSupervisedDirectory,
@@ -559,6 +563,14 @@ export async function runPreparsedCliCommand(
       composition.sessionStoreScope === 'project' ? composition.sessionStore : undefined,
       createProductUserSessionStore(productRuntime),
     );
+    return true;
+  }
+  // The user's own remedy for a writer marker a crashed or planted process left; never model-invocable.
+  if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'release') {
+    process.exitCode = await runSessionReleaseCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
+      cliName: productRuntime.config.identity.cliName,
+      locations: productSessionClaimsLocations(productRuntime, composition.projectAccess),
+    });
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'list') {

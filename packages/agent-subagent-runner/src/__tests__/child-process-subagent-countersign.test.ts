@@ -354,10 +354,16 @@ describe('a sealing parent’s fork job, once its child is gone', () => {
       await vi.waitFor(() => expect(readRecordEvents(recordPath)).toContainEqual({ chat: true }), {
         timeout: 15_000,
       });
-      // Something that only has the public key replaces the record while the child runs.
-      createUserSessionStore(join(cwd, 'sessions'), {
-        sealing: { sealer: parent.sealer },
-      }).save(forkRecord(cwd, 'planted while the child ran'));
+      // Something that only has the public key, and keeps no writer marker, replaces the record
+      // while the child runs.
+      const elsewhere = join(directory('countersign-planted-'), 'sessions');
+      createUserSessionStore(elsewhere, { sealing: { sealer: parent.sealer } }).save(
+        forkRecord(cwd, 'planted while the child ran'),
+      );
+      writeFileSync(
+        join(cwd, 'sessions', `${FORK_ID}.json`),
+        readFileSync(join(elsewhere, `${FORK_ID}.json`)),
+      );
       writeFileSync(marker, '');
       const failure = await handle.result.then(
         () => undefined,

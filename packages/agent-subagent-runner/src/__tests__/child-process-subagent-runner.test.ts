@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { createUserSessionStore } from '@robota-sdk/agent-framework';
 import type { IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
 import type {
   ISubagentJobStart,
@@ -160,28 +161,28 @@ describe('ChildProcessSubagentRunner', () => {
         messages: [
           {
             id: 'm-1',
-            role: 'user',
+            role: 'user' as const,
             content: 'Remember the child record.',
             timestamp: new Date('2026-08-01T00:00:00.000Z'),
-            state: 'complete',
+            state: 'complete' as const,
           },
         ],
         systemPrompt: 'The copied parent prompt.',
       };
-      mkdirSync(join(cwd, 'sessions'), { recursive: true });
-      writeFileSync(
-        join(cwd, 'sessions', `${resumeSessionId}.json`),
-        JSON.stringify(record),
-        'utf8',
-      );
+      // The parent's own store over the same records: it keeps the fork record and lends it.
+      const parentStore = createUserSessionStore(join(cwd, 'sessions'), { sealing: 'plain' });
+      parentStore.save(record, { handoff: true });
 
       try {
-        const runner = new ChildProcessSubagentRunner(createDeps(), {
-          logSealing: 'plain',
-          workerEntry: FORK_PERSISTENCE_WORKER_ENTRY,
-          worktreeAdapter: STUB_WORKTREE_ADAPTER,
-          providerDefinitions: TEST_PROVIDER_DEFINITIONS,
-        });
+        const runner = new ChildProcessSubagentRunner(
+          { ...createDeps(), resumeSessionStore: parentStore },
+          {
+            logSealing: 'plain',
+            workerEntry: FORK_PERSISTENCE_WORKER_ENTRY,
+            worktreeAdapter: STUB_WORKTREE_ADAPTER,
+            providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+          },
+        );
         const result = await runner.start({
           ...createJob(),
           request: {
@@ -191,12 +192,15 @@ describe('ChildProcessSubagentRunner', () => {
             resumeSessionId,
           },
         }).result;
+        // The lease ends once the child has exited and disconnected; the record is free again.
+        await vi.waitFor(() => expect(parentStore.hasWriter(resumeSessionId)).toBe(false));
 
         expect(result.output).toBe('the child process answers');
-        const loaded = JSON.parse(
-          readFileSync(join(cwd, 'sessions', `${resumeSessionId}.json`), 'utf8'),
-        ) as { messages: Array<{ content: unknown }> };
-        const messages = loaded.messages.map((message) => String(message.content));
+        const loaded = parentStore.load(resumeSessionId);
+        const messages =
+          loaded.status === 'valid'
+            ? loaded.record.messages.map((message) => String(message.content))
+            : [];
         expect(messages).toContain('Continue the child record.');
         expect(messages).toContain('the child process answers');
       } finally {
@@ -482,7 +486,9 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
       const result = await handle.result;
 
       expect(result.output).toBe('permission:r1:true');
-      expect(requesters).toEqual([{ kind: 'background-agent', label: 'tester', taskId: 'agent_1' }]);
+      expect(requesters).toEqual([
+        { kind: 'background-agent', label: 'tester', taskId: 'agent_1' },
+      ]);
       expect(result.deniedToolCalls).toBeUndefined();
     },
     TEST_TIMEOUT_MS,
@@ -909,7 +915,10 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
 
       expect(JSON.parse((result as { output: string }).output)).toEqual({
         payloadSettings: { autoAllowBashIfSandboxed: true },
-        updates: [{ autoAllowBashIfSandboxed: false }, { autoAllowBashIfSandboxed: true, enabled: false }],
+        updates: [
+          { autoAllowBashIfSandboxed: false },
+          { autoAllowBashIfSandboxed: true, enabled: false },
+        ],
       });
       // The child is gone, so nothing is left watching the parent's sandbox.
       await vi.waitFor(() => expect(listeners.size).toBe(0));

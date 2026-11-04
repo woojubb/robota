@@ -11,12 +11,15 @@
  * only up to the project read limit, so what would be sealed past it — or is past it already — stays
  * plain and is reported. Whether something is done is decided by whether it opens for its session; a
  * sealed file that does not open here is left as it is, and a file with another hard link is refused,
- * since replacing it would leave the plaintext under the other name. Every sealed record of the store,
+ * since replacing it would leave the plaintext under the other name, and a record another process
+ * may be saving — its writer marker stands — is left for a later run. Every sealed record of the store,
  * and every sealed sidecar of a session, is written beside its file and flushed before any is put in
  * place; each replace is then atomic, and is made only if the file still holds what was read
  * (`project-state-replacement.ts`).
  */
 import { createHash } from 'node:crypto';
+
+import { createProcessMarkers } from '@robota-sdk/agent-core/node';
 import { isSafeSessionId } from '@robota-sdk/agent-session';
 import {
   countPlainSessionLogLines,
@@ -37,6 +40,7 @@ import {
   replaceStagedProjectStateFiles,
 } from '../workspace-trust/project-state-replacement.js';
 import { sweepWorkspaceProjectStateTemporaries } from '../workspace-trust/project-state-storage.js';
+import { projectSessionClaimsDirectory } from './workspace-session-store.js';
 
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
@@ -81,6 +85,11 @@ export interface IWorkspaceSessionRecordMigration {
   readonly overCap: readonly string[];
   /** Records that changed while being sealed: left as they are, for the next run. */
   readonly changed: readonly string[];
+  /**
+   * The ids of records open in another process — their writer marker stands for an owner not
+   * provably gone — left as they are, for a run after it has closed.
+   */
+  readonly held: readonly string[];
   /** Stale temp files found: removed (or to remove) with `sweepTemporaries`, else left where they are. */
   readonly staleTemporaries: number;
   /**
@@ -129,9 +138,11 @@ export function migrateWorkspaceProjectSessionRecords(
     refused: [] as string[],
     overCap: [] as string[],
     changed: [] as string[],
+    held: [] as string[],
     staleTemporaries: 0,
     sealedRecords: [] as { readonly id: string; readonly digest: string }[],
   };
+  const markers = createProcessMarkers(projectSessionClaimsDirectory(sessions));
   const staged: { readonly path: string; readonly id: string; readonly digest: string }[] = [];
   const replacements = replaceStagedProjectStateFiles(
     sessions,
@@ -144,6 +155,12 @@ export function migrateWorkspaceProjectSessionRecords(
         if (entry.kind !== 'file') result.refused.push(path);
         else if (!isSafeSessionId(id)) result.unsafeNames.push(path);
         if (entry.kind !== 'file' || !isSafeSessionId(id)) continue;
+        // A record another process may be saving now is left for a run after it has closed.
+        const writer = markers.inspect(id);
+        if (writer.status === 'held' && writer.holder.liveness !== 'gone') {
+          result.held.push(id);
+          continue;
+        }
         const raw = readCapped(sessions, entry.name);
         if (raw === undefined) continue;
         if (raw === 'over-cap') {

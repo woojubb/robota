@@ -114,6 +114,7 @@ function migratedSessions(
     adopt: (): IMigratedSessionsMarked => {
       const sealer = new KeyHolderArtifactSealer(context.holder);
       const marked = { adopted: 0, locked: 0, changed: 0 };
+      const held: string[] = [];
       const unmarked: IUnmarkedSessions[] = [];
       try {
         for (const batch of batches) {
@@ -122,6 +123,7 @@ function migratedSessions(
             marked.adopted += result.adopted;
             marked.locked += result.locked;
             marked.changed += result.changed;
+            held.push(...result.held);
             if (result.failed > 0) {
               unmarked.push({
                 where: batch.where,
@@ -137,7 +139,7 @@ function migratedSessions(
             });
           }
         }
-        return { ...marked, unmarked };
+        return { ...marked, held, unmarked };
       } finally {
         sealer.dispose();
       }
@@ -163,8 +165,13 @@ function leftAlone(result: {
   readonly refused?: readonly string[];
   readonly overCap?: readonly string[];
   readonly changed?: readonly string[];
+  readonly held?: readonly string[];
 }): string[] {
   return [
+    ...named(
+      'Left as they are, since they are open in another process; close it, or release a session whose process ended with session release, then run this again',
+      result.held ?? [],
+    ),
     ...named(
       'Left as they are, since they do not open here (other keys, damaged, or sealed by a newer build)',
       result.unopenable ?? [],
@@ -258,6 +265,7 @@ function finished(
   result: {
     readonly changed: readonly string[];
     readonly refused: readonly string[];
+    readonly held?: readonly string[];
     readonly catchUpFailed?: readonly unknown[];
     readonly staleTemporaries: number;
   },
@@ -266,6 +274,7 @@ function finished(
   return (
     result.changed.length === 0 &&
     result.refused.length === 0 &&
+    (result.held?.length ?? 0) === 0 &&
     (result.catchUpFailed?.length ?? 0) === 0 &&
     (mayDelete || result.staleTemporaries === 0)
   );

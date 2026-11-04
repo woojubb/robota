@@ -333,7 +333,7 @@ describe('serve session directory (#3189)', () => {
         verified('mine', '2026-09-01T00:00:00Z'),
         empty(unverified('planted-empty', '2026-09-02T00:00:00Z')),
       ]);
-      const { directory, buildSession } = served(fakeSession('mine'), store);
+      const { directory, buildSession } = served(fakeSession('primary'), store);
       const binding = directory.bind('drive');
 
       await binding.directory.newSession();
@@ -779,13 +779,53 @@ describe('serve session directory (#3189)', () => {
           outcome: { status: 'valid', record: record('only', '2026-09-01T00:00:00Z') },
         },
       ]);
-      const { directory, buildSession } = served(fakeSession('only'), store);
+      const { directory, buildSession } = served(fakeSession('primary'), store);
       const binding = directory.bind('drive');
+      await binding.directory.switchSession('only');
 
       await binding.directory.deleteSession('only');
 
       expect(buildSession).toHaveBeenCalledWith(undefined);
       expect(binding.session.current.id).toBe('fresh');
+      expect(store.entries.map((entry) => entry.id)).toEqual([]);
+    });
+
+    it('closes the session it deletes first, so its record is not written again from here', async () => {
+      const b = fakeSession('b');
+      const { directory } = served(fakeSession('a'), STORED(), () => b);
+      const binding = directory.bind('drive');
+      await binding.directory.switchSession('b');
+      await binding.directory.switchSession('a');
+
+      await binding.directory.deleteSession('b');
+
+      expect(b.shutdown).toHaveBeenCalled();
+    });
+
+    it('refuses to delete the runtime’s first session, which stays open here', async () => {
+      const { directory } = served(fakeSession('a'), STORED());
+      const binding = directory.bind('drive');
+      await binding.directory.switchSession('b');
+
+      expect(await deleteRefusalOf(binding.directory.deleteSession('a'))).toBe('running');
+    });
+
+    it('refuses with has_writer to rename or delete a session another writer holds', async () => {
+      const store = STORED();
+      const { directory } = served(fakeSession('a'), store);
+      const binding = directory.bind('drive');
+      // Lent to a subagent process, or open in another process: a writer this pool does not run.
+      const lease = store.lend('b');
+
+      await expect(binding.directory.renameSession('b', 'renamed')).rejects.toMatchObject({
+        code: 'has_writer',
+      });
+      expect(await deleteRefusalOf(binding.directory.deleteSession('b'))).toBe('has_writer');
+      expect(store.entries.map((entry) => entry.id)).toContain('b');
+
+      lease.end();
+      await binding.directory.deleteSession('b');
+      expect(store.entries.map((entry) => entry.id)).not.toContain('b');
     });
   });
 });

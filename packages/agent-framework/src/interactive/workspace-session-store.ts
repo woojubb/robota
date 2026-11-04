@@ -125,6 +125,17 @@ const PAYLOAD_UNREADABLE_OUTCOME: TSessionLoadOutcome = Object.freeze({
   ]),
 });
 
+/**
+ * The directory a trusted project's session store keeps its writer markers in, beside its records:
+ * what a host command that releases a marker (`session release`) inspects.
+ */
+export function projectSessionClaimsDirectory(sessions: IWorkspaceProjectStateStorage): string {
+  return workspaceProjectStateDirectoryPath(
+    assertNamespace(sessions, 'sessions'),
+    SESSION_CLAIMS_DIRECTORY,
+  );
+}
+
 /** Project session record adapter backed only by runtime-minted state facets. */
 export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
   private readonly sessions: IWorkspaceProjectStateStorage;
@@ -152,9 +163,7 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     assertWorkspaceProjectStateStoragePair(this.sessions, this.logs);
     // The writer markers are published by hard links, which no facet call makes, so the claims
     // directory beside the records is reached by its path, checked through the authority-gated facet.
-    const markers = createProcessMarkers(
-      workspaceProjectStateDirectoryPath(this.sessions, SESSION_CLAIMS_DIRECTORY),
-    );
+    const markers = createProcessMarkers(projectSessionClaimsDirectory(this.sessions));
     this.records = new StoredSessionRecords(
       this.sealing,
       {

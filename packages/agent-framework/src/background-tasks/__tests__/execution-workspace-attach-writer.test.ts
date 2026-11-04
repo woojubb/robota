@@ -188,7 +188,7 @@ describe('attaching to a fork that has a writer in this process', () => {
     expect(ended.type === 'refused' ? ended.reason : '').toContain('experiment is completed');
   });
 
-  it('is offered and honoured for a fork nothing here writes (a child process, plainly)', () => {
+  it('is offered and honoured for a fork nothing writes', () => {
     const store = new NodeSessionStore(dir, { sealing: 'plain' });
     const forkId = fork(store);
 

@@ -166,8 +166,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   except to the writer of a session that has logged but not yet saved, who is told it is `missing`:
   its save writes the snapshot beside the log and destroys nothing. A log carries no authorship, so
   a session rebuilt from one is never the owner's, and in a store that seals an id a session here
-  runs is never rebuilt from one. A resume — a fork's source included — restores only from the read
-  of the claim its session holds on the id for as long as it runs, and only a record it may run or a
+  runs is never rebuilt from one. A resume — a fork's source included, whose read takes no writer marker
+  so a session another process runs can still be copied — restores only from the read of the claim
+  its session holds on the id for as long as it runs, and only a record it may run or a
   session never saved: a locked, corrupt or unsupported record is refused, because a session started
   empty under its id would replace it on the first save after an unlock, and a record a store that
   seals calls unverified is refused unless it is exactly the bytes the owner accepted, because any
@@ -176,7 +177,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   record as it was, and what an unverified record says of itself never decides what a run resumes.
   The claim fences every save of the id and ends however the session ends, so a session its host
   stopped waiting for cannot overwrite the next one, and no surface opens a second session on an id
-  that has a writer in this process. A save the store refuses is reported once for each reason, in
+  that has a writer, in this process or another: a served pool tells its client to try again for a
+  writer here and names the other process otherwise. A save the store refuses is reported once for each reason, in
   the store's own words, until a save goes through. A session whose file something unverifiable
   changed stops saving the id and acting on its own and saves its state once as a new record it
   names, since merging the file would launder it and overwriting it could destroy newer work; a

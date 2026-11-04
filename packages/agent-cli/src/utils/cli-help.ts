@@ -160,6 +160,9 @@ Commands:
                                   Link a PR/MR URL to a live supervised session
   {{cli}} session unlink-pr <supervised-id>
                                   Clear a live supervised session PR/MR link
+  {{cli}} session release <session-id> [--force]
+                                  Remove the writer marker a session's ended process left; --force
+                                  removes one whose process may still run (your terminal and a y/N)
   {{cli}} daemon start [--json] [--restricted-workspace]
                                   Start this workspace's daemon, or reuse the running one; --json
                                   prints {"id","url"} for the client that connects to it
@@ -257,7 +260,10 @@ export function isSubcommandName(word: string): boolean {
  * Help for `{{cli}} <subcommand> --help` (or `-h`): that subcommand's entries from the command list
  * above, so the two never disagree. Undefined when `args` is not such a request.
  */
-export function subcommandHelpFor(args: readonly string[], runtime: ICliRuntimeContext): string | undefined {
+export function subcommandHelpFor(
+  args: readonly string[],
+  runtime: ICliRuntimeContext,
+): string | undefined {
   const first = args[0];
   if (first === undefined || !(args.includes('--help') || args.includes('-h'))) return undefined;
   if (hasOwnHelp(args)) return undefined;
@@ -266,7 +272,16 @@ export function subcommandHelpFor(args: readonly string[], runtime: ICliRuntimeC
   if (entries.length === 0) return undefined;
   const options =
     subcommand === 'mcp' ? `\n\nOptions for {{cli}} mcp serve:\n${mcpServeOptions()}` : '';
-  return renderHelp(`\nUsage:\n${entries.map((entry) => entry.text).join('\n')}${options}\n\nRun {{cli}} --help for every option and command.\n`, runtime);
+  return renderHelp(
+    `\nUsage:\n${entries.map((entry) => entry.text).join('\n')}${options}\n\nRun {{cli}} --help for every option and command.\n`,
+    runtime,
+  );
 }
 
-function renderHelp(text: string, runtime: ICliRuntimeContext): string { return text.replaceAll('{{cli}}', runtime.vocabulary.cliName).replaceAll('{{name}}', runtime.vocabulary.displayName).replaceAll('{{settings}}', runtime.layout.userPaths.settings).replaceAll('{{projectSettings}}', `${runtime.layout.projectDirectory}/settings.json`); }
+function renderHelp(text: string, runtime: ICliRuntimeContext): string {
+  return text
+    .replaceAll('{{cli}}', runtime.vocabulary.cliName)
+    .replaceAll('{{name}}', runtime.vocabulary.displayName)
+    .replaceAll('{{settings}}', runtime.layout.userPaths.settings)
+    .replaceAll('{{projectSettings}}', `${runtime.layout.projectDirectory}/settings.json`);
+}

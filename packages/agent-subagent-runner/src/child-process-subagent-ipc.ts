@@ -107,6 +107,12 @@ export interface ISubagentWorkerStartPayload {
    * {@link RESUME_HELD_MAX_CHARACTERS} characters.
    */
   resumeHeld?: string;
+  /**
+   * A fork job, in either mode: the nonce of the lease the parent lent `request.resumeSessionId`
+   * under. The child claims the record with it, taking the parent's writer marker over, so the record
+   * has one writer while the child runs. Not the conversation; it rides only beside the id it resumes.
+   */
+  resumeLease?: string;
 }
 
 /** The most token characters a held record may take on the wire; a larger one fails the job before spawning. */
@@ -339,12 +345,16 @@ function hasOptionalNonEmptyString(value: TSubagentWorkerWireRecord, key: string
 }
 
 /**
- * #3679: the grant is a non-empty string, and a held record is one within its bound that rides only
- * beside the id it resumes — a record with no id to resume is a payload that put the conversation
- * where nothing reads it, and the worker must not guess.
+ * #3679: the grant is a non-empty string; a fork job carries the lease it claims its record with,
+ * and only a fork job does; and a held record is one within its bound that rides only beside the id
+ * it resumes — a record with no id to resume is a payload that put the conversation where nothing
+ * reads it, and the worker must not guess.
  */
 function hasValidSealingFields(value: TSubagentWorkerWireRecord): boolean {
   if (!hasOptionalNonEmptyString(value, 'writeGrant')) return false;
+  if (!hasOptionalNonEmptyString(value, 'resumeLease')) return false;
+  const resumes = isRecord(value.request) && hasRequestString(value.request, 'resumeSessionId');
+  if ((value.resumeLease !== undefined) !== resumes) return false;
   if (value.resumeHeld === undefined) return true;
   if (!hasOptionalNonEmptyString(value, 'resumeHeld')) return false;
   if ((value.resumeHeld as string).length > RESUME_HELD_MAX_CHARACTERS) return false;

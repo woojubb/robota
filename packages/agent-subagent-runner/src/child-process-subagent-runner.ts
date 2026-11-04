@@ -45,7 +45,7 @@ import type {
   ISubagentWorkerStartPayload,
   TSubagentWorkerPermissionResult,
 } from './child-process-subagent-ipc.js';
-import type { TParentSandboxSettings } from './worker-composition.js';
+import type { TParentSandboxSettings, TResumeSessionStore } from './worker-composition.js';
 import type {
   IProviderDefinition,
   IProviderDefinitionConfig,
@@ -213,9 +213,10 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
 
   /**
    * Refuses, before anything is made for it, a job whose payload could not carry what the parent's
-   * sealing needs (see {@link preflightStartPayloadSealing}): the worktree runner calls this before it
-   * prepares a worktree. It takes nothing — a fork record stays with the store until {@link start}
-   * hands it over — so a job that fails in between can be run again.
+   * sealing needs, or whose fork record already has a writer (see
+   * {@link preflightStartPayloadSealing}): the worktree runner calls this before it prepares a
+   * worktree. It only looks — a fork record is lent and handed over by {@link start} — so a job that
+   * fails in between can be run again.
    */
   preflight(job: ISubagentJobStart): void {
     preflightStartPayloadSealing(job, this.deps, this.logSealing);
@@ -242,35 +243,54 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       env,
     );
     // Also before spawning: a job that cannot carry what its parent's sealing needs — a grant, a
-    // fork record the keys cannot hand over, a record past the wire bound — never starts a child.
-    // This only looks: the fork record is handed over once the child exists (below).
+    // fork record the keys cannot hand over, a record past the wire bound — or whose fork record
+    // already has a writer never starts a child. This only looks: the record is lent next and handed
+    // over once the child exists (below).
     preflightStartPayloadSealing(job, this.deps, this.logSealing);
-    const child = spawn(
-      entry.execPath,
-      [...(entry.execArgv ?? []), ...entry.args, SUBAGENT_WORKER_MODE_FLAG],
-      {
-        // ARCH-010/ARCH-031: the forked process's OS working directory answers the same question as
-        // the session's execution root, so it reads the same rule. Reading `request.cwd` directly was
-        // only ever correct while the worktree runner rewrote that field — this is the second carrier
-        // that removal would have left disagreeing with the first.
-        cwd: subagentExecutionRoot(job),
-        env,
-        // DIST-006: stderr was `'ignore'`, so a child that died before its first IPC message
-        // reported only `exit code 1`. That is why this defect's second occurrence had to be
-        // diagnosed by hand — the cause was written to a stream nothing was reading.
-        stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
-        detached: SPAWN_DETACHED,
-      },
-    );
+    // A fork job's record is lent to the child before it is spawned, in either mode, so it has one
+    // writer — the child, under the lease — from the moment the child can write.
+    const lease = this.lendForkRecord(job);
+    let child: ChildProcess;
+    try {
+      child = spawn(
+        entry.execPath,
+        [...(entry.execArgv ?? []), ...entry.args, SUBAGENT_WORKER_MODE_FLAG],
+        {
+          // ARCH-010/ARCH-031: the forked process's OS working directory answers the same question
+          // as the session's execution root, so it reads the same rule. Reading `request.cwd`
+          // directly was only ever correct while the worktree runner rewrote that field — this is
+          // the second carrier that removal would have left disagreeing with the first.
+          cwd: subagentExecutionRoot(job),
+          env,
+          // DIST-006: stderr was `'ignore'`, so a child that died before its first IPC message
+          // reported only `exit code 1`. That is why this defect's second occurrence had to be
+          // diagnosed by hand — the cause was written to a stream nothing was reading.
+          stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+          detached: SPAWN_DETACHED,
+        },
+      );
+    } catch (error) {
+      lease?.end();
+      throw error;
+    }
     captureChildStderr(child);
     const runtime: IChildProcessRuntime = {
       job,
       child,
       killGraceMs: this.killGraceMs,
     };
-    // The fork record is handed over only now that the child exists, and its follower is attached in
-    // the same turn: the export ends only when the follower sees the child gone, so no start that
-    // fails before this point can leave the record exported for the rest of the process.
+    // Followed in the same turn as the spawn: the lease ends only once the follower sees the child
+    // gone, so a start refused from here on — the child is cancelled — still ends it.
+    const store = this.deps.resumeSessionStore;
+    const follower =
+      lease !== undefined && store !== undefined
+        ? followForkRecordSaves(child, {
+            sessionId: job.request.resumeSessionId as string,
+            lease,
+            store,
+          })
+        : undefined;
+    // The fork record is handed over only now that the child exists.
     let sealing: IProjectedStartSealing;
     try {
       sealing = projectStartPayloadSealing(job, this.deps, this.logSealing);
@@ -279,22 +299,18 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       void cancelUnstartedChild(runtime);
       throw error;
     }
-    // A sealing parent's fork job: from the first message on, the parent keeps the child's reports
-    // of its record saves, past the job's result, to vouch for the last of them once the child is gone.
-    const store = this.deps.resumeSessionStore;
-    if (sealing.fork !== undefined && store !== undefined) {
-      followForkRecordSaves(child, {
-        sessionId: sealing.fork.sessionId,
-        startedOwner: sealing.fork.startedOwner,
-        store,
-      });
-    }
+    // A sealing parent's fork job: the parent keeps the child's reports of its record saves, past the
+    // job's result, to vouch for the last of them once the child is gone and the lease has ended.
+    if (sealing.fork !== undefined) follower?.vouch(sealing.fork.startedOwner);
     // Watch BEFORE the payload reads the settings: a change made while the child starts is then either
     // in the payload or sent after it, never lost between the two.
     this.forwardSandboxSettingChanges(child);
     let payload: Promise<ISubagentWorkerStartPayload>;
     try {
-      payload = this.createStartPayload(job, connection, sealing.payload);
+      payload = this.createStartPayload(job, connection, {
+        ...sealing.payload,
+        ...(lease !== undefined ? { resumeLease: lease.nonce } : {}),
+      });
     } catch (error) {
       // The child would wait for a `start` that is never coming; it must not outlive the refusal.
       void cancelUnstartedChild(runtime);
@@ -354,6 +370,29 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   }
 
   /**
+   * Lends a fork job's record from the parent's store; `undefined` for a job that resumes nothing. A
+   * record that gained a writer since the preflight looked refuses the job, in the store's words,
+   * which name the process that holds it.
+   */
+  private lendForkRecord(
+    job: ISubagentJobStart,
+  ): ReturnType<TResumeSessionStore['lend']> | undefined {
+    const resumeSessionId = job.request.resumeSessionId;
+    const store = this.deps.resumeSessionStore;
+    if (resumeSessionId === undefined || store === undefined) return undefined;
+    try {
+      return store.lend(resumeSessionId);
+    } catch (error) {
+      // A store's refusal (`SessionClaimedError`), by its code: this package does not load the store's.
+      if ((error as { readonly code?: unknown } | null)?.code !== 'SESSION_CLAIMED') throw error;
+      throw new BackgroundTaskError(
+        'validation',
+        `${(error as Error).message} The subagent was not started.`,
+      );
+    }
+  }
+
+  /**
    * Re-reads the write grant this runner's sealer issues and sends it (`sealing_key`) to every
    * running child that was sent `start` with another — what a composition root calls when the key it
    * seals to is verified or changes, so a child started before the parent's first unlock seals to the
@@ -410,7 +449,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   private createStartPayload(
     job: ISubagentJobStart,
     connection: IProjectedConnection,
-    sealing: IProjectedSealing,
+    sealing: IProjectedSealing & { readonly resumeLease?: string },
   ): Promise<ISubagentWorkerStartPayload> {
     const parentSandboxSettings = this.parentSandboxSettings?.();
     return projectStartPayload(job, this.deps, {

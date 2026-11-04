@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { createUserSessionStore } from '@robota-sdk/agent-framework';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { runSubagentWorkerMain } from '../../../dist/node/index.js';
 
@@ -9,31 +9,9 @@ if (!process.argv.includes('--__agent-subagent-worker')) {
   process.exit(2);
 }
 
-function recordPath(cwd, id) {
-  return join(cwd, 'sessions', `${id}.json`);
-}
-
+/** The plain store the parent keeps beside the workspace, which the child claims its record in. */
 function openSessionStore(cwd) {
-  return {
-    save(record) {
-      mkdirSync(join(cwd, 'sessions'), { recursive: true });
-      writeFileSync(recordPath(cwd, record.id), JSON.stringify(record), 'utf8');
-    },
-    load(id) {
-      const path = recordPath(cwd, id);
-      if (!existsSync(path)) return { status: 'missing' };
-      const record = JSON.parse(readFileSync(path, 'utf8'));
-      record.messages = record.messages.map((message) => ({
-        ...message,
-        timestamp: new Date(message.timestamp),
-      }));
-      return { status: 'valid', record };
-    },
-    list() {
-      return [];
-    },
-    delete() {},
-  };
+  return createUserSessionStore(join(cwd, 'sessions'), { sealing: 'plain' });
 }
 
 runSubagentWorkerMain({

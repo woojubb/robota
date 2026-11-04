@@ -31,13 +31,13 @@ Continuing, resuming, forking and naming saved sessions from the command line (`
 
 ## Concepts
 
-| Term                     | Meaning                                                                                                                                                                                                                            |
-| ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Session                  | One conversation and its history, saved as a record you can resume.                                                                                                                                                                |
-| Background session       | A `__PRODUCT_CLI_NAME__` runtime process started with `__PRODUCT_CLI_NAME__ session start --background`. It outlives the terminal and has an id (a UUID). The CLI output calls these _supervised sessions_.                                                    |
+| Term                     | Meaning                                                                                                                                                                                                                                          |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Session                  | One conversation and its history, saved as a record you can resume.                                                                                                                                                                              |
+| Background session       | A `__PRODUCT_CLI_NAME__` runtime process started with `__PRODUCT_CLI_NAME__ session start --background`. It outlives the terminal and has an id (a UUID). The CLI output calls these _supervised sessions_.                                      |
 | Daemon                   | The one background session marked as a workspace's daemon. `__PRODUCT_CLI_NAME__ daemon start` reuses it if it is already running. The desktop app connects to it, and in a folder not trusted yet asks first: trust, start Restricted, or quit. |
-| Client                   | Anything that shows a session: an attached terminal, the browser GUI, the desktop app. One runtime can serve several clients at once.                                                                                              |
-| Workspace (for a daemon) | The real path of the directory you ran the command in. It is not the repository root: a subdirectory is a different workspace with its own daemon.                                                                                 |
+| Client                   | Anything that shows a session: an attached terminal, the browser GUI, the desktop app. One runtime can serve several clients at once.                                                                                                            |
+| Workspace (for a daemon) | The real path of the directory you ran the command in. It is not the repository root: a subdirectory is a different workspace with its own daemon.                                                                                               |
 
 ## Workspace trust
 
@@ -211,8 +211,8 @@ These limits are fixed in code, not settings.
 
 ### Commands
 
-| Command                                                                          | What it does                                                                                                                                                        |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Command                                                                                        | What it does                                                                                                                                                        |
+| ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `__PRODUCT_CLI_NAME__ trust [status\|grant\|revoke] [--yes]`                                   | Show or change this repository's trust. Bare `--yes` grants.                                                                                                        |
 | `__PRODUCT_CLI_NAME__ daemon start [--json] [--restricted-workspace]`                          | Start this workspace's daemon, or reuse the running one. `--json` prints `{"id","url"}`; `--restricted-workspace` starts it Restricted in a folder not trusted yet. |
 | `__PRODUCT_CLI_NAME__ daemon status [--json]`                                                  | Whether this workspace's daemon runs. `--json` prints `{"running":false}` or `{"running":true,"id","url"}`.                                                         |
@@ -228,6 +228,7 @@ These limits are fixed in code, not settings.
 | `__PRODUCT_CLI_NAME__ session rename <id> <name>`                                              | Rename a live background session.                                                                                                                                   |
 | `__PRODUCT_CLI_NAME__ session link-pr <id> <https-url>` / `unlink-pr <id>`                     | Link or clear a pull/merge request URL shown in the session view.                                                                                                   |
 | `__PRODUCT_CLI_NAME__ session events list <id> [--json]` / `events revoke <id> <grant-id>`     | Inspect or withdraw a background session's external-event grants — see [MCP and external events](./mcp.md#external-events).                                         |
+| `__PRODUCT_CLI_NAME__ session release <session-id> [--force]`                                  | Remove the writer marker a session's ended process left. `--force` removes one whose process may still run, at your terminal and after a y/N.                       |
 
 `session attach`, `session view` and `--attach` also accept `--screen-reader` / `--no-screen-reader`.
 
@@ -244,11 +245,11 @@ See the [CLI reference](./cli.md) for `/rename`, `/rewind`, `/cost` and the othe
 
 ### Files and locations
 
-| Path                                                                | Contents                                                                                        |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Path                                                                   | Contents                                                                                        |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
 | `<user-state>/workspace-trust.json`                                    | Trust grants.                                                                                   |
 | `<user-state>/sessions/`                                               | Saved sessions for Restricted workspaces, and for trusted workspaces on hosts other than Linux. |
-| `<project-state>/sessions/`, `<project-state>/logs/` (in the project)               | Saved sessions and session logs for a trusted workspace on Linux.                               |
+| `<project-state>/sessions/`, `<project-state>/logs/` (in the project)  | Saved sessions and session logs for a trusted workspace on Linux.                               |
 | `$XDG_RUNTIME_DIR/robota/supervised/`, else `<user-state>/supervised/` | Background-session control state and daemon start locks. Must be private to your user.          |
 
 On hosts other than Linux, Robota cannot prove that a write under the project stays inside it, so a
@@ -284,17 +285,18 @@ the project root.
 
 ### Troubleshooting
 
-| Message or symptom                                                           | Cause and fix                                                                                                                           |
-| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `Workspace trust is required before headless startup (state: …)`             | Run `__PRODUCT_CLI_NAME__ trust --yes` in the repository, or start the daemon with `--restricted-workspace`.                                          |
-| `Attaching needs an interactive terminal and the user's confirmation.`       | The command ran without a TTY (a script or an agent). Run the printed command yourself.                                                 |
-| `No daemon is running in <dir>. Start one with: __PRODUCT_CLI_NAME__ daemon start`         | `--attach` looks for the daemon of the exact directory; run it where the daemon was started.                                            |
-| `If no daemon start is running, remove it with: __PRODUCT_CLI_NAME__ daemon unlock`        | A previous start died holding the lock. Run `__PRODUCT_CLI_NAME__ daemon unlock`, then start again.                                                   |
-| `Daemon <id> is running but cannot be connected to. Run: __PRODUCT_CLI_NAME__ daemon stop` | Stop it and start again.                                                                                                                |
-| `<id> is not a live supervised session this terminal can attach to.`         | The session stopped, or is not controllable. Check `__PRODUCT_CLI_NAME__ session list`.                                                               |
-| `Supervised session directory is not private to this user.`                  | Make the control directory (see above) owned by you with mode `0700`.                                                                   |
-| `Robota web assets not found (dist/web) — run a full CLI build.`             | The GUI assets are missing (for example, a source checkout without a full build).                                                       |
-| A saved session is listed as `corrupt` or `unsupported`                      | The file is not a session record, or was written by a build this one does not read. It is kept, not overwritten, and cannot be resumed. |
+| Message or symptom                                                                         | Cause and fix                                                                                                                                                                                  |
+| ------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Workspace trust is required before headless startup (state: …)`                           | Run `__PRODUCT_CLI_NAME__ trust --yes` in the repository, or start the daemon with `--restricted-workspace`.                                                                                   |
+| `Attaching needs an interactive terminal and the user's confirmation.`                     | The command ran without a TTY (a script or an agent). Run the printed command yourself.                                                                                                        |
+| `No daemon is running in <dir>. Start one with: __PRODUCT_CLI_NAME__ daemon start`         | `--attach` looks for the daemon of the exact directory; run it where the daemon was started.                                                                                                   |
+| `If no daemon start is running, remove it with: __PRODUCT_CLI_NAME__ daemon unlock`        | A previous start died holding the lock. Run `__PRODUCT_CLI_NAME__ daemon unlock`, then start again.                                                                                            |
+| `Daemon <id> is running but cannot be connected to. Run: __PRODUCT_CLI_NAME__ daemon stop` | Stop it and start again.                                                                                                                                                                       |
+| `<id> is not a live supervised session this terminal can attach to.`                       | The session stopped, or is not controllable. Check `__PRODUCT_CLI_NAME__ session list`.                                                                                                        |
+| `Supervised session directory is not private to this user.`                                | Make the control directory (see above) owned by you with mode `0700`.                                                                                                                          |
+| `Robota web assets not found (dist/web) — run a full CLI build.`                           | The GUI assets are missing (for example, a source checkout without a full build).                                                                                                              |
+| A saved session is listed as `corrupt` or `unsupported`                                    | The file is not a session record, or was written by a build this one does not read. It is kept, not overwritten, and cannot be resumed.                                                        |
+| `Session <id> is open in another process (pid …)`                                          | One session has one writer: close it in the process named, or wait for its subagent job to end. If that process is no longer running, run `__PRODUCT_CLI_NAME__ session release <id> --force`. |
 
 ## Related
 

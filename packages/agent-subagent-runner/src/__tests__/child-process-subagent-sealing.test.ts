@@ -282,20 +282,17 @@ describe('the transcript the parent reads is the one the child wrote', () => {
     const cwd = directory('sealing-fork-cwd-');
     const logsDir = directory('sealing-fork-logs-');
     const resumeSessionId = 'session_fork_transcript';
-    // The fork fixture's own store keeps the bare record, as its file has always held it.
-    mkdirSync(join(cwd, 'sessions'));
-    writeFileSync(
-      join(cwd, 'sessions', `${resumeSessionId}.json`),
-      JSON.stringify(forkRecord(resumeSessionId, cwd)),
-    );
-    return { cwd, logsDir, resumeSessionId };
+    // The parent's plain store, which lends the record; the fork fixture's store is one over it.
+    const store = createUserSessionStore(join(cwd, 'sessions'), { sealing: 'plain' });
+    store.save(forkRecord(resumeSessionId, cwd), { handoff: true });
+    return { cwd, logsDir, resumeSessionId, store };
   }
 
   it(
     'for a fork job run in the parent checkout',
     async () => {
-      const { cwd, logsDir, resumeSessionId } = forkSetup();
-      const runner = new ChildProcessSubagentRunner(createDeps(), {
+      const { cwd, logsDir, resumeSessionId, store } = forkSetup();
+      const runner = new ChildProcessSubagentRunner(createDeps({ resumeSessionStore: store }), {
         logSealing: 'plain',
         workerEntry: FORK_WORKER,
         worktreeAdapter: NO_WORKTREES,
@@ -319,7 +316,7 @@ describe('the transcript the parent reads is the one the child wrote', () => {
   it(
     'for a fork job isolated in a worktree, the default for /fork',
     async () => {
-      const { cwd, logsDir, resumeSessionId } = forkSetup();
+      const { cwd, logsDir, resumeSessionId, store } = forkSetup();
       const worktrees: ISubagentWorktreeAdapter = {
         prepare: ({ taskId }) => ({
           repoRoot: cwd,
@@ -335,7 +332,7 @@ describe('the transcript the parent reads is the one the child wrote', () => {
         worktreeAdapter: worktrees,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
         logsDir,
-      })(createDeps());
+      })(createDeps({ resumeSessionStore: store }));
 
       const handle = runner.start(job(cwd, { resumeSessionId, isolation: 'worktree' }));
       await handle.result;
@@ -952,12 +949,17 @@ describe('a child whose parent seals', () => {
       createUserSessionStore(join(cwd, 'sessions'), {
         sealing: { sealer: sealedElsewhere.sealer },
       }).save(forkRecord('session_fork_unhanded', cwd));
-      const runner = new ChildProcessSubagentRunner(createDeps(), {
-        logSealing: 'plain',
-        workerEntry: SEALING_WORKER,
-        worktreeAdapter: NO_WORKTREES,
-        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
-      });
+      // A plain parent's store over the same files: it lends the record, which it cannot open.
+      const parentStore = createUserSessionStore(join(cwd, 'sessions'), { sealing: 'plain' });
+      const runner = new ChildProcessSubagentRunner(
+        createDeps({ resumeSessionStore: parentStore }),
+        {
+          logSealing: 'plain',
+          workerEntry: SEALING_WORKER,
+          worktreeAdapter: NO_WORKTREES,
+          providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+        },
+      );
 
       const failure = await runner
         .start(job(cwd, { resumeSessionId: 'session_fork_unhanded' }))

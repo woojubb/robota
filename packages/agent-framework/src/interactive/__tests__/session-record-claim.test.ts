@@ -9,7 +9,10 @@
  * every save it makes while it runs carries the claim.
  */
 
-import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
+import { join } from 'node:path';
+
+import { readCurrentProcessIdentity, readProcessStartTime } from '@robota-sdk/agent-core/node';
+import { createTestArtifactSealer, leaveProcessMarker } from '@robota-sdk/agent-core/testing';
 import { isSessionClaimedError } from '@robota-sdk/agent-session';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -275,6 +278,31 @@ describe('where a session claims its record', () => {
     const lease = await host.pool!.acquire();
     expect(lease.session.sessionId).not.toBe('sess_live');
     lease.cancel();
+    await host.shutdown();
+  });
+
+  it('tells a pool client which other process writes a record, with has_writer', async () => {
+    const cwd = directory();
+    const dir = directory();
+    const sealer = createTestArtifactSealer();
+    writeOwnerRecord(dir, sealer, record('sess_elsewhere', cwd, OWNER_TEXT));
+    // A live process other than this one — the one that started this test worker — holds it.
+    const { startTime: _ignored, ...here } = readCurrentProcessIdentity();
+    const startTime = readProcessStartTime(process.ppid);
+    leaveProcessMarker(join(dir, 'claims'), 'sess_elsewhere', {
+      ...here,
+      pid: process.ppid,
+      ...(startTime === undefined ? {} : { startTime }),
+    });
+    const store = sealedStore(dir, sealer);
+
+    const host = await startRuntimeHost({ session: sessionOptions(cwd, store), pool: {} });
+    const refusal = await host.pool!.acquire('sess_elsewhere').then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(refusal).toMatchObject({ name: 'SessionChangeRefusal', code: 'has_writer' });
+    expect((refusal as Error).message).toContain(`pid ${process.ppid}`);
     await host.shutdown();
   });
 

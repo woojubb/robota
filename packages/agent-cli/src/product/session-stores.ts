@@ -62,6 +62,16 @@ import type {
   TPromptHistoryInspection,
 } from '@robota-sdk/agent-session/node';
 
+/**
+ * The command a `has_writer` refusal names for a writer marker whose process is not running: the
+ * user's own `session release`, which looks in both stores' claims.
+ */
+export function productSessionReleaseCommand(
+  runtime: ICliRuntimeContext,
+): (sessionId: string) => string {
+  return (sessionId) => `${runtime.config.identity.cliName} session release ${sessionId} --force`;
+}
+
 /** The user's own session store, shared by every workspace that keeps its sessions there. */
 export function createProductUserSessionStore(
   runtime: ICliRuntimeContext,
@@ -69,6 +79,7 @@ export function createProductUserSessionStore(
   enterProductStores(runtime);
   return createUserSessionStore(runtime.layout.userPaths.sessions, {
     sealing: resolveProductSessionSealing(runtime),
+    releaseCommand: productSessionReleaseCommand(runtime),
   });
 }
 
@@ -81,7 +92,10 @@ export function createProductProjectSessionStore(
   return createProjectSessionStore(
     getWorkspaceProjectStateStorage(authority, 'sessions'),
     getWorkspaceProjectStateStorage(authority, 'session-logs'),
-    { sealing: resolveProductSessionSealing(runtime) },
+    {
+      sealing: resolveProductSessionSealing(runtime),
+      releaseCommand: productSessionReleaseCommand(runtime),
+    },
   );
 }
 
@@ -100,6 +114,8 @@ export interface IMigratedRecordsAdoption {
   readonly locked: number;
   /** Changed after the run sealed them, so left unverified. */
   readonly changed: number;
+  /** The ids of records open in another process (their writer marker stands), so not raised. */
+  readonly held: readonly string[];
   /** Could not be raised at all, and the name of the first error that stopped one; left unverified. */
   readonly failed: number;
   readonly failure?: string;
@@ -109,7 +125,8 @@ export interface IMigratedRecordsAdoption {
  * Raises the session records a migration sealed to the owner's, by the digest of exactly the bytes it
  * sealed, once the person said they are theirs (`secure migrate`): through a store that seals with
  * the run's own unlocked sealer, which tags each in place. Built under the migration's marker, so it
- * does not enter the stores as a running product process does. A record changed since is not raised,
+ * does not enter the stores as a running product process does. A record open in another process (its
+ * writer marker stands) is skipped and named, a record changed since is not raised,
  * one the locked keys could not tag is counted as not raised (nothing here outlives the call to tag
  * it at an unlock), and one whose raise fails does not stop the others. Throws when the store cannot
  * be opened at all.
@@ -129,6 +146,7 @@ export function adoptMigratedSessionRecords(
           options,
         );
   const counts = { adopted: 0, locked: 0, changed: 0, failed: 0 };
+  const held: string[] = [];
   let failure: string | undefined;
   for (const { id, digest } of records) {
     let result: string;
@@ -141,9 +159,10 @@ export function adoptMigratedSessionRecords(
     }
     if (result === 'adopted') counts.adopted += 1;
     else if (result === 'pending') counts.locked += 1;
+    else if (result === 'has_writer') held.push(id);
     else counts.changed += 1;
   }
-  return failure === undefined ? counts : { ...counts, failure };
+  return failure === undefined ? { ...counts, held } : { ...counts, held, failure };
 }
 
 /** The user's prompt history: the Ctrl+R search's source and the interactive session's writer. */

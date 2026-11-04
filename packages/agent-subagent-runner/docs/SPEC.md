@@ -52,7 +52,14 @@ extra dependency.
   them only once the child has exited and disconnected, when no report can still be on its way, and
   only when the copy it handed over was the owner's and no save of it was refused. That check
   takes nothing; the record is handed over only once every other check before the spawn has passed,
-  so a job refused before then can simply be run again. Queued
+  so a job refused before then can simply be run again.
+- **A fork job's record has one writer: the child.** In either mode the parent lends the record from
+  its store before it spawns the child, and refuses the job before anything is made for it while the
+  record already has a writer. Only the lease's nonce crosses the wire; the child claims the record
+  with it, taking the parent's writer marker over, saves it only under that claim and lets it go on
+  every way out. The parent ends the lease once the child has exited and disconnected — a spawn that
+  fails ends it at once — and only then raises what the child saved, under a marker of its own, so
+  neither this process nor another opens the record while the child may still write it. Queued
   fork jobs live only in the parent's memory (tasks are not persisted), so a parent that crashes
   loses them and a fresh fork is the way back. A composition with no registered session store fails
   such a job outright rather than starting it with an empty history.

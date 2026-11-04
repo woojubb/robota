@@ -77,6 +77,22 @@ export interface IServeSessionPool<TSession, TSlot extends { readonly current: T
     readonly clients: number;
     readonly session: TSession;
   }[];
+  /**
+   * Closes the live session `sessionId` nobody is on and nothing runs in, resolving once it let its
+   * record go, so the record can be deleted; `false` when it cannot be closed now.
+   */
+  retire(sessionId: string): Promise<boolean>;
+}
+
+/**
+ * What a client is told when another writer holds a session's record — another process, or a
+ * subagent it is lent to — so renaming or deleting it here would race that writer.
+ */
+function writerRefusalMessage(sessionId: string, action: 'renamed' | 'deleted'): string {
+  return (
+    `Session ${sessionId} is open in another process, or a subagent still runs it, so it cannot ` +
+    `be ${action} here now; try again once it has closed.`
+  );
 }
 
 /** What the served runtime lends the directory once its host has started. */
@@ -317,6 +333,10 @@ export function createServeSessionDirectory<
               'time it saves. Switch to it to rename it, or wait for it to close.',
           );
         }
+        // A writer this pool does not run — another process, a subagent the record is lent to.
+        if (target.store.hasWriter(sessionId)) {
+          throw new SessionChangeRefusal('has_writer', writerRefusalMessage(sessionId, 'renamed'));
+        }
         persistSessionRename(target.store, sessionId, name);
       },
       async deleteSession(sessionId) {
@@ -366,6 +386,18 @@ export function createServeSessionDirectory<
             (summary) => summary.id !== sessionId && summary.authorship !== 'unverified',
           )?.id;
           await changeTo(nextExisting);
+        }
+        // The pool's own session of that id lets the record go first; one it cannot close now has a
+        // client or work again, and anything else that writes the record is another writer.
+        if (!(await target.pool.retire(sessionId))) {
+          throw new SessionDeleteRefusal(
+            'running',
+            'This session is still open in this runtime, with a client or work in progress; wait ' +
+              'for it to close, then delete it.',
+          );
+        }
+        if (target.store.hasWriter(sessionId)) {
+          throw new SessionDeleteRefusal('has_writer', writerRefusalMessage(sessionId, 'deleted'));
         }
         target.store.delete(sessionId);
       },
