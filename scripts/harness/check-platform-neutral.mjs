@@ -31,7 +31,7 @@ import { resolveWorkspaceRoot } from './shared.mjs';
 import { listManifestPackageDirs } from './workspace-packages.mjs';
 
 const BUILTINS = new Set(builtinModules.flatMap((name) => [name, `node:${name}`]));
-const isBuiltin = (specifier) => specifier.startsWith('node:') || BUILTINS.has(specifier);
+export const isBuiltin = (specifier) => specifier.startsWith('node:') || BUILTINS.has(specifier);
 
 /**
  * Free identifiers that exist only on Node. esbuild `define` replaces unbound references only, so a
@@ -187,7 +187,7 @@ function sourceNodeReferences(file, code) {
   return { builtins, nodeTypes: [...nodeTypes].sort() };
 }
 
-const ASSET_LOADERS = Object.fromEntries(
+export const ASSET_LOADERS = Object.fromEntries(
   ['.css', '.svg', '.png', '.woff2', '.md', '.html'].map((extension) => [extension, 'empty']),
 );
 
@@ -202,7 +202,7 @@ const BEFORE_BROWSER = new Set(['source', 'types', 'node']);
  * The package's JavaScript subpaths with their conditions, as written in `exports`. A package that
  * ships no importable module (an app shell) declares the entry the check reads in `source`.
  */
-function exportEntries(manifest) {
+export function exportEntries(manifest) {
   const { exports } = manifest;
   if (!exports)
     return typeof manifest.source === 'string' ? [['.', { source: manifest.source }]] : [];
@@ -219,7 +219,7 @@ export const isNodeOnly = (target) =>
   target !== null && typeof target === 'object' && target.browser === null;
 
 /** The first value `conditions` names, followed through nested conditions. */
-function pick(target, conditions) {
+export function pick(target, conditions) {
   if (typeof target === 'string') return target;
   if (!target || typeof target !== 'object') return undefined;
   for (const [condition, value] of Object.entries(target))
@@ -236,7 +236,7 @@ function runtimeConditions(target) {
   ]);
 }
 
-function loadWorkspace(root) {
+export function loadWorkspace(root) {
   const packages = new Map();
   for (const dir of listManifestPackageDirs(root)) {
     const manifest = JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8'));
