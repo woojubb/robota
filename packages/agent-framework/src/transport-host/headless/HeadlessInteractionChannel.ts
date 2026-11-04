@@ -6,6 +6,7 @@
  */
 
 import { createHeadlessRunner, type TOutputFormat } from './headless-runner.js';
+import { requireFrameworkHost } from '../../host/require-framework-host.js';
 import { buildRuntimeSession } from '../../runtime/runtime-host.js';
 
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
@@ -146,6 +147,7 @@ export class HeadlessInteractionChannel {
   private exitCode = 0;
 
   constructor(options: IHeadlessInteractionChannelOptions) {
+    requireFrameworkHost(options.host, 'HeadlessInteractionChannel');
     if (typeof options.shellExec !== 'function') {
       throw new Error('Headless shell execution must be provided by the host.');
     }

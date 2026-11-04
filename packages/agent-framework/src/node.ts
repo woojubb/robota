@@ -23,6 +23,7 @@ import {
 
 import { NodeFileSystem, NodeFileSystemAsync } from './adapters/node-file-system.js';
 import { createGitProcess } from './git/git-process.js';
+import { readNodeGitRemotes } from './git/read-git-remotes.js';
 import { supportsWorkspaceProjectMutation } from './workspace-trust/project-relative-writer.js';
 
 import type { IFrameworkHost } from './host/framework-host.js';
@@ -58,6 +59,7 @@ export function createNodeFrameworkHost(options: ICreateNodeFrameworkHostOptions
       isPathInside,
     },
     git: createGitProcess(),
+    readGitRemotes: readNodeGitRemotes,
     createHookExecutors: ({ shell }) => [new CommandExecutor(shell), new HttpExecutor()],
     createBackgroundTaskRunners: createDefaultBackgroundTaskRunners,
     createDefaultTools: options.createDefaultTools,

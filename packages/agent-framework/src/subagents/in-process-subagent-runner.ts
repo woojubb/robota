@@ -7,6 +7,7 @@ import { advisorToolLineLabel } from '../advisor/advisor-tool.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { sandboxApprovalFor } from '../assembly/sandbox-approval.js';
+import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { restoreSessionRecordIntoSession } from '../interactive/interactive-session-restore.js';
 import { assertClaimedOutcomeAccepted } from '../interactive/session-authorship-gate.js';
 import { decorateSessionStore } from '../interactive/session-store-view.js';
@@ -325,6 +326,7 @@ export function subagentCommandSandbox(
 }
 
 export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps): ISubagentRunner {
+  requireFrameworkHost(deps.host, 'createInProcessSubagentRunner');
   return {
     start(job: ISubagentJobStart): ISubagentJobHandle {
       assertSupportedIsolation(job);

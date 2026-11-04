@@ -51,8 +51,14 @@ export interface IFrameworkHost {
     /** Whether `candidate` is inside `root` once symlinks are resolved. */
     isPathInside(root: string, candidate: string): boolean;
   };
-  /** Runs git; absent, project status reports `failed` and no remote is known. */
+  /** Runs git for project status and diff; absent, project status reports `failed`. */
   readonly git?: IGitProcessPort;
+  /**
+   * Lists the remotes of `cwd`'s repository for the permission classifier; absent, none is known.
+   * Separate from `git` because it must see the environment a judged `git push` runs in, where
+   * `git` runs in a scrubbed one.
+   */
+  readonly readGitRemotes?: (cwd: string) => Promise<string[]>;
   /** Builds the executors that run a hook's handlers; absent, none run and a declared hook is refused. */
   readonly createHookExecutors?: (options: { shell?: string }) => IHookTypeExecutor[];
   /**

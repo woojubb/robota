@@ -3,9 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { AgentDefinitionLoader } from '../../agents/agent-definition-loader.js';
 import { BUILT_IN_AGENTS } from '../../agents/built-in-agents.js';
 import { buildAgentRuntime } from '../create-session-runtime.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { ICreateSessionOptions } from '../create-session-types.js';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * ARCH-005 S2 / OWNER DECISION 2 — the `agentDefinitions` injection seam.
@@ -29,6 +32,8 @@ function packAgent(name: string, systemPrompt = `injected ${name}`): IAgentDefin
 
 function runtimeOptions(overrides: Partial<ICreateSessionOptions> = {}): ICreateSessionOptions {
   return {
+    host: testHost,
+    cwd: process.cwd(),
     enableAgentRuntime: true,
     config: { hooks: undefined },
     ...overrides,

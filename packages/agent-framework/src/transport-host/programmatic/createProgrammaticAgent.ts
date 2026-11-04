@@ -18,6 +18,7 @@ import {
 
 import { ProgrammaticInteractionChannel } from './ProgrammaticInteractionChannel.js';
 import { createInteractiveRuntime } from '../../interaction/createInteractiveRuntime.js';
+import { requireFrameworkHost } from '../../host/require-framework-host.js';
 
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { INodeHostSettingsSource } from '../../config/node-host-settings-source.js';
@@ -52,6 +53,7 @@ export interface ICreateProgrammaticAgentOptions {
  * driver's accessors are the shared `read*` helpers applied to the captured event stream.
  */
 export function createProgrammaticAgent(options: ICreateProgrammaticAgentOptions): IAgentDriver {
+  requireFrameworkHost(options.host, 'createProgrammaticAgent');
   const channel = new ProgrammaticInteractionChannel();
   const runtime: IInteractiveRuntime = createInteractiveRuntime({
     channel,

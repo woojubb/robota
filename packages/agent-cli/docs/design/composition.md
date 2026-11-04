@@ -29,8 +29,8 @@ identity declared as data in `createSelectedProductProfile()` (`src/product/prod
 
 | Entry                 | What it does                                                             | Used by                                  |
 | --------------------- | ------------------------------------------------------------------------ | ---------------------------------------- |
-| `src/bin.ts`          | `startCli()` → `startCliCore(options, runners, presentation)`            | The `__PRODUCT_CLI_NAME__` binary                      |
-| `src/headless-bin.ts` | `startCliCore({}, runners)` with no presentation; accepts only `--serve` | The desktop app's headless runtime build |
+| `src/bin.ts`          | `startCli()` → `startCliCore(options, host, runners, presentation)`      | The `__PRODUCT_CLI_NAME__` binary                      |
+| `src/headless-bin.ts` | `startCliCore({}, host, runners)` with no presentation; accepts only `--serve` | The desktop app's headless runtime build |
 | `src/index.ts`        | Exports `startCli` and `IStartCliOptions`                                | Code that embeds the CLI                 |
 
 Both binaries first check for the subagent worker flag and, when present, run

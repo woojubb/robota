@@ -2,7 +2,7 @@
  * createQuery() — factory that returns a prompt-only convenience function.
  *
  * Usage:
- *   const query = createQuery({ provider });
+ *   const query = createQuery({ host, cwd: process.cwd(), provider });
  *   const answer = await query('What files are here?');
  */
 
