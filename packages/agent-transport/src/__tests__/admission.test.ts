@@ -11,7 +11,12 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { bearerCredential, resolveAdmission } from '../node/admission.js';
+import {
+  bearerCredential,
+  credentialMatches,
+  mintTransportToken,
+  resolveAdmission,
+} from '../admission.js';
 
 const OPEN_REASON = 'loopback only, the port is bound to 127.0.0.1';
 
@@ -126,5 +131,53 @@ describe('bearerCredential reads the header the way RFC 7235 defines it', () => 
     expect(bearerCredential('Bearer')).toBeUndefined();
     expect(bearerCredential('Bearer ')).toBeUndefined();
     expect(bearerCredential(undefined)).toBeUndefined();
+  });
+});
+
+describe('credentialMatches', () => {
+  const expected = 'a-credential-of-some-length';
+
+  it('accepts an equal credential', () => {
+    expect(credentialMatches(expected, 'a-credential-of-some-length')).toBe(true);
+  });
+
+  it('refuses a missing credential as it refuses a wrong one', () => {
+    expect(credentialMatches(expected, undefined)).toBe(false);
+  });
+
+  it('refuses a credential of another length, longer or shorter', () => {
+    expect(credentialMatches(expected, `${expected}x`)).toBe(false);
+    expect(credentialMatches(expected, expected.slice(0, -1))).toBe(false);
+    expect(credentialMatches(expected, '')).toBe(false);
+  });
+
+  it('refuses a credential of the same length that differs, wherever it differs', () => {
+    expect(credentialMatches(expected, `b${expected.slice(1)}`)).toBe(false);
+    expect(credentialMatches(expected, `${expected.slice(0, -1)}x`)).toBe(false);
+    expect(credentialMatches(expected, 'A-credential-of-some-length')).toBe(false);
+  });
+
+  it('compares a non-ASCII credential as the string it is', () => {
+    expect(credentialMatches('tök-ключ-🔑', 'tök-ключ-🔑')).toBe(true);
+    expect(credentialMatches('tök-ключ-🔑', 'tök-ключ-🔑a')).toBe(false);
+    expect(credentialMatches('tök-ключ-🔑', 'tök-ключ-🗝')).toBe(false);
+  });
+
+  it('does not let two different lone surrogates, or one and U+FFFD, stand for each other', () => {
+    // Compared as UTF-8 bytes, all three encode to the replacement character and were equal.
+    expect(credentialMatches('\ud800', '\ud801')).toBe(false);
+    expect(credentialMatches('\ud800', '�')).toBe(false);
+    expect(credentialMatches('\ud800', '\ud800')).toBe(true);
+  });
+});
+
+describe('mintTransportToken', () => {
+  it('mints 64 lowercase hex characters, a different one each time', () => {
+    const first = mintTransportToken();
+    const second = mintTransportToken();
+
+    expect(first).toMatch(/^[0-9a-f]{64}$/);
+    expect(second).toMatch(/^[0-9a-f]{64}$/);
+    expect(first).not.toBe(second);
   });
 });

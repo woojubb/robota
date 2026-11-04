@@ -9,7 +9,7 @@
 
 import { timingSafeEqual } from 'node:crypto';
 
-import { resolveAdmission } from '@robota-sdk/agent-transport/node';
+import { resolveAdmission } from '@robota-sdk/agent-transport';
 
 import type { ITransportAdmission } from '@robota-sdk/agent-interface-transport';
 import type { IncomingMessage } from 'node:http';

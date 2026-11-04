@@ -96,8 +96,8 @@ are saved for it, so a saved option is never silently ignored.
 
 Admission is secure by default: an explicit token wins, otherwise one is minted, and a transport
 runs open only when told so with a written reason. This package declares the decision's shape; the
-functions that make it (`resolveAdmission`, `createAccessTokenVerifier`) live in
-`@robota-sdk/agent-transport/node`.
+functions that make it live in `@robota-sdk/agent-transport` (`resolveAdmission`) and
+`@robota-sdk/agent-transport/node` (`createAccessTokenVerifier`).
 
 ## Conformance suite: `@robota-sdk/agent-interface-transport/testing`
 

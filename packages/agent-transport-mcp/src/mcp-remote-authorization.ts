@@ -10,8 +10,8 @@
  * handed to an audit sink as a closed-set reason and a coarse address class, never token text.
  */
 
+import { bearerCredential } from '@robota-sdk/agent-transport';
 import {
-  bearerCredential,
   createBearerResourceServer,
   describeProtectedResource,
   refuseAccessToken,

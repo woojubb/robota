@@ -7,10 +7,13 @@ so the `hono` dependency is an isolated unit.
 
 ## Contract
 
-- Depends on `agent-interface-transport` for transport contracts, on `agent-transport/node` for the
-  transport admission seam (`resolveAdmission`, `bearerCredential`, `credentialMatches`), and on
-  `agent-transport` for the wire shape of a prompt answer; neither the admission decision nor what a
-  valid answer is gets re-made here.
+- Depends on `agent-interface-transport` for transport contracts and on `agent-transport` for the
+  transport admission seam (`resolveAdmission`, `bearerCredential`, `credentialMatches`) and for the
+  wire shape of a prompt answer; neither the admission decision nor what a valid answer is gets
+  re-made here.
+- Platform-neutral: it reaches no Node built-in or Node global and takes nothing from the host, so
+  the routes run unchanged on every runtime Hono does. Whatever serves them, and binds a listener,
+  is the host's.
 - Contract-pure otherwise: the one side concern of where a stream-failure detail goes is injected via
   `IAgentRoutesOptions.onStreamFailure`, never imported.
 - No other transport package may depend on this one.
@@ -59,4 +62,4 @@ HTTP errors surface as Hono responses; no new error classes are introduced.
 ## Non-goals
 
 - Does not bind or manage a network listener.
-- Does not re-decide admission; that decision belongs to `agent-transport/node`.
+- Does not re-decide admission; that decision belongs to `agent-transport`.

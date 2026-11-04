@@ -18,7 +18,7 @@ import type {
   ITransportAdmission,
 } from '@robota-sdk/agent-interface-transport';
 // Adapters live in agent-transport-{http,ws,mcp,webrtc} and agent-framework (headless runner,
-// TransportRegistry). Admission machinery lives in @robota-sdk/agent-transport/node.
+// TransportRegistry). Admission machinery lives in @robota-sdk/agent-transport.
 ```
 
 The `@robota-sdk/agent-interface-transport/testing` subpath exports
