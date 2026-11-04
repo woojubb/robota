@@ -8,6 +8,8 @@ import {
   changePassphrase,
   checkSealingPublicKey,
   createKeyring,
+  createLinkInitiator,
+  createLinkResponder,
   createRuntimeIdentity,
   decryptRecord,
   encryptRecord,
@@ -16,6 +18,8 @@ import {
   generateTransientSealingKeyPair,
   getSealingPublicKey,
   KeyringError,
+  LinkRefusedError,
+  linkFrameKind,
   openBlob,
   openOwnerHandover,
   parseKeyring,
@@ -147,21 +151,60 @@ assert.equal(
 );
 assert.equal(handover.sealingKeyMatches, true);
 
-// The spawner exchange (X25519, SHA-256, HKDF), then certification (Ed25519 verification) of the
-// instance key it carried; the spawner key is forgotten at the install.
+// The spawner exchange (X25519, SHA-256, HKDF), a spawner-mode owner link over its key (HMAC,
+// Ed25519, AES-256-GCM frames), certification of what that link proved, then an owner-mode link
+// carrying a read grant that opens what was sealed to the fixture keyring.
 const identity = createRuntimeIdentity();
 const exchange = startSpawnerExchange();
 const exchanged = exchange.complete(identity.answerSpawnerExchange(exchange.message));
 assert.deepEqual(exchanged.instancePublicKey, identity.instancePublicKey);
 assert.equal(identity.spawnerKeyHeld, true);
-identity.installTrustRoot(handover.certify(identity.instancePublicKey, binding), binding);
-assert.equal(identity.certified, true);
-assert.equal(identity.spawnerKeyHeld, false);
+
+function handshake(auth) {
+  const initiator = createLinkInitiator(auth);
+  const responder = createLinkResponder(identity, binding);
+  const { proof, link } = initiator.answer(responder.challenge(initiator.hello()));
+  return { client: link, ...responder.accept(proof) };
+}
+
+const spawnerLink = handshake({ mode: 'spawner', ...exchanged });
+assert.equal(spawnerLink.standing, 'spawner');
+assert.deepEqual(spawnerLink.client.binding, binding);
+const frame = spawnerLink.client.seal('owner', plaintext);
+assert.equal(linkFrameKind(frame), 'owner');
+assert.deepEqual(spawnerLink.link.open(frame), {
+  kind: 'owner',
+  plaintext: Buffer.from(plaintext),
+});
 assert.throws(
-  () => identity.installTrustRoot(handover.certify(identity.instancePublicKey, binding), binding),
-  (error) => error instanceof KeyringError && error.reason === 'already-certified',
+  () => spawnerLink.link.open(frame),
+  (error) => error instanceof KeyringError && error.code === 'decryption-failed',
+);
+
+identity.installTrustRoot(
+  handover.certify(spawnerLink.client.instancePublicKey, spawnerLink.client.binding),
+  spawnerLink.client.binding,
 );
 exchanged.spawnerKey.wipe();
+assert.equal(identity.certified, true);
+assert.equal(identity.spawnerKeyHeld, false);
+// Spawner standing ended with the install: a hello asking for it (mode byte 1) is refused.
+const spawnerHello = createLinkInitiator({ mode: 'owner', handover }).hello();
+spawnerHello[1] = 1;
+assert.throws(
+  () => createLinkResponder(identity, binding).challenge(spawnerHello),
+  (error) => error instanceof LinkRefusedError && error.reason === 'spawner-unavailable',
+);
+
+const ownerLink = handshake({ mode: 'owner', handover });
+assert.equal(ownerLink.standing, 'owner');
+const granted = ownerLink.link.openReadGrant(ownerLink.client.sealReadGrant(handover));
+const fixtureBlob = sealBlob(getSealingPublicKey(fixture), plaintext, aad);
+assert.deepEqual(openBlob(granted.sealing.privateKey, fixtureBlob, aad), Buffer.from(plaintext));
+assert.equal('attach' in granted, false);
+granted.lock();
+ownerLink.client.close();
+ownerLink.link.close();
 handover.dispose();
 
 // Both module formats of the published entry points behave alike.

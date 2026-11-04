@@ -56,6 +56,8 @@ export interface IRuntimeTrust {
 /** What only the link responder reaches. */
 export interface IRuntimeIdentitySecrets {
   readonly instance: IKeyPair;
+  /** Where the responder draws its ephemerals and nonces: the identity's own source. */
+  readonly entropy: ILinkEntropy;
   spawnerKey(): Buffer | undefined;
   trust(): IRuntimeTrust | undefined;
 }
@@ -100,6 +102,7 @@ class RuntimeIdentity implements IRuntimeIdentity {
     }
     SECRETS.set(this, {
       instance: this.#instance,
+      entropy,
       spawnerKey: () => this.#spawnerKey,
       trust: () => this.#trust,
     });

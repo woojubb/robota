@@ -38,6 +38,28 @@ export { SpawnerKey, startSpawnerExchange } from './spawner-exchange.js';
 export type { ISpawnerExchange, ISpawnerExchangeResult } from './spawner-exchange.js';
 export { createRuntimeIdentity } from './runtime-identity.js';
 export type { IRuntimeIdentity } from './runtime-identity.js';
+export {
+  LINK_CHALLENGE_MAX_BYTES,
+  LINK_HELLO_BYTES,
+  LINK_PROOF_MAX_BYTES,
+  createLinkInitiator,
+  createLinkResponder,
+} from './owner-link.js';
+export type { ILinkInitiator, ILinkResponder, TLinkInitiatorAuth } from './owner-link.js';
+export {
+  LINK_FRAME_MAX_PLAINTEXT_BYTES,
+  LINK_FRAME_OVERHEAD_BYTES,
+  LINK_GRANT_FRAME_BYTES,
+  linkFrameKind,
+} from './link-frames.js';
+export type {
+  IEstablishedLink,
+  IInitiatorLink,
+  IResponderLink,
+  TLinkDataFrameKind,
+  TLinkFrameKind,
+  TLinkMode,
+} from './link-frames.js';
 export type { IKeyPair } from './key-pairs.js';
 export { generateTransientSealingKeyPair } from './key-pairs.js';
 
