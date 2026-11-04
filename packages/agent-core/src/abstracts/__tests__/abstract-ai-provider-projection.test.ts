@@ -189,6 +189,14 @@ describe('a tool projection refuses is dropped from its request alone', () => {
     return node;
   }
 
+  function sharedSubtrees(): unknown {
+    let node: unknown = { type: 'string' };
+    for (let level = 0; level < 40; level += 1) {
+      node = { type: 'object', properties: { a: node, b: node } };
+    }
+    return node;
+  }
+
   it.each([
     [
       'a cycle through properties',
@@ -205,6 +213,7 @@ describe('a tool projection refuses is dropped from its request alone', () => {
         }),
     ],
     ['a chain far past the ceiling', deepChain],
+    ['a graph that multiplies through shared subtrees', sharedSubtrees],
   ])('%s', (_name, build) => {
     const provider = new NoLoggerTestProvider();
     provider.setProjectionProfile(TEST_PROFILE);

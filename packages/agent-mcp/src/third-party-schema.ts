@@ -182,10 +182,11 @@ function narrowEnum(node: IParameterSchema, path: string, dropped: string[]): IP
 }
 
 /**
- * Declare what an object node requires but does not name. A closed node could never be satisfied,
- * and registration refuses such a root outright, stopping the whole agent. Declaring it keeps the
- * name required and says no more about its value than the server did, so nothing is lost to report.
- * A node that named no properties stays open: naming one must not start refusing the rest.
+ * Declare what an object node requires but does not name. Registration refuses such a root outright,
+ * stopping the whole agent, and a closed node could never be satisfied. Declaring it keeps the name
+ * required and says no more about its value than the server did, which is whatever a schema-valued
+ * `additionalProperties` says of a name not listed, so nothing is lost to report. A node that named
+ * no properties stays open: naming one must not start refusing the rest.
  */
 function declareRequiredProperties(node: IParameterSchema): IParameterSchema {
   if (node.type !== 'object' || node.required === undefined) return node;
@@ -194,12 +195,14 @@ function declareRequiredProperties(node: IParameterSchema): IParameterSchema {
     (name) => !Object.prototype.hasOwnProperty.call(declared, name),
   );
   if (undeclared.length === 0) return node;
+  const { additionalProperties } = node;
+  const unlisted = typeof additionalProperties === 'object' ? additionalProperties : anyValueNode();
   return {
     ...(node.properties === undefined && { additionalProperties: true }),
     ...node,
     properties: Object.fromEntries([
       ...Object.entries(declared),
-      ...undeclared.map((name) => [name, anyValueNode()]),
+      ...undeclared.map((name) => [name, unlisted]),
     ]),
   };
 }
@@ -241,6 +244,11 @@ function narrowNode(
     node = subset as IParameterSchema;
   }
   node = narrowEnum(node, path, dropped);
+  // JSON Schema requires the list to be unique, and listing a name twice says nothing more.
+  if (node.required !== undefined) {
+    const unique = [...new Set(node.required)];
+    if (unique.length < node.required.length) node = { ...node, required: unique };
+  }
   // The contract carries `anyOf` INSTEAD of a type, and projection quarantines a tool holding both.
   // JSON Schema applies the two together, so keeping `type` drops only the further constraint.
   if (node.type !== undefined && node.anyOf !== undefined) {

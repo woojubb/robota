@@ -375,6 +375,28 @@ describe('a name required but not declared', () => {
     expect(validateAgainstJsonSchema(schema, { b: 1, other: 2 }, '')).not.toEqual([]);
   });
 
+  it('keeps what a schema-valued additionalProperties already said of the name', () => {
+    const { schema, unenforceable } = narrowToUniversalSubset(
+      declared({ type: 'object', required: ['b'], additionalProperties: { type: 'string' } }),
+    );
+    expect(unenforceable).toEqual([]);
+    expect(validateAgainstJsonSchema(schema, { b: 'text' }, '')).toEqual([]);
+    expect(validateAgainstJsonSchema(schema, { b: 1 }, '')).not.toEqual([]);
+  });
+
+  it('keeps the same when the node also names other properties', () => {
+    const { schema } = narrowToUniversalSubset(
+      declared({
+        type: 'object',
+        properties: { a: { type: 'number' } },
+        required: ['b'],
+        additionalProperties: { type: 'string' },
+      }),
+    );
+    expect(validateAgainstJsonSchema(schema, { a: 1, b: 'text' }, '')).toEqual([]);
+    expect(validateAgainstJsonSchema(schema, { a: 1, b: 1 }, '')).not.toEqual([]);
+  });
+
   it('declares nothing on a node that is not an object', () => {
     const input = declared({ type: 'string', required: ['b'] });
     expect(narrowToUniversalSubset(input).schema).toEqual(input);
@@ -413,5 +435,19 @@ describe('reporting past the ceiling', () => {
     setGlobalLoggerSink(undefined);
     expect(report).toHaveBeenCalledTimes(1);
     expect(warnings).not.toHaveBeenCalled();
+  });
+});
+
+describe('a required name listed twice', () => {
+  it.each([
+    [
+      'on an object',
+      { type: 'object', properties: { a: { type: 'string' } }, required: ['a', 'a'] },
+    ],
+    ['on a node of another type', { type: 'string', required: ['a', 'a'] }],
+  ])('%s is listed once, losing nothing', (_name, input) => {
+    const { schema, unenforceable } = narrowToUniversalSubset(declared(input));
+    expect(schema.required).toEqual(['a']);
+    expect(unenforceable).toEqual([]);
   });
 });

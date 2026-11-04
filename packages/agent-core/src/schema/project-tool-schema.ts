@@ -486,26 +486,35 @@ function adaptNode(
   return current;
 }
 
-/** A schema node takes two levels of JSON (the node, then its `properties` map) plus any `anyOf` list. */
+/** A schema node takes up to three levels of JSON: the node, its `properties` map, its `anyOf` list. */
 const CANONICAL_MAX_DEPTH = 3 * TOOL_SCHEMA_PROJECTION_MAX_DEPTH;
+/** A schema node holds at most the node itself and its `properties`, `required`, `anyOf`, `enum`. */
+const CANONICAL_MAX_CONTAINERS = 5 * TOOL_SCHEMA_PROJECTION_MAX_NODES;
 
 /**
  * Canonical, key-sorted JSON — the same schema hashes the same regardless of authored key order.
- * A rejected tool is hashed too, for its quarantine line, so a cycle or an extreme depth has to end
- * here instead of failing the request the tool was only meant to be dropped from.
+ * A rejected tool is hashed too, for its quarantine line, so a cycle, an extreme depth or a graph that
+ * multiplies through shared subtrees has to end here instead of failing the request the tool was only
+ * meant to be dropped from. The limits sit above anything projection accepts, so such a tool's hash
+ * is unaffected.
  */
-function canonicalize(value: unknown, ancestors: readonly unknown[] = []): unknown {
+function canonicalize(
+  value: unknown,
+  ancestors: readonly unknown[] = [],
+  budget = { containers: CANONICAL_MAX_CONTAINERS },
+): unknown {
   if (typeof value !== 'object' || value === null) return value;
   if (ancestors.includes(value)) return '[cycle]';
-  if (ancestors.length >= CANONICAL_MAX_DEPTH) return '[too deep]';
+  if (ancestors.length >= CANONICAL_MAX_DEPTH || budget.containers <= 0) return '[too large]';
+  budget.containers -= 1;
   const path = [...ancestors, value];
   if (Array.isArray(value)) {
-    return value.map((entry) => canonicalize(entry, path));
+    return value.map((entry) => canonicalize(entry, path, budget));
   }
   const record = value as Record<string, unknown>;
   const sorted: Record<string, unknown> = {};
   for (const key of Object.keys(record).sort()) {
-    sorted[key] = canonicalize(record[key], path);
+    sorted[key] = canonicalize(record[key], path, budget);
   }
   return sorted;
 }

@@ -218,7 +218,8 @@ plugin-provided servers above user scope; agent runtime deliberately does not.
 An MCP tool's `inputSchema` is authored by a third-party server. Handing an expressive-but-partial
 schema to a strict validator unchanged would refuse _every_ payload for that tool once the schema
 used a construct the universal subset cannot express — breaking a working tool over a limitation
-that is this repo's, not the server's. So the validator narrows instead of refusing:
+that is this repo's, not the server's. So a schema is narrowed once, at catalog registration, instead
+of being refused:
 inexpressible property subtrees and union branches are _replaced_ with an accepts-anything node
 rather than deleted (deleting a key from a closed object schema would turn the server's own declared
 parameter into an "unexpected additional property" and refuse the payload for the opposite reason,
@@ -233,8 +234,9 @@ outside the contract is dropped, and reported only if it was a constraint. An an
 non-scalar `default` leaves nothing unchecked, and the contract is not widened to hold it. A root that
 named no properties stays open once `properties` is filled in, since filling a member must not start
 refusing arguments the root accepted. A name `required` holds but `properties` does not declare is
-declared as an accepts-anything property, because such a node can never be satisfied and registration
-refuses such a root, which would stop the whole agent over one server's schema.
+declared, with whatever a schema-valued `additionalProperties` already says of it, because
+registration refuses such a root, which would stop the whole agent over one server's schema, and a
+closed node could never be satisfied.
 
 ## Error semantics
 

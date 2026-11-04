@@ -852,6 +852,31 @@ describe('hashing a tool projection rejects', () => {
     expect(hashToolSchema(withValue(value))).toMatch(/^[0-9a-f]{64}$/u);
   });
 
+  it('ends on a graph that multiplies through shared subtrees', () => {
+    let value: unknown = { type: 'string' };
+    for (let level = 0; level < 40; level += 1) {
+      value = { type: 'object', properties: { a: value, b: value } };
+    }
+    expect(hashToolSchema(withValue(value))).toMatch(/^[0-9a-f]{64}$/u);
+  });
+
+  it('still tells two schemas apart at the largest size projection accepts', () => {
+    const wide = (last: string): IObjectParameterSchema => ({
+      type: 'object',
+      properties: Object.fromEntries(
+        Array.from({ length: TOOL_SCHEMA_PROJECTION_MAX_NODES - 2 }, (_, index) => [
+          `p${index}`,
+          { type: 'string' },
+        ]).concat([['last', { type: last }]]),
+      ) as Record<string, IParameterSchema>,
+    });
+    expect(
+      projectToolSchema({ name: 't', description: 'd', parameters: wide('string') }, PERMISSIVE)
+        .outcome,
+    ).not.toBe('rejected');
+    expect(hashToolSchema(wide('string'))).not.toBe(hashToolSchema(wide('number')));
+  });
+
   it('still tells two schemas apart, and ignores key order, at any depth projection accepts', () => {
     let left: unknown = { type: 'string' };
     let right: unknown = { type: 'number' };
