@@ -15,8 +15,12 @@ export interface ISessionPluginScope {
   readonly projectAccess?: TWorkspaceProjectAccess;
   readonly pluginDirectories?: { readonly user?: string; readonly project?: string };
   readonly userSettingsSources?: readonly IHostSettingsSource[];
-  /** The files plugin directories are read through (`host.files.sync`); absent, there are none to read. */
-  readonly fs?: IFileSystem;
+  /**
+   * The files plugin directories are read through (`host.files?.sync`); `undefined` when the host
+   * lends none. Required rather than optional so a caller that forgets it does not compile: a scope
+   * built without it would admit no project plugin folder and say nothing.
+   */
+  readonly fs: IFileSystem | undefined;
 }
 
 /**
@@ -80,7 +84,9 @@ export function sessionPluginDirectories(scope: ISessionPluginScope): string[] {
 }
 
 /** The user settings file that records which plugins are enabled; absent means no plugins load. */
-export function sessionPluginSettingsPath(scope: ISessionPluginScope): string | undefined {
+export function sessionPluginSettingsPath(
+  scope: Pick<ISessionPluginScope, 'bare' | 'userSettingsSources'>,
+): string | undefined {
   if (scope.bare === true) return undefined;
   return scope.userSettingsSources?.find((source) => source.scope === 'user')?.path;
 }

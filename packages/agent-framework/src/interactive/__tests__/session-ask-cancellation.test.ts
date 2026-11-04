@@ -8,6 +8,7 @@ it('withdraws a host-owned ask on abort and dismisses it on every surface', asyn
     emitAskRequest,
     emitPromptResolved,
     emitPermissionRequest: vi.fn(),
+    files: undefined,
     countListeners: () => 1,
   });
   const controller = new AbortController();
@@ -34,6 +35,7 @@ it('does not emit an already aborted ask', async () => {
     emitAskRequest,
     emitPromptResolved: vi.fn(),
     emitPermissionRequest: vi.fn(),
+    files: undefined,
     countListeners: () => 1,
   });
   const controller = new AbortController();

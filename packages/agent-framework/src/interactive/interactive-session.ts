@@ -481,7 +481,7 @@ export class InteractiveSession
         ...('bare' in options ? { bare: options.bare } : {}),
         ...('projectAccess' in options ? { projectAccess: options.projectAccess } : {}),
         ...('pluginDirectories' in options ? { pluginDirectories: options.pluginDirectories } : {}),
-        ...(host.files !== undefined ? { fs: host.files.sync } : {}),
+        fs: host.files?.sync,
         ...('userSettingsSources' in options
           ? { userSettingsSources: options.userSettingsSources }
           : {}),

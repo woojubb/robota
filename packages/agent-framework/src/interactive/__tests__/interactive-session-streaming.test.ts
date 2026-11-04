@@ -29,7 +29,7 @@ it('projects a refused call without dispatch as a finished denied row', () => {
   projectToolExecution(
     state.activeTools,
     state.history,
-    { getCwd: () => '/workspace', emit },
+    { getCwd: () => '/workspace', emit, files: undefined },
     (tools) => {
       state.activeTools = tools;
     },
@@ -62,7 +62,7 @@ it('retains a refusal when its ID was used by an earlier completed call', () => 
   projectToolExecution(
     state.activeTools,
     state.history,
-    { getCwd: () => '/workspace', emit },
+    { getCwd: () => '/workspace', emit, files: undefined },
     (tools) => {
       state.activeTools = tools;
     },
@@ -135,7 +135,7 @@ describe('a tool call names its source view by reference', () => {
     const commit = (tools: typeof state.activeTools) => {
       state.activeTools = tools;
     };
-    const callbacks = { getCwd: () => '/workspace', emit };
+    const callbacks = { getCwd: () => '/workspace', emit, files: undefined };
     projectToolExecution(state.activeTools, state.history, callbacks, commit, {
       type: 'start',
       toolName: 'files__list',

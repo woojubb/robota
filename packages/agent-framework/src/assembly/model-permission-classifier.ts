@@ -92,8 +92,8 @@ export function createModelPermissionClassifier(
   options: {
     cwd: string;
     model?: string;
-    /** The host's `readGitRemotes`; absent, the boundary names no remote. */
-    readGitRemotes?: IFrameworkHost['readGitRemotes'];
+    /** The host's `readGitRemotes`, stated even when it has none (`undefined`): the boundary then names no remote. */
+    readGitRemotes: IFrameworkHost['readGitRemotes'];
   },
 ): IPermissionClassifier {
   let remotes: Promise<readonly string[]> | undefined;

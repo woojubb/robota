@@ -107,6 +107,7 @@ describe('prompt registry attribution (REMOTE-014 TC-04)', () => {
       emitPermissionRequest: (e) => permission.push(e),
       emitAskRequest: (_e: IAskRequestEvent) => undefined,
       emitPromptResolved: (e) => resolved.push(e),
+      files: undefined,
       countListeners: () => 1, // a surface is subscribed → the prompt parks
       getActiveDriverId: () => activeDriver,
     });
@@ -125,6 +126,7 @@ describe('prompt registry attribution (REMOTE-014 TC-04)', () => {
       emitPermissionRequest: (e) => permission.push(e),
       emitAskRequest: () => undefined,
       emitPromptResolved: () => undefined,
+      files: undefined,
       countListeners: () => 1,
       getActiveDriverId: () => AGENT_DRIVER_ID,
     });

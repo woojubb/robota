@@ -95,7 +95,10 @@ describe('createModelPermissionClassifier', () => {
 describe('the git remotes the classifier names', () => {
   it('are none, and the model is told so, when the host cannot list them', async () => {
     const provider = providerAnswering('{"decision":"allow","reason":"local"}');
-    const classifier = createModelPermissionClassifier(provider, { cwd: '/w/project' });
+    const classifier = createModelPermissionClassifier(provider, {
+      cwd: '/w/project',
+      readGitRemotes: undefined,
+    });
     await classifier.classify({ toolName: 'Bash', toolArgs: { command: 'ls' }, cwd: '/w/project' });
     const [messages] = provider.chat.mock.calls[0]! as [TUniversalMessage[]];
     expect(messages[1]!.content).toContain('the git remotes (none)');

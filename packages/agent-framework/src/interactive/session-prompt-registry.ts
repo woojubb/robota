@@ -105,8 +105,11 @@ export interface ISessionPromptRegistryDeps {
    * when that differs from the workspace. Absent ⇒ neither field is attached (legacy callers).
    */
   getCwd?: () => string;
-  /** The host's file access; absent, an Edit preview carries no context lines from the file. */
-  files?: IFrameworkHost['files'];
+  /**
+   * The host's file access, stated even when the host lends none (`undefined`): an Edit preview then
+   * carries no context lines from the file.
+   */
+  files: IFrameworkHost['files'];
   /**
    * Optional backstop timeout (ms). Armed when a prompt parks with a live surface; the unconditional
    * last resort so a surface that died without unsubscribing cannot hang the prompt forever. Omit to

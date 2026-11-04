@@ -27,8 +27,11 @@ export interface IExecutionControllerCallbacks {
   getSession: () => Session;
   getSessionOrThrow: () => Session;
   getCwd: () => string;
-  /** The host's file access; absent, an Edit diff carries no context lines from the file. */
-  files?: IFrameworkHost['files'];
+  /**
+   * The host's file access, stated even when the host lends none (`undefined`): an Edit diff then
+   * carries no context lines from the file.
+   */
+  files: IFrameworkHost['files'];
   getProjectAccess: () => TWorkspaceProjectAccess;
   providerErrorGuidance?: IProviderErrorGuidance;
   promptFileReferenceTag?: string;

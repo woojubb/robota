@@ -327,6 +327,7 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
       number
     >;
     const deps: ISessionPromptRegistryDeps = {
+      files: undefined,
       emitPermissionRequest: () => {
         throw new Error('surface handler blew up');
       },
