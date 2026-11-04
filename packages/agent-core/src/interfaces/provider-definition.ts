@@ -152,10 +152,14 @@ export interface IProviderDefinition {
   /** Available credential acquisition methods; concrete authorization belongs to the host. */
   connectionMethods?: readonly ('api-key' | 'browser')[];
   /**
-   * The provider-hosted web tools a profile can enable through `options.nativeWebTools`. Absent means
-   * the provider runs none and rejects that option, so a host only sets it where it is declared here.
+   * The provider-hosted web tools a profile can enable through `options.nativeWebTools`, answered for
+   * the profile being built because it can depend on where that profile connects. A tool it leaves
+   * out, or an absent function, means the provider cannot run it there and rejects asking for it, so
+   * a host only sets the option where it is declared here.
    */
-  nativeWebTools?: readonly (keyof IProviderNativeWebToolRequest)[];
+  nativeWebTools?: (
+    profile: Pick<IProviderDefinitionConfig, 'baseURL' | 'options'>,
+  ) => readonly (keyof IProviderNativeWebToolRequest)[];
   defaults?: IProviderProfileDefaults;
   /**
    * Optional enforced model allowlist (ARCH-PROVIDER-003). Distinct from {@link modelCatalog}: the catalog

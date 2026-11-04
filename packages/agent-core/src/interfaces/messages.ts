@@ -22,6 +22,13 @@ export type TUniversalMessageMetadata = Record<
 >;
 
 /**
+ * Metadata key for opaque text a provider needs back on a later request to continue its reply, such
+ * as a vendor's signed reasoning or server-side tool steps. The provider sets it on its response, the
+ * conversation keeps it on the committed assistant message, and only that provider reads it.
+ */
+export const PROVIDER_CONTINUATION_METADATA_KEY = 'providerContinuation';
+
+/**
  * Universal multimodal message part contracts.
  */
 export interface ITextMessagePart {

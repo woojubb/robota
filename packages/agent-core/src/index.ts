@@ -79,6 +79,7 @@ export {
   assertProviderNativeWebToolsAvailable,
   createDefaultProviderCapabilities,
   getProviderCapabilities,
+  readNativeWebSearchOption,
 } from './interfaces';
 
 export { isImageGenerationProvider, isVideoGenerationProvider } from './interfaces/media-provider';

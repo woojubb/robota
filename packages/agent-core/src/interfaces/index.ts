@@ -106,6 +106,7 @@ export type {
 export {
   assertProviderNativeWebToolsAvailable,
   createDefaultProviderCapabilities,
+  readNativeWebSearchOption,
 } from './provider-capabilities';
 export { getProviderCapabilities } from './provider';
 
