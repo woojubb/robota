@@ -340,7 +340,10 @@ or "the same user", so in secure mode a listener admitting that way does not sta
 session or a token; the control socket opens, its row marking it for owner-link admission, which the
 control endpoint enforces; and the OAuth sign-in callback opens under its own rule (loopback, bound
 by a fresh path or a required state, consumed by its first match, timed out) because it reaches no
-session. Plain mode opens what it always did.
+session. Plain mode opens what it always did: while it is off, the children a process starts share
+its terminal session as before. Once it is on, each entry gives every child its own session before
+it starts any, so none can reach the terminal a secret is typed at; only the terminal handover
+(`/editor`, `/keybindings`, `/shell`, the workspace-move re-exec) hands a child the terminal.
 
 Being the one construction point, the factory is also where a process records that it uses the
 stores: the first store it builds (or, for a subagent worker, the grant it binds) creates its
