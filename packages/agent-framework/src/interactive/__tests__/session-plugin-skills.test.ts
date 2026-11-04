@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createNodeHostSettingsSource } from '../../config/settings-source.js';
+import { createNodeHostSettingsSource } from '../../config/node-host-settings-source.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { loadSessionPluginSkills, sessionPluginDirectories } from '../session-plugin-skills.js';
