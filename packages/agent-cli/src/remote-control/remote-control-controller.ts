@@ -483,7 +483,10 @@ export class RemoteControlController {
     this.reconnectPeers.push(peer);
     this.reconnectSignalings.push(signaling);
     peer.attach(session);
-    void peer.start().catch(() => undefined);
+    // Every reconnect room is a listener of its own, opened under the row as the first pairing is.
+    void startListener(SECURE_SURFACES['remote-control'], this.deps.productRuntime, () =>
+      peer.start(),
+    ).catch(() => undefined);
   }
 
   /** A returning device confirmed the E3 reconnect at `usedCounter`. Advance (resync), promote the winner, drop the rest. */

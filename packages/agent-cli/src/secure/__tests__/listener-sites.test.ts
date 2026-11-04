@@ -55,7 +55,11 @@ const LISTENER_GATES: { readonly [S in TListenerSurface]: readonly string[] } = 
   'hosted-desktop-gateway': [],
   'desktop-remote-bridge': [],
   'local-peers': ['packages/agent-cli/src/startup/host-action-adapters.ts'],
-  'remote-control': ['packages/agent-cli/src/remote-control/remote-control-controller.ts'],
+  'remote-control': [
+    'packages/agent-cli/src/remote-control/remote-control-controller.ts',
+    // The registry restarts the peer it holds on a session switch, outside the controller.
+    'packages/agent-cli/src/remote-control/transport-host-adapter.ts',
+  ],
   'device-mesh': [
     'packages/agent-cli/src/devices/device-enrollment.ts',
     'packages/agent-cli/src/devices/device-mesh-host.ts',

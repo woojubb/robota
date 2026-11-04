@@ -22,6 +22,8 @@ import { createRemoteControlTransportHost } from '../transport-host-adapter.js';
 import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
 import type { ITrustedDeviceRecord, ITrustedDeviceStore } from '../trusted-device-store.js';
 
+const e3Runtime = createTestRuntimeContext('/tmp/remote-control-e3-test');
+
 /**
  * The REAL registry, not `{ register: () => {} }`.
  *
@@ -75,8 +77,8 @@ function build(
 } {
   const captured: ReturnType<typeof build>['captured'] = {};
   const controller = new RemoteControlController({
-    productRuntime: createTestRuntimeContext('/tmp/remote-control-e3-test'),
-    host: createRemoteControlTransportHost(realRegistry()),
+    productRuntime: e3Runtime,
+    host: createRemoteControlTransportHost(realRegistry(), e3Runtime),
     readRelayUrl: () => 'ws://127.0.0.1:9999',
     readClientUrl: () => 'https://remote.example/',
     getSession: () => stubSession(),
@@ -233,8 +235,8 @@ describe('RemoteControlController E3 wiring (REMOTE-012)', () => {
   it('with no store configured, listDevices is empty and reconnect config is absent', async () => {
     const captured: { reconnect?: IHostReconnectConfig } = {};
     const controller = new RemoteControlController({
-      productRuntime: createTestRuntimeContext('/tmp/remote-control-e3-test'),
-      host: createRemoteControlTransportHost(realRegistry()),
+      productRuntime: e3Runtime,
+      host: createRemoteControlTransportHost(realRegistry(), e3Runtime),
       readRelayUrl: () => 'ws://127.0.0.1:9999',
       readClientUrl: () => 'https://remote.example/',
       getSession: () => stubSession(),

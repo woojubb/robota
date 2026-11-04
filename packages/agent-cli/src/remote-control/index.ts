@@ -73,7 +73,7 @@ export function createRemoteControlController(
   });
   const controller = new RemoteControlController({
     productRuntime,
-    host: createRemoteControlTransportHost(registry),
+    host: createRemoteControlTransportHost(registry, productRuntime),
     ...(usageReporters ? { usageReporters } : {}),
     readRelayUrl: () => readWebrtcOption(productRuntime, 'relayUrl'),
     readClientUrl: () => readWebrtcOption(productRuntime, 'clientUrl'),
