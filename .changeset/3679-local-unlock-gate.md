@@ -17,8 +17,11 @@ on: no product process is given a key holder yet, so nothing below runs and noth
   `IKeyCustodyCommandPort`), user-only, registered by `createDefaultCommandModules` only when given a
   `keyCustodyPort`.
 - `@robota-sdk/agent-framework`: `lockedSessionMessage` and `lockedSessionsNotice` take an optional
-  `unlockCommand` and name it for locked keys; without one the wording is unchanged. The TUI passes
-  `/unlock` where it has the key custody, in the resume picker, Ctrl+R and fork attach.
+  `unlockCommand` and name it for locked keys, and `editCheckpointsLockedMessage` words a locked
+  rewind the same way; without one the wording is unchanged. The TUI passes `/unlock` where it has
+  the key custody, in the resume picker, Ctrl+R and fork attach; `/rewind`, `/validate-session`,
+  `/agent read` and `/background read` name it where the session registered it
+  (`registeredUnlockCommand` in `@robota-sdk/agent-command`).
 - `@robota-sdk/agent-cli` composes the gate for the TUI in secure mode: the passphrase is asked on the
   secret terminal inside the terminal handoff, one question at a time, never where nobody can answer.
 

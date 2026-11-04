@@ -2,10 +2,20 @@ import { ArtifactLockedError } from '@robota-sdk/agent-core';
 
 import type { TArtifactLockedReason } from '@robota-sdk/agent-core';
 
-const LOCKED_MESSAGES: Record<TArtifactLockedReason, string> = {
-  locked: 'The edit checkpoints are sealed and the keys are locked; unlock to rewind.',
-  'no-keys': 'The edit checkpoints are sealed; this process has no keys to open them.',
-};
+/**
+ * What a rewind says about sealed checkpoints it cannot open: "unlock" only where an unlock would
+ * help, naming `unlockCommand` when the surface has one.
+ */
+export function editCheckpointsLockedMessage(
+  reason: TArtifactLockedReason,
+  unlockCommand?: string,
+): string {
+  if (reason === 'no-keys') {
+    return 'The edit checkpoints are sealed; this process has no keys to open them.';
+  }
+  const unlock = unlockCommand === undefined ? 'unlock' : `run \`${unlockCommand}\``;
+  return `The edit checkpoints are sealed and the keys are locked; ${unlock} to rewind.`;
+}
 
 /**
  * A rewind read found the session's edit checkpoints sealed and could not open them now: `locked`
@@ -16,7 +26,7 @@ export class EditCheckpointsLockedError extends ArtifactLockedError {
   constructor(reason: TArtifactLockedReason = 'locked') {
     super(reason);
     this.name = 'EditCheckpointsLockedError';
-    this.message = LOCKED_MESSAGES[this.reason];
+    this.message = editCheckpointsLockedMessage(this.reason);
   }
 }
 

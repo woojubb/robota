@@ -553,6 +553,7 @@ export {
   EditCheckpointNumberingExhaustedError,
   EditCheckpointUnreadableError,
   EditCheckpointsLockedError,
+  editCheckpointsLockedMessage,
   EditCheckpointsUnavailableError,
   createDirectoryEditCheckpointState,
   migrateWorkspaceEditCheckpoints,

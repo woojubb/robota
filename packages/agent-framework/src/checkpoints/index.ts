@@ -14,6 +14,7 @@ export {
   EditCheckpointNumberingExhaustedError,
   EditCheckpointUnreadableError,
   EditCheckpointsLockedError,
+  editCheckpointsLockedMessage,
 } from './edit-checkpoint-errors.js';
 export type { TEditCheckpointUnreadableReason } from './edit-checkpoint-errors.js';
 export { wrapEditCheckpointTools } from './edit-checkpoint-tools.js';
