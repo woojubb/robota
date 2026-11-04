@@ -1,8 +1,7 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { realpathSync, statSync } from 'node:fs';
 
-import open from 'open';
-
+import { openInBrowser, type TExecFile } from '../startup/browser-opener.js';
 import { resolveScreenReaderRenderFields } from '../startup/screen-reader-enablement.js';
 import { readUserSettingsOrExit } from '../startup/user-settings.js';
 import {
@@ -35,6 +34,16 @@ const HELP = (cliName: string): string =>
 
 function isViewState(value: string | undefined): value is TViewState {
   return VIEW_STATES.some((state) => state === value);
+}
+
+/**
+ * How the session view opens a pull request's page: the product's own browser opener, which runs the
+ * platform's opener by argv (in its own session in secure mode) and opens only an https link.
+ */
+export function createProductSessionPrOpener(
+  deps: { readonly platform?: NodeJS.Platform; readonly execFile?: TExecFile } = {},
+): (url: string) => Promise<void> {
+  return async (url) => openInBrowser(new URL(url), deps);
 }
 
 export interface ISessionViewCommandOptions {
@@ -166,7 +175,7 @@ export async function runSessionViewCommand(
         const verified = await getVerifiedSupervisedPr(id, root, generation);
         if (verified?.url !== url)
           throw new Error('Supervised session PR link changed or is stale.');
-        await (options.openUrl ?? open)(url);
+        await (options.openUrl ?? createProductSessionPrOpener())(url);
       },
       ...(start === undefined ? {} : { onStart: (choice) => start(startCwd, choice) }),
       ...(startTrustQuestion === undefined

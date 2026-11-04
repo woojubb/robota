@@ -103,6 +103,8 @@ export function createWorkspaceMoveAdapter(deps: IWorkspaceMoveAdapterDeps): ICo
       onProcessExit(() => {
         // Synchronous: an `exit` listener may do nothing else. This process waits for the target
         // run and ends with its status, so a shell or supervisor sees one the product session.
+        // The terminal handover's exemption from children in their own session: the target run is
+        // this product, given the terminal the interface has just left.
         const result = runSync(entry.execPath, [...(entry.execArgv ?? []), ...entry.args, ...args], {
           cwd: request.targetCwd,
           stdio: 'inherit',

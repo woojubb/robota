@@ -7,7 +7,7 @@
  * re-parses its whole command line, so an `&` in the URL's query would start a second command.
  */
 
-import { execFile } from 'node:child_process';
+import { execFileInChildSession } from '@robota-sdk/agent-core/node';
 
 export interface IBrowserCommand {
   readonly command: string;
@@ -36,8 +36,9 @@ export type TExecFile = (
   callback: (error: Error | null) => void,
 ) => void;
 
+// The opener is found on PATH, so in secure mode it runs in its own session.
 const defaultExecFile: TExecFile = (command, args, callback) => {
-  execFile(command, [...args], { timeout: OPEN_TIMEOUT_MS, windowsHide: true }, (error) =>
+  execFileInChildSession(command, args, { timeout: OPEN_TIMEOUT_MS, windowsHide: true }, (error) =>
     callback(error),
   );
 };

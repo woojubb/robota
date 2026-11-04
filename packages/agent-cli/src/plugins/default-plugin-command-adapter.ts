@@ -1,6 +1,7 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { execFileSync } from 'node:child_process';
 
+import { withChildSession } from '@robota-sdk/agent-core/node';
 import {
   createHostBundlePluginLoader,
   BundlePluginInstaller,
@@ -92,12 +93,14 @@ export function runGit(
   options: { timeout: number; stdio?: string },
   sourceEnvironment: NodeJS.ProcessEnv,
 ): Buffer {
-  return execFileSync(file, [...args], {
+  // git from PATH, fetching what a marketplace names: its own session in secure mode, which also
+  // refuses a caller asking for the terminal.
+  return execFileSync(file, [...args], withChildSession({
     timeout: options.timeout,
     stdio: (options.stdio ?? 'pipe') as 'pipe' | 'inherit' | 'ignore',
     shell: false,
     env: scrubbedGitEnv(sourceEnvironment),
-  });
+  }));
 }
 
 /** A refused registry record is said on the terminal's error stream, as the plugin code once wrote it itself. */

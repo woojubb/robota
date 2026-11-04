@@ -20,7 +20,7 @@
  * the same worktree is granted nothing a peer in another repository is not.
  */
 
-import { execFile } from 'node:child_process';
+import { execFileInChildSession } from '@robota-sdk/agent-core/node';
 import { createHash } from 'node:crypto';
 import { realpathSync } from 'node:fs';
 
@@ -93,7 +93,8 @@ export const runLocalGit: TRunGit = (cwd, args) => {
   // Application credentials, provider keys, and arbitrary product variables stay in this process.
   const env = createLocalGitEnvironment(process.env);
   return new Promise((resolve) => {
-    execFile(
+    // Its own session in secure mode, like every git the product starts.
+    execFileInChildSession(
       'git',
       [...LOCAL_ONLY, ...args],
       { cwd, env, encoding: 'utf8', timeout: GIT_TIMEOUT_MS, maxBuffer: 64 * 1024 },
