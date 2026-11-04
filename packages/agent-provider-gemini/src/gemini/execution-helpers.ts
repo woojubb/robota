@@ -1,6 +1,10 @@
 import { randomId } from '@robota-sdk/agent-core';
 
-import { buildGeminiToolFields, usesGoogleSearch } from './google-search';
+import {
+  buildGeminiToolFields,
+  usesGoogleSearch,
+  withoutServerSideToolSteps,
+} from './google-search';
 import { hasImagePart, buildResponseModalities, buildGenerationConfig } from './image-operations';
 import {
   convertToGeminiRequestFormat,
@@ -50,9 +54,7 @@ export async function executeDirect(
     );
   }
 
-  const requestFormat = convertToGeminiRequestFormat(messages, {
-    serverSideToolSteps: !isVertexClient(client),
-  });
+  const requestFormat = convertToGeminiRequestFormat(messages);
   const genConfig = buildGenerationConfig(messages, providerOptions, { ...options, model });
   const request = buildGenerateContentRequest(
     client,
@@ -106,9 +108,7 @@ export async function* executeDirectStream(
     throw new Error('Google provider does not support streaming image modality responses.');
   }
 
-  const requestFormat = convertToGeminiRequestFormat(messages, {
-    serverSideToolSteps: !isVertexClient(client),
-  });
+  const requestFormat = convertToGeminiRequestFormat(messages);
   const genConfig = buildGenerationConfig(messages, providerOptions, { ...options, model });
   const request = buildGenerateContentRequest(
     client,
@@ -225,7 +225,10 @@ function buildGenerateContentRequest(
   }
   return {
     model,
-    contents,
+    contents:
+      config.toolConfig?.includeServerSideToolInvocations === true
+        ? contents
+        : withoutServerSideToolSteps(contents),
     config,
   };
 }
@@ -322,7 +325,10 @@ function withRequestHeaders(
     ...request,
     config: {
       ...config,
-      httpOptions: { ...config.httpOptions, headers: { ...config.httpOptions?.headers, ...headers } },
+      httpOptions: {
+        ...config.httpOptions,
+        headers: { ...config.httpOptions?.headers, ...headers },
+      },
     },
   };
 }

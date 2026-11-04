@@ -212,7 +212,9 @@ function buildResponsesRequest(
     ...extraBodyWire(input.extraBody),
     model,
     ...parallelToolCallsWire(input.parallelToolCalls),
-    input: convertToOpenAIResponsesInput(input.messages, replayScope),
+    // Search items go back only on a request that declares the tool: OpenAI backends are reported to
+    // refuse them otherwise, and a forced summary, the last-resort answer, must not fail on that.
+    input: convertToOpenAIResponsesInput(input.messages, hostedWebSearch ? replayScope : undefined),
     ...(tools !== undefined && {
       tools,
       tool_choice: toOpenAIResponsesToolChoice(input.chatOptions?.toolChoice),

@@ -5,7 +5,6 @@ import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
 import { PROVIDER_CALL_EVENTS } from '../event-service/span-events';
-import { RUN_INSTRUCTION_METADATA_KEY } from '../interfaces/messages';
 import type { IAssistantMessage, IToolMessage, TUniversalMessage } from '../interfaces/messages';
 import type { IAgentConfig } from '../interfaces/agent';
 import type { IChatOptions } from '../interfaces/provider';
@@ -1015,41 +1014,6 @@ describe('ExecutionService', () => {
       await executionService.execute('Run all tools', [], config, {
         conversationId: 'test-agent',
       });
-    });
-
-    it('marks the synthetic message as a run instruction and leaves the real prompt unmarked', async () => {
-      setupToolMocks();
-      const config = makeConfig();
-
-      const chatSpy = vi.fn();
-      for (let i = 0; i < 10; i++) {
-        chatSpy.mockResolvedValueOnce(makeToolCallResponse(i + 1));
-      }
-      let sent: TUniversalMessage[] = [];
-      chatSpy.mockImplementationOnce(
-        (messages: TUniversalMessage[]): Promise<TUniversalMessage> => {
-          sent = messages;
-          return Promise.resolve({
-            id: 'msg-summary',
-            role: 'assistant',
-            content: 'Summary.',
-            state: 'complete' as const,
-            timestamp: new Date(),
-          });
-        },
-      );
-      mockProvider.chat = chatSpy;
-
-      await executionService.execute('Run all tools', [], config, {
-        conversationId: 'test-agent',
-      });
-
-      const last = sent.at(-1);
-      expect(last).toMatchObject({ role: 'user', content: SYNTHETIC_MSG });
-      expect(last?.metadata?.[RUN_INSTRUCTION_METADATA_KEY]).toBe(true);
-      const prompt = sent.find((m) => m.role === 'user' && m.content === 'Run all tools');
-      expect(prompt).toBeDefined();
-      expect(prompt?.metadata?.[RUN_INSTRUCTION_METADATA_KEY]).toBeUndefined();
     });
 
     it('should strip synthetic user message from history after forced call', async () => {

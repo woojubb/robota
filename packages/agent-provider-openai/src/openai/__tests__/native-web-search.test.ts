@@ -885,8 +885,27 @@ describe('sending a searching reply back', () => {
     });
   });
 
-  it('sends the reply whole to the forced summary that ends the tool loop', async () => {
-    // The summary's instruction is added by the run inside the turn, so it is not a new prompt.
+  it.each<[string, IChatOptions]>([
+    ['withholds search', { nativeWebTools: { webSearch: false } }],
+    ['forbids tools', { toolChoice: 'none' }],
+    ['forces a function', { toolChoice: 'required' }],
+  ])(
+    'rebuilds the reply on a request that %s, which does not declare the tool',
+    async (_l, options) => {
+      const target = setup(searching(), searchingReply());
+      const first = await firstReply(target);
+      const history = [...messages, first, toolResult];
+
+      expect(await inputAfter(target, history)).toContainEqual(SEARCH);
+      expect(await inputAfter(target, history, options)).toEqual([
+        { role: 'user', content: 'hello' },
+        ...REBUILT,
+        toolOutput,
+      ]);
+    },
+  );
+
+  it('rebuilds the reply for the forced summary, the last-resort answer', async () => {
     const target = setup(searching());
     target.create
       .mockResolvedValueOnce(
@@ -912,14 +931,11 @@ describe('sending a searching reply back', () => {
 
     expect(target.create).toHaveBeenCalledTimes(2);
     const request = target.create.mock.calls[1]?.[0] as TRequest & { input: unknown[] };
-    const start = request.input.findIndex(
-      (item) => (item as { type?: string }).type === 'reasoning',
-    );
-    expect(request.input.slice(start, start + SEARCHING_OUTPUT.length)).toEqual(SEARCHING_OUTPUT);
-    expect(request.input.slice(start + SEARCHING_OUTPUT.length)).toEqual([
+    expect(request.tools ?? []).not.toContainEqual(WEB_SEARCH_TOOL);
+    expect(request.input.slice(-4)).toEqual([
+      ...REBUILT,
       toolOutput,
       { role: 'user', content: expect.stringContaining('Tool round limit reached') },
     ]);
-    expect(request.tools ?? []).not.toContainEqual(WEB_SEARCH_TOOL);
   });
 });

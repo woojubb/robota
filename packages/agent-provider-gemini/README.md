@@ -84,8 +84,9 @@ This provider has no hosted web fetch, and a request that requires one fails.
   conditions on showing and storing grounded results and search suggestions, so read them before you
   ship this to end users.
 
-The model's signed function calls and search steps return on the next request as they came, through
-`metadata.providerContinuation` on the assistant message. If you keep your own history, keep that key.
+The model's signed function calls return on the next request as they came, through
+`metadata.providerContinuation` on the assistant message, and its search steps with them on a request
+that asks for those steps. If you keep your own history, keep that key.
 
 ### Endpoint
 

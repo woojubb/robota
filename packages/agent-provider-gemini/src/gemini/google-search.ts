@@ -1,6 +1,6 @@
 import { FunctionCallingConfigMode } from '@google/genai';
 
-import type { GenerateContentParameters, Tool } from '@google/genai';
+import type { Content, GenerateContentParameters, Part, Tool } from '@google/genai';
 import type { IChatOptions, IProviderCapabilities } from '@robota-sdk/agent-core';
 
 const SOURCE = 'gemini-generate-content';
@@ -77,11 +77,27 @@ export function buildGeminiToolFields(
   return { tools };
 }
 
+/**
+ * Server-side tool steps go back only on a request that asks for them. The SDK refuses them in Vertex
+ * mode, and a request without the flag is not known to accept them: a forced summary, or a fallback to
+ * a model that cannot combine tools, must not fail on that. A signed function call goes back either way.
+ */
+export function withoutServerSideToolSteps(contents: Content[]): Content[] {
+  return contents.map((content) =>
+    content.parts?.some(isServerSideToolStep)
+      ? { ...content, parts: content.parts.filter((part) => !isServerSideToolStep(part)) }
+      : content,
+  );
+}
+
+function isServerSideToolStep(part: Part): boolean {
+  return part.toolCall !== undefined || part.toolResponse !== undefined;
+}
+
 export function usesGoogleSearch(request: GenerateContentParameters): boolean {
   const tools = request.config?.tools;
   return (
-    Array.isArray(tools) &&
-    tools.some((tool) => typeof tool === 'object' && 'googleSearch' in tool)
+    Array.isArray(tools) && tools.some((tool) => typeof tool === 'object' && 'googleSearch' in tool)
   );
 }
 

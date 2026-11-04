@@ -305,7 +305,11 @@ const SERVER_TOOL_CALL = {
   thoughtSignature: SIGNATURE,
 };
 const SERVER_TOOL_RESPONSE = {
-  toolResponse: { id: 'srv-1', toolType: 'GOOGLE_SEARCH_WEB', response: { searchSuggestions: 'x' } },
+  toolResponse: {
+    id: 'srv-1',
+    toolType: 'GOOGLE_SEARCH_WEB',
+    response: { searchSuggestions: 'x' },
+  },
   thoughtSignature: SIGNATURE,
 };
 
@@ -379,6 +383,32 @@ describe('sending the model its own parts back', () => {
     expect(model?.parts).toEqual([
       { functionCall: { id: 'c1', name: 'read_file', args: {} }, thoughtSignature: SIGNATURE },
     ]);
+  });
+
+  it('sends a signed call without server-side steps on a request that does not ask for them', async () => {
+    const signed = {
+      functionCall: { id: 'c1', name: 'read_file', args: {} },
+      thoughtSignature: SIGNATURE,
+    };
+    replies.push([reply([SERVER_TOOL_CALL, SERVER_TOOL_RESPONSE, signed])]);
+    const target = provider();
+    const first = await target.chat([message], { tools: [tool] });
+    const modelParts = async (options: IChatOptions): Promise<unknown> => {
+      await target.chat([message, first], options);
+      return bodies.at(-1)?.contents.find((content) => content.role === 'model')?.parts;
+    };
+
+    expect(await modelParts({ tools: [tool] })).toEqual([
+      SERVER_TOOL_CALL,
+      SERVER_TOOL_RESPONSE,
+      signed,
+    ]);
+    // The forced summary, a call that withholds search, and a fallback to a model that cannot combine tools.
+    expect(await modelParts({ toolChoice: 'none' })).toEqual([signed]);
+    expect(await modelParts({ tools: [tool], nativeWebTools: { webSearch: false } })).toEqual([
+      signed,
+    ]);
+    expect(await modelParts({ tools: [tool], model: GEMINI_2 })).toEqual([signed]);
   });
 
   it('keeps nothing extra for a plain reply', async () => {
@@ -484,8 +514,9 @@ describe('profile option nativeWebTools', () => {
       definition.createProvider(profile()).getCapabilities?.().nativeWebTools.webSearch.enabled,
     ).toBe(false);
     expect(
-      definition.createProvider(profile({ nativeWebTools: { webSearch: true } })).getCapabilities?.()
-        .nativeWebTools.webSearch.enabled,
+      definition
+        .createProvider(profile({ nativeWebTools: { webSearch: true } }))
+        .getCapabilities?.().nativeWebTools.webSearch.enabled,
     ).toBe(true);
   });
 

@@ -116,7 +116,6 @@ export type {
 // Message type guards and utilities
 export {
   PROVIDER_CONTINUATION_METADATA_KEY,
-  RUN_INSTRUCTION_METADATA_KEY,
   isUserMessage,
   isAssistantMessage,
   isSystemMessage,
