@@ -102,11 +102,13 @@ describe.skipIf(process.platform === 'win32')('a command hook and the terminal s
   });
 
   // Guard: without a controlling terminal (CI, this runner) the hook fails either way; agent-cli's pty
-  // test shows the same hook opening the terminal in plain mode.
+  // test shows the same hook opening the terminal in plain mode. The open runs in a subshell and the
+  // hook exits 1 when it fails: dash (Linux's /bin/sh) exits a shell whose `exec` redirection fails
+  // with status 2, which is a hook's way of saying deny, while bash exits 1.
   it('fails with its own error when it needs a terminal in secure mode (guard)', async () => {
     enableOwnChildSessions();
     const outcome = await new CommandExecutor('/bin/sh').execute(
-      { type: 'command', command: 'exec 3</dev/tty' },
+      { type: 'command', command: '(exec 3</dev/tty) || exit 1' },
       input,
     );
 

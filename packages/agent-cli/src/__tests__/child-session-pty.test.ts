@@ -33,7 +33,7 @@ if (mode === 'secure') enableOwnChildSessions();
 const result = {};
 
 const hook = await new CommandExecutor('/bin/sh').execute(
-  { type: 'command', command: 'exec 3</dev/tty' },
+  { type: 'command', command: '(exec 3</dev/tty) || exit 1' },
   { session_id: 'pty', cwd: root, hook_event_name: 'SessionStart' },
 );
 result.hook = hook.outcome === 'allow' ? 'opened' : 'refused: ' + (hook.reason ?? hook.kind);
@@ -66,7 +66,7 @@ result.server = existsSync(answer) ? readFileSync(answer, 'utf8') : 'no answer';
 await transport.close();
 
 const handover = join(root, 'handover-answer');
-await spawnInherited('/bin/sh', ['-c', 'if exec 3</dev/tty; then echo opened > ' + handover + '; else echo refused > ' + handover + '; fi'], root);
+await spawnInherited('/bin/sh', ['-c', 'if (exec 3</dev/tty) 2>/dev/null; then echo opened > ' + handover + '; else echo refused > ' + handover + '; fi'], root);
 result.handover = readFileSync(handover, 'utf8').trim();
 
 process.stdout.write('RESULT ' + JSON.stringify(result) + '\\n');
