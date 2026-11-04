@@ -113,6 +113,9 @@ dependency of a neutral entry may load a Node module only lazily, behind its own
 `pnpm lint` runs `scripts/harness/check-platform-neutral.mjs`, which bundles every neutral subpath and
 fails on any Node built-in, Node global or Node-only subpath it reaches, on a `node` or `browser`
 condition a neutral subpath maps, and on any package whose manifest disagrees with the lists below.
+It also runs `scripts/harness/browser-runtime-proof.mjs`, which evaluates those bundles, and a scenario
+per package, in a realm that has only web-standard globals, so a Node global that no scan of the source
+can see, such as a dependency reading `process.env` when it is called, fails by name.
 
 - **Platform-neutral**: `agent-interface-analytics`, `agent-interface-command`,
   `agent-interface-execution`, `agent-interface-session`, `agent-interface-session-mobility`,

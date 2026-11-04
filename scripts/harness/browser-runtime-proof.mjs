@@ -63,10 +63,16 @@ const REALM = path.join(PROOF_DIR, 'realm.mjs');
 const INSTALL = path.join(PROOF_DIR, 'install.mjs');
 const KIT = path.join(PROOF_DIR, 'kit.mjs');
 
-/** One bundle runs inside this; a scenario that waits longer is waiting for something that is not coming. */
-const JOB_TIMEOUT_MS = 20_000;
-/** The whole realm run. Measured at a few seconds; a bundle that never returns is killed here. */
-const REALM_TIMEOUT_MS = 90_000;
+/**
+ * A bundle's `run()` waits at most this: the slowest scenario takes tens of milliseconds, so one
+ * that waits seconds is waiting for something that is not coming.
+ */
+const JOB_TIMEOUT_MS = 10_000;
+/**
+ * The whole realm run, which takes under a second here (about 0.8 s for the whole proof, bundling
+ * included). A bundle that never returns, or loops, is killed at this many times that.
+ */
+const REALM_TIMEOUT_MS = 30_000;
 
 const thirdPartyName = (file) =>
   /node_modules\/(?:\.pnpm\/[^/]+\/node_modules\/)?((?:@[^/]+\/)?[^/]+)/u.exec(file)?.[1];
@@ -86,8 +92,13 @@ function planJobs({ packages, neutral, scenarioDir }) {
         id: `load ${specifier}`,
         kind: 'load',
         key: `load/${short}${subpath === '.' ? '' : `~${subpath.slice(2).replace(/\W+/gu, '-')}`}`,
-        package: short,
-        source: `${quote(INSTALL)}; import * as entry from ${quote(specifier)}; export async function run() { return JSON.stringify({ checks: [], exports: Object.keys(entry).length }); }`,
+        source: [
+          `import ${quote(INSTALL)};`,
+          `import * as entry from ${quote(specifier)};`,
+          'export async function run() {',
+          '  return JSON.stringify({ checks: [], exports: Object.keys(entry).length });',
+          '}',
+        ].join('\n'),
       });
     }
   }
@@ -106,8 +117,12 @@ function planJobs({ packages, neutral, scenarioDir }) {
       id: `scenario ${short}`,
       kind: 'scenario',
       key: `scenario/${short}`,
-      package: short,
-      source: `${quote(INSTALL)}; import scenario from ${quote(path.join(scenarioDir, file))}; import { runScenario } from ${quote(KIT)}; export const run = () => runScenario(scenario);`,
+      source: [
+        `import ${quote(INSTALL)};`,
+        `import scenario from ${quote(path.join(scenarioDir, file))};`,
+        `import { runScenario } from ${quote(KIT)};`,
+        'export const run = () => runScenario(scenario);',
+      ].join('\n'),
     });
   }
   return { jobs, problems, scenarioPackages: scenarios.map((file) => file.split('.')[0]) };
@@ -260,7 +275,7 @@ export async function runBrowserProof({
       ...job,
       file: path.join(workDir, `${job.key}.mjs`),
     }));
-    const entries = new Map(jobs.map((job) => [`proof-entry:${job.key}`, `import ${job.source}`]));
+    const entries = new Map(jobs.map((job) => [`proof-entry:${job.key}`, job.source]));
     const reached = [];
     let built;
     try {
