@@ -20,7 +20,7 @@ import {
   createDiscoveredTool,
   openMcpSession,
 } from '@robota-sdk/agent-mcp';
-import { createNodeHttpTransportDeps } from '@robota-sdk/agent-mcp/node';
+import { createNodeHttpEgress } from '@robota-sdk/agent-mcp/node';
 
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import type { IMCPCatalogToolEntry } from '@robota-sdk/agent-mcp';
@@ -82,7 +82,7 @@ describe('MCP HTTP trace propagation through a real session', () => {
     home = mkdtempSync(join(tmpdir(), 'test-product-mcp-traceparent-'));
     vi.stubEnv('HOME', home);
     server = await startFakeMcpServer();
-    const transportDeps = createNodeHttpTransportDeps({ policy: { allowedHosts: ['127.0.0.1'] } });
+    const transportDeps = { egress: createNodeHttpEgress({ policy: { allowedHosts: ['127.0.0.1'] } }) };
     const admission = await admitHttpEndpoint({ url: server.url }, transportDeps);
     if (!admission.ok) throw new Error('fake MCP endpoint was not admitted');
     const endpoint = admission.admitted;
@@ -91,7 +91,7 @@ describe('MCP HTTP trace propagation through a real session', () => {
       openSession: (signal) =>
         openMcpSession({
           serverId: 'fake',
-          transport: constructStreamableHttpTransport(endpoint, transportDeps),
+          transport: constructStreamableHttpTransport(endpoint),
           timeouts: { startupMs: 2_000, perCallMs: 2_000 },
           signal,
         }),

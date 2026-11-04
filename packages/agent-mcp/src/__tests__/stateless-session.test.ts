@@ -13,7 +13,7 @@ import { MCPActivationAdmissionService } from '../mcp-activation.js';
 import { MCPDefinitionRegistry } from '../definition/registry.js';
 import { catalogIdentityOf, sameCatalogIdentity } from '../catalog/types.js';
 import { classifyMcpFailure } from '../supervisor/connection.js';
-import { createNodeHttpTransportDeps } from '../node/http-egress.js';
+import { createNodeHttpEgress } from '../node/http-egress.js';
 
 const version = '2026-07-28';
 const requests: {
@@ -21,6 +21,7 @@ const requests: {
   params: Record<string, unknown>;
   header?: string;
   session?: string;
+  traceparent?: string;
 }[] = [];
 let session: IMCPSession | undefined;
 let listener: ReturnType<typeof createServer> | undefined;
@@ -45,6 +46,7 @@ async function openModern(
       params: message.params,
       header: request.headers['mcp-protocol-version'] as string | undefined,
       session: request.headers['mcp-session-id'] as string | undefined,
+      traceparent: request.headers['traceparent'] as string | undefined,
     });
     response.setHeader('content-type', 'application/json');
     response.setHeader('mcp-session-id', 'ignored-legacy-session');
@@ -114,7 +116,7 @@ async function openModern(
   if (!address || typeof address === 'string') throw new Error('Missing listener');
   const admitted = await admitHttpEndpoint(
     { url: `http://127.0.0.1:${address.port}` },
-    createNodeHttpTransportDeps({ policy: { allowedHosts: ['127.0.0.1'] } }),
+    { egress: createNodeHttpEgress({ policy: { allowedHosts: ['127.0.0.1'] } }) },
   );
   if (!admitted.ok) throw new Error(admitted.reason);
   const options = {
@@ -138,6 +140,37 @@ afterEach(async () => {
 });
 
 describe('explicit stateless MCP session', () => {
+  it('sends a call its own traceparent through the SDK, and on no other request', async () => {
+    const client = await openModern();
+    const address = listener!.address();
+    if (!address || typeof address === 'string') throw new Error('Missing listener');
+    const traceparent = '00-4bf92f3577b34da6a3ce929d0e0e4736-a1a1a1a1a1a1a1a1-01';
+
+    await client.discover({ maxPages: 2, perRequestTimeoutMs: 1000 });
+    await client.callTool(
+      'echo',
+      { value: 'input' },
+      {
+        outboundTraceContext: {
+          traceparent,
+          allowedOrigins: [`http://127.0.0.1:${address.port}`],
+        },
+      },
+    );
+    await client.callTool(
+      'echo',
+      { value: 'unlisted' },
+      { outboundTraceContext: { traceparent, allowedOrigins: ['http://127.0.0.1:1'] } },
+    );
+
+    expect(requests.map((request) => [request.method, request.traceparent])).toEqual([
+      ['server/discover', undefined],
+      ['tools/list', undefined],
+      ['tools/call', traceparent],
+      ['tools/call', undefined],
+    ]);
+  });
+
   it('uses self-contained server discovery, lists and calls without a legacy handshake/session', async () => {
     const client = await openModern();
     const discovery = await client.discover({ maxPages: 2, perRequestTimeoutMs: 1000 });

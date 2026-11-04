@@ -104,8 +104,9 @@ export {
 } from './mcp-activation-controller.js';
 
 // MCP-002/MCP-2522: one official-SDK client for both protocol eras behind one admit-then-construct transport seam.
-// The stdio adapter and the Node pieces of the HTTP transport (the egress that pins sockets, the
-// AsyncLocalStorage call context) are on `@robota-sdk/agent-mcp/node`; this entry takes them by injection.
+// The stdio adapter and the Node egress of the HTTP transport (resolved-address policy, pinned
+// sockets) are on `@robota-sdk/agent-mcp/node`; this entry takes the egress by injection and has no
+// default of its own.
 export {
   admitHttpEndpoint,
   constructStreamableHttpTransport,
@@ -126,7 +127,6 @@ export {
   type IMCPHttpCarrier,
   type IMCPHttpEgress,
 } from './client/http-egress.js';
-export type { IMCPCallContext, IMCPCallTraceScope } from './client/trace-propagation.js';
 // The client authentication port: a host-registered authenticator for one server identity.
 export {
   MCPAuthenticationError,

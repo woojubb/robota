@@ -12,8 +12,6 @@ describe('agent-mcp entry surfaces', () => {
   const nodeOnly = [
     'createStdioAdapter',
     'createNodeHttpEgress',
-    'createNodeHttpTransportDeps',
-    'createNodeCallContext',
     'createNodeOAuthNetwork',
     'createFileOAuthCredentialStore',
     'createFileOAuthRefreshLock',

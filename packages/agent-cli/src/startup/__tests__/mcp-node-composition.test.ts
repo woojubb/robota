@@ -1,9 +1,10 @@
 /**
- * `@robota-sdk/agent-mcp`'s main entry is platform-neutral: it has no destination policy, no pinned
- * connection and no call context of its own, and takes each from its host. The CLI is the Node host,
- * so its composition must hand every Streamable HTTP server all three whatever options a caller
- * passes — a refactor that dropped one would still connect, just without the protection. These tests
- * go through `createMcpClientComposition` and a real socket to show the composition still has them.
+ * `@robota-sdk/agent-mcp`'s main entry is platform-neutral: it has no destination policy and no
+ * pinned connection of its own, and refuses to admit an endpoint until its host gives it an egress.
+ * The CLI is the Node host, so its composition must hand every Streamable HTTP server the Node
+ * egress whatever options a caller passes. These tests go through `createMcpClientComposition` and
+ * a real socket to show the composition still has the private-address refusal and the pinned
+ * connection, and that a tool call still carries its own trace.
  */
 import { createServer } from 'node:http';
 
@@ -156,7 +157,7 @@ describe('the CLI composition of a Streamable HTTP server', () => {
     expect(lookup.mock.calls.length).toBeGreaterThanOrEqual(requests.length);
   });
 
-  it('sends a tool call its own traceparent through the Node call context', async () => {
+  it('sends a tool call its own traceparent', async () => {
     const port = await startServer();
     const entries = entriesFor(`http://127.0.0.1:${port}/mcp`);
     composition = createMcpClientComposition({

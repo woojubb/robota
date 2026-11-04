@@ -7,8 +7,10 @@ import {
   createStreamableHttpAdapter,
 } from '../client/transport.js';
 
+import { createWebFetchEgress } from '../client/http-egress.js';
+import { createNodeHttpEgress } from '../node/http-egress.js';
+
 import type { TEgressLookup } from '@robota-sdk/agent-core/node';
-import { createNodeHttpTransportDeps } from '../node/http-egress.js';
 
 /**
  * The admitted URL is the only URL spoken to (`transport.ts` § redirect refusal). A redirect from
@@ -35,7 +37,7 @@ describe('constructStreamableHttpTransport — redirect refusal', () => {
     const { fetch: fetchStub, calls } = redirectStub();
     const lookup: TEgressLookup = async () => ['203.0.113.9'];
 
-    const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps({ fetch: fetchStub, lookup }));
+    const adapter = createStreamableHttpAdapter({ egress: createNodeHttpEgress({ fetch: fetchStub, lookup }) });
     const admission = await adapter.admit({
       url: 'https://mcp.example.test/mcp',
       headers: { 'x-custom': 'trusted-for-admitted-origin' },
@@ -78,6 +80,35 @@ describe('constructStreamableHttpTransport — redirect refusal', () => {
     }
   });
 
+  it('refuses a redirect a browser hides: an opaqueredirect response has status 0 and no Location', async () => {
+    // Under the Fetch standard `redirect: 'manual'` answers with an opaque filtered response, so no
+    // 300-399 status is ever seen. `new Response` cannot be built that way; the stub says what a
+    // browser's `fetch` reports.
+    const opaque = new Response(null);
+    Object.defineProperties(opaque, {
+      type: { value: 'opaqueredirect' },
+      status: { value: 0 },
+      ok: { value: false },
+    });
+    const adapter = createStreamableHttpAdapter({
+      egress: createWebFetchEgress(async () => opaque),
+    });
+    const admission = await adapter.admit({ url: 'https://mcp.example.test/mcp' });
+    if (!admission.ok) throw new Error('not admitted');
+    const transport = adapter.construct(admission.admitted);
+
+    const caught: unknown = await transport.send({ jsonrpc: '2.0', id: 1, method: 'ping' }).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+
+    expect(caught).toBeInstanceOf(MCPTransportRedirectRefusedError);
+    expect((caught as MCPTransportRedirectRefusedError).location).toBeUndefined();
+    expect((caught as Error).message).toContain('refused a redirect (opaque)');
+    expect(classifyMcpFailure(caught)).toBe('config');
+    await transport.close();
+  });
+
   it('names origins only, so a credential in a path or query never reaches the message', () => {
     const error = new MCPTransportRedirectRefusedError(
       302,
@@ -92,7 +123,7 @@ describe('constructStreamableHttpTransport — redirect refusal', () => {
   it('does not print a URL it cannot parse, which may hold an expanded credential', async () => {
     const admission = await admitHttpEndpoint(
       { url: 'https://${HOST}/mcp?key=tok-secret' },
-      createNodeHttpTransportDeps(),
+      { egress: createNodeHttpEgress() },
     );
     expect(admission.ok).toBe(false);
     expect(JSON.stringify(admission)).not.toContain('tok-secret');

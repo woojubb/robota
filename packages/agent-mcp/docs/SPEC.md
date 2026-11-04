@@ -25,9 +25,8 @@ two client stacks cannot both be authoritative, so each guarantee below is state
   package.
 - The main entry is platform-neutral and has no host default. It reaches no file, process, socket
   or `node:` module, and a capability that needs one — the stdio transport, credential files, the
-  loopback listener, destination resolution, the async context that ties a call to its request —
-  is a port a Node composition root fills from `./node`. A host that fills none has none of them,
-  and says so by refusing or by doing without, as each port below states.
+  loopback listener, destination resolution — is a port a Node composition root fills from `./node`.
+  A host that fills none has none of them, and says so by refusing, as each port below states.
 - Does not own a tool registry, factory, or product client identity — the consumer (composition
   root or CLI) selects its protocol identity and wires tools at construction time.
 - Transport set is Streamable HTTP and stdio only, behind an admit-then-construct seam. Deprecated
@@ -48,10 +47,13 @@ two client stacks cannot both be authoritative, so each guarantee below is state
   body completion, cancellation or failure, with request cancellation preserving unrelated calls and
   delivering its own cancellation; closing the transport withdraws its requests and waits for
   cleanup. A trusted fetch given to the Node egress owns its own socket policy and lifetime rather
-  than inheriting the pinning guarantee, though every request is still judged first. With no egress
-  injected the transport is web `fetch` and admits any `http:` or `https:` URL: nothing resolves a
-  name or classifies an address, so a host that is not a browser must inject one. This is an
-  application HTTP boundary, not physical worker egress containment.
+  than inheriting the pinning guarantee, though every request is still judged first. The egress is
+  required: an admission or a construction without one is refused (`egress-unavailable`), so an
+  omitted option can never become a transport that reaches any URL. The web egress, which admits any
+  `http:` or `https:` URL and resolves and classifies nothing, is what a browser host passes on
+  purpose. A redirect is refused whether the carrier reports a 3xx status or, as a browser's
+  `redirect: 'manual'` does, an opaque redirect with status 0. This is an application HTTP boundary,
+  not physical worker egress containment.
 - **Precedence fails closed on the managed tier, not just per name**: a malformed highest-precedence
   entry already resolves `unresolved` rather than falling through to a lower source; when the
   managed tier cannot be read AT ALL (its configuration root, `mcpServers`, or its whole document is
@@ -95,11 +97,16 @@ two client stacks cannot both be authoritative, so each guarantee below is state
   without it fails with `callback-unavailable` before the user is shown anything.
 - **Trace context stays on the call it belongs to**: a tool call's trusted `traceparent` goes only on
   that call's own `tools/call` POST and the cancellation of it, and only to an exactly listed origin.
-  The decision is made from each request's body, not from the async context, because the SDK runs a
-  call's response stream — and any `list_changed` refresh or reply it triggers — inside that context;
-  the admitted headers are never modified, so nothing carries over to another request. The async
-  context is the host's call context port; without one no request can be tied to a call, so no
-  `traceparent` is sent and the transport does not abort the request of a call that was cancelled.
+  The header is the call's own per-request header, handed to the SDK with that one call, and the
+  transport repeats it on the `notifications/cancelled` for that JSON-RPC id and nowhere else. No
+  ambient context decides it: a `list_changed` refresh, a reply to a server request or a GET stream
+  starts long after the call and carries nothing, and the admitted headers are never modified.
+- **Cancelling a call withdraws that call's own request**: on a legacy connection the SDK only sends
+  `notifications/cancelled` and would leave the call's POST or SSE stream open, so the transport
+  keeps an abort controller per `tools/call` by JSON-RPC id, passes it to the SDK as that request's
+  signal and aborts it when the matching notification goes out. It stops tracking a call when its
+  response, its stream, a failed send or the transport ends it. On a 2026-era connection the SDK
+  creates and aborts that signal itself. Other calls stay live.
 - **Stdio authority** (a Node adapter, on `./node`; a host without it connects no stdio server):
   definitions cannot grant execution authority — only a host-owned authority
   can, and it is consulted before reading environment values, constructing the transport, or
@@ -219,18 +226,21 @@ the same reason a prompt is withdrawn only when the last such call ends, because
 earlier proves nothing about whose prompt it is, and a live prompt cancelled by mistake costs more
 than one that waits.
 
-## Design decision: what needs a host is a port, and the absent port is web `fetch`
+## Design decision: what needs a host is a port, and a forgotten port refuses
 
 The egress is one object that judges a destination and opens a carrier, not a bare `fetch`, because
 the Node guarantee is per endpoint: resolve once, connect only to what was checked, and own each
 response until its body ends or is cancelled. A function cannot be closed, so it could not withdraw
-what it left open. The call context is only the async-context primitive: which request carries what
-is still decided here from the request's body. The OAuth network is a port of its own with the byte
-and redirect bounds in its contract, since a POST's body is a credential. With no egress the
-transport sends through web `fetch` instead of refusing every URL, because a browser has no name
-resolution to consult and its own sandbox decides what it may reach; a host on a server is told in
-the README and here to inject one, and the CLI cannot forget it, because its composition builds the
-Node egress and call context itself rather than accepting transport deps from a caller.
+what it left open. The OAuth network is a port of its own with the byte and redirect bounds in its
+contract, since a POST's body is a credential. Both are required, and neither has a default: the
+egress is what stops a definition from pointing the client at a cloud-metadata address or a private
+service, and a default would turn a forgotten option into a transport with no such stop that still
+compiles. A browser, which has no name resolution to consult and whose own sandbox decides what it may
+reach, passes the web egress explicitly, so permissive is a choice written at a call site rather
+than what an omission produces. The CLI cannot forget it either: its composition builds the Node
+egress itself rather than accepting transport deps from a caller. Tracing and cancellation need no
+port because they need no ambient context: the JSON-RPC id and the SDK's per-request headers and
+signal identify the call.
 
 ## Design decision: definition precedence, with plugins last
 

@@ -20,7 +20,7 @@ import { withoutExpansions } from '../definition/secrecy.js';
 
 import type { IMCPServerDefinitionResolved } from '../definition/types.js';
 import type { TEgressLookup } from '@robota-sdk/agent-core/node';
-import { createNodeHttpTransportDeps } from '../node/http-egress.js';
+import { createNodeHttpEgress } from '../node/http-egress.js';
 
 const HELPER = { command: '/usr/local/bin/mcp-token', args: ['--audience', 'mcp'] };
 const lookup: TEgressLookup = async () => ['203.0.113.9'];
@@ -354,7 +354,7 @@ async function connectThrough(
     calls.push({ headers: new Headers(init?.headers) });
     return new Response(null, { status: statuses.shift() ?? 202 });
   }) as typeof globalThis.fetch;
-  const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps({ fetch: fetchStub, lookup }));
+  const adapter = createStreamableHttpAdapter({ egress: createNodeHttpEgress({ fetch: fetchStub, lookup }) });
   const admission = await adapter.admit({
     url: 'https://mcp.example.test/mcp',
     headers: { Authorization: 'static' },
@@ -409,7 +409,7 @@ describe('a helper behind the authentication port', () => {
   });
 
   it('is never replaced by the static headers when no authenticator is registered', async () => {
-    const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps({ lookup }));
+    const adapter = createStreamableHttpAdapter({ egress: createNodeHttpEgress({ lookup }) });
     const admission = await adapter.admit({
       url: 'https://mcp.example.test/mcp',
       headers: { Authorization: 'static' },
@@ -446,7 +446,7 @@ describe('concurrent refusals and shutdown', () => {
       if (refusals === 2) await refreshed.promise;
       return new Response(null, { status: 401 });
     }) as typeof globalThis.fetch;
-    const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps({ fetch: fetchStub, lookup }));
+    const adapter = createStreamableHttpAdapter({ egress: createNodeHttpEgress({ fetch: fetchStub, lookup }) });
     const admission = await adapter.admit({
       url: 'https://mcp.example.test/mcp',
       authenticationRequired: true,

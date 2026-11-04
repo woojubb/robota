@@ -38,7 +38,7 @@ import {
   openMcpSession,
   refuseHeadersHelper,
 } from '@robota-sdk/agent-mcp';
-import { createNodeHttpTransportDeps, createStdioAdapter } from '@robota-sdk/agent-mcp/node';
+import { createNodeHttpEgress, createStdioAdapter } from '@robota-sdk/agent-mcp/node';
 import { mcpUserActionNotice } from '@robota-sdk/agent-command';
 import { McpSkillRegistry } from './mcp-skill-registry.js';
 import { createMcpSkillCommandSource } from './mcp-skill-command-source.js';
@@ -197,9 +197,8 @@ export interface IMcpClientCompositionDeps {
   readonly discovery?: { readonly maxPages: number };
   /**
    * The destination policy, resolver and trusted carrier of every Streamable HTTP server. This
-   * composition always builds the Node pieces from them — the egress that refuses private
-   * destinations and pins the connection, and the call context that carries a tool call's trace —
-   * so a caller cannot hand it a transport without them.
+   * composition always builds the Node egress from them — the one that refuses private destinations
+   * and pins the connection — so a caller cannot hand it a transport without it.
    */
   readonly transport?: INodeHttpEgressOptions;
   /** Host capabilities, never populated from project or user MCP definitions. */
@@ -589,7 +588,7 @@ async function connectOneServer(
       deps,
     );
   } else {
-    const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps(deps.transport));
+    const adapter = createStreamableHttpAdapter({ egress: createNodeHttpEgress(deps.transport) });
     const helper = definition.headersHelper;
     let authenticator: IMCPClientAuthenticator | undefined;
     let helperSlot: IHelperAuthenticatorSlot | undefined;

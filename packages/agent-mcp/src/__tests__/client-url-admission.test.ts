@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { admitHttpEndpoint } from '../client/transport.js';
 
 import type { TEgressLookup } from '@robota-sdk/agent-core/node';
-import { createNodeHttpTransportDeps } from '../node/http-egress.js';
+import { createNodeHttpEgress } from '../node/http-egress.js';
 
 /**
  * TC-05: admission happens BEFORE any connection attempt. The load-bearing assertion in every case
@@ -23,7 +23,7 @@ describe('admitHttpEndpoint — URL admission (TC-05)', () => {
 
     const admission = await admitHttpEndpoint(
       { url: 'http://internal.example.com/mcp' },
-      createNodeHttpTransportDeps({ lookup, fetch: fetchStub }),
+      { egress: createNodeHttpEgress({ lookup, fetch: fetchStub }) },
     );
 
     expect(admission.ok).toBe(false);
@@ -41,7 +41,7 @@ describe('admitHttpEndpoint — URL admission (TC-05)', () => {
 
     const admission = await admitHttpEndpoint(
       { url: 'https://backend.example.com/mcp' },
-      createNodeHttpTransportDeps({ lookup, fetch: fetchStub }),
+      { egress: createNodeHttpEgress({ lookup, fetch: fetchStub }) },
     );
 
     expect(admission.ok).toBe(false);
@@ -57,7 +57,7 @@ describe('admitHttpEndpoint — URL admission (TC-05)', () => {
 
     const admission = await admitHttpEndpoint(
       { url: 'https://metadata.example.com/mcp' },
-      createNodeHttpTransportDeps({ lookup, fetch: fetchStub }),
+      { egress: createNodeHttpEgress({ lookup, fetch: fetchStub }) },
     );
 
     expect(admission.ok).toBe(false);
@@ -71,7 +71,7 @@ describe('admitHttpEndpoint — URL admission (TC-05)', () => {
     const lookup = vi.fn<TEgressLookup>(async () => ['203.0.113.9']);
     const fetchStub = neverCalledFetch();
 
-    const admission = await admitHttpEndpoint({ url: 'not a url' }, createNodeHttpTransportDeps({ lookup, fetch: fetchStub }));
+    const admission = await admitHttpEndpoint({ url: 'not a url' }, { egress: createNodeHttpEgress({ lookup, fetch: fetchStub }) });
 
     expect(admission.ok).toBe(false);
     if (!admission.ok) {

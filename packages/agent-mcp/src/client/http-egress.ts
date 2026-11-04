@@ -6,8 +6,9 @@
  * to the addresses it checked (`createNodeHttpEgress` on `@robota-sdk/agent-mcp/node`); a browser
  * has neither DNS nor a connection to pin, and its own sandbox decides what it can reach. This
  * entry is platform-neutral, so it holds the port and the one host-independent implementation —
- * web `fetch`, with no destination check beyond `http:`/`https:` — and a composition root injects
- * the rest.
+ * web `fetch`, with no destination check beyond `http:`/`https:` — and the HTTP transport has no
+ * default of its own: a composition root always injects one, so choosing the web one is a decision
+ * written down, never an omission.
  */
 
 /** A destination the host's network refuses, named by a reason and a message safe to print. */
@@ -52,9 +53,11 @@ export class MCPTransportEgressRefusedError extends Error {
 
 /**
  * Web `fetch` and no more: the destination only has to be an `http:` or `https:` URL, and nothing
- * resolves, pins or classifies an address. What `fetch` can reach is whatever the platform allows
- * it, so a host that runs outside a browser's sandbox injects an egress that judges destinations
- * (`createNodeHttpEgress` on Node). `fetchImpl` defaults to the global `fetch`.
+ * resolves, pins or classifies an address, so it reaches whatever the platform lets `fetch` reach —
+ * loopback, private ranges and cloud-metadata addresses included on a host that has them. A browser
+ * host passes it as `{ egress: createWebFetchEgress() }`; a host that runs on a server passes an
+ * egress that judges destinations instead (`createNodeHttpEgress` on Node). `fetchImpl` defaults to
+ * the global `fetch`.
  */
 export function createWebFetchEgress(fetchImpl?: typeof globalThis.fetch): IMCPHttpEgress {
   return {

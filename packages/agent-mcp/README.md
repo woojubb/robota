@@ -112,10 +112,10 @@ import {
   buildCatalog,
   createDiscoveredTool,
 } from '@robota-sdk/agent-mcp';
-import { createNodeHttpTransportDeps } from '@robota-sdk/agent-mcp/node';
+import { createNodeHttpEgress } from '@robota-sdk/agent-mcp/node';
 
-// On Node: the egress that refuses private destinations and pins the connection, and the call context.
-const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps());
+// On Node: the egress that refuses private destinations and pins the connection.
+const adapter = createStreamableHttpAdapter({ egress: createNodeHttpEgress() });
 const admission = await adapter.admit({ url: 'https://example.com/mcp' });
 if (!admission.ok) {
   throw new Error(`${admission.reason}: ${admission.message}`);
@@ -180,21 +180,26 @@ limit suites cover their corresponding contracts separately.
 
 `admit` asks the host's egress before any connection. The Node egress refuses a loopback or
 cloud-metadata host, and any name that resolves to a private address range; the transport itself refuses
-redirects rather than following them. `openMcpSession()` identifies itself to the server as `mcp-client`
-unless you pass `clientInfo`.
+redirects rather than following them, including the opaque redirect a browser's `fetch` reports for
+`redirect: 'manual'`. `openMcpSession()` identifies itself to the server as `mcp-client` unless you pass
+`clientInfo`.
 
 ### What the host supplies
 
-The HTTP transport reads nothing from the machine it runs on. The composition root passes, in the
-`createStreamableHttpAdapter(deps)` or `admitHttpEndpoint(endpoint, deps)` argument:
+The HTTP transport reads nothing from the machine it runs on, and has no network of its own. The
+composition root passes the host's egress in the `createStreamableHttpAdapter(deps)` or
+`admitHttpEndpoint(endpoint, deps)` argument:
 
-| Option        | Without it                                                                                                                                                                                                                          |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `egress`      | Web `fetch` with no destination check beyond `http:`/`https:` (`createWebFetchEgress()`): nothing resolves a name or refuses a private address, so a host outside a browser's sandbox must pass one. `createNodeHttpEgress` is it |
-| `callContext` | No `traceparent` is sent, and the transport does not abort the request of a cancelled call (the SDK still rejects the call); `createNodeCallContext` carries the call through `AsyncLocalStorage`                              |
+| Option   | Without it                                                                                                                                              |
+| -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `egress` | Required. The type refuses a call without it, and a call that omits it anyway is refused at admission (`egress-unavailable`) before anything is sent  |
 
-`createNodeHttpTransportDeps(options)` on `/node` returns both, and is what the CLI composition passes
-for every HTTP server. OAuth takes its network (`IMCPOAuthNetwork`; `createNodeOAuthNetwork` on `/node`)
+A Node host passes `{ egress: createNodeHttpEgress(options) }` from `/node`, as the CLI composition does for
+every HTTP server. A browser host passes `{ egress: createWebFetchEgress() }`: web `fetch` and no
+destination check beyond `http:`/`https:`, so nothing resolves a name or refuses a private address. Choosing
+it is a decision a host writes down; a host on a server should not. Cancelling a tool call withdraws that
+call's own request on every connection, and the call's `traceparent`, when its origin is listed, is that
+call's own request header, so neither needs anything from the host. OAuth takes its network (`IMCPOAuthNetwork`; `createNodeOAuthNetwork` on `/node`)
 as a required input, and its loopback listener (`callbackListener`; `loopbackOAuthCallbackListener` on
 `/node`) as an optional one: without a listener, a sign-in that needs one fails with
 `callback-unavailable` before anything is shown to the user.
@@ -239,8 +244,6 @@ it is never connected with its static headers alone.
 | -------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------- |
 | `createStdioAdapter`                                           | Function | Admits and spawns a host-authorized stdio server (with the `IMCPStdio*` types)               |
 | `createNodeHttpEgress`, `INodeHttpEgressOptions`               | Function | The HTTP egress: resolved-address policy, pinned connection, owner/test `fetch`              |
-| `createNodeCallContext`                                        | Function | The `AsyncLocalStorage` call context that ties a tool call to its own request                |
-| `createNodeHttpTransportDeps`                                  | Function | Both of the above as the transport's deps                                                    |
 | `createNodeOAuthNetwork`, `INodeOAuthNetworkOptions`           | Function | The OAuth network: egress policy, byte caps, no redirect on a POST                           |
 | `createFileOAuthCredentialStore`                               | Function | Owner-only credential files, one per server identity and URL                                 |
 | `createFileOAuthRefreshLock`, `IFileOAuthRefreshLockOptions`   | Function | One refresh at a time per credential, across processes                                       |

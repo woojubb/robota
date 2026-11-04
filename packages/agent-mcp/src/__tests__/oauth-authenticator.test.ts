@@ -29,7 +29,7 @@ import { AS_URL, MCP_URL, createFakeOAuthServer } from './fixtures/fake-oauth-se
 import type { TMCPOAuthNotice } from '../client/oauth/authenticator.js';
 import type { IMCPOAuthCredential } from '../client/oauth/store.js';
 import type { IFakeOAuthServer } from './fixtures/fake-oauth-server.js';
-import { createNodeHttpTransportDeps } from '../node/http-egress.js';
+import { createNodeHttpEgress } from '../node/http-egress.js';
 import {
   createFileOAuthCredentialStore,
   credentialKeyDigest,
@@ -240,7 +240,7 @@ describe('OAuth authenticator', () => {
           : {}),
       });
     }) as typeof globalThis.fetch;
-    const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps({ lookup: server.lookup, fetch: mcpFetch }));
+    const adapter = createStreamableHttpAdapter({ egress: createNodeHttpEgress({ lookup: server.lookup, fetch: mcpFetch }) });
     const admitted = await adapter.admit({
       url: MCP_URL,
       authenticationRequired: true,

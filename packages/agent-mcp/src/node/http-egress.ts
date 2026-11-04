@@ -5,11 +5,9 @@
  */
 import { rejectDestination } from '@robota-sdk/agent-core/node';
 
-import { createNodeCallContext } from './call-context.js';
 import { createMcpPinnedFetch } from './pinned-http-fetch.js';
 
 import type { IMCPHttpEgress } from '../client/http-egress.js';
-import type { IMCPHttpTransportDeps } from '../client/transport.js';
 import type { IEgressPolicy, TEgressLookup } from '@robota-sdk/agent-core/node';
 
 export interface INodeHttpEgressOptions {
@@ -52,15 +50,4 @@ export function createNodeHttpEgress(options: INodeHttpEgressOptions = {}): IMCP
         ...(lookup ? { lookup } : {}),
       }),
   };
-}
-
-/**
- * Everything the HTTP transport needs from a Node host in one value: the egress that pins sockets
- * and refuses private destinations, and the `AsyncLocalStorage` call context that ties a tool call
- * to its own request. A Node composition root passes this wherever it composes the transport.
- */
-export function createNodeHttpTransportDeps(
-  options: INodeHttpEgressOptions = {},
-): IMCPHttpTransportDeps {
-  return { egress: createNodeHttpEgress(options), callContext: createNodeCallContext() };
 }
