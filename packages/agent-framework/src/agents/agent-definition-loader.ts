@@ -2,6 +2,7 @@ import { basenamePath, joinPath } from '@robota-sdk/agent-core';
 
 import { BUILT_IN_AGENTS } from './built-in-agents.js';
 import { decodeFrontmatter } from '../frontmatter/frontmatter-decoder.js';
+import { joinRootRelative } from '../contributions/root-relative-path.js';
 import { reportRefusedDefinition } from '../frontmatter/frontmatter-refusal-report.js';
 
 import type { IAgentDefinition } from './agent-definition-types.js';
@@ -34,7 +35,7 @@ function scanAgentsDir(dir: string, source: IContributionSource): IDiscoveredAge
   for (const entry of entries) {
     if (entry.kind !== 'file' || !entry.name.endsWith('.md')) continue;
 
-    const filePath = joinPath(dir, entry.name);
+    const filePath = joinRootRelative(dir, entry.name);
     const content = source.readText(filePath, 'load agent definition');
     if (content === undefined) continue;
     const decoded = decodeFrontmatter({

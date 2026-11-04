@@ -42,7 +42,20 @@ describe('isWorkspacePathContained', () => {
     ['repo', '/repo'],
     ['C:\\repo', '\\repo\\a'],
     ['C:\\repo', 'repo'],
-  ])('does not hold %j to contain %j, which only the process directory could place', (root, candidate) => {
+  ])(
+    'does not hold %j to contain %j, which only the process directory could place',
+    (root, candidate) => {
+      expect(isWorkspacePathContained(root, candidate)).toBe(false);
+    },
+  );
+
+  // The case that changed: two relative paths used to be resolved against the process directory, so
+  // `repo` held `repo/a`. Neither is anchored here, so nothing is contained, not even the root itself.
+  it.each([
+    ['repo', 'repo/a'],
+    ['repo', 'repo'],
+    ['.', 'a'],
+  ])('does not hold the relative %j to contain the relative %j', (root, candidate) => {
     expect(isWorkspacePathContained(root, candidate)).toBe(false);
   });
 });

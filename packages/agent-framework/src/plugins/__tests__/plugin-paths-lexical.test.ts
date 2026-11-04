@@ -69,6 +69,27 @@ describe('plugin path containment on both platforms, from the text of the paths'
     },
   );
 
+  // The case that changed: with both paths relative, the old check resolved each against the process
+  // directory and found `plugins` holding `plugins/a`. Neither is anchored here, so nothing is held.
+  it.each([
+    ['plugins', 'plugins/a'],
+    ['plugins', 'plugins'],
+    ['.', 'a'],
+  ])(
+    'refuses the relative root %j holding the relative %j rather than anchoring both to the process directory',
+    (root, candidate) => {
+      expect(() => assertContainedPath(root, candidate, 'load', filesystemWith())).toThrow(
+        PluginPathContainmentError,
+      );
+    },
+  );
+
+  it('refuses a relative source against a relative root, which it used to resolve', () => {
+    expect(() => resolveContainedRelative('plugins', 'a', 'load', filesystemWith())).toThrow(
+      PluginPathContainmentError,
+    );
+  });
+
   it.each([
     ['/plugins', 'a/b', '/plugins/a/b'],
     ['C:\\plugins', 'a\\b', 'C:\\plugins\\a\\b'],
@@ -79,12 +100,17 @@ describe('plugin path containment on both platforms, from the text of the paths'
   });
 
   // A source that names a root is refused on every platform, as its drive would come from elsewhere.
-  it.each(['/etc', '\\etc', 'C:\\etc', 'c:/etc', '//server/share', '\\\\server\\share', '../escape'])(
-    'refuses the source %j, which names a root or leaves the plugin root',
-    (relative) => {
-      expect(() =>
-        resolveContainedRelative('/plugins', relative, 'load', filesystemWith('/plugins')),
-      ).toThrow(PluginPathContainmentError);
-    },
-  );
+  it.each([
+    '/etc',
+    '\\etc',
+    'C:\\etc',
+    'c:/etc',
+    '//server/share',
+    '\\\\server\\share',
+    '../escape',
+  ])('refuses the source %j, which names a root or leaves the plugin root', (relative) => {
+    expect(() =>
+      resolveContainedRelative('/plugins', relative, 'load', filesystemWith('/plugins')),
+    ).toThrow(PluginPathContainmentError);
+  });
 });
