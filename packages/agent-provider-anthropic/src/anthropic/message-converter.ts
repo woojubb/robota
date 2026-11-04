@@ -164,11 +164,18 @@ function printableTitle(title: string | null): string {
     .trim();
 }
 
-/** A page-supplied address as it would open, or undefined when it is not a web address. */
+/**
+ * A page-supplied address as it would open, or undefined when it is not a web address. Brackets and
+ * backticks stay legal after the host, where markdown would read them as a link that shows one address
+ * and opens another, so they print encoded, as a browser sends them. The origin drops any `user@`, which
+ * could pass for the host.
+ */
 function webAddress(url: string): string | undefined {
   try {
     const parsed = new URL(url);
-    return parsed.protocol === 'https:' || parsed.protocol === 'http:' ? parsed.href : undefined;
+    if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:') return undefined;
+    const rest = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+    return `${parsed.origin}${rest.replace(/[[\]`]/g, (char) => encodeURIComponent(char))}`;
   } catch {
     return undefined;
   }

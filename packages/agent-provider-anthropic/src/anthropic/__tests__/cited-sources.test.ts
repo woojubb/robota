@@ -132,6 +132,31 @@ describe('sources a reply cites', () => {
     expect(printed).not.toMatch(/[[\]<>`]/);
   });
 
+  it.each([
+    ['its path', 'https://x.example/][https://bank.example/](https://evil.example/)'],
+    ['its query', 'https://x.example/?q=][https://bank.example/](https://evil.example/)'],
+    ['its fragment', 'https://x.example/#][https://bank.example/](https://evil.example/)'],
+    ['its query, with a backtick', 'https://x.example/?q=`a`'],
+  ])('leaves no markdown syntax in an address that holds it in %s', async (_label, url) => {
+    const { content } = await replyFrom([textDelta('Text.'), citationDelta(citation(url, 'T'))]);
+
+    const address = content.split('\n   ')[1] ?? '';
+    expect(address).toMatch(/^https:\/\/x\.example\//);
+    expect(address).not.toMatch(/[[\]`]/);
+  });
+
+  it('keeps an IPv6 host whole and prints no user name that could pass for the host', async () => {
+    const { content } = await replyFrom([
+      textDelta('Text.'),
+      citationDelta(citation('https://[::1]:8443/a', 'Six')),
+      citationDelta(citation('https://bank.example@evil.example/a', 'Named')),
+    ]);
+
+    expect(content).toContain('https://[::1]:8443/a');
+    expect(content).toContain('https://evil.example/a');
+    expect(content).not.toContain('bank.example');
+  });
+
   it('lists an address once whatever spelling each citation used', async () => {
     const { content } = await replyFrom([
       textDelta('Text.'),

@@ -66,7 +66,7 @@ offered by this provider.
 the end a `[Sources]` list of what the reply cites, one per address. Anthropic's documentation asks for
 citations to be shown with the output, and they otherwise arrive beside the text. Titles and addresses
 come from web pages, so control characters and markdown link syntax are removed from titles, and only
-`http(s)` addresses are listed.
+`http(s)` addresses are listed, with brackets and backticks encoded.
 `chatStream()` carries neither list.
 
 The choice is made when the provider is built and nothing switches it on afterwards, so a session or
