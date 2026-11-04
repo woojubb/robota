@@ -246,7 +246,8 @@ describe('the project session store reached through the composition', () => {
 
     composition.sessionStore.save(record('sess_b'));
 
-    const files = readdirSync(join(cwd, STATE.sessions));
+    // Records are the `.json` files; the writer markers live beside them in `claims/`.
+    const files = readdirSync(join(cwd, STATE.sessions)).filter((name) => name.endsWith('.json'));
     expect(files).toEqual(['sess_b.json']);
     expect(
       readFileSync(join(cwd, STATE.sessions, 'sess_b.json')).includes(Buffer.from(CANARY)),
