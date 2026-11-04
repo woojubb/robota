@@ -337,9 +337,10 @@ one exhaustive table, and every listener a product process opens goes through th
 reads its row, at the call site that starts it, so the libraries that open listeners keep their
 constructors. Any program of the same user can satisfy an admission by a token it can read, a login
 or "the same user", so in secure mode a listener admitting that way does not start when it reaches a
-session or a token; the control socket admits only owner links, and the OAuth sign-in callback opens
-under its own rule (loopback, bound by a fresh path or a required state, consumed by its first match,
-timed out) because it reaches no session. Plain mode opens what it always did.
+session or a token; the control socket opens, its row marking it for owner-link admission, which the
+control endpoint enforces; and the OAuth sign-in callback opens under its own rule (loopback, bound
+by a fresh path or a required state, consumed by its first match, timed out) because it reaches no
+session. Plain mode opens what it always did.
 
 Being the one construction point, the factory is also where a process records that it uses the
 stores: the first store it builds (or, for a subagent worker, the grant it binds) creates its
