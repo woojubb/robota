@@ -6,7 +6,7 @@
  * package every transport already shares.
  *
  * Nothing in here reaches a host: a credential is minted from the platform's secure randomness and
- * compared as strings, so a browser, a Worker, Deno, Bun and Node all run this module as it is.
+ * compared as strings, so the module runs unchanged wherever `globalThis.crypto` exists.
  */
 
 import { constantTimeEqual, randomHex } from '@robota-sdk/agent-core';
