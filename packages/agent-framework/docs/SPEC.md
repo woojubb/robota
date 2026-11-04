@@ -42,11 +42,14 @@ React/Ink UI.
   fail-closed. Once accepted, the pair is one value fixed for the session's life and handed by
   reference, never copied field by field, so no lazy operation can hold a different answer from the
   session; a move to another directory is a new session, not a mutation of this one.
-- **No concrete settings-file I/O for hosts.** The main entry reads a settings layer through
-  `IHostSettingsSource.read()` and writes through `ISettingsDocumentStore`, so it never opens a path.
-  Host adapters (`NodeHost*`, on `./node`) exist for callers that deliberately own a host path, but
-  never satisfy an authority parameter, and command modules must not assemble settings/project paths
-  themselves — they go through host adapters or command-facing common APIs.
+- **Settings layers and stores never open a path; plugin enablement does.** A settings layer is read
+  through `IHostSettingsSource.read()` and a document is written through `ISettingsDocumentStore`, so
+  neither opens a settings file. Plugin enablement is the one consumer that works on the file itself:
+  it takes the user source's `path` and reads and writes it through an `IFileSystem`
+  (`NodeHostPluginSettingsStore`), so a user source with no `path` enables no plugins. Host adapters
+  (`NodeHost*`) exist for callers that deliberately own a host path, but never satisfy an authority
+  parameter, and command modules must not assemble settings/project paths themselves — they go
+  through host adapters or command-facing common APIs.
 - **The platform and the working directory are passed in, never assumed.** A session, subagent,
   runtime or query takes a required `host` (`IFrameworkHost`, what the platform lends) and a required
   absolute `cwd`. Neither has a default, because a default would be whichever process the framework

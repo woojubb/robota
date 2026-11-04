@@ -14,7 +14,8 @@ import type { IHostSettingsSource } from '../settings-source.js';
 
 /**
  * A host settings source is whatever the host reads its document through. The framework asks it
- * for text and never opens a path, so a host with no file system lends the same contract.
+ * for text and never opens a path for the layer, so a host with no file system lends the same
+ * contract.
  */
 
 function memorySource(

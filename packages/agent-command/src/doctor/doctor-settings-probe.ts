@@ -21,6 +21,20 @@ import type {
 const HTTP_PORT = 80;
 const HTTPS_PORT = 443;
 
+/** The file a settings layer reads, when it reads one; a host source over other storage has none. */
+function settingsLayerPath(source: TSettingsSource): string | undefined {
+  return source.kind === 'host' ? source.path : source.relativePath;
+}
+
+/** A host's own name for a document that is not a file, as one id segment: `Browser storage` → `browser-storage`. */
+function slugOf(displayName: string): string {
+  const slug = displayName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return slug === '' ? 'unnamed' : slug;
+}
+
 /**
  * The name of the directory a settings file lives in, without its leading dot. Both separators split
  * it: a project-relative path a Windows host joined reads `.robota\settings.json`, which a lexical
@@ -32,13 +46,17 @@ function settingsDirectoryName(path: string): string {
 }
 
 /**
- * `settings.<scope>.<family>` — the id a user types into `--repair`. The family is the name of the
- * directory the file lives in, without its leading dot, so the id follows whatever layout the host
- * composed rather than a product name written here.
+ * `settings.<scope>.<family>` — the id a user types into `--repair`. For a file the family is the
+ * name of the directory it lives in, without its leading dot, so the id follows whatever layout the
+ * host composed rather than a product name written here. A host source with no file has no
+ * directory to name, so its family is a slug of the `displayName` the host gave it; a host that
+ * composes several such layers names each one differently.
  */
 export function settingsCheckId(source: TSettingsSource): string {
-  const path = source.kind === 'host' ? (source.path ?? source.displayName) : source.relativePath;
-  return `settings.${source.scope}.${settingsDirectoryName(path)}`;
+  const path = settingsLayerPath(source);
+  const family =
+    path === undefined ? slugOf(source.displayName) : settingsDirectoryName(path);
+  return `settings.${source.scope}.${family}`;
 }
 
 /** The check id of the host's own user settings file — the settings repair target. */
@@ -78,24 +96,29 @@ export function isRepairableSettingsLayer(
 
 function layerCheck(layer: ISettingsLayerInspection, inputs: IDoctorInputs): IDoctorCheck {
   const id = settingsCheckId(layer.source);
-  const path =
-    layer.source.kind === 'host'
-      ? (layer.source.path ?? layer.source.displayName)
-      : layer.source.relativePath;
+  const path = settingsLayerPath(layer.source);
+  // A layer with no file has no `path` line to say which document it is, so its label does.
+  const label =
+    path === undefined ? `Settings layer (${layer.source.displayName})` : 'Settings layer';
+  const where = path === undefined ? {} : { path };
   if (layer.state === 'absent') {
-    return { id, label: 'Settings layer', status: 'not-configured', path, cause: 'absent' };
+    return { id, label, status: 'not-configured', ...where, cause: 'absent' };
   }
-  if (layer.state === 'ok') return { id, label: 'Settings layer', status: 'ok', path, cause: 'ok' };
+  if (layer.state === 'ok') return { id, label, status: 'ok', ...where, cause: 'ok' };
   const repairable = isRepairableSettingsLayer(layer, inputs);
   return {
     id,
-    label: 'Settings layer',
+    label,
     status: 'fail',
-    path,
+    ...where,
     cause: layerCause(layer),
     detail: repairable
       ? ['The file exists but holds nothing; rewriting it as {} loses no content.']
-      : ['Session start will refuse this configuration. Fix the file at the named path.'],
+      : [
+          path === undefined
+            ? 'Session start will refuse this configuration. Fix the document the host names.'
+            : 'Session start will refuse this configuration. Fix the file at the named path.',
+        ],
     ...(repairable ? { repair: id } : {}),
   };
 }

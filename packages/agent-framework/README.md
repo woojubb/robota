@@ -491,15 +491,17 @@ order; project files are read only in a trusted project.
 `currentProvider` selects the active entry in `providers`. Other keys include `hooks`, `env`,
 `language`, `preset`, `autoCompactThreshold`, `sandbox` and `enabledPlugins`.
 
-The framework never opens a settings file itself. A layer reaches it as an `IHostSettingsSource`
-(`read()` returns the text, or `undefined` when the document does not exist and throws when it
-exists but cannot be read), a trusted project's layers come from `createWorkspaceProjectSettingsSources`,
-and a command that writes takes an `ISettingsDocumentStore` (`read()` and `write()`), as
-`applyStatusLineSettings` and `applyAppearanceSettings` do. A host with no file system passes sources
-and stores over its own storage. The file-backed ones are on `@robota-sdk/agent-framework/node`:
+A settings layer reaches the framework as an `IHostSettingsSource` (`read()` returns the text, or
+`undefined` when the document does not exist and throws when it exists but cannot be read), a trusted
+project's layers come from `createWorkspaceProjectSettingsSources`, and a command that writes takes an
+`ISettingsDocumentStore` (`read()` and `write()`), as `applyStatusLineSettings` and
+`applyAppearanceSettings` do. Neither opens a path, so a host with no file system passes sources and
+stores over its own storage. The file-backed ones are on `@robota-sdk/agent-framework/node`:
 `createNodeHostSettingsSource(scope, path)`, `createNodeHostSettingsStore(scope, path)` (written
 owner-only), `readSettings`, `writeSettings`, `updateModelInSettings`, `deleteSettings` and
-`resetUserConfig`.
+`resetUserConfig`. Plugin enablement is the one consumer that works on the file itself: it takes the
+user source's `path` and reads and writes it through an `IFileSystem`, so a user source with no `path`
+enables no plugins.
 
 Contribution roots follow the same split. `createContributionSourcesForProjectAccess(access,
 userSources)` adds the user sources you built to the trusted project's; on Node build them with

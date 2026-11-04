@@ -7,8 +7,8 @@ export type { THostSettingsScope } from './settings-scope-types.js';
 export type TProjectSettingsScope = 'project' | 'project-local';
 
 /**
- * A managed or user-owned settings document the host reads through its own storage. The framework
- * never opens a path itself: a Node host passes `createNodeHostSettingsSource` from
+ * A managed or user-owned settings document the host reads through its own storage. A settings layer
+ * is read through `read()`, never by path: a Node host passes `createNodeHostSettingsSource` from
  * `@robota-sdk/agent-framework/node`, a browser host passes its own `read`.
  */
 export interface IHostSettingsSource {
@@ -17,8 +17,9 @@ export interface IHostSettingsSource {
   /** What a diagnostic calls the document; a file-backed source uses its path. */
   readonly displayName: string;
   /**
-   * The file the document lives in, when it is a file. Consumers that act on the file itself, such
-   * as the plugin enablement store and `doctor`, need it; a source over other storage omits it.
+   * The file the document lives in, when it is a file. Plugin enablement acts on the file itself
+   * (the user source's `path` goes to the plugin settings store, so a user source without one
+   * enables no plugins), and `doctor` names the file; a source over other storage omits it.
    */
   readonly path?: string;
   /**
