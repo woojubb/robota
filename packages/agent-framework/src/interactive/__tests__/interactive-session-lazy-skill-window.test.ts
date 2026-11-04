@@ -6,8 +6,12 @@ import { createTestFrameworkHost } from '../../testing/framework-host.js';
 const testHost = createTestFrameworkHost();
 import { stubSubmit } from './helpers/session-stub.js';
 import type { ICommand } from '../../command-api/types.js';
+import type { IFrameworkHost } from '../../host/framework-host.js';
 
-function fixture(runFork?: () => Promise<string>) {
+function fixture(
+  runFork?: () => Promise<string>,
+  createAsyncScope: IFrameworkHost['createAsyncScope'] = testHost.createAsyncScope,
+) {
   const read = vi.fn(async (uri: string, _signal?: AbortSignal) => ({
     uri,
     text: 'Verified supporting bytes',
@@ -43,7 +47,7 @@ function fixture(runFork?: () => Promise<string>) {
     async () => (runFork ? runFork() : ''),
     async () => ({ mode: 'fork' }),
     (execute) => execute(),
-    testHost.createAsyncScope,
+    createAsyncScope,
   );
   return { activation, acquire, skill, router, read };
 }
@@ -215,4 +219,36 @@ it('closes every activation even if one host close callback fails', async () => 
   });
   expect(f.router.endTurnSkillActivation('a')[0]?.message).toBe('close failed');
   expect(second.close).toHaveBeenCalledOnce();
+});
+
+it('binds fork supporting reads to that fork on a host with no async scope, too', async () => {
+  // Without a host scope the fork's window is a single slot, which is right for work nested in the fork.
+  let f: ReturnType<typeof fixture>;
+  f = fixture(async () => {
+    expect(
+      await f.router.readSkillResource('forked', 'skill://remote/reference.txt'),
+    ).toMatchObject({ text: 'Verified supporting bytes' });
+    await expect(
+      f.router.readSkillResource('remote', 'skill://remote/reference.txt'),
+    ).rejects.toThrow(/active/);
+    return 'fork completed';
+  }, undefined);
+  f.router.beginTurnSkillActivation('parent');
+  await f.router.executeSkillWithActivation(f.skill, '', 'model-tool');
+  const forkActivation = { ...f.activation, close: vi.fn() };
+  f.acquire.mockResolvedValueOnce(forkActivation);
+  await f.router.executeSkillWithActivation(
+    { ...f.skill, name: 'forked', context: 'fork' },
+    '',
+    'model-tool',
+  );
+  expect(forkActivation.close).toHaveBeenCalledOnce();
+  // Outside the fork the slot is empty again: the fork's activation is gone, the parent's remains.
+  await expect(
+    f.router.readSkillResource('forked', 'skill://remote/reference.txt'),
+  ).rejects.toThrow(/active/);
+  expect(await f.router.readSkillResource('remote', 'skill://remote/reference.txt')).toMatchObject({
+    text: 'Verified supporting bytes',
+  });
+  f.router.endTurnSkillActivation('parent');
 });
