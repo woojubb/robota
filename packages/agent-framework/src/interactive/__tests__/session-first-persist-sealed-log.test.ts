@@ -68,7 +68,10 @@ describe.runIf(linux)(
       await handle.completed;
 
       const sessionDirectory = join(cwd, '.agent', 'sessions');
-      const files = existsSync(sessionDirectory) ? readdirSync(sessionDirectory) : [];
+      // Records are the `.json` files; the writer markers live beside them in `claims/`.
+      const files = (existsSync(sessionDirectory) ? readdirSync(sessionDirectory) : []).filter(
+        (name) => name.endsWith('.json'),
+      );
       expect(files).toHaveLength(1);
       const snapshot = readFileSync(join(sessionDirectory, files[0]!));
       expect(snapshot.subarray(0, 4).toString('ascii')).toBe('RSL1');

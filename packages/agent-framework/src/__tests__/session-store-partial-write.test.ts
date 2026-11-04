@@ -8,7 +8,7 @@
  * it. ARCH-047: project writes need the Linux stable-root host, so this runs on Linux only.
  */
 
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -21,7 +21,11 @@ import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
-const io = vi.hoisted(() => ({ failNextSessionWrite: false, failNextDirectoryFlush: false }));
+const io = vi.hoisted(() => ({
+  failNextSessionWrite: false,
+  /** The inode of the directory whose next flush fails: the sessions directory, not the markers beside it. */
+  failNextFlushOf: undefined as bigint | undefined,
+}));
 
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
@@ -41,8 +45,11 @@ vi.mock('node:fs', async (importOriginal) => {
     },
     fsyncSync: (descriptor: number) => {
       // The flush of the sessions directory after the rename: the new record is in place by then.
-      if (io.failNextDirectoryFlush && actual.fstatSync(descriptor).isDirectory()) {
-        io.failNextDirectoryFlush = false;
+      if (
+        io.failNextFlushOf !== undefined &&
+        actual.fstatSync(descriptor, { bigint: true }).ino === io.failNextFlushOf
+      ) {
+        io.failNextFlushOf = undefined;
         throw Object.assign(new Error('EIO: i/o error, fsync'), { code: 'EIO' });
       }
       return actual.fsyncSync(descriptor);
@@ -92,7 +99,7 @@ beforeEach(() => {
 
 afterEach(() => {
   io.failNextSessionWrite = false;
-  io.failNextDirectoryFlush = false;
+  io.failNextFlushOf = undefined;
   rmSync(cwd, { recursive: true, force: true });
 });
 
@@ -133,7 +140,7 @@ describe.runIf(linux)('a project session write that fails part-way', () => {
     store.save(record('sess_a', 'first'));
     const first = readFileSync(file);
 
-    io.failNextDirectoryFlush = true;
+    io.failNextFlushOf = statSync(join(cwd, '.agent', 'sessions'), { bigint: true }).ino;
     expect(() => store.save(record('sess_a', 'second'))).toThrow();
     // The rename happened: the second record is the one on disk.
     expect(readFileSync(file).equals(first)).toBe(false);
