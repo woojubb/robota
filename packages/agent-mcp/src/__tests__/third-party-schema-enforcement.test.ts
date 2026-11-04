@@ -29,7 +29,7 @@ import { narrowToUniversalSubset } from '../third-party-schema.js';
 import type { IMCPCatalogToolEntry, IMCPDiscovery } from '../catalog/types.js';
 import type { IMCPToolCallResult } from '../client/session.js';
 import type { TUnenforceableSchemaReporter } from '../third-party-schema.js';
-import type { IParameterSchema, IToolResult } from '@robota-sdk/agent-core';
+import type { IObjectParameterSchema, IParameterSchema, IToolResult } from '@robota-sdk/agent-core';
 
 function okResult(): IMCPToolCallResult {
   return { content: [{ type: 'text', text: 'ran' }], isError: false };
@@ -134,6 +134,43 @@ describe('CORE-040 — a declared type is enforced, not just advertised', () => 
       nested: { inner: 'ok' },
     } as never);
     expect(result).toEqual({ isValid: true, errors: [] });
+  });
+});
+
+describe('a discovered tool enforces the size bounds its server declares', () => {
+  // The shape Exa `web_search_exa` declares.
+  const SEARCH_SCHEMA = {
+    type: 'object',
+    properties: {
+      query: { type: 'string', minLength: 1 },
+      objective: { type: 'string', minLength: 1, maxLength: 4096 },
+    },
+    required: ['query', 'objective'],
+    additionalProperties: false,
+    $schema: 'http://json-schema.org/draft-07/schema#',
+  } as unknown as IParameterSchema;
+
+  it('has nothing to report at registration', () => {
+    const report = vi.fn();
+
+    buildEntryFor('search', SEARCH_SCHEMA, report);
+
+    expect(report).not.toHaveBeenCalled();
+  });
+
+  it('refuses an empty query and an over-long objective, and accepts what is inside the bounds', () => {
+    const tool = createDiscoveredTool(buildEntryFor('search', SEARCH_SCHEMA), invokerReturning());
+
+    expect(tool.validateParameters({ query: '', objective: 'a' }).errors).toEqual([
+      '.query: size 0 is below minLength 1',
+    ]);
+    expect(tool.validateParameters({ query: 'a', objective: 'a'.repeat(4097) }).errors).toEqual([
+      '.objective: size 4097 is above maxLength 4096',
+    ]);
+    expect(tool.validateParameters({ query: 'a', objective: 'a'.repeat(4096) })).toEqual({
+      isValid: true,
+      errors: [],
+    });
   });
 });
 
