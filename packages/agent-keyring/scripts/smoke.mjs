@@ -8,6 +8,7 @@ import {
   changePassphrase,
   checkSealingPublicKey,
   createKeyring,
+  createRuntimeIdentity,
   decryptRecord,
   encryptRecord,
   fingerprint,
@@ -20,6 +21,7 @@ import {
   parseKeyring,
   sealBlob,
   serializeKeyring,
+  startSpawnerExchange,
   unlockWithPassphrase,
   unlockWithRecoveryKey,
 } from '../dist/node/index.js';
@@ -144,6 +146,22 @@ assert.equal(
     'ad90e67b84f5334e771534ec0496d9a5edeae8568c0f92d73a3ae252638e1302',
 );
 assert.equal(handover.sealingKeyMatches, true);
+
+// The spawner exchange (X25519, SHA-256, HKDF), then certification (Ed25519 verification) of the
+// instance key it carried; the spawner key is forgotten at the install.
+const identity = createRuntimeIdentity();
+const exchange = startSpawnerExchange();
+const exchanged = exchange.complete(identity.answerSpawnerExchange(exchange.message));
+assert.deepEqual(exchanged.instancePublicKey, identity.instancePublicKey);
+assert.equal(identity.spawnerKeyHeld, true);
+identity.installTrustRoot(handover.certify(identity.instancePublicKey, binding), binding);
+assert.equal(identity.certified, true);
+assert.equal(identity.spawnerKeyHeld, false);
+assert.throws(
+  () => identity.installTrustRoot(handover.certify(identity.instancePublicKey, binding), binding),
+  (error) => error instanceof KeyringError && error.reason === 'already-certified',
+);
+exchanged.spawnerKey.wipe();
 handover.dispose();
 
 // Both module formats of the published entry points behave alike.

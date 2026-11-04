@@ -6,8 +6,8 @@
  * can still write, and only an unlocked one can tag what it wrote. An unlock yields the read keys;
  * the attach key stays inside a short-lived owner handover, which certifies runtimes.
  */
-export { KeyringError } from './errors.js';
-export type { TKeyringErrorCode } from './errors.js';
+export { KeyringError, LinkRefusedError } from './errors.js';
+export type { TKeyringErrorCode, TLinkRefusalReason } from './errors.js';
 
 export type {
   IKeyring,
@@ -34,6 +34,10 @@ export type { IReadKeys } from './read-keys.js';
 export { openOwnerHandover } from './owner-handover.js';
 export type { IOwnerHandover } from './owner-handover.js';
 export type { ILinkBinding, ITrustRoot } from './runtime-certificate.js';
+export { SpawnerKey, startSpawnerExchange } from './spawner-exchange.js';
+export type { ISpawnerExchange, ISpawnerExchangeResult } from './spawner-exchange.js';
+export { createRuntimeIdentity } from './runtime-identity.js';
+export type { IRuntimeIdentity } from './runtime-identity.js';
 export type { IKeyPair } from './key-pairs.js';
 export { generateTransientSealingKeyPair } from './key-pairs.js';
 
