@@ -1,3 +1,4 @@
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
@@ -160,6 +161,8 @@ describe('pending conversation framework boundaries', () => {
       code: 'EXECUTION_RECOVERY_REQUIRED',
     });
     expect(save).toHaveBeenCalledTimes(writes);
+    // The live session holds its record; once it lets go, a copy of it may be attempted.
+    interactive.releaseSessionClaim();
     expect(
       () =>
         new TestInteractive({
@@ -180,12 +183,12 @@ describe('pending conversation framework boundaries', () => {
     const asyncSave = vi.fn(async (_record: IInteractiveSessionRecord) => {
       throw new Error('late custom store failure');
     });
-    const store = {
+    const store = withHoldReadClaim({
       load: () => ({ status: 'missing' as const }),
       save: asyncSave,
       list: () => [],
       delete: () => undefined,
-    };
+    });
     expect(() =>
       persistSession(
         store,

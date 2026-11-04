@@ -1,6 +1,7 @@
 import type { Buffer } from 'node:buffer';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 
+import { deriveAuthorshipKey } from './authorship.js';
 import { decodeKeyringField, toBase64Url, wipe } from './bytes.js';
 import { KeyringError } from './errors.js';
 import { deriveKeyPairs, type IDerivedKeyPairs } from './key-pairs.js';
@@ -121,7 +122,7 @@ export async function createKeyring(options: ICreateKeyringOptions): Promise<ICr
     return {
       keyring,
       recoveryKey: formatRecoveryKey(recoveryKeyBytes),
-      unlocked: createUnlockedKeys(pairs),
+      unlocked: createUnlockedKeys(pairs, deriveAuthorshipKey(masterKey)),
     };
   } finally {
     wipe(passphrase, masterKey, recoveryKeyBytes);
@@ -208,7 +209,7 @@ async function unlock(keyring: IKeyring, credential: TKeyringCredential): Promis
   const document = validateKeyring(keyring);
   const { masterKey } = await recoverMasterKey(document, credential);
   try {
-    return createUnlockedKeys(deriveKeyPairs(masterKey));
+    return createUnlockedKeys(deriveKeyPairs(masterKey), deriveAuthorshipKey(masterKey));
   } finally {
     wipe(masterKey);
   }

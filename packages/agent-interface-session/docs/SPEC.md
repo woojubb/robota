@@ -64,9 +64,22 @@ which that store hands back), and a listing leaves it out while the same scan sa
 left, the locked apart from those no unlock in this process would open. A load says whether it is a
 resume or a writer's read, which holds the session, or a probe, which leaves nothing behind in the
 store; a save says whether its record is one this process runs or one it hands to another (a fork
-job). A sealed record crosses to another store only as a token that
+job), and where its content came from. A store that seals says on every valid outcome whose the
+record is, because a sealed record that opens says nothing about who sealed it and a resumed one is
+fed back to the model as its own history; absent, it means a store that never seals, never a
+trusted record. Every store lets a session claim its id through the read it restores from, so no
+session runs from a read made before its claim, and in a store that seals that read and every later
+one answer only from content the owner wrote. Raising a record to the owner's, by the digest of its
+exact bytes, is what only a store that seals can do, so it lives on one member only such a store
+has; a session gates on the outcome its claim read, never on that member, so a view of a store that
+leaves it out loses the raise and never the gate. A sealed record crosses to another store only as a token that
 carries its plaintext and names the sealed bytes it came from — the one way a process that holds no
-keys (only a write grant) can continue a session — so it goes only where the record may go. The store decodes the record envelope and validates its
+keys (only a write grant) can continue a session — so it goes only where the record may go; it says
+whether the store that issued it held the record as the owner's, the only word a process without
+keys has for that, and the receiving process can say which bytes it wrote since, the only bytes the
+owner's process may then vouch for. Whether something this process runs may still write an id is
+the store's to say, from its claims and its exports, so a surface never opens a second writer of a
+record. The store decodes the record envelope and validates its
 shape (which is inspection); no field's value but the record's own id, which must be the id it is
 stored under, ever changes which of the five outcomes is reported, so the store holds no domain
 policy of its own. A corrupt or unsupported outcome may still carry the record's `cwd`, read on a

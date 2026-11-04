@@ -1,3 +1,5 @@
+import type { TSessionAuthorship } from './session-authorship-contracts.js';
+
 /** Projection used to render a resume picker. */
 export interface IResumableSessionSummary {
   id: string;
@@ -13,6 +15,12 @@ export interface IResumableSessionSummary {
    * serves the resume picker, which wants to show what the session last said.
    */
   title?: string;
+  /**
+   * Whose the record is, from a store that seals (see `TSessionLoadOutcome`); absent from a store
+   * that never seals. Everything above it in an `unverified` summary is what the record says of
+   * itself, so a surface shows it as such and never ranks it among verified ones by its own time.
+   */
+  authorship?: TSessionAuthorship;
 }
 
 /**

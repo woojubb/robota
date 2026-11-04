@@ -43,6 +43,11 @@ interface IProps {
   message: string;
   /** Options to select from (default: ['Yes', 'No']) */
   options?: string[];
+  /**
+   * The option highlighted when the prompt opens (default: the first). A question whose safe answer
+   * is the last option opens on it, so a bare Enter does not grant anything.
+   */
+  initialIndex?: number;
   /** Callback with the selected index */
   onSelect: (index: number) => void;
 }
@@ -50,10 +55,13 @@ interface IProps {
 export default function ConfirmPrompt({
   message,
   options = ['Yes', 'No'],
+  initialIndex = 0,
   onSelect,
 }: IProps): React.ReactElement {
   const palette = usePalette();
-  const [state, setState] = useState<ISelectionFlowState>(() => createSelectionFlowState());
+  const [state, setState] = useState<ISelectionFlowState>(() =>
+    createSelectionFlowState(initialIndex >= 0 && initialIndex < options.length ? initialIndex : 0),
+  );
   const stateRef = useRef(state);
   const applyAction = useCallback(
     (action: TConfirmPromptInputAction): void => {

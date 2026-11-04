@@ -1,3 +1,4 @@
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { TuiChannelLifecycleCoordinator } from '../tui-channel-lifecycle-coordinator.js';
@@ -8,6 +9,7 @@ function operations() {
     stop: vi.fn(async () => {}),
     beginShutdown: vi.fn(),
     shutdownSession: vi.fn(async () => {}),
+    releaseSessionClaim: vi.fn(),
   };
 }
 
@@ -254,5 +256,36 @@ describe('TuiChannelLifecycleCoordinator', () => {
     releaseStop?.();
     await Promise.all([stop, shutdown]);
     expect(ops.shutdownSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets the session’s claim go when its shutdown outlasts the bound, so the id can be claimed again', async () => {
+    const store = withHoldReadClaim({
+      load: () => ({ status: 'missing' as const }),
+      list: () => [],
+      save: () => undefined,
+      delete: () => undefined,
+    });
+    const claim = store.claim('session_wedged');
+    const ops = operations();
+    // A session whose shutdown never settles still holds its record's claim.
+    ops.shutdownSession.mockImplementation(() => new Promise<void>(() => undefined));
+    ops.releaseSessionClaim.mockImplementation(() => claim.release());
+    const lifecycle = new TuiChannelLifecycleCoordinator(ops, 20);
+
+    await lifecycle.shutdown({ reason: 'prompt_input_exit' });
+
+    expect(ops.releaseSessionClaim).toHaveBeenCalledTimes(1);
+    expect(store.hasWriter('session_wedged')).toBe(false);
+    expect(() => store.claim('session_wedged').release()).not.toThrow();
+  });
+
+  it('lets the claim go after a shutdown that settles in time, too', async () => {
+    const ops = operations();
+    const lifecycle = new TuiChannelLifecycleCoordinator(ops, 100);
+
+    await lifecycle.stop();
+
+    expect(ops.shutdownSession).toHaveBeenCalledTimes(1);
+    expect(ops.releaseSessionClaim).toHaveBeenCalledTimes(1);
   });
 });

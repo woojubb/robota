@@ -92,7 +92,8 @@ export function createWorkspaceMoveAdapter(deps: IWorkspaceMoveAdapterDeps): ICo
         projectAccess,
       });
       const record = withUniqueSessionName(request.record, target.sessionStore);
-      target.sessionStore.save(record);
+      // The copy is the moving session's own state, which its claim's gate let in: the owner's.
+      target.sessionStore.save(record, { provenance: 'owner' });
       const args = buildWorkspaceMoveArgv(deps.argv, {
         resumeId: record.id,
         movedFrom: request.fromCwd,

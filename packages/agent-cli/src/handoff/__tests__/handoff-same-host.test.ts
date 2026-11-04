@@ -5,6 +5,7 @@
  * composition. Nothing here is a double of the protocol; only the operator and the store are scripted.
  */
 
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import {
   existsSync,
   mkdirSync,
@@ -707,13 +708,13 @@ describe('the /handoff adapter over the peer channel', () => {
       root,
       store: credentialStore,
       composition,
-      sessionStore: {
-        load: (id) =>
+      sessionStore: withHoldReadClaim({
+        load: (id: string): TSessionLoadOutcome =>
           id === stored.id ? { status: 'valid', record: stored } : { status: 'missing' },
         save: () => {},
         list: () => [],
         delete: () => {},
-      },
+      }),
       getSession: () => ({
         getSessionId: () => 'session-1',
         getCwd: () => scratch,
@@ -740,12 +741,13 @@ describe('the /handoff adapter over the peer channel', () => {
 
   it('tells a sealed, locked session from one with nothing saved, and sends nothing for either', async () => {
     const { a, saved } = await sessions({ approver: operator(true) });
-    const store = (outcome: TSessionLoadOutcome) => ({
-      load: () => outcome,
-      save: () => {},
-      list: () => [],
-      delete: () => {},
-    });
+    const store = (outcome: TSessionLoadOutcome) =>
+      withHoldReadClaim({
+        load: () => outcome,
+        save: () => {},
+        list: () => [],
+        delete: () => {},
+      });
 
     const locked = await adapter(a, { sessionStore: store({ status: 'locked' }) }).handoff.transfer(
       'B',
@@ -860,13 +862,13 @@ describe('the /handoff adapter over the peer channel', () => {
     let stored = record();
     const { handoff, onHandedOff } = adapter(a, {
       idleMs: 1_000,
-      sessionStore: {
-        load: (id) =>
+      sessionStore: withHoldReadClaim({
+        load: (id: string): TSessionLoadOutcome =>
           id === stored.id ? { status: 'valid', record: stored } : { status: 'missing' },
         save: () => {},
         list: () => [],
         delete: () => {},
-      },
+      }),
       getSession: () => ({
         getSessionId: () => 'session-1',
         getCwd: () => scratch,

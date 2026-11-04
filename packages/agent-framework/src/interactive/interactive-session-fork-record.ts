@@ -169,8 +169,9 @@ export function writeForkedSessionRecord(input: IWriteForkedSessionRecordInput):
     cwd: input.cwd,
   });
   // A copy for a fork job to run, not a session this process runs: a store that seals keeps it
-  // apart, for the job, and never pushes a running session out of what it holds to make room.
-  input.sessionStore.save(record, { handoff: true });
+  // apart, for the job, and never pushes a running session out of what it holds to make room. It is
+  // the owner's: a running session holds only content its claim's gate let in.
+  input.sessionStore.save(record, { handoff: true, provenance: 'owner' });
   return { sessionId: record.id, name };
 }
 
@@ -184,11 +185,24 @@ export function withUniqueSessionName(
   record: IInteractiveSessionRecord,
   sessionStore: IInteractiveSessionStore,
 ): IInteractiveSessionRecord {
-  const base = record.name ?? record.id;
+  return { ...record, name: uniqueSessionName(record.name ?? record.id, sessionStore, 'moved') };
+}
+
+/**
+ * `base`, or `base (<label>)`, `base (<label> 2)`, … — the first no record in `sessionStore` holds,
+ * so a name lookup can never resolve to two records. `label` names why the copy exists; with
+ * `labelled`, the bare `base` is never chosen, for a copy that must not read as its source.
+ */
+export function uniqueSessionName(
+  base: string,
+  sessionStore: IInteractiveSessionStore,
+  label: string,
+  labelled = false,
+): string {
   const taken = takenNames(sessionStore);
-  let name = base;
-  for (let attempt = 1; taken.has(name); attempt += 1) {
-    name = attempt === 1 ? `${base} (moved)` : `${base} (moved ${attempt})`;
-  }
-  return { ...record, name };
+  const candidate = (attempt: number): string =>
+    attempt === 0 ? base : attempt === 1 ? `${base} (${label})` : `${base} (${label} ${attempt})`;
+  let attempt = labelled ? 1 : 0;
+  while (taken.has(candidate(attempt))) attempt += 1;
+  return candidate(attempt);
 }

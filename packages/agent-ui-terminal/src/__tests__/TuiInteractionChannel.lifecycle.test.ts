@@ -54,6 +54,7 @@ vi.mock('@robota-sdk/agent-framework', async () => {
         }),
         getExecutionWorkspaceSnapshot: vi.fn().mockReturnValue({ entries: [] }),
         shutdown: vi.fn().mockResolvedValue(undefined),
+        releaseSessionClaim: vi.fn(),
         sendAgentJob: vi.fn().mockResolvedValue(undefined),
         readExecutionWorkspaceDetail: vi.fn().mockResolvedValue({}),
       };
@@ -89,6 +90,7 @@ type MockSession = {
   on: ReturnType<typeof vi.fn>;
   off: ReturnType<typeof vi.fn>;
   shutdown: ReturnType<typeof vi.fn>;
+  releaseSessionClaim: ReturnType<typeof vi.fn>;
   resolvePermission: ReturnType<typeof vi.fn>;
   resolveAsk: ReturnType<typeof vi.fn>;
   emit: (event: string, ...args: unknown[]) => void;
@@ -524,6 +526,21 @@ describe('Group D — teardown hygiene (CLI-075)', () => {
     await vi.advanceTimersByTimeAsync(5_000);
     await done;
     expect(resolved).toBe(true);
+  });
+
+  it('D8: a shutdown that outlasts its bound still lets the session’s record claim go', async () => {
+    const channel = makeChannel();
+    await channel.start();
+    const session = getMockSession(channel);
+    session.shutdown.mockReturnValue(new Promise<void>(() => undefined)); // never resolves
+
+    const done = channel.shutdown({ timeoutMs: 5_000 });
+    await Promise.resolve();
+    expect(session.releaseSessionClaim).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await done;
+    expect(session.releaseSessionClaim).toHaveBeenCalledTimes(1);
   });
 });
 

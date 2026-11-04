@@ -7,7 +7,10 @@ import { admitLocalPeerDirectory } from '@robota-sdk/agent-remote-pairing/local'
 import { listPeers } from '../remote-control/local-peer-registry.js';
 import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezvous.js';
 import { createProductUserSessionStore } from '../product/session-stores.js';
-import { listSupervisedSessions, resolveSupervisedDirectory } from './supervised-session-control.js';
+import {
+  listSupervisedSessions,
+  resolveSupervisedDirectory,
+} from './supervised-session-control.js';
 
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
@@ -93,7 +96,12 @@ export function executeSessionListCommand(
     };
     const savedById = new Map<
       string,
-      { id: string; availability: string; source: 'user' | 'project' }
+      {
+        id: string;
+        availability: string;
+        source: 'user' | 'project';
+        authorship?: 'verified' | 'unverified';
+      }
     >();
     // Sealed sessions whose keys are locked are not listed (there is nothing to show of them), so
     // they are counted from the same scan: without it a person with only sealed sessions would read
@@ -109,10 +117,22 @@ export function executeSessionListCommand(
       noKeys += scan.noKeys ?? 0;
       for (const entry of scan.entries) {
         if (entry.outcome.status === 'missing') continue;
-        savedById.set(entry.id, { id: entry.id, availability: entry.outcome.status, source });
+        // A store that seals says whose each record is; a plain one says nothing of it.
+        const authorship = entry.outcome.status === 'valid' ? entry.outcome.authorship : undefined;
+        savedById.set(entry.id, {
+          id: entry.id,
+          availability: entry.outcome.status,
+          source,
+          ...(authorship !== undefined ? { authorship } : {}),
+        });
       }
     }
-    const saved = [...savedById.values()].sort((a, b) => a.id.localeCompare(b.id));
+    // Records nobody vouched for come after every other, never ranked among them.
+    const unverifiedLast = (session: { readonly authorship?: string }): number =>
+      session.authorship === 'unverified' ? 1 : 0;
+    const saved = [...savedById.values()].sort(
+      (a, b) => unverifiedLast(a) - unverifiedLast(b) || a.id.localeCompare(b.id),
+    );
     const lockedNotice = lockedSessionsNotice(locked, noKeys);
     const stdout =
       format === 'json'
@@ -135,7 +155,8 @@ export function executeSessionListCommand(
               : saved
                   .map(
                     (session) =>
-                      `  ${JSON.stringify(session.id)}  ${session.availability}  ${session.source}`,
+                      `  ${JSON.stringify(session.id)}  ${session.availability}  ${session.source}` +
+                      (session.authorship === 'unverified' ? '  unverified' : ''),
                   )
                   .join('\n'),
             ...(lockedNotice !== undefined ? [`  ${lockedNotice}`] : []),
@@ -176,11 +197,18 @@ export async function runSessionListCommand(
     if (result.stderr) process.stderr.write(result.stderr);
     return result.exitCode;
   }
-  let supervised: { status: 'available' | 'unavailable'; sessions: Awaited<ReturnType<typeof listSupervisedSessions>> };
+  let supervised: {
+    status: 'available' | 'unavailable';
+    sessions: Awaited<ReturnType<typeof listSupervisedSessions>>;
+  };
   try {
     supervised = {
       status: 'available',
-      sessions: await listSupervisedSessions(resolveSupervisedDirectory(productRuntime), undefined, { includeExternalEvents: true }),
+      sessions: await listSupervisedSessions(
+        resolveSupervisedDirectory(productRuntime),
+        undefined,
+        { includeExternalEvents: true },
+      ),
     };
   } catch {
     supervised = { status: 'unavailable', sessions: [] };
@@ -190,12 +218,20 @@ export async function runSessionListCommand(
     const base = JSON.parse(result.stdout) as Record<string, unknown>;
     process.stdout.write(`${JSON.stringify({ ...base, supervised })}\n`);
   } else {
-    const rows = supervised.status === 'unavailable'
-      ? '  (unavailable)'
-      : supervised.sessions.length === 0
-        ? '  (none)'
-        : supervised.sessions.map((row) => `  ${row.id}  liveness ${row.liveness}  control ${row.control}  activity ${row.activity}${row.problem ? `  ${row.problem}` : ''}`).join('\n');
-    process.stdout.write(`${result.stdout}Supervised sessions (owned, not linked to peers or saved records):\n${rows}\n`);
+    const rows =
+      supervised.status === 'unavailable'
+        ? '  (unavailable)'
+        : supervised.sessions.length === 0
+          ? '  (none)'
+          : supervised.sessions
+              .map(
+                (row) =>
+                  `  ${row.id}  liveness ${row.liveness}  control ${row.control}  activity ${row.activity}${row.problem ? `  ${row.problem}` : ''}`,
+              )
+              .join('\n');
+    process.stdout.write(
+      `${result.stdout}Supervised sessions (owned, not linked to peers or saved records):\n${rows}\n`,
+    );
   }
   if (result.stderr) process.stderr.write(result.stderr);
   if (supervised.status === 'unavailable') {

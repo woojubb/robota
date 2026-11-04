@@ -32,6 +32,8 @@ export interface IForkAttachOutcome {
 export interface IForkAttachDeps {
   /** Whether the forked record is still in the store this surface would switch onto. */
   readonly hasSessionRecord: (sessionId: string) => boolean;
+  /** Whether something this process runs may still write the forked record (the store's `hasWriter`). */
+  readonly hasWriter: (sessionId: string) => boolean;
   /** The surface's existing session-switch path — the one the session picker calls. */
   readonly switchSession: (sessionId: string) => void;
   /** How a refusal reaches the operator (a system entry in the transcript). */
@@ -51,7 +53,10 @@ export function attachToForkedSession(
   entry: IExecutionWorkspaceEntry,
   deps: IForkAttachDeps,
 ): IForkAttachOutcome | undefined {
-  const outcome = resolveExecutionAttach(entry, { hasSessionRecord: deps.hasSessionRecord });
+  const outcome = resolveExecutionAttach(entry, {
+    hasSessionRecord: deps.hasSessionRecord,
+    hasWriter: deps.hasWriter,
+  });
   if (outcome.type === 'refused') {
     const resumeCommand = outcome.resumeSessionId && deps.formatResumeCommand?.(outcome.resumeSessionId);
     deps.notify(resumeCommand ? `${outcome.reason} Open it with: ${resumeCommand}` : outcome.reason);

@@ -138,9 +138,12 @@ describe('the user session store reached through the composition', () => {
     const bytes = readFileSync(join(userSessionsDirectory(home), 'sess_a.json'));
     expect(bytes.subarray(0, 4).toString('ascii')).toBe('RSL1');
     expect(bytes.includes(Buffer.from(CANARY))).toBe(false);
+    // Saved with no stated provenance, so the store cannot vouch that it is the owner's.
     expect(composition.sessionStore.load('sess_a')).toEqual({
       status: 'valid',
       record: record('sess_a'),
+      authorship: 'unverified',
+      digest: expect.stringMatching(/^[0-9a-f]{64}$/),
     });
     artifactSealer.lock();
     expect(composition.sessionStore.load('sess_a')).toEqual({ status: 'locked' });
@@ -219,9 +222,12 @@ describe('the project session store reached through the composition', () => {
 
     expect(unsealed.sessionStoreScope).toBe('project');
     expect(unsealed.sessionStore.load('sess_a')).toEqual({ status: 'locked', reason: 'no-keys' });
+    // Sealed by hand with no authorship tag.
     expect(sealed.sessionStore.load('sess_a')).toEqual({
       status: 'valid',
       record: record('sess_a'),
+      authorship: 'unverified',
+      digest: expect.stringMatching(/^[0-9a-f]{64}$/),
     });
   });
 

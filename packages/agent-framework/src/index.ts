@@ -124,9 +124,11 @@ export {
 // ── Explicit plan-mode (SELFHOST-002) ───────────────────────
 export { PlanController, type TPlanDecision, type IPlanControllerDeps } from './plan/index.js';
 export {
+  ambiguousSessionNameMessage,
   createProjectSessionStore,
   createNodeHostSessionStore,
   createNodeToolResultSpillStore,
+  decorateSessionStore,
   sweepStaleToolResultSpillDirectories,
   createUserSessionStore,
   createUserPromptHistoryFile,
@@ -147,6 +149,11 @@ export {
   restoreSessionRecordIntoSession,
   restoredScheduleDisposition,
   resumeRefusal,
+  SessionAuthorshipRefusedError,
+  UNVERIFIED_SESSION_QUESTION,
+  isSessionAuthorshipRefusedError,
+  unacceptableSessionMessage,
+  unverifiedSessionNotice,
   SessionRenameUnavailableError,
   persistSessionRename,
   WorkspaceProjectSessionStore,
@@ -162,6 +169,9 @@ export type {
   IHostToolResultSpillStore,
   ISessionRecordRestoreResult,
   TLockedSessionReason,
+  TSessionAuthorshipRefusal,
+  TSessionIdResolution,
+  TSessionStoreOverrides,
   TRestoredScheduleDisposition,
 } from './interactive/index.js';
 export type {
@@ -1010,8 +1020,10 @@ export {
   isSessionBusy,
   SESSION_POOL_MAX_LIVE,
   SESSION_POOL_IDLE_GRACE_MS,
+  SESSION_STILL_CLOSING_MESSAGE,
   SessionChangeRefusal,
   SessionDeleteRefusal,
+  claimedSessionMessage,
 } from './runtime/index.js';
 export type {
   ISessionPoolOptions,

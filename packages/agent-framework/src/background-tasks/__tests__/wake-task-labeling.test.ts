@@ -30,6 +30,7 @@ function scheduledTask(overrides: Partial<IBackgroundTaskState<'scheduled'>>): I
 
 function backgroundEntry(task: IBackgroundTaskState): IExecutionWorkspaceEntry | undefined {
   const snapshot = createExecutionWorkspaceSnapshot({
+      sessionHasWriter: () => false,
     sessionId: 'session_parent',
     mainThread: {
       sessionId: 'session_parent',

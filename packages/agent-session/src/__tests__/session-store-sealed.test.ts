@@ -32,12 +32,11 @@ import { describe, expect, it } from 'vitest';
 import { persistSession } from '../session-history-ops.js';
 import { SESSION_RECORD_ENVELOPE_VERSION } from '../session-record-codec/index.js';
 import { NodeSessionStore } from '../session-store.js';
-import {
-  SealedSessionMemory,
-  SealedSessionUnreadableError,
-  StoredSessionRecords,
-  encodeStoredSession,
-} from '../stored-session-record.js';
+import { SealedSessionUnreadableError } from '../sealed-session-refusal.js';
+import { SealedSessionMemory } from '../sealed-session-memory.js';
+import { openStoredSessionRecord } from '../stored-session-authorship.js';
+import { digestOf, encodeStoredSession } from '../stored-session-codec.js';
+import { StoredSessionRecords } from '../stored-session-record.js';
 
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
 
@@ -50,8 +49,13 @@ function decodeStoredSessionBytes(
   stored: Uint8Array,
   id: string,
   sealer: IArtifactSealer | undefined,
-): ReturnType<StoredSessionRecords['decode']> {
-  return new StoredSessionRecords(sealer === undefined ? 'plain' : { sealer }).decode(id, stored);
+): ReturnType<StoredSessionRecords['load']> {
+  if (sealer !== undefined) return openStoredSessionRecord(id, stored, sealer);
+  return new StoredSessionRecords('plain', {
+    load: () => ({ file: { kind: 'plain', bytes: stored }, unreadable: { status: 'missing' } }),
+    current: () => ({ kind: 'absent' }),
+    replace: () => undefined,
+  }).load(id);
 }
 
 function newStoreDir(): string {
@@ -74,6 +78,19 @@ function record(id: string, text = CANARY, updatedAt = '2026-08-01T01:00:00.000Z
       },
     ],
   } satisfies IInteractiveSessionRecord;
+}
+
+/**
+ * A valid outcome as a store that seals reports it (#3679 step 3e): it says whose the record is and
+ * which stored bytes it came from. Saves here state no provenance, so the records are unverified.
+ */
+function sealedValid(value: IInteractiveSessionRecord, authorship = 'unverified') {
+  return {
+    status: 'valid',
+    record: value,
+    authorship,
+    digest: expect.stringMatching(/^[0-9a-f]{64}$/),
+  };
 }
 
 const fileOf = (dir: string, id: string): string => path.join(dir, `${id}.json`);
@@ -105,7 +122,7 @@ describe('a store with a sealer writes nothing readable', () => {
       sealing: { sealer: createTestArtifactSealer() },
     });
     store.save(record('sess_a'));
-    expect(store.load('sess_a')).toEqual({ status: 'valid', record: record('sess_a') });
+    expect(store.load('sess_a')).toEqual(sealedValid(record('sess_a')));
   });
 
   it('seals the same record to different bytes every time', () => {
@@ -180,7 +197,7 @@ describe('a locked sealer', () => {
     expect(readFileSync(fileOf(dir, 'sess_new')).includes(Buffer.from(CANARY))).toBe(false);
 
     sealer.unlock();
-    expect(store.load('sess_new')).toEqual({ status: 'valid', record: record('sess_new') });
+    expect(store.load('sess_new')).toEqual(sealedValid(record('sess_new')));
     expect(store.scan().locked).toBe(0);
   });
 
@@ -292,10 +309,7 @@ describe('mixed directories while sessions migrate', () => {
 
     store.save(record('sess_old', 'edited'));
     expect(readFileSync(fileOf(dir, 'sess_old')).subarray(0, 4).toString('ascii')).toBe('RSL1');
-    expect(store.load('sess_old')).toEqual({
-      status: 'valid',
-      record: record('sess_old', 'edited'),
-    });
+    expect(store.load('sess_old')).toEqual(sealedValid(record('sess_old', 'edited')));
   });
 
   it('sorts readable sessions by recency across both forms', () => {
@@ -399,10 +413,10 @@ describe('a save never overwrites a sealed session this store cannot prove it wr
     });
     store.save(record('sess_a'));
     store.save(record('sess_a', 'second'));
-    expect(store.load('sess_a')).toEqual({ status: 'valid', record: record('sess_a', 'second') });
+    expect(store.load('sess_a')).toEqual(sealedValid(record('sess_a', 'second')));
     writeFileSync(fileOf(dir, 'sess_p'), plainEnvelope(record('sess_p')), 'utf-8');
     store.save(record('sess_p', 'second'));
-    expect(store.load('sess_p')).toEqual({ status: 'valid', record: record('sess_p', 'second') });
+    expect(store.load('sess_p')).toEqual(sealedValid(record('sess_p', 'second')));
   });
 
   it('keeps the autosave of another instance from replacing a locked session', () => {
@@ -435,10 +449,7 @@ describe('a locked process keeps saving the sessions it holds', () => {
     expect(second.equals(first)).toBe(false);
     expect(second.includes(Buffer.from('second turn'))).toBe(false);
     sealer.unlock();
-    expect(store.load('sess_new')).toEqual({
-      status: 'valid',
-      record: record('sess_new', 'second turn'),
-    });
+    expect(store.load('sess_new')).toEqual(sealedValid(record('sess_new', 'second turn')));
   });
 
   it('saves a session it loaded to hold while unlocked after the keys lock', () => {
@@ -454,10 +465,7 @@ describe('a locked process keeps saving the sessions it holds', () => {
 
     expect(readFileSync(fileOf(dir, 'sess_a')).equals(before)).toBe(false);
     sealer.unlock();
-    expect(store.load('sess_a')).toEqual({
-      status: 'valid',
-      record: record('sess_a', 'after the lock'),
-    });
+    expect(store.load('sess_a')).toEqual(sealedValid(record('sess_a', 'after the lock')));
   });
 
   it('does not overwrite a file another writer replaced after the lock', () => {
@@ -537,7 +545,7 @@ describe('a locked process keeps saving the sessions it holds', () => {
     store.save(record('sess_a'));
     sealer.lock();
 
-    expect(store.loadHeld('sess_a')).toEqual({ status: 'valid', record: record('sess_a') });
+    expect(store.loadHeld('sess_a')).toEqual(sealedValid(record('sess_a')));
     expect(store.loadHeld('sess_unknown')).toBeUndefined();
     expect(new NodeSessionStore(dir, { sealing: { sealer } }).loadHeld('sess_a')).toBeUndefined();
     writeFileSync(
@@ -551,11 +559,15 @@ describe('a locked process keeps saving the sessions it holds', () => {
   it('bounds what it remembers, and a store with no sealer holds nothing', () => {
     const memory = new SealedSessionMemory();
     for (let index = 0; index < 100; index += 1) {
-      memory.remember(`sess_${index}`, Buffer.from(String(index)), 'text');
+      memory.hold(`sess_${index}`, {
+        digest: digestOf(Buffer.from(String(index))),
+        text: 'text',
+        kind: 'unverified',
+      });
     }
     expect(memory.size).toBeLessThanOrEqual(32);
-    expect(memory.compare('sess_99', Buffer.from('99'))).toBe('same');
-    expect(memory.compare('sess_0', Buffer.from('0'))).toBe('unknown');
+    expect(memory.state('sess_99')?.held?.digest).toBe(digestOf(Buffer.from('99')));
+    expect(memory.state('sess_0')).toBeUndefined();
 
     const dir = newStoreDir();
     const plain = new NodeSessionStore(dir, { sealing: 'plain' });
@@ -597,16 +609,19 @@ describe('the stored-record codec on its own', () => {
     expect(plain.text).toBe(plainEnvelope(record('sess_a')));
     const sealed = encodeStoredSession(record('sess_a'), sealer).stored;
     expect(sealer.isSealedBytes(sealed)).toBe(true);
-    expect(decodeStoredSessionBytes(sealed, 'sess_a', sealer)).toEqual({
+    expect(decodeStoredSessionBytes(sealed, 'sess_a', sealer)).toEqual(
+      sealedValid(record('sess_a')),
+    );
+  });
+
+  it('decodes plaintext to the same record with and without a sealer, which calls it unverified', () => {
+    const bytes = Buffer.from(plainEnvelope(record('sess_a')));
+    expect(decodeStoredSessionBytes(bytes, 'sess_a', undefined)).toEqual({
       status: 'valid',
       record: record('sess_a'),
     });
-  });
-
-  it('decodes plaintext the same with and without a sealer', () => {
-    const bytes = Buffer.from(plainEnvelope(record('sess_a')));
-    const expected = { status: 'valid', record: record('sess_a') };
-    expect(decodeStoredSessionBytes(bytes, 'sess_a', undefined)).toEqual(expected);
-    expect(decodeStoredSessionBytes(bytes, 'sess_a', createTestArtifactSealer())).toEqual(expected);
+    expect(decodeStoredSessionBytes(bytes, 'sess_a', createTestArtifactSealer())).toEqual(
+      sealedValid(record('sess_a')),
+    );
   });
 });

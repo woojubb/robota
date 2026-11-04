@@ -41,10 +41,16 @@ extra dependency.
   record it holds.** From a plain parent a job carries only a `resumeSessionId`: the child opens the
   session store for the _parent's_ cwd, restores the record there, and persists new turns back under
   the same id, and the conversation never travels through the IPC channel. A sealing parent's child
-  holds only a write grant and can never open a sealed record, so the parent hands over the record
-  its store holds — as the top-level `resumeHeld` token, never on the request, task state or
-  results, and within a fixed bound — and refuses the job before anything is made for it (a
-  worktree, a child) when it holds none, telling to unlock only when locked keys are why. That check
+  holds only a write grant and can never open a sealed record, so the parent hands over only the
+  copy its fork write left in its store — never a record opened from the file, which anyone with the
+  public key could have sealed — as the top-level `resumeHeld` token, never on the request, task
+  state or results, and within a fixed bound, and refuses the job before anything is made for it (a
+  worktree, a child) when it holds none, telling to unlock only when locked keys are why. The child
+  restores that record through the gate every resume passes, so it runs it only when the parent held
+  it as the owner's. The child holds no keys, so its saves of that record are never the owner's by
+  themselves: it reports each by the digest of its bytes, and the parent vouches for the last of
+  them only once the child has exited and disconnected, when no report can still be on its way, and
+  only when the copy it handed over was the owner's and no save of it was refused. That check
   takes nothing; the record is handed over only once every other check before the spawn has passed,
   so a job refused before then can simply be run again. Queued
   fork jobs live only in the parent's memory (tasks are not persisted), so a parent that crashes

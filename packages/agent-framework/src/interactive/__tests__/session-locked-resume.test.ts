@@ -8,6 +8,7 @@
  * save the store refuses is said once, not dropped in silence on every turn.
  */
 
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -182,15 +183,15 @@ describe('a save the store refuses', () => {
   it('is reported once for the session, not on every save and not never', async () => {
     const cwd = directory();
     const saves: string[] = [];
-    const refusing: IInteractiveSessionStore = {
-      load: () => ({ status: 'missing' }),
+    const refusing: IInteractiveSessionStore = withHoldReadClaim({
+      load: () => ({ status: 'missing' }) as const,
       list: () => [],
-      save: (record) => {
+      save: (record: IInteractiveSessionRecord) => {
         saves.push(record.id);
         throw new SealedSessionUnreadableError(record.id, 'locked');
       },
       delete: () => undefined,
-    };
+    });
     const interactive = new TestInteractive({
       cwd,
       sessionStore: refusing,
@@ -252,7 +253,10 @@ describe("a refused save says why, in the store's own words", () => {
     expect(errors[0]?.message).not.toMatch(/unlock/i);
   });
 
-  it('tells a process that holds the session that the file changed, not that keys are locked', async () => {
+  // #3679 step 3e: the session claims its id, and while the keys are locked a sealed file it cannot
+  // open may be the owner's own other process's write, so only the unlock can tell; the store says
+  // the keys are locked, and the session decides at the unlock (see `session-divergence.test.ts`).
+  it('tells a process that runs the session that the locked keys stand in the way of a changed file', async () => {
     const cwd = directory();
     const sessions = directory();
     const sealer = createTestArtifactSealer();
@@ -276,20 +280,20 @@ describe("a refused save says why, in the store's own words", () => {
 
     interactive.approvePlan();
 
-    expect(errors.map((error) => error.reason)).toEqual(['changed']);
+    expect(errors.map((error) => error.reason)).toEqual(['locked']);
   });
 
   it('is reported again after a save in between went through', async () => {
     const cwd = directory();
     let refuse = true;
-    const store: IInteractiveSessionStore = {
-      load: () => ({ status: 'missing' }),
+    const store: IInteractiveSessionStore = withHoldReadClaim({
+      load: () => ({ status: 'missing' }) as const,
       list: () => [],
-      save: (record) => {
+      save: (record: IInteractiveSessionRecord) => {
         if (refuse) throw new SealedSessionUnreadableError(record.id, 'locked');
       },
       delete: () => undefined,
-    };
+    });
     const interactive = new TestInteractive({
       cwd,
       sessionStore: store,

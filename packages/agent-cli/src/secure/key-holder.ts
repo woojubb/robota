@@ -19,8 +19,15 @@
  * The data keys it opens for writer epochs are unlocked key material too, so they live here, are
  * zero-filled when the keys are dropped, and locking still ends every way of reading. A sealer's own
  * writer epochs end on the same lock (`onLock`).
+ *
+ * It is also the only thing in the process that can say who wrote an artifact. Sealing needs only the
+ * public key, so a sealed artifact opens for whoever sealed it; an authorship tag, an HMAC under the
+ * keyring's authorship key bound to the artifact's kind, id and bytes, can be made and checked only
+ * here and only while unlocked. Each unlock is announced (`onUnlock`), so what was written while
+ * locked can be tagged then.
  */
 import { Buffer } from 'node:buffer';
+import { createHash } from 'node:crypto';
 
 import {
   KeyringError,
@@ -40,6 +47,8 @@ import {
 } from '@robota-sdk/agent-keyring';
 
 import { KeyringStoreError, type IKeyringStore } from './keyring-store.js';
+
+import type { IArtifactContext } from '@robota-sdk/agent-core';
 
 export type TLockReason = 'explicit' | 'idle' | 'last-client-detached' | 'screen-lock' | 'suspend';
 
@@ -150,6 +159,31 @@ export class OpenedDataKeys {
   }
 }
 
+/** Versioned, so a later change to what a tag binds never verifies an earlier tag. */
+const AUTHORSHIP_PREFIX = 'robota/authorship/v1';
+/** The artifact binding's own id bound, far beyond any real owner id. */
+const MAX_AUTHORSHIP_ID_LENGTH = 4096;
+
+/**
+ * What an authorship tag binds: `robota/authorship/v1|<kind>|<id>|<sha256 hex of the bytes>`. `|`
+ * separates the parts, so a kind or id containing one could be read as another; it is refused, as a
+ * caller bug, rather than escaped.
+ */
+function authorshipMessage(context: IArtifactContext, bytes: Uint8Array): Buffer {
+  const valid = (part: unknown, limit: number): boolean =>
+    typeof part === 'string' && part.length > 0 && part.length <= limit && !part.includes('|');
+  if (
+    !valid(context.kind, MAX_AUTHORSHIP_ID_LENGTH) ||
+    !valid(context.id, MAX_AUTHORSHIP_ID_LENGTH)
+  ) {
+    throw new RangeError(
+      `An authorship context's kind and id must be 1-${MAX_AUTHORSHIP_ID_LENGTH} characters and must not contain "|".`,
+    );
+  }
+  const digest = createHash('sha256').update(bytes).digest('hex');
+  return Buffer.from(`${AUTHORSHIP_PREFIX}|${context.kind}|${context.id}|${digest}`, 'utf8');
+}
+
 function latin1(bytes: Uint8Array): string {
   return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength).toString('latin1');
 }
@@ -209,6 +243,7 @@ export class KeyHolder {
   readonly #timers: IKeyHolderTimers;
   readonly #idleMs: number;
   readonly #listeners = new Set<(reason: TLockReason) => void>();
+  readonly #unlockListeners = new Set<() => void>();
   readonly #sealingKeyListeners = new Set<() => void>();
   readonly #openedDataKeys = new OpenedDataKeys();
   #keys: IUnlockedKeys | undefined;
@@ -269,6 +304,7 @@ export class KeyHolder {
         }
       }
       this.#install(unlocked);
+      this.#announceUnlock();
       return { sealingKey: matches ? 'verified' : 'repaired' };
     } catch (error) {
       if (this.#keys !== unlocked) unlocked.lock();
@@ -318,6 +354,26 @@ export class KeyHolder {
   }
 
   /**
+   * The authorship tag of `bytes` as the artifact `context` names: an HMAC-SHA256 under the keyring's
+   * authorship key over the binding (see {@link authorshipMessage}), so a tag moved to another kind,
+   * id or content does not verify. Throws `keys-locked` when locked, and `RangeError` for a context
+   * whose kind or id could blur the binding.
+   */
+  tagAuthorship(context: IArtifactContext, bytes: Uint8Array): Uint8Array {
+    const message = authorshipMessage(context, bytes);
+    return this.#requireKeys().tagAuthorship(message);
+  }
+
+  /**
+   * Whether `tag` is {@link tagAuthorship} of `bytes` for `context`, compared in constant time.
+   * Throws `keys-locked` when locked.
+   */
+  verifyAuthorship(context: IArtifactContext, bytes: Uint8Array, tag: Uint8Array): boolean {
+    const message = authorshipMessage(context, bytes);
+    return this.#requireKeys().verifyAuthorship(message, tag);
+  }
+
+  /**
    * `keyring` carrying the verified sealing public key, for a document built while unlocked (a
    * passphrase change), so it never carries forward a key the file was given by someone else.
    * Throws `keys-locked` when locked.
@@ -331,6 +387,18 @@ export class KeyHolder {
     this.#listeners.add(listener);
     return () => {
       this.#listeners.delete(listener);
+    };
+  }
+
+  /**
+   * Called after each unlock that installed keys, once they are in place, so whatever was written on
+   * this process's behalf while locked can be tagged now. A failed unlock calls nothing, and one
+   * listener's failure stops neither the unlock nor the others. Returns the unsubscribe.
+   */
+  onUnlock(listener: () => void): () => void {
+    this.#unlockListeners.add(listener);
+    return () => {
+      this.#unlockListeners.delete(listener);
     };
   }
 
@@ -380,6 +448,16 @@ export class KeyHolder {
         listener();
       } catch {
         // allow-fallback: the key is already verified; one listener's failure must not stop the unlock or the others.
+      }
+    }
+  }
+
+  #announceUnlock(): void {
+    for (const listener of [...this.#unlockListeners]) {
+      try {
+        listener();
+      } catch {
+        // allow-fallback: the keys are installed; one listener's failure must not stop the unlock or the others.
       }
     }
   }

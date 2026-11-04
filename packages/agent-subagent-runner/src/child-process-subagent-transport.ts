@@ -117,6 +117,9 @@ export function handleWorkerMessage(
     case 'permission_request':
       onPermissionRequest?.(message);
       break;
+    case 'record_saved':
+      // The parent's own follower of the job's record saves reads these (`followForkRecordSaves`).
+      break;
     default:
       rejectOnce(new BackgroundTaskError('runner', 'Unhandled subagent worker message'));
   }

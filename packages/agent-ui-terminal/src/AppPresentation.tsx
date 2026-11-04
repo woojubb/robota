@@ -3,6 +3,7 @@ import React from 'react';
 
 import { AppBanner } from './app-banner.js';
 import BackgroundTaskPanel from './BackgroundTaskPanel.js';
+import ConfirmPrompt from './ConfirmPrompt.js';
 import { ContextWarningBanner } from './ContextWarningBanner.js';
 import ExecutionWorkspaceDetailPane from './ExecutionWorkspaceDetailPane.js';
 import ExecutionWorkspaceSwitcher from './ExecutionWorkspaceSwitcher.js';
@@ -22,7 +23,7 @@ import ThemePicker from './ThemePicker.js';
 import TransportTUI from './TransportTUI.js';
 import UpdateNotice from './UpdateNotice.js';
 
-import type { IAppViewModel } from './app-view-model.js';
+import type { IAppSessionAcceptanceViewModel, IAppViewModel } from './app-view-model.js';
 
 function Transcript({ model }: { model: IAppViewModel }): React.ReactElement {
   return (
@@ -76,6 +77,25 @@ function Activity({ model }: { model: IAppViewModel }): React.ReactElement {
   );
 }
 
+/** Yes then No, opening on No: a bare Enter leaves the record as it is. */
+const ACCEPTANCE_OPTIONS = ['Yes', 'No'];
+const ACCEPTANCE_DEFAULT_INDEX = 1;
+
+function SessionAcceptancePrompt({
+  acceptance,
+}: {
+  acceptance: IAppSessionAcceptanceViewModel;
+}): React.ReactElement {
+  return (
+    <ConfirmPrompt
+      message={acceptance.message}
+      options={ACCEPTANCE_OPTIONS}
+      initialIndex={ACCEPTANCE_DEFAULT_INDEX}
+      onSelect={(index) => acceptance.answer(index === 0)}
+    />
+  );
+}
+
 function Overlays({ model }: { model: IAppViewModel }): React.ReactElement {
   if (model.coordinationError !== undefined || model.coordinationPending) return <></>;
   const { background, plugin, sessionPicker, transport } = model;
@@ -108,12 +128,15 @@ function Overlays({ model }: { model: IAppViewModel }): React.ReactElement {
       {transport.visible && transport.registry && (
         <TransportTUI registry={transport.registry} onClose={transport.close} />
       )}
-      {sessionPicker.visible && (
+      {sessionPicker.visible && sessionPicker.pendingAcceptance === undefined && (
         <SessionPicker
           sessions={sessionPicker.sessions}
           onSelect={sessionPicker.select}
           onCancel={sessionPicker.cancel}
         />
+      )}
+      {sessionPicker.visible && sessionPicker.pendingAcceptance !== undefined && (
+        <SessionAcceptancePrompt acceptance={sessionPicker.pendingAcceptance} />
       )}
       {model.theme.picker.visible && <ThemePicker picker={model.theme.picker} />}
     </>

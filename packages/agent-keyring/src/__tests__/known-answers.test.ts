@@ -12,6 +12,7 @@ import {
   unlockWithPassphrase,
   unlockWithRecoveryKey,
 } from '../index.js';
+import { AUTHORSHIP_KEY_LABEL, authorshipTag, deriveAuthorshipKey } from '../authorship.js';
 import { ATTACH_KEY_LABEL, deriveKeyPairs, SEALING_KEY_LABEL } from '../key-pairs.js';
 import { ARTIFACT_KEY_WRAP_LABEL } from '../sealing.js';
 import { RECOVERY_KEK_LABEL } from '../keyslot.js';
@@ -19,8 +20,12 @@ import {
   FIXED_MASTER_KEY,
   FIXTURE_PASSPHRASE_AS_TYPED,
   FIXTURE_RECOVERY_KEY,
+  bytesOf,
   hex,
   KNOWN_ATTACH_PUBLIC_KEY_HEX,
+  KNOWN_AUTHORSHIP_KEY_HEX,
+  KNOWN_AUTHORSHIP_MESSAGE,
+  KNOWN_AUTHORSHIP_TAG_HEX,
   KNOWN_SEALING_PUBLIC_KEY_HEX,
 } from './helpers.js';
 
@@ -35,6 +40,15 @@ describe('known answers', () => {
     expect(ATTACH_KEY_LABEL).toBe('robota/keyring/v1/attach-ed25519');
     expect(RECOVERY_KEK_LABEL).toBe('robota/keyring/v1/recovery-kek');
     expect(ARTIFACT_KEY_WRAP_LABEL).toBe('robota/keyring/v1/dek-wrap');
+    expect(AUTHORSHIP_KEY_LABEL).toBe('robota/keyring/v1/authorship-hmac');
+  });
+
+  it('derives a fixed authorship key, and it tags a fixed message to a fixed HMAC-SHA256', () => {
+    const key = deriveAuthorshipKey(FIXED_MASTER_KEY);
+    expect(hex(key)).toBe(KNOWN_AUTHORSHIP_KEY_HEX);
+    expect(hex(authorshipTag(key, bytesOf(KNOWN_AUTHORSHIP_MESSAGE)))).toBe(
+      KNOWN_AUTHORSHIP_TAG_HEX,
+    );
   });
 
   it('derives fixed public keys from a fixed master key', () => {
@@ -74,5 +88,12 @@ describe('the checked-in version-1 keyring', () => {
     const unlocked = await unlockWithRecoveryKey(keyring, FIXTURE_RECOVERY_KEY);
     expect(hex(unlocked.sealing.publicKey)).toBe(KNOWN_SEALING_PUBLIC_KEY_HEX);
     expect(hex(unlocked.attach.publicKey)).toBe(KNOWN_ATTACH_PUBLIC_KEY_HEX);
+  });
+
+  it('yields the authorship key of its master key once unlocked', async () => {
+    const unlocked = await unlockWithRecoveryKey(keyring, FIXTURE_RECOVERY_KEY);
+    expect(hex(unlocked.tagAuthorship(bytesOf(KNOWN_AUTHORSHIP_MESSAGE)))).toBe(
+      KNOWN_AUTHORSHIP_TAG_HEX,
+    );
   });
 });

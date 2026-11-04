@@ -38,8 +38,8 @@ What is new:
 - `IInteractiveSessionStore.save` takes optional `{ handoff }`, and the store port gains optional
   `exportHeld(id, { keep })` and `importHeld(id, token)`, implemented by `NodeSessionStore` and
   `WorkspaceProjectSessionStore`: a record written for a fork job is kept apart from the sessions a
-  sealing store runs and handed to the job once. `restoreSessionRecordIntoSession` reads the way a
-  writer does, so an in-process fork job restores the fork `/fork` just wrote while the keys are
+  sealing store runs and handed to the job once. A fork job restores from a read made the way a
+  writer reads, so an in-process fork job restores the fork `/fork` just wrote while the keys are
   locked. A sealed record a write-only store cannot open loads as
   `{ status: 'locked', reason: 'no-keys' }`.
 - `@robota-sdk/agent-subagent-runner`: with a sealer, the start payload carries the write grant (no

@@ -198,6 +198,12 @@ export interface ICreateExecutionWorkspaceSnapshotInput {
   readonly selfPacedLoops?: readonly IExecutionSelfPacedLoopSummary[];
   readonly selectedEntryId?: string;
   readonly filter?: IExecutionWorkspaceFilter;
+  /**
+   * Whether something this process runs may still write session `sessionId`'s record — the session
+   * store's own answer (`IInteractiveSessionStore.hasWriter`). A fork whose record has one is not
+   * offered `attach`, which would open the record as a second writer; attaching asks the same fact.
+   */
+  readonly sessionHasWriter: (sessionId: string) => boolean;
 }
 
 export interface IExecutionWorkspaceEntryRef {

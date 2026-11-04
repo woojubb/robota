@@ -17,8 +17,9 @@
  */
 
 import { isTerminalBackgroundTaskStatus } from '@robota-sdk/agent-executor';
+import { isSessionClaimedError } from '@robota-sdk/agent-session';
 
-import { SessionChangeRefusal } from './session-change-refusal.js';
+import { SessionChangeRefusal, claimedSessionMessage } from './session-change-refusal.js';
 import { SessionSlot, shutdownSessionBounded } from './session-slot.js';
 
 import type {
@@ -474,6 +475,11 @@ async function whenInitialized(session: unknown): Promise<void> {
 }
 
 function startFailed(error: unknown): SessionChangeRefusal {
+  // Something here still holds the record — a session of that id shutting down, or a job or child
+  // process the record was handed to — so the client is told to come back, not that it failed.
+  if (isSessionClaimedError(error)) {
+    return new SessionChangeRefusal('still_closing', claimedSessionMessage(error));
+  }
   const reason = error instanceof Error ? error.message : String(error);
   return new SessionChangeRefusal('start_failed', `The session could not be started: ${reason}`);
 }

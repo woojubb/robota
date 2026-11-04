@@ -6,6 +6,7 @@ import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
 import type { IThemeRegistry } from './theme/theme-registry.js';
 import type { ITuiAppChannelPort } from './tui-app-channel-port.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
+import type { ISessionSwitchOptions } from './types.js';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
@@ -16,7 +17,7 @@ import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transpo
 interface IProps {
   cwd: string;
   /** The composition root narrows every concrete channel to this port before React receives it. */
-  createChannel: (resumeSessionId?: string) => ITuiAppChannelPort;
+  createChannel: (resumeSessionId?: string, acceptedDigest?: string) => ITuiAppChannelPort;
   /**
    * The session lives on a host this terminal is attached to: a switch is asked of the host, and the
    * channel follows the host's `session_switched`, so the App keeps its channel. Absent ⇒ the App
@@ -30,6 +31,12 @@ interface IProps {
   version?: string;
   sessionStore?: IInteractiveSessionStore;
   resumeSessionId?: string;
+  /**
+   * The SHA-256 of the stored record bytes the person accepted as theirs for `resumeSessionId`, when
+   * the first channel resumes a record the store could not show to be theirs. Handed to that channel
+   * only; a later switch carries its own.
+   */
+  acceptedDigest?: string;
   showSessionPickerOnStart?: boolean;
   /** FLOW-2006: a deep link's prefill, consumed once by the composer. */
   initialInput?: string;
@@ -54,19 +61,35 @@ interface IActiveChannel {
   readonly showPicker: boolean;
   readonly error: string | undefined;
   readonly switching: boolean;
-  readonly switchSession: (sessionId: string) => Promise<void>;
+  readonly switchSession: (sessionId: string, options?: ISessionSwitchOptions) => Promise<void>;
   readonly retrySwitch: () => void;
+}
+
+/** The channel for `sessionId`; the call names a digest only when the person accepted one. */
+function openChannel(
+  createChannel: IProps['createChannel'],
+  sessionId: string | undefined,
+  acceptedDigest: string | undefined,
+): ITuiAppChannelPort {
+  return acceptedDigest === undefined
+    ? createChannel(sessionId)
+    : createChannel(sessionId, acceptedDigest);
+}
+
+interface IFailedSwitch {
+  readonly sessionId: string;
+  readonly options: ISessionSwitchOptions | undefined;
 }
 
 function useActiveChannel(props: IProps): IActiveChannel {
   const [state, setState] = useState(() => ({
-    channel: props.createChannel(props.resumeSessionId),
+    channel: openChannel(props.createChannel, props.resumeSessionId, props.acceptedDigest),
     sessionId: props.resumeSessionId,
   }));
   const [showPicker, setShowPicker] = useState(props.showSessionPickerOnStart ?? false);
   const [error, setError] = useState<string | undefined>();
   const [isSwitching, setIsSwitching] = useState(false);
-  const [failedTarget, setFailedTarget] = useState<string | undefined>();
+  const [failedTarget, setFailedTarget] = useState<IFailedSwitch | undefined>();
   const switching = useRef(false);
   const mounted = useRef(true);
   useEffect(
@@ -76,7 +99,7 @@ function useActiveChannel(props: IProps): IActiveChannel {
     [],
   );
   const switchSession = useCallback(
-    async (sessionId: string): Promise<void> => {
+    async (sessionId: string, switchOptions?: ISessionSwitchOptions): Promise<void> => {
       if (switching.current) return;
       switching.current = true;
       setIsSwitching(true);
@@ -87,7 +110,10 @@ function useActiveChannel(props: IProps): IActiveChannel {
         } else {
           await state.channel.stop();
           if (!mounted.current) return;
-          setState({ channel: props.createChannel(sessionId), sessionId });
+          setState({
+            channel: openChannel(props.createChannel, sessionId, switchOptions?.acceptedDigest),
+            sessionId,
+          });
         }
         if (!mounted.current) return;
         setFailedTarget(undefined);
@@ -95,7 +121,7 @@ function useActiveChannel(props: IProps): IActiveChannel {
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : String(cause);
         setError(`Session switch failed: ${message}`);
-        setFailedTarget(sessionId);
+        setFailedTarget({ sessionId, options: switchOptions });
       } finally {
         switching.current = false;
         setIsSwitching(false);
@@ -104,7 +130,8 @@ function useActiveChannel(props: IProps): IActiveChannel {
     [props.createChannel, props.requestSessionSwitch, state.channel],
   );
   const retrySwitch = useCallback((): void => {
-    if (failedTarget !== undefined) void switchSession(failedTarget);
+    if (failedTarget !== undefined)
+      void switchSession(failedTarget.sessionId, failedTarget.options);
   }, [failedTarget, switchSession]);
   return { state, showPicker, error, switching: isSwitching, switchSession, retrySwitch };
 }

@@ -4,6 +4,7 @@
  * opening them; what is already sealed, or sealed so it does not open here, left as it is; a replace
  * made only while the file still holds what was read; and planning writes nothing.
  */
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   linkSync,
@@ -83,9 +84,21 @@ function seedPlainStore(dir: string): void {
 const IDS = ['bare_one', 'corrupt_one', 'unsupported_one', 'valid_one'];
 
 /** What a store sealing with `sealer` reports for each id; a plain store and a sealed one must agree. */
+/**
+ * What a store that seals reports for each record, without the digest of the stored bytes, which
+ * sealing changes by design. Whose a record is stays: a migration seals plaintext any program of the
+ * user could have written, so a migrated record is as unverified as the plain one was.
+ */
 function statuses(dir: string, sealer: IArtifactSealer): Record<string, unknown> {
   const store = new NodeSessionStore(dir, { sealing: { sealer } });
-  return Object.fromEntries(IDS.map((id) => [id, store.load(id)]));
+  return Object.fromEntries(
+    IDS.map((id) => {
+      const outcome = store.load(id);
+      if (outcome.status !== 'valid') return [id, outcome];
+      const { digest: _digest, ...rest } = outcome;
+      return [id, rest];
+    }),
+  );
 }
 
 function filesWithCanary(dir: string): string[] {
@@ -95,6 +108,26 @@ function filesWithCanary(dir: string): string[] {
 }
 
 describe('migrateNodeSessionStore', () => {
+  it('names each valid record it sealed by the digest of the bytes it put in place, and nothing else', () => {
+    const dir = directory();
+    seedPlainStore(dir);
+    const sealer = createTestArtifactSealer();
+
+    const planned = migrateNodeSessionStore(dir, { sealer, apply: false });
+    const applied = migrateNodeSessionStore(dir, { sealer, apply: true });
+
+    expect(planned.sealedRecords).toEqual([]);
+    const digestOf = (id: string): string =>
+      createHash('sha256')
+        .update(readFileSync(join(dir, `${id}.json`)))
+        .digest('hex');
+    expect([...(applied.sealedRecords ?? [])].sort((a, b) => a.id.localeCompare(b.id))).toEqual(
+      // A bare record from before the envelope reads as unsupported, so it is no session to accept.
+      [{ id: 'valid_one', digest: digestOf('valid_one') }],
+    );
+    expect(migrateNodeSessionStore(dir, { sealer, apply: true }).sealedRecords).toEqual([]);
+  });
+
   it('seals the raw bytes of every plain record, so each reports the status it had', () => {
     const dir = directory();
     seedPlainStore(dir);
@@ -113,7 +146,7 @@ describe('migrateNodeSessionStore', () => {
       ).toBe('RSL1');
     }
     expect(statuses(dir, sealer)).toEqual(before);
-    expect((before.valid_one as { status: string }).status).toBe('valid');
+    expect(before.valid_one).toMatchObject({ status: 'valid', authorship: 'unverified' });
     expect((before.corrupt_one as { status: string }).status).toBe('corrupt');
     expect((before.unsupported_one as { status: string }).status).toBe('unsupported');
     if (!posixOnly) {

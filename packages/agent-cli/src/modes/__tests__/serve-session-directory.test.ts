@@ -3,8 +3,12 @@
  * not leave its session, and that a switch or a new session moves that client alone.
  */
 
-import { SessionPool } from '@robota-sdk/agent-framework';
-import { isSessionChangeRefusal, isSessionDeleteRefusal } from '@robota-sdk/agent-interface-session';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { SessionAuthorshipRefusedError, SessionPool } from '@robota-sdk/agent-framework';
+import {
+  isSessionChangeRefusal,
+  isSessionDeleteRefusal,
+} from '@robota-sdk/agent-interface-session';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createServeSessionDirectory } from '../serve-session-directory.js';
@@ -45,7 +49,9 @@ function record(id: string, updatedAt: string, cwd = CWD): IInteractiveSessionRe
 function storeOf(
   entries: ISessionListEntry[],
 ): IInteractiveSessionStore & { entries: ISessionListEntry[] } {
-  return {
+  const store: Omit<IInteractiveSessionStore, 'claim' | 'hasWriter'> & {
+    entries: ISessionListEntry[];
+  } = {
     entries,
     save: (saved) => {
       const index = entries.findIndex((entry) => entry.id === saved.id);
@@ -60,6 +66,7 @@ function storeOf(
       if (index !== -1) entries.splice(index, 1);
     },
   };
+  return withHoldReadClaim(store);
 }
 
 const STORED = (): ReturnType<typeof storeOf> =>
@@ -139,7 +146,8 @@ async function deleteRefusalOf(change: Promise<void>): Promise<TSessionDeleteRef
     () => undefined,
     (reason: unknown) => reason,
   );
-  if (!isSessionDeleteRefusal(error)) throw new Error(`expected a delete refusal, got ${String(error)}`);
+  if (!isSessionDeleteRefusal(error))
+    throw new Error(`expected a delete refusal, got ${String(error)}`);
   return error.code;
 }
 
@@ -164,7 +172,12 @@ describe('serve session directory (#3189)', () => {
     // A caller with no binding is on the primary session.
     expect(listing.currentSessionId).toBe('new');
     expect(listing.sessions.map((row) => row.id)).toEqual(['new', 'old']);
-    expect(listing.sessions[0]).toMatchObject({ cwd: CWD, messageCount: 1, live: true, clients: 1 });
+    expect(listing.sessions[0]).toMatchObject({
+      cwd: CWD,
+      messageCount: 1,
+      live: true,
+      clients: 1,
+    });
     expect(listing.sessions[1]).toMatchObject({ live: false, clients: 0 });
     expect(listing.unreadableSessionIds).toEqual(['broken']);
   });
@@ -249,6 +262,88 @@ describe('serve session directory (#3189)', () => {
     expect(await refusalOf(view.switchSession('elsewhere'))).toBe('unknown_session');
     expect(await refusalOf(view.switchSession('broken'))).toBe('unreadable');
     expect(buildSession).not.toHaveBeenCalled();
+  });
+
+  // #3679 step 3e: no client can say yet that a record nobody vouched for is the owner's.
+  describe('records a store that seals does not verify as the owner’s', () => {
+    const unverified = (id: string, updatedAt: string): ISessionListEntry => ({
+      id,
+      outcome: { status: 'valid', record: record(id, updatedAt), authorship: 'unverified' },
+    });
+    const verified = (id: string, updatedAt: string): ISessionListEntry => ({
+      id,
+      outcome: { status: 'valid', record: record(id, updatedAt), authorship: 'verified' },
+    });
+
+    it('are refused from disk with the session’s own reason, and nothing is built', async () => {
+      const store = storeOf([
+        verified('mine', '2026-09-01T00:00:00Z'),
+        unverified('planted', '2026-09-02T00:00:00Z'),
+      ]);
+      const { directory, buildSession } = served(fakeSession('mine'), store);
+      const { directory: view } = directory.bind('drive');
+
+      await expect(view.switchSession('planted')).rejects.toThrow(
+        new SessionAuthorshipRefusedError('planted', 'unverified').message,
+      );
+      expect(await refusalOf(view.switchSession('planted'))).toBe('unverified');
+      expect(buildSession).not.toHaveBeenCalled();
+    });
+
+    it('stay reachable while the pool runs them, as their claim holds them', async () => {
+      const store = storeOf([
+        verified('mine', '2026-09-01T00:00:00Z'),
+        unverified('running', '2026-09-02T00:00:00Z'),
+      ]);
+      const { directory } = served(fakeSession('running'), store);
+      const other = directory.bind('drive');
+      await other.directory.switchSession('mine');
+      const back = other.directory.switchSession('running');
+
+      await expect(back).resolves.toBeUndefined();
+      expect(other.session.current.id).toBe('running');
+    });
+
+    it('are listed after every verified one, whatever time they give, and carry their authorship', () => {
+      const store = storeOf([
+        verified('mine-old', '2026-09-01T00:00:00Z'),
+        unverified('planted-future', '2999-01-01T00:00:00Z'),
+        verified('mine-new', '2026-09-03T00:00:00Z'),
+      ]);
+      const { directory } = served(fakeSession('mine-new'), store);
+
+      const listing = directory.listSessions();
+
+      expect(listing.sessions.map((row) => [row.id, row.authorship])).toEqual([
+        ['mine-new', 'verified'],
+        ['mine-old', 'verified'],
+        ['planted-future', 'unverified'],
+      ]);
+    });
+
+    it('are never reused as an empty session, nor landed in when the current one is deleted', async () => {
+      const empty = (entry: ISessionListEntry): ISessionListEntry =>
+        entry.outcome.status === 'valid'
+          ? {
+              ...entry,
+              outcome: { ...entry.outcome, record: { ...entry.outcome.record, messages: [] } },
+            }
+          : entry;
+      const store = storeOf([
+        verified('mine', '2026-09-01T00:00:00Z'),
+        empty(unverified('planted-empty', '2026-09-02T00:00:00Z')),
+      ]);
+      const { directory, buildSession } = served(fakeSession('mine'), store);
+      const binding = directory.bind('drive');
+
+      await binding.directory.newSession();
+      expect(buildSession).toHaveBeenLastCalledWith(undefined);
+
+      await binding.directory.switchSession('mine');
+      await binding.directory.deleteSession('mine');
+      expect(buildSession).toHaveBeenLastCalledWith(undefined);
+      expect(buildSession).not.toHaveBeenCalledWith('planted-empty');
+    });
   });
 
   it('refuses a sealed session whose keys are locked by name, not as an unknown one', async () => {
@@ -493,7 +588,10 @@ describe('serve session directory (#3189)', () => {
       // The stored empty session is resumed (built once, from its own record) rather than a second,
       // unrelated empty session being created beside it.
       expect(buildSession).toHaveBeenCalledWith('empty');
-      expect(binding.directory.listSessions().sessions.map((row) => row.id)).toEqual(['empty', 'a']);
+      expect(binding.directory.listSessions().sessions.map((row) => row.id)).toEqual([
+        'empty',
+        'a',
+      ]);
       expect(binding.session.current.id).toBe('empty');
     });
 
@@ -572,7 +670,10 @@ describe('serve session directory (#3189)', () => {
       const store = storeOf([
         {
           id: 'elsewhere',
-          outcome: { status: 'valid', record: record('elsewhere', '2026-09-01T00:00:00Z', '/other') },
+          outcome: {
+            status: 'valid',
+            record: record('elsewhere', '2026-09-01T00:00:00Z', '/other'),
+          },
         },
       ]);
       const { directory } = served(fakeSession('a'), store);
@@ -653,7 +754,9 @@ describe('serve session directory (#3189)', () => {
       const { directory } = served(fakeSession('a'), STORED());
       const binding = directory.bind('drive');
 
-      expect(await deleteRefusalOf(binding.directory.deleteSession('nope'))).toBe('unknown_session');
+      expect(await deleteRefusalOf(binding.directory.deleteSession('nope'))).toBe(
+        'unknown_session',
+      );
     });
 
     it('switches this binding to another session before deleting the current one', async () => {
@@ -671,7 +774,10 @@ describe('serve session directory (#3189)', () => {
 
     it('starts a fresh session when the deleted current session was the only one', async () => {
       const store = storeOf([
-        { id: 'only', outcome: { status: 'valid', record: record('only', '2026-09-01T00:00:00Z') } },
+        {
+          id: 'only',
+          outcome: { status: 'valid', record: record('only', '2026-09-01T00:00:00Z') },
+        },
       ]);
       const { directory, buildSession } = served(fakeSession('only'), store);
       const binding = directory.bind('drive');
