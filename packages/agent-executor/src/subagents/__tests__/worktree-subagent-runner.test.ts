@@ -351,6 +351,7 @@ describe('WorktreeSubagentRunner keeps the transcript of the handle it wraps', (
     const runner = new WorktreeSubagentRunner({
       runner: inner,
       worktreeAdapter: createAdapter(true),
+      hookTypeExecutors: [],
     });
 
     const handle = runner.start(createJob('worktree'));
@@ -368,6 +369,7 @@ describe('WorktreeSubagentRunner keeps the transcript of the handle it wraps', (
     const runner = new WorktreeSubagentRunner({
       runner: createCapturedRunner().runner,
       worktreeAdapter: createAdapter(true),
+      hookTypeExecutors: [],
     });
 
     const handle = runner.start(createJob('worktree'));
@@ -404,9 +406,11 @@ describe('WorktreeSubagentRunner runs the inner runner’s preflight first', () 
       },
     };
 
-    new WorktreeSubagentRunner({ runner: inner, worktreeAdapter: adapter }).start(
-      createJob('worktree'),
-    );
+    new WorktreeSubagentRunner({
+      runner: inner,
+      worktreeAdapter: adapter,
+      hookTypeExecutors: [],
+    }).start(createJob('worktree'));
 
     expect(order).toEqual(['preflight agent_1 unprepared', 'prepare', 'start prepared']);
     expect(started.map((args) => args.length)).toEqual([1]);
