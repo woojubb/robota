@@ -120,11 +120,37 @@ describe('joinRootRelative', () => {
   it.each([
     [['.claude\\skills', 'x', 'SKILL.md'], '.claude/skills/x/SKILL.md'],
     [['.claude/skills', 'x'], '.claude/skills/x'],
-    [['.claude\\skills/x', 'SKILL.md'], '.claude/skills/x/SKILL.md'],
-    [['a\\b\\c', '..'], 'a/b'],
+    [['.claude\\skills/', 'x'], '.claude/skills/x'],
     [['', 'a'], 'a'],
     [['a'], 'a'],
   ])('joins %j as %j', (segments, expected) => {
-    expect(joinRootRelative(...segments)).toBe(expected);
+    const [root, ...names] = segments;
+    expect(joinRootRelative(root!, ...names)).toBe(expected);
+  });
+
+  // A name read from a directory is data. It is not split on `\`, so `..\..\x` stays one segment
+  // for the reader to refuse instead of collapsing into a path above the root.
+  it.each([
+    [['.robota/agents', '..\\..\\evil.md'], '.robota/agents/..\\..\\evil.md'],
+    [['.robota\\agents', '..\\..\\evil.md'], '.robota/agents/..\\..\\evil.md'],
+    [
+      ['.robota/skills', '..\\..\\elsewhere', 'SKILL.md'],
+      '.robota/skills/..\\..\\elsewhere/SKILL.md',
+    ],
+    [['.robota\\agents', 'a\\b.md'], '.robota/agents/a\\b.md'],
+  ])('leaves the entry names of %j as they are: %j', (segments, expected) => {
+    const [root, ...names] = segments;
+    expect(joinRootRelative(root!, ...names)).toBe(expected);
+  });
+
+  // A rooted root is not made relative: it stays rooted for the refusal that follows.
+  it.each([
+    [['/abs/agents', 'x.md'], '/abs/agents/x.md'],
+    [['/abs/we\\ird', 'x.md'], '/abs/we\\ird/x.md'],
+    [['\\\\srv\\share', 'x'], '\\\\srv\\share\\x'],
+    [['C:\\proj\\agents', 'x.md'], 'C:\\proj\\agents\\x.md'],
+  ])('keeps the rooted root of %j rooted: %j', (segments, expected) => {
+    const [root, ...names] = segments;
+    expect(joinRootRelative(root!, ...names)).toBe(expected);
   });
 });

@@ -8,11 +8,16 @@ export function assertRootRelative(relativePath: string): void {
 }
 
 /**
- * Join root-relative segments with `/`, reading `\` as a separator too. A host builds its layout roots
- * with the separator of its own platform (`.claude\skills` on Windows), and `joinPath` reads a path
- * with no drive as POSIX, which would leave such a root mixed with `/`. Readers of a root-relative
- * path take either separator, so what is read and what is shown as a label share one spelling.
+ * Join directory entries onto a layout root. A host builds its layout roots with the separator of its
+ * own platform (`.claude\skills` on Windows), and `joinPath` reads a path with no drive as POSIX, which
+ * would leave such a root mixed with `/`; readers take either separator, so the root's separators are
+ * normalised to `/` and what is read and what is shown as a label share one spelling.
+ *
+ * The names are left exactly as they are. A name read from a directory is data: on POSIX it may hold
+ * `\` or look like `..\..\x`, and it must reach the reader's refusal of parent-directory segments as
+ * the one literal segment it is, not be split and collapsed away first. A rooted root is passed on
+ * unchanged, so it stays rooted for the same refusal.
  */
-export function joinRootRelative(...segments: readonly string[]): string {
-  return joinPath(...segments.flatMap((segment) => segment.split(/[\\/]+/)));
+export function joinRootRelative(root: string, ...names: readonly string[]): string {
+  return joinPath(isRootedPath(root) ? root : root.replaceAll('\\', '/'), ...names);
 }

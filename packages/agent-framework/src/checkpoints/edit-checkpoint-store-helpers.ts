@@ -1,5 +1,7 @@
 import { isAbsolute, join, relative } from 'node:path';
 
+import { workspacePathSegments } from '../workspace-trust/project-reader-path.js';
+
 import type { IEditCheckpointManifest, IEditCheckpointSummary } from './edit-checkpoint-types.js';
 import type { IFileSystem, IFileSystemAsync } from '@robota-sdk/agent-core';
 import type { ICheckpointNode } from '@robota-sdk/agent-session';
@@ -117,6 +119,16 @@ export function migrateManifestsToTree(
       ...(previous ? { parentId: previous.id } : {}),
     };
   });
+}
+
+/**
+ * Whether `relativePath` is the checkpoint state root or lies inside it. Both are read as segments,
+ * the way the project reader reads a path, so the spelling of the host's root (`.a\cp` or `.a/cp`)
+ * and the separator `node:path` gave `relativePath` do not matter.
+ */
+export function isInsideCheckpointRoot(relativePath: string, root: string): boolean {
+  const path = workspacePathSegments(relativePath);
+  return workspacePathSegments(root).every((segment, index) => path[index] === segment);
 }
 
 export function safePathSegment(value: string): string {
