@@ -54,9 +54,8 @@ import type { IToolResultAdmissionOptions, TPermissionMode } from '@robota-sdk/a
 import type {
   IMCPActivationApprovalStore,
   IMCPServerDefinitionResolved,
-  IMCPHttpTransportDeps,
-  IMCPStdioAuthority,
 } from '@robota-sdk/agent-mcp';
+import type { IMCPStdioAuthority, INodeHttpEgressOptions } from '@robota-sdk/agent-mcp/node';
 import type { IMcpClientComposition, IMcpHeadersHelperHost } from './mcp-client-composition.js';
 import type { TMCPUserAction, TMCPUserActionSurface } from '@robota-sdk/agent-command';
 
@@ -82,7 +81,7 @@ export interface IComposeMcpClientForStartupInput {
   /** Host execution capabilities supplied independently of settings. */
   readonly stdioAuthorities?: Readonly<Record<string, IMCPStdioAuthority>>;
   readonly approvalStore?: IMCPActivationApprovalStore;
-  readonly httpTransportDeps?: IMCPHttpTransportDeps;
+  readonly httpTransportDeps?: INodeHttpEgressOptions;
   readonly resultAdmissionLimits?: Pick<
     IToolResultAdmissionOptions,
     'warningChars' | 'hardChars' | 'repositoryMaxChars'

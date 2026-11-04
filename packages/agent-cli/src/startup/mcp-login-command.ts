@@ -16,9 +16,13 @@ import {
   runMCPOAuthLogin,
   runMCPOAuthLogout,
   securityIdentity,
+} from '@robota-sdk/agent-mcp';
+import {
   createFileOAuthCredentialStore,
   createFileOAuthRefreshLock,
-} from '@robota-sdk/agent-mcp';
+  createNodeOAuthNetwork,
+  loopbackOAuthCallbackListener,
+} from '@robota-sdk/agent-mcp/node';
 
 import { openInBrowser } from './browser-opener.js';
 import { HiddenPromptTooLongError, promptHiddenLine } from './hidden-prompt.js';
@@ -28,10 +32,10 @@ import { MAX_PASTED_REDIRECT_LENGTH, mcpCredentialDirectory } from './mcp-oauth-
 import type { TSettingsSource } from '@robota-sdk/agent-framework';
 import type {
   IMCPOAuthLogoutResult,
-  IMCPOAuthNetwork,
   IMCPResolvedEntry,
   IMCPServerDefinitionResolved,
 } from '@robota-sdk/agent-mcp';
+import type { INodeOAuthNetworkOptions } from '@robota-sdk/agent-mcp/node';
 
 export interface IMcpLoginCommandDeps {
   readonly productRuntime: ICliRuntimeContext;
@@ -44,7 +48,7 @@ export interface IMcpLoginCommandDeps {
   readonly promptSecret?: () => Promise<string>;
   /** Reads the redirect URL pasted with `--no-browser`; defaults to a hidden prompt. */
   readonly promptRedirect?: (signal: AbortSignal) => Promise<string>;
-  readonly network?: IMCPOAuthNetwork;
+  readonly network?: INodeOAuthNetworkOptions;
   /** Defaults to `the configured user root/mcp-credentials`. */
   readonly credentialDirectory?: string;
   readonly callbackTimeoutMs?: number;
@@ -184,7 +188,8 @@ export async function runMcpLoginCommand(
       ...(clientSecret === undefined ? {} : { clientSecret }),
       store: createFileOAuthCredentialStore(directory),
       lock: createFileOAuthRefreshLock(directory),
-      network: deps.network ?? {},
+      network: createNodeOAuthNetwork(deps.network),
+      callbackListener: loopbackOAuthCallbackListener,
       ...(deps.callbackTimeoutMs === undefined
         ? {}
         : { callbackTimeoutMs: deps.callbackTimeoutMs }),
@@ -231,7 +236,7 @@ export async function runMcpLogoutCommand(
       serverUrl: server.definition.url ?? '',
       store: createFileOAuthCredentialStore(directory),
       lock: createFileOAuthRefreshLock(directory),
-      network: deps.network ?? {},
+      network: createNodeOAuthNetwork(deps.network),
     });
   } catch (error) {
     const reason = error instanceof MCPOAuthError ? error.reason : 'unexpected-error';

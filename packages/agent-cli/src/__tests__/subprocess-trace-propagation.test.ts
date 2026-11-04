@@ -15,11 +15,8 @@ import { FunctionTool } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { createManagedShellProcessRunner } from '@robota-sdk/agent-executor/node';
 import { InteractiveSession, createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
-import {
-  MCPActivationAdmissionService,
-  MCPDefinitionRegistry,
-  createStdioAdapter,
-} from '@robota-sdk/agent-mcp';
+import { MCPActivationAdmissionService, MCPDefinitionRegistry } from '@robota-sdk/agent-mcp';
+import { createStdioAdapter } from '@robota-sdk/agent-mcp/node';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 import type { TSubprocessTraceClass } from '@robota-sdk/agent-core';

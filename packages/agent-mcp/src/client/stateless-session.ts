@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import {
   SERVER_INFO_META_KEY,
   SdkError,
@@ -6,6 +5,8 @@ import {
   SdkHttpError,
   UnsupportedProtocolVersionError,
 } from '@modelcontextprotocol/client';
+
+import { randomId } from '@robota-sdk/agent-core';
 
 import { hasAppsCapability } from '../catalog/app-view.js';
 import { MCPSkillError } from '../skills/manifest.js';
@@ -28,8 +29,8 @@ import {
   toReadResourceResult,
   toToolCallResult,
 } from './session-protocol.js';
-import { MCPStdioError } from './stdio-transport.js';
-import { callTraceRegistryOf, runInCallTraceScope } from './trace-propagation.js';
+import { MCPStdioError } from './stdio-error.js';
+import { outboundTraceHeaders } from './trace-propagation.js';
 import { lastHttpAnswerOf } from './transport.js';
 
 import type { Client, Result, Transport } from '@modelcontextprotocol/client';
@@ -198,11 +199,10 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
       serverName: serverInfo === undefined ? options.serverId : serverInfo.name,
       serverVersion: serverInfo === undefined ? '' : serverInfo.version,
       protocolVersion: STATELESS_PROTOCOL_VERSION,
-      catalogGeneration: randomUUID(),
+      catalogGeneration: randomId(),
       ...(serverInfo === undefined ? { serverInfoProvided: false as const } : {}),
     };
     const instructions = client.getInstructions();
-    const callTraces = callTraceRegistryOf(transport);
     /**
      * Every request after discovery passes here. A result the surface cannot act on, a deadline or an
      * abort leaves effects uncertain: the carrier closes, and nothing is ever replayed on a new one.
@@ -335,6 +335,11 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
       async callTool(name, args, callOptions) {
         if (!declaredCapabilities.tools)
           throw new Error('Stateless MCP server did not declare tools');
+        // The call's own request carries them, and no other: they are this call's per-request headers.
+        const traceHeaders =
+          callOptions?.outboundTraceContext === undefined
+            ? undefined
+            : outboundTraceHeaders(transport, callOptions.outboundTraceContext);
         const call = async () =>
           toToolCallResult(
             await invoke(
@@ -346,23 +351,18 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
                   {
                     signal: callOptions?.signal,
                     timeout: callOptions?.timeoutMs ?? options.timeouts.perCallMs,
+                    ...(traceHeaders === undefined || Object.keys(traceHeaders).length === 0
+                      ? {}
+                      : { headers: traceHeaders }),
                   },
                 ),
               callOptions?.signal,
               () => new MCPStatelessProtocolError('invalid-tool-result'),
             ),
           );
-        const scope = callTraces
-          ? {
-              requestAbortController: new AbortController(),
-              ...(callOptions?.outboundTraceContext
-                ? { outbound: callOptions.outboundTraceContext }
-                : {}),
-            }
-          : undefined;
         const leave = calls.enter({ ask: callOptions?.ask, signal: callOptions?.signal });
         try {
-          return scope ? await runInCallTraceScope(scope, call) : await call();
+          return await call();
         } catch (error) {
           if (error instanceof MCPStatelessProtocolError) {
             await close();
@@ -372,7 +372,6 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
           throw error;
         } finally {
           leave();
-          if (scope) callTraces?.release(scope);
         }
       },
       async readResource(uri, readOptions) {

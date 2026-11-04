@@ -1,24 +1,14 @@
 import { openEgressExchange } from '@robota-sdk/agent-core/node';
-import type { IEgressDeps, IEgressPolicy, TEgressRejectionReason } from '@robota-sdk/agent-core/node';
+
+import { MCPTransportEgressRefusedError } from '../client/http-egress.js';
+
+import type { IMCPHttpCarrier } from '../client/http-egress.js';
+import type { IEgressDeps, IEgressPolicy } from '@robota-sdk/agent-core/node';
 
 const OPEN_TIMEOUT_MS = 30_000;
 
-interface IMCPPinnedHttpCarrier {
-  readonly fetch: typeof globalThis.fetch;
-  readonly signal: AbortSignal;
-  close(): Promise<void>;
-}
-
-export class MCPTransportEgressRefusedError extends Error {
-  constructor(readonly reason: TEgressRejectionReason | 'endpoint-mismatch') {
-    // No URL, query, headers or carrier error text: these can contain an owner credential.
-    super(`Streamable HTTP transport refused egress (${reason})`);
-    this.name = 'MCPTransportEgressRefusedError';
-  }
-}
-
 /** A session owns every response/connection, including authentication retry and SSE reconnect. */
-export function createMcpPinnedFetch(endpoint: string, policy: IEgressPolicy, deps: IEgressDeps): IMCPPinnedHttpCarrier {
+export function createMcpPinnedFetch(endpoint: string, policy: IEgressPolicy, deps: IEgressDeps): IMCPHttpCarrier {
   const lifetime = new AbortController();
   const openings = new Set<Promise<Response>>();
   const active = new Set<() => Promise<void>>();

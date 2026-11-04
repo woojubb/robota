@@ -1,15 +1,19 @@
 /**
  * Request-scoped cancellation and trusted `traceparent` for MCP calls over Streamable HTTP.
  *
- * The async context only identifies WHICH tool call is running; it never decides that a header is
- * sent. The SDK's response stream keeps running inside the call's context, so a `tools/list`
- * refresh triggered by `list_changed`, a response to a server request, or a GET stream would all
- * inherit it. The header is therefore decided per request from the request body: only a POST whose
- * body is a single JSON-RPC `tools/call` recorded for this call, or the `notifications/cancelled`
- * that cancels it, carries it, and only to an exactly listed origin.
+ * Both are decided from the request itself, never from an ambient context. The session hands the
+ * SDK the headers one call may carry (`traceparent`, only for an exactly listed origin) as that
+ * call's own per-request `headers`, so the SDK puts them on that call's `tools/call` POST and on no
+ * other request — not a `tools/list` refresh a `list_changed` triggers, not a reply to a server
+ * request, not a GET stream. The transport remembers them by JSON-RPC id so the
+ * `notifications/cancelled` that cancels the call carries them too.
+ *
+ * Cancellation is by id as well. On a legacy connection the SDK cancels a call by sending
+ * `notifications/cancelled` and leaves the call's POST (or SSE stream) open; the transport keeps an
+ * abort controller per `tools/call`, hands it to the SDK as that request's `requestSignal`, and
+ * aborts it when the matching notification goes out. On a 2026-era connection the SDK creates and
+ * aborts that signal itself and the transport does not.
  */
-
-import { AsyncLocalStorage } from 'node:async_hooks';
 
 import { traceHeadersFor } from '@robota-sdk/agent-core';
 
@@ -17,70 +21,86 @@ import type { IOutboundTraceContext } from '@robota-sdk/agent-core';
 
 type TJsonRpcId = string | number;
 
-/** One tool call's lifetime and optional trace, bound to the JSON-RPC id it went out under. */
-export interface IMCPCallTraceScope {
-  readonly outbound?: IOutboundTraceContext;
-  readonly requestAbortController?: AbortController;
-  requestId?: TJsonRpcId;
-}
+/** The headers a call's cancellation repeats; only `traceparent` is ever carried. */
+export type TMCPCallTraceHeaders = Readonly<Record<string, string>>;
 
-const activeCall = new AsyncLocalStorage<IMCPCallTraceScope>();
-
-/** Runs one tool call with its lifetime and optional trace as the async context. */
-export function runInCallTraceScope<T>(
-  scope: IMCPCallTraceScope,
-  run: () => Promise<T>,
-): Promise<T> {
-  return activeCall.run(scope, run);
-}
-
-/** The running call's scope, if any. */
-export function currentCallTraceScope(): IMCPCallTraceScope | undefined {
-  return activeCall.getStore();
+interface IPendingCall {
+  readonly controller: AbortController;
+  readonly traceHeaders: TMCPCallTraceHeaders;
 }
 
 /**
- * The in-flight HTTP tool calls of one session, by JSON-RPC id, so a cancellation — sent from
- * wherever the abort or timeout fired — finds the call it cancels.
+ * The in-flight HTTP tool calls of one transport, by JSON-RPC id, so a cancellation — sent from
+ * wherever the abort or timeout fired — finds the call it cancels. An entry ends with the call's
+ * response, a failed send, its cancellation or the transport — not with its stream, which can end
+ * before the call does.
  */
-export class MCPCallTraceRegistry {
-  private readonly byRequestId = new Map<TJsonRpcId, IMCPCallTraceScope>();
+export class MCPCallRequests {
+  private readonly byRequestId = new Map<TJsonRpcId, IPendingCall>();
 
   get size(): number {
     return this.byRequestId.size;
   }
 
-  record(requestId: TJsonRpcId, scope: IMCPCallTraceScope): void {
-    // A call the SDK continues with another leg (an answered `input_required` round) is recorded
-    // again under the new id; the leg already answered has nothing left to cancel.
-    if (scope.requestId !== undefined && this.byRequestId.get(scope.requestId) === scope)
-      this.byRequestId.delete(scope.requestId);
-    scope.requestId = requestId;
-    this.byRequestId.set(requestId, scope);
+  /** Starts tracking a call and returns the signal that withdraws its request. */
+  begin(requestId: TJsonRpcId, traceHeaders: TMCPCallTraceHeaders): AbortSignal {
+    const controller = new AbortController();
+    this.byRequestId.set(requestId, { controller, traceHeaders });
+    return controller.signal;
   }
 
-  lookup(requestId: TJsonRpcId): IMCPCallTraceScope | undefined {
-    return this.byRequestId.get(requestId);
+  /**
+   * Withdraws the request of a call that is being cancelled and stops tracking it. Returns the
+   * headers its cancellation repeats, or `undefined` for a call this transport does not track.
+   */
+  abort(requestId: TJsonRpcId): TMCPCallTraceHeaders | undefined {
+    const call = this.byRequestId.get(requestId);
+    if (call === undefined) return undefined;
+    this.byRequestId.delete(requestId);
+    call.controller.abort();
+    return call.traceHeaders;
   }
 
-  release(scope: IMCPCallTraceScope): void {
-    const requestId = scope.requestId;
-    if (requestId !== undefined && this.byRequestId.get(requestId) === scope) {
-      this.byRequestId.delete(requestId);
-    }
+  /** Stops tracking a call that ended without being cancelled. */
+  release(requestId: TJsonRpcId): void {
+    this.byRequestId.delete(requestId);
+  }
+
+  clear(): void {
+    this.byRequestId.clear();
   }
 }
 
-const registries = new WeakMap<object, MCPCallTraceRegistry>();
+const callRequests = new WeakMap<object, MCPCallRequests>();
 
-/** Binds a registry to the transport that sends for it; one transport serves one session. */
-export function bindCallTraceRegistry(transport: object, registry: MCPCallTraceRegistry): void {
-  registries.set(transport, registry);
+/** Binds the call tracking to the transport that sends for it; one transport serves one session. */
+export function bindCallRequests(transport: object, requests: MCPCallRequests): void {
+  callRequests.set(transport, requests);
 }
 
-/** The registry of a transport that can carry trace context; undefined for any other (stdio). */
-export function callTraceRegistryOf(transport: object): MCPCallTraceRegistry | undefined {
-  return registries.get(transport);
+/** The call tracking of an HTTP transport; undefined for any other (stdio). */
+export function callRequestsOf(transport: object): MCPCallRequests | undefined {
+  return callRequests.get(transport);
+}
+
+const endpoints = new WeakMap<object, string>();
+
+/** Records the admitted URL of an HTTP transport, the only origin a call's trace may be sent to. */
+export function bindTraceEndpoint(transport: object, admittedUrl: string): void {
+  endpoints.set(transport, admittedUrl);
+}
+
+/**
+ * The headers one tool call may carry to this transport's endpoint: `traceparent` when the endpoint's
+ * origin exactly equals a listed origin, an empty record when it does not, and `undefined` for a
+ * transport that is not HTTP (stdio), which carries none.
+ */
+export function outboundTraceHeaders(
+  transport: object,
+  outbound: IOutboundTraceContext,
+): TMCPCallTraceHeaders | undefined {
+  const endpoint = endpoints.get(transport);
+  return endpoint === undefined ? undefined : traceHeadersFor(endpoint, outbound);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -99,6 +119,17 @@ export function toolsCallRequestId(message: unknown): TJsonRpcId | undefined {
   return isJsonRpcId(message['id']) ? message['id'] : undefined;
 }
 
+/**
+ * The id a single JSON-RPC response (result or error) answers, as the SDK matches it to its request —
+ * `Number(id)`, so a server answering `"3"` answers call `3` — or undefined for anything else.
+ */
+export function respondedRequestId(message: unknown): number | undefined {
+  if (!isRecord(message) || message['jsonrpc'] !== '2.0' || 'method' in message) return undefined;
+  if (!isJsonRpcId(message['id'])) return undefined;
+  const answered = Number(message['id']);
+  return Number.isNaN(answered) ? undefined : answered;
+}
+
 /** The request a single JSON-RPC `notifications/cancelled` cancels, or undefined for anything else. */
 export function cancelledRequestId(message: unknown): TJsonRpcId | undefined {
   if (
@@ -112,50 +143,4 @@ export function cancelledRequestId(message: unknown): TJsonRpcId | undefined {
   }
   const requestId = message['params']['requestId'];
   return isJsonRpcId(requestId) ? requestId : undefined;
-}
-
-/** Only the matching tool POST inherits its cancellation; notifications and refreshes stay live. */
-export function callRequestSignal(init: RequestInit | undefined): AbortSignal | undefined {
-  if (init?.method !== 'POST' || typeof init.body !== 'string') return undefined;
-  let message: unknown;
-  try {
-    message = JSON.parse(init.body);
-  } catch {
-    return undefined;
-  }
-  const running = activeCall.getStore();
-  const callId = toolsCallRequestId(message);
-  return callId !== undefined && running?.requestId === callId
-    ? running.requestAbortController?.signal
-    : undefined;
-}
-
-/**
- * The trace header for one outgoing HTTP request, decided from what the request is rather than from
- * the async context alone. Anything other than a POST whose string body is a single `tools/call`
- * recorded for the running call, or a `notifications/cancelled` for a recorded call, gets nothing.
- */
-export function callTraceHeaders(
-  init: RequestInit | undefined,
-  admittedUrl: string,
-  registry: MCPCallTraceRegistry,
-): Readonly<Record<string, string>> {
-  if (init?.method !== 'POST' || typeof init.body !== 'string') return {};
-  let message: unknown;
-  try {
-    message = JSON.parse(init.body);
-  } catch {
-    return {};
-  }
-  const running = activeCall.getStore();
-  const callId = toolsCallRequestId(message);
-  if (callId !== undefined) {
-    return running?.requestId === callId && running.outbound
-      ? traceHeadersFor(admittedUrl, running.outbound)
-      : {};
-  }
-  const cancelledId = cancelledRequestId(message);
-  if (cancelledId === undefined) return {};
-  const cancelled = running?.requestId === cancelledId ? running : registry.lookup(cancelledId);
-  return cancelled?.outbound ? traceHeadersFor(admittedUrl, cancelled.outbound) : {};
 }

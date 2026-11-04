@@ -2,6 +2,8 @@
 import { realpath, stat } from 'node:fs/promises';
 import { basename, isAbsolute, relative, resolve, sep } from 'node:path';
 
+import { isExecutionEnvironmentName } from '../client/execution-environment.js';
+
 import type {
   IMCPStdioAdapterOptions,
   IMCPStdioAuthority,
@@ -18,13 +20,6 @@ const MAX_BUDGET_MS = 120_000;
 const MIN_CLEANUP_MS = 4_100;
 const ENV_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const TEMPLATE = /\$\{[^}]*\}/;
-const EXECUTION_ENV =
-  /^(?:NODE_OPTIONS|NODE_PATH|NODE_EXTRA_CA_CERTS|LD_.*|DYLD_.*|PYTHONPATH|PYTHONHOME|RUBYOPT|PERL5OPT|BASH_ENV|ENV)$/i;
-
-/** Whether a variable changes what a runtime loads or executes, so no child MCP program inherits it. */
-export function isExecutionEnvironmentName(name: string): boolean {
-  return EXECUTION_ENV.test(name);
-}
 const SHELL_NAMES = new Set([
   'sh',
   'bash',
@@ -137,7 +132,7 @@ export async function snapshotFor(
     if (
       !ENV_KEY.test(key) ||
       ['__proto__', 'constructor', 'prototype'].includes(key) ||
-      EXECUTION_ENV.test(key) ||
+      isExecutionEnvironmentName(key) ||
       !validField(value, true)
     )
       return undefined;
@@ -146,7 +141,7 @@ export async function snapshotFor(
     if (
       !ENV_KEY.test(key) ||
       ['__proto__', 'constructor', 'prototype'].includes(key) ||
-      EXECUTION_ENV.test(key) ||
+      isExecutionEnvironmentName(key) ||
       !validField(value, true) ||
       !authority.allowedEnvironmentKeys?.includes(key) ||
       !Object.hasOwn(hostEnv, key) ||

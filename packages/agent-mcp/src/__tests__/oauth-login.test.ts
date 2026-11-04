@@ -11,11 +11,16 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { startOAuthCallbackServer } from '../client/oauth/callback.js';
 import { MCPOAuthError } from '../client/oauth/errors.js';
 import { runMCPOAuthLogin } from '../client/oauth/login.js';
-import { createFileOAuthRefreshLock } from '../client/oauth/refresh-lock.js';
-import { createFileOAuthCredentialStore, oauthCredentialKey } from '../client/oauth/store.js';
+import { oauthCredentialKey } from '../client/oauth/store.js';
+import {
+  loopbackOAuthCallbackListener,
+  startOAuthCallbackServer,
+} from '../node/oauth-callback.js';
+import { createFileOAuthCredentialStore } from '../node/oauth-file-store.js';
+import { createNodeOAuthNetwork } from '../node/oauth-network.js';
+import { createFileOAuthRefreshLock } from '../node/oauth-refresh-lock.js';
 import {
   AS_URL,
   MCP_URL,
@@ -65,6 +70,12 @@ function rawRequest(
   });
 }
 
+function fixedOpened(opened: readonly URL[]): URL {
+  const authorization = opened[0];
+  if (authorization === undefined) throw new Error('the authorization page was not shown first');
+  return authorization;
+}
+
 function login(
   server: IFakeOAuthServer,
   options: {
@@ -92,7 +103,8 @@ function login(
     config: options.config ?? {},
     ...(options.clientSecret === undefined ? {} : { clientSecret: options.clientSecret }),
     store,
-    network: { fetch: server.fetch, lookup: server.lookup },
+    callbackListener: loopbackOAuthCallbackListener,
+      network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
     callbackTimeoutMs: 5_000,
     openBrowser: async (url) => {
       opened.push(url);
@@ -146,6 +158,64 @@ describe('OAuth sign-in', () => {
     if (process.platform !== 'win32') {
       expect(statSync(directory).mode & 0o777).toBe(0o700);
     }
+  });
+
+  it('uses a state of 32 random bytes in hex', async () => {
+    const server = createFakeOAuthServer();
+    const { result, opened } = login(server);
+    await result;
+    expect(opened[0]!.searchParams.get('state')).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  describe('without a callback listener', () => {
+    function loginWithoutListener(
+      server: IFakeOAuthServer,
+      extra: { readRedirect?: () => Promise<string>; config?: IMCPOAuthConfig },
+    ) {
+      const directory = temporaryDirectory();
+      const opened: URL[] = [];
+      const result = runMCPOAuthLogin({
+        clientName: 'Test Client',
+        securityIdentity: 'identity-1',
+        serverUrl: MCP_URL,
+        config: extra.config ?? {},
+        store: createFileOAuthCredentialStore(directory),
+        lock: createFileOAuthRefreshLock(directory),
+        network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
+        ...(extra.readRedirect === undefined ? {} : { readRedirect: extra.readRedirect }),
+        openBrowser: async (url) => {
+          opened.push(url);
+        },
+      });
+      return { result, opened };
+    }
+
+    it('refuses a sign-in that needs one before anything is shown to the user', async () => {
+      const server = createFakeOAuthServer();
+      const { result, opened } = loginWithoutListener(server, {});
+      expect((await failure(result)).reason).toBe('callback-unavailable');
+      expect(opened).toEqual([]);
+      expect(server.tokenCalls()).toBe(0);
+    });
+
+    it('refuses a pasted redirect that would need a free port picked, but not one on a fixed port', async () => {
+      const server = createFakeOAuthServer();
+      const unpicked = loginWithoutListener(server, { readRedirect: async () => 'unused' });
+      expect((await failure(unpicked.result)).reason).toBe('callback-unavailable');
+      expect(unpicked.opened).toEqual([]);
+
+      const fixed = loginWithoutListener(server, {
+        readRedirect: async () => {
+          const authorization = fixedOpened(fixed.opened);
+          return server.approve(authorization).href;
+        },
+        config: { clientId: 'agent-test-cli', callbackPort: 41_234 },
+      });
+      await expect(fixed.result).resolves.toMatchObject({ issuer: AS_URL });
+      expect(fixed.opened[0]!.searchParams.get('redirect_uri')).toBe(
+        'http://127.0.0.1:41234/callback',
+      );
+    });
   });
 
   it('a second sign-in state differs from the first', async () => {
@@ -202,7 +272,8 @@ describe('OAuth sign-in', () => {
       config: {},
       store: createFileOAuthCredentialStore(directory),
       lock: createFileOAuthRefreshLock(directory),
-      network: { fetch: server.fetch, lookup: server.lookup },
+      callbackListener: loopbackOAuthCallbackListener,
+      network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
       callbackTimeoutMs: 150,
       openBrowser: async (url) => {
         // The user took longer than the whole limit to answer before the browser opened.

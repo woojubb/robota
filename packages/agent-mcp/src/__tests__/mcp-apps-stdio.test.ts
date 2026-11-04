@@ -5,8 +5,8 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { openMcpSession } from '../client/session.js';
-import { createStdioAdapter } from '../client/stdio.js';
-import { MCPStdioError } from '../client/stdio-transport.js';
+import { createStdioAdapter } from '../node/stdio.js';
+import { MCPStdioError } from '../client/stdio-error.js';
 import { MCPDefinitionRegistry } from '../definition/registry.js';
 import { MCPActivationAdmissionService } from '../mcp-activation.js';
 

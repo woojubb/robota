@@ -28,13 +28,13 @@ import {
 import {
   buildCatalog,
   createDiscoveredTool,
-  createStdioAdapter,
   MCPActivationAdmissionService,
   MCPDefinitionRegistry,
   openMcpSession,
   type IMCPSession,
   type IMCPCatalogToolEntry,
 } from '@robota-sdk/agent-mcp';
+import { createStdioAdapter } from '@robota-sdk/agent-mcp/node';
 
 import { startBrowserDemo } from './outcome-browser-demo.js';
 import { assertBrowserReconciled } from './outcome-browser-reconciliation.js';

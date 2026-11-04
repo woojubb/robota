@@ -5,8 +5,8 @@
  */
 import { SdkErrorCode, SdkHttpError, UnauthorizedError } from '@modelcontextprotocol/client';
 import { describe, expect, it } from 'vitest';
-import { MCPStdioError } from '../client/stdio-transport.js';
-import { MCPTransportEgressRefusedError } from '../client/pinned-http-fetch.js';
+import { MCPStdioError } from '../client/stdio-error.js';
+import { MCPTransportEgressRefusedError } from '../client/http-egress.js';
 
 import { FakeSupervisorClock, fixtureTimeouts } from './supervisor-test-helpers.js';
 import { MCPSessionError } from '../client/session.js';

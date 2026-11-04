@@ -16,12 +16,14 @@ import { createPastedRedirectAcceptor } from '../client/oauth/callback.js';
 import { MCPOAuthError } from '../client/oauth/errors.js';
 import { readMCPOAuthCredentialState, runMCPOAuthLogout } from '../client/oauth/lifecycle.js';
 import { runMCPOAuthLogin } from '../client/oauth/login.js';
-import { createFileOAuthRefreshLock } from '../client/oauth/refresh-lock.js';
+import { oauthCredentialKey } from '../client/oauth/store.js';
+import { loopbackOAuthCallbackListener } from '../node/oauth-callback.js';
 import {
   createFileOAuthCredentialStore,
   credentialKeyDigest,
-  oauthCredentialKey,
-} from '../client/oauth/store.js';
+} from '../node/oauth-file-store.js';
+import { createNodeOAuthNetwork } from '../node/oauth-network.js';
+import { createFileOAuthRefreshLock } from '../node/oauth-refresh-lock.js';
 import {
   AS_URL,
   MCP_URL,
@@ -153,7 +155,8 @@ describe('signing in with a pasted redirect', () => {
       config: {},
       store,
       lock: createFileOAuthRefreshLock(directory),
-      network: { fetch: server.fetch, lookup: server.lookup },
+      callbackListener: loopbackOAuthCallbackListener,
+      network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
       openBrowser: async (url, redirectUri) => {
         shown.push({ url, redirectUri });
       },
@@ -199,7 +202,8 @@ describe('signing in with a pasted redirect', () => {
         config: {},
         store: createFileOAuthCredentialStore(directory),
         lock: createFileOAuthRefreshLock(directory),
-        network: { fetch: server.fetch, lookup: server.lookup },
+        callbackListener: loopbackOAuthCallbackListener,
+      network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
         openBrowser: async () => undefined,
         // A user who never pastes.
         readRedirect: (signal) => {
@@ -235,7 +239,8 @@ describe('signing in with a pasted redirect', () => {
       config: {},
       store,
       lock: createFileOAuthRefreshLock(directory),
-      network: { fetch: server.fetch, lookup: server.lookup },
+      callbackListener: loopbackOAuthCallbackListener,
+      network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
       callbackTimeoutMs: 5_000,
       openBrowser: async (url, redirectUri) => {
         shown.push({ url, redirectUri });
@@ -257,7 +262,8 @@ describe('signing in with a pasted redirect', () => {
       config: {},
       store: createFileOAuthCredentialStore(temporaryDirectory()),
       lock: createFileOAuthRefreshLock(directory),
-      network: { fetch: server.fetch, lookup: server.lookup },
+      callbackListener: loopbackOAuthCallbackListener,
+      network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
       callbackTimeoutMs: 5_000,
       openBrowser: async () => {
         throw new Error('no browser here');
@@ -274,7 +280,8 @@ describe('signing in with a pasted redirect', () => {
       config: {},
       store: createFileOAuthCredentialStore(temporaryDirectory()),
       lock: createFileOAuthRefreshLock(directory),
-      network: { fetch: server.fetch, lookup: server.lookup },
+      callbackListener: loopbackOAuthCallbackListener,
+      network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
       callbackTimeoutMs: 5_000,
       openBrowser: async () => {
         throw new MCPOAuthError('cancelled');
@@ -340,7 +347,7 @@ describe('signing out', () => {
             return fileLock.withLock(key, critical, signal);
           },
         },
-        network: { fetch: server.fetch, lookup: server.lookup },
+        network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
       }),
     };
   }
@@ -522,7 +529,7 @@ describe('the authenticator across a sign-in lifetime', () => {
       config: {},
       store,
       lock: createFileOAuthRefreshLock(directory, { pollMs: 5 }),
-      network: { fetch: server.fetch, lookup: server.lookup },
+      network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
       notify: (notice) => notices.push(notice),
       now,
     });
@@ -604,7 +611,7 @@ describe('the authenticator across a sign-in lifetime', () => {
       serverUrl: MCP_URL,
       store,
       lock: createFileOAuthRefreshLock(directory),
-      network: { fetch: server.fetch, lookup: server.lookup },
+      network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
     });
     authenticator.forget();
     expect((await failure(authorize())).reason).toBe('login-required');

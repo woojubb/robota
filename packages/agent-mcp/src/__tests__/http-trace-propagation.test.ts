@@ -3,7 +3,10 @@
  *
  * A tool call carrying outbound trace context sends `traceparent` on its own `tools/call` POST and
  * on the `notifications/cancelled` that cancels it — and on nothing else, even though the SDK keeps
- * running the call's response stream (and whatever it triggers) inside the call's async context.
+ * running the call's response stream, and whatever it triggers, long after the call started.
+ *
+ * A cancelled call's own request is withdrawn too: on a legacy connection the SDK only sends
+ * `notifications/cancelled`, and the transport closes the call's POST by the JSON-RPC id.
  */
 import { createServer } from 'node:http';
 
@@ -13,13 +16,14 @@ import { fixtureTimeouts } from './supervisor-test-helpers.js';
 import { buildCatalog } from '../catalog/build.js';
 import { createDiscoveredTool } from '../catalog/discovered-tool.js';
 import { openMcpSession } from '../client/session.js';
+import { createWebFetchEgress } from '../client/http-egress.js';
 import {
-  MCPCallTraceRegistry,
-  callTraceHeaders,
-  callTraceRegistryOf,
-  runInCallTraceScope,
+  callRequestsOf,
+  outboundTraceHeaders,
+  type MCPCallRequests,
 } from '../client/trace-propagation.js';
 import { admitHttpEndpoint, constructStreamableHttpTransport } from '../client/transport.js';
+import { createNodeHttpEgress } from '../node/http-egress.js';
 import { MCPConnectionSupervisor } from '../supervisor/connection.js';
 
 import type { IMCPCatalogToolEntry, IMCPDiscovery } from '../catalog/types.js';
@@ -148,7 +152,7 @@ const ADMISSION_HEADERS = { 'x-tenant': 'acme' } as const;
 async function admitted(server: IFakeServer) {
   const admission = await admitHttpEndpoint(
     { url: server.url, headers: ADMISSION_HEADERS },
-    { policy: { allowedHosts: ['127.0.0.1'] } },
+    { egress: createNodeHttpEgress({ policy: { allowedHosts: ['127.0.0.1'] } }) },
   );
   if (!admission.ok) throw new Error('test MCP endpoint admission failed');
   return admission.admitted;
@@ -156,7 +160,7 @@ async function admitted(server: IFakeServer) {
 
 async function openSession(
   server: IFakeServer,
-): Promise<{ session: IMCPSession; transport: Transport; registry: MCPCallTraceRegistry }> {
+): Promise<{ session: IMCPSession; transport: Transport; registry: MCPCallRequests }> {
   const endpoint = await admitted(server);
   const transport = constructStreamableHttpTransport(endpoint);
   const session = await openMcpSession({
@@ -164,8 +168,8 @@ async function openSession(
     transport,
     timeouts: { startupMs: 2_000, perCallMs: 2_000 },
   });
-  const registry = callTraceRegistryOf(transport);
-  if (!registry) throw new Error('an HTTP transport must carry a call trace registry');
+  const registry = callRequestsOf(transport);
+  if (!registry) throw new Error('an HTTP transport must track its calls');
   return { session, transport, registry };
 }
 
@@ -196,7 +200,7 @@ describe('traceparent on MCP HTTP tool calls', () => {
   }
 
   it.each(['abort', 'timeout'] as const)(
-    'withdraws an untraced %s request while an independent call stays live',
+    'withdraws the request of a call cancelled by %s on a legacy connection while an independent call stays live',
     async (mode) => {
       let cancelledClosed = false;
       const held = new Map<string, { rpc: Record<string, unknown>; res: ServerResponse }>();
@@ -360,6 +364,61 @@ describe('traceparent on MCP HTTP tool calls', () => {
     expect(registry.size).toBe(0);
   });
 
+  it.each([
+    ['abort', 'the stream ends with no event'],
+    ['timeout', 'the stream ends with no event'],
+    ['abort', 'a priming event, a dropped stream and a refused reconnect'],
+  ] as const)(
+    "repeats the header on the %s of a call whose stream ended unanswered (%s)",
+    async (mode, shape) => {
+      const server = await serve((_rpc, res) => {
+        res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+        if (shape.startsWith('a priming')) res.write('id: e1\ndata: \n\n');
+        res.end();
+      });
+      const { session, registry } = await sessionFor(server);
+      const controller = new AbortController();
+
+      const pending = session.callTool('echo', {}, {
+        signal: controller.signal,
+        timeoutMs: mode === 'timeout' ? 400 : 8_000,
+        outboundTraceContext: outbound(server, SPAN_A),
+      });
+      const rejected = expect(pending).rejects.toThrow();
+      const [call] = await server.received('tools/call');
+      if (mode === 'abort') {
+        // Let the stream end, and for the priming event let the reconnect it asks for be refused.
+        if (shape.startsWith('a priming')) {
+          await expect
+            .poll(() => server.requests.some((r) => r.headers['last-event-id'] === 'e1'), {
+              timeout: 4_000,
+            })
+            .toBe(true);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        controller.abort();
+      }
+      await rejected;
+
+      const [cancel] = await server.received('notifications/cancelled');
+      expect((cancel!.rpc?.['params'] as { requestId: unknown }).requestId).toBe(call!.rpc?.['id']);
+      expect(cancel!.headers['traceparent']).toBe(traceparent(SPAN_A));
+      expect(registry.size).toBe(0);
+    },
+  );
+
+  it('stops tracking a call whose server answers with the id in string form', async () => {
+    const server = await serve((rpc, res) => {
+      sendJson(res, toolResult(String(rpc['id']), 'ok'));
+    });
+    const { session, registry } = await sessionFor(server);
+
+    const result = await session.callTool('echo', {}, { timeoutMs: 2_000 });
+
+    expect(result.isError).toBe(false);
+    expect(registry.size).toBe(0);
+  });
+
   it('sends the call\'s header on the cancellation a timeout issues', async () => {
     const server = await serve(() => undefined);
     const { session, registry } = await sessionFor(server);
@@ -401,53 +460,109 @@ describe('traceparent on MCP HTTP tool calls', () => {
     expect(first.registry.size).toBe(0);
   });
 
-  it('decides from the request itself: nothing for a GET, a non-string or an unreadable body', async () => {
-    const registry = new MCPCallTraceRegistry();
-    const scope = { outbound: { traceparent: traceparent(SPAN_A), allowedOrigins: ['https://mcp.example.com'] } };
-    registry.record(3, scope);
-    const url = 'https://mcp.example.com/mcp';
-    const call = JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: {} });
-    await runInCallTraceScope(scope, async () => {
-      expect(callTraceHeaders({ method: 'POST', body: call }, url, registry)).toEqual({ traceparent: traceparent(SPAN_A) });
-      expect(callTraceHeaders({ method: 'GET' }, url, registry)).toEqual({});
-      expect(callTraceHeaders({ method: 'POST', body: new TextEncoder().encode(call) }, url, registry)).toEqual({});
-      expect(callTraceHeaders({ method: 'POST', body: '{not json' }, url, registry)).toEqual({});
-      expect(callTraceHeaders({ method: 'POST', body: `[${call}]` }, url, registry)).toEqual({});
-      expect(callTraceHeaders({ method: 'POST', body: call.replace('"id":3', '"id":4') }, url, registry)).toEqual({});
+  it('offers a header only for an exactly listed origin, and none for a transport that is not HTTP', async () => {
+    const endpoint = {
+      kind: 'streamable-http' as const,
+      url: new URL('https://mcp.example.com/mcp'),
+      headers: {},
+      egress: createWebFetchEgress(async () => new Response(null, { status: 202 })),
+    };
+    const transport = constructStreamableHttpTransport(endpoint);
+    const context = (origin: string): IOutboundTraceContext => ({
+      traceparent: traceparent(SPAN_A),
+      allowedOrigins: [origin],
     });
-    // Outside the call's context only its cancellation, found by request id, carries the header.
-    expect(callTraceHeaders({ method: 'POST', body: call }, url, registry)).toEqual({});
-    const cancel = (requestId: number) =>
-      JSON.stringify({ jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId } });
-    expect(callTraceHeaders({ method: 'POST', body: cancel(3) }, url, registry)).toEqual({ traceparent: traceparent(SPAN_A) });
-    expect(callTraceHeaders({ method: 'POST', body: cancel(4) }, url, registry)).toEqual({});
-    expect(callTraceHeaders({ method: 'POST', body: cancel(3) }, 'https://other.example.com/mcp', registry)).toEqual({});
+    expect(outboundTraceHeaders(transport, context('https://mcp.example.com'))).toEqual({
+      traceparent: traceparent(SPAN_A),
+    });
+    for (const origin of [
+      'https://other.example.com',
+      'http://mcp.example.com',
+      'https://mcp.example.com:8443',
+      'https://sub.mcp.example.com',
+    ]) {
+      expect(outboundTraceHeaders(transport, context(origin))).toEqual({});
+    }
+    expect(outboundTraceHeaders({}, context('https://mcp.example.com'))).toBeUndefined();
+    await transport.close();
   });
 
-  it('adds nothing to a batch, another method, or a cancellation of an unknown call', async () => {
-    const seen: Array<Headers> = [];
-    const endpoint = { kind: 'streamable-http' as const, url: new URL('https://mcp.example.com/mcp'), headers: {} };
-    const transport = constructStreamableHttpTransport(endpoint, {
-      lookup: async () => ['8.8.8.8'],
-      fetch: async (_input, init) => {
-        seen.push(new Headers(init?.headers));
+  it("puts a header only on the request it was given for, repeats it on that call's cancellation, and adds nothing else", async () => {
+    const seen: Array<{ method: unknown; traceparent: string | null }> = [];
+    const endpoint = {
+      kind: 'streamable-http' as const,
+      url: new URL('https://mcp.example.com/mcp'),
+      headers: {},
+      egress: createWebFetchEgress(async (_input, init) => {
+        seen.push({
+          method: JSON.parse(String(init?.body))['method'],
+          traceparent: new Headers(init?.headers).get('traceparent'),
+        });
         return new Response(null, { status: 202 });
-      },
+      }),
+    };
+    const transport = constructStreamableHttpTransport(endpoint);
+    const calls = callRequestsOf(transport)!;
+    const cancel = (requestId: number) => ({
+      jsonrpc: '2.0' as const,
+      method: 'notifications/cancelled' as const,
+      params: { requestId },
     });
-    const registry = callTraceRegistryOf(transport)!;
-    const scope = { outbound: { traceparent: traceparent(SPAN_A), allowedOrigins: ['https://mcp.example.com'] } };
-    await runInCallTraceScope(scope, async () => {
-      await transport.send({ jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'echo' } });
-      await transport.send({ jsonrpc: '2.0', id: 8, method: 'tools/list', params: {} });
-      await transport.send({ jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 99 } });
-      await transport.send([
-        { jsonrpc: '2.0', id: 9, method: 'tools/call', params: { name: 'echo' } },
-      ] as never);
-    });
-    expect(seen.map((headers) => headers.get('traceparent'))).toEqual([traceparent(SPAN_A), null, null, null]);
-    expect(registry.size).toBe(1);
-    registry.release(scope);
-    expect(registry.size).toBe(0);
+
+    await transport.send(
+      { jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'echo' } },
+      { headers: { traceparent: traceparent(SPAN_A) } },
+    );
+    await transport.send({ jsonrpc: '2.0', id: 8, method: 'tools/call', params: { name: 'echo' } });
+    await transport.send({ jsonrpc: '2.0', id: 9, method: 'tools/list', params: {} });
+    expect(calls.size).toBe(2);
+    await transport.send(cancel(99));
+    await transport.send(cancel(8));
+    await transport.send(cancel(7));
+
+    expect(seen).toEqual([
+      { method: 'tools/call', traceparent: traceparent(SPAN_A) },
+      { method: 'tools/call', traceparent: null },
+      { method: 'tools/list', traceparent: null },
+      { method: 'notifications/cancelled', traceparent: null },
+      { method: 'notifications/cancelled', traceparent: null },
+      { method: 'notifications/cancelled', traceparent: traceparent(SPAN_A) },
+    ]);
+    expect(calls.size).toBe(0);
+    await transport.close();
+  });
+
+  it('stops tracking a call whose response arrives, and every call when the transport closes', async () => {
+    const answers = new Map<number, Response>();
+    const endpoint = {
+      kind: 'streamable-http' as const,
+      url: new URL('https://mcp.example.com/mcp'),
+      headers: {},
+      egress: createWebFetchEgress(async (_input, init) => {
+        const id = JSON.parse(String(init?.body))['id'] as number;
+        return answers.get(id) ?? new Response(null, { status: 202 });
+      }),
+    };
+    const transport = constructStreamableHttpTransport(endpoint);
+    const received: unknown[] = [];
+    transport.onmessage = (message) => received.push(message);
+    const calls = callRequestsOf(transport)!;
+    answers.set(
+      1,
+      new Response(JSON.stringify(toolResult(1, 'ok')), {
+        headers: { 'content-type': 'application/json' },
+      }),
+    );
+
+    await transport.send({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'echo' } });
+    expect(received).toHaveLength(1);
+    expect(calls.size).toBe(0);
+
+    await transport.send({ jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'echo' } });
+    await transport.send({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'echo' } });
+    expect(calls.size).toBe(2);
+    await transport.close();
+    expect(calls.size).toBe(0);
   });
 });
 

@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { afterEach, expect, it } from 'vitest';
 import { openMcpSession, type IMCPSession } from '../client/session.js';
 import { admitHttpEndpoint, constructStreamableHttpTransport } from '../client/transport.js';
+import { createNodeHttpEgress } from '../node/http-egress.js';
 
 const content =
   '---\nname: demo\ndescription: Use a verified demo workflow\nallowed-tools: Read\n---\nInstructions.\n';
@@ -68,7 +69,7 @@ async function fixture(
   if (!address || typeof address === 'string') throw new Error('No listener');
   const admitted = await admitHttpEndpoint(
     { url: `http://127.0.0.1:${address.port}` },
-    { policy: { allowedHosts: ['127.0.0.1'] } },
+    { egress: createNodeHttpEgress({ policy: { allowedHosts: ['127.0.0.1'] } }) },
   );
   if (!admitted.ok) throw new Error(admitted.reason);
   const options = {

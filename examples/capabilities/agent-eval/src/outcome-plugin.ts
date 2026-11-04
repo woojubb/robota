@@ -18,12 +18,12 @@ import {
 import {
   buildCatalog,
   createDiscoveredTool,
-  createStdioAdapter,
   MCPActivationAdmissionService,
   MCPDefinitionRegistry,
   openMcpSession,
   type IMCPSession,
 } from '@robota-sdk/agent-mcp';
+import { createStdioAdapter } from '@robota-sdk/agent-mcp/node';
 import { ReplayProvider } from '@robota-sdk/agent-provider-replay';
 
 import { summarizeTrials, type IOutcomeTrial } from './outcome-report.js';

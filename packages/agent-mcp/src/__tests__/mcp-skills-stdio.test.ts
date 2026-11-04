@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expect, it } from 'vitest';
-import { createStdioAdapter } from '../client/stdio.js';
+import { createStdioAdapter } from '../node/stdio.js';
 import { openMcpSession } from '../client/session.js';
 import { MCPActivationAdmissionService } from '../mcp-activation.js';
 import { MCPDefinitionRegistry } from '../definition/registry.js';
