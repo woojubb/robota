@@ -12,16 +12,14 @@
  * already avoid the same way.
  */
 
-import { admitToolResult } from '@robota-sdk/agent-core';
+import { admitToolResult, validateAgainstJsonSchema } from '@robota-sdk/agent-core';
 
 import { classifyMcpFailure } from '../supervisor/connection.js';
-import { ThirdPartySchemaValidator } from '../third-party-schema.js';
 import { validateAppViewResource } from './app-view.js';
 import { toUniversalValue } from './universal-value.js';
 import { additionalObservation } from './content-observations.js';
 
 import type { IMCPReadResourceResult, IMCPToolCallResult } from '../client/session.js';
-import type { TUnenforceableSchemaReporter } from '../third-party-schema.js';
 import type { IMCPCatalogToolEntry } from './types.js';
 import type {
   IEventService,
@@ -110,21 +108,19 @@ export interface IMCPToolInvoker {
  * `read-failed` is a refused or failed read; the rest are the resource's own validation reasons.
  */
 export type TMCPAppViewOmission =
-  'read-failed' | 'not-admitted' | 'missing' | 'uri-mismatch' | 'mime-type' | 'content' | 'too-large';
+  | 'read-failed'
+  | 'not-admitted'
+  | 'missing'
+  | 'uri-mismatch'
+  | 'mime-type'
+  | 'content'
+  | 'too-large';
 
 export interface ICreateDiscoveredToolOptions {
   /** Host revalidation immediately before transport dispatch; this never grants authority. */
   readonly isDispatchAdmitted?: () => boolean | Promise<boolean>;
   /** Host-owned generic admission policy and spill storage; MCP only supplies validated metadata. */
   readonly admission?: IToolResultAdmissionOptions;
-  /**
-   * CORE-040 hook, forwarded to the validator for defensive symmetry with `MCPTool`/
-   * `RelayMcpTool`. In practice it is never invoked here: `entry.schema` was already narrowed once
-   * at catalog build time (`./build.ts`), and re-narrowing an already-narrowed schema is a no-op
-   * (every remaining node is, by construction, expressible) — so this option exists to keep the
-   * shape consistent with the sibling tool classes, not because a second report is expected.
-   */
-  readonly report?: TUnenforceableSchemaReporter;
   /**
    * The host's fixed, content-free words for a call that failed because the server wants the user
    * to authenticate — naming what the user must run. Absent, such a failure reads like any other.
@@ -146,12 +142,17 @@ export interface ICreateDiscoveredToolOptions {
  * `properties` guaranteed present; the fallback exists only so a root this repo's universal subset
  * could not express at all (`narrowToUniversalSubset`'s own empty-object case) still produces a
  * valid {@link IObjectParameterSchema} rather than a value the tool schema contract rejects.
+ *
+ * Naming no properties declares no closure, while an empty `properties` set closes the node unless
+ * `additionalProperties` says otherwise. So a root that named none is opened explicitly: filling the
+ * member in must not start refusing the arguments the root accepted.
  */
 function toObjectParameterSchema(schema: IParameterSchema): IObjectParameterSchema {
-  if (schema.type === 'object') {
-    return { ...schema, type: 'object', properties: schema.properties ?? {} };
+  const root = schema.type === 'object' ? schema : { type: 'object' as const };
+  if (root.properties !== undefined) {
+    return { ...root, type: 'object', properties: root.properties };
   }
-  return { type: 'object', properties: {} };
+  return { additionalProperties: true, ...root, type: 'object', properties: {} };
 }
 
 /** Joins every text content block, in order — the same convention `processMCPResponse` uses. */
@@ -179,9 +180,6 @@ class DiscoveredMCPTool implements IToolWithEventService {
   /** Held for the runtime's benefit; see `setEventService`. This tool emits nothing of its own. */
   private eventService: IEventService | undefined;
 
-  /** CORE-040: built once and cached — narrowing is a property of the schema, not of a call. */
-  private readonly validator: ThirdPartySchemaValidator;
-
   constructor(
     private readonly entry: IMCPCatalogToolEntry,
     private readonly invoker: IMCPToolInvoker,
@@ -196,16 +194,13 @@ class DiscoveredMCPTool implements IToolWithEventService {
     });
     this.schema = {
       name: entry.canonicalName,
-      description: entry.description ?? '',
+      // MCP makes it optional and the tool contract does not, so a server's silence cannot be allowed
+      // to refuse its tool at registration.
+      description:
+        entry.description ||
+        `Tool "${entry.sourceName}" from MCP server "${entry.provenance.serverId}".`,
       parameters: toObjectParameterSchema(entry.schema),
     };
-    // Reuses `this.schema.parameters`, which IS `entry.schema` (already narrowed once at catalog
-    // registration) — never the server's raw `inputSchema`.
-    this.validator = new ThirdPartySchemaValidator(
-      this.schema.name,
-      this.schema.parameters,
-      options?.report,
-    );
   }
 
   getName(): string {
@@ -221,7 +216,10 @@ class DiscoveredMCPTool implements IToolWithEventService {
   }
 
   validateParameters(parameters: TToolParameters): IParameterValidationResult {
-    return this.validator.validate(parameters);
+    // CORE-040: `this.schema.parameters` is `entry.schema`, narrowed and reported once at catalog
+    // registration, never the server's raw `inputSchema`.
+    const errors = validateAgainstJsonSchema(this.schema.parameters, parameters, '');
+    return { isValid: errors.length === 0, errors };
   }
 
   async execute(

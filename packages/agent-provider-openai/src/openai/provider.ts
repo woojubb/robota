@@ -279,13 +279,20 @@ export class OpenAIProvider extends AbstractAIProvider {
   }
 
   /**
-   * MCP-005: strict mode's supported subset is documented; non-strict accepts standard JSON Schema.
-   * Both the Responses and Chat Completions surfaces honor `strictTools` identically (§ Profiles).
+   * MCP-005: strict mode's supported subset is documented; non-strict accepts standard JSON Schema
+   * except that the API answers `array schema missing items` and `object schema missing properties`
+   * in either mode. Both the Responses and Chat Completions surfaces honor `strictTools` identically
+   * (§ Profiles).
    */
   protected override projectionProfile(): IToolSchemaProjectionProfile | undefined {
     return this.options.strictTools
       ? { ...STRICT_TOOL_SCHEMA_PROFILE, providerName: 'openai' }
-      : { ...PERMISSIVE_TOOL_SCHEMA_PROFILE, providerName: 'openai' };
+      : {
+          ...PERMISSIVE_TOOL_SCHEMA_PROFILE,
+          providerName: 'openai',
+          arraysDeclareItems: true,
+          objectsDeclareProperties: true,
+        };
   }
 
   /**

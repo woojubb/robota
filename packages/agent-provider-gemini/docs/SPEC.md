@@ -33,7 +33,9 @@ and register it directly.
 - **Tool schema projection.** `GeminiProvider.projectionProfile()` strips foreign JSON-Schema keywords
   and `additionalProperties` before tool schemas reach Gemini's request builder, because Gemini's
   `Schema` type is a fixed OpenAPI-3.0 subset, not standard JSON Schema — a member the builder doesn't
-  understand must not fail silently downstream. A tool that projection rejects is omitted from that
+  understand must not fail silently downstream. The builder then avoids what that subset refuses
+  although JSON Schema allows it: a null type, which becomes `nullable`, a `required` name with no
+  property, and an empty `parameters` or nested `properties`. A tool that projection rejects is omitted from that
   request alone and reported once per cache identity vian agent-core's `ToolSchemaProjection` logger.
 
 ## Non-goals

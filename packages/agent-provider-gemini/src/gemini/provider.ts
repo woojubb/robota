@@ -234,6 +234,8 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
       providerName: 'gemini',
       unknownKeywords: 'strip',
       unsupportedMembers: ['additionalProperties'],
+      // The API answers `items: missing field`, including for an `items` of `{}`.
+      arraysDeclareItems: true,
     };
   }
 

@@ -290,7 +290,6 @@ export {
 // and to be told about, not one that should only exist inside the catalog builder.
 export {
   narrowToUniversalSubset,
-  ThirdPartySchemaValidator,
   type INarrowedSchema,
   type TUnenforceableSchemaReporter,
 } from './third-party-schema';

@@ -20,7 +20,7 @@ const INVALID_NAME_CHARS = /[^A-Za-z0-9_-]/g;
 const TRUNCATION_HASH_LENGTH = 8;
 
 /** Joins the head/tail halves of a middle-truncated name, and separates each from the hash. */
-const TRUNCATION_JOINER = '~';
+const TRUNCATION_JOINER = '-';
 
 export interface ICanonicalNameResult {
   readonly name: TMCPCanonicalName;
