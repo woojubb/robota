@@ -157,8 +157,8 @@ export interface IProviderDefinition {
    * depend on where that profile connects. The host passes that environment: a platform-neutral
    * provider cannot read it for itself. Declaring a tool is the definition's judgment that a host may
    * switch it on without the profile asking. A tool left out, or an absent function, is no such
-   * judgment: asking for it explicitly either fails or is the caller's own choice, as the provider's
-   * capabilities then report.
+   * judgment: asking for it explicitly fails, is ignored, or is the caller's own choice, and the
+   * provider's capabilities report whether it is on.
    */
   nativeWebTools?: (
     profile: Pick<IProviderDefinitionConfig, 'baseURL' | 'options'>,
