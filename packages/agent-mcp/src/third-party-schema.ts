@@ -21,17 +21,9 @@
 import {
   PARAMETER_SCHEMA_KEYWORDS,
   TOOL_SCHEMA_PROJECTION_MAX_DEPTH,
-  createLogger,
-  validateAgainstJsonSchema,
 } from '@robota-sdk/agent-core';
 
-import type {
-  IParameterSchema,
-  IParameterValidationResult,
-  TToolParameters,
-} from '@robota-sdk/agent-core';
-
-const logger = createLogger('ThirdPartySchema');
+import type { IParameterSchema } from '@robota-sdk/agent-core';
 
 /** The types the universal subset models. Anything else is a node this repo cannot check. */
 const SUBSET_TYPES = new Set(['object', 'array', 'string', 'number', 'integer', 'boolean', 'null']);
@@ -189,6 +181,29 @@ function narrowEnum(node: IParameterSchema, path: string, dropped: string[]): IP
   return withoutEnum;
 }
 
+/**
+ * Declare what an object node requires but does not name. A closed node could never be satisfied,
+ * and registration refuses such a root outright, stopping the whole agent. Declaring it keeps the
+ * name required and says no more about its value than the server did, so nothing is lost to report.
+ * A node that named no properties stays open: naming one must not start refusing the rest.
+ */
+function declareRequiredProperties(node: IParameterSchema): IParameterSchema {
+  if (node.type !== 'object' || node.required === undefined) return node;
+  const declared = node.properties ?? {};
+  const undeclared = node.required.filter(
+    (name) => !Object.prototype.hasOwnProperty.call(declared, name),
+  );
+  if (undeclared.length === 0) return node;
+  return {
+    ...(node.properties === undefined && { additionalProperties: true }),
+    ...node,
+    properties: Object.fromEntries([
+      ...Object.entries(declared),
+      ...undeclared.map((name) => [name, anyValueNode()]),
+    ]),
+  };
+}
+
 function narrowNode(
   input: IParameterSchema,
   path: string,
@@ -274,6 +289,8 @@ function narrowNode(
     node = { ...node, properties: Object.fromEntries(kept) };
   }
 
+  node = declareRequiredProperties(node);
+
   if (node.items !== undefined) {
     const itemsPath = `${path}[]`;
     if (!isFollowable(node.items)) {
@@ -305,41 +322,3 @@ export function narrowToUniversalSubset(schema: IParameterSchema): INarrowedSche
 
 /** Told once per tool when part of its schema cannot be enforced: `(toolName, paths)`. */
 export type TUnenforceableSchemaReporter = (toolName: string, paths: string[]) => void;
-
-/**
- * The parameter validator both MCP tool classes use — CORE-040.
- *
- * They previously carried the same hand-rolled top-level presence check, character for character.
- * Two copies of a validation decision is how PROV-004's drift starts, so there is one, and it is
- * held by the module that owns the third-party trust boundary.
- *
- * Narrowing runs ONCE per tool and is cached: it is a pure function of a schema that does not change
- * for the life of the tool, and the report is a property of the tool rather than of a call.
- */
-export class ThirdPartySchemaValidator {
-  private narrowed?: INarrowedSchema;
-  private reported = false;
-
-  constructor(
-    private readonly toolName: string,
-    private readonly parameters: IParameterSchema,
-    private readonly report?: TUnenforceableSchemaReporter,
-  ) {}
-
-  validate(parameters: TToolParameters): IParameterValidationResult {
-    this.narrowed ??= narrowToUniversalSubset(this.parameters);
-    if (!this.reported && this.narrowed.unenforceable.length > 0) {
-      this.reported = true;
-      // Reported even with no injected reporter — an unenforceable schema that nobody is told about
-      // is the silent downgrade this design exists to avoid.
-      const report =
-        this.report ??
-        ((tool: string, paths: string[]): void => {
-          logger.warn('MCP tool schema is only partly enforceable', { tool, paths });
-        });
-      report(this.toolName, this.narrowed.unenforceable);
-    }
-    const errors = validateAgainstJsonSchema(this.narrowed.schema, parameters, '');
-    return { isValid: errors.length === 0, errors };
-  }
-}

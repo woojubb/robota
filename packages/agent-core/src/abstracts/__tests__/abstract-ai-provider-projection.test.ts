@@ -11,7 +11,7 @@ import { AbstractAIProvider } from '../abstract-ai-provider';
 
 import type { IToolSchemaProjectionProfile } from '../../schema/project-tool-schema';
 import type { TUniversalMessage } from '../../interfaces/messages';
-import type { IToolSchema } from '../../interfaces/tool-schema';
+import type { IParameterSchema, IToolSchema } from '../../interfaces/tool-schema';
 
 const fixtures = loadToolSchemaProjectionFixtures();
 
@@ -159,5 +159,56 @@ describe('MCP-005 TC-06 — no profile: unchanged, no diagnostics', () => {
     expect(recorder.lines.filter((line) => line.includes('tool_schema_quarantined'))).toHaveLength(
       0,
     );
+  });
+});
+
+describe('a tool projection refuses is dropped from its request alone', () => {
+  const healthy: IToolSchema = {
+    name: 'healthy',
+    description: 'A tool.',
+    parameters: { type: 'object', properties: {} },
+  };
+
+  function toolWith(value: unknown): IToolSchema {
+    return {
+      name: 'refused',
+      description: 'A tool.',
+      parameters: { type: 'object', properties: { value: value as IParameterSchema } },
+    };
+  }
+
+  function cycle(link: (node: Record<string, unknown>) => void): unknown {
+    const node: Record<string, unknown> = { type: 'object' };
+    link(node);
+    return node;
+  }
+
+  function deepChain(): unknown {
+    let node: unknown = { type: 'string' };
+    for (let level = 0; level < 100_000; level += 1) node = { type: 'array', items: node };
+    return node;
+  }
+
+  it.each([
+    [
+      'a cycle through properties',
+      () =>
+        cycle((node) => {
+          node.properties = { self: node };
+        }),
+    ],
+    [
+      'a cycle through additionalProperties',
+      () =>
+        cycle((node) => {
+          node.additionalProperties = node;
+        }),
+    ],
+    ['a chain far past the ceiling', deepChain],
+  ])('%s', (_name, build) => {
+    const provider = new NoLoggerTestProvider();
+    provider.setProjectionProfile(TEST_PROFILE);
+    const kept = provider.callProjectTools([toolWith(build()), healthy], 'model');
+    expect(kept?.map((tool) => tool.name)).toEqual(['healthy']);
   });
 });

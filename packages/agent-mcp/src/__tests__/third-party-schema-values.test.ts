@@ -9,9 +9,10 @@
 import {
   PERMISSIVE_TOOL_SCHEMA_PROFILE,
   projectToolSchema,
+  setGlobalLoggerSink,
   validateAgainstJsonSchema,
 } from '@robota-sdk/agent-core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { buildCatalog } from '../catalog/build.js';
 import { createDiscoveredTool } from '../catalog/discovered-tool.js';
@@ -346,5 +347,71 @@ describe('a property named __proto__', () => {
     });
     expect(projected.outcome).toBe('rejected');
     expect(projected.rejection?.keyword).toBe('__proto__');
+  });
+});
+
+describe('a name required but not declared', () => {
+  it('is declared, so the node can be satisfied and the root registered', () => {
+    const { schema, unenforceable } = narrowToUniversalSubset(
+      declared({ type: 'object', properties: { a: { type: 'string' } }, required: ['b'] }),
+    );
+    expect(unenforceable).toEqual([]);
+    expect(Object.keys(schema.properties ?? {})).toEqual(['a', 'b']);
+    expect(schema.required).toEqual(['b']);
+    expect(validateAgainstJsonSchema(schema, { b: { any: 'value' } }, '')).toEqual([]);
+    expect(validateAgainstJsonSchema(schema, {}, '')).not.toEqual([]);
+  });
+
+  it('leaves a node that named no properties open', () => {
+    const { schema } = narrowToUniversalSubset(declared({ type: 'object', required: ['b'] }));
+    expect(validateAgainstJsonSchema(schema, { b: 1, other: 2 }, '')).toEqual([]);
+  });
+
+  it('respects a node that closed itself', () => {
+    const { schema } = narrowToUniversalSubset(
+      declared({ type: 'object', required: ['b'], additionalProperties: false }),
+    );
+    expect(validateAgainstJsonSchema(schema, { b: 1 }, '')).toEqual([]);
+    expect(validateAgainstJsonSchema(schema, { b: 1, other: 2 }, '')).not.toEqual([]);
+  });
+
+  it('declares nothing on a node that is not an object', () => {
+    const input = declared({ type: 'string', required: ['b'] });
+    expect(narrowToUniversalSubset(input).schema).toEqual(input);
+  });
+});
+
+describe('reporting past the ceiling', () => {
+  it('is once per tool: validating a discovered tool does not narrow again', () => {
+    let node: unknown = { type: 'string' };
+    for (let level = 0; level < 60; level += 1) {
+      node = { type: 'object', properties: { next: node } };
+    }
+    const report = vi.fn();
+    const discovery: IMCPDiscovery = {
+      identity: { serverId: 'srv', serverName: 'srv', serverVersion: '1', protocolVersion: '1' },
+      tools: {
+        state: { kind: 'supported', count: 1, listChanged: false },
+        items: [{ name: 'tool', inputSchema: declared({ type: 'object', properties: { node } }) }],
+        pages: 1,
+      },
+      prompts: { state: { kind: 'unsupported' }, items: [], pages: 0 },
+      resources: { state: { kind: 'unsupported' }, items: [], pages: 0 },
+    };
+    const warnings = vi.fn();
+    setGlobalLoggerSink({ debug() {}, info() {}, warn: warnings, error() {}, log() {} });
+    const catalog = buildCatalog(
+      [{ serverId: 'srv', origin: 'fixture', transport: 'streamable-http', discovery }],
+      { report },
+    );
+    const entry = catalog.adapted.find((item) => item.kind === 'tool');
+    if (entry?.kind !== 'tool') throw new Error('the tool did not reach the catalog');
+    const tool = createDiscoveredTool(entry, {
+      callTool: async () => ({ content: [], isError: false }),
+    });
+    expect(tool.validateParameters({}).isValid).toBe(true);
+    setGlobalLoggerSink(undefined);
+    expect(report).toHaveBeenCalledTimes(1);
+    expect(warnings).not.toHaveBeenCalled();
   });
 });

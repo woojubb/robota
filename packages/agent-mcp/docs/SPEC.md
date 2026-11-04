@@ -232,7 +232,9 @@ wrote, because the session record's strict decoder treats anything else as a cor
 outside the contract is dropped, and reported only if it was a constraint. An annotation such as a
 non-scalar `default` leaves nothing unchecked, and the contract is not widened to hold it. A root that
 named no properties stays open once `properties` is filled in, since filling a member must not start
-refusing arguments the root accepted.
+refusing arguments the root accepted. A name `required` holds but `properties` does not declare is
+declared as an accepts-anything property, because such a node can never be satisfied and registration
+refuses such a root, which would stop the whole agent over one server's schema.
 
 ## Error semantics
 

@@ -8,6 +8,7 @@
  * both, holds them to each other.
  */
 
+import { ToolRegistry } from '@robota-sdk/agent-core';
 import { buildCatalog, createDiscoveredTool } from '@robota-sdk/agent-mcp';
 import { decodeInteractiveSessionRecord } from '@robota-sdk/agent-session';
 import { describe, expect, it } from 'vitest';
@@ -17,7 +18,10 @@ import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-sess
 import type { IMCPDiscovery } from '@robota-sdk/agent-mcp';
 
 /** The schema a session offers for a discovered tool, by the route the CLI takes to it. */
-function offeredSchema(inputSchema: IParameterSchema): IToolSchema {
+function offeredTool(
+  inputSchema: IParameterSchema,
+  description?: string,
+): ReturnType<typeof createDiscoveredTool> {
   const discovery: IMCPDiscovery = {
     identity: {
       serverId: 'srv',
@@ -27,7 +31,7 @@ function offeredSchema(inputSchema: IParameterSchema): IToolSchema {
     },
     tools: {
       state: { kind: 'supported', count: 1, listChanged: false },
-      items: [{ name: 'tool', inputSchema }],
+      items: [{ name: 'tool', inputSchema, ...(description !== undefined && { description }) }],
       pages: 1,
     },
     prompts: { state: { kind: 'unsupported' }, items: [], pages: 0 },
@@ -40,7 +44,7 @@ function offeredSchema(inputSchema: IParameterSchema): IToolSchema {
   if (entry?.kind !== 'tool') throw new Error('the tool did not reach the catalog');
   return createDiscoveredTool(entry, {
     callTool: async () => ({ content: [], isError: false }),
-  }).schema;
+  });
 }
 
 function recordOffering(tool: IToolSchema): IInteractiveSessionRecord {
@@ -105,6 +109,12 @@ const DECLARED: readonly (readonly [string, IParameterSchema])[] = [
     ),
   ],
   ['a nesting past the ceiling', propertyOf(nestedArrays(5000))],
+  ['a root requiring an undeclared name', { type: 'object', required: ['b'] }],
+  [
+    'a closed root requiring an undeclared name',
+    { type: 'object', properties: { a: { type: 'string' } }, required: ['b'] },
+  ],
+  ['a nested node requiring an undeclared name', propertyOf({ type: 'object', required: ['b'] })],
   ['an object root naming no properties', { type: 'object' }],
   ['a closed object root naming no properties', { type: 'object', additionalProperties: false }],
   ['a root the subset cannot express', { oneOf: [{ type: 'object' }] } as IParameterSchema],
@@ -114,8 +124,25 @@ const DECLARED: readonly (readonly [string, IParameterSchema])[] = [
 
 describe('MCP narrowing and the session record', () => {
   it.each(DECLARED)('a record offering a tool with %s stays readable', (_name, declared) => {
-    const outcome = decodeInteractiveSessionRecord(recordOffering(offeredSchema(declared)));
+    const outcome = decodeInteractiveSessionRecord(recordOffering(offeredTool(declared).schema));
     expect(outcome.status === 'corrupt' ? outcome.issues : []).toEqual([]);
     expect(outcome.status).toBe('valid');
+  });
+
+  it.each(DECLARED)('a tool with %s can be registered', (_name, declared) => {
+    expect(() => new ToolRegistry().register(offeredTool(declared))).not.toThrow();
+  });
+
+  it('a tool with no description can be registered and is told apart by name', () => {
+    const tool = offeredTool({ type: 'object', properties: {} });
+    expect(() => new ToolRegistry().register(tool)).not.toThrow();
+    expect(tool.schema.description).toContain('tool');
+    expect(tool.schema.description).toContain('srv');
+  });
+
+  it('a tool keeps the description its server gave', () => {
+    expect(
+      offeredTool({ type: 'object', properties: {} }, 'Lists things.').schema.description,
+    ).toBe('Lists things.');
   });
 });

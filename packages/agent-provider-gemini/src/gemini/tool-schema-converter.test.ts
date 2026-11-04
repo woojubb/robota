@@ -269,4 +269,15 @@ describe('what Gemini refuses although JSON Schema allows it', () => {
       description: 'A tool.',
     });
   });
+
+  it('a root with no properties at all, which only the type forbids, declares none either', () => {
+    expect(declaration({ type: 'object' } as IToolSchema['parameters'])).toEqual({
+      name: 'tool',
+      description: 'A tool.',
+    });
+  });
+
+  it('a nested object leaves an empty properties off the wire', () => {
+    expect(convertedProperty({ type: 'object', properties: {} })).toEqual({ type: Type.OBJECT });
+  });
 });

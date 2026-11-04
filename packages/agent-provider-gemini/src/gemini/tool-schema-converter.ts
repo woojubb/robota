@@ -23,7 +23,7 @@ export function convertToolsToGeminiFormat(tools: IToolSchema[]): FunctionDeclar
     name: tool.name,
     description: tool.description,
     // The member is optional, and the API has answered `should be non-empty for OBJECT type`.
-    ...(Object.keys(tool.parameters.properties).length > 0 && {
+    ...(Object.keys(tool.parameters.properties ?? {}).length > 0 && {
       parameters: convertParameterSchema(tool.parameters),
     }),
   }));
@@ -109,7 +109,8 @@ function convertParameterSchema(schema: IParameterSchema): Schema {
   if (schema.items) {
     convertedSchema.items = convertParameterSchema(schema.items);
   }
-  if (schema.properties) {
+  // An empty map is the shape the API answers with `should be non-empty for OBJECT type`.
+  if (schema.properties && Object.keys(schema.properties).length > 0) {
     convertedSchema.properties = convertParameterProperties(schema.properties);
   }
   // CORE-039: this mapper rebuilds every node from a fixed key list, so a subset member it does not

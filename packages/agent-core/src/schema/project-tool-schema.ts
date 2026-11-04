@@ -486,19 +486,28 @@ function adaptNode(
   return current;
 }
 
-/** Canonical, key-sorted JSON — the same schema hashes the same regardless of authored key order. */
-function canonicalize(value: unknown): unknown {
+/** A schema node takes two levels of JSON (the node, then its `properties` map) plus any `anyOf` list. */
+const CANONICAL_MAX_DEPTH = 3 * TOOL_SCHEMA_PROJECTION_MAX_DEPTH;
+
+/**
+ * Canonical, key-sorted JSON — the same schema hashes the same regardless of authored key order.
+ * A rejected tool is hashed too, for its quarantine line, so a cycle or an extreme depth has to end
+ * here instead of failing the request the tool was only meant to be dropped from.
+ */
+function canonicalize(value: unknown, ancestors: readonly unknown[] = []): unknown {
+  if (typeof value !== 'object' || value === null) return value;
+  if (ancestors.includes(value)) return '[cycle]';
+  if (ancestors.length >= CANONICAL_MAX_DEPTH) return '[too deep]';
+  const path = [...ancestors, value];
   if (Array.isArray(value)) {
-    return value.map(canonicalize);
+    return value.map((entry) => canonicalize(entry, path));
   }
-  if (isPlainRecord(value)) {
-    const sorted: Record<string, unknown> = {};
-    for (const key of Object.keys(value).sort()) {
-      sorted[key] = canonicalize(value[key]);
-    }
-    return sorted;
+  const record = value as Record<string, unknown>;
+  const sorted: Record<string, unknown> = {};
+  for (const key of Object.keys(record).sort()) {
+    sorted[key] = canonicalize(record[key], path);
   }
-  return value;
+  return sorted;
 }
 
 /**
