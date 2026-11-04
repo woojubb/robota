@@ -1,8 +1,10 @@
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { claimRefusalMessage } from '@robota-sdk/agent-framework';
 import { useApp } from 'ink';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import AppView from './AppView.js';
+import { refusalBeforeStop } from './flows/session-switch-flow.js';
 import { TuiCliAdapterProvider } from './tui-cli-adapter-context.js';
 
 import type { IThemeRegistry } from './theme/theme-registry.js';
@@ -59,7 +61,12 @@ interface IProps {
 }
 
 interface IActiveChannel {
-  readonly state: { channel: ITuiAppChannelPort; sessionId: string | undefined };
+  readonly state: {
+    channel: ITuiAppChannelPort;
+    sessionId: string | undefined;
+    /** Words the store gave for a switch that went back to this session, written once it has started. */
+    notice?: string;
+  };
   readonly showPicker: boolean;
   readonly error: string | undefined;
   readonly switching: boolean;
@@ -83,8 +90,25 @@ interface IFailedSwitch {
   readonly options: ISessionSwitchOptions | undefined;
 }
 
+/** The channel for `sessionId`, or the words of the store's refusal to claim it; any other failure is the caller's. */
+function openOrRefusal(
+  createChannel: IProps['createChannel'],
+  sessionId: string | undefined,
+  acceptedDigest: string | undefined,
+): TFirstChannel {
+  try {
+    return { channel: openChannel(createChannel, sessionId, acceptedDigest) };
+  } catch (error) {
+    const refusal = claimRefusalMessage(error);
+    if (refusal === undefined) throw error;
+    return { refusal };
+  }
+}
+
+const systemEntry = (text: string) => messageToHistoryEntry(createSystemMessage(text));
+
 function useActiveChannel(props: IProps, firstChannel: ITuiAppChannelPort): IActiveChannel {
-  const [state, setState] = useState(() => ({
+  const [state, setState] = useState<IActiveChannel['state']>(() => ({
     channel: firstChannel,
     sessionId: props.resumeSessionId,
   }));
@@ -105,17 +129,39 @@ function useActiveChannel(props: IProps, firstChannel: ITuiAppChannelPort): IAct
       if (switching.current) return;
       switching.current = true;
       setIsSwitching(true);
+      let retry: IFailedSwitch = { sessionId, options: switchOptions };
       try {
         setShowPicker(false);
         if (props.requestSessionSwitch) {
           await props.requestSessionSwitch(sessionId);
         } else {
-          await state.channel.stop();
-          if (!mounted.current) return;
-          setState({
-            channel: openChannel(props.createChannel, sessionId, switchOptions?.acceptedDigest),
-            sessionId,
-          });
+          const here = state.channel.getRuntimeStatusSnapshot(props.permissionMode ?? 'default');
+          const refusal = refusalBeforeStop(props.sessionStore, sessionId, here.sessionId);
+          if (refusal !== undefined) {
+            // A held id stops nothing: the person stays on the session they are on, told by the store.
+            state.channel.addEntry(systemEntry(refusal));
+          } else {
+            await state.channel.stop();
+            if (!mounted.current) return;
+            const opened = openOrRefusal(
+              props.createChannel,
+              sessionId,
+              switchOptions?.acceptedDigest,
+            );
+            if ('channel' in opened) {
+              setState({ channel: opened.channel, sessionId });
+            } else {
+              // A writer took the id after it was asked about. The person is back on the session
+              // they were on, with the store's words, and the refused id is not tried again.
+              const previous = here.sessionId === '' ? undefined : here.sessionId;
+              if (previous !== undefined) retry = { sessionId: previous, options: undefined };
+              setState({
+                channel: openChannel(props.createChannel, previous, undefined),
+                sessionId: previous,
+                notice: opened.refusal,
+              });
+            }
+          }
         }
         if (!mounted.current) return;
         setFailedTarget(undefined);
@@ -123,13 +169,19 @@ function useActiveChannel(props: IProps, firstChannel: ITuiAppChannelPort): IAct
       } catch (cause) {
         const message = cause instanceof Error ? cause.message : String(cause);
         setError(`Session switch failed: ${message}`);
-        setFailedTarget({ sessionId, options: switchOptions });
+        setFailedTarget(retry);
       } finally {
         switching.current = false;
         setIsSwitching(false);
       }
     },
-    [props.createChannel, props.requestSessionSwitch, state.channel],
+    [
+      props.createChannel,
+      props.requestSessionSwitch,
+      props.sessionStore,
+      props.permissionMode,
+      state.channel,
+    ],
   );
   const retrySwitch = useCallback((): void => {
     if (failedTarget !== undefined)
@@ -146,14 +198,7 @@ type TFirstChannel = { readonly channel: ITuiAppChannelPort } | { readonly refus
  * process holds the session, and nothing is started over it. Any other failure is Ink's, as before.
  */
 function openFirstChannel(props: IProps): TFirstChannel {
-  try {
-    const channel = openChannel(props.createChannel, props.resumeSessionId, props.acceptedDigest);
-    return { channel };
-  } catch (error) {
-    const refusal = claimRefusalMessage(error);
-    if (refusal === undefined) throw error;
-    return { refusal };
-  }
+  return openOrRefusal(props.createChannel, props.resumeSessionId, props.acceptedDigest);
 }
 
 /** Ends the run with the refusal's words as its error; the run's entry says them, once, and exits. */
@@ -179,6 +224,11 @@ function ActiveApp(
   props: IProps & { readonly firstChannel: ITuiAppChannelPort },
 ): React.ReactElement {
   const active = useActiveChannel(props, props.firstChannel);
+  const { channel, notice } = active.state;
+  // A child's effects run first, so the channel has started, and restored its transcript, by now.
+  useEffect(() => {
+    if (notice !== undefined) channel.addEntry(systemEntry(notice));
+  }, [channel, notice]);
 
   return (
     <TuiCliAdapterProvider value={props.cliAdapter}>
