@@ -63,10 +63,14 @@ export function prepareWorkspaceMove(input: IPrepareWorkspaceMoveInput): IWorksp
   const requested = input.requestedPath.trim();
   if (requested === '') throw new Error('Usage: /cd <directory>');
   const { files, canonicalizePath, homeDirectory } = input.host;
+  const missing = [
+    ...(files === undefined ? ['file access (`files`)'] : []),
+    ...(canonicalizePath === undefined ? ['path resolution (`canonicalizePath`)'] : []),
+  ];
   if (files === undefined || canonicalizePath === undefined) {
     throw new Error(
       'Moving to another directory needs file access and path resolution, and this host supplies ' +
-        'neither.',
+        `no ${missing.join(' and no ')}.`,
     );
   }
   let expanded = requested;

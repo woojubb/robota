@@ -78,17 +78,20 @@ describe('prepareWorkspaceMove', () => {
     expect(() => prepareWorkspaceMove(input(overrides))).toThrow(message);
   });
 
-  it('refuses to move on a host that lends no file access or no path canonicalizer', () => {
-    for (const lacking of ['files', 'canonicalizePath'] as const) {
-      expect(
-        () =>
-          prepareWorkspaceMove(
-            input({ host: createTestFrameworkHost({ homeDirectory: root, [lacking]: undefined }) }),
-          ),
-        lacking,
-      ).toThrow(/needs file access and path resolution/);
-    }
-  });
+  it.each([
+    [['files'], 'no file access (`files`).'],
+    [['canonicalizePath'], 'no path resolution (`canonicalizePath`).'],
+    [['files', 'canonicalizePath'], 'no file access (`files`) and no path resolution (`canonicalizePath`).'],
+  ] as const)(
+    'refuses to move on a host that lacks %j, and names exactly what it lacks',
+    (lacking, said) => {
+      const without = Object.fromEntries(lacking.map((member) => [member, undefined]));
+      const host = createTestFrameworkHost({ homeDirectory: root, ...without });
+      expect(() => prepareWorkspaceMove(input({ host }))).toThrow(
+        `Moving to another directory needs file access and path resolution, and this host supplies ${said}`,
+      );
+    },
+  );
 
   it('refuses `~` on a host with no home directory, and still moves by a full path', () => {
     const noHome = createTestFrameworkHost({ homeDirectory: undefined });

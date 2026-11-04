@@ -205,11 +205,13 @@ These are behaviors a caller cannot infer from a type signature alone.
   command asked. UI-only intents (opening a picker, a settings screen) are fire-and-forget: with no
   surface listening they are a defined no-op, and that never affects the host-action half.
 - **A command never reads another command's source.** Where the host tracks async context, every
-  command sees the source, driver and locality it was started with, however many run at once. A host
-  that does not (a browser) admits one user or remote command at a time and refuses a second in plain
-  words, because one slot read by two overlapping commands would hand each the other's source and a
-  model command could then read as a user's. Model commands may overlap: they all carry the same scope,
-  and they are what runs inside the turn or fork a skill command started.
+  command sees the source, driver and locality it was started with, however many run at once, and a
+  forked skill's resources are readable only from inside that fork. A host that does not (a browser)
+  stays strictly nested, because one slot read after an await by two overlapping commands would hand
+  each the other's scope: it admits one user or remote command at a time and refuses a second in plain
+  words; it admits a model command only when no user or remote command runs, or when that command has
+  started its own turn, whose model commands all carry the same scope and cannot overwrite each other;
+  and it refuses a forked skill before it starts, naming the missing `createAsyncScope`.
 - **Local peer status is display-only.** Host-observed activity, independently verified process
   liveness and the verified workspace relation never grant authority over the peer or identify a persisted session record, and a passive
   observer can never keep a request alive after its last answering surface leaves.

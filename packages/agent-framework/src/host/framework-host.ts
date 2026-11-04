@@ -44,7 +44,11 @@ export interface IFrameworkHost {
   readonly registerExitFlush?: NonNullable<IFileSessionLoggerOptions['registerExitFlush']>;
   /** Reads a named environment variable; absent, every `$ENV:` reference reads as unset. */
   readonly env?: TEnvResolver;
-  /** File access for reading, diffing and loading; absent, an Edit diff is omitted and `/cd` and plugin directories refuse. */
+  /**
+   * File access for reading, diffing and loading. Absent: an Edit diff carries its removed and added
+   * lines but no context lines from the file; a project diff is refused, since containment cannot be
+   * proven; `/cd` refuses; and naming `pluginDirectories` or a manifest's local entries is refused.
+   */
   readonly files?: {
     readonly sync: IFileSystem;
     readonly async: IFileSystemAsync;
@@ -76,7 +80,12 @@ export interface IFrameworkHost {
     failure: IObserverFailure<TEvent>,
     code?: string,
   ) => void;
-  /** Makes a scope that follows an async call chain; absent, the skill router admits one command at a time. */
+  /**
+   * Makes a scope that follows an async call chain. Absent, the skill router cannot tell overlapping
+   * commands apart, so it runs one user or remote command at a time (a second is refused), admits a
+   * model command only when no such command runs or that command has started its own turn, and
+   * refuses a forked skill, whose resource window needs a scope, before it starts.
+   */
   readonly createAsyncScope?: <T>() => IAsyncScope<T>;
   /** Whether the host can write project files; absent or false, a project permission cannot be persisted. */
   readonly supportsProjectMutation?: boolean;
