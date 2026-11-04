@@ -59,7 +59,7 @@ export function createNodeFrameworkHost(options: ICreateNodeFrameworkHostOptions
     },
     git: createGitProcess(),
     createHookExecutors: ({ shell }) => [new CommandExecutor(shell), new HttpExecutor()],
-    createBackgroundTaskRunners: () => createDefaultBackgroundTaskRunners(),
+    createBackgroundTaskRunners: createDefaultBackgroundTaskRunners,
     createDefaultTools: options.createDefaultTools,
     reportObserverFailure: reportObserverFailureAsProcessWarning,
     createAsyncScope: <T>() => new AsyncLocalStorage<T>(),
