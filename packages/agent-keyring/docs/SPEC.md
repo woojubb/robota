@@ -3,15 +3,17 @@
 ## Purpose
 
 Key custody and sealing primitives for conversations that must stay unreadable to other programs
-running as the same operating-system user. The package owns one question: how a secret the user
+running as the same operating-system user. The package owns two questions: how a secret the user
 remembers (a passphrase) or keeps (a recovery key) becomes the keys that protect stored artifacts,
-and how artifacts are sealed to a public key so that writing never needs the secret.
+with artifacts sealed to a public key so that writing never needs the secret; and how a served
+runtime comes to trust its owner and receive those keys, when every file, socket and token it can
+see is within those programs' reach too.
 
 It is pure computation over `node:crypto`: no file or network I/O, no native module, no
 `@robota-sdk` dependency. It runs unchanged on Node.js and Bun. It is a Node host package, so only
 Node-only code may depend on it.
 Where the keyring file lives, who may write it, how strong a passphrase must be, what an artifact
-is, and when to lock stay with callers.
+is, when to lock, what each link standing may do and how link messages travel stay with callers.
 
 ## Contract
 
@@ -26,10 +28,25 @@ is, and when to lock stay with callers.
 - Each artifact has its own data key, sealed to the public key, and content is encrypted under it
   record by record. A wrong key, a wrong AAD, or a changed, truncated or extended byte fails the
   whole operation; plaintext is returned only after authentication.
-- The attach keypair lets an unlocked keyring prove it is the owner to a verifier, and the
-  authorship key, which has no public half, lets it tag what it wrote so a reader can tell the
-  owner's artifacts from ones sealed by anyone else holding the public key. Neither is in the keyring
-  file, so write access to the file does not let anyone present as the owner.
+- An unlock yields the read keys: the sealing keypair, and the authorship key, which has no public
+  half and lets the owner tag what it wrote so a reader can tell the owner's artifacts from ones
+  sealed by anyone else holding the public key. The attach keypair, which proves ownership to a
+  verifier, is never part of that yield: it lives only in an owner handover, which hands out
+  operations and never a key and is disposed once the command that opened it is done. None of these
+  is in the keyring file, so write access to the file does not let anyone present as the owner.
+- A served runtime trusts its owner only through a trust root its spawner installed: the owner's
+  attach public key and a certificate binding the runtime's memory-only instance key to one runtime
+  start. The spawner is admitted by a key it derived with the runtime over the channel the runtime
+  inherited, and that key admits no one once the trust root is installed.
+- On an owner link the runtime proves itself first, and the initiator checks that proof before it
+  produces anything derived from its own secret. A program answering in a runtime's place, a runtime
+  nobody certified and a runtime another keyring certified each receive only fresh randomness.
+- Everything after the handshake is protected per direction under keys bound to the whole
+  transcript, so the mode, the runtime start and both ephemerals cannot be changed or moved to
+  another link; a frame that is altered, replayed, reordered or sent back fails and ends the link.
+- A read grant carries the read keys and nothing more, only over an owner link and only from the
+  handover that opened it. A runtime can then read and vouch, but never prove itself the owner,
+  certify another runtime or change the passphrase.
 - The sealing public key in the file is a convenience for locked writers, not a credential. Unlock
   does not depend on it, and a check after unlock reports whether the file still holds the key the
   master key derives.
@@ -46,17 +63,24 @@ is, and when to lock stay with callers.
   slot types and non-canonical encodings are refused rather than ignored; an unknown version is its
   own error. Parsing builds fresh values from validated primitives, so prototype-shaped input is
   never carried over.
-- Derivation labels and wire formats are versioned. Known-answer vectors and a checked-in keyring
-  fixture make any drift visible as a failing test.
-- Every random value (IV, nonce, salt, ephemeral key) is fresh per operation and every new slot gets
-  a fresh id; a passphrase change keeps the id of the slot it replaces. Only the keys derived from the
-  master key are deterministic.
+- Derivation and link labels and every wire format are versioned. Known-answer vectors computed
+  outside the package and a checked-in keyring fixture make any drift visible as a failing test.
+- Every random value (IV, nonce, salt, ephemeral key, instance key) is fresh per operation and every
+  new slot gets a fresh id; a passphrase change keeps the id of the slot it replaces. Only the keys
+  derived from the master key are deterministic; link frame nonces count up under keys that exist
+  for one link.
+- Every link message has an exact length and one decoding, and a refusal carries a fixed reason and
+  never key material.
 
 ## Limits
 
 - **Memory.** Wiping is best effort and covers only buffers this package allocates. A `KeyObject`
-  offers no way to overwrite its contents and a passphrase string cannot be wiped, so `lock()` only
-  stops handing out the keypairs; it erases only the authorship key, which is plain bytes.
+  offers no way to overwrite its contents and a passphrase string cannot be wiped, so `lock()` and
+  `dispose()` only stop handing out keys; they erase only the secrets held as plain bytes, such as
+  the authorship key.
+- **The spawner key before certification.** Until a runtime is certified, its spawner key admits
+  whoever holds it. A program that can read the spawner's memory in that window can certify the
+  runtime to its own keyring first; the owner then sees a certificate that is not theirs.
 - **Truncation.** A record carries no position, so a log cut at a record boundary is still a valid
   log. Detecting missing trailing records is the caller's job (a sequence number in the AAD plus a
   trusted record count or closing record); one record cannot know what follows it.
@@ -86,7 +110,8 @@ is, and when to lock stay with callers.
 - Passphrase policy, guess rate limiting and lockout.
 - Hardware-backed unlock (device secrets, biometrics). The slot union can grow to hold one; none
   exists.
-- Persistence, atomic writes and file permissions; when to lock, and process isolation.
+- Persistence, atomic writes and file permissions; when to lock, process isolation, what a link
+  standing may do, and the stream that carries link messages.
 - Defence against a program that can read the memory of an unlocked process or wait for the user to
   unlock.
 - Algorithm agility. One suite per format version; a new suite is a new version.
@@ -116,3 +141,19 @@ is, and when to lock stay with callers.
   the recovery key, so a forgotten passphrase is recoverable without a second code path.
 - **One AAD for a blob's key header and its record.** A blob is a single artifact; binding both parts
   to the same context keeps the single-step form as safe as the two-step form.
+- **Read keys and the owner handover are separate types.** Whatever holds keys for a while (a
+  terminal session, an unlocked runtime) holds only what reading needs. The attach key, which can
+  certify runtimes and prove ownership, is held for seconds, by the process the credential was typed
+  into, and a type that holds read keys has no way to reach it.
+- **The runtime answers first.** The initiator's proof depends on its secret, so it is made only once
+  the runtime has proven itself; a socket another program took over never sees one.
+- **The spawner key comes from an exchange, not a launch secret.** Deriving it over the inherited
+  channel puts no secret on a descriptor, in the environment or in a file, and binding it to the
+  instance key lets the spawner trust the key it then certifies. It has no lifetime of its own:
+  certification, not a clock, ends spawner standing.
+- **A certificate names the runtime start.** Binding the instance key to the runtime id and generation
+  stops one certificate from vouching for another registration or a later start.
+- **Frame nonces are counters that are never sent.** Each end expects the next one, so a replayed,
+  reordered or dropped frame fails authentication with no separate check to get wrong.
+- **A grant is bytes, never text.** It carries the sealing key's seed and the authorship key, which
+  open straight into a key object and a buffer that are wiped; a string could not be.

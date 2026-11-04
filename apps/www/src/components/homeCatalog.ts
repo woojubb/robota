@@ -100,7 +100,7 @@ export const packageGroups = [
   { id: 'composition', packages: ['agent-product', 'agent-capability-pack', 'pack-coding', 'agent-command', 'agent-preset'] },
   {
     id: 'transports',
-    packages: ['agent-transport', 'agent-transport-ws', 'agent-transport-http', 'agent-transport-mcp', 'agent-transport-acp', 'agent-transport-webrtc', 'agent-remote-pairing', 'agent-ui-terminal'],
+    packages: ['agent-transport', 'agent-transport-ws', 'agent-transport-http', 'agent-transport-mcp', 'agent-transport-acp', 'agent-transport-webrtc', 'agent-transport-link', 'agent-remote-pairing', 'agent-ui-terminal'],
   },
   {
     id: 'contracts',
