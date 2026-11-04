@@ -123,6 +123,7 @@ describe('the spawner pair between real processes', () => {
     const { ended } = await watching;
 
     expect(alive(grandchild!)).toBe(true);
+    // eslint-disable-next-line no-console -- the measurement the native legs report.
     console.info(
       `spawn-before-close on ${process.platform}: the pair ${ended ? 'ended' : 'stayed open'} while the child lived`,
     );

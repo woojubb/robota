@@ -16,6 +16,8 @@ cuts, so an answer sent just before is not lost.
 
 `@robota-sdk/agent-keyring` exports the exchange's message lengths. `@robota-sdk/agent-cli`'s
 `KeyHolder` can take the read keys of an owner link (`unlockWithGrant`): it reports a keyring file
-that holds another sealing key as a mismatch and leaves the file alone.
+that holds another sealing key as a mismatch and leaves the file alone. A secure runtime's custody
+(`RuntimeCustody`) admits links by standing, carries the session protocol in sealed frames and
+locks the keys on the owner's request, when the last link closes and after fifteen idle minutes.
 
 What to do: nothing.
