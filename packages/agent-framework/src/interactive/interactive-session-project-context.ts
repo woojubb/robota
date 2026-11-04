@@ -10,8 +10,7 @@ import {
 
 import type { IInitOptions } from './interactive-session-options.js';
 import type { IHookDefinitionSource } from '../config/config-merge.js';
-import type { IHostSettingsSource } from '../config/settings-source.js';
-import type { IProjectSettingsPath } from '../config/settings-source.js';
+import type { IHostSettingsSource, IProjectSettingsPath } from '../config/settings-source.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
 import type { IProjectInfo } from '../context/project-detector.js';

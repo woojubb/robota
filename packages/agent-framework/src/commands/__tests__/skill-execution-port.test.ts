@@ -6,8 +6,7 @@ import { describe, expect, it } from 'vitest';
 import type { ICommand } from '@robota-sdk/agent-interface-command';
 
 import { createSkillExecutionPort } from '../skill-execution-port.js';
-import { createNodeHostContributionSource } from '../../contributions/node-host-contribution-source.js';
-import { createDefaultUserContributionSources } from '../../contributions/node-host-contribution-source.js';
+import { createDefaultUserContributionSources, createNodeHostContributionSource } from '../../contributions/node-host-contribution-source.js';
 
 /**
  * ARCH-PROVIDER-005 TC-02: the concrete skill-execution port must reproduce the REAL inject-prompt shape

@@ -32,8 +32,7 @@ import type {
 } from '../commands/index.js';
 import type { IHookDefinitionSource } from '../config/config-merge.js';
 import type { IResolvedConfig } from '../config/config-types.js';
-import type { IHostSettingsSource } from '../config/settings-source.js';
-import type { IProjectSettingsPath } from '../config/settings-source.js';
+import type { IHostSettingsSource, IProjectSettingsPath } from '../config/settings-source.js';
 import type { IContributionSource } from '../contributions/index.js';
 import type { IFrameworkHost } from '../host/framework-host.js';
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';

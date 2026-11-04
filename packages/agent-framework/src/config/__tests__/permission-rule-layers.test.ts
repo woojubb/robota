@@ -9,8 +9,7 @@ import {
   removePermissionRule,
 } from '../permission-rule-layers.js';
 
-import type { ISettingsDocumentStore } from '../settings-store-types.js';
-import type { TSettingsData } from '../settings-store-types.js';
+import type { ISettingsDocumentStore, TSettingsData } from '../settings-store-types.js';
 
 function createStore(
   scope: ISettingsDocumentStore['scope'],
