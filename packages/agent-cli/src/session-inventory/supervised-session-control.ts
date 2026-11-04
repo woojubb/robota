@@ -21,6 +21,11 @@ import {
 } from '../external-events/external-event-grant-file.js';
 import { readProcessStartTime } from '../remote-control/local-peer-registry.js';
 import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezvous.js';
+import {
+  CONTROL_ACCESS,
+  isControlCommandName,
+  type TControlCommandName,
+} from './control-access.js';
 import { createSupervisedAttachCarrier, type TSupervisedAttachTarget } from './supervised-attach.js';
 import { connectWindowsControlPipe, WindowsControlPipeServer, windowsControlPipePath, type IControlChannel } from './windows-control-pipe.js';
 import { assertWindowsPrivatePath, createWindowsPrivateDirectory } from './windows-security.js';
@@ -44,9 +49,11 @@ interface IRegistration {
   readonly generation?: string;
 }
 
-type TControlCommand =
-  | 'status' | 'stop' | 'rename' | 'link-pr' | 'unlink-pr' | 'events-list' | 'events-revoke'
-  | 'connect';
+/** The commands a client of the plain socket sends one request line for. */
+type TControlCommand = Extract<
+  TControlCommandName,
+  'status' | 'stop' | 'rename' | 'link-pr' | 'unlink-pr' | 'events-list' | 'events-revoke' | 'connect'
+>;
 
 const GRANT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/u;
 const MAX_GRANT_HANDOFF_BYTES = 256 * 1024;
@@ -896,20 +903,188 @@ export interface ISupervisedControl {
   close(): Promise<void>;
 }
 
-export async function startSupervisedControl(
-  id: string,
-  onStop: () => void,
-  root: string,
-  getActivity?: () => Exclude<TSupervisedActivity, 'unknown'> | undefined,
-  getCwd?: () => string | undefined,
-  getNextLoopAt?: () => string | undefined,
-  getName?: () => string | undefined,
-  onRename?: (name: string) => void,
-  pr?: { readonly get: () => ISupervisedPr | undefined; readonly set: (value: ISupervisedPr | undefined) => void },
-  externalEvents?: ISupervisedExternalEvents,
-  attachTarget?: TSupervisedAttachTarget,
-  daemon?: ISupervisedDaemon,
-): Promise<ISupervisedControl> {
+/** What a control endpoint observes of its runtime; whatever is left out is not reported. */
+export interface IControlObservation {
+  readonly activity?: (() => Exclude<TSupervisedActivity, 'unknown'> | undefined) | undefined;
+  readonly cwd?: (() => string | undefined) | undefined;
+  readonly nextLoopAt?: (() => string | undefined) | undefined;
+  readonly name?: (() => string | undefined) | undefined;
+}
+
+export interface ISupervisedControlOptions {
+  /** The runtime's supervised id, the name of its registration and socket. */
+  readonly id: string;
+  /** The private directory the registration and socket live in. */
+  readonly root: string;
+  /** Called after a stop request has been answered. */
+  readonly onStop: () => void;
+  readonly observe?: IControlObservation | undefined;
+  readonly rename?: ((name: string) => void) | undefined;
+  readonly pr?:
+    | {
+        readonly get: () => ISupervisedPr | undefined;
+        readonly set: (value: ISupervisedPr | undefined) => void;
+      }
+    | undefined;
+  readonly externalEvents?: ISupervisedExternalEvents | undefined;
+  readonly attachTarget?: TSupervisedAttachTarget | undefined;
+  readonly daemon?: ISupervisedDaemon | undefined;
+}
+
+/** What one command answers, and what must happen once the answer has been written. */
+interface IControlOutcome {
+  readonly body: Record<string, unknown>;
+  readonly afterReply?: () => void;
+}
+
+/**
+ * One request's fields as a command reads them: the plain socket's request line, or the fields of an
+ * owner link's `control` request.
+ */
+type TControlRequest = Readonly<Record<string, unknown>>;
+
+/**
+ * Every command that answers from the runtime's own state, in one place, so the plain socket and an
+ * owner link's `control` request give the same answers. A command whose handler the runtime did not
+ * supply answers `refused`, as does one that is not an answer from state (attach, lock, link).
+ */
+function createControlHandler(
+  options: ISupervisedControlOptions,
+): (command: TControlCommandName, request: TControlRequest) => IControlOutcome {
+  const { observe, rename, pr, externalEvents, daemon } = options;
+  const refused: IControlOutcome = { body: { status: 'refused' } };
+  const status = (): IControlOutcome => {
+    let observed: unknown;
+    let cwd: string | undefined;
+    let nextLoopAt: unknown;
+    let name: unknown;
+    let linkedPr: unknown;
+    try {
+      observed = observe?.activity?.();
+    } catch {
+      // A failed observation cannot turn a verified control endpoint into a false activity claim.
+    }
+    try {
+      cwd = observe?.cwd?.();
+    } catch {
+      // A directory that cannot be verified is omitted, never guessed from registration data.
+    }
+    if (observed === 'idle') {
+      try {
+        nextLoopAt = observe?.nextLoopAt?.();
+      } catch {
+        // A failed loop observation cannot turn an idle session into a false wake claim.
+      }
+    }
+    try {
+      name = observe?.name?.();
+    } catch {
+      // A failed name observation does not change the session's verified activity.
+    }
+    try {
+      linkedPr = pr?.get();
+    } catch {
+      // A failed association observation cannot create a link.
+    }
+    let grants: TSupervisedGrantSummary[] | undefined;
+    try {
+      grants = externalEvents?.list().map(({ grantId, state, counters }) => ({ grantId, state, counters }));
+    } catch {
+      // Counts that cannot be read are omitted, never guessed.
+    }
+    return {
+      body: {
+        status: 'running',
+        activity: isCurrentActivity(observed) ? observed : 'unknown',
+        ...(typeof cwd === 'string' && isAbsolute(cwd) && cwd.length <= 4_096 ? { cwd } : {}),
+        ...(isLoopTime(nextLoopAt) ? { nextLoopAt } : {}),
+        ...(isSupervisedSessionName(name) ? { name } : {}),
+        ...(isSupervisedPr(linkedPr) ? { pr: linkedPr } : {}),
+        ...(grants !== undefined && grants.length > 0 ? { externalEvents: grants } : {}),
+        ...(daemon !== undefined
+          ? { daemon: true, ...(daemon.restricted === true ? { restricted: true } : {}) }
+          : {}),
+      },
+    };
+  };
+  return (command, request) => {
+    switch (command) {
+      case 'status':
+        return status();
+      case 'connect': {
+        if (daemon === undefined) return refused;
+        let url: unknown;
+        try {
+          url = daemon.url();
+        } catch {
+          // A URL that cannot be read is never guessed.
+        }
+        return isDaemonUrl(url) ? { body: { status: 'connected', url } } : refused;
+      }
+      case 'stop':
+        return { body: { status: 'stopping' }, afterReply: options.onStop };
+      case 'rename': {
+        const name = request['name'];
+        if (!isSupervisedSessionName(name) || rename === undefined) return refused;
+        try {
+          rename(name);
+          return { body: { status: 'renamed' } };
+        } catch {
+          return refused;
+        }
+      }
+      case 'link-pr': {
+        if (!('url' in request) || pr?.set === undefined) return refused;
+        const linked = parseSupervisedPr(request['url']);
+        if (!linked) return refused;
+        try {
+          pr.set(linked);
+          return { body: { status: 'linked' } };
+        } catch {
+          return refused;
+        }
+      }
+      case 'events-list': {
+        if (externalEvents === undefined) return refused;
+        try {
+          return { body: { status: 'events', grants: externalEvents.list() } };
+        } catch {
+          return refused;
+        }
+      }
+      case 'events-revoke': {
+        const grantId = request['grantId'];
+        if (externalEvents === undefined || typeof grantId !== 'string' || !GRANT_ID_PATTERN.test(grantId)) {
+          return refused;
+        }
+        try {
+          return {
+            body: externalEvents.revoke(grantId) === 'revoked'
+              ? { status: 'revoked' }
+              : { status: 'refused', reason: 'unknown-grant' },
+          };
+        } catch {
+          return refused;
+        }
+      }
+      case 'unlink-pr': {
+        if (pr?.set === undefined) return refused;
+        try {
+          pr.set(undefined);
+          return { body: { status: 'unlinked' } };
+        } catch {
+          return refused;
+        }
+      }
+      default:
+        // `attach` needs its socket, and `lock`, `link` and the daemon role are not plain commands.
+        return refused;
+    }
+  };
+}
+
+export async function serveSupervisedControl(options: ISupervisedControlOptions): Promise<ISupervisedControl> {
+  const { id, root, attachTarget } = options;
   if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
   ensurePrivateDirectory(root);
   const directory = sessionDirectory(root, id);
@@ -929,6 +1104,7 @@ export async function startSupervisedControl(
   const attach = attachTarget === undefined
     ? undefined
     : createSupervisedAttachCarrier(attachTarget);
+  const handle = createControlHandler(options);
   const clients = new Set<IControlChannel>();
   const onConnection = (socket: IControlChannel): void => {
     clients.add(socket);
@@ -952,7 +1128,12 @@ export async function startSupervisedControl(
         refuse(socket, 'stale-generation');
         return;
       }
-      if (value.command === 'attach') {
+      const command = value.command;
+      if (!isControlCommandName(command) || CONTROL_ACCESS[command].plain !== 'open') {
+        reply(socket, { status: 'refused' });
+        return;
+      }
+      if (command === 'attach') {
         // Hold the next frames until the protocol takes over. This runs before any further data
         // event, so nothing sent after the handshake is dropped.
         socket.pause();
@@ -973,107 +1154,9 @@ export async function startSupervisedControl(
         }).catch(() => socket.destroy());
         return;
       }
-      if (value.command === 'status') {
-        let observed: unknown;
-        let cwd: string | undefined;
-        let nextLoopAt: unknown;
-        let name: unknown;
-        let linkedPr: unknown;
-        try {
-          observed = getActivity?.();
-        } catch {
-          // A failed observation cannot turn a verified control endpoint into a false activity claim.
-        }
-        try {
-          cwd = getCwd?.();
-        } catch {
-          // A directory that cannot be verified is omitted, never guessed from registration data.
-        }
-        if (observed === 'idle') {
-          try {
-            nextLoopAt = getNextLoopAt?.();
-          } catch {
-            // A failed loop observation cannot turn an idle session into a false wake claim.
-          }
-        }
-        try {
-          name = getName?.();
-        } catch {
-          // A failed name observation does not change the session's verified activity.
-        }
-        try {
-          linkedPr = pr?.get();
-        } catch {
-          // A failed association observation cannot create a link.
-        }
-        let grants: TSupervisedGrantSummary[] | undefined;
-        try {
-          grants = externalEvents?.list().map(({ grantId, state, counters }) => ({ grantId, state, counters }));
-        } catch {
-          // Counts that cannot be read are omitted, never guessed.
-        }
-        reply(socket, { status: 'running', activity: isCurrentActivity(observed) ? observed : 'unknown',
-          ...(typeof cwd === 'string' && isAbsolute(cwd) && cwd.length <= 4_096 ? { cwd } : {}),
-          ...(isLoopTime(nextLoopAt) ? { nextLoopAt } : {}),
-          ...(isSupervisedSessionName(name) ? { name } : {}),
-          ...(isSupervisedPr(linkedPr) ? { pr: linkedPr } : {}),
-          ...(grants !== undefined && grants.length > 0 ? { externalEvents: grants } : {}),
-          ...(daemon !== undefined ? { daemon: true, ...(daemon.restricted === true ? { restricted: true } : {}) } : {}) });
-      } else if (value.command === 'connect' && daemon !== undefined) {
-        let url: unknown;
-        try {
-          url = daemon.url();
-        } catch {
-          // A URL that cannot be read is never guessed.
-        }
-        reply(socket, isDaemonUrl(url) ? { status: 'connected', url } : { status: 'refused' });
-      } else if (value.command === 'stop') {
-        socket.once('finish', onStop);
-        reply(socket, { status: 'stopping' });
-      } else if (value.command === 'rename' && 'name' in value &&
-        isSupervisedSessionName(value.name) && onRename !== undefined) {
-        try {
-          onRename(value.name);
-          reply(socket, { status: 'renamed' });
-        } catch {
-          reply(socket, { status: 'refused' });
-        }
-      } else if (value.command === 'link-pr' && 'url' in value && pr?.set !== undefined) {
-        const linked = parseSupervisedPr(value.url);
-        if (!linked) {
-          reply(socket, { status: 'refused' });
-          return;
-        }
-        try {
-          pr.set(linked);
-          reply(socket, { status: 'linked' });
-        } catch {
-          reply(socket, { status: 'refused' });
-        }
-      } else if (value.command === 'events-list' && externalEvents !== undefined) {
-        try {
-          reply(socket, { status: 'events', grants: externalEvents.list() });
-        } catch {
-          reply(socket, { status: 'refused' });
-        }
-      } else if (value.command === 'events-revoke' && externalEvents !== undefined &&
-        'grantId' in value && typeof value.grantId === 'string' && GRANT_ID_PATTERN.test(value.grantId)) {
-        try {
-          reply(socket, externalEvents.revoke(value.grantId) === 'revoked'
-            ? { status: 'revoked' } : { status: 'refused', reason: 'unknown-grant' });
-        } catch {
-          reply(socket, { status: 'refused' });
-        }
-      } else if (value.command === 'unlink-pr' && pr?.set !== undefined) {
-        try {
-          pr.set(undefined);
-          reply(socket, { status: 'unlinked' });
-        } catch {
-          reply(socket, { status: 'refused' });
-        }
-      } else {
-        reply(socket, { status: 'refused' });
-      }
+      const outcome = handle(command, value as TControlRequest);
+      if (outcome.afterReply !== undefined) socket.once('finish', outcome.afterReply);
+      reply(socket, outcome.body);
     }).catch(() => socket.destroy());
   };
   const server = process.platform === 'win32' ? new WindowsControlPipeServer(onConnection) : createServer(onConnection);
@@ -1120,4 +1203,35 @@ export async function startSupervisedControl(
       rmSync(directory, { recursive: true, force: true });
     },
   };
+}
+
+/**
+ * The positional entry the runtime's startup still calls, until that startup is converted to
+ * {@link serveSupervisedControl}'s options object and this entry takes its name.
+ */
+export function startSupervisedControl(
+  id: string,
+  onStop: () => void,
+  root: string,
+  getActivity?: IControlObservation['activity'],
+  getCwd?: IControlObservation['cwd'],
+  getNextLoopAt?: IControlObservation['nextLoopAt'],
+  getName?: IControlObservation['name'],
+  onRename?: ISupervisedControlOptions['rename'],
+  pr?: ISupervisedControlOptions['pr'],
+  externalEvents?: ISupervisedExternalEvents,
+  attachTarget?: TSupervisedAttachTarget,
+  daemon?: ISupervisedDaemon,
+): Promise<ISupervisedControl> {
+  return serveSupervisedControl({
+    id,
+    onStop,
+    root,
+    observe: { activity: getActivity, cwd: getCwd, nextLoopAt: getNextLoopAt, name: getName },
+    rename: onRename,
+    pr,
+    externalEvents,
+    attachTarget,
+    daemon,
+  });
 }
