@@ -5,9 +5,9 @@
  * concurrent writes from overwriting each other's changes.
  */
 
-import { dirname } from 'node:path';
+import { dirnamePath } from '@robota-sdk/agent-core';
 
-import { NodeFileSystem } from '../adapters/node-file-system.js';
+import { requirePluginFileSystem } from './plugin-file-system.js';
 
 import type { TMarketplaceSource } from './marketplace-types.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
@@ -28,9 +28,9 @@ export class NodeHostPluginSettingsStore {
   private readonly settingsPath: string;
   private readonly fs: IFileSystem;
 
-  constructor(settingsPath: string, fs: IFileSystem = new NodeFileSystem()) {
+  constructor(settingsPath: string, fs: IFileSystem) {
     this.settingsPath = settingsPath;
-    this.fs = fs;
+    this.fs = requirePluginFileSystem(fs, 'NodeHostPluginSettingsStore');
   }
 
   /**
@@ -63,7 +63,7 @@ export class NodeHostPluginSettingsStore {
 
   /** Write the full settings file to disk. */
   private writeAll(settings: Record<string, unknown>): void {
-    const dir = dirname(this.settingsPath);
+    const dir = dirnamePath(this.settingsPath);
     if (!this.fs.existsSync(dir)) {
       this.fs.mkdirSync(dir, { recursive: true });
     }

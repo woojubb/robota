@@ -447,6 +447,7 @@ describe('provider-factory', () => {
 
     createProviderFromSettings(cwd, undefined, {
       providerDefinitions: DEFAULT_PROVIDER_DEFINITIONS,
+      env: process.env,
     });
 
     expect(AnthropicProvider).toHaveBeenCalledWith({

@@ -7,6 +7,7 @@ import {
   rememberProviderDestination,
 } from '../advisor/provider-destination.js';
 import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
+import type { TProviderEnvironment } from '../command-api/provider/provider-environment.js';
 
 import { createProviderFromConfig } from '@robota-sdk/agent-core';
 import type { IProviderDefinition, TProviderCredentialResolver } from '@robota-sdk/agent-core';
@@ -16,7 +17,7 @@ export async function resolveUserSettingsProviderSwitchAsync(
   profileName: string,
   providerDefinitions: readonly IProviderDefinition[],
   sources: readonly INodeHostSettingsSource[],
-  environment?: Readonly<Record<string, string | undefined>>,
+  environment?: TProviderEnvironment,
   resolveCredential?: TProviderCredentialResolver,
 ): Promise<ReturnType<typeof resolveUserSettingsProviderSwitch>> {
   if (resolveCredential === undefined)
@@ -42,7 +43,7 @@ export function resolveUserSettingsProviderSwitch(
   profileName: string,
   providerDefinitions: readonly IProviderDefinition[],
   sources: readonly INodeHostSettingsSource[],
-  environment?: Readonly<Record<string, string | undefined>>,
+  environment?: TProviderEnvironment,
 ): {
   settings: ReturnType<typeof readProviderSettings>;
   provider: ReturnType<typeof createProviderFromSettings>;

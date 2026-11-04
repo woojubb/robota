@@ -1,4 +1,5 @@
 import { loadHostBundlePluginInspectionFromScopes } from '@robota-sdk/agent-framework';
+import { NodeFileSystem } from '@robota-sdk/agent-framework/node';
 import { decodeSource } from '@robota-sdk/agent-mcp';
 import { pluginScopeDirs } from '../plugins/default-plugin-command-source-loader.js';
 import { productUserSettingsPath } from '../product/user-settings.js';
@@ -29,7 +30,7 @@ export function pluginMcpCandidates(
   const seen = new Set<string>();
   for (const inspection of loadHostBundlePluginInspectionFromScopes(
     pluginScopeDirs(cwd, runtime, projectAccess),
-    { settingsPath: productUserSettingsPath(runtime) },
+    { settingsPath: productUserSettingsPath(runtime), fs: new NodeFileSystem() },
   )) {
     for (const skipped of inspection.skipped) {
       if (skipped.reason === 'disabled') continue;

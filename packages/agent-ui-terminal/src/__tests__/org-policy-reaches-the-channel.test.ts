@@ -16,7 +16,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { loadOrgPolicy } from '@robota-sdk/agent-framework';
+import { loadOrgPolicy } from '@robota-sdk/agent-framework/node';
 import { describe, expect, it, vi } from 'vitest';
 
 import { toChannelOptions } from '../render.js';

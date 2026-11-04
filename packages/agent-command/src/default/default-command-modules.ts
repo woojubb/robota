@@ -54,6 +54,7 @@ import type {
   IProviderCommandSettingsAdapter,
   IProviderConnectionHost,
   IUnknownCommandModuleName,
+  TProviderEnvironment,
 } from '@robota-sdk/agent-framework';
 import type { IThemeCataloguePort } from '@robota-sdk/agent-interface-command';
 
@@ -77,9 +78,10 @@ export interface IDefaultCommandModulesOptions {
   orgPolicy?: IOrgPolicy;
   /**
    * Where `/provider` and `/model` check a `$ENV:` or default credential variable: the host's startup
-   * snapshot when it withholds its own credentials from `process.env`. Absent, `process.env` is read.
+   * snapshot (a map) when it withholds its own credentials from `process.env`, or a resolver such as
+   * `host.env`. Absent, every reference reads as unset: the commands do not read `process.env`.
    */
-  providerEnvironment?: Readonly<Record<string, string | undefined>>;
+  providerEnvironment?: TProviderEnvironment;
   /** Host-owned connection acquisition and transactional credential persistence. */
   providerConnectionHost?: IProviderConnectionHost;
   /** Host-owned resolution of an opaque saved credential reference. */

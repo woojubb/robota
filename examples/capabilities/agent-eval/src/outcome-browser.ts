@@ -38,7 +38,7 @@ import { createStdioAdapter } from '@robota-sdk/agent-mcp/node';
 
 import { startBrowserDemo } from './outcome-browser-demo.js';
 import { assertBrowserReconciled } from './outcome-browser-reconciliation.js';
-import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { NodeFileSystem, createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const host = createNodeFrameworkHost({ createDefaultTools });
@@ -247,6 +247,7 @@ try {
   const plugin = createHostBundlePluginLoader({
     pluginsDir,
     enabledPlugins: { 'browser-pilot@pilot': true },
+    fs: new NodeFileSystem(),
   }).loadPluginsSync()[0];
   const config = plugin?.mcpConfig as
     { mcpServers?: { browser?: { command?: string; args?: string[] } } } | undefined;

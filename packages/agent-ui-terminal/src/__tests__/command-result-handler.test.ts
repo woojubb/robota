@@ -19,6 +19,7 @@ import {
   BundlePluginLoader,
   PluginCommandSource,
 } from '@robota-sdk/agent-framework';
+import { NodeFileSystem } from '@robota-sdk/agent-framework/node';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import { TuiStateManager } from '../tui-state-manager.js';
 import { applySystemCommandResult } from '../hooks/command-result-handler.js';
@@ -27,7 +28,7 @@ const PLUGIN_SOURCE_NAME = 'plugin';
 
 function reloadPluginCommandSource(registry: CommandRegistry): void {
   const pluginsDir = join(process.env.HOME ?? homedir(), 'state', 'plugins');
-  const loader = new BundlePluginLoader(pluginsDir);
+  const loader = new BundlePluginLoader(pluginsDir, undefined, new NodeFileSystem());
   try {
     // allow-fallback: test helper — empty registry on load error is safe
     const plugins = loader.loadPluginsSync();

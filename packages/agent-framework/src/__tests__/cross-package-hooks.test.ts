@@ -23,6 +23,10 @@ import type { IPromptProvider } from '../hooks/index.js';
 import type { IBundleSkill, ILoadedBundlePlugin } from '../plugins/index.js';
 import type { THooksConfig, IHookInput, IHookTypeExecutor } from '@robota-sdk/agent-core';
 
+import { NodeFileSystem } from '../adapters/node-file-system.js';
+
+const nodeFs = new NodeFileSystem();
+
 const nodeExecutors = [new CommandExecutor(), new HttpExecutor()];
 let tempDirs: string[] = [];
 
@@ -349,7 +353,7 @@ describe('Cross-package: BundlePlugin -> system prompt', () => {
       ].join('\n'),
     );
 
-    const loader = new BundlePluginLoader(tempDir);
+    const loader = new BundlePluginLoader(tempDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -420,7 +424,7 @@ describe('Cross-package: BundlePlugin -> system prompt', () => {
       '---\ndescription: Format code\n---\n# Format',
     );
 
-    const loader = new BundlePluginLoader(tempDir);
+    const loader = new BundlePluginLoader(tempDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(2);

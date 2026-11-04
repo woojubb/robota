@@ -12,12 +12,15 @@ import { join } from 'node:path';
 
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 
-import { NodeFileSystem } from '../../adapters/node-file-system.js';
 import { BundlePluginInstaller } from '../bundle-plugin-installer.js';
 import { MarketplaceClient } from '../marketplace-client.js';
 import { NodeHostPluginSettingsStore } from '../plugin-settings-store.js';
 
 import type { TExecFn } from '../marketplace-types.js';
+
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
+
+const nodeFs = new NodeFileSystem();
 
 const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-installer-test-')));
 
@@ -45,12 +48,12 @@ describe('BundlePluginInstaller', () => {
 
     mockExec = vi.fn().mockReturnValue('');
 
-    marketplaceClient = new MarketplaceClient({ pluginsDir, exec: mockExec as TExecFn });
+    marketplaceClient = new MarketplaceClient({ pluginsDir, exec: mockExec as TExecFn, fs: nodeFs });
 
     installerFs = new NodeFileSystem();
     installer = new BundlePluginInstaller({
       pluginsDir,
-      settingsStore: new NodeHostPluginSettingsStore(settingsPath),
+      settingsStore: new NodeHostPluginSettingsStore(settingsPath, nodeFs),
       marketplaceClient,
       exec: mockExec as TExecFn,
       fs: installerFs,

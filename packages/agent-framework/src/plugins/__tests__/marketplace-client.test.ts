@@ -12,6 +12,7 @@ import { join } from 'node:path';
 
 import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
 import { MarketplaceClient } from '../marketplace-client.js';
 
 import type { TMarketplaceSource } from '../marketplace-client.js';
@@ -41,6 +42,7 @@ describe('MarketplaceClient', () => {
     client = new MarketplaceClient({
       pluginsDir,
       exec: mockExec as unknown as TExecFn,
+      fs: new NodeFileSystem(),
     });
   });
 

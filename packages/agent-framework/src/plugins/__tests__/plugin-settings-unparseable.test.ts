@@ -12,6 +12,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { loadHostBundlePluginsFromScopes } from '../host-bundle-plugin-loader.js';
 import { NodeHostPluginSettingsStore } from '../plugin-settings-store.js';
 
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
+
+const nodeFs = new NodeFileSystem();
+
 const roots: string[] = [];
 
 afterEach(() => {
@@ -50,7 +54,7 @@ describe('an unparseable plugin settings file', () => {
     const settingsPath = join(root, 'settings.json');
     writeFileSync(settingsPath, UNPARSEABLE);
 
-    expect(() => loadHostBundlePluginsFromScopes([pluginsDir], { settingsPath })).toThrow(
+    expect(() => loadHostBundlePluginsFromScopes([pluginsDir], { settingsPath, fs: nodeFs })).toThrow(
       /not valid JSON/,
     );
   });
@@ -59,7 +63,7 @@ describe('an unparseable plugin settings file', () => {
     const root = tempRoot();
     const settingsPath = join(root, 'settings.json');
     writeFileSync(settingsPath, UNPARSEABLE);
-    const store = new NodeHostPluginSettingsStore(settingsPath);
+    const store = new NodeHostPluginSettingsStore(settingsPath, nodeFs);
 
     expect(() => store.setPluginEnabled('helper', true)).toThrow(/not valid JSON/);
     expect(readFileSync(settingsPath, 'utf8')).toBe(UNPARSEABLE);
@@ -67,7 +71,7 @@ describe('an unparseable plugin settings file', () => {
 
   it('still reads a missing file as nothing disabled', () => {
     const root = tempRoot();
-    const store = new NodeHostPluginSettingsStore(join(root, 'settings.json'));
+    const store = new NodeHostPluginSettingsStore(join(root, 'settings.json'), nodeFs);
 
     expect(store.getEnabledPlugins()).toEqual({});
   });

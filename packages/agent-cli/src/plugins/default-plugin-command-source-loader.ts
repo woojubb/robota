@@ -7,6 +7,7 @@ import {
   loadHostBundlePluginsFromScopes,
   PluginCommandSource,
 } from '@robota-sdk/agent-framework';
+import { NodeFileSystem } from '@robota-sdk/agent-framework/node';
 
 import type { CommandRegistry, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import { productUserSettingsPath } from '../product/user-settings.js';
@@ -67,7 +68,7 @@ export function reloadPluginCommandSource(
     // allow-fallback: plugin load failure is non-fatal — clear source and return empty
     const plugins = loadHostBundlePluginsFromScopes(
       pluginScopeDirs(cwd, runtime, projectAccess),
-      { settingsPath: productUserSettingsPath(runtime) },
+      { settingsPath: productUserSettingsPath(runtime), fs: new NodeFileSystem() },
     );
     if (plugins.length === 0) {
       registry.replaceSource(PLUGIN_SOURCE_NAME);

@@ -276,7 +276,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   supplies its own, so a project file cannot redirect a user's key to a different endpoint.
 - **Provider resolution order is fixed and total.** An explicit settings profile always wins; failing
   that, env-default synthesis picks the first provider definition (in definition order) whose default
-  API key references an environment variable that is set and non-empty, and which also has a default
+  API key references an environment variable that is set and non-empty in the environment the host
+  passes (with none, nothing is set and synthesis finds nothing), and which also has a default
   model; failing
   that, provider resolution throws a typed configuration error. An existing-but-corrupt settings file
   is never treated as a missing one — it fails fast with a typed parse error naming the file and the

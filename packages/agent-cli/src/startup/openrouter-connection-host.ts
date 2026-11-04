@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { createHostCredentialStore } from '../credentials/select-credential-store.js';
 import { openInBrowser } from './browser-opener.js';
 import { acquireOpenRouterKey } from './openrouter-oauth.js';
-import { loadOrgPolicy } from '@robota-sdk/agent-framework';
+import { loadOrgPolicy } from '@robota-sdk/agent-framework/node';
 import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
 
 import type {

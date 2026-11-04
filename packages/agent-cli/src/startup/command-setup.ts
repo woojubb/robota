@@ -4,7 +4,6 @@ import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
   createSettingsPermissionRulesAdapter,
   deleteSettings,
-  loadOrgPolicy,
   OrgPolicyParseError,
   readMergedProviderSettings,
   readSettings,
@@ -12,6 +11,7 @@ import {
   resolveProviderSettingsWriteTarget,
   writeSettings,
 } from '@robota-sdk/agent-framework';
+import { loadOrgPolicy } from '@robota-sdk/agent-framework/node';
 import type {
   IOrgPolicy,
   ICommandHostAdapters,

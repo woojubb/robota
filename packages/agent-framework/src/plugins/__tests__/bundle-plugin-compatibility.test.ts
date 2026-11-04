@@ -4,6 +4,10 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { BundlePluginLoader } from '../bundle-plugin-loader.js';
 
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
+
+const nodeFs = new NodeFileSystem();
+
 const roots: string[] = [];
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
@@ -31,7 +35,7 @@ describe('external bundle compatibility', () => {
       join(path, 'skills', 'observe', 'SKILL.md'),
       '---\ndescription: Observe fixture state\n---\nRead current state.',
     );
-    const loaded = new BundlePluginLoader(pluginsDir).loadPluginsSync();
+    const loaded = new BundlePluginLoader(pluginsDir, undefined, nodeFs).loadPluginsSync();
     expect(loaded).toHaveLength(1);
     expect(loaded[0]!.manifest.version).toBeUndefined();
     expect(loaded[0]!.skills[0]!.description).toBe('Observe fixture state');
@@ -53,7 +57,7 @@ describe('external bundle compatibility', () => {
         installedAt: 'fixture',
       },
     });
-    const loaded = new BundlePluginLoader(pluginsDir).loadPluginsSync();
+    const loaded = new BundlePluginLoader(pluginsDir, undefined, nodeFs).loadPluginsSync();
     expect(loaded).toHaveLength(1);
     expect(loaded[0]!.pluginDir).toBe(installed);
   });
@@ -61,7 +65,7 @@ describe('external bundle compatibility', () => {
     const pluginsDir = root();
     for (const revision of ['1.0', '2.0'])
       bundle(pluginsDir, revision, { name: 'external', version: revision, description: 'fixture' });
-    const inspection = new BundlePluginLoader(pluginsDir).inspectPluginsSync();
+    const inspection = new BundlePluginLoader(pluginsDir, undefined, nodeFs).inspectPluginsSync();
     expect(inspection.loaded).toEqual([]);
     expect(inspection.skipped[0]!.reason).toBe('revision-unselected');
   });
@@ -90,7 +94,7 @@ describe('external bundle compatibility', () => {
                 },
               },
         );
-      const inspection = new BundlePluginLoader(pluginsDir).inspectPluginsSync();
+      const inspection = new BundlePluginLoader(pluginsDir, undefined, nodeFs).inspectPluginsSync();
       expect(inspection.loaded).toEqual([]);
       expect(inspection.skipped[0]!.reason).toBe('revision-unselected');
     },
@@ -107,7 +111,7 @@ describe('external bundle compatibility', () => {
     const parent = join(pluginsDir, 'cache', 'market', 'external');
     mkdirSync(parent, { recursive: true });
     symlinkSync(external, join(parent, 'source-abc'), 'dir');
-    const inspection = new BundlePluginLoader(pluginsDir).inspectPluginsSync();
+    const inspection = new BundlePluginLoader(pluginsDir, undefined, nodeFs).inspectPluginsSync();
     expect(inspection.loaded).toEqual([]);
     expect(inspection.skipped[0]!.reason).toBe('revision-unselected');
   });
@@ -120,7 +124,7 @@ describe('external bundle compatibility', () => {
     });
     const inspection = new BundlePluginLoader(pluginsDir, {
       'external@market': false,
-    }).inspectPluginsSync();
+    }, nodeFs).inspectPluginsSync();
     expect(inspection.loaded).toEqual([]);
     expect(inspection.skipped[0]!.reason).toBe('disabled');
   });
@@ -139,7 +143,7 @@ describe('external bundle compatibility', () => {
       missing === 'manifest' ? join(path, '.claude-plugin', 'plugin.json') : join(path, '..'),
       { recursive: true, force: true },
     );
-    const inspection = new BundlePluginLoader(pluginsDir).inspectPluginsSync();
+    const inspection = new BundlePluginLoader(pluginsDir, undefined, nodeFs).inspectPluginsSync();
     expect(inspection.loaded).toEqual([]);
     expect(inspection.skipped).toEqual([
       expect.objectContaining({

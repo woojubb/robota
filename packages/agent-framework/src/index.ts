@@ -210,7 +210,6 @@ export type {} from './capabilities/types.js';
 export type { IOrgPolicy } from './command-api/org-policy/index.js';
 export type { ICommandCostBudget, ICommandCostBudgetAdapter } from './command-api/index.js';
 export {
-  loadOrgPolicy,
   formatOrgPolicyViolationMessage,
   isApiKeyPlaintext,
   OrgPolicyParseError,
@@ -284,6 +283,7 @@ export type {
   IActiveModelChangeOptions,
   IActiveModelChangeResult,
   IReadProviderSettingsOptions,
+  TProviderEnvironment,
   IModelListSelection,
   IContextReferenceAddResult,
   IContextReferenceClearResult,
@@ -327,7 +327,6 @@ export {
   buildProviderProfile,
   buildProviderSetupPatch,
   checkSettingsDocument,
-  checkNodeHostSettingsFile,
   applyProviderConfiguration,
   applyProviderSwitch,
   applyActiveModelChange,
@@ -341,6 +340,7 @@ export {
   readMergedProviderSettings,
   readProviderSettings,
   resolveEnvDefaultProvider,
+  resolveProviderEnvironment,
   buildModelListSnapshot,
   resolveModelListSelection,
   buildProviderProfilesSnapshot,

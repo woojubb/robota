@@ -1,5 +1,3 @@
-import { existsSync, readFileSync } from 'node:fs';
-
 import {
   findProviderDefinition,
   getProviderCredentialRequirement,
@@ -10,23 +8,25 @@ import {
   type TProviderCredentialField,
   type TProviderCredentialReference,
 } from '@robota-sdk/agent-core';
-import { processEnvResolver } from '@robota-sdk/agent-core/node';
 
+import { resolveProviderEnvironment } from './provider-environment.js';
+
+import type { TProviderEnvironment } from './provider-environment.js';
 import type { TProviderSettingsDocument } from './provider-settings.js';
 
 export type TSettingsCheck = 'missing' | 'valid' | 'corrupt' | 'incomplete';
 
 /**
- * `environment` is the map `$ENV:` references resolve against — the host's startup snapshot, since
- * the live process environment may have dropped credentials it holds for itself.
+ * `environment` is what `$ENV:` references resolve against — the host's startup snapshot, since the
+ * live process environment may have dropped credentials it holds for itself. Absent, every reference
+ * reads as unset, so a document whose credential is an environment reference is `incomplete`.
  */
 export function checkSettingsDocument(
   settings: TProviderSettingsDocument,
   providerDefinitions: readonly IProviderDefinition[] = [],
-  environment?: Readonly<Record<string, string | undefined>>,
+  environment?: TProviderEnvironment,
 ): TSettingsCheck {
-  const resolve: TEnvResolver =
-    environment === undefined ? processEnvResolver : (name) => environment[name];
+  const resolve: TEnvResolver = resolveProviderEnvironment(environment);
   return hasUsableProviderConfig(settings, providerDefinitions, resolve) ? 'valid' : 'incomplete';
 }
 
@@ -86,21 +86,4 @@ function resolveProviderCredentialValue(
   definition: IProviderDefinition,
 ): string | undefined {
   return profile[field] ?? definition.defaults?.[field];
-}
-
-/** Explicit host-filesystem settings probe. This does not establish project trust. */
-export function checkNodeHostSettingsFile(
-  filePath: string,
-  providerDefinitions: readonly IProviderDefinition[] = [],
-): TSettingsCheck {
-  if (!existsSync(filePath)) return 'missing';
-  try {
-    const raw = readFileSync(filePath, 'utf8').trim();
-    if (raw.length === 0) return 'incomplete';
-    const parsed = JSON.parse(raw) as TProviderSettingsDocument;
-    return checkSettingsDocument(parsed, providerDefinitions);
-  } catch {
-    // allow-fallback: corrupt settings file is a valid terminal state ('corrupt')
-    return 'corrupt';
-  }
 }

@@ -31,6 +31,10 @@ import type { IForkExecutionOptions } from '../commands/skill-executor.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { THooksConfig, IHookInput } from '@robota-sdk/agent-core';
 
+import { NodeFileSystem } from '../adapters/node-file-system.js';
+
+const nodeFs = new NodeFileSystem();
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -381,7 +385,7 @@ describe('E2E: Plugin install and discover', () => {
     cpSync(sourcePluginDir, targetDir, { recursive: true });
 
     // 3. Use BundlePluginLoader to discover installed plugins
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     // 4. Verify plugin skills are loaded with correct namespace
@@ -425,7 +429,7 @@ describe('E2E: Plugin install and discover', () => {
     );
 
     // 2. Verify skills are visible (enabled by default)
-    const enabledLoader = new BundlePluginLoader(pluginsDir);
+    const enabledLoader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const enabledPlugins = await enabledLoader.loadAll();
     expect(enabledPlugins).toHaveLength(1);
     expect(enabledPlugins[0]!.skills).toHaveLength(1);
@@ -437,7 +441,7 @@ describe('E2E: Plugin install and discover', () => {
     // 3. Disable the plugin by passing enabledPlugins config (using pluginName@marketplace key)
     const disabledLoader = new BundlePluginLoader(pluginsDir, {
       'temp-plugin@market': false,
-    });
+    }, nodeFs);
 
     // 4. Reload plugins
     const disabledPlugins = await disabledLoader.loadAll();
@@ -595,7 +599,7 @@ describe('E2E: CommandRegistry aggregation', () => {
     );
 
     // Load plugin
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
     expect(plugins).toHaveLength(1);
 

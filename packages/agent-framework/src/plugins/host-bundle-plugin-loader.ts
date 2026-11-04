@@ -43,8 +43,8 @@ export interface IHostBundlePluginLoaderOptions {
   pluginsDir: string;
   /** Host-owned settings file used when enabledPlugins is not supplied. */
   settingsPath?: string;
-  /** Injectable for tests; both the store and the loader read through it. */
-  fs?: IFileSystem;
+  /** The files both the settings store and the loader read through. No default: the host names them. */
+  fs: IFileSystem;
   /**
    * Enablement state, when the caller already holds it. Omitted, it is READ from `settingsPath`.
    *
@@ -84,7 +84,7 @@ export function createHostBundlePluginLoader(
  */
 export function loadHostBundlePluginInspectionFromScopes(
   pluginsDirs: readonly string[],
-  options: Omit<IHostBundlePluginLoaderOptions, 'pluginsDir'> = {},
+  options: Omit<IHostBundlePluginLoaderOptions, 'pluginsDir'>,
 ): IBundlePluginInspection[] {
   return [...new Set(pluginsDirs)].map((pluginsDir) =>
     createHostBundlePluginLoader({ ...options, pluginsDir }).inspectPluginsSync(),
@@ -93,7 +93,7 @@ export function loadHostBundlePluginInspectionFromScopes(
 
 export function loadHostBundlePluginsFromScopes(
   pluginsDirs: readonly string[],
-  options: Omit<IHostBundlePluginLoaderOptions, 'pluginsDir'> = {},
+  options: Omit<IHostBundlePluginLoaderOptions, 'pluginsDir'>,
 ): ILoadedBundlePlugin[] {
   const seen = new Set<string>();
   const plugins: ILoadedBundlePlugin[] = [];

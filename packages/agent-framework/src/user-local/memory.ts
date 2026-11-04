@@ -1,4 +1,4 @@
-import path from 'node:path';
+import { joinPath, resolvePath } from '@robota-sdk/agent-core';
 
 import {
   USER_LOCAL_MEMORY_CATEGORIES,
@@ -12,7 +12,6 @@ import {
   type TUserLocalMemoryCategory,
 } from './memory-types.js';
 import { resolveUserLocalStorageRoot } from './storage.js';
-import { NodeFileSystemAsync } from '../adapters/node-file-system.js';
 
 import type { IResolveUserLocalStorageRootOptions } from './storage.js';
 import type { IDirent, IFileSystemAsync } from '@robota-sdk/agent-core';
@@ -94,7 +93,7 @@ async function resolveMemoryRoot(
   const root = await resolveUserLocalStorageRoot(options);
   return {
     root,
-    memoryRoot: path.join(root, MEMORY_STORAGE_CATEGORY),
+    memoryRoot: joinPath(root, MEMORY_STORAGE_CATEGORY),
   };
 }
 
@@ -181,14 +180,14 @@ async function resolveMemoryFile(
   const { root, memoryRoot } = await resolveMemoryRoot(options);
   return {
     root,
-    storageLocation: path.join(memoryRoot, memoryFileName(category, key)),
+    storageLocation: joinPath(memoryRoot, memoryFileName(category, key)),
   };
 }
 
 export async function setUserLocalMemoryItem(
   options: IUserLocalMemorySetOptions,
 ): Promise<IUserLocalMemoryItemProjection> {
-  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
+  const fsAsync = options.fsAsync;
   const category = assertUserLocalMemoryCategory(options.category);
   const key = assertSafeSegment('key', options.key);
   const summary = boundedText('summary', options.summary, MAX_SUMMARY_LENGTH);
@@ -197,7 +196,7 @@ export async function setUserLocalMemoryItem(
   const value = summarizeValue(options.value);
   const now = formatIsoDate((options.now ?? (() => new Date()))());
   const { root, memoryRoot } = await resolveMemoryRoot(options);
-  const storageLocation = path.join(memoryRoot, memoryFileName(category, key));
+  const storageLocation = joinPath(memoryRoot, memoryFileName(category, key));
   let createdAt: string;
 
   try {
@@ -235,7 +234,7 @@ export async function setUserLocalMemoryItem(
 export async function listUserLocalMemoryItems(
   options: IUserLocalMemoryListOptions,
 ): Promise<IUserLocalMemoryListProjection> {
-  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
+  const fsAsync = options.fsAsync;
   const { root, memoryRoot } = await resolveMemoryRoot(options);
   let entries: readonly IDirent[];
 
@@ -249,12 +248,12 @@ export async function listUserLocalMemoryItems(
   const items = await Promise.all(
     entries
       .filter((entry) => entry.isFile() && entry.name.endsWith(FILE_EXTENSION))
-      .map((entry) => readMemoryFile(root, path.join(memoryRoot, entry.name), fsAsync)),
+      .map((entry) => readMemoryFile(root, joinPath(memoryRoot, entry.name), fsAsync)),
   );
 
   return {
     root,
-    activeRepositoryRoot: path.resolve(options.activeRepositoryRoot),
+    activeRepositoryRoot: resolvePath(options.activeRepositoryRoot, '.'),
     items: items.sort((left, right) =>
       `${left.category}/${left.key}`.localeCompare(`${right.category}/${right.key}`),
     ),
@@ -264,7 +263,7 @@ export async function listUserLocalMemoryItems(
 export async function inspectUserLocalMemoryItem(
   options: IUserLocalMemoryItemOptions,
 ): Promise<IUserLocalMemoryItemProjection> {
-  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
+  const fsAsync = options.fsAsync;
   const { root, storageLocation } = await resolveMemoryFile(options);
   return readMemoryFile(root, storageLocation, fsAsync);
 }
@@ -272,7 +271,7 @@ export async function inspectUserLocalMemoryItem(
 export async function disableUserLocalMemoryItem(
   options: IUserLocalMemoryItemOptions,
 ): Promise<IUserLocalMemoryItemProjection> {
-  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
+  const fsAsync = options.fsAsync;
   const { root, storageLocation } = await resolveMemoryFile(options);
   const existing = parseMemoryRecord(
     await fsAsync.readFile(storageLocation, 'utf8'),
@@ -291,7 +290,7 @@ export async function disableUserLocalMemoryItem(
 export async function deleteUserLocalMemoryItem(
   options: IUserLocalMemoryItemOptions,
 ): Promise<IUserLocalMemoryDeleteResult> {
-  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
+  const fsAsync = options.fsAsync;
   const { storageLocation } = await resolveMemoryFile(options);
   await fsAsync.rm(storageLocation);
   return {

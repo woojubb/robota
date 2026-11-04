@@ -28,7 +28,7 @@ import { ReplayProvider } from '@robota-sdk/agent-provider-replay';
 
 import { summarizeTrials, type IOutcomeTrial } from './outcome-report.js';
 import { assertStaleState, type IStateObservation } from './outcome-state.js';
-import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { NodeFileSystem, createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const host = createNodeFrameworkHost({ createDefaultTools });
@@ -62,6 +62,7 @@ try {
   const loaded = createHostBundlePluginLoader({
     pluginsDir,
     enabledPlugins: { 'state-fixture@fixture': true },
+    fs: new NodeFileSystem(),
   }).loadPluginsSync();
   const plugin = loaded[0];
   if (loaded.length !== 1 || !plugin?.mcpConfig)

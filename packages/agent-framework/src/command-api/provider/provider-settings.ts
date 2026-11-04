@@ -9,8 +9,10 @@ import {
   isEnvReference,
   resolveEnvReference,
 } from '@robota-sdk/agent-core';
-import { processEnvResolver } from '@robota-sdk/agent-core/node';
 
+import { resolveProviderEnvironment } from './provider-environment.js';
+
+import type { TProviderEnvironment } from './provider-environment.js';
 import type {
   IProviderDefinition,
   IProviderCredentialRequirement,
@@ -60,8 +62,11 @@ export interface IProviderSetupPatch {
 
 export interface IProviderSettingsBuildOptions {
   providerDefinitions?: readonly IProviderDefinition[];
-  /** Environment map for configure-time checks (test seam, default: process.env). */
-  env?: Readonly<Record<string, string | undefined>>;
+  /**
+   * What configure-time checks read `$ENV:` references against. Absent, every reference reads as
+   * unset and the profile fails its credential check.
+   */
+  env?: TProviderEnvironment;
 }
 
 export function upsertProviderProfile(
@@ -158,10 +163,7 @@ export function validateProviderProfile(
     definition?.requiresApiKey === false &&
     profile.apiKey !== undefined &&
     isEnvReference(profile.apiKey) &&
-    !resolveEnvReference(
-      profile.apiKey,
-      options.env === undefined ? processEnvResolver : (name) => options.env?.[name],
-    )
+    !resolveEnvReference(profile.apiKey, resolveProviderEnvironment(options.env))
   ) {
     throw new Error(
       `Provider profile "${profileName}" is missing apiKey: its configured environment reference is unset or invalid`,
@@ -218,7 +220,7 @@ export function buildProviderProfile(
   if (input.apiKeyEnv !== undefined) {
     // CLI-068: the referenced variable must exist when configuring — failing at
     // first run with a generic missing-apiKey message diagnoses the wrong cause.
-    const envValue = (options.env ?? process.env)[input.apiKeyEnv];
+    const envValue = resolveProviderEnvironment(options.env)(input.apiKeyEnv);
     if (envValue === undefined || envValue.length === 0) {
       throw new Error(
         `Environment variable ${input.apiKeyEnv} is not set — set it before configuring ` +
@@ -269,13 +271,11 @@ function hasUsableRequiredProviderCredential(
   profile: IProviderProfileSettings,
   defaults: IProviderDefinition['defaults'],
   requirement: IProviderCredentialRequirement,
-  env: Readonly<Record<string, string | undefined>> | undefined,
+  env: TProviderEnvironment | undefined,
 ): boolean {
+  const resolve = resolveProviderEnvironment(env);
   return requirement.anyOf.some((field) =>
-    hasUsableSecretReference(
-      resolveProviderCredentialValue(field, profile, defaults),
-      env === undefined ? processEnvResolver : (name) => env[name],
-    ),
+    hasUsableSecretReference(resolveProviderCredentialValue(field, profile, defaults), resolve),
   );
 }
 

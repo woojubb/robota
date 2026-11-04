@@ -430,8 +430,9 @@ stored beside the log and verified by length and SHA-256 digest when it is read 
 
 Bundle plugins package skills, commands, hooks, agent definitions and MCP server definitions for
 distribution. `MarketplaceClient` manages plugin marketplaces as shallow Git clones under the plugins
-directory the host chooses (`new MarketplaceClient({ pluginsDir, exec })`; marketplaces go in
-`<pluginsDir>/marketplaces/`). Sources can be GitHub repositories, other Git URLs, or local paths. The `__PRODUCT_CLI_NAME__` CLI uses
+directory the host chooses (`new MarketplaceClient({ pluginsDir, exec, fs })`, where `exec` runs the
+Git commands and `fs` is the file system the directory is read through: `new NodeFileSystem()` from
+`@robota-sdk/agent-framework/node` on Node; marketplaces go in `<pluginsDir>/marketplaces/`). Sources can be GitHub repositories, other Git URLs, or local paths. The `__PRODUCT_CLI_NAME__` CLI uses
 `<user-state>/plugins` and exposes this as `/plugin marketplace add|remove|list|update`. See
 [Building Plugins](./plugins.md).
 

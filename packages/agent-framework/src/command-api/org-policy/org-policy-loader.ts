@@ -6,7 +6,8 @@ import type { IOrgPolicy } from './org-policy-types.js';
 import type { IUniversalObjectValue, TUniversalValue } from '@robota-sdk/agent-core';
 
 /**
- * Read the organization policy, or `null` when none is deployed.
+ * Read the organization policy from a file on this host, or `null` when none is deployed. This is the
+ * Node reader: a platform without a file system hands its policy to the session as an object.
  *
  * **`null` means "no policy file", and nothing else** (issue #2023). Every enforcement site spells
  * its guard `orgPolicy?.<field> && <violation>`, so `null` is read as "no restrictions" — which is
@@ -78,17 +79,4 @@ function describeShapeProblem(value: TUniversalValue): string | undefined {
     return '`adminContact` must be a string';
   }
   return undefined;
-}
-
-export function formatOrgPolicyViolationMessage(
-  reason: string,
-  adminContact: string | undefined,
-): string {
-  const contact = adminContact ? `\nContact your administrator: ${adminContact}` : '';
-  return `${reason}${contact}`;
-}
-
-export function isApiKeyPlaintext(apiKey: string | undefined): boolean {
-  if (!apiKey) return false;
-  return !apiKey.startsWith('$ENV:');
 }

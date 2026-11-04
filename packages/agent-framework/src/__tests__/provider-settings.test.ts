@@ -92,7 +92,7 @@ describe('provider settings helpers', () => {
         apiKeyEnv: 'ANTHROPIC_API_KEY',
         setCurrent: true,
       },
-      { providerDefinitions },
+      { providerDefinitions, env: process.env },
     );
 
     expect(patch.providers.anthropic?.apiKey).toBe('$ENV:ANTHROPIC_API_KEY');

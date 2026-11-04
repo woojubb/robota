@@ -10,6 +10,7 @@ import {
   inspectSkillSources,
   loadHostBundlePluginInspectionFromScopes,
 } from '@robota-sdk/agent-framework';
+import { NodeFileSystem } from '@robota-sdk/agent-framework/node';
 
 import type { IDoctorCheck, IDoctorDeps, IDoctorInputs } from './doctor-types.js';
 import type {
@@ -302,12 +303,16 @@ export function probeExtensions(
   try {
     plugins = loadHostBundlePluginInspectionFromScopes(inputs.pluginsDirs, {
       settingsPath: inputs.userSettingsPath,
+      fs: new NodeFileSystem(),
     });
   } catch (error) {
     // Unreadable plugin settings load no plugin in a session. The doctor says so, and still
     // inspects every installed plugin so its other problems are not hidden behind this one.
     settingsProblem = error instanceof Error ? error.message : String(error);
-    plugins = loadHostBundlePluginInspectionFromScopes(inputs.pluginsDirs, { enabledPlugins: {} });
+    plugins = loadHostBundlePluginInspectionFromScopes(inputs.pluginsDirs, {
+      enabledPlugins: {},
+      fs: new NodeFileSystem(),
+    });
   }
   const pluginSummary = pluginChecks(plugins).map((check) =>
     settingsProblem !== undefined && check.id === 'plugins'

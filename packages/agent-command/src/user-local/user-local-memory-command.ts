@@ -5,11 +5,15 @@ import {
   listUserLocalMemoryItems,
   setUserLocalMemoryItem,
 } from '@robota-sdk/agent-framework';
+import { NodeFileSystemAsync } from '@robota-sdk/agent-framework/node';
 
 import { USER_LOCAL_COMMAND_USAGE } from './user-local-command-constants.js';
 
 import type { TUserLocalMemoryCategory } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+
+/** The files the command reads and writes user-local memory through: this package drives a Node host. */
+const fsAsync = new NodeFileSystemAsync();
 
 export interface IUserLocalMemoryCommandArgs {
   readonly action?: string;
@@ -42,7 +46,7 @@ async function executeMemoryListCommand(
   storageRoot: string,
   parsed: IUserLocalMemoryCommandArgs,
 ): Promise<ICommandResult> {
-  const list = await listUserLocalMemoryItems({ activeRepositoryRoot, storageRoot });
+  const list = await listUserLocalMemoryItems({ activeRepositoryRoot, storageRoot, fsAsync });
   return {
     message:
       parsed.format === 'json' ? JSON.stringify(list, null, 2) : formatMemoryListText(list.items),
@@ -60,6 +64,7 @@ async function executeMemorySetCommand(
   const item = await setUserLocalMemoryItem({
     activeRepositoryRoot,
     storageRoot,
+    fsAsync,
     category: parseMemoryCategory(category),
     key: key ?? '',
     value: value ?? '',
@@ -82,6 +87,7 @@ async function executeMemoryInspectCommand(
   const item = await inspectUserLocalMemoryItem({
     activeRepositoryRoot,
     storageRoot,
+    fsAsync,
     category: parseMemoryCategory(category),
     key: key ?? '',
   });
@@ -104,6 +110,7 @@ async function executeMemoryDisableCommand(
   const item = await disableUserLocalMemoryItem({
     activeRepositoryRoot,
     storageRoot,
+    fsAsync,
     category: parseMemoryCategory(category),
     key: key ?? '',
   });
@@ -123,6 +130,7 @@ async function executeMemoryDeleteCommand(
   const result = await deleteUserLocalMemoryItem({
     activeRepositoryRoot,
     storageRoot,
+    fsAsync,
     category: parseMemoryCategory(category),
     key: key ?? '',
   });

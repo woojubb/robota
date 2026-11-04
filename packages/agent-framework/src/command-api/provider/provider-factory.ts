@@ -4,8 +4,10 @@ import {
   isEnvReference,
 } from '@robota-sdk/agent-core';
 
+import { resolveProviderEnvironment } from './provider-environment.js';
 import { readMergedProviderSettingsFromSources, resolveActiveProvider } from './provider-merge.js';
 
+import type { TProviderEnvironment } from './provider-environment.js';
 import type { TProviderSettingsDocument } from './provider-settings.js';
 import type { TSettingsSource } from '../../config/settings-source.js';
 import type {
@@ -17,8 +19,11 @@ import type {
 export interface IReadProviderSettingsOptions {
   providerOverride?: string;
   providerDefinitions?: readonly IProviderDefinition[];
-  /** Environment map for env-default synthesis (test seam, default: process.env). */
-  env?: Readonly<Record<string, string | undefined>>;
+  /**
+   * What `$ENV:` references and the env-default synthesis read against. Absent, every reference reads
+   * as unset: no env-default provider is found and a profile's environment credential comes up empty.
+   */
+  env?: TProviderEnvironment;
 }
 
 /**
@@ -46,15 +51,16 @@ export function readMergedProviderSettings(
  */
 export function resolveEnvDefaultProvider(
   providerDefinitions: readonly IProviderDefinition[],
-  env: Readonly<Record<string, string | undefined>> = process.env,
+  env?: TProviderEnvironment,
 ): IProviderDefinitionConfig | undefined {
+  const resolve = resolveProviderEnvironment(env);
   for (const definition of providerDefinitions) {
     const defaults = definition.defaults;
     if (defaults?.apiKey === undefined || defaults.model === undefined) continue;
     if (!isEnvReference(defaults.apiKey)) continue;
     const envName = defaults.apiKey.slice(ENV_REFERENCE_PREFIX.length).trim();
     if (envName.length === 0) continue;
-    const envValue = env[envName];
+    const envValue = resolve(envName);
     if (envValue === undefined || envValue.length === 0) continue;
     // The key is resolved here (profile-path parity: resolveActiveProvider also returns
     // resolved keys via normalizeProviderConfig); the env var NAME travels separately in
