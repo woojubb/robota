@@ -333,7 +333,12 @@ describe('MCP-005 TC-03 — unknownKeywords matrix', () => {
     expect(memberChanges).toEqual(
       expect.arrayContaining([
         { path: '', kind: 'member-stripped', keyword: 'additionalProperties' },
-        { path: '/properties/nested', kind: 'member-stripped', keyword: 'additionalProperties' },
+        {
+          path: '/properties/nested',
+          kind: 'member-stripped',
+          keyword: 'additionalProperties',
+          losesNothing: true,
+        },
       ]),
     );
     const parameters = projection.tool.parameters as unknown as Record<string, unknown>;
@@ -722,5 +727,109 @@ describe('a vendor that refuses a bare container', () => {
     projectToolSchema(declared, FILLS);
     expect(declared.parameters.properties.list).toEqual({ type: 'array' });
     expect(validateAgainstJsonSchema(declared.parameters, { list: [{ a: 1 }] }, '')).toEqual([]);
+  });
+});
+
+describe('additionalProperties as a route', () => {
+  function mapOf(value: unknown): IToolSchema {
+    return {
+      name: 't',
+      description: 'A tool.',
+      parameters: {
+        type: 'object',
+        properties: { map: { type: 'object', additionalProperties: value as IParameterSchema } },
+      },
+    };
+  }
+
+  it('refuses a cycle through it rather than throwing', () => {
+    const value: Record<string, unknown> = { type: 'object' };
+    value.additionalProperties = value;
+    const projection = projectToolSchema(mapOf(value), PERMISSIVE);
+    expect(projection.outcome).toBe('rejected');
+    expect(projection.rejection?.keyword).toBe('cycle');
+  });
+
+  it('counts depth through it as every other route does', () => {
+    let value: unknown = { type: 'string' };
+    for (let level = 0; level < TOOL_SCHEMA_PROJECTION_MAX_DEPTH + 5; level += 1) {
+      value = { type: 'object', additionalProperties: value };
+    }
+    const projection = projectToolSchema(mapOf(value), PERMISSIVE);
+    expect(projection.rejection?.keyword).toBe('maxDepth');
+  });
+
+  it('refuses a prototype-key property under it', () => {
+    const value = JSON.parse('{"type":"object","properties":{"constructor":{"type":"string"}}}');
+    expect(projectToolSchema(mapOf(value), PERMISSIVE).rejection?.keyword).toBe('constructor');
+  });
+
+  it('refuses a node holding type beside anyOf under it', () => {
+    const value = { type: 'string', anyOf: [{ type: 'string' }] };
+    expect(projectToolSchema(mapOf(value), PERMISSIVE).rejection?.keyword).toBe('anyOf');
+  });
+});
+
+describe('what a stripped member costs', () => {
+  function withRoot(additionalProperties: unknown): IToolSchema {
+    return {
+      name: 't',
+      description: 'A tool.',
+      parameters: {
+        type: 'object',
+        properties: {},
+        additionalProperties: additionalProperties as boolean,
+      },
+    };
+  }
+
+  it('additionalProperties: true loses nothing, so it is recorded with no note', () => {
+    const { tool, changes } = projectToolSchema(withRoot(true), GEMINI_SHAPED);
+    expect(tool.description).toBe('A tool.');
+    expect(changes).toContainEqual({
+      path: '',
+      kind: 'member-stripped',
+      keyword: 'additionalProperties',
+      losesNothing: true,
+    });
+  });
+
+  it('additionalProperties: false is a constraint, so the note stays', () => {
+    const { tool } = projectToolSchema(withRoot(false), GEMINI_SHAPED);
+    expect(tool.description).toContain('Schema note:');
+  });
+});
+
+describe('the strict wire', () => {
+  function withProperty(node: unknown): IToolSchema {
+    return {
+      name: 't',
+      description: 'A tool.',
+      parameters: {
+        type: 'object',
+        properties: { value: node as IParameterSchema },
+        required: ['value'],
+      },
+    };
+  }
+
+  it('states no map: the node closes and the note says what that cost', () => {
+    const { tool } = projectToolSchema(
+      withProperty({ type: 'object', additionalProperties: { type: 'string' } }),
+      STRICT,
+    );
+    expect(tool.parameters.properties.value).toEqual({
+      type: 'object',
+      properties: {},
+      required: [],
+      additionalProperties: false,
+    });
+    expect(tool.description).toContain('member-stripped@/properties/value');
+  });
+
+  it('carries no default, which is an annotation and costs no note', () => {
+    const { tool } = projectToolSchema(withProperty({ type: 'string', default: 'x' }), STRICT);
+    expect(tool.parameters.properties.value).toEqual({ type: 'string' });
+    expect(tool.description).toBe('A tool.');
   });
 });

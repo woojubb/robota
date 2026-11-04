@@ -192,3 +192,81 @@ describe('a union null branch', () => {
     });
   });
 });
+
+describe('what Gemini refuses although JSON Schema allows it', () => {
+  function declaration(parameters: IToolSchema['parameters']) {
+    const [converted] = convertToolsToGeminiFormat([
+      { name: 'tool', description: 'A tool.', parameters },
+    ]);
+    return converted;
+  }
+  function convertedProperty(node: unknown): unknown {
+    return declaration({
+      type: 'object',
+      properties: { value: node as IToolSchema['parameters']['properties'][string] },
+    })?.parameters?.properties?.['value'];
+  }
+  const NULL_ONLY = { type: Type.STRING, nullable: true };
+
+  it.each([
+    ['a null node', { type: 'null' }, NULL_ONLY],
+    ['a null-only union', { anyOf: [{ type: 'null' }] }, NULL_ONLY],
+    [
+      'null items',
+      { type: 'array', items: { type: 'null' } },
+      { type: Type.ARRAY, items: NULL_ONLY },
+    ],
+    [
+      'a branch admitting only null',
+      { anyOf: [{ anyOf: [{ type: 'null' }] }, { type: 'string' }] },
+      { type: Type.STRING, nullable: true },
+    ],
+  ])('%s reaches the wire typed', (_name, node, expected) => {
+    expect(convertedProperty(node)).toEqual(expected);
+  });
+
+  it('a constraint beside anyOf leaves the branch and its own constraints standing', () => {
+    expect(
+      convertedProperty({ anyOf: [{ type: 'integer', minimum: 5 }, { type: 'null' }], minimum: 1 }),
+    ).toEqual({ anyOf: [{ type: Type.INTEGER, minimum: 5 }], minimum: 1, nullable: true });
+  });
+
+  it('properties beside anyOf do not replace the branch that declares its own', () => {
+    expect(
+      convertedProperty({
+        anyOf: [
+          { type: 'object', properties: { a: { type: 'string' } }, required: ['a'] },
+          { type: 'null' },
+        ],
+        properties: { b: { type: 'string' } },
+      }),
+    ).toEqual({
+      anyOf: [{ type: Type.OBJECT, properties: { a: { type: Type.STRING } }, required: ['a'] }],
+      properties: { b: { type: Type.STRING } },
+      nullable: true,
+    });
+  });
+
+  it('a required name with no property stays off the wire', () => {
+    const parameters = declaration({
+      type: 'object',
+      properties: { a: { type: 'string' } },
+      required: ['a', 'undeclared', 'constructor'],
+    })?.parameters;
+    expect(parameters?.required).toEqual(['a']);
+  });
+
+  it('an empty required stays off the wire', () => {
+    expect(
+      declaration({ type: 'object', properties: { a: { type: 'string' } }, required: [] })
+        ?.parameters,
+    ).not.toHaveProperty('required');
+  });
+
+  it('a tool with no parameters declares none', () => {
+    expect(declaration({ type: 'object', properties: {} })).toEqual({
+      name: 'tool',
+      description: 'A tool.',
+    });
+  });
+});

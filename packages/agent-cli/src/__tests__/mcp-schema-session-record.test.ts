@@ -58,6 +58,12 @@ function propertyOf(node: unknown): IParameterSchema {
   return { type: 'object', properties: { value: node as IParameterSchema } };
 }
 
+function nestedArrays(levels: number): unknown {
+  let node: unknown = { type: 'string' };
+  for (let level = 0; level < levels; level += 1) node = { type: 'array', items: node };
+  return node;
+}
+
 /** Every entry is what a server may declare; none of them may cost the session its record. */
 const DECLARED: readonly (readonly [string, IParameterSchema])[] = [
   ['an array default', propertyOf({ type: 'array', items: { type: 'string' }, default: [] })],
@@ -90,6 +96,15 @@ const DECLARED: readonly (readonly [string, IParameterSchema])[] = [
     'properties beside anyOf',
     propertyOf({ anyOf: [{ type: 'object' }], properties: { a: { $ref: '#' } } }),
   ],
+  ['an empty enum', propertyOf({ type: 'string', enum: [] })],
+  ['an empty anyOf', propertyOf({ anyOf: [] })],
+  [
+    'a property named __proto__',
+    JSON.parse(
+      '{"type":"object","properties":{"__proto__":{"type":"string"}},"required":["__proto__"]}',
+    ),
+  ],
+  ['a nesting past the ceiling', propertyOf(nestedArrays(5000))],
   ['an object root naming no properties', { type: 'object' }],
   ['a closed object root naming no properties', { type: 'object', additionalProperties: false }],
   ['a root the subset cannot express', { oneOf: [{ type: 'object' }] } as IParameterSchema],

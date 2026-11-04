@@ -264,3 +264,87 @@ describe('what a discovered tool accepts', () => {
     expect(tool.validateParameters({ name: 'anything' }).isValid).toBe(true);
   });
 });
+
+describe('an empty list', () => {
+  it.each([
+    ['enum', { type: 'string', enum: [] }, { type: 'string' }, ['.enum']],
+    ['anyOf beside a type', { type: 'string', anyOf: [] }, { type: 'string' }, ['.anyOf']],
+  ])(
+    '%s matches nothing, so the keyword is dropped and reported',
+    (_name, input, schema, paths) => {
+      expect(narrowToUniversalSubset(declared(input))).toEqual({ schema, unenforceable: paths });
+    },
+  );
+
+  it('as the whole of a node leaves that node inexpressible', () => {
+    const { schema, unenforceable } = narrowToUniversalSubset(
+      declared({ type: 'object', properties: { value: { anyOf: [] } } }),
+    );
+    expect(unenforceable).toEqual(['.value']);
+    expect(validateAgainstJsonSchema(schema, { value: 1 }, '')).toEqual([]);
+  });
+});
+
+describe('a schema nested past what any walk should follow', () => {
+  function nested(wrap: (inner: unknown) => unknown): unknown {
+    let node: unknown = { type: 'string' };
+    for (let level = 0; level < 5000; level += 1) node = wrap(node);
+    return { type: 'object', properties: { value: node } };
+  }
+
+  it.each([
+    ['properties', (inner: unknown) => ({ type: 'object', properties: { next: inner } })],
+    ['items', (inner: unknown) => ({ type: 'array', items: inner })],
+    ['additionalProperties', (inner: unknown) => ({ type: 'object', additionalProperties: inner })],
+    ['anyOf', (inner: unknown) => ({ anyOf: [inner] })],
+  ])('through %s no longer overflows, and the tool stays offerable', (_route, wrap) => {
+    const tool = discoveredTool(nested(wrap));
+    const projected = projectToolSchema(tool.schema, {
+      ...PERMISSIVE_TOOL_SCHEMA_PROFILE,
+      providerName: 'test',
+    });
+    expect(projected.outcome).not.toBe('rejected');
+  });
+
+  it('reports where it stopped', () => {
+    const { unenforceable } = narrowToUniversalSubset(
+      declared(nested((inner) => ({ type: 'object', properties: { next: inner } }))),
+    );
+    expect(unenforceable).toHaveLength(1);
+    expect(unenforceable[0]?.endsWith('.next')).toBe(true);
+  });
+
+  it('keeps a schema within the ceiling whole', () => {
+    let node: unknown = { type: 'string' };
+    for (let level = 0; level < 20; level += 1) node = { type: 'array', items: node };
+    expect(
+      narrowToUniversalSubset(declared({ type: 'object', properties: { value: node } })),
+    ).toEqual({
+      schema: { type: 'object', properties: { value: node } },
+      unenforceable: [],
+    });
+  });
+});
+
+describe('a property named __proto__', () => {
+  const schema = declared(
+    JSON.parse(
+      '{"type":"object","properties":{"__proto__":{"type":"string"},"a":{"type":"string"}},"required":["__proto__"]}',
+    ),
+  );
+
+  it("stays an own property instead of setting the copy's prototype", () => {
+    const narrowed = narrowToUniversalSubset(schema).schema;
+    expect(Object.keys(narrowed.properties ?? {})).toEqual(['__proto__', 'a']);
+    expect(Object.getPrototypeOf(narrowed.properties)).toBe(Object.prototype);
+  });
+
+  it('reaches the refusal projection holds for that name', () => {
+    const projected = projectToolSchema(discoveredTool(schema).schema, {
+      ...PERMISSIVE_TOOL_SCHEMA_PROFILE,
+      providerName: 'test',
+    });
+    expect(projected.outcome).toBe('rejected');
+    expect(projected.rejection?.keyword).toBe('__proto__');
+  });
+});

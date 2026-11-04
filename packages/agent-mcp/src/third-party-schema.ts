@@ -20,6 +20,7 @@
 
 import {
   PARAMETER_SCHEMA_KEYWORDS,
+  TOOL_SCHEMA_PROJECTION_MAX_DEPTH,
   createLogger,
   validateAgainstJsonSchema,
 } from '@robota-sdk/agent-core';
@@ -42,7 +43,16 @@ const STANDARD_DIALECT =
 /** The keywords `IParameterSchema` declares. A narrowed node carries no other. */
 const SUBSET_KEYWORDS = new Set<string>(PARAMETER_SCHEMA_KEYWORDS);
 
+/**
+ * The deepest node narrowing keeps. A server can nest a schema until the walk overflows the stack, and
+ * nothing above this call can catch that without losing the server. Past this depth a subtree is
+ * treated as inexpressible, and the any-value node standing in for it still fits inside the ceiling
+ * projection refuses a whole tool for.
+ */
+const NARROW_MAX_DEPTH = TOOL_SCHEMA_PROJECTION_MAX_DEPTH - 2;
+
 const isText = (value: unknown): boolean => typeof value === 'string';
+const isNonEmptyArray = (value: unknown): boolean => Array.isArray(value) && value.length > 0;
 const isFiniteNumber = (value: unknown): boolean => Number.isFinite(value);
 const isSizeBound = (value: unknown): boolean => Number.isInteger(value) && (value as number) >= 0;
 const isRecord = (value: unknown): boolean =>
@@ -71,11 +81,11 @@ function isCompilablePattern(value: unknown): boolean {
 const KEYWORD_ADMITS: Readonly<Record<keyof IParameterSchema, (value: unknown) => boolean>> = {
   type: (value) => SUBSET_TYPES.has(value as string),
   description: isText,
-  enum: Array.isArray,
+  enum: isNonEmptyArray,
   items: () => true,
   properties: isRecord,
   required: (value) => Array.isArray(value) && value.every(isText),
-  anyOf: Array.isArray,
+  anyOf: isNonEmptyArray,
   additionalProperties: (value) =>
     typeof value === 'boolean' || (typeof value === 'object' && value !== null),
   minimum: isFiniteNumber,
@@ -148,7 +158,7 @@ function anyValueNode(): IParameterSchema {
 function isExpressible(node: unknown): node is IParameterSchema {
   if (!isRecord(node)) return false;
   const { anyOf, type } = node as IParameterSchema;
-  if (Array.isArray(anyOf)) return true;
+  if (isNonEmptyArray(anyOf)) return true;
   return typeof type === 'string' && SUBSET_TYPES.has(type);
 }
 
@@ -179,7 +189,15 @@ function narrowEnum(node: IParameterSchema, path: string, dropped: string[]): IP
   return withoutEnum;
 }
 
-function narrowNode(input: IParameterSchema, path: string, dropped: string[]): IParameterSchema {
+function narrowNode(
+  input: IParameterSchema,
+  path: string,
+  depth: number,
+  dropped: string[],
+): IParameterSchema {
+  const childDepth = depth + 1;
+  const isFollowable = (child: unknown): child is IParameterSchema =>
+    childDepth <= NARROW_MAX_DEPTH && isExpressible(child);
   let node = input;
   // A dialect declaration is not part of the portable schema contract, so it never persists. A
   // standard JSON Schema dialect gives the subset's keywords the meaning they have here, so dropping
@@ -220,7 +238,7 @@ function narrowNode(input: IParameterSchema, path: string, dropped: string[]): I
       ...node,
       anyOf: node.anyOf.map((child: unknown, index) => {
         const childPath = `${path}.anyOf[${index}]`;
-        if (isExpressible(child)) return narrowNode(child, childPath, dropped);
+        if (isFollowable(child)) return narrowNode(child, childPath, childDepth, dropped);
         // Narrowing a `$ref` branch in place would leave `{}`, which registration refuses and no
         // value matches. The accepts-anything branch makes the union admit what the server admits.
         dropped.push(childPath);
@@ -230,10 +248,10 @@ function narrowNode(input: IParameterSchema, path: string, dropped: string[]): I
   }
   if (typeof node.additionalProperties === 'object' && node.additionalProperties !== null) {
     const childPath = `${path}.additionalProperties`;
-    if (isExpressible(node.additionalProperties)) {
+    if (isFollowable(node.additionalProperties)) {
       node = {
         ...node,
-        additionalProperties: narrowNode(node.additionalProperties, childPath, dropped),
+        additionalProperties: narrowNode(node.additionalProperties, childPath, childDepth, dropped),
       };
     } else {
       dropped.push(childPath);
@@ -243,31 +261,29 @@ function narrowNode(input: IParameterSchema, path: string, dropped: string[]): I
   // Both walks run whatever the node's `type` says: a subtree the keyword does not apply to is still
   // a subtree the copy carries.
   if (node.properties !== undefined) {
-    const kept: Record<string, IParameterSchema> = {};
-    for (const [key, child] of Object.entries(node.properties)) {
+    // `Object.fromEntries` keeps every name an own property. Assigning `__proto__` would set the
+    // copy's prototype instead, losing the property before projection could refuse the name.
+    const kept = Object.entries(node.properties).map(([key, child]) => {
       const childPath = `${path}.${key}`;
-      if (!isExpressible(child)) {
-        dropped.push(childPath);
-        kept[key] = anyValueNode();
-        continue;
-      }
-      kept[key] = narrowNode(child, childPath, dropped);
-    }
+      if (isFollowable(child)) return [key, narrowNode(child, childPath, childDepth, dropped)];
+      dropped.push(childPath);
+      return [key, anyValueNode()];
+    });
     // `required` is deliberately carried through untouched: a narrowed property is one whose VALUE
     // cannot be checked, not one that stopped being required.
-    node = { ...node, properties: kept };
+    node = { ...node, properties: Object.fromEntries(kept) };
   }
 
   if (node.items !== undefined) {
     const itemsPath = `${path}[]`;
-    if (!isExpressible(node.items)) {
+    if (!isFollowable(node.items)) {
       // An array node declares no closure, so dropping `items` is enough — there is no key here to
       // turn unexpected.
       dropped.push(itemsPath);
       const { items: _items, ...withoutItems } = node;
       return withoutItems as IParameterSchema;
     }
-    return { ...node, items: narrowNode(node.items, itemsPath, dropped) };
+    return { ...node, items: narrowNode(node.items, itemsPath, childDepth, dropped) };
   }
 
   return node;
@@ -284,7 +300,7 @@ export function narrowToUniversalSubset(schema: IParameterSchema): INarrowedSche
   if (!isExpressible(schema)) {
     return { schema: { type: 'object' } as IParameterSchema, unenforceable: [''] };
   }
-  return { schema: narrowNode(schema, '', unenforceable), unenforceable };
+  return { schema: narrowNode(schema, '', 0, unenforceable), unenforceable };
 }
 
 /** Told once per tool when part of its schema cannot be enforced: `(toolName, paths)`. */

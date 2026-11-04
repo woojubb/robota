@@ -140,9 +140,9 @@ export interface IToolSchemaProjectionProfile {
 export type TToolSchemaProjectionProfileBase = Omit<IToolSchemaProjectionProfile, 'providerName'>;
 
 /**
- * Anthropic; OpenAI Chat Completions and Responses without `strictTools`; the openai-compatible
- * family (gemma, qwen incl. its Responses surface, deepseek). Standard JSON Schema passes through —
- * stripping it would be lossy for nothing.
+ * Anthropic and the openai-compatible family (gemma, qwen incl. its Responses surface, deepseek).
+ * Standard JSON Schema passes through — stripping it would be lossy for nothing. OpenAI without
+ * `strictTools` starts from this and declares the containers it refuses bare.
  */
 export const PERMISSIVE_TOOL_SCHEMA_PROFILE: TToolSchemaProjectionProfileBase = {
   closedObjects: false,
@@ -159,15 +159,15 @@ export const PERMISSIVE_TOOL_SCHEMA_PROFILE: TToolSchemaProjectionProfileBase = 
 /**
  * OpenAI Responses and Chat Completions with `strictTools: true`. Replaces the converter's own
  * `closeObjectSchemas` call — one closure, in one place. Strict mode documents `minItems`/`maxItems`
- * but not the string-length or property-count bounds, so those stay off its wire; the local walk
- * still enforces them against the unprojected schema.
+ * but not the string-length or property-count bounds, and answers `'default' is not permitted`, so
+ * those stay off its wire; the local walk still enforces them against the unprojected schema.
  */
 export const STRICT_TOOL_SCHEMA_PROFILE: TToolSchemaProjectionProfileBase = {
   closedObjects: true,
   requireAllProperties: true,
   optionalAsNullable: true,
   unknownKeywords: 'strip',
-  unsupportedMembers: ['minLength', 'maxLength', 'minProperties', 'maxProperties'],
+  unsupportedMembers: ['minLength', 'maxLength', 'minProperties', 'maxProperties', 'default'],
   arraysDeclareItems: true,
   objectsDeclareProperties: true,
   maxDepth: TOOL_SCHEMA_PROJECTION_MAX_DEPTH,
@@ -188,6 +188,8 @@ export interface IToolSchemaProjectionChange {
     | 'items-declared'
     | 'properties-declared';
   readonly keyword?: string;
+  /** Recorded, but no constraint went with it: `additionalProperties: true` states the absence of one. */
+  readonly losesNothing?: true;
 }
 
 export interface IToolSchemaProjection {
@@ -351,6 +353,18 @@ function findRejection(
     }
   }
 
+  if (isPlainRecord(node.additionalProperties)) {
+    const rejection = findRejection(
+      node.additionalProperties,
+      childPath(path, 'additionalProperties'),
+      depth + 1,
+      visited,
+      counter,
+      profile,
+    );
+    if (rejection) return rejection;
+  }
+
   visited.delete(node);
   return undefined;
 }
@@ -373,9 +387,22 @@ function adaptNode(
   for (const member of profile.unsupportedMembers) {
     const key = member as string;
     if (key in current) {
+      const losesNothing = key === 'additionalProperties' && current[key] === true;
       delete current[key];
-      changes.push({ path, kind: 'member-stripped', keyword: key });
+      changes.push({
+        path,
+        kind: 'member-stripped',
+        keyword: key,
+        ...(losesNothing && { losesNothing }),
+      });
     }
+  }
+
+  // A closed wire has no way to state a map. Closure below makes the node the empty object, and this
+  // says what that cost, since the value schema is a constraint the model is no longer shown.
+  if (profile.closedObjects && isPlainRecord(current.additionalProperties)) {
+    delete current.additionalProperties;
+    changes.push({ path, kind: 'member-stripped', keyword: 'additionalProperties' });
   }
 
   if (profile.unknownKeywords === 'strip') {
@@ -533,6 +560,7 @@ export function projectToolSchema(
       (change.kind === 'keyword-stripped' ||
         change.kind === 'keyword-replaced' ||
         change.kind === 'member-stripped') &&
+      change.losesNothing !== true &&
       !ANNOTATION_ONLY_KEYWORDS.has(change.keyword ?? ''),
   );
 

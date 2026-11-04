@@ -285,3 +285,25 @@ describe('the array Gemini refuses bare', () => {
     expect(parameters.properties['shape']).toEqual({ type: 'OBJECT' });
   });
 });
+
+describe('a tool whose root named no properties', () => {
+  it('reaches Gemini with its description untouched and no parameters', async () => {
+    generateContentMock.mockReset();
+    generateContentMock.mockResolvedValue(makeTextResponse('done'));
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+    await provider.chat([createUserMessage('hi')], {
+      model: 'gemini-2.5-flash',
+      tools: [
+        {
+          name: 'bare_root',
+          description: 'Lists things.',
+          parameters: { type: 'object', properties: {}, additionalProperties: true },
+        },
+      ],
+    });
+    expect(sentFunctionDeclarations()[0]).toEqual({
+      name: 'bare_root',
+      description: 'Lists things.',
+    });
+  });
+});

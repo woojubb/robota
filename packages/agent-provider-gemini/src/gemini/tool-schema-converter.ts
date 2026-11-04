@@ -22,7 +22,10 @@ export function convertToolsToGeminiFormat(tools: IToolSchema[]): FunctionDeclar
   return tools.map((tool) => ({
     name: tool.name,
     description: tool.description,
-    parameters: convertParameterSchema(tool.parameters),
+    // The member is optional, and the API has answered `should be non-empty for OBJECT type`.
+    ...(Object.keys(tool.parameters.properties).length > 0 && {
+      parameters: convertParameterSchema(tool.parameters),
+    }),
   }));
 }
 
@@ -54,20 +57,41 @@ function convertParameterProperties(
   return convertedProperties;
 }
 
+function admitsOnlyNull(schema: IParameterSchema): boolean {
+  return schema.type === 'null' || schema.anyOf?.every(admitsOnlyNull) === true;
+}
+
 /**
  * A union's null branch, as Gemini's `nullable`. The backend has no null type, and an untyped `{}`
- * branch is what it reads as a missing field. One remaining branch stands for the union, which is
- * also how `@google/genai` converts JSON Schema.
+ * branch is what it reads as a missing field. One remaining branch stands for the union when nothing
+ * but annotations sits beside it, which is also how `@google/genai` converts JSON Schema; a
+ * constraint beside `anyOf` applies together with the branch, so overwriting the branch's own would
+ * show the model a shape local validation refuses.
  */
 function convertNullableUnion(schema: IParameterSchema, branches: IParameterSchema[]): Schema {
   const { anyOf: _anyOf, ...members } = schema;
+  const nothingButAnnotations = Object.keys(members).every(
+    (key) => key === 'description' || key === 'default',
+  );
   const nonNull =
-    branches.length > 1 ? { ...members, anyOf: branches } : { ...branches[0], ...members };
+    branches.length === 1 && nothingButAnnotations
+      ? { ...branches[0], ...members }
+      : { ...members, anyOf: branches };
   return { ...convertParameterSchema(nonNull), nullable: true };
 }
 
+/** Only `null` is valid here, and Gemini needs a type to put `nullable` on. */
+function convertOnlyNull(schema: IParameterSchema): Schema {
+  return {
+    type: Type.STRING,
+    nullable: true,
+    ...(schema.description && { description: schema.description }),
+  };
+}
+
 function convertParameterSchema(schema: IParameterSchema): Schema {
-  const branches = schema.anyOf?.filter((branch) => branch.type !== 'null');
+  if (admitsOnlyNull(schema)) return convertOnlyNull(schema);
+  const branches = schema.anyOf?.filter((branch) => !admitsOnlyNull(branch));
   if (branches !== undefined && branches.length !== schema.anyOf?.length) {
     return convertNullableUnion(schema, branches);
   }
@@ -93,7 +117,11 @@ function convertParameterSchema(schema: IParameterSchema): Schema {
   // Gemini's own Schema carries — omitting them told the model every nested field was optional and
   // erased union branches entirely.
   if (schema.required) {
-    convertedSchema.required = schema.required;
+    // A name `properties` does not declare is answered with `property is not defined`.
+    const declared = schema.required.filter((name) =>
+      Object.prototype.hasOwnProperty.call(schema.properties ?? {}, name),
+    );
+    if (declared.length > 0) convertedSchema.required = declared;
   }
   if (schema.anyOf) {
     convertedSchema.anyOf = schema.anyOf.map(convertParameterSchema);
