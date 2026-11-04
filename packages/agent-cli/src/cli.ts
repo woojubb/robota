@@ -9,7 +9,7 @@ import {
 import { createThemeSurface } from './startup/theme-surface.js';
 import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
 import { startCliCore } from './cli-core.js';
-import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
+import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor/node';
 import { isSubagentWorkerModeArgv, runSubagentWorkerMain } from '@robota-sdk/agent-subagent-runner';
 import { createProductSubagentComposition } from './product/subagent-composition.js';
 import { optionArgv } from './utils/option-argv.js';

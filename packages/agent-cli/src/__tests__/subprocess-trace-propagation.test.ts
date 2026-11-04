@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { spawnInherited } from '@robota-sdk/agent-command';
 import { FunctionTool } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { createManagedShellProcessRunner } from '@robota-sdk/agent-executor';
+import { createManagedShellProcessRunner } from '@robota-sdk/agent-executor/node';
 import { InteractiveSession, createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
 import {
   MCPActivationAdmissionService,

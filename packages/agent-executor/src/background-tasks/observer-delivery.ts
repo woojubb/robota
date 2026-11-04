@@ -24,24 +24,31 @@ export type TObserverFailureReporter<TEvent> = (failure: IObserverFailure<TEvent
 /** Default identity for hosts that do not supply their own warning code. */
 export const OBSERVER_FAILURE_WARNING_CODE = 'BACKGROUND_OBSERVER_FAILURE';
 
-/**
- * Default reporter: surface the failure as a process warning. It is visible (stderr, `warning`
- * event) without crashing the host, and it runs outside the emitter's call stack.
- */
-export function reportObserverFailureAsWarning<TEvent>(
-  failure: IObserverFailure<TEvent>,
-  code: string = OBSERVER_FAILURE_WARNING_CODE,
-): void {
+/** One line saying which observer failed on which event, and why. */
+export function describeObserverFailure<TEvent>(failure: IObserverFailure<TEvent>): string {
   const message =
     failure.error instanceof Error ? failure.error.message : String(failure.error ?? 'unknown');
   const eventType =
     typeof failure.event === 'object' && failure.event !== null && 'type' in failure.event
       ? String((failure.event as { type: unknown }).type)
       : 'unknown';
-  process.emitWarning(
-    `Background lifecycle observer #${failure.observerIndex} threw on '${eventType}': ${message}`,
-    { code },
-  );
+  return `Background lifecycle observer #${failure.observerIndex} threw on '${eventType}': ${message}`;
+}
+
+/**
+ * Default reporter: write the failure to `console.warn`, prefixed with `code`. The console is the one
+ * sink every runtime has, so a failure stays visible on a host that installed nothing — on Node it
+ * reaches stderr, as the earlier `process.emitWarning` default did; agent-core's logger would not do,
+ * because it is silent until a host installs a sink. It runs outside the emitter's call stack and
+ * never throws. A Node host may inject
+ * `reportObserverFailureAsProcessWarning` from `@robota-sdk/agent-executor/node` instead.
+ */
+export function reportObserverFailureAsConsoleWarning<TEvent>(
+  failure: IObserverFailure<TEvent>,
+  code: string = OBSERVER_FAILURE_WARNING_CODE,
+): void {
+  // eslint-disable-next-line no-console -- ARCH-053: the default must be visible on every runtime.
+  console.warn(`[${code}] ${describeObserverFailure(failure)}`);
 }
 
 /**

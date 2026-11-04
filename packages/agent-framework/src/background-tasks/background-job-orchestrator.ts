@@ -1,10 +1,10 @@
 import {
   deliverToObservers,
   isTerminalBackgroundTaskStatus,
-  reportObserverFailureAsWarning,
   type IBackgroundTaskManager,
   type TObserverFailureReporter,
 } from '@robota-sdk/agent-executor';
+import { reportObserverFailureAsProcessWarning } from '@robota-sdk/agent-executor/node';
 
 // Background job-group contracts SSOT relocated to @robota-sdk/agent-interface-execution (DATA-001).
 import type {
@@ -67,7 +67,8 @@ export class BackgroundJobOrchestrator {
     this.idFactory = options.idFactory ?? (() => this.nextGroupId());
     this.onObserverFailure =
       options.onObserverFailure ??
-      ((failure) => reportObserverFailureAsWarning(failure, options.observerFailureWarningCode));
+      ((failure) =>
+        reportObserverFailureAsProcessWarning(failure, options.observerFailureWarningCode));
     this.sequence = options.initialGroups?.length ?? 0;
     for (const group of options.initialGroups ?? []) this.restoreGroup(group);
     this.unsubscribeManager = this.manager.subscribe((event) => this.handleTaskEvent(event));

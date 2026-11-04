@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createScheduledTaskRunner, nextScheduledFireOnOrAfter } from '../scheduled-task-runner.js';
+import { nextScheduledFireOnOrAfter } from '../scheduled-fire-time.js';
+import { createScheduledTaskRunner } from '../scheduled-task-runner.js';
 import type {
   IBackgroundTaskHandle,
   IBackgroundTaskStart,

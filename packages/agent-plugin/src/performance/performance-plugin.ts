@@ -9,7 +9,6 @@ import {
   type TEventName,
 } from '@robota-sdk/agent-core';
 
-import { NodeSystemMetricsCollector } from './collectors/system-metrics-collector';
 import {
   validatePerformanceOptions,
   createPerformanceStorage,
@@ -35,8 +34,8 @@ const DEFAULT_PERFORMANCE_THRESHOLD_MS = 1000;
 /**
  * Collects application and system performance metrics during agent execution.
  *
- * Optionally monitors memory, CPU, and network via
- * {@link ISystemMetricsCollector}. Logs a warning when an operation exceeds
+ * Optionally monitors memory, CPU, and network via an injected
+ * {@link ISystemMetricsCollector}, which is required while any of them is on. Logs a warning when an operation exceeds
  * the configured {@link IPerformancePluginOptions.performanceThreshold | performanceThreshold}.
  * Currently only the `memory` storage strategy is implemented.
  *
@@ -51,6 +50,7 @@ const DEFAULT_PERFORMANCE_THRESHOLD_MS = 1000;
  * ```ts
  * const plugin = new PerformancePlugin({
  *   strategy: 'memory',
+ *   metricsCollector: new NodeSystemMetricsCollector(), // from '@robota-sdk/agent-plugin/node'
  *   monitorMemory: true,
  *   performanceThreshold: 2000,
  * });
@@ -65,8 +65,8 @@ export class PerformancePlugin extends AbstractPlugin<
   version = '1.0.0';
 
   private storage: IPerformanceStorage;
-  private metricsCollector: ISystemMetricsCollector;
-  private pluginOptions: Required<IPerformancePluginOptions>;
+  private metricsCollector?: ISystemMetricsCollector;
+  private pluginOptions: Required<Omit<IPerformancePluginOptions, 'metricsCollector'>>;
   private logger: ILogger;
 
   constructor(options: IPerformancePluginOptions) {
@@ -89,8 +89,9 @@ export class PerformancePlugin extends AbstractPlugin<
       prometheusEndpoint: options.prometheusEndpoint ?? '/metrics',
       remoteHeaders: options.remoteHeaders ?? {},
       maxEntries: options.maxEntries ?? DEFAULT_MAX_ENTRIES,
-      monitorMemory: options.monitorMemory ?? true,
-      monitorCPU: options.monitorCPU ?? true,
+      // System metrics are read only when a collector is injected; on by default when one is.
+      monitorMemory: options.monitorMemory ?? options.metricsCollector !== undefined,
+      monitorCPU: options.monitorCPU ?? options.metricsCollector !== undefined,
       monitorNetwork: options.monitorNetwork ?? false,
       batchSize: options.batchSize ?? DEFAULT_BATCH_SIZE,
       flushInterval: options.flushInterval ?? DEFAULT_FLUSH_INTERVAL_MS,
@@ -109,7 +110,7 @@ export class PerformancePlugin extends AbstractPlugin<
       this.pluginOptions.strategy,
       this.pluginOptions.maxEntries,
     );
-    this.metricsCollector = new NodeSystemMetricsCollector();
+    this.metricsCollector = options.metricsCollector;
 
     this.logger.info('PerformancePlugin initialized', {
       strategy: this.pluginOptions.strategy,
@@ -164,13 +165,13 @@ export class PerformancePlugin extends AbstractPlugin<
   ): Promise<void> {
     try {
       const memoryUsage = this.pluginOptions.monitorMemory
-        ? await this.metricsCollector.getMemoryUsage()
+        ? await this.metricsCollector?.getMemoryUsage()
         : undefined;
       const cpuUsage = this.pluginOptions.monitorCPU
-        ? await this.metricsCollector.getCPUUsage()
+        ? await this.metricsCollector?.getCPUUsage()
         : undefined;
       const networkStats = this.pluginOptions.monitorNetwork
-        ? await this.metricsCollector.getNetworkStats()
+        ? await this.metricsCollector?.getNetworkStats()
         : undefined;
 
       const entry: IPerformanceMetrics = {

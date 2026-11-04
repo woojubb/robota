@@ -28,6 +28,8 @@ export interface ILogEntry {
 
 import type { IPluginOptions, IPluginStats, ILogger } from '@robota-sdk/agent-core';
 
+import type { IPluginTextFileStore } from '../storage/text-file-store';
+
 /**
  * Configuration options for logging plugin
  */
@@ -38,6 +40,8 @@ export interface ILoggingPluginOptions extends IPluginOptions {
   level?: TLogLevel;
   /** File path for file strategy */
   filePath?: string;
+  /** Injected text-file store — required for the file strategy. */
+  fileStore?: IPluginTextFileStore;
   /** Remote endpoint for remote strategy */
   remoteEndpoint?: string;
   /** Headers for remote logging */

@@ -70,7 +70,7 @@ export function createBackgroundTaskLogPage(
   };
 }
 
-function getUtf8ByteLength(text: string): number {
+export function getUtf8ByteLength(text: string): number {
   return UTF8_ENCODER.encode(text).byteLength;
 }
 

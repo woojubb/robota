@@ -1,33 +1,33 @@
-import { appendFile, mkdir } from 'node:fs/promises';
-import { dirname } from 'node:path';
-
 import { createLogger, type ILogger, PluginError } from '@robota-sdk/agent-core';
 
 import { JsonLogFormatter } from '../formatters';
 
+import type { IPluginTextFileStore } from '../../storage/text-file-store';
 import type { ILogEntry, ILogStorage, ILogFormatter } from '../types';
 
 /**
  * File-backed log storage.
  *
- * Each entry is formatted and appended as a single line. Appends are
- * write-through, so `flush`/`close` have no buffered state to drain.
+ * Each entry is formatted and appended as a single line through the injected
+ * `store`. Appends are write-through, so `flush`/`close` have no buffered state
+ * to drain.
  */
 export class FileLogStorage implements ILogStorage {
   private filePath: string;
+  private store: IPluginTextFileStore;
   private formatter: ILogFormatter;
   private logger: ILogger;
 
-  constructor(filePath: string, formatter?: ILogFormatter) {
+  constructor(filePath: string, store: IPluginTextFileStore, formatter?: ILogFormatter) {
     this.filePath = filePath;
+    this.store = store;
     this.formatter = formatter || new JsonLogFormatter();
     this.logger = createLogger('FileLogStorage');
   }
 
   async write(entry: ILogEntry): Promise<void> {
     try {
-      await mkdir(dirname(this.filePath), { recursive: true });
-      await appendFile(this.filePath, `${this.formatter.format(entry)}\n`, 'utf8');
+      await this.store.appendText(this.filePath, `${this.formatter.format(entry)}\n`);
     } catch (error) {
       throw new PluginError('Failed to write log to file', 'LoggingPlugin', {
         filePath: this.filePath,

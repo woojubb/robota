@@ -1,12 +1,13 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { BackgroundTaskManager } from '../background-task-manager.js';
 import {
   OBSERVER_FAILURE_WARNING_CODE,
   deliverToObservers,
-  reportObserverFailureAsWarning,
+  reportObserverFailureAsConsoleWarning,
   type IObserverFailure,
 } from '../observer-delivery.js';
+import { reportObserverFailureAsProcessWarning } from '../process-warning-reporter.js';
 
 import type { IBackgroundTaskRunner, TBackgroundTaskEvent } from '../types.js';
 
@@ -20,6 +21,17 @@ function createResolvedRunner(): IBackgroundTaskRunner {
     }),
   };
 }
+
+/** Records every `console.warn` line, with no logger sink installed — as a host that set up nothing. */
+function captureConsoleWarnings(): string[] {
+  const warnings: string[] = [];
+  vi.spyOn(console, 'warn').mockImplementation((...args: unknown[]) => {
+    warnings.push(args.map(String).join(' '));
+  });
+  return warnings;
+}
+
+afterEach(() => vi.restoreAllMocks());
 
 const request = {
   kind: 'agent' as const,
@@ -56,17 +68,30 @@ describe('deliverToObservers (ARCH-053)', () => {
     expect((failures[0]?.error as Error).message).toBe('boom');
   });
 
-  it('default reporter emits a coded process warning instead of throwing', () => {
+  it('default reporter writes a coded console warning instead of throwing', () => {
+    const warnings = captureConsoleWarnings();
+    reportObserverFailureAsConsoleWarning({
+      event: { type: 'background_task_created' },
+      error: new Error('boom'),
+      observerIndex: 0,
+    });
+    expect(warnings).toHaveLength(1);
+    expect(OBSERVER_FAILURE_WARNING_CODE).toBe('BACKGROUND_OBSERVER_FAILURE');
+    expect(warnings[0]).toMatch(/^\[BACKGROUND_OBSERVER_FAILURE\] /u);
+    expect(warnings[0]).toContain('background_task_created');
+    expect(warnings[0]).toContain('boom');
+  });
+
+  it('the Node reporter emits a coded process warning instead of throwing', () => {
     const spy = vi.spyOn(process, 'emitWarning').mockImplementation(() => undefined);
     try {
-      reportObserverFailureAsWarning({
+      reportObserverFailureAsProcessWarning({
         event: { type: 'background_task_created' },
         error: new Error('boom'),
         observerIndex: 0,
       });
       expect(spy).toHaveBeenCalledTimes(1);
       expect(spy.mock.calls[0]?.[0]).toContain('background_task_created');
-      expect(OBSERVER_FAILURE_WARNING_CODE).toBe('BACKGROUND_OBSERVER_FAILURE');
       expect(spy.mock.calls[0]?.[1]).toEqual({ code: 'BACKGROUND_OBSERVER_FAILURE' });
     } finally {
       spy.mockRestore();
@@ -75,12 +100,30 @@ describe('deliverToObservers (ARCH-053)', () => {
 });
 
 describe('BackgroundTaskManager observer isolation (ARCH-053)', () => {
-  it('uses the host warning code when no custom failure reporter is supplied', async () => {
+  it('warns on the console with the host warning code when no reporter or sink is supplied', async () => {
+    const warnings = captureConsoleWarnings();
+    const manager = new BackgroundTaskManager({
+      runners: [createResolvedRunner()],
+      observerFailureWarningCode: 'ACME_BACKGROUND_OBSERVER_FAILURE',
+    });
+    manager.subscribe(() => {
+      throw new Error('broken');
+    });
+    const state = await manager.spawn(request);
+    await manager.wait(state.id);
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(
+      warnings.every((warning) => warning.startsWith('[ACME_BACKGROUND_OBSERVER_FAILURE] ')),
+    ).toBe(true);
+  });
+
+  it('reaches the process when the host injects the Node reporter', async () => {
     const spy = vi.spyOn(process, 'emitWarning').mockImplementation(() => undefined);
     try {
       const manager = new BackgroundTaskManager({
         runners: [createResolvedRunner()],
-        observerFailureWarningCode: 'ACME_BACKGROUND_OBSERVER_FAILURE',
+        onObserverFailure: (failure) =>
+          reportObserverFailureAsProcessWarning(failure, 'ACME_BACKGROUND_OBSERVER_FAILURE'),
       });
       manager.subscribe(() => {
         throw new Error('broken');
@@ -99,22 +142,20 @@ describe('BackgroundTaskManager observer isolation (ARCH-053)', () => {
   });
 
   it('keeps an explicit reporter ahead of the host warning code', async () => {
-    const spy = vi.spyOn(process, 'emitWarning').mockImplementation(() => undefined);
-    try {
-      const failures: IObserverFailure<TBackgroundTaskEvent>[] = [];
-      const manager = new BackgroundTaskManager({
-        runners: [createResolvedRunner()],
-        observerFailureWarningCode: 'ACME_BACKGROUND_OBSERVER_FAILURE',
-        onObserverFailure: (failure) => failures.push(failure),
-      });
-      manager.subscribe(() => { throw new Error('broken'); });
-      const state = await manager.spawn(request);
-      await manager.wait(state.id);
-      expect(failures).toHaveLength(3);
-      expect(spy).not.toHaveBeenCalled();
-    } finally {
-      spy.mockRestore();
-    }
+    const warnings = captureConsoleWarnings();
+    const failures: IObserverFailure<TBackgroundTaskEvent>[] = [];
+    const manager = new BackgroundTaskManager({
+      runners: [createResolvedRunner()],
+      observerFailureWarningCode: 'ACME_BACKGROUND_OBSERVER_FAILURE',
+      onObserverFailure: (failure) => failures.push(failure),
+    });
+    manager.subscribe(() => {
+      throw new Error('broken');
+    });
+    const state = await manager.spawn(request);
+    await manager.wait(state.id);
+    expect(failures).toHaveLength(3);
+    expect(warnings).toHaveLength(0);
   });
 
   it('a throwing eventSink neither rejects admission nor stops listener delivery', async () => {

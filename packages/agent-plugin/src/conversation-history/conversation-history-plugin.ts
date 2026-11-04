@@ -18,6 +18,7 @@ import {
   savePendingConversations,
 } from './conversation-history-helpers';
 
+import type { IPluginTextFileStore } from '../storage/text-file-store';
 import type {
   IConversationHistoryPluginOptions,
   IConversationHistoryPluginStats,
@@ -33,7 +34,7 @@ const DEFAULT_SAVE_INTERVAL_MS = 30000;
 /**
  * Persists conversation history using configurable storage backends.
  *
- * Supports memory, file, and database storage strategies. Messages are
+ * Supports memory, file (through an injected text-file store), and database storage strategies. Messages are
  * automatically trimmed to {@link IConversationHistoryPluginOptions.maxMessagesPerConversation | maxMessagesPerConversation}.
  * When {@link IConversationHistoryPluginOptions.autoSave | autoSave} is
  * disabled, changes are batched and flushed on a timer.
@@ -60,8 +61,11 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
   version = '1.0.0';
 
   private storage: IHistoryStorage;
-  private pluginOptions: Required<Omit<IConversationHistoryPluginOptions, 'databaseDriver'>> & {
+  private pluginOptions: Required<
+    Omit<IConversationHistoryPluginOptions, 'databaseDriver' | 'fileStore'>
+  > & {
     databaseDriver?: IDatabaseDriver;
+    fileStore?: IPluginTextFileStore;
   };
   private logger: ILogger;
   private currentConversationId?: string;
@@ -88,6 +92,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
       filePath: options.filePath ?? './conversations.json',
       connectionString: options.connectionString ?? '',
       databaseDriver: options.databaseDriver,
+      fileStore: options.fileStore,
       autoSave: options.autoSave ?? true,
       saveInterval: options.saveInterval ?? DEFAULT_SAVE_INTERVAL_MS,
       // Add plugin options defaults
@@ -103,6 +108,7 @@ export class ConversationHistoryPlugin extends AbstractPlugin<
       this.pluginOptions.maxConversations,
       this.pluginOptions.filePath,
       this.pluginOptions.databaseDriver,
+      this.pluginOptions.fileStore,
     );
 
     // Setup batch saving if not auto-saving

@@ -6,7 +6,6 @@ import {
   type THookEvent,
   type THooksConfig,
 } from '@robota-sdk/agent-core';
-import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 import type {
   ISubagentJobHandle,
@@ -44,7 +43,11 @@ export interface IWorktreeSubagentRunnerOptions {
   runner: ISubagentRunner;
   worktreeAdapter: ISubagentWorktreeAdapter;
   hooks?: THooksConfig;
-  hookTypeExecutors?: IHookTypeExecutor[];
+  /**
+   * Runs the `WorktreeCreate` / `WorktreeRemove` hooks. Required: the executors that run a hook
+   * need a host (a shell, the network), so the composition root supplies them.
+   */
+  hookTypeExecutors: readonly IHookTypeExecutor[];
 }
 
 export function createWorktreeSubagentRunner(
@@ -57,10 +60,7 @@ export class WorktreeSubagentRunner implements ISubagentRunner {
   private readonly hookTypeExecutors: readonly IHookTypeExecutor[];
 
   constructor(private readonly options: IWorktreeSubagentRunnerOptions) {
-    this.hookTypeExecutors = options.hookTypeExecutors ?? [
-      new CommandExecutor(),
-      new HttpExecutor(),
-    ];
+    this.hookTypeExecutors = options.hookTypeExecutors;
   }
 
   start(job: ISubagentJobStart): ISubagentJobHandle {

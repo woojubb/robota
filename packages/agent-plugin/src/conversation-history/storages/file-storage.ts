@@ -1,43 +1,37 @@
-import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { dirname } from 'node:path';
-
 import { createLogger, type ILogger, StorageError } from '@robota-sdk/agent-core';
 
+import type { IPluginTextFileStore } from '../../storage/text-file-store';
 import type { IHistoryStorage, IConversationHistoryEntry } from '../types';
 
 /**
  * File-backed conversation history storage.
  *
  * All conversations are persisted as a single JSON object keyed by conversation
- * id at `filePath`. Reads/writes are write-through (each mutation rewrites the
- * file), so there is no buffered state to lose.
+ * id at `filePath`, read and written through the injected `store`. Reads/writes
+ * are write-through (each mutation rewrites the file), so there is no buffered
+ * state to lose.
  */
 export class FileHistoryStorage implements IHistoryStorage {
   private filePath: string;
+  private store: IPluginTextFileStore;
   private logger: ILogger;
 
-  constructor(filePath: string) {
+  constructor(filePath: string, store: IPluginTextFileStore) {
     this.filePath = filePath;
+    this.store = store;
     this.logger = createLogger('FileHistoryStorage');
   }
 
   private async readAll(): Promise<Record<string, IConversationHistoryEntry>> {
-    try {
-      const raw = await readFile(this.filePath, 'utf8');
-      const map = JSON.parse(raw) as Record<string, IConversationHistoryEntry>;
-      for (const entry of Object.values(map)) reviveHistoryEntry(entry);
-      return map;
-    } catch (error) {
-      if (error instanceof Error && (error as NodeJS.ErrnoException).code === 'ENOENT') {
-        return {};
-      }
-      throw error;
-    }
+    const raw = await this.store.readText(this.filePath);
+    if (raw === undefined) return {};
+    const map = JSON.parse(raw) as Record<string, IConversationHistoryEntry>;
+    for (const entry of Object.values(map)) reviveHistoryEntry(entry);
+    return map;
   }
 
   private async writeAll(map: Record<string, IConversationHistoryEntry>): Promise<void> {
-    await mkdir(dirname(this.filePath), { recursive: true });
-    await writeFile(this.filePath, JSON.stringify(map), 'utf8');
+    await this.store.writeText(this.filePath, JSON.stringify(map));
   }
 
   async save(conversationId: string, entry: IConversationHistoryEntry): Promise<void> {

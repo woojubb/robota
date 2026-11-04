@@ -3,8 +3,10 @@ import type {
   IBackgroundTaskLogCursor,
   IBackgroundTaskLogPage,
   IBackgroundTaskRunner,
+  TBackgroundTaskEvent,
   TBackgroundTaskRequest,
   TBackgroundTaskRunnerEvent,
+  TObserverFailureReporter,
 } from '../background-tasks/index.js';
 import type {
   ISubagentJobResult,
@@ -93,6 +95,8 @@ export interface ISubagentManagerOptions {
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /** Host-selected warning identity for the owned background task manager. */
   observerFailureWarningCode?: string;
+  /** Receives every lifecycle-observer failure of the owned background task manager. */
+  onObserverFailure?: TObserverFailureReporter<TBackgroundTaskEvent>;
   maxConcurrent?: number;
   maxDepth?: number;
   now?: () => string;

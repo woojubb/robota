@@ -7,6 +7,7 @@
  */
 
 import { SubagentManager, BackgroundTaskManager } from '@robota-sdk/agent-executor';
+import { reportObserverFailureAsProcessWarning } from '@robota-sdk/agent-executor/node';
 
 import {
   fireSubagentLifecycleHook,
@@ -95,6 +96,10 @@ export function buildAgentRuntime(
       runner: (options.subagentRunnerFactory ?? createInProcessSubagentRunner)(agentToolDeps),
       backgroundTaskRunners: options.backgroundTaskRunners,
       observerFailureWarningCode: options.observerFailureWarningCode,
+      // The executor is platform-neutral and logs by default; this Node composition root surfaces
+      // a lifecycle-observer failure as a process warning, as it always has.
+      onObserverFailure: (failure) =>
+        reportObserverFailureAsProcessWarning(failure, options.observerFailureWarningCode),
     });
     agentToolDeps.subagentManager = subagentManager;
     backgroundTaskManager = subagentManager.getBackgroundTaskManager();
@@ -103,6 +108,8 @@ export function buildAgentRuntime(
     backgroundTaskManager = new BackgroundTaskManager({
       runners: options.backgroundTaskRunners ?? [],
       observerFailureWarningCode: options.observerFailureWarningCode,
+      onObserverFailure: (failure) =>
+        reportObserverFailureAsProcessWarning(failure, options.observerFailureWarningCode),
     });
   }
 

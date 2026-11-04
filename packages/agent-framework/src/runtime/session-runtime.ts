@@ -1,9 +1,7 @@
 import { realpathSync } from 'node:fs';
 
-import {
-  createDefaultBackgroundTaskRunners,
-  type IBackgroundTaskRunner,
-} from '@robota-sdk/agent-executor';
+import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
+import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor/node';
 
 import type { InteractiveSession } from '../interactive/interactive-session.js';
 import { buildRuntimeSession } from './runtime-host.js';

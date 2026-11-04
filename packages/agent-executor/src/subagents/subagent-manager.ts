@@ -160,6 +160,7 @@ export class SubagentManager implements ISubagentManager {
       repetitionWindow: options.repetitionWindow,
       repetitionThreshold: options.repetitionThreshold,
       observerFailureWarningCode: options.observerFailureWarningCode,
+      onObserverFailure: options.onObserverFailure,
     });
   }
 

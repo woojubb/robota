@@ -26,7 +26,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, readlinkSync } from 'node:fs';
 import { hostname } from 'node:os';
 
-import { sha256Hex } from '../schema/sha256.js';
+import { sha256Hex } from './digest.js';
 
 /** A process as an observer can later recognize it, on its own machine or one sharing its files. */
 export interface IProcessIdentity {

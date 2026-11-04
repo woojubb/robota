@@ -27,7 +27,7 @@ process.env['HOME'] = tempHome;
 
 const { createScriptedProvider } = await import('@robota-sdk/agent-core/testing');
 const { InteractiveSession } = await import('@robota-sdk/agent-framework');
-const { createDefaultBackgroundTaskRunners } = await import('@robota-sdk/agent-executor');
+const { createDefaultBackgroundTaskRunners } = await import('@robota-sdk/agent-executor/node');
 const {
   createStreamableHttpAdapter,
   MCPConnectionSupervisor,

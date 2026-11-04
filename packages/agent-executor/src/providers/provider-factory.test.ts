@@ -7,6 +7,7 @@ import {
   createProviderFromConfig,
   createRecordEnvResolver,
 } from '@robota-sdk/agent-core';
+import { processEnvResolver } from '@robota-sdk/agent-core/node';
 import type { IProviderDefinition, IAIProvider } from '@robota-sdk/agent-core';
 import type { ISerializableProviderProfile } from '../background-tasks/types.js';
 
@@ -87,7 +88,7 @@ describe('resolveProfileApiKey', () => {
       model: 'claude-3-opus',
       apiKey: 'direct-key',
     };
-    expect(resolveProfileApiKey(profile)).toBe('direct-key');
+    expect(resolveProfileApiKey(profile, processEnvResolver)).toBe('direct-key');
   });
 
   it('resolves apiKey with $ENV: prefix', () => {
@@ -98,7 +99,7 @@ describe('resolveProfileApiKey', () => {
         model: 'claude-3-opus',
         apiKey: '$ENV:TEST_RESOLVE_KEY',
       };
-      expect(resolveProfileApiKey(profile)).toBe('resolved-from-env');
+      expect(resolveProfileApiKey(profile, processEnvResolver)).toBe('resolved-from-env');
     } finally {
       delete process.env.TEST_RESOLVE_KEY;
     }
@@ -112,7 +113,7 @@ describe('resolveProfileApiKey', () => {
         model: 'claude-3-opus',
         apiKeyEnv: 'TEST_KEY_ENV',
       };
-      expect(resolveProfileApiKey(profile)).toBe('from-env-var');
+      expect(resolveProfileApiKey(profile, processEnvResolver)).toBe('from-env-var');
     } finally {
       delete process.env.TEST_KEY_ENV;
     }
@@ -120,7 +121,7 @@ describe('resolveProfileApiKey', () => {
 
   it('returns undefined when no apiKey or apiKeyEnv', () => {
     const profile: ISerializableProviderProfile = { type: 'ollama', model: 'llama3' };
-    expect(resolveProfileApiKey(profile)).toBeUndefined();
+    expect(resolveProfileApiKey(profile, processEnvResolver)).toBeUndefined();
   });
 });
 
@@ -161,7 +162,7 @@ describe('createProviderFromProfile', () => {
       model: 'claude-3-opus',
       apiKey: 'sk-test',
     };
-    const result = createProviderFromProfile(profile, undefined, stubDefs);
+    const result = createProviderFromProfile(profile, undefined, stubDefs, processEnvResolver);
     expect(result).toBeDefined();
   });
 
@@ -171,7 +172,9 @@ describe('createProviderFromProfile', () => {
       model: 'claude-3-opus',
       apiKey: 'sk-test',
     };
-    expect(() => createProviderFromProfile(profile, 'claude-3-sonnet', stubDefs)).not.toThrow();
+    expect(() =>
+      createProviderFromProfile(profile, 'claude-3-sonnet', stubDefs, processEnvResolver),
+    ).not.toThrow();
   });
 
   it('resolves apiKey from profile', () => {
@@ -180,7 +183,7 @@ describe('createProviderFromProfile', () => {
       model: 'claude-3-opus',
       apiKey: 'sk-from-profile',
     };
-    const result = createProviderFromProfile(profile, undefined, stubDefs);
+    const result = createProviderFromProfile(profile, undefined, stubDefs, processEnvResolver);
     expect(result).toBeDefined();
   });
 });
