@@ -69,8 +69,6 @@ describe('productProviderDefinitions native web search default', () => {
     received.length = 0;
     // A developer's own gateway variable would change which profiles OpenAI declares search for.
     vi.stubEnv('OPENAI_BASE_URL', '');
-    vi.stubEnv('GOOGLE_GEMINI_BASE_URL', '');
-    vi.stubEnv('GOOGLE_VERTEX_BASE_URL', '');
   });
   afterEach(() => {
     vi.unstubAllEnvs();
@@ -102,12 +100,18 @@ describe('productProviderDefinitions native web search default', () => {
     expect(received.at(-1)).toBe(empty);
   });
 
-  it.each([
-    ['OpenAI', OPENAI],
-    ['Gemini', GEMINI],
-  ])('turns it on for a %s profile without options', (_label, profile) => {
-    expect(webSearchEnabled(productProviderDefinitions(), profile)).toBe(true);
+  it('turns it on for an OpenAI profile without options', () => {
+    expect(webSearchEnabled(productProviderDefinitions(), OPENAI)).toBe(true);
     expect(received.at(-1)?.options).toEqual({ nativeWebTools: { webSearch: true } });
+  });
+
+  it('leaves a Gemini profile as written, so it searches only when it asks', () => {
+    expect(webSearchEnabled(productProviderDefinitions(), GEMINI)).toBe(false);
+    expect(received.at(-1)).toBe(GEMINI);
+
+    const asking = { ...GEMINI, options: { nativeWebTools: { webSearch: true } } };
+    expect(webSearchEnabled(productProviderDefinitions(), asking)).toBe(true);
+    expect(received.at(-1)).toBe(asking);
   });
 
   it.each([

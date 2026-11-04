@@ -501,13 +501,10 @@ describe('profile option nativeWebTools', () => {
     ...(options !== undefined && { options: options as Record<string, never> }),
   });
 
-  it('declares web search and enables it only when the profile asks', () => {
+  it('declares nothing for a host to default on, and enables search only when the profile asks', () => {
     const definition = createGeminiProviderDefinition();
 
-    expect(definition.nativeWebTools?.({}, {})).toEqual(['webSearch']);
-    const gateway = 'https://gateway.example.com';
-    expect(definition.nativeWebTools?.({}, { GOOGLE_GEMINI_BASE_URL: gateway })).toEqual([]);
-    expect(definition.nativeWebTools?.({}, { GOOGLE_VERTEX_BASE_URL: gateway })).toEqual([]);
+    expect(definition.nativeWebTools).toBeUndefined();
     expect(
       definition.createProvider(profile()).getCapabilities?.().nativeWebTools.webSearch.enabled,
     ).toBe(false);

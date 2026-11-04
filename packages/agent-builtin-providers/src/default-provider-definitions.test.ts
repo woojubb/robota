@@ -41,6 +41,7 @@ describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
   it('declares native web search exactly where a profile can switch it on', () => {
     // A host reads `nativeWebTools` to decide where it may set the profile option; a declaration the
     // provider does not honour, or an honoured option it does not declare, would let them drift.
+    // Gemini is the deliberate exception: its option works, but only a host can meet Google's terms.
     for (const definition of createDefaultProviderDefinitions()) {
       const profiles = [
         {
@@ -70,7 +71,7 @@ describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
           } catch {
             enabled = false;
           }
-          expect(enabled, label).toBe(false);
+          expect(enabled, label).toBe(definition.type === 'gemini');
         }
       }
     }
@@ -78,7 +79,7 @@ describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
       createDefaultProviderDefinitions()
         .filter((d) => d.nativeWebTools?.({}, {}).includes('webSearch') === true)
         .map((d) => d.type),
-    ).toEqual(['anthropic', 'openai', 'gemini']);
+    ).toEqual(['anthropic', 'openai']);
   });
 
   it('declares, for every built-in provider, the environment its client reads to pick a destination', () => {
