@@ -375,26 +375,25 @@ describe('a name required but not declared', () => {
     expect(validateAgainstJsonSchema(schema, { b: 1, other: 2 }, '')).not.toEqual([]);
   });
 
-  it('keeps what a schema-valued additionalProperties already said of the name', () => {
+  it('reports what a schema-valued additionalProperties said of the name', () => {
     const { schema, unenforceable } = narrowToUniversalSubset(
       declared({ type: 'object', required: ['b'], additionalProperties: { type: 'string' } }),
     );
-    expect(unenforceable).toEqual([]);
-    expect(validateAgainstJsonSchema(schema, { b: 'text' }, '')).toEqual([]);
-    expect(validateAgainstJsonSchema(schema, { b: 1 }, '')).not.toEqual([]);
+    expect(unenforceable).toEqual(['.b']);
+    expect(validateAgainstJsonSchema(schema, { b: 1 }, '')).toEqual([]);
+    expect(validateAgainstJsonSchema(schema, {}, '')).not.toEqual([]);
+    expect(validateAgainstJsonSchema(schema, { b: 1, other: 'text' }, '')).toEqual([]);
+    expect(validateAgainstJsonSchema(schema, { b: 1, other: 1 }, '')).not.toEqual([]);
   });
 
-  it('keeps the same when the node also names other properties', () => {
-    const { schema } = narrowToUniversalSubset(
-      declared({
-        type: 'object',
-        properties: { a: { type: 'number' } },
-        required: ['b'],
-        additionalProperties: { type: 'string' },
-      }),
-    );
-    expect(validateAgainstJsonSchema(schema, { a: 1, b: 'text' }, '')).toEqual([]);
-    expect(validateAgainstJsonSchema(schema, { a: 1, b: 1 }, '')).not.toEqual([]);
+  it('stays the size it was declared, at every depth narrowing keeps', () => {
+    let node: unknown = { type: 'string' };
+    for (let level = 0; level < 29; level += 1) {
+      node = { type: 'object', required: ['k0', 'k1'], additionalProperties: node };
+    }
+    const input = declared({ type: 'object', properties: { value: node } });
+    const { schema } = narrowToUniversalSubset(input);
+    expect(JSON.stringify(schema).length).toBeLessThan(40 * JSON.stringify(input).length);
   });
 
   it('declares nothing on a node that is not an object', () => {

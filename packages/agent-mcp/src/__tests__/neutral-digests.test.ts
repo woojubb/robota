@@ -123,16 +123,16 @@ describe('canonical names', () => {
 
   it('keeps the hash a truncated name carries', () => {
     expect(canonicalName(longServer, longTool)).toEqual({
-      name: 'server-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx__~2bc5e9b8~yyyyy',
+      name: 'server-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx__-2bc5e9b8-yyyyy',
       changed: true,
       reason: 'truncated',
     });
     expect(canonicalName(`${longServer}.io/east`, `${longTool} (v2)`)).toEqual({
-      name: 'server-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_io_eas~8be1b701~',
+      name: 'server-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx_io_eas-8be1b701-',
       changed: true,
       reason: 'renamed, truncated',
     });
-    expect(canonicalName(longServer, longTool, 12).name).toBe('se~2bc5e9b8~');
+    expect(canonicalName(longServer, longTool, 12).name).toBe('se-2bc5e9b8-');
   });
 });
 

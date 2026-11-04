@@ -11,7 +11,6 @@ import {
   STRICT_TOOL_SCHEMA_PROFILE,
   TOOL_SCHEMA_PROJECTION_MAX_DEPTH,
   TOOL_SCHEMA_PROJECTION_MAX_NODES,
-  hashToolSchema,
   projectToolSchema,
 } from '../project-tool-schema';
 import { validateAgainstJsonSchema } from '../structured-output';
@@ -832,61 +831,5 @@ describe('the strict wire', () => {
     const { tool } = projectToolSchema(withProperty({ type: 'string', default: 'x' }), STRICT);
     expect(tool.parameters.properties.value).toEqual({ type: 'string' });
     expect(tool.description).toBe('A tool.');
-  });
-});
-
-describe('hashing a tool projection rejects', () => {
-  function withValue(value: unknown): IObjectParameterSchema {
-    return { type: 'object', properties: { value: value as IParameterSchema } };
-  }
-
-  it('ends on a cycle', () => {
-    const value: Record<string, unknown> = { type: 'object' };
-    value.properties = { self: value };
-    expect(hashToolSchema(withValue(value))).toMatch(/^[0-9a-f]{64}$/u);
-  });
-
-  it('ends on a schema far past the ceiling', () => {
-    let value: unknown = { type: 'string' };
-    for (let level = 0; level < 100_000; level += 1) value = { type: 'array', items: value };
-    expect(hashToolSchema(withValue(value))).toMatch(/^[0-9a-f]{64}$/u);
-  });
-
-  it('ends on a graph that multiplies through shared subtrees', () => {
-    let value: unknown = { type: 'string' };
-    for (let level = 0; level < 40; level += 1) {
-      value = { type: 'object', properties: { a: value, b: value } };
-    }
-    expect(hashToolSchema(withValue(value))).toMatch(/^[0-9a-f]{64}$/u);
-  });
-
-  it('still tells two schemas apart at the largest size projection accepts', () => {
-    const wide = (last: string): IObjectParameterSchema => ({
-      type: 'object',
-      properties: Object.fromEntries(
-        Array.from({ length: TOOL_SCHEMA_PROJECTION_MAX_NODES - 2 }, (_, index) => [
-          `p${index}`,
-          { type: 'string' },
-        ]).concat([['last', { type: last }]]),
-      ) as Record<string, IParameterSchema>,
-    });
-    expect(
-      projectToolSchema({ name: 't', description: 'd', parameters: wide('string') }, PERMISSIVE)
-        .outcome,
-    ).not.toBe('rejected');
-    expect(hashToolSchema(wide('string'))).not.toBe(hashToolSchema(wide('number')));
-  });
-
-  it('still tells two schemas apart, and ignores key order, at any depth projection accepts', () => {
-    let left: unknown = { type: 'string' };
-    let right: unknown = { type: 'number' };
-    for (let level = 0; level < TOOL_SCHEMA_PROJECTION_MAX_DEPTH; level += 1) {
-      left = { type: 'object', properties: { next: left } };
-      right = { type: 'object', properties: { next: right } };
-    }
-    expect(hashToolSchema(withValue(left))).not.toBe(hashToolSchema(withValue(right)));
-    expect(hashToolSchema({ properties: {}, type: 'object' })).toBe(
-      hashToolSchema({ type: 'object', properties: {} }),
-    );
   });
 });

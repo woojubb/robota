@@ -184,25 +184,31 @@ function narrowEnum(node: IParameterSchema, path: string, dropped: string[]): IP
 /**
  * Declare what an object node requires but does not name. Registration refuses such a root outright,
  * stopping the whole agent, and a closed node could never be satisfied. Declaring it keeps the name
- * required and says no more about its value than the server did, which is whatever a schema-valued
- * `additionalProperties` says of a name not listed, so nothing is lost to report. A node that named
- * no properties stays open: naming one must not start refusing the rest.
+ * required. A schema-valued `additionalProperties` did say something of the name, which is reported
+ * rather than carried: sharing that subtree across names multiplies at every level, so a declaration
+ * under a kilobyte becomes one no record can hold. A node that named no properties stays open: naming
+ * one must not start refusing the rest.
  */
-function declareRequiredProperties(node: IParameterSchema): IParameterSchema {
+function declareRequiredProperties(
+  node: IParameterSchema,
+  path: string,
+  dropped: string[],
+): IParameterSchema {
   if (node.type !== 'object' || node.required === undefined) return node;
   const declared = node.properties ?? {};
   const undeclared = node.required.filter(
     (name) => !Object.prototype.hasOwnProperty.call(declared, name),
   );
   if (undeclared.length === 0) return node;
-  const { additionalProperties } = node;
-  const unlisted = typeof additionalProperties === 'object' ? additionalProperties : anyValueNode();
+  if (typeof node.additionalProperties === 'object') {
+    dropped.push(...undeclared.map((name) => `${path}.${name}`));
+  }
   return {
     ...(node.properties === undefined && { additionalProperties: true }),
     ...node,
     properties: Object.fromEntries([
       ...Object.entries(declared),
-      ...undeclared.map((name) => [name, unlisted]),
+      ...undeclared.map((name) => [name, anyValueNode()]),
     ]),
   };
 }
@@ -297,7 +303,7 @@ function narrowNode(
     node = { ...node, properties: Object.fromEntries(kept) };
   }
 
-  node = declareRequiredProperties(node);
+  node = declareRequiredProperties(node, path, dropped);
 
   if (node.items !== undefined) {
     const itemsPath = `${path}[]`;

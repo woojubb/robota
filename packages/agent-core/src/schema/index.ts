@@ -15,7 +15,6 @@ export {
 } from './close-object-schemas';
 export {
   projectToolSchema,
-  hashToolSchema,
   PARAMETER_SCHEMA_KEYWORDS,
   TOOL_SCHEMA_PROJECTION_MAX_DEPTH,
   TOOL_SCHEMA_PROJECTION_MAX_NODES,

@@ -197,6 +197,14 @@ describe('a tool projection refuses is dropped from its request alone', () => {
     return node;
   }
 
+  function wideSharedList(): unknown {
+    const names = Array.from({ length: 2000 }, (_, index) => `${'n'.repeat(100)}${index}`);
+    const shared = { type: 'string', required: names };
+    const properties: Record<string, unknown> = {};
+    for (let index = 0; index < 4900; index += 1) properties[`p${index}`] = shared;
+    return { type: 'object', properties };
+  }
+
   it.each([
     [
       'a cycle through properties',
@@ -214,6 +222,7 @@ describe('a tool projection refuses is dropped from its request alone', () => {
     ],
     ['a chain far past the ceiling', deepChain],
     ['a graph that multiplies through shared subtrees', sharedSubtrees],
+    ['a wide graph sharing one long list', wideSharedList],
   ])('%s', (_name, build) => {
     const provider = new NoLoggerTestProvider();
     provider.setProjectionProfile(TEST_PROFILE);

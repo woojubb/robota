@@ -62,6 +62,14 @@ function propertyOf(node: unknown): IParameterSchema {
   return { type: 'object', properties: { value: node as IParameterSchema } };
 }
 
+function nestedMaps(levels: number): unknown {
+  let node: unknown = { type: 'string' };
+  for (let level = 0; level < levels; level += 1) {
+    node = { type: 'object', required: ['k0', 'k1'], additionalProperties: node };
+  }
+  return node;
+}
+
 function nestedArrays(levels: number): unknown {
   let node: unknown = { type: 'string' };
   for (let level = 0; level < levels; level += 1) node = { type: 'array', items: node };
@@ -115,6 +123,7 @@ const DECLARED: readonly (readonly [string, IParameterSchema])[] = [
     { type: 'object', properties: { a: { type: 'string' } }, required: ['b'] },
   ],
   ['a nested node requiring an undeclared name', propertyOf({ type: 'object', required: ['b'] })],
+  ['required names beside a map, at every level', propertyOf(nestedMaps(29))],
   ['an object root naming no properties', { type: 'object' }],
   ['a closed object root naming no properties', { type: 'object', additionalProperties: false }],
   ['a root the subset cannot express', { oneOf: [{ type: 'object' }] } as IParameterSchema],

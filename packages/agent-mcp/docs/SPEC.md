@@ -269,9 +269,8 @@ outside the contract is dropped, and reported only if it was a constraint. An an
 non-scalar `default` leaves nothing unchecked, and the contract is not widened to hold it. A root that
 named no properties stays open once `properties` is filled in, since filling a member must not start
 refusing arguments the root accepted. A name `required` holds but `properties` does not declare is
-declared, with whatever a schema-valued `additionalProperties` already says of it, because
-registration refuses such a root, which would stop the whole agent over one server's schema, and a
-closed node could never be satisfied.
+declared as an accepts-anything property, because registration refuses such a root, which would stop
+the whole agent over one server's schema, and a closed node could never be satisfied.
 
 ## Error semantics
 
