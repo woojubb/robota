@@ -1,7 +1,7 @@
 /**
- * Every git this package starts — the `/git` verbs, the workspace trust check, the classifier's
- * remote read — runs repository configuration (hooks, fsmonitor, credential helpers) and is found on
- * `PATH`. In secure mode it runs in its own session; in plain mode exactly as before.
+ * Every git this package starts — the `/git` verbs, the workspace trust check, the remote read —
+ * runs repository configuration (hooks, fsmonitor, credential helpers) and is found on `PATH`. In
+ * secure mode it runs in its own session; in plain mode exactly as before.
  *
  * A stub `git` reports its own pid and process group, so the session is observed, not assumed.
  */
@@ -15,8 +15,8 @@ import { enableOwnChildSessions } from '@robota-sdk/agent-core/node';
 import { resetChildSessionsForTesting } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { readNodeGitRemotes } from '../git/read-git-remotes.js';
 import { createGitProcess } from '../git/node-git-process.js';
+import { readNodeGitRemotes } from '../git/read-git-remotes.js';
 import { createNodeWorkspaceIdentityResolver } from '../workspace-trust/node-host-workspace-trust.js';
 
 vi.mock('node:child_process', async (importOriginal) => {
@@ -86,7 +86,7 @@ describe.skipIf(!POSIX)('git and the terminal session', () => {
     expect(group).toBe(pid);
   });
 
-  it('runs the classifier remote read in its own session in secure mode', async () => {
+  it('runs the remote read in its own session in secure mode', async () => {
     enableOwnChildSessions();
     const { pid, group } = await remotesReport();
 
