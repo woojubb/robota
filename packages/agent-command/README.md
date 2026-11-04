@@ -71,8 +71,8 @@ provides `/schedule`, `/monitor`, and `/loop`.
 | Terminal           | `/shell`, `/editor`, `/keybindings`, `/theme`, `/statusline`                                                     |
 | Project and tools  | `/git`, `/memory`, `/skills`, `/mcp`, `/plugin`, `/reload-plugins`                                               |
 
-| Settings and state | `/settings`, `/reset`, `/user-local`, `/doctor` |
-| Other sessions | `/peers`, `/handoff`, `/events`, `/remote-control`, `/devices` |
+| Settings and state | `/settings`, `/reset`, `/user-local`, `/doctor`                                                                  |
+| Other sessions     | `/peers`, `/handoff`, `/events`, `/remote-control`, `/devices`                                                   |
 
 `/memory correct <user|feedback|project|reference> <topic> <text>` replaces **every entry** in that topic. `/memory forget <topic>` removes the source topic file and its active index entries. Both operations are user-only and block subsequent automatic or model additions to that topic; use `correct` to deliberately restore it. Project memory retains only the current replacement or a topic tombstone in `lifecycle.json`, which remains authoritative if source cleanup is interrupted. Historical transcripts and backups remain. A configured semantic backend must support `removeTopic` for these commands; an index cleanup failure is reported, while active recall continues to read current durable source content. The next model turn refreshes its retained startup memory.
 
