@@ -95,6 +95,14 @@ function writerRefusalMessage(sessionId: string, action: 'renamed' | 'deleted'):
   );
 }
 
+/**
+ * What a client is told when it deletes the session the runtime started with: the pool never closes
+ * it, so waiting for it to close would wait for nothing.
+ */
+const PRIMARY_SESSION_DELETE_MESSAGE =
+  'This is the session this runtime started with. It stays open until the runtime stops; delete it ' +
+  'after that.';
+
 /** What the served runtime lends the directory once its host has started. */
 export interface IServeSessionDirectoryHost<
   TSession extends TServeDirectorySession,
@@ -377,6 +385,10 @@ export function createServeSessionDirectory<
               'This session has work in progress; wait for it to finish, then delete it.',
             );
           }
+        }
+        // Refused before this binding is moved: nothing here lets the primary's record go.
+        if (liveEntry?.session === target.primary) {
+          throw new SessionDeleteRefusal('running', PRIMARY_SESSION_DELETE_MESSAGE);
         }
         if (isCurrent) {
           // Switch this binding away before the record it is on disappears: to another session of

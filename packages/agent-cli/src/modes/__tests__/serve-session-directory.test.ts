@@ -810,6 +810,36 @@ describe('serve session directory (#3189)', () => {
       expect(await deleteRefusalOf(binding.directory.deleteSession('a'))).toBe('running');
     });
 
+    it('says the runtime’s first session stays open until the runtime stops, not that it will close', async () => {
+      const { directory } = served(fakeSession('a'), STORED());
+      const binding = directory.bind('drive');
+      await binding.directory.switchSession('b');
+
+      const refusal = await binding.directory.deleteSession('a').then(
+        () => undefined,
+        (reason: unknown) => reason,
+      );
+
+      expect(refusal).toMatchObject({
+        code: 'running',
+        message:
+          'This is the session this runtime started with. It stays open until the runtime stops; ' +
+          'delete it after that.',
+      });
+    });
+
+    it('refuses the runtime’s first session before it moves the client that is on it', async () => {
+      const store = STORED();
+      const { directory, buildSession } = served(fakeSession('a'), store);
+      const binding = directory.bind('drive');
+
+      expect(await deleteRefusalOf(binding.directory.deleteSession('a'))).toBe('running');
+
+      expect(binding.session.current.id).toBe('a');
+      expect(buildSession).not.toHaveBeenCalled();
+      expect(store.entries.map((entry) => entry.id)).toContain('a');
+    });
+
     it('refuses with has_writer to rename or delete a session another writer holds', async () => {
       const store = STORED();
       const { directory } = served(fakeSession('a'), store);
