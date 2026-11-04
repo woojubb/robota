@@ -140,6 +140,55 @@ describe('convertToolsToGeminiFormat — size bounds', () => {
       items: { maxLength: '8' },
     });
     expect(properties['labels']).toMatchObject({ minProperties: '1', maxProperties: '9' });
-    expect(properties['note']?.anyOf?.[0]).toMatchObject({ maxLength: '100' });
+    expect(properties['note']).toMatchObject({ maxLength: '100', nullable: true });
+  });
+});
+
+describe('a union null branch', () => {
+  function convertedProperty(node: IToolSchema['parameters']['properties'][string]): unknown {
+    const [declaration] = convertToolsToGeminiFormat([
+      {
+        name: 'tool',
+        description: 'A tool.',
+        parameters: { type: 'object', properties: { value: node } },
+      },
+    ]);
+    return declaration?.parameters?.properties?.['value'];
+  }
+
+  it('becomes nullable, and the one remaining branch stands for the union', () => {
+    expect(
+      convertedProperty({
+        description: 'Outer.',
+        anyOf: [{ type: 'string', description: 'Inner.' }, { type: 'null' }],
+      }),
+    ).toEqual({ type: Type.STRING, description: 'Outer.', nullable: true });
+  });
+
+  it('becomes nullable beside the branches that remain', () => {
+    expect(
+      convertedProperty({ anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'null' }] }),
+    ).toEqual({ anyOf: [{ type: Type.STRING }, { type: Type.NUMBER }], nullable: true });
+  });
+
+  it('never reaches the wire as an untyped branch, which Gemini reads as a missing field', () => {
+    const anyValue = convertedProperty({
+      anyOf: [
+        { type: 'string' },
+        { type: 'number' },
+        { type: 'boolean' },
+        { type: 'object' },
+        { type: 'array', items: { type: 'string' } },
+        { type: 'null' },
+      ],
+    }) as { anyOf: Record<string, unknown>[]; nullable: boolean };
+    expect(anyValue.nullable).toBe(true);
+    expect(anyValue.anyOf.every((branch) => branch['type'] !== undefined)).toBe(true);
+  });
+
+  it('leaves a union with no null branch alone', () => {
+    expect(convertedProperty({ anyOf: [{ type: 'string' }, { type: 'number' }] })).toEqual({
+      anyOf: [{ type: Type.STRING }, { type: Type.NUMBER }],
+    });
   });
 });

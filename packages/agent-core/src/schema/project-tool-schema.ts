@@ -99,6 +99,16 @@ function anyValueNode(): IParameterSchema {
   };
 }
 
+/**
+ * The `items` handed to a vendor that refuses a bare array, so the node states the least it can. It
+ * cannot offer an array branch, which would need `items` of its own, or an object branch, which
+ * strict closure would reduce to the empty object. Local validation keeps the unprojected schema, so
+ * this limits what the model is shown, never what a call may carry.
+ */
+function anyScalarNode(): IParameterSchema {
+  return { anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] };
+}
+
 /** How one provider's wire format constrains the universal subset it is handed. */
 export interface IToolSchemaProjectionProfile {
   /** Named in the `Schema note` and the quarantine line. */
@@ -113,6 +123,10 @@ export interface IToolSchemaProjectionProfile {
   readonly unknownKeywords: 'adopt' | 'strip' | 'reject';
   /** Subset members this provider's wire type cannot carry — stripped AND recorded (Gemini: `additionalProperties`). */
   readonly unsupportedMembers: readonly (keyof IParameterSchema)[];
+  /** The vendor refuses an array node without `items`, though the subset and JSON Schema allow one. */
+  readonly arraysDeclareItems: boolean;
+  /** The vendor refuses an object node without `properties`, likewise. */
+  readonly objectsDeclareProperties: boolean;
   /** Nesting depth over which a schema is rejected (unbounded complexity). */
   readonly maxDepth: number;
   /** Node count over which a schema is rejected. */
@@ -136,6 +150,8 @@ export const PERMISSIVE_TOOL_SCHEMA_PROFILE: TToolSchemaProjectionProfileBase = 
   optionalAsNullable: false,
   unknownKeywords: 'adopt',
   unsupportedMembers: [],
+  arraysDeclareItems: false,
+  objectsDeclareProperties: false,
   maxDepth: TOOL_SCHEMA_PROJECTION_MAX_DEPTH,
   maxNodes: TOOL_SCHEMA_PROJECTION_MAX_NODES,
 };
@@ -152,6 +168,8 @@ export const STRICT_TOOL_SCHEMA_PROFILE: TToolSchemaProjectionProfileBase = {
   optionalAsNullable: true,
   unknownKeywords: 'strip',
   unsupportedMembers: ['minLength', 'maxLength', 'minProperties', 'maxProperties'],
+  arraysDeclareItems: true,
+  objectsDeclareProperties: true,
   maxDepth: TOOL_SCHEMA_PROJECTION_MAX_DEPTH,
   maxNodes: TOOL_SCHEMA_PROJECTION_MAX_NODES,
 };
@@ -166,7 +184,9 @@ export interface IToolSchemaProjectionChange {
     | 'nullable-added'
     | 'keyword-stripped'
     | 'keyword-replaced'
-    | 'member-stripped';
+    | 'member-stripped'
+    | 'items-declared'
+    | 'properties-declared';
   readonly keyword?: string;
 }
 
@@ -337,9 +357,10 @@ function findRejection(
 
 /**
  * The adaptation walk: `unsupportedMembers`, then `unknownKeywords`, at every node; recurses into
- * every route a nested node can arrive by (`properties`, `items`, `anyOf`) so a missed route cannot
- * leave the exact thing this walk exists to fix untouched (the CORE-039 lesson). Closure is NOT done
- * here — it delegates to `closeObjectSchemas` once, afterwards, over the whole result.
+ * every route a nested node can arrive by (`properties`, `items`, `anyOf`, `additionalProperties`) so
+ * a missed route cannot leave the exact thing this walk exists to fix untouched (the CORE-039 lesson).
+ * Closure is NOT done here — it delegates to `closeObjectSchemas` once, afterwards, over the whole
+ * result.
  */
 function adaptNode(
   node: Record<string, unknown>,
@@ -377,7 +398,7 @@ function adaptNode(
           changes.push({ path, kind: 'member-stripped', keyword: key });
         }
       }
-      return replacement;
+      return adaptNode(replacement, path, profile, changes);
     }
     for (const key of foreign) changes.push({ path, kind: 'keyword-stripped', keyword: key });
   }
@@ -411,6 +432,28 @@ function adaptNode(
         ? adaptNode(branch, childPath(childPath(path, 'anyOf'), String(index)), profile, changes)
         : branch,
     );
+  }
+
+  if (isPlainRecord(current.additionalProperties)) {
+    current.additionalProperties = adaptNode(
+      current.additionalProperties,
+      childPath(path, 'additionalProperties'),
+      profile,
+      changes,
+    );
+  }
+
+  if (profile.arraysDeclareItems && current.type === 'array' && current.items === undefined) {
+    current.items = anyScalarNode();
+    changes.push({ path, kind: 'items-declared' });
+  }
+  if (
+    profile.objectsDeclareProperties &&
+    current.type === 'object' &&
+    current.properties === undefined
+  ) {
+    current.properties = {};
+    changes.push({ path, kind: 'properties-declared' });
   }
 
   return current;

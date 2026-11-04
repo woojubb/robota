@@ -191,7 +191,7 @@ describe('strict tools — size bounds the strict wire refuses', () => {
       properties: {
         query: { type: 'string', minLength: 1, maxLength: 4096 },
         tags: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 5 },
-        labels: { type: 'object', minProperties: 1, maxProperties: 9 },
+        labels: { type: 'object', properties: {}, minProperties: 1, maxProperties: 9 },
       },
       required: ['query', 'tags', 'labels'],
     },

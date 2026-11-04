@@ -614,3 +614,113 @@ describe('MCP-005 — shared ceilings', () => {
     expect(STRICT_TOOL_SCHEMA_PROFILE.maxNodes).toBe(TOOL_SCHEMA_PROJECTION_MAX_NODES);
   });
 });
+
+describe('a vendor that refuses a bare container', () => {
+  const FILLS = profile(PERMISSIVE_TOOL_SCHEMA_PROFILE, 'fills-test', {
+    arraysDeclareItems: true,
+    objectsDeclareProperties: true,
+  });
+  const ANY_SCALAR = { anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] };
+  const ANY_VALUE = {
+    anyOf: [
+      { type: 'string' },
+      { type: 'number' },
+      { type: 'boolean' },
+      { type: 'object' },
+      { type: 'array' },
+      { type: 'null' },
+    ],
+  } as IParameterSchema;
+
+  function tool(properties: Record<string, IParameterSchema>): IToolSchema {
+    return { name: 't', description: 'A tool.', parameters: { type: 'object', properties } };
+  }
+
+  it('declares items on a bare array, by every route a node arrives', () => {
+    const {
+      outcome,
+      tool: projected,
+      changes,
+    } = projectToolSchema(
+      tool({
+        direct: { type: 'array' },
+        nested: { type: 'object', properties: { inner: { type: 'array' } } },
+        listed: { type: 'array', items: { type: 'array' } },
+        union: { anyOf: [{ type: 'array' }, { type: 'null' }] },
+        mapped: { type: 'object', additionalProperties: { type: 'array' } },
+      }),
+      FILLS,
+    );
+    expect(outcome).toBe('adapted');
+    const properties = projected.parameters.properties;
+    expect(properties.direct).toEqual({ type: 'array', items: ANY_SCALAR });
+    expect(properties.nested?.properties?.inner).toEqual({ type: 'array', items: ANY_SCALAR });
+    expect(properties.listed?.items).toEqual({ type: 'array', items: ANY_SCALAR });
+    expect(properties.union?.anyOf?.[0]).toEqual({ type: 'array', items: ANY_SCALAR });
+    expect(properties.mapped?.additionalProperties).toEqual({ type: 'array', items: ANY_SCALAR });
+    expect(changes.filter((change) => change.kind === 'items-declared')).toHaveLength(5);
+  });
+
+  it('declares properties on a bare object', () => {
+    const { tool: projected, changes } = projectToolSchema(
+      tool({ free: { type: 'object' }, list: { type: 'array', items: { type: 'object' } } }),
+      FILLS,
+    );
+    expect(projected.parameters.properties.free).toEqual({ type: 'object', properties: {} });
+    expect(projected.parameters.properties.list?.items).toEqual({
+      type: 'object',
+      properties: {},
+    });
+    expect(changes).toContainEqual({ path: '/properties/free', kind: 'properties-declared' });
+  });
+
+  it('leaves a declared container alone, and adopts a schema with nothing to fill', () => {
+    const declared = tool({
+      list: { type: 'array', items: { type: 'string' } },
+      shape: { type: 'object', properties: {} },
+    });
+    const projection = projectToolSchema(declared, FILLS);
+    expect(projection.outcome).toBe('adopted');
+    expect(projection.tool).toBe(declared);
+  });
+
+  it('is shown no note: filling a member loses no constraint', () => {
+    const { tool: projected } = projectToolSchema(tool({ list: { type: 'array' } }), FILLS);
+    expect(projected.description).toBe('A tool.');
+  });
+
+  it('leaves a bare container to a vendor that accepts one', () => {
+    const declared = tool({ list: { type: 'array' }, shape: { type: 'object' } });
+    const projection = projectToolSchema(declared, PERMISSIVE);
+    expect(projection.outcome).toBe('adopted');
+    expect(projection.tool).toBe(declared);
+  });
+
+  it('completes the any-value node for strict mode', () => {
+    const { tool: projected } = projectToolSchema(tool({ anything: ANY_VALUE }), STRICT);
+    const branches = projected.parameters.properties.anything?.anyOf ?? [];
+    expect(branches).toContainEqual({ type: 'array', items: ANY_SCALAR });
+    expect(branches).toContainEqual({
+      type: 'object',
+      properties: {},
+      required: [],
+      additionalProperties: false,
+    });
+  });
+
+  it('completes the node strict mode substitutes for a foreign keyword', () => {
+    const { tool: projected } = projectToolSchema(
+      tool({ ref: { $ref: '#/$defs/thing' } as IParameterSchema }),
+      STRICT,
+    );
+    const branches = projected.parameters.properties.ref?.anyOf ?? [];
+    expect(branches).toContainEqual({ type: 'array', items: ANY_SCALAR });
+  });
+
+  it('keeps enforcing the declared schema: the fill is on the wire only', () => {
+    const declared = tool({ list: { type: 'array' } });
+    projectToolSchema(declared, FILLS);
+    expect(declared.parameters.properties.list).toEqual({ type: 'array' });
+    expect(validateAgainstJsonSchema(declared.parameters, { list: [{ a: 1 }] }, '')).toEqual([]);
+  });
+});

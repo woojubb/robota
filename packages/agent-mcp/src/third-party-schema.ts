@@ -42,18 +42,62 @@ const STANDARD_DIALECT =
 /** The keywords `IParameterSchema` declares. A narrowed node carries no other. */
 const SUBSET_KEYWORDS = new Set<string>(PARAMETER_SCHEMA_KEYWORDS);
 
-/** Keywords whose value must be a non-negative integer, so a server can get them wrong. */
-const SIZE_BOUND_KEYWORDS = new Set([
-  'minLength',
-  'maxLength',
-  'minItems',
-  'maxItems',
-  'minProperties',
-  'maxProperties',
-]);
+const isText = (value: unknown): boolean => typeof value === 'string';
+const isFiniteNumber = (value: unknown): boolean => Number.isFinite(value);
+const isSizeBound = (value: unknown): boolean => Number.isInteger(value) && (value as number) >= 0;
+const isRecord = (value: unknown): boolean =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+/** A member `TJSONSchemaEnum` admits. */
+const isEnumScalar = (value: unknown): boolean =>
+  typeof value === 'string' || typeof value === 'boolean' || isFiniteNumber(value);
 
-/** Keywords that constrain no value, so dropping them leaves nothing unchecked. */
+function isCompilablePattern(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  try {
+    new RegExp(value);
+    return true;
+  } catch {
+    // A pattern from another regex dialect, such as Python's `(?i)`. Validation compiles it per call.
+    return false;
+  }
+}
+
+/**
+ * What `IParameterSchema` admits under each keyword. A narrowed node carries nothing else: the type
+ * claims it, the session record's strict decoder refuses anything outside it, and a walk trusts it.
+ * Keyed over the whole member set, so a keyword cannot join the subset without saying what it admits.
+ * `items` passes here because its walk below decides, and reports a tuple or boolean as its own path.
+ */
+const KEYWORD_ADMITS: Readonly<Record<keyof IParameterSchema, (value: unknown) => boolean>> = {
+  type: (value) => SUBSET_TYPES.has(value as string),
+  description: isText,
+  enum: Array.isArray,
+  items: () => true,
+  properties: isRecord,
+  required: (value) => Array.isArray(value) && value.every(isText),
+  anyOf: Array.isArray,
+  additionalProperties: (value) =>
+    typeof value === 'boolean' || (typeof value === 'object' && value !== null),
+  minimum: isFiniteNumber,
+  maximum: isFiniteNumber,
+  minLength: isSizeBound,
+  maxLength: isSizeBound,
+  minItems: isSizeBound,
+  maxItems: isSizeBound,
+  minProperties: isSizeBound,
+  maxProperties: isSizeBound,
+  pattern: isCompilablePattern,
+  format: isText,
+  default: (value) => value === null || isEnumScalar(value),
+};
+
+/**
+ * Keywords that constrain no value, so dropping them leaves nothing unchecked. `description` and
+ * `default` are carried while their value is one the subset admits, and only ever dropped quietly.
+ */
 const ANNOTATION_KEYWORDS = new Set([
+  'description',
+  'default',
   'title',
   'examples',
   '$comment',
@@ -97,20 +141,42 @@ function anyValueNode(): IParameterSchema {
   } as IParameterSchema;
 }
 
-/** A node the subset models: it declares a known `type`, or it is an `anyOf` union. */
-function isExpressible(node: IParameterSchema): boolean {
-  if (Array.isArray(node.anyOf)) return true;
-  return typeof node.type === 'string' && SUBSET_TYPES.has(node.type);
+/**
+ * A node the subset models: it declares a known `type`, or it is an `anyOf` union. Its value comes
+ * from a third party, so it may not be an object at all.
+ */
+function isExpressible(node: unknown): node is IParameterSchema {
+  if (!isRecord(node)) return false;
+  const { anyOf, type } = node as IParameterSchema;
+  if (Array.isArray(anyOf)) return true;
+  return typeof type === 'string' && SUBSET_TYPES.has(type);
+}
+
+function isCarried(key: string, value: unknown): boolean {
+  return SUBSET_KEYWORDS.has(key) && KEYWORD_ADMITS[key as keyof IParameterSchema](value);
 }
 
 /**
- * Whether a narrowed node may carry this keyword. A malformed size bound is a constraint nothing can
- * check, and the session record's strict decoder refuses it just as it would an unknown keyword.
+ * Keep the members `TJSONSchemaEnum` admits. Under a scalar `type` the others can never match, so
+ * filtering them changes nothing. Anywhere else one of them may be a value the server accepts, and
+ * filtering would refuse it; so would an empty list, which no value matches. There the keyword goes,
+ * and the constraint with it.
  */
-function isCarried(key: string, value: unknown): boolean {
-  if (!SUBSET_KEYWORDS.has(key)) return false;
-  if (!SIZE_BOUND_KEYWORDS.has(key)) return true;
-  return typeof value === 'number' && Number.isInteger(value) && value >= 0;
+function narrowEnum(node: IParameterSchema, path: string, dropped: string[]): IParameterSchema {
+  const members: readonly unknown[] = node.enum ?? [];
+  if (members.every(isEnumScalar)) return node;
+  const scalars = members.filter(isEnumScalar);
+  const othersCannotMatch =
+    node.type === 'string' ||
+    node.type === 'number' ||
+    node.type === 'integer' ||
+    node.type === 'boolean';
+  if (othersCannotMatch && scalars.length > 0) {
+    return { ...node, enum: scalars as IParameterSchema['enum'] };
+  }
+  dropped.push(`${path}.enum`);
+  const { enum: _enum, ...withoutEnum } = node;
+  return withoutEnum;
 }
 
 function narrowNode(input: IParameterSchema, path: string, dropped: string[]): IParameterSchema {
@@ -141,10 +207,18 @@ function narrowNode(input: IParameterSchema, path: string, dropped: string[]): I
     }
     node = subset as IParameterSchema;
   }
+  node = narrowEnum(node, path, dropped);
+  // The contract carries `anyOf` INSTEAD of a type, and projection quarantines a tool holding both.
+  // JSON Schema applies the two together, so keeping `type` drops only the further constraint.
+  if (node.type !== undefined && node.anyOf !== undefined) {
+    dropped.push(`${path}.anyOf`);
+    const { anyOf: _anyOf, ...typed } = node;
+    node = typed;
+  }
   if (Array.isArray(node.anyOf)) {
     node = {
       ...node,
-      anyOf: node.anyOf.map((child, index) => {
+      anyOf: node.anyOf.map((child: unknown, index) => {
         const childPath = `${path}.anyOf[${index}]`;
         if (isExpressible(child)) return narrowNode(child, childPath, dropped);
         // Narrowing a `$ref` branch in place would leave `{}`, which registration refuses and no
@@ -166,11 +240,11 @@ function narrowNode(input: IParameterSchema, path: string, dropped: string[]): I
       node = { ...node, additionalProperties: anyValueNode() };
     }
   }
-  if (node.type === 'object') {
-    const properties = node.properties;
-    if (!properties) return node;
+  // Both walks run whatever the node's `type` says: a subtree the keyword does not apply to is still
+  // a subtree the copy carries.
+  if (node.properties !== undefined) {
     const kept: Record<string, IParameterSchema> = {};
-    for (const [key, child] of Object.entries(properties)) {
+    for (const [key, child] of Object.entries(node.properties)) {
       const childPath = `${path}.${key}`;
       if (!isExpressible(child)) {
         dropped.push(childPath);
@@ -181,10 +255,10 @@ function narrowNode(input: IParameterSchema, path: string, dropped: string[]): I
     }
     // `required` is deliberately carried through untouched: a narrowed property is one whose VALUE
     // cannot be checked, not one that stopped being required.
-    return { ...node, properties: kept };
+    node = { ...node, properties: kept };
   }
 
-  if (node.type === 'array' && node.items) {
+  if (node.items !== undefined) {
     const itemsPath = `${path}[]`;
     if (!isExpressible(node.items)) {
       // An array node declares no closure, so dropping `items` is enough — there is no key here to

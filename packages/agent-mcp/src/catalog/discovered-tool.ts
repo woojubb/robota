@@ -110,7 +110,13 @@ export interface IMCPToolInvoker {
  * `read-failed` is a refused or failed read; the rest are the resource's own validation reasons.
  */
 export type TMCPAppViewOmission =
-  'read-failed' | 'not-admitted' | 'missing' | 'uri-mismatch' | 'mime-type' | 'content' | 'too-large';
+  | 'read-failed'
+  | 'not-admitted'
+  | 'missing'
+  | 'uri-mismatch'
+  | 'mime-type'
+  | 'content'
+  | 'too-large';
 
 export interface ICreateDiscoveredToolOptions {
   /** Host revalidation immediately before transport dispatch; this never grants authority. */
@@ -146,12 +152,17 @@ export interface ICreateDiscoveredToolOptions {
  * `properties` guaranteed present; the fallback exists only so a root this repo's universal subset
  * could not express at all (`narrowToUniversalSubset`'s own empty-object case) still produces a
  * valid {@link IObjectParameterSchema} rather than a value the tool schema contract rejects.
+ *
+ * Naming no properties declares no closure, while an empty `properties` set closes the node unless
+ * `additionalProperties` says otherwise. So a root that named none is opened explicitly: filling the
+ * member in must not start refusing the arguments the root accepted.
  */
 function toObjectParameterSchema(schema: IParameterSchema): IObjectParameterSchema {
-  if (schema.type === 'object') {
-    return { ...schema, type: 'object', properties: schema.properties ?? {} };
+  const root = schema.type === 'object' ? schema : { type: 'object' as const };
+  if (root.properties !== undefined) {
+    return { ...root, type: 'object', properties: root.properties };
   }
-  return { type: 'object', properties: {} };
+  return { additionalProperties: true, ...root, type: 'object', properties: {} };
 }
 
 /** Joins every text content block, in order — the same convention `processMCPResponse` uses. */

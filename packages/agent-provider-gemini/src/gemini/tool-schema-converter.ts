@@ -54,7 +54,23 @@ function convertParameterProperties(
   return convertedProperties;
 }
 
+/**
+ * A union's null branch, as Gemini's `nullable`. The backend has no null type, and an untyped `{}`
+ * branch is what it reads as a missing field. One remaining branch stands for the union, which is
+ * also how `@google/genai` converts JSON Schema.
+ */
+function convertNullableUnion(schema: IParameterSchema, branches: IParameterSchema[]): Schema {
+  const { anyOf: _anyOf, ...members } = schema;
+  const nonNull =
+    branches.length > 1 ? { ...members, anyOf: branches } : { ...branches[0], ...members };
+  return { ...convertParameterSchema(nonNull), nullable: true };
+}
+
 function convertParameterSchema(schema: IParameterSchema): Schema {
+  const branches = schema.anyOf?.filter((branch) => branch.type !== 'null');
+  if (branches !== undefined && branches.length !== schema.anyOf?.length) {
+    return convertNullableUnion(schema, branches);
+  }
   const convertedSchema: Schema = {};
   const schemaType = schema.type ? convertSchemaKind(schema.type) : undefined;
   if (schemaType) {

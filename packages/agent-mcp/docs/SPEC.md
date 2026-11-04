@@ -227,7 +227,12 @@ carried through untouched, because a narrowed property is one whose value cannot
 one that stopped being required; everything expressible is still enforced completely, including
 nested objects and array items; and the dropped paths are reported once per tool (narrowing is a
 pure function of a schema that does not change), because silence here would be a downgrade nobody
-could see.
+could see. A narrowed node carries only the values `IParameterSchema` admits, whatever the server
+wrote, because the session record's strict decoder treats anything else as a corrupt record: a value
+outside the contract is dropped, and reported only if it was a constraint. An annotation such as a
+non-scalar `default` leaves nothing unchecked, and the contract is not widened to hold it. A root that
+named no properties stays open once `properties` is filled in, since filling a member must not start
+refusing arguments the root accepted.
 
 ## Error semantics
 
