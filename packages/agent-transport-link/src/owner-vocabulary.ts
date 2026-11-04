@@ -65,10 +65,11 @@ const COMMAND_PATTERN = /^[a-z][a-z0-9-]{0,31}$/u;
 const FIELD_KEY_PATTERN = /^[A-Za-z][A-Za-z0-9]{0,31}$/u;
 const REFUSAL_CODE_PATTERN = /^[a-z][a-z0-9-]{0,63}$/u;
 const BASE64URL_PATTERN = /^[A-Za-z0-9_-]+$/u;
-// eslint-disable-next-line no-control-regex -- the point is to find control characters
-const UNSAFE_TEXT = /[\u0000-\u0009\u000b-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]/u;
-// eslint-disable-next-line no-control-regex -- the point is to find control characters
-const UNSAFE_FIELD = /[\u0000-\u001f\u007f-\u009f‎‏‪-‮⁦-⁩]/u;
+/* eslint-disable no-control-regex -- these patterns exist to find control characters */
+const UNSAFE_TEXT =
+  /[\u0000-\u0009\u000b-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/u;
+const UNSAFE_FIELD = /[\u0000-\u001f\u007f-\u009f\u200e\u200f\u202a-\u202e\u2066-\u2069]/u;
+/* eslint-enable no-control-regex */
 const MAX_TEXT_LENGTH = 4096;
 const MAX_REFUSAL_MESSAGE_LENGTH = 1024;
 const MAX_FIELDS = 16;

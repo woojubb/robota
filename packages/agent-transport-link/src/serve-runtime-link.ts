@@ -119,12 +119,15 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
     stream.write(encodeLinkFrame(link.seal('owner', encodeRuntimeMessage(message))));
   };
 
+  /** Whether one more request may wait; a peer that floods the desk loses the link. */
+  const admitRequest = (): boolean => {
+    if (inFlight < MAX_REQUESTS_IN_FLIGHT) return true;
+    stream.destroy();
+    return false;
+  };
+
   const reply = (requestId: string, work: () => Promise<TRuntimeMessage>): void => {
     inFlight += 1;
-    if (inFlight > MAX_REQUESTS_IN_FLIGHT) {
-      stream.destroy();
-      return;
-    }
     void work()
       .then(
         (message) => message,
@@ -138,7 +141,8 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
           // An answer outside the vocabulary (a too-long notice, say) reaches the client as a failure.
           sendOwner({ op: 'refused', requestId, ...refusalOf(undefined) });
         }
-      });
+      })
+      .catch(() => stream.destroy());
   };
 
   const dispatch = (request: TOwnerRequest, linked: IRuntimeLinkPorts): void => {
@@ -191,6 +195,8 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
     const kind = linkFrameKind(frame);
     if (kind === 'grant') {
       if (frame.length !== LINK_GRANT_FRAME_BYTES) throw new RangeError('A grant has one size.');
+      // Checked before the grant opens, so keys are never made for a request that cannot wait.
+      if (!admitRequest()) return;
       unlock(open.openReadGrant(frame), linked);
       return;
     }
@@ -204,7 +210,7 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
     }
     const request = decodeOwnerRequest(plaintext);
     if (request === undefined) throw new RangeError('A request outside the vocabulary.');
-    dispatch(request, linked);
+    if (admitRequest()) dispatch(request, linked);
   };
 
   const admitted: IAdmittedRuntimeLink = {

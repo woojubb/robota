@@ -119,7 +119,7 @@ describe('runtime replies and notices', () => {
       { op: 'question', requestId: 'r3', question: { kind: 'accept', digest: 'd', notice: 'n' } },
       { op: 'question', requestId: 'r3', question: { kind: 'open', extra: 1 } },
       { op: 'question', requestId: 'r3', question: { kind: 'refused', message: 'x\u001b[2J' } },
-      { op: 'question', requestId: 'r3', question: { kind: 'refused', message: 'x‮' } },
+      { op: 'question', requestId: 'r3', question: { kind: 'refused', message: 'x\u202e' } },
       { op: 'question', requestId: 'r3', question: { kind: 'refused', message: 'm'.repeat(4097) } },
       { op: 'refused', requestId: 'r9', code: 'Not Allowed', message: 'x' },
       { op: 'refused', requestId: 'r9', code: 'x', message: '' },

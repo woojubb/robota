@@ -106,6 +106,17 @@ interface IPendingRequest {
 const textDecoder = new TextDecoder('utf-8', { fatal: true });
 const textEncoder = new TextEncoder();
 
+/** Calls every listener; one that throws is the caller's bug and must not end the link for the rest. */
+function notify<TValue>(listeners: ReadonlySet<(value: TValue) => void>, value: TValue): void {
+  for (const listener of [...listeners]) {
+    try {
+      listener(value);
+    } catch {
+      // allow-fallback: the frame was valid; a failing listener cannot make the runtime's message wrong.
+    }
+  }
+}
+
 class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
   readonly closed: Promise<void>;
   readonly session: ILinkSessionChannel;
@@ -228,7 +239,7 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
       const decoded = decodeFrame(textDecoder.decode(plaintext), decodeServerMessage);
       if (!decoded.ok)
         throw new RangeError('The runtime sent a session message that does not decode.');
-      for (const listener of [...this.#sessionListeners]) listener(decoded.message);
+      notify(this.#sessionListeners, decoded.message);
       return;
     }
     const message = decodeRuntimeMessage(plaintext);
@@ -236,7 +247,7 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
       throw new RangeError('The runtime sent a message outside the vocabulary.');
     if (message.op === 'custody') {
       this.#custody = message.state;
-      for (const listener of [...this.#custodyListeners]) listener(message.state);
+      notify(this.#custodyListeners, message.state);
       return;
     }
     const pending = this.#pending.get(message.requestId);
@@ -315,15 +326,12 @@ function openRuntimeLink(
     }
     let link: IInitiatorLink | undefined;
     let client: RuntimeLinkClient | undefined;
-    let failure: unknown;
-    const fail = (error: unknown): void => {
-      failure ??= error;
+    /** Why the initiator refused the runtime's answer, if it did; any other end says nothing. */
+    let refusal: unknown;
+    const fail = (): void => {
       stream.destroy();
     };
-    const timer = setTimeout(
-      () => fail(new OwnerLinkClosedError()),
-      options.timeoutMs ?? DEFAULT_OPEN_TIMEOUT_MS,
-    );
+    const timer = setTimeout(fail, options.timeoutMs ?? DEFAULT_OPEN_TIMEOUT_MS);
     timer.unref?.();
 
     readLinkFrames(stream, {
@@ -343,7 +351,8 @@ function openRuntimeLink(
             link = answered.link;
             stream.write(encodeLinkFrame(answered.proof));
           } catch (error) {
-            fail(error);
+            refusal = error;
+            fail();
           }
           return;
         }
@@ -362,8 +371,8 @@ function openRuntimeLink(
             auth.mode === 'owner' ? auth.handover : undefined,
           );
           resolve(client);
-        } catch (error) {
-          fail(error);
+        } catch {
+          fail();
         }
       },
       onEnd: () => {
@@ -374,7 +383,7 @@ function openRuntimeLink(
         }
         link?.close();
         // A refusal of the runtime's answer says which check failed; a close says nothing.
-        reject(failure instanceof KeyringError ? failure : new OwnerLinkClosedError());
+        reject(refusal instanceof KeyringError ? refusal : new OwnerLinkClosedError());
       },
     });
     stream.write(encodeLinkOpening(initiator.hello()));

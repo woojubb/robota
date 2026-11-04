@@ -32,6 +32,7 @@ import {
   controlEndpoint,
   frame,
   frameReader,
+  handRuntime,
   keyrings,
   listen,
   recordingRuntime,
@@ -106,6 +107,22 @@ describe('a spawner link', () => {
     client.close();
     await client.closed;
     await until(() => runtime.record.closed === 1);
+  });
+
+  it('keeps the link when a listener throws', async () => {
+    const { spawnerKey, instancePublicKey, runtime, port } = await startRuntime();
+    const client = await openSpawnerLink(await connect(port), spawnerKey, instancePublicKey);
+    const received: unknown[] = [];
+    client.session.onMessage(() => {
+      throw new Error('a listener bug');
+    });
+    client.session.onMessage((message) => received.push(message));
+    for (const delta of ['a', 'b']) {
+      runtime.record.links[0]!.sendSession(JSON.stringify({ type: 'text_delta', delta }));
+    }
+    await until(() => received.length === 2);
+    expect(runtime.record.links[0]!.closed).toBe(false);
+    client.close();
   });
 
   it('carries the session protocol both ways', async () => {
@@ -254,7 +271,39 @@ describe('the runtime refuses, and says nothing', () => {
   });
 });
 
+describe('the runtime closes', () => {
+  it('a link that floods it with requests it has not answered yet', async () => {
+    const { runtime, port } = await startCertifiedRuntime();
+    const client = await openOwnerLink(await connect(port), owner);
+    const held = Array.from({ length: 65 }, () =>
+      client.question('held').catch((error: unknown) => error),
+    );
+    for (const outcome of await Promise.all(held))
+      expect(outcome).toBeInstanceOf(OwnerLinkClosedError);
+    await client.closed;
+    expect(runtime.record.grantedKeys).toEqual([]);
+  });
+});
+
 describe('the client', () => {
+  it('reports a runtime that admitted it but did not announce its custody as a closed link', async () => {
+    const identity = createRuntimeIdentity();
+    const exchange = startSpawnerExchange();
+    exchange.complete(identity.answerSpawnerExchange(exchange.message)).spawnerKey.wipe();
+    identity.installTrustRoot(owner.certify(identity.instancePublicKey, BINDING), BINDING);
+    const server = await listen(
+      handRuntime(identity, (socket, link) => {
+        // A sealed frame that does not open, where the custody notice belongs.
+        socket.write(frame(Buffer.concat([Buffer.from([2]), Buffer.alloc(32, 9)])));
+        void link;
+      }),
+    );
+    servers.push(server);
+    await expect(openOwnerLink(await connect(server.port), owner)).rejects.toBeInstanceOf(
+      OwnerLinkClosedError,
+    );
+  });
+
   it('rejects what it was waiting for when the link closes', async () => {
     const { runtime, port } = await startCertifiedRuntime();
     const client = await openOwnerLink(await connect(port), owner);

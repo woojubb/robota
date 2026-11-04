@@ -9,7 +9,9 @@ import { createServer, connect as connectSocket, type Server, type Socket } from
 
 import {
   createKeyring,
+  createLinkResponder,
   openOwnerHandover,
+  type IResponderLink,
   type ILinkBinding,
   type IOwnerHandover,
   type IReadKeys,
@@ -268,4 +270,44 @@ export async function until(condition: () => boolean, timeoutMs = 5_000): Promis
     if (Date.now() - started > timeoutMs) throw new Error('The condition did not hold in time.');
     await new Promise((resolve) => setImmediate(resolve));
   }
+}
+
+/**
+ * A runtime that runs the real handshake by hand and then does whatever `linked` says with the
+ * established link: a way to make a runtime send what `serveRuntimeLink` never would.
+ */
+export function handRuntime(
+  identity: IRuntimeIdentity,
+  linked: (socket: Socket, link: IResponderLink) => void,
+): (socket: Socket) => void {
+  return (socket) => {
+    const responder = createLinkResponder(identity, BINDING);
+    let buffered = Buffer.alloc(0);
+    let lineRead = false;
+    let step: 'hello' | 'proof' | 'done' = 'hello';
+    socket.on('data', (chunk: Buffer) => {
+      buffered = Buffer.concat([buffered, chunk]);
+      if (!lineRead) {
+        const end = buffered.indexOf(0x0a);
+        if (end === -1) return;
+        buffered = buffered.subarray(end + 1);
+        lineRead = true;
+      }
+      while (
+        step !== 'done' &&
+        buffered.length >= 4 &&
+        buffered.length >= 4 + buffered.readUInt32BE(0)
+      ) {
+        const payload = buffered.subarray(4, 4 + buffered.readUInt32BE(0));
+        buffered = buffered.subarray(4 + payload.length);
+        if (step === 'hello') {
+          socket.write(frame(responder.challenge(payload)));
+          step = 'proof';
+        } else {
+          step = 'done';
+          linked(socket, responder.accept(payload).link);
+        }
+      }
+    });
+  };
 }
