@@ -1,4 +1,4 @@
-import { joinPath, resolvePath } from '@robota-sdk/agent-core';
+import { joinPath } from '@robota-sdk/agent-core';
 
 import { refuseUnenforceableManifestControls } from './manifest-enforceability.js';
 
@@ -155,7 +155,7 @@ async function copyLocalFile(
   targetPath: string,
   targetRoot: string,
 ): Promise<void> {
-  const content = await hostFiles.readText(resolvePath(hostFiles.root, source));
+  const content = await hostFiles.readText(hostFiles.resolve(source));
   await writeSandboxFile(sandboxClient, targetPath, targetRoot, content);
 }
 
@@ -168,7 +168,7 @@ async function copyLocalDirectory(
   await copyLocalDirectoryRecursive(
     sandboxClient,
     hostFiles,
-    resolvePath(hostFiles.root, source),
+    hostFiles.resolve(source),
     targetPath,
   );
 }

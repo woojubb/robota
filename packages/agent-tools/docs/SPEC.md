@@ -20,9 +20,8 @@ write, edit, glob, grep, web-fetch, ask-user-question) used by the agent CLI.
   and must converge into this package's workspace manifest contract.
 - Owns no host default. The main entry is platform-neutral: what touches a host (processes, the file
   system, the network egress policy, the OS sandbox) is on `./node`, and a neutral entry takes a
-  host's pieces by injection. The one exception is a re-export, from the main entry, of the Node
-  tool names the published workflow library imports there; it leaves with that library's next
-  release, and until then the main entry stays marked Node-only.
+  host's pieces by injection. The main entry also re-exports the Node tool names the published
+  workflow library imports there, so it is marked Node-only.
 
 ## Contract
 
@@ -32,8 +31,7 @@ Absent a port, a capability is absent, and the code says so plainly. A workspace
 host only through an injected host-files port; without one, a `localFile` or `localDir` entry is
 refused before the first entry is applied, so a refused manifest leaves nothing half-built — the
 same failure direction as a requested control the applicator cannot enforce. The Node adapter for the
-port is on `./node`, and a composition root passes it. Ids and encodings the neutral code needs come
-from web-standard primitives (`crypto`, `TextDecoder`, `btoa`), never a Node global.
+port is on `./node`, and a composition root passes it.
 
 ### Built-in tool factories, not shared instances
 

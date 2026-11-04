@@ -197,7 +197,7 @@ through `ISandboxClient`. Cloud storage mount entries (S3, GCS, R2, Azure Blob) 
 contract but report `unsupported` until a provider-specific adapter implements mounting.
 
 A `localFile` or `localDir` entry reads the host, and the main entry has no host of its own: pass
-`hostFiles`, an `IWorkspaceHostFiles` (the root a relative `src` is read from, `readText` and
+`hostFiles`, an `IWorkspaceHostFiles` (`resolve`, which turns a `src` into a host path, `readText` and
 `readDirectory`). Without it a manifest that names a local entry is refused, before any entry is
 applied, with an error naming `hostFiles`; a manifest with no local entry applies without it. On
 Node, `createNodeWorkspaceHostFiles(root)` from `@robota-sdk/agent-tools/node` is the

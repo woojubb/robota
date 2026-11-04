@@ -98,8 +98,11 @@ export interface IWorkspaceHostDirectoryEntry {
  * entry is refused when none is given.
  */
 export interface IWorkspaceHostFiles {
-  /** The host directory a relative `src` is read from. An absolute `src` is read as written. */
-  readonly root: string;
+  /**
+   * The absolute host path of an entry's `src`. The host resolves it because only the host knows its
+   * own path rules: on POSIX `C:/x` is a relative name, on Windows it is absolute.
+   */
+  resolve(src: string): string;
   /** The file's text; `path` is an absolute host path. */
   readText(path: string): Promise<string>;
   /** The names in a directory; `path` is an absolute host path. */

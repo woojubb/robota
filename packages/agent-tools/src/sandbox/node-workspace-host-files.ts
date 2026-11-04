@@ -12,7 +12,7 @@ import type { IWorkspaceHostFiles } from './types.js';
  */
 export function createNodeWorkspaceHostFiles(root: string): IWorkspaceHostFiles {
   return {
-    root: resolve(root),
+    resolve: (src) => resolve(root, src),
     readText: (path) => readFile(path, 'utf8'),
     readDirectory: async (path) => {
       const entries = await readdir(path, { withFileTypes: true });

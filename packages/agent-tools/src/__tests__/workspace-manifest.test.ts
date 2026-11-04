@@ -1,3 +1,4 @@
+import { resolvePath } from '@robota-sdk/agent-core';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   mkdtempSync,
@@ -114,6 +115,24 @@ describe('workspace manifest application', () => {
     expect(sandboxClient.getFile('/workspace/src/nested/b.txt')).toBe('B\n');
   });
 
+  it.skipIf(process.platform === 'win32')(
+    'reads a Windows-shaped src under the root on POSIX, where it is only a name',
+    async () => {
+      const hostRoot = createTempDir();
+      mkdirSync(join(hostRoot, 'C:'));
+      writeFileSync(join(hostRoot, 'C:', 'task.md'), 'Task file\n');
+      const sandboxClient = new InMemorySandboxClient();
+
+      await applyWorkspaceManifest(
+        sandboxClient,
+        { entries: { 'task.md': { type: 'localFile', src: 'C:/task.md' } } },
+        { hostFiles: createNodeWorkspaceHostFiles(hostRoot) },
+      );
+
+      expect(sandboxClient.getFile('/workspace/task.md')).toBe('Task file\n');
+    },
+  );
+
   it('reads an absolute src as written and skips what is neither a file nor a directory', async () => {
     const hostRoot = createTempDir();
     const elsewhere = createTempDir();
@@ -144,7 +163,7 @@ describe('workspace manifest application', () => {
     writeFileSync(join(hostRoot, 'task.md'), 'Task file\n');
     const hostFiles = createNodeWorkspaceHostFiles(hostRoot);
 
-    expect(hostFiles.root).toBe(hostRoot);
+    expect(hostFiles.resolve('task.md')).toBe(join(hostRoot, 'task.md'));
     await expect(hostFiles.readText(join(hostRoot, 'task.md'))).resolves.toBe('Task file\n');
     await expect(hostFiles.readDirectory(hostRoot)).resolves.toEqual([
       { name: 'task.md', kind: 'file' },
@@ -199,7 +218,7 @@ describe('workspace manifest host files', () => {
   /** A host with no disk: the applicator may ask only what the port offers. */
   function fakeHostFiles(root: string, tree: Record<string, string>): IWorkspaceHostFiles {
     return {
-      root,
+      resolve: (src) => resolvePath(root, src),
       readText: async (path) => {
         const text = tree[path];
         if (text === undefined) throw new Error(`no such host file: ${path}`);
