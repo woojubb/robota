@@ -873,7 +873,7 @@ describe('MCP OAuth notices and browser', () => {
     const calls: [string, readonly string[]][] = [];
     await openInBrowser(url, {
       platform: 'linux',
-      execFile: (command, args, callback) => {
+      start: (command, args, callback) => {
         calls.push([command, args]);
         callback(null);
       },

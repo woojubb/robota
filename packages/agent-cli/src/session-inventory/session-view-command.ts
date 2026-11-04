@@ -1,7 +1,7 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { realpathSync, statSync } from 'node:fs';
 
-import { openInBrowser, type TExecFile } from '../startup/browser-opener.js';
+import { openInBrowser, type TStartOpener } from '../startup/browser-opener.js';
 import { resolveScreenReaderRenderFields } from '../startup/screen-reader-enablement.js';
 import { readUserSettingsOrExit } from '../startup/user-settings.js';
 import {
@@ -41,7 +41,7 @@ function isViewState(value: string | undefined): value is TViewState {
  * platform's opener by argv (in its own session in secure mode) and opens only an https link.
  */
 export function createProductSessionPrOpener(
-  deps: { readonly platform?: NodeJS.Platform; readonly execFile?: TExecFile } = {},
+  deps: { readonly platform?: NodeJS.Platform; readonly start?: TStartOpener } = {},
 ): (url: string) => Promise<void> {
   return async (url) => openInBrowser(new URL(url), deps);
 }

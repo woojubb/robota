@@ -5,16 +5,21 @@
  *
  * On Windows `rundll32 url.dll,FileProtocolHandler` is used rather than `cmd /c start`: `cmd`
  * re-parses its whole command line, so an `&` in the URL's query would start a second command.
+ *
+ * The opener is started and let go: it hands the link to the browser and may then stay in the
+ * foreground (`xdg-open` without a detected desktop environment does), and the browser it started can
+ * belong to its group. So the call settles once the opener has started; it is never waited for,
+ * tracked or ended, in either mode.
  */
 
-import { execFileInChildSession } from '@robota-sdk/agent-core/node';
+import { spawn } from 'node:child_process';
+
+import { withChildSession } from '@robota-sdk/agent-core/node';
 
 export interface IBrowserCommand {
   readonly command: string;
   readonly args: readonly string[];
 }
-
-const OPEN_TIMEOUT_MS = 15_000;
 
 /** The opener for `platform`; throws for anything but an `https:` URL. */
 export function browserCommand(
@@ -30,27 +35,45 @@ export function browserCommand(
   return { command: 'xdg-open', args: [href] };
 }
 
-export type TExecFile = (
+/** Start `command` and let it go; `started` is told once, whether it started or could not. */
+export type TStartOpener = (
   command: string,
   args: readonly string[],
-  callback: (error: Error | null) => void,
+  started: (error: Error | null) => void,
 ) => void;
 
-// The opener is found on PATH, so in secure mode it runs in its own session.
-const defaultExecFile: TExecFile = (command, args, callback) => {
-  execFileInChildSession(command, args, { timeout: OPEN_TIMEOUT_MS, windowsHide: true }, (error) =>
-    callback(error),
-  );
+// Found on PATH, so in its own session in secure mode; detached and unreferenced in both modes.
+const startDetached: TStartOpener = (command, args, started) => {
+  let told = false;
+  const tell = (error: Error | null): void => {
+    if (told) return;
+    told = true;
+    started(error);
+  };
+  try {
+    const child = spawn(
+      command,
+      [...args],
+      withChildSession({ stdio: 'ignore', detached: true, windowsHide: true }),
+    );
+    child.once('spawn', () => {
+      child.unref();
+      tell(null);
+    });
+    child.once('error', (error) => tell(error));
+  } catch (error) {
+    tell(error instanceof Error ? error : new Error(String(error)));
+  }
 };
 
-/** Open `url`; resolves once the opener has handed it to the browser. */
+/** Open `url`; resolves once the platform's opener has started. */
 export function openInBrowser(
   url: URL,
-  deps: { readonly platform?: NodeJS.Platform; readonly execFile?: TExecFile } = {},
+  deps: { readonly platform?: NodeJS.Platform; readonly start?: TStartOpener } = {},
 ): Promise<void> {
   const { command, args } = browserCommand(url, deps.platform);
   return new Promise((resolve, reject) => {
-    (deps.execFile ?? defaultExecFile)(command, args, (error) => {
+    (deps.start ?? startDetached)(command, args, (error) => {
       if (error === null) resolve();
       else reject(new Error('The browser could not be opened.'));
     });

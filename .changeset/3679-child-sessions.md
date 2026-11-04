@@ -24,8 +24,10 @@ Breaking: `removeProcessScopedDirectoriesNow()` is renamed `runProcessEndNow()`,
 ends the groups of children in their own session. What to do: call `runProcessEndNow()` where a
 crash handler called the old name.
 
-Plain-mode change in `@robota-sdk/agent-cli`: the session view opens a pull request with the
+Plain-mode changes in `@robota-sdk/agent-cli`: the session view opens a pull request with the
 product's own browser opener instead of the `open` package, which is no longer a dependency. macOS
 still runs `open <url>`; Linux runs the `xdg-open` found on `PATH`; Windows runs
 `rundll32 url.dll,FileProtocolHandler <url>` rather than PowerShell's `Start`; and only an https
-link opens. What to do: nothing.
+link opens. That opener, which sign-in also uses, is now started detached and let go: it settles once
+the opener has started rather than when it exits (it no longer fails after 15 seconds when
+`xdg-open` stays in the foreground), and it is never ended with the process. What to do: nothing.
