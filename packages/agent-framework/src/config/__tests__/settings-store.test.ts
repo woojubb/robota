@@ -4,10 +4,8 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  createNodeHostSettingsStore,
-  createWorkspaceProjectSettingsStore,
-} from '../settings-store.js';
+import { createWorkspaceProjectSettingsStore } from '../settings-store.js';
+import { createNodeHostSettingsStore } from '../node-host-settings-store.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import {
   WorkspaceAuthorityRequiredError,

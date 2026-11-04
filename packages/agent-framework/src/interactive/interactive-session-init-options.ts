@@ -32,7 +32,7 @@ import type {
 } from '../commands/index.js';
 import type { IHookDefinitionSource } from '../config/config-merge.js';
 import type { IResolvedConfig } from '../config/config-types.js';
-import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
+import type { IHostSettingsSource } from '../config/settings-source.js';
 import type { IProjectSettingsPath } from '../config/settings-source.js';
 import type { IContributionSource } from '../contributions/index.js';
 import type { IFrameworkHost } from '../host/framework-host.js';
@@ -69,7 +69,7 @@ export interface IInitOptions {
   baselinePermissionAllow?: readonly string[];
   /** Host-selected default task-context directory; resolved settings may override or disable it. */
   taskContext?: IResolvedConfig['taskContext'];
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   environment?: Readonly<Record<string, string | undefined>>;
   resolveProviderCredential?: TProviderCredentialResolver;
   contributionSources?: readonly IContributionSource[];

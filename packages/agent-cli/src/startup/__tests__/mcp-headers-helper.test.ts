@@ -20,10 +20,10 @@ import { fileURLToPath } from 'node:url';
 
 import {
   WorkspaceTrustService,
-  createNodeHostSettingsSource,
   createWorkspaceProjectSettingsSources,
   getWorkspaceProjectReader,
 } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import {
   InMemoryMCPActivationApprovalStore,
   MCPDefinitionRegistry,
@@ -41,7 +41,6 @@ import { createProductUserSettingsSources } from '../../product/user-settings.js
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import type { IMCPConnectionSupervisorOptions, IMCPResolvedEntry } from '@robota-sdk/agent-mcp';
 const PRODUCT_PROJECT_SETTINGS = productProjectSettings(createTestProductRuntime());
-
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/headers-helper.mjs', import.meta.url));
 const helperFor = (...args: string[]) => ({ command: process.execPath, args: [FIXTURE, ...args] });
@@ -314,8 +313,11 @@ async function startWith(settings: Record<string, unknown>, stub: IStubbedFetch)
   mkdirSync(join(home, '.test-product'), { recursive: true });
   writeFileSync(join(home, '.test-product', 'settings.json'), JSON.stringify(settings));
   const messages: string[] = [];
-  const mcp = await composeMcpClientForStartup({productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
-    settingsSources: createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: home })),
+  const mcp = await composeMcpClientForStartup({
+    productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
+    settingsSources: createProductUserSettingsSources(
+      createTestProductRuntime('test-product', { HOME: home }),
+    ),
     projectAccess: restrictedAccess,
     cwd: home,
     env: { PATH: process.env.PATH ?? '', HOME: home },
@@ -450,9 +452,12 @@ describe('a repository header helper in a trusted workspace', () => {
         return new Response(null, { status: 401 });
       }) as typeof globalThis.fetch;
       const messages: string[] = [];
-      const mcp = await composeMcpClientForStartup({productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
+      const mcp = await composeMcpClientForStartup({
+        productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
         settingsSources: [
-          ...createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: home })),
+          ...createProductUserSettingsSources(
+            createTestProductRuntime('test-product', { HOME: home }),
+          ),
           ...createWorkspaceProjectSettingsSources(
             getWorkspaceProjectReader(access.authority),
             PRODUCT_PROJECT_SETTINGS,

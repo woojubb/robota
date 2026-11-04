@@ -4,14 +4,13 @@
  */
 import { readSettingsLayers } from './settings-inspection.js';
 
-import type { ISettingsDocumentStore } from './settings-store-types.js';
+import type { ISettingsDocumentStore, TSettingsData } from './settings-store-types.js';
 import type { TSettingsSource } from './settings-source.js';
 import type {
   ICommandPermissionRulesAdapter,
   IPermissionRuleLayer,
   IPermissionRuleRemoval,
 } from '../command-api/host-adapters.js';
-import type { TSettingsData } from './settings-io.js';
 
 export function readPermissionRuleLayers(
   sources: readonly TSettingsSource[],
@@ -64,6 +63,8 @@ export function createSettingsPermissionRulesAdapter(
 ): ICommandPermissionRulesAdapter {
   return {
     readLayers: () => readPermissionRuleLayers(sources),
-    ...(stores ? { removeRule: (removal: IPermissionRuleRemoval) => removePermissionRule(stores, removal) } : {}),
+    ...(stores
+      ? { removeRule: (removal: IPermissionRuleRemoval) => removePermissionRule(stores, removal) }
+      : {}),
   };
 }

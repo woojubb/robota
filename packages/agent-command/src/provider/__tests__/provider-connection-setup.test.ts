@@ -5,7 +5,7 @@ import type {
   IUserInteraction,
 } from '@robota-sdk/agent-core';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
-import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import type {
   IProviderConnectionHost,
   TProviderSettingsDocument,

@@ -13,11 +13,11 @@ import { fileURLToPath } from 'node:url';
 
 import {
   WorkspaceTrustService,
-  createNodeHostSettingsSource,
   createRestrictedWorkspaceProjectAccess,
   createWorkspaceProjectSettingsSources,
   getWorkspaceProjectReader,
 } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createFileMcpApprovalStore } from '../mcp-approval-file-store.js';
@@ -189,9 +189,10 @@ describe('composeMcpClientForStartup', () => {
         if (tool === undefined) throw new Error('Expected admitted stdio tool');
         const result = await tool.execute({}, { toolName: 'local__ping', parameters: {} });
         expect(result.success).toBe(true);
-        const capabilities = JSON.parse(
-          (result as { data: string }).data,
-        ) as Record<string, unknown>;
+        const capabilities = JSON.parse((result as { data: string }).data) as Record<
+          string,
+          unknown
+        >;
         if (declared) expect(capabilities['elicitation']).toEqual({ form: {} });
         else expect(capabilities).not.toHaveProperty('elicitation');
       } finally {
@@ -250,9 +251,10 @@ describe('composeMcpClientForStartup', () => {
         if (tool === undefined) throw new Error('Expected admitted stdio tool');
         const result = await tool.execute({}, { toolName: 'local__ping', parameters: {} });
         expect(result.success).toBe(true);
-        const capabilities = JSON.parse(
-          (result as { data: string }).data,
-        ) as Record<string, unknown>;
+        const capabilities = JSON.parse((result as { data: string }).data) as Record<
+          string,
+          unknown
+        >;
         if (declared) {
           expect(capabilities['extensions']).toEqual({
             'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] },

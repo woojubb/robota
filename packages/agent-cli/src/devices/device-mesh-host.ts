@@ -10,7 +10,7 @@
  */
 import { join } from 'node:path';
 
-import { readSettings } from '@robota-sdk/agent-framework';
+import { readSettings } from '@robota-sdk/agent-framework/node';
 import {
   MeshRelayNeededError,
   WsMeshRelayClient,
@@ -262,9 +262,10 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
 
   const nameOf = (deviceId: string): string | undefined => {
     try {
-      return readIdentityState(options.productRuntime.cryptoContext, join(root, 'devices'))?.roster.devices.find(
-        (device) => device.deviceId === deviceId,
-      )?.name;
+      return readIdentityState(
+        options.productRuntime.cryptoContext,
+        join(root, 'devices'),
+      )?.roster.devices.find((device) => device.deviceId === deviceId)?.name;
     } catch {
       // allow-fallback: the name is display only
       return undefined;

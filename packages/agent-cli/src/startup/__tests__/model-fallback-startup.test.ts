@@ -2,7 +2,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { FallbackProvider, createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
+import { FallbackProvider } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { parseCliArgs } from '../../utils/cli-args.js';

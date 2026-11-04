@@ -3,13 +3,13 @@ import { dirname } from 'node:path';
 
 import { ensureOwnerOnlyDirectory, tightenExistingFile } from '@robota-sdk/agent-core/node';
 
+import { createNodeHostSettingsSource } from './node-host-settings-source.js';
 import { SettingsParseError } from './settings-parse-error.js';
-import { createNodeHostSettingsSource } from './settings-source.js';
 
-import type { TSettingsData } from './settings-io.js';
-import type { THostSettingsScope } from './settings-source.js';
-import type { ISettingsDocumentStore } from './settings-store-types.js';
+import type { THostSettingsScope } from './settings-scope-types.js';
+import type { ISettingsDocumentStore, TSettingsData } from './settings-store-types.js';
 
+/** A user- or managed-scope settings file as a read/write document store, written owner-only. */
 export function createNodeHostSettingsStore(
   scope: THostSettingsScope,
   path: string,

@@ -1,23 +1,24 @@
 import { existsSync, readFileSync } from 'node:fs';
 
 import type { THostSettingsScope } from './settings-scope-types.js';
+import type { IHostSettingsSource } from './settings-source.js';
 
-export interface INodeHostSettingsSource {
-  readonly kind: 'host';
-  readonly scope: THostSettingsScope;
-  readonly displayName: string;
-  readonly path: string;
-}
-
-/** Explicit process-namespace adapter for managed or user-owned settings files. */
+/**
+ * Explicit process-namespace adapter for managed or user-owned settings files. A missing file reads
+ * as absent; a file that exists but cannot be read throws.
+ */
 export function createNodeHostSettingsSource(
   scope: THostSettingsScope,
   path: string,
-): INodeHostSettingsSource {
-  return Object.freeze({ kind: 'host', scope, displayName: path, path });
-}
-
-export function readNodeHostSettingsSource(source: INodeHostSettingsSource): string | undefined {
-  if (!existsSync(source.path)) return undefined;
-  return readFileSync(source.path, 'utf8');
+): IHostSettingsSource {
+  return Object.freeze({
+    kind: 'host' as const,
+    scope,
+    displayName: path,
+    path,
+    read: (): string | undefined => {
+      if (!existsSync(path)) return undefined;
+      return readFileSync(path, 'utf8');
+    },
+  });
 }

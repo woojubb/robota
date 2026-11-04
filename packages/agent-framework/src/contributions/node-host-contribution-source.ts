@@ -58,3 +58,13 @@ export function createNodeHostContributionSource(root: string): IContributionSou
     },
   });
 }
+
+/** Default host-owned contribution roots. Project content is intentionally absent. */
+export function createDefaultUserContributionSources(
+  userHome: string,
+): readonly IContributionSource[] {
+  if (typeof userHome !== 'string' || userHome.trim().length === 0) {
+    throw new Error('User contribution root must be provided by the host.');
+  }
+  return [createNodeHostContributionSource(userHome)];
+}

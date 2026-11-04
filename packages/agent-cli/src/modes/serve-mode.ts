@@ -83,7 +83,7 @@ import type {
   IRemoteCommandPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
-  INodeHostSettingsSource,
+  IHostSettingsSource,
   IContributionSource,
   ISkillRootDescriptor,
   IToolCallHandoffPolicy,
@@ -140,7 +140,7 @@ export interface IServeModeOptions {
    */
   createEditCheckpointStore?: () => EditCheckpointStore;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
   taskContext?: { readonly enabled?: boolean; readonly dir?: string };

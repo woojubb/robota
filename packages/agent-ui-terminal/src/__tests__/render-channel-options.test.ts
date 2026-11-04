@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import type { IAIProvider } from '@robota-sdk/agent-core';
-import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
-import { createNodeHostContributionSource } from '@robota-sdk/agent-framework';
+import {
+  createNodeHostContributionSource,
+  createNodeHostSettingsSource,
+} from '@robota-sdk/agent-framework/node';
 import type { IPromptHistoryOptions } from '@robota-sdk/agent-framework';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import { toChannelOptions } from '../render.js';

@@ -32,7 +32,7 @@ import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { createTestSkillCommandSource } from '../testing/contribution-source-fixture.js';
-import { createDefaultUserContributionSources } from '../contributions/initial-contribution-sources.js';
+import { createDefaultUserContributionSources } from '../contributions/node-host-contribution-source.js';
 
 /** The variable `vitest.shared.ts` publishes so a test can name the directory it should be given. */
 const ISOLATED_HOME_ENV = 'AGENT_VITEST_ISOLATED_HOME';

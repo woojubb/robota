@@ -2,11 +2,11 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import {
   createNodeHostContributionSource,
   createNodeHostSettingsSource,
-  createRestrictedWorkspaceProjectAccess,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-framework/node';
 
 import { createNodeDoctorDeps, inspectPathFacts } from '../doctor-node-deps.js';
 
@@ -99,7 +99,10 @@ export function createDoctorFixture(options: IDoctorFixtureOptions = {}): IDocto
     cwd: home,
     userHome: home,
     userSettingsPath: join(home, '.fixture-product', 'settings.json'),
-    userStorage: { root: join(home, '.fixture-product'), sessions: join(home, '.fixture-product', 'sessions') },
+    userStorage: {
+      root: join(home, '.fixture-product'),
+      sessions: join(home, '.fixture-product', 'sessions'),
+    },
     settingsSources: [
       createNodeHostSettingsSource('user', join(home, '.fixture-product', 'settings.json')),
       createNodeHostSettingsSource('user', join(home, '.claude', 'settings.json')),

@@ -7,6 +7,7 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { TransportRegistry } from '../transport-registry';
+import { createFileTransportSettingsRepository } from '../transport-settings-repository.js';
 import { bindTransportAdapter } from '../bind-transport-adapter.js';
 
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
@@ -43,7 +44,9 @@ class RecordingTransport implements IConfigurableTransport<IInteractiveSession> 
 function newRegistry(): TransportRegistry {
   // A fresh temp settings path → no saved overrides → each transport's `defaultEnabled` decides (true here).
   return new TransportRegistry(
-    path.join(realpathSync(mkdtempSync(path.join(tmpdir(), 'deploy-matrix-'))), 'settings.json'),
+    createFileTransportSettingsRepository(
+      path.join(realpathSync(mkdtempSync(path.join(tmpdir(), 'deploy-matrix-'))), 'settings.json'),
+    ),
   );
 }
 

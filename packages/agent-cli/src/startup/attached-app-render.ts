@@ -10,6 +10,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { productProviderDefinitions } from '../product/provider-definitions.js';
 import { createTerminalClientCommands } from '@robota-sdk/agent-command/node';
 import { applyAppearanceSettings } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsStore } from '@robota-sdk/agent-framework/node';
 
 import { reloadPluginCommandSource } from '../plugins/default-plugin-command-source-loader.js';
 import { resolveProductShellExecutable } from '../product/shell.js';
@@ -95,7 +96,13 @@ export function createAttachedAppRender(
         productRuntime: context.productRuntime,
         providerDefinitions: context.providerDefinitions ?? productProviderDefinitions(),
         reloadPluginCommandSource: (registry) =>
-          reloadPluginCommandSource(registry, context.productRuntime, cwd, projectAccess, context.safeMode !== true),
+          reloadPluginCommandSource(
+            registry,
+            context.productRuntime,
+            cwd,
+            projectAccess,
+            context.safeMode !== true,
+          ),
       }),
       ...fields,
       keybindingsSource,
@@ -105,14 +112,18 @@ export function createAttachedAppRender(
       clientCommands: {
         commands: createTerminalClientCommands({
           shellExecutable: resolveProductShellExecutable(context.productRuntime.environment),
-          editorTemporaryDirectoryPrefix: context.productRuntime.vocabulary.editorTemporaryDirectoryPrefix,
+          editorTemporaryDirectoryPrefix:
+            context.productRuntime.vocabulary.editorTemporaryDirectoryPrefix,
           keybindingsFile: keybindingsSource,
           themeCatalogue: theme.cataloguePort,
           ...(enabledCommandModules !== undefined ? { enabledCommandModules } : {}),
           ...(disabledCommandModules !== undefined ? { disabledCommandModules } : {}),
         }),
         writeAppearanceSettings: (patch) => {
-          applyAppearanceSettings(productUserSettingsPath(context.productRuntime), patch);
+          applyAppearanceSettings(
+            createNodeHostSettingsStore('user', productUserSettingsPath(context.productRuntime)),
+            patch,
+          );
         },
       },
       themeRegistry: theme.registry,

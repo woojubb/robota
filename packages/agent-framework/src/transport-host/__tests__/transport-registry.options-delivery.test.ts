@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { TransportRegistry } from '../transport-registry.js';
 import { bindTransportAdapter } from '../bind-transport-adapter.js';
-import { createMemoryTransportSettingsRepository } from '../transport-settings-repository.js';
+import { createMemoryTransportSettingsRepository } from '../memory-transport-settings-repository.js';
 
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';

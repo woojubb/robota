@@ -3,15 +3,16 @@ import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  createNodeHostContributionSource,
   InteractiveSession,
   SystemCommandExecutor,
   WorkspaceTrustService,
 } from '@robota-sdk/agent-framework';
+import { createNodeHostContributionSource } from '@robota-sdk/agent-framework/node';
 import { createSkillsCommandModule } from '../skills-command-module.js';
 import {
   createTestCommandHost,
-  type ICreateTestCommandHostOptions, createTestFrameworkHost,
+  type ICreateTestCommandHostOptions,
+  createTestFrameworkHost,
 } from '@robota-sdk/agent-framework/testing';
 
 import type { IWorkspaceIdentity, IWorkspaceTrustStore } from '@robota-sdk/agent-framework';

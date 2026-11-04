@@ -11,10 +11,10 @@ import { join } from 'node:path';
 
 import {
   WorkspaceTrustService,
-  createNodeHostSettingsSource,
   createWorkspaceProjectSettingsSources,
   getWorkspaceProjectReader,
 } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { describeJsonParseFailure, resolveMcpDefinitions } from '../mcp-definition-sources.js';
@@ -23,7 +23,6 @@ import { createProductUserSettingsSources } from '../../product/user-settings.js
 
 import type { IWorkspaceIdentity, TSettingsSource } from '@robota-sdk/agent-framework';
 const PRODUCT_PROJECT_SETTINGS = productProjectSettings(createTestProductRuntime());
-
 
 const roots: string[] = [];
 
@@ -80,7 +79,9 @@ describe('resolveMcpDefinitions', () => {
     );
 
     const settingsSources = [
-      ...createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome })),
+      ...createProductUserSettingsSources(
+        createTestProductRuntime('test-product', { HOME: userHome }),
+      ),
       ...(await trustedProjectSettingsSources(projectRoot)),
     ];
 
@@ -104,7 +105,9 @@ describe('resolveMcpDefinitions', () => {
     const settingsPath = join(userHome, '.test-product', 'settings.json');
     writeFileSync(settingsPath, '{ this is not json');
 
-    const settingsSources = createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome }));
+    const settingsSources = createProductUserSettingsSources(
+      createTestProductRuntime('test-product', { HOME: userHome }),
+    );
     const { entries, problems, sourceProblems } = resolveMcpDefinitions(
       settingsSources,
       process.env,
@@ -122,9 +125,14 @@ describe('resolveMcpDefinitions', () => {
   it('produces nothing for a layer that declares no mcpServers', () => {
     const userHome = tempRoot('test-product-mcp-defs-none-');
     mkdirSync(join(userHome, '.test-product'), { recursive: true });
-    writeFileSync(join(userHome, '.test-product', 'settings.json'), JSON.stringify({ language: 'en' }));
+    writeFileSync(
+      join(userHome, '.test-product', 'settings.json'),
+      JSON.stringify({ language: 'en' }),
+    );
 
-    const settingsSources = createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome }));
+    const settingsSources = createProductUserSettingsSources(
+      createTestProductRuntime('test-product', { HOME: userHome }),
+    );
     const { entries, problems, sourceProblems } = resolveMcpDefinitions(
       settingsSources,
       process.env,
@@ -158,7 +166,9 @@ describe('resolveMcpDefinitions', () => {
     );
 
     const settingsSources = [
-      ...createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome })),
+      ...createProductUserSettingsSources(
+        createTestProductRuntime('test-product', { HOME: userHome }),
+      ),
       ...(await trustedProjectSettingsSources(projectRoot)),
     ];
 
@@ -240,7 +250,9 @@ describe('resolveMcpDefinitions', () => {
     }
     expect(nodeEchoesTheValue).toBe(true);
 
-    const settingsSources = createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome }));
+    const settingsSources = createProductUserSettingsSources(
+      createTestProductRuntime('test-product', { HOME: userHome }),
+    );
     const { problems, sourceProblems } = resolveMcpDefinitions(settingsSources, process.env);
 
     expect(problems).toHaveLength(1);
@@ -304,7 +316,9 @@ describe('resolveMcpDefinitions', () => {
       JSON.stringify({ language: 'en', theme: 'dark' }),
     );
 
-    const settingsSources = createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: userHome }));
+    const settingsSources = createProductUserSettingsSources(
+      createTestProductRuntime('test-product', { HOME: userHome }),
+    );
     const { entries, problems, sourceProblems } = resolveMcpDefinitions(
       settingsSources,
       process.env,

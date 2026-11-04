@@ -5,7 +5,7 @@ import { loadHostBundlePluginsFromScopes } from '../plugins/index.js';
 import { getWorkspaceProjectIdentity } from '../workspace-trust/workspace-authority.js';
 
 import type { ICommand } from '../command-api/types.js';
-import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
+import type { IHostSettingsSource } from '../config/settings-source.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
 
@@ -14,7 +14,7 @@ export interface ISessionPluginScope {
   readonly bare?: boolean;
   readonly projectAccess?: TWorkspaceProjectAccess;
   readonly pluginDirectories?: { readonly user?: string; readonly project?: string };
-  readonly userSettingsSources?: readonly INodeHostSettingsSource[];
+  readonly userSettingsSources?: readonly IHostSettingsSource[];
   /** The files plugin directories are read through (`host.files.sync`); absent, there are none to read. */
   readonly fs?: IFileSystem;
 }

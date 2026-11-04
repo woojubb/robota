@@ -101,3 +101,24 @@ export {
   GIT_MAX_OUTPUT_BYTES,
 } from './git/node-git-process.js';
 export type { ICreateGitProcessOptions } from './git/node-git-process.js';
+
+// Settings, contribution roots, transport settings and the package version: the file-backed halves
+// of modules whose neutral halves are on the main entry. The main entry takes each as a parameter
+// (`IHostSettingsSource`, `ISettingsDocumentStore`, `IContributionSource`,
+// `ITransportSettingsRepository`); a Node composition root builds them here.
+export { createNodeHostSettingsSource } from './config/node-host-settings-source.js';
+export { createNodeHostSettingsStore } from './config/node-host-settings-store.js';
+export {
+  deleteSettings,
+  readSettings,
+  updateModelInSettings,
+  writeSettings,
+} from './config/settings-io.js';
+export { resetUserConfig } from './config/reset-user-config.js';
+export type { IResetUserConfigResult } from './config/reset-user-config.js';
+export {
+  createDefaultUserContributionSources,
+  createNodeHostContributionSource,
+} from './contributions/node-host-contribution-source.js';
+export { createFileTransportSettingsRepository } from './transport-host/transport-settings-repository.js';
+export { readPackageVersion } from './utils/read-package-version.js';

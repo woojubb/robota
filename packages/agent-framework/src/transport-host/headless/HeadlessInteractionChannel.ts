@@ -12,7 +12,8 @@ import { buildRuntimeSession } from '../../runtime/runtime-host.js';
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { ICreateSessionOptions } from '../../assembly/create-session-types.js';
 import type { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js';
-import type { INodeHostSettingsSource, IProjectSettingsPath } from '../../config/settings-source.js';
+import type { IProjectSettingsPath } from '../../config/settings-source.js';
+import type { IHostSettingsSource } from '../../config/settings-source.js';
 import type { IResolvedConfig } from '../../config/config-types.js';
 import type { IContributionSource } from '../../contributions/index.js';
 import type { IFrameworkHost } from '../../host/framework-host.js';
@@ -51,7 +52,7 @@ export interface IHeadlessInteractionChannelOptions {
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   environment?: Readonly<Record<string, string | undefined>>;
   baselinePermissionAllow?: readonly string[];
   /** Host-selected task-context root; absent means the framework scans no task directory. */

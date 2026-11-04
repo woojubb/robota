@@ -126,7 +126,7 @@ import type {
   TCommandSurfaceLocality,
 } from '../commands/index.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
-import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
+import type { IHostSettingsSource } from '../config/settings-source.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IGoalStartOptions } from '../goal/index.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
@@ -306,7 +306,7 @@ export class InteractiveSession
   private readonly providerErrorGuidance?: IProviderErrorGuidance;
   private readonly promptFileReferenceTag?: string;
   private readonly resolveDefaultLoopPrompt?: () => string;
-  private readonly userSettingsSources: readonly INodeHostSettingsSource[];
+  private readonly userSettingsSources: readonly IHostSettingsSource[];
   private readonly statusPush: SessionStatusPush;
   /** A refused save is said once, through the out-of-turn error path, unless the claim says it. */
   private readonly refusedSaves = createRefusedSaveReporter((error) =>

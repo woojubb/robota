@@ -16,7 +16,7 @@ import type {
   IOrgPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
-  INodeHostSettingsSource,
+  IHostSettingsSource,
   ICommandModule,
   ICreateSessionOptions,
   ILivePromptTracePort,
@@ -82,7 +82,7 @@ export interface ITuiInteractionChannelOptions {
   taskContext?: { readonly enabled?: boolean; readonly dir?: string };
   contributionSources?: ICreateSessionOptions['contributionSources'];
   skillRoots?: ICreateSessionOptions['skillRoots'];
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   environment?: Readonly<Record<string, string | undefined>>;
   resolveProviderCredential?: import('@robota-sdk/agent-core').TProviderCredentialResolver;
   /**

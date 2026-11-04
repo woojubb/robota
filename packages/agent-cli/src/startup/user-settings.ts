@@ -1,5 +1,6 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
-import { readSettings, SettingsParseError } from '@robota-sdk/agent-framework';
+import { SettingsParseError } from '@robota-sdk/agent-framework';
+import { readSettings } from '@robota-sdk/agent-framework/node';
 import { productUserSettingsPath } from '../product/user-settings.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
@@ -37,7 +38,9 @@ export function readUserSettingsOrExit(runtime: ICliRuntimeContext): TSettingsDa
   } catch (error) {
     if (!(error instanceof SettingsParseError)) throw error;
     // allow-fallback: an unreadable settings file is terminal — surface the file and the remedy, exit
-    process.stderr.write(`${error.message} Run ${runtime.vocabulary.cliName} doctor for diagnostics.\n`);
+    process.stderr.write(
+      `${error.message} Run ${runtime.vocabulary.cliName} doctor for diagnostics.\n`,
+    );
     process.exit(1);
   }
 }

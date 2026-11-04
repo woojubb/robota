@@ -65,7 +65,7 @@ function planSettingsRepair(id: string, inputs: IDoctorInputs): TDoctorRepairPla
     plan: {
       id,
       description: 'rewrite the empty user settings file as {}',
-      path: layer.source.path,
+      path: inputs.userSettingsPath,
     },
   };
 }

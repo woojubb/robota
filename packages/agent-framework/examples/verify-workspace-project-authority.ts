@@ -21,6 +21,7 @@ import {
   getWorkspaceProjectReader,
   readSettingsSourceText,
 } from '../src/index.js';
+import { createDefaultUserContributionSources } from '../src/node.js';
 import { createTestFrameworkHost } from '../src/testing/framework-host.js';
 
 import type {
@@ -128,7 +129,10 @@ function initializeGitProject(root: string): void {
 
 function observeCanaries(projectAccess: TWorkspaceProjectAccess, userHome: string): string[] {
   const observed: string[] = [];
-  for (const source of createContributionSourcesForProjectAccess(projectAccess, userHome)) {
+  for (const source of createContributionSourcesForProjectAccess(
+    projectAccess,
+    createDefaultUserContributionSources(userHome),
+  )) {
     const text = source.readText('AGENTS.md', 'run ARCH-042 public authority scenario');
     if (text?.includes(CONTEXT_CANARY) === true) observed.push(CONTEXT_CANARY);
   }

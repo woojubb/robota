@@ -4,11 +4,11 @@ import { join } from 'node:path';
 
 import { createProviderCommandModule } from '@robota-sdk/agent-command';
 import {
-  createNodeHostSettingsSource,
   InteractiveSession,
   type IProviderCommandSettingsAdapter,
   type TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import { createGemmaProviderDefinition } from '@robota-sdk/agent-provider-openai-compatible';
 import {
   createOutboundDelivery,

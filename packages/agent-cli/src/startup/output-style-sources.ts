@@ -3,21 +3,23 @@ import { realpathSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
 import {
-  createNodeHostContributionSource,
   getWorkspaceProjectIdentity,
   getWorkspaceProjectReader,
 } from '@robota-sdk/agent-framework';
+import { createNodeHostContributionSource } from '@robota-sdk/agent-framework/node';
 
 import type { IContributionSource, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import type { IOutputStyleFile, IOutputStyleSource } from '@robota-sdk/agent-preset';
-
 
 const USER_OUTPUT_STYLE_PRECEDENCE = 10;
 const PROJECT_OUTPUT_STYLE_PRECEDENCE = 20;
 const MANAGED_OUTPUT_STYLE_PRECEDENCE = 1000;
 
 /** Project output-style directories are searched at every ancestor from the root to cwd. */
-export function projectOutputStyleDirectories(cwdRelative: string, runtime: ICliRuntimeContext): readonly string[] {
+export function projectOutputStyleDirectories(
+  cwdRelative: string,
+  runtime: ICliRuntimeContext,
+): readonly string[] {
   const segments = cwdRelative.length === 0 ? [] : cwdRelative.split(sep);
   return Array.from({ length: segments.length + 1 }, (_, depth) =>
     join(...segments.slice(0, depth), join(runtime.layout.projectDirectory, 'output-styles')),

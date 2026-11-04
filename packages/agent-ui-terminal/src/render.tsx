@@ -68,7 +68,7 @@ import type {
   IProjectSettingsPath,
   IContributionSource,
   ISkillRootDescriptor,
-  INodeHostSettingsSource,
+  IHostSettingsSource,
   IToolCallHandoffPolicy,
   ICreateSessionOptions,
   ILivePromptTracePort,
@@ -105,7 +105,7 @@ export interface IRenderOptions {
   taskContext?: { readonly enabled?: boolean; readonly dir?: string };
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   environment?: Readonly<Record<string, string | undefined>>;
   resolveProviderCredential?: TProviderCredentialResolver;
   /**

@@ -12,10 +12,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { SettingsParseError } from '../../../config/settings-parse-error.js';
 import { readSettings } from '../../../config/settings-io.js';
-import {
-  createNodeHostSettingsSource,
-  createWorkspaceProjectSettingsSources,
-} from '../../../config/settings-source.js';
+import { createWorkspaceProjectSettingsSources } from '../../../config/settings-source.js';
+import { createNodeHostSettingsSource } from '../../../config/node-host-settings-source.js';
 import { createTrustedProjectAccessFixture } from '../../../testing/trusted-project-state-fixture.js';
 import { TEST_PROJECT_SETTINGS_PATHS } from '../../../testing/project-settings-path-fixture.js';
 import { getWorkspaceProjectReader } from '../../../workspace-trust/index.js';

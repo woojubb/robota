@@ -19,8 +19,8 @@ import {
   resolveProviderSettingsWriteTarget,
 } from '../command-api/provider/provider-configuration.js';
 import { readProviderSettings as readProviderSettingsFromSources } from '../command-api/provider/provider-factory.js';
-import { createNodeHostSettingsSource } from '../config/settings-source.js';
-import { createNodeHostSettingsStore } from '../config/settings-store.js';
+import { createNodeHostSettingsSource } from '../config/node-host-settings-source.js';
+import { createNodeHostSettingsStore } from '../config/node-host-settings-store.js';
 
 import type { IActiveModelChangeOptions } from '../command-api/provider/provider-configuration.js';
 import type {

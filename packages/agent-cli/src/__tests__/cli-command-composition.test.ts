@@ -6,12 +6,14 @@ import { join } from 'node:path';
 import { createDefaultCommandModules } from '@robota-sdk/agent-command';
 import {
   CommandRegistry,
-  createNodeHostSettingsSource,
-  createNodeHostSettingsStore,
   InteractiveSession,
   readMergedProviderSettings,
   resolveProviderSettingsWriteTarget,
 } from '@robota-sdk/agent-framework';
+import {
+  createNodeHostSettingsSource,
+  createNodeHostSettingsStore,
+} from '@robota-sdk/agent-framework/node';
 import { createHeadlessTransport } from '@robota-sdk/agent-framework';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
@@ -133,7 +135,10 @@ describe('default CLI command composition', () => {
     }) as typeof process.stdout.write;
 
     try {
-      await startCli({productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),  providerDefinitions: [] });
+      await startCli({
+        productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
+        providerDefinitions: [],
+      });
       const output = parseJsonObject(writes.join('').trim());
       expect(output['root']).toBe(join(home, '.test-product'));
       const categories = output['categories'];
@@ -176,7 +181,9 @@ describe('default CLI command composition', () => {
 
   it('routes direct user-local memory commands before provider setup', async () => {
     const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-direct-user-local-memory-')));
-    const home = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-direct-user-local-memory-home-')));
+    const home = realpathSync(
+      mkdtempSync(join(tmpdir(), 'test-product-direct-user-local-memory-home-')),
+    );
     const originalArgv = process.argv;
     const originalHome = process.env.HOME;
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(cwd);
@@ -203,7 +210,10 @@ describe('default CLI command composition', () => {
     }) as typeof process.stdout.write;
 
     try {
-      await startCli({productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),  providerDefinitions: [] });
+      await startCli({
+        productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
+        providerDefinitions: [],
+      });
       expect(writes.join('')).toContain('Stored user-local memory item view-preference/last-panel');
       expect(existsSync(join(cwd, '.test-product'))).toBe(false);
     } finally {

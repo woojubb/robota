@@ -1,4 +1,4 @@
-import { createNodeHostContributionSource } from '../contributions/index.js';
+import { createNodeHostContributionSource } from '../contributions/node-host-contribution-source.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
 
 import type { IContributionSource } from '../contributions/index.js';

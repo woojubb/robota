@@ -1,10 +1,8 @@
 import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 
-import {
-  createNodeHostSettingsSource,
-  createWorkspaceProjectSettingsSources,
-} from '../config/settings-source.js';
+import { createWorkspaceProjectSettingsSources } from '../config/settings-source.js';
+import { createNodeHostSettingsSource } from '../config/node-host-settings-source.js';
 import { TEST_PROJECT_SETTINGS_PATHS } from './project-settings-path-fixture.js';
 import { createProjectSessionStore } from '../interactive/session-persistence.js';
 import {

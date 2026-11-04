@@ -21,7 +21,7 @@ import { createInteractiveRuntime } from '../../interaction/createInteractiveRun
 import { requireFrameworkHost } from '../../host/require-framework-host.js';
 
 import type { ICommandModule } from '../../command-api/command-module.js';
-import type { INodeHostSettingsSource } from '../../config/node-host-settings-source.js';
+import type { IHostSettingsSource } from '../../config/settings-source.js';
 import type { IFrameworkHost } from '../../host/framework-host.js';
 import type { IInteractiveRuntime } from '../../interaction/InteractiveRuntime.js';
 import type { TWorkspaceProjectAccess } from '../../workspace-trust/types.js';
@@ -38,7 +38,7 @@ export interface ICreateProgrammaticAgentOptions {
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
   /** Explicit user settings layers for the underlying interactive session. */
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   environment?: Readonly<Record<string, string | undefined>>;
   /** Slash-command modules to register (defaults to none). */
   commandModules?: readonly ICommandModule[];

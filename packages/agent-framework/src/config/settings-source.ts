@@ -1,14 +1,32 @@
-import {
-  createNodeHostSettingsSource,
-  readNodeHostSettingsSource,
-} from './node-host-settings-source.js';
 import { assertWorkspaceProjectReader } from '../workspace-trust/index.js';
 
-import type { INodeHostSettingsSource } from './node-host-settings-source.js';
+import type { THostSettingsScope } from './settings-scope-types.js';
 import type { IWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 export type { THostSettingsScope } from './settings-scope-types.js';
 export type TProjectSettingsScope = 'project' | 'project-local';
+
+/**
+ * A managed or user-owned settings document the host reads through its own storage. The framework
+ * never opens a path itself: a Node host passes `createNodeHostSettingsSource` from
+ * `@robota-sdk/agent-framework/node`, a browser host passes its own `read`.
+ */
+export interface IHostSettingsSource {
+  readonly kind: 'host';
+  readonly scope: THostSettingsScope;
+  /** What a diagnostic calls the document; a file-backed source uses its path. */
+  readonly displayName: string;
+  /**
+   * The file the document lives in, when it is a file. Consumers that act on the file itself, such
+   * as the plugin enablement store and `doctor`, need it; a source over other storage omits it.
+   */
+  readonly path?: string;
+  /**
+   * The document's text, or `undefined` when it does not exist. A document that exists but cannot
+   * be read throws, so a layer that is present and unreadable is never mistaken for an absent one.
+   */
+  read(): string | undefined;
+}
 
 export interface IWorkspaceProjectSettingsSource {
   readonly kind: 'project';
@@ -18,15 +36,12 @@ export interface IWorkspaceProjectSettingsSource {
   readonly reader: IWorkspaceProjectReader;
 }
 
-export type TSettingsSource = INodeHostSettingsSource | IWorkspaceProjectSettingsSource;
+export type TSettingsSource = IHostSettingsSource | IWorkspaceProjectSettingsSource;
 
 export interface IProjectSettingsPath {
   readonly scope: TProjectSettingsScope;
   readonly relativePath: string;
 }
-
-export { createNodeHostSettingsSource };
-export type { INodeHostSettingsSource } from './node-host-settings-source.js';
 
 /** Project layers bound to a runtime-accepted root-relative reader. */
 export function createWorkspaceProjectSettingsSources(
@@ -49,6 +64,6 @@ export function readSettingsSourceText(
   source: TSettingsSource,
   purpose: string,
 ): string | undefined {
-  if (source.kind === 'host') return readNodeHostSettingsSource(source);
+  if (source.kind === 'host') return source.read();
   return assertWorkspaceProjectReader(source.reader).readText(source.relativePath, purpose);
 }

@@ -5,11 +5,20 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
  * activation request and inspects the same approval file — and finds the server `approved`.
  */
 
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import { MCPActivationAdmissionService, MCPDefinitionRegistry } from '@robota-sdk/agent-mcp';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -41,7 +50,10 @@ interface IFixture {
 }
 
 /** A temporary HOME with this user settings file (or none); the real home is never read. */
-function fixture(settings?: unknown | string, extraSources: readonly TSettingsSource[] = []): IFixture {
+function fixture(
+  settings?: unknown | string,
+  extraSources: readonly TSettingsSource[] = [],
+): IFixture {
   const home = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-mcp-add-')));
   roots.push(home);
   const runtime = createTestProductRuntime('test-product', { HOME: home });
@@ -177,7 +189,10 @@ describe('addUserMcpServer', () => {
   });
 
   it('refuses a name a higher-precedence source defines, which approving here could not grant', () => {
-    const managedPath = join(realpathSync(mkdtempSync(join(tmpdir(), 'test-product-managed-'))), 'policy.json');
+    const managedPath = join(
+      realpathSync(mkdtempSync(join(tmpdir(), 'test-product-managed-'))),
+      'policy.json',
+    );
     roots.push(join(managedPath, '..'));
     writeFileSync(
       managedPath,
@@ -187,7 +202,10 @@ describe('addUserMcpServer', () => {
 
     const result = addUserMcpServer(EXA, f.deps);
 
-    expect(result).toMatchObject({ outcome: 'refused', reason: expect.stringContaining('managed') });
+    expect(result).toMatchObject({
+      outcome: 'refused',
+      reason: expect.stringContaining('managed'),
+    });
     expect(() => readFileSync(f.settingsPath, 'utf8')).toThrow();
     expect(() => readFileSync(f.approvalsPath, 'utf8')).toThrow();
   });
@@ -332,7 +350,9 @@ describe('runMcpAddCommand', () => {
   });
 
   it('exits 1 with the reason when the name is taken by another definition', () => {
-    const f = fixture({ mcpServers: { exa: { type: 'http', url: 'https://elsewhere.example/mcp' } } });
+    const f = fixture({
+      mcpServers: { exa: { type: 'http', url: 'https://elsewhere.example/mcp' } },
+    });
 
     const { code, out, err } = run(f, ['exa']);
 

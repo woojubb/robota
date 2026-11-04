@@ -37,7 +37,7 @@ function settingsDirectoryName(path: string): string {
  * composed rather than a product name written here.
  */
 export function settingsCheckId(source: TSettingsSource): string {
-  const path = source.kind === 'host' ? source.path : source.relativePath;
+  const path = source.kind === 'host' ? (source.path ?? source.displayName) : source.relativePath;
   return `settings.${source.scope}.${settingsDirectoryName(path)}`;
 }
 
@@ -78,7 +78,10 @@ export function isRepairableSettingsLayer(
 
 function layerCheck(layer: ISettingsLayerInspection, inputs: IDoctorInputs): IDoctorCheck {
   const id = settingsCheckId(layer.source);
-  const path = layer.source.kind === 'host' ? layer.source.path : layer.source.relativePath;
+  const path =
+    layer.source.kind === 'host'
+      ? (layer.source.path ?? layer.source.displayName)
+      : layer.source.relativePath;
   if (layer.state === 'absent') {
     return { id, label: 'Settings layer', status: 'not-configured', path, cause: 'absent' };
   }

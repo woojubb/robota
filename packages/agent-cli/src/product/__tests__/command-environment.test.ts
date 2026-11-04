@@ -4,12 +4,12 @@ import { join } from 'node:path';
 
 import {
   WorkspaceTrustService,
-  createNodeHostSettingsSource,
   createWorkspaceProjectSettingsSources,
   getWorkspaceProjectReader,
   type IWorkspaceIdentity,
   type TSettingsSource,
 } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -46,7 +46,10 @@ async function projectSources(settings: object): Promise<readonly TSettingsSourc
   const project = join(root, 'project');
   const runtime = createTestProductRuntime();
   mkdirSync(join(project, runtime.layout.projectDirectory), { recursive: true });
-  writeFileSync(join(project, runtime.layout.projectDirectory, 'settings.json'), JSON.stringify(settings));
+  writeFileSync(
+    join(project, runtime.layout.projectDirectory, 'settings.json'),
+    JSON.stringify(settings),
+  );
   const identity: IWorkspaceIdentity = {
     repositoryKey: `fixture:${project}`,
     displayPath: project,
@@ -98,7 +101,9 @@ describe('provider credential variables', () => {
   });
 
   it('denies a command started from the startup snapshot what it withheld', () => {
-    const sources = [userSource({ providers: { a: { type: 'openai', apiKey: '$ENV:SNAPSHOT_KEY' } } })];
+    const sources = [
+      userSource({ providers: { a: { type: 'openai', apiKey: '$ENV:SNAPSHOT_KEY' } } }),
+    ];
     withholdProviderCredentials(sources, definitions, {});
     expect(commandEnvironment({ SNAPSHOT_KEY: 's', OPENAI_API_KEY: 'o', PATH: '/bin' })).toEqual({
       PATH: '/bin',
@@ -110,7 +115,9 @@ describe('provider credential variables', () => {
     const environment: NodeJS.ProcessEnv = { PROJECT_ONLY_KEY: 'p' };
     withholdProviderCredentials([user], [], environment);
     expect(environment).toEqual({ PROJECT_ONLY_KEY: 'p' });
-    const project = await projectSources({ providers: { p: { type: 'openai', apiKey: '$ENV:PROJECT_ONLY_KEY' } } });
+    const project = await projectSources({
+      providers: { p: { type: 'openai', apiKey: '$ENV:PROJECT_ONLY_KEY' } },
+    });
     withholdProviderCredentials([user, ...project], [], environment);
     expect(environment).toEqual({});
   });
@@ -128,7 +135,9 @@ describe('provider credential variables', () => {
     expect(project.length).toBeGreaterThan(0);
     expect([...commandEnvironmentAllowList(sources)]).toEqual([]);
     // The project layer is really read: its provider reference is collected like any other.
-    const referencing = await projectSources({ providers: { p: { type: 'openai', apiKey: '$ENV:PROJECT_KEY' } } });
+    const referencing = await projectSources({
+      providers: { p: { type: 'openai', apiKey: '$ENV:PROJECT_KEY' } },
+    });
     expect(providerCredentialVariables(referencing, [])).toEqual(['PROJECT_KEY']);
     const environment: NodeJS.ProcessEnv = { OPENAI_API_KEY: 'o' };
     withholdProviderCredentials(sources, definitions, environment);

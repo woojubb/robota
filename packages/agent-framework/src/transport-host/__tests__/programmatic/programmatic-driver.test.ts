@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { createNodeHostSettingsSource } from '../../../config/settings-source.js';
+import { createNodeHostSettingsSource } from '../../../config/node-host-settings-source.js';
 import { WorkspaceTrustService } from '../../../workspace-trust/workspace-trust-service.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 

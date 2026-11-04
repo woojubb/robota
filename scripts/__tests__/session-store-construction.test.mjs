@@ -42,7 +42,7 @@ const PRODUCT_FILES = [
 const BUILDS_A_STORE = [
   "import { createUserSessionStore } from '@robota-sdk/agent-framework';",
   "import { createProjectSessionStore as projectStore } from '@robota-sdk/agent-framework';",
-  "import { createNodeHostSessionStore, readSettings } from '@robota-sdk/agent-framework';",
+  "import { createNodeHostSessionStore, inspectSettingsLayers } from '@robota-sdk/agent-framework';",
   "import { WorkspaceProjectSessionStore as Store } from '@robota-sdk/agent-framework';",
   "import { NodeSessionStore as Store } from '@robota-sdk/agent-session/node';",
   "import { createUserPromptHistoryFile } from '@robota-sdk/agent-framework';",
@@ -111,7 +111,7 @@ describe('session stores are built only by the product factory', () => {
       "import type { WorkspaceSessionLogSink } from '@robota-sdk/agent-framework';",
       "import type { EditCheckpointStore, IEditCheckpointStateStorage } from '@robota-sdk/agent-framework';",
       "import { EditCheckpointsLockedError } from '@robota-sdk/agent-framework';",
-      "import { readSettings, scanSessionStore } from '@robota-sdk/agent-framework';",
+      "import { inspectSettingsLayers, scanSessionStore } from '@robota-sdk/agent-framework';",
       "import { StoredLines, NodeExternalPayloadSource } from '@robota-sdk/agent-session/node';",
     ]) {
       expect(await restrictedImports(code, PRODUCT_FILES[0]), code).toBe(0);

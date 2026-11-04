@@ -10,7 +10,7 @@ import {
 
 import type { IInitOptions } from './interactive-session-options.js';
 import type { IHookDefinitionSource } from '../config/config-merge.js';
-import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
+import type { IHostSettingsSource } from '../config/settings-source.js';
 import type { IProjectSettingsPath } from '../config/settings-source.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
@@ -31,7 +31,7 @@ export async function loadInteractiveProjectConfig(
   supplied: IResolvedConfig | undefined,
   projectAccess: TWorkspaceProjectAccess | undefined,
   projectSettingsPaths: readonly IProjectSettingsPath[] = [],
-  userSettingsSources: readonly INodeHostSettingsSource[] = [],
+  userSettingsSources: readonly IHostSettingsSource[] = [],
   environment: Readonly<Record<string, string | undefined>> = {},
 ): Promise<{ config: IResolvedConfig; hookSources: readonly IHookDefinitionSource[] }> {
   if (supplied !== undefined) return { config: supplied, hookSources: [] };
@@ -39,12 +39,15 @@ export async function loadInteractiveProjectConfig(
     projectAccess?.status === 'trusted'
       ? getWorkspaceProjectReader(projectAccess.authority)
       : undefined;
-  return loadConfigWithHookSources([
-    ...userSettingsSources,
-    ...(projectReader === undefined
-      ? []
-      : createWorkspaceProjectSettingsSources(projectReader, projectSettingsPaths)),
-  ], environment);
+  return loadConfigWithHookSources(
+    [
+      ...userSettingsSources,
+      ...(projectReader === undefined
+        ? []
+        : createWorkspaceProjectSettingsSources(projectReader, projectSettingsPaths)),
+    ],
+    environment,
+  );
 }
 
 async function resolveInteractiveProjectConfig(
@@ -96,9 +99,7 @@ export async function loadInteractiveProjectContext(
       : loadContext(
           contextSource,
           options.memoryStore,
-          taskContext.dir !== undefined || taskContext.enabled !== undefined
-            ? { taskContext }
-            : {},
+          taskContext.dir !== undefined || taskContext.enabled !== undefined ? { taskContext } : {},
         ),
     options.bare || projectReader === undefined
       ? Promise.resolve({ type: 'unknown' as const, language: 'unknown' as const })

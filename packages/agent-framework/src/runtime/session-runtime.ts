@@ -7,7 +7,7 @@ import { assertTrustedProjectCoversCwd } from './trusted-project-cwd.js';
 import { createRestrictedWorkspaceProjectAccess } from '../workspace-trust/index.js';
 
 import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
-import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
+import type { IHostSettingsSource } from '../config/settings-source.js';
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { IFrameworkHost } from '../host/framework-host.js';
 import type { ICommandHostAdapters, ICommandModule } from '../commands/index.js';
@@ -27,7 +27,7 @@ export interface IAgentRuntimeConfig {
   /** Host-owned initial project decision. Absence produces an observable Restricted runtime. */
   projectAccess?: TWorkspaceProjectAccess;
   /** Explicit user settings layers for sessions created by this runtime. */
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   backgroundTaskRunners?: IBackgroundTaskRunner[];

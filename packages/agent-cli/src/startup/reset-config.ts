@@ -2,7 +2,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 
-import { resetUserConfig } from '@robota-sdk/agent-framework';
+import { resetUserConfig } from '@robota-sdk/agent-framework/node';
 import { productUserSettingsPath } from '../product/user-settings.js';
 
 import type { ITerminalOutput } from '@robota-sdk/agent-core';

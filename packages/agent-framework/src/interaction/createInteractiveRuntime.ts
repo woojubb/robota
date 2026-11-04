@@ -10,7 +10,7 @@ import type { IInteractiveSession } from '../interactive/i-interactive-session.j
 import type { SessionRecipe } from '../runtime/runtime-host.js';
 import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
 import type { IInteractiveSessionEvents } from '../interactive/types.js';
-import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
+import type { IHostSettingsSource } from '../config/settings-source.js';
 import type { IFrameworkHost } from '../host/framework-host.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IAIProvider, TPermissionMode } from '@robota-sdk/agent-core';
@@ -27,7 +27,7 @@ export interface IInteractiveRuntimeOptions {
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
   /** Explicit user settings layers for this runtime's session. */
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   environment?: Readonly<Record<string, string | undefined>>;
   /** Session store for persistence. */
   sessionStore?: IInteractiveSessionStore;

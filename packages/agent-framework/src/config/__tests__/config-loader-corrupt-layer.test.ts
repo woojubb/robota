@@ -23,7 +23,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { loadConfig } from '../config-loader.js';
 import { SettingsParseError } from '../settings-parse-error.js';
-import { createNodeHostSettingsSource } from '../settings-source.js';
+import { createNodeHostSettingsSource } from '../node-host-settings-source.js';
 
 const roots: string[] = [];
 

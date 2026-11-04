@@ -244,10 +244,13 @@ import { join } from 'node:path';
 import {
   InteractiveSession,
   createContributionSourcesForProjectAccess,
-  createNodeHostSettingsSource,
   createNodeWorkspaceTrustService,
 } from '@robota-sdk/agent-framework';
 import type { IFrameworkHost } from '@robota-sdk/agent-framework';
+import {
+  createDefaultUserContributionSources,
+  createNodeHostSettingsSource,
+} from '@robota-sdk/agent-framework/node';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 declare const host: IFrameworkHost; // `createNodeFrameworkHost({ createDefaultTools })`, as above
@@ -269,7 +272,10 @@ const session = new InteractiveSession({
     createNodeHostSettingsSource('user', join(homedir(), '.my-app', 'settings.json')),
   ],
   projectSettingsPaths: [{ scope: 'project', relativePath: '.my-app/settings.json' }],
-  contributionSources: createContributionSourcesForProjectAccess(projectAccess, homedir()),
+  contributionSources: createContributionSourcesForProjectAccess(
+    projectAccess,
+    createDefaultUserContributionSources(homedir()),
+  ),
   skillRoots: [{ root: '.agents/skills', kind: 'skills' }],
 });
 ```

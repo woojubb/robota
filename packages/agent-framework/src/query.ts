@@ -13,7 +13,7 @@ import { createRestrictedWorkspaceProjectAccess } from './workspace-trust/index.
 
 import type { TInteractivePermissionHandler } from './interactive/types.js';
 import type { InteractiveSession } from './interactive/interactive-session.js';
-import type { INodeHostSettingsSource } from './config/node-host-settings-source.js';
+import type { IHostSettingsSource } from './config/settings-source.js';
 import type { IFrameworkHost } from './host/framework-host.js';
 import type { TWorkspaceProjectAccess } from './workspace-trust/index.js';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
@@ -28,7 +28,7 @@ export interface ICreateQueryOptions {
   /** Host-owned initial project decision. Absence produces an observable Restricted query. */
   projectAccess?: TWorkspaceProjectAccess;
   /** Explicit user settings layers for this query's session. */
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   /**
    * Permission mode. Defaults to `'default'`: with no `permissionHandler`, anything that would ask is
    * denied (issue #3081). Pass `'bypassPermissions'` explicitly for unattended driving.

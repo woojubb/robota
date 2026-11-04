@@ -3,15 +3,18 @@ import { resolveCliRuntimeContext } from './product-bootstrap.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
   createSettingsPermissionRulesAdapter,
-  deleteSettings,
   OrgPolicyParseError,
   readMergedProviderSettings,
-  readSettings,
   prepareWorkflowJsonMutation,
   resolveProviderSettingsWriteTarget,
-  writeSettings,
 } from '@robota-sdk/agent-framework';
-import { loadOrgPolicy } from '@robota-sdk/agent-framework/node';
+import {
+  createGitProcess,
+  deleteSettings,
+  loadOrgPolicy,
+  readSettings,
+  writeSettings,
+} from '@robota-sdk/agent-framework/node';
 import type {
   IOrgPolicy,
   ICommandHostAdapters,
@@ -25,7 +28,6 @@ import {
 } from '../update-check/update-check.js';
 import type { ICliUpdateNotice } from '../update-check/update-check.js';
 import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
-import { createGitProcess } from '@robota-sdk/agent-framework/node';
 import type { IRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import { createDefaultCommandModules } from '@robota-sdk/agent-command';
 import { createNodeDoctorDeps, openFileInEditor } from '@robota-sdk/agent-command/node';

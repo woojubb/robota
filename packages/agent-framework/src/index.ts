@@ -26,10 +26,7 @@ export { createProgrammaticAgent } from './transport-host/programmatic/createPro
 export type { ICreateProgrammaticAgentOptions } from './transport-host/programmatic/createProgrammaticAgent.js';
 export { TransportRegistry } from './transport-host/transport-registry.js';
 export { bindTransportAdapter } from './transport-host/bind-transport-adapter.js';
-export {
-  createFileTransportSettingsRepository,
-  createMemoryTransportSettingsRepository,
-} from './transport-host/transport-settings-repository.js';
+export { createMemoryTransportSettingsRepository } from './transport-host/memory-transport-settings-repository.js';
 
 // ── The platform the host lends: the `host` every session, runtime and query takes ────────
 export type { IAsyncScope, IFrameworkHost } from './host/framework-host.js';
@@ -809,8 +806,6 @@ export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './ho
 // ── Explicit project/host contribution sources ─────────────
 export {
   createContributionSourcesForProjectAccess,
-  createDefaultUserContributionSources,
-  createNodeHostContributionSource,
   createWorkspaceProjectContributionSource,
   listFrameworkProjectContributionPaths,
 } from './contributions/index.js';
@@ -892,30 +887,20 @@ export { consentScopeFor, promptForApproval } from './permissions/permission-pro
 
 // ── Settings I/O ─────────────────────────────────────────────
 export {
-  createNodeHostSettingsSource,
   createWorkspaceProjectSettingsSources,
   readSettingsSourceText,
 } from './config/settings-source.js';
 export type {
-  INodeHostSettingsSource,
+  IHostSettingsSource,
   IProjectSettingsPath,
   IWorkspaceProjectSettingsSource,
   THostSettingsScope,
   TProjectSettingsScope,
   TSettingsSource,
 } from './config/settings-source.js';
-export {
-  createNodeHostSettingsStore,
-  createWorkspaceProjectSettingsStore,
-} from './config/settings-store.js';
-export type { ISettingsDocumentStore } from './config/settings-store.js';
-export {
-  readSettings,
-  writeSettings,
-  updateModelInSettings,
-  deleteSettings,
-} from './config/settings-io.js';
-export type { TSettingsData, TSettingsScope } from './config/settings-io.js';
+export { createWorkspaceProjectSettingsStore } from './config/settings-store.js';
+export type { ISettingsDocumentStore, TSettingsData } from './config/settings-store-types.js';
+export type { TSettingsScope } from './config/settings-scope-types.js';
 export { inspectSettingsLayers } from './config/settings-inspection.js';
 export {
   createSettingsPermissionRulesAdapter,
@@ -941,8 +926,6 @@ export type {
 } from './commands/index.js';
 export { SettingsParseError } from './config/settings-parse-error.js';
 export { NoCurrentProviderProfileError } from './config/no-current-provider-profile-error.js';
-export { resetUserConfig } from './config/reset-user-config.js';
-export type { IResetUserConfigResult } from './config/reset-user-config.js';
 
 // ── Git utilities ─────────────────────────────────────────────
 export { resolveGitBranchFromNodeHost } from './git/git-branch.js';
@@ -989,9 +972,6 @@ export type {
 // ── Semver comparison ─────────────────────────────────────────
 export { compareSemverVersions, isNewerSemverVersion } from './utils/semver-compare.js';
 export { trimTrailingChars } from './utils/trim-char.js';
-
-// ── Package version ───────────────────────────────────────────
-export { readPackageVersion } from './utils/read-package-version.js';
 
 // ── Agent runtime ─────────────────────────────────────────────
 export { createAgentRuntime, createStatelessRuntime } from './runtime/index.js';

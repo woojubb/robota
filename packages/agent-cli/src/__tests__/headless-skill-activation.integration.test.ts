@@ -2,11 +2,8 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  InteractiveSession,
-  WorkspaceTrustService,
-  createNodeHostContributionSource,
-} from '@robota-sdk/agent-framework';
+import { InteractiveSession, WorkspaceTrustService } from '@robota-sdk/agent-framework';
+import { createNodeHostContributionSource } from '@robota-sdk/agent-framework/node';
 import { createSkillsCommandModule } from '@robota-sdk/agent-command';
 import type {
   IWorkspaceIdentity,
@@ -124,9 +121,7 @@ function createSkillToolCallingProvider(): IObservedProvider {
       if (chatCallCount === 1) {
         firstPromptContent = messages.map((message) => message.content).join('\n');
         firstCallToolNames = options?.tools?.map((tool) => tool.name) ?? [];
-        const skillsToolSchema = options?.tools?.find(
-          (tool) => tool.name === 'command_skills',
-        );
+        const skillsToolSchema = options?.tools?.find((tool) => tool.name === 'command_skills');
         firstCallSkillsToolArgsDescription =
           skillsToolSchema?.parameters.properties['args']?.description;
         return assistantMessage(null, [

@@ -1,18 +1,14 @@
-import { createNodeHostSettingsStore } from './node-host-settings-store.js';
 import { SettingsParseError } from './settings-parse-error.js';
 import { getWorkspaceProjectReader } from '../workspace-trust/index.js';
 import { assertWorkspaceProjectSettingsWriterForAuthority } from '../workspace-trust/project-settings-writer.js';
 
-import type { TSettingsData } from './settings-io.js';
+import type { ISettingsDocumentStore, TSettingsData } from './settings-store-types.js';
 import type {
   IWorkspaceProjectAuthority,
   IWorkspaceProjectSettingsWriter,
 } from '../workspace-trust/index.js';
-import type { ISettingsDocumentStore } from './settings-store-types.js';
 
 export type { ISettingsDocumentStore } from './settings-store-types.js';
-
-export { createNodeHostSettingsStore };
 
 export function createWorkspaceProjectSettingsStore(
   authority: IWorkspaceProjectAuthority,

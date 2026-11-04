@@ -8,7 +8,7 @@
  * `pending`; no slash command and no model-invocable path reaches this.
  */
 
-import { createNodeHostSettingsStore } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsStore } from '@robota-sdk/agent-framework/node';
 import { MCPActivationAdmissionService, MCPDefinitionRegistry } from '@robota-sdk/agent-mcp';
 
 import { productUserSettingsPath } from '../product/user-settings.js';
@@ -71,7 +71,10 @@ export function parseMcpAddArguments(args: readonly string[]): TMcpAddParse {
   if (url === undefined) {
     const choice = WEB_SEARCH_MCP_CATALOG.find((candidate) => candidate.id === name);
     if (choice === undefined) {
-      return { ok: false, reason: `"${name}" needs a URL: <name> <https-url>, or one of ${catalogIds}` };
+      return {
+        ok: false,
+        reason: `"${name}" needs a URL: <name> <https-url>, or one of ${catalogIds}`,
+      };
     }
     return { ok: true, request: { name: choice.id, url: choice.url } };
   }
@@ -112,7 +115,9 @@ export type TAddUserMcpServerResult =
   | { readonly outcome: 'refused'; readonly reason: string };
 
 function isSettingsObject(value: TSettingsData[string]): value is TSettingsData {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date);
+  return (
+    typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date)
+  );
 }
 
 function isSameHttpEntry(entry: TSettingsData[string], request: IMcpAddRequest): boolean {
@@ -175,7 +180,8 @@ export function addUserMcpServer(
   const approvalRequest = approvalRequestFor(request.name, settingsPath, deps);
   const admission = new MCPActivationAdmissionService(deps.approvalStore);
   const inspected = admission.inspect(approvalRequest);
-  const status = inspected.status === 'approved' ? inspected : admission.approve(approvalRequest, 'user');
+  const status =
+    inspected.status === 'approved' ? inspected : admission.approve(approvalRequest, 'user');
   if (status.status !== 'approved') {
     throw new Error(
       `MCP server "${request.name}" was written to ${settingsPath} but could not be approved (${status.reason})`,
@@ -241,7 +247,9 @@ export function runMcpAddCommand(args: readonly string[], deps: IMcpAddCommandDe
   const cliName = deps.productRuntime.config.identity.cliName;
   const parsed = parseMcpAddArguments(args);
   if (!parsed.ok) {
-    deps.stderr(`${parsed.reason}\nUsage: ${cliName} mcp add <${WEB_SEARCH_MCP_CATALOG.map((choice) => choice.id).join('|')}> | ${cliName} mcp add <name> <https-url>\n`);
+    deps.stderr(
+      `${parsed.reason}\nUsage: ${cliName} mcp add <${WEB_SEARCH_MCP_CATALOG.map((choice) => choice.id).join('|')}> | ${cliName} mcp add <name> <https-url>\n`,
+    );
     return 1;
   }
   if (!deps.interactive) {
@@ -268,7 +276,9 @@ export function runMcpAddCommand(args: readonly string[], deps: IMcpAddCommandDe
     return 0;
   } catch (error) {
     // allow-fallback: a failed write or approval is reported, and the command exits non-zero
-    deps.stderr(`${error instanceof Error ? error.message : 'The MCP server could not be added.'}\n`);
+    deps.stderr(
+      `${error instanceof Error ? error.message : 'The MCP server could not be added.'}\n`,
+    );
     return 1;
   }
 }
