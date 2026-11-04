@@ -253,6 +253,7 @@ function runBoth(
         resolve({
           stdout,
           stderr,
+          stdoutLength: stdout.length,
           code: error?.code ?? null,
           killed: error?.killed ?? null,
           signal: error?.signal ?? null,
@@ -295,11 +296,12 @@ describe.skipIf(!POSIX)('execFile in a child session', () => {
       pick: ['code', 'killed', 'signal'],
     },
     {
+      // `execFile` keeps what fits under `maxBuffer` and drops the rest.
       name: 'too much output',
       file: '/bin/sh',
-      args: ['-c', 'head -c 5000 /dev/zero'],
+      args: ['-c', 'head -c 5000 /dev/zero | tr "\\0" x'],
       options: { maxBuffer: 100 },
-      pick: ['code'],
+      pick: ['code', 'stdoutLength'],
     },
     {
       name: 'a missing program',
@@ -342,14 +344,15 @@ describe.skipIf(!POSIX)('execFile in a child session', () => {
 
   // The program has already exited and a descendant still holds its output. On a timeout or an
   // overflow `execFile` lets go of the pipes, so it settles at once rather than when the descendant
-  // ends. An abort it ignores once the program has exited, waiting for the output to close; in a
-  // child session the abort ends the group, so the call settles at once with the same result.
+  // ends. An abort it ignores once the program has exited, waiting for the output to close. A child
+  // session does the same, signalling nothing: the group id of an exited leader may be another
+  // process's, so a descendant that outlives its leader is left alone, as `execFile` leaves it.
   const leftBehind: Array<{
     name: string;
     args: string[];
     options: Parameters<typeof execFileInChildSession>[2];
     abortAfterMs?: number;
-    plainWaitsForDescendant?: boolean;
+    waitsForDescendant?: boolean;
   }> = [
     { name: 'a timeout', args: ['-c', 'sleep 3 & echo $!'], options: { timeout: 500 } },
     {
@@ -362,7 +365,7 @@ describe.skipIf(!POSIX)('execFile in a child session', () => {
       args: ['-c', 'sleep 3 & echo $!'],
       options: {},
       abortAfterMs: 500,
-      plainWaitsForDescendant: true,
+      waitsForDescendant: true,
     },
   ];
 
@@ -394,14 +397,173 @@ describe.skipIf(!POSIX)('execFile in a child session', () => {
         name: result.name,
       });
 
-      if (testCase.plainWaitsForDescendant === true) expect(plain.ms).toBeGreaterThan(2500);
-      else expect(plain.ms).toBeLessThan(1500);
-      expect(own.ms).toBeLessThan(1500);
+      for (const { ms } of [plain, own]) {
+        if (testCase.waitsForDescendant === true) expect(ms).toBeGreaterThan(2500);
+        else expect(ms).toBeLessThan(1500);
+      }
       expect(picked(own)).toEqual(picked(plain));
-      const descendant = Number(String(own.result.stdout).trim());
-      if (descendant > 0) expect(await goneWithin([descendant], 3000)).toBe(true);
     }, 15_000);
   }
+
+  it('does not call back before the call returns when the signal is already aborted', async () => {
+    const run = async (): Promise<{ name: string; order: string[] }> => {
+      const order: string[] = [];
+      const controller = new AbortController();
+      controller.abort();
+      const name = await new Promise<string>((resolve) => {
+        execFileInChildSession(
+          '/bin/sh',
+          ['-c', 'sleep 5'],
+          { signal: controller.signal },
+          (error) => {
+            order.push('callback');
+            resolve(error?.name ?? 'none');
+          },
+        );
+        order.push('returned');
+        process.nextTick(() => order.push('tick'));
+      });
+      return { name, order };
+    };
+    const plain = await run();
+    enableOwnChildSessions();
+    const own = await run();
+
+    expect(plain).toEqual({ name: 'AbortError', order: ['returned', 'callback', 'tick'] });
+    expect(own).toEqual(plain);
+  });
+
+  it('keeps the group registered until the leader is gone when an abort leaves a program that ignores SIGTERM running', async () => {
+    const run = async (): Promise<{
+      ms: number;
+      name: string;
+      leaderAlive: boolean;
+      registered: boolean;
+      registeredAfterLeaderExit: boolean;
+    }> => {
+      const baseline = process.listenerCount('exit');
+      const controller = new AbortController();
+      const started = Date.now();
+      let child!: ChildProcess;
+      const atCallback = await new Promise<{
+        name: string;
+        leaderAlive: boolean;
+        registered: boolean;
+      }>((resolve) => {
+        child = execFileInChildSession(
+          '/bin/sh',
+          ['-c', "trap '' TERM; echo ready; while :; do sleep 0.1; done"],
+          { signal: controller.signal },
+          (error) =>
+            resolve({
+              name: error?.name ?? 'none',
+              leaderAlive: child.exitCode === null && child.signalCode === null,
+              registered: process.listenerCount('exit') > baseline,
+            }),
+        );
+        child.stdout?.once('data', () => controller.abort());
+      });
+      const ms = Date.now() - started;
+      strays.add(child.pid!);
+      const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+      child.kill('SIGKILL');
+      await exited;
+      return {
+        ms,
+        ...atCallback,
+        registeredAfterLeaderExit: process.listenerCount('exit') > baseline,
+      };
+    };
+    const plain = await run();
+    enableOwnChildSessions();
+    const own = await run();
+
+    // `execFile` settles the abort at once, with the program still running.
+    expect(plain).toMatchObject({ name: 'AbortError', leaderAlive: true });
+    expect(plain.ms).toBeLessThan(1500);
+    expect({ ...own, ms: 0 }).toMatchObject({ name: 'AbortError', leaderAlive: true });
+    expect(own.ms).toBeLessThan(1500);
+    // The group is still this process's to end while its leader runs, and not after.
+    expect(own.registered).toBe(true);
+    expect(own.registeredAfterLeaderExit).toBe(false);
+  }, 15_000);
+
+  it('signals and registers nothing for a leader that exited while a descendant in another session holds the output', async () => {
+    const leaderScript =
+      "const { spawn } = require('node:child_process');" +
+      "const held = spawn('/bin/sleep', ['4'], { detached: true, stdio: ['ignore', 'inherit', 'ignore'] });" +
+      'console.log(held.pid); held.unref();';
+    const run = async (): Promise<{
+      ms: number;
+      error: ExecFileException | null;
+      groupSignals: number;
+      registeredWhilePending: boolean;
+      registeredAfter: boolean;
+    }> => {
+      const baseline = process.listenerCount('exit');
+      const kills = vi.spyOn(process, 'kill');
+      try {
+        const started = Date.now();
+        let child!: ChildProcess;
+        let registeredWhilePending = true;
+        const outcome = await new Promise<{ error: ExecFileException | null; stdout: string }>(
+          (resolve) => {
+            child = execFileInChildSession(
+              process.execPath,
+              ['-e', leaderScript],
+              { timeout: 1500 },
+              (error, stdout) => resolve({ error, stdout }),
+            );
+            // Well after the leader exited, well before the timeout.
+            setTimeout(() => {
+              registeredWhilePending = process.listenerCount('exit') > baseline;
+            }, 900);
+          },
+        );
+        const held = Number(outcome.stdout.trim());
+        if (held > 0) strays.add(held);
+        return {
+          ms: Date.now() - started,
+          error: outcome.error,
+          groupSignals: kills.mock.calls.filter(([pid]) => pid === -child.pid!).length,
+          registeredWhilePending,
+          registeredAfter: process.listenerCount('exit') > baseline,
+        };
+      } finally {
+        kills.mockRestore();
+      }
+    };
+    const plain = await run();
+    enableOwnChildSessions();
+    const own = await run();
+
+    // `execFile` lets go of the pipes at the timeout and reports the program's own, successful, end.
+    for (const result of [plain, own]) {
+      expect(result.error).toBeNull();
+      expect(result.ms).toBeGreaterThan(1400);
+      expect(result.ms).toBeLessThan(3500);
+    }
+    expect(own.groupSignals).toBe(0);
+    expect(own.registeredWhilePending).toBe(false);
+    expect(own.registeredAfter).toBe(false);
+  }, 20_000);
+
+  it('reports killed after the returned child was killed, as execFile does', async () => {
+    const run = (): Promise<Record<string, unknown>> =>
+      new Promise((resolve) => {
+        // `exec`, so the shell is the program: killing only the leader must end the output too.
+        const child = execFileInChildSession('/bin/sh', ['-c', 'exec sleep 5'], {}, (error) =>
+          resolve({ killed: error?.killed, signal: error?.signal, code: error?.code ?? null }),
+        );
+        setTimeout(() => child.kill(), 200);
+      });
+    const plain = await run();
+    enableOwnChildSessions();
+    const own = await run();
+
+    expect(plain).toEqual({ killed: true, signal: 'SIGTERM', code: null });
+    expect(own).toEqual(plain);
+  });
 
   it('starts the program in its own group, so its descendants go with it', async () => {
     enableOwnChildSessions();

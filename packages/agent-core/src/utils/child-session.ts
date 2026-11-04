@@ -30,8 +30,11 @@
  *
  * Detached children no longer get the terminal's hangup, so a caller that starts one this process
  * should end registers it with {@link endWithProcess}: its group is killed with this process (see
- * `process-exit-removals.ts`), and {@link signalChildGroup} reaches the whole group while its leader
- * lives. A program this process kills by its leader alone would leave the rest of the group behind.
+ * `process-exit-removals.ts`), and {@link signalChildGroup} reaches the whole group. Both hold only
+ * while the leader lives. Once it is reaped its pid, and so the group's id, may belong to an unrelated
+ * process, so nothing is signalled or kept registered then, and a descendant that outlives its leader
+ * is left alone. A program this process kills by its leader alone would leave the rest of the group
+ * behind.
  *
  * ## Windows
  *
@@ -42,9 +45,13 @@
  *
  * `execFile` forwards only a fixed set of options to `spawn`, and `detached` is not among them. So
  * {@link execFileInChildSession} runs `execFile` itself while the policy is off — plain spawning is
- * unchanged — and while on, runs the same contract over `spawn`: a timeout, an overflow or an abort
- * lets go of the pipes and settles as `execFile` does, and ends the whole group, which is held until
- * the call settles because a descendant can outlive the program.
+ * unchanged — and while on, mirrors it over `spawn`, step for step: a timeout, an overflow or a kill
+ * destroys the pipes and signals, and the call settles when the child closes or errors; an abort
+ * signals with SIGTERM whatever `killSignal` says and settles at once with its error, once, and only
+ * while the leader lives; an abort that is already in force calls back on the next tick, never before
+ * the call returns. The one difference is the group: the signal reaches it, not only the leader, and
+ * its registration with the process-end registry is released when the leader exits, not when the call
+ * settles, so a program that ignores the signal is still ended with this process.
  */
 
 import { execFile, spawn } from 'node:child_process';
@@ -142,19 +149,20 @@ export function endWithProcess<T extends ChildProcess>(child: T): T {
 }
 
 /**
- * Signal `child`: its whole group while {@link endWithProcess} tracks it, otherwise the child alone,
- * exactly as `child.kill(signal)`.
+ * Signal `child`: its whole group while {@link endWithProcess} tracks it, which is while its leader
+ * lives, otherwise the child alone, exactly as `child.kill(signal)`, which signals nothing once the
+ * child has exited. Returns whether a signal was sent, as `child.kill` does.
  */
-export function signalChildGroup(child: ChildProcess, signal: NodeJS.Signals): void {
+export function signalChildGroup(child: ChildProcess, signal: NodeJS.Signals): boolean {
   if (policy().tracked.has(child) && child.pid !== undefined) {
     try {
       process.kill(-child.pid, signal);
-      return;
+      return true;
     } catch {
       // allow-fallback: the group ended between the check and the signal; the leader may remain.
     }
   }
-  child.kill(signal);
+  return child.kill(signal);
 }
 
 /** The `execFile` options {@link execFileInChildSession} accepts; output is always text. */
@@ -172,8 +180,8 @@ export type TExecFileCallback = (
 
 /**
  * `execFile(file, args, options, callback)` for a child that is not a terminal-handover child. While
- * the policy is off it is `execFile` itself. While on, the same contract runs over `spawn` in the
- * child's own session, and a timeout, an overflow or an abort ends the child's whole group.
+ * the policy is off it is `execFile` itself. While on, the same call runs over `spawn` in the child's
+ * own session (see the header), signalling the child's whole group while its leader lives.
  */
 export function execFileInChildSession(
   file: string,
@@ -189,25 +197,30 @@ export function execFileInChildSession(
   return execFileOverSpawn(file, args, options, callback);
 }
 
+/** The error a failed `execFile` reports, as Node builds it. */
 function commandFailed(
-  file: string,
-  args: readonly string[],
+  command: string,
   stderr: string,
-  fields: Partial<ExecFileException>,
+  fields: { code?: number | null; killed: boolean; signal?: NodeJS.Signals | null },
 ): ExecFileException {
-  const command = [file, ...args].join(' ');
   return Object.assign(new Error(`Command failed: ${command}\n${stderr}`), fields, {
     cmd: command,
-  }) as ExecFileException;
+  }) as unknown as ExecFileException;
 }
 
-function abortError(cause: unknown): ExecFileException {
+/** What Node's spawn reports when its `signal` aborts a running child. */
+function abortError(cause: unknown): Error {
   return Object.assign(new Error('The operation was aborted', { cause }), {
     name: 'AbortError',
     code: 'ABORT_ERR',
-  }) as ExecFileException;
+  });
 }
 
+/**
+ * Node's `execFile` over `spawn`, kept line for line (lib/child_process.js) so the two cannot drift:
+ * what differs is only that the child leads its own group, which {@link signalChildGroup} signals
+ * while the leader lives, and that the group's registration lasts until that leader exits.
+ */
 function execFileOverSpawn(
   file: string,
   args: readonly string[],
@@ -217,109 +230,123 @@ function execFileOverSpawn(
   const encoding = options.encoding ?? 'utf8';
   const maxBuffer = options.maxBuffer ?? EXEC_FILE_MAX_BUFFER;
   const killSignal = options.killSignal ?? 'SIGTERM';
-  const child = spawn(
-    file,
-    [...args],
-    withChildSession({
-      cwd: options.cwd,
-      env: options.env,
-      uid: options.uid,
-      gid: options.gid,
-      shell: options.shell,
-      windowsHide: options.windowsHide,
-      windowsVerbatimArguments: options.windowsVerbatimArguments,
-      stdio: 'pipe' as const,
-    }),
+  const child = endWithProcess(
+    spawn(
+      file,
+      [...args],
+      withChildSession({
+        cwd: options.cwd,
+        env: options.env,
+        uid: options.uid,
+        gid: options.gid,
+        shell: options.shell,
+        windowsHide: options.windowsHide,
+        windowsVerbatimArguments: options.windowsVerbatimArguments,
+        stdio: 'pipe' as const,
+      }),
+    ),
   );
-  // The leader's pid is the group's id. Unlike `endWithProcess`, the group is held until the call
-  // settles rather than until the leader exits: a descendant the program left behind may still hold
-  // its output, and a call that gives up must end it too.
-  const group = child.pid;
-  const releaseGroup =
-    group === undefined ? (): void => undefined : endProcessGroupOnProcessExit(group);
-  const stdout: Buffer[] = [];
-  const stderr: Buffer[] = [];
-  let stdoutBytes = 0;
-  let stderrBytes = 0;
+  const stdout: string[] = [];
+  const stderr: string[] = [];
   let killed = false;
-  let failure: ExecFileException | undefined;
-  let settled = false;
-  let timer: ReturnType<typeof setTimeout> | undefined;
+  let exited = false;
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let failure: ExecFileException | null = null;
+  let command = file;
 
-  const kill = (): void => {
-    killed = true;
-    // As `execFile` does: let go of the pipes, so the call settles once the program has ended even
-    // while a descendant still holds them.
+  const exitHandler = (code?: number | null, signal?: NodeJS.Signals | null): void => {
+    if (exited) return;
+    exited = true;
+    if (timeoutId !== undefined) {
+      clearTimeout(timeoutId);
+      timeoutId = undefined;
+    }
+    const out = stdout.join('');
+    const err = stderr.join('');
+    if (failure === null && code === 0 && signal === null) {
+      callback(null, out, err);
+      return;
+    }
+    if (args.length > 0) command += ` ${args.join(' ')}`;
+    failure ??= commandFailed(command, err, { code, killed: child.killed || killed, signal });
+    failure.cmd = command;
+    callback(failure, out, err);
+  };
+  const errorHandler = (error: ExecFileException): void => {
+    failure = error;
     child.stdout?.destroy();
     child.stderr?.destroy();
-    if (group !== undefined) {
-      try {
-        process.kill(-group, killSignal);
-        return;
-      } catch {
-        // allow-fallback: the group has ended; only the leader can be left to signal.
-      }
-    }
-    child.kill(killSignal);
+    exitHandler();
   };
-  const text = (parts: Buffer[]): string => Buffer.concat(parts).toString(encoding);
-  // `execFile` settles an abort of a running program at once. An abort after the program has
-  // exited does not fail the call there, which waits for the output to close; here the group is
-  // ended, so a descendant holding the output goes too and the call settles as the program ended.
-  const onAbort = (): void => {
-    if (child.exitCode !== null || child.signalCode !== null) {
-      if (group !== undefined) {
-        try {
-          process.kill(-group, killSignal);
-        } catch {
-          // allow-fallback: nothing of the group is left; the output is closing already.
-        }
-      }
-      return;
+  const kill = (): void => {
+    child.stdout?.destroy();
+    child.stderr?.destroy();
+    killed = true;
+    try {
+      signalChildGroup(child, killSignal);
+    } catch (error) {
+      failure = error as ExecFileException;
+      exitHandler();
     }
-    failure ??= abortError(options.signal?.reason);
-    kill();
-    finish(failure);
-  };
-  const finish = (error: ExecFileException | null): void => {
-    if (settled) return;
-    settled = true;
-    if (timer !== undefined) clearTimeout(timer);
-    options.signal?.removeEventListener('abort', onAbort);
-    releaseGroup();
-    callback(error, text(stdout), text(stderr));
-  };
-  const collect = (parts: Buffer[], stream: 'stdout' | 'stderr') => (chunk: Buffer) => {
-    const total =
-      stream === 'stdout' ? (stdoutBytes += chunk.length) : (stderrBytes += chunk.length);
-    if (total > maxBuffer) {
-      failure ??= Object.assign(new RangeError(`${stream} maxBuffer length exceeded`), {
-        code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER',
-      }) as unknown as ExecFileException;
-      kill();
-      return;
-    }
-    parts.push(chunk);
   };
 
-  child.stdout?.on('data', collect(stdout, 'stdout'));
-  child.stderr?.on('data', collect(stderr, 'stderr'));
-  child.once('error', (error: ExecFileException) => finish(failure ?? error));
-  child.once('close', (code: number | null, signal: NodeJS.Signals | null) => {
-    if (failure !== undefined) return finish(failure);
-    if (code === 0 && signal === null) return finish(null);
-    finish(
-      commandFailed(file, args, text(stderr), {
-        code: code ?? undefined,
-        killed,
-        signal: signal ?? undefined,
-      }),
-    );
-  });
-  if (options.timeout !== undefined && options.timeout > 0)
-    timer = setTimeout(kill, options.timeout);
-  if (options.signal?.aborted === true) onAbort();
-  else options.signal?.addEventListener('abort', onAbort, { once: true });
+  if (options.timeout !== undefined && options.timeout > 0) {
+    timeoutId = setTimeout(() => {
+      kill();
+      timeoutId = undefined;
+    }, options.timeout);
+  }
+
+  const collectOutput = (
+    stream: NodeJS.ReadableStream | null,
+    parts: string[],
+    label: 'stdout' | 'stderr',
+  ): void => {
+    if (stream === null) return;
+    (stream as NodeJS.ReadStream).setEncoding(encoding);
+    let length = 0;
+    stream.on('data', (chunk: string) => {
+      if (maxBuffer === Infinity) {
+        parts.push(chunk);
+        return;
+      }
+      const size = Buffer.byteLength(chunk, encoding);
+      length += size;
+      if (length > maxBuffer) {
+        // What fits is kept, as `execFile` keeps it.
+        parts.push(chunk.slice(0, maxBuffer - (length - size)));
+        failure = Object.assign(new RangeError(`${label} maxBuffer length exceeded`), {
+          code: 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER',
+        }) as unknown as ExecFileException;
+        kill();
+      } else {
+        parts.push(chunk);
+      }
+    });
+  };
+  collectOutput(child.stdout, stdout, 'stdout');
+  collectOutput(child.stderr, stderr, 'stderr');
+  child.addListener('close', exitHandler);
+  child.addListener('error', errorHandler);
+
+  // Node's spawn handles `signal`, not execFile: SIGTERM whatever `killSignal` says, an error only if
+  // a signal went out (so not once the leader has exited), and on the next tick if already aborted.
+  const signal = options.signal;
+  if (signal !== undefined) {
+    const onAbort = (): void => {
+      try {
+        if (signalChildGroup(child, 'SIGTERM')) child.emit('error', abortError(signal.reason));
+      } catch (error) {
+        child.emit('error', error);
+      }
+    };
+    if (signal.aborted) {
+      process.nextTick(onAbort);
+    } else {
+      signal.addEventListener('abort', onAbort, { once: true });
+      child.once('exit', () => signal.removeEventListener('abort', onAbort));
+    }
+  }
   return child;
 }
 
