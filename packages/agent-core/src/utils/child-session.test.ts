@@ -202,14 +202,12 @@ describe.skipIf(!POSIX)('while on (secure mode)', () => {
     );
   });
 
-  it('pipes the streams a caller left to the default, which for a sync spawn would be the terminal', () => {
+  // Node's own defaults already hand a child no descriptor of this process's terminal (a sync spawn
+  // pipes stderr and copies it afterwards), so only an explicit inheritance needs refusing.
+  it('leaves the stdio a caller chose, or left to the default, as it was', () => {
     enableOwnChildSessions();
 
-    expect(withChildSession({ encoding: 'utf8' })).toEqual({
-      encoding: 'utf8',
-      detached: true,
-      stdio: 'pipe',
-    });
+    expect(withChildSession({ encoding: 'utf8' })).toEqual({ encoding: 'utf8', detached: true });
     expect(withChildSession({ stdio: ['ignore', 'pipe', 'ignore'] })).toEqual({
       stdio: ['ignore', 'pipe', 'ignore'],
       detached: true,

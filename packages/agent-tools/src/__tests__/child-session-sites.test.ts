@@ -92,7 +92,7 @@ describe.skipIf(!POSIX)('the sandbox and the terminal session', () => {
     const secure = vi.mocked(spawnSync).mock.calls.at(-1)?.[2];
 
     expect(plain).toEqual({ timeout: 5_000, encoding: 'utf8' });
-    expect(secure).toEqual({ timeout: 5_000, encoding: 'utf8', detached: true, stdio: 'pipe' });
+    expect(secure).toEqual({ timeout: 5_000, encoding: 'utf8', detached: true });
   });
 });
 

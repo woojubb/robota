@@ -1,7 +1,6 @@
 /**
- * The identity readers start `ps`, `sysctl` and `ioreg`. In secure mode they run in their own session
- * with every stream piped, since `execFileSync` would otherwise hand them the terminal as stderr; in
- * plain mode they get exactly the options they always had.
+ * The identity readers start `ps`, `sysctl` and `ioreg`. In secure mode they run in their own session;
+ * in plain mode they get exactly the options they always had.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -52,14 +51,16 @@ describe('the identity readers', () => {
   });
 
   it.skipIf(process.platform === 'win32')(
-    'start each probe in its own session, every stream piped, in secure mode',
+    'start each probe in its own session, its options otherwise unchanged, in secure mode',
     () => {
       enableOwnChildSessions();
       const calls = readAll();
 
       expect(calls).toHaveLength(3);
-      for (const [, , options] of calls)
-        expect(options).toMatchObject({ detached: true, stdio: 'pipe' });
+      for (const [, , options] of calls) {
+        expect(options).toMatchObject({ detached: true });
+        expect(options).not.toHaveProperty('stdio');
+      }
     },
   );
 });

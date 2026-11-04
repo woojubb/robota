@@ -7,10 +7,11 @@
  * A child in the terminal's session can open `/dev/tty` and, through `TIOCSTI`, type into it as the
  * owner — including while a passphrase is being typed. In its own session (`setsid`, which Node's
  * `detached` does on POSIX) it has no controlling terminal, so neither works. Holding the terminal
- * as an inherited descriptor would undo that, so while the policy is on a child may not inherit one,
- * and a stream left to the default is piped (for a sync spawn the default stderr is the terminal).
- * Reading the terminal device by its path stays possible for any same-user program; that residual is
- * the design's, not something a spawn option can close.
+ * as an inherited descriptor would undo that, so while the policy is on a caller may not hand a child
+ * one. Node's defaults hand none — a sync spawn pipes stderr and copies it to this process's stderr
+ * afterwards — so a stream left to the default stays as it is. Reading the terminal device by its
+ * path stays possible for any same-user program; that residual is the design's, not something a spawn
+ * option can close.
  *
  * ## Why process-wide
  *
@@ -109,8 +110,8 @@ export type TChildSessionOptions<T> = {
 
 /**
  * The spawn options for a child that is not a terminal-handover child. While the policy is off it
- * returns `options` itself. While on, the copy also leads its own session, pipes what the caller left
- * to the default, and an entry that would inherit this process's terminal is refused.
+ * returns `options` itself. While on, the copy also leads its own session, and an entry that would
+ * hand the child this process's terminal is refused.
  */
 export function withChildSession<const T extends object>(options: T): TChildSessionOptions<T> {
   if (!policy().own) return options as TChildSessionOptions<T>;
@@ -121,7 +122,7 @@ export function withChildSession<const T extends object>(options: T): TChildSess
       'A child in its own session may not inherit this process’s terminal; only the terminal handover may hand it over.',
     );
   }
-  return { ...options, detached: true, stdio: stdio ?? 'pipe' } as TChildSessionOptions<T>;
+  return { ...options, detached: true } as TChildSessionOptions<T>;
 }
 
 /**
