@@ -24,7 +24,7 @@
  * fail-closed, and drain logic is unit-testable with a stub emitter.
  */
 
-import { resolve } from 'node:path';
+import { resolvePath } from '@robota-sdk/agent-core';
 
 import { buildDiffState } from './interactive-session-streaming.js';
 
@@ -51,8 +51,8 @@ function resolveShellCwdIfDifferent(
   if (toolName !== 'Bash' || !cwd) return undefined;
   const workingDirectory = toolArgs['workingDirectory'];
   if (typeof workingDirectory !== 'string' || workingDirectory.length === 0) return undefined;
-  const resolved = resolve(cwd, workingDirectory);
-  return resolved === resolve(cwd) ? undefined : resolved;
+  const resolved = resolvePath(cwd, workingDirectory);
+  return resolved === resolvePath(cwd, '.') ? undefined : resolved;
 }
 
 /**

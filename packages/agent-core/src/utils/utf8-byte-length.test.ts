@@ -22,7 +22,7 @@ describe('utf8ByteLength', () => {
   });
 
   it('matches the Node byte length of a 4 MiB text', () => {
-    const text = '\uFEFFa\u{1F600}한\uD800'.repeat((4 * 1024 * 1024) / 8);
+    const text = '\uFEFFa\u{1F600}€\uD800'.repeat((4 * 1024 * 1024) / 8);
     expect(utf8ByteLength(text)).toBe(Buffer.byteLength(text, 'utf8'));
   });
 

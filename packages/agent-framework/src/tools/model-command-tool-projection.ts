@@ -1,5 +1,4 @@
-import { createHash } from 'node:crypto';
-
+import { sha256Hex } from '@robota-sdk/agent-core';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
@@ -76,10 +75,7 @@ export function createProviderSafeModelCommandToolName(
     return rawToolName;
   }
 
-  const hash = createHash('sha256')
-    .update(normalizedCommandName)
-    .digest('hex')
-    .slice(0, HASH_LENGTH);
+  const hash = sha256Hex(normalizedCommandName).slice(0, HASH_LENGTH);
   const maxBodyLength =
     MAX_PROVIDER_TOOL_NAME_LENGTH - prefix.length - HASH_SEPARATOR_LENGTH - HASH_LENGTH;
   if (maxBodyLength < 1) {

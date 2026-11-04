@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { joinPath } from '@robota-sdk/agent-core';
 
 import { assertWorkspaceProjectReader } from '../workspace-trust/index.js';
 import { assertRootRelative } from './root-relative-path.js';
@@ -33,7 +33,7 @@ export function createWorkspaceProjectContributionSource(
       ? {
           locate: (relativePath: string) => {
             assertRootRelative(relativePath);
-            return join(root, relativePath);
+            return joinPath(root, relativePath);
           },
         }
       : {}),

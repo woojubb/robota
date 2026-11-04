@@ -353,21 +353,23 @@ function anchoredParts(path: string, flavour: TPathFlavour): IPathParts | undefi
 type TRelation =
   | { readonly segments: readonly string[] }
   /** `to` is on another root or platform: it is its own relative path, normalised. */
-  | { readonly elsewhere: string };
+  | { readonly elsewhere: string }
+  /** `from` or `to` needs the process directory (or a drive's) to be anchored. */
+  | { readonly unanchored: string };
 
 function relate(from: string, to: string): TRelation {
   const flavour = flavourOf(from);
   const origin = anchoredParts(from, flavour);
   if (origin === undefined) {
-    throw new TypeError(
-      `A relative path needs an absolute starting point, got ${JSON.stringify(from)}.`,
-    );
+    return {
+      unanchored: `A relative path needs an absolute starting point, got ${JSON.stringify(from)}.`,
+    };
   }
   const target = anchoredParts(to, flavour);
   if (target === undefined) {
     const foreign = flavour === 'posix' ? anchoredParts(to, 'win32') : undefined;
     if (foreign !== undefined) return { elsewhere: assemble(foreign, 'win32', false) };
-    throw new TypeError(`A relative path needs an absolute target, got ${JSON.stringify(to)}.`);
+    return { unanchored: `A relative path needs an absolute target, got ${JSON.stringify(to)}.` };
   }
   const fold = (text: string): string => (flavour === 'win32' ? text.toLowerCase() : text);
   if (fold(origin.root) !== fold(target.root)) {
@@ -387,14 +389,12 @@ function relate(from: string, to: string): TRelation {
 }
 
 /**
- * The segments of `path.relative(from, to)`, or `undefined` when `to` is on another root (a Windows
- * drive or share, or another platform's spelling) and so has no path relative to `from`. A segment
- * of `..` is a step up. Both paths must be absolute; Windows names compare without regard to case,
- * as they do in `path.win32.relative`.
- *
- * Nothing is anchored to the process directory: a `from` or `to` that is relative (or a Windows path
- * that names no drive) has no answer without it and throws. Two shares of one server are two roots
- * here, where `path.win32.relative` reads `\\server\a` and `\\server\b` as sibling directories.
+ * The segments of `path.relative(from, to)`, or `undefined` when there is no path from `from` to
+ * `to`: `to` is on another root (a Windows drive or share, or another platform's spelling), or a
+ * path is not absolute, so only the process directory could anchor it. A segment of `..` is a step
+ * up. Windows names compare without regard to case, as they do in `path.win32.relative`. Two shares
+ * of one server are two roots here, where `path.win32.relative` reads `\\server\a` and `\\server\b`
+ * as sibling directories. Use it for a containment check: no answer is not containment.
  */
 export function relativeSegments(from: string, to: string): readonly string[] | undefined {
   const relation = relate(from, to);
@@ -404,10 +404,13 @@ export function relativeSegments(from: string, to: string): readonly string[] | 
 /**
  * `path.relative(from, to)` on the platform `from` belongs to, lexically: the segments of
  * {@link relativeSegments} joined with that platform's separator, or the normalised `to` itself when
- * it is on another root, as `path.win32.relative` answers across drives.
+ * it is on another root, as `path.win32.relative` answers across drives. Nothing is anchored to the
+ * process directory: a `from` or `to` that is relative (or a Windows path that names no drive) has
+ * no answer without it and throws a `TypeError`.
  */
 export function relativePath(from: string, to: string): string {
   if (from === to) return '';
   const relation = relate(from, to);
+  if ('unanchored' in relation) throw new TypeError(relation.unanchored);
   return 'segments' in relation ? relation.segments.join(separatorOf(from)) : relation.elsewhere;
 }

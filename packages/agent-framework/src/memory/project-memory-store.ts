@@ -1,4 +1,4 @@
-import { basename, join } from 'node:path';
+import { basenamePath, joinPath, utf8ByteLength, utf8Decode } from '@robota-sdk/agent-core';
 
 import { trimEdgeChars } from '../utils/trim-char.js';
 import { MemoryTopicLifecycle } from './memory-topic-lifecycle.js';
@@ -58,9 +58,9 @@ export function isMemoryType(value: string): value is TMemoryType {
 }
 
 function truncateToUtf8Bytes(value: string, maxBytes: number): string {
-  const buffer = Buffer.from(value, 'utf8');
-  if (buffer.byteLength <= maxBytes) return value;
-  return buffer.subarray(0, maxBytes).toString('utf8');
+  const bytes = new TextEncoder().encode(value);
+  if (bytes.byteLength <= maxBytes) return value;
+  return utf8Decode(bytes.subarray(0, maxBytes));
 }
 
 function limitLines(value: string, maxLines: number): { content: string; truncated: boolean } {
@@ -135,7 +135,7 @@ export class ProjectMemoryStore {
       this.storage.readText(INDEX_FILENAME, 'load startup memory') ?? '',
     );
     const byBytes = truncateToUtf8Bytes(raw, MEMORY_INDEX_MAX_BYTES);
-    const byteTruncated = Buffer.byteLength(raw, 'utf8') > MEMORY_INDEX_MAX_BYTES;
+    const byteTruncated = utf8ByteLength(raw) > MEMORY_INDEX_MAX_BYTES;
     const byLines = limitLines(byBytes, MEMORY_INDEX_MAX_LINES);
 
     return {
@@ -154,8 +154,8 @@ export class ProjectMemoryStore {
       .listDirectory(TOPICS_DIRNAME, 'list memory topics')
       .filter((entry) => entry.kind === 'file' && entry.name.endsWith(TOPIC_EXTENSION))
       .map((entry) => ({
-        name: basename(entry.name, TOPIC_EXTENSION),
-        path: this.storage.projectRelativePath(join(TOPICS_DIRNAME, entry.name)),
+        name: basenamePath(entry.name, TOPIC_EXTENSION),
+        path: this.storage.projectRelativePath(joinPath(TOPICS_DIRNAME, entry.name)),
       }))
       .filter((topic) => !overridden.has(topic.name));
     for (const value of overrides) {
@@ -163,7 +163,7 @@ export class ProjectMemoryStore {
         topics.push({
           name: value.topic,
           path: this.storage.projectRelativePath(
-            join(TOPICS_DIRNAME, `${value.topic}${TOPIC_EXTENSION}`),
+            joinPath(TOPICS_DIRNAME, `${value.topic}${TOPIC_EXTENSION}`),
           ),
         });
     }
@@ -183,7 +183,7 @@ export class ProjectMemoryStore {
       return override.entry === undefined ? '' : `# ${normalized}\n\n- ${override.entry}`;
     return (
       this.storage.readText(
-        join(TOPICS_DIRNAME, `${normalized}${TOPIC_EXTENSION}`),
+        joinPath(TOPICS_DIRNAME, `${normalized}${TOPIC_EXTENSION}`),
         'read memory topic',
       ) ?? ''
     ).trimEnd();
@@ -193,7 +193,7 @@ export class ProjectMemoryStore {
     const topic = sanitizeTopic(input.topic);
     if (this.isTopicCurated(topic)) throw new MemoryTopicCuratedError();
     const indexPath = this.getIndexPath();
-    const topicRelativePath = join(TOPICS_DIRNAME, `${topic}${TOPIC_EXTENSION}`);
+    const topicRelativePath = joinPath(TOPICS_DIRNAME, `${topic}${TOPIC_EXTENSION}`);
     const topicPath = this.storage.projectRelativePath(topicRelativePath);
     const entry = formatEntry(this.now(), input, topic);
     const existingTopic = this.storage.readText(topicRelativePath, 'deduplicate memory topic');
@@ -224,7 +224,7 @@ export class ProjectMemoryStore {
     const topic = mutationTopic(input.topic);
     const entry = formatEntry(this.now(), input, topic);
     this.lifecycle.set(topic, entry);
-    const topicRelativePath = join(TOPICS_DIRNAME, `${topic}${TOPIC_EXTENSION}`);
+    const topicRelativePath = joinPath(TOPICS_DIRNAME, `${topic}${TOPIC_EXTENSION}`);
     this.storage.writeText(topicRelativePath, `# ${topic}\n\n- ${entry}\n`, 'replace memory topic');
     this.persistCuratedIndex();
     return {
@@ -237,7 +237,7 @@ export class ProjectMemoryStore {
   forgetTopic(input: string): { topic: string; topicPath: string; indexPath: string } {
     const topic = mutationTopic(input);
     this.lifecycle.set(topic);
-    const topicRelativePath = join(TOPICS_DIRNAME, `${topic}${TOPIC_EXTENSION}`);
+    const topicRelativePath = joinPath(TOPICS_DIRNAME, `${topic}${TOPIC_EXTENSION}`);
     this.storage.deleteFile(topicRelativePath, 'forget memory topic');
     this.persistCuratedIndex();
     return {

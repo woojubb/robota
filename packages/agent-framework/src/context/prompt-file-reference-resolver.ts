@@ -1,4 +1,4 @@
-import { isAbsolute, win32 } from 'node:path';
+import { isRootedPath, utf8ByteLength } from '@robota-sdk/agent-core';
 
 import { parsePromptFileReferences } from './prompt-file-reference-parser.js';
 import { assertWorkspaceProjectReader } from '../workspace-trust/index.js';
@@ -118,7 +118,7 @@ function resolveReference(
   const content = readReferenceFile(reference, sourcePath, state);
   if (content === undefined) return;
   if (!checkNotBinary(reference, content, state)) return;
-  const byteLength = Buffer.byteLength(content, 'utf8');
+  const byteLength = utf8ByteLength(content);
   if (!checkByteBudget(reference, byteLength, state)) return;
 
   state.loadedPaths.add(sourcePath);
@@ -155,8 +155,7 @@ function hasUnsafePathShape(value: string): boolean {
   const segments = value.split('/');
   return (
     value.startsWith('~/') ||
-    isAbsolute(value) ||
-    win32.isAbsolute(value) ||
+    isRootedPath(value) ||
     segments.some((segment) => segment === '' || segment === '.' || segment === '..')
   );
 }

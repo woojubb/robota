@@ -1,14 +1,14 @@
 import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 /** InteractiveSession execution lifecycle, queue, streaming, and tool state. */
 
-import { randomBytes, randomUUID } from 'node:crypto';
-
 import {
   createUserMessage,
   createSystemMessage,
   isMintedSpanId,
   messageToHistoryEntry,
   providerCallSpanId,
+  randomHex,
+  randomId,
   spanIdFromMintedId,
 } from '@robota-sdk/agent-core';
 
@@ -90,7 +90,7 @@ export type {
 function randomOtelId(bytes: number): string {
   let id: string;
   do {
-    id = randomBytes(bytes).toString('hex');
+    id = randomHex(bytes);
   } while (!/[1-9a-f]/.test(id));
   return id;
 }
@@ -262,7 +262,7 @@ export class SessionExecutionController {
       }
       const kept = pickToolAppView(view);
       if (kept === undefined) return undefined;
-      const viewId = randomUUID();
+      const viewId = randomId();
       if (!this.appViews.put(viewId, kept)) return undefined;
       return { viewId, sourceId: kept.sourceId, resourceUri: kept.resourceUri };
     } catch {

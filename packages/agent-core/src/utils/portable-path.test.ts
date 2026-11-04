@@ -412,7 +412,7 @@ describe('relativePath and relativeSegments', () => {
     ['', '/repo'],
   ])('refuses %j to %j, which only the process directory could anchor', (from, to) => {
     expect(() => relativePath(from, to)).toThrow(TypeError);
-    expect(() => relativeSegments(from, to)).toThrow(TypeError);
+    expect(relativeSegments(from, to)).toBeUndefined();
   });
 
   it('is empty for one path given twice, even relative, as Node answers', () => {

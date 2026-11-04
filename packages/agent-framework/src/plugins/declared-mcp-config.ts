@@ -1,4 +1,4 @@
-import { join } from 'node:path';
+import { joinPath } from '@robota-sdk/agent-core';
 import { assertContainedPath } from './plugin-paths.js';
 import type {
   IFileSystem,
@@ -35,7 +35,7 @@ export function loadDeclaredMcpConfig(
   fs: IFileSystem,
   onSource?: (name: string, sourcePath: string) => void,
 ): TUniversalValue | undefined {
-  const defaultPath = join(pluginDir, '.mcp.json');
+  const defaultPath = joinPath(pluginDir, '.mcp.json');
   const read = (path: string): TUniversalValue => {
     assertContainedPath(pluginDir, path, 'read MCP contribution', fs);
     return JSON.parse(fs.readFileSync(path, 'utf-8')) as TUniversalValue;
@@ -49,11 +49,11 @@ export function loadDeclaredMcpConfig(
   let servers: IUniversalObjectValue = defaults === undefined ? {} : { ...serverMap(defaults) };
   for (const source of sources) {
     let value = source;
-    let sourcePath = join(pluginDir, '.claude-plugin', 'plugin.json');
+    let sourcePath = joinPath(pluginDir, '.claude-plugin', 'plugin.json');
     if (typeof source === 'string') {
       if (!source.startsWith('./') || !source.endsWith('.json') || source.includes('\\'))
         throw new McpContributionError('unsupported-path');
-      sourcePath = join(pluginDir, source);
+      sourcePath = joinPath(pluginDir, source);
       value = read(sourcePath);
     }
     const additions = serverMap(value, typeof source === 'string');

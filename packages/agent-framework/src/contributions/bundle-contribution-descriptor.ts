@@ -1,4 +1,4 @@
-import { basename, join } from 'node:path';
+import { basenamePath, joinPath } from '@robota-sdk/agent-core';
 import type { ILoadedBundlePlugin } from '../plugins/bundle-plugin-types.js';
 import type { IContributionDescriptor } from './contribution-descriptor.js';
 
@@ -32,11 +32,11 @@ export function describeBundleContribution(
       command.name.startsWith(`${plugin.manifest.name}:`)
         ? command.name.slice(plugin.manifest.name.length + 1)
         : command.name,
-      command.skillDirectory ?? join(plugin.pluginDir, 'commands'),
+      command.skillDirectory ?? joinPath(plugin.pluginDir, 'commands'),
       ['command-router'],
     );
   for (const skill of plugin.skills)
-    add('skill', skill.name, skill.skillDirectory ?? join(plugin.pluginDir, 'skills'), [
+    add('skill', skill.name, skill.skillDirectory ?? joinPath(plugin.pluginDir, 'skills'), [
       'skill-reader',
     ]);
   const hooks =
@@ -44,12 +44,12 @@ export function describeBundleContribution(
       ? plugin.hooks.hooks
       : plugin.hooks;
   for (const hook of Object.keys(hooks))
-    add('hook', hook, join(plugin.pluginDir, 'hooks', 'hooks.json'), ['hook-executor']);
+    add('hook', hook, joinPath(plugin.pluginDir, 'hooks', 'hooks.json'), ['hook-executor']);
   for (const agent of plugin.agents)
     add(
       'agent',
       agent,
-      join(plugin.pluginDir, 'agents'),
+      joinPath(plugin.pluginDir, 'agents'),
       ['agent-router'],
       'Agent names are inspected; execution definitions are unavailable from this adapter',
       'unavailable',
@@ -95,7 +95,7 @@ export function describeBundleContribution(
         add(
           'mcp',
           name,
-          plugin.mcpSourcePaths?.[name] ?? join(plugin.pluginDir, '.mcp.json'),
+          plugin.mcpSourcePaths?.[name] ?? joinPath(plugin.pluginDir, '.mcp.json'),
           capabilities,
           usable ? undefined : 'No supported transport declaration',
           usable ? 'supported' : 'unsupported',
@@ -130,14 +130,14 @@ export function describeBundleContribution(
               : component === 'hooks'
                 ? 'hook'
                 : 'agent',
-        source: join(plugin.pluginDir, '.claude-plugin', 'plugin.json'),
+        source: joinPath(plugin.pluginDir, '.claude-plugin', 'plugin.json'),
         requiredCapabilities: [],
         disposition: 'unsupported',
         reason: 'Declared component paths are not consumed by this adapter',
       });
     }
   }
-  const installedRevision = basename(plugin.pluginDir);
+  const installedRevision = basenamePath(plugin.pluginDir);
   return {
     schemaVersion: 1,
     identity: installedIdentity,

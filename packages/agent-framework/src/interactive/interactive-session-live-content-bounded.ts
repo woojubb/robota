@@ -5,14 +5,18 @@
  * size. This is a pre-export shaping step, not redaction: the host still redacts the text.
  */
 
+import { utf8ByteLength, utf8Decode } from '@robota-sdk/agent-core';
+
+const ENCODER = new TextEncoder();
+
 /** The longest prefix of `text` that fits `maxBytes` of UTF-8 without splitting a character. */
 export function utf8Prefix(text: string, maxBytes: number): string {
-  const bytes = Buffer.from(text, 'utf8');
+  const bytes = ENCODER.encode(text);
   if (bytes.byteLength <= maxBytes) return text;
   let end = Math.max(0, maxBytes);
   // Back off continuation bytes (10xxxxxx) so the cut lands on a character boundary.
   while (end > 0 && ((bytes[end] ?? 0) & 0xc0) === 0x80) end -= 1;
-  return bytes.subarray(0, end).toString('utf8');
+  return utf8Decode(bytes.subarray(0, end));
 }
 
 const REDACTED = '"[redacted]"';
@@ -80,7 +84,7 @@ class BoundedWriter {
 
   emit(text: string): void {
     if (this.full) return;
-    const size = Buffer.byteLength(text, 'utf8');
+    const size = utf8ByteLength(text);
     if (size <= this.remaining) {
       this.parts.push(text);
       this.bytes += size;
@@ -88,7 +92,7 @@ class BoundedWriter {
     }
     const kept = utf8Prefix(text, this.remaining);
     this.parts.push(kept);
-    this.bytes += Buffer.byteLength(kept, 'utf8');
+    this.bytes += utf8ByteLength(kept);
     this.full = true;
   }
 

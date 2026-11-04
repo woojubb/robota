@@ -96,7 +96,7 @@ describe('hmacSha256Hex', () => {
   });
 
   it('matches the Node HMAC of a 4 MiB text', () => {
-    const text = 'a\u{1F600}한'.repeat(Math.ceil((4 * 1024 * 1024) / 8));
+    const text = 'a\u{1F600}€'.repeat(Math.ceil((4 * 1024 * 1024) / 8));
     expect(hmacSha256Hex('secret', text)).toBe(
       createHmac('sha256', 'secret').update(text).digest('hex'),
     );

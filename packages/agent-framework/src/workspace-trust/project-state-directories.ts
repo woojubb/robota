@@ -1,4 +1,4 @@
-import { join, sep } from 'node:path';
+import { joinPath } from '@robota-sdk/agent-core';
 
 import { workspacePathSegments } from './project-reader-path.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
@@ -22,13 +22,13 @@ export function snapshotProjectStateDirectories(
     if (typeof root !== 'string') {
       throw new WorkspaceAuthorityRequiredError(`A project state directory is required for ${namespace}.`);
     }
-    roots[namespace] = join(...workspacePathSegments(root));
+    roots[namespace] = joinPath(...workspacePathSegments(root));
   }
   for (const [index, leftNamespace] of namespaces.entries()) {
     const left = roots[leftNamespace];
     for (const rightNamespace of namespaces.slice(index + 1)) {
       const right = roots[rightNamespace];
-      if (left === right || left.startsWith(`${right}${sep}`) || right.startsWith(`${left}${sep}`)) {
+      if (left === right || left.startsWith(`${right}/`) || right.startsWith(`${left}/`)) {
         throw new WorkspaceAuthorityRequiredError('Project state directories must not overlap.');
       }
     }
