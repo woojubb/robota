@@ -5,7 +5,15 @@
  * by a timeout, and an opener that cannot start rejects.
  */
 
-import { chmodSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -69,30 +77,22 @@ async function openAndMeasure(): Promise<{ ms: number; pid: number; exitListener
 }
 
 describe.skipIf(!POSIX)('opening the browser', () => {
-  it(
-    'resolves as soon as the opener starts in plain mode, while the opener stays in the foreground',
-    async () => {
-      const { ms, pid } = await openAndMeasure();
+  it('resolves as soon as the opener starts in plain mode, while the opener stays in the foreground', async () => {
+    const { ms, pid } = await openAndMeasure();
 
-      expect(ms).toBeLessThan(2000);
-      expect(alive(pid)).toBe(true);
-    },
-    20_000,
-  );
+    expect(ms).toBeLessThan(2000);
+    expect(alive(pid)).toBe(true);
+  }, 20_000);
 
-  it(
-    'resolves at once in secure mode too, and the opener is neither tracked nor ended',
-    async () => {
-      enableOwnChildSessions();
-      const { ms, pid, exitListenersAdded } = await openAndMeasure();
-      await new Promise((r) => setTimeout(r, 500));
+  it('resolves at once in secure mode too, and the opener is neither tracked nor ended', async () => {
+    enableOwnChildSessions();
+    const { ms, pid, exitListenersAdded } = await openAndMeasure();
+    await new Promise((r) => setTimeout(r, 500));
 
-      expect(ms).toBeLessThan(2000);
-      expect(exitListenersAdded).toBe(0);
-      expect(alive(pid)).toBe(true);
-    },
-    20_000,
-  );
+    expect(ms).toBeLessThan(2000);
+    expect(exitListenersAdded).toBe(0);
+    expect(alive(pid)).toBe(true);
+  }, 20_000);
 
   it('rejects when the opener cannot start (guard)', async () => {
     process.env.PATH = join(bin, 'empty');
