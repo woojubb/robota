@@ -173,6 +173,11 @@ import {
 import { resolveScreenReaderRenderFields } from './startup/screen-reader-enablement.js';
 import { resolveProductShellExecutable } from './product/shell.js';
 import {
+  keyCustodyChannelOf,
+  productKeyCustody,
+  type ILiveKeyCustodyChannel,
+} from './product/key-custody.js';
+import {
   formatHeadlessWorkspaceTrustError,
   formatHeadlessRestrictedNotice,
   requiresHeadlessWorkspaceTrust,
@@ -558,11 +563,12 @@ async function runCliCore(
     ...(sandboxClient !== undefined ? { sandboxClient, sandboxType: OS_SANDBOX_TYPE } : {}),
     ...(editorFiles !== undefined ? { editorFiles: editorFiles.current } : {}),
   });
+  const tuiSurface = !(args.printMode || args.goal !== undefined || args.serve || mcpServe || acp);
   const tuiSources =
     presentation === undefined
       ? undefined
       : createTuiPresentationSources(presentation, {
-          enabled: !(args.printMode || args.goal !== undefined || args.serve || mcpServe || acp),
+          enabled: tuiSurface,
           cwd,
           productRuntime,
           projectAccess,
@@ -571,6 +577,9 @@ async function runCliCore(
           env: productRuntime.environment,
         });
   const keybindingsSource = tuiSources?.keybindingsSource;
+  // #3679 3f: the local unlock gate is the TUI's alone, and exists only in secure mode.
+  const keyCustody =
+    presentation !== undefined && tuiSurface ? productKeyCustody(productRuntime) : undefined;
   const theme = tuiSources?.theme;
   const mcpStartupMode: TMcpStartupMode =
     args.printMode || args.goal ? 'print' : args.serve || mcpServe || acp ? 'serve' : 'interactive';
@@ -598,30 +607,29 @@ async function runCliCore(
       approvalStore: mcpApprovalStore,
     });
   }
-  const mcp =
-    mcpWillCompose
-      ? await composeMcpClientForStartup({
-          productRuntime,
-          settingsSources: mcpSettingsSources,
-          projectAccess,
-          cwd,
-          env: productRuntime.environment,
-          mode: mcpStartupMode,
-          askSurface: mcpAskSurface,
-          appSurface: mcpAppSurface,
-          ...(options.mcpStdioAuthorities === undefined
-            ? {}
-            : { stdioAuthorities: options.mcpStdioAuthorities }),
-          approvalStore: mcpApprovalStore,
-          ...(options.mcpHttpTransportDeps === undefined
-            ? {}
-            : { httpTransportDeps: options.mcpHttpTransportDeps }),
-          ...(options.mcpResultAdmissionLimits === undefined
-            ? {}
-            : { resultAdmissionLimits: options.mcpResultAdmissionLimits }),
-          reportDiagnostic: (message) => terminal.writeError(message),
-        })
-      : undefined;
+  const mcp = mcpWillCompose
+    ? await composeMcpClientForStartup({
+        productRuntime,
+        settingsSources: mcpSettingsSources,
+        projectAccess,
+        cwd,
+        env: productRuntime.environment,
+        mode: mcpStartupMode,
+        askSurface: mcpAskSurface,
+        appSurface: mcpAppSurface,
+        ...(options.mcpStdioAuthorities === undefined
+          ? {}
+          : { stdioAuthorities: options.mcpStdioAuthorities }),
+        approvalStore: mcpApprovalStore,
+        ...(options.mcpHttpTransportDeps === undefined
+          ? {}
+          : { httpTransportDeps: options.mcpHttpTransportDeps }),
+        ...(options.mcpResultAdmissionLimits === undefined
+          ? {}
+          : { resultAdmissionLimits: options.mcpResultAdmissionLimits }),
+        reportDiagnostic: (message) => terminal.writeError(message),
+      })
+    : undefined;
   if (mcp !== undefined) startupOptions.mcpActivationAdapter = mcp.activationAdapter;
   // The device mesh: opened only by an interactive session whose user settings turn it on.
   const deviceMesh = createDeviceMeshHost({
@@ -654,6 +662,7 @@ async function runCliCore(
       status: () => deviceMesh.status(),
       identityChanged: () => void deviceMesh.identityChanged(),
     },
+    keyCustody?.commands,
   );
   // A process that died without running its exit handlers leaves its scratch directories behind.
   sweepStaleEphemeralState(productRuntime);
@@ -1338,7 +1347,10 @@ async function runCliCore(
     ),
     onChannelReady: createChannelReadyHandler(
       presentation.setLiveChannel,
-      setRemoteControlChannel,
+      (channel: ILiveKeyCustodyChannel) => {
+        setRemoteControlChannel(channel);
+        keyCustody?.setChannel(keyCustodyChannelOf(channel));
+      },
       startPeers,
     ),
     cwd,

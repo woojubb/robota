@@ -37,6 +37,7 @@ import type { ISecretTerminalSession } from '../devices/secret-terminal.js';
 import type { ITerminalHandoffHost } from '../remote-control/operator-approval.js';
 import type { KeyHolder } from '../secure/key-holder.js';
 import type { IKeyringStore } from '../secure/keyring-store.js';
+import type { IKeyCustodyCommandPort, IUnlockResult } from '@robota-sdk/agent-command';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
@@ -79,14 +80,12 @@ export interface IKeyCustodyChannel {
 export interface IProcessKeyCustody {
   /** What the terminal UI asks; see `IKeyCustodyPort`. */
   readonly port: IKeyCustodyPort;
-  isUnlocked(): boolean;
   /**
-   * `/unlock`: ask on the secret terminal now. The command has already handed the terminal over, so
-   * this never hands it over itself; while unlocked it asks nothing.
+   * What `/unlock` and `/lock` act through. `/unlock` has already handed the terminal over when it
+   * calls `unlock`, so the gate asks on it without handing it over again; while unlocked it asks
+   * nothing. Locking needs no proof: it only takes reading away.
    */
-  unlockOnHandedTerminal(): Promise<IUnlockAnswer>;
-  /** `/lock`: drop the keys at once. Locking needs no proof; it only takes reading away. */
-  lock(): void;
+  readonly commands: IKeyCustodyCommandPort;
   /** The live session to ask through, as each one is created; `undefined` while there is none. */
   setChannel(channel: IKeyCustodyChannel | undefined): void;
 }
@@ -205,15 +204,23 @@ export function createProcessKeyCustody(options: IProcessKeyCustodyOptions): IPr
     },
   };
 
-  return {
-    port,
+  const commands: IKeyCustodyCommandPort = {
     isUnlocked: () => holder.isUnlocked,
-    async unlockOnHandedTerminal(): Promise<IUnlockAnswer> {
-      if (holder.isUnlocked) return { readability: 'readable', notices: NOTHING };
-      if (open !== undefined) return joinOpen(open);
-      return start(() => askHere(UNLOCK_COMMAND_LINE));
+    async unlock(): Promise<IUnlockResult> {
+      if (holder.isUnlocked) return { outcome: 'unlocked', notices: NOTHING };
+      const answer =
+        open === undefined ? await start(() => askHere(UNLOCK_COMMAND_LINE)) : await joinOpen(open);
+      return {
+        outcome: answer.readability === 'readable' ? 'unlocked' : answer.readability,
+        notices: answer.notices,
+      };
     },
     lock: () => holder.lock('explicit'),
+  };
+
+  return {
+    port,
+    commands,
     setChannel: (next) => {
       channel = next;
     },

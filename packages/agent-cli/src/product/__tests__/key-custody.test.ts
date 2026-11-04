@@ -179,12 +179,24 @@ describe('/unlock and /lock', () => {
   it('/unlock asks on the terminal the command already handed over, under its own line', async () => {
     const h = await harness();
 
-    await expect(h.custody.unlockOnHandedTerminal()).resolves.toEqual({
-      readability: 'readable',
+    await expect(h.custody.commands.unlock()).resolves.toEqual({
+      outcome: 'unlocked',
       notices: [],
     });
     expect(h.host.handovers()).toBe(0);
     expect(h.terminal.everything()).toContain(UNLOCK_COMMAND_LINE);
+  });
+
+  it('/unlock reports a cancel as declined, and asks nothing while unlocked', async () => {
+    const h = await harness({ person: { cancelAt: /^Passphrase/ } });
+    await expect(h.custody.commands.unlock()).resolves.toEqual({
+      outcome: 'declined',
+      notices: [],
+    });
+
+    await h.holder.unlock({ type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
+    await expect(h.custody.commands.unlock()).resolves.toMatchObject({ outcome: 'unlocked' });
+    expect(h.terminal.runs()).toBe(1);
   });
 
   it('/lock drops the keys, saying it was explicit', async () => {
@@ -193,9 +205,9 @@ describe('/unlock and /lock', () => {
     const reasons: string[] = [];
     h.holder.onLock((reason) => reasons.push(reason));
 
-    h.custody.lock();
+    h.custody.commands.lock();
 
-    expect(h.custody.isUnlocked()).toBe(false);
+    expect(h.custody.commands.isUnlocked()).toBe(false);
     expect(reasons).toEqual(['explicit']);
   });
 });

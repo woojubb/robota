@@ -15,6 +15,7 @@ import { createGitCommandModule } from '../git/index.js';
 import { createGoalCommandModule } from '../goal/index.js';
 import { createHandoffCommandModule } from '../handoff/index.js';
 import { createHelpCommandModule } from '../help/index.js';
+import { createKeyCustodyCommandModule } from '../key-custody/index.js';
 import { createKeybindingsCommandModule } from '../keybindings/index.js';
 import { createLanguageCommandModule } from '../language/index.js';
 import { createMCPActivationCommandModule } from '../mcp-activation/index.js';
@@ -44,6 +45,7 @@ import { createUserLocalCommandModule } from '../user-local/index.js';
 
 import type { IDevicesCommandPort } from '../devices/index.js';
 import type { IDoctorDisplayVocabulary, IDoctorInputs } from '../doctor/index.js';
+import type { IKeyCustodyCommandPort } from '../key-custody/index.js';
 import type { IKeybindingsFilePort } from '../keybindings/index.js';
 import type { IProviderDefinition, TProviderCredentialResolver } from '@robota-sdk/agent-core';
 import type {
@@ -98,6 +100,12 @@ export interface IDefaultCommandModulesOptions {
    * Absence means `/devices` is not registered: without it the command could do nothing.
    */
   devicesPort?: IDevicesCommandPort;
+  /**
+   * The process's hold on the keys of secure conversations. Absence means `/unlock` and `/lock` are
+   * not registered: a process with secure mode off, or with no terminal to read a passphrase on, has
+   * no keys for them to open or drop.
+   */
+  keyCustodyPort?: IKeyCustodyCommandPort;
   /** OBSERVABILITY-1991: host-composed doctor inputs; absence means `/doctor` is not registered. */
   doctorInputs?: IDoctorInputs;
   /** Product-owned diagnostic wording; absent keeps `/doctor` product-neutral. */
@@ -158,6 +166,7 @@ export function createDefaultCommandModules({
   keybindingsFilePort,
   themeCataloguePort,
   devicesPort,
+  keyCustodyPort,
   doctorInputs,
   doctorDisplay,
   formatForkResumeCommand,
@@ -215,6 +224,7 @@ export function createDefaultCommandModules({
     createHandoffCommandModule(),
     createRemoteControlCommandModule(),
     ...(devicesPort === undefined ? [] : [createDevicesCommandModule(devicesPort)]),
+    ...(keyCustodyPort === undefined ? [] : [createKeyCustodyCommandModule(keyCustodyPort)]),
     createProviderCommandModule({
       providerDefinitions,
       settings: providerSettingsAdapter,
