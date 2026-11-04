@@ -1,11 +1,16 @@
+import { readNativeWebSearchOption } from '@robota-sdk/agent-core';
 import { probeOpenAICompatibleProfile } from '@robota-sdk/agent-provider-openai-compatible/shared';
 
 import { parseExtraBody } from './extra-body';
 import { OpenAIProvider } from './provider';
 import { parseParallelToolCalls } from './parallel-tool-policy';
 
-import type { IOpenAINativeWebToolsOptions, TOpenAIApiSurface } from './types';
-import type { IProviderDefinition, TUniversalValue } from '@robota-sdk/agent-core';
+import type { TOpenAIApiSurface } from './types';
+import type {
+  IProviderDefinition,
+  IProviderDefinitionConfig,
+  TUniversalValue,
+} from '@robota-sdk/agent-core';
 
 export const DEFAULT_OPENAI_PROVIDER_MODEL: string | undefined = undefined;
 export const DEFAULT_OPENAI_PROVIDER_API_KEY_REFERENCE = '$ENV:OPENAI_API_KEY';
@@ -60,6 +65,9 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
     // The OpenAI SDK falls back to the base URL variable when none is configured, and sends the
     // organization and project the others name.
     destinationEnvironment: ['OPENAI_BASE_URL', 'OPENAI_ORG_ID', 'OPENAI_PROJECT_ID'],
+    // The SDK falls back to OPENAI_BASE_URL: with it set, the endpoint is one we cannot vouch for.
+    nativeWebTools: (profile) =>
+      runsOpenAIHostedTools(profile) && !hasOpenAIBaseUrlEnvironment() ? ['webSearch'] : [],
     createProvider: (config) => {
       const parallelToolCalls = parseParallelToolCalls(
         config.options?.parallelToolCalls,
@@ -67,8 +75,12 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
       );
       const extraBody = parseExtraBody(config.options?.extraBody);
       const apiSurface = readApiSurface(config.options);
-      const nativeWebTools = readNativeWebTools(config.options);
-      validateOpenAINativeWebTools(config.baseURL, apiSurface, nativeWebTools);
+      const webSearch = readNativeWebSearchOption('openai', config.options);
+      if (webSearch && !runsOpenAIHostedTools(config)) {
+        throw new Error(
+          "Provider openai profile uses an OpenAI-compatible endpoint or Chat Completions; hosted web search runs only on OpenAI's own Responses API. Connect an MCP server that offers web search.",
+        );
+      }
       return new OpenAIProvider({
         apiKey: requireApiKey(config.apiKey),
         ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
@@ -76,7 +88,7 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
         ...(apiSurface !== undefined && { apiSurface }),
         ...(parallelToolCalls !== undefined && { parallelToolCalls }),
         ...(extraBody !== undefined && { extraBody }),
-        ...(nativeWebTools !== undefined && { nativeWebTools }),
+        ...(webSearch && { nativeWebTools: { webSearch: true } }),
         ...(config.options?.durableOperations === true && { durableOperations: true }),
         defaultModel: config.model,
       });
@@ -101,49 +113,14 @@ function readApiSurface(
   return undefined;
 }
 
-function readNativeWebTools(
-  options: Record<string, TUniversalValue> | undefined,
-): IOpenAINativeWebToolsOptions | undefined {
-  const nativeWebTools =
-    readNativeWebToolsRecord(options?.['nativeWebTools']) ??
-    readNativeWebToolsRecord(options?.['builtInWebTools']);
-  if (nativeWebTools === undefined) {
-    return undefined;
-  }
-  return nativeWebTools;
+/** Hosted tools run only on OpenAI's own Responses API: no custom endpoint, not Chat Completions. */
+function runsOpenAIHostedTools(
+  profile: Pick<IProviderDefinitionConfig, 'baseURL' | 'options'>,
+): boolean {
+  return profile.baseURL === undefined && readApiSurface(profile.options) !== 'chat-completions';
 }
 
-function readNativeWebToolsRecord(
-  value: TUniversalValue | undefined,
-): IOpenAINativeWebToolsOptions | undefined {
-  if (value === null || value === undefined || value instanceof Date || Array.isArray(value)) {
-    return undefined;
-  }
-  if (typeof value !== 'object') {
-    return undefined;
-  }
-  const webSearch = value['webSearch'];
-  const webFetch = value['webFetch'];
-  return {
-    ...(typeof webSearch === 'boolean' && { webSearch }),
-    ...(typeof webFetch === 'boolean' && { webFetch }),
-  };
-}
-
-function validateOpenAINativeWebTools(
-  baseURL: string | undefined,
-  apiSurface: TOpenAIApiSurface | undefined,
-  nativeWebTools: IOpenAINativeWebToolsOptions | undefined,
-): void {
-  if (nativeWebTools?.webSearch !== true && nativeWebTools?.webFetch !== true) {
-    return;
-  }
-  if (baseURL !== undefined || apiSurface === 'chat-completions') {
-    throw new Error(
-      'Provider openai profile uses an OpenAI-compatible Chat Completions endpoint; native web search/fetch is not supported for this profile. Connect an MCP server that offers web search, or use a provider with documented hosted web support.',
-    );
-  }
-  throw new Error(
-    'Provider openai native web search/fetch is not wired in this provider version. Connect an MCP server that offers web search, or use a provider with documented hosted web support.',
-  );
+function hasOpenAIBaseUrlEnvironment(): boolean {
+  const value = typeof process === 'undefined' ? undefined : process.env['OPENAI_BASE_URL'];
+  return value !== undefined && value !== '';
 }

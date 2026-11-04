@@ -1,6 +1,13 @@
 import { randomUUID } from 'node:crypto';
 
 import { streamWithAbort } from './responses-stream-utils';
+import {
+  addWebSearchUsage,
+  collectWebSearchUsage,
+  createEmptyWebSearchUsage,
+  mergeWebSearchUsage,
+  webSearchMetadata,
+} from './responses-web-search';
 
 import type {
   IOpenAIResponsesErrorEvent,
@@ -13,6 +20,7 @@ import type {
   TOpenAIResponsesOutputItem,
   TOpenAIResponsesStreamEvent,
 } from './responses-types';
+import type { IOpenAIWebSearchUsage } from './responses-web-search';
 import type {
   IToolCall,
   ITokenUsageWithCacheRead,
@@ -28,7 +36,12 @@ const THOUGHT_PART_SEPARATOR = '\n\n';
 type TResponsesMessageUsage = Omit<ITokenUsageWithCacheRead, 'totalTokens'> &
   Partial<Pick<ITokenUsageWithCacheRead, 'totalTokens'>>;
 
-interface IOpenAIResponsesStreamAssemblyOptions {
+/** What the request that produced the response carried, which decides what its metadata may claim. */
+interface IOpenAIResponsesParseOptions {
+  hostedWebSearch?: boolean;
+}
+
+interface IOpenAIResponsesStreamAssemblyOptions extends IOpenAIResponsesParseOptions {
   stream: AsyncIterable<TOpenAIResponsesStreamEvent>;
   onTextDelta?: TTextDeltaCallback;
   onThinkingDelta?: TThinkingDeltaCallback;
@@ -59,10 +72,12 @@ interface IOpenAIResponsesStreamState {
   completedResponse?: IOpenAIResponsesResponse;
   reasoning: IOpenAIResponsesReasoningMetadata;
   thought: IOpenAIResponsesThoughtStreamState;
+  webSearch: IOpenAIWebSearchUsage;
 }
 
 export function parseOpenAIResponsesResponse(
   response: IOpenAIResponsesResponse,
+  options?: IOpenAIResponsesParseOptions,
 ): TUniversalMessage {
   assertUsableResponse(response);
   const output = response.output ?? [];
@@ -72,6 +87,8 @@ export function parseOpenAIResponsesResponse(
     toolCalls: extractFunctionToolCalls(output),
     response,
     reasoning: collectReasoningMetadata(output),
+    hostedWebSearch: options?.hostedWebSearch === true,
+    webSearch: collectWebSearchUsage(output),
   });
 }
 
@@ -83,6 +100,7 @@ export async function assembleOpenAIResponsesStream(
     toolCalls: [],
     reasoning: createEmptyReasoningMetadata(),
     thought: { sentText: false },
+    webSearch: createEmptyWebSearchUsage(),
   };
 
   for await (const event of streamWithAbort(options.stream, options.signal)) {
@@ -90,13 +108,15 @@ export async function assembleOpenAIResponsesStream(
   }
 
   if (state.completedResponse !== undefined) {
-    return buildMessageFromCompletedResponse(state);
+    return buildMessageFromCompletedResponse(state, options.hostedWebSearch === true);
   }
 
   return buildAssistantMessage({
     content: state.textParts.join(''),
     toolCalls: state.toolCalls,
     reasoning: state.reasoning,
+    hostedWebSearch: options.hostedWebSearch === true,
+    webSearch: state.webSearch,
   });
 }
 
@@ -127,6 +147,7 @@ function applyStreamEvent(
   if (event.type === 'response.completed') {
     state.completedResponse = event.response;
     mergeReasoningMetadata(state.reasoning, collectReasoningMetadata(event.response.output ?? []));
+    mergeWebSearchUsage(state.webSearch, collectWebSearchUsage(event.response.output ?? []));
     return;
   }
 
@@ -180,10 +201,15 @@ function applyOutputItem(
   }
   if (isReasoningOutputItem(item)) {
     mergeReasoningMetadata(state.reasoning, collectReasoningMetadata([item]));
+    return;
   }
+  addWebSearchUsage(state.webSearch, collectWebSearchUsage([item]));
 }
 
-function buildMessageFromCompletedResponse(state: IOpenAIResponsesStreamState): TUniversalMessage {
+function buildMessageFromCompletedResponse(
+  state: IOpenAIResponsesStreamState,
+  hostedWebSearch: boolean,
+): TUniversalMessage {
   const response = state.completedResponse;
   if (response === undefined) {
     throw new Error('OpenAI Responses stream completed without response metadata');
@@ -204,6 +230,8 @@ function buildMessageFromCompletedResponse(state: IOpenAIResponsesStreamState): 
     toolCalls: responseToolCalls.length > 0 ? responseToolCalls : state.toolCalls,
     response,
     reasoning,
+    hostedWebSearch,
+    webSearch: state.webSearch,
   });
 }
 
@@ -212,6 +240,8 @@ function buildAssistantMessage(input: {
   toolCalls: IToolCall[];
   response?: IOpenAIResponsesResponse;
   reasoning: IOpenAIResponsesReasoningMetadata;
+  hostedWebSearch: boolean;
+  webSearch: IOpenAIWebSearchUsage;
 }): TUniversalMessage {
   return {
     id: randomUUID(),
@@ -222,7 +252,7 @@ function buildAssistantMessage(input: {
     ...(input.toolCalls.length > 0 && { toolCalls: input.toolCalls }),
     ...(input.response?.usage !== undefined && { usage: mapUsage(input.response.usage) }),
     metadata: {
-      ...buildMetadata(input.response, input.reasoning),
+      ...buildMetadata(input.response, input.reasoning, input.hostedWebSearch, input.webSearch),
       ...(input.response?.usage !== undefined && {
         usageProvenance:
           input.response.usage.input_tokens !== undefined &&
@@ -238,6 +268,8 @@ function buildAssistantMessage(input: {
 function buildMetadata(
   response: IOpenAIResponsesResponse | undefined,
   reasoning: IOpenAIResponsesReasoningMetadata,
+  hostedWebSearch: boolean,
+  webSearch: IOpenAIWebSearchUsage,
 ): NonNullable<TUniversalMessage['metadata']> {
   return {
     providerApiSurface: 'responses',
@@ -249,6 +281,7 @@ function buildMetadata(
       reasoningSummaries: reasoning.reasoningSummaries,
     }),
     ...(reasoning.hasEncryptedReasoning && { hasEncryptedReasoning: true }),
+    ...webSearchMetadata(hostedWebSearch, webSearch),
   };
 }
 

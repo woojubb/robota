@@ -25,6 +25,7 @@ import type {
   IAssistantMessage,
   IProviderCapabilities,
   IProviderModelEffortTable,
+  IProviderNativeWebToolCapability,
   IToolSchemaProjectionProfile,
   TTextDeltaCallback,
 } from '@robota-sdk/agent-core';
@@ -65,7 +66,7 @@ export class OpenAIProvider extends AbstractAIProvider {
     this.extraBody = parseExtraBody(options.extraBody);
     assertExtraBodyExecutor(this.extraBody, options.executor !== undefined);
     this.apiSurface = resolveApiSurface(options);
-    validateOpenAIProviderNativeWebTools(this.apiSurface, options.nativeWebTools);
+    validateOpenAIProviderNativeWebTools(this.apiSurface, options);
 
     if (options.executor) {
       this.executor = options.executor;
@@ -345,17 +346,15 @@ export class OpenAIProvider extends AbstractAIProvider {
     return {
       functionCalling: { supported: true },
       nativeWebTools: {
-        webSearch: {
-          supported: false,
-          enabled: false,
-          source,
-          reason: getOpenAIUnsupportedNativeWebReason(this.apiSurface, 'search'),
-        },
+        webSearch: describeWebSearch(this.apiSurface, this.options, source),
         webFetch: {
           supported: false,
           enabled: false,
           source,
-          reason: getOpenAIUnsupportedNativeWebReason(this.apiSurface, 'fetch'),
+          reason:
+            this.apiSurface === 'chat-completions'
+              ? getOpenAIChatCompletionsNativeWebReason('fetch')
+              : 'OpenAI provider exposes hosted web search only.',
         },
       },
     };
@@ -394,24 +393,59 @@ function resolveApiSurface(options: IOpenAIProviderOptions): TOpenAIApiSurface {
   return options.baseURL ? 'chat-completions' : 'responses';
 }
 
-function getOpenAIUnsupportedNativeWebReason(
+function getOpenAIChatCompletionsNativeWebReason(toolKind: 'search' | 'fetch'): string {
+  return `OpenAI-compatible Chat Completions endpoints support declared function tools, not provider-native web ${toolKind}.`;
+}
+
+/**
+ * Hosted web search runs only on OpenAI's own Responses API, so it is offered on the vendor endpoint
+ * with that surface and nowhere else.
+ */
+function describeWebSearch(
   apiSurface: TOpenAIApiSurface,
-  toolKind: 'search' | 'fetch',
-): string {
+  options: IOpenAIProviderOptions,
+  source: string,
+): IProviderNativeWebToolCapability {
   if (apiSurface === 'chat-completions') {
-    return `OpenAI-compatible Chat Completions endpoints support declared function tools, not provider-native web ${toolKind}.`;
+    return {
+      supported: false,
+      enabled: false,
+      source,
+      reason: getOpenAIChatCompletionsNativeWebReason('search'),
+    };
   }
-  return `OpenAI Responses native web ${toolKind} is not wired in this provider version.`;
+  if (options.baseURL !== undefined) {
+    return {
+      supported: false,
+      enabled: false,
+      source,
+      reason: "Hosted web search runs only on OpenAI's own endpoint, not a custom baseURL.",
+    };
+  }
+  const enabled = options.nativeWebTools?.webSearch === true;
+  return {
+    supported: true,
+    enabled,
+    source,
+    ...(!enabled && {
+      reason: 'Set the provider profile option nativeWebTools.webSearch to true.',
+    }),
+  };
 }
 
 function validateOpenAIProviderNativeWebTools(
   apiSurface: TOpenAIApiSurface,
-  nativeWebTools: IOpenAIProviderOptions['nativeWebTools'],
+  options: IOpenAIProviderOptions,
 ): void {
-  if (nativeWebTools?.webSearch !== true && nativeWebTools?.webFetch !== true) {
-    return;
+  if (options.nativeWebTools?.webFetch === true) {
+    throw new Error('Provider openai does not support native web fetch.');
   }
-  throw new Error(
-    `Provider openai native web search/fetch is not supported for apiSurface ${apiSurface} in this provider version.`,
-  );
+  if (
+    options.nativeWebTools?.webSearch === true &&
+    (apiSurface !== 'responses' || options.baseURL !== undefined)
+  ) {
+    throw new Error(
+      `Provider openai hosted web search runs only on OpenAI's own Responses API, not on apiSurface ${apiSurface}${options.baseURL !== undefined ? ' with a custom baseURL' : ''}.`,
+    );
+  }
 }

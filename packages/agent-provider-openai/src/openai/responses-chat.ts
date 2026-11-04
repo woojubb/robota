@@ -22,11 +22,13 @@ import {
 } from './responses-converter';
 import { openAIRequestOptions } from './request-options';
 import { assembleOpenAIResponsesStream, parseOpenAIResponsesResponse } from './responses-parser';
+import { includesHostedWebSearch } from './responses-web-search';
 
 import type {
   IOpenAIResponsesRequestNonStreaming,
   IOpenAIResponsesRequestStreaming,
   TOpenAIResponsesStreamEvent,
+  TOpenAIResponsesTool,
 } from './responses-types';
 import type { IOpenAIProviderOptions, TOpenAIExtraBody } from './types';
 import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
@@ -42,6 +44,12 @@ export interface IOpenAIResponsesChatOptions {
   onTextDelta?: TTextDeltaCallback;
   /** Per-request headers (trusted `traceparent`), sent after the raw request payload is captured. */
   requestHeaders?: Readonly<Record<string, string>>;
+}
+
+/** A request's wire body, with the one decision about its tools the response parser also needs. */
+interface IResponsesRequest<TParams> {
+  params: TParams;
+  hostedWebSearch: boolean;
 }
 
 interface IResponsesStreamMessageQueue {
@@ -70,7 +78,7 @@ export async function chatWithOpenAIResponsesApi(
   }
 
   try {
-    const requestParams = buildResponsesRequestParams(input);
+    const { params: requestParams, hostedWebSearch } = buildResponsesRequest(input);
     input.chatOptions?.onProviderNativeRawPayload?.({
       provider: 'openai',
       apiSurface: 'responses',
@@ -88,7 +96,7 @@ export async function chatWithOpenAIResponsesApi(
       payload: response,
     });
     return withProviderRequestId(
-      parseOpenAIResponsesResponse(response),
+      parseOpenAIResponsesResponse(response, { hostedWebSearch }),
       readOpenAIRequestId(response),
     );
   } catch (error) {
@@ -126,7 +134,7 @@ async function chatWithOpenAIResponsesStreamingAssembly(
   }
 
   try {
-    const requestParams = buildResponsesStreamingRequestParams(input);
+    const { params: requestParams, hostedWebSearch } = buildResponsesStreamingRequest(input);
     input.chatOptions?.onProviderNativeRawPayload?.({
       provider: 'openai',
       apiSurface: 'responses',
@@ -151,6 +159,7 @@ async function chatWithOpenAIResponsesStreamingAssembly(
       onTextDelta: input.chatOptions?.onTextDelta,
       onThinkingDelta: input.chatOptions?.onThinkingDelta,
       signal: input.chatOptions?.signal,
+      hostedWebSearch,
     });
     return withProviderRequestId(assembled, providerRequestId);
   } catch (error) {
@@ -158,9 +167,9 @@ async function chatWithOpenAIResponsesStreamingAssembly(
   }
 }
 
-function buildResponsesRequestParams(
+function buildResponsesRequest(
   input: IOpenAIResponsesChatOptions,
-): IOpenAIResponsesRequestNonStreaming {
+): IResponsesRequest<IOpenAIResponsesRequestNonStreaming> {
   const model = input.chatOptions?.model ?? input.providerOptions.defaultModel;
   if (!model) {
     throw new Error(
@@ -168,10 +177,6 @@ function buildResponsesRequestParams(
     );
   }
 
-  const tools = convertToOpenAIResponsesTools(
-    input.chatOptions?.tools,
-    input.providerOptions.strictTools,
-  );
   const textConfig = buildOpenAIResponsesTextConfig(input.providerOptions);
   // Native effort mapping: thread the per-call reasoning-effort dial onto the Responses
   // API `reasoning.effort` parameter, merged with any static reasoning options.
@@ -179,7 +184,21 @@ function buildResponsesRequestParams(
     input.providerOptions.reasoning,
     input.chatOptions?.effortResolution,
   );
-  return {
+  const hostedWebSearch = includesHostedWebSearch({
+    providerOptions: input.providerOptions,
+    chatOptions: input.chatOptions,
+    model,
+    reasoning,
+  });
+  const functionTools = convertToOpenAIResponsesTools(
+    input.chatOptions?.tools,
+    input.providerOptions.strictTools,
+  );
+  // Hosted search goes last, after the caller's functions; a request with neither sends no tools.
+  const tools: TOpenAIResponsesTool[] | undefined = hostedWebSearch
+    ? [...(functionTools ?? []), { type: 'web_search' }]
+    : functionTools;
+  const params: IOpenAIResponsesRequestNonStreaming = {
     ...extraBodyWire(input.extraBody),
     model,
     ...parallelToolCallsWire(input.parallelToolCalls),
@@ -203,15 +222,14 @@ function buildResponsesRequestParams(
     }),
     ...(input.providerOptions.store !== undefined && { store: input.providerOptions.store }),
   };
+  return { params, hostedWebSearch };
 }
 
-function buildResponsesStreamingRequestParams(
+function buildResponsesStreamingRequest(
   input: IOpenAIResponsesChatOptions,
-): IOpenAIResponsesRequestStreaming {
-  return {
-    ...buildResponsesRequestParams(input),
-    stream: true,
-  };
+): IResponsesRequest<IOpenAIResponsesRequestStreaming> {
+  const { params, hostedWebSearch } = buildResponsesRequest(input);
+  return { params: { ...params, stream: true }, hostedWebSearch };
 }
 
 function createStreamDeltaMessage(delta: string): TUniversalMessage {
