@@ -3,13 +3,21 @@
  * not leave its session, and that a switch or a new session moves that client alone.
  */
 
+import { createHash } from 'node:crypto';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { readCurrentProcessIdentity, readProcessStartTime } from '@robota-sdk/agent-core/node';
+import { leaveProcessMarker } from '@robota-sdk/agent-core/testing';
 import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { SessionAuthorshipRefusedError, SessionPool } from '@robota-sdk/agent-framework';
 import {
   isSessionChangeRefusal,
   isSessionDeleteRefusal,
 } from '@robota-sdk/agent-interface-session';
-import { describe, expect, it, vi } from 'vitest';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createServeSessionDirectory } from '../serve-session-directory.js';
 
@@ -110,7 +118,7 @@ function fakeSession(id: string, init: () => Promise<void> = async () => undefin
 
 function served(
   primary: TFakeSession,
-  store: ReturnType<typeof storeOf>,
+  store: IInteractiveSessionStore,
   build: (resumeSessionId: string | undefined) => TFakeSession = (resumeSessionId) =>
     fakeSession(resumeSessionId ?? 'fresh'),
   options: { maxLive?: number; stopping?: () => boolean } = {},
@@ -840,22 +848,88 @@ describe('serve session directory (#3189)', () => {
       expect(store.entries.map((entry) => entry.id)).toContain('a');
     });
 
-    it('refuses with has_writer to rename or delete a session another writer holds', async () => {
-      const store = STORED();
-      const { directory } = served(fakeSession('a'), store);
-      const binding = directory.bind('drive');
-      // Lent to a subagent process, or open in another process: a writer this pool does not run.
-      const lease = store.lend('b');
-
-      await expect(binding.directory.renameSession('b', 'renamed')).rejects.toMatchObject({
-        code: 'has_writer',
+    describe('a session another writer holds', () => {
+      const directories: string[] = [];
+      afterEach(() => {
+        for (const directory of directories.splice(0)) {
+          rmSync(directory, { recursive: true, force: true });
+        }
       });
-      expect(await deleteRefusalOf(binding.directory.deleteSession('b'))).toBe('has_writer');
-      expect(store.entries.map((entry) => entry.id)).toContain('b');
 
-      lease.end();
-      await binding.directory.deleteSession('b');
-      expect(store.entries.map((entry) => entry.id)).not.toContain('b');
+      /** A real store over a temp directory, holding the stored sessions `a` and `b`. */
+      function realStore(): { store: NodeSessionStore; claims: string } {
+        const dir = realpathSync(mkdtempSync(join(tmpdir(), 'serve-directory-')));
+        directories.push(dir);
+        const store = new NodeSessionStore(dir, { sealing: 'plain' });
+        store.save(record('a', '2026-09-01T00:00:00Z'));
+        store.save(record('b', '2026-09-02T00:00:00Z'));
+        return { store, claims: join(dir, 'claims') };
+      }
+
+      /** A live process other than this one: the one that started this test worker. */
+      function anotherLiveProcess() {
+        const { startTime: _ignored, ...here } = readCurrentProcessIdentity();
+        const startTime = readProcessStartTime(process.ppid);
+        return { ...here, pid: process.ppid, ...(startTime === undefined ? {} : { startTime }) };
+      }
+
+      async function refusalOfDelete(change: Promise<void>): Promise<unknown> {
+        return change.then(
+          () => undefined,
+          (reason: unknown) => reason,
+        );
+      }
+
+      it('is refused to rename and to delete with has_writer, naming the process that holds it', async () => {
+        const { store, claims } = realStore();
+        const holder = anotherLiveProcess();
+        leaveProcessMarker(claims, 'b', holder);
+        const { directory } = served(fakeSession('a'), store);
+        const binding = directory.bind('drive');
+
+        const rename = await binding.directory.renameSession('b', 'renamed').then(
+          () => undefined,
+          (reason: unknown) => reason,
+        );
+        expect(rename).toMatchObject({ name: 'SessionChangeRefusal', code: 'has_writer' });
+        expect((rename as Error).message).toContain(`pid ${holder.pid}`);
+
+        const deletion = await refusalOfDelete(binding.directory.deleteSession('b'));
+        expect(deletion).toMatchObject({ name: 'SessionDeleteRefusal', code: 'has_writer' });
+        expect((deletion as Error).message).toContain(`pid ${holder.pid}`);
+        expect(store.load('b')).toMatchObject({ status: 'valid', record: { id: 'b' } });
+      });
+
+      it('names the child of a lent fork the same way, and lets go once the lease ends', async () => {
+        const { store, claims } = realStore();
+        const lease = store.lend('b');
+        const { directory } = served(fakeSession('a'), store);
+        const binding = directory.bind('drive');
+
+        // The child has not taken the marker over yet: a subagent this process started holds it.
+        const early = await binding.directory.renameSession('b', 'renamed').then(
+          () => undefined,
+          (reason: unknown) => reason,
+        );
+        expect(early).toMatchObject({ code: 'has_writer' });
+        expect((early as Error).message).toContain('subagent this process started');
+
+        // The child took it over: the refusal names its pid.
+        const child = anotherLiveProcess();
+        leaveProcessMarker(
+          claims,
+          'b',
+          child,
+          createHash('sha256').update(lease.nonce).digest('hex'),
+        );
+        const deletion = await refusalOfDelete(binding.directory.deleteSession('b'));
+        expect(deletion).toMatchObject({ code: 'has_writer' });
+        expect((deletion as Error).message).toContain(`pid ${child.pid}`);
+
+        lease.end();
+        await binding.directory.deleteSession('b');
+        expect(store.load('b')).toEqual({ status: 'missing' });
+      });
     });
   });
 });

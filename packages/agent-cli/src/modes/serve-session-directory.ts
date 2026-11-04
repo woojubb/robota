@@ -13,6 +13,7 @@ import {
   SessionAuthorshipRefusedError,
   SessionChangeRefusal,
   SessionDeleteRefusal,
+  claimRefusalMessage,
   isSessionBusy,
   listResumableSessionSummaries,
   listResumableSessions,
@@ -82,17 +83,6 @@ export interface IServeSessionPool<TSession, TSlot extends { readonly current: T
    * record go, so the record can be deleted; `false` when it cannot be closed now.
    */
   retire(sessionId: string): Promise<boolean>;
-}
-
-/**
- * What a client is told when another writer holds a session's record — another process, or a
- * subagent it is lent to — so renaming or deleting it here would race that writer.
- */
-function writerRefusalMessage(sessionId: string, action: 'renamed' | 'deleted'): string {
-  return (
-    `Session ${sessionId} is open in another process, or a subagent still runs it, so it cannot ` +
-    `be ${action} here now; try again once it has closed.`
-  );
 }
 
 /**
@@ -341,11 +331,15 @@ export function createServeSessionDirectory<
               'time it saves. Switch to it to rename it, or wait for it to close.',
           );
         }
-        // A writer this pool does not run — another process, a subagent the record is lent to.
-        if (target.store.hasWriter(sessionId)) {
-          throw new SessionChangeRefusal('has_writer', writerRefusalMessage(sessionId, 'renamed'));
+        try {
+          persistSessionRename(target.store, sessionId, name);
+        } catch (error) {
+          // A writer this pool does not run — another process, a subagent the record is lent to —
+          // refuses the write itself, in words that name it.
+          const words = claimRefusalMessage(error);
+          if (words === undefined) throw error;
+          throw new SessionChangeRefusal('has_writer', words);
         }
-        persistSessionRename(target.store, sessionId, name);
       },
       async deleteSession(sessionId) {
         if (target.isStopping?.() === true) {
@@ -400,7 +394,8 @@ export function createServeSessionDirectory<
           await changeTo(nextExisting);
         }
         // The pool's own session of that id lets the record go first; one it cannot close now has a
-        // client or work again, and anything else that writes the record is another writer.
+        // client or work again, and anything else that writes the record is another writer, which
+        // refuses the delete itself in words that name it.
         if (!(await target.pool.retire(sessionId))) {
           throw new SessionDeleteRefusal(
             'running',
@@ -408,10 +403,13 @@ export function createServeSessionDirectory<
               'for it to close, then delete it.',
           );
         }
-        if (target.store.hasWriter(sessionId)) {
-          throw new SessionDeleteRefusal('has_writer', writerRefusalMessage(sessionId, 'deleted'));
+        try {
+          target.store.delete(sessionId);
+        } catch (error) {
+          const words = claimRefusalMessage(error);
+          if (words === undefined) throw error;
+          throw new SessionDeleteRefusal('has_writer', words);
         }
-        target.store.delete(sessionId);
       },
     };
 
