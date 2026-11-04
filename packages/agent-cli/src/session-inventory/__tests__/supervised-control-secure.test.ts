@@ -18,6 +18,8 @@ import {
 } from '@robota-sdk/agent-transport-link';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { openDescriptorCount } from './descriptor-count.js';
+
 import type {
   IRuntimeAdmission,
   IRuntimeAdmissionContext,
@@ -116,6 +118,33 @@ async function ask(socketPath: string, frame: unknown): Promise<Record<string, u
   return JSON.parse(received.slice(0, received.indexOf('\n'))) as Record<string, unknown>;
 }
 
+/**
+ * A request line followed by bytes the endpoint has no use for, then the client's close: what a
+ * same-user program that does not wait for its answer sends, as often as it likes.
+ */
+async function askAndTrail(
+  socketPath: string,
+  frame: unknown,
+  trailing: number,
+): Promise<Record<string, unknown>> {
+  const client = await connectTo(socketPath);
+  client.setEncoding('utf8');
+  let received = '';
+  client.on('data', (chunk: string) => {
+    received += chunk;
+  });
+  const closed = new Promise<void>((resolve) => client.once('close', () => resolve()));
+  client.end(`${JSON.stringify(frame)}\n${'x'.repeat(trailing)}`);
+  let gaveUp: NodeJS.Timeout | undefined;
+  await Promise.race([
+    closed,
+    new Promise<never>((_resolve, reject) => {
+      gaveUp = setTimeout(() => reject(new Error('The endpoint never closed the connection.')), 2_000);
+    }),
+  ]).finally(() => clearTimeout(gaveUp));
+  return JSON.parse(received.slice(0, received.indexOf('\n'))) as Record<string, unknown>;
+}
+
 const observed: Partial<ISupervisedControlOptions> = {
   observe: {
     activity: () => 'working',
@@ -207,6 +236,32 @@ describe.skipIf(process.platform === 'win32')('a secure control socket', () => {
       status: 'stopping',
     });
     await vi.waitFor(() => expect(onStop).toHaveBeenCalledTimes(1));
+  });
+
+  it('answers a request that carries more bytes than its line, and lets go of the connection', async () => {
+    const admission = recordingAdmission();
+    const { socketPath, generation } = await start({ ...observed, admission: admission.factory });
+    // The commands any program of this user may send, and the refusals it can draw.
+    const requests = [
+      { command: 'status', id: ID, generation },
+      { command: 'stop', id: ID, generation },
+      { command: 'lock', id: ID, generation },
+      { command: 'connect', id: ID, generation },
+      { command: 'rename', id: ID, generation, name: 'Taken' },
+      { command: 'status', id: ID, generation: 'A'.repeat(22) },
+      { command: 'status', id: 'another', generation },
+    ];
+    for (const request of requests) await askAndTrail(socketPath, request, 200 * 1024);
+    const baseline = openDescriptorCount();
+
+    for (let round = 0; round < 5; round += 1) {
+      for (const request of requests) {
+        expect(await askAndTrail(socketPath, request, 200 * 1024)).toHaveProperty('status');
+      }
+    }
+
+    // A program that sends junk and leaves must not be able to use up the runtime's descriptors.
+    await vi.waitFor(() => expect(openDescriptorCount()).toBeLessThanOrEqual(baseline), { timeout: 5_000 });
   });
 
   it('still refuses a caller that does not hold the generation', async () => {

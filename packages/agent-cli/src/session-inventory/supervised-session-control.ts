@@ -1179,12 +1179,17 @@ export async function serveSupervisedControl(options: ISupervisedControlOptions)
   const socketPath = controlSocketPath(root, id);
   // One value per process start: a request bound to any other start is refused, never acted on.
   const generation = randomBytes(16).toString('base64url');
+  // The request reader leaves a socket paused, so that an owner link or an attach can take it over
+  // with nothing lost. Every answer that ends the connection reads again first: a paused socket with
+  // bytes behind its request line never sees its peer close, and would hold its descriptors for good.
   const reply = (socket: IControlChannel, body: Record<string, unknown>): void => {
+    socket.resume();
     socket.end(`${JSON.stringify({ id, ...body, generation })}\n`);
   };
   // A caller that has not named this start learns nothing from the refusal: the generation is part
   // of the proof a later request presents, so it is echoed only to a caller that already holds it.
   const refuse = (socket: IControlChannel, reason?: 'stale-generation'): void => {
+    socket.resume();
     socket.end(`${JSON.stringify({ id, status: 'refused', ...(reason ? { reason } : {}) })}\n`);
   };
   const attach = attachTarget === undefined

@@ -11,6 +11,8 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { openDescriptorCount } from './descriptor-count.js';
+
 import {
   parseSupervisedPr,
   serveSupervisedControl,
@@ -63,6 +65,32 @@ async function ask(root: string, frame: unknown): Promise<Record<string, unknown
   } finally {
     client.destroy();
   }
+}
+
+/**
+ * A request line followed by bytes the endpoint has no use for, then the client's close: what a
+ * program that does not wait for its answer sends. Resolves with the answer, once the client has seen
+ * the whole connection end.
+ */
+async function askAndTrail(root: string, frame: unknown, trailing: number): Promise<Record<string, unknown>> {
+  const socketName = readdirSync(root).find((name) => name.endsWith('.sock'))!;
+  const client = createConnection(join(root, socketName));
+  await new Promise<void>((resolve) => client.once('connect', resolve));
+  client.setEncoding('utf8');
+  let received = '';
+  client.on('data', (chunk: string) => {
+    received += chunk;
+  });
+  const closed = new Promise<void>((resolve) => client.once('close', () => resolve()));
+  client.end(`${JSON.stringify(frame)}\n${'x'.repeat(trailing)}`);
+  let gaveUp: NodeJS.Timeout | undefined;
+  await Promise.race([
+    closed,
+    new Promise<never>((_resolve, reject) => {
+      gaveUp = setTimeout(() => reject(new Error('The endpoint never closed the connection.')), 2_000);
+    }),
+  ]).finally(() => clearTimeout(gaveUp));
+  return JSON.parse(received.slice(0, received.indexOf('\n'))) as Record<string, unknown>;
 }
 
 describe.skipIf(process.platform === 'win32')('the plain control socket', () => {
@@ -191,6 +219,30 @@ describe.skipIf(process.platform === 'win32')('the plain control socket', () => 
     expect(
       await ask(root, { command: 'attach', id: ID, generation, mode: 'drive', protocol: 1 }),
     ).toEqual({ id: ID, generation, status: 'refused', reason: 'attach-unavailable' });
+  });
+
+  it('answers a request that carries more bytes than its line, and lets go of the connection', async () => {
+    const { root, generation } = await start({ rename: () => undefined });
+    const requests = [
+      { command: 'status', id: ID, generation },
+      { command: 'stop', id: ID, generation },
+      { command: 'rename', id: ID, generation, name: 'Renamed' },
+      { command: 'connect', id: ID, generation },
+      { command: 'status', id: ID, generation: 'A'.repeat(22) },
+      { command: 'status', id: 'another', generation },
+    ];
+    // One round first, so what the endpoint holds for good (its listener, its registration) is counted.
+    for (const request of requests) await askAndTrail(root, request, 200 * 1024);
+    const baseline = openDescriptorCount();
+
+    for (let round = 0; round < 5; round += 1) {
+      for (const request of requests) {
+        expect(await askAndTrail(root, request, 200 * 1024)).toHaveProperty('status');
+      }
+    }
+
+    // A connection that was only answered keeps its descriptors until it is read to its end.
+    await vi.waitFor(() => expect(openDescriptorCount()).toBeLessThanOrEqual(baseline), { timeout: 5_000 });
   });
 
   it('tells a caller that does not hold the generation nothing but that it was refused', async () => {
