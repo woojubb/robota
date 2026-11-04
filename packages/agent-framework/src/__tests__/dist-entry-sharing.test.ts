@@ -1,5 +1,12 @@
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -69,69 +76,99 @@ for (const format of ['esm', 'cjs'] as const) {
   describe.skipIf(!built && !requireBuilt)(
     `the built ${format} entries share one authority brand`,
     () => {
-      it('accepts, on the main entry, an authority and a mutation the ./node service issued', async () => {
-        const { main, node } = await load(format);
-        const { root, store } = projectRoot();
-        const service = (
-          node['createNodeWorkspaceTrustService'] as (...args: unknown[]) => {
-            grant(cwd: string): Promise<{ status: string; authority: object }>;
+      it(
+        'accepts, on the main entry, an authority and a mutation the ./node service issued',
+        async () => {
+          const { main, node } = await load(format);
+          const { root, store } = projectRoot();
+          const service = (
+            node['createNodeWorkspaceTrustService'] as (...args: unknown[]) => {
+              grant(cwd: string): Promise<{ status: string; authority: object }>;
+            }
+          )(store, STATE);
+          const access = await service.grant(root);
+          expect(access.status).toBe('trusted');
+          const { authority } = access;
+
+          // The four calls the bundled workflows package makes, on the main entry.
+          const assertAuthority = main['assertWorkspaceProjectAuthority'] as (
+            value: unknown,
+          ) => unknown;
+          const identityOf = main['getWorkspaceProjectIdentity'] as (value: unknown) => {
+            worktreeRoot: string;
+          };
+          const readerOf = main['getWorkspaceProjectReader'] as (value: unknown) => {
+            readText(path: string, purpose: string): string | undefined;
+          };
+          const assertMutationFor = main['assertWorkspaceProjectMutationForAuthority'] as (
+            mutation: unknown,
+            authority: unknown,
+          ) => unknown;
+          const createMutation = main['createWorkspaceProjectMutation'] as (
+            authority: unknown,
+            decision: unknown,
+          ) => { writeBytes(path: string, bytes: Uint8Array, purpose: string): void };
+
+          expect(assertAuthority(authority)).toBe(authority);
+          expect(identityOf(authority).worktreeRoot).toBe(root);
+          expect(readerOf(authority).readText('AGENTS.md', 'dist entry sharing')).toBe(
+            '# from the project\n',
+          );
+          const mutation = createMutation(authority, { status: 'approved', purpose: 'dist test' });
+          expect(assertMutationFor(mutation, authority)).toBe(mutation);
+
+          // Where the host can prove a write stays in the project, the mutation really writes.
+          if ((node['supportsWorkspaceProjectMutation'] as () => boolean)()) {
+            mutation.writeBytes('written.txt', new TextEncoder().encode('hi'), 'dist test');
+            expect(readerOf(authority).readText('written.txt', 'dist entry sharing')).toBe('hi');
           }
-        )(store, STATE);
-        const access = await service.grant(root);
-        expect(access.status).toBe('trusted');
-        const { authority } = access;
+        },
+        LOAD_TIMEOUT_MS,
+      );
 
-        // The four calls the bundled workflows package makes, on the main entry.
-        const assertAuthority = main['assertWorkspaceProjectAuthority'] as (
-          value: unknown,
-        ) => unknown;
-        const identityOf = main['getWorkspaceProjectIdentity'] as (value: unknown) => {
-          worktreeRoot: string;
-        };
-        const readerOf = main['getWorkspaceProjectReader'] as (value: unknown) => {
-          readText(path: string, purpose: string): string | undefined;
-        };
-        const assertMutationFor = main['assertWorkspaceProjectMutationForAuthority'] as (
-          mutation: unknown,
-          authority: unknown,
-        ) => unknown;
-        const createMutation = main['createWorkspaceProjectMutation'] as (
-          authority: unknown,
-          decision: unknown,
-        ) => { writeBytes(path: string, bytes: Uint8Array, purpose: string): void };
+      it(
+        'still refuses a look-alike object on the main entry',
+        async () => {
+          const { main } = await load(format);
+          const assertAuthority = main['assertWorkspaceProjectAuthority'] as (
+            value: unknown,
+          ) => unknown;
+          const assertMutationFor = main['assertWorkspaceProjectMutationForAuthority'] as (
+            mutation: unknown,
+            authority: unknown,
+          ) => unknown;
 
-        expect(assertAuthority(authority)).toBe(authority);
-        expect(identityOf(authority).worktreeRoot).toBe(root);
-        expect(readerOf(authority).readText('AGENTS.md', 'dist entry sharing')).toBe(
-          '# from the project\n',
-        );
-        const mutation = createMutation(authority, { status: 'approved', purpose: 'dist test' });
-        expect(assertMutationFor(mutation, authority)).toBe(mutation);
-
-        // Where the host can prove a write stays in the project, the mutation really writes.
-        if ((node['supportsWorkspaceProjectMutation'] as () => boolean)()) {
-          mutation.writeBytes('written.txt', new TextEncoder().encode('hi'), 'dist test');
-          expect(readerOf(authority).readText('written.txt', 'dist entry sharing')).toBe('hi');
-        }
-      }, LOAD_TIMEOUT_MS);
-
-      it('still refuses a look-alike object on the main entry', async () => {
-        const { main } = await load(format);
-        const assertAuthority = main['assertWorkspaceProjectAuthority'] as (
-          value: unknown,
-        ) => unknown;
-        const assertMutationFor = main['assertWorkspaceProjectMutationForAuthority'] as (
-          mutation: unknown,
-          authority: unknown,
-        ) => unknown;
-
-        const forged = Object.freeze(Object.create(null));
-        expect(() => assertAuthority(forged)).toThrow();
-        expect(() => assertAuthority({})).toThrow();
-        expect(() =>
-          assertMutationFor({ writeBytes: () => undefined, deleteFile: () => false }, forged),
-        ).toThrow();
-      }, LOAD_TIMEOUT_MS);
+          const forged = Object.freeze(Object.create(null));
+          expect(() => assertAuthority(forged)).toThrow();
+          expect(() => assertAuthority({})).toThrow();
+          expect(() =>
+            assertMutationFor({ writeBytes: () => undefined, deleteFile: () => false }, forged),
+          ).toThrow();
+        },
+        LOAD_TIMEOUT_MS,
+      );
     },
   );
 }
+
+describe.skipIf(!built && !requireBuilt)('the built main entry types', () => {
+  it.each(['index.d.ts', 'index.d.cts'])(
+    'carries the session and checkpoint store contracts a host with no files implements (%s)',
+    (declaration) => {
+      const exported =
+        readFileSync(join(DIST, declaration), 'utf8')
+          .split(/^export \{/m)
+          .at(-1) ?? '';
+      for (const name of [
+        'IInteractiveSessionStore',
+        'IInteractiveSessionRecord',
+        'IResumableSessionSummary',
+        'TSessionLoadOutcome',
+        'IEditCheckpointStore',
+        'IWorkspaceProjectFiles',
+      ]) {
+        expect(exported, name).toMatch(new RegExp(`\\btype ${name}\\b`));
+      }
+    },
+  );
+});

@@ -447,6 +447,40 @@ describe('an authority cannot be forged or carried by a host', () => {
     expect(Reflect.ownKeys(facets.writer).sort()).toEqual(['relativePath', 'target']);
   });
 
+  it('keeps the service’s files, generations and minting step out of every property and method', async () => {
+    const host = memoryFiles({ 'AGENTS.md': 'x' });
+    const identity = identityFor('/memory/project');
+    const options = {
+      identityResolver: { resolve: () => identity },
+      store: trustedStore,
+      projectFiles: host.files,
+      projectStateDirectories: STATE,
+    };
+    const service = new WorkspaceTrustService(options);
+
+    // The service is the one issuer, and the operations it holds take any root: no own property of it
+    // carries them, the host's raw object, the generations that decide liveness or the options.
+    expect(Reflect.ownKeys(service)).toEqual([]);
+    // Nothing a caller can reach mints an authority but the three entry points.
+    expect(Object.getOwnPropertyNames(Object.getPrototypeOf(service)).sort()).toEqual([
+      'constructor',
+      'grant',
+      'inspect',
+      'revoke',
+    ]);
+    for (const hidden of ['options', 'projectFiles', 'issuerGenerations', 'mintTrustedAccess']) {
+      expect((service as unknown as Record<string, unknown>)[hidden]).toBeUndefined();
+    }
+
+    // Still a working issuer, and one the host cannot redirect after the fact.
+    options.store = {
+      ...trustedStore,
+      inspect: async () => ({ state: 'untrusted', generation: 0 }),
+    };
+    const access = await service.inspect('/memory/project');
+    expect(access.status).toBe('trusted');
+  });
+
   it('gives an authority one reader, built over the files the service was given', async () => {
     const host = memoryFiles();
     const authority = await trustedAuthority(host);

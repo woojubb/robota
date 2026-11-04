@@ -151,10 +151,14 @@ export {
 } from './interactive/index.js';
 export type {
   IHostToolResultSpillStore,
+  IInteractiveSessionRecord,
+  IInteractiveSessionStore,
+  IResumableSessionSummary,
   ISessionRecordRestoreResult,
   TLockedSessionReason,
   TSessionAuthorshipRefusal,
   TSessionIdResolution,
+  TSessionLoadOutcome,
   TSessionStoreOverrides,
   TRestoredScheduleDisposition,
 } from './interactive/index.js';

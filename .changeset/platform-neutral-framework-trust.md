@@ -15,4 +15,6 @@ Moved to `@robota-sdk/agent-framework/node` (no longer on the main entry): `crea
 
 `.` and `./node` share one module instance in both the ESM and the CJS output, so an authority the Node service mints is accepted by `assertWorkspaceProjectAuthority`, `getWorkspaceProjectReader`, `getWorkspaceProjectIdentity` and `assertWorkspaceProjectMutationForAuthority` on the main entry, which `@robota-sdk/workflows` 0.0.3 calls.
 
+The service, the reader, the state storage, the mutation and the settings writer keep what they hold in `#` fields and methods, so no property or method of one of them, reachable at runtime, carries the host's file operations, the generations that decide an authority's liveness or the step that mints one.
+
 Unchanged on Windows and POSIX: the `relativePath` of a `readTextAlongAncestors` entry and the `projectRelativePath` of a state storage keep the separator of the host's own root.

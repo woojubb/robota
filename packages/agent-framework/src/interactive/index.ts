@@ -52,6 +52,7 @@ export type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   IResumableSessionSummary,
+  TSessionLoadOutcome,
 } from './session-store-types.js';
 export type {
   IToolState,
