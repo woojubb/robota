@@ -332,7 +332,11 @@ itself is not. Every SDK store constructor requires that decision, and a lint ru
 import of them anywhere else in the product packages, because only the factory knows the process's
 decision: a store built elsewhere could write plaintext beside sealed files. Whether secure mode is
 on is one predicate every decision that depends on it reads: the decision is plain unless it is on,
-and no process is given a key holder while it is off.
+and no process is given a key holder while it is off. What every surface may be while it is on is
+one exhaustive table, and every listener a product process opens goes through the one gate that
+reads its row, at the call site that starts it, so the libraries that open listeners keep their
+constructors. Any program of the same user can present a token, a login or "the same user", so a
+listener that admits by one of them never binds in secure mode; plain mode opens what it always did.
 
 Being the one construction point, the factory is also where a process records that it uses the
 stores: the first store it builds (or, for a subagent worker, the grant it binds) creates its
