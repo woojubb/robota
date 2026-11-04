@@ -13,6 +13,8 @@ import { Duplex, PassThrough } from 'node:stream';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
+  LINK_HELLO_BYTES,
+  LINK_PROOF_MAX_BYTES,
   createLinkInitiator,
   createRuntimeIdentity,
   startSpawnerExchange,
@@ -373,6 +375,34 @@ describe('the runtime refuses, and says nothing', () => {
     socket.write(Buffer.concat([Buffer.from(LINK_REQUEST_LINE), oversized]));
     expect(await reader.next()).toBeUndefined();
     expect(reader.received()).toHaveLength(0);
+    expect(runtime.record.links).toEqual([]);
+  });
+
+  it('a frame announced over its bound at the hello step, which is the size of a hello', async () => {
+    const { runtime, port } = await startRuntime();
+    const socket = await connect(port);
+    const reader = frameReader(socket);
+    const announced = Buffer.alloc(4);
+    announced.writeUInt32BE(LINK_HELLO_BYTES + 1);
+    socket.write(Buffer.concat([Buffer.from(LINK_REQUEST_LINE), announced]));
+    // Closed on the length alone, long before the handshake would time out.
+    await until(() => reader.closed(), 2_000);
+    expect(reader.received()).toHaveLength(0);
+    expect(runtime.record.links).toEqual([]);
+  });
+
+  it('a frame announced over its bound at the proof step, which is the size of a proof', async () => {
+    const { spawnerKey, instancePublicKey, runtime, port } = await startRuntime();
+    const socket = await connect(port);
+    const reader = frameReader(socket);
+    const initiator = createLinkInitiator({ mode: 'spawner', spawnerKey, instancePublicKey });
+    socket.write(Buffer.concat([Buffer.from(LINK_REQUEST_LINE), frame(initiator.hello())]));
+    const challenge = (await reader.next())!;
+    const announced = Buffer.alloc(4);
+    announced.writeUInt32BE(LINK_PROOF_MAX_BYTES + 1);
+    socket.write(announced);
+    await until(() => reader.closed(), 2_000);
+    expect(reader.received()).toHaveLength(frame(challenge).length);
     expect(runtime.record.links).toEqual([]);
   });
 

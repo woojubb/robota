@@ -11,6 +11,7 @@ import type { Socket } from 'node:net';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import {
+  LINK_CHALLENGE_MAX_BYTES,
   LINK_HELLO_BYTES,
   LinkRefusedError,
   createLinkResponder,
@@ -20,7 +21,12 @@ import {
   type IRuntimeIdentity,
 } from '@robota-sdk/agent-keyring';
 
-import { LINK_REQUEST_LINE, openOwnerLink, openSpawnerLink } from '../index.js';
+import {
+  LINK_REQUEST_LINE,
+  OwnerLinkClosedError,
+  openOwnerLink,
+  openSpawnerLink,
+} from '../index.js';
 import { BINDING, connect, frame, keyrings, listen, type IListening } from './harness.js';
 
 let owner: IOwnerHandover;
@@ -126,6 +132,15 @@ describe('a squatter on the control socket', () => {
     );
     expect(await refusal(openSpawnerLink(await connect(port), spawnerKey, instancePublicKey))).toBe(
       'instance-mismatch',
+    );
+    expectOnlyHello(received());
+  });
+
+  it('announcing a challenge over its bound is closed on, not read, and nothing more is sent', async () => {
+    const { port, received } = await squatter(() => randomBytes(LINK_CHALLENGE_MAX_BYTES + 1));
+    // A closed link, not a refusal: the client never read the challenge to judge it.
+    await expect(openOwnerLink(await connect(port), owner)).rejects.toBeInstanceOf(
+      OwnerLinkClosedError,
     );
     expectOnlyHello(received());
   });
