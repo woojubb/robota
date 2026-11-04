@@ -3,7 +3,7 @@
 ## 3.0.7
 ### Patch Changes
 
-- Republish the 3.0.6 changes as 3.0.7. The npm registry never made `@robota-sdk/agent-framework@3.0.6` available, so the 3.0.6 packages that depend on it could not be installed.
+- Republish the 3.0.6 changes as 3.0.7. `@robota-sdk/agent-framework@3.0.6` did not appear on the npm registry until about an hour after the other 3.0.6 packages, so the packages that depend on it could not be installed during that time.
 - Updated dependencies
   - @robota-sdk/agent-core@3.0.7
   - @robota-sdk/agent-executor@3.0.7
