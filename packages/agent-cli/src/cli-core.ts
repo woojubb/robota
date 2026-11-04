@@ -1429,6 +1429,7 @@ async function runCliCore(
       productRuntime,
       providerDefinitions,
       reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
+      ...(keyCustody === undefined ? {} : { keyCustody: keyCustody.port }),
     }),
     reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
     keybindingsSource,

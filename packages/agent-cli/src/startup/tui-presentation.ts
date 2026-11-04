@@ -26,6 +26,7 @@ import type {
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type {
+  IKeyCustodyPort,
   IKeybindingsSource,
   IScreenReaderPacingOverrides,
   ITerminalCapabilityOverrides,
@@ -52,7 +53,10 @@ export interface ITuiPresentationSources {
 
 /** The keybindings file and the theme catalogue a run renders from. */
 export function createTuiPresentationSources(
-  presentation: Pick<ITuiPresentationFactories, 'createThemeSurface' | 'createNodeKeybindingsSource'>,
+  presentation: Pick<
+    ITuiPresentationFactories,
+    'createThemeSurface' | 'createNodeKeybindingsSource'
+  >,
   inputs: {
     /** Whether this run renders a terminal UI at all; print, goal and serve runs do not. */
     readonly productRuntime: ICliRuntimeContext;
@@ -133,6 +137,8 @@ export function createProductTuiCliAdapter(
     readonly productRuntime: ICliRuntimeContext;
     readonly providerDefinitions: readonly IProviderDefinition[];
     readonly reloadPluginCommandSource: (registry: CommandRegistry) => void;
+    /** #3679 3f: the local unlock gate, present only in secure mode. */
+    readonly keyCustody?: IKeyCustodyPort;
   },
 ): ITuiCliAdapter {
   return createDefaultTuiCliAdapter({
@@ -141,5 +147,6 @@ export function createProductTuiCliAdapter(
     userSettingsPath: productUserSettingsPath(inputs.productRuntime),
     settingsSources: createProductUserSettingsSources(inputs.productRuntime),
     formatResumeCommand: inputs.productRuntime.vocabulary.resumeCommand,
+    ...(inputs.keyCustody === undefined ? {} : { keyCustody: inputs.keyCustody }),
   });
 }
