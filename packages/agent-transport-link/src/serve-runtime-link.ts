@@ -35,6 +35,7 @@ import {
 } from './link-ports.js';
 import { encodeLinkFrame, readLinkFrames } from './link-stream.js';
 import {
+  MAX_REQUESTS_IN_FLIGHT,
   OWNER_FRAME_MAX_BYTES,
   SESSION_FRAME_MAX_BYTES,
   SEALED_FRAME_MAX_BYTES,
@@ -48,8 +49,6 @@ import {
 
 /** A runtime gives up on a handshake that has not finished by then. */
 export const DEFAULT_HANDSHAKE_TIMEOUT_MS = 10_000;
-/** Owner requests one link may have waiting at once; more ends the link. */
-const MAX_REQUESTS_IN_FLIGHT = 64;
 
 /** An admitted link, as the runtime holds it. */
 export interface IAdmittedRuntimeLink {
@@ -138,7 +137,7 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
     sendSealed('owner', encodeRuntimeMessage(message));
   };
 
-  /** Whether one more request may wait; a peer that floods the desk loses the link. */
+  /** Whether one more request may wait; a peer that has more waiting than a client allows itself loses the link. */
   const admitRequest = (): boolean => {
     if (inFlight < MAX_REQUESTS_IN_FLIGHT) return true;
     stream.destroy();

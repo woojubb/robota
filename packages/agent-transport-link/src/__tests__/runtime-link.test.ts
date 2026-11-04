@@ -33,7 +33,8 @@ import {
   type IRuntimeCustodyState,
   type IRuntimeLinkPorts,
 } from '../index.js';
-import { decodeRuntimeMessage } from '../owner-vocabulary.js';
+import { MAX_REQUESTS_IN_FLIGHT } from '../link-bounds.js';
+import { decodeRuntimeMessage, encodeOwnerRequest } from '../owner-vocabulary.js';
 import {
   BINDING,
   connect,
@@ -386,16 +387,52 @@ describe('the runtime refuses, and says nothing', () => {
 });
 
 describe('the runtime closes', () => {
-  it('a link that floods it with requests it has not answered yet', async () => {
+  it('a peer that sends more requests than it may have waiting', async () => {
     const { runtime, port } = await startCertifiedRuntime();
-    const client = await openOwnerLink(await connect(port), owner);
-    const held = Array.from({ length: 65 }, () =>
-      client.question('held').catch((error: unknown) => error),
-    );
-    for (const outcome of await Promise.all(held))
-      expect(outcome).toBeInstanceOf(OwnerLinkClosedError);
-    await client.closed;
+    const socket = await connect(port);
+    const reader = frameReader(socket);
+    const initiator = createLinkInitiator({ mode: 'owner', handover: owner });
+    socket.write(Buffer.concat([Buffer.from(LINK_REQUEST_LINE), frame(initiator.hello())]));
+    const { proof, link } = initiator.answer((await reader.next())!);
+    socket.write(frame(proof));
+    expect(link.open((await reader.next())!).kind).toBe('owner');
+
+    // `held` is never answered, so each of these still waits when the next arrives.
+    for (let id = 1; id <= MAX_REQUESTS_IN_FLIGHT + 1; id += 1) {
+      const request = { op: 'question', requestId: `r${id}`, sessionId: 'held' } as const;
+      socket.write(frame(link.seal('owner', encodeOwnerRequest(request))));
+    }
+    expect(await reader.next()).toBeUndefined();
     expect(runtime.record.grantedKeys).toEqual([]);
+  });
+});
+
+describe('the requests a client has waiting at once', () => {
+  it('may be as many as the runtime allows; one more is refused locally and the link carries on', async () => {
+    const { runtime, port } = await startCertifiedRuntime();
+    runtime.record.gateUnlock = true;
+    const client = await openOwnerLink(await connect(port), owner);
+    const waiting = [
+      client.unlock(),
+      ...Array.from({ length: MAX_REQUESTS_IN_FLIGHT - 1 }, () => client.question('gated')),
+    ];
+    await until(() => runtime.record.gates.length === MAX_REQUESTS_IN_FLIGHT);
+
+    for (const refused of [client.question('gated'), client.unlock()]) {
+      await expect(refused).rejects.toBeInstanceOf(OwnerRequestRefusedError);
+      await expect(refused).rejects.toMatchObject({ code: 'busy' });
+    }
+    // Nothing was sent for the refused ones, and the link is still open.
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(runtime.record.gates).toHaveLength(MAX_REQUESTS_IN_FLIGHT);
+    expect(runtime.record.links.at(-1)!.closed).toBe(false);
+
+    for (const open of runtime.record.gates.splice(0)) open();
+    expect(await Promise.all(waiting)).toEqual(['verified', ...Array(63).fill({ kind: 'open' })]);
+    runtime.record.gateUnlock = false;
+    // A slot is free again.
+    expect(await client.question('sess_2')).toMatchObject({ kind: 'accept' });
+    client.close();
   });
 });
 

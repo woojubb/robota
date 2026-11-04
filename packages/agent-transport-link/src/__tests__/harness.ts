@@ -136,6 +136,9 @@ export function recordingRuntime(identity: IRuntimeIdentity) {
     sessionData: [] as string[],
     grantedKeys: [] as IReadKeys[],
     closed: 0,
+    /** What waits for the test to let it go: a `gated` question, and an unlock while `gateUnlock` is set. */
+    gates: [] as Array<() => void>,
+    gateUnlock: false,
   };
   const admit = (link: IAdmittedRuntimeLink): IRuntimeLinkPorts => {
     record.links.push(link);
@@ -155,6 +158,7 @@ export function recordingRuntime(identity: IRuntimeIdentity) {
         unlock: async (keys) => {
           record.grantedKeys.push(keys);
           record.calls.push('unlock');
+          if (record.gateUnlock) await new Promise<void>((resolve) => record.gates.push(resolve));
           return 'verified' as const;
         },
         lock: (reason: TRequestedLockReason) => {
@@ -169,16 +173,21 @@ export function recordingRuntime(identity: IRuntimeIdentity) {
         },
       },
       sessions: {
-        // `held` is never answered, so a test can close the link while a request waits.
+        // `held` is never answered, so a test can close the link while a request waits; `gated` is
+        // answered when the test opens its gate.
         question: (sessionId) =>
           sessionId === 'held'
             ? new Promise<never>(() => undefined)
-            : Promise.resolve({
-                kind: 'accept',
-                digest: 'd'.repeat(64),
-                notice: 'This session was not verified as yours.',
-                question: `Resume ${sessionId} and mark it as yours?`,
-              } as const),
+            : sessionId === 'gated'
+              ? new Promise<{ readonly kind: 'open' }>((resolve) =>
+                  record.gates.push(() => resolve({ kind: 'open' })),
+                )
+              : Promise.resolve({
+                  kind: 'accept',
+                  digest: 'd'.repeat(64),
+                  notice: 'This session was not verified as yours.',
+                  question: `Resume ${sessionId} and mark it as yours?`,
+                } as const),
         openAccepted: (sessionId, digest) => {
           record.calls.push(['open-accepted', sessionId, digest]);
         },

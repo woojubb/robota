@@ -13,3 +13,9 @@ export const OWNER_FRAME_MAX_BYTES = 1024 * 1024;
 /** The largest sealed frame either end accepts, of any kind. */
 export const SEALED_FRAME_MAX_BYTES =
   Math.max(SESSION_FRAME_MAX_BYTES, OWNER_FRAME_MAX_BYTES) + LINK_FRAME_OVERHEAD_BYTES;
+/**
+ * Owner requests and read grants one link may have waiting at once. A client refuses its own request
+ * beyond it, so a well-behaved caller never loses its link; the runtime ends a link whose peer sends
+ * one more.
+ */
+export const MAX_REQUESTS_IN_FLIGHT = 64;

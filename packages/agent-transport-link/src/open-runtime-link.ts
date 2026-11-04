@@ -43,6 +43,7 @@ import {
   type TRequestedLockReason,
 } from './link-ports.js';
 import {
+  MAX_REQUESTS_IN_FLIGHT,
   OWNER_FRAME_MAX_BYTES,
   SEALED_FRAME_MAX_BYTES,
   SESSION_FRAME_MAX_BYTES,
@@ -68,7 +69,11 @@ export interface ILinkSessionChannel {
   onMessage(listener: (message: TServerMessage) => void): () => void;
 }
 
-/** One open link, as its client holds it. */
+/**
+ * One open link, as its client holds it. Only so many requests (read grants included) may wait for
+ * the runtime's answer at once; one more is refused at once with an `OwnerRequestRefusedError` coded
+ * `busy`, is not sent, and leaves the link open.
+ */
 export interface IRuntimeLinkClient {
   readonly standing: TLinkMode;
   /** The runtime start the handshake proved. */
@@ -294,6 +299,12 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
 
   #await(requestId: string, expects: TExpectedReply, send: () => void): Promise<TRuntimeMessage> {
     if (this.#ended) return Promise.reject(new OwnerLinkClosedError());
+    // Refused here, not queued: a runtime ends a link whose peer has more waiting than it allows.
+    if (this.#pending.size >= MAX_REQUESTS_IN_FLIGHT) {
+      return Promise.reject(
+        new OwnerRequestRefusedError('busy', 'The link has as many requests waiting as it allows.'),
+      );
+    }
     return new Promise((resolve, reject) => {
       this.#pending.set(requestId, { expects, resolve, reject });
       try {
