@@ -250,7 +250,8 @@ class CancellableStreamableHTTPClientTransport extends StreamableHTTPClientTrans
     super(url, options);
     // A call stops being tracked when its response arrives, however it was carried (a JSON body
     // ends the send; a stream outlives it). The SDK hands every message to `onmessage`, which the
-    // client sets after construction, so the handler is wrapped where it is set.
+    // client sets after construction, so the handler is wrapped where it is set. An unanswered call
+    // ends in a cancellation, a failed send or the transport, which release it themselves.
     let handler: Transport['onmessage'];
     Object.defineProperty(this, 'onmessage', {
       configurable: true,
@@ -300,15 +301,11 @@ class CancellableStreamableHTTPClientTransport extends StreamableHTTPClientTrans
       callId,
       traceparent === undefined ? {} : { traceparent },
     );
+    // A stream that ends without an answer does not end the call: the SDK keeps waiting until an
+    // abort or its timeout cancels it, and that cancellation still has to find the call. So only
+    // an answer, a failed send, a cancellation or the transport ends the tracking.
     try {
-      await super.send(message, {
-        ...options,
-        requestSignal,
-        onRequestStreamEnd: () => {
-          this.calls.release(callId);
-          options?.onRequestStreamEnd?.();
-        },
-      });
+      await super.send(message, { ...options, requestSignal });
     } catch (error) {
       this.calls.release(callId);
       throw error;

@@ -97,16 +97,12 @@ two client stacks cannot both be authoritative, so each guarantee below is state
   without it fails with `callback-unavailable` before the user is shown anything.
 - **Trace context stays on the call it belongs to**: a tool call's trusted `traceparent` goes only on
   that call's own `tools/call` POST and the cancellation of it, and only to an exactly listed origin.
-  The header is the call's own per-request header, handed to the SDK with that one call, and the
-  transport repeats it on the `notifications/cancelled` for that JSON-RPC id and nowhere else. No
-  ambient context decides it: a `list_changed` refresh, a reply to a server request or a GET stream
-  starts long after the call and carries nothing, and the admitted headers are never modified.
-- **Cancelling a call withdraws that call's own request**: on a legacy connection the SDK only sends
-  `notifications/cancelled` and would leave the call's POST or SSE stream open, so the transport
-  keeps an abort controller per `tools/call` by JSON-RPC id, passes it to the SDK as that request's
-  signal and aborts it when the matching notification goes out. It stops tracking a call when its
-  response, its stream, a failed send or the transport ends it. On a 2026-era connection the SDK
-  creates and aborts that signal itself. Other calls stay live.
+  No ambient context decides it: a `list_changed` refresh, a reply to a server request or a GET
+  stream starts long after the call and carries nothing, and the admitted headers are never
+  modified.
+- **Cancelling a call withdraws that call's own request** on either protocol era, and other calls
+  stay live: on a legacy connection the client only notifies the server, which may ignore it, and a
+  request left open would hold a connection for as long as the server cares to.
 - **Stdio authority** (a Node adapter, on `./node`; a host without it connects no stdio server):
   definitions cannot grant execution authority — only a host-owned authority
   can, and it is consulted before reading environment values, constructing the transport, or

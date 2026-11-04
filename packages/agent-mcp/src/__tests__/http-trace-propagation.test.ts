@@ -364,6 +364,61 @@ describe('traceparent on MCP HTTP tool calls', () => {
     expect(registry.size).toBe(0);
   });
 
+  it.each([
+    ['abort', 'the stream ends with no event'],
+    ['timeout', 'the stream ends with no event'],
+    ['abort', 'a priming event, a dropped stream and a refused reconnect'],
+  ] as const)(
+    "repeats the header on the %s of a call whose stream ended unanswered (%s)",
+    async (mode, shape) => {
+      const server = await serve((_rpc, res) => {
+        res.writeHead(200, { 'Content-Type': 'text/event-stream' });
+        if (shape.startsWith('a priming')) res.write('id: e1\ndata: \n\n');
+        res.end();
+      });
+      const { session, registry } = await sessionFor(server);
+      const controller = new AbortController();
+
+      const pending = session.callTool('echo', {}, {
+        signal: controller.signal,
+        timeoutMs: mode === 'timeout' ? 400 : 8_000,
+        outboundTraceContext: outbound(server, SPAN_A),
+      });
+      const rejected = expect(pending).rejects.toThrow();
+      const [call] = await server.received('tools/call');
+      if (mode === 'abort') {
+        // Let the stream end, and for the priming event let the reconnect it asks for be refused.
+        if (shape.startsWith('a priming')) {
+          await expect
+            .poll(() => server.requests.some((r) => r.headers['last-event-id'] === 'e1'), {
+              timeout: 4_000,
+            })
+            .toBe(true);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        controller.abort();
+      }
+      await rejected;
+
+      const [cancel] = await server.received('notifications/cancelled');
+      expect((cancel!.rpc?.['params'] as { requestId: unknown }).requestId).toBe(call!.rpc?.['id']);
+      expect(cancel!.headers['traceparent']).toBe(traceparent(SPAN_A));
+      expect(registry.size).toBe(0);
+    },
+  );
+
+  it('stops tracking a call whose server answers with the id in string form', async () => {
+    const server = await serve((rpc, res) => {
+      sendJson(res, toolResult(String(rpc['id']), 'ok'));
+    });
+    const { session, registry } = await sessionFor(server);
+
+    const result = await session.callTool('echo', {}, { timeoutMs: 2_000 });
+
+    expect(result.isError).toBe(false);
+    expect(registry.size).toBe(0);
+  });
+
   it('sends the call\'s header on the cancellation a timeout issues', async () => {
     const server = await serve(() => undefined);
     const { session, registry } = await sessionFor(server);

@@ -32,7 +32,8 @@ interface IPendingCall {
 /**
  * The in-flight HTTP tool calls of one transport, by JSON-RPC id, so a cancellation — sent from
  * wherever the abort or timeout fired — finds the call it cancels. An entry ends with the call's
- * response, its stream, a failed send, its cancellation or the transport.
+ * response, a failed send, its cancellation or the transport — not with its stream, which can end
+ * before the call does.
  */
 export class MCPCallRequests {
   private readonly byRequestId = new Map<TJsonRpcId, IPendingCall>();
@@ -118,10 +119,15 @@ export function toolsCallRequestId(message: unknown): TJsonRpcId | undefined {
   return isJsonRpcId(message['id']) ? message['id'] : undefined;
 }
 
-/** The id a single JSON-RPC response (result or error) answers, or undefined for anything else. */
-export function respondedRequestId(message: unknown): TJsonRpcId | undefined {
+/**
+ * The id a single JSON-RPC response (result or error) answers, as the SDK matches it to its request —
+ * `Number(id)`, so a server answering `"3"` answers call `3` — or undefined for anything else.
+ */
+export function respondedRequestId(message: unknown): number | undefined {
   if (!isRecord(message) || message['jsonrpc'] !== '2.0' || 'method' in message) return undefined;
-  return isJsonRpcId(message['id']) ? message['id'] : undefined;
+  if (!isJsonRpcId(message['id'])) return undefined;
+  const answered = Number(message['id']);
+  return Number.isNaN(answered) ? undefined : answered;
 }
 
 /** The request a single JSON-RPC `notifications/cancelled` cancels, or undefined for anything else. */
