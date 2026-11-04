@@ -54,7 +54,7 @@ const EMPTY_BACKGROUND_GROUP = {
  * reason is concrete: the main entry is the shipped runtime bundle of a published package, and a test
  * fixture has no business in it. `@robota-sdk/agent-core/testing`'s scripted-provider is the
  * precedent. The first draft of this move put it on the main entry and review measured the double in
- * `dist/node/index.js`.
+ * `dist/index.js`.
  *
  * WHAT MAKES IT CONFORMANT: it is typed as `IInteractiveSession` with no cast, so the compiler
  * refuses it the moment the contract gains a member. That is the property the private partials do not

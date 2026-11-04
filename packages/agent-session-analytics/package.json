@@ -3,30 +3,18 @@
   "version": "3.0.1",
   "description": "Session-log timing analysis and reporting for the Robota SDK (analyzeSession, aggregateReports, report formatters)",
   "type": "module",
-  "main": "dist/node/index.js",
-  "types": "dist/node/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "source": "./src/index.ts",
-      "node": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
       },
-      "default": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
       }
     },
     "./package.json": "./package.json"

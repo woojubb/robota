@@ -3,53 +3,29 @@
   "version": "3.0.1",
   "description": "Session contract interfaces for the Robota SDK — interactive sessions, interaction channels, session events, turns and persistence",
   "type": "module",
-  "main": "dist/node/index.js",
-  "types": "dist/node/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "source": "./src/index.ts",
-      "node": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
       },
-      "default": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
       }
     },
     "./testing": {
       "source": "./src/testing/index.ts",
-      "node": {
-        "import": {
-          "types": "./dist/node/testing/index.d.ts",
-          "default": "./dist/node/testing/index.js"
-        },
-        "require": {
-          "types": "./dist/node/testing/index.d.cts",
-          "default": "./dist/node/testing/index.cjs"
-        }
+      "import": {
+        "types": "./dist/testing/index.d.ts",
+        "default": "./dist/testing/index.js"
       },
-      "default": {
-        "import": {
-          "types": "./dist/node/testing/index.d.ts",
-          "default": "./dist/node/testing/index.js"
-        },
-        "require": {
-          "types": "./dist/node/testing/index.d.cts",
-          "default": "./dist/node/testing/index.cjs"
-        }
+      "require": {
+        "types": "./dist/testing/index.d.cts",
+        "default": "./dist/testing/index.cjs"
       }
     },
     "./package.json": "./package.json"

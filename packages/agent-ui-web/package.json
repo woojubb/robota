@@ -4,28 +4,28 @@
   "description": "Browser-safe React session presentation, wire reducer, WebSocket client and runtime-host contract for consumer-owned agent renderers.",
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "type": "module",
-  "main": "dist/node/index.js",
-  "types": "dist/node/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "source": "./src/index.ts",
       "import": {
-        "types": "./dist/node/index.d.ts",
-        "default": "./dist/node/index.js"
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
       },
       "require": {
-        "types": "./dist/node/index.d.cts",
-        "default": "./dist/node/index.cjs"
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
       },
-      "default": "./dist/node/index.js"
+      "default": "./dist/index.js"
     },
     "./client": {
       "source": "./src/index.ts",
       "import": {
-        "types": "./dist/browser/index.d.ts",
-        "default": "./dist/browser/index.js"
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
       },
-      "default": "./dist/browser/index.js"
+      "default": "./dist/index.js"
     },
     "./styles/theme.css": {
       "types": "./src/styles/theme.css.d.mts",

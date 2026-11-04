@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { fetchWithEgressPolicy } from '../../../dist/node/node.js';
+import { fetchWithEgressPolicy } from '../../../dist/node.js';
 
 let calls = 0;
 const server = createServer((_, response) => {
