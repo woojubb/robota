@@ -165,6 +165,7 @@ export class StoredSessionRecords {
     this.#markers = markers;
     this.#claims = new SessionClaims(
       words.releaseCommand === undefined ? {} : { releaseCommand: words.releaseCommand },
+      { pid: process.pid, windows: process.platform === 'win32' },
     );
     if (this.#sealer === undefined) {
       this.#authorship = undefined;

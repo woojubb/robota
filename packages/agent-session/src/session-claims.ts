@@ -49,16 +49,33 @@ export interface ISessionClaimRefusalWords {
   readonly releaseCommand?: (sessionId: string) => string;
 }
 
+/**
+ * The process a store runs in, as a refusal names it: the Node store states it, because this module
+ * is neutral and reads no process. A refusal from a store with none names no pid and adds no
+ * platform sentence.
+ */
+export interface ISessionClaimProcess {
+  readonly pid: number;
+  /** Windows reads no start time, so a holder that crashed may still be shown as holding the id. */
+  readonly windows: boolean;
+}
+
 /** What a refusal carries beside its reason. */
 export interface ISessionClaimRefusalDetails extends ISessionClaimRefusalWords {
   readonly holder?: ISessionWriterHolder;
   /** A `released` refusal of a claim under a lease, not of a save. */
   readonly lease?: true;
+  /** The process the refusing store runs in. */
+  readonly ownProcess?: ISessionClaimProcess;
 }
 
 /** The holder this process is, for a refusal of an id it claims or lends itself. */
-export function selfWriterHolder(): ISessionWriterHolder {
-  return { pid: process.pid, self: true, liveness: 'alive' };
+function selfWriterHolder(ownProcess: ISessionClaimProcess | undefined): ISessionWriterHolder {
+  return {
+    ...(ownProcess === undefined ? {} : { pid: ownProcess.pid }),
+    self: true,
+    liveness: 'alive',
+  };
 }
 
 /** A marker's holder as a refusal names it. */
@@ -81,10 +98,11 @@ function holderText(holder: ISessionWriterHolder): string {
 }
 
 function hasWriterMessage(sessionId: string, details: ISessionClaimRefusalDetails): string {
-  const holder = details.holder ?? selfWriterHolder();
+  const holder = details.holder ?? selfWriterHolder(details.ownProcess);
   if (holder.self) {
+    const pid = details.ownProcess === undefined ? '' : ` (pid ${details.ownProcess.pid})`;
     return (
-      `Session ${sessionId} is already open in this process (pid ${process.pid}): a session ` +
+      `Session ${sessionId} is already open in this process${pid}: a session ` +
       'running or still closing here, or a subagent it is handed to. Try again once that has ended.'
     );
   }
@@ -103,7 +121,7 @@ function hasWriterMessage(sessionId: string, details: ISessionClaimRefusalDetail
       ? ''
       : ` If that process is no longer running, release the session with: ${release}`);
   // Windows reads no start time, so a pid reused after a crash keeps the marker standing.
-  if (process.platform === 'win32') {
+  if (details.ownProcess?.windows === true) {
     message += ' On Windows, a process that crashed may still be shown as holding it.';
   }
   return message;
@@ -142,7 +160,10 @@ export class SessionClaimedError extends Error {
     this.name = 'SessionClaimedError';
     this.sessionId = sessionId;
     this.reason = reason;
-    this.holder = reason === 'has_writer' ? (details.holder ?? selfWriterHolder()) : undefined;
+    this.holder =
+      reason === 'has_writer'
+        ? (details.holder ?? selfWriterHolder(details.ownProcess))
+        : undefined;
   }
 }
 
@@ -170,9 +191,11 @@ export class SessionClaims {
   readonly #live = new Map<string, IClaimState>();
   readonly #lent = new Map<string, object>();
   readonly #words: ISessionClaimRefusalWords;
+  readonly #ownProcess: ISessionClaimProcess | undefined;
 
-  constructor(words: ISessionClaimRefusalWords = {}) {
+  constructor(words: ISessionClaimRefusalWords = {}, ownProcess?: ISessionClaimProcess) {
     this.#words = words;
+    this.#ownProcess = ownProcess;
   }
 
   /** Whether `id` is claimed in this store. */
@@ -191,7 +214,11 @@ export class SessionClaims {
     reason: TSessionClaimRefusal,
     details: Omit<ISessionClaimRefusalDetails, 'releaseCommand'> = {},
   ): SessionClaimedError {
-    return new SessionClaimedError(id, reason, { ...this.#words, ...details });
+    return new SessionClaimedError(id, reason, {
+      ...this.#words,
+      ...(this.#ownProcess === undefined ? {} : { ownProcess: this.#ownProcess }),
+      ...details,
+    });
   }
 
   /** Throws `has_writer` when `id` is claimed or lent in this store already. */
