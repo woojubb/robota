@@ -1,10 +1,6 @@
 import { randomId } from '@robota-sdk/agent-core';
 
-import {
-  buildGeminiToolFields,
-  usesGoogleSearch,
-  withoutServerSideToolSteps,
-} from './google-search';
+import { buildGeminiToolFields, usesGoogleSearch, contentsForModel } from './google-search';
 import { hasImagePart, buildResponseModalities, buildGenerationConfig } from './image-operations';
 import {
   convertToGeminiRequestFormat,
@@ -225,10 +221,7 @@ function buildGenerateContentRequest(
   }
   return {
     model,
-    contents:
-      config.toolConfig?.includeServerSideToolInvocations === true
-        ? contents
-        : withoutServerSideToolSteps(contents),
+    contents: contentsForModel(contents, model, isVertexClient(client)),
     config,
   };
 }

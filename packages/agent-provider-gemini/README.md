@@ -85,8 +85,8 @@ This provider has no hosted web fetch, and a request that requires one fails.
   ship this to end users.
 
 The model's signed function calls return on the next request as they came, through
-`metadata.providerContinuation` on the assistant message, and its search steps with them on a request
-that asks for those steps. If you keep your own history, keep that key.
+`metadata.providerContinuation` on the assistant message, and its search steps with them on a model
+that can combine search with function tools. If you keep your own history, keep that key.
 
 ### Endpoint
 

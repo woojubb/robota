@@ -22,9 +22,9 @@ and register it directly.
   that cannot search next to function tools keeps the function tools, because an agent's work needs them.
 - **Model parts return as they came.** A reply's signed function calls and server-side tool steps reach
   the next request verbatim through the provider continuation, because Gemini refuses a signed call
-  without its signature and expects those steps echoed. The steps go only on a request that asks for
-  them: the SDK refuses them in Vertex mode, and a forced summary or a fallback to a model that cannot
-  combine tools must not fail on a shape not known to be accepted. If the parts no longer say what the
+  without its signature and expects those steps echoed. The steps go wherever the model can run them,
+  whatever that request's tools, because a reply with its context cut can be refused. They stay out in
+  Vertex mode, where the SDK refuses them, and on a model that cannot combine tools. If the parts no longer say what the
   message says, the message wins and they are rebuilt from it.
 - **Model effort.** A verified model selection sends Gemini's `thinkingConfig.thinkingLevel` control,
   preserves unrelated `thinkingConfig` fields, and rejects a conflicting static `thinkingLevel` or

@@ -385,7 +385,7 @@ describe('sending the model its own parts back', () => {
     ]);
   });
 
-  it('sends a signed call without server-side steps on a request that does not ask for them', async () => {
+  it('sends server-side steps wherever the model can run them, and only the signed call elsewhere', async () => {
     const signed = {
       functionCall: { id: 'c1', name: 'read_file', args: {} },
       thoughtSignature: SIGNATURE,
@@ -398,16 +398,14 @@ describe('sending the model its own parts back', () => {
       return bodies.at(-1)?.contents.find((content) => content.role === 'model')?.parts;
     };
 
-    expect(await modelParts({ tools: [tool] })).toEqual([
-      SERVER_TOOL_CALL,
-      SERVER_TOOL_RESPONSE,
-      signed,
-    ]);
-    // The forced summary, a call that withholds search, and a fallback to a model that cannot combine tools.
-    expect(await modelParts({ toolChoice: 'none' })).toEqual([signed]);
-    expect(await modelParts({ tools: [tool], nativeWebTools: { webSearch: false } })).toEqual([
-      signed,
-    ]);
+    const whole = [SERVER_TOOL_CALL, SERVER_TOOL_RESPONSE, signed];
+    expect(await modelParts({ tools: [tool] })).toEqual(whole);
+    // The forced summary and a call that withhold search: same model, so its context stays whole.
+    expect(await modelParts({ toolChoice: 'none' })).toEqual(whole);
+    expect(await modelParts({ tools: [tool], nativeWebTools: { webSearch: false } })).toEqual(
+      whole,
+    );
+    // A fallback to a model that cannot combine tools.
     expect(await modelParts({ tools: [tool], model: GEMINI_2 })).toEqual([signed]);
   });
 

@@ -78,11 +78,13 @@ export function buildGeminiToolFields(
 }
 
 /**
- * Server-side tool steps go back only on a request that asks for them. The SDK refuses them in Vertex
- * mode, and a request without the flag is not known to accept them: a forced summary, or a fallback to
- * a model that cannot combine tools, must not fail on that. A signed function call goes back either way.
+ * The history for a model. Server-side tool steps go back wherever the model can run them, whatever
+ * this request's tools, because Google expects them echoed and can refuse a reply with its context
+ * cut. The SDK refuses them in Vertex mode, and a model that cannot combine tools would be handed
+ * steps it could not have made, so those get the signed function calls alone.
  */
-export function withoutServerSideToolSteps(contents: Content[]): Content[] {
+export function contentsForModel(contents: Content[], model: string, vertex: boolean): Content[] {
+  if (googleSearchReach(model, vertex) === 'with-functions') return contents;
   return contents.map((content) =>
     content.parts?.some(isServerSideToolStep)
       ? { ...content, parts: content.parts.filter((part) => !isServerSideToolStep(part)) }
