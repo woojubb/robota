@@ -17,7 +17,11 @@ export {
 } from './log-pages.js';
 export type { ICreateLimitedOutputCaptureOptions, ILimitedOutputCapture } from './log-pages.js';
 export type { TBackgroundTaskTransitionEvent } from './state-machine.js';
-export { deliverToObservers, OBSERVER_FAILURE_WARNING_CODE } from './observer-delivery.js';
+export {
+  deliverToObservers,
+  OBSERVER_FAILURE_WARNING_CODE,
+  reportObserverFailureAsConsoleWarning,
+} from './observer-delivery.js';
 export type { IObserverFailure, TObserverFailureReporter } from './observer-delivery.js';
 export {
   BackgroundTaskError,

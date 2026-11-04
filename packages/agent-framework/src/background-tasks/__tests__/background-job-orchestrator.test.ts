@@ -5,6 +5,7 @@ import {
   BackgroundJobOrchestrator,
   summarizeBackgroundJobGroup,
 } from '../background-job-orchestrator.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { TBackgroundJobGroupEvent } from '../index.js';
 import type {
@@ -69,6 +70,7 @@ describe('BackgroundJobOrchestrator', () => {
       const manager = new BackgroundTaskManager({ runners: [] });
       const orchestrator = new BackgroundJobOrchestrator({
         manager,
+        reportObserverFailure: createTestFrameworkHost().reportObserverFailure,
         observerFailureWarningCode: warningCode,
       });
       orchestrator.subscribe(() => {
@@ -80,6 +82,34 @@ describe('BackgroundJobOrchestrator', () => {
       spy.mockRestore();
     }
   });
+
+  it.each([
+    [undefined, 'BACKGROUND_OBSERVER_FAILURE'],
+    ['ACME_BACKGROUND_OBSERVER_FAILURE', 'ACME_BACKGROUND_OBSERVER_FAILURE'],
+  ])(
+    "writes the executor's own line with code %s when the host lends no reporter",
+    (warningCode, expectedCode) => {
+      const process_ = vi.spyOn(process, 'emitWarning').mockImplementation(() => undefined);
+      const console_ = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      try {
+        const orchestrator = new BackgroundJobOrchestrator({
+          manager: new BackgroundTaskManager({ runners: [] }),
+          observerFailureWarningCode: warningCode,
+        });
+        orchestrator.subscribe(() => {
+          throw new Error('broken');
+        });
+        orchestrator.createGroup({ parentSessionId: 'parent', waitPolicy: 'manual', taskIds: [] });
+        expect(process_).not.toHaveBeenCalled();
+        expect(console_).toHaveBeenCalledWith(
+          expect.stringMatching(new RegExp(`^\\[${expectedCode}\\].*broken`, 'u')),
+        );
+      } finally {
+        process_.mockRestore();
+        console_.mockRestore();
+      }
+    },
+  );
 
   it('completes a wait_all group after every task reaches terminal state', async () => {
     const controlled: IControlledTask[] = [];

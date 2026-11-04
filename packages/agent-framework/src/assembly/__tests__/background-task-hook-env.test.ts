@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import { fireSubagentLifecycleHook } from '../background-task-hooks.js';
 import { buildAgentRuntime } from '../build-runtime.js';
 
@@ -86,6 +87,7 @@ describe('subagent hook environment ownership', () => {
       }),
     };
     const options = {
+      host: createTestFrameworkHost(),
       config: { hooks },
       backgroundTaskRunners: [runner],
       subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID' },

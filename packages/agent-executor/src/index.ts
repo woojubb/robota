@@ -12,6 +12,7 @@ export {
   DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE,
   deliverToObservers,
   OBSERVER_FAILURE_WARNING_CODE,
+  reportObserverFailureAsConsoleWarning,
 } from './background-tasks/index.js';
 export type {
   IObserverFailure,

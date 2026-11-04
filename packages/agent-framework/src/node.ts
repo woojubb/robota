@@ -75,3 +75,19 @@ export function createNodeFrameworkHost(options: ICreateNodeFrameworkHostOptions
 export { NodeFileSystem, NodeFileSystemAsync } from './adapters/node-file-system.js';
 export { loadOrgPolicy } from './command-api/org-policy/org-policy-loader.js';
 export { checkNodeHostSettingsFile } from './command-api/provider/node-host-settings-check.js';
+
+// Lane Z (assembly): the subagent transcript, a log file written and paged through Node's `fs`.
+export {
+  createSubagentLogger,
+  migrateSubagentTranscripts,
+  readSubagentTranscriptPage,
+  resolveSubagentLogDir,
+  resolveSubagentLogSessionId,
+  resolveSubagentTranscriptPath,
+} from './assembly/subagent-logger.js';
+export type {
+  IReadSubagentTranscriptPageOptions,
+  ISubagentTranscriptMigration,
+  ISubagentTranscriptPage,
+  ISubagentTranscriptUnreadable,
+} from './assembly/subagent-logger.js';

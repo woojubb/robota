@@ -15,13 +15,12 @@ import {
   assertResidentToolRemains,
   isToolDeniedOutright,
 } from '@robota-sdk/agent-core';
-import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 import { Session } from '@robota-sdk/agent-session';
 
 import { formatDeferredToolRoster } from './deferred-tool-roster.js';
 import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { createModelPermissionClassifier } from './model-permission-classifier.js';
-import { nodeSessionPorts } from './node-session-ports.js';
+import { hostSessionPorts } from './host-session-ports.js';
 import { assembleSubagentPrompt } from './subagent-prompts.js';
 import { unwrapToolCallHandoff } from './tool-call-handoff.js';
 import { bindAdvisorTools, sessionAdvisorAccess } from '../advisor/advisor-tool.js';
@@ -318,6 +317,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
           permissionClassifier: createModelPermissionClassifier(provider, {
             cwd: options.cwd,
             model,
+            readGitRemotes: options.host.readGitRemotes,
           }),
         }
       : {}),
@@ -335,9 +335,9 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     permissionHandler: options.permissionHandler,
     ...(options.commandSandbox !== undefined ? { commandSandbox: options.commandSandbox } : {}),
     hooks: options.hooks,
-    // This package drives a Node host, so an unspecified list is the built-in command and HTTP pair.
-    hookTypeExecutors: options.hookTypeExecutors ?? [new CommandExecutor(), new HttpExecutor()],
-    ...nodeSessionPorts(options.cwd),
+    // An unspecified list is the host's built-in executors; a host that lends none runs no hook handler.
+    hookTypeExecutors: options.hookTypeExecutors ?? options.host.createHookExecutors?.({}) ?? [],
+    ...hostSessionPorts(options.host, options.cwd),
     onTextDelta: options.onTextDelta,
     onToolExecution: options.onToolExecution,
   });

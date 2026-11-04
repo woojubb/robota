@@ -195,4 +195,17 @@ describe('framework entry surfaces', () => {
     expect(Object.keys(NodeEntry)).toContain('createNodeFrameworkHost');
     expect(Object.keys(MainEntry)).not.toContain('createNodeFrameworkHost');
   });
+
+  it('keeps the subagent transcript, a Node log file, on ./node alone', () => {
+    const names = [
+      'createSubagentLogger',
+      'migrateSubagentTranscripts',
+      'readSubagentTranscriptPage',
+      'resolveSubagentLogDir',
+      'resolveSubagentLogSessionId',
+      'resolveSubagentTranscriptPath',
+    ];
+    expect(Object.keys(NodeEntry)).toEqual(expect.arrayContaining(names));
+    for (const name of names) expect(Object.keys(MainEntry), name).not.toContain(name);
+  });
 });

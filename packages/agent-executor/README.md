@@ -63,7 +63,7 @@ Task results and states are discriminated by `kind`: `exitCode` and `signalCode`
 | Node host (`/node`)        | `createDefaultBackgroundTaskRunners`, `createManagedShellProcessRunner`, `createScheduledTaskRunner`, `reportObserverFailureAsProcessWarning`                                    |
 | Shell resolution (`/node`) | `resolveBackgroundTaskShellCommand`: the executable and arguments for `sh`/`bash`, PowerShell/`pwsh` or `cmd`; an unknown explicit shell is refused before spawning              |
 | State machine              | `transitionBackgroundTaskStatus`, `isTerminalBackgroundTaskStatus`, `getBackgroundTaskTransitions`                                                                               |
-| Logs and observers         | `createBackgroundTaskLogPage`, `createLimitedOutputCapture`, `deliverToObservers`                                                                                                |
+| Logs and observers         | `createBackgroundTaskLogPage`, `createLimitedOutputCapture`, `deliverToObservers`, `reportObserverFailureAsConsoleWarning`                                                       |
 | Subagents                  | `SubagentManager` (spawn, wait, send, cancel agent jobs through an `ISubagentRunner`), `createWorktreeSubagentRunner`, `subagentExecutionRoot`                                   |
 | Providers                  | `createProviderFromProfile`, `createProviderFromExactProfile`, `resolveProfileApiKey`                                                                                            |
 | Connection checks          | `verifyConnectionEnvironment`, `findConnectionEnvironmentDivergence`, `sealConnectionEnvironment`, `connectionEnvironmentNames`, `TRANSPORT_ENVIRONMENT`                         |
@@ -74,7 +74,8 @@ Task results and states are discriminated by `kind`: `exitCode` and `signalCode`
   worktree, prepared and removed by your `ISubagentWorktreeAdapter`; the `WorktreeCreate` and
   `WorktreeRemove` hooks fire around it, through the `hookTypeExecutors` you pass.
 - **Observer failures.** A throwing lifecycle observer never unwinds the manager; the failure goes
-  to `onObserverFailure`, which defaults to a `console.warn` line carrying the warning code. A Node
+  to `onObserverFailure`, which defaults to a `console.warn` line carrying the warning code
+  (`reportObserverFailureAsConsoleWarning`, for an owner that delivers to observers itself). A Node
   host passes `reportObserverFailureAsProcessWarning` to surface it as a process warning instead.
 - **Logs.** Task handles may report `logPath` and `transcriptPath`. The manager copies them into the
   task state, so a session record can store references while high-frequency output stays in

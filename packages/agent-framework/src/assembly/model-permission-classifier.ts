@@ -8,10 +8,9 @@
  * wants a blocked action retries it from `/permissions` or writes an allow rule.
  */
 
-import { execFile } from 'node:child_process';
-
 import { createSystemMessage, createUserMessage } from '@robota-sdk/agent-core';
 
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type {
   IClassifiedCall,
@@ -22,7 +21,6 @@ import type {
 const MAX_VERDICT_TOKENS = 200;
 const MAX_ARGUMENTS_CHARS = 8_000;
 const MAX_REASON_CHARS = 300;
-const GIT_REMOTE_TIMEOUT_MS = 2_000;
 
 export const PERMISSION_CLASSIFIER_SYSTEM_PROMPT = `You review one tool call a coding agent wants to make without asking its user. Decide whether it may run.
 
@@ -46,21 +44,6 @@ When unsure, block. Answer with only a JSON object: {"decision": "allow" | "bloc
 export interface IClassifierTrustBoundary {
   readonly cwd: string;
   readonly gitRemotes: readonly string[];
-}
-
-/** The remotes the working directory has when the session starts; none when it is not a repository. */
-export function readGitRemotes(cwd: string): Promise<string[]> {
-  return new Promise((resolve) => {
-    execFile('git', ['remote', '-v'], { cwd, timeout: GIT_REMOTE_TIMEOUT_MS }, (error, stdout) => {
-      // allow-fallback: no git, or not a repository, means no remote is trusted
-      if (error !== null) return resolve([]);
-      const urls = stdout
-        .split('\n')
-        .map((line) => line.split(/\s+/)[1])
-        .filter((url): url is string => url !== undefined && url.length > 0);
-      resolve([...new Set(urls)]);
-    });
-  });
 }
 
 function describeCall(call: IClassifiedCall, boundary: IClassifierTrustBoundary): string {
@@ -109,13 +92,15 @@ export function createModelPermissionClassifier(
   options: {
     cwd: string;
     model?: string;
-    readRemotes?: (cwd: string) => Promise<readonly string[]>;
+    /** The host's `readGitRemotes`; absent, the boundary names no remote. */
+    readGitRemotes?: IFrameworkHost['readGitRemotes'];
   },
 ): IPermissionClassifier {
   let remotes: Promise<readonly string[]> | undefined;
   return {
     async classify(call, signal) {
-      remotes ??= (options.readRemotes ?? readGitRemotes)(options.cwd);
+      // None when the host cannot list them: with no way to know a remote, none is trusted.
+      remotes ??= options.readGitRemotes?.(options.cwd) ?? Promise.resolve([]);
       const boundary = { cwd: options.cwd, gitRemotes: await remotes };
       const response = await provider.chat(
         [

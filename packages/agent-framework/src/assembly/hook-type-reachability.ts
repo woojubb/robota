@@ -17,10 +17,11 @@
 import type { IHookDefinitionSource } from '../config/config-merge.js';
 import type { IHookTypeExecutor, THooksConfig } from '@robota-sdk/agent-core';
 
-/** Why each embedder-constructed type cannot run without its `createSession` option. */
+/** Why each type cannot run without what builds its executor: a host member or a `createSession` option. */
 const EMBEDDER_ONLY_TYPES: Readonly<Record<string, string>> = {
-  command: 'built-in command executor is disabled for this session',
-  http: 'built-in HTTP executor is disabled for this session',
+  command:
+    'no command executor: the host lends none (`host.createHookExecutors`) or the session disabled the built-in ones',
+  http: 'no HTTP executor: the host lends none (`host.createHookExecutors`) or the session disabled the built-in ones',
   prompt: 'requires the `providerFactory` createSession option',
   agent: 'requires the `sessionFactory` createSession option',
   guardrail: 'requires registered `guardrails` (createSession option)',
