@@ -354,13 +354,20 @@ project only when the trust service says it is trusted now, on a host that can w
 through the authority that service mints: the roots records and the history name are same-user
 writable, so they are candidates, never authority, and every other root is listed and left alone.
 
-There is no unlock or lock command: unlocked keys live in the memory of the process that uses them,
-in one holder that every lock (the user, inactivity, the last client leaving, a locked screen,
-suspend) ends and that offers operations with the keys rather than the keys themselves — opening, and
-the authorship tag that is the only proof a stored artifact was written by the owner's unlocked
-process, since anything sealed to the public key opens — so after a lock no caller still holds one,
-and each unlock is announced so what was written while locked can be tagged then; a short-lived
-command could only unlock to throw the keys away.
+There is no `secure unlock` or `secure lock`: unlocked keys live in the memory of the process that
+uses them, in one holder that every lock (the user, inactivity, the last client leaving, a locked
+screen, suspend) ends and that offers operations with the keys rather than the keys themselves —
+opening, and the authorship tag that is the only proof a stored artifact was written by the owner's
+unlocked process, since anything sealed to the public key opens — so after a lock no caller still
+holds one, and each unlock is announced so what was written while locked can be tagged then; a
+short-lived command could only unlock to throw the keys away. A terminal session holding keys is
+unlocked where it runs instead, by the local unlock gate: store reads never say why they read (many
+are not the person's), so the reason lives on the prompt, which opens only for a read the terminal UI
+says the person started — a request only its action modules can mint, from a key press — or for
+`/unlock`, a user-only command, and `/lock` drops the keys. The passphrase is then asked on the secret
+terminal while the session has handed the terminal over, one question at a time, and never where
+nobody can answer, so nothing the model runs can open the prompt and nothing typed there reaches the
+conversation.
 Unlocking is where a swapped stored sealing key is caught. From the first unlock in a process the
 holder seals to the key that unlock verified, locked or not and even when the repair of the file
 cannot be written; the mismatch is always reported, and the exit status tells a repair that completed

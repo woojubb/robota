@@ -183,6 +183,16 @@ history; it says to unlock only when the keys are locked, not when this process 
 composer's draft is never mutated while the overlay is open, so cancelling restores it
 byte-identically.
 
+### Reads that need the keys
+
+A read the person starts from this terminal on a record sealed while the keys are locked asks the
+host's key custody port to unlock for it, with a request only this package's action modules can mint
+from the person's key press; `deps:check` names those modules, so nothing else — and nothing the model
+runs — can make one. The prompt is asked only for an action the framework would honour, and without a
+port (secure mode off) nothing is asked and nothing reads differently. While the terminal is handed
+over to another program, the composer's stdin proxy forwards nothing: what is typed then belongs to
+whoever has the terminal, including a passphrase the console prompt reads through the same stream.
+
 ### IME cursor positioning
 
 During focused text entry, the real terminal cursor is positioned at the composition point (rather
