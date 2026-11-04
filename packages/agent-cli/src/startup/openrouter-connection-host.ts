@@ -29,7 +29,11 @@ export interface IOpenRouterConnectionHostOptions {
   readonly notify?: (message: string) => void;
   readonly store?: ICredentialStore;
   readonly fetch?: typeof fetch;
-  readonly acquireKey?: typeof acquireOpenRouterKey;
+  /**
+   * The browser sign-in. Required: its loopback callback is a listener, so the caller passes the one
+   * that opens under its surface row; a default here would open it without one.
+   */
+  readonly acquireKey: typeof acquireOpenRouterKey;
   readonly openBrowser?: (url: URL) => Promise<void>;
   readonly requireApiKeyFromEnv?: boolean;
 }
@@ -119,7 +123,7 @@ export function createOpenRouterConnectionHost(
         controller.signal.throwIfAborted();
         const secret =
           request.method === 'browser'
-            ? await (options.acquireKey ?? acquireOpenRouterKey)({
+            ? await options.acquireKey({
                 openBrowser: options.openBrowser ?? openInBrowser,
                 fetch: network,
                 keyLabel,

@@ -20,6 +20,7 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 import { createProductSubagentRunnerFactory } from '../../product/subagent-composition.js';
 import { PrintTerminal } from '../../print-terminal.js';
 import { createOpenRouterConnectionHost } from '../../startup/openrouter-connection-host.js';
+import { acquireOpenRouterKey } from '../../startup/openrouter-oauth.js';
 import { createSetupPlaceholderProvider } from '../../startup/setup-placeholder-provider.js';
 import { buildServeSessionOptions } from '../serve-mode.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
@@ -139,6 +140,7 @@ async function fixture(
     store,
     fetch: network,
     openBrowser,
+    acquireKey: acquireOpenRouterKey,
   });
   const definition = createOpenRouterProviderDefinition();
   const sources = [createNodeHostSettingsSource('user', settingsPath)];
