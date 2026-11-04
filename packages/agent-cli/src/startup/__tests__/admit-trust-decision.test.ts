@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { WorkspaceTrustService, type IWorkspaceIdentity } from '@robota-sdk/agent-framework';
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
@@ -29,6 +30,7 @@ describe('admitStartupTrustDecision', () => {
     );
     const identity: IWorkspaceIdentity = { repositoryKey: `fixture:${project}`, displayPath: project, worktreeRoot: project };
     const trusted = await new WorkspaceTrustService({
+      projectFiles: createNodeWorkspaceProjectFiles(),
       identityResolver: { resolve: () => identity },
       projectStateDirectories: runtime.layout.projectStateDirectories,
       store: {

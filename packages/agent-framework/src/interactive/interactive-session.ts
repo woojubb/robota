@@ -1,9 +1,12 @@
 import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-session';
 import type { ICommandProductVocabulary } from '../command-api/host-context-types.js';
-import { randomUUID } from 'node:crypto';
-import { basename } from 'node:path';
-
-import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import {
+  basenamePath,
+  createSystemMessage,
+  messageToHistoryEntry,
+  randomId,
+  utf8ByteLength,
+} from '@robota-sdk/agent-core';
 import { isTurnNotRunError, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 import { loadSessionForUpdate } from '@robota-sdk/agent-session';
 
@@ -83,8 +86,9 @@ import {
   WorkspaceAuthorityRequiredError,
   createRestrictedWorkspaceProjectAccess,
 } from '../workspace-trust/index.js';
-import { createGitProcess, readProjectGitDiff, readProjectGitStatus } from '../git/index.js';
+import { readProjectGitDiff, readProjectGitStatus } from '../git/index.js';
 
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IInteractiveSession } from './i-interactive-session.js';
 import type {
   IExternalEventSource,
@@ -97,7 +101,7 @@ import type {
   TInteractiveSessionOptions,
   IInteractiveSessionStandardOptions,
 } from './interactive-session-options.js';
-import type { IInteractiveSessionStore, TSessionLoadOutcome } from './session-persistence.js';
+import type { IInteractiveSessionStore, TSessionLoadOutcome } from './session-store-types.js';
 import type {
   ISaveRefusalReporter,
   ISessionStateForSave,
@@ -122,7 +126,7 @@ import type {
   TCommandSurfaceLocality,
 } from '../commands/index.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
-import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
+import type { IHostSettingsSource } from '../config/settings-source.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IGoalStartOptions } from '../goal/index.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
@@ -269,6 +273,8 @@ export class InteractiveSession
     entries: readonly string[];
     options: Readonly<IFallbackProviderOptions>;
   };
+  /** The platform this session runs on; see `IFrameworkHost`. */
+  private readonly frameworkHost: IFrameworkHost;
   protected readonly bgTracker: SessionBackgroundTaskTracker;
   protected readonly histTracker: SessionHistoryTracker;
   protected readonly skillRouter: SessionSkillRouter;
@@ -300,7 +306,7 @@ export class InteractiveSession
   private readonly providerErrorGuidance?: IProviderErrorGuidance;
   private readonly promptFileReferenceTag?: string;
   private readonly resolveDefaultLoopPrompt?: () => string;
-  private readonly userSettingsSources: readonly INodeHostSettingsSource[];
+  private readonly userSettingsSources: readonly IHostSettingsSource[];
   private readonly statusPush: SessionStatusPush;
   /** A refused save is said once, through the out-of-turn error path, unless the claim says it. */
   private readonly refusedSaves = createRefusedSaveReporter((error) =>
@@ -326,6 +332,7 @@ export class InteractiveSession
   constructor(options: TInteractiveSessionOptions) {
     super();
     const host = requireFrameworkHost(options.host, 'InteractiveSession');
+    this.frameworkHost = host;
     // The session's own environment snapshot wins; without one the host's environment answers.
     this.providerEnvironment = ('environment' in options ? options.environment : undefined) ?? host.env;
     if ('pluginDirectories' in options && options.pluginDirectories !== undefined) {
@@ -407,6 +414,7 @@ export class InteractiveSession
       // #3288: so an Edit/Write permission request can attach the same server-built diff preview
       // `tool_end` gets, and a Shell request can note its cwd only when it differs from this one.
       getCwd: () => this.getCwd(),
+      files: options.host.files,
       backstopMs: PROMPT_BACKSTOP_MS,
     });
     this.askHandler = (request, options) => this.promptRegistry.requestAsk(request, options);
@@ -442,6 +450,7 @@ export class InteractiveSession
       this.sessionLoopsDisabled,
       (task) => this.armSessionLoopExpiry(task),
       options.observerFailureWarningCode,
+      options.host.reportObserverFailure,
     );
 
     this.histTracker = new SessionHistoryTracker(
@@ -453,6 +462,7 @@ export class InteractiveSession
       (event) => this.emit('memory_event', event),
       initCheckpointStore,
       (event) => this.emit('branch_event', event),
+      options.host.supportsProjectMutation,
     );
 
     const commandModules = [...('commandModules' in options ? (options.commandModules ?? []) : [])];
@@ -471,7 +481,7 @@ export class InteractiveSession
         ...('bare' in options ? { bare: options.bare } : {}),
         ...('projectAccess' in options ? { projectAccess: options.projectAccess } : {}),
         ...('pluginDirectories' in options ? { pluginDirectories: options.pluginDirectories } : {}),
-        ...(host.files !== undefined ? { fs: host.files.sync } : {}),
+        fs: host.files?.sync,
         ...('userSettingsSources' in options
           ? { userSettingsSources: options.userSettingsSources }
           : {}),
@@ -502,6 +512,7 @@ export class InteractiveSession
         ),
       (execute) =>
         this.execCtrl.executeForegroundCommand(execute, (entry) => this.resumeQueuedTurn(entry)),
+      options.host.createAsyncScope,
       shellExec,
       remoteCommandPolicy,
       this.pluginSkills,
@@ -530,6 +541,7 @@ export class InteractiveSession
       getSession: () => this.session!,
       getSessionOrThrow: () => this.getSessionOrThrow(),
       getCwd: () => this.getCwd(),
+      files: options.host.files,
       getProjectAccess: () => this.workspace.projectAccess,
       modelCommandToolNames,
       getContextState: () => this.getContextState(),
@@ -650,6 +662,10 @@ export class InteractiveSession
     return this.sessionStore?.hasWriter(sessionId) ?? false;
   }
 
+  protected getSessionReplayValidator(): IFrameworkHost['validateSessionReplayLog'] {
+    return this.frameworkHost.validateSessionReplayLog;
+  }
+
   private configureInjectedSession(options: TInteractiveSessionOptions): boolean {
     if (!('session' in options && options.session)) return false;
     this.session = options.session;
@@ -740,8 +756,11 @@ export class InteractiveSession
   }
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
     const canPersistProjectPermission =
-      createProjectPermissionPersistence(options.projectAccess, options.projectSettingsPaths) !==
-      undefined;
+      createProjectPermissionPersistence(
+        options.projectAccess,
+        options.projectSettingsPaths,
+        options.host,
+      ) !== undefined;
     const result = await initializeInteractiveSessionAsync(options, {
       sandboxSnapshotId: this.sandboxSnapshotId,
       resumeSessionId: this.resumeSessionId,
@@ -892,7 +911,14 @@ export class InteractiveSession
    * `not-a-repository` result is the panel's one plain sentence, never a thrown error.
    */
   async readProjectStatus(): Promise<TProjectStatusRead> {
-    const result = await readProjectGitStatus(createGitProcess(), this.getCwd());
+    const runner = this.frameworkHost.git;
+    if (runner === undefined) {
+      return {
+        kind: 'failed',
+        message: 'This host cannot run git, so project changes are not available.',
+      };
+    }
+    const result = await readProjectGitStatus(runner, this.getCwd());
     if (!result.ok) return { kind: 'failed', message: result.message };
     if (!result.repository) return { kind: 'not-a-repository' };
     return {
@@ -910,7 +936,22 @@ export class InteractiveSession
    * or filesystem call.
    */
   async readProjectDiff(path: string): Promise<TProjectDiffRead> {
-    const result = await readProjectGitDiff(createGitProcess(), this.getCwd(), path);
+    const { git: runner, files } = this.frameworkHost;
+    if (runner === undefined) {
+      return {
+        kind: 'failed',
+        message: 'This host cannot run git, so file diffs are not available.',
+      };
+    }
+    // The containment decision needs the host's symlink-aware check; without one the path cannot be
+    // proven inside the workspace, so no external call is made for it.
+    if (files === undefined) {
+      return {
+        kind: 'failed',
+        message: 'This host cannot read files, so file diffs are not available.',
+      };
+    }
+    const result = await readProjectGitDiff(runner, this.getCwd(), path, files);
     if (result.ok)
       return { kind: 'diff', diffLines: result.diffLines, truncated: result.truncated };
     if (result.code === 'not_a_repository') return { kind: 'not-a-repository' };
@@ -1110,7 +1151,7 @@ export class InteractiveSession
         if (!this.resolveDefaultLoopPrompt)
           throw new Error('Default loop prompt resolver is unavailable.');
         const resolved = this.resolveDefaultLoopPrompt().trim();
-        if (!resolved || Buffer.byteLength(resolved, 'utf8') > 4_096) {
+        if (!resolved || utf8ByteLength(resolved) > 4_096) {
           throw new Error('Default loop prompt must contain 1–4096 UTF-8 bytes.');
         }
         input = resolved;
@@ -1364,12 +1405,7 @@ export class InteractiveSession
     if (fixedCount + dynamicCount >= 3) {
       throw new Error('At most 3 active loops are allowed. Stop one before creating another.');
     }
-    const state = createSelfPacedLoopState(
-      `loop_${randomUUID()}`,
-      instruction,
-      Date.now(),
-      options,
-    );
+    const state = createSelfPacedLoopState(`loop_${randomId()}`, instruction, Date.now(), options);
     this.selfPacedLoops.commit(state);
     this.submitSelfPacedIteration(state);
     return state;
@@ -1950,6 +1986,7 @@ export class InteractiveSession
       liveBackgroundTasks: liveTasks.length,
       permissionMode: session.getPermissionMode(),
       rules: session.getPermissionRules(),
+      host: this.frameworkHost,
       source: {
         getHistory: () => session.getHistory(),
         getSystemMessage: () => session.getSystemMessage(),
@@ -1961,7 +1998,7 @@ export class InteractiveSession
     });
     const named = request.record.name
       ? request
-      : { ...request, record: { ...request.record, name: basename(request.targetCwd) } };
+      : { ...request, record: { ...request.record, name: basenamePath(request.targetCwd) } };
     this.persistCurrentSession();
     this.workspaceMovePending = true;
     try {
@@ -2002,7 +2039,7 @@ export class InteractiveSession
     let workspace: { name: string; path: string } | undefined;
     try {
       const cwd = this.getCwd();
-      workspace = { name: basename(cwd), path: cwd };
+      workspace = { name: basenamePath(cwd), path: cwd };
     } catch {
       // allow-fallback: a session with no cwd set yet reports no workspace, not a thrown status read.
       workspace = undefined;

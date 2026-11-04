@@ -52,6 +52,10 @@ import { HeadlessInteractionChannel } from '../HeadlessInteractionChannel.js';
 import { createNodeHostContributionSource } from '../../../contributions/node-host-contribution-source.js';
 import { createTestFrameworkHost } from '../../../testing/framework-host.js';
 import type { IHeadlessInteractionChannelOptions } from '../HeadlessInteractionChannel.js';
+import type { IHeadlessOutput } from '../headless-runner.js';
+
+/** The streams a Node composition root hands the headless channel. */
+const processOutput: IHeadlessOutput = { stdout: process.stdout, stderr: process.stderr };
 
 const testHost = createTestFrameworkHost();
 
@@ -67,6 +71,7 @@ describe('HeadlessInteractionChannel session options', () => {
           host: testHost,
           cwd: process.cwd(),
           provider: {} as IAIProvider,
+          output: processOutput,
           outputFormat: 'text',
         } as IHeadlessInteractionChannelOptions),
     ).toThrow('Headless shell execution must be provided by the host.');
@@ -79,6 +84,7 @@ describe('HeadlessInteractionChannel session options', () => {
       cwd: process.cwd(),
       provider: {} as IAIProvider,
       providerErrorGuidance,
+      output: processOutput,
       outputFormat: 'text',
       shellExec: () => '',
     });
@@ -92,7 +98,8 @@ describe('HeadlessInteractionChannel session options', () => {
     const livePromptTrace = { enqueue: vi.fn() };
     const channel = new HeadlessInteractionChannel({
       host: testHost,
-      cwd: process.cwd(), provider: {} as IAIProvider, outputFormat: 'text',
+      cwd: process.cwd(), provider: {} as IAIProvider, output: processOutput,
+      outputFormat: 'text',
       shellExec: () => '', livePromptTrace,
     });
     await channel.run('hello');
@@ -107,6 +114,7 @@ describe('HeadlessInteractionChannel session options', () => {
       host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
+      output: processOutput,
       outputFormat: 'text',
       shellExec: () => '',
       editCheckpointStore,
@@ -125,6 +133,7 @@ describe('HeadlessInteractionChannel session options', () => {
       subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID' },
       observerFailureWarningCode: 'ACME_BACKGROUND_OBSERVER_FAILURE',
       commandHookShell: '/bin/bash',
+      output: processOutput,
       outputFormat: 'text',
       shellExec: () => '',
     });
@@ -144,6 +153,7 @@ describe('HeadlessInteractionChannel session options', () => {
       host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
+      output: processOutput,
       outputFormat: 'text',
       shellExec,
     });
@@ -162,6 +172,7 @@ describe('HeadlessInteractionChannel session options', () => {
       provider: {} as IAIProvider,
       contributionSources,
       skillRoots,
+      output: processOutput,
       outputFormat: 'text',
       shellExec: () => '',
     });
@@ -179,6 +190,7 @@ describe('HeadlessInteractionChannel session options', () => {
       host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
+      output: processOutput,
       outputFormat: 'text',
       allowedTools: ['Read'],
       deniedTools: ['Bash', 'Glob'],
@@ -199,6 +211,7 @@ describe('HeadlessInteractionChannel session options', () => {
       host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
+      output: processOutput,
       outputFormat: 'text',
       resumeSessionId: 'session_prior_abc',
       forkSession: true,
@@ -219,6 +232,7 @@ describe('HeadlessInteractionChannel session options', () => {
       host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
+      output: processOutput,
       outputFormat: 'text',
       shellExec: () => '',
     });
@@ -236,6 +250,7 @@ describe('HeadlessInteractionChannel session options', () => {
       host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
+      output: processOutput,
       outputFormat: 'text',
       model: 'claude-nonexistent-model-core020',
       shellExec: () => '',
@@ -252,6 +267,7 @@ describe('HeadlessInteractionChannel session options', () => {
       host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
+      output: processOutput,
       outputFormat: 'text',
       shellExec: () => '',
     });
@@ -266,6 +282,7 @@ describe('HeadlessInteractionChannel session options', () => {
       host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
+      output: processOutput,
       outputFormat: 'text',
       orgPolicy,
       shellExec: () => '',
@@ -282,6 +299,7 @@ describe('HeadlessInteractionChannel session options', () => {
       host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
+      output: processOutput,
       outputFormat: 'text',
       temperature: 0.37,
       maxOutputTokens: 481,

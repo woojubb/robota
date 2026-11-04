@@ -27,6 +27,7 @@ import type {
   TBackgroundJobGroupEvent,
   TExecutionWorkspaceUpdateCause,
 } from '../background-tasks/index.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type {
@@ -72,6 +73,8 @@ export class SessionBackgroundTaskTracker {
     private readonly sessionLoopsDisabled = false,
     private readonly onSessionLoopRearmed?: (task: IBackgroundTaskState) => void,
     private readonly observerFailureWarningCode?: string,
+    // The host's reporter for a failed group listener; absent, the executor's own line is written.
+    private readonly reportObserverFailure?: IFrameworkHost['reportObserverFailure'],
   ) {}
 
   subscribe(session: Session): void {
@@ -235,6 +238,9 @@ export class SessionBackgroundTaskTracker {
       manager,
       initialGroups: this.backgroundJobGroups,
       observerFailureWarningCode: this.observerFailureWarningCode,
+      ...(this.reportObserverFailure !== undefined
+        ? { reportObserverFailure: this.reportObserverFailure }
+        : {}),
     });
     this.subscribeGroupEvents(sessionId);
     return this.backgroundJobOrchestrator;

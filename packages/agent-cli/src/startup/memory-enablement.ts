@@ -14,10 +14,8 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import { join } from 'node:path';
 
-import {
-  WorkspaceAuthorityRequiredError,
-  supportsWorkspaceProjectMutation,
-} from '@robota-sdk/agent-framework';
+import { WorkspaceAuthorityRequiredError } from '@robota-sdk/agent-framework';
+import { supportsWorkspaceProjectMutation } from '@robota-sdk/agent-framework/node';
 
 import type {
   IMemoryBudget,

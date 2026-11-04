@@ -17,7 +17,7 @@ import type { ILoadedContext } from '../../context/context-loader.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '../session-persistence.js';
+} from '../session-store-types.js';
 import type { IToolWithEventService, IAIProvider } from '@robota-sdk/agent-core';
 import type { ITerminalOutput } from '@robota-sdk/agent-session';
 

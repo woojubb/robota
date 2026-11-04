@@ -42,6 +42,7 @@ import { buildCommandSetup } from '../startup/command-setup.js';
 import { productProjectStateDirectories } from '../product/project-state-directories.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type {
   ICommandModule,
   IRuntimeHostHandle,
@@ -98,6 +99,7 @@ async function trustedRoot(prefix: string): Promise<{
     grantedAt: '2026-08-22T00:00:00.000Z',
   };
   const access = await new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     store: {
       inspect: async () => trusted,

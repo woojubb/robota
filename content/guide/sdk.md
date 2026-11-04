@@ -4,18 +4,20 @@
 `agent-tools` and `agent-executor` — into a ready-to-use agent session: built-in file, shell and web
 tools, permission checks, hooks, context tracking and compaction, slash commands, subagents, and
 optional persistence. You construct the provider and pass it in; the framework never imports a
-provider package itself.
+provider package itself. The platform it runs on is passed in as `host`: on Node, build one with
+`createNodeFrameworkHost({ createDefaultTools })` from `@robota-sdk/agent-framework/node`, with
+`createDefaultTools` from `@robota-sdk/agent-tool-defaults`; `{}` is a host that lends nothing.
 
 ## Choosing an entry point
 
-| You want to…                                               | Use                                                                            |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Drive a long-lived agent from your own UI, server or bot   | `new InteractiveSession({ cwd, provider })`                                    |
-| Ask a question and get a string back                       | `createQuery({ provider })`                                                    |
-| Create many sessions that share one configuration          | `createAgentRuntime({ cwd, provider })` — see [Embedding](./embedding.md)      |
-| Expose a session over HTTP, WebSocket or MCP               | `agent-transport-{http,ws,mcp}` — see [Deployment](./deployment.md)            |
-| Build a small agent with only your own tools, no framework | `new Robota()` from `agent-core` — see [Building Agents](./building-agents.md) |
-| Assemble your own session loop from the parts              | `new Session()` from `agent-session`, with your own provider and tools         |
+| You want to…                                               | Use                                                                             |
+| ---------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Drive a long-lived agent from your own UI, server or bot   | `new InteractiveSession({ host, cwd, provider })`                               |
+| Ask a question and get a string back                       | `createQuery({ host, cwd, provider })`                                          |
+| Create many sessions that share one configuration          | `createAgentRuntime({ host, cwd, provider })` — see [Embedding](./embedding.md) |
+| Expose a session over HTTP, WebSocket or MCP               | `agent-transport-{http,ws,mcp}` — see [Deployment](./deployment.md)             |
+| Build a small agent with only your own tools, no framework | `new Robota()` from `agent-core` — see [Building Agents](./building-agents.md)  |
+| Assemble your own session loop from the parts              | `new Session()` from `agent-session`, with your own provider and tools          |
 
 ## InteractiveSession
 
@@ -24,9 +26,12 @@ prompts, listen for events, and the session runs one turn at a time.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const session = new InteractiveSession({
+  host: createNodeFrameworkHost({ createDefaultTools }),
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
   permissionMode: 'default',
@@ -62,11 +67,13 @@ await session.shutdown();
 ### What a session loads
 
 The framework reads only what its host passes to it. It never guesses a settings file, a project
-directory or a storage location. With only `cwd` and `provider`, a session:
+directory or a storage location. With only `cwd`, `provider` and a Node host, a session:
 
 - has the default tools (`Shell`, `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebFetch`,
   `AskUserQuestion`), with file tools confined to `cwd`; none of them is web search, which comes
-  from a provider's own search option or an MCP server;
+  from a provider's own search option or an MCP server. They are what the host builds
+  (`createNodeFrameworkHost({ createDefaultTools })`); a host that lends no `createDefaultTools` has
+  no default tools;
 - has the session's own tools `report_goal_status`, `report_loop_decision` and `peer_send_file`,
   which do nothing unless a goal, a loop or a host that connects the session to other sessions is
   in play (a session from `createAgentRuntime()` also has `BackgroundProcess`). They are listed to
@@ -168,15 +175,20 @@ sent to the model.
 
 ## createQuery()
 
-`createQuery({ provider })` returns a function that takes a prompt and resolves with the reply text.
-It builds one `InteractiveSession` when you call `createQuery`, and every call of the returned
-function is a new turn in that same conversation.
+`createQuery({ host, cwd, provider })` returns a function that takes a prompt and resolves with the
+reply text. It builds one `InteractiveSession` when you call `createQuery`, and every call of the
+returned function is a new turn in that same conversation. The query has the tools its host builds:
+with `createNodeFrameworkHost({ createDefaultTools })` the built-in tools, with a host that lends no
+`createDefaultTools` none.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const query = createQuery({
+  host: createNodeFrameworkHost({ createDefaultTools }),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
   cwd: '/path/to/project',
   onTextDelta: (delta) => process.stdout.write(delta),
@@ -186,12 +198,13 @@ const answer = await query('Which files define the public API?');
 const followUp = await query('And which of those have tests?');
 ```
 
-Options: `provider` (required), `model`, `cwd` (default `process.cwd()`), `permissionMode` (default
-`'default'`), `permissionHandler`, `allowedTools`, `deniedTools`, `onTextDelta`, `additionalTools`,
-`maxTurns`, `responseFormat`, `projectAccess` and `userSettingsSources`. With no `permissionHandler`,
-any call that would need approval is denied; list the tools that may run anyway in `allowedTools`,
-pass a handler to decide, or pass `permissionMode: 'bypassPermissions'` only when the agent may do
-anything in `cwd` unattended. `deniedTools` are never offered to the model.
+Options: `host`, `provider` and `cwd` (the absolute directory the tools work in) are required.
+Optional: `model`, `permissionMode` (default `'default'`), `permissionHandler`, `allowedTools`,
+`deniedTools`, `onTextDelta`, `additionalTools`, `maxTurns`, `responseFormat`, `projectAccess` and
+`userSettingsSources`. With no `permissionHandler`, any call that would need approval is denied; list
+the tools that may run anyway in `allowedTools`, pass a handler to decide, or pass
+`permissionMode: 'bypassPermissions'` only when the agent may do anything in `cwd` unattended.
+`deniedTools` are never offered to the model.
 
 Pass `model` with any provider other than Anthropic: without it the model comes from the settings
 files, and without one the session asks the provider for `claude-opus-4-5`.
@@ -202,12 +215,16 @@ later one.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
+declare const host: IFrameworkHost; // `createNodeFrameworkHost({ createDefaultTools })`, as above
 declare const provider: IAIProvider;
 
 const query = createQuery({
+  host,
   provider,
+  cwd: '/path/to/project',
   permissionMode: 'acceptEdits',
   permissionHandler: async (toolName) => toolName !== 'Bash' && toolName !== 'Shell',
 });
@@ -227,11 +244,16 @@ import { join } from 'node:path';
 import {
   InteractiveSession,
   createContributionSourcesForProjectAccess,
+} from '@robota-sdk/agent-framework';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
+import {
+  createDefaultUserContributionSources,
   createNodeHostSettingsSource,
   createNodeWorkspaceTrustService,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-framework/node';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
+declare const host: IFrameworkHost; // `createNodeFrameworkHost({ createDefaultTools })`, as above
 declare const provider: IAIProvider;
 const cwd = '/path/to/repo';
 
@@ -242,6 +264,7 @@ const trust = createNodeWorkspaceTrustService(
 const projectAccess = await trust.inspect(cwd);
 
 const session = new InteractiveSession({
+  host,
   cwd,
   provider,
   projectAccess,
@@ -249,7 +272,10 @@ const session = new InteractiveSession({
     createNodeHostSettingsSource('user', join(homedir(), '.my-app', 'settings.json')),
   ],
   projectSettingsPaths: [{ scope: 'project', relativePath: '.my-app/settings.json' }],
-  contributionSources: createContributionSourcesForProjectAccess(projectAccess, homedir()),
+  contributionSources: createContributionSourcesForProjectAccess(
+    projectAccess,
+    createDefaultUserContributionSources(homedir()),
+  ),
   skillRoots: [{ root: '.agents/skills', kind: 'skills' }],
 });
 ```
@@ -343,11 +369,14 @@ it.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { E2BSandboxClient } from '@robota-sdk/agent-tools';
 import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
 import { Sandbox } from 'e2b';
 
+const host = createNodeFrameworkHost({ createDefaultTools });
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 const sandbox = await Sandbox.create();
 const workspaceManifest: IWorkspaceManifest = {
@@ -359,6 +388,7 @@ const workspaceManifest: IWorkspaceManifest = {
 };
 
 const session = new InteractiveSession({
+  host,
   cwd: process.cwd(),
   provider,
   sandboxClient: new E2BSandboxClient({ sandbox }),

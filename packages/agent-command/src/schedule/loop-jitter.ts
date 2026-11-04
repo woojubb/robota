@@ -1,4 +1,6 @@
-import { createHash } from 'node:crypto';
+import { sha256Hex } from '@robota-sdk/agent-core';
+
+const UINT32_HEX_DIGITS = 8;
 
 /** Fixed loops are spread across a stable wall-clock slot; self-paced delays are not jittered. */
 export function jitterFixedLoop(
@@ -6,7 +8,8 @@ export function jitterFixedLoop(
   cadence: { description: string; milliseconds: number; cronExpression: string },
 ): { cronExpression: string; jitterSeconds: number } {
   const maxSeconds = Math.floor(Math.min(30 * 60, cadence.milliseconds / 2_000));
-  const hash = createHash('sha256').update(loopId).digest().readUInt32BE(0);
+  // The first four bytes of the digest, big-endian, as an unsigned integer.
+  const hash = Number.parseInt(sha256Hex(loopId).slice(0, UINT32_HEX_DIGITS), 16);
   const jitterSeconds = hash % (maxSeconds + 1);
   if (jitterSeconds === 0) return { cronExpression: cadence.cronExpression, jitterSeconds };
 

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { loadExternalPresetsFromDir } from '../load-external-presets.js';
+import { loadExternalPresetsFromDir } from '../node-load-external-presets.js';
 import { validateExternalPreset } from '../preset-validation.js';
 import { createPresetRegistry } from '../resolve-preset.js';
 

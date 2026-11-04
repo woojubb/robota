@@ -20,6 +20,7 @@ import {
   bindTransportAdapter,
   createAgentRuntime,
 } from '@robota-sdk/agent-framework';
+import { createFileTransportSettingsRepository } from '@robota-sdk/agent-framework/node';
 import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
@@ -32,7 +33,9 @@ const runtime = createAgentRuntime({
 const session = runtime.createSession({});
 
 // 2. Bind that session to a transport, then register the bound transport.
-const registry = new TransportRegistry(path.join(os.tmpdir(), 'robota-transports.json'));
+const registry = new TransportRegistry(
+  createFileTransportSettingsRepository(path.join(os.tmpdir(), 'robota-transports.json')),
+);
 registry.register(bindTransportAdapter(new WsTransport({ port: 45678 }), session));
 
 // 3. A plain adapter can also be mounted directly on the same session.
@@ -53,8 +56,10 @@ try {
 - `startAll()` takes no arguments. It starts the enabled transports in order, rejects a second start
   while one is active, and rolls back the ones it already started if one fails. `stopAll()` stops
   them all.
-- The argument to `new TransportRegistry(...)` is where transport settings (enabled flags and
-  options) are stored: a file path, or an `ITransportSettingsRepository`.
+- The argument to `new TransportRegistry(...)` is an `ITransportSettingsRepository`, where transport
+  settings (enabled flags and options) are stored. A Node host passes
+  `createFileTransportSettingsRepository(path)` from `@robota-sdk/agent-framework/node`; any other host
+  passes a repository over its own storage, or `createMemoryTransportSettingsRepository()`.
 
 The runnable version, which also prints the channels it serves, is
 [`examples/capabilities/multi-surface-deploy`](../../examples/capabilities/multi-surface-deploy/).

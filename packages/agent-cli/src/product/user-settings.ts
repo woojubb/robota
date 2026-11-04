@@ -1,6 +1,6 @@
 import { join } from 'node:path';
-import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
-import type { INodeHostSettingsSource } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
+import type { IHostSettingsSource } from '@robota-sdk/agent-framework';
 import type { ICliRuntimeContext } from './runtime-context.js';
 
 export function productUserSettingsPath(runtime: ICliRuntimeContext): string {
@@ -8,7 +8,9 @@ export function productUserSettingsPath(runtime: ICliRuntimeContext): string {
 }
 
 /** Explicit product settings plus the host-selected third-party compatibility layer. */
-export function createProductUserSettingsSources(runtime: ICliRuntimeContext): readonly INodeHostSettingsSource[] {
+export function createProductUserSettingsSources(
+  runtime: ICliRuntimeContext,
+): readonly IHostSettingsSource[] {
   return [
     createNodeHostSettingsSource('user', productUserSettingsPath(runtime)),
     ...(runtime.userHome !== undefined

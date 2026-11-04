@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { runSubagentWorkerMain } from '../../../dist/node/index.js';
 

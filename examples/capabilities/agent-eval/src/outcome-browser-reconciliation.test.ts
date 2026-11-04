@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { buildCatalog, createDiscoveredTool } from '@robota-sdk/agent-mcp';
 import {
   assertBrowserReconciled,

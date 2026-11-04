@@ -3,7 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { EditCheckpointStore, createWorkspaceProjectMutation } from '@robota-sdk/agent-framework';
+import { createWorkspaceProjectMutation } from '@robota-sdk/agent-framework';
+import { EditCheckpointStore } from '@robota-sdk/agent-framework/node';
 
 import { createSessionEventRenderingProjectAccess } from './session-event-rendering-project-access.js';
 import { TuiInteractionChannel } from '../src/index.js';

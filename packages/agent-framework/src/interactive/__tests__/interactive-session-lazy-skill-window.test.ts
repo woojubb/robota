@@ -1,6 +1,9 @@
 import { expect, it, vi } from 'vitest';
 import { SessionSkillRouter } from '../interactive-session-skill-router.js';
 import { createTestCommandHost } from '../../testing/command-host-double.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 import { stubSubmit } from './helpers/session-stub.js';
 import type { ICommand } from '../../command-api/types.js';
 
@@ -40,6 +43,7 @@ function fixture(runFork?: () => Promise<string>) {
     async () => (runFork ? runFork() : ''),
     async () => ({ mode: 'fork' }),
     (execute) => execute(),
+    testHost.createAsyncScope,
   );
   return { activation, acquire, skill, router, read };
 }

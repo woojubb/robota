@@ -8,7 +8,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createTestArtifactSealer, openTestWriteGrant } from '@robota-sdk/agent-core/testing';
-import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { SESSION_RECORD_ENVELOPE_VERSION } from '@robota-sdk/agent-session';
 import { describe, expect, it } from 'vitest';
 

@@ -7,6 +7,9 @@ import type { IHeadlessSession } from '../headless-session.js';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type { IExecutionResult, IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
+/** The streams a Node composition root hands the headless runner; tests spy on them. */
+const processOutput = { stdout: process.stdout, stderr: process.stderr };
+
 function createEventDrivenMockSession(
   behavior: 'complete' | 'error' | 'interrupted' = 'complete',
   options?: { response?: string; textDeltas?: string[] },
@@ -78,7 +81,11 @@ function createEventDrivenMockSession(
 
 describe('createHeadlessTransport declaration compatibility (ARCH-012)', () => {
   it('preserves the legacy adapter declaration and accepts the named subset', () => {
-    const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'test' });
+    const transport = createHeadlessTransport({
+      output: processOutput,
+      outputFormat: 'text',
+      prompt: 'test',
+    });
     expectTypeOf(transport).toMatchTypeOf<ITransportAdapter<IInteractiveSession>>();
     expectTypeOf(transport.attach).parameter(0).toMatchTypeOf<IHeadlessSession>();
   });
@@ -86,14 +93,22 @@ describe('createHeadlessTransport declaration compatibility (ARCH-012)', () => {
 
 describe('createHeadlessTransport', () => {
   it('returns an adapter with name "headless"', () => {
-    const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'hello' });
+    const transport = createHeadlessTransport({
+      output: processOutput,
+      outputFormat: 'text',
+      prompt: 'hello',
+    });
     expect(transport.name).toBe('headless');
     expect(transport.lifecycle).toEqual({ kind: 'runner' });
     expect(Object.isFrozen(transport.lifecycle)).toBe(true);
   });
 
   it('throws if start() is called without attach()', async () => {
-    const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'hello' });
+    const transport = createHeadlessTransport({
+      output: processOutput,
+      outputFormat: 'text',
+      prompt: 'hello',
+    });
     await expect(transport.start()).rejects.toMatchObject({
       name: 'TransportLifecycleError',
       code: 'not-attached',
@@ -102,7 +117,11 @@ describe('createHeadlessTransport', () => {
   });
 
   it('returns exit code 0 by default', () => {
-    const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'hello' });
+    const transport = createHeadlessTransport({
+      output: processOutput,
+      outputFormat: 'text',
+      prompt: 'hello',
+    });
     expect(transport.getExitCode()).toBe(0);
   });
 
@@ -118,7 +137,11 @@ describe('createHeadlessTransport', () => {
     }) as never;
 
     try {
-      const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'hello' });
+      const transport = createHeadlessTransport({
+        output: processOutput,
+        outputFormat: 'text',
+        prompt: 'hello',
+      });
       transport.attach(mockSession as never);
       await transport.start();
       await transport.waitForCompletion();
@@ -138,7 +161,11 @@ describe('createHeadlessTransport', () => {
         subjectId: '@robota-sdk/agent-framework#createHeadlessTransport',
         kind: 'runner',
         createAdapter: () =>
-          createHeadlessTransport({ outputFormat: 'text', prompt: 'ARCH-011 conformance' }),
+          createHeadlessTransport({
+            output: processOutput,
+            outputFormat: 'text',
+            prompt: 'ARCH-011 conformance',
+          }),
         createSession: () =>
           Object.assign(createEventDrivenMockSession(), {
             submit: vi.fn(
@@ -178,7 +205,11 @@ describe('createHeadlessTransport (json adapter)', () => {
       response: 'JSON adapter result',
     });
 
-    const transport = createHeadlessTransport({ outputFormat: 'json', prompt: 'test prompt' });
+    const transport = createHeadlessTransport({
+      output: processOutput,
+      outputFormat: 'json',
+      prompt: 'test prompt',
+    });
     transport.attach(mockSession as never);
     await transport.start();
     await expect(transport.waitForCompletion()).resolves.toEqual({
@@ -218,6 +249,7 @@ describe('createHeadlessTransport (stream-json adapter)', () => {
     });
 
     const transport = createHeadlessTransport({
+      output: processOutput,
       outputFormat: 'stream-json',
       prompt: 'test prompt',
     });
@@ -285,7 +317,11 @@ describe('createHeadlessTransport (error and interrupted)', () => {
   it('returns exit code 1 on error', async () => {
     const mockSession = createEventDrivenMockSession('error');
 
-    const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'test prompt' });
+    const transport = createHeadlessTransport({
+      output: processOutput,
+      outputFormat: 'text',
+      prompt: 'test prompt',
+    });
     transport.attach(mockSession as never);
     await transport.start();
     await expect(transport.waitForCompletion()).resolves.toEqual({
@@ -301,7 +337,11 @@ describe('createHeadlessTransport (error and interrupted)', () => {
       response: 'partial output',
     });
 
-    const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'test prompt' });
+    const transport = createHeadlessTransport({
+      output: processOutput,
+      outputFormat: 'text',
+      prompt: 'test prompt',
+    });
     transport.attach(mockSession as never);
     await transport.start();
     await expect(transport.waitForCompletion()).resolves.toEqual({

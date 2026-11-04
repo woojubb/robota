@@ -3,10 +3,8 @@ import { createTestProductRuntime } from '../../helpers/product-runtime.js';
 import { homedir } from 'node:os';
 import type { IToolCallScheduling } from '@robota-sdk/agent-core';
 
-import {
-  createNodeWorkspaceTrustService,
-  createRestrictedWorkspaceProjectAccess,
-} from '@robota-sdk/agent-framework';
+import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
 import { InMemoryMCPActivationApprovalStore } from '@robota-sdk/agent-mcp';
 
 import { startCli } from '../../../cli.js';

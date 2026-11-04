@@ -1,11 +1,9 @@
-import { readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import {
-  createNodeHostSettingsSource,
-  createRestrictedWorkspaceProjectAccess,
-} from '@robota-sdk/agent-framework';
-import { afterEach, describe, expect, it } from 'vitest';
+import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { renderDoctorReport } from '../doctor-render.js';
 import { applyDoctorRepair, planDoctorRepair } from '../doctor-repair.js';
@@ -332,10 +330,15 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     expect(readFileSync(path, 'utf8')).toBe('');
 
     // The state changes between confirmation and write: refused, nothing overwritten.
-    const raced = await applyDoctorRepair('settings.user.fixture-product', f.inputs, f.deps, async () => {
-      f.write('.fixture-product/settings.json', '{"language":"ko"}');
-      return true;
-    });
+    const raced = await applyDoctorRepair(
+      'settings.user.fixture-product',
+      f.inputs,
+      f.deps,
+      async () => {
+        f.write('.fixture-product/settings.json', '{"language":"ko"}');
+        return true;
+      },
+    );
     expect(raced).toMatchObject({ applied: false });
     expect(readFileSync(path, 'utf8')).toBe('{"language":"ko"}');
 
@@ -348,7 +351,9 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     );
     expect(applied.applied).toBe(true);
     expect(JSON.parse(readFileSync(path, 'utf8'))).toEqual({});
-    expect(byId(await runDoctor(f.inputs, f.deps), 'settings.user.fixture-product').status).toBe('ok');
+    expect(byId(await runDoctor(f.inputs, f.deps), 'settings.user.fixture-product').status).toBe(
+      'ok',
+    );
 
     const again = await applyDoctorRepair(
       'settings.user.fixture-product',
@@ -370,12 +375,43 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     ).toMatchObject({ applied: false });
   });
 
+  it('TC-07: a repair writes through the host-supplied writers, never through a writer of the package', async () => {
+    const f = fixture({ env: {} });
+    installBrokenHome(f);
+    const path = join(f.home, '.fixture-product', 'settings.json');
+    const writeSettings = vi.fn();
+    const ensureOwnerOnlyDirectory = vi.fn();
+    const deps = { ...f.deps, writeSettings, ensureOwnerOnlyDirectory };
+
+    const settings = await applyDoctorRepair(
+      'settings.user.fixture-product',
+      f.inputs,
+      deps,
+      async () => true,
+    );
+    expect(settings.applied).toBe(true);
+    expect(writeSettings).toHaveBeenCalledExactlyOnceWith(path, {});
+    expect(readFileSync(path, 'utf8')).toBe('');
+
+    rmSync(join(f.home, '.fixture-product', 'sessions'), { recursive: true, force: true });
+    const storage = await applyDoctorRepair('storage.user', f.inputs, deps, async () => true);
+    expect(storage.applied).toBe(true);
+    expect(ensureOwnerOnlyDirectory).toHaveBeenCalledExactlyOnceWith(
+      join(f.home, '.fixture-product', 'sessions'),
+      { withinRoot: join(f.home, '.fixture-product') },
+    );
+    expect(existsSync(join(f.home, '.fixture-product', 'sessions'))).toBe(false);
+  });
+
   it('TC-05 (skills): a skill definition session discovery throws on is a fail check, not a warning', async () => {
     const f = fixture({ env: {} });
     f.mkdir('.fixture-product');
     f.mkdir('.fixture-product/sessions');
     f.write('.fixture-product/settings.json', JSON.stringify(CLEAN_SETTINGS));
-    f.write('.fixture-product/skills/bad-effort/SKILL.md', '---\nname: bad\neffort: extreme\n---\nbody\n');
+    f.write(
+      '.fixture-product/skills/bad-effort/SKILL.md',
+      '---\nname: bad\neffort: extreme\n---\nbody\n',
+    );
     f.write('.fixture-product/skills/no-frontmatter/SKILL.md', 'just text\n');
     const report = await runDoctor(f.inputs, f.deps);
     expect(
@@ -387,7 +423,8 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
     });
     expect(JSON.stringify(report)).not.toContain('received "extreme"');
     expect(
-      byId(report, `skill.${join('.fixture-product', 'skills', 'no-frontmatter', 'SKILL.md')}`).status,
+      byId(report, `skill.${join('.fixture-product', 'skills', 'no-frontmatter', 'SKILL.md')}`)
+        .status,
     ).toBe('warn');
     expect(report.exitCode).toBe(1);
   });

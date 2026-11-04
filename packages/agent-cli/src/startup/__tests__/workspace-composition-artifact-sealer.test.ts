@@ -33,6 +33,7 @@ import {
   createInitialCliWorkspaceComposition,
 } from '../workspace-project-composition.js';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IWorkspaceIdentity, IWorkspaceTrustStoreSnapshot } from '@robota-sdk/agent-framework';
 import type { TArtifactSealing } from '@robota-sdk/agent-core';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
@@ -92,6 +93,7 @@ async function trustedAccess(root: string) {
     grantedAt: '2026-08-22T00:00:00.000Z',
   };
   return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     projectStateDirectories: STATE,
     store: {

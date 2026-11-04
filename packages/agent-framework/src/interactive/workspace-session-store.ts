@@ -20,10 +20,8 @@ import { deriveBackgroundJobGroups, deriveBackgroundTasks } from './session-repl
 import { WorkspaceSessionLogSource } from './workspace-session-io.js';
 import { assertWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import { ProjectReadLimitExceededError } from '../workspace-trust/project-reader-path.js';
-import {
-  assertWorkspaceProjectStateStoragePair,
-  workspaceProjectStateDirectoryPath,
-} from '../workspace-trust/project-state-storage.js';
+import { workspaceProjectStateDirectoryPath } from '../workspace-trust/node-project-state-directory.js';
+import { assertWorkspaceProjectStateStoragePair } from '../workspace-trust/project-state-storage.js';
 
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';

@@ -5,10 +5,10 @@ import { tmpdir } from 'node:os';
 import { processEnvResolver } from '@robota-sdk/agent-core/node';
 import { createProviderFromProfile } from '@robota-sdk/agent-executor';
 import {
-  createNodeHostSettingsSource,
   createProviderFromSettings as createProviderFromSettingsSources,
   readProviderSettings as readProviderSettingsFromSources,
 } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import {
   AnthropicProvider,
   createAnthropicProviderDefinition,

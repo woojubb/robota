@@ -69,7 +69,7 @@ import {
 } from '../identity-state.js';
 import { scriptedOperator } from './fake-secret-terminal.js';
 
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 
 import type { TReceiveHandoffOutcome } from '../../handoff/handoff-receive.js';
 import type { ICredentialStore } from '@robota-sdk/agent-core';

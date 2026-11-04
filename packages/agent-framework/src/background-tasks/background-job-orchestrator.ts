@@ -1,10 +1,12 @@
 import {
   deliverToObservers,
   isTerminalBackgroundTaskStatus,
+  reportObserverFailureAsConsoleWarning,
   type IBackgroundTaskManager,
   type TObserverFailureReporter,
 } from '@robota-sdk/agent-executor';
-import { reportObserverFailureAsProcessWarning } from '@robota-sdk/agent-executor/node';
+
+import type { IFrameworkHost } from '../host/framework-host.js';
 
 // Background job-group contracts SSOT relocated to @robota-sdk/agent-interface-execution (DATA-001).
 import type {
@@ -41,7 +43,12 @@ export interface IBackgroundJobOrchestratorOptions {
   initialGroups?: readonly IBackgroundJobGroupState[];
   /** ARCH-053: observer-failure reporter; see `IBackgroundTaskManagerOptions.onObserverFailure`. */
   onObserverFailure?: TObserverFailureReporter<TBackgroundJobGroupEvent>;
-  /** Host-selected process-warning identity used when no custom reporter is supplied. */
+  /**
+   * The host's reporter for a failed observer (`host.reportObserverFailure`), used when no
+   * `onObserverFailure` is supplied. Absent, the executor's own line is written instead.
+   */
+  reportObserverFailure?: IFrameworkHost['reportObserverFailure'];
+  /** Host-selected warning identity passed to the reporter in use. */
   observerFailureWarningCode?: string;
 }
 
@@ -65,10 +72,10 @@ export class BackgroundJobOrchestrator {
     this.manager = options.manager;
     this.now = options.now ?? (() => new Date().toISOString());
     this.idFactory = options.idFactory ?? (() => this.nextGroupId());
+    const report = options.reportObserverFailure ?? reportObserverFailureAsConsoleWarning;
     this.onObserverFailure =
       options.onObserverFailure ??
-      ((failure) =>
-        reportObserverFailureAsProcessWarning(failure, options.observerFailureWarningCode));
+      ((failure) => report(failure, options.observerFailureWarningCode));
     this.sequence = options.initialGroups?.length ?? 0;
     for (const group of options.initialGroups ?? []) this.restoreGroup(group);
     this.unsubscribeManager = this.manager.subscribe((event) => this.handleTaskEvent(event));

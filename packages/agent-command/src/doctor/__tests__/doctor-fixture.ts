@@ -2,13 +2,13 @@ import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import {
   createNodeHostContributionSource,
   createNodeHostSettingsSource,
-  createRestrictedWorkspaceProjectAccess,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-framework/node';
 
-import { inspectPathFacts } from '../doctor-node-deps.js';
+import { createNodeDoctorDeps, inspectPathFacts } from '../doctor-node-deps.js';
 
 import type { IDoctorDeps, IDoctorInputs } from '../doctor-types.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
@@ -59,6 +59,7 @@ function fixtureDeps(
   probes: { host: string; port: number }[],
 ): IDoctorDeps {
   const resolvable = new Set(options.resolvable ?? []);
+  const nodeDeps = createNodeDoctorDeps({});
   return {
     probeEndpoint: async (host, port) => {
       probes.push({ host, port });
@@ -70,6 +71,11 @@ function fixtureDeps(
     inspectPath: inspectPathFacts,
     resolveCommand: (command) => resolvable.has(command.split(/\s+/)[0] ?? command),
     ownerOnlyGuarantee: () => options.guarantee ?? 'posix-mode',
+    // The repair writers are the Node host's own: the repair tests assert on the files they leave.
+    // The plugin and skill probes read the fixture HOME through the Node host's files.
+    files: nodeDeps.files,
+    ensureOwnerOnlyDirectory: nodeDeps.ensureOwnerOnlyDirectory,
+    writeSettings: nodeDeps.writeSettings,
   };
 }
 
@@ -93,7 +99,10 @@ export function createDoctorFixture(options: IDoctorFixtureOptions = {}): IDocto
     cwd: home,
     userHome: home,
     userSettingsPath: join(home, '.fixture-product', 'settings.json'),
-    userStorage: { root: join(home, '.fixture-product'), sessions: join(home, '.fixture-product', 'sessions') },
+    userStorage: {
+      root: join(home, '.fixture-product'),
+      sessions: join(home, '.fixture-product', 'sessions'),
+    },
     settingsSources: [
       createNodeHostSettingsSource('user', join(home, '.fixture-product', 'settings.json')),
       createNodeHostSettingsSource('user', join(home, '.claude', 'settings.json')),

@@ -18,7 +18,7 @@ import { appendFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { ArtifactCorruptError, ArtifactLockedError } from '@robota-sdk/agent-core';
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { runSubagentWorkerMain } from '../../../dist/node/index.js';

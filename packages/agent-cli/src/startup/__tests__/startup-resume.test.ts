@@ -17,10 +17,10 @@ import {
 import {
   InteractiveSession,
   SessionAuthorshipRefusedError,
-  createNodeHostSessionStore,
   unacceptableSessionMessage,
   unverifiedSessionNotice,
 } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { SESSION_RECORD_ENVELOPE_VERSION } from '@robota-sdk/agent-session';
 import { afterEach, describe, expect, it, vi } from 'vitest';

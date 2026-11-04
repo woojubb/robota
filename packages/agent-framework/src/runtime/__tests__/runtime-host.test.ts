@@ -14,10 +14,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildRuntimeSession, startRuntimeHost } from '../runtime-host.js';
 import { SessionSlot } from '../session-slot.js';
-import {
-  createNodeHostSessionStore,
-  listResumableSessionSummaries,
-} from '../../interactive/session-persistence.js';
+import { listResumableSessionSummaries } from '../../interactive/session-persistence.js';
+import { createNodeHostSessionStore } from '../../interactive/node-session-stores.js';
 import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 

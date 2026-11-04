@@ -5,9 +5,11 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createProjectPermissionPersistence } from '../project-permission-persistence.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/index.js';
 
+const testHost = createTestFrameworkHost();
 const roots: string[] = [];
 
 function tempRoot(): string {
@@ -26,17 +28,31 @@ describe('project permission persistence', () => {
     const access = await createTrustedProjectAccessFixture(root);
     const paths = [{ scope: 'project-local' as const, relativePath: '.acme/settings.local.json' }];
 
-    expect(createProjectPermissionPersistence(undefined, paths)).toBeUndefined();
+    expect(createProjectPermissionPersistence(undefined, paths, testHost)).toBeUndefined();
     expect(
       createProjectPermissionPersistence(
         createRestrictedWorkspaceProjectAccess('untrusted', root),
         paths,
+        testHost,
       ),
     ).toBeUndefined();
-    expect(createProjectPermissionPersistence(access, [])).toBeUndefined();
-    expect(createProjectPermissionPersistence(access, paths)).toBeTypeOf(
+    expect(createProjectPermissionPersistence(access, [], testHost)).toBeUndefined();
+    expect(createProjectPermissionPersistence(access, paths, testHost)).toBeTypeOf(
       process.platform === 'linux' ? 'function' : 'undefined',
     );
+  });
+
+  it('offers nothing on a host that cannot write project files, or says nothing about it', async () => {
+    const root = tempRoot();
+    const access = await createTrustedProjectAccessFixture(root);
+    const paths = [{ scope: 'project-local' as const, relativePath: '.acme/settings.local.json' }];
+
+    for (const supportsProjectMutation of [false, undefined]) {
+      const host = createTestFrameworkHost({ supportsProjectMutation });
+      expect(createProjectPermissionPersistence(access, paths, host)).toBeUndefined();
+    }
+    const capable = createTestFrameworkHost({ supportsProjectMutation: true });
+    expect(createProjectPermissionPersistence(access, paths, capable)).toBeTypeOf('function');
   });
 
   it.runIf(process.platform === 'linux')(
@@ -50,10 +66,14 @@ describe('project permission persistence', () => {
         localPath,
         JSON.stringify({ theme: 'dark', permissions: { deny: ['Bash(rm *)'], allow: ['Read(*)'] } }),
       );
-      const persist = createProjectPermissionPersistence(access, [
-        { scope: 'project' as const, relativePath: '.acme/settings.json' },
-        { scope: 'project-local' as const, relativePath: '.acme/settings.local.json' },
-      ]);
+      const persist = createProjectPermissionPersistence(
+        access,
+        [
+          { scope: 'project' as const, relativePath: '.acme/settings.json' },
+          { scope: 'project-local' as const, relativePath: '.acme/settings.local.json' },
+        ],
+        testHost,
+      );
       if (persist === undefined) throw new Error('Expected project persistence capability.');
 
       persist('Bash(git *)');

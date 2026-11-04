@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createNodeHostSettingsStore } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsStore } from '@robota-sdk/agent-framework/node';
 import type { IProviderConnectionHost } from '@robota-sdk/agent-framework';
 import type {
   IProviderDefinition,

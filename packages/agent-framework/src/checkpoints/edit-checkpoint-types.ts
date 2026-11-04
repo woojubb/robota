@@ -1,3 +1,5 @@
+import type { IActiveBranchPointer } from '@robota-sdk/agent-interface-session';
+
 export interface IEditCheckpointRecorder {
   captureFile(filePath: string): Promise<void> | void;
 }
@@ -84,4 +86,43 @@ export interface IEditCheckpointRestoreResult {
   restoredCheckpointCount: number;
   restoredFileCount: number;
   removedCheckpointCount: number;
+}
+
+/** The branch a checkpoint belongs to when a session has not switched away from the default. */
+export const DEFAULT_BRANCH_ID = 'main';
+
+/**
+ * What a session asks of its edit checkpoint store: record each turn's pre-images, list, inspect,
+ * restore and branch them, and keep the active branch across a resume. The framework's own store,
+ * `EditCheckpointStore` from `@robota-sdk/agent-framework/node`, keeps them in a project's files; a
+ * host that keeps them elsewhere implements this and passes it as `editCheckpointStore`. Absent, the
+ * session has no checkpoints and says why.
+ */
+export interface IEditCheckpointStore extends IEditCheckpointRecorder {
+  beginTurn(input: IEditCheckpointTurnInput): Promise<IEditCheckpointSummary>;
+  finalizeTurn(): Promise<IEditCheckpointSummary | undefined>;
+  list(sessionId: string): IEditCheckpointSummary[];
+  /** How many of the session's checkpoints `list` leaves out because they do not open. */
+  countUnreadable(sessionId: string): IEditCheckpointUnreadableCounts;
+  /** What `list` and `countUnreadable` answer, from one read of the session's checkpoints. */
+  listing(sessionId: string): IEditCheckpointListing;
+  inspect(sessionId: string, checkpointId: string): IEditCheckpointInspection;
+  restoreToCheckpoint(
+    sessionId: string,
+    checkpointId: string,
+  ): Promise<IEditCheckpointRestoreResult>;
+  rollbackThroughCheckpoint(
+    sessionId: string,
+    checkpointId: string,
+  ): Promise<IEditCheckpointRestoreResult>;
+  /** The branch tips (leaf checkpoints) of the session's checkpoint tree. */
+  listCheckpointBranches(sessionId: string): string[];
+  /** The ancestors of a checkpoint, nearest first to the root. */
+  checkpointAncestors(sessionId: string, checkpointId: string): string[];
+  /** Switch the active branch to an existing checkpoint, so the next turn continues that line. */
+  switchToCheckpoint(sessionId: string, checkpointId: string): void;
+  /** The active-branch pointer to persist on the session record; undefined before any head. */
+  getActiveBranchPointer(sessionId: string): IActiveBranchPointer | undefined;
+  /** Restore a persisted pointer; one that no longer points at a checkpoint is ignored. */
+  restoreActiveBranch(sessionId: string, pointer: IActiveBranchPointer | undefined): void;
 }

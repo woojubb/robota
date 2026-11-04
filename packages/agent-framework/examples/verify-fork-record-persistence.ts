@@ -4,7 +4,8 @@ import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
-import { createAgentRuntime, createNodeHostSessionStore } from '../src/index.js';
+import { createAgentRuntime } from '../src/index.js';
+import { createNodeHostSessionStore } from '../src/node.js';
 import { createTestFrameworkHost } from '../src/testing/framework-host.js';
 
 const testHost = createTestFrameworkHost();

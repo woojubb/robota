@@ -17,7 +17,7 @@
 
 import { createSessionId } from '../assembly/create-session.js';
 
-import type { IInteractiveSessionRecord, IInteractiveSessionStore } from './session-persistence.js';
+import type { IInteractiveSessionRecord, IInteractiveSessionStore } from './session-store-types.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { Session } from '@robota-sdk/agent-session';
 

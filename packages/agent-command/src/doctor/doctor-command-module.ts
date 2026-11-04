@@ -9,7 +9,6 @@ import { createSystemCommandFromEntry } from '../command-module-utils.js';
  */
 import { confirmAction } from '@robota-sdk/agent-core';
 
-import { createNodeDoctorDeps } from './doctor-node-deps.js';
 import { renderDoctorReport } from './doctor-render.js';
 import { applyDoctorRepair } from './doctor-repair.js';
 import { runDoctor } from './doctor-runner.js';
@@ -112,17 +111,31 @@ async function executeDoctorCommand(
   };
 }
 
-/** Register `/doctor` over the host-composed inputs; the host decides whether to supply them. */
+/**
+ * What `/doctor` answers on a host that supplied no {@link IDoctorDeps}: it cannot reach the network,
+ * the file system or `PATH`, so any report it built would claim checks it never ran.
+ */
+const DOCTOR_UNAVAILABLE_MESSAGE =
+  '/doctor is unavailable on this host: it supplies no network, file-system or PATH probes.';
+
+/**
+ * Register `/doctor` over the host-composed inputs; the host decides whether to supply them. The
+ * package has no host default for `deps`: a Node host passes `createNodeDoctorDeps` from
+ * `@robota-sdk/agent-command/node`, and without it the command is listed and says it is unavailable.
+ */
 export function createDoctorCommandModule(
   inputs: IDoctorInputs,
-  deps: IDoctorDeps = createNodeDoctorDeps({ ...inputs.env }),
+  deps: IDoctorDeps | undefined,
   display: IDoctorDisplayVocabulary = {},
 ): ICommandModule {
   const entry = createDoctorCommandEntry();
   const command: ISystemCommand = createSystemCommandFromEntry(entry, {
     requiresPermission: false,
     lifecycle: 'inline',
-    execute: (context, args) => executeDoctorCommand(inputs, deps, context, args, display),
+    execute: async (context, args) =>
+      deps === undefined
+        ? { success: false, message: DOCTOR_UNAVAILABLE_MESSAGE }
+        : executeDoctorCommand(inputs, deps, context, args, display),
   });
   return {
     name: 'agent-command-doctor',

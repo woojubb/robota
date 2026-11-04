@@ -23,7 +23,7 @@ import {
   issueDeviceRoster,
 } from '@robota-sdk/agent-remote-pairing';
 import { createInMemoryMeshRelayHub } from '@robota-sdk/agent-transport-webrtc';
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';

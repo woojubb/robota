@@ -8,10 +8,8 @@ import { loadConfig } from '../config-loader.js';
 import { readPermissionRuleLayers } from '../permission-rule-layers.js';
 import { inspectSettingsLayers } from '../settings-inspection.js';
 import { SettingsParseError } from '../settings-parse-error.js';
-import {
-  createNodeHostSettingsSource,
-  createWorkspaceProjectSettingsSources,
-} from '../settings-source.js';
+import { createWorkspaceProjectSettingsSources } from '../settings-source.js';
+import { createNodeHostSettingsSource } from '../node-host-settings-source.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { TEST_PROJECT_SETTINGS_PATHS } from '../../testing/project-settings-path-fixture.js';
 import { getWorkspaceProjectReader } from '../../workspace-trust/index.js';

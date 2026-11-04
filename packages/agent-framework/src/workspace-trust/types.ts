@@ -130,6 +130,107 @@ export interface IWorkspaceProjectStateStorage {
   projectRelativePath(relativePath: string): string;
 }
 
+/**
+ * The anchored writer behind every authority-bearing project mutation, supplied by the host through
+ * {@link IWorkspaceProjectFiles}. A boundary keeps stable-root traversal and operation semantics
+ * together, so nothing can reintroduce pathname mutation beside the guarded implementation. Every
+ * path is root-relative; the boundary refuses a link, an ancestor that is not a plain directory and a
+ * root that no longer is the trusted one.
+ */
+export interface IWorkspaceProjectMutationBoundary {
+  write(relativePath: string, content: Uint8Array | string): void;
+  /**
+   * Replaces the file whole: the content is flushed to a fresh temp file beside it, renamed over the
+   * target relative to the same anchored directory, and the directory flushed. A failure before the
+   * rename leaves the previous file as it was, never a truncated or half-written one; a failure of
+   * the final flush means the new file is in place but not confirmed durable. Stale temp files a
+   * crashed replace left for the same name are swept.
+   */
+  replace(relativePath: string, content: Uint8Array | string): void;
+  append(relativePath: string, content: string): void;
+  delete(relativePath: string): boolean;
+  /**
+   * Removes (with `apply`) every temp file a crashed replace left in the directory, by the same rule
+   * a replace sweeps its own target's with, and also judged against `migrationStartedAt` (when a
+   * migration started, by the filesystem's clock) when given; returns how many there are. A directory
+   * that is missing is not created and has none.
+   */
+  sweepTemporaries(relativeDirectory: string, apply: boolean, migrationStartedAt?: number): number;
+  /**
+   * How many names the regular file at the path has, opened without following a link; `undefined`
+   * when it is missing. A link or anything that is not a regular file is refused.
+   */
+  linkCount(relativePath: string): number | undefined;
+  /**
+   * The first half of `replace`: the content flushed to a fresh temp file beside the target, which is
+   * left as it is. Returns the temp file's name, for `commitStaged` or `discardStaged`.
+   */
+  stage(relativePath: string, content: Uint8Array | string): string;
+  /** Renames a staged temp file over its target and flushes the directory, as `replace` ends. */
+  commitStaged(relativePath: string, temporaryName: string): void;
+  /** Removes a staged temp file that was not committed; one already gone is fine. */
+  discardStaged(relativePath: string, temporaryName: string): void;
+}
+
+/**
+ * A writer that holds one project root's directory open across a human approval and writes only
+ * while the root's name still identifies that directory. One per approved workflow mutation.
+ */
+export interface IWorkspaceProjectStableWriter {
+  /** Verify that the original root name still identifies the retained directory. */
+  assertNamedRoot(): void;
+  /** Write UTF-8 only while the original name still identifies the retained root. */
+  writeUtf8WhileNamed(relativeSegments: readonly string[], content: string): void;
+  close(): void;
+}
+
+/**
+ * What a host lends the workspace trust service to touch project files. The service binds it to each
+ * authority it mints, so a read or a write is possible only through an authority the service issued;
+ * nothing else in the framework opens a project path. An implementation owns the guarantee the
+ * framework relies on: every read and write is root-relative, refuses a link and an ancestor that was
+ * replaced, and fails closed where it cannot prove that. A host that cannot give that guarantee
+ * builds no trust service, and its sessions are Restricted.
+ */
+export interface IWorkspaceProjectFiles {
+  /**
+   * The bytes of the regular file `segments` name under `root`; `undefined` when it is missing;
+   * `'over-budget'` when it is larger than `maxBytes`. A link or a path that cannot be read stably is
+   * refused by throwing; whatever is thrown that is not a `WorkspaceAuthorityRequiredError` is
+   * reported to the caller as one. The reader revalidates the workspace identity before and after
+   * this call.
+   */
+  readBytes(
+    root: string,
+    segments: readonly string[],
+    maxBytes: number,
+  ): Uint8Array | 'over-budget' | undefined;
+  /**
+   * The entries of the directory `segments` name (the root for none), with each entry's kind and no
+   * link followed; `[]` when it is missing. The implementation revalidates `identity` through
+   * `identityResolver` itself, around the moment it opens the root, since a directory walk cannot be
+   * bracketed from outside.
+   */
+  listDirectory(
+    identity: IWorkspaceIdentity,
+    identityResolver: IWorkspaceIdentityResolver,
+    segments: readonly string[],
+  ): readonly IWorkspaceDirectoryEntry[];
+  /** The kind of the entry `segments` name, no link followed; `undefined` when it is missing. */
+  inspectKind(
+    identity: IWorkspaceIdentity,
+    identityResolver: IWorkspaceIdentityResolver,
+    segments: readonly string[],
+  ): TWorkspaceContributionKind | undefined;
+  /** The anchored writer for one authority's root; refuses every operation on a host that cannot anchor. */
+  createMutationBoundary(
+    identity: IWorkspaceIdentity,
+    identityResolver: IWorkspaceIdentityResolver,
+  ): IWorkspaceProjectMutationBoundary;
+  /** A writer that retains `root` for one approved workflow write. */
+  createStableWriter(root: string): IWorkspaceProjectStableWriter;
+}
+
 export type TWorkspaceProjectSettingsTarget = 'project' | 'project-local';
 
 export type TWorkspaceProjectSettingsWriteDecision =

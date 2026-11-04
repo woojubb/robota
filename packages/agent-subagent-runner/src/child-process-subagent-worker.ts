@@ -5,11 +5,11 @@ import {
   subagentExecutionRoot,
   verifyConnectionEnvironment,
 } from '@robota-sdk/agent-executor';
+import { createSubagentSession } from '@robota-sdk/agent-framework';
 import {
   createSubagentLogger,
-  createSubagentSession,
   resolveSubagentLogSessionId,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-framework/node';
 
 import {
   isSubagentWorkerParentMessage,

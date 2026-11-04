@@ -10,7 +10,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createGitProcess, gitEnvironment, GIT_ENV_DENYLIST } from '../git-process.js';
+import { createGitProcess, gitEnvironment, GIT_ENV_DENYLIST } from '../node-git-process.js';
 
 const dirs: string[] = [];
 afterEach(() => {

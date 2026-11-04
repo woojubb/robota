@@ -18,16 +18,18 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createSubagentLogger, readSubagentTranscriptPage } from '../assembly/subagent-logger.js';
 import { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import { validateWorkspaceSessionReplayLog } from '../interactive/workspace-session-replay-validation.js';
+import { WorkspaceProjectSessionStore } from '../interactive/workspace-session-store.js';
 import {
-  WorkspaceProjectSessionStore,
   WorkspaceSessionLogSink,
   WorkspaceSessionLogSource,
+} from '../interactive/workspace-session-io.js';
+import {
   createNodeHostSessionStore,
   createNodeToolResultSpillStore,
   createProjectSessionStore,
   createUserPromptHistoryFile,
   createUserSessionStore,
-} from '../interactive/session-persistence.js';
+} from '../interactive/node-session-stores.js';
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
 import {
   createWorkspaceProjectMutation,

@@ -5,7 +5,10 @@ import type {
   IWorkspaceIdentity,
   IWorkspaceIdentityResolver,
   IWorkspaceProjectAuthority,
+  IWorkspaceProjectFiles,
+  IWorkspaceProjectMutationBoundary,
   IWorkspaceProjectReader,
+  IWorkspaceProjectStableWriter,
   TWorkspaceProjectStateDirectories,
   TWorkspaceProjectAuthorityCandidate,
 } from './types.js';
@@ -14,6 +17,8 @@ interface IWorkspaceAuthorityRecord {
   readonly identity: IWorkspaceIdentity;
   readonly identityResolver: IWorkspaceIdentityResolver;
   readonly reader: IWorkspaceProjectReader;
+  /** The host's file operations, bound here and nowhere else: every mutation of this authority uses them. */
+  readonly projectFiles: IWorkspaceProjectFiles;
   readonly projectStateDirectories?: TWorkspaceProjectStateDirectories;
   readonly isLive: () => boolean;
 }
@@ -25,6 +30,7 @@ export function mintWorkspaceProjectAuthority(
   identity: IWorkspaceIdentity,
   identityResolver: IWorkspaceIdentityResolver,
   isLive: () => boolean,
+  projectFiles: IWorkspaceProjectFiles,
   projectStateDirectories?: TWorkspaceProjectStateDirectories,
 ): IWorkspaceProjectAuthority {
   const identitySnapshot = Object.freeze({
@@ -36,9 +42,15 @@ export function mintWorkspaceProjectAuthority(
   authorityRecords.set(authority, {
     identity: identitySnapshot,
     identityResolver,
-    reader: createWorkspaceProjectReader(identitySnapshot, identityResolver, () => {
-      assertWorkspaceProjectAuthority(authority);
-    }),
+    reader: createWorkspaceProjectReader(
+      identitySnapshot,
+      identityResolver,
+      () => {
+        assertWorkspaceProjectAuthority(authority);
+      },
+      projectFiles,
+    ),
+    projectFiles,
     ...(projectStateDirectories === undefined ? {} : { projectStateDirectories }),
     isLive,
   });
@@ -90,6 +102,30 @@ export function getWorkspaceProjectIdentityResolver(
   const record = authorityRecords.get(accepted);
   if (record === undefined) throw new WorkspaceAuthorityRequiredError();
   return record.identityResolver;
+}
+
+/**
+ * Internal: the anchored writer of an authority's root, built by the file operations the trust
+ * service bound when it minted the authority. A mutation, a settings writer and a state storage take
+ * their boundary here, so none can be given another host's.
+ */
+export function getWorkspaceProjectMutationBoundary(
+  authority: IWorkspaceProjectAuthority,
+): IWorkspaceProjectMutationBoundary {
+  const accepted = assertWorkspaceProjectAuthority(authority);
+  const record = authorityRecords.get(accepted);
+  if (record === undefined) throw new WorkspaceAuthorityRequiredError();
+  return record.projectFiles.createMutationBoundary(record.identity, record.identityResolver);
+}
+
+/** Internal: a writer retaining an authority's root for one approved workflow write. */
+export function openWorkspaceProjectStableWriter(
+  authority: IWorkspaceProjectAuthority,
+): IWorkspaceProjectStableWriter {
+  const accepted = assertWorkspaceProjectAuthority(authority);
+  const record = authorityRecords.get(accepted);
+  if (record === undefined) throw new WorkspaceAuthorityRequiredError();
+  return record.projectFiles.createStableWriter(record.identity.worktreeRoot);
 }
 
 /** Internal authority-bound host selection; no framework product path is substituted. */

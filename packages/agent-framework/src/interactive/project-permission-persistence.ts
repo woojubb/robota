@@ -2,15 +2,20 @@ import { createWorkspaceProjectSettingsStore } from '../config/settings-store.js
 import { createWorkspaceProjectSettingsWriter } from '../workspace-trust/project-settings-writer.js';
 
 import type { IProjectSettingsPath } from '../config/settings-source.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/types.js';
 
-/** Bind a host-selected local settings layer to the live project grant. */
+/**
+ * Bind a host-selected local settings layer to the live project grant. A host that cannot write
+ * project files safely (`supportsProjectMutation` absent or false) gets no persistence, so "allow for
+ * project" is never offered where it could not be kept.
+ */
 export function createProjectPermissionPersistence(
   access: TWorkspaceProjectAccess | undefined,
   paths: readonly IProjectSettingsPath[] | undefined,
+  host: Pick<IFrameworkHost, 'supportsProjectMutation'>,
 ): ((scope: string) => void) | undefined {
-  // The workspace mutation boundary currently has a stable root-anchored writer only on Linux.
-  if (process.platform !== 'linux') return undefined;
+  if (host.supportsProjectMutation !== true) return undefined;
   if (access?.status !== 'trusted') return undefined;
   const localPath = paths?.find((path) => path.scope === 'project-local');
   if (localPath === undefined) return undefined;

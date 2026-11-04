@@ -3,12 +3,9 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import {
-  EditCheckpointStore,
-  InteractiveSession,
-  createNodeHostSessionStore,
-  createWorkspaceProjectMutation,
-} from '@robota-sdk/agent-framework';
+import { InteractiveSession, createWorkspaceProjectMutation } from '@robota-sdk/agent-framework';
+import { EditCheckpointStore } from '@robota-sdk/agent-framework/node';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 
 import { createSessionEventDeliveryProjectAccess } from './session-event-delivery-project-access.js';

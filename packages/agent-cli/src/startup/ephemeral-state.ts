@@ -12,7 +12,7 @@ import {
   ensureOwnerOnlyDirectory,
   sweepStaleProcessScopedDirectories,
 } from '@robota-sdk/agent-core/node';
-import { sweepStaleToolResultSpillDirectories } from '@robota-sdk/agent-framework';
+import { sweepStaleToolResultSpillDirectories } from '@robota-sdk/agent-framework/node';
 
 import { sweepGoneProductPresence } from '../product/process-presence.js';
 

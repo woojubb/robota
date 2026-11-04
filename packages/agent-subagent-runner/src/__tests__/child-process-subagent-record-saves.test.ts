@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createTestArtifactSealer, openTestWriteGrant } from '@robota-sdk/agent-core/testing';
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {

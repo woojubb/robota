@@ -14,10 +14,8 @@ import { join } from 'node:path';
 
 import { readCurrentProcessIdentity, readProcessStartTime } from '@robota-sdk/agent-core/node';
 import { leaveProcessMarker } from '@robota-sdk/agent-core/testing';
-import {
-  SESSION_STILL_CLOSING_MESSAGE,
-  createNodeHostSessionStore,
-} from '@robota-sdk/agent-framework';
+import { SESSION_STILL_CLOSING_MESSAGE } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { render } from 'ink';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';

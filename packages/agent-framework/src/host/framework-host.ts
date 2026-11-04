@@ -22,7 +22,9 @@ import type {
 import type { IBackgroundTaskRunner, IObserverFailure } from '@robota-sdk/agent-executor';
 import type { IFileSessionLoggerOptions } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import type { ICommandSessionReplayValidationReport } from '../command-api/host-context-types.js';
 import type { IGitProcessPort } from '../git/git-process.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/types.js';
 
 /**
  * A value that follows one asynchronous call chain, as `AsyncLocalStorage` does on Node. Inside
@@ -44,7 +46,11 @@ export interface IFrameworkHost {
   readonly registerExitFlush?: NonNullable<IFileSessionLoggerOptions['registerExitFlush']>;
   /** Reads a named environment variable; absent, every `$ENV:` reference reads as unset. */
   readonly env?: TEnvResolver;
-  /** File access for reading, diffing and loading; absent, an Edit diff is omitted and `/cd` and plugin directories refuse. */
+  /**
+   * File access for reading, diffing and loading. Absent: an Edit diff carries its removed and added
+   * lines but no context lines from the file; a project diff is refused, since containment cannot be
+   * proven; `/cd` refuses; and naming `pluginDirectories` or a manifest's local entries is refused.
+   */
   readonly files?: {
     readonly sync: IFileSystem;
     readonly async: IFileSystemAsync;
@@ -63,7 +69,7 @@ export interface IFrameworkHost {
   readonly createHookExecutors?: (options: { shell?: string }) => IHookTypeExecutor[];
   /**
    * Builds the background task runners, given the shell a command task runs under when the product
-   * chose one; absent, a task fails with "No runner for task kind".
+   * chose one; absent, the manager refuses a task with "No background task runner registered for kind".
    */
   readonly createBackgroundTaskRunners?: (shellExecutable?: string) => IBackgroundTaskRunner[];
   /** Builds the session's default tool tier; absent, a session has no default tier. */
@@ -76,8 +82,22 @@ export interface IFrameworkHost {
     failure: IObserverFailure<TEvent>,
     code?: string,
   ) => void;
-  /** Makes a scope that follows an async call chain; absent, the skill router admits one command at a time. */
+  /**
+   * Makes a scope that follows an async call chain. Absent, the skill router cannot tell overlapping
+   * commands apart, so it runs one user or remote command at a time (a second is refused), admits a
+   * model command only when no such command runs or that command has started its own turn, and
+   * refuses a forked skill, whose resource window needs a scope, before it starts.
+   */
   readonly createAsyncScope?: <T>() => IAsyncScope<T>;
   /** Whether the host can write project files; absent or false, a project permission cannot be persisted. */
   readonly supportsProjectMutation?: boolean;
+  /**
+   * Reads session `sessionId`'s project log and reports whether it replays. A session holds no keys,
+   * so a sealed log is reported through `ArtifactLockedError`, never opened. Absent, the session
+   * cannot read its log and `/validate-session` fails with an error naming this member.
+   */
+  readonly validateSessionReplayLog?: (
+    projectAccess: TWorkspaceProjectAccess,
+    sessionId: string,
+  ) => ICommandSessionReplayValidationReport;
 }

@@ -31,6 +31,7 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 import { productProjectStateDirectories } from '../../product/project-state-directories.js';
 import { createCliWorkspaceComposition } from '../workspace-project-composition.js';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IWorkspaceIdentity } from '@robota-sdk/agent-framework';
 
 const CANARY = 'PRIVATE-CONVERSATION-CANARY-91c4';
@@ -67,6 +68,7 @@ async function trustedAccess(root: string) {
     grantedAt: '2026-11-01T00:00:00.000Z',
   };
   return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     projectStateDirectories: PROJECT_STATE_DIRECTORIES,
     store: {

@@ -5,6 +5,7 @@
  */
 import { describe, expect, it } from 'vitest';
 
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import { buildAgentRuntime } from '../build-runtime.js';
 
 import type { IHookInput, IHookTypeExecutor, THooksConfig } from '@robota-sdk/agent-core';
@@ -41,6 +42,7 @@ async function hookInputsFor(sealed: boolean): Promise<IHookInput[]> {
     }),
   };
   const options = {
+    host: createTestFrameworkHost(),
     config: { hooks },
     backgroundTaskRunners: [runner],
   } as unknown as ICreateSessionOptions;

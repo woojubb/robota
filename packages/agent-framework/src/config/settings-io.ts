@@ -6,11 +6,8 @@ import { ensureOwnerOnlyDirectory, tightenExistingFile } from '@robota-sdk/agent
 import { NoCurrentProviderProfileError } from './no-current-provider-profile-error.js';
 import { SettingsParseError } from './settings-parse-error.js';
 
+import type { TSettingsData } from './settings-store-types.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
-
-export type TSettingsData = Record<string, TUniversalValue>;
-/** CLI-selectable settings write scope; project-local still requires an authorized project store. */
-export type TSettingsScope = 'user' | 'project-local';
 
 /**
  * CLI-069: missing file → empty defaults (non-error); an EXISTING file that

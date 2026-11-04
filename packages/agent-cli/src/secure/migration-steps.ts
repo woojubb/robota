@@ -12,11 +12,13 @@
 import {
   WorkspaceAuthorityRequiredError,
   getWorkspaceProjectStateStorage,
+} from '@robota-sdk/agent-framework';
+import {
   migrateSubagentTranscripts,
   migrateWorkspaceEditCheckpoints,
   migrateWorkspaceProjectSessionLogs,
   migrateWorkspaceProjectSessionRecords,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-framework/node';
 import { migrateNodeSessionStore } from '@robota-sdk/agent-session/node';
 
 import { adoptMigratedSessionRecords } from '../product/session-stores.js';
@@ -40,7 +42,7 @@ import type {
   IEditCheckpointMigration,
   IWorkspaceSessionLogMigration,
   IWorkspaceSessionRecordMigration,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-framework/node';
 import type { ISessionLogMigration, ISessionRecordMigration } from '@robota-sdk/agent-session/node';
 
 /** How many paths a line names before it says how many more there are. */

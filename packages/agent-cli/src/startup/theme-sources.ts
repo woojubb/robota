@@ -19,11 +19,11 @@ import { join } from 'node:path';
 
 import { pluginScopeDirs } from '../plugins/default-plugin-command-source-loader.js';
 import { productUserSettingsPath } from '../product/user-settings.js';
+import { loadHostBundlePluginsFromScopes } from '@robota-sdk/agent-framework';
 import {
   createNodeHostContributionSource,
-  loadHostBundlePluginsFromScopes,
-} from '@robota-sdk/agent-framework';
-import { NodeFileSystem } from '@robota-sdk/agent-framework/node';
+  NodeFileSystem,
+} from '@robota-sdk/agent-framework/node';
 import {
   escapeThemeText,
   parseThemeDocument,

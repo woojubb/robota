@@ -17,10 +17,8 @@
 import { join } from 'node:path';
 
 import { createProcessMarkers } from '@robota-sdk/agent-core/node';
-import {
-  getWorkspaceProjectStateStorage,
-  projectSessionClaimsDirectory,
-} from '@robota-sdk/agent-framework';
+import { getWorkspaceProjectStateStorage } from '@robota-sdk/agent-framework';
+import { projectSessionClaimsDirectory } from '@robota-sdk/agent-framework/node';
 import { isSafeSessionId } from '@robota-sdk/agent-session';
 import { SESSION_CLAIMS_DIRECTORY } from '@robota-sdk/agent-session/node';
 

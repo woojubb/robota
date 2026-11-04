@@ -22,8 +22,8 @@ import { runWorkspaceTrustCommand } from '../workspace-trust-command.js';
 // test in this file, which never varies path state, is unaffected; only the two tests below that need a
 // specific mixed/unavailable-only result install a one-shot override.
 const { inspectPreTrustProjectPaths } = vi.hoisted(() => ({ inspectPreTrustProjectPaths: vi.fn() }));
-vi.mock('@robota-sdk/agent-framework', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@robota-sdk/agent-framework')>();
+vi.mock('@robota-sdk/agent-framework/node', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@robota-sdk/agent-framework/node')>();
   inspectPreTrustProjectPaths.mockImplementation(actual.inspectPreTrustProjectPaths);
   return { ...actual, inspectPreTrustProjectPaths };
 });

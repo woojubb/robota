@@ -18,6 +18,9 @@ import { createTestFrameworkHost } from '../../../testing/framework-host.js';
 
 import type { TInteractiveSessionOptions } from '../../../interactive/interactive-session-options.js';
 
+/** The streams a Node composition root hands the headless runner; tests spy on them. */
+const processOutput = { stdout: process.stdout, stderr: process.stderr };
+
 const testHost = createTestFrameworkHost();
 
 type TStandardSessionOptions = Extract<
@@ -103,7 +106,11 @@ describe('headless provider failure exit codes (CLI-064)', () => {
     const stderr = captureStream(process.stderr);
 
     try {
-      const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'say hi' });
+      const transport = createHeadlessTransport({
+        output: processOutput,
+        outputFormat: 'text',
+        prompt: 'say hi',
+      });
       session.attachTransport(transport);
       await transport.start();
       await transport.waitForCompletion();
@@ -130,7 +137,11 @@ describe('headless provider failure exit codes (CLI-064)', () => {
     const stderr = captureStream(process.stderr);
 
     try {
-      const transport = createHeadlessTransport({ outputFormat: 'json', prompt: 'say hi' });
+      const transport = createHeadlessTransport({
+        output: processOutput,
+        outputFormat: 'json',
+        prompt: 'say hi',
+      });
       session.attachTransport(transport);
       await transport.start();
       await transport.waitForCompletion();
@@ -175,7 +186,11 @@ describe('headless provider failure exit codes (CLI-064)', () => {
     const stderr = captureStream(process.stderr);
 
     try {
-      const transport = createHeadlessTransport({ outputFormat: 'text', prompt: 'say hi' });
+      const transport = createHeadlessTransport({
+        output: processOutput,
+        outputFormat: 'text',
+        prompt: 'say hi',
+      });
       session.attachTransport(transport);
       await transport.start();
       await transport.waitForCompletion();

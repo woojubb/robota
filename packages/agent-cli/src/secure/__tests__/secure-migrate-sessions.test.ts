@@ -11,7 +11,7 @@ import { join } from 'node:path';
 
 import { readCurrentProcessIdentity, readProcessStartTime } from '@robota-sdk/agent-core/node';
 import { leaveProcessMarker } from '@robota-sdk/agent-core/testing';
-import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework';
+import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
 import { serializeKeyring } from '@robota-sdk/agent-keyring';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';

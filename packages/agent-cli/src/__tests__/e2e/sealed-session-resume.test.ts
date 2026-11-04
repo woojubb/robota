@@ -22,7 +22,7 @@ import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
-import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import {
   createDefaultTuiCliAdapter,
   createNodeKeybindingsSource,

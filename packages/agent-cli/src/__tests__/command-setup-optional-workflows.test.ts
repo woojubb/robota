@@ -137,8 +137,14 @@ describe('buildCommandSetup — pack-supplied modules are excluded from the base
     );
     const withoutExclusion = buildCommandSetup('/tmp', MINIMAL_ARGS, { productRuntime: createTestProductRuntime() }, '0.0.0-test');
 
+    // The exclusion removes exactly the pack-supplied names the default set builds: `/shell` and
+    // `/editor` live on `agent-command/node` and only the pack supplies them, so it has none to remove.
+    const excludedFromDefaults = withoutExclusion.baseCommandModules.filter((module) =>
+      PRODUCT_PACK_COMMAND_MODULE_NAMES.includes(module.name),
+    );
+    expect(excludedFromDefaults.length).toBeGreaterThan(0);
     expect(withoutExclusion.baseCommandModules.length).toBe(
-      withExclusion.baseCommandModules.length + PRODUCT_PACK_COMMAND_MODULE_NAMES.length,
+      withExclusion.baseCommandModules.length + excludedFromDefaults.length,
     );
   });
 });

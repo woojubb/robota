@@ -14,12 +14,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
-  EditCheckpointStore,
-  WorkspaceTrustService,
-  createDirectoryEditCheckpointState,
-  createWorkspaceProjectMutation,
-} from '@robota-sdk/agent-framework';
+import { WorkspaceTrustService, createWorkspaceProjectMutation } from '@robota-sdk/agent-framework';
+import { EditCheckpointStore } from '@robota-sdk/agent-framework/node';
+import { createDirectoryEditCheckpointState } from '@robota-sdk/agent-framework/node';
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import { parseKeyring } from '@robota-sdk/agent-keyring';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -123,6 +121,7 @@ async function storeOverFixture(): Promise<EditCheckpointStore> {
   };
   const snapshot = { state: 'trusted' as const, generation: 1 };
   const access = await new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     projectStateDirectories: {
       sessions: '.kat/sessions',

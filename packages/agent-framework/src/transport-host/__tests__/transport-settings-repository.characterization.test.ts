@@ -4,10 +4,8 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  createFileTransportSettingsRepository,
-  createMemoryTransportSettingsRepository,
-} from '../transport-settings-repository.js';
+import { createFileTransportSettingsRepository } from '../transport-settings-repository.js';
+import { createMemoryTransportSettingsRepository } from '../memory-transport-settings-repository.js';
 
 const temporaryDirectories: string[] = [];
 afterEach(() => {

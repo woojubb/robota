@@ -9,12 +9,12 @@ import type { ICommandProductVocabulary } from '../command-api/host-context-type
 
 import type { IPromptHistoryOptions } from './interactive-session-prompt-history.js';
 import type { ILivePromptTracePort } from './interactive-session-live-prompt-trace.js';
-import type { IInteractiveSessionRecord, IInteractiveSessionStore } from './session-persistence.js';
+import type { IInteractiveSessionRecord, IInteractiveSessionStore } from './session-store-types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import type { IEditCheckpointStore } from '../checkpoints/edit-checkpoint-types.js';
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type {
   ICommandHostAdapters,
@@ -23,8 +23,7 @@ import type {
   IRemoteCommandPolicy,
 } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
-import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
-import type { IProjectSettingsPath } from '../config/settings-source.js';
+import type { IHostSettingsSource, IProjectSettingsPath } from '../config/settings-source.js';
 import type { IContributionSource } from '../contributions/index.js';
 import type { IFrameworkHost } from '../host/framework-host.js';
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
@@ -97,7 +96,7 @@ export interface IInteractiveSessionStandardOptions {
   /** Host-selected active-task directory; absence disables task-context discovery. */
   taskContext?: IResolvedConfig['taskContext'];
   /** Explicit user settings layers; absent means no ambient user file is read. */
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   /** Per-session host environment for resolving $ENV credential references. */
   environment?: Readonly<Record<string, string | undefined>>;
   /** Host-only asynchronous resolution; serialized settings retain credential references. */
@@ -122,7 +121,7 @@ export interface IInteractiveSessionStandardOptions {
   /** Trusted host-only path projection for hook compatibility. */
   transcriptPath?: string;
   /** Explicit authority- and permission-backed edit checkpoint capability. */
-  editCheckpointStore?: EditCheckpointStore;
+  editCheckpointStore?: IEditCheckpointStore;
   sessionName?: string;
   /**
    * #3189: name the session once, after its first turn, with its own provider, unless it already has
@@ -283,9 +282,9 @@ export interface IInteractiveSessionStandardOptions {
   /** Scheduling is a current host decision, never restored permission or plugin authority. */
   toolExecutionPolicy?: ICreateSessionOptions['toolExecutionPolicy'];
   /**
-   * ARCH-006: REPLACES the framework's `createDefaultTools()` tier; `[]` suppresses every framework
+   * ARCH-006: REPLACES the host's default tool tier (`host.createDefaultTools`); `[]` suppresses every
    * default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's
-   * `builtInAgents` seam for subagents. Absent ⇒ unchanged behavior.
+   * `builtInAgents` seam for subagents. Absent ⇒ the tier the host builds, or none when it lends none.
    */
   defaultTools?: readonly IToolWithEventService[];
   /** SELFHOST-005 guardrail REGISTRY (name → function). ARCH-013 S3; see create-session-projection. */
@@ -311,7 +310,7 @@ export interface IInteractiveSessionInjectedOptions {
   setupRequired?: boolean;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   permissionMode?: ICreateSessionOptions['permissionMode'];
   maxTurns?: number;
   sessionStore?: IInteractiveSessionStore;
@@ -325,7 +324,7 @@ export interface IInteractiveSessionInjectedOptions {
   /** Trusted host-only path projection for hook compatibility. */
   transcriptPath?: string;
   /** Explicit authority- and permission-backed edit checkpoint capability. */
-  editCheckpointStore?: EditCheckpointStore;
+  editCheckpointStore?: IEditCheckpointStore;
   sessionName?: string;
   /** See the standard options. */
   autoName?: boolean;

@@ -37,21 +37,29 @@ React/Ink UI.
   content and application state are reachable only through a `TWorkspaceProjectAccess` decision and
   facets minted from its opaque authority; omission is an explicit Restricted decision, not a silent
   fallback to path-based access. Restricted construction instantiates no project reader, store, or
-  writer. Trusted access is accepted only when the real working directory is the trusted root or a
+  writer. The file operations behind those facets are the host's: the trust service takes them as
+  `projectFiles` and binds them to each authority it mints, behind the brand's module-level maps, so
+  nothing but an authority the service issued reaches them, and a host that has none builds no service
+  and runs Restricted. The brand and its maps live in one module that `.` and `./node` share. Trusted access is accepted only when the real working directory is the trusted root or a
   descendant of it — `cwd` and the access decision are independent inputs, so this boundary check keeps the pair
   fail-closed. Once accepted, the pair is one value fixed for the session's life and handed by
   reference, never copied field by field, so no lazy operation can hold a different answer from the
   session; a move to another directory is a new session, not a mutation of this one.
-- **No concrete settings-file I/O for hosts.** Host adapters (`NodeHost*`) exist for callers that
-  deliberately own a host path, but never satisfy an authority parameter, and command modules must
-  not assemble settings/project paths themselves — they go through host adapters or command-facing
-  common APIs.
+- **Settings layers and stores never open a path; plugin enablement does.** A settings layer is read
+  through `IHostSettingsSource.read()` and a document is written through `ISettingsDocumentStore`, so
+  neither opens a settings file. Plugin enablement is the one consumer that works on the file itself:
+  it takes the user source's `path` and reads and writes it through an `IFileSystem`
+  (`NodeHostPluginSettingsStore`), so a user source with no `path` enables no plugins. Host adapters
+  (`NodeHost*`) exist for callers that deliberately own a host path, but never satisfy an authority
+  parameter, and command modules must not assemble settings/project paths themselves — they go
+  through host adapters or command-facing common APIs.
 - **The platform and the working directory are passed in, never assumed.** A session, subagent,
   runtime or query takes a required `host` (`IFrameworkHost`, what the platform lends) and a required
   absolute `cwd`. Neither has a default, because a default would be whichever process the framework
   happens to run in. Every host member is optional and an absent one means that capability is off, so
-  `{}` is a valid host; a Node composition root builds one with `createNodeFrameworkHost` from the
-  `./node` subpath. A missing `host` throws at construction instead of reading as a host that lends
+  `{}` is a valid host, except that a trusted project decision is compared on real paths and a host
+  that cannot resolve them refuses it; a Node composition root builds one with
+  `createNodeFrameworkHost` from the `./node` subpath. A missing `host` throws at construction instead of reading as a host that lends
   nothing, because an untyped caller would otherwise get sessions without a capability and no
   explanation.
 - **Every user- and project-scoped location is host-supplied, and the framework never infers or falls
@@ -67,7 +75,10 @@ React/Ink UI.
 - **Edit checkpoint state may live outside the project, and is sealed or plain as its store is
   told.** A store keeps its manifests and pre-images in the trusted project's checkpoint directory
   unless the host supplies a location of its own, for a run that must leave nothing in the project;
-  the sealing decision is the store's own and is required, never implied by the location. Only where
+  the sealing decision is the store's own and is required, never implied by the location. A session
+  asks its checkpoints of `IEditCheckpointStore` and its stored sessions of `IInteractiveSessionStore`;
+  the stores that keep them in files, and seal and migrate them through `@robota-sdk/agent-session/node`,
+  are on the `./node` subpath, and a host with no files brings its own. Only where
   the state is kept moves: restoring still writes the project's files back through the project
   mutation capability, so a restore can touch nothing it could not before. Sealed state is never
   trusted for what it says: a file opens only at the place it was written, and a manifest counts
@@ -203,6 +214,14 @@ These are behaviors a caller cannot infer from a type signature alone.
   runs only for the operator's own command, never for a connected surface or the model, whichever
   command asked. UI-only intents (opening a picker, a settings screen) are fire-and-forget: with no
   surface listening they are a defined no-op, and that never affects the host-action half.
+- **A command never reads another command's source.** Where the host tracks async context, every
+  command sees the source, driver and locality it was started with, however many run at once, and a
+  forked skill's resources are readable only from inside that fork. A host that does not (a browser)
+  stays strictly nested, because one slot read after an await by two overlapping commands would hand
+  each the other's scope: it admits one user or remote command at a time and refuses a second in plain
+  words; it admits a model command only when no user or remote command runs, or when that command has
+  started its own turn, whose model commands all carry the same scope and cannot overwrite each other;
+  and it refuses a forked skill before it starts, naming the missing `createAsyncScope`.
 - **Local peer status is display-only.** Host-observed activity, independently verified process
   liveness and the verified workspace relation never grant authority over the peer or identify a persisted session record, and a passive
   observer can never keep a request alive after its last answering surface leaves.
@@ -255,10 +274,12 @@ These are behaviors a caller cannot infer from a type signature alone.
   the session. Context usage is not part of that: it moves every turn and
   is reported on its own, so counting it would push a status after every turn with nothing changed.
 - **Hook executor registration is replace-vs-extend, and the built-ins are seeded first.** The session
-  resolves an omitted executor list to the Node `command`/`http` executors — an _undefined-only_
-  fallback, so supplying any executor array at all replaces the built-ins rather than extending
-  them; only an actually-omitted array reactivates them. Because the last executor
-  registered for a given hook type wins, the framework's built-ins are seeded _before_ SDK-specific
+  resolves an omitted executor list to the executors the host builds (`host.createHookExecutors`;
+  on Node, `command` and `http`) — an _undefined-only_ fallback, so supplying any executor array at
+  all replaces the built-ins rather than extending them; only an actually-omitted array reactivates
+  them. A host that lends no builder seeds none: the session has no executor of its own, and a
+  declared hook only the host's executors run is refused at assembly. Because the last executor
+  registered for a given hook type wins, the host's built-ins are seeded _before_ SDK-specific
   ones, so a caller-supplied executor of the same type still overrides the built-in — seeding them
   last would make the built-ins unoverridable, and merging instead would remove a sandboxed caller's
   ability to exclude one. The general principle: restriction must be asked for explicitly; extension
@@ -301,7 +322,7 @@ These are behaviors a caller cannot infer from a type signature alone.
   explicit prompt keeps that intent across resume, and the host resolves the current default before
   each iteration; a missing or invalid resolver fails visibly rather than running a stale iteration.
 - **Tool composition is asymmetric on purpose: replace and append are not interchangeable.**
-  `defaultTools` replaces the framework's default tool tier outright; `additionalTools` only appends
+  `defaultTools` replaces the host's default tool tier outright; `additionalTools` only appends
   and, on a name collision with an already-assembled tool, the earlier entry silently wins and the
   contributed one is dropped rather than displacing it. That asymmetry is deliberate: the default tier
   is constructed _with_ session context (the working-directory guard, sandbox client), and an

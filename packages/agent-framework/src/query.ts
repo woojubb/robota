@@ -6,20 +6,14 @@
  *   const answer = await query('What files are here?');
  */
 
-import { realpathSync } from 'node:fs';
-
 import { requireFrameworkHost } from './host/require-framework-host.js';
 import { buildRuntimeSession } from './runtime/runtime-host.js';
-import {
-  WorkspaceAuthorityRequiredError,
-  createRestrictedWorkspaceProjectAccess,
-  getWorkspaceProjectIdentity,
-} from './workspace-trust/index.js';
-import { isWorkspacePathContained } from './workspace-trust/project-reader-path.js';
+import { assertTrustedProjectCoversCwd } from './runtime/trusted-project-cwd.js';
+import { createRestrictedWorkspaceProjectAccess } from './workspace-trust/index.js';
 
 import type { TInteractivePermissionHandler } from './interactive/types.js';
 import type { InteractiveSession } from './interactive/interactive-session.js';
-import type { INodeHostSettingsSource } from './config/node-host-settings-source.js';
+import type { IHostSettingsSource } from './config/settings-source.js';
 import type { IFrameworkHost } from './host/framework-host.js';
 import type { TWorkspaceProjectAccess } from './workspace-trust/index.js';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
@@ -34,7 +28,7 @@ export interface ICreateQueryOptions {
   /** Host-owned initial project decision. Absence produces an observable Restricted query. */
   projectAccess?: TWorkspaceProjectAccess;
   /** Explicit user settings layers for this query's session. */
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   /**
    * Permission mode. Defaults to `'default'`: with no `permissionHandler`, anything that would ask is
    * denied (issue #3081). Pass `'bypassPermissions'` explicitly for unattended driving.
@@ -58,7 +52,7 @@ export interface ICreateQueryOptions {
   permissionHandler?: TInteractivePermissionHandler;
   /** Streaming text callback. */
   onTextDelta?: (delta: string) => void;
-  /** Additional tools registered alongside the default CLI tools. */
+  /** Additional tools registered alongside the host's default tools (`host.createDefaultTools`, if it lends any). */
   additionalTools?: IToolWithEventService[];
   /** Request structured output from the provider. */
   responseFormat?: { type: 'text' | 'json_object' };
@@ -91,6 +85,9 @@ async function submitQuery(
 /**
  * Create a prompt-only query function bound to a provider.
  *
+ * The query has the tools its host builds: with `createNodeFrameworkHost({ createDefaultTools })` the
+ * default set, with a host that lends no `createDefaultTools` none.
+ *
  * ```typescript
  * import { createQuery } from '@robota-sdk/agent-framework';
  * import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
@@ -110,24 +107,7 @@ export function createQuery(options: ICreateQueryOptions): TQueryFunction {
   const { cwd } = options;
   const projectAccess =
     options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable', cwd);
-  // Contained — ARCH-048. These boundaries reject cross-root pairs until one canonical project-root
-  // binding contract replaces the independent cwd and projectAccess carriers.
-  if (projectAccess.status === 'trusted') {
-    const trustedRoot = getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot;
-    let resolvedCwd: string;
-    try {
-      resolvedCwd = realpathSync(cwd);
-    } catch {
-      throw new WorkspaceAuthorityRequiredError(
-        'Trusted project access cannot validate the requested working directory.',
-      );
-    }
-    if (!isWorkspacePathContained(trustedRoot, resolvedCwd)) {
-      throw new WorkspaceAuthorityRequiredError(
-        'Trusted project access does not cover the requested working directory.',
-      );
-    }
-  }
+  assertTrustedProjectCoversCwd(options.host, projectAccess, cwd);
   const session = buildRuntimeSession({
     host: options.host,
     cwd,

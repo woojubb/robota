@@ -31,11 +31,10 @@ import {
   InteractiveSession,
   createExternalEventGrantHistory,
   readMergedProviderSettings,
-  readSettings,
-  writeSettings,
   type IBackgroundTaskRunner,
   type SessionSlot,
 } from '@robota-sdk/agent-framework';
+import { readSettings, writeSettings } from '@robota-sdk/agent-framework/node';
 import { assembleProduct } from '@robota-sdk/agent-product';
 
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';

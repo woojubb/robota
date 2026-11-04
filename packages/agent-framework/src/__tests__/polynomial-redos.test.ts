@@ -18,6 +18,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { NodeFileSystem } from '../adapters/node-file-system.js';
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 import { sanitizeProviderProfileName } from '../command-api/provider/provider-profile-names.js';
 import { decodeFrontmatter } from '../frontmatter/frontmatter-decoder.js';
@@ -200,7 +201,9 @@ describe('SEC-003 alert 40 — git worktree `gitdir:` pointer', () => {
     'reads a pumped whitespace run in linear time',
     () => {
       const cwd = repoWithGitFile(`gitdir:${' '.repeat(PUMP)}x\ny`);
-      expect(elapsedMs(() => void readCurrentGitBranchFromNodeHost(cwd))).toBeLessThan(BUDGET_MS);
+      expect(
+        elapsedMs(() => void readCurrentGitBranchFromNodeHost(cwd, new NodeFileSystem())),
+      ).toBeLessThan(BUDGET_MS);
     },
     RED_TIMEOUT_MS,
   );
@@ -209,7 +212,7 @@ describe('SEC-003 alert 40 — git worktree `gitdir:` pointer', () => {
     const gitDir = tempDir('agent-redos-realgit-');
     writeFileSync(join(gitDir, 'HEAD'), 'ref: refs/heads/feature/x\n', 'utf8');
     const cwd = repoWithGitFile(`gitdir: ${gitDir}\n`);
-    expect(readCurrentGitBranchFromNodeHost(cwd)).toBe('feature/x');
+    expect(readCurrentGitBranchFromNodeHost(cwd, new NodeFileSystem())).toBe('feature/x');
   });
 });
 

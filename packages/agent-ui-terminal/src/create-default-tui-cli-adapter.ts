@@ -1,10 +1,10 @@
 import { findProviderDefinition } from '@robota-sdk/agent-core';
+import { applyActiveModelChange } from '@robota-sdk/agent-framework';
 import {
-  applyActiveModelChange,
   createNodeHostSettingsStore,
   readSettings,
   resolveGitBranchFromNodeHost,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-framework/node';
 
 import type { IKeyCustodyPort } from './key-custody/key-custody-port.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';

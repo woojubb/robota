@@ -4,11 +4,8 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import {
-  createNodeHostSettingsSource,
-  describeProviderDestination,
-  providerDestinationOf,
-} from '@robota-sdk/agent-framework';
+import { describeProviderDestination, providerDestinationOf } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 
 import { parseCliArgs } from '../../utils/cli-args.js';
 import {
@@ -179,7 +176,9 @@ describe('advisor destination', () => {
   });
 
   it('resolves an advisor profile key from the selected host environment', async () => {
-    const settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as { providers: Record<string, Record<string, string>> };
+    const settings = JSON.parse(readFileSync(settingsPath, 'utf8')) as {
+      providers: Record<string, Record<string, string>>;
+    };
     settings.providers.cloud!.apiKey = '$ENV:SYNTHETIC_ADVISOR_KEY';
     writeFileSync(settingsPath, JSON.stringify(settings));
     const keys: string[] = [];
@@ -187,18 +186,31 @@ describe('advisor destination', () => {
       ...definition,
       createProvider: (config: IProviderDefinitionConfig) => {
         keys.push(config.apiKey ?? 'missing');
-        return { name: config.name, chat: async () => ({
-          id: 'a', role: 'assistant' as const, content: 'advice', state: 'complete' as const, timestamp: new Date(),
-        }) } as unknown as IAIProvider;
+        return {
+          name: config.name,
+          chat: async () => ({
+            id: 'a',
+            role: 'assistant' as const,
+            content: 'advice',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          }),
+        } as unknown as IAIProvider;
       },
     }));
-    const advisor = composeCliAdvisor(input({
-      flag: 'cloud',
-      providerDefinitions: definitions,
-      env: { SYNTHETIC_ADVISOR_KEY: 'file-only-advisor-key' },
-    }));
+    const advisor = composeCliAdvisor(
+      input({
+        flag: 'cloud',
+        providerDefinitions: definitions,
+        env: { SYNTHETIC_ADVISOR_KEY: 'file-only-advisor-key' },
+      }),
+    );
     const result = await advisor.controller.consult({
-      history: [], systemPrompt: 's', mainDestination: providerDestinationOf(mainProvider), sessionId: 's', turnId: 't',
+      history: [],
+      systemPrompt: 's',
+      mainDestination: providerDestinationOf(mainProvider),
+      sessionId: 's',
+      turnId: 't',
     });
     expect(result.outcome).toBe('answered');
     expect(keys).toEqual(['file-only-advisor-key']);

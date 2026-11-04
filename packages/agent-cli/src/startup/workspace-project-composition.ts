@@ -4,9 +4,6 @@ import { isAbsolute, relative, sep } from 'node:path';
 import {
   WorkspaceAuthorityRequiredError,
   createWorkspaceProjectContributionSource,
-  createNodeHostContributionSource,
-  createNodeHostSettingsStore,
-  createNodeWorkspaceTrustService,
   createRestrictedWorkspaceProjectAccess,
   createWorkspaceProjectSettingsSources,
   createWorkspaceProjectSettingsStore,
@@ -14,11 +11,16 @@ import {
   getWorkspaceProjectIdentity,
   getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
-  supportsWorkspaceProjectMutation,
 } from '@robota-sdk/agent-framework';
+import {
+  createNodeHostContributionSource,
+  createNodeHostSettingsStore,
+  createNodeWorkspaceTrustService,
+  supportsWorkspaceProjectMutation,
+} from '@robota-sdk/agent-framework/node';
 
 import type {
-  EditCheckpointStore,
+  IEditCheckpointStore,
   IContributionSource,
   IMemoryStore,
   ISettingsDocumentStore,
@@ -72,13 +74,15 @@ export interface ICliWorkspaceComposition {
    * A factory, not a store: a store holds its session's turn in progress, so sessions that run at
    * the same time each need their own.
    */
-  readonly createEditCheckpointStore?: () => EditCheckpointStore;
+  readonly createEditCheckpointStore?: () => IEditCheckpointStore;
 }
 
-export type TCliWorkspaceCompositionOverrides = Partial<Pick<
-  ICreateCliWorkspaceCompositionOptions,
-  'projectAccess' | 'projectSettingsWriter' | 'safeMode' | 'productRuntime'
->>;
+export type TCliWorkspaceCompositionOverrides = Partial<
+  Pick<
+    ICreateCliWorkspaceCompositionOptions,
+    'projectAccess' | 'projectSettingsWriter' | 'safeMode' | 'productRuntime'
+  >
+>;
 
 /**
  * A run that must start Restricted: set by `/cd` into a Restricted folder (issue #3081), and for a
@@ -128,7 +132,8 @@ export async function resolveInitialCliWorkspaceProjectAccess(
 ): Promise<TWorkspaceProjectAccess> {
   if (options.projectAccess !== undefined) return options.projectAccess;
   const runtime = options.productRuntime;
-  if (runtime === undefined) throw new Error('Workspace admission requires an explicit CLI runtime context.');
+  if (runtime === undefined)
+    throw new Error('Workspace admission requires an explicit CLI runtime context.');
   return createNodeWorkspaceTrustService(
     runtime.layout.userPaths.workspaceTrust,
     runtime.layout.projectStateDirectories,
@@ -235,7 +240,11 @@ export function createInitialCliWorkspaceComposition(
   cwd: string,
   overrides: TCliWorkspaceCompositionOverrides,
 ): ICliWorkspaceComposition {
-  return createCliWorkspaceComposition({ cwd, ...overrides, productRuntime: requiredProductRuntime(overrides.productRuntime) });
+  return createCliWorkspaceComposition({
+    cwd,
+    ...overrides,
+    productRuntime: requiredProductRuntime(overrides.productRuntime),
+  });
 }
 
 export function createCliWorkspaceComposition(
@@ -291,30 +300,58 @@ export function createCliWorkspaceComposition(
 }
 
 /** Product user roots are independent of the workspace state directory and third-party home roots. */
-export function createProductContributionSources(projectAccess: TWorkspaceProjectAccess, runtime: ICliRuntimeContext): readonly IContributionSource[] {
-  const projectSources = projectAccess.status === 'trusted' ? [createWorkspaceProjectContributionSource(
-    getWorkspaceProjectReader(projectAccess.authority), getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot,
-  )] : [];
+export function createProductContributionSources(
+  projectAccess: TWorkspaceProjectAccess,
+  runtime: ICliRuntimeContext,
+): readonly IContributionSource[] {
+  const projectSources =
+    projectAccess.status === 'trusted'
+      ? [
+          createWorkspaceProjectContributionSource(
+            getWorkspaceProjectReader(projectAccess.authority),
+            getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot,
+          ),
+        ]
+      : [];
   const owned = createNodeHostContributionSource(runtime.layout.userRoot);
-  const compatibility = runtime.userHome === undefined ? undefined : createNodeHostContributionSource(runtime.userHome);
+  const compatibility =
+    runtime.userHome === undefined ? undefined : createNodeHostContributionSource(runtime.userHome);
   const prefix = `${runtime.layout.projectDirectory}/`;
   const route = (path: string): { source: IContributionSource; path: string } | undefined => {
     const normalized = path.replace(/\\/gu, '/');
-    if (normalized.startsWith(prefix)) return { source: owned, path: normalized.slice(prefix.length) };
-    if (/^\.(?:agents|claude)\//u.test(normalized) && compatibility !== undefined) return { source: compatibility, path: normalized };
+    if (normalized.startsWith(prefix))
+      return { source: owned, path: normalized.slice(prefix.length) };
+    if (/^\.(?:agents|claude)\//u.test(normalized) && compatibility !== undefined)
+      return { source: compatibility, path: normalized };
     return undefined;
   };
   const user: IContributionSource = Object.freeze({
-    kind: 'host', displayName: runtime.layout.userRoot,
-    readText: (path: string, purpose: string) => { const entry = route(path); return entry?.source.readText(entry.path, purpose); },
-    listDirectory: (path: string, purpose: string) => { const entry = route(path); return entry?.source.listDirectory(entry.path, purpose) ?? []; },
-    inspectKind: (path: string, purpose: string) => { const entry = route(path); return entry?.source.inspectKind(entry.path, purpose); },
-    locate: (path: string) => { const entry = route(path); if (entry?.source.locate === undefined) throw new Error('Unconfigured host contribution path.'); return entry.source.locate(entry.path); },
+    kind: 'host',
+    displayName: runtime.layout.userRoot,
+    readText: (path: string, purpose: string) => {
+      const entry = route(path);
+      return entry?.source.readText(entry.path, purpose);
+    },
+    listDirectory: (path: string, purpose: string) => {
+      const entry = route(path);
+      return entry?.source.listDirectory(entry.path, purpose) ?? [];
+    },
+    inspectKind: (path: string, purpose: string) => {
+      const entry = route(path);
+      return entry?.source.inspectKind(entry.path, purpose);
+    },
+    locate: (path: string) => {
+      const entry = route(path);
+      if (entry?.source.locate === undefined)
+        throw new Error('Unconfigured host contribution path.');
+      return entry.source.locate(entry.path);
+    },
   });
   return [...projectSources, user];
 }
 
 function requiredProductRuntime(runtime: ICliRuntimeContext | undefined): ICliRuntimeContext {
-  if (runtime === undefined) throw new Error('Workspace composition requires an explicit CLI runtime context.');
+  if (runtime === undefined)
+    throw new Error('Workspace composition requires an explicit CLI runtime context.');
   return runtime;
 }

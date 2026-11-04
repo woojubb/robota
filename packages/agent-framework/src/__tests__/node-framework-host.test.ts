@@ -30,6 +30,7 @@ const MEMBERS: Record<keyof IFrameworkHost, true> = {
   reportObserverFailure: true,
   createAsyncScope: true,
   supportsProjectMutation: true,
+  validateSessionReplayLog: true,
 };
 
 let root: string;
@@ -194,5 +195,18 @@ describe('framework entry surfaces', () => {
   it('builds the Node host on ./node and leaves it off the main entry', () => {
     expect(Object.keys(NodeEntry)).toContain('createNodeFrameworkHost');
     expect(Object.keys(MainEntry)).not.toContain('createNodeFrameworkHost');
+  });
+
+  it('keeps the subagent transcript, a Node log file, on ./node alone', () => {
+    const names = [
+      'createSubagentLogger',
+      'migrateSubagentTranscripts',
+      'readSubagentTranscriptPage',
+      'resolveSubagentLogDir',
+      'resolveSubagentLogSessionId',
+      'resolveSubagentTranscriptPath',
+    ];
+    expect(Object.keys(NodeEntry)).toEqual(expect.arrayContaining(names));
+    for (const name of names) expect(Object.keys(MainEntry), name).not.toContain(name);
   });
 });

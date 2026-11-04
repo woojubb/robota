@@ -17,7 +17,7 @@ import type { IFrameworkHost } from '../host/framework-host.js';
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { TSessionFactory } from '../hooks/agent-executor.js';
 import type { TProviderFactory } from '../hooks/prompt-executor.js';
-import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
+import type { IInteractiveSessionStore } from '../interactive/session-store-types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
 import type {
@@ -140,10 +140,10 @@ export interface ICreateSessionOptions {
   /** Host-selected resource/dependency policy, independent of permission admission. */
   toolExecutionPolicy?: ISessionOptions['toolExecutionPolicy'];
   /**
-   * ARCH-006: REPLACES the framework's `createDefaultTools()` tier for this session; `[]` suppresses every
-   * framework default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's
-   * `builtInAgents` seam for subagents. Absent ⇒ the framework tier is constructed as before
-   * (byte-identical). The injected tools are used as given — the framework cannot re-bind the session
+   * ARCH-006: REPLACES the host's default tool tier (`host.createDefaultTools`) for this session; `[]`
+   * suppresses every default so a product's capability packs can own the whole tool surface. Mirrors
+   * NEUT-003's `builtInAgents` seam for subagents. Absent ⇒ the tier the host builds for the session,
+   * or none when the host lends no `createDefaultTools`. The injected tools are used as given — the framework cannot re-bind the session
    * context (`cwd`/`sandboxClient`) onto an already-constructed tool, so an injected replacement for a
    * context-sensitive default must carry that context itself.
    */

@@ -10,7 +10,9 @@ export { HeadlessInteractionChannel } from './transport-host/headless/HeadlessIn
 export type { IHeadlessInteractionChannelOptions } from './transport-host/headless/HeadlessInteractionChannel.js';
 export { createHeadlessRunner, OUTPUT_FORMATS } from './transport-host/headless/headless-runner.js';
 export type {
+  IHeadlessOutput,
   IHeadlessRunnerOptions,
+  IHeadlessTextSink,
   TOutputFormat,
 } from './transport-host/headless/headless-runner.js';
 export { createHeadlessTransport } from './transport-host/headless/headless-transport.js';
@@ -24,10 +26,7 @@ export { createProgrammaticAgent } from './transport-host/programmatic/createPro
 export type { ICreateProgrammaticAgentOptions } from './transport-host/programmatic/createProgrammaticAgent.js';
 export { TransportRegistry } from './transport-host/transport-registry.js';
 export { bindTransportAdapter } from './transport-host/bind-transport-adapter.js';
-export {
-  createFileTransportSettingsRepository,
-  createMemoryTransportSettingsRepository,
-} from './transport-host/transport-settings-repository.js';
+export { createMemoryTransportSettingsRepository } from './transport-host/memory-transport-settings-repository.js';
 
 // ── The platform the host lends: the `host` every session, runtime and query takes ────────
 export type { IAsyncScope, IFrameworkHost } from './host/framework-host.js';
@@ -37,10 +36,6 @@ export {
   WorkspaceAuthorityRequiredError,
   WorkspaceTrustService,
   createRestrictedWorkspaceProjectAccess,
-  createNodeWorkspaceIdentityResolver,
-  createNodeWorkspaceTrustService,
-  createNodeWorkspaceTrustStore,
-  inspectPreTrustProjectPaths,
   assertWorkspaceProjectAuthority,
   assertWorkspaceProjectReader,
   assertWorkspaceProjectMutation,
@@ -53,22 +48,22 @@ export {
   getWorkspaceProjectIdentity,
   getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
-  supportsWorkspaceProjectMutation,
 } from './workspace-trust/index.js';
 export type {
   IRestrictedWorkspaceProjectAccess,
   IWorkspaceTrustCause,
-  IPreTrustProjectPathInspection,
   ITrustedWorkspaceProjectAccess,
-  INodeWorkspaceTrustStoreOptions,
   IWorkspaceAncestorTextEntry,
   IWorkspaceDirectoryEntry,
   IWorkspaceIdentity,
   IWorkspaceIdentityResolver,
   IWorkspaceProjectAuthority,
+  IWorkspaceProjectFiles,
+  IWorkspaceProjectMutationBoundary,
   IWorkspaceProjectReader,
   IWorkspaceProjectMutation,
   IWorkspaceProjectSettingsWriter,
+  IWorkspaceProjectStableWriter,
   IWorkspaceProjectStateStorage,
   IWorkspaceTrustServiceOptions,
   IWorkspaceTrustGrant,
@@ -128,13 +123,7 @@ export {
 export { PlanController, type TPlanDecision, type IPlanControllerDeps } from './plan/index.js';
 export {
   ambiguousSessionNameMessage,
-  createProjectSessionStore,
-  createNodeHostSessionStore,
-  createNodeToolResultSpillStore,
   decorateSessionStore,
-  sweepStaleToolResultSpillDirectories,
-  createUserSessionStore,
-  createUserPromptHistoryFile,
   isSafeSessionId,
   isSessionLocked,
   listResumableSessionSummaries,
@@ -159,22 +148,17 @@ export {
   unverifiedSessionNotice,
   SessionRenameUnavailableError,
   persistSessionRename,
-  projectSessionClaimsDirectory,
-  WorkspaceProjectSessionStore,
-  WorkspaceSessionLogSink,
-  WorkspaceSessionLogSource,
-  migrateWorkspaceProjectSessionLogs,
-  migrateWorkspaceProjectSessionRecords,
 } from './interactive/index.js';
 export type {
-  IMigrateWorkspaceProjectStateOptions,
-  IWorkspaceSessionLogMigration,
-  IWorkspaceSessionRecordMigration,
   IHostToolResultSpillStore,
+  IInteractiveSessionRecord,
+  IInteractiveSessionStore,
+  IResumableSessionSummary,
   ISessionRecordRestoreResult,
   TLockedSessionReason,
   TSessionAuthorshipRefusal,
   TSessionIdResolution,
+  TSessionLoadOutcome,
   TSessionStoreOverrides,
   TRestoredScheduleDisposition,
 } from './interactive/index.js';
@@ -549,23 +533,16 @@ export type {
 export type { IPromptHistoryOptions } from './interactive/interactive-session-prompt-history.js';
 // ── Edit checkpointing ─────────────────────────────────────
 export {
-  EditCheckpointStore,
   EditCheckpointNumberingExhaustedError,
   EditCheckpointUnreadableError,
   EditCheckpointsLockedError,
   editCheckpointsLockedMessage,
   EditCheckpointsUnavailableError,
-  createDirectoryEditCheckpointState,
-  migrateWorkspaceEditCheckpoints,
   wrapEditCheckpointTools,
 } from './checkpoints/index.js';
 export type {
-  IEditCheckpointMigration,
-  IMigrateEditCheckpointsOptions,
-  TEditCheckpointKeptPlainReason,
   TEditCheckpointsUnavailableReason,
   TEditCheckpointUnreadableReason,
-  IEditCheckpointStateStorage,
   IEditCheckpointFileInspection,
   IEditCheckpointFileRecord,
   IEditCheckpointInspection,
@@ -574,6 +551,7 @@ export type {
   IEditCheckpointManifest,
   IEditCheckpointRecorder,
   IEditCheckpointRestoreResult,
+  IEditCheckpointStore,
   IEditCheckpointSummary,
   IEditCheckpointTurnInput,
   IEditCheckpointUnreadableCounts,
@@ -673,22 +651,12 @@ export {
   assembleSubagentPrompt,
   createSubagentSession,
   sandboxApprovalFor,
-  createSubagentLogger,
-  migrateSubagentTranscripts,
-  readSubagentTranscriptPage,
-  resolveSubagentLogDir,
-  resolveSubagentLogSessionId,
-  resolveSubagentTranscriptPath,
   deriveContextCapacityHint,
 } from './assembly/index.js';
 export type {
-  IReadSubagentTranscriptPageOptions,
-  ISubagentTranscriptMigration,
   ISubagentPromptOptions,
   ISubagentOptions,
   ISubagentParentContext,
-  ISubagentTranscriptPage,
-  ISubagentTranscriptUnreadable,
   TSubagentSuffix,
 } from './assembly/index.js';
 // `ICreateSessionOptions` stays exported although `createSession` does not (issue #2270).
@@ -817,8 +785,6 @@ export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './ho
 // ── Explicit project/host contribution sources ─────────────
 export {
   createContributionSourcesForProjectAccess,
-  createDefaultUserContributionSources,
-  createNodeHostContributionSource,
   createWorkspaceProjectContributionSource,
   listFrameworkProjectContributionPaths,
 } from './contributions/index.js';
@@ -900,30 +866,20 @@ export { consentScopeFor, promptForApproval } from './permissions/permission-pro
 
 // ── Settings I/O ─────────────────────────────────────────────
 export {
-  createNodeHostSettingsSource,
   createWorkspaceProjectSettingsSources,
   readSettingsSourceText,
 } from './config/settings-source.js';
 export type {
-  INodeHostSettingsSource,
+  IHostSettingsSource,
   IProjectSettingsPath,
   IWorkspaceProjectSettingsSource,
   THostSettingsScope,
   TProjectSettingsScope,
   TSettingsSource,
 } from './config/settings-source.js';
-export {
-  createNodeHostSettingsStore,
-  createWorkspaceProjectSettingsStore,
-} from './config/settings-store.js';
-export type { ISettingsDocumentStore } from './config/settings-store.js';
-export {
-  readSettings,
-  writeSettings,
-  updateModelInSettings,
-  deleteSettings,
-} from './config/settings-io.js';
-export type { TSettingsData, TSettingsScope } from './config/settings-io.js';
+export { createWorkspaceProjectSettingsStore } from './config/settings-store.js';
+export type { ISettingsDocumentStore, TSettingsData } from './config/settings-store-types.js';
+export type { TSettingsScope } from './config/settings-scope-types.js';
 export { inspectSettingsLayers } from './config/settings-inspection.js';
 export {
   createSettingsPermissionRulesAdapter,
@@ -949,22 +905,17 @@ export type {
 } from './commands/index.js';
 export { SettingsParseError } from './config/settings-parse-error.js';
 export { NoCurrentProviderProfileError } from './config/no-current-provider-profile-error.js';
-export { resetUserConfig } from './config/reset-user-config.js';
-export type { IResetUserConfigResult } from './config/reset-user-config.js';
 
 // ── Git utilities ─────────────────────────────────────────────
-export { resolveGitBranchFromNodeHost } from './git/git-branch.js';
 // BEHAVIOR-2437 / #3282 §4c: the git process port and the `/git status` + `/git diff` readers moved
 // here from `agent-command` (which depends on this package, never the reverse) so the Project panel's
 // session-level reads and the `/git` command run through the exact SAME functions — never a second,
 // possibly-drifting implementation of "what changed" or "what does this diff show".
 export {
-  createGitProcess,
   executeGitDiff,
   executeGitStatus,
   formatGitStatus,
   gitDiffArgv,
-  gitEnvironment,
   gitFailureMessage,
   isNotAGitRepositoryFailure,
   parseGitDiffArgs,
@@ -973,16 +924,12 @@ export {
   parseUnifiedDiffLines,
   readProjectGitDiff,
   readProjectGitStatus,
-  GIT_DEFAULT_TIMEOUT_MS,
   GIT_DIFF_USAGE,
-  GIT_ENV_DENYLIST,
-  GIT_MAX_OUTPUT_BYTES,
   GIT_STATUS_ARGS,
   MAX_PROJECT_DIFF_LINES,
   MAX_STATUS_FILES,
 } from './git/index.js';
 export type {
-  ICreateGitProcessOptions,
   IGitDiffArgs,
   IGitProcessPort,
   IGitProcessRunOptions,
@@ -1003,9 +950,6 @@ export type {
 // ── Semver comparison ─────────────────────────────────────────
 export { compareSemverVersions, isNewerSemverVersion } from './utils/semver-compare.js';
 export { trimTrailingChars } from './utils/trim-char.js';
-
-// ── Package version ───────────────────────────────────────────
-export { readPackageVersion } from './utils/read-package-version.js';
 
 // ── Agent runtime ─────────────────────────────────────────────
 export { createAgentRuntime, createStatelessRuntime } from './runtime/index.js';

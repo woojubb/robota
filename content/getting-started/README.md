@@ -243,13 +243,18 @@ response = await agent.run('Continue our conversation.');
 
 `InteractiveSession` from `@robota-sdk/agent-framework` is what the CLI runs on: a conversation with
 the built-in tools (file read, write and edit, glob and grep search, shell, web fetch and search),
-permission modes, hooks, compaction and streaming events.
+permission modes, hooks, compaction and streaming events. The tools come from the `host` you pass:
+`createNodeFrameworkHost({ createDefaultTools })` builds them for `cwd`, and a host that lends no
+`createDefaultTools` gives the session none.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const session = new InteractiveSession({
+  host: createNodeFrameworkHost({ createDefaultTools }),
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
   model: 'claude-sonnet-4-6',

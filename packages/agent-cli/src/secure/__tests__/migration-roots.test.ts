@@ -20,7 +20,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
-import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework';
+import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 

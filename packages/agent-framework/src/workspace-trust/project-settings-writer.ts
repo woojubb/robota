@@ -1,10 +1,8 @@
 import { assertProjectReadPurpose, workspacePathSegments } from './project-reader-path.js';
-import { createWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 import {
   assertWorkspaceProjectAuthority,
-  getWorkspaceProjectIdentity,
-  getWorkspaceProjectIdentityResolver,
+  getWorkspaceProjectMutationBoundary,
 } from './workspace-authority.js';
 
 import type {
@@ -20,18 +18,20 @@ const projectSettingsWriters = new WeakMap<object, IWorkspaceProjectAuthority>()
 class WorkspaceProjectSettingsWriter {
   readonly target: TWorkspaceProjectSettingsTarget;
   readonly relativePath: string;
+  readonly #write: (content: string) => void;
 
   constructor(
     target: IWorkspaceProjectSettingsWriter['target'],
     relativePath: string,
-    private readonly write: (content: string) => void,
+    write: (content: string) => void,
   ) {
     this.target = target;
     this.relativePath = relativePath;
+    this.#write = write;
   }
 
   writeText(content: string): void {
-    this.write(content);
+    this.#write(content);
   }
 }
 
@@ -48,9 +48,7 @@ export function createWorkspaceProjectSettingsWriter(
   assertProjectReadPurpose(decision.purpose);
   const relativePath = decision.relativePath;
   workspacePathSegments(relativePath);
-  const identity = getWorkspaceProjectIdentity(accepted);
-  const identityResolver = getWorkspaceProjectIdentityResolver(accepted);
-  const mutationBoundary = createWorkspaceProjectMutationBoundary(identity, identityResolver);
+  const mutationBoundary = getWorkspaceProjectMutationBoundary(accepted);
   const writer = Object.freeze(
     new WorkspaceProjectSettingsWriter(decision.target, relativePath, (content) => {
       assertWorkspaceProjectAuthority(accepted);

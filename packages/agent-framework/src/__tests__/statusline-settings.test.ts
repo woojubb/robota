@@ -8,6 +8,9 @@ import {
   applyStatusLineSettings,
   readStatusLineSettings,
 } from '../command-api/statusline/statusline-command-api.js';
+import { createNodeHostSettingsStore } from '../config/node-host-settings-store.js';
+
+import type { ISettingsDocumentStore, TSettingsData } from '../config/settings-store-types.js';
 
 const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-statusline-settings-test-')));
 
@@ -44,7 +47,9 @@ describe('statusline settings', () => {
       'utf8',
     );
 
-    applyStatusLineSettings(settingsPath, { gitBranch: false });
+    applyStatusLineSettings(createNodeHostSettingsStore('user', settingsPath), {
+      gitBranch: false,
+    });
 
     expect(readJson(settingsPath)).toEqual({
       language: 'ko',
@@ -53,5 +58,24 @@ describe('statusline settings', () => {
         gitBranch: false,
       },
     });
+  });
+
+  it('applies a patch through a store that is not a file', () => {
+    let document: TSettingsData = { language: 'ko' };
+    const store: ISettingsDocumentStore = {
+      kind: 'host',
+      scope: 'user',
+      displayName: 'memory',
+      source: { kind: 'host', scope: 'user', displayName: 'memory', read: () => undefined },
+      read: () => ({ ...document }),
+      write: (next) => {
+        document = next;
+      },
+    };
+
+    const next = applyStatusLineSettings(store, { enabled: false });
+
+    expect(next).toEqual({ enabled: false, gitBranch: true });
+    expect(document).toEqual({ language: 'ko', statusline: { enabled: false, gitBranch: true } });
   });
 });

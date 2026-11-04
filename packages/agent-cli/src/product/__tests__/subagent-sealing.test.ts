@@ -21,7 +21,7 @@ import {
   createUserSessionStore,
   readSubagentTranscriptPage,
   resolveSubagentTranscriptPath,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-framework/node';
 import { createKeyring } from '@robota-sdk/agent-keyring';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

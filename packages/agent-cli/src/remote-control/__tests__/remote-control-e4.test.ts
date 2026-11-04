@@ -10,6 +10,7 @@ import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transpo
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import type { IConnectionApproval, ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
 import { TransportRegistry } from '@robota-sdk/agent-framework';
+import { createFileTransportSettingsRepository } from '@robota-sdk/agent-framework/node';
 import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -38,7 +39,12 @@ const cryptoContext = createIdentityContext('test-agent-domain');
 
 function realRegistry(): TransportRegistry {
   return new TransportRegistry(
-    join(realpathSync(mkdtempSync(join(tmpdir(), 'agent-fixture-rc-registry-'))), 'settings.json'),
+    createFileTransportSettingsRepository(
+      join(
+        realpathSync(mkdtempSync(join(tmpdir(), 'agent-fixture-rc-registry-'))),
+        'settings.json',
+      ),
+    ),
   );
 }
 

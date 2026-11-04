@@ -1,21 +1,21 @@
-import { createStableRootedFileWriter } from '@robota-sdk/agent-file-authority';
 import {
   assertCurrentWorkspaceIdentity,
   assertProjectReadPurpose,
   workspacePathSegments,
 } from './project-reader-path.js';
-import { createWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 import {
   assertWorkspaceProjectAuthority,
   getWorkspaceProjectIdentity,
   getWorkspaceProjectIdentityResolver,
+  getWorkspaceProjectMutationBoundary,
+  openWorkspaceProjectStableWriter,
 } from './workspace-authority.js';
 
-import type { IWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
 import type {
   IWorkspaceProjectAuthority,
   IWorkspaceProjectMutation,
+  IWorkspaceProjectMutationBoundary,
   TWorkspaceProjectAuthorityCandidate,
   TWorkspaceProjectMutationDecision,
 } from './types.js';
@@ -31,7 +31,7 @@ export function prepareWorkflowJsonMutation(authority: IWorkspaceProjectAuthorit
   const identity = getWorkspaceProjectIdentity(accepted);
   const resolver = getWorkspaceProjectIdentityResolver(accepted);
   assertCurrentWorkspaceIdentity(identity, resolver);
-  const writer = createStableRootedFileWriter(identity.worktreeRoot);
+  const writer = openWorkspaceProjectStableWriter(accepted);
   let open = true;
   let approved = false;
   const verify = (): void => {
@@ -96,21 +96,24 @@ export function prepareWorkflowJsonMutation(authority: IWorkspaceProjectAuthorit
 }
 
 class WorkspaceProjectMutation {
-  constructor(
-    private readonly authority: IWorkspaceProjectAuthority,
-    private readonly boundary: IWorkspaceProjectMutationBoundary,
-  ) {}
+  readonly #authority: IWorkspaceProjectAuthority;
+  readonly #boundary: IWorkspaceProjectMutationBoundary;
+
+  constructor(authority: IWorkspaceProjectAuthority, boundary: IWorkspaceProjectMutationBoundary) {
+    this.#authority = authority;
+    this.#boundary = boundary;
+  }
 
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void {
-    assertWorkspaceProjectAuthority(this.authority);
+    assertWorkspaceProjectAuthority(this.#authority);
     assertProjectReadPurpose(purpose);
-    this.boundary.write(relativePath, content);
+    this.#boundary.write(relativePath, content);
   }
 
   deleteFile(relativePath: string, purpose: string): boolean {
-    assertWorkspaceProjectAuthority(this.authority);
+    assertWorkspaceProjectAuthority(this.#authority);
     assertProjectReadPurpose(purpose);
-    return this.boundary.delete(relativePath);
+    return this.#boundary.delete(relativePath);
   }
 }
 
@@ -126,13 +129,7 @@ export function createWorkspaceProjectMutation(
   }
   assertProjectReadPurpose(decision.purpose);
   const mutation = Object.freeze(
-    new WorkspaceProjectMutation(
-      accepted,
-      createWorkspaceProjectMutationBoundary(
-        getWorkspaceProjectIdentity(accepted),
-        getWorkspaceProjectIdentityResolver(accepted),
-      ),
-    ),
+    new WorkspaceProjectMutation(accepted, getWorkspaceProjectMutationBoundary(accepted)),
   );
   projectMutations.set(mutation, accepted);
   return mutation as IWorkspaceProjectMutation;

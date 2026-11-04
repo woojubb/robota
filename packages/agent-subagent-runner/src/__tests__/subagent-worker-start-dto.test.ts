@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 
 import { RESUME_HELD_MAX_CHARACTERS } from '../child-process-subagent-ipc.js';
 import {

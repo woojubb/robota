@@ -23,7 +23,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { ArtifactCorruptError, ArtifactLockedError } from '@robota-sdk/agent-core';
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ChildProcessSubagentRunner } from '../index.js';

@@ -12,10 +12,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { summarizeRuntimeTiming } from './runtime-timing.mjs';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
-import {
-  createNodeHostSessionStore,
-  createNodeWorkspaceTrustService,
-} from '../../agent-framework/src/index.ts';
+import { createNodeHostSessionStore } from '../../agent-framework/src/node.ts';
+import { createNodeWorkspaceTrustService } from '../../agent-framework/src/node.ts';
 import {
   createTestBinaryEnvironment,
   createTestProductRuntime,

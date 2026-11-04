@@ -61,14 +61,14 @@ import type {
   IAutomaticMemoryConfig,
   IPerTurnRecallConfig,
   TWorkspaceProjectAccess,
-  EditCheckpointStore,
+  IEditCheckpointStore,
   TInteractiveSessionOptions,
   IOrgPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
   IContributionSource,
   ISkillRootDescriptor,
-  INodeHostSettingsSource,
+  IHostSettingsSource,
   IToolCallHandoffPolicy,
   ICreateSessionOptions,
   ILivePromptTracePort,
@@ -105,7 +105,7 @@ export interface IRenderOptions {
   taskContext?: { readonly enabled?: boolean; readonly dir?: string };
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   environment?: Readonly<Record<string, string | undefined>>;
   resolveProviderCredential?: TProviderCredentialResolver;
   /**
@@ -124,7 +124,7 @@ export interface IRenderOptions {
    * session keeps checkpoints. A factory, not a store: a session switch builds the next channel
    * while the old session may still be finishing a turn, and a store holds one turn in progress.
    */
-  createEditCheckpointStore?: () => EditCheckpointStore;
+  createEditCheckpointStore?: () => IEditCheckpointStore;
   /** The host's way to build each external-event grant's verifier; absent, no grant opens. */
   externalEventVerifierFactory?: TInteractiveSessionOptions['externalEventVerifierFactory'];
   /**

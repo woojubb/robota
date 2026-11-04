@@ -11,7 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { chromium } from 'playwright';
 import { preview } from 'vite';
-import { createNodeWorkspaceTrustService } from '../../agent-framework/src/index.ts';
+import { createNodeWorkspaceTrustService } from '../../agent-framework/src/node.ts';
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../agent-cli/src/__tests__/helpers/product-runtime.ts';
 import { respond } from '../../agent-cli/src/__tests__/helpers/provider-wire-fixture.ts';
 import { createInitialCliWorkspaceComposition } from '../../agent-cli/src/startup/workspace-project-composition.ts';

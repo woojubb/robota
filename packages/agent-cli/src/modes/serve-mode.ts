@@ -73,7 +73,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type {
-  EditCheckpointStore,
+  IEditCheckpointStore,
   IAgentDefinition,
   IBackgroundTaskRunner,
   ICommandHostAdapters,
@@ -83,15 +83,15 @@ import type {
   IRemoteCommandPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
-  INodeHostSettingsSource,
+  IHostSettingsSource,
   IContributionSource,
   ISkillRootDescriptor,
   IToolCallHandoffPolicy,
   TInteractiveSessionOptions,
   TWorkspaceProjectAccess,
   ILivePromptTracePort,
-  createProjectSessionStore,
 } from '@robota-sdk/agent-framework';
+import type { createProjectSessionStore } from '@robota-sdk/agent-framework/node';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { ITransportLifecycleRegistryView } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession, ISessionLoopState } from '@robota-sdk/agent-interface-session';
@@ -138,9 +138,9 @@ export interface IServeModeOptions {
    * Builds a session's edit checkpoint store. Called once per session, the pool's included: a store
    * holds its session's turn in progress, and pooled sessions run turns at the same time.
    */
-  createEditCheckpointStore?: () => EditCheckpointStore;
+  createEditCheckpointStore?: () => IEditCheckpointStore;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
   taskContext?: { readonly enabled?: boolean; readonly dir?: string };

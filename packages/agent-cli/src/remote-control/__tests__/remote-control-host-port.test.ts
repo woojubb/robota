@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { TransportRegistry } from '@robota-sdk/agent-framework';
+import { createFileTransportSettingsRepository } from '@robota-sdk/agent-framework/node';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import { RemoteControlController } from '../remote-control-controller.js';
@@ -12,12 +13,17 @@ import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { SecureSurfaceRefusedError } from '../../secure/secure-surfaces.js';
 
 const directories: string[] = [];
-afterEach(() => { for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true }); });
+afterEach(() => {
+  for (const directory of directories.splice(0))
+    rmSync(directory, { recursive: true, force: true });
+});
 
 function registry(): TransportRegistry {
   const directory = realpathSync(mkdtempSync(join(tmpdir(), 'remote-host-port-')));
   directories.push(directory);
-  return new TransportRegistry(join(directory, 'settings.json'));
+  return new TransportRegistry(
+    createFileTransportSettingsRepository(join(directory, 'settings.json')),
+  );
 }
 
 function peer(): IConfigurableTransport<IProtocolSession> {

@@ -4,6 +4,7 @@ import {
 } from '@robota-sdk/agent-file-authority';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createNodeWorkspaceProjectFiles } from './node-project-files.js';
 import { createWorkspaceProjectReader } from './project-reader.js';
 import { ProjectReadLimitExceededError } from './project-reader-path.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
@@ -58,9 +59,14 @@ const identityResolver: IWorkspaceIdentityResolver = {
 };
 
 function reader() {
-  return createWorkspaceProjectReader(identity, identityResolver, () => {
-    activeChecks += 1;
-  });
+  return createWorkspaceProjectReader(
+    identity,
+    identityResolver,
+    () => {
+      activeChecks += 1;
+    },
+    createNodeWorkspaceProjectFiles(),
+  );
 }
 
 afterEach(() => {

@@ -12,8 +12,10 @@ import { join } from 'node:path';
 
 import { afterAll, describe, expect, it, vi } from 'vitest';
 
+import { selectCommandModules } from '@robota-sdk/agent-framework';
+
 import { createDefaultCommandModules } from '../../default/index.js';
-import { createEditorCommandModule } from '../../editor/index.js';
+import { createEditorCommandModule, openFileInEditor } from '../../editor/index.js';
 import { createKeybindingsCommandModule } from '../../keybindings/index.js';
 import { createShellCommandModule } from '../../shell/index.js';
 import { createThemeCommandModule } from '../../theme/index.js';
@@ -89,14 +91,30 @@ async function inProcess(module: ICommandModule, host: unknown, args: string) {
   return command.execute(host as ICommandHostContext, args);
 }
 
+/**
+ * A Node product's assembly: the default set, plus the host commands `/shell` and `/editor` that live
+ * on `./node` and a product's coding pack adds, then the module selection over all of it.
+ */
+function productModules(selection: {
+  enabledCommandModules?: readonly string[];
+  disabledCommandModules?: readonly string[];
+}): readonly ICommandModule[] {
+  const { modules } = createDefaultCommandModules({
+    cwd: '/tmp',
+    userLocalStorageRoot: USER_LOCAL_STORAGE_ROOT,
+    providerDefinitions,
+    providerSettingsAdapter,
+  });
+  return selectCommandModules(
+    [...modules, createShellCommandModule(), createEditorCommandModule()],
+    selection.enabledCommandModules,
+    selection.disabledCommandModules,
+  );
+}
+
 describe('createTerminalClientCommands (#3189)', () => {
-  it('names exactly the commands the default assembly marks as client-run', () => {
-    const { modules } = createDefaultCommandModules({
-      cwd: '/tmp',
-      userLocalStorageRoot: USER_LOCAL_STORAGE_ROOT,
-      providerDefinitions,
-      providerSettingsAdapter,
-    });
+  it('names exactly the commands the product assembly marks as client-run', () => {
+    const modules = productModules({});
     const clientRun = modules
       .flatMap((module) => module.systemCommands ?? [])
       .filter((command) => command.runner === 'client')
@@ -111,15 +129,9 @@ describe('createTerminalClientCommands (#3189)', () => {
     ).toEqual(clientRun);
   });
 
-  it('leaves out a client command whose module the selection disables, as the default assembly does', () => {
+  it('leaves out a client command whose module the selection disables, as the product assembly does', () => {
     const selection = { disabledCommandModules: ['agent-command-shell'] };
-    const { modules } = createDefaultCommandModules({
-      cwd: '/tmp',
-      userLocalStorageRoot: USER_LOCAL_STORAGE_ROOT,
-      providerDefinitions,
-      providerSettingsAdapter,
-      ...selection,
-    });
+    const modules = productModules(selection);
     const clientRun = modules
       .flatMap((module) => module.systemCommands ?? [])
       .filter((command) => command.runner === 'client')
@@ -173,7 +185,11 @@ describe('createTerminalClientCommands (#3189)', () => {
     const keybindingsHost = hostWithoutTerminal();
     const keybindings = await find(commands, 'keybindings').execute(keybindingsHost, '');
     expect(keybindings).toEqual(
-      await inProcess(createKeybindingsCommandModule(keybindingsFile), keybindingsHost, ''),
+      await inProcess(
+        createKeybindingsCommandModule(keybindingsFile, openFileInEditor),
+        keybindingsHost,
+        '',
+      ),
     );
     expect(keybindings.success).toBe(false);
     expect(keybindingsFile.ensureFile).not.toHaveBeenCalled();

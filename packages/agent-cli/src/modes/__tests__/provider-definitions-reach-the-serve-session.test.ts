@@ -21,7 +21,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { InteractiveSession, createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
+import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import { createProviderCommandModule } from '@robota-sdk/agent-command';
 
 import { buildServeSessionOptions } from '../serve-mode.js';
@@ -50,7 +51,9 @@ const DEFINITIONS: readonly IProviderDefinition[] = [
 
 describe('#3282 — provider definitions reach a served session', () => {
   it('buildServeSessionOptions forwards them into the session options', () => {
-    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({
+      host: testHost,
+      productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},
@@ -64,7 +67,9 @@ describe('#3282 — provider definitions reach a served session', () => {
     // An explicit `[]` would look like "the caller supplied none" and read as configured. Absent is
     // the honest shape for "this surface did not provide them" — see the identical reasoning in the
     // TUI's own version of this case.
-    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({
+      host: testHost,
+      productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},
@@ -120,14 +125,19 @@ describe('#3282 — provider definitions reach a served session', () => {
       // Built exactly the way `runServeMode` builds a served session's options — `providerDefinitions`
       // included (the fix) and a `/provider` command module sharing the same definitions and the same
       // settings file the CLI composition root wires both to.
-      const sessionOptions = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
+      const sessionOptions = buildServeSessionOptions({
+        host: testHost,
+        productRuntime: createTestProductRuntime(),
         cwd: dir,
         args: { noSessionPersistence: true } as never,
         preset: {},
         provider: DEFINITIONS[0]!.createProvider({ name: 'acme-a', model: 'model-a' }),
         providerDefinitions: DEFINITIONS,
         commandModules: [
-          createProviderCommandModule({ providerDefinitions: DEFINITIONS, settings: settingsAdapter }),
+          createProviderCommandModule({
+            providerDefinitions: DEFINITIONS,
+            settings: settingsAdapter,
+          }),
         ],
         commandHostAdapters: {},
         backgroundTaskRunners: [],

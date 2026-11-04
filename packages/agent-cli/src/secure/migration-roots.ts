@@ -23,12 +23,13 @@ import { lstatSync, statSync } from 'node:fs';
 import { realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 
+import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
 import {
-  WorkspaceTrustService,
   createNodeWorkspaceIdentityResolver,
+  createNodeWorkspaceProjectFiles,
   createNodeWorkspaceTrustStore,
   supportsWorkspaceProjectMutation,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-framework/node';
 import {
   readPromptHistoryProjects,
   readSessionStoreWorkingDirectories,
@@ -256,6 +257,7 @@ export async function discoverProjectRoots(
   const service = new WorkspaceTrustService({
     identityResolver: createNodeWorkspaceIdentityResolver(),
     store,
+    projectFiles: createNodeWorkspaceProjectFiles(),
     projectStateDirectories: runtime.layout.projectStateDirectories,
   });
   const projectDirectory = runtime.layout.projectDirectory;

@@ -13,21 +13,13 @@ export {
 export * from './plan/index.js';
 export * from './compact/index.js';
 export * from './context/index.js';
-export * from './editor/index.js';
 export {
   createGitCommandEntry,
   createGitCommandModule,
-  createGitProcess,
   executeGitCommand,
-  gitEnvironment,
   GitCommandSource,
-  type ICreateGitProcessOptions,
   type IGitCommandModuleOptions,
-  type IGitProcessPort,
-  type IGitProcessRunOptions,
   type TGitCommandContext,
-  type TGitProcessFailureReason,
-  type TGitProcessOutcome,
 } from './git/index.js';
 // OBSERVABILITY-1991: named rather than `export *` — the star form is frozen debt in this barrel.
 export {
@@ -39,13 +31,11 @@ export {
   collectSettingsSecrets,
   createDoctorCommandEntry,
   createDoctorCommandModule,
-  createNodeDoctorDeps,
   isDoctorRepairId,
   planDoctorRepair,
   redactDiagnosticText,
   renderDoctorReport,
   type IDoctorDisplayVocabulary,
-  resolveCommandOnPath,
   runDoctor,
   type IDoctorCheck,
   type IDoctorDeps,
@@ -99,6 +89,7 @@ export {
   createKeybindingsCommandModule,
   KeybindingsCommandSource,
   type IKeybindingsFilePort,
+  type TOpenFileInEditor,
 } from './keybindings/index.js';
 export {
   createThemeCommandEntry,
@@ -151,7 +142,6 @@ export {
 export * from './permissions/index.js';
 export * from './plugin/index.js';
 export * from './preset/index.js';
-export * from './shell/index.js';
 export * from './provider/index.js';
 export * from './remote-control/index.js';
 export * from './reset/index.js';
@@ -161,9 +151,4 @@ export * from './session/index.js';
 export * from './settings/index.js';
 export * from './skills/index.js';
 export * from './statusline/index.js';
-export {
-  createTerminalClientCommands,
-  type ITerminalClientCommand,
-  type ITerminalClientCommandOptions,
-} from './terminal-client/index.js';
 export * from './user-local/index.js';

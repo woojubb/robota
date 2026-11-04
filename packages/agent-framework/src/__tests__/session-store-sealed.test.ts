@@ -24,10 +24,8 @@ import { createTestArtifactSealer, openTestWriteGrant } from '@robota-sdk/agent-
 import { SealedSessionUnreadableError, loadSessionForUpdate } from '@robota-sdk/agent-session';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import {
-  WorkspaceSessionLogSink,
-  createProjectSessionStore,
-} from '../interactive/session-persistence.js';
+import { WorkspaceSessionLogSink } from '../interactive/workspace-session-io.js';
+import { createProjectSessionStore } from '../interactive/node-session-stores.js';
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 

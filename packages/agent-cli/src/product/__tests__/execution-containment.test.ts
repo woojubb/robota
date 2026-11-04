@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 
-import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -31,7 +31,8 @@ afterEach(() => rmSync(root, { recursive: true, force: true }));
 function sandboxWith(settings: object | undefined, availability: IOsSandboxAvailability) {
   const path = join(root, 'settings.json');
   writeFileSync(path, JSON.stringify(settings === undefined ? {} : { sandbox: settings }));
-  return createProductSandbox({productRuntime: createTestProductRuntime(),
+  return createProductSandbox({
+    productRuntime: createTestProductRuntime(),
     cwd: root,
     settingsSources: [createNodeHostSettingsSource('user', path)],
     detect: () => availability,
@@ -45,7 +46,13 @@ describe('test-product execution containment', () => {
     const hidden = sandbox.client?.policy().denyRead.map((entry) => entry.path) ?? [];
     // Paths are made real (macOS `/var` is `/private/var`), so compare the user-root-relative tail.
     const state = basename(runtime.layout.userRoot);
-    for (const entry of ['settings.json', 'credentials', 'mcp-credentials', 'remote-host-identity.json', 'secure']) {
+    for (const entry of [
+      'settings.json',
+      'credentials',
+      'mcp-credentials',
+      'remote-host-identity.json',
+      'secure',
+    ]) {
       expect(hidden.some((path) => path.endsWith(join(state, entry)))).toBe(true);
     }
     expect(hidden.some((path) => path.endsWith(state))).toBe(false);

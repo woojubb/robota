@@ -28,15 +28,17 @@ import { join } from 'node:path';
 
 import { goneProcessOwner, leaveProcessScopedDirectory } from '@robota-sdk/agent-core/testing';
 import {
+  createWorkspaceProjectMutation,
+  getWorkspaceProjectStateStorage,
+} from '@robota-sdk/agent-framework';
+import {
   EditCheckpointStore,
   WorkspaceSessionLogSink,
   createNodeWorkspaceTrustService,
   createProjectSessionStore,
-  createWorkspaceProjectMutation,
-  getWorkspaceProjectStateStorage,
   readSubagentTranscriptPage,
   resolveSubagentTranscriptPath,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-framework/node';
 import { serializeKeyring } from '@robota-sdk/agent-keyring';
 import { FileSessionLogger, loadSessionLogEntries } from '@robota-sdk/agent-session';
 import {

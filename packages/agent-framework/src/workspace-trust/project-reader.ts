@@ -1,14 +1,5 @@
-import { sep } from 'node:path';
+import { separatorOf, utf8Decode } from '@robota-sdk/agent-core';
 
-import {
-  createStableRootedFileReader,
-  StableFileAuthorityError,
-} from '@robota-sdk/agent-file-authority';
-
-import {
-  inspectProjectKindFromHandle,
-  listProjectDirectoryFromHandle,
-} from './project-reader-handle.js';
 import {
   assertCurrentWorkspaceIdentity,
   assertProjectReadPurpose,
@@ -17,10 +8,6 @@ import {
   resolveProjectReadLimit,
   workspacePathSegments,
 } from './project-reader-path.js';
-import {
-  inspectPortableProjectKind,
-  listPortableProjectDirectory,
-} from './project-reader-portable.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 
 import type {
@@ -28,6 +15,7 @@ import type {
   IWorkspaceDirectoryEntry,
   IWorkspaceIdentity,
   IWorkspaceIdentityResolver,
+  IWorkspaceProjectFiles,
   IWorkspaceProjectReader,
   TWorkspaceProjectAuthorityCandidate,
   TWorkspaceContributionKind,
@@ -37,6 +25,7 @@ const projectReaders = new WeakMap<object, () => void>();
 const FIRST_BYTE_OVER_LIMIT = BigInt('1');
 
 function readProjectBytes(
+  projectFiles: IWorkspaceProjectFiles,
   identity: IWorkspaceIdentity,
   identityResolver: IWorkspaceIdentityResolver,
   segments: readonly string[],
@@ -44,20 +33,12 @@ function readProjectBytes(
 ): Uint8Array | undefined {
   assertCurrentWorkspaceIdentity(identity, identityResolver);
   try {
-    const reader = createStableRootedFileReader(identity.worktreeRoot);
-    try {
-      return reader.readBytes(segments, maxBytes);
-    } finally {
-      reader.close();
-    }
+    const bytes = projectFiles.readBytes(identity.worktreeRoot, segments, maxBytes);
+    if (bytes === 'over-budget') return throwProjectReadLimitExceeded(maxBytes);
+    return bytes;
   } catch (error) {
-    if (error instanceof StableFileAuthorityError) {
-      if (error.code === 'OVER_BUDGET') {
-        return throwProjectReadLimitExceeded(maxBytes);
-      }
-      const message = stableProjectReadRefusalMessage(error);
-      throw new WorkspaceAuthorityRequiredError(message, error);
-    }
+    // A refusal the host already phrased (or the limit above) passes through whole; anything else a
+    // host throws is reported as a refusal that names no path.
     if (error instanceof WorkspaceAuthorityRequiredError) throw error;
     throw new WorkspaceAuthorityRequiredError(
       'The project file could not be read through a stable root authority.',
@@ -67,61 +48,66 @@ function readProjectBytes(
   }
 }
 
-function stableProjectReadRefusalMessage(error: StableFileAuthorityError): string {
-  if (error.code === 'UNSAFE_ENTRY') {
-    return 'Project file authority rejected an unsafe path entry.';
-  }
-  if (error.code === 'UNSUPPORTED_BACKEND') {
-    return 'This host cannot provide stable root-relative project reads.';
-  }
-  return 'The project file could not be read through a stable root authority.';
-}
-
 function throwProjectReadLimitExceeded(maxBytes: number): never {
   throw new ProjectReadLimitExceededError(maxBytes, BigInt(maxBytes) + FIRST_BYTE_OVER_LIMIT);
 }
 
-class NodeWorkspaceProjectReader {
+class WorkspaceProjectReader {
+  // Private for real (`#`): the reader is handed to code that must stay inside the trusted root, and
+  // the host's file operations take any root, so no property of the reader may carry them.
+  readonly #projectFiles: IWorkspaceProjectFiles;
+  readonly #identity: IWorkspaceIdentity;
+  readonly #identityResolver: IWorkspaceIdentityResolver;
+  readonly #assertActive: () => void;
+
   constructor(
-    private readonly identity: IWorkspaceIdentity,
-    private readonly identityResolver: IWorkspaceIdentityResolver,
-    private readonly assertActive: () => void,
-  ) {}
+    projectFiles: IWorkspaceProjectFiles,
+    identity: IWorkspaceIdentity,
+    identityResolver: IWorkspaceIdentityResolver,
+    assertActive: () => void,
+  ) {
+    this.#projectFiles = projectFiles;
+    this.#identity = identity;
+    this.#identityResolver = identityResolver;
+    this.#assertActive = assertActive;
+  }
 
   readText(relativePath: string, purpose: string): string | undefined {
-    this.assertActive();
+    this.#assertActive();
     const bytes = this.readBytes(relativePath, purpose);
-    return bytes === undefined ? undefined : Buffer.from(bytes).toString('utf8');
+    return bytes === undefined ? undefined : utf8Decode(bytes);
   }
 
   readBytes(relativePath: string, purpose: string, maxBytes?: number): Uint8Array | undefined {
-    this.assertActive();
+    this.#assertActive();
     assertProjectReadPurpose(purpose);
     const segments = workspacePathSegments(relativePath);
     const limit = resolveProjectReadLimit(maxBytes);
     try {
-      return readProjectBytes(this.identity, this.identityResolver, segments, limit);
+      return readProjectBytes(
+        this.#projectFiles,
+        this.#identity,
+        this.#identityResolver,
+        segments,
+        limit,
+      );
     } finally {
-      this.assertActive();
+      this.#assertActive();
     }
   }
 
   listDirectory(relativePath: string, purpose: string): readonly IWorkspaceDirectoryEntry[] {
-    this.assertActive();
+    this.#assertActive();
     assertProjectReadPurpose(purpose);
     const segments = workspacePathSegments(relativePath, true);
-    return process.platform === 'linux'
-      ? listProjectDirectoryFromHandle(this.identity, this.identityResolver, segments)
-      : listPortableProjectDirectory(this.identity, this.identityResolver, segments);
+    return this.#projectFiles.listDirectory(this.#identity, this.#identityResolver, segments);
   }
 
   inspectKind(relativePath: string, purpose: string): TWorkspaceContributionKind | undefined {
-    this.assertActive();
+    this.#assertActive();
     assertProjectReadPurpose(purpose);
     const segments = workspacePathSegments(relativePath, true);
-    return process.platform === 'linux'
-      ? inspectProjectKindFromHandle(this.identity, this.identityResolver, segments)
-      : inspectPortableProjectKind(this.identity, this.identityResolver, segments);
+    return this.#projectFiles.inspectKind(this.#identity, this.#identityResolver, segments);
   }
 
   readTextAlongAncestors(
@@ -129,7 +115,7 @@ class NodeWorkspaceProjectReader {
     filename: string,
     purpose: string,
   ): readonly IWorkspaceAncestorTextEntry[] {
-    this.assertActive();
+    this.#assertActive();
     assertProjectReadPurpose(purpose);
     const startSegments = workspacePathSegments(startRelativeDirectory, true);
     const filenameSegments = workspacePathSegments(filename);
@@ -139,7 +125,11 @@ class NodeWorkspaceProjectReader {
     const entries: IWorkspaceAncestorTextEntry[] = [];
     for (let count = 0; count <= startSegments.length; count += 1) {
       const directory = startSegments.slice(0, count);
-      const relativePath = [...directory, filenameSegments[0]].join(sep);
+      // Spelled with the separator of the root's own platform (`\` under `C:\repo`), as `node:path`
+      // spelled it; a read splits it back into segments whichever separator it has.
+      const relativePath = [...directory, filenameSegments[0]].join(
+        separatorOf(this.#identity.worktreeRoot),
+      );
       const content = this.readText(relativePath, purpose);
       if (content !== undefined) entries.push({ relativePath, content });
     }
@@ -147,13 +137,19 @@ class NodeWorkspaceProjectReader {
   }
 }
 
+/**
+ * A reader over `projectFiles` for one identity. Internal: the workspace trust service binds it to an
+ * authority it mints, and a host's own contribution root builds one for a root it owns; no barrel
+ * exports it, so nothing outside the package can build a reader for an authority.
+ */
 export function createWorkspaceProjectReader(
   identity: IWorkspaceIdentity,
   identityResolver: IWorkspaceIdentityResolver,
   assertActive: () => void,
+  projectFiles: IWorkspaceProjectFiles,
 ): IWorkspaceProjectReader {
   const reader = Object.freeze(
-    new NodeWorkspaceProjectReader(identity, identityResolver, assertActive),
+    new WorkspaceProjectReader(projectFiles, identity, identityResolver, assertActive),
   );
   projectReaders.set(reader, assertActive);
   return reader as IWorkspaceProjectReader;

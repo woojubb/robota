@@ -227,13 +227,17 @@ response = await agent.run('대화를 이어가 주세요.');
 
 `@robota-sdk/agent-framework`의 `InteractiveSession`은 CLI가 쓰는 바로 그 세션입니다. 내장 도구(파일 읽기·
 쓰기·편집, glob·grep 검색, 셸, 웹 가져오기·검색), 권한 모드, 훅, 컴팩션, 스트리밍 이벤트를 갖춘 대화를
-제공합니다.
+제공합니다. 도구는 넘겨 주는 `host`에서 옵니다. `createNodeFrameworkHost({ createDefaultTools })`가 `cwd`용
+도구를 만들고, `createDefaultTools`를 주지 않는 호스트는 세션에 도구를 주지 않습니다.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const session = new InteractiveSession({
+  host: createNodeFrameworkHost({ createDefaultTools }),
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
   model: 'claude-sonnet-4-6',

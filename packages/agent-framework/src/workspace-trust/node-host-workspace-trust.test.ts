@@ -15,12 +15,13 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { WorkspaceTrustService } from './index.js';
 import {
-  WorkspaceTrustService,
   createNodeWorkspaceIdentityResolver,
   createNodeWorkspaceTrustStore,
-} from './index.js';
-import { repositoryKeyFromStats } from './node-host-workspace-trust.js';
+  repositoryKeyFromStats,
+} from './node-host-workspace-trust.js';
+import { createNodeWorkspaceProjectFiles } from './node-project-files.js';
 
 const roots: string[] = [];
 
@@ -57,7 +58,11 @@ describe('Node host workspace trust', () => {
     const storePath = join(tempRoot('agent-workspace-store-'), 'workspace-trust.json');
     const resolver = createNodeWorkspaceIdentityResolver();
     const store = createNodeWorkspaceTrustStore(storePath);
-    const service = new WorkspaceTrustService({ identityResolver: resolver, store });
+    const service = new WorkspaceTrustService({
+      identityResolver: resolver,
+      store,
+      projectFiles: createNodeWorkspaceProjectFiles(),
+    });
 
     const identity = resolver.resolve(root);
     expect(resolver.resolve(alias)).toEqual(identity);
@@ -90,6 +95,7 @@ describe('Node host workspace trust', () => {
     );
     const service = new WorkspaceTrustService({
       identityResolver: createNodeWorkspaceIdentityResolver(),
+      projectFiles: createNodeWorkspaceProjectFiles(),
       store,
     });
 
@@ -145,6 +151,7 @@ describe('Node host workspace trust', () => {
     if (!settleBirthTime(join(root, '.git'))) context.skip();
     const service = new WorkspaceTrustService({
       identityResolver: createNodeWorkspaceIdentityResolver(),
+      projectFiles: createNodeWorkspaceProjectFiles(),
       store: createNodeWorkspaceTrustStore(join(tempRoot('agent-workspace-store-'), 'trust.json')),
     });
     await service.grant(root);
@@ -193,6 +200,7 @@ describe('Node host workspace trust', () => {
     const store = createNodeWorkspaceTrustStore(storePath);
     const service = new WorkspaceTrustService({
       identityResolver: createNodeWorkspaceIdentityResolver(),
+      projectFiles: createNodeWorkspaceProjectFiles(),
       store,
     });
     await expect(service.inspect(root)).resolves.toMatchObject({ trustState: 'untrusted' });
@@ -312,6 +320,7 @@ describe('Node host workspace trust', () => {
     await expect(
       new WorkspaceTrustService({
         identityResolver: resolver,
+        projectFiles: createNodeWorkspaceProjectFiles(),
         store: createNodeWorkspaceTrustStore(storePath),
       }).grant(root),
     ).resolves.toMatchObject({ status: 'trusted' });
@@ -337,6 +346,7 @@ describe('Node host workspace trust', () => {
       const resolver = createNodeWorkspaceIdentityResolver();
       await new WorkspaceTrustService({
         identityResolver: resolver,
+        projectFiles: createNodeWorkspaceProjectFiles(),
         store: createNodeWorkspaceTrustStore(storePath),
       }).grant(root);
       chmodSync(storePath, 0o644);

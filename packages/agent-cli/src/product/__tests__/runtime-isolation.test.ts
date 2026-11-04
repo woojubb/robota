@@ -4,10 +4,8 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { embeddedProductIdentity, resolveProductConfig } from '@robota-sdk/product-config';
 import { robotaEnvironment } from '../../../../../products/robota.mjs';
-import {
-  createNodeHostSettingsSource,
-  createRestrictedWorkspaceProjectAccess,
-} from '@robota-sdk/agent-framework';
+import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 
 import {
   createTestProductEnvironment,
@@ -49,7 +47,9 @@ describe('per-invocation CLI product isolation', () => {
     const root = join(userHome, '.robota');
     mkdirSync(root);
     writeFileSync(join(root, 'settings.json'), JSON.stringify({ language: 'ko' }));
-    const runtime = resolveCliRuntimeContext({ environment: { HOME: userHome, PRODUCT_LOG_DIR: undefined } });
+    const runtime = resolveCliRuntimeContext({
+      environment: { HOME: userHome, PRODUCT_LOG_DIR: undefined },
+    });
     expect(readUserSettingsOrExit(runtime).language).toBe('ko');
     expect(runtime.layout.userRoot).toBe(root);
     expect(runtime.environment.PRODUCT_LOG_DIR).toBe(join(root, 'logs'));
@@ -84,19 +84,25 @@ describe('per-invocation CLI product isolation', () => {
     expect(runtime.environment.PRODUCT_CACHE_DIR).toBe(cache);
     expect(runtime.config.crypto.masterKeyDerivationPath).toEqual([7240, 1]);
     expect(runtime.environment.PROJECT_DOCS_URL).toBe('https://docs.example/robota');
-    expect(() => resolveCliRuntimeContext({
-      environment: { HOME: userHome, PRODUCT_LOG_DIR: logs, ROBOTA_LOG_DIR: cache },
-    })).toThrow('conflicts with ROBOTA_LOG_DIR');
-    expect(resolveCliRuntimeContext({
-      environment: { HOME: userHome, PRODUCT_LOG_DIR: logs, ROBOTA_LOG_DIR: logs },
-    }).environment.PRODUCT_LOG_DIR).toBe(logs);
+    expect(() =>
+      resolveCliRuntimeContext({
+        environment: { HOME: userHome, PRODUCT_LOG_DIR: logs, ROBOTA_LOG_DIR: cache },
+      }),
+    ).toThrow('conflicts with ROBOTA_LOG_DIR');
+    expect(
+      resolveCliRuntimeContext({
+        environment: { HOME: userHome, PRODUCT_LOG_DIR: logs, ROBOTA_LOG_DIR: logs },
+      }).environment.PRODUCT_LOG_DIR,
+    ).toBe(logs);
   });
 
   it('uses each invocation home for embedded Robota defaults without embedding build storage', () => {
     const buildHome = home();
-    const identity = embeddedProductIdentity(resolveProductConfig({
-      environment: robotaEnvironment({}, buildHome),
-    }));
+    const identity = embeddedProductIdentity(
+      resolveProductConfig({
+        environment: robotaEnvironment({}, buildHome),
+      }),
+    );
     vi.stubGlobal('__PRODUCT_CONFIG_IDENTITY__', identity);
     expect(JSON.stringify(identity)).not.toContain(buildHome);
     for (const userHome of [home(), home()]) {
@@ -112,15 +118,23 @@ describe('per-invocation CLI product isolation', () => {
 
   it('preserves embedded Robota operational overrides, empty inputs and identity conflicts', () => {
     const userHome = home();
-    vi.stubGlobal('__PRODUCT_CONFIG_IDENTITY__', embeddedProductIdentity(resolveProductConfig({
-      environment: robotaEnvironment({}, userHome),
-    })));
+    vi.stubGlobal(
+      '__PRODUCT_CONFIG_IDENTITY__',
+      embeddedProductIdentity(
+        resolveProductConfig({
+          environment: robotaEnvironment({}, userHome),
+        }),
+      ),
+    );
     const root = join(userHome, 'selected-state');
     const logs = join(userHome, 'selected-logs');
     const runtime = resolveCliRuntimeContext({
-      environment: { HOME: userHome,
+      environment: {
+        HOME: userHome,
         PRODUCT_ID: 'robota',
-        ROBOTA_USER_STATE_DIR: root, PRODUCT_LOG_DIR: logs },
+        ROBOTA_USER_STATE_DIR: root,
+        PRODUCT_LOG_DIR: logs,
+      },
     });
     expect(runtime.layout.userRoot).toBe(root);
     expect(runtime.environment.PRODUCT_CACHE_DIR).toBe(join(root, 'cache'));
@@ -132,7 +146,11 @@ describe('per-invocation CLI product isolation', () => {
       { PRODUCT_CLI_NAME: 'other' },
       { ROBOTA_MASTER_KEY_DERIVATION_PATH: '[7240,1]' },
     ]) {
-      expect(() => resolveCliRuntimeContext({ environment: { HOME: userHome, PRODUCT_ID: 'robota', ...environment } })).toThrow();
+      expect(() =>
+        resolveCliRuntimeContext({
+          environment: { HOME: userHome, PRODUCT_ID: 'robota', ...environment },
+        }),
+      ).toThrow();
     }
     expect(
       resolveCliRuntimeContext({ environment: { HOME: userHome, PRODUCT_ID: 'robota' } }).layout
@@ -145,12 +163,15 @@ describe('per-invocation CLI product isolation', () => {
     const config = resolveProductConfig({ environment: robotaEnvironment({}, directory) });
     vi.stubGlobal('__PRODUCT_CONFIG_IDENTITY__', embeddedProductIdentity(config));
     const filePath = join(directory, 'selected.env');
-    writeFileSync(filePath, Object.entries({
-      ...robotaEnvironment({}, directory),
-      PRODUCT_USER_STATE_DIR: './selected-state',
-      PRODUCT_CACHE_DIR: './selected-cache',
-      PRODUCT_LOG_DIR: './selected-logs',
-    }).map(([key, value]) => `${key}=${value}`)
+    writeFileSync(
+      filePath,
+      Object.entries({
+        ...robotaEnvironment({}, directory),
+        PRODUCT_USER_STATE_DIR: './selected-state',
+        PRODUCT_CACHE_DIR: './selected-cache',
+        PRODUCT_LOG_DIR: './selected-logs',
+      })
+        .map(([key, value]) => `${key}=${value}`)
         .join('\n'),
     );
     for (const options of [

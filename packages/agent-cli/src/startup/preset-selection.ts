@@ -14,7 +14,8 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import { join } from 'node:path';
 
-import { createPresetRegistry, loadExternalPresetsFromDir } from '@robota-sdk/agent-preset';
+import { createPresetRegistry } from '@robota-sdk/agent-preset';
+import { loadExternalPresetsFromDir } from '@robota-sdk/agent-preset/node';
 import type {
   IExternalPresetLoadResult,
   IPreset,

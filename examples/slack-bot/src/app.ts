@@ -1,7 +1,8 @@
 import 'dotenv/config';
 import { join } from 'node:path';
 import { App } from '@slack/bolt';
-import { createAgentRuntime, createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import { createAgentRuntime } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';

@@ -5,7 +5,8 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createNodeWorkspaceIdentityResolver, inspectPreTrustProjectPaths } from './index.js';
+import { createNodeWorkspaceIdentityResolver } from './node-host-workspace-trust.js';
+import { inspectPreTrustProjectPaths } from './pretrust-contribution-inspector.js';
 
 const roots: string[] = [];
 

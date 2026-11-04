@@ -18,6 +18,9 @@ import {
   isAppearanceSettingsPatch,
   readAppearanceSettings,
 } from '../command-api/appearance/appearance-command-api.js';
+import { createNodeHostSettingsStore } from '../config/node-host-settings-store.js';
+
+import type { ISettingsDocumentStore, TSettingsData } from '../config/settings-store-types.js';
 
 const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-appearance-settings-test-')));
 
@@ -106,7 +109,10 @@ describe('applying an appearance patch (SCREEN-2002 TC-07)', () => {
   it('writes the three keys flat and leaves every other setting alone', () => {
     const path = settingsFile({ language: 'ko', statusline: { enabled: false } });
 
-    const next = applyAppearanceSettings(path, { theme: 'dark-daltonized', reducedMotion: true });
+    const next = applyAppearanceSettings(createNodeHostSettingsStore('user', path), {
+      theme: 'dark-daltonized',
+      reducedMotion: true,
+    });
 
     expect(next).toEqual({
       theme: 'dark-daltonized',
@@ -125,8 +131,42 @@ describe('applying an appearance patch (SCREEN-2002 TC-07)', () => {
   it('merges over what is already stored rather than replacing it', () => {
     const path = settingsFile({ theme: 'light', syntaxHighlighting: false, reducedMotion: true });
 
-    const next = applyAppearanceSettings(path, { syntaxHighlighting: true });
+    const next = applyAppearanceSettings(createNodeHostSettingsStore('user', path), {
+      syntaxHighlighting: true,
+    });
 
     expect(next).toEqual({ theme: 'light', syntaxHighlighting: true, reducedMotion: true });
+  });
+});
+
+describe('applying an appearance patch to a store that is not a file', () => {
+  function memoryStore(
+    initial: TSettingsData,
+  ): ISettingsDocumentStore & { writes: TSettingsData[] } {
+    let document = initial;
+    const writes: TSettingsData[] = [];
+    return {
+      kind: 'host',
+      scope: 'user',
+      displayName: 'memory',
+      source: { kind: 'host', scope: 'user', displayName: 'memory', read: () => undefined },
+      read: () => ({ ...document }),
+      write: (next) => {
+        document = next;
+        writes.push(next);
+      },
+      writes,
+    };
+  }
+
+  it('reads and writes through the store and touches no file', () => {
+    const store = memoryStore({ language: 'ko' });
+
+    const next = applyAppearanceSettings(store, { reducedMotion: true });
+
+    expect(next).toEqual({ theme: 'dark', syntaxHighlighting: true, reducedMotion: true });
+    expect(store.writes).toEqual([
+      { language: 'ko', theme: 'dark', syntaxHighlighting: true, reducedMotion: true },
+    ]);
   });
 });

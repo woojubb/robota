@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
-import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../src/__tests__/helpers/product-runtime.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';

@@ -26,7 +26,7 @@ import { fileURLToPath } from 'node:url';
 import { ArtifactCorruptError, ArtifactLockedError } from '@robota-sdk/agent-core';
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
 import { SubagentManager } from '@robota-sdk/agent-executor';
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ChildProcessSubagentRunner, createChildProcessSubagentRunnerFactory } from '../index.js';

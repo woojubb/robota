@@ -2,10 +2,10 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import { productProviderDefinitions } from '../product/provider-definitions.js';
 import {
-  createNodeWorkspaceTrustService,
   type TWorkspaceProjectAccess,
   type WorkspaceTrustService,
 } from '@robota-sdk/agent-framework';
+import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
 
 import { formatProjectContributionPreview } from './project-contribution-preview.js';
 import { userPaths } from '../product/user-paths.js';

@@ -3,6 +3,7 @@ import { join } from 'node:path';
 
 import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type {
   IWorkspaceIdentity,
   IWorkspaceTrustStore,
@@ -35,6 +36,7 @@ export function createSessionEventRenderingProjectAccess(
     worktreeRoot: canonicalRoot,
   };
   return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     store: new ScenarioTrustStore(),
     projectStateDirectories: {

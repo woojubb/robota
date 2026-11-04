@@ -29,6 +29,9 @@ describe('the Node adapters of the plugin, user-local, provider and org-policy m
     'NodeFileSystemAsync',
     'loadOrgPolicy',
     'checkNodeHostSettingsFile',
+    'resolveGitBranchFromNodeHost',
+    'validateWorkspaceSessionReplayLog',
+    'projectSessionClaimsDirectory',
   ] as const;
 
   it('are exported from ./node and not from the main entry', () => {
@@ -52,6 +55,15 @@ describe('the Node adapters of the plugin, user-local, provider and org-policy m
       'listUserLocalMemoryItems',
     ]) {
       expect(typeof (MainEntry as Record<string, unknown>)[name], name).toBe('function');
+    }
+  });
+});
+
+describe('the walk that addresses a project state directory by path', () => {
+  it('and the parts it walks are on no entry: only the session store beside them uses them', () => {
+    for (const name of ['workspaceProjectStateDirectoryParts', 'workspaceProjectStateDirectoryPath']) {
+      expect(Object.keys(MainEntry), name).not.toContain(name);
+      expect(Object.keys(NodeEntry), name).not.toContain(name);
     }
   });
 });

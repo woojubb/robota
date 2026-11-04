@@ -3,17 +3,19 @@ import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  createNodeHostContributionSource,
   InteractiveSession,
   SystemCommandExecutor,
   WorkspaceTrustService,
 } from '@robota-sdk/agent-framework';
+import { createNodeHostContributionSource } from '@robota-sdk/agent-framework/node';
 import { createSkillsCommandModule } from '../skills-command-module.js';
 import {
   createTestCommandHost,
-  type ICreateTestCommandHostOptions, createTestFrameworkHost,
+  type ICreateTestCommandHostOptions,
+  createTestFrameworkHost,
 } from '@robota-sdk/agent-framework/testing';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IWorkspaceIdentity, IWorkspaceTrustStore } from '@robota-sdk/agent-framework';
 
 const testHost = createTestFrameworkHost();
@@ -31,6 +33,7 @@ async function createTrustedProjectAccess(cwd: string) {
     revoke: () => Promise.resolve({ state: 'revoked', generation: 2 }),
   };
   return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     store,
   }).inspect(root);

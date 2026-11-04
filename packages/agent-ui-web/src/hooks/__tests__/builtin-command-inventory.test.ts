@@ -6,7 +6,8 @@
  *
  * `agent-ui-web` does not depend on `agent-command`/`agent-framework` (see its own SPEC.md), so this
  * is a hand-kept snapshot of the built-in registry (`packages/agent-command/src/default/default-command-modules.ts`,
- * plus `/workflows` which `agent-cli` registers alongside it) — not a live import of it. A command
+ * plus `/shell` and `/editor` from `agent-command/node` via `pack-coding`, and `/workflows`, which
+ * `agent-cli` registers alongside it) — not a live import of it. A command
  * added there needs a matching line here, exactly like any other cross-package contract this
  * repository does not enforce by the type system alone.
  */
@@ -17,7 +18,7 @@ import { excludedCommandMessage, isExcludedCommand } from '../excluded-commands.
 
 import type { IExcludableCommandEntry } from '../excluded-commands.js';
 
-/** Every built-in command name, as `createDefaultCommandModules` (+ `/workflows`) registers it. */
+/** Every built-in command name, as the CLI registers it: the default modules, the coding pack, `/workflows`. */
 const BUILTIN_COMMANDS: readonly IExcludableCommandEntry[] = [
   { name: 'help' },
   { name: 'agent' },

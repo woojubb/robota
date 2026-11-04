@@ -1,5 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
+import type { IHeadlessOutput } from './headless-output.js';
 import type { IHeadlessSession } from './headless-session.js';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { TBackgroundJobGroupEvent } from '@robota-sdk/agent-interface-execution';
@@ -66,20 +67,22 @@ interface IStreamJsonHandlers {
 }
 
 function writeStreamJsonEvent(
+  output: IHeadlessOutput,
   session: IHeadlessSession,
   getSessionId: (s: IHeadlessSession) => string,
   event: TStreamJsonEvent,
 ): void {
-  const output = JSON.stringify({
+  const line = JSON.stringify({
     type: 'stream_event',
     event,
     session_id: getSessionId(session),
-    uuid: randomUUID(),
+    uuid: randomId(),
   });
-  process.stdout.write(output + '\n');
+  output.stdout.write(line + '\n');
 }
 
 export function subscribeStreamJsonEvents(
+  output: IHeadlessOutput,
   session: IHeadlessSession,
   getSessionId: (s: IHeadlessSession) => string,
   writeJsonResult: (
@@ -91,7 +94,7 @@ export function subscribeStreamJsonEvents(
   resolve: (exitCode: number) => void,
 ): () => void {
   const emit = (event: TStreamJsonEvent): void =>
-    writeStreamJsonEvent(session, getSessionId, event);
+    writeStreamJsonEvent(output, session, getSessionId, event);
 
   const onTextDelta = (text: string): void =>
     emit({ type: 'content_block_delta', delta: { type: 'text_delta', text } });

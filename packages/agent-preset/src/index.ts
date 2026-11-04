@@ -40,9 +40,9 @@ export type {
   IPresetRegistry,
 } from './resolve-preset.js';
 
-export { loadExternalPresetsFromDir } from './load-external-presets.js';
+export { loadExternalPresetsFromFiles } from './load-external-presets.js';
 
-export type { IExternalPresetLoadResult } from './load-external-presets.js';
+export type { IExternalPresetFile, IExternalPresetLoadResult } from './load-external-presets.js';
 
 export { validateExternalPreset } from './preset-validation.js';
 

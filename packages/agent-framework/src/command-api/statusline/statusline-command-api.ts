@@ -1,6 +1,4 @@
-import { readSettings, writeSettings } from '../../config/settings-io.js';
-
-import type { TSettingsData } from '../../config/settings-io.js';
+import type { ISettingsDocumentStore, TSettingsData } from '../../config/settings-store-types.js';
 import type { ICommand } from '../types.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 // Status-line command settings contracts SSOT relocated to @robota-sdk/agent-interface-command (DATA-001).
@@ -53,17 +51,18 @@ export function readStatusLineSettings(settings: TSettingsData): IStatusLineComm
   };
 }
 
+/** Merge a patch into the document's `statusline` section and persist it. Returns what is now stored. */
 export function applyStatusLineSettings(
-  settingsPath: string,
+  store: ISettingsDocumentStore,
   patch: TStatusLineCommandSettingsPatch,
 ): IStatusLineCommandSettings {
-  const settings = readSettings(settingsPath);
+  const settings = store.read();
   const next = {
     ...readStatusLineSettings(settings),
     ...patch,
   };
   settings.statusline = next as TSettingsData;
-  writeSettings(settingsPath, settings);
+  store.write(settings);
   return next;
 }
 

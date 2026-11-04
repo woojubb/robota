@@ -10,7 +10,6 @@ import {
   inspectSkillSources,
   loadHostBundlePluginInspectionFromScopes,
 } from '@robota-sdk/agent-framework';
-import { NodeFileSystem } from '@robota-sdk/agent-framework/node';
 
 import type { IDoctorCheck, IDoctorDeps, IDoctorInputs } from './doctor-types.js';
 import type {
@@ -303,7 +302,7 @@ export function probeExtensions(
   try {
     plugins = loadHostBundlePluginInspectionFromScopes(inputs.pluginsDirs, {
       settingsPath: inputs.userSettingsPath,
-      fs: new NodeFileSystem(),
+      fs: deps.files,
     });
   } catch (error) {
     // Unreadable plugin settings load no plugin in a session. The doctor says so, and still
@@ -311,7 +310,7 @@ export function probeExtensions(
     settingsProblem = error instanceof Error ? error.message : String(error);
     plugins = loadHostBundlePluginInspectionFromScopes(inputs.pluginsDirs, {
       enabledPlugins: {},
-      fs: new NodeFileSystem(),
+      fs: deps.files,
     });
   }
   const pluginSummary = pluginChecks(plugins).map((check) =>

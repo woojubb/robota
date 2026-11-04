@@ -1,3 +1,22 @@
+/**
+ * #3679: the conversation store constructors the framework exports. They are named once because the
+ * framework serves them from its Node entry; a name restricted on one entry alone would let the
+ * other carry it past the rule.
+ */
+const FRAMEWORK_STORE_CONSTRUCTORS = [
+  'createUserSessionStore',
+  'createProjectSessionStore',
+  'createNodeHostSessionStore',
+  'WorkspaceProjectSessionStore',
+  'createUserPromptHistoryFile',
+  'WorkspaceSessionLogSink',
+  'WorkspaceSessionLogSource',
+  'createSubagentLogger',
+  'createNodeToolResultSpillStore',
+  'EditCheckpointStore',
+  'createDirectoryEditCheckpointState',
+];
+
 /** Single ESLint config for the monorepo. Packages inherit it; only apps with a different product type override it. */
 module.exports = {
   root: true,
@@ -270,19 +289,14 @@ module.exports = {
             paths: [
               {
                 name: '@robota-sdk/agent-framework',
-                importNames: [
-                  'createUserSessionStore',
-                  'createProjectSessionStore',
-                  'createNodeHostSessionStore',
-                  'WorkspaceProjectSessionStore',
-                  'createUserPromptHistoryFile',
-                  'WorkspaceSessionLogSink',
-                  'WorkspaceSessionLogSource',
-                  'createSubagentLogger',
-                  'createNodeToolResultSpillStore',
-                  'EditCheckpointStore',
-                  'createDirectoryEditCheckpointState',
-                ],
+                importNames: FRAMEWORK_STORE_CONSTRUCTORS,
+                allowTypeImports: true,
+                message:
+                  'Build conversation stores with packages/agent-cli/src/product/session-stores.ts, which states how they seal.',
+              },
+              {
+                name: '@robota-sdk/agent-framework/node',
+                importNames: FRAMEWORK_STORE_CONSTRUCTORS,
                 allowTypeImports: true,
                 message:
                   'Build conversation stores with packages/agent-cli/src/product/session-stores.ts, which states how they seal.',

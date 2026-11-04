@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { createNodeWorkspaceProjectFiles } from './node-project-files.js';
 import { WorkspaceTrustService } from './workspace-trust-service.js';
 import { getWorkspaceProjectStateStorage } from './project-state-storage.js';
 import { validateWorkspaceSessionReplayLog } from '../interactive/workspace-session-replay-validation.js';
@@ -31,6 +32,7 @@ function service(projectStateDirectories?: TWorkspaceProjectStateDirectories) {
   return {
     root,
     trust: new WorkspaceTrustService({
+      projectFiles: createNodeWorkspaceProjectFiles(),
       identityResolver: { resolve: () => identity },
       store: {
         inspect: async () => ({ state: 'trusted', generation: 1 }),

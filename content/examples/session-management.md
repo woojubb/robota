@@ -67,7 +67,8 @@ records in a directory you choose, and states how it keeps them: `{ sealing: 'pl
 JSON.
 
 ```typescript
-import { InteractiveSession, createUserSessionStore } from '@robota-sdk/agent-framework';
+import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -118,7 +119,7 @@ way.
 version this one does not read). Only a `valid` outcome carries the record.
 
 ```typescript
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 

@@ -4,13 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
-  EditCheckpointStore,
   WorkspaceTrustService,
   createRestrictedWorkspaceProjectAccess,
   createWorkspaceProjectSettingsWriter,
   getWorkspaceProjectStateStorage,
   listResumableSessionSummaries,
 } from '@robota-sdk/agent-framework';
+import { EditCheckpointStore } from '@robota-sdk/agent-framework/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createCliWorkspaceComposition } from '../workspace-project-composition.js';
@@ -19,6 +19,7 @@ import { listProjectContributionPaths } from '../project-contribution-preview.js
 import { productSkillRoots } from '../../product/skill-roots.js';
 import { SkillCommandSource } from '@robota-sdk/agent-framework';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IWorkspaceIdentity, IWorkspaceTrustStoreSnapshot } from '@robota-sdk/agent-framework';
 const PRODUCT_PROJECT_STATE_DIRECTORIES = productProjectStateDirectories(createTestProductRuntime());
 const PRODUCT_SKILL_ROOTS = productSkillRoots(createTestProductRuntime());
@@ -47,6 +48,7 @@ async function trustedAccess(
     grantedAt: '2026-08-22T00:00:00.000Z',
   };
   return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     projectStateDirectories,
     store: {

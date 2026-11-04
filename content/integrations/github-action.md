@@ -74,16 +74,21 @@ A script step can call the SDK directly with `createQuery` from `@robota-sdk/age
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const query = createQuery({
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
 });
 const result = await query('Review the changed files in this branch for potential issues');
 console.log(result);
 ```
 
-`createQuery` also runs in the `default` permission mode, and without a `projectAccess` decision it
+`createQuery` needs a `host` and an absolute `cwd`; the tools it works with are the ones the host
+builds (`createDefaultTools` above). It also runs in the `default` permission mode, and without a `projectAccess` decision it
 does not load the repository's instruction files or settings. See [Using the SDK](../guide/sdk.md).
 
 ## The Robota GitHub Action (not released)

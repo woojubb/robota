@@ -31,7 +31,7 @@ import type {
   IEvalDefinition,
   IEvalReport,
   IFrameworkHost,
-  INodeHostSettingsSource,
+  IHostSettingsSource,
   TEvalRunFn,
   TSettingsSource,
   TWorkspaceProjectAccess,
@@ -131,7 +131,7 @@ async function buildDefaultRunFn(cwd: string, deps: IRunEvalDeps): Promise<TEval
     cwd,
     provider,
     userSettingsSources: settingsSources.filter(
-      (source): source is INodeHostSettingsSource => source.kind === 'host',
+      (source): source is IHostSettingsSource => source.kind === 'host',
     ),
     ...(deps.projectAccess === undefined ? {} : { projectAccess: deps.projectAccess }),
   });

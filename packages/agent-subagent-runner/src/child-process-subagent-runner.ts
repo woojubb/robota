@@ -14,7 +14,7 @@ import {
   readSubagentTranscriptPage,
   resolveSubagentLogSessionId,
   resolveSubagentTranscriptPath,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-framework/node';
 import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 import { DEFAULT_KILL_GRACE_MS } from '@robota-sdk/agent-process';
 

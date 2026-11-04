@@ -15,6 +15,7 @@ import {
   selectCommandModules,
 } from '@robota-sdk/agent-framework';
 import { TransportRegistry, bindTransportAdapter } from '@robota-sdk/agent-framework';
+import { createFileTransportSettingsRepository } from '@robota-sdk/agent-framework/node';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
@@ -92,7 +93,9 @@ export function createDefaultTransportRegistry(
     'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
   >;
 } {
-  const registry = new TransportRegistry(productUserSettingsPath(productRuntime));
+  const registry = new TransportRegistry(
+    createFileTransportSettingsRepository(productUserSettingsPath(productRuntime)),
+  );
   // GUI-002: when a host (e.g. the agent-gui Electron shell) spawns this CLI as a loopback sidecar, it
   // passes PRODUCT_WS_TOKEN (a per-launch nonce) + optional PRODUCT_WS_PORT via env. The token makes the WS
   // transport reject any unauthenticated connection before emitting session data. If absent,

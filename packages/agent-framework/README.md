@@ -1,9 +1,11 @@
 # @robota-sdk/agent-framework
 
 The assembly layer of the Robota SDK. It composes `@robota-sdk/agent-core`,
-`@robota-sdk/agent-session`, `@robota-sdk/agent-tools`, `@robota-sdk/agent-tool-defaults` and
-`@robota-sdk/agent-executor` into one provider-neutral SDK for building agents: sessions with
-tools, permissions, hooks, streaming, context loading, commands, subagents and persistence.
+`@robota-sdk/agent-session`, `@robota-sdk/agent-tools` and `@robota-sdk/agent-executor` into one
+provider-neutral SDK for building agents: sessions with tools, permissions, hooks, streaming, context
+loading, commands, subagents and persistence. The platform it runs on is passed in as `host`: a Node
+process passes `createNodeFrameworkHost` from `@robota-sdk/agent-framework/node`, with the default tool
+set from `@robota-sdk/agent-tool-defaults`; a host that lends nothing is `{}`.
 
 It has three main entry points:
 
@@ -62,6 +64,14 @@ would ask for approval is denied, so an unattended run only does what the mode a
 List the tools that may run anyway in `allowedTools` (your own `additionalTools`, say), pass a
 `permissionHandler` to decide each request, or pass `permissionMode: 'bypassPermissions'` explicitly
 if the run should approve everything. `deniedTools` are never offered to the model.
+
+The built-in tools (`Read`, `Write`, `Edit`, `Bash`, `Glob`, `Grep` and the rest of the default set)
+come from the host: `createNodeFrameworkHost({ createDefaultTools })` builds them for the session's
+`cwd`. `createQuery({ host: {}, provider, cwd })` has none, because the framework imports no tool
+package and a host that lends no `createDefaultTools` has no default tier. The query can then answer
+from the model alone, plus any `additionalTools` you pass, and nothing else. A host that wants a
+different set passes its own `createDefaultTools`, and `defaultTools` on a session replaces whatever the
+host builds.
 
 Pass `model` with any provider other than Anthropic: without it the model comes from the settings
 files, and without one the session asks the provider for `claude-opus-4-5`. Calls run one at a time,
@@ -122,7 +132,7 @@ await session.shutdown();
 | `model`, `effort`, `temperature`                            | Model selection for this session.                                                               |
 | `systemPrompt`, `appendSystemPrompt`                        | Replace or extend the assembled system prompt.                                                  |
 | `additionalTools`                                           | Tools added to the default set.                                                                 |
-| `defaultTools`                                              | Replaces the default tool set from `@robota-sdk/agent-tool-defaults`; `[]` removes it.          |
+| `defaultTools`                                              | Replaces the host's default tool set (`host.createDefaultTools`); `[]` removes it.              |
 | `allowedTools`, `deniedTools`                               | Tool name patterns to allow or deny for this session.                                           |
 | `commandModules`                                            | Command modules the session can execute (for example from `@robota-sdk/agent-command`).         |
 | `sessionStore`, `resumeSessionId`, `forkSession`            | Persistence, and resuming or forking a stored session.                                          |
@@ -181,12 +191,11 @@ only through a trusted `TWorkspaceProjectAccess` decision that the host obtains 
 ```typescript
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { InteractiveSession, getWorkspaceProjectStateStorage } from '@robota-sdk/agent-framework';
 import {
-  InteractiveSession,
   createNodeWorkspaceTrustService,
   createProjectSessionStore,
-  getWorkspaceProjectStateStorage,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-framework/node';
 import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
@@ -222,6 +231,20 @@ Trust is bound to the Git worktree and repository identity. Non-Git paths, a rep
 a revoked grant or a trust-store error all resolve to Restricted, and a revoked authority stops
 working immediately. The `cwd` must be the trusted root or inside it.
 
+**A Node host builds a trusted session** with `createNodeWorkspaceTrustService` from
+`@robota-sdk/agent-framework/node`: it composes the Git identity resolver, a persistent grant store
+and `createNodeWorkspaceProjectFiles()`, the stable root-relative file operations (links and
+replaced ancestors refused; writes only on Linux, the one platform that can prove them). To compose the
+parts yourself, `new WorkspaceTrustService({ identityResolver, store, projectFiles })` requires all
+three.
+
+**A host with no file system builds a Restricted session**: it constructs no trust service and passes
+`createRestrictedWorkspaceProjectAccess('untrusted', cwd)` as `projectAccess`. That decision carries
+no authority, so nothing can read or write the project. A host that does keep project files supplies
+its own `projectFiles` (`IWorkspaceProjectFiles`) to `WorkspaceTrustService`; the service binds them
+to each authority it mints, an authority exists only through the service, and a look-alike object is
+refused by every `assert*` and `get*` entry point.
+
 ## Headless and multi-session runtime
 
 `createAgentRuntime()` holds one configuration (host, provider, `cwd`, project access, command modules,
@@ -245,7 +268,9 @@ const session = runtime.createSession({ permissionMode: 'plan' });
 `startRuntimeHost()` adds transport start/stop and a bounded shutdown on top of it; the CLI's
 `<cli-name> --serve` uses both. `SessionPool` keeps several live sessions for a runtime that serves more
 than one client. Headless output is available through `createHeadlessRunner` and
-`createHeadlessTransport`, and `createProgrammaticAgent` drives a session from code.
+`createHeadlessTransport`, and `createProgrammaticAgent` drives a session from code. The headless pieces
+own no streams: each takes a required `output` (`{ stdout, stderr }`, anything with `write(text)`), and a
+Node process passes `process.stdout` and `process.stderr`.
 
 ## Permissions
 
@@ -387,12 +412,12 @@ that supports snapshots, `shutdown()` stores the sandbox snapshot ID, and resumi
 | --------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Model fallback              | `FallbackProvider`, `resolveModelFallbackChain`, `applyModelFallback`                                 |
 | Advisor (second-model tool) | `AdvisorController`, `createAdvisorTool`                                                              |
-| Edit checkpoints and rewind | `EditCheckpointStore`, `createDirectoryEditCheckpointState`, `wrapEditCheckpointTools`                |
+| Edit checkpoints and rewind | `IEditCheckpointStore`, `wrapEditCheckpointTools`; `/node`: `EditCheckpointStore`, `createDirectoryEditCheckpointState` |
 | Reversible execution        | `evaluateReversibleToolSafety`, `wrapReversibleExecutionTools` (session option `reversibleExecution`) |
 | Project and user memory     | `ProjectMemoryStore`, `WorkspaceMemoryStore`, `SemanticMemoryStore`, `listUserLocalMemoryItems`       |
 | Evals                       | `defineEval`, `runEval`, `createSessionRunFn`, matchers such as `exactMatch` and `usedTool`           |
 | Bundle plugins              | `BundlePluginLoader`, `BundlePluginInstaller`, `MarketplaceClient`                                    |
-| Settings                    | `readSettings`, `writeSettings`, `inspectSettingsLayers`, `createNodeHostSettingsSource`              |
+| Settings                    | `inspectSettingsLayers`, `createWorkspaceProjectSettingsStore`, `applyAppearanceSettings`             |
 | Self-hosting verification   | `planSelfHostingVerification`, `transitionSelfHostingLoop`                                            |
 
 The plugin classes (`BundlePluginLoader`, `BundlePluginInstaller`, `MarketplaceClient`,
@@ -479,6 +504,26 @@ order; project files are read only in a trusted project.
 `currentProvider` selects the active entry in `providers`. Other keys include `hooks`, `env`,
 `language`, `preset`, `autoCompactThreshold`, `sandbox` and `enabledPlugins`.
 
+A settings layer reaches the framework as an `IHostSettingsSource` (`read()` returns the text, or
+`undefined` when the document does not exist and throws when it exists but cannot be read), a trusted
+project's layers come from `createWorkspaceProjectSettingsSources`, and a command that writes takes an
+`ISettingsDocumentStore` (`read()` and `write()`), as `applyStatusLineSettings` and
+`applyAppearanceSettings` do. Neither opens a path, so a host with no file system passes sources and
+stores over its own storage. The file-backed ones are on `@robota-sdk/agent-framework/node`:
+`createNodeHostSettingsSource(scope, path)`, `createNodeHostSettingsStore(scope, path)` (written
+owner-only), `readSettings`, `writeSettings`, `updateModelInSettings`, `deleteSettings` and
+`resetUserConfig`. Plugin enablement is the one consumer that works on the file itself: it takes the
+user source's `path` and reads and writes it through an `IFileSystem`, so a user source with no `path`
+enables no plugins.
+
+Contribution roots follow the same split. `createContributionSourcesForProjectAccess(access,
+userSources)` adds the user sources you built to the trusted project's; on Node build them with
+`createDefaultUserContributionSources(home)` or `createNodeHostContributionSource(root)` from
+`/node`. `TransportRegistry` takes an `ITransportSettingsRepository`:
+`createFileTransportSettingsRepository(path)` from `/node`, or
+`createMemoryTransportSettingsRepository()` on the main entry. `readPackageVersion(import.meta.url)`
+is also on `/node`.
+
 ## Dependencies
 
 | Package                                                                                               | Used for                                            |
@@ -486,7 +531,7 @@ order; project files are read only in a trusted project.
 | `@robota-sdk/agent-core`                                                                              | Agent engine, provider contract, permissions, hooks |
 | `@robota-sdk/agent-session`                                                                           | `Session`, logging and persistence ports            |
 | `@robota-sdk/agent-tools`                                                                             | Tool factories and sandbox clients                  |
-| `@robota-sdk/agent-tool-defaults`                                                                     | The default tool set (loaded on first use)          |
+| `@robota-sdk/agent-tool-defaults`                                                                     | The default tool set, for `./testing` only          |
 | `@robota-sdk/agent-executor`                                                                          | Background tasks and subagent managers              |
 | `@robota-sdk/agent-file-authority`                                                                    | Bounded, root-relative project file reads           |
 | `@robota-sdk/agent-interface-*` (analytics, command, execution, session, session-mobility, transport) | Shared contracts                                    |

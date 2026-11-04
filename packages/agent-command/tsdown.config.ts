@@ -6,7 +6,7 @@ const outExtensions = ({ format }: { format: string }) => ({
 });
 
 export default defineConfig({
-  entry: { index: 'src/index.ts' },
+  entry: { index: 'src/index.ts', node: 'src/node.ts' },
   format: { esm: {}, cjs: {} },
   outDir: 'dist/node',
   platform: 'node',

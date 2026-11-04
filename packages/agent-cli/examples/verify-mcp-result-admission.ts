@@ -14,7 +14,7 @@ process.env['HOME'] = home;
 const { createScriptedProvider } = await import('@robota-sdk/agent-core/testing');
 const { InteractiveSession } = await import('@robota-sdk/agent-framework');
 const { buildCatalog, createDiscoveredTool } = await import('@robota-sdk/agent-mcp');
-const { createNodeToolResultSpillStore } = await import('@robota-sdk/agent-framework');
+const { createNodeToolResultSpillStore } = await import('@robota-sdk/agent-framework/node');
 
 function requireCondition(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);

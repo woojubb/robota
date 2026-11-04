@@ -10,6 +10,9 @@ import { createNodeHostContributionSourcesFixture } from '../../testing/contribu
 
 import type { ICommandHostContext, ICommandModule, ISystemCommand } from '../../commands/index.js';
 import { createTestCommandHost } from '../../testing/command-host-double.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 function makeRouter(cwd: string, command: ISystemCommand): SessionSkillRouter {
   const module: ICommandModule = { name: 'semantic-role-test', systemCommands: [command] };
@@ -26,6 +29,7 @@ function makeRouter(cwd: string, command: ISystemCommand): SessionSkillRouter {
     async () => '',
     async () => ({}) as never,
     (execute) => execute(),
+    testHost.createAsyncScope,
   );
 }
 

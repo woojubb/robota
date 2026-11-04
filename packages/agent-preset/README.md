@@ -54,22 +54,37 @@ combined rather than replaced. When no layer sets `permissionMode`, it comes fro
 
 ### External presets
 
-External presets are JSON files in a directory your product chooses:
+External presets are JSON files your product chooses. The main entry reads no file: you hand it the
+candidate files, and a failed read is that file's error, not a crash.
 
 ```typescript
-import { createPresetRegistry, loadExternalPresetsFromDir } from '@robota-sdk/agent-preset';
+import { createPresetRegistry, loadExternalPresetsFromFiles } from '@robota-sdk/agent-preset';
 
-const { presets, loaded, errors } = loadExternalPresetsFromDir('/path/to/my-app/presets');
+const { presets, loaded, errors } = loadExternalPresetsFromFiles([
+  {
+    fileName: 'terse.json',
+    read: () => '{ "id": "terse", "title": "Terse", "description": "Short." }',
+  },
+]);
 for (const { file, error } of errors) console.warn(`${file}: ${error}`);
 
 const registry = createPresetRegistry(presets);
 console.log(loaded);
 ```
 
-Each file is checked with `validateExternalPreset`. A malformed file, an ID that collides with a
-built-in, or a duplicate ID is reported in `errors` and skipped; the rest still load. A missing
-directory yields no presets. `partitionExternalPresets` applies the same collision rules to presets
-you already have in memory.
+On Node, `loadExternalPresetsFromDir` from `@robota-sdk/agent-preset/node` lists a directory and does
+the same:
+
+```typescript
+import { loadExternalPresetsFromDir } from '@robota-sdk/agent-preset/node';
+
+const { presets } = loadExternalPresetsFromDir('/path/to/my-app/presets');
+```
+
+Each file is checked with `validateExternalPreset`. Only `*.json` names are read. A malformed or
+unreadable file, an ID that collides with a built-in, or a duplicate ID is reported in `errors` and
+skipped; the rest still load. A missing directory yields no presets.
+`partitionExternalPresets` applies the same collision rules to presets you already have in memory.
 
 ## Output styles
 
@@ -102,6 +117,12 @@ console.log(styles.listOutputStyles().map((style) => style.id));
 const terse = styles.getOutputStyle('terse');
 console.log(terse?.instructions);
 ```
+
+## `@robota-sdk/agent-preset/node`
+
+| Export                       | What it does                                                             |
+| ---------------------------- | ------------------------------------------------------------------------ |
+| `loadExternalPresetsFromDir` | Lists a directory on the host's file system and loads its `*.json` files |
 
 ## Where it sits
 

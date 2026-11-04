@@ -5,19 +5,18 @@
  * own, verified against a real unborn repository); an untracked path has no git baseline at all, so it
  * is shown the same way `buildWriteDiffState` shows a brand-new file: every line an addition.
  *
- * Every path this reads is checked with `isPathInside` (SEC-006, the repo's one containment
- * decision) before any git or filesystem call — a diff request naming a path outside the workspace is
- * refused, never run.
+ * Every path this reads is checked with the host's `isPathInside` (SEC-006, the one containment
+ * decision, symlinks resolved) before any git or filesystem call — a diff request naming a path
+ * outside the workspace is refused, never run. The host's files are a required argument: the framework
+ * has no file access of its own, so a host that lends none cannot ask for a diff at all.
  */
-import { resolve } from 'node:path';
+import { resolvePath } from '@robota-sdk/agent-core';
 
-import { isPathInside } from '@robota-sdk/agent-core/node';
-
-import { NodeFileSystemAsync } from '../adapters/node-file-system.js';
 import { GIT_STATUS_ARGS, parseStatusRecords } from './git-status.js';
 import { isNotAGitRepositoryFailure } from './project-status-read.js';
 
 import type { IGitProcessPort } from './git-process.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IFileSystemAsync } from '@robota-sdk/agent-core';
 import type { IDiffLine } from '@robota-sdk/agent-interface-session';
 
@@ -177,17 +176,18 @@ async function isUntracked(
 
 /**
  * The Project panel's one-file diff. `requestedPath` is workspace-relative, exactly as
- * {@link readProjectGitStatus} reported it — resolved against `cwd` and checked with `isPathInside`
- * before anything else runs.
+ * {@link readProjectGitStatus} reported it — resolved against `cwd` and checked with the host's
+ * `isPathInside` before anything else runs. `cwd` is absolute: a relative one has no meaning without
+ * the process directory, which this code never reads.
  */
 export async function readProjectGitDiff(
   port: IGitProcessPort,
   cwd: string,
   requestedPath: string,
-  fs: IFileSystemAsync = new NodeFileSystemAsync(),
+  files: NonNullable<IFrameworkHost['files']>,
 ): Promise<TProjectGitDiffResult> {
-  const absolutePath = resolve(cwd, requestedPath);
-  if (!isPathInside(cwd, absolutePath)) return outsideWorkspace(requestedPath);
+  const absolutePath = resolvePath(cwd, requestedPath);
+  if (!files.isPathInside(cwd, absolutePath)) return outsideWorkspace(requestedPath);
 
   const probe = await port.run(GIT_STATUS_ARGS, { cwd });
   if (probe.kind !== 'exited') {
@@ -201,7 +201,7 @@ export async function readProjectGitDiff(
   }
 
   if (await isUntracked(port, cwd, requestedPath)) {
-    const { diffLines, truncated } = capDiffLines(await readUntrackedFileDiffLines(fs, absolutePath));
+    const { diffLines, truncated } = capDiffLines(await readUntrackedFileDiffLines(files.async, absolutePath));
     return { ok: true, diffLines, truncated };
   }
 

@@ -21,7 +21,7 @@ import {
 } from '@robota-sdk/agent-core/node';
 import { createScriptedProvider, leaveProcessMarker } from '@robota-sdk/agent-core/testing';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
-import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import {
   createDefaultTuiCliAdapter,
   createNodeKeybindingsSource,

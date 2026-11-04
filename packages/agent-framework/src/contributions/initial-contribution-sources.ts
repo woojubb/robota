@@ -1,5 +1,4 @@
 import { createWorkspaceProjectContributionSource } from './contribution-source.js';
-import { createNodeHostContributionSource } from './node-host-contribution-source.js';
 import {
   getWorkspaceProjectIdentity,
   getWorkspaceProjectReader,
@@ -8,20 +7,14 @@ import {
 import type { IContributionSource } from './contribution-source.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 
-/** Default host-owned contribution roots. Project content is intentionally absent. */
-export function createDefaultUserContributionSources(
-  userHome: string,
-): readonly IContributionSource[] {
-  if (typeof userHome !== 'string' || userHome.trim().length === 0) {
-    throw new Error('User contribution root must be provided by the host.');
-  }
-  return [createNodeHostContributionSource(userHome)];
-}
-
-/** Compose the initial contribution sources from one explicit trusted-or-restricted decision. */
+/**
+ * Compose the initial contribution sources from one explicit trusted-or-restricted decision: the
+ * project's source when trusted, then the host-owned `userSources` the caller built. A Node host
+ * builds those with `createDefaultUserContributionSources` from `@robota-sdk/agent-framework/node`.
+ */
 export function createContributionSourcesForProjectAccess(
   projectAccess: TWorkspaceProjectAccess,
-  userHome: string,
+  userSources: readonly IContributionSource[],
 ): readonly IContributionSource[] {
   const projectSources =
     projectAccess.status === 'trusted'
@@ -32,5 +25,5 @@ export function createContributionSourcesForProjectAccess(
           ),
         ]
       : [];
-  return [...projectSources, ...createDefaultUserContributionSources(userHome)];
+  return [...projectSources, ...userSources];
 }

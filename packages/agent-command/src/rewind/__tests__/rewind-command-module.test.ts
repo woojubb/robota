@@ -78,12 +78,12 @@ function createMockRuntimeSession() {
   };
 }
 
-function createInteractiveSession(commandProductVocabulary?: {
-  cliName: string;
-  displayName: string;
-}): InteractiveSession {
+function createInteractiveSession(
+  commandProductVocabulary?: { cliName: string; displayName: string },
+  host: typeof testHost = testHost,
+): InteractiveSession {
   return new InteractiveSession({
-    host: testHost,
+    host,
     cwd: process.cwd(),
     session: createMockRuntimeSession() as never,
     commandModules: [createRewindCommandModule()],
@@ -457,11 +457,11 @@ describe('executeRewindCommand', () => {
     });
 
     it('tells a restricted workspace to trust it, for every subcommand', async () => {
-      vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
-      const session = createInteractiveSession({
-        cliName: 'test-agent',
-        displayName: 'Test Agent',
-      });
+      // A host that can write project files: what stands in the way is the workspace's trust.
+      const session = createInteractiveSession(
+        { cliName: 'test-agent', displayName: 'Test Agent' },
+        { ...testHost, supportsProjectMutation: true },
+      );
 
       for (const args of ['', 'list', 'inspect turn-0001', 'restore turn-0001', 'branches']) {
         const result = await session.executeCommand('rewind', args);
@@ -473,8 +473,10 @@ describe('executeRewindCommand', () => {
     });
 
     it('says why on a host that cannot prove a project write is safe, without naming trust', async () => {
-      vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
-      const session = createInteractiveSession();
+      const session = createInteractiveSession(undefined, {
+        ...testHost,
+        supportsProjectMutation: false,
+      });
 
       const result = await session.executeCommand('rewind', 'list');
 

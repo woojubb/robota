@@ -1,6 +1,4 @@
-import { readSettings, writeSettings } from '../../config/settings-io.js';
-
-import type { TSettingsData } from '../../config/settings-io.js';
+import type { ISettingsDocumentStore, TSettingsData } from '../../config/settings-store-types.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type {
   IAppearanceSettings,
@@ -87,14 +85,14 @@ export function readAppearanceSettings(settings: TSettingsData): IAppearanceSett
 
 /** Merge a patch into the document's appearance keys and persist it. Returns what is now stored. */
 export function applyAppearanceSettings(
-  settingsPath: string,
+  store: ISettingsDocumentStore,
   patch: TAppearanceSettingsPatch,
 ): IAppearanceSettings {
-  const settings = readSettings(settingsPath);
+  const settings = store.read();
   const next: IAppearanceSettings = { ...readAppearanceSettings(settings), ...patch };
   settings[APPEARANCE_SETTINGS_KEYS.theme] = next.theme;
   settings[APPEARANCE_SETTINGS_KEYS.syntaxHighlighting] = next.syntaxHighlighting;
   settings[APPEARANCE_SETTINGS_KEYS.reducedMotion] = next.reducedMotion;
-  writeSettings(settingsPath, settings);
+  store.write(settings);
   return next;
 }

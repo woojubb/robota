@@ -6,6 +6,7 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createNodeHostSettingsSource } from '../../config/node-host-settings-source.js';
 import { InteractiveSession } from '../interactive-session.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
@@ -145,9 +146,7 @@ async function sessionWith(options: {
       user: options.pluginsDir,
       ...(options.projectPluginsDir !== undefined ? { project: options.projectPluginsDir } : {}),
     },
-    userSettingsSources: [
-      { kind: 'host', scope: 'user', displayName: 'user settings', path: settingsPath },
-    ],
+    userSettingsSources: [createNodeHostSettingsSource('user', settingsPath)],
     ...(options.bare === true ? { bare: true } : {}),
   });
   return { session, run, settingsPath };
@@ -168,9 +167,7 @@ describe('a bundle plugin skill', () => {
       projectAccess: await createTrustedProjectAccessFixture(cwd),
       commandModules: [skillsModule, reloadModule],
       pluginDirectories: { user: join(home, 'plugins') },
-      userSettingsSources: [
-        { kind: 'host', scope: 'user', displayName: 'settings', path: settingsPath },
-      ],
+      userSettingsSources: [createNodeHostSettingsSource('user', settingsPath)],
     });
     try {
       await session.whenInitialized();

@@ -23,7 +23,7 @@ import {
   inspectProcessScopedDirectories,
   sweepStaleProcessScopedDirectories,
 } from '@robota-sdk/agent-core/node';
-import { sweepStaleToolResultSpillDirectories } from '@robota-sdk/agent-framework';
+import { sweepStaleToolResultSpillDirectories } from '@robota-sdk/agent-framework/node';
 
 import { EPHEMERAL_CHECKPOINT_DIRECTORY_PREFIX } from '../startup/ephemeral-state.js';
 
