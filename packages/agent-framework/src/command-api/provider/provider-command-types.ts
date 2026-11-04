@@ -1,3 +1,4 @@
+import type { TProviderEnvironment } from './provider-environment.js';
 import type { TProviderSettingsDocument } from './provider-settings.js';
 import type { IOrgPolicy } from '../org-policy/org-policy-types.js';
 import type {
@@ -38,7 +39,8 @@ export interface IProviderCommandModuleOptions {
   /**
    * The environment a `$ENV:` credential or a definition's default credential variable is checked
    * against. A host that withholds its own credentials from `process.env` (so commands it runs do not
-   * inherit them) passes the snapshot it took first; absent, every reference reads as unset.
+   * inherit them) passes the snapshot it took first, a map; a neutral host passes a resolver such as
+   * `host.env`. Absent, every reference reads as unset.
    */
-  env?: Readonly<Record<string, string | undefined>>;
+  env?: TProviderEnvironment;
 }

@@ -43,6 +43,7 @@ describe('the Node adapters of the plugin, user-local, provider and org-policy m
       'formatOrgPolicyViolationMessage',
       'isApiKeyPlaintext',
       'checkSettingsDocument',
+      'resolveProviderEnvironment',
       'BundlePluginLoader',
       'BundlePluginInstaller',
       'MarketplaceClient',

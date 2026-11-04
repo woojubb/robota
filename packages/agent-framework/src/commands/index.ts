@@ -88,6 +88,8 @@ export {
   resolveActiveProvider,
 } from '../command-api/provider/provider-merge.js';
 export type { IReadProviderSettingsOptions } from '../command-api/provider/provider-factory.js';
+export { resolveProviderEnvironment } from '../command-api/provider/provider-environment.js';
+export type { TProviderEnvironment } from '../command-api/provider/provider-environment.js';
 export {
   createProviderFromSettings,
   ProviderConfigError,

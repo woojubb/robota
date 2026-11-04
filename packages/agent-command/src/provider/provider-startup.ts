@@ -30,6 +30,7 @@ import type {
   TSettingsSource,
   IProviderConnectionHost,
   IOrgPolicy,
+  TProviderEnvironment,
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
 
@@ -38,8 +39,8 @@ export interface IProviderStartupContext {
   settingsScope?: TSettingsScope;
   settingsSources: readonly TSettingsSource[];
   settingsStores: readonly ISettingsDocumentStore[];
-  /** Selected host snapshot for configure-time credential reference checks. */
-  env?: Record<string, string | undefined>;
+  /** Selected host environment (a snapshot map or a resolver) for configure-time credential reference checks. */
+  env?: TProviderEnvironment;
   connectionHost?: IProviderConnectionHost;
   orgPolicy?: IOrgPolicy;
   interaction?: IUserInteraction;
@@ -48,8 +49,11 @@ export interface IProviderStartupContext {
 export interface IEnsureProviderConfigOptions {
   formatError: (defs: readonly IProviderDefinition[]) => string;
   isInteractive?: () => boolean;
-  /** Environment map for env-default synthesis (test seam, default: process.env). */
-  env?: Record<string, string | undefined>;
+  /**
+   * The environment env-default synthesis and the credential check read: a map or a resolver. Absent,
+   * every `$ENV:` reference and default credential variable reads as unset, so none is found.
+   */
+  env?: TProviderEnvironment;
 }
 
 export async function runProviderStartupSetup(

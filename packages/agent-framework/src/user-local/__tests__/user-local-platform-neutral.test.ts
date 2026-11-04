@@ -35,6 +35,47 @@ function identityFileSystem(): IFileSystemAsync {
 
 const fsAsync = identityFileSystem();
 
+/** A file system where only the listed directories exist: any other path has no canonical form yet. */
+function fileSystemWith(existing: readonly string[]): IFileSystemAsync {
+  return {
+    ...identityFileSystem(),
+    realpath: async (path: string) => {
+      if (existing.includes(path)) return path;
+      throw new Error(`ENOENT: no such file, realpath '${path}'`);
+    },
+  };
+}
+
+describe('the missing part of a user-local storage root', () => {
+  it.each([
+    ['a drive', '/home/me/repo/C:\\x/state'],
+    ['a share', '/home/me/repo/\\\\srv\\share/state'],
+    ['a rooted name', '/home/me/repo/\\x/state'],
+  ])(
+    'keeps the platform of the path it extends when a directory name looks like %s',
+    async (_label, storageRoot) => {
+      // On POSIX these are ordinary directory names, so the root is inside the repository.
+      await expect(
+        resolveUserLocalStorageRoot({
+          activeRepositoryRoot: '/home/me/repo',
+          storageRoot,
+          fsAsync: fileSystemWith(['/home/me/repo', '/home/me']),
+        }),
+      ).rejects.toThrow('outside the active repository');
+    },
+  );
+
+  it('is still judged outside the repository when it lies beside it', async () => {
+    await expect(
+      resolveUserLocalStorageRoot({
+        activeRepositoryRoot: '/home/me/repo',
+        storageRoot: '/home/me/C:\\x/state',
+        fsAsync: fileSystemWith(['/home/me/repo', '/home/me']),
+      }),
+    ).resolves.toBe('/home/me/C:\\x/state');
+  });
+});
+
 describe('the user-local storage root', () => {
   it.each([
     ['on a Windows drive', 'C:\\Users\\me\\repo', 'D:\\state\\agent', 'D:\\state\\agent'],

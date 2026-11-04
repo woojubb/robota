@@ -184,6 +184,8 @@ export {
   resolveActiveProvider,
 } from './provider/provider-merge.js';
 export type { IReadProviderSettingsOptions } from './provider/provider-factory.js';
+export { resolveProviderEnvironment } from './provider/provider-environment.js';
+export type { TProviderEnvironment } from './provider/provider-environment.js';
 export {
   createProviderFromSettings,
   ProviderConfigError,

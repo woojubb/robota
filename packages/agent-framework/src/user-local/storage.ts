@@ -129,8 +129,9 @@ async function resolveForComparison(absPath: string, fsAsync: IFileSystemAsync):
   while (dirnamePath(current) !== current) {
     try {
       const realCurrent = await fsAsync.realpath(current);
-      const missingSegments = relativeSegments(current, absPath) ?? [];
-      return missingSegments.reduce((base, segment) => resolvePath(base, segment), realCurrent);
+      // The missing part is joined as names, in the platform of the path it extends: a directory
+      // called `C:\x` is a drive only to a Windows path, and `resolvePath` would read it as one.
+      return joinPath(realCurrent, ...(relativeSegments(current, absPath) ?? []));
     } catch {
       // allow-fallback: walk up to first existing ancestor, not an error suppression
       current = dirnamePath(current);

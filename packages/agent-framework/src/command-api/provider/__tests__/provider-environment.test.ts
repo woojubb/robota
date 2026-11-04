@@ -193,5 +193,15 @@ describe('a key in process.env is not found without an environment', () => {
     );
     expect(probed.success).toBe(true);
     expect(probeProfile).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'k' }));
+    // A host with no process passes a resolver such as `host.env`, not a map.
+    probeProfile.mockClear();
+    const throughResolver = await testProviderProfileCommand(
+      'p',
+      providers,
+      undefined,
+      options((name) => (name === KEY ? 'r' : undefined)),
+    );
+    expect(throughResolver.success).toBe(true);
+    expect(probeProfile).toHaveBeenCalledWith(expect.objectContaining({ apiKey: 'r' }));
   });
 });
