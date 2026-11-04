@@ -7,7 +7,7 @@
  * land on the same name after sanitisation or truncation (`resolveNameCollisions`).
  */
 
-import { createHash } from 'node:crypto';
+import { sha1Hex } from '@robota-sdk/agent-core';
 
 import { MCP_CANONICAL_NAME_BUDGET } from './types.js';
 
@@ -35,7 +35,7 @@ function sanitise(part: string): string {
 }
 
 function shortHash(input: string): string {
-  return createHash('sha1').update(input).digest('hex').slice(0, TRUNCATION_HASH_LENGTH);
+  return sha1Hex(input).slice(0, TRUNCATION_HASH_LENGTH);
 }
 
 /**

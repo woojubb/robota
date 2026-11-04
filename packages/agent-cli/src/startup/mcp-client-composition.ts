@@ -33,12 +33,12 @@ import {
   classifyMcpFailure,
   createDiscoveredTool,
   createHeadersHelperAuthenticator,
-  createStdioAdapter,
   createStreamableHttpAdapter,
   isBlockedByManagedFailure,
   openMcpSession,
   refuseHeadersHelper,
 } from '@robota-sdk/agent-mcp';
+import { createNodeHttpTransportDeps, createStdioAdapter } from '@robota-sdk/agent-mcp/node';
 import { mcpUserActionNotice } from '@robota-sdk/agent-command';
 import { McpSkillRegistry } from './mcp-skill-registry.js';
 import { createMcpSkillCommandSource } from './mcp-skill-command-source.js';
@@ -58,12 +58,10 @@ import type {
   IMCPDiscovery,
   IMCPHeadersHelper,
   IMCPHeadersHelperAuthenticator,
-  IMCPHttpTransportDeps,
   IMCPReadResourceResult,
   IMCPResolvedEntry,
   IMCPSkillsSession,
   IMCPServerDefinitionResolved,
-  IMCPStdioAuthority,
   IMCPSupervisorClock,
   IMCPTimeouts,
   IMCPToolCallResult,
@@ -71,6 +69,7 @@ import type {
   TMCPDefinitionSource,
   IMCPToolCallOptions,
 } from '@robota-sdk/agent-mcp';
+import type { IMCPStdioAuthority, INodeHttpEgressOptions } from '@robota-sdk/agent-mcp/node';
 import type {
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
@@ -196,7 +195,13 @@ export interface IMcpClientCompositionDeps {
   readonly backoff?: Partial<IMCPBackoffPolicy>;
   readonly clock?: IMCPSupervisorClock;
   readonly discovery?: { readonly maxPages: number };
-  readonly transport?: IMCPHttpTransportDeps;
+  /**
+   * The destination policy, resolver and trusted carrier of every Streamable HTTP server. This
+   * composition always builds the Node pieces from them — the egress that refuses private
+   * destinations and pins the connection, and the call context that carries a tool call's trace —
+   * so a caller cannot hand it a transport without them.
+   */
+  readonly transport?: INodeHttpEgressOptions;
   /** Host capabilities, never populated from project or user MCP definitions. */
   readonly stdioAuthorities?: Readonly<Record<string, IMCPStdioAuthority>>;
   /**
@@ -584,7 +589,7 @@ async function connectOneServer(
       deps,
     );
   } else {
-    const adapter = createStreamableHttpAdapter(deps.transport);
+    const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps(deps.transport));
     const helper = definition.headersHelper;
     let authenticator: IMCPClientAuthenticator | undefined;
     let helperSlot: IHelperAuthenticatorSlot | undefined;

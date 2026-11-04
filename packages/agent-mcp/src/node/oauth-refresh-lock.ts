@@ -1,14 +1,6 @@
 /**
- * One refresh at a time per credential, across every process that shares the store.
- *
- * Two agent runtime processes signed in to the same server share its stored refresh token. When an
- * authorization server rotates refresh tokens, the second of two concurrent refreshes presents a
- * token the first already spent and is answered `invalid_grant` — which would sign the user out.
- * So a refresh runs under this lock, and whoever holds it re-reads the store first: a token another
- * process refreshed while this one waited is used as it is.
- *
- * The lock is the caller's, not the store's: a store only keeps credentials, and the same lock
- * serves a store that is not a file at all.
+ * The lock-file implementation of the refresh lock port (`client/oauth/refresh-lock.ts`): one
+ * refresh at a time per credential, across every process that shares the credential directory.
  */
 
 import { randomBytes } from 'node:crypto';
@@ -17,19 +9,10 @@ import { join } from 'node:path';
 
 import { ensureOwnerOnlyDirectory } from '@robota-sdk/agent-core/node';
 
-import { MCPOAuthError } from './errors.js';
-import { credentialKeyDigest } from './store.js';
+import { MCPOAuthError } from '../client/oauth/errors.js';
+import { credentialKeyDigest } from './oauth-file-store.js';
 
-import type { IMCPOAuthCredentialKey } from './store.js';
-
-export interface IMCPOAuthRefreshLock {
-  /** Run `critical` while no other holder, in this process or another, runs for the same key. */
-  withLock<T>(
-    key: IMCPOAuthCredentialKey,
-    critical: () => Promise<T>,
-    signal?: AbortSignal,
-  ): Promise<T>;
-}
+import type { IMCPOAuthRefreshLock } from '../client/oauth/refresh-lock.js';
 
 /** The file operations the lock uses; a test replaces one to interleave two holders exactly. */
 export interface IFileOAuthRefreshLockFs {

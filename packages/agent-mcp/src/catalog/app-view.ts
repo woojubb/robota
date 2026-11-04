@@ -1,3 +1,7 @@
+import { utf8ByteLength } from '@robota-sdk/agent-core';
+
+import { base64ToBytes } from '../bytes.js';
+
 import type { IMCPCatalog } from './types.js';
 import type { IUniversalObjectValue } from '@robota-sdk/agent-core';
 
@@ -47,7 +51,7 @@ function documentOf(item: IUniversalObjectValue): TMCPAppViewResource {
   const blob = item['blob'];
   if (typeof text === 'string' && blob === undefined) {
     if (text.length === 0) return { ok: false, reason: 'content' };
-    if (Buffer.byteLength(text, 'utf8') > MCP_APP_VIEW_MAX_BYTES) {
+    if (utf8ByteLength(text) > MCP_APP_VIEW_MAX_BYTES) {
       return { ok: false, reason: 'too-large' };
     }
     return { ok: true, html: text, mimeType: MCP_APP_MIME_TYPE };
@@ -57,7 +61,7 @@ function documentOf(item: IUniversalObjectValue): TMCPAppViewResource {
       return { ok: false, reason: 'content' };
     }
     if (base64DecodedBytes(blob) > MCP_APP_VIEW_MAX_BYTES) return { ok: false, reason: 'too-large' };
-    const html = decodeUtf8(Buffer.from(blob, 'base64'));
+    const html = decodeUtf8(base64ToBytes(blob));
     return html === undefined || html.length === 0
       ? { ok: false, reason: 'content' }
       : { ok: true, html, mimeType: MCP_APP_MIME_TYPE };

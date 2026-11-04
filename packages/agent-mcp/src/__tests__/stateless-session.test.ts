@@ -8,11 +8,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { openMcpSession, type IMCPSession } from '../client/session.js';
 import { admitHttpEndpoint, constructStreamableHttpTransport } from '../client/transport.js';
-import { createStdioAdapter } from '../client/stdio.js';
+import { createStdioAdapter } from '../node/stdio.js';
 import { MCPActivationAdmissionService } from '../mcp-activation.js';
 import { MCPDefinitionRegistry } from '../definition/registry.js';
 import { catalogIdentityOf, sameCatalogIdentity } from '../catalog/types.js';
 import { classifyMcpFailure } from '../supervisor/connection.js';
+import { createNodeHttpTransportDeps } from '../node/http-egress.js';
 
 const version = '2026-07-28';
 const requests: {
@@ -113,7 +114,7 @@ async function openModern(
   if (!address || typeof address === 'string') throw new Error('Missing listener');
   const admitted = await admitHttpEndpoint(
     { url: `http://127.0.0.1:${address.port}` },
-    { policy: { allowedHosts: ['127.0.0.1'] } },
+    createNodeHttpTransportDeps({ policy: { allowedHosts: ['127.0.0.1'] } }),
   );
   if (!admitted.ok) throw new Error(admitted.reason);
   const options = {

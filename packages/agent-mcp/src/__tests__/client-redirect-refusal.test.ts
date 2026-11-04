@@ -8,6 +8,7 @@ import {
 } from '../client/transport.js';
 
 import type { TEgressLookup } from '@robota-sdk/agent-core/node';
+import { createNodeHttpTransportDeps } from '../node/http-egress.js';
 
 /**
  * The admitted URL is the only URL spoken to (`transport.ts` § redirect refusal). A redirect from
@@ -34,7 +35,7 @@ describe('constructStreamableHttpTransport — redirect refusal', () => {
     const { fetch: fetchStub, calls } = redirectStub();
     const lookup: TEgressLookup = async () => ['203.0.113.9'];
 
-    const adapter = createStreamableHttpAdapter({ fetch: fetchStub, lookup });
+    const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps({ fetch: fetchStub, lookup }));
     const admission = await adapter.admit({
       url: 'https://mcp.example.test/mcp',
       headers: { 'x-custom': 'trusted-for-admitted-origin' },
@@ -89,7 +90,10 @@ describe('constructStreamableHttpTransport — redirect refusal', () => {
   });
 
   it('does not print a URL it cannot parse, which may hold an expanded credential', async () => {
-    const admission = await admitHttpEndpoint({ url: 'https://${HOST}/mcp?key=tok-secret' });
+    const admission = await admitHttpEndpoint(
+      { url: 'https://${HOST}/mcp?key=tok-secret' },
+      createNodeHttpTransportDeps(),
+    );
     expect(admission.ok).toBe(false);
     expect(JSON.stringify(admission)).not.toContain('tok-secret');
   });

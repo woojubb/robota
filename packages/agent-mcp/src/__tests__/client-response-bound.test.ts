@@ -7,6 +7,7 @@ import {
 import { classifyMcpFailure } from '../supervisor/connection.js';
 
 import type { TEgressLookup } from '@robota-sdk/agent-core/node';
+import { createNodeHttpTransportDeps } from '../node/http-egress.js';
 
 describe('Streamable HTTP receive bound', () => {
   it('refuses chunked output before the SDK can materialize or parse the whole response', async () => {
@@ -29,7 +30,7 @@ describe('Streamable HTTP receive bound', () => {
       });
     }) as typeof globalThis.fetch;
     const lookup: TEgressLookup = async () => ['203.0.113.9'];
-    const adapter = createStreamableHttpAdapter({ fetch: fetchStub, lookup });
+    const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps({ fetch: fetchStub, lookup }));
     const admission = await adapter.admit({ url: 'https://mcp.example.test/mcp' });
     expect(admission.ok).toBe(true);
     if (!admission.ok) return;

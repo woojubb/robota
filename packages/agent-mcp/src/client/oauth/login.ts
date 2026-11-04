@@ -19,20 +19,17 @@
  * secret.
  */
 
-import { randomBytes } from 'node:crypto';
-
 import {
   exchangeAuthorization,
   registerClient,
   startAuthorization,
 } from '@modelcontextprotocol/client';
+import { randomHex } from '@robota-sdk/agent-core';
 
 import {
   DEFAULT_CALLBACK_TIMEOUT_MS,
   createPastedRedirectAcceptor,
-  freeLoopbackPort,
   loopbackRedirectUri,
-  startOAuthCallbackServer,
 } from './callback.js';
 import { discoverMCPOAuthServer } from './discovery.js';
 import { MCPOAuthError, asOAuthError } from './errors.js';
@@ -40,7 +37,7 @@ import { createOAuthFetch } from './network.js';
 
 import type { OAuthClientInformationMixed, OAuthTokens } from '@modelcontextprotocol/client';
 import type { IMCPOAuthConfig } from '../../definition/types.js';
-import type { IMCPOAuthCallbackServer } from './callback.js';
+import type { IMCPOAuthCallbackListener, IMCPOAuthCallbackServer } from './callback.js';
 import type { IMCPOAuthServerInfo } from './discovery.js';
 import type { IMCPOAuthNetwork } from './network.js';
 import type { IMCPOAuthRefreshLock } from './refresh-lock.js';
@@ -57,6 +54,12 @@ export interface IMCPOAuthLoginInput {
   /** The refresh lock a session uses, so a refresh in flight cannot overwrite this sign-in. */
   readonly lock: IMCPOAuthRefreshLock;
   readonly network: IMCPOAuthNetwork;
+  /**
+   * Where a browser's redirect lands on this machine. Absent, the sign-in cannot listen: it fails
+   * with `callback-unavailable` unless `readRedirect` is given with the definition's `callbackPort`,
+   * since that is the one redirect that needs neither a listener nor a free port to pick.
+   */
+  readonly callbackListener?: IMCPOAuthCallbackListener;
   /**
    * Shows the user the authorization page, and — with `readRedirect` — the redirect URI it will
    * send the browser to. Always given an `https:` URL.
@@ -151,16 +154,22 @@ async function redirectReceiver(
   state: string,
 ): Promise<IMCPOAuthCallbackServer> {
   const read = input.readRedirect;
+  const listener = input.callbackListener;
   if (read === undefined) {
-    return startOAuthCallbackServer({
+    if (listener === undefined) throw new MCPOAuthError('callback-unavailable');
+    return listener.listen({
       expectedState: state,
       ...(input.config.callbackPort === undefined ? {} : { port: input.config.callbackPort }),
       ...(input.callbackTimeoutMs === undefined ? {} : { timeoutMs: input.callbackTimeoutMs }),
       ...(input.signal === undefined ? {} : { signal: input.signal }),
     });
   }
-  const redirectUri = loopbackRedirectUri(input.config.callbackPort ?? (await freeLoopbackPort()));
-  return pastedRedirectReceiver(input, read, state, redirectUri);
+  let port = input.config.callbackPort;
+  if (port === undefined) {
+    if (listener === undefined) throw new MCPOAuthError('callback-unavailable');
+    port = await listener.freePort();
+  }
+  return pastedRedirectReceiver(input, read, state, loopbackRedirectUri(port));
 }
 
 /** Reads the redirect URL the user pastes, held to the loopback listener's rules. */
@@ -205,7 +214,7 @@ export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCP
     config: input.config,
     fetch: fetchFn,
   });
-  const state = randomBytes(32).toString('base64url');
+  const state = randomHex(32);
   let callback = await redirectReceiver(input, state);
   try {
     const client = await clientFor(input, server, callback.redirectUri, fetchFn);

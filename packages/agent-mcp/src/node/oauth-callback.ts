@@ -1,56 +1,28 @@
 /**
- * The loopback listener an OAuth sign-in redirects back to.
- *
- * It answers one thing — `GET /callback` on `127.0.0.1` with the right `Host` and the sign-in's own
- * `state` — once, within a time limit, and then closes. Anything else is refused without being
- * consumed, so a page that merely guesses the port can neither end the sign-in nor inject a code:
- * the `Host` check stops a rebound hostname, and the `state`, compared in constant time, is known
- * only to this sign-in and the authorization server.
- *
- * The page it serves is static. An authorization server's `error_description` is never echoed —
- * into the page, an error or a log — because it is attacker-influenced text.
- *
- * Without a browser on this machine the user pastes the redirect URL instead, and the same rules
- * hold: it must be this sign-in's redirect URI, carry its `state`, and is accepted once.
+ * The loopback listener an OAuth sign-in redirects back to: the Node implementation of the
+ * listener port (`client/oauth/callback.ts`, which says what it answers and why).
  */
 
-import { timingSafeEqual } from 'node:crypto';
 import { createServer } from 'node:http';
 
-import { MCPOAuthError } from './errors.js';
+import {
+  CALLBACK_PATH,
+  DEFAULT_CALLBACK_TIMEOUT_MS,
+  LOOPBACK_HOST,
+  loopbackRedirectUri,
+  redirectOutcome,
+  stateMatches,
+} from '../client/oauth/callback.js';
+import { MCPOAuthError } from '../client/oauth/errors.js';
 
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-
-export interface IMCPOAuthCallbackResult {
-  readonly code: string;
-  /** RFC 9207 issuer identifier, when the authorization server sent one. */
-  readonly iss?: string;
-}
-
-export interface IMCPOAuthCallbackServer {
-  readonly redirectUri: string;
-  /**
-   * Resolves with the one accepted redirect; rejects on an error redirect, timeout or cancel. The
-   * time limit runs from the first call — once the user has the authorization page — since time
-   * spent before that (a prompt asking whether to open the browser) is not spent waiting for it.
-   */
-  wait(): Promise<IMCPOAuthCallbackResult>;
-  close(): Promise<void>;
-}
-
-export interface IMCPOAuthCallbackOptions {
-  readonly expectedState: string;
-  /** A pre-registered client's fixed port; otherwise the system picks one. */
-  readonly port?: number;
-  readonly timeoutMs?: number;
-  readonly signal?: AbortSignal;
-}
-
-const LOOPBACK = '127.0.0.1';
-const CALLBACK_PATH = '/callback';
-/** How long a sign-in waits for its redirect. */
-export const DEFAULT_CALLBACK_TIMEOUT_MS = 5 * 60 * 1000;
+import type {
+  IMCPOAuthCallbackListener,
+  IMCPOAuthCallbackOptions,
+  IMCPOAuthCallbackResult,
+  IMCPOAuthCallbackServer,
+} from '../client/oauth/callback.js';
 
 const PAGE_HEADERS = {
   'Content-Type': 'text/html; charset=utf-8',
@@ -70,34 +42,13 @@ function refuse(response: ServerResponse, status: number): void {
   response.end(status === 404 ? 'Not found' : 'Bad request');
 }
 
-function stateMatches(received: string | null, expected: string): boolean {
-  if (received === null) return false;
-  const a = Buffer.from(received, 'utf8');
-  const b = Buffer.from(expected, 'utf8');
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
-/** What a redirect that carried the right `state` says: a code, or a refusal named by reason. */
-function redirectOutcome(params: URLSearchParams): IMCPOAuthCallbackResult | MCPOAuthError {
-  const code = params.get('code');
-  const iss = params.get('iss');
-  if (params.has('error')) return new MCPOAuthError('authorization-denied');
-  if (code === null || code === '') return new MCPOAuthError('callback-invalid');
-  return { code, ...(iss === null ? {} : { iss }) };
-}
-
-/** The loopback redirect URI for `port`. */
-export function loopbackRedirectUri(port: number): string {
-  return `http://${LOOPBACK}:${port}${CALLBACK_PATH}`;
-}
-
 /** A loopback port free right now, for a redirect URI nothing on this machine listens on. */
 export async function freeLoopbackPort(): Promise<number> {
   const probe = createServer();
   try {
     await new Promise<void>((resolve, reject) => {
       probe.once('error', reject);
-      probe.listen(0, LOOPBACK, () => resolve());
+      probe.listen(0, LOOPBACK_HOST, () => resolve());
     });
   } catch {
     throw new MCPOAuthError('callback-unavailable');
@@ -105,42 +56,6 @@ export async function freeLoopbackPort(): Promise<number> {
   const port = (probe.address() as AddressInfo).port;
   await new Promise<void>((resolve) => probe.close(() => resolve()));
   return port;
-}
-
-export interface IMCPOAuthPastedRedirect {
-  /**
-   * The code a pasted redirect URL carries. Throws `callback-invalid` for anything that is not this
-   * sign-in's redirect URI with its `state`, or once a redirect has been accepted;
-   * `authorization-denied` for an error redirect.
-   */
-  accept(pasted: string): IMCPOAuthCallbackResult;
-}
-
-/** The pasted counterpart of the loopback listener, for a browser on another machine. */
-export function createPastedRedirectAcceptor(options: {
-  readonly expectedState: string;
-  readonly redirectUri: string;
-}): IMCPOAuthPastedRedirect {
-  let consumed = false;
-  return {
-    accept: (pasted) => {
-      const text = pasted.trim();
-      if (consumed || !URL.canParse(text)) throw new MCPOAuthError('callback-invalid');
-      const url = new URL(text);
-      if (
-        `${url.origin}${url.pathname}` !== options.redirectUri ||
-        url.username !== '' ||
-        url.password !== '' ||
-        !stateMatches(url.searchParams.get('state'), options.expectedState)
-      ) {
-        throw new MCPOAuthError('callback-invalid');
-      }
-      consumed = true;
-      const outcome = redirectOutcome(url.searchParams);
-      if (outcome instanceof MCPOAuthError) throw outcome;
-      return outcome;
-    },
-  };
 }
 
 export async function startOAuthCallbackServer(
@@ -159,8 +74,8 @@ export async function startOAuthCallbackServer(
   let port = 0;
 
   const server = createServer((request: IncomingMessage, response: ServerResponse) => {
-    if (request.headers.host !== `${LOOPBACK}:${port}`) return refuse(response, 400);
-    const url = new URL(request.url ?? '/', `http://${LOOPBACK}:${port}`);
+    if (request.headers.host !== `${LOOPBACK_HOST}:${port}`) return refuse(response, 400);
+    const url = new URL(request.url ?? '/', `http://${LOOPBACK_HOST}:${port}`);
     if (url.pathname !== CALLBACK_PATH || consumed) return refuse(response, 404);
     if (request.method !== 'GET') return refuse(response, 405);
     if (!stateMatches(url.searchParams.get('state'), options.expectedState)) {
@@ -195,7 +110,7 @@ export async function startOAuthCallbackServer(
   try {
     await new Promise<void>((resolve, reject) => {
       server.once('error', reject);
-      server.listen(options.port ?? 0, LOOPBACK, () => {
+      server.listen(options.port ?? 0, LOOPBACK_HOST, () => {
         server.off('error', reject);
         resolve();
       });
@@ -222,3 +137,9 @@ export async function startOAuthCallbackServer(
     close,
   };
 }
+
+/** The listener a Node host injects into the sign-in: `127.0.0.1`, a port the system picks. */
+export const loopbackOAuthCallbackListener: IMCPOAuthCallbackListener = {
+  listen: startOAuthCallbackServer,
+  freePort: freeLoopbackPort,
+};

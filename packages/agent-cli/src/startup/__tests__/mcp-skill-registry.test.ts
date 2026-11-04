@@ -9,6 +9,7 @@ import {
   InMemoryMCPActivationApprovalStore,
   MCPDefinitionRegistry,
 } from '@robota-sdk/agent-mcp';
+import { createNodeHttpTransportDeps } from '@robota-sdk/agent-mcp/node';
 import { createMemoryMcpSkillApprovalStore, McpSkillRegistry } from '../mcp-skill-registry.js';
 import { createMcpClientComposition } from '../mcp-client-composition.js';
 import { executeMCPActivationCommand } from '@robota-sdk/agent-command';
@@ -173,7 +174,7 @@ async function fixture(serverId = 'server-a', viaComposition = false) {
   }
   const admitted = await admitHttpEndpoint(
     { url: `http://127.0.0.1:${address.port}` },
-    { policy: { allowedHosts: ['127.0.0.1'] } },
+    createNodeHttpTransportDeps({ policy: { allowedHosts: ['127.0.0.1'] } }),
   );
   if (!admitted.ok) throw new Error(admitted.reason);
   const session = await openMcpSession({

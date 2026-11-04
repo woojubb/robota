@@ -24,6 +24,7 @@ import type { ElicitRequestFormParams } from '@modelcontextprotocol/client';
 import type { ServerContext, Tool } from '@modelcontextprotocol/server';
 import type { IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { createNodeHttpTransportDeps } from '../node/http-egress.js';
 
 const PINNED = '2026-07-28';
 const ERAS = ['legacy', PINNED] as const;
@@ -192,7 +193,7 @@ function startHost(era: TEra): Promise<string> {
 }
 
 async function open(url: string, era: TEra, elicitation: boolean): Promise<IMCPSession> {
-  const admitted = await admitHttpEndpoint({ url }, { policy: { allowedHosts: ['127.0.0.1'] } });
+  const admitted = await admitHttpEndpoint({ url }, createNodeHttpTransportDeps({ policy: { allowedHosts: ['127.0.0.1'] } }));
   if (!admitted.ok) throw new Error(admitted.reason);
   session = await openMcpSession({
     serverId: 'eliciting',

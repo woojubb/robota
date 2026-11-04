@@ -25,11 +25,11 @@ export { MCPSessionError } from './session-protocol.js';
 
 import { hasAppsCapability } from '../catalog/app-view.js';
 import { MCPAuthenticationError } from './authentication.js';
-import { MCPTransportEgressRefusedError } from './pinned-http-fetch.js';
+import { MCPTransportEgressRefusedError } from './http-egress.js';
 import { discoverAll } from './discovery.js';
 import { createElicitationHandler, MCPElicitationCalls } from './elicitation.js';
-import { MCPStdioError } from './stdio-transport.js';
-import { callTraceRegistryOf, runInCallTraceScope } from './trace-propagation.js';
+import { MCPStdioError } from './stdio-error.js';
+import { callTraceRegistryOf } from './trace-propagation.js';
 import { MCPDiscoveryError } from '../catalog/types.js';
 
 import type { IMCPDiscovery, IMCPServerIdentity } from '../catalog/types.js';
@@ -347,7 +347,8 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
           : undefined;
       const leave = calls.enter({ ask: callOptions?.ask, signal: callOptions?.signal });
       try {
-        const raw = traceScope ? await runInCallTraceScope(traceScope, call) : await call();
+        const raw =
+          traceScope && callTraces ? await callTraces.run(traceScope, call) : await call();
         return toToolCallResult(raw);
       } catch (error) {
         if (sensitiveTransport(options.transport)) return maskStdioFailure(error, callOptions?.signal);

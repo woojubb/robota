@@ -3,9 +3,10 @@ import type { Socket } from 'node:net';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createStreamableHttpAdapter } from '../client/transport.js';
 import { openMcpSession } from '../client/session.js';
-import { MCPTransportEgressRefusedError } from '../client/pinned-http-fetch.js';
+import { MCPTransportEgressRefusedError } from '../client/http-egress.js';
 import { classifyMcpFailure } from '../supervisor/connection.js';
 import { startMockMcpServer } from './mock-mcp-server.js';
+import { createNodeHttpTransportDeps } from '../node/http-egress.js';
 
 const cleanups: (() => Promise<void>)[] = [];
 afterEach(async () => {
@@ -21,7 +22,7 @@ describe('actual MCP pinned HTTP requests and stream lifetime', () => {
     let authorizations = 0;
     const rejected = vi.fn(async () => 'retry' as const);
     const lookup = vi.fn(async () => ['127.0.0.1']);
-    const adapter = createStreamableHttpAdapter({ policy: { allowedHosts: [url.hostname] }, lookup });
+    const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps({ policy: { allowedHosts: [url.hostname] }, lookup }));
     const admission = await adapter.admit({ url: url.href, authentication: {
       serverId: 'fixture', securityIdentity: 'fixture-only', authenticator: {
         authorize: async () => ({ Authorization: `fixture-${++authorizations}` }), onRejected: rejected,
@@ -45,7 +46,7 @@ describe('actual MCP pinned HTTP requests and stream lifetime', () => {
       return new Promise<Readonly<Record<string, string>>>((resolve) => { resolveAuthorization = resolve; });
     });
     const fetch = vi.fn<typeof globalThis.fetch>(async () => new Response(null, { status: 202 }));
-    const adapter = createStreamableHttpAdapter({ lookup: async () => ['8.8.8.8'], fetch });
+    const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps({ lookup: async () => ['8.8.8.8'], fetch }));
     const admission = await adapter.admit({ url: 'https://mcp-fixture.invalid/mcp', authentication: {
       serverId: 'fixture', securityIdentity: 'fixture-only', authenticator: { authorize, onRejected: async () => 'fail' },
     } });
@@ -69,10 +70,10 @@ describe('actual MCP pinned HTTP requests and stream lifetime', () => {
     const url = new URL(server.url);
     url.hostname = 'pinned-mcp-fixture.invalid';
     const lookup = vi.fn(async () => ['127.0.0.1']);
-    const adapter = createStreamableHttpAdapter({
+    const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps({
       policy: { allowedHosts: [url.hostname] },
       lookup,
-    });
+    }));
     const admission = await adapter.admit({ url: url.href });
     if (!admission.ok) throw new Error('Fixture endpoint was not admitted');
     const session = await openMcpSession({
@@ -119,7 +120,7 @@ describe('actual MCP pinned HTTP requests and stream lifetime', () => {
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const address = server.address();
     if (!address || typeof address === 'string') throw new Error('Fixture listener unavailable');
-    const adapter = createStreamableHttpAdapter({ policy: { allowedHosts: ['127.0.0.1'] } });
+    const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps({ policy: { allowedHosts: ['127.0.0.1'] } }));
     const admission = await adapter.admit({ url: `http://127.0.0.1:${address.port}/mcp` });
     if (!admission.ok) throw new Error('Fixture endpoint was not admitted');
     const session = await openMcpSession({ serverId: 'fixture', transport: adapter.construct(admission.admitted), timeouts: { startupMs: 1000, perCallMs: 1000 } });
@@ -138,7 +139,7 @@ describe('actual MCP pinned HTTP requests and stream lifetime', () => {
     cleanups.push(() => server.close());
     const lookup = vi.fn().mockResolvedValueOnce(['8.8.8.8']).mockResolvedValue(['127.0.0.1']);
     const carrier = vi.fn<typeof globalThis.fetch>((_input, init) => globalThis.fetch(server.url, init));
-    const adapter = createStreamableHttpAdapter({ lookup, fetch: carrier });
+    const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps({ lookup, fetch: carrier }));
     const admission = await adapter.admit({ url: 'http://pinned-mcp-fixture.invalid/mcp' });
     if (!admission.ok) throw new Error('Public initial answer was not admitted');
     let failure: unknown;
@@ -188,7 +189,7 @@ describe('actual MCP pinned HTTP requests and stream lifetime', () => {
     if (!address || typeof address === 'string') throw new Error('Fixture listener unavailable');
     const endpoint = new URL(`http://reconnect-mcp-fixture.invalid:${address.port}/mcp`);
     const lookup = vi.fn(async () => ['127.0.0.1']);
-    const adapter = createStreamableHttpAdapter({ policy: { allowedHosts: [endpoint.hostname] }, lookup });
+    const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps({ policy: { allowedHosts: [endpoint.hostname] }, lookup }));
     const admission = await adapter.admit({ url: endpoint.href });
     if (!admission.ok) throw new Error('Fixture endpoint was not admitted');
     const session = await openMcpSession({ serverId: 'fixture', transport: adapter.construct(admission.admitted), timeouts: { startupMs: 1000, perCallMs: 1000 } });

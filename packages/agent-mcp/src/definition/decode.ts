@@ -10,7 +10,7 @@
  * which source and origin it came from.
  */
 
-import { isAbsolute } from 'node:path';
+import { isAbsolutePath } from '@robota-sdk/agent-core';
 
 import { UNSUPPORTED_AUTHENTICATION_KEYS } from '../client/authentication.js';
 import type {
@@ -98,7 +98,7 @@ function decodeHeadersHelper(value: unknown): IMCPHeadersHelper | string {
   if ([command, ...(args as string[])].some((part) => TEMPLATE.test(part))) {
     return '`headersHelper` must not contain `${}` templates; the host allows its exact command and arguments';
   }
-  if (!isAbsolute(command)) {
+  if (!isAbsolutePath(command)) {
     return '`headersHelper.command` must be an absolute path to an executable';
   }
   return { command, args: [...(args as string[])] };

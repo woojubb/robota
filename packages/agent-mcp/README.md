@@ -12,6 +12,12 @@ from external MCP servers. It keeps three concerns separate:
   protocol eras, behind an admit-then-construct transport seam, the canonical catalog of discovered
   tools, prompts and resources, and a supervisor for the connection and catalog lifecycle.
 
+The main entry is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun and never
+reaches a file, a process or a socket. What needs a Node host — the stdio transport and the authority that
+admits a child process, the owner-only OAuth credential files and refresh lock, the loopback listener a
+sign-in redirects to, and the Node pieces of the HTTP transport — is on `@robota-sdk/agent-mcp/node`, and
+the main entry takes each of them by injection.
+
 Transports are Streamable HTTP and host-authorized stdio. Discovered tools enter the agent through the
 ordinary tool slot, so there is no MCP-specific runtime path. The agent runtime CLI uses this package for its
 `mcpServers` configuration; see the [MCP guide](../../content/guide/mcp.md) for that side. To expose a
@@ -90,7 +96,8 @@ optional directory reads are not provided by this wire view.
 npm install @robota-sdk/agent-mcp @robota-sdk/agent-core
 ```
 
-Requires Node.js 22.12 or later. `@robota-sdk/agent-core` is a peer dependency.
+Requires Node.js 22.12 or later for the `@robota-sdk/agent-mcp/node` adapters.
+`@robota-sdk/agent-core` is a peer dependency.
 
 ## Usage
 
@@ -105,8 +112,10 @@ import {
   buildCatalog,
   createDiscoveredTool,
 } from '@robota-sdk/agent-mcp';
+import { createNodeHttpTransportDeps } from '@robota-sdk/agent-mcp/node';
 
-const adapter = createStreamableHttpAdapter();
+// On Node: the egress that refuses private destinations and pins the connection, and the call context.
+const adapter = createStreamableHttpAdapter(createNodeHttpTransportDeps());
 const admission = await adapter.admit({ url: 'https://example.com/mcp' });
 if (!admission.ok) {
   throw new Error(`${admission.reason}: ${admission.message}`);
@@ -143,10 +152,11 @@ const tools = catalog.adopted
   .map((entry) => createDiscoveredTool(entry, supervisor));
 ```
 
-The default HTTP carrier validates and pins each actual request, including authentication retries
-and SSE reconnects, to addresses from the resolver captured during admission. Closing a transport
-withdraws pending requests and late authentication results and releases its owned connections.
-Explicit `deps.fetch` injection is an owner/test carrier with its own socket-policy responsibility.
+The Node egress validates and pins each actual request, including authentication retries and SSE
+reconnects, to addresses from the resolver captured during admission. Closing a transport withdraws
+pending requests and late authentication results and releases its owned connections. A `fetch` passed
+to `createNodeHttpEgress` is an owner/test carrier with its own socket-policy responsibility; every
+request is still judged first.
 
 From a repository checkout, build core and this package, then use
 [`examples/verify-http-transport.mjs`](examples/verify-http-transport.mjs) to exercise initialization,
@@ -168,9 +178,26 @@ The fixture explicitly permits its disposable local server; it does not verify a
 cloud provider or physical egress containment. The HTTP socket, authentication, trace and receive
 limit suites cover their corresponding contracts separately.
 
-`admit` runs the shared egress policy before any connection: plain `http:` outside loopback, private
-address ranges and cloud-metadata addresses are refused, and redirects are refused rather than followed.
-`openMcpSession()` identifies itself to the server as `mcp-client` unless you pass `clientInfo`.
+`admit` asks the host's egress before any connection. The Node egress refuses a loopback or
+cloud-metadata host, and any name that resolves to a private address range; the transport itself refuses
+redirects rather than following them. `openMcpSession()` identifies itself to the server as `mcp-client`
+unless you pass `clientInfo`.
+
+### What the host supplies
+
+The HTTP transport reads nothing from the machine it runs on. The composition root passes, in the
+`createStreamableHttpAdapter(deps)` or `admitHttpEndpoint(endpoint, deps)` argument:
+
+| Option        | Without it                                                                                                                                                                                                                          |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `egress`      | Web `fetch` with no destination check beyond `http:`/`https:` (`createWebFetchEgress()`): nothing resolves a name or refuses a private address, so a host outside a browser's sandbox must pass one. `createNodeHttpEgress` is it |
+| `callContext` | No `traceparent` is sent, and the transport does not abort the request of a cancelled call (the SDK still rejects the call); `createNodeCallContext` carries the call through `AsyncLocalStorage`                              |
+
+`createNodeHttpTransportDeps(options)` on `/node` returns both, and is what the CLI composition passes
+for every HTTP server. OAuth takes its network (`IMCPOAuthNetwork`; `createNodeOAuthNetwork` on `/node`)
+as a required input, and its loopback listener (`callbackListener`; `loopbackOAuthCallbackListener` on
+`/node`) as an optional one: without a listener, a sign-in that needs one fails with
+`callback-unavailable` before anything is shown to the user.
 
 The catalog sorts everything the server disclosed into `adopted`, `adapted` and `rejected` entries, with
 stable, collision-safe tool names. The supervisor retries only transient failures, with bounded backoff,
@@ -178,9 +205,11 @@ and keeps a catalog marked stale rather than emptying it when a refresh fails.
 
 ### stdio
 
-Stdio needs a host-owned `IMCPStdioAuthority`: an allowed root directory, an absolute executable, exact
+Stdio is on `@robota-sdk/agent-mcp/node`: a host that composes without it has no stdio transport to
+construct and connects no stdio server. It needs a host-owned `IMCPStdioAuthority`: an allowed root directory, an absolute executable, exact
 argument vectors, an explicitly selected child environment, and a generation. Pass a resolved definition
-and its activation request to `createStdioAdapter({ admission, authority }).admit(...)` before opening a
+and its activation request to `createStdioAdapter({ admission, authority }).admit(...)` (from
+`@robota-sdk/agent-mcp/node`) before opening a
 session; the adapter rechecks activation and authority before every spawn. The child inherits no ambient
 environment values: the SDK's default environment keys are present only with host-selected values or
 empty strings. Cancelling or timing out an active stdio request closes the direct child, because the
@@ -193,13 +222,29 @@ A host registers an authenticator for one server identity, and the HTTP transpor
 every request to that server only. The package provides:
 
 - OAuth sign-in for servers that declare `oauth`: `runMCPOAuthLogin`, `runMCPOAuthLogout`,
-  `createOAuthAuthenticator`, with storage (`createFileOAuthCredentialStore`) and a cross-process refresh
-  lock (`createFileOAuthRefreshLock`) as replaceable ports.
+  `createOAuthAuthenticator`, with storage (`IMCPOAuthCredentialStore`; `createFileOAuthCredentialStore`
+  on `/node`) and a cross-process refresh lock (`IMCPOAuthRefreshLock`; `createFileOAuthRefreshLock` on
+  `/node`) as replaceable ports.
 - A headers helper (`createHeadersHelperAuthenticator`): an exact argv the host allows and runs, whose
   output is parsed strictly into request headers.
 
 A definition that asks for authentication the host cannot provide stays listed and is refused by name;
 it is never connected with its static headers alone.
+
+## Node adapters
+
+`@robota-sdk/agent-mcp/node` holds what only a Node host provides:
+
+| Export                                                         | Kind     | Description                                                                                  |
+| -------------------------------------------------------------- | -------- | -------------------------------------------------------------------------------------------- |
+| `createStdioAdapter`                                           | Function | Admits and spawns a host-authorized stdio server (with the `IMCPStdio*` types)               |
+| `createNodeHttpEgress`, `INodeHttpEgressOptions`               | Function | The HTTP egress: resolved-address policy, pinned connection, owner/test `fetch`              |
+| `createNodeCallContext`                                        | Function | The `AsyncLocalStorage` call context that ties a tool call to its own request                |
+| `createNodeHttpTransportDeps`                                  | Function | Both of the above as the transport's deps                                                    |
+| `createNodeOAuthNetwork`, `INodeOAuthNetworkOptions`           | Function | The OAuth network: egress policy, byte caps, no redirect on a POST                           |
+| `createFileOAuthCredentialStore`                               | Function | Owner-only credential files, one per server identity and URL                                 |
+| `createFileOAuthRefreshLock`, `IFileOAuthRefreshLockOptions`   | Function | One refresh at a time per credential, across processes                                       |
+| `loopbackOAuthCallbackListener`, `startOAuthCallbackServer`, `freeLoopbackPort` | Value, functions | The loopback listener a sign-in redirects to |
 
 ## Where it sits
 

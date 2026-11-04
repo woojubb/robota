@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import {
   SERVER_INFO_META_KEY,
   SdkError,
@@ -6,6 +5,8 @@ import {
   SdkHttpError,
   UnsupportedProtocolVersionError,
 } from '@modelcontextprotocol/client';
+
+import { randomId } from '@robota-sdk/agent-core';
 
 import { hasAppsCapability } from '../catalog/app-view.js';
 import { MCPSkillError } from '../skills/manifest.js';
@@ -28,8 +29,8 @@ import {
   toReadResourceResult,
   toToolCallResult,
 } from './session-protocol.js';
-import { MCPStdioError } from './stdio-transport.js';
-import { callTraceRegistryOf, runInCallTraceScope } from './trace-propagation.js';
+import { MCPStdioError } from './stdio-error.js';
+import { callTraceRegistryOf } from './trace-propagation.js';
 import { lastHttpAnswerOf } from './transport.js';
 
 import type { Client, Result, Transport } from '@modelcontextprotocol/client';
@@ -198,7 +199,7 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
       serverName: serverInfo === undefined ? options.serverId : serverInfo.name,
       serverVersion: serverInfo === undefined ? '' : serverInfo.version,
       protocolVersion: STATELESS_PROTOCOL_VERSION,
-      catalogGeneration: randomUUID(),
+      catalogGeneration: randomId(),
       ...(serverInfo === undefined ? { serverInfoProvided: false as const } : {}),
     };
     const instructions = client.getInstructions();
@@ -362,7 +363,7 @@ export async function openStatelessSession(options: IMCPOpenSessionOptions): Pro
           : undefined;
         const leave = calls.enter({ ask: callOptions?.ask, signal: callOptions?.signal });
         try {
-          return scope ? await runInCallTraceScope(scope, call) : await call();
+          return scope && callTraces ? await callTraces.run(scope, call) : await call();
         } catch (error) {
           if (error instanceof MCPStatelessProtocolError) {
             await close();

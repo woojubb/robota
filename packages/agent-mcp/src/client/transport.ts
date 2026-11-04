@@ -2,20 +2,20 @@
  * Transport seam: ADMIT, then CONSTRUCT (spec § Decision, MCP-002).
  *
  * Every transport contributes a typed admission step whose result is the only thing the
- * constructor accepts. HTTP admits a URL through the shared egress policy (SSRF boundary owned by
- * `@robota-sdk/agent-core/node`); the stdio adapter admits an executable, exact argv, environment
- * values and a cwd authority in the same slot. Nothing here opens a connection: constructing an
- * SDK transport is inert until a `Client` connects it.
+ * constructor accepts. HTTP admits a URL through the host's egress (`IMCPHttpEgress`, the SSRF
+ * boundary a Node host fills from `@robota-sdk/agent-core/node`); the stdio adapter
+ * (`@robota-sdk/agent-mcp/node`) admits an executable, exact argv, environment values and a cwd
+ * authority in the same slot. Nothing here opens a connection: constructing an SDK transport is
+ * inert until a `Client` connects it.
  *
  * The supported set is Streamable HTTP and stdio. Deprecated HTTP+SSE and custom socket bindings
  * are refusals surfaced in the catalog, not adapters.
  */
 
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
-import { rejectDestination } from '@robota-sdk/agent-core/node';
 
 import { MCPAuthenticationError, type IMCPBoundAuthenticator } from './authentication.js';
-import { createMcpPinnedFetch } from './pinned-http-fetch.js';
+import { createWebFetchEgress } from './http-egress.js';
 import {
   DEFAULT_MCP_RECEIVE_BYTES,
   SKILL_RESOURCE_RECEIVE_BYTES,
@@ -27,13 +27,12 @@ import {
   callTraceHeaders,
   callRequestSignal,
   cancelledRequestId,
-  currentCallTraceScope,
-  runInCallTraceScope,
   toolsCallRequestId,
 } from './trace-propagation.js';
 
 import type { JSONRPCMessage, Transport, TransportSendOptions } from '@modelcontextprotocol/client';
-import type { IEgressPolicy, TEgressLookup } from '@robota-sdk/agent-core/node';
+import type { IMCPHttpEgress } from './http-egress.js';
+import type { IMCPCallContext } from './trace-propagation.js';
 
 export type TMCPTransportKind = 'streamable-http' | 'stdio';
 
@@ -66,17 +65,24 @@ export interface IMCPAdmittedHttpEndpoint {
   readonly url: URL;
   readonly headers: Readonly<Record<string, string>>;
   readonly authentication?: IMCPBoundAuthenticator;
-  /** Owner policy/resolver captured at admission, also used at every actual request/reconnect. */
-  readonly egress?: { readonly policy: IEgressPolicy; readonly lookup?: TEgressLookup };
+  /** The egress the endpoint was admitted under, also used at every actual request/reconnect. */
+  readonly egress?: IMCPHttpEgress;
 }
 
+/** What the host gives the HTTP transport; each absent port is a capability the transport does without. */
 export interface IMCPHttpTransportDeps {
-  /** Egress policy; default refuses private, loopback and metadata destinations. */
-  readonly policy?: IEgressPolicy;
-  /** Hostname resolver injected so tests never touch DNS. */
-  readonly lookup?: TEgressLookup;
-  /** Trusted owner/test carrier; it owns its connection policy instead of the default's pinning guarantee. */
-  readonly fetch?: typeof globalThis.fetch;
+  /**
+   * The host's network: which destinations are reached and how each request gets there. Absent,
+   * web `fetch` with no destination check beyond `http:`/`https:` (`createWebFetchEgress`), so a
+   * host that runs outside a browser's sandbox injects one that judges destinations.
+   */
+  readonly egress?: IMCPHttpEgress;
+  /**
+   * What carries a tool call's scope through the async work it starts. Absent, no tool call is
+   * tied to its own request: no `traceparent` is sent and a cancelled call's request is not aborted
+   * by the transport.
+   */
+  readonly callContext?: IMCPCallContext;
 }
 
 const POLICY_REFUSAL = 'egress-policy';
@@ -161,8 +167,9 @@ export class MCPTransportRedirectRefusedError extends Error {
 }
 
 /**
- * Admit a Streamable HTTP endpoint. `http:` outside loopback, private ranges and cloud metadata
- * addresses are refused by the shared policy with its own reason; nothing is connected to decide.
+ * Admit a Streamable HTTP endpoint. The host's egress decides which destinations may be reached
+ * (a Node host's refuses loopback, private ranges and cloud metadata addresses, each with its own
+ * reason); nothing is connected to decide.
  */
 export async function admitHttpEndpoint(
   endpoint: IMCPHttpEndpoint,
@@ -198,21 +205,13 @@ export async function admitHttpEndpoint(
     return { ok: false, reason: 'invalid-url', message: 'The configured URL is not a valid URL' };
   }
   const url = new URL(endpoint.url);
-  const policy = Object.freeze({
-    ...deps.policy,
-    ...(deps.policy?.allowedHosts
-      ? { allowedHosts: Object.freeze([...deps.policy.allowedHosts]) }
-      : {}),
-  });
-  const lookup = deps.lookup;
-  const rejection = lookup
-    ? await rejectDestination(url, policy, lookup)
-    : await rejectDestination(url, policy);
-  if (rejection) {
+  const egress = deps.egress ?? createWebFetchEgress();
+  const refusal = await egress.admit(url);
+  if (refusal) {
     return {
       ok: false,
-      reason: `${POLICY_REFUSAL}:${rejection.reason}`,
-      message: rejection.message,
+      reason: `${POLICY_REFUSAL}:${refusal.reason}`,
+      message: refusal.message,
     };
   }
   return {
@@ -222,10 +221,7 @@ export async function admitHttpEndpoint(
       url,
       headers: { ...(endpoint.headers ?? {}) },
       ...(endpoint.authentication === undefined ? {} : { authentication: endpoint.authentication }),
-      egress: {
-        policy,
-        ...(lookup ? { lookup } : {}),
-      },
+      egress,
     },
   };
 }
@@ -240,7 +236,7 @@ class TracingStreamableHTTPClientTransport extends StreamableHTTPClientTransport
   constructor(
     url: URL,
     options: ConstructorParameters<typeof StreamableHTTPClientTransport>[1],
-    private readonly callTraces: MCPCallTraceRegistry,
+    private readonly callTraces: MCPCallTraceRegistry | undefined,
     private readonly closeCarrier: () => Promise<void>,
   ) {
     super(url, options);
@@ -254,16 +250,18 @@ class TracingStreamableHTTPClientTransport extends StreamableHTTPClientTransport
     message: JSONRPCMessage | JSONRPCMessage[],
     options?: TransportSendOptions,
   ): Promise<void> {
-    const running = currentCallTraceScope();
+    const callTraces = this.callTraces;
+    if (callTraces === undefined) return super.send(message, options);
+    const running = callTraces.current();
     const callId = toolsCallRequestId(message);
     if (running !== undefined && callId !== undefined) {
-      this.callTraces.record(callId, running);
+      callTraces.record(callId, running);
     }
     const cancelledId = cancelledRequestId(message);
-    const cancelled = cancelledId === undefined ? undefined : this.callTraces.lookup(cancelledId);
+    const cancelled = cancelledId === undefined ? undefined : callTraces.lookup(cancelledId);
     if (cancelled !== undefined) {
       cancelled.requestAbortController?.abort();
-      return runInCallTraceScope(cancelled, () => super.send(message, options));
+      return callTraces.run(cancelled, () => super.send(message, options));
     }
     return super.send(message, options);
   }
@@ -366,17 +364,10 @@ export function constructStreamableHttpTransport(
     url: new URL(admittedUrl),
     headers: Object.freeze({ ...admitted.headers }),
   };
-  const lookup = boundEndpoint.egress?.lookup ?? deps.lookup;
-  const carrier = createMcpPinnedFetch(
-    admittedUrl,
-    boundEndpoint.egress?.policy ?? deps.policy ?? {},
-    {
-      ...(deps.fetch ? { fetch: deps.fetch } : {}),
-      ...(lookup ? { lookup } : {}),
-    },
-  );
+  const carrier = (boundEndpoint.egress ?? deps.egress ?? createWebFetchEgress()).open(admittedUrl);
   const baseFetch = carrier.fetch;
-  const callTraces = new MCPCallTraceRegistry();
+  const callTraces =
+    deps.callContext === undefined ? undefined : new MCPCallTraceRegistry(deps.callContext);
 
   // The admitted URL is the only URL spoken to: every call this transport makes is forced to
   // `redirect: 'manual'` (never trusting the SDK's default of following one), and any 3xx response
@@ -385,7 +376,7 @@ export function constructStreamableHttpTransport(
     carrier.signal.throwIfAborted();
     const signals = [carrier.signal];
     if (init?.signal) signals.push(init.signal);
-    const toolSignal = callRequestSignal(init);
+    const toolSignal = callTraces === undefined ? undefined : callRequestSignal(init, callTraces);
     if (toolSignal) signals.push(toolSignal);
     const signal = AbortSignal.any(signals);
     let effectiveInit = init;
@@ -399,7 +390,7 @@ export function constructStreamableHttpTransport(
     }
     const traced = withTraceHeaders(
       { ...effectiveInit, signal },
-      callTraceHeaders(effectiveInit, admittedUrl, callTraces),
+      callTraces === undefined ? {} : callTraceHeaders(effectiveInit, admittedUrl, callTraces),
     );
     const response = await fetchAuthenticated(
       (headers) =>
@@ -447,7 +438,7 @@ export function constructStreamableHttpTransport(
     callTraces,
     () => carrier.close(),
   );
-  bindCallTraceRegistry(transport, callTraces);
+  if (callTraces !== undefined) bindCallTraceRegistry(transport, callTraces);
   return transport;
 }
 

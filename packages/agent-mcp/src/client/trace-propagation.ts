@@ -9,8 +9,6 @@
  * that cancels it, carries it, and only to an exactly listed origin.
  */
 
-import { AsyncLocalStorage } from 'node:async_hooks';
-
 import { traceHeadersFor } from '@robota-sdk/agent-core';
 
 import type { IOutboundTraceContext } from '@robota-sdk/agent-core';
@@ -24,27 +22,39 @@ export interface IMCPCallTraceScope {
   requestId?: TJsonRpcId;
 }
 
-const activeCall = new AsyncLocalStorage<IMCPCallTraceScope>();
-
-/** Runs one tool call with its lifetime and optional trace as the async context. */
-export function runInCallTraceScope<T>(
-  scope: IMCPCallTraceScope,
-  run: () => Promise<T>,
-): Promise<T> {
-  return activeCall.run(scope, run);
-}
-
-/** The running call's scope, if any. */
-export function currentCallTraceScope(): IMCPCallTraceScope | undefined {
-  return activeCall.getStore();
+/**
+ * What carries one tool call's scope along every asynchronous step the call starts, so the transport
+ * can tell which call a request belongs to. The platform decides how: Node's `AsyncLocalStorage`
+ * does, and `createNodeCallContext` on `@robota-sdk/agent-mcp/node` wraps it. A platform-neutral
+ * entry has no such carrier of its own, so a host that wants trace propagation injects one.
+ */
+export interface IMCPCallContext {
+  /** Runs `run` with `scope` as the context of everything it starts. */
+  run<T>(scope: IMCPCallTraceScope, run: () => Promise<T>): Promise<T>;
+  /** The scope of the call the running code belongs to, if any. */
+  current(): IMCPCallTraceScope | undefined;
 }
 
 /**
  * The in-flight HTTP tool calls of one session, by JSON-RPC id, so a cancellation — sent from
- * wherever the abort or timeout fired — finds the call it cancels.
+ * wherever the abort or timeout fired — finds the call it cancels. It owns the call context the
+ * transport was given: without one a transport has no registry, so no call is traced or tied to its
+ * own request.
  */
 export class MCPCallTraceRegistry {
   private readonly byRequestId = new Map<TJsonRpcId, IMCPCallTraceScope>();
+
+  constructor(private readonly context: IMCPCallContext) {}
+
+  /** Runs one tool call with its lifetime and optional trace as the async context. */
+  run<T>(scope: IMCPCallTraceScope, run: () => Promise<T>): Promise<T> {
+    return this.context.run(scope, run);
+  }
+
+  /** The running call's scope, if any. */
+  current(): IMCPCallTraceScope | undefined {
+    return this.context.current();
+  }
 
   get size(): number {
     return this.byRequestId.size;
@@ -78,7 +88,7 @@ export function bindCallTraceRegistry(transport: object, registry: MCPCallTraceR
   registries.set(transport, registry);
 }
 
-/** The registry of a transport that can carry trace context; undefined for any other (stdio). */
+/** The registry of a transport that can carry trace context; undefined for any other (stdio, or HTTP given no call context). */
 export function callTraceRegistryOf(transport: object): MCPCallTraceRegistry | undefined {
   return registries.get(transport);
 }
@@ -115,7 +125,10 @@ export function cancelledRequestId(message: unknown): TJsonRpcId | undefined {
 }
 
 /** Only the matching tool POST inherits its cancellation; notifications and refreshes stay live. */
-export function callRequestSignal(init: RequestInit | undefined): AbortSignal | undefined {
+export function callRequestSignal(
+  init: RequestInit | undefined,
+  registry: MCPCallTraceRegistry,
+): AbortSignal | undefined {
   if (init?.method !== 'POST' || typeof init.body !== 'string') return undefined;
   let message: unknown;
   try {
@@ -123,7 +136,7 @@ export function callRequestSignal(init: RequestInit | undefined): AbortSignal | 
   } catch {
     return undefined;
   }
-  const running = activeCall.getStore();
+  const running = registry.current();
   const callId = toolsCallRequestId(message);
   return callId !== undefined && running?.requestId === callId
     ? running.requestAbortController?.signal
@@ -147,7 +160,7 @@ export function callTraceHeaders(
   } catch {
     return {};
   }
-  const running = activeCall.getStore();
+  const running = registry.current();
   const callId = toolsCallRequestId(message);
   if (callId !== undefined) {
     return running?.requestId === callId && running.outbound

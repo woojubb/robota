@@ -27,7 +27,7 @@
  * credential — while a changed host around it still does.
  */
 
-import { createHash } from 'node:crypto';
+import { sha256Hex } from '@robota-sdk/agent-core';
 
 import { displayArgs, displayValue, maskCredentials, withoutSecrets } from './secrecy.js';
 
@@ -37,14 +37,9 @@ import type { IMCPResolvedEntry, IMCPServerDefinitionResolved } from './types.js
 const FINGERPRINT_VERSION = 'v2';
 
 function digest(parts: readonly string[]): string {
-  const hash = createHash('sha256');
-  for (const part of parts) {
-    // Length-prefixed, so ['ab','c'] and ['a','bc'] cannot collide.
-    hash.update(String(part.length));
-    hash.update(':');
-    hash.update(part);
-  }
-  return hash.digest('hex').slice(0, 32);
+  // Length-prefixed, so ['ab','c'] and ['a','bc'] cannot collide. A digit or `:` always sits between
+  // two parts, so joining them first encodes every part as UTF-8 exactly as hashing them one by one.
+  return sha256Hex(parts.map((part) => `${part.length}:${part}`).join('')).slice(0, 32);
 }
 
 /**

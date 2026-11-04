@@ -17,9 +17,10 @@ import {
   MCPCallTraceRegistry,
   callTraceHeaders,
   callTraceRegistryOf,
-  runInCallTraceScope,
 } from '../client/trace-propagation.js';
 import { admitHttpEndpoint, constructStreamableHttpTransport } from '../client/transport.js';
+import { createNodeCallContext } from '../node/call-context.js';
+import { createNodeHttpTransportDeps } from '../node/http-egress.js';
 import { MCPConnectionSupervisor } from '../supervisor/connection.js';
 
 import type { IMCPCatalogToolEntry, IMCPDiscovery } from '../catalog/types.js';
@@ -148,7 +149,7 @@ const ADMISSION_HEADERS = { 'x-tenant': 'acme' } as const;
 async function admitted(server: IFakeServer) {
   const admission = await admitHttpEndpoint(
     { url: server.url, headers: ADMISSION_HEADERS },
-    { policy: { allowedHosts: ['127.0.0.1'] } },
+    createNodeHttpTransportDeps({ policy: { allowedHosts: ['127.0.0.1'] } }),
   );
   if (!admission.ok) throw new Error('test MCP endpoint admission failed');
   return admission.admitted;
@@ -158,7 +159,7 @@ async function openSession(
   server: IFakeServer,
 ): Promise<{ session: IMCPSession; transport: Transport; registry: MCPCallTraceRegistry }> {
   const endpoint = await admitted(server);
-  const transport = constructStreamableHttpTransport(endpoint);
+  const transport = constructStreamableHttpTransport(endpoint, { callContext: createNodeCallContext() });
   const session = await openMcpSession({
     serverId: 'traced',
     transport,
@@ -238,6 +239,25 @@ describe('traceparent on MCP HTTP tool calls', () => {
   );
 
 
+  it('sends no traceparent and binds no registry when the transport was given no call context', async () => {
+    const server = await serve();
+    const endpoint = await admitted(server);
+    const transport = constructStreamableHttpTransport(endpoint);
+    const session = await openMcpSession({
+      serverId: 'untraced',
+      transport,
+      timeouts: { startupMs: 2_000, perCallMs: 2_000 },
+    });
+    cleanups.push(() => session.close());
+    expect(callTraceRegistryOf(transport)).toBeUndefined();
+
+    const result = await session.callTool('echo', {}, { outboundTraceContext: outbound(server, SPAN_A) });
+
+    expect(result.isError).toBe(false);
+    await server.received('tools/call');
+    expect(withoutTraceparent(server.requests)).toBe(true);
+  });
+
   it('sends the call\'s traceparent on its tools/call only, beside the admission headers', async () => {
     const server = await serve();
     const { session, registry } = await sessionFor(server);
@@ -293,7 +313,7 @@ describe('traceparent on MCP HTTP tool calls', () => {
       openSession: (signal) =>
         openMcpSession({
           serverId: 'traced',
-          transport: constructStreamableHttpTransport(endpoint),
+          transport: constructStreamableHttpTransport(endpoint, { callContext: createNodeCallContext() }),
           timeouts: { startupMs: 2_000, perCallMs: 2_000 },
           signal,
         }),
@@ -402,12 +422,12 @@ describe('traceparent on MCP HTTP tool calls', () => {
   });
 
   it('decides from the request itself: nothing for a GET, a non-string or an unreadable body', async () => {
-    const registry = new MCPCallTraceRegistry();
+    const registry = new MCPCallTraceRegistry(createNodeCallContext());
     const scope = { outbound: { traceparent: traceparent(SPAN_A), allowedOrigins: ['https://mcp.example.com'] } };
     registry.record(3, scope);
     const url = 'https://mcp.example.com/mcp';
     const call = JSON.stringify({ jsonrpc: '2.0', id: 3, method: 'tools/call', params: {} });
-    await runInCallTraceScope(scope, async () => {
+    await registry.run(scope, async () => {
       expect(callTraceHeaders({ method: 'POST', body: call }, url, registry)).toEqual({ traceparent: traceparent(SPAN_A) });
       expect(callTraceHeaders({ method: 'GET' }, url, registry)).toEqual({});
       expect(callTraceHeaders({ method: 'POST', body: new TextEncoder().encode(call) }, url, registry)).toEqual({});
@@ -427,16 +447,19 @@ describe('traceparent on MCP HTTP tool calls', () => {
   it('adds nothing to a batch, another method, or a cancellation of an unknown call', async () => {
     const seen: Array<Headers> = [];
     const endpoint = { kind: 'streamable-http' as const, url: new URL('https://mcp.example.com/mcp'), headers: {} };
-    const transport = constructStreamableHttpTransport(endpoint, {
-      lookup: async () => ['8.8.8.8'],
-      fetch: async (_input, init) => {
-        seen.push(new Headers(init?.headers));
-        return new Response(null, { status: 202 });
-      },
-    });
+    const transport = constructStreamableHttpTransport(
+      endpoint,
+      createNodeHttpTransportDeps({
+        lookup: async () => ['8.8.8.8'],
+        fetch: async (_input, init) => {
+          seen.push(new Headers(init?.headers));
+          return new Response(null, { status: 202 });
+        },
+      }),
+    );
     const registry = callTraceRegistryOf(transport)!;
     const scope = { outbound: { traceparent: traceparent(SPAN_A), allowedOrigins: ['https://mcp.example.com'] } };
-    await runInCallTraceScope(scope, async () => {
+    await registry.run(scope, async () => {
       await transport.send({ jsonrpc: '2.0', id: 7, method: 'tools/call', params: { name: 'echo' } });
       await transport.send({ jsonrpc: '2.0', id: 8, method: 'tools/list', params: {} });
       await transport.send({ jsonrpc: '2.0', method: 'notifications/cancelled', params: { requestId: 99 } });

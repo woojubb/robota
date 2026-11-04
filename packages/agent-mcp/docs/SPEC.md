@@ -18,10 +18,16 @@ two client stacks cannot both be authoritative, so each guarantee below is state
 
 ## Non-goals / Boundaries
 
-- Allowed dependencies: `@robota-sdk/agent-core` (sole workspace peer; shared egress policy comes
-  from its `./node` subpath) and the MCP client packages (`@modelcontextprotocol/client`, with
-  `@modelcontextprotocol/core` for its schemas). Must not import `agent-framework`,
-  `agent-session`, `agent-cli`, or any other `agent-*` package.
+- Allowed dependencies: `@robota-sdk/agent-core` (sole workspace peer; its `./node` subpath, which
+  holds the shared egress policy, is reached only from this package's own `./node`) and the MCP
+  client packages (`@modelcontextprotocol/client`, with `@modelcontextprotocol/core` for its
+  schemas). Must not import `agent-framework`, `agent-session`, `agent-cli`, or any other `agent-*`
+  package.
+- The main entry is platform-neutral and has no host default. It reaches no file, process, socket
+  or `node:` module, and a capability that needs one — the stdio transport, credential files, the
+  loopback listener, destination resolution, the async context that ties a call to its request —
+  is a port a Node composition root fills from `./node`. A host that fills none has none of them,
+  and says so by refusing or by doing without, as each port below states.
 - Does not own a tool registry, factory, or product client identity — the consumer (composition
   root or CLI) selects its protocol identity and wires tools at construction time.
 - Transport set is Streamable HTTP and stdio only, behind an admit-then-construct seam. Deprecated
@@ -33,15 +39,19 @@ two client stacks cannot both be authoritative, so each guarantee below is state
 
 ## Invariants and guarantees
 
-- **URL admission**: the default HTTP transport applies the shared destination policy to every
-  actual request and reconnect under the owner policy and resolver captured at admission. It
-  connects only to that exchange's validated address set while retaining the admitted URL and its
-  normal Host/TLS identity, and refuses redirects rather than handing credentials to another
-  endpoint. Each response owns its connection until body completion, cancellation or failure,
-  with request cancellation preserving unrelated calls and delivering its own cancellation;
-  closing the transport withdraws its requests and waits for cleanup. Explicit trusted fetch
-  injection owns its own socket policy and lifetime rather than inheriting the default's pinning
-  guarantee. This is an application HTTP boundary, not physical worker egress containment.
+- **URL admission**: the HTTP transport asks the host's egress (`IMCPHttpEgress`) before anything
+  connects, and the Node egress applies the shared destination policy to every actual request and
+  reconnect under the owner policy and resolver captured when it was made. It connects only to that
+  exchange's validated address set while retaining the admitted URL and its normal Host/TLS
+  identity. Every transport, whatever its egress, refuses redirects rather than handing credentials
+  to another endpoint, and sends to its admitted URL only. Each response owns its connection until
+  body completion, cancellation or failure, with request cancellation preserving unrelated calls and
+  delivering its own cancellation; closing the transport withdraws its requests and waits for
+  cleanup. A trusted fetch given to the Node egress owns its own socket policy and lifetime rather
+  than inheriting the pinning guarantee, though every request is still judged first. With no egress
+  injected the transport is web `fetch` and admits any `http:` or `https:` URL: nothing resolves a
+  name or classifies an address, so a host that is not a browser must inject one. This is an
+  application HTTP boundary, not physical worker egress containment.
 - **Precedence fails closed on the managed tier, not just per name**: a malformed highest-precedence
   entry already resolves `unresolved` rather than falling through to a lower source; when the
   managed tier cannot be read AT ALL (its configuration root, `mcpServers`, or its whole document is
@@ -79,13 +89,19 @@ two client stacks cannot both be authoritative, so each guarantee below is state
   revoke it, so an authorization server that is down or refuses cannot keep the user signed in. A
   sign-in state shown to the user is a fixed word, never derived from a token. Storage is a
   get/set/delete port with that coordination on the caller's side, so a keychain can replace files
-  without anything else changing. A client secret never lives in a definition.
+  without anything else changing. A client secret never lives in a definition. Every request goes
+  through the host's OAuth network port, which holds these bounds, so a host that gives none cannot
+  sign in, refresh or sign out; the loopback listener is a port too, and a sign-in that needs one
+  without it fails with `callback-unavailable` before the user is shown anything.
 - **Trace context stays on the call it belongs to**: a tool call's trusted `traceparent` goes only on
   that call's own `tools/call` POST and the cancellation of it, and only to an exactly listed origin.
   The decision is made from each request's body, not from the async context, because the SDK runs a
   call's response stream — and any `list_changed` refresh or reply it triggers — inside that context;
-  the admitted headers are never modified, so nothing carries over to another request.
-- **Stdio authority**: definitions cannot grant execution authority — only a host-owned authority
+  the admitted headers are never modified, so nothing carries over to another request. The async
+  context is the host's call context port; without one no request can be tied to a call, so no
+  `traceparent` is sent and the transport does not abort the request of a call that was cancelled.
+- **Stdio authority** (a Node adapter, on `./node`; a host without it connects no stdio server):
+  definitions cannot grant execution authority — only a host-owned authority
   can, and it is consulted before reading environment values, constructing the transport, or
   spawning. Absent `cwd` means the authority's allowed root, never the ambient process cwd; lexical
   `..`, NUL, non-directory paths and canonical paths outside the allowed root (including symlink
@@ -202,6 +218,19 @@ call it belongs to and every in-flight call speaks to the same server through th
 the same reason a prompt is withdrawn only when the last such call ends, because a sibling ending
 earlier proves nothing about whose prompt it is, and a live prompt cancelled by mistake costs more
 than one that waits.
+
+## Design decision: what needs a host is a port, and the absent port is web `fetch`
+
+The egress is one object that judges a destination and opens a carrier, not a bare `fetch`, because
+the Node guarantee is per endpoint: resolve once, connect only to what was checked, and own each
+response until its body ends or is cancelled. A function cannot be closed, so it could not withdraw
+what it left open. The call context is only the async-context primitive: which request carries what
+is still decided here from the request's body. The OAuth network is a port of its own with the byte
+and redirect bounds in its contract, since a POST's body is a credential. With no egress the
+transport sends through web `fetch` instead of refusing every URL, because a browser has no name
+resolution to consult and its own sandbox decides what it may reach; a host on a server is told in
+the README and here to inject one, and the CLI cannot forget it, because its composition builds the
+Node egress and call context itself rather than accepting transport deps from a caller.
 
 ## Design decision: definition precedence, with plugins last
 

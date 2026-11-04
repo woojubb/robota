@@ -7,23 +7,11 @@ import {
   securityIdentity,
 } from '../definition/identity.js';
 
-import type { IMCPTransportAdapter, TMCPTransportAdmission } from './transport.js';
+import type { IMCPTransportAdapter, TMCPTransportAdmission } from '../client/transport.js';
 import type { IMCPActivationRequest } from '../mcp-activation.js';
 import type {
   IMCPAdmittedStdioEndpoint,
   IMCPStdioAdapterOptions,
-  IMCPStdioInput,
-  IMCPStdioSnapshot,
-} from './stdio-types.js';
-
-// Re-exported so every existing import of these names keeps working: the split moved where they
-// are DECLARED (`stdio-types.ts`), and moving where they are imported from would be a migration
-// this change is not.
-export type {
-  IMCPAdmittedStdioEndpoint,
-  IMCPStdioAdapterOptions,
-  IMCPStdioAuthority,
-  IMCPStdioExecutable,
   IMCPStdioInput,
   IMCPStdioSnapshot,
 } from './stdio-types.js';
