@@ -138,9 +138,12 @@ export function preflightStartPayloadSealing(
  * A plain parent adds nothing: its child keeps its log plain and reads a fork record from the store
  * itself. A sealing parent's sealer must issue a write grant, which is read here
  * only to see that it can: the payload carries the grant as it stands when `start` is sent. For a
- * fork job it adds the record its store holds (`exportHeld`), since a child never holds the keys that
- * open a sealed one. Exporting hands over a fork record `/fork` just wrote once, so a job that fails
- * after this point needs a fresh `/fork` while the keys are locked.
+ * fork job it hands over the record its store holds (`exportHeld`), since a child never holds the
+ * keys that open a sealed one — only once every refusal above has been checked on a look that takes
+ * nothing. A handed-over record stays exported until the follower of its child ends that, so this
+ * is called only once the child exists, and the child is followed at once. Exporting hands over a
+ * fork record `/fork` just wrote once, so a job that fails after this point needs a fresh `/fork`
+ * while the keys are locked.
  */
 export function projectStartPayloadSealing(
   job: ISubagentJobStart,
@@ -177,17 +180,24 @@ function exportStartPayloadSealing(
   const resumeSessionId = job.request.resumeSessionId;
   if (resumeSessionId === undefined) return { payload: {} };
   const store = deps.resumeSessionStore;
-  const written = keep ? undefined : store?.load(resumeSessionId);
-  const resumeHeld = store?.exportHeld?.(resumeSessionId, { keep, handoffOnly: true });
-  if (resumeHeld === undefined) {
+  // Every check is made on a look that takes nothing; the record is handed over only once nothing
+  // can refuse the job any more, since a handed-over record stays exported until its child is gone.
+  const looked = store?.exportHeld?.(resumeSessionId, { keep: true, handoffOnly: true });
+  if (looked === undefined) {
     throw new BackgroundTaskError('validation', unhandedRecordMessage(resumeSessionId, store));
   }
-  if (resumeHeld.length > RESUME_HELD_MAX_CHARACTERS) {
+  if (looked.length > RESUME_HELD_MAX_CHARACTERS) {
     throw new BackgroundTaskError(
       'validation',
       `Session ${resumeSessionId} is too large to hand to a subagent (the limit is 32 MiB); the ` +
         'subagent was not started.',
     );
+  }
+  if (keep) return { payload: { resumeHeld: looked } };
+  const written = store?.load(resumeSessionId);
+  const resumeHeld = store?.exportHeld?.(resumeSessionId, { handoffOnly: true });
+  if (resumeHeld === undefined) {
+    throw new BackgroundTaskError('validation', unhandedRecordMessage(resumeSessionId, store));
   }
   const startedOwner =
     written?.status === 'valid' && written.authorship === 'verified' && written.diverged !== true;

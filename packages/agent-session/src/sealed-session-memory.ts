@@ -147,7 +147,11 @@ export class SealedSessionMemory {
     return pending;
   }
 
-  /** Forgets the id's records, pending tag and export: the session is deleted. A taint outlives it. */
+  /**
+   * Forgets the id's records and pending tag: the session is deleted. A taint outlives it, and so does
+   * an export: the process the record went to may still save it, and only the end of that export
+   * frees the id.
+   */
   forget(id: string): void {
     this.#heldOrder.delete(id);
     this.#handoffOrder.delete(id);
@@ -155,7 +159,6 @@ export class SealedSessionMemory {
       delete state.held;
       delete state.handoff;
       delete state.pendingDigest;
-      state.exported = false;
     });
   }
 

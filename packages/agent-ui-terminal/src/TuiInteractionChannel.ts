@@ -145,6 +145,7 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
         shutdownSession: async ({ reason, message }) => {
           await this.interactiveSession.shutdown({ reason, message });
         },
+        releaseSessionClaim: () => this.interactiveSession.releaseSessionClaim(),
       },
       SHUTDOWN_TIMEOUT_MS,
     );

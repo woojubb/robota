@@ -11,14 +11,15 @@
  *   at a terminal is asked whether to continue the verified one, and a run with no one to ask exits.
  *   With only unverified records it lists them and exits; it never resumes one on its own.
  * - `-r <id|name>` resolves in tiers (`resolveSessionIdByIdOrName`): a name an unverified record gives
- *   itself answers for nothing, and an unverified id that is also a verified record's name is refused
- *   as ambiguous.
+ *   itself answers for nothing, and the id of a record not verified as the owner's that is also a
+ *   verified record's name is refused as ambiguous.
  * - `-r <id>` of an unverified record shows a fixed notice and asks; "no" writes nothing, "yes" hands
  *   the digest of exactly the bytes the run read to the session, which raises them only once it has
  *   restored from them and refuses anything else. A run with no one to ask refuses with the
  *   session's own fixed reason.
  *
- * A store that never seals carries no authorship, and every path here is what it always was.
+ * A store that never seals carries no authorship, so nothing is asked: `-c` takes the newest record,
+ * and `-r` an exact id before a name, an unreadable one refused in the session's own words.
  */
 import { createInterface } from 'node:readline/promises';
 
@@ -40,7 +41,7 @@ import type {
   IResumableSessionSummary,
 } from '@robota-sdk/agent-interface-session';
 
-/** Asks on stderr and reads the answer from stdin, which the caller checked is a terminal. */
+/** Asks on stderr and reads the answer from stdin, which the caller checked are both a terminal. */
 export async function confirmResumeOnTerminal(question: string): Promise<boolean> {
   const prompt = createInterface({ input: process.stdin, output: process.stderr });
   try {

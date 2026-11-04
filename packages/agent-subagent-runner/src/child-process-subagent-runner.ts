@@ -24,6 +24,7 @@ import {
   projectStartPayloadSealing,
   type IProjectedConnection,
   type IProjectedSealing,
+  type IProjectedStartSealing,
 } from './child-process-subagent-projection.js';
 import { followForkRecordSaves } from './child-process-subagent-record-saves.js';
 import {
@@ -241,8 +242,8 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     );
     // Also before spawning: a job that cannot carry what its parent's sealing needs — a grant, a
     // fork record the keys cannot hand over, a record past the wire bound — never starts a child.
-    // A fork record is handed over here, once, after the other checks before the spawn have passed.
-    const sealing = projectStartPayloadSealing(job, this.deps, this.logSealing);
+    // This only looks: the fork record is handed over once the child exists (below).
+    preflightStartPayloadSealing(job, this.deps, this.logSealing);
     const child = spawn(
       entry.execPath,
       [...(entry.execArgv ?? []), ...entry.args, SUBAGENT_WORKER_MODE_FLAG],
@@ -261,6 +262,22 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       },
     );
     captureChildStderr(child);
+    const runtime: IChildProcessRuntime = {
+      job,
+      child,
+      killGraceMs: this.killGraceMs,
+    };
+    // The fork record is handed over only now that the child exists, and its follower is attached in
+    // the same turn: the export ends only when the follower sees the child gone, so no start that
+    // fails before this point can leave the record exported for the rest of the process.
+    let sealing: IProjectedStartSealing;
+    try {
+      sealing = projectStartPayloadSealing(job, this.deps, this.logSealing);
+    } catch (error) {
+      // The child would wait for a `start` that is never coming; it must not outlive the refusal.
+      void cancelUnstartedChild(runtime);
+      throw error;
+    }
     // A sealing parent's fork job: from the first message on, the parent keeps the child's reports
     // of its record saves, past the job's result, to vouch for the last of them once the child is gone.
     const store = this.deps.resumeSessionStore;
@@ -274,11 +291,6 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     // Watch BEFORE the payload reads the settings: a change made while the child starts is then either
     // in the payload or sent after it, never lost between the two.
     this.forwardSandboxSettingChanges(child);
-    const runtime: IChildProcessRuntime = {
-      job,
-      child,
-      killGraceMs: this.killGraceMs,
-    };
     let payload: Promise<ISubagentWorkerStartPayload>;
     try {
       payload = this.createStartPayload(job, connection, sealing.payload);

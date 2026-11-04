@@ -442,7 +442,8 @@ prefix is product-neutral and does not disclose the host product's name.
   replace each other, as plain records always could; what the check stops is a store replacing a
   sealed session nobody in its process can read, and a file that differs from what it remembers is
   refused as changed. What it holds is memory only, bounded except for the sessions it runs, and
-  forgotten on delete. A record
+  forgotten on delete — except that a record handed to another process stays handed over until that
+  process is done, since deleting the file does not stop it saving. A record
   written for a fork job another process will run is kept apart from it, so a fork never pushes out
   a running session, and is handed over once as a token naming the sealed bytes; a store that cannot
   open the file (a process with only a write grant) takes the token as a record it holds, and a store

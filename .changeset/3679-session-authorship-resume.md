@@ -14,11 +14,13 @@ without the owner's word.
   (asking at a terminal, exiting elsewhere). `-r` takes a verified or plain record's exact id, then
   such a record's name, then any other record's id, and refuses a text that is both a verified
   record's name and the id of a record that is unverified or does not read
-  (`ambiguousSessionNameMessage`). Breaking: `resolveSessionIdByIdOrName` returns a
-  `TSessionIdResolution` (`found`, `ambiguous` with `namedId` and `otherId`, `not-found`) instead of
-  an id. An unverified id, or one picked in the picker,
-  is shown in fixed text (`unverifiedSessionNotice`, `UNVERIFIED_SESSION_QUESTION`) and asked about;
-  a yes hands the session the digest of exactly the bytes shown. Surfaces with no one to ask refuse
+  (`ambiguousSessionNameMessage`); a store that never seals has no verified record, so there an
+  exact id answers before a name and nothing is refused as ambiguous. Breaking:
+  `resolveSessionIdByIdOrName` returns a `TSessionIdResolution` (`found`, `ambiguous` with `namedId`
+  and `otherId`, `not-found`) instead of an id. An unverified id, or one picked in the picker, is
+  shown in fixed text (`unverifiedSessionNotice`, `UNVERIFIED_SESSION_QUESTION`) and asked about —
+  before startup only when stdin, stdout and stderr are all a terminal; a yes hands the session the
+  digest of exactly the bytes shown. Surfaces with no one to ask refuse
   it, a served switch with the new change-refusal code `unverified`. Listings put unverified records
   after verified ones, the picker marks them first and cuts their names short, and
   `session list --json` adds `authorship`.

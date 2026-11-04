@@ -373,10 +373,12 @@ export type TSessionIdResolution =
  * unverified record says of itself — its name, and the time it sorts by — never decides the answer:
  * a name it gives itself answers for nothing, and an id that is also a verified record's name is
  * refused as ambiguous, since a record planted under a name's id would otherwise be offered (or, when
- * it does not read, refused) in place of the session the person named. A name lives on the record,
- * so only a readable entry can be matched by name; an unreadable one can still be matched by its id,
- * which is what a user holding an old id would type. A locked one is not listed at all, so neither
- * matches; `isSessionLocked` is how a caller says why.
+ * it does not read, refused) in place of the session the person named. Only a verified name refuses
+ * so: a store that never seals vouches for no record over another, so there an exact id answers
+ * before a name, readable or not, and a caller refuses an unreadable one in its own words. A name
+ * lives on the record, so only a readable entry can be matched by name; an unreadable one can still
+ * be matched by its id, which is what a user holding an old id would type. A locked one is not
+ * listed at all, so neither matches; `isSessionLocked` is how a caller says why.
  */
 export function resolveSessionIdByIdOrName(
   sessionStore: IInteractiveSessionStore | undefined,
@@ -396,9 +398,10 @@ export function resolveSessionIdByIdOrName(
       entry.outcome.record.name === idOrName,
   );
   if (byName !== undefined) {
-    return byId === undefined
-      ? { status: 'found', id: byName.id }
-      : { status: 'ambiguous', namedId: byName.id, otherId: byId.id };
+    if (byId === undefined) return { status: 'found', id: byName.id };
+    return byName.outcome.status === 'valid' && byName.outcome.authorship === 'verified'
+      ? { status: 'ambiguous', namedId: byName.id, otherId: byId.id }
+      : { status: 'found', id: byId.id };
   }
   if (byId !== undefined) return { status: 'found', id: byId.id };
   return {

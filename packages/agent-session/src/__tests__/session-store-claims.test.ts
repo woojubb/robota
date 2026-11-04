@@ -685,6 +685,21 @@ describe('an id handed to a child that may still save it', () => {
     expect(claim.outcome).toMatchObject({ status: 'valid', authorship: 'verified' });
     claim.release();
   });
+
+  it('stays handed over when its record is deleted, until the export ends', () => {
+    const dir = newStoreDir();
+    const store = storeOf(dir, createTestArtifactSealer());
+    store.save(record('sess_fork'), { handoff: true, provenance: 'owner' });
+    expect(store.exportHeld?.('sess_fork', { handoffOnly: true })).toBeDefined();
+
+    store.delete('sess_fork');
+
+    // The child it went to may still save it, so deleting the file starts no second writer here.
+    expect(store.hasWriter('sess_fork')).toBe(true);
+    expect(thrownBy(() => claimOf(store, 'sess_fork'))).toMatchObject({ reason: 'exported' });
+    store.authorship?.exportEnded('sess_fork');
+    expect(store.hasWriter('sess_fork')).toBe(false);
+  });
 });
 
 describe('whether an id has a writer in this process', () => {

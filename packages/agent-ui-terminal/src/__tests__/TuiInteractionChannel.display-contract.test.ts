@@ -54,6 +54,7 @@ vi.mock('@robota-sdk/agent-framework', async () => {
         }),
         getExecutionWorkspaceSnapshot: vi.fn().mockReturnValue({ entries: [] }),
         shutdown: vi.fn().mockResolvedValue(undefined),
+        releaseSessionClaim: vi.fn(),
         sendAgentJob: vi.fn().mockResolvedValue(undefined),
         readExecutionWorkspaceDetail: vi.fn().mockResolvedValue({}),
       };

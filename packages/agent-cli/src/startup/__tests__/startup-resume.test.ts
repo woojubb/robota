@@ -527,4 +527,19 @@ describe('a store that never seals', () => {
     expect([...continued.written, ...named.written, ...continued.questions]).toEqual([]);
     expect(continueQuestion).toBeTypeOf('function');
   });
+
+  it('takes an exact id before a name, and says the record does not read rather than that it is not yours', async () => {
+    const dir = sessionsDirectory();
+    const store = createNodeHostSessionStore(dir, { sealing: 'plain' });
+    store.save(record('sess_mine', '2026-11-01T01:00:00.000Z', { name: 'deploy' }));
+    // Beside it, a file under the name's id that is not a record at all.
+    writeFileSync(join(dir, 'deploy.json'), '{ "not": "a session record"');
+    const run = input(store, { resumeId: 'deploy' });
+
+    expect(await resolveStartupResume(run.value, notFound)).toEqual({ kind: 'exit', code: 1 });
+    expect(run.text()).toBe(
+      'Cannot resume session deploy: the session store reported "corrupt" for its record.\n',
+    );
+    expect(run.questions).toEqual([]);
+  });
 });

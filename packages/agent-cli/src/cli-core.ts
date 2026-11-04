@@ -123,6 +123,7 @@ import {
 } from './startup/workspace-project-composition.js';
 import { askToTrustWorkspace, startsNewTuiSession } from './startup/interactive-trust-prompt.js';
 import { confirmResumeOnTerminal, resolveStartupResume } from './startup/startup-resume.js';
+import { startupResumeInput, startupResumeRenderOptions } from './startup/startup-resume-wiring.js';
 import {
   askServeOpenTrustQuestion,
   canAskServeOpenTrustQuestion,
@@ -1007,27 +1008,27 @@ async function runCliCore(
   // before any surface starts: the terminal UI builds its session during its first render, where the
   // same refusal would be thrown, not said.
   const startupResume = await resolveStartupResume(
-    {
+    startupResumeInput({
       store: sessionStore,
       cwd,
-      continueMode: args.continueMode,
-      resumeId: args.resumeId,
-      // #3289 §1: a served/daemon runtime's own launch reuses an existing empty session of this
-      // workspace instead of adding another one — nothing else can be bound to anything yet.
-      reuseEmptySession: args.serve && !args.noSessionPersistence,
-      interactive:
-        !(args.printMode || args.goal !== undefined || args.serve || mcpServe || acp) &&
-        process.stdin.isTTY === true &&
-        process.stdout.isTTY === true,
+      request: args,
+      surface: {
+        printMode: args.printMode,
+        goal: args.goal !== undefined,
+        serve: args.serve,
+        mcpServe,
+        acp,
+        stdinIsTTY: process.stdin.isTTY === true,
+        stdoutIsTTY: process.stdout.isTTY === true,
+        stderrIsTTY: process.stderr.isTTY === true,
+      },
       confirm: confirmResumeOnTerminal,
       write: (text) => process.stderr.write(text),
-    },
+    }),
     (idOrName) => resumeTargetNotFoundMessage(sessionStore, idOrName),
   );
   if (startupResume.kind === 'exit') process.exit(startupResume.code);
   const resumeSessionId = startupResume.resumeSessionId;
-  const acceptedDigest = startupResume.acceptedDigest;
-  const showSessionPickerOnStart = startupResume.showSessionPicker === true;
 
   // SELFHOST-008 P6: one memory switch (default OFF), resolved once and threaded into print/serve/TUI.
   // Precedence there is settings ← flag ← env (env wins). CLI-2004's screen-reader switch below is
@@ -1352,9 +1353,7 @@ async function runCliCore(
       projectAccess: workspaceComposition.projectAccess,
       userHome: productRuntime.userHome ?? productRuntime.layout.userRoot,
     }),
-    resumeSessionId,
-    ...(acceptedDigest !== undefined ? { acceptedDigest } : {}),
-    showSessionPickerOnStart,
+    ...startupResumeRenderOptions(startupResume),
     forkSession: args.forkSession,
     ...(args.movedFrom !== undefined ? { workspaceMovedFrom: args.movedFrom } : {}),
     sessionName: args.sessionName,

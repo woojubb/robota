@@ -294,6 +294,8 @@ export class WireTuiChannel implements ITuiAppChannelPort {
         },
         // Leaving never ends the host's session: it is shared, and it keeps running without us.
         shutdownSession: async () => undefined,
+        // The host's session holds its own claim, in the host's process.
+        releaseSessionClaim: () => undefined,
       },
       0,
     );

@@ -646,7 +646,7 @@ export class StoredSessionAuthorship {
     this.#memory.setExported(id, false);
   }
 
-  /** Forgets the id's records, pending tag and export: the session was deleted. */
+  /** Forgets the id's records and pending tag: the session was deleted. Its taint and export stay. */
   forget(id: string): void {
     this.#memory.forget(id);
   }

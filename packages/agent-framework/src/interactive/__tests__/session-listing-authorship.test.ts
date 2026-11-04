@@ -5,6 +5,9 @@
  * answers for nothing, and an empty one is never reused. A plain store lists with no authorship. A
  * host that must judge the record a session actually restores from is handed the claim's own read.
  */
+import { writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
 import { NodeSessionStore } from '@robota-sdk/agent-session';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -132,6 +135,16 @@ describe('the resume listing over a store that never seals', () => {
     ]);
     expect(resolveSessionIdByIdOrName(plain, 'old')).toEqual({ status: 'found', id: 'sess_old' });
     expect(resolveReusableEmptySessionId(plain, cwd)).toBe('sess_new');
+  });
+
+  it('answers an exact id before a name, even one that does not read, since no record here vouches for another', () => {
+    const cwd = directory();
+    const dir = directory();
+    const plain = new NodeSessionStore(dir, { sealing: 'plain' });
+    plain.save(at('sess_mine', cwd, '2026-11-01T01:00:00.000Z', { name: 'deploy' }));
+    writeFileSync(join(dir, 'deploy.json'), '{ "not": "a session record"');
+
+    expect(resolveSessionIdByIdOrName(plain, 'deploy')).toEqual({ status: 'found', id: 'deploy' });
   });
 });
 
