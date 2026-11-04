@@ -12,9 +12,9 @@ import type { TSessionLoadOutcome, TSessionProvenance } from '@robota-sdk/agent-
 
 /**
  * Why a claimed record was not resumed: nothing shows the owner wrote it; not the bytes they accepted;
- * or handed to a subagent that may still be saving it.
+ * or another writer holds it (a subagent it is lent to, another process), so it cannot be raised.
  */
-export type TSessionAuthorshipRefusal = 'unverified' | 'changed-since-accepted' | 'exported';
+export type TSessionAuthorshipRefusal = 'unverified' | 'changed-since-accepted' | 'has_writer';
 
 function authorshipRefusalMessage(sessionId: string, reason: TSessionAuthorshipRefusal): string {
   switch (reason) {
@@ -28,10 +28,10 @@ function authorshipRefusalMessage(sessionId: string, reason: TSessionAuthorshipR
         `Cannot resume session ${sessionId}: the session changed on disk after you accepted it; ` +
         'resume it again to review it.'
       );
-    case 'exported':
+    case 'has_writer':
       return (
-        `Cannot resume session ${sessionId}: a subagent this process started is still saving it; ` +
-        'resume it once that job has ended.'
+        `Cannot resume session ${sessionId}: another writer holds it, such as a subagent still ` +
+        'saving it; resume it once that has ended.'
       );
   }
 }

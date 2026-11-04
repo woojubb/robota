@@ -60,6 +60,21 @@ export function sealedStore(dir: string, sealer: IArtifactSealerDouble): NodeSes
   return new NodeSessionStore(dir, { sealing: { sealer } });
 }
 
+/**
+ * `value` saved over session `value.id`'s file in `dir` by another of the owner's processes, past the
+ * writer marker this process's session holds: what a process that keeps no marker, or a same-user
+ * program, could write. Saved by `sealer` elsewhere and copied into place.
+ */
+export function savedByAnotherProcess(
+  dir: string,
+  sealer: IArtifactSealerDouble,
+  value: IInteractiveSessionRecord,
+): void {
+  const elsewhere = directory();
+  sealedStore(elsewhere, sealer).save(value, { provenance: 'owner' });
+  writeFileSync(join(dir, `${value.id}.json`), readFileSync(join(elsewhere, `${value.id}.json`)));
+}
+
 export function record(
   id: string,
   cwd: string,

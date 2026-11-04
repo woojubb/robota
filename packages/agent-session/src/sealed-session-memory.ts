@@ -9,8 +9,8 @@
  * read, and the plaintext lets a locked process go on updating a session it could not read back. A
  * fork record written for another process is remembered apart, so a fork never pushes a running
  * session out. Beside them it keeps which ids it handed unverified content out for (never tagged
- * again until the owner adopts them), which owner bytes wait for a tag, and which ids it exported to
- * a process that may still save them. Memory only, never persisted, and a fresh instance (a restart)
+ * again until the owner adopts them) and which owner bytes wait for a tag. Memory only, never
+ * persisted, and a fresh instance (a restart)
  * knows nothing; what it remembers is bounded except for the records a running session needs.
  */
 
@@ -48,8 +48,6 @@ export interface ISessionRecordState {
   readonly tainted: boolean;
   /** Owner bytes the locked keys could not tag: tagged at the next unlock if still in place. */
   readonly pendingDigest?: string;
-  /** Handed to another process as a token, which may still be saving it. */
-  readonly exported: boolean;
 }
 
 /** More sessions than one process runs at once; the oldest is forgotten past this, which only means it is refused while locked. */
@@ -133,11 +131,6 @@ export class SealedSessionMemory {
     this.#settle(id, (state) => delete state.pendingDigest);
   }
 
-  setExported(id: string, exported: boolean): void {
-    if (exported) this.#edit(id).exported = true;
-    else this.#settle(id, (state) => (state.exported = false));
-  }
-
   /** Every id with owner bytes that wait for a tag, and those bytes' digest. */
   pending(): readonly (readonly [string, string])[] {
     const pending: [string, string][] = [];
@@ -147,11 +140,7 @@ export class SealedSessionMemory {
     return pending;
   }
 
-  /**
-   * Forgets the id's records and pending tag: the session is deleted. A taint outlives it, and so does
-   * an export: the process the record went to may still save it, and only the end of that export
-   * frees the id.
-   */
+  /** Forgets the id's records and pending tag: the session is deleted. A taint outlives it. */
   forget(id: string): void {
     this.#heldOrder.delete(id);
     this.#handoffOrder.delete(id);
@@ -165,7 +154,7 @@ export class SealedSessionMemory {
   #edit(id: string): TMutableState {
     let state = this.#states.get(id);
     if (state === undefined) {
-      state = { tainted: false, exported: false };
+      state = { tainted: false };
       this.#states.set(id, state);
     }
     return state;
@@ -180,8 +169,7 @@ export class SealedSessionMemory {
       state.held === undefined &&
       state.handoff === undefined &&
       state.pendingDigest === undefined &&
-      !state.tainted &&
-      !state.exported
+      !state.tainted
     ) {
       this.#states.delete(id);
     }

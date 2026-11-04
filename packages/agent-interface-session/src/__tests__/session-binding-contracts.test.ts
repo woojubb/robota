@@ -46,6 +46,7 @@ describe('session change refusal (#3189)', () => {
       | 'unreadable'
       | 'start_failed'
       | 'still_closing'
+      | 'has_writer'
       | 'unverified'
       | 'limit'
       | 'failed'

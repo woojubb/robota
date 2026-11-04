@@ -159,8 +159,9 @@ export interface ISessionSaveOptions {
   readonly provenance?: TSessionProvenance;
   /**
    * The claim this save is made under ({@link IInteractiveSessionStore.claim}). A save of a claimed id
-   * must carry its live claim, and a claim that was released fences every later save made under it,
-   * so a session that outlived its claim cannot overwrite the one that claimed the id after it.
+   * must carry its live claim, and a claim that was released, or whose writer marker another process
+   * broke, fences every later save made under it, so a session that outlived its claim cannot
+   * overwrite the one that claimed the id after it.
    */
   readonly claim?: ISessionClaim;
 }
@@ -185,6 +186,32 @@ export interface ISessionExportOptions {
 export interface ISessionClaimOptions {
   /** The session is new: nothing is stored for it yet, and nothing on disk is taken for it. */
   readonly fresh?: true;
+  /**
+   * The nonce of a lease another process lent this id with ({@link IInteractiveSessionStore.lend}):
+   * the claim takes that process's writer marker over instead of publishing its own, and is refused
+   * when the marker no longer carries the lease.
+   */
+  readonly lease?: string;
+  /**
+   * The claim only reads the record to copy it into a session of a new id (`--fork-session`): it is
+   * exclusive in this store as any claim is, takes no writer marker, and reads what was last saved,
+   * so a session another process runs can still be copied.
+   */
+  readonly copy?: true;
+}
+
+/**
+ * An id lent to another process for as long as that process runs it ({@link
+ * IInteractiveSessionStore.lend}): the nonce that process claims the id with, and the end.
+ */
+export interface ISessionLease {
+  /** What the borrowing process claims the id with (`claim(id, { lease: nonce })`); goes only to it. */
+  readonly nonce: string;
+  /**
+   * Ends the lease: the writer marker is removed while it still carries this lease, whether it names
+   * the lender or the process that took it over, and the id is no longer lent here. Idempotent.
+   */
+  end(): void;
 }
 
 /**
@@ -201,11 +228,11 @@ export interface ISessionClaim {
 /**
  * What {@link ISessionAuthorship.adopt} did. `adopted`: the record with those bytes is the owner's from
  * now on. `pending`: it will be once the keys unlock (the stored bytes are tagged then, if they are
- * still those bytes). `changed`: nothing here has those bytes, so nothing was raised. `exported`: the
- * record is handed to another process that may still save it, and tagging it would refuse that
- * process's saves, so nothing was raised.
+ * still those bytes). `changed`: nothing here has those bytes, so nothing was raised. `has_writer`:
+ * another writer holds the id (a process it is lent to, or another session), and raising it would
+ * write beside that writer, so nothing was raised.
  */
-export type TSessionAdoptResult = 'adopted' | 'pending' | 'changed' | 'exported';
+export type TSessionAdoptResult = 'adopted' | 'pending' | 'changed' | 'has_writer';
 
 /** One pass over a store: what {@link IInteractiveSessionStore.list} returns, and what it left out. */
 export interface ISessionStoreScan {
@@ -252,7 +279,7 @@ export interface IInteractiveSessionStore {
    * the file when the keys are unlocked. Opening for a token holds nothing. `undefined` when there is
    * nothing to hand over: a store that seals nothing (its records are readable from disk), or locked
    * keys and no handoff record. The token carries the conversation in plaintext, so it goes only
-   * where the record may go.
+   * where the record may go: to a write-only process the id is lent to ({@link lend}).
    */
   exportHeld?(id: string, options?: ISessionExportOptions): string | undefined;
   /**
@@ -266,19 +293,31 @@ export interface IInteractiveSessionStore {
   /**
    * Claims session `id` for a session this process runs, and reads it as a hold read in the same call,
    * so nothing can change between the read the session restores from and the claim. A claim is
-   * exclusive in its store (a second claim of a claimed id throws, and so does a claim of an id
-   * exported to a process that may still save it) and fences every save of the id: a save must carry
-   * the live claim, and one made under a claim that ended is refused. In a store that
-   * seals, a claimed id is also answered only from content the owner wrote — the stored bytes the store
-   * holds, a file whose authorship tag verifies, or the held copy, never other content from disk nor a
+   * exclusive across every process and store instance over the same files: it holds the id's writer
+   * marker beside the records, so a second claim — in this store, another store instance, or another
+   * process — is refused with the reason `has_writer`, naming the process that holds it, and so is a
+   * claim of an id this store lent. A claim fences every save of the id: a save must carry the live
+   * claim, and one made under a claim that ended, or whose marker is no longer its own, is refused and
+   * never written. Every other write of the id (a save without a claim, a delete, an adopt) holds the
+   * marker for the write and is refused while another writer holds it. In a store that seals, a
+   * claimed id is also answered only from content the owner wrote — the stored bytes the store holds,
+   * a file whose authorship tag verifies, or the held copy, never other content from disk nor a
    * rebuild from a log — and a writer's read of a file changed by something unverifiable is `locked`
    * with the reason `changed`, so the session's save is refused and the file left as it is.
    */
   claim(id: string, options?: ISessionClaimOptions): ISessionClaim;
   /**
-   * Whether something this process runs may still write session `id`: a live claim on it, or, in a
-   * store that seals, an export to another process that has not ended. A surface that would open the
-   * id as another session asks this first, so a record never gets a second writer in this process.
+   * Lends session `id` to another process that will write it (a fork job's child): the id's writer
+   * marker is published for this process with the digest of a fresh nonce, the id counts as written
+   * here (a claim of it is refused, and {@link hasWriter} is true) until the lease ends, and the
+   * process given the nonce claims the id with it, taking the marker over. Throws as {@link claim}
+   * does while the id has a writer.
+   */
+  lend(id: string): ISessionLease;
+  /**
+   * Whether session `id` may have a writer now: a claim or a lend of this store, or a writer marker of
+   * any other holder — another store instance, another process — whose owner is not provably gone. A
+   * surface that would open the id as another session asks this first.
    */
   hasWriter(id: string): boolean;
   /**
@@ -294,8 +333,8 @@ export interface IInteractiveSessionStore {
 export interface ISessionAuthorship {
   /**
    * Raises the record whose stored bytes have SHA-256 `digest` to the owner's — the owner vouched for
-   * exactly those bytes — and tags them when the keys allow. Bytes that are not those raise nothing,
-   * and neither does a record handed to another process that may still save it.
+   * exactly those bytes — and tags them when the keys allow, holding the id's writer marker for it.
+   * Bytes that are not those raise nothing, and neither does an id another writer holds.
    */
   adopt(id: string, digest: string): TSessionAdoptResult;
   /**
@@ -305,14 +344,11 @@ export interface ISessionAuthorship {
    */
   heldDigest(id: string): string | undefined;
   /**
-   * The process a record of session `id` was exported to ({@link IInteractiveSessionStore.exportHeld})
-   * has ended, so nothing goes on saving it under that token: it may be adopted or tagged again.
-   */
-  exportEnded(id: string): void;
-  /**
    * Calls `listener` after each unlock of the keys this store opens with, so a session whose save the
    * locked keys stood in the way of can try it again. The listener may be held weakly: the caller keeps
-   * its own reference for as long as it wants to hear unlocks. Returns the unsubscribe.
+   * its own reference for as long as it wants to hear unlocks. Returns the unsubscribe. An owner write
+   * the locked keys could not tag is tagged at the unlock only while this store holds the id's writer
+   * marker or can take it for the write; otherwise it stays untagged.
    */
   onUnlock(listener: () => void): () => void;
 }

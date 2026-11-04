@@ -10,8 +10,9 @@
  * answered only from content the owner wrote: unverified content from disk is never handed to it, so
  * nothing unverified can be merged into it, and a file something unverifiable changed is never
  * overwritten by it either. A save tags only content the store can vouch for; an owner save the
- * locked keys could not tag is tagged at the next unlock, unless a process it was handed to may still
- * be saving it. Adopting or tagging in place never replaces bytes another writer put there since.
+ * locked keys could not tag is tagged at the next unlock, only while this store holds the id's writer
+ * marker or can take it, so a process the id is lent to or another writer keeps the bytes it holds.
+ * Adopting or tagging in place never replaces bytes another writer put there since.
  */
 
 import { Buffer } from 'node:buffer';
@@ -22,7 +23,6 @@ import {
   isSealedArtifactBytes,
 } from '@robota-sdk/agent-core';
 
-import { SessionClaimedError } from './session-claims.js';
 import { splitAuthorshipHeader, withAuthorshipHeader } from './session-record-authorship.js';
 import { SealedSessionUnreadableError } from './sealed-session-refusal.js';
 import { formatHeldToken, parseHeldToken } from './sealed-session-memory.js';
@@ -97,6 +97,9 @@ export interface IAuthorshipFiles {
   current(id: string): TStoredSessionFile;
   replace(id: string, stored: Uint8Array): void;
 }
+
+/** How a write of an id that carries no claim holds the id's writer marker (`StoredSessionRecords`). */
+export type TUnderWriteMarker = <T>(id: string, write: () => T) => T | 'has_writer';
 
 /** The bytes a save writes, and what the store holds them as once written. */
 export interface IPreparedSave {
@@ -215,6 +218,8 @@ export class StoredSessionAuthorship {
   readonly #files: IAuthorshipFiles;
   readonly #memory: SealedSessionMemory;
   readonly #claims: SessionClaims;
+  /** Runs a write of an id holding its writer marker; `has_writer` when another writer holds it. */
+  readonly #underWriteMarker: TUnderWriteMarker;
   /** Held here so the sealer may hold it weakly: it lives exactly as long as this object. */
   readonly #onUnlock: (() => void) | undefined;
 
@@ -223,11 +228,13 @@ export class StoredSessionAuthorship {
     files: IAuthorshipFiles,
     memory: SealedSessionMemory,
     claims: SessionClaims,
+    underWriteMarker: TUnderWriteMarker,
   ) {
     this.#sealer = sealer;
     this.#files = files;
     this.#memory = memory;
     this.#claims = claims;
+    this.#underWriteMarker = underWriteMarker;
     if (sealer.tagAuthorship !== undefined && sealer.onUnlock !== undefined) {
       this.#onUnlock = () => this.#tagPendingAtUnlock();
       sealer.onUnlock(this.#onUnlock);
@@ -307,14 +314,13 @@ export class StoredSessionAuthorship {
   }
 
   /**
-   * Readies `id` for a claim: refused for a record a write-only child holds as handed to it, and for
-   * one handed to another process that may still save it, so no session here becomes its second
-   * writer; for a new session whatever this instance remembered under its id is not that session's.
+   * Readies `id` for a claim: a record a write-only child holds as handed to it is claimed only by the
+   * child's own claim under its lease, so no other session here becomes its second writer; for a new
+   * session whatever this instance remembered under its id is not that session's.
    */
-  beforeClaim(id: string, fresh: boolean): void {
+  beforeClaim(id: string, fresh: boolean, leased: boolean): void {
     const state = this.#memory.state(id);
-    if (state?.held?.kind === 'pinned') throw new SessionClaimedError(id, 'claimed');
-    if (state?.exported === true) throw new SessionClaimedError(id, 'exported');
+    if (state?.held?.kind === 'pinned' && !leased) throw this.#claims.refusal(id, 'has_writer');
     if (fresh) {
       this.#memory.dropHeld(id);
       this.#memory.dropHandoff(id);
@@ -433,8 +439,8 @@ export class StoredSessionAuthorship {
    * for the content and the keys are unlocked: the id is held as the owner's, or it is held as
    * nothing, was never handed out unverified, and the save says its content is the owner's
    * (`provenance`). An owner save while locked is written untagged and tagged at the next unlock if it
-   * is still in place — unless it is a handoff save or the id was exported to a process that may still
-   * save it. Every other save is untagged, and a pinned record is never tagged.
+   * is still in place and this store can hold the id's marker then — unless it is a handoff save, which
+   * another process runs. Every other save is untagged, and a pinned record is never tagged.
    */
   prepare(id: string, text: string, options: ISessionSaveOptions): IPreparedSave {
     const envelope = Buffer.from(text, 'utf8');
@@ -444,7 +450,7 @@ export class StoredSessionAuthorship {
     if (heldAs === 'owner') {
       const tag = this.#tag(id, envelope);
       if (tag === 'locked') {
-        tagPending = options.handoff !== true && this.#memory.state(id)?.exported !== true;
+        tagPending = options.handoff !== true;
       } else if (tag !== undefined) {
         plaintext = withAuthorshipHeader(tag, envelope);
       }
@@ -517,8 +523,9 @@ export class StoredSessionAuthorship {
    * The record of session `id` as a token for another store over the same files, carrying the
    * envelope only: a handoff record while `existing` is still its bytes (handed over once, or left in
    * place with `keep`), or else — unless `handoffOnly` — the record opened from `existing`, a probe that
-   * holds nothing. A run-here id's token is only what the owner wrote. An id handed over is not tagged
-   * or adopted while the process it went to may still be saving it.
+   * holds nothing. A run-here id's token is only what the owner wrote. The process a token goes to
+   * runs the id under a lease ({@link IInteractiveSessionStore.lend}), whose marker keeps this store
+   * from tagging or adopting it meanwhile.
    */
   exportHeld(
     id: string,
@@ -528,10 +535,8 @@ export class StoredSessionAuthorship {
     if (existing.kind !== 'sealed' || !isCurrentSealedArtifactBytes(existing.bytes))
       return undefined;
     const digest = digestOf(existing.bytes);
-    const handOver = (text: string, kind: THeldRecordKind): string => {
-      if (options.keep !== true) this.#memory.setExported(id, true);
-      return formatHeldToken(digest, text, kind === 'owner');
-    };
+    const handOver = (text: string, kind: THeldRecordKind): string =>
+      formatHeldToken(digest, text, kind === 'owner');
     const state = this.#memory.state(id);
     if (this.#isRunHere(id, state)) {
       if (options.handoffOnly === true) return undefined;
@@ -594,13 +599,13 @@ export class StoredSessionAuthorship {
    *    the adopted copy and its next save writes it.
    * 2. It holds nothing for them and the file is exactly them (a fork record a child wrote): they are
    *    tagged in place, or at the next unlock (`pending`), and nothing is held for them here.
-   * 3. Otherwise nothing is raised (`changed`), and a record exported to a process that may still save
-   *    it is never raised under it (`exported`).
+   * 3. Otherwise nothing is raised (`changed`).
+   *
+   * The caller holds the id's writer marker for it, so nothing is raised under another writer.
    */
   adopt(id: string, digest: string): TSessionAdoptResult {
     if (!isSha256Hex(digest)) return 'changed';
     const state = this.#memory.state(id);
-    if (state?.exported === true) return 'exported';
     const file = this.#files.current(id);
     const bytes = bytesOf(file);
     const onDisk = bytes === undefined ? undefined : digestOf(bytes);
@@ -632,21 +637,7 @@ export class StoredSessionAuthorship {
     return this.#memory.state(id)?.held?.digest;
   }
 
-  /**
-   * Whether `id` has a writer no claim here stands for: the process it was exported to, until that
-   * export ends, or — in the write-only child it was handed to — the child's own session.
-   */
-  hasUnclaimedWriter(id: string): boolean {
-    const state = this.#memory.state(id);
-    return state?.exported === true || state?.held?.kind === 'pinned';
-  }
-
-  /** The process `id` was exported to has ended: it may be adopted or tagged again. */
-  exportEnded(id: string): void {
-    this.#memory.setExported(id, false);
-  }
-
-  /** Forgets the id's records and pending tag: the session was deleted. Its taint and export stay. */
+  /** Forgets the id's records and pending tag: the session was deleted. Its taint stays. */
   forget(id: string): void {
     this.#memory.forget(id);
   }
@@ -808,29 +799,35 @@ export class StoredSessionAuthorship {
 
   /**
    * At unlock: tags, synchronously, every owner write and deferred adopt that waited for the keys,
-   * while its file is still exactly those bytes, and drops each either way. An id exported to a child
-   * is skipped, since tagging would change the bytes the child holds and refuse its saves.
+   * while its file is still exactly those bytes and this store holds the id's writer marker or can take
+   * it, and drops each either way. An id another writer holds — a process it is lent to, another
+   * session — is left untagged, since tagging would change the bytes that writer holds and refuse its
+   * saves; the record then stays unverified.
    */
   #tagPendingAtUnlock(): void {
     for (const [id, digest] of this.#memory.pending()) {
       this.#memory.clearPending(id);
-      if (this.#memory.state(id)?.exported === true) continue;
       try {
-        const file = this.#files.current(id);
-        const bytes = bytesOf(file);
-        if (bytes === undefined || digestOf(bytes) !== digest) continue;
-        const entry = this.#memory.state(id)?.held;
-        const hold = entry?.digest === digest;
-        const text = hold ? entry.text : this.#textOfFile(id, file, bytes);
-        if (text === undefined || text === 'locked') continue;
-        if (decodeRecordText(id, text).status !== 'valid') continue;
-        const envelope = Buffer.from(text, 'utf8');
-        const tag = this.#tag(id, envelope);
-        if (!(tag instanceof Uint8Array)) continue;
-        this.#writeTagged(id, envelope, text, tag, digest, hold);
+        this.#underWriteMarker(id, () => this.#tagPendingOne(id, digest));
       } catch {
         // allow-fallback: one record's failure must not stop the others; its next owner save tags it.
       }
     }
+  }
+
+  /** {@link #tagPendingAtUnlock} for one id, holding its marker. */
+  #tagPendingOne(id: string, digest: string): void {
+    const file = this.#files.current(id);
+    const bytes = bytesOf(file);
+    if (bytes === undefined || digestOf(bytes) !== digest) return;
+    const entry = this.#memory.state(id)?.held;
+    const hold = entry?.digest === digest;
+    const text = hold ? entry.text : this.#textOfFile(id, file, bytes);
+    if (text === undefined || text === 'locked') return;
+    if (decodeRecordText(id, text).status !== 'valid') return;
+    const envelope = Buffer.from(text, 'utf8');
+    const tag = this.#tag(id, envelope);
+    if (!(tag instanceof Uint8Array)) return;
+    this.#writeTagged(id, envelope, text, tag, digest, hold);
   }
 }

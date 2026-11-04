@@ -194,7 +194,6 @@ function sealingStore(cwd: string, script: IStoreScript = {}): TFakeStore {
     authorship: {
       adopt,
       heldDigest: () => undefined,
-      exportEnded: () => undefined,
       onUnlock: () => () => undefined,
     },
     adopt,

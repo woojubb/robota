@@ -273,7 +273,7 @@ class FileProcessMarkers implements IProcessMarkers {
   }
 
   acquire(name: string, options: IProcessMarkerAcquireOptions = {}): TProcessMarkerAcquireResult {
-    const path = this.#markerPath(name);
+    const path = this.#markerPath(name, true);
     const leaseDigest = options.leaseDigest;
     if (leaseDigest !== undefined && !SHA256_HEX.test(leaseDigest)) {
       throw new ProcessMarkerError('A lease digest is the SHA-256 of the nonce, in lowercase hex.');
@@ -455,8 +455,12 @@ class FileProcessMarkers implements IProcessMarkers {
     });
   }
 
-  /** The marker path for `name`, with the directory made owner-only and checked to be a real one on first use. */
-  #markerPath(name: string): string {
+  /**
+   * The marker path for `name`. The directory is checked not to be a link before anything is read
+   * from it, and an operation that publishes (`create`) makes it owner-only on first use; one that
+   * only reads or removes leaves a missing directory missing, where nothing stands.
+   */
+  #markerPath(name: string, create = false): string {
     if (typeof name !== 'string' || !MARKER_NAME.test(name)) {
       throw new ProcessMarkerError(
         'A marker name is one path component of letters, digits, dot, underscore or hyphen.',
@@ -465,15 +469,19 @@ class FileProcessMarkers implements IProcessMarkers {
     if (!this.#prepared) {
       // A directory that is a link would put the markers wherever it points, out of every reader's
       // sight, and tightening it would tighten its target; checked before anything is made.
-      let isLink = false;
+      let exists = true;
       try {
-        isLink = lstatSync(this.#directory).isSymbolicLink();
+        if (lstatSync(this.#directory).isSymbolicLink()) {
+          throw new ProcessMarkerError('The marker directory is a symbolic link.');
+        }
       } catch (error) {
         if (errnoCode(error) !== 'ENOENT') throw error;
+        exists = false;
       }
-      if (isLink) throw new ProcessMarkerError('The marker directory is a symbolic link.');
-      ensureOwnerOnlyDirectory(this.#directory);
-      this.#prepared = true;
+      if (exists || create) {
+        ensureOwnerOnlyDirectory(this.#directory);
+        this.#prepared = true;
+      }
     }
     return join(this.#directory, `${name}${PROCESS_MARKER_SUFFIX}`);
   }

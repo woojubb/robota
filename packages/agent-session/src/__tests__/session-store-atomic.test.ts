@@ -96,7 +96,8 @@ describe('SessionStore atomic persistence (CORE-019)', () => {
     const loaded = loadedOrMissing(store, 'core-019-atomic');
     expect(loaded?.messages[0]?.content).toBe('original');
 
-    const files = readdirSync(baseDir);
+    // The claims directory beside the records holds the writer markers, not records.
+    const files = readdirSync(baseDir).filter((name) => name !== 'claims');
     expect(files).toEqual(['core-019-atomic.json']);
   });
 
@@ -119,7 +120,9 @@ describe('SessionStore atomic persistence (CORE-019)', () => {
 
     const raw = readFileSync(join(baseDir, 'core-019-atomic.json'), 'utf-8');
     expect(JSON.parse(raw).record.messages[0].content).toBe('updated');
-    expect(readdirSync(baseDir)).toEqual(['core-019-atomic.json']);
+    expect(readdirSync(baseDir).filter((name) => name !== 'claims')).toEqual([
+      'core-019-atomic.json',
+    ]);
   });
 
   it('a failed save leaves the previous record untouched', () => {
@@ -136,6 +139,8 @@ describe('SessionStore atomic persistence (CORE-019)', () => {
 
     const loaded = loadedOrMissing(store, 'core-019-atomic');
     expect(loaded?.messages[0]?.content).toBe('original');
-    expect(readdirSync(baseDir)).toEqual(['core-019-atomic.json']);
+    expect(readdirSync(baseDir).filter((name) => name !== 'claims')).toEqual([
+      'core-019-atomic.json',
+    ]);
   });
 });

@@ -7,7 +7,8 @@
  *
  * Sealed records or plain ones, as the caller states when it builds the store (see
  * `stored-session-record.ts`); plain files are the JSON they always were. Only a store that seals
- * offers `authorship`, and says whose each record it reads is.
+ * offers `authorship`, and says whose each record it reads is. The writer markers of its claims and
+ * lends are kept in `claims/` beside the records, so every process over these files sees them.
  */
 
 import {
@@ -20,10 +21,11 @@ import {
   readdirSync,
   unlinkSync,
 } from 'fs';
-import { resolve, sep } from 'path';
+import { join, resolve, sep } from 'path';
 
 import { SEALED_ARTIFACT_MAGIC, isSealedArtifactBytes } from '@robota-sdk/agent-core';
 import {
+  createProcessMarkers,
   ensureOwnerOnlyDirectory,
   tightenExistingFile,
   writeOwnerOnlyFile,
@@ -42,6 +44,7 @@ import type {
   ISessionClaim,
   ISessionClaimOptions,
   ISessionExportOptions,
+  ISessionLease,
   ISessionListEntry,
   ISessionLoadOptions,
   ISessionSaveOptions,
@@ -81,6 +84,12 @@ function readRest(descriptor: number, head: Buffer): Buffer {
 }
 
 const MISSING: TSessionLoadOutcome = Object.freeze({ status: 'missing' });
+
+/**
+ * Where a store keeps the writer markers of its claims and lends: a directory beside the records that
+ * is not a `.json` file, so a listing never reads it as a session.
+ */
+export const SESSION_CLAIMS_DIRECTORY = 'claims';
 
 /**
  * Most recent first, and an unreadable entry sorts last rather than being dropped.
@@ -136,17 +145,23 @@ export class NodeSessionStore implements IInteractiveSessionStore {
    * @param baseDir the directory holding the records.
    * @param options `sealing` (required): `{ sealer }` seals what `save` writes and opens what `load`
    *   reads; `'plain'` writes plain JSON and reports a sealed file it finds as `locked`.
-   *   `ownedRoot`: see {@link INodeSessionStoreOptions}.
+   *   `ownedRoot`: see {@link INodeSessionStoreOptions}. `releaseCommand`: see `ISessionStoreOptions`.
    */
   constructor(baseDir: string, options: INodeSessionStoreOptions) {
-    this.records = new StoredSessionRecords(sessionSealingOf(options), {
-      load: (id) => this.loadFile(id),
-      current: (id) => this.readExisting(this.filePath(id)),
-      replace: (id, stored) => {
-        this.ensureDir();
-        writeOwnerOnlyFile(this.filePath(id), stored);
+    const sealing = sessionSealingOf(options);
+    this.records = new StoredSessionRecords(
+      sealing,
+      {
+        load: (id) => this.loadFile(id),
+        current: (id) => this.readExisting(this.filePath(id)),
+        replace: (id, stored) => {
+          this.ensureDir();
+          writeOwnerOnlyFile(this.filePath(id), stored);
+        },
       },
-    });
+      createProcessMarkers(join(resolve(baseDir), SESSION_CLAIMS_DIRECTORY)),
+      options.releaseCommand === undefined ? {} : { releaseCommand: options.releaseCommand },
+    );
     this.baseDir = baseDir;
     this.ownedRoot = options.ownedRoot;
     // Only on a store that seals: a store whose records carry no authorship has nothing to adopt.
@@ -156,16 +171,23 @@ export class NodeSessionStore implements IInteractiveSessionStore {
 
   /**
    * Claims `id` for a session this process runs, reading it in the same call
-   * (`IInteractiveSessionStore.claim`): exclusive in this store, and every later save of the id must
-   * carry the claim until it is released.
+   * (`IInteractiveSessionStore.claim`): exclusive across processes and store instances, and every
+   * later save of the id must carry the claim until it is released.
    */
   claim(id: string, options?: ISessionClaimOptions): ISessionClaim {
     this.filePath(id);
     return this.records.claim(id, options);
   }
 
-  /** Whether something this process runs may still write session `id` (`IInteractiveSessionStore.hasWriter`). */
+  /** Lends `id` to another process that will write it (`IInteractiveSessionStore.lend`). */
+  lend(id: string): ISessionLease {
+    this.filePath(id);
+    return this.records.lend(id);
+  }
+
+  /** Whether session `id` may have a writer now (`IInteractiveSessionStore.hasWriter`). */
   hasWriter(id: string): boolean {
+    this.filePath(id);
     return this.records.hasWriter(id);
   }
 
@@ -417,14 +439,13 @@ export class NodeSessionStore implements IInteractiveSessionStore {
   }
 
   /**
-   * Delete a session by its ID.
+   * Delete a session by its ID, holding its writer marker: refused while another writer holds it.
    * No-ops silently if the session does not exist.
    */
   delete(id: string): void {
     const path = this.filePath(id);
-    this.records.forget(id);
-    if (existsSync(path)) {
-      unlinkSync(path);
-    }
+    this.records.delete(id, () => {
+      if (existsSync(path)) unlinkSync(path);
+    });
   }
 }

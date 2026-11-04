@@ -303,11 +303,11 @@ describe('ACP mode', () => {
     const served = await serving({ sessionStore: storeWith({ id: 'stored-1' }) as never });
     const stillClosing = { loaded: false, message: SESSION_STILL_CLOSING_MESSAGE };
 
-    mock.next = [new SessionClaimedError('stored-1', 'claimed') as never];
+    mock.next = [new SessionClaimedError('stored-1', 'has_writer') as never];
     await expect(served.load('stored-1')).resolves.toEqual(stillClosing);
     const failing = {
       ...fakeSession('stored-1'),
-      whenInitialized: vi.fn().mockRejectedValue(new SessionClaimedError('stored-1', 'claimed')),
+      whenInitialized: vi.fn().mockRejectedValue(new SessionClaimedError('stored-1', 'has_writer')),
     };
     mock.next = [failing];
     await expect(served.load('stored-1')).resolves.toEqual(stillClosing);

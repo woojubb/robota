@@ -113,7 +113,7 @@ export {
 export type { TSealedSessionRefusal } from './sealed-session-refusal.js';
 // Claims: the ids a session in this process runs, answered only from content the owner wrote.
 export { SessionClaimedError, isSessionClaimedError } from './session-claims.js';
-export type { TSessionClaimRefusal } from './session-claims.js';
+export type { ISessionWriterHolder, TSessionClaimRefusal } from './session-claims.js';
 export type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,

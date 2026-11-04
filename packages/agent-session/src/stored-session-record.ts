@@ -14,15 +14,18 @@
  * A save over a sealed file this store cannot open goes ahead only when the file is provably exactly
  * the bytes it last wrote or holds (`sealed-session-memory.ts`); anything else on disk is a session
  * this instance never held, or one that changed since, and is not replaced. Every store claims the
- * ids its sessions run (`session-claims.ts`), exclusively and fencing their saves; a store that seals
- * also decides and keeps whose each record is (`stored-session-authorship.ts`).
+ * ids its sessions run (`session-claims.ts`), exclusively across processes and fencing their saves,
+ * and every write of an id holds the id's writer marker, the claim's own or one taken for the write;
+ * a store that seals also decides and keeps whose each record is (`stored-session-authorship.ts`).
  */
+
+import { createHash, randomBytes } from 'node:crypto';
 
 import { isCurrentSealedArtifactBytes, isSealedArtifactBytes } from '@robota-sdk/agent-core';
 
 import { SealedSessionUnreadableError } from './sealed-session-refusal.js';
 import { SealedSessionMemory } from './sealed-session-memory.js';
-import { SessionClaims } from './session-claims.js';
+import { SessionClaims, isSessionClaimedError, writerHolderOf } from './session-claims.js';
 import { assertSafeSessionId } from './session-id.js';
 import {
   MISSING_OUTCOME,
@@ -37,17 +40,25 @@ import {
   utf8Text,
 } from './stored-session-codec.js';
 
+import type { ISessionClaimRefusalWords } from './session-claims.js';
 import type { TReadPurpose } from './stored-session-authorship.js';
 import type { TStoredSessionFile } from './stored-session-codec.js';
-import type { IArtifactSealer, TArtifactSealing } from '@robota-sdk/agent-core';
+import type {
+  IArtifactSealer,
+  IProcessMarkerHandle,
+  IProcessMarkers,
+  TArtifactSealing,
+} from '@robota-sdk/agent-core';
 import type {
   IInteractiveSessionRecord,
   ISessionAuthorship,
   ISessionClaim,
   ISessionClaimOptions,
   ISessionExportOptions,
+  ISessionLease,
   ISessionLoadOptions,
   ISessionSaveOptions,
+  TSessionAdoptResult,
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
 
@@ -55,9 +66,26 @@ import type {
  * How a session store is built. `sealing` is required: every store states whether it keeps its
  * records sealed or plain, because a store that silently kept them plain beside sealed ones would
  * write plaintext next to them. A host that seals states it for every store it builds.
+ * `releaseCommand` is the host's command that releases a writer marker whose holder is not running,
+ * for a `has_writer` refusal to name; without it the refusal names none.
  */
-export interface ISessionStoreOptions {
+export interface ISessionStoreOptions extends ISessionClaimRefusalWords {
   readonly sealing: TArtifactSealing;
+}
+
+/** The writer markers of a store's `claims` directory, which every store is built with. */
+function assertProcessMarkers(value: unknown): asserts value is IProcessMarkers {
+  const markers = value as Partial<IProcessMarkers> | null | undefined;
+  if (
+    typeof markers?.acquire !== 'function' ||
+    typeof markers.takeOver !== 'function' ||
+    typeof markers.endLease !== 'function' ||
+    typeof markers.inspect !== 'function'
+  ) {
+    throw new TypeError(
+      'A session store holds a writer marker for every id it writes: build it with the markers of its claims directory.',
+    );
+  }
 }
 
 /** The sealing `options` state; one that is not a {@link TArtifactSealing} (a call that ignores the types) is refused. */
@@ -113,15 +141,31 @@ export interface IStoredSessionFiles {
 export class StoredSessionRecords {
   readonly #sealer: IArtifactSealer | undefined;
   readonly #files: IStoredSessionFiles;
-  readonly #claims = new SessionClaims();
+  readonly #markers: IProcessMarkers;
+  readonly #claims: SessionClaims;
   readonly #authorship: StoredSessionAuthorship | undefined;
   /** What a store that seals offers as `IInteractiveSessionStore.authorship`; absent from one that never does. */
   readonly authorship: ISessionAuthorship | undefined;
 
-  constructor(sealing: TArtifactSealing, files: IStoredSessionFiles) {
+  /**
+   * @param markers the writer markers of the store's `claims` directory, beside its records: every
+   *   claim, lend and write of an id holds the id's marker, so a store without them does not exist.
+   * @param words how refusals are worded (`ISessionStoreOptions.releaseCommand`).
+   */
+  constructor(
+    sealing: TArtifactSealing,
+    files: IStoredSessionFiles,
+    markers: IProcessMarkers,
+    words: ISessionClaimRefusalWords = {},
+  ) {
     assertSessionSealing(sealing);
+    assertProcessMarkers(markers);
     this.#sealer = sealing === 'plain' ? undefined : sealing.sealer;
     this.#files = files;
+    this.#markers = markers;
+    this.#claims = new SessionClaims(
+      words.releaseCommand === undefined ? {} : { releaseCommand: words.releaseCommand },
+    );
     if (this.#sealer === undefined) {
       this.#authorship = undefined;
       this.authorship = undefined;
@@ -132,20 +176,19 @@ export class StoredSessionRecords {
       files,
       new SealedSessionMemory((id) => this.#claims.has(id)),
       this.#claims,
+      (id, write) => this.#underWriteMarker(id, write),
     );
     this.#authorship = engine;
     this.authorship = Object.freeze({
-      adopt: (id: string, digest: string) => {
+      adopt: (id: string, digest: string): TSessionAdoptResult => {
         assertSafeSessionId(id);
-        return engine.adopt(id, digest);
+        // The raise may tag the file in place: a write of the id, so it holds the id's marker.
+        const result = this.#underWriteMarker(id, () => engine.adopt(id, digest));
+        return result === 'has_writer' ? 'has_writer' : result;
       },
       heldDigest: (id: string) => {
         assertSafeSessionId(id);
         return engine.heldDigest(id);
-      },
-      exportEnded: (id: string) => {
-        assertSafeSessionId(id);
-        engine.exportEnded(id);
       },
       onUnlock: (listener: () => void) => engine.onUnlock(listener),
     });
@@ -173,15 +216,18 @@ export class StoredSessionRecords {
 
   /**
    * Claims session `id` for a session this process runs and reads it in the same call (see
-   * `IInteractiveSessionStore.claim`). An in-process runner's claim of a record a handoff save left
-   * takes it over. Throws `SessionClaimedError` for an id already claimed here, one a write-only
-   * child holds as handed to it, or one exported to a process that may still save it.
+   * `IInteractiveSessionStore.claim`): the id's writer marker is taken first — published, or taken
+   * over under `lease` — and the read follows, so nothing another writer saves can come between them.
+   * An in-process runner's claim of a record a handoff save left takes it over; a copy's read takes
+   * no marker. Throws `SessionClaimedError`: `has_writer` for an id claimed or lent here or held by
+   * another writer, naming it, and `released` for a lease that has ended.
    */
   claim(id: string, options: ISessionClaimOptions = {}): ISessionClaim {
     this.#claims.assertUnclaimed(id);
     const fresh = options.fresh === true;
-    this.#authorship?.beforeClaim(id, fresh);
-    return this.#claims.open(id, fresh, () => {
+    this.#authorship?.beforeClaim(id, fresh, options.lease !== undefined);
+    const marker = options.copy === true ? undefined : this.#takeMarker(id, options.lease);
+    return this.#claims.open(id, fresh, marker, () => {
       const { file, unreadable } = this.#files.load(id);
       return this.#authorship === undefined
         ? this.#readPlain(id, file, unreadable)
@@ -190,26 +236,75 @@ export class StoredSessionRecords {
   }
 
   /**
-   * Whether something this process runs may still write session `id`: a live claim, or in a store
-   * that seals an export to a process that has not ended (or, in the write-only child, the record it
-   * was handed). A surface that would open the id as another session asks this first.
+   * Lends session `id` to another process (see `IInteractiveSessionStore.lend`): its marker is
+   * published for this process with the digest of a fresh nonce, which the borrowing process claims
+   * with, and the id counts as written here until the end, which removes the marker whoever holds it.
+   */
+  lend(id: string): ISessionLease {
+    this.#claims.assertUnclaimed(id);
+    const nonce = randomBytes(32).toString('hex');
+    const digest = createHash('sha256').update(nonce, 'utf8').digest('hex');
+    const published = this.#markers.acquire(id, { leaseDigest: digest });
+    if (published.status !== 'acquired') {
+      throw this.#claims.refusal(id, 'has_writer', { holder: writerHolderOf(published.holder) });
+    }
+    const unlend = this.#claims.lend(id);
+    let ended = false;
+    return Object.freeze({
+      nonce,
+      end: (): void => {
+        if (ended) return;
+        ended = true;
+        try {
+          this.#markers.endLease(id, digest);
+        } finally {
+          unlend();
+        }
+      },
+    });
+  }
+
+  /**
+   * Whether session `id` may have a writer now: a claim or a lend of this store, or the writer marker
+   * of any other holder whose owner is not provably gone. A surface that would open the id as another
+   * session asks this first.
    */
   hasWriter(id: string): boolean {
-    return this.#claims.has(id) || this.#authorship?.hasUnclaimedWriter(id) === true;
+    if (this.#claims.has(id) || this.#claims.isLent(id)) return true;
+    const marker = this.#markers.inspect(id);
+    return marker.status === 'held' && marker.holder.liveness !== 'gone';
   }
 
   /**
    * Saves `record` after the checks a save must pass: a claimed id is saved only under its live claim,
-   * and a claim that ended is refused (the write fence); then the file there must be replaceable —
-   * absent, plain, exactly what this instance last wrote or holds, or sealed and openable here (a
-   * claimed id's only when it is what the owner wrote). The check and the write are two steps, so two
-   * writers saving one session at the same moment can still replace each other, as plain records
-   * always could; what the check stops is a store replacing a sealed session nobody in this process
-   * can read. A write that fails with its bytes already in place is remembered as this store's own.
+   * and a claim that ended or lost its marker is refused (the write fence); a save without a claim
+   * takes the id's marker for the write and is refused while another writer holds it. Then the file
+   * there must be replaceable — absent, plain, exactly what this instance last wrote or holds, or
+   * sealed and openable here (a claimed id's only when it is what the owner wrote). What the check
+   * stops is a store replacing a sealed session nobody in this process can read. A write that fails
+   * with its bytes already in place is remembered as this store's own.
    */
   save(record: IInteractiveSessionRecord, options: ISessionSaveOptions = {}): void {
     const id = record.id;
-    this.#claims.assertSaveAllowed(id, options.claim);
+    const marker = this.#claims.markerForSave(id, options.claim);
+    if (marker !== undefined) {
+      this.#write(record, options);
+      return;
+    }
+    this.#withTransientMarker(id, () => this.#write(record, options));
+  }
+
+  /** Removes session `id`'s record with `remove`, holding the id's marker; refused while another writer holds it. */
+  delete(id: string, remove: () => void): void {
+    this.#claims.markerForSave(id, undefined);
+    this.#withTransientMarker(id, () => {
+      this.forget(id);
+      remove();
+    });
+  }
+
+  #write(record: IInteractiveSessionRecord, options: ISessionSaveOptions): void {
+    const id = record.id;
     const existing = this.#files.current(id);
     const engine = this.#authorship;
     if (engine === undefined) {
@@ -268,6 +363,57 @@ export class StoredSessionRecords {
   /** Forgets what this instance holds of session `id`, which was deleted. */
   forget(id: string): void {
     this.#authorship?.forget(id);
+  }
+
+  /**
+   * The marker a claim of `id` holds: published for this process, or taken over from the process that
+   * lent it under `lease`. Throws `has_writer` naming the holder while another writer holds it, and
+   * `released` when no marker carries the lease any more.
+   */
+  #takeMarker(id: string, lease: string | undefined): IProcessMarkerHandle {
+    if (lease === undefined) {
+      const published = this.#markers.acquire(id);
+      if (published.status === 'acquired') return published.handle;
+      throw this.#claims.refusal(id, 'has_writer', { holder: writerHolderOf(published.holder) });
+    }
+    const taken = this.#markers.takeOver(id, lease);
+    if (taken.status === 'acquired') return taken.handle;
+    if (taken.status === 'absent') throw this.#claims.refusal(id, 'released', { lease: true });
+    throw this.#claims.refusal(id, 'has_writer', { holder: writerHolderOf(taken.holder) });
+  }
+
+  /** Runs `write` holding the id's marker for the write alone, refused while another writer holds it. */
+  #withTransientMarker<T>(id: string, write: () => T): T {
+    const published = this.#markers.acquire(id);
+    if (published.status !== 'acquired') {
+      throw this.#claims.refusal(id, 'has_writer', { holder: writerHolderOf(published.holder) });
+    }
+    try {
+      return write();
+    } finally {
+      published.handle.release();
+    }
+  }
+
+  /**
+   * Runs a write of `id` that carries no claim (an adopt, a tag at the unlock) holding the id's marker:
+   * the live claim's when this store claims the id, else one taken for the write. `has_writer` when
+   * another writer holds it, and nothing is written.
+   */
+  #underWriteMarker<T>(id: string, write: () => T): T | 'has_writer' {
+    try {
+      if (this.#claims.markerForWrite(id) !== undefined) return write();
+    } catch (error) {
+      if (isSessionClaimedError(error)) return 'has_writer';
+      throw error;
+    }
+    const published = this.#markers.acquire(id);
+    if (published.status !== 'acquired') return 'has_writer';
+    try {
+      return write();
+    } finally {
+      published.handle.release();
+    }
   }
 
   #read(id: string, purpose: TReadPurpose): TSessionLoadOutcome {

@@ -246,12 +246,9 @@ describe('the parent’s countersign of a fork job', () => {
     expect(outcome.status === 'valid' && outcome.authorship).toBe('verified');
   });
 
-  it('ends the export before anything else, whatever it decides, and only once', () => {
+  it('decides only once, and raises nothing for a child that reported no save', () => {
     const calls: string[] = [];
     const authorship = {
-      exportEnded: vi.fn((id: string) => {
-        calls.push(`exportEnded:${id}`);
-      }),
       adopt: vi.fn((id: string, digest: string) => {
         calls.push(`adopt:${id}:${digest}`);
         return 'adopted' as const;
@@ -266,24 +263,21 @@ describe('the parent’s countersign of a fork job', () => {
     child.end();
     child.end();
 
-    expect(calls).toEqual([`exportEnded:${FORK_ID}`, `adopt:${FORK_ID}:${DIGEST}`]);
+    expect(calls).toEqual([`adopt:${FORK_ID}:${DIGEST}`]);
 
     const silent = new FakeChild();
     const quiet = {
-      exportEnded: vi.fn(),
       adopt: vi.fn(),
       heldDigest: vi.fn(),
       onUnlock: vi.fn(() => () => undefined),
     };
     follow(silent, { authorship: quiet });
     silent.end();
-    expect(quiet.exportEnded).toHaveBeenCalledWith(FORK_ID);
     expect(quiet.adopt).not.toHaveBeenCalled();
   });
 
   it('settles a child that never started, which sends neither exit nor disconnect', () => {
     const authorship = {
-      exportEnded: vi.fn(),
       adopt: vi.fn(),
       heldDigest: vi.fn(),
       onUnlock: vi.fn(() => () => undefined),
@@ -295,7 +289,7 @@ describe('the parent’s countersign of a fork job', () => {
     child.emit('error', new Error('spawn ENOENT'));
 
     expect(settled).toEqual(['not-vouched']);
-    expect(authorship.exportEnded).toHaveBeenCalledWith(FORK_ID);
+    expect(authorship.adopt).not.toHaveBeenCalled();
   });
 });
 

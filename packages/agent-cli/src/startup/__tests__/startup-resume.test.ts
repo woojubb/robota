@@ -337,7 +337,6 @@ describe('-r over a store that seals', () => {
     const authorship = {
       adopt: vi.fn(),
       heldDigest: vi.fn(),
-      exportEnded: vi.fn(),
       onUnlock: vi.fn(() => () => undefined),
     };
     const store = withHoldReadClaim({

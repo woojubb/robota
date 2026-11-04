@@ -167,7 +167,7 @@ function createFakeChannel(createdFor: string | undefined): IFakeChannel & ITuiA
 }
 
 function createFakeStore(records: IInteractiveSessionRecord[]): IInteractiveSessionStore {
-  const store: Omit<IInteractiveSessionStore, 'claim' | 'hasWriter'> = {
+  const store: Omit<IInteractiveSessionStore, 'claim' | 'lend' | 'hasWriter'> = {
     save: () => undefined,
     load: (id) => {
       const record = records.find((r) => r.id === id);

@@ -151,8 +151,6 @@ export function followForkRecordSaves(
     child.off('message', onMessage);
     let outcome: TCountersignOutcome = 'not-vouched';
     try {
-      // The export ends first, so a raise deferred while the keys are locked is settled at the unlock.
-      countersign.store.authorship?.exportEnded(countersign.sessionId);
       if (countersign.startedOwner && last !== undefined && !refused) {
         outcome =
           countersign.store.authorship?.adopt(countersign.sessionId, last.sha256) ?? 'changed';

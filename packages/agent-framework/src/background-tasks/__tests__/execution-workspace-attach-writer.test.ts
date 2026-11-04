@@ -198,17 +198,18 @@ describe('attaching to a fork that has a writer in this process', () => {
     expect(attach(store, entry)).toEqual({ type: 'switch-session', sessionId: forkId });
   });
 
-  it('is neither offered nor honoured while the record is handed to a child, and is once that ends', () => {
+  it('is neither offered nor honoured while the record is lent to a child, and is once that ends', () => {
     const sealer = createTestArtifactSealer();
     const store = new NodeSessionStore(dir, { sealing: { sealer } });
     const forkId = fork(store);
+    const lease = store.lend(forkId);
     expect(store.exportHeld?.(forkId, { handoffOnly: true })).toBeDefined();
 
-    const exported = projectedFork(store, forkId, 'running');
-    expect(exported.controls).not.toContain('attach');
-    expect(attach(store, exported).type).toBe('refused');
+    const lent = projectedFork(store, forkId, 'running');
+    expect(lent.controls).not.toContain('attach');
+    expect(attach(store, lent).type).toBe('refused');
 
-    store.authorship?.exportEnded(forkId);
+    lease.end();
     const free = projectedFork(store, forkId, 'running');
     expect(free.controls).toContain('attach');
     expect(attach(store, free)).toEqual({ type: 'switch-session', sessionId: forkId });

@@ -35,6 +35,8 @@ describe('multi-session resume/fork (framework functional)', () => {
       await first.submit('Remember the number 42');
       sharedCwd = first.cwd;
       const sessionId = first.session.getSession().getSessionId();
+      // One writer per session: the first lets the id go before another session resumes it.
+      await first.session.shutdown({ reason: 'other', message: 'handing the session over' });
 
       // Resume the SAME session id from the SAME workspace store.
       const second = track(

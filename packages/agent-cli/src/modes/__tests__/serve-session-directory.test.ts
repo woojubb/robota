@@ -49,7 +49,7 @@ function record(id: string, updatedAt: string, cwd = CWD): IInteractiveSessionRe
 function storeOf(
   entries: ISessionListEntry[],
 ): IInteractiveSessionStore & { entries: ISessionListEntry[] } {
-  const store: Omit<IInteractiveSessionStore, 'claim' | 'hasWriter'> & {
+  const store: Omit<IInteractiveSessionStore, 'claim' | 'lend' | 'hasWriter'> & {
     entries: ISessionListEntry[];
   } = {
     entries,

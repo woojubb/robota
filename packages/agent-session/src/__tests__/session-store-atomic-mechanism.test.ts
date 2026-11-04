@@ -47,7 +47,10 @@ describe('SessionStore atomic write mechanism (CORE-019)', () => {
         .map((call) => String(call[0]));
       expect(writtenPaths).not.toContain(finalPath);
 
-      const renameCalls = vi.mocked(renameSync).mock.calls;
+      // The writer marker the save holds is moved aside on its release, inside the claims directory.
+      const renameCalls = vi
+        .mocked(renameSync)
+        .mock.calls.filter((call) => dirname(String(call[1])) === baseDir);
       expect(renameCalls.length).toBe(1);
       const [tempPath, renamedTo] = renameCalls[0].map(String);
       expect(writtenPaths).toContain(tempPath);

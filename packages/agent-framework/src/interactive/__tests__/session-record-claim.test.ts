@@ -278,22 +278,21 @@ describe('where a session claims its record', () => {
     await host.shutdown();
   });
 
-  it('tells a pool client, in the store’s words, that a record handed to a subagent is still saved there', async () => {
+  it('tells a pool client to try again while a record is lent from this process', async () => {
     const cwd = directory();
     const dir = directory();
     const sealer = createTestArtifactSealer();
     const store = sealedStore(dir, sealer);
     store.save(record('sess_handed', cwd, OWNER_TEXT), { handoff: true, provenance: 'owner' });
-    expect(store.exportHeld?.('sess_handed', { handoffOnly: true })).toBeDefined();
+    const lease = store.lend('sess_handed');
 
     const host = await startRuntimeHost({ session: sessionOptions(cwd, store), pool: {} });
     await expect(host.pool!.acquire('sess_handed')).rejects.toMatchObject({
       name: 'SessionChangeRefusal',
       code: 'still_closing',
-      message:
-        'Session sess_handed is handed to a subagent process that may still save it; open it ' +
-        'once that job has ended.',
+      message: SESSION_STILL_CLOSING_MESSAGE,
     });
+    lease.end();
     await host.shutdown();
   });
 

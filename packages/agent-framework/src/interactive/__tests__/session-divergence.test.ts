@@ -25,6 +25,7 @@ import {
   forgeRecord,
   readFresh,
   record,
+  savedByAnotherProcess,
   sealedStore,
   sessionOptions,
   started,
@@ -215,9 +216,10 @@ describe('a sealed file the locked keys cannot open', () => {
     const errors = errorsOf(session);
     sealer.lock();
     // The owner's other process, unlocked, saved this session meanwhile: a tagged record.
-    sealedStore(dir, createTestArtifactSealer({ key })).save(
+    savedByAnotherProcess(
+      dir,
+      createTestArtifactSealer({ key }),
       record(id, cwd, 'written by another of my processes'),
-      { provenance: 'owner' },
     );
 
     await attempt(session, 'a turn while locked');
@@ -266,9 +268,10 @@ describe('a sealed file the locked keys cannot open', () => {
     );
     const errors = errorsOf(session);
     sealer.lock();
-    sealedStore(dir, createTestArtifactSealer({ key })).save(
+    savedByAnotherProcess(
+      dir,
+      createTestArtifactSealer({ key }),
       record(id, cwd, 'written by another of my processes'),
-      { provenance: 'owner' },
     );
     await attempt(session, 'a turn while locked');
     expect(refusalsIn(errors)).toEqual(['locked']);

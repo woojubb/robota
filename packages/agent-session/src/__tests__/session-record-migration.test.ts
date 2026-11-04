@@ -102,8 +102,9 @@ function statuses(dir: string, sealer: IArtifactSealer): Record<string, unknown>
 }
 
 function filesWithCanary(dir: string): string[] {
-  return readdirSync(dir).filter((name) =>
-    readFileSync(join(dir, name)).includes(Buffer.from(CANARY)),
+  // The claims directory beside the records holds the writer markers, not records.
+  return readdirSync(dir).filter(
+    (name) => name !== 'claims' && readFileSync(join(dir, name)).includes(Buffer.from(CANARY)),
   );
 }
 
@@ -177,7 +178,11 @@ describe('migrateNodeSessionStore', () => {
 
     expect(plan).toMatchObject({ sealed: 4, alreadySealed: 0 });
     expect(IDS.map((id) => readFileSync(join(dir, `${id}.json`)))).toEqual(before);
-    expect(readdirSync(dir).sort()).toEqual(IDS.map((id) => `${id}.json`));
+    expect(
+      readdirSync(dir)
+        .filter((name) => name !== 'claims')
+        .sort(),
+    ).toEqual(IDS.map((id) => `${id}.json`));
   });
 
   it('stops at a commit point with that record as it was, and a rerun ends where an unbroken run does', () => {

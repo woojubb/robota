@@ -22,11 +22,11 @@ export type { TSessionChangeRefusalCode, TSessionDeleteRefusalCode };
 export const SESSION_STILL_CLOSING_MESSAGE = 'The session is still closing; try again.';
 
 /**
- * What a client is told when the store refused to claim the session it asked for: still closing, or,
- * for a record handed to a subagent process that may still save it, the store's own fixed words.
+ * What a client is told when the store refused to claim the session it asked for: still closing, for
+ * a writer in this process, or else the store's own words, which name the process that holds it.
  */
 export function claimedSessionMessage(error: SessionClaimedError): string {
-  return error.reason === 'exported' ? error.message : SESSION_STILL_CLOSING_MESSAGE;
+  return error.holder?.self === true ? SESSION_STILL_CLOSING_MESSAGE : error.message;
 }
 
 export class SessionChangeRefusal extends Error implements ISessionChangeRefusal {
