@@ -45,7 +45,11 @@ import type { IDevicesCommandPort } from '../devices/index.js';
 import type { IDoctorDeps, IDoctorDisplayVocabulary, IDoctorInputs } from '../doctor/index.js';
 import type { IKeyCustodyCommandPort } from '../key-custody/index.js';
 import type { IKeybindingsFilePort, TOpenFileInEditor } from '../keybindings/index.js';
-import type { IProviderDefinition, TProviderCredentialResolver } from '@robota-sdk/agent-core';
+import type {
+  IFileSystemAsync,
+  IProviderDefinition,
+  TProviderCredentialResolver,
+} from '@robota-sdk/agent-core';
 import type {
   IOrgPolicy,
   IContributionSource,
@@ -62,6 +66,12 @@ import type { IThemeCataloguePort } from '@robota-sdk/agent-interface-command';
 export interface IDefaultCommandModulesOptions {
   cwd: string;
   userLocalStorageRoot: string;
+  /**
+   * The files `/user-local` reads and writes its storage root through; a Node host passes
+   * `new NodeFileSystemAsync()` from `@robota-sdk/agent-framework/node`. Absent, `/user-local` is
+   * registered and says it is unavailable on this host.
+   */
+  userLocalFileSystem?: IFileSystemAsync;
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
   providerDefinitions: readonly IProviderDefinition[];
@@ -169,6 +179,7 @@ export interface IDefaultCommandModulesResult {
 export function createDefaultCommandModules({
   cwd: _cwd,
   userLocalStorageRoot,
+  userLocalFileSystem,
   contributionSources,
   skillRoots,
   providerDefinitions,
@@ -217,7 +228,7 @@ export function createDefaultCommandModules({
       : [createDoctorCommandModule(doctorInputs, doctorDeps, doctorDisplay)]),
     createMemoryCommandModule(),
     createMCPActivationCommandModule(),
-    createUserLocalCommandModule(userLocalStorageRoot),
+    createUserLocalCommandModule(userLocalStorageRoot, userLocalFileSystem),
     createCompactCommandModule(),
     createContextCommandModule(),
     createExitCommandModule(),
