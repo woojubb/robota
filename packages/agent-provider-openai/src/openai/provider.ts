@@ -16,6 +16,7 @@ import { OPENAI_MODEL_EFFORT_TABLE } from './model-effort-table';
 import { assertParallelToolCallsExecutor, parseParallelToolCalls } from './parallel-tool-policy';
 import { OpenAIResponseParser } from './parsers/response-parser';
 import { chatStreamWithOpenAIResponsesApi, chatWithOpenAIResponsesApi } from './responses-chat';
+import { modelOffersWebSearch } from './responses-web-search';
 
 import type { IPayloadLogger } from './interfaces/payload-logger';
 import type { IOpenAIProviderOptions, TOpenAIApiSurface, TOpenAIExtraBody } from './types';
@@ -422,15 +423,24 @@ function describeWebSearch(
       reason: "Hosted web search runs only on OpenAI's own endpoint, not a custom baseURL.",
     };
   }
-  const enabled = options.nativeWebTools?.webSearch === true;
-  return {
-    supported: true,
-    enabled,
-    source,
-    ...(!enabled && {
+  if (options.nativeWebTools?.webSearch !== true) {
+    return {
+      supported: true,
+      enabled: false,
+      source,
       reason: 'Set the provider profile option nativeWebTools.webSearch to true.',
-    }),
-  };
+    };
+  }
+  const model = options.defaultModel;
+  if (model !== undefined && !modelOffersWebSearch(model)) {
+    return {
+      supported: true,
+      enabled: false,
+      source,
+      reason: `Model ${model} does not offer web search; requests go without it.`,
+    };
+  }
+  return { supported: true, enabled: true, source };
 }
 
 function validateOpenAIProviderNativeWebTools(

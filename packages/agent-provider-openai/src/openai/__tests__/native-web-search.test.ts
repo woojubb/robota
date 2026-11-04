@@ -364,6 +364,23 @@ describe('hosted web search capability', () => {
     });
   });
 
+  it('is not enabled on a default model without web search, and says so', () => {
+    const { provider } = setup(searching({ defaultModel: 'gpt-4.1-nano' }));
+    const { webSearch } = provider.getCapabilities().nativeWebTools;
+
+    expect(webSearch).toMatchObject({ supported: true, enabled: false, source });
+    expect(webSearch.reason).toContain('gpt-4.1-nano');
+  });
+
+  it('fails a call that requires search where the model or its reasoning cannot run it', async () => {
+    const { provider, create } = setup(searching());
+
+    await expect(
+      provider.chat(messages, { model: 'o3-mini', nativeWebTools: { webSearch: true } }),
+    ).rejects.toThrow(/cannot run hosted web search on model o3-mini/);
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it('is supported but not enabled, with the way to turn it on, when the option is off', () => {
     const { provider } = setup();
 

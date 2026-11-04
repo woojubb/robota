@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createDefaultProviderDefinitions } from './default-provider-definitions.js';
 
@@ -7,6 +7,14 @@ import { createDefaultProviderDefinitions } from './default-provider-definitions
  * ByteDance is a media/video provider and remains outside the chat provider set.
  */
 describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
+  // A developer's own gateway variable would change which profiles OpenAI declares search for.
+  beforeEach(() => {
+    vi.stubEnv('OPENAI_BASE_URL', '');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('appends OpenRouter while preserving the original chat provider order', () => {
     const types = createDefaultProviderDefinitions().map((d) => d.type);
     expect(types).toEqual([

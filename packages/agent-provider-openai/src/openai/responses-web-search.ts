@@ -24,22 +24,37 @@ export interface IOpenAIWebSearchUsage {
   citations: string[];
 }
 
+export function modelOffersWebSearch(model: string): boolean {
+  return !MODELS_WITHOUT_WEB_SEARCH.test(model);
+}
+
 /**
  * Whether the hosted `web_search` tool joins this request. Search rides on a request whose tool use
  * is the model's free choice: `none` forbids tools, and a forced choice asks for a function the
  * caller will run, which a hosted search could otherwise satisfy without one. A call can withhold it
  * (`nativeWebTools.webSearch: false`), minimal reasoning excludes it (per OpenAI's guide), and the
- * models above do not offer it.
+ * models above do not offer it. A call that requires search where the model or its reasoning cannot
+ * run it fails instead of going without.
  */
 export function includesHostedWebSearch(request: IHostedWebSearchRequest): boolean {
-  const toolChoice = request.chatOptions?.toolChoice;
-  return (
-    request.providerOptions.nativeWebTools?.webSearch === true &&
-    request.chatOptions?.nativeWebTools?.webSearch !== false &&
-    (toolChoice === undefined || toolChoice === 'auto') &&
-    request.reasoning?.effort !== 'minimal' &&
-    !MODELS_WITHOUT_WEB_SEARCH.test(request.model)
-  );
+  const { providerOptions, chatOptions, model, reasoning } = request;
+  const toolChoice = chatOptions?.toolChoice;
+  if (
+    providerOptions.nativeWebTools?.webSearch !== true ||
+    chatOptions?.nativeWebTools?.webSearch === false ||
+    (toolChoice !== undefined && toolChoice !== 'auto')
+  ) {
+    return false;
+  }
+  if (reasoning?.effort !== 'minimal' && modelOffersWebSearch(model)) {
+    return true;
+  }
+  if (chatOptions?.nativeWebTools?.webSearch === true) {
+    throw new Error(
+      `Provider openai cannot run hosted web search on model ${model} with reasoning effort ${reasoning?.effort ?? 'unset'}.`,
+    );
+  }
+  return false;
 }
 
 export function createEmptyWebSearchUsage(): IOpenAIWebSearchUsage {

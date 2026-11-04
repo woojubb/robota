@@ -2,7 +2,7 @@ import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { buildCommandSetup } from '../../startup/command-setup.js';
@@ -67,6 +67,11 @@ function webSearchEnabled(
 describe('productProviderDefinitions native web search default', () => {
   beforeEach(() => {
     received.length = 0;
+    // A developer's own gateway variable would change which profiles OpenAI declares search for.
+    vi.stubEnv('OPENAI_BASE_URL', '');
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it('turns native web search on for an Anthropic profile without options', () => {
@@ -111,6 +116,13 @@ describe('productProviderDefinitions native web search default', () => {
     // such a profile would fail the build of the provider instead of reaching this line.
     expect(webSearchEnabled(productProviderDefinitions(), profile)).toBe(false);
     expect(received.at(-1)).toBe(profile);
+  });
+
+  it('leaves an OpenAI profile alone while OPENAI_BASE_URL redirects the SDK', () => {
+    vi.stubEnv('OPENAI_BASE_URL', 'https://gateway.example.com/v1');
+
+    expect(webSearchEnabled(productProviderDefinitions(), OPENAI)).toBe(false);
+    expect(received.at(-1)).toBe(OPENAI);
   });
 
   it('leaves a provider definition that declares nothing untouched', () => {
