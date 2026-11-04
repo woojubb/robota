@@ -29,7 +29,7 @@ describe('createSystemContextReferenceItems', () => {
   });
 
   it('counts the UTF-8 bytes of the content, not its characters', () => {
-    const content = '\uFEFFa\u{1F600}한\uD800';
+    const content = '\uFEFFa\u{1F600}€\uD800';
     const [item] = createSystemContextReferenceItems([entry('AGENTS.md', content)], '/repo');
     expect(item?.byteLength).toBe(Buffer.byteLength(content, 'utf8'));
   });
