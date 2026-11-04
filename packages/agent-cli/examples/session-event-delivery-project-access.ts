@@ -4,6 +4,7 @@ import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
 import { productProjectStateDirectories } from '../src/product/project-state-directories.js';
 import type { ICliRuntimeContext } from '../src/product/runtime-context.js';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type {
   IWorkspaceIdentity,
   IWorkspaceTrustStore,
@@ -37,6 +38,7 @@ export function createSessionEventDeliveryProjectAccess(
     worktreeRoot: canonicalRoot,
   };
   return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     store: new ScenarioTrustStore(),
     projectStateDirectories: productProjectStateDirectories(runtime),

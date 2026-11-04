@@ -1,21 +1,21 @@
-import { createStableRootedFileWriter } from '@robota-sdk/agent-file-authority';
 import {
   assertCurrentWorkspaceIdentity,
   assertProjectReadPurpose,
   workspacePathSegments,
 } from './project-reader-path.js';
-import { createWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 import {
   assertWorkspaceProjectAuthority,
   getWorkspaceProjectIdentity,
   getWorkspaceProjectIdentityResolver,
+  getWorkspaceProjectMutationBoundary,
+  openWorkspaceProjectStableWriter,
 } from './workspace-authority.js';
 
-import type { IWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
 import type {
   IWorkspaceProjectAuthority,
   IWorkspaceProjectMutation,
+  IWorkspaceProjectMutationBoundary,
   TWorkspaceProjectAuthorityCandidate,
   TWorkspaceProjectMutationDecision,
 } from './types.js';
@@ -31,7 +31,7 @@ export function prepareWorkflowJsonMutation(authority: IWorkspaceProjectAuthorit
   const identity = getWorkspaceProjectIdentity(accepted);
   const resolver = getWorkspaceProjectIdentityResolver(accepted);
   assertCurrentWorkspaceIdentity(identity, resolver);
-  const writer = createStableRootedFileWriter(identity.worktreeRoot);
+  const writer = openWorkspaceProjectStableWriter(accepted);
   let open = true;
   let approved = false;
   const verify = (): void => {
@@ -128,10 +128,7 @@ export function createWorkspaceProjectMutation(
   const mutation = Object.freeze(
     new WorkspaceProjectMutation(
       accepted,
-      createWorkspaceProjectMutationBoundary(
-        getWorkspaceProjectIdentity(accepted),
-        getWorkspaceProjectIdentityResolver(accepted),
-      ),
+      getWorkspaceProjectMutationBoundary(accepted),
     ),
   );
   projectMutations.set(mutation, accepted);

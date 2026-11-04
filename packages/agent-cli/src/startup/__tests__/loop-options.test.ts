@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
 import { createLoopDefaultPromptResolver, DEFAULT_LOOP_MAINTENANCE_PROMPT } from '../loop-options.js';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IWorkspaceIdentity, IWorkspaceTrustStoreSnapshot } from '@robota-sdk/agent-framework';
 
 const roots: string[] = [];
@@ -22,6 +23,7 @@ async function trustedAccess(path: string) {
   };
   const snapshot: IWorkspaceTrustStoreSnapshot = { state: 'trusted', generation: 1 };
   return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     store: {
       inspect: async () => snapshot,

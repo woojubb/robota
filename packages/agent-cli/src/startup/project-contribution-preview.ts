@@ -2,10 +2,8 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { realpathSync } from 'node:fs';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
-import {
-  inspectPreTrustProjectPaths,
-  listFrameworkProjectContributionPaths,
-} from '@robota-sdk/agent-framework';
+import { listFrameworkProjectContributionPaths } from '@robota-sdk/agent-framework';
+import { inspectPreTrustProjectPaths } from '@robota-sdk/agent-framework/node';
 
 import { costBudgetFile } from './cost-budget-adapter.js';
 import { projectOutputStyleDirectories } from './output-style-sources.js';

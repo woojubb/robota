@@ -13,7 +13,7 @@ import { promisify } from 'node:util';
 import electronPath from 'electron';
 import { _electron as electron } from 'playwright';
 import { resolveProductConfig } from '../../../packages/product-config/src/index.ts';
-import { createNodeWorkspaceTrustService } from '../../../packages/agent-framework/src/index.ts';
+import { createNodeWorkspaceTrustService } from '../../../packages/agent-framework/src/node.ts';
 import { createCliRuntimeContext } from '../../../packages/agent-cli/src/product/runtime-context.ts';
 import { respond } from '../../../packages/agent-cli/src/__tests__/helpers/provider-wire-fixture.ts';
 import { buildProductTestEnvironment, readDesktopTestIdentity } from './product-fixture.mjs';

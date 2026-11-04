@@ -4,6 +4,7 @@ import { isAbsolute, join, resolve } from 'node:path';
 
 import { tightenExistingFile, writeOwnerOnlyFile } from '@robota-sdk/agent-core/node';
 
+import { createNodeWorkspaceProjectFiles } from './node-project-files.js';
 import { WorkspaceTrustService } from './workspace-trust-service.js';
 
 import type {
@@ -293,7 +294,11 @@ export function createNodeWorkspaceTrustStore(
   });
 }
 
-/** Compose the default Node resolver, caller-selected persistent store, and authority service. */
+/**
+ * Compose the Node resolver, caller-selected persistent store, Node project file operations and
+ * authority service. This is how a Node host builds a trusted session; a host without a trust
+ * service passes `createRestrictedWorkspaceProjectAccess` instead.
+ */
 export function createNodeWorkspaceTrustService(
   filePath: string,
   projectStateDirectories?: TWorkspaceProjectStateDirectories,
@@ -301,6 +306,7 @@ export function createNodeWorkspaceTrustService(
   return new WorkspaceTrustService({
     identityResolver: createNodeWorkspaceIdentityResolver(),
     store: createNodeWorkspaceTrustStore(filePath),
+    projectFiles: createNodeWorkspaceProjectFiles(),
     ...(projectStateDirectories === undefined ? {} : { projectStateDirectories }),
   });
 }

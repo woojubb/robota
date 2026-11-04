@@ -12,6 +12,7 @@ import {
 import { MemoryCommandSource, createMemoryCommandModule, executeMemoryCommand } from '../index.js';
 import { createTestCommandHost, createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type {
   IMemoryStore,
   IRemoteCommandPolicy,
@@ -52,6 +53,7 @@ function createMemoryStore(cwd: string): Promise<IMemoryStore> {
       worktreeRoot: root,
     };
     const service = new WorkspaceTrustService({
+      projectFiles: createNodeWorkspaceProjectFiles(),
       identityResolver: { resolve: () => identity },
       store: new TrustedStore(),
       projectStateDirectories: {

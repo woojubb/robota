@@ -2,6 +2,7 @@ import { realpathSync } from 'node:fs';
 
 import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type {
   IResolvedConfig,
   ITrustedWorkspaceProjectAccess,
@@ -39,6 +40,7 @@ export async function createScenarioProjectAccess(
     grantedAt: '2026-08-22T00:00:00.000Z',
   };
   const access = await new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     store: {
       inspect: async () => trusted,

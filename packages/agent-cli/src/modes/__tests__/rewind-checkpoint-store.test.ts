@@ -26,6 +26,7 @@ import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IServeModeOptions } from '../serve-mode.js';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IWorkspaceIdentity, InteractiveSession } from '@robota-sdk/agent-framework';
 
 const testHost = createTestFrameworkHost();
@@ -63,6 +64,7 @@ async function trustedAccess(root: string) {
     grantedAt: '2026-09-27T00:00:00.000Z',
   };
   return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     projectStateDirectories: PRODUCT_PROJECT_STATE_DIRECTORIES,
     store: {

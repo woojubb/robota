@@ -15,6 +15,7 @@ import {
   createTestFrameworkHost,
 } from '@robota-sdk/agent-framework/testing';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IWorkspaceIdentity, IWorkspaceTrustStore } from '@robota-sdk/agent-framework';
 
 const testHost = createTestFrameworkHost();
@@ -32,6 +33,7 @@ async function createTrustedProjectAccess(cwd: string) {
     revoke: () => Promise.resolve({ state: 'revoked', generation: 2 }),
   };
   return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     store,
   }).inspect(root);

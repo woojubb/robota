@@ -9,7 +9,10 @@ import {
   type IWorkspaceIdentity,
   type TSettingsSource,
 } from '@robota-sdk/agent-framework';
-import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
+import {
+  createNodeHostSettingsSource,
+  createNodeWorkspaceProjectFiles,
+} from '@robota-sdk/agent-framework/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -56,6 +59,7 @@ async function projectSources(settings: object): Promise<readonly TSettingsSourc
     worktreeRoot: project,
   };
   const service = new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     store: {
       inspect: async () => ({ state: 'trusted', generation: 1 }),

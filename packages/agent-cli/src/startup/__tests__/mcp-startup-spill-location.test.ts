@@ -33,6 +33,7 @@ import { createMemoryKeyringStore, fixtureKeyring } from '../../secure/__tests__
 import { composeMcpClientForStartup } from '../mcp-startup.js';
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IWorkspaceIdentity } from '@robota-sdk/agent-framework';
 import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 
@@ -62,6 +63,7 @@ async function trustedAccessFor(root: string) {
     worktreeRoot: root,
   };
   return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     store: {
       inspect: async () => ({ state: 'trusted', generation: 1 }),

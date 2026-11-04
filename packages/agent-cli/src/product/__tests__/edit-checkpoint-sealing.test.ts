@@ -41,6 +41,7 @@ import {
 
 import type { ICliRuntimeContext } from '../runtime-context.js';
 import type { IArtifactContext, IArtifactSealer } from '@robota-sdk/agent-core';
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IWorkspaceIdentity } from '@robota-sdk/agent-framework';
 
 const CANARY = 'PRIVATE-CHECKPOINT-CANARY-e37b';
@@ -79,6 +80,7 @@ async function trustedAccess(root: string) {
     grantedAt: '2026-11-03T00:00:00.000Z',
   };
   return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     projectStateDirectories: PROJECT_STATE_DIRECTORIES,
     store: {

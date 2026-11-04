@@ -37,7 +37,10 @@ React/Ink UI.
   content and application state are reachable only through a `TWorkspaceProjectAccess` decision and
   facets minted from its opaque authority; omission is an explicit Restricted decision, not a silent
   fallback to path-based access. Restricted construction instantiates no project reader, store, or
-  writer. Trusted access is accepted only when the real working directory is the trusted root or a
+  writer. The file operations behind those facets are the host's: the trust service takes them as
+  `projectFiles` and binds them to each authority it mints, behind the brand's module-level maps, so
+  nothing but an authority the service issued reaches them, and a host that has none builds no service
+  and runs Restricted. The brand and its maps live in one module that `.` and `./node` share. Trusted access is accepted only when the real working directory is the trusted root or a
   descendant of it — `cwd` and the access decision are independent inputs, so this boundary check keeps the pair
   fail-closed. Once accepted, the pair is one value fixed for the session's life and handed by
   reference, never copied field by field, so no lazy operation can hold a different answer from the

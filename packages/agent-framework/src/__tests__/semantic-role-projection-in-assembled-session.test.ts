@@ -35,6 +35,7 @@ import { createSession } from '../assembly/create-session.js';
 import { SystemCommandExecutor } from '../commands/system-command-executor.js';
 import { createContributionSourcesForProjectAccess } from '../contributions/initial-contribution-sources.js';
 import { createDefaultUserContributionSources } from '../contributions/node-host-contribution-source.js';
+import { createNodeWorkspaceProjectFiles } from '../workspace-trust/node-project-files.js';
 import { WorkspaceTrustService } from '../workspace-trust/workspace-trust-service.js';
 import { createTestFrameworkHost } from '../testing/framework-host.js';
 
@@ -87,6 +88,7 @@ async function trustedProjectAccess(root: string): Promise<ITrustedWorkspaceProj
   };
   const access = await new WorkspaceTrustService({
     identityResolver: { resolve: () => identity },
+    projectFiles: createNodeWorkspaceProjectFiles(),
     store: {
       inspect: async () => trusted,
       grant: async () => trusted,

@@ -2,12 +2,14 @@ import {
   getWorkspaceProjectIdentity,
   mintWorkspaceProjectAuthority,
 } from './workspace-authority.js';
+import { snapshotProjectFiles } from './project-files.js';
 import { snapshotProjectStateDirectories } from './project-state-directories.js';
 
 import type {
   IRestrictedWorkspaceProjectAccess,
   IWorkspaceIdentity,
   IWorkspaceIdentityResolver,
+  IWorkspaceProjectFiles,
   IWorkspaceTrustStore,
   IWorkspaceTrustStoreSnapshot,
   TWorkspaceProjectStateDirectories,
@@ -17,6 +19,14 @@ import type {
 export interface IWorkspaceTrustServiceOptions {
   readonly identityResolver: IWorkspaceIdentityResolver;
   readonly store: IWorkspaceTrustStore;
+  /**
+   * The host operations that read and write project files under a trusted root, bound to every
+   * authority this service mints. Required: a service that could issue an authority without them
+   * would issue one that can touch nothing. A Node host passes `createNodeWorkspaceProjectFiles()`
+   * from `@robota-sdk/agent-framework/node`; a host that has no such operations builds no service,
+   * and `createRestrictedWorkspaceProjectAccess` gives its sessions their Restricted access.
+   */
+  readonly projectFiles: IWorkspaceProjectFiles;
   readonly projectStateDirectories?: TWorkspaceProjectStateDirectories;
 }
 
@@ -43,8 +53,10 @@ function sameIdentity(left: IWorkspaceIdentity, right: IWorkspaceIdentity): bool
 export class WorkspaceTrustService {
   private readonly issuerGenerations = new Map<string, number>();
   private readonly projectStateDirectories: TWorkspaceProjectStateDirectories | undefined;
+  private readonly projectFiles: IWorkspaceProjectFiles;
 
   constructor(private readonly options: IWorkspaceTrustServiceOptions) {
+    this.projectFiles = snapshotProjectFiles(options.projectFiles);
     this.projectStateDirectories = snapshotProjectStateDirectories(options.projectStateDirectories);
   }
 
@@ -133,6 +145,7 @@ export class WorkspaceTrustService {
       currentIdentity,
       this.options.identityResolver,
       () => this.issuerGenerations.get(identityKey) === snapshot.generation,
+      this.projectFiles,
       this.projectStateDirectories,
     );
     return {

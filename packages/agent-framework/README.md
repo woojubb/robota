@@ -193,10 +193,10 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import {
   InteractiveSession,
-  createNodeWorkspaceTrustService,
   createProjectSessionStore,
   getWorkspaceProjectStateStorage,
 } from '@robota-sdk/agent-framework';
+import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
 import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
@@ -231,6 +231,20 @@ const session = new InteractiveSession({ host, cwd, provider, projectAccess, ses
 Trust is bound to the Git worktree and repository identity. Non-Git paths, a replaced repository,
 a revoked grant or a trust-store error all resolve to Restricted, and a revoked authority stops
 working immediately. The `cwd` must be the trusted root or inside it.
+
+**A Node host builds a trusted session** with `createNodeWorkspaceTrustService` from
+`@robota-sdk/agent-framework/node`: it composes the Git identity resolver, a persistent grant store
+and `createNodeWorkspaceProjectFiles()`, the stable root-relative file operations (links and
+replaced ancestors refused; writes only on Linux, the one platform that can prove them). To compose the
+parts yourself, `new WorkspaceTrustService({ identityResolver, store, projectFiles })` requires all
+three.
+
+**A host with no file system builds a Restricted session**: it constructs no trust service and passes
+`createRestrictedWorkspaceProjectAccess('untrusted', cwd)` as `projectAccess`. That decision carries
+no authority, so nothing can read or write the project. A host that does keep project files supplies
+its own `projectFiles` (`IWorkspaceProjectFiles`) to `WorkspaceTrustService`; the service binds them
+to each authority it mints, an authority exists only through the service, and a look-alike object is
+refused by every `assert*` and `get*` entry point.
 
 ## Headless and multi-session runtime
 

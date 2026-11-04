@@ -30,12 +30,12 @@ import { goneProcessOwner, leaveProcessScopedDirectory } from '@robota-sdk/agent
 import {
   EditCheckpointStore,
   WorkspaceSessionLogSink,
-  createNodeWorkspaceTrustService,
   createProjectSessionStore,
   createWorkspaceProjectMutation,
   getWorkspaceProjectStateStorage,
 } from '@robota-sdk/agent-framework';
 import {
+  createNodeWorkspaceTrustService,
   readSubagentTranscriptPage,
   resolveSubagentTranscriptPath,
 } from '@robota-sdk/agent-framework/node';

@@ -31,7 +31,7 @@ import {
   readProcessStartTime,
 } from '@robota-sdk/agent-core/node';
 import { goneProcessOwner, leaveProcessScopedDirectory } from '@robota-sdk/agent-core/testing';
-import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework';
+import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
 import {
   createKeyring,
   fingerprint,

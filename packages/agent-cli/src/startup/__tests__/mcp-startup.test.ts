@@ -25,6 +25,7 @@ import { composeMcpClientForStartup } from '../mcp-startup.js';
 import { productProjectSettings } from '../../product/project-settings.js';
 import { createProductUserSettingsSources } from '../../product/user-settings.js';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type {
   IWorkspaceIdentity,
   TSettingsSource,
@@ -57,6 +58,7 @@ async function trustedAccessFor(root: string): Promise<TWorkspaceProjectAccess> 
     worktreeRoot: root,
   };
   const service = new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     store: {
       inspect: async () => ({ state: 'trusted', generation: 1 }),

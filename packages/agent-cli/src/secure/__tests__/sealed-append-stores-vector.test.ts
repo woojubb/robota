@@ -42,6 +42,7 @@ import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
 import { KeyHolder } from '../key-holder.js';
 import { createMemoryKeyringStore } from './helpers.js';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { TWorkspaceProjectStateDirectories } from '@robota-sdk/agent-framework';
 import type { TArtifactSealing } from '@robota-sdk/agent-core';
 import type { IPromptHistoryBlock, IPromptHistoryEntry } from '@robota-sdk/agent-interface-session';
@@ -328,6 +329,7 @@ describe('sealed subagent log version 1 — known answer', () => {
     placeLog(join(root, '.agent', 'logs'));
     const snapshot = { state: 'trusted' as const, generation: 1 };
     const access = await new WorkspaceTrustService({
+      projectFiles: createNodeWorkspaceProjectFiles(),
       identityResolver: {
         resolve: () => ({
           repositoryKey: `fixture:${root}`,

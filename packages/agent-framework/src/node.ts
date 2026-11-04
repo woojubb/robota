@@ -122,3 +122,21 @@ export {
 } from './contributions/node-host-contribution-source.js';
 export { createFileTransportSettingsRepository } from './transport-host/transport-settings-repository.js';
 export { readPackageVersion } from './utils/read-package-version.js';
+
+// Workspace trust: how a Node host builds a trusted session. Its git identity, persistent grant
+// store and stable file operations are composed into a `WorkspaceTrustService` by
+// `createNodeWorkspaceTrustService`. A host with none of these passes
+// `createRestrictedWorkspaceProjectAccess` from the main entry.
+export {
+  createNodeWorkspaceIdentityResolver,
+  createNodeWorkspaceTrustService,
+  createNodeWorkspaceTrustStore,
+} from './workspace-trust/node-host-workspace-trust.js';
+export type { INodeWorkspaceTrustStoreOptions } from './workspace-trust/node-host-workspace-trust.js';
+export { createNodeWorkspaceProjectFiles } from './workspace-trust/node-project-files.js';
+export { inspectPreTrustProjectPaths } from './workspace-trust/pretrust-contribution-inspector.js';
+export type {
+  IPreTrustProjectPathInspection,
+  TPreTrustProjectPathKind,
+} from './workspace-trust/pretrust-contribution-inspector.js';
+export { supportsWorkspaceProjectMutation } from './workspace-trust/project-relative-writer.js';

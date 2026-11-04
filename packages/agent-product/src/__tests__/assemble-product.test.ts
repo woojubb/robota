@@ -14,6 +14,7 @@ import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import type { IProductProfile } from '../product-profile.js';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 import type { IPreset } from '@robota-sdk/agent-preset';
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IAgentDefinition, ICommandModule } from '@robota-sdk/agent-framework';
 
 const testHost = createTestFrameworkHost();
@@ -144,6 +145,7 @@ describe('assembleProduct — capability fold', () => {
     try {
       writeFileSync(join(cwd, 'guide.md'), 'ACME product guidance', 'utf8');
       const trust = new WorkspaceTrustService({
+        projectFiles: createNodeWorkspaceProjectFiles(),
         identityResolver: {
           resolve: () => ({ repositoryKey: cwd, displayPath: cwd, worktreeRoot: cwd }),
         },

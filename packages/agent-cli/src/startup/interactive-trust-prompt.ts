@@ -6,7 +6,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  */
 import { createInterface } from 'node:readline/promises';
 
-import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework';
+import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
 
 import { userPaths } from '../product/user-paths.js';
 import { formatProjectContributionPreview } from './project-contribution-preview.js';

@@ -21,7 +21,7 @@ import {
   getWorkspaceProjectReader,
   readSettingsSourceText,
 } from '../src/index.js';
-import { createDefaultUserContributionSources } from '../src/node.js';
+import { createDefaultUserContributionSources, createNodeWorkspaceProjectFiles } from '../src/node.js';
 import { createTestFrameworkHost } from '../src/testing/framework-host.js';
 
 import type {
@@ -158,6 +158,7 @@ async function main(): Promise<void> {
   const trustService = new WorkspaceTrustService({
     identityResolver: new GitWorkspaceIdentityResolver(),
     store: trustStore,
+    projectFiles: createNodeWorkspaceProjectFiles(),
   });
   const scripted = createScriptedProvider([]);
   let granted = false;

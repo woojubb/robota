@@ -1,21 +1,16 @@
-import { lstatSync } from 'node:fs';
-import { join, sep } from 'node:path';
-
 import { assertProjectReadPurpose, workspacePathSegments } from './project-reader-path.js';
-import { createWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 import {
   assertWorkspaceProjectAuthority,
-  getWorkspaceProjectIdentity,
-  getWorkspaceProjectIdentityResolver,
+  getWorkspaceProjectMutationBoundary,
   getWorkspaceProjectReader,
   getWorkspaceProjectStateDirectories,
 } from './workspace-authority.js';
 
-import type { IWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
 import type {
   IWorkspaceDirectoryEntry,
   IWorkspaceProjectAuthority,
+  IWorkspaceProjectMutationBoundary,
   IWorkspaceProjectReader,
   IWorkspaceProjectStateStorage,
   TWorkspaceProjectAuthorityCandidate,
@@ -23,6 +18,7 @@ import type {
 } from './types.js';
 
 const projectStateStorages = new WeakMap<object, IWorkspaceProjectAuthority>();
+const textEncoder = new TextEncoder();
 /** The anchored writer behind each minted storage, and its path resolution; internal to the framework. */
 interface IMigrationAccess {
   readonly boundary: IWorkspaceProjectMutationBoundary;
@@ -61,7 +57,7 @@ class WorkspaceProjectStateStorage {
 
   writeText(relativePath: string, content: string, purpose: string): void {
     assertWorkspaceProjectAuthority(this.authority);
-    this.writeBytes(relativePath, Buffer.from(content), purpose);
+    this.writeBytes(relativePath, textEncoder.encode(content), purpose);
   }
 
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void {
@@ -96,9 +92,12 @@ class WorkspaceProjectStateStorage {
   projectRelativePath(relativePath: string, allowRoot = false): string {
     assertWorkspaceProjectAuthority(this.authority);
     const segments = workspacePathSegments(relativePath, allowRoot);
-    return segments.length === 0
-      ? this.rootRelativePath
-      : join(this.rootRelativePath, segments.join(sep));
+    if (segments.length === 0) return this.rootRelativePath;
+    // The path is spelled with the separator the host spelled its root with (`.robota\sessions` is a
+    // Windows host's), so a host that compares it with a path of its own builds the same string; a
+    // read splits it back into segments whichever separator it has.
+    const separator = this.rootRelativePath.includes('\\') ? '\\' : '/';
+    return `${this.rootRelativePath}${separator}${segments.join(separator)}`;
   }
 }
 
@@ -111,12 +110,8 @@ export function getWorkspaceProjectStateStorage(
   if (typeof rootRelativePath !== 'string') {
     throw new WorkspaceAuthorityRequiredError('Unknown project state namespace.');
   }
-  const identity = getWorkspaceProjectIdentity(accepted);
   const reader = getWorkspaceProjectReader(accepted);
-  const mutationBoundary = createWorkspaceProjectMutationBoundary(
-    identity,
-    getWorkspaceProjectIdentityResolver(accepted),
-  );
+  const mutationBoundary = getWorkspaceProjectMutationBoundary(accepted);
   const storage = Object.freeze(
     new WorkspaceProjectStateStorage(
       namespace,
@@ -211,35 +206,21 @@ export function workspaceProjectStateLinkCount(
 }
 
 /**
- * The absolute path of directory `relativeDirectory` of `storage`, for a host mechanism that must
- * address it by path — the writer markers of a project's session store, which hard links publish. No
- * segment from the trusted root down to it may be a link or anything but a directory, since one would
- * put what is kept there outside the project; a segment not made yet ends the check, and the caller
- * makes it. Internal to the framework.
+ * What a host mechanism that must address directory `relativeDirectory` of `storage` by path needs to
+ * build that path: the trusted root as plain text and the directory relative to it. The caller joins
+ * them and checks each segment on its own file system; this holds no file access. Internal to the
+ * framework and exported from no entry: it returns two strings, never the boundary, the access
+ * record or a function that takes a root.
  */
-export function workspaceProjectStateDirectoryPath(
+export function workspaceProjectStateDirectoryParts(
   storage: IWorkspaceProjectStateStorage,
   relativeDirectory: string,
-): string {
+): { readonly worktreeRoot: string; readonly relativeDirectory: string } {
   const access = migrationAccessOf(storage);
-  const relative = access.projectRelativePath(relativeDirectory, true);
-  let current = access.worktreeRoot;
-  for (const segment of relative.split(sep).filter((part) => part.length > 0)) {
-    current = join(current, segment);
-    let stat;
-    try {
-      stat = lstatSync(current);
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code === 'ENOENT') break;
-      throw error;
-    }
-    if (stat.isSymbolicLink() || !stat.isDirectory()) {
-      throw new WorkspaceAuthorityRequiredError(
-        'A project state directory is a link or not a directory, so it may lie outside the project.',
-      );
-    }
-  }
-  return join(access.worktreeRoot, relative);
+  return Object.freeze({
+    worktreeRoot: access.worktreeRoot,
+    relativeDirectory: access.projectRelativePath(relativeDirectory, true),
+  });
 }
 
 /** New content for a file of a storage, flushed beside it until {@link commit} puts it in place. */

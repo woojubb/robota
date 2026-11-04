@@ -11,6 +11,7 @@ import type {
   TInteractiveSessionOptions,
 } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '@robota-sdk/agent-framework';
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 const testHost = createTestFrameworkHost();
@@ -60,6 +61,7 @@ async function createTrustedProjectAccess(cwd: string) {
     revoke: () => Promise.resolve({ state: 'revoked', generation: 2 }),
   };
   return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     store,
   }).inspect(root);

@@ -3,14 +3,14 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * FLOW-2006: the node wiring for `the product open <url>` — the only place this feature touches the host.
  *
  * It composes the deps from what the repository already owns: the node workspace-trust store and
- * identity resolver (`agent-framework`) and the argv-only git port (`agent-framework/node`, BEHAVIOR-2437).
+ * identity resolver and the argv-only git port (all `agent-framework/node`, BEHAVIOR-2437).
  * No new runner, no second parser over `workspace-trust.json`.
  */
 import {
+  createGitProcess,
   createNodeWorkspaceIdentityResolver,
   createNodeWorkspaceTrustStore,
-} from '@robota-sdk/agent-framework';
-import { createGitProcess } from '@robota-sdk/agent-framework/node';
+} from '@robota-sdk/agent-framework/node';
 import { statSync } from 'node:fs';
 import { realpathSync } from 'node:fs';
 import { join } from 'node:path';

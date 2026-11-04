@@ -4,7 +4,6 @@ import { isAbsolute, relative, sep } from 'node:path';
 import {
   WorkspaceAuthorityRequiredError,
   createWorkspaceProjectContributionSource,
-  createNodeWorkspaceTrustService,
   createRestrictedWorkspaceProjectAccess,
   createWorkspaceProjectSettingsSources,
   createWorkspaceProjectSettingsStore,
@@ -12,11 +11,12 @@ import {
   getWorkspaceProjectIdentity,
   getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
-  supportsWorkspaceProjectMutation,
 } from '@robota-sdk/agent-framework';
 import {
   createNodeHostContributionSource,
   createNodeHostSettingsStore,
+  createNodeWorkspaceTrustService,
+  supportsWorkspaceProjectMutation,
 } from '@robota-sdk/agent-framework/node';
 
 import type {

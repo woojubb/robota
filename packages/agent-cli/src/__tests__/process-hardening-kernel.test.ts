@@ -57,7 +57,8 @@ import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { hardenProductProcess } from ${sourceUrl('packages/agent-cli/src/process-hardening.ts')};
-import { createNodeWorkspaceTrustService, getWorkspaceProjectStateStorage } from ${sourceUrl('packages/agent-framework/src/index.ts')};
+import { getWorkspaceProjectStateStorage } from ${sourceUrl('packages/agent-framework/src/index.ts')};
+import { createNodeWorkspaceTrustService } from ${sourceUrl('packages/agent-framework/src/node.ts')};
 import { createReadTool } from ${sourceUrl('packages/agent-tools/src/node.ts')};
 
 hardenProductProcess();

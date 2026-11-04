@@ -12,7 +12,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * receives a policy; a positive `autoBackgroundMs` in `print` mode is reported once as ignored.
  */
 
-import { createNodeWorkspaceTrustStore } from '@robota-sdk/agent-framework';
+import { createNodeWorkspaceTrustStore } from '@robota-sdk/agent-framework/node';
 import { mcpUnavailableServersNotice } from '@robota-sdk/agent-command';
 import { mkdirSync } from 'node:fs';
 

@@ -5,6 +5,7 @@ import { createWorkspaceProjectSettingsSources } from '../config/settings-source
 import { createNodeHostSettingsSource } from '../config/node-host-settings-source.js';
 import { TEST_PROJECT_SETTINGS_PATHS } from './project-settings-path-fixture.js';
 import { createProjectSessionStore } from '../interactive/session-persistence.js';
+import { createNodeWorkspaceProjectFiles } from '../workspace-trust/node-project-files.js';
 import {
   WorkspaceTrustService,
   getWorkspaceProjectReader,
@@ -68,6 +69,7 @@ export async function createTrustedProjectAccessFixture(
   const service = new WorkspaceTrustService({
     identityResolver: { resolve: () => identity },
     store: new TrustedFixtureStore(),
+    projectFiles: createNodeWorkspaceProjectFiles(),
     projectStateDirectories: TEST_PROJECT_STATE_DIRECTORIES,
   });
   const access = await service.inspect(canonicalRoot);

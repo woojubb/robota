@@ -20,6 +20,7 @@ import {
   createRestrictedWorkspaceProjectAccess,
   createUserSessionStore,
 } from '@robota-sdk/agent-framework';
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 
 import { productProjectStateDirectories } from '../../product/project-state-directories.js';
 
@@ -290,6 +291,7 @@ describe('read-only local session inventory', () => {
       };
       const snapshot = { state: 'trusted', generation: 1 } as const;
       const projectAccess = await new WorkspaceTrustService({
+        projectFiles: createNodeWorkspaceProjectFiles(),
         identityResolver: { resolve: () => identity },
         projectStateDirectories: productProjectStateDirectories(createTestProductRuntime()),
         store: {

@@ -22,51 +22,14 @@ import {
 } from './project-reader-path.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 
-import type { IWorkspaceIdentity, IWorkspaceIdentityResolver } from './types.js';
+import type {
+  IWorkspaceIdentity,
+  IWorkspaceIdentityResolver,
+  IWorkspaceProjectMutationBoundary,
+} from './types.js';
 
 const OWNER_ONLY_FILE_MODE = 0o600;
 const OWNER_ONLY_DIRECTORY_MODE = 0o700;
-
-/**
- * Internal owner for every authority-bearing project mutation. The boundary keeps stable-root
- * traversal and operation semantics together so adapters cannot reintroduce pathname mutation
- * beside the guarded implementation.
- */
-export interface IWorkspaceProjectMutationBoundary {
-  write(relativePath: string, content: Uint8Array | string): void;
-  /**
-   * Replaces the file whole: the content is flushed to a fresh temp file beside it, renamed over the
-   * target relative to the same anchored directory, and the directory flushed. A failure before the
-   * rename leaves the previous file as it was, never a truncated or half-written one; a failure of
-   * the final flush means the new file is in place but not confirmed durable. Stale temp files a
-   * crashed replace left for the same name are swept.
-   */
-  replace(relativePath: string, content: Uint8Array | string): void;
-  append(relativePath: string, content: string): void;
-  delete(relativePath: string): boolean;
-  /**
-   * Removes (with `apply`) every temp file a crashed replace left in the directory, by the same rule
-   * a replace sweeps its own target's with, and also judged against `migrationStartedAt` (when a
-   * migration started, by the filesystem's clock) when given; returns how many there are. A directory
-   * that is missing is not created and has none.
-   */
-  sweepTemporaries(relativeDirectory: string, apply: boolean, migrationStartedAt?: number): number;
-  /**
-   * How many names the regular file at the path has, opened without following a link; `undefined`
-   * when it is missing. A link or anything that is not a regular file is refused.
-   */
-  linkCount(relativePath: string): number | undefined;
-  /**
-   * The first half of {@link replace}: the content flushed to a fresh temp file beside the target,
-   * which is left as it is. Returns the temp file's name, for {@link commitStaged} or
-   * {@link discardStaged}.
-   */
-  stage(relativePath: string, content: Uint8Array | string): string;
-  /** Renames a staged temp file over its target and flushes the directory, as {@link replace} ends. */
-  commitStaged(relativePath: string, temporaryName: string): void;
-  /** Removes a staged temp file that was not committed; one already gone is fine. */
-  discardStaged(relativePath: string, temporaryName: string): void;
-}
 
 /**
  * Whether a project write on `platform` can be proven to stay under the trusted root. The proof

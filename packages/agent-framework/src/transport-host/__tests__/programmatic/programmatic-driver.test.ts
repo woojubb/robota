@@ -13,6 +13,7 @@ import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { createNodeHostSettingsSource } from '../../../config/node-host-settings-source.js';
+import { createNodeWorkspaceProjectFiles } from '../../../workspace-trust/node-project-files.js';
 import { WorkspaceTrustService } from '../../../workspace-trust/workspace-trust-service.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -124,6 +125,7 @@ describe('programmatic in-process agent driver (INFRA-019)', () => {
     };
     const trustService = new WorkspaceTrustService({
       identityResolver: { resolve: () => identity },
+      projectFiles: createNodeWorkspaceProjectFiles(),
       store: new TrustedProjectStore(),
     });
     const projectAccess = await trustService.inspect(cwd);
