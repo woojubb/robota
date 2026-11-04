@@ -22,7 +22,7 @@
  * the digest now lives only inside the sealed line, where the resolver still checks it against the
  * bytes it opens, so two sealed sidecars swapped with each other are caught. Dedupe is in-process.
  */
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
 
 import {
@@ -39,7 +39,6 @@ import {
 
 import { SessionLogPayloadResolutionError } from './external-payload-resolution-contracts.js';
 import { SessionLogDecodeError } from './session-log-codec/index.js';
-import { assertSafeSessionId } from './session-id.js';
 import { createSessionLogExternalPayloadReference } from './session-log-sinks.js';
 import { assertSessionSealing } from './stored-session-record.js';
 

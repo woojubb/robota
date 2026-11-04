@@ -12,7 +12,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider, createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
-import { NodeSessionStore, isSessionClaimedError } from '@robota-sdk/agent-session';
+import { isSessionClaimedError } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { writeForkedSessionRecord } from '../../interactive/interactive-session-fork-record.js';

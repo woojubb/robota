@@ -21,6 +21,15 @@ describe('session entry surfaces', () => {
     'parsePromptHistoryLine',
     'createNodeWorkspacePathResolver',
     'registerProcessExitFlush',
+    'StoredSessionRecords',
+    'StoredLines',
+    'StoredPayloads',
+    'sessionSealingOf',
+    'sealStoredSessionBytes',
+    'sealSessionLogText',
+    'migrateNodeSessionStore',
+    'migrateSessionLogDirectory',
+    'compactPromptHistoryFile',
   ];
 
   it.each(nodeOnly)('%s is on ./node and not on the main entry', (name) => {
@@ -37,6 +46,9 @@ describe('session entry surfaces', () => {
       'createSessionLogExternalPayloadReference',
       'resolveSessionLogExternalPayloads',
       'loadSessionLogEntries',
+      'loadSessionForUpdate',
+      'SealedSessionUnreadableError',
+      'SessionClaimedError',
     ]) {
       expect(Object.keys(MainEntry)).toContain(name);
     }

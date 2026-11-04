@@ -253,6 +253,11 @@ durable Roundtable execution. Unresolved forks and workspace copies are refused 
 | `NodeToolResultSpillStore`, `ToolResultSpillError` | Class, error    | Stores oversized tool results in files for the life of the session               |
 | `sweepStaleToolResultSpillDirectories`             | Function        | Removes spill directories left behind by a process that is no longer running     |
 | `NodePromptHistoryFile`, `parsePromptHistoryLine`  | Class, function | Append-only prompt history file that can be read newest-first                    |
+| `compactPromptHistoryFile`                         | Function        | Seals the prompt history one entry per line while terminals append               |
+| `StoredSessionRecords`                             | Class           | The sealed or plain stored form both session stores read and write               |
+| `StoredLines`, `StoredPayloads`                    | Classes         | The stored form of append lines and log sidecars                                 |
+| `migrateNodeSessionStore`                          | Function        | Seals the plain session records of a directory in place                          |
+| `migrateSessionLogDirectory`                       | Function        | Seals the plain session logs of a directory in place                             |
 | `createNodeWorkspacePathResolver`                  | Function        | The `resolveInWorkspace` option, for a host with a file system                   |
 | `registerProcessExitFlush`                         | Function        | The `registerExitFlush` option of `FileSessionLogger`, for a host with a process |
 

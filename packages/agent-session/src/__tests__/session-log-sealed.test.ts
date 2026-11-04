@@ -26,7 +26,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { SessionLogDecodeError } from '../session-log-codec/index.js';
 import { loadSessionLogEntries } from '../session-log-replay.js';
-import { NodeSessionLogSink } from '../session-log-sinks.js';
+import { NodeSessionLogSink } from '../node-session-log-sink.js';
 import { NodeExternalPayloadSource, NodeSessionLogSource } from '../session-log-sources.js';
 import { FileSessionLogger } from '../session-logger.js';
 

@@ -18,7 +18,7 @@ import {
   type IArtifactSealer,
   type TArtifactKind,
 } from '@robota-sdk/agent-core';
-import { NodeToolResultSpillStore } from '@robota-sdk/agent-session';
+import { NodeToolResultSpillStore } from '@robota-sdk/agent-session/node';
 import { ChildProcessSubagentRunner } from '@robota-sdk/agent-subagent-runner';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 

@@ -1,12 +1,11 @@
 import { createLogger } from '@robota-sdk/agent-core';
+import { assertSafeSessionId, SessionLogPayloadResolutionError } from '@robota-sdk/agent-session';
 import {
-  assertSafeSessionId,
-  SessionLogPayloadResolutionError,
   StoredLines,
   StoredPayloads,
   sessionSealingOf,
   splitStoredLines,
-} from '@robota-sdk/agent-session';
+} from '@robota-sdk/agent-session/node';
 
 import { assertWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 import { ProjectReadLimitExceededError } from '../workspace-trust/project-reader-path.js';
@@ -18,10 +17,12 @@ import type {
   IExternalPayloadSource,
   ISessionLogSink,
   ISessionLogSource,
+} from '@robota-sdk/agent-session';
+import type {
   ISessionStoreOptions,
   IStoredPayloadWrite,
   TStoredLine,
-} from '@robota-sdk/agent-session';
+} from '@robota-sdk/agent-session/node';
 
 const logger = createLogger('WorkspaceSessionLogSink');
 

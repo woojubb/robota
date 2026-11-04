@@ -38,7 +38,7 @@ import type {
   ISessionLogCatchUpFailure,
   ISessionLogMigration,
   ISessionStoreOptions,
-} from '@robota-sdk/agent-session';
+} from '@robota-sdk/agent-session/node';
 
 /** The directory under a parent session's log folder that holds its subagents' logs. */
 const SUBAGENT_LOG_DIRECTORY = 'subagents';

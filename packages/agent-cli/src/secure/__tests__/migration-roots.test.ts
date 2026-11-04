@@ -21,7 +21,7 @@ import { join } from 'node:path';
 
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
 import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework';
-import { NodeSessionStore } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';

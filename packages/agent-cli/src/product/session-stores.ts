@@ -28,7 +28,7 @@ import {
   createWorkspaceProjectMutation,
   getWorkspaceProjectStateStorage,
 } from '@robota-sdk/agent-framework';
-import { compactPromptHistoryFile, inspectPromptHistoryFile } from '@robota-sdk/agent-session';
+import { compactPromptHistoryFile, inspectPromptHistoryFile } from '@robota-sdk/agent-session/node';
 
 import { KeyHolderArtifactSealer } from '../secure/artifact-sealer.js';
 import {
@@ -60,7 +60,7 @@ import type {
   ICompactPromptHistoryOptions,
   TPromptHistoryCompaction,
   TPromptHistoryInspection,
-} from '@robota-sdk/agent-session';
+} from '@robota-sdk/agent-session/node';
 
 /** The user's own session store, shared by every workspace that keeps its sessions there. */
 export function createProductUserSessionStore(

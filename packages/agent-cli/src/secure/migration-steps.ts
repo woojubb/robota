@@ -17,7 +17,7 @@ import {
   migrateWorkspaceProjectSessionLogs,
   migrateWorkspaceProjectSessionRecords,
 } from '@robota-sdk/agent-framework';
-import { migrateNodeSessionStore } from '@robota-sdk/agent-session';
+import { migrateNodeSessionStore } from '@robota-sdk/agent-session/node';
 
 import { adoptMigratedSessionRecords } from '../product/session-stores.js';
 import { KeyHolderArtifactSealer } from './artifact-sealer.js';
@@ -41,7 +41,7 @@ import type {
   IWorkspaceSessionLogMigration,
   IWorkspaceSessionRecordMigration,
 } from '@robota-sdk/agent-framework';
-import type { ISessionLogMigration, ISessionRecordMigration } from '@robota-sdk/agent-session';
+import type { ISessionLogMigration, ISessionRecordMigration } from '@robota-sdk/agent-session/node';
 
 /** How many paths a line names before it says how many more there are. */
 const NAMED_PATHS = 5;

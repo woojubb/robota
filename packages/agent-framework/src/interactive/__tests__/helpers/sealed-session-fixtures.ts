@@ -17,11 +17,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider, openTestWriteGrant } from '@robota-sdk/agent-core/testing';
-import {
-  NodeSessionStore,
-  SESSION_RECORD_ENVELOPE_VERSION,
-  isSessionClaimedError,
-} from '@robota-sdk/agent-session';
+import { SESSION_RECORD_ENVELOPE_VERSION, isSessionClaimedError } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 
 import { InteractiveSession } from '../../interactive-session.js';
 

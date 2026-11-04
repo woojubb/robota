@@ -14,7 +14,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider, createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
-import { NodeSessionStore, SealedSessionUnreadableError } from '@robota-sdk/agent-session';
+import { SealedSessionUnreadableError } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';

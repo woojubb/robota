@@ -2,7 +2,7 @@ import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:f
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { NodeSessionStore } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createDirectoryEditCheckpointState } from '../../checkpoints/edit-checkpoint-state-storage.js';
