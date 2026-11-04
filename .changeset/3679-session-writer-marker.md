@@ -48,6 +48,9 @@ leaves a session open in another process as it is and names it.
 
 A terminal start whose resumed session another process holds now ends with the store's refusal, as print
 mode does, instead of Ink's error screen; `@robota-sdk/agent-framework` exports `claimRefusalMessage`
-for it. `@robota-sdk/agent-ui-terminal`: picking a session another process or a subagent holds in the
+for it, and `claimChangeRefusal` / `claimDeleteRefusal`, which turn a store's claim refusal into the
+client's: `still_closing` for a switch or rename (and `running` for a delete) when a session of this
+process is still closing, `has_writer` in the store's words otherwise. Served rename and delete now
+let the store's write refuse in those words. `@robota-sdk/agent-ui-terminal`: picking a session another process or a subagent holds in the
 resume picker leaves the person on their session, with the store's words as a notice, instead of
 stopping it and blocking the UI on a retry of the same refusal.
