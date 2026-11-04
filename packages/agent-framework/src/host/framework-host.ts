@@ -63,7 +63,7 @@ export interface IFrameworkHost {
   readonly createHookExecutors?: (options: { shell?: string }) => IHookTypeExecutor[];
   /**
    * Builds the background task runners, given the shell a command task runs under when the product
-   * chose one; absent, a task fails with "No runner for task kind".
+   * chose one; absent, the manager refuses a task with "No background task runner registered for kind".
    */
   readonly createBackgroundTaskRunners?: (shellExecutable?: string) => IBackgroundTaskRunner[];
   /** Builds the session's default tool tier; absent, a session has no default tier. */

@@ -14,7 +14,7 @@ server and returns a fixed reply, so this checks the embedding mechanics, not mo
 ```bash
 mkdir robota-first-task && cd robota-first-task
 npm init -y && npm pkg set type=module
-npm install @robota-sdk/agent-framework@3.0.0-beta.93 @robota-sdk/agent-provider-openai-compatible@3.0.0-beta.93
+npm install @robota-sdk/agent-framework @robota-sdk/agent-tool-defaults @robota-sdk/agent-provider-openai-compatible
 ```
 
 Save this as `first-task.mjs`:
@@ -22,7 +22,9 @@ Save this as `first-task.mjs`:
 ```javascript
 import { createServer } from 'node:http';
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { GemmaProvider } from '@robota-sdk/agent-provider-openai-compatible';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const REPLY = 'Hello from the fixture model.';
 
@@ -54,6 +56,8 @@ const server = createServer((req, res) => {
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 
 const query = createQuery({
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  cwd: process.cwd(),
   provider: new GemmaProvider({
     apiKey: 'fixture', // the fixture checks no key; use your server's token if it needs one
     baseURL: `http://127.0.0.1:${server.address().port}/v1`,
@@ -134,9 +138,13 @@ it the model comes from the settings files, and without one the session asks the
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const query = createQuery({
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),
   onTextDelta: (delta) => process.stdout.write(delta), // optional streaming
 });
@@ -150,9 +158,11 @@ With your own tools, list them in `allowedTools` so they run without asking (or 
 ```typescript
 import { z } from 'zod';
 import { createQuery } from '@robota-sdk/agent-framework';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
+declare const host: IFrameworkHost; // `createNodeFrameworkHost({ createDefaultTools })`, as above
 declare const provider: IAIProvider;
 
 const calculatorTool = createZodFunctionTool(
@@ -163,6 +173,8 @@ const calculatorTool = createZodFunctionTool(
 );
 
 const query = createQuery({
+  host,
+  cwd: process.cwd(),
   provider,
   additionalTools: [calculatorTool],
   allowedTools: ['calculate'],
@@ -186,11 +198,14 @@ modules); `runtime.createSession()` builds an `InteractiveSession` from it with 
 
 ```typescript
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 declare const apiKey: string;
 
 const runtime = createAgentRuntime({
+  host: createNodeFrameworkHost({ createDefaultTools }),
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey }),
 });
@@ -267,11 +282,14 @@ completed turn and again on shutdown.
 
 ```typescript
 import { createAgentRuntime, createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
+declare const host: IFrameworkHost; // `createNodeFrameworkHost({ createDefaultTools })`, as above
 declare const provider: IAIProvider;
 
 const runtime = createAgentRuntime({
+  host,
   cwd: process.cwd(),
   provider,
   // Every store states how it keeps its records: `{ sealing: 'plain' }` writes them as plain JSON.
@@ -375,9 +393,13 @@ Parse the reply defensively either way.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const query = createQuery({
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  cwd: process.cwd(),
   provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
   model: 'gpt-4o',
   responseFormat: { type: 'json_object' },
@@ -425,9 +447,12 @@ carrier with the full session protocol, see `@robota-sdk/agent-transport-ws` and
 ```typescript
 import { WebSocketServer } from 'ws';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const runtime = createAgentRuntime({
+  host: createNodeFrameworkHost({ createDefaultTools }),
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),
 });
@@ -471,14 +496,17 @@ Run independent queries in parallel with one query function per item:
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
+const host = createNodeFrameworkHost({ createDefaultTools });
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 async function classifyAll(texts: string[]): Promise<string[]> {
   return Promise.all(
     texts.map((text) =>
-      createQuery({ provider })(
+      createQuery({ host, cwd: process.cwd(), provider })(
         `Classify the sentiment of: "${text}". Reply with one word: positive, negative, or neutral.`,
       ),
     ),

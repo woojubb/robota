@@ -21,6 +21,7 @@ import { formatDeferredToolRoster } from './deferred-tool-roster.js';
 import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { createModelPermissionClassifier } from './model-permission-classifier.js';
 import { hostSessionPorts } from './host-session-ports.js';
+import { assertConfiguredHookTypesExecutable } from './hook-type-reachability.js';
 import { assembleSubagentPrompt } from './subagent-prompts.js';
 import { unwrapToolCallHandoff } from './tool-call-handoff.js';
 import { bindAdvisorTools, sessionAdvisorAccess } from '../advisor/advisor-tool.js';
@@ -34,7 +35,11 @@ import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
 import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
-import type { IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
+import type {
+  IToolWithEventService,
+  IHookTypeExecutor,
+  THooksConfig,
+} from '@robota-sdk/agent-core';
 import type {
   TBackgroundPermissionPolicy,
   TPermissionMode,
@@ -254,6 +259,16 @@ export function createSubagentSession(options: ISubagentOptions): Session {
   requireFrameworkHost(options.host, 'createSubagentSession');
   const { agentDefinition, parentConfig, parentContext, parentTools, terminal } = options;
 
+  // An unspecified list is the host's built-in executors. A host that lends none leaves a child with
+  // nothing to run a declared hook with, and the child must not run on as if it had: its parent
+  // refused that config at assembly, and a hook on an advisory event (PostToolUse, Stop, ...) would
+  // otherwise run nothing without a word. An explicit list, empty included, is the parent's choice
+  // and keeps the fail-closed gate (SEC-016) for the types it lacks.
+  const hookTypeExecutors = options.hookTypeExecutors ?? options.host.createHookExecutors?.({});
+  if (hookTypeExecutors === undefined) {
+    assertConfiguredHookTypesExecutable(options.hooks as THooksConfig | undefined, []);
+  }
+
   // Filter tools based on agent definition constraints
   // An inherited Advisor tool is rebound so it reads this subagent's conversation, not the parent's.
   let childSession: Session | undefined;
@@ -335,8 +350,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     permissionHandler: options.permissionHandler,
     ...(options.commandSandbox !== undefined ? { commandSandbox: options.commandSandbox } : {}),
     hooks: options.hooks,
-    // An unspecified list is the host's built-in executors; a host that lends none runs no hook handler.
-    hookTypeExecutors: options.hookTypeExecutors ?? options.host.createHookExecutors?.({}) ?? [],
+    hookTypeExecutors: hookTypeExecutors ?? [],
     ...hostSessionPorts(options.host, options.cwd),
     onTextDelta: options.onTextDelta,
     onToolExecution: options.onToolExecution,

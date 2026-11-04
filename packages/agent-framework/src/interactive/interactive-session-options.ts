@@ -283,9 +283,9 @@ export interface IInteractiveSessionStandardOptions {
   /** Scheduling is a current host decision, never restored permission or plugin authority. */
   toolExecutionPolicy?: ICreateSessionOptions['toolExecutionPolicy'];
   /**
-   * ARCH-006: REPLACES the framework's `createDefaultTools()` tier; `[]` suppresses every framework
+   * ARCH-006: REPLACES the host's default tool tier (`host.createDefaultTools`); `[]` suppresses every
    * default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's
-   * `builtInAgents` seam for subagents. Absent ⇒ unchanged behavior.
+   * `builtInAgents` seam for subagents. Absent ⇒ the tier the host builds, or none when it lends none.
    */
   defaultTools?: readonly IToolWithEventService[];
   /** SELFHOST-005 guardrail REGISTRY (name → function). ARCH-013 S3; see create-session-projection. */
