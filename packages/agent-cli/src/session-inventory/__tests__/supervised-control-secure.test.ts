@@ -261,7 +261,7 @@ describe.skipIf(process.platform === 'win32')('a secure control socket', () => {
     }
 
     // A program that sends junk and leaves must not be able to use up the runtime's descriptors.
-    await vi.waitFor(() => expect(openDescriptorCount()).toBeLessThanOrEqual(baseline), { timeout: 5_000 });
+    await vi.waitFor(() => expect(openDescriptorCount()).toBeLessThanOrEqual(baseline), { timeout: 2_000 });
   });
 
   it('still refuses a caller that does not hold the generation', async () => {

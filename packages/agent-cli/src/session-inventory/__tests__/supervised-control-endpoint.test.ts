@@ -242,7 +242,7 @@ describe.skipIf(process.platform === 'win32')('the plain control socket', () => 
     }
 
     // A connection that was only answered keeps its descriptors until it is read to its end.
-    await vi.waitFor(() => expect(openDescriptorCount()).toBeLessThanOrEqual(baseline), { timeout: 5_000 });
+    await vi.waitFor(() => expect(openDescriptorCount()).toBeLessThanOrEqual(baseline), { timeout: 2_000 });
   });
 
   it('tells a caller that does not hold the generation nothing but that it was refused', async () => {
