@@ -64,6 +64,14 @@ export function readSettingsSourceText(
   source: TSettingsSource,
   purpose: string,
 ): string | undefined {
-  if (source.kind === 'host') return source.read();
+  if (source.kind === 'host') {
+    if (typeof source.read !== 'function') {
+      throw new TypeError(
+        `Host settings source "${source.displayName}" has no read(). A host source supplies its own ` +
+          'reader; on Node use createNodeHostSettingsSource from @robota-sdk/agent-framework/node.',
+      );
+    }
+    return source.read();
+  }
   return assertWorkspaceProjectReader(source.reader).readText(source.relativePath, purpose);
 }

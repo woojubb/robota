@@ -103,6 +103,17 @@ describe('a host settings source that is not a file', () => {
   });
 });
 
+describe('a host settings source with no reader', () => {
+  it('is refused with an error that names what to supply, not read as an absent layer', () => {
+    const pathOnly = { kind: 'host', scope: 'user', displayName: 'old.json', path: '/old.json' };
+
+    expect(() => readSettingsSourceText(pathOnly as never, 'test')).toThrow(
+      /has no read\(\).*createNodeHostSettingsSource/s,
+    );
+    expect(inspectSettingsLayers([pathOnly as never]).layers[0]?.state).toBe('unreadable');
+  });
+});
+
 describe('createNodeHostSettingsSource', () => {
   it('reads a missing file as absent and an existing file as its text', () => {
     const root = tempRoot();
