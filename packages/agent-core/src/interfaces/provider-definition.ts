@@ -155,9 +155,10 @@ export interface IProviderDefinition {
    * The provider-hosted web tools a host may turn on by default through `options.nativeWebTools`,
    * answered for the profile being built and the environment its client reads, because they can
    * depend on where that profile connects. The host passes that environment: a platform-neutral
-   * provider cannot read it for itself. Declaring a tool vouches that it works there and asks nothing
-   * more of the host. A tool left out, or an absent function, is no such claim: asking for it
-   * explicitly either fails or is the caller's own choice, as the provider's capabilities then report.
+   * provider cannot read it for itself. Declaring a tool is the definition's judgment that a host may
+   * switch it on without the profile asking. A tool left out, or an absent function, is no such
+   * judgment: asking for it explicitly either fails or is the caller's own choice, as the provider's
+   * capabilities then report.
    */
   nativeWebTools?: (
     profile: Pick<IProviderDefinitionConfig, 'baseURL' | 'options'>,
