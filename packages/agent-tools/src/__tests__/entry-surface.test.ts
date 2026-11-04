@@ -5,17 +5,12 @@ import * as NodeEntry from '../node.js';
 
 /**
  * The main entry is platform-neutral (ARCHITECTURE.md "Runtime platforms"); what touches a host is on
- * `./node`. The platform gate reads the manifest, which still maps the main entry `"browser": null`,
- * so it does not look at the main entry's source; this pins which side each export is on, so a move
- * is a visible test failure.
+ * `./node`. The platform gate follows what each entry imports; this pins which side each export is
+ * on, so a move is a visible test failure.
  */
 
-/**
- * The only Node exports of the main entry. The published `@robota-sdk/workflows` 0.0.3, which
- * agent-cli bundles, imports exactly these from here. They leave with the next workflows release,
- * and the main entry loses `"browser": null` in the same change.
- */
-const BUNDLED_WORKFLOWS_0_0_3_NAMES = [
+/** What the main entry used to re-export from `./node`, for a workflow library that imported it there. */
+const NODE_TOOL_NAMES = [
   'GrepIsolationError',
   'ReadByteLimitError',
   'ReadCancelledError',
@@ -59,7 +54,7 @@ const NEUTRAL_MAIN_NAMES = [
 ];
 
 const NODE_ENTRY_NAMES = [
-  ...BUNDLED_WORKFLOWS_0_0_3_NAMES,
+  ...NODE_TOOL_NAMES,
   'DEFAULT_OS_SANDBOX_SETTINGS',
   'OsSandboxClient',
   'bubblewrapArguments',
@@ -73,31 +68,18 @@ const NODE_ENTRY_NAMES = [
 const sorted = (names: readonly string[]): string[] => [...names].sort();
 
 describe('agent-tools entry surfaces', () => {
-  it('the main entry holds the neutral exports and exactly the eleven names workflows 0.0.3 imports', () => {
-    expect(sorted(Object.keys(MainEntry))).toEqual(
-      sorted([...NEUTRAL_MAIN_NAMES, ...BUNDLED_WORKFLOWS_0_0_3_NAMES]),
-    );
-  });
-
-  it('the eleven names on the main entry are the ./node exports themselves', () => {
-    for (const name of BUNDLED_WORKFLOWS_0_0_3_NAMES) {
-      expect((MainEntry as Record<string, unknown>)[name], name).toBe(
-        (NodeEntry as Record<string, unknown>)[name],
-      );
-    }
+  it('the main entry holds exactly the neutral exports', () => {
+    expect(sorted(Object.keys(MainEntry))).toEqual(sorted(NEUTRAL_MAIN_NAMES));
   });
 
   it('./node holds every export that needs a host', () => {
     expect(sorted(Object.keys(NodeEntry))).toEqual(sorted(NODE_ENTRY_NAMES));
   });
 
-  it.each(NODE_ENTRY_NAMES.filter((name) => !BUNDLED_WORKFLOWS_0_0_3_NAMES.includes(name)))(
-    '%s is on ./node and not on the main entry',
-    (name) => {
-      expect(Object.keys(NodeEntry)).toContain(name);
-      expect(Object.keys(MainEntry)).not.toContain(name);
-    },
-  );
+  it.each(NODE_ENTRY_NAMES)('%s is on ./node and not on the main entry', (name) => {
+    expect(Object.keys(NodeEntry)).toContain(name);
+    expect(Object.keys(MainEntry)).not.toContain(name);
+  });
 
   it.each(NEUTRAL_MAIN_NAMES)('%s is on the main entry and not on ./node', (name) => {
     expect(Object.keys(MainEntry)).toContain(name);
