@@ -1,6 +1,8 @@
 import {
   EditCheckpointUnreadableError,
+  EditCheckpointsLockedError,
   EditCheckpointsUnavailableError,
+  editCheckpointsLockedMessage,
   inspectCommandEditCheckpoint,
   readCommandEditCheckpointListing,
   restoreCommandEditCheckpoint,
@@ -18,12 +20,15 @@ import type {
   IEditCheckpointSummary,
   IEditCheckpointUnreadableCounts,
 } from '@robota-sdk/agent-framework';
-import type { ICommandProductVocabulary } from '@robota-sdk/agent-framework';
+import { registeredUnlockCommand } from '../key-custody/registered-unlock-command.js';
+
+import type { ICommandHostCatalog, ICommandProductVocabulary } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
-type TRewindCommandContext = ICommandHostCheckpoints & {
-  getCommandProductVocabulary?(): ICommandProductVocabulary | undefined;
-};
+type TRewindCommandContext = ICommandHostCheckpoints &
+  Partial<Pick<ICommandHostCatalog, 'listCommands'>> & {
+    getCommandProductVocabulary?(): ICommandProductVocabulary | undefined;
+  };
 
 const SUBCOMMAND_INDEX = 0;
 const CHECKPOINT_ID_INDEX = 1;
@@ -53,9 +58,7 @@ function formatUnreadable(counts: IEditCheckpointUnreadableCounts): string[] {
     ...(counts.newer > 0 ? [`${counts.newer} written by a newer build`] : []),
   ];
   const subject =
-    total === 1
-      ? '1 checkpoint does not open and is'
-      : `${total} checkpoints do not open and are`;
+    total === 1 ? '1 checkpoint does not open and is' : `${total} checkpoints do not open and are`;
   return [`${subject} not listed: ${reasons.join(', ')}.`];
 }
 
@@ -186,16 +189,20 @@ function unfinishedMigrationMessage(
   );
 }
 
-function formatError(error: Error | string, cliName?: string): ICommandResult {
+/** How a refused rewind reads, in this host's words: its CLI name, and `/unlock` where it exists. */
+function formatError(error: Error | string, context: TRewindCommandContext): ICommandResult {
+  const cliName = context.getCommandProductVocabulary?.()?.cliName;
   return {
     message:
-      error instanceof EditCheckpointsUnavailableError
-        ? unavailableMessage(error, cliName)
-        : error instanceof EditCheckpointUnreadableError
-          ? unfinishedMigrationMessage(error, cliName)
-          : error instanceof Error
-            ? error.message
-            : String(error),
+      error instanceof EditCheckpointsLockedError
+        ? editCheckpointsLockedMessage(error.reason, registeredUnlockCommand(context))
+        : error instanceof EditCheckpointsUnavailableError
+          ? unavailableMessage(error, cliName)
+          : error instanceof EditCheckpointUnreadableError
+            ? unfinishedMigrationMessage(error, cliName)
+            : error instanceof Error
+              ? error.message
+              : String(error),
     success: false,
   };
 }
@@ -205,19 +212,16 @@ function list(context: TRewindCommandContext): ICommandResult {
     const listing = readCommandEditCheckpointListing(context);
     return formatList(listing.checkpoints, listing.unreadable);
   } catch (error) {
-    return formatError(error instanceof Error ? error : String(error), context.getCommandProductVocabulary?.()?.cliName);
+    return formatError(error instanceof Error ? error : String(error), context);
   }
 }
 
-function inspect(
-  context: TRewindCommandContext,
-  checkpointId: string | undefined,
-): ICommandResult {
+function inspect(context: TRewindCommandContext, checkpointId: string | undefined): ICommandResult {
   if (!checkpointId) return usage();
   try {
     return formatInspection(inspectCommandEditCheckpoint(context, checkpointId));
   } catch (error) {
-    return formatError(error instanceof Error ? error : String(error), context.getCommandProductVocabulary?.()?.cliName);
+    return formatError(error instanceof Error ? error : String(error), context);
   }
 }
 
@@ -229,7 +233,7 @@ async function restore(
   try {
     return formatRestoreResult(await restoreCommandEditCheckpoint(context, checkpointId));
   } catch (error) {
-    return formatError(error instanceof Error ? error : String(error), context.getCommandProductVocabulary?.()?.cliName);
+    return formatError(error instanceof Error ? error : String(error), context);
   }
 }
 
@@ -241,7 +245,7 @@ async function rollback(
   try {
     return formatRollbackResult(await rollbackCommandEditCheckpoint(context, checkpointId));
   } catch (error) {
-    return formatError(error instanceof Error ? error : String(error), context.getCommandProductVocabulary?.()?.cliName);
+    return formatError(error instanceof Error ? error : String(error), context);
   }
 }
 
@@ -262,7 +266,7 @@ async function fork(
       data: { target: result.target, restoredFileCount: result.restoredFileCount },
     };
   } catch (error) {
-    return formatError(error instanceof Error ? error : String(error), context.getCommandProductVocabulary?.()?.cliName);
+    return formatError(error instanceof Error ? error : String(error), context);
   }
 }
 
@@ -275,7 +279,7 @@ function switchBranch(
     switchCommandEditCheckpointBranch(context, checkpointId);
     return { message: `Switched to checkpoint branch ${checkpointId}.`, success: true };
   } catch (error) {
-    return formatError(error instanceof Error ? error : String(error), context.getCommandProductVocabulary?.()?.cliName);
+    return formatError(error instanceof Error ? error : String(error), context);
   }
 }
 
@@ -291,7 +295,7 @@ function branches(context: TRewindCommandContext): ICommandResult {
       data: { branches: tips },
     };
   } catch (error) {
-    return formatError(error instanceof Error ? error : String(error), context.getCommandProductVocabulary?.()?.cliName);
+    return formatError(error instanceof Error ? error : String(error), context);
   }
 }
 

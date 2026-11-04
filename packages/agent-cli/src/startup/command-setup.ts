@@ -30,6 +30,7 @@ import { createDefaultCommandModules } from '@robota-sdk/agent-command';
 import { createDevicesCommandPort } from '../devices/index.js';
 import type {
   IDevicesMeshStatus,
+  IKeyCustodyCommandPort,
   IKeybindingsFilePort,
   IThemeCataloguePort,
 } from '@robota-sdk/agent-command';
@@ -200,6 +201,11 @@ export function buildCommandSetup(
     readonly status: () => IDevicesMeshStatus;
     readonly identityChanged: () => void;
   },
+  /**
+   * #3679 3f: the TUI's hold on the keys of secure conversations; `/unlock` and `/lock` exist only
+   * with it, so a plain product, or a process with no terminal to ask on, has neither.
+   */
+  keyCustodyPort?: IKeyCustodyCommandPort,
 ): ICliSetup {
   const productRuntime = resolveCliRuntimeContext(options);
   const workspaceComposition = createCliWorkspaceComposition({
@@ -309,6 +315,7 @@ export function buildCommandSetup(
         ? { meshStatus: mesh.status, onIdentityChanged: mesh.identityChanged }
         : {}),
     }),
+    ...(keyCustodyPort === undefined ? {} : { keyCustodyPort }),
     doctorInputs,
     doctorDisplay: productRuntime.vocabulary.doctorSlash,
     formatForkResumeCommand: productRuntime.vocabulary.resumeCommand,

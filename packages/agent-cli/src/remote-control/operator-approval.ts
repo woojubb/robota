@@ -15,11 +15,26 @@ import type {
   ICapabilityApprovalRequest,
   IOperatorApprover,
 } from '@robota-sdk/agent-interface-session-mobility';
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /** The part of the live session that can hand its terminal over. */
 export interface ITerminalHandoffHost {
   canHandoffTerminal(): boolean;
   runWithTerminal<T>(fn: () => Promise<T>): Promise<T>;
+}
+
+/** The live session's terminal hand-off, when the session has one. */
+export function terminalHandoffHostOf(
+  session: IInteractiveSession | undefined,
+): ITerminalHandoffHost | undefined {
+  const candidate = session as Partial<ITerminalHandoffHost> | undefined;
+  if (
+    typeof candidate?.canHandoffTerminal !== 'function' ||
+    typeof candidate.runWithTerminal !== 'function'
+  ) {
+    return undefined;
+  }
+  return candidate as ITerminalHandoffHost;
 }
 
 export interface ITerminalOperatorApproverOptions {

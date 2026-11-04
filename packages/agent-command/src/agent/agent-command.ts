@@ -51,7 +51,10 @@ function executeOpenSwitcher(): ICommandResult {
  * from `executeRun`, which a name FOLLOWED by a prompt still reaches (a prompt makes it a run, not
  * a selection).
  */
-function executeSelectDefaultAgent(session: IAgentJobHostContext, agentType: string): ICommandResult {
+function executeSelectDefaultAgent(
+  session: IAgentJobHostContext,
+  agentType: string,
+): ICommandResult {
   session.setDefaultAgentType(agentType);
   return {
     message: `Default agent: ${agentType}`,
@@ -178,13 +181,14 @@ async function executeWait(
 async function executeRead(
   session: IAgentJobHostContext,
   tokens: readonly string[],
+  unlockCommand: string | undefined,
 ): Promise<ICommandResult> {
   const [agentId, offset] = tokens;
   if (!agentId) return { message: 'Usage: agent read AGENT_ID [OFFSET]', success: false };
   const cursor = offset ? { offset: Number.parseInt(offset, 10) } : undefined;
   const page = await session.readBackgroundTaskLog(agentId, cursor);
   return {
-    message: formatBackgroundLogPage(agentId, page),
+    message: formatBackgroundLogPage(agentId, page, unlockCommand),
     success: true,
     data: { agentId, nextOffset: page.nextCursor?.offset },
   };
@@ -226,6 +230,8 @@ async function executeClose(
 export async function executeAgentCommand(
   session: IAgentJobHostContext,
   args: string,
+  /** `/unlock` where the host registered it, so a locked log page names it. */
+  options: { readonly unlockCommand?: string } = {},
 ): Promise<ICommandResult> {
   try {
     if (args.trim() === '') return executeOpenSwitcher();
@@ -234,7 +240,9 @@ export async function executeAgentCommand(
     if (action === 'run') return executeRun(session, tokens);
     if (action === 'parallel') return executeParallel(session, tokens);
     if (action === 'wait') return executeWait(session, tokens);
-    if (action === 'read' || action === 'open') return executeRead(session, tokens);
+    if (action === 'read' || action === 'open') {
+      return executeRead(session, tokens, options.unlockCommand);
+    }
     if (action === 'send') return executeSend(session, tokens);
     if (action === 'stop' || action === 'cancel') return executeStop(session, tokens);
     if (action === 'close') return executeClose(session, tokens);

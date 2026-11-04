@@ -11,7 +11,8 @@ import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-fra
 import { createSessionCommandModule } from '../session-command-module.js';
 import {
   createTestCommandHost,
-  createTestSessionRuntime, createTestFrameworkHost,
+  createTestSessionRuntime,
+  createTestFrameworkHost,
 } from '@robota-sdk/agent-framework/testing';
 
 const testHost = createTestFrameworkHost();
@@ -600,6 +601,32 @@ describe('createSessionCommandModule', () => {
       'The session log is sealed and this process has no keys to open it, so it cannot be validated here.',
     );
     expect(noKeys?.message).not.toMatch(/unlock/i);
+  });
+
+  it('names /unlock for a locked log where the session registered it', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+    const context = {
+      ...createCommandContext(),
+      listCommands: () => [
+        {
+          name: 'unlock',
+          description: 'Unlock',
+          modelInvocable: false,
+          runner: 'runtime' as const,
+        },
+      ],
+      validateCurrentSessionReplayLog: () => {
+        throw new ArtifactLockedError('locked');
+      },
+    };
+
+    const locked = await executor.execute('validate-session', context, '');
+    expect(locked).toMatchObject({
+      success: false,
+      message: 'The session log is sealed and locked; run `/unlock` to validate it.',
+    });
   });
 
   it('keeps every other validation failure an error', async () => {

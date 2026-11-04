@@ -10,6 +10,7 @@ import {
   InteractiveSession,
 } from '@robota-sdk/agent-framework';
 import { RewindCommandSource, createRewindCommandModule, executeRewindCommand } from '../index.js';
+import { createKeyCustodyCommandModule } from '../../key-custody/index.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 const testHost = createTestFrameworkHost();
@@ -77,7 +78,10 @@ function createMockRuntimeSession() {
   };
 }
 
-function createInteractiveSession(commandProductVocabulary?: { cliName: string; displayName: string }): InteractiveSession {
+function createInteractiveSession(commandProductVocabulary?: {
+  cliName: string;
+  displayName: string;
+}): InteractiveSession {
   return new InteractiveSession({
     host: testHost,
     cwd: process.cwd(),
@@ -199,18 +203,55 @@ describe('executeRewindCommand', () => {
   it.each([
     ['locked', 'The edit checkpoints are sealed and the keys are locked; unlock to rewind.'],
     ['no-keys', 'The edit checkpoints are sealed; this process has no keys to open them.'],
-  ] as const)('refuses a sealed session whose keys are %s with fixed words', async (reason, words) => {
-    const session = createInteractiveSession({ cliName: 'test-agent', displayName: 'Test Agent' });
+  ] as const)(
+    'refuses a sealed session whose keys are %s with fixed words',
+    async (reason, words) => {
+      const session = createInteractiveSession({
+        cliName: 'test-agent',
+        displayName: 'Test Agent',
+      });
+      vi.spyOn(session, 'editCheckpointListing').mockImplementation(() => {
+        throw new EditCheckpointsLockedError(reason);
+      });
+      vi.spyOn(session, 'restoreEditCheckpoint').mockRejectedValue(
+        new EditCheckpointsLockedError(reason),
+      );
+
+      for (const args of ['list', 'restore turn-0001']) {
+        const result = await session.executeCommand('rewind', args);
+        expect(result).toMatchObject({ success: false, message: words });
+      }
+    },
+  );
+
+  it('names /unlock for locked checkpoints where the session registered it', async () => {
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: createMockRuntimeSession() as never,
+      commandModules: [
+        createRewindCommandModule(),
+        createKeyCustodyCommandModule({
+          isUnlocked: () => false,
+          unlock: async () => ({ outcome: 'unlocked', notices: [] }),
+          lock: () => undefined,
+        }),
+      ],
+    });
     vi.spyOn(session, 'editCheckpointListing').mockImplementation(() => {
-      throw new EditCheckpointsLockedError(reason);
+      throw new EditCheckpointsLockedError('locked');
     });
     vi.spyOn(session, 'restoreEditCheckpoint').mockRejectedValue(
-      new EditCheckpointsLockedError(reason),
+      new EditCheckpointsLockedError('locked'),
     );
 
     for (const args of ['list', 'restore turn-0001']) {
       const result = await session.executeCommand('rewind', args);
-      expect(result).toMatchObject({ success: false, message: words });
+      expect(result).toMatchObject({
+        success: false,
+        message:
+          'The edit checkpoints are sealed and the keys are locked; run `/unlock` to rewind.',
+      });
     }
   });
 
@@ -417,7 +458,10 @@ describe('executeRewindCommand', () => {
 
     it('tells a restricted workspace to trust it, for every subcommand', async () => {
       vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
-      const session = createInteractiveSession({ cliName: 'test-agent', displayName: 'Test Agent' });
+      const session = createInteractiveSession({
+        cliName: 'test-agent',
+        displayName: 'Test Agent',
+      });
 
       for (const args of ['', 'list', 'inspect turn-0001', 'restore turn-0001', 'branches']) {
         const result = await session.executeCommand('rewind', args);

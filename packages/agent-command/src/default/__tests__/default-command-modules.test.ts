@@ -34,7 +34,12 @@ const providerSettingsAdapter: IProviderCommandSettingsAdapter = {
   writeTargetSettings: () => undefined,
 };
 
-const baseOptions = { cwd: '/tmp', userLocalStorageRoot: USER_LOCAL_STORAGE_ROOT, providerDefinitions, providerSettingsAdapter } as const;
+const baseOptions = {
+  cwd: '/tmp',
+  userLocalStorageRoot: USER_LOCAL_STORAGE_ROOT,
+  providerDefinitions,
+  providerSettingsAdapter,
+} as const;
 
 function moduleNames(opts: Parameters<typeof createDefaultCommandModules>[0]): string[] {
   return createDefaultCommandModules(opts).modules.map((module) => module.name);
@@ -139,6 +144,24 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
       expect(entry.surfaces, entry.name).toEqual(['terminal']);
       // Running on the client does not change who may run it: all four stay user-only.
       expect(entry.modelInvocable, entry.name).toBe(false);
+    }
+  });
+
+  it('#3679: /lock and /unlock exist only where the host holds keys, and stay user-only there', () => {
+    const KEY_CUSTODY = 'agent-command-key-custody';
+    // Without the port (secure mode off, or a process with no terminal) the commands do not exist.
+    expect(moduleNames(baseOptions)).not.toContain(KEY_CUSTODY);
+
+    const keyCustodyPort = {
+      isUnlocked: () => false,
+      unlock: async () => ({ outcome: 'unlocked' as const, notices: [] }),
+      lock: () => undefined,
+    };
+    const { modules } = createDefaultCommandModules({ ...baseOptions, keyCustodyPort });
+    expect(modules.map((module) => module.name)).toContain(KEY_CUSTODY);
+    const commands = modules.flatMap((module) => module.systemCommands ?? []);
+    for (const name of ['lock', 'unlock']) {
+      expect(commands.find((command) => command.name === name)?.modelInvocable, name).toBe(false);
     }
   });
 

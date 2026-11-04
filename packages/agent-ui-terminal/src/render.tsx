@@ -9,6 +9,7 @@ import React from 'react';
 import App from './App.js';
 import { AttentionTracker } from './attention/attention-tracker.js';
 import { FocusReportingStdin } from './attention/focus-input-filter.js';
+import { createTerminalModeHooks } from './terminal-mode-hooks.js';
 import { KeybindingsProvider } from './keybindings/keybindings-context.js';
 import { ProductDisplayNameProvider } from './product-display-name-context.js';
 import { writeScreenReaderAnnouncement } from './screen-reader-announcement.js';
@@ -649,15 +650,6 @@ async function renderStartedApp(
     focusReporting: focusReportingSupported,
     now: Date.now,
   });
-  handoffController.setTerminalModeHooks({
-    preSuspend: async () => {
-      focusReporting.disable();
-      // SCREEN-2670: nothing parked may land on top of the child's output.
-      await parked?.drain();
-    },
-    postResume: () => focusReporting.enable(),
-  });
-
   // Concrete framework creation has one composition boundary. React receives only the bounded port;
   // App owns which narrowed channel is active, while each channel owns its own lifecycle.
   const composition = compose({ terminalHandoff: handoffController, attention });
@@ -679,6 +671,15 @@ async function renderStartedApp(
     onFocusOut: () => attention.focusOut(),
     onKeystroke: () => attention.keystroke(),
   });
+  // Registered once the proxy exists, because a handover holds it: what is typed while another
+  // program has the terminal never reaches the composer (#3679 3f).
+  handoffController.setTerminalModeHooks(
+    createTerminalModeHooks({
+      focusReporting,
+      ...(parked === undefined ? {} : { parked }),
+      stdin,
+    }),
+  );
   process.stdin.resume();
   // Requested only now, so a focus event the terminal answers with lands in the proxy, never in
   // the quiet period's keypress wait; the tracker's idle source runs until the first one arrives.

@@ -281,14 +281,28 @@ export function isSessionLocked(
   return lockedSessionReason(sessionStore, id) !== undefined;
 }
 
-/** The fixed answer for a session that is present but sealed out of reach, saying to unlock only when that would open it. */
+/**
+ * How a surface says to unlock: by its command where it has one (a terminal holding keys has
+ * `/unlock`), and in plain words where it has none, so no surface names a command it does not offer.
+ */
+function unlockTo(action: string, unlockCommand: string | undefined): string {
+  return unlockCommand === undefined
+    ? `unlock to ${action}`
+    : `run \`${unlockCommand}\` to ${action}`;
+}
+
+/**
+ * The fixed answer for a session that is present but sealed out of reach, saying to unlock only when
+ * that would open it — naming `unlockCommand` when the surface has one.
+ */
 export function lockedSessionMessage(
   sessionId: string,
   reason: TLockedSessionReason = 'locked',
+  unlockCommand?: string,
 ): string {
   const state = sealedSessionState(reason);
   return reason === 'locked'
-    ? `Session ${sessionId} is ${state}; unlock to open it.`
+    ? `Session ${sessionId} is ${state}; ${unlockTo('open it', unlockCommand)}.`
     : `Session ${sessionId} is ${state}.`;
 }
 
@@ -296,15 +310,20 @@ export function lockedSessionMessage(
  * The one note every surface adds where it lists sessions or picks one while some are sealed out of
  * reach — a listing leaves those out, so without it they would read as gone. `locked` are sealed with
  * the keys locked, which an unlock opens; `noKeys` are sealed with keys this process does not have,
- * which no unlock here opens. `undefined` when there are none, so a surface says nothing then.
+ * which no unlock here opens. `undefined` when there are none, so a surface says nothing then. A
+ * surface that has an unlock command passes it as `unlockCommand`, and the note names it.
  */
-export function lockedSessionsNotice(locked: number, noKeys = 0): string | undefined {
+export function lockedSessionsNotice(
+  locked: number,
+  noKeys = 0,
+  unlockCommand?: string,
+): string | undefined {
   const notes: string[] = [];
   if (locked > 0) {
     notes.push(
       locked === 1
-        ? '1 saved session is sealed and locked; unlock to open it.'
-        : `${locked} saved sessions are sealed and locked; unlock to open them.`,
+        ? `1 saved session is sealed and locked; ${unlockTo('open it', unlockCommand)}.`
+        : `${locked} saved sessions are sealed and locked; ${unlockTo('open them', unlockCommand)}.`,
     );
   }
   if (noKeys > 0) {

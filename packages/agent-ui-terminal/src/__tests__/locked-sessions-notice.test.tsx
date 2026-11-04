@@ -98,17 +98,25 @@ async function pickerNotices(
   store: IInteractiveSessionStore,
   hostSessions?: readonly ISessionListingEntry[],
   hostLockedSessionCount?: number,
+  adapter?: ITuiCliAdapter,
 ): Promise<string[]> {
   const addEntry = vi.fn();
   const setSessionPickerVisible = vi.fn();
-  const view = render(
+  const probe = (
     <PickerProbe
       store={store}
       hostSessions={hostSessions}
       hostLockedSessionCount={hostLockedSessionCount}
       addEntry={addEntry}
       setSessionPickerVisible={setSessionPickerVisible}
-    />,
+    />
+  );
+  const view = render(
+    adapter === undefined ? (
+      probe
+    ) : (
+      <TuiCliAdapterProvider value={adapter}>{probe}</TuiCliAdapterProvider>
+    ),
   );
   await vi.waitFor(() => expect(addEntry).toHaveBeenCalled());
   view.unmount();
@@ -122,6 +130,19 @@ describe('the resume picker with sealed sessions', () => {
     expect(notices).toHaveLength(1);
     expect(notices[0]).toContain(
       `${NOTHING} 3 saved sessions are sealed and locked; unlock to open them.`,
+    );
+  });
+
+  it('names /unlock where this terminal holds the keys to unlock', async () => {
+    const keyCustody = { ensureReadable: async () => 'readable' as const };
+    const [notice] = await pickerNotices(
+      storeOf(() => ({ status: 'missing' }), 3),
+      undefined,
+      undefined,
+      { keyCustody } as unknown as ITuiCliAdapter,
+    );
+    expect(notice).toContain(
+      `${NOTHING} 3 saved sessions are sealed and locked; run \`/unlock\` to open them.`,
     );
   });
 

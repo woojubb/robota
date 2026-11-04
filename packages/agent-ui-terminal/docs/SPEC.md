@@ -179,9 +179,22 @@ within a scope, an older entry identical to a newer one is dropped so only the m
 occurrence remains. Exactly one load runs per open, and inserting, executing, or cancelling the
 search all abort it rather than let it run to completion unobserved. Sealed prompts the load could
 not open are counted as it goes and named with the search, so they never read as a shorter
-history; it says to unlock only when the keys are locked, not when this process has none. The
+history; it says to unlock only when the keys are locked, not when this process has none, and names
+`/unlock` where this terminal has it, as the resume picker's locked notice does. The
 composer's draft is never mutated while the overlay is open, so cancelling restores it
 byte-identically.
+
+### Reads that need the keys
+
+A read the person starts from this terminal on a record sealed while the keys are locked asks the
+host's key custody port to unlock for it, with a request this package's action modules mint from the
+person's key press. Two checks keep that request theirs: `deps:check` refuses an import of the mint,
+or of its record of what it made, from any other module, and the port's holder accepts only a request
+that record holds, so one built any other way — a cast of the same shape included — asks nothing. The
+prompt is asked only for an action the framework would honour, and without a
+port (secure mode off) nothing is asked and nothing reads differently. While the terminal is handed
+over to another program, the composer's stdin proxy forwards nothing: what is typed then belongs to
+whoever has the terminal, including a passphrase the console prompt reads through the same stream.
 
 ### IME cursor positioning
 

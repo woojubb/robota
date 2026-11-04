@@ -89,6 +89,12 @@ export {
   type TDevicesRefusal,
 } from './devices/index.js';
 export {
+  createKeyCustodyCommandModule,
+  type IKeyCustodyCommandPort,
+  type IUnlockResult,
+  type TUnlockOutcome,
+} from './key-custody/index.js';
+export {
   createKeybindingsCommandEntry,
   createKeybindingsCommandModule,
   KeybindingsCommandSource,

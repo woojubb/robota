@@ -11,10 +11,12 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import { calculateCost, formatTokens, formatUsd } from './model-pricing.js';
+import { registeredUnlockCommand } from '../key-custody/registered-unlock-command.js';
 
 import type {
   ICommandCostBudgetAdapter,
   ICommandHostAdapterAccess,
+  ICommandHostCatalog,
   ICommandHostNoCapability,
   ICommandHostSessionAccess,
   ICommandHostUserInteraction,
@@ -254,15 +256,22 @@ export function executeCostCommand(context: TCostCommandContext, args: string): 
   return { success: true, message: lines.join('\n'), data };
 }
 
-/** What `/validate-session` says about a sealed log it cannot open; "unlock" only where an unlock would help. */
-const SEALED_LOG_MESSAGES = {
-  locked: 'The session log is sealed and locked; unlock to validate it.',
-  'no-keys':
-    'The session log is sealed and this process has no keys to open it, so it cannot be validated here.',
-} as const;
+/**
+ * What `/validate-session` says about a sealed log it cannot open; "unlock" only where an unlock
+ * would help, naming `/unlock` where the host registered it.
+ */
+function sealedLogMessage(reason: 'locked' | 'no-keys', unlockCommand: string | undefined): string {
+  if (reason === 'no-keys') {
+    return 'The session log is sealed and this process has no keys to open it, so it cannot be validated here.';
+  }
+  const unlock = unlockCommand === undefined ? 'unlock' : `run \`${unlockCommand}\``;
+  return `The session log is sealed and locked; ${unlock} to validate it.`;
+}
 
 export function executeValidateSessionCommand(
-  context: ICommandHostSessionAccess & ICommandHostWorkspace,
+  context: ICommandHostSessionAccess &
+    ICommandHostWorkspace &
+    Partial<Pick<ICommandHostCatalog, 'listCommands'>>,
   _args: string,
 ): ICommandResult {
   let report: ReturnType<typeof validateCommandSessionReplayLog>;
@@ -272,7 +281,7 @@ export function executeValidateSessionCommand(
     if (!isArtifactLockedError(error)) throw error;
     const reason =
       (error as { readonly reason?: unknown }).reason === 'no-keys' ? 'no-keys' : 'locked';
-    return { success: false, message: SEALED_LOG_MESSAGES[reason] };
+    return { success: false, message: sealedLogMessage(reason, registeredUnlockCommand(context)) };
   }
   return {
     success: report.validation.ok,

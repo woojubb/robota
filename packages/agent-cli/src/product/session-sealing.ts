@@ -54,6 +54,8 @@ export function overrideProductSecureMode(runtime: ICliRuntimeContext, on: boole
 const workerSealings = new WeakMap<ICliRuntimeContext, IWorkerSealing>();
 /** The runtimes that hold keys of their own, each sealing with its holder's. */
 const keyHolderSealings = new WeakMap<ICliRuntimeContext, IProductSealing>();
+/** Each such runtime's holder, which its unlock gate (`key-custody.ts`) asks and locks. */
+const keyHolders = new WeakMap<ICliRuntimeContext, KeyHolder>();
 /** Each sealing runtime's one process-local sealer, made the first time it is asked for. */
 const processLocalSealers = new WeakMap<ICliRuntimeContext, ProcessLocalArtifactSealer>();
 
@@ -158,6 +160,15 @@ export function useProductKeyHolder(runtime: ICliRuntimeContext, holder: KeyHold
     watchSealingKey: (listener) => holder.onSealingKeyChange(listener),
     keysLocked: () => !holder.isUnlocked,
   });
+  keyHolders.set(runtime, holder);
+}
+
+/**
+ * The holder {@link useProductKeyHolder} gave `runtime`, or `undefined`: the one an unlock in this
+ * process opens, so the gate never unlocks keys the stores do not seal with.
+ */
+export function productKeyHolder(runtime: ICliRuntimeContext): KeyHolder | undefined {
+  return productSecureMode(runtime) ? keyHolders.get(runtime) : undefined;
 }
 
 /**

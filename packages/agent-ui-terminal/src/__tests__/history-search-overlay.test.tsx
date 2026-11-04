@@ -10,8 +10,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import InputArea from '../InputArea.js';
 import { ScreenReaderProvider } from '../screen-reader-context.js';
+import { TuiCliAdapterProvider } from '../tui-cli-adapter-context.js';
 
 import type { IInputAreaHistorySearch } from '../hooks/useInputAreaHistorySearch.js';
+import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type {
   IPromptHistoryBlock,
   IPromptHistoryEntry,
@@ -80,6 +82,8 @@ function renderWith(
   options: {
     readonly screenReader?: boolean;
     readonly onOpenChange?: (open: boolean) => void;
+    /** The terminal holds the keys to unlock (secure mode): `/unlock` exists. */
+    readonly keyCustody?: boolean;
   } = {},
 ): ReturnType<typeof render> & { readonly onSubmit: ReturnType<typeof vi.fn> } {
   const onSubmit = vi.fn();
@@ -89,10 +93,20 @@ function renderWith(
     project: '/here',
     onOpenChange: options.onOpenChange,
   };
-  const rendered = render(
+  const tree = (
     <ScreenReaderProvider enabled={options.screenReader === true}>
       <InputArea onSubmit={onSubmit} isDisabled={false} historySearch={historySearch} />
-    </ScreenReaderProvider>,
+    </ScreenReaderProvider>
+  );
+  const adapter = {
+    keyCustody: { ensureReadable: async () => 'readable' },
+  } as unknown as ITuiCliAdapter;
+  const rendered = render(
+    options.keyCustody === true ? (
+      <TuiCliAdapterProvider value={adapter}>{tree}</TuiCliAdapterProvider>
+    ) : (
+      tree
+    ),
   );
   return { ...rendered, onSubmit };
 }
@@ -354,6 +368,24 @@ describe('#3679: sealed prompts the overlay cannot open', () => {
     await until(() => (lastFrame() ?? '').includes('3 prompts are sealed and locked'));
     await until(() => !(lastFrame() ?? '').includes('loading…'));
     expect(lastFrame()).toContain('3 prompts are sealed and locked; unlock to search them.');
+    unmount();
+  });
+
+  it('names /unlock for locked prompts where this terminal holds the keys to unlock', async () => {
+    const source: IPromptHistorySource = {
+      async *read() {
+        yield {
+          entries: [entry('a readable prompt')],
+          skippedLines: 0,
+          unreadable: { locked: 2, noKeys: 0 },
+        };
+      },
+    };
+    const { stdin, lastFrame, unmount } = renderWith(source, { keyCustody: true });
+    await tick();
+    stdin.write(CTRL_R);
+    await until(() => (lastFrame() ?? '').includes('2 prompts are sealed and locked'));
+    expect(lastFrame()).toContain('2 prompts are sealed and locked; run `/unlock` to search them.');
     unmount();
   });
 

@@ -1,4 +1,5 @@
 import { executeAgentCommand } from './agent-command.js';
+import { registeredUnlockCommand } from '../key-custody/registered-unlock-command.js';
 
 import type {
   IAgentJobHostContext,
@@ -61,7 +62,14 @@ export function createAgentSystemCommand(): ISystemCommand {
     ...(entry.displayName !== undefined ? { displayName: entry.displayName } : {}),
     description: entry.description,
     requiresPermission: false,
-    execute: (context, args) => executeAgentCommand(getAgentHostContext(context), args),
+    execute: (context, args) => {
+      const unlockCommand = registeredUnlockCommand(context);
+      return executeAgentCommand(
+        getAgentHostContext(context),
+        args,
+        unlockCommand === undefined ? {} : { unlockCommand },
+      );
+    },
     ...(entry.modelInvocable !== undefined ? { modelInvocable: entry.modelInvocable } : {}),
     ...(entry.modelDescription !== undefined ? { modelDescription: entry.modelDescription } : {}),
     ...(entry.userInvocable !== undefined ? { userInvocable: entry.userInvocable } : {}),

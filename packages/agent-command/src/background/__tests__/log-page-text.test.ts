@@ -7,11 +7,14 @@
 import { describe, expect, it } from 'vitest';
 
 import { executeAgentCommand } from '../../agent/agent-command.js';
+import { createAgentSystemCommand } from '../../agent/agent-command-module.js';
 import { executeBackgroundCommand } from '../background-command.js';
+import { createBackgroundCommandModule } from '../background-command-module.js';
 
 import type {
   IAgentJobHostContext,
   ICommandHostBackgroundTasks,
+  ICommandHostContext,
 } from '@robota-sdk/agent-framework';
 import type {
   IBackgroundTaskLogCursor,
@@ -63,6 +66,31 @@ describe('a log page as /agent read and /background read show it', () => {
         '3 sealed records on this page are locked; unlock to read them.',
     );
     expect(background).toBe(agent);
+  });
+
+  it('names /unlock for locked records where the session registered it', async () => {
+    const readBackgroundTaskLog = async (taskId: string) => ({
+      taskId,
+      lines: ['[2 sealed log records; the keys are locked]'],
+      unreadable: { locked: 2, noKeys: 0, doesNotOpen: 0 },
+    });
+    const context = {
+      readBackgroundTaskLog,
+      getAgentJobCapability: () => ({ readBackgroundTaskLog }),
+      listCommands: () => [
+        { name: 'unlock', description: 'Unlock', modelInvocable: false, runner: 'runtime' },
+      ],
+    } as unknown as ICommandHostContext;
+    const background = createBackgroundCommandModule().systemCommands?.find(
+      (command) => command.name === 'background',
+    );
+
+    const agent = await createAgentSystemCommand().execute(context, 'read agent_1');
+    const shownByBackground = await background?.execute(context, 'read agent_1');
+
+    const hint = '2 sealed records on this page are locked; run `/unlock` to read them.';
+    expect(agent.message.split('\n').at(-1)).toBe(hint);
+    expect(shownByBackground?.message.split('\n').at(-1)).toBe(hint);
   });
 
   it('says this process has no keys to open them, and nothing about unlocking', async () => {
