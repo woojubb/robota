@@ -31,7 +31,8 @@ selects product directories or reconstructs project reads from `cwd`.
 
 **Host commands (`./node`).** A command whose whole purpose is the host — `/shell` and `/editor` hand the
 user's terminal to a child process — lives on `@robota-sdk/agent-command/node`, and so do the adapters
-a command takes by injection. The main entry names no Node module and holds no host default: the
+a command takes by injection. The main entry is platform-neutral (it runs in a browser, a Web Worker,
+Node, Deno and Bun) and holds no host default: the
 default assembly omits the commands whose whole purpose is the host, which a Node product adds beside
 it, so a host that is not Node never lists a command it cannot run. A command that needs a host
 capability for part of its work (`/doctor` its probes, `/keybindings` its editor, `/git` its process,

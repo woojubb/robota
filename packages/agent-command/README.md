@@ -84,8 +84,9 @@ itself (see `createTerminalClientCommands`).
 
 ## `@robota-sdk/agent-command/node`
 
-The main entry names no Node module. What starts a process, reads the file system or the network for a
-command, or runs a command on the user's terminal is on `/node`, and a Node host passes it in:
+The main entry is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun and names no
+Node module. What starts a process, reads the file system or the network for a command, or runs a
+command on the user's terminal is on `/node`, and a Node host passes it in:
 
 | Export                                                                  | What it does                                                                                            |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
