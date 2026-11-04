@@ -1,7 +1,8 @@
 import { ServerResponse } from 'node:http';
 import { isIP } from 'node:net';
 import { WebSocket, WebSocketServer } from 'ws';
-import { bearerCredential, createBearerResourceServer } from '@robota-sdk/agent-transport/node';
+import { bearerCredential } from '@robota-sdk/agent-transport';
+import { createBearerResourceServer } from '@robota-sdk/agent-transport/node';
 import { DesktopRefused, desktopBindingKey } from './authorization.js';
 import { DESKTOP_FRAME_BYTES } from './worker-port.js';
 import type { HostedDesktopAuthorization, IDesktopBinding } from './authorization.js';

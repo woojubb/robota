@@ -1,35 +1,28 @@
 /**
- * Browser-safe entry point for `@robota-sdk/agent-transport`.
+ * Platform-neutral entry point for `@robota-sdk/agent-transport`.
  *
  * ## Why this file exists
  *
- * The package's `./node` entry owns `admission.ts` and `handoff-manifest.ts`, the only modules
- * that import `node:crypto`. Keeping those modules out of this root prevents a browser consumer
- * from pulling a Node builtin into its bundle.
+ * The package's `./node` entry owns the modules that need a Node host: the handoff manifest and file
+ * transfer (`node:crypto`), the bearer resource gate (`node:http`, `node:net`), the stdio carrier
+ * (`node:stream`) and the access-token verifier (the egress boundary of `agent-core/node`). Keeping
+ * them out of this root means a browser, a Worker, Deno or Bun consumer never pulls a Node builtin
+ * into its bundle.
  *
  * ## What is in, and why
  *
- * Everything in `src/index.ts` EXCEPT the two modules that touch `node:crypto`. Read off the actual
- * import graph, not off intent:
- *
- *   node:crypto reachers   `admission.ts`, `handoff-manifest.ts` — and nothing inside the package
- *                          imports either of them, so removing both from this barrel severs the
- *                          builtin from this entry's graph entirely.
- *   everything else        `session-message-handler` → {`background-messages`, `message-decoders`,
- *                          `session-events`}, `session-resume-bridge` → {`outbound-delivery`,
- *                          `resume-buffer`, `session-message-handler`, `session-events`}, `channel-frames`,
- *                          `peer-message-ledger`, `handoff-chunking`,
- *                          `protocol-session`, `wire-messages` — no builtin on any path.
+ * Everything the wire protocol needs that no host provides: transport admission (the decision is
+ * minted and compared from `agent-core`'s neutral randomness and comparison), the session-message
+ * dispatch with its decoders, resumable delivery, the channel frame codec, the peer-message ledger
+ * and handoff chunking. None of them imports a builtin or reads a Node global, and
+ * `scripts/harness/check-platform-neutral.mjs` bundles this entry on every lint run to keep it so.
  *
  * Handoff authority, offer refusal, and inventory decisions live in
  * `agent-interface-session-mobility`, outside this wire package.
  *
- * The handoff MANIFEST types are omitted along with their functions. Keeping the `export type` lines
- * would be free at runtime, but it would put `node/handoff-manifest.ts` back on this entry's import graph
- * — and the `browser-package-node-subpath` scan that guards this file walks EVERY import edge rather
- * than trying to tell a type edge from a value one. A check that has to be clever about which edges
- * count is a check that can be fooled; a browser consumer that needs those types is asking for the
- * Node surface and should say so by importing `./node`.
+ * The handoff MANIFEST types are omitted along with their functions: they describe what only `./node`
+ * seals and verifies, so a consumer that needs them is asking for the Node surface and should say so
+ * by importing `./node`.
  */
 
 export { createSessionMessageHandler } from './session-message-handler.js';
@@ -96,9 +89,14 @@ export type {
 export { handleSettingsMessage, isSettingsMessage } from './settings-messages.js';
 export type { ISettingsReporter, TSettingsUpdateOutcome } from './settings-messages.js';
 
-// SEC-008 admission is NOT here: `src/node/admission.ts` mints and compares transport tokens with
-// `node:crypto`. A browser never mints one — it presents one it was handed — so the exclusion costs
-// the browser surface nothing it could have used.
+// SEC-008: the admission decision every transport resolves through, and the bearer-header and
+// credential helpers that apply it. The shape of the decision is `agent-interface-transport`'s.
+export {
+  bearerCredential,
+  credentialMatches,
+  mintTransportToken,
+  resolveAdmission,
+} from './admission.js';
 
 // PEER-001 (#1809): the receiver's record of what it has already taken responsibility for. Lives
 // here rather than in a carrier because duplicate, retry and gap are questions about what was SEEN
@@ -119,8 +117,8 @@ export type {
 // about a permission in its own wire form, so they name the same call the same way.
 export { permissionSummaryArgument } from './permission-summary.js';
 
-// The handoff integrity helpers (`sealHandoffRecord`, `verifyHandoffPayload`) are NOT
-// here: it hashes with `node:crypto`. Chunking is, because it never hashes anything.
+// The handoff integrity helpers (`sealHandoffRecord`, `verifyHandoffPayload`) are on `./node`, which
+// hashes with `node:crypto`. Chunking is here because it never hashes anything.
 export {
   chunkCountFor,
   chunkHandoffPayload,

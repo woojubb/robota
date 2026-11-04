@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
+import { bearerCredential } from '@robota-sdk/agent-transport';
 import {
-  bearerCredential,
   createBearerResourceServer,
   describeProtectedResource,
   refuseBearerToken,

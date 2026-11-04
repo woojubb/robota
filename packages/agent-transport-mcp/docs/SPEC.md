@@ -12,7 +12,7 @@ protocol change is carried once.
 
 Stdio transport-admission is `none`: a peer that can write to this stdin already runs as the user.
 The loopback HTTP carrier is different: it binds only `127.0.0.1`, mints a fresh 256-bit bearer with
-the shared `agent-transport/node` admission primitive, and refuses an invalid Host, Origin, or bearer
+the shared `agent-transport` admission primitive, and refuses an invalid Host, Origin, or bearer
 before reading a request body. The remote HTTP carrier is an OAuth resource server: it admits only
 an access token its injected verifier accepts and never mints or honours the loopback bearer, which
 is only as safe as the machine boundary. Its gate is the shared resource-server gate of

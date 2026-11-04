@@ -10,7 +10,7 @@ import {
   bearerCredential,
   credentialMatches,
   resolveAdmission,
-} from '@robota-sdk/agent-transport/node';
+} from '@robota-sdk/agent-transport';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 

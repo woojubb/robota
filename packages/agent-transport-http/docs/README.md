@@ -6,7 +6,7 @@ conversation, context and execution state. Every request is admitted by a bearer
 explicitly opens the routes with a written reason.
 
 The package returns a Hono app or router and does not bind a network listener. Admission decisions come
-from `@robota-sdk/agent-transport/node`, shared with the other transports.
+from `@robota-sdk/agent-transport`, shared with the other transports.
 
 ## Documents
 

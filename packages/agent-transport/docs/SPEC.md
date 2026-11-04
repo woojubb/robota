@@ -4,8 +4,8 @@
 
 The pure transport-family substrate. It owns carrier-neutral wire messages, runtime decoders,
 session-message dispatch, resumable delivery, peer-message state, handoff payload framing, file transfer, channel
-framing, and Node-only admission, access-token verification and integrity helpers shared by
-transport implementations.
+framing, transport admission, and Node-only access-token verification and integrity helpers shared
+by transport implementations.
 
 ## Contract
 
@@ -42,12 +42,16 @@ transport implementations.
 
 ## Boundaries
 
-- The root and `./client` export graphs are browser-safe and depend only on interface packages.
+- The root and `./client` export graphs are platform-neutral and depend only on interface packages
+  and the neutral `agent-core` entry.
 - Node cryptography and network access are reachable only through `./node`, whose package export
   declares `"browser": null` — a structural guarantee that Node-only crypto never leaks into a
   browser bundle via the root or `./client` entries. Token signatures are checked by `jose`, not by
   hand-rolled crypto, and key discovery goes through the shared egress boundary rather than a
-  private fetch, so one policy governs every outbound request.
+  private fetch, so one policy governs every outbound request. Transport admission needs neither
+  crypto nor network: a credential is minted from the platform's secure randomness and compared as
+  strings, so it is on the root and every carrier, in a browser or a Worker too, resolves it the
+  same way.
 - Owns no socket, HTTP listener, WebRTC, terminal, framework-host, registry, or settings lifecycle.
   The one process-stream helper it does own, the stdio carrier bridge, only attaches and detaches: it
   gives a protocol SDK a bridge to read instead of the process input, so stopping a carrier can never

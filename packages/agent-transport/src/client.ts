@@ -1,4 +1,4 @@
-/** Browser-safe protocol surface: wire unions plus runtime frame decoders, with no Node admission code. */
+/** Client protocol surface: wire unions plus runtime frame decoders, with nothing a host needs. */
 export {
   MAX_INBOUND_FRAME_BYTES,
   decodeClientMessage,
