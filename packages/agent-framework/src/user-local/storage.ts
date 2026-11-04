@@ -1,6 +1,10 @@
-import path from 'node:path';
-
-import { NodeFileSystemAsync } from '../adapters/node-file-system.js';
+import {
+  dirnamePath,
+  isAbsolutePath,
+  joinPath,
+  relativeSegments,
+  resolvePath,
+} from '@robota-sdk/agent-core';
 
 import type { IDirent, IFileSystemAsync } from '@robota-sdk/agent-core';
 
@@ -53,9 +57,12 @@ export interface IUserLocalStorageInspection {
 }
 
 export interface IResolveUserLocalStorageRootOptions {
+  /** Absolute: a relative path would have to be anchored to the process directory, which is not read here. */
   readonly activeRepositoryRoot: string;
+  /** Absolute, for the same reason. */
   readonly storageRoot: string;
-  readonly fsAsync?: IFileSystemAsync;
+  /** The files the storage root is read and written through. No default: the host names them. */
+  readonly fsAsync: IFileSystemAsync;
 }
 
 export interface IInspectUserLocalStorageOptions extends IResolveUserLocalStorageRootOptions {
@@ -105,50 +112,57 @@ function assertAbsolutePath(name: string, value: string): void {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new Error(`${name} is required and must not be empty.`);
   }
-  if (!path.isAbsolute(value)) {
+  if (!isAbsolutePath(value)) {
     throw new Error(`${name} must be an absolute path: ${value}`);
   }
 }
 
+/** Whether `candidatePath` is `parentPath` or below it; a path on another root is not. */
 function isEqualOrInside(parentPath: string, candidatePath: string): boolean {
-  const relative = path.relative(parentPath, candidatePath);
-  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+  const segments = relativeSegments(parentPath, candidatePath);
+  return segments !== undefined && segments[0] !== '..';
 }
 
 async function resolveForComparison(absPath: string, fsAsync: IFileSystemAsync): Promise<string> {
   let current = absPath;
 
-  while (path.dirname(current) !== current) {
+  while (dirnamePath(current) !== current) {
     try {
       const realCurrent = await fsAsync.realpath(current);
-      const relativeMissingPath = path.relative(current, absPath);
-      return path.resolve(realCurrent, relativeMissingPath);
+      const missingSegments = relativeSegments(current, absPath) ?? [];
+      return missingSegments.reduce((base, segment) => resolvePath(base, segment), realCurrent);
     } catch {
       // allow-fallback: walk up to first existing ancestor, not an error suppression
-      current = path.dirname(current);
+      current = dirnamePath(current);
     }
   }
 
   try {
     return await fsAsync.realpath(current);
   } catch {
-    // allow-fallback: filesystem root unreachable; resolve() gives a safe absolute path
-    return path.resolve(absPath);
+    // allow-fallback: filesystem root unreachable; the path itself, normalised, is the answer
+    return resolvePath(absPath, '.');
   }
 }
 
 export async function resolveUserLocalStorageRoot(
   options: IResolveUserLocalStorageRootOptions,
 ): Promise<string> {
-  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
-  const activeRepositoryRoot = path.resolve(options.activeRepositoryRoot);
-  assertAbsolutePath('activeRepositoryRoot', activeRepositoryRoot);
+  const fsAsync = options.fsAsync;
+  if (typeof fsAsync !== 'object' || fsAsync === null) {
+    throw new Error(
+      'User-local storage requires `fsAsync`: the file system the storage root is read and written ' +
+        'through. On Node pass `new NodeFileSystemAsync()` from `@robota-sdk/agent-framework/node`.',
+    );
+  }
+  assertAbsolutePath('activeRepositoryRoot', options.activeRepositoryRoot);
+  const activeRepositoryRoot = resolvePath(options.activeRepositoryRoot, '.');
 
   const candidateRoot = options.storageRoot;
 
   assertAbsolutePath('userLocalStorageRoot', candidateRoot);
 
-  const resolvedRoot = path.resolve(candidateRoot);
+  const resolvedRoot = resolvePath(candidateRoot, '.');
   const comparableRoot = await resolveForComparison(resolvedRoot, fsAsync);
   const comparableRepositoryRoot = await resolveForComparison(activeRepositoryRoot, fsAsync);
 
@@ -162,7 +176,7 @@ export async function resolveUserLocalStorageRoot(
 }
 
 function resolveCategoryLocation(root: string, category: TUserLocalStorageCategory): string {
-  return path.join(root, category);
+  return joinPath(root, category);
 }
 
 async function listItemSummaries(
@@ -182,7 +196,7 @@ async function listItemSummaries(
 
   const summaries = await Promise.all(
     entries.map(async (entry): Promise<IUserLocalStorageItemSummary> => {
-      const itemLocation = path.join(storageLocation, entry.name);
+      const itemLocation = joinPath(storageLocation, entry.name);
       const stats = await fsAsync.stat(itemLocation);
       const key = entry.name;
       return {
@@ -208,9 +222,9 @@ async function listItemSummaries(
 export async function inspectUserLocalStorage(
   options: IInspectUserLocalStorageOptions,
 ): Promise<IUserLocalStorageInspection> {
-  const fsAsync = options.fsAsync ?? new NodeFileSystemAsync();
+  const fsAsync = options.fsAsync;
   const root = await resolveUserLocalStorageRoot(options);
-  const activeRepositoryRoot = path.resolve(options.activeRepositoryRoot);
+  const activeRepositoryRoot = resolvePath(options.activeRepositoryRoot, '.');
   const createDirectories = options.createDirectories ?? true;
 
   if (createDirectories) {

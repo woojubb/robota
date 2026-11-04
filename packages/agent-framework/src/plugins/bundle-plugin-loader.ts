@@ -8,10 +8,10 @@
  * Each plugin loads its installed revision; an unregistered single revision is supported.
  */
 
-import { join, resolve } from 'node:path';
-import { assertContainedPath, assertSafePluginSegment } from './plugin-paths.js';
+import { createLogger, joinPath, resolvePath } from '@robota-sdk/agent-core';
 
-import { createLogger } from '@robota-sdk/agent-core';
+import { requirePluginFileSystem } from './plugin-file-system.js';
+import { assertContainedPath, assertSafePluginSegment } from './plugin-paths.js';
 
 import {
   inspectHooks,
@@ -20,7 +20,6 @@ import {
   skipDetail,
 } from './bundle-plugin-inspection.js';
 import { validateManifest, getSortedSubdirs } from './bundle-plugin-utils.js';
-import { NodeFileSystem } from '../adapters/node-file-system.js';
 import { decodeFrontmatter } from '../frontmatter/frontmatter-decoder.js';
 import { FrontmatterDecodeError } from '../frontmatter/frontmatter-error.js';
 import { describeBundleContribution } from '../contributions/bundle-contribution-descriptor.js';
@@ -61,14 +60,14 @@ export class BundlePluginLoader {
   private readonly enabledPlugins: TEnabledPlugins;
   private readonly fs: IFileSystem;
 
-  constructor(
-    pluginsDir: string,
-    enabledPlugins?: TEnabledPlugins,
-    fs: IFileSystem = new NodeFileSystem(),
-  ) {
+  /**
+   * `enabledPlugins` undefined reads as an empty map: nothing is listed, so nothing is disabled.
+   * `fs` has no default; the host names the files the plugin cache is read through.
+   */
+  constructor(pluginsDir: string, enabledPlugins: TEnabledPlugins | undefined, fs: IFileSystem) {
     this.pluginsDir = pluginsDir;
     this.enabledPlugins = enabledPlugins ?? {};
-    this.fs = fs;
+    this.fs = requirePluginFileSystem(fs, 'BundlePluginLoader');
   }
 
   /**
@@ -106,7 +105,7 @@ export class BundlePluginLoader {
    * Installed records select revisions; ambiguous unregistered caches are refused.
    */
   inspectPluginsSync(): IBundlePluginInspection {
-    const cacheDir = join(this.pluginsDir, 'cache');
+    const cacheDir = joinPath(this.pluginsDir, 'cache');
     const selection = this.snapshotInstalledSelection();
     const discovered = new Set<string>();
     const sink: IInspectionSink = {
@@ -119,13 +118,13 @@ export class BundlePluginLoader {
     const cacheDirPresent = this.fs.existsSync(cacheDir);
     if (cacheDirPresent) {
       for (const marketplace of getSortedSubdirs(cacheDir, this.fs)) {
-        const marketplaceDir = join(cacheDir, marketplace);
+        const marketplaceDir = joinPath(cacheDir, marketplace);
         for (const pluginName of getSortedSubdirs(marketplaceDir, this.fs)) {
           discovered.add(`${pluginName}@${marketplace}`);
           this.inspectPluginDir(
             marketplace,
             pluginName,
-            join(marketplaceDir, pluginName),
+            joinPath(marketplaceDir, pluginName),
             sink,
             selection,
           );
@@ -136,7 +135,7 @@ export class BundlePluginLoader {
       if (!discovered.has(pluginId)) {
         sink.skipped.push({
           pluginId,
-          manifestPath: join(this.pluginsDir, 'installed_plugins.json'),
+          manifestPath: joinPath(this.pluginsDir, 'installed_plugins.json'),
           reason: 'revision-unselected',
           detail: 'Selected plugin source is missing from cache',
         });
@@ -145,7 +144,7 @@ export class BundlePluginLoader {
     if (selection.error && discovered.size === 0) {
       sink.skipped.push({
         pluginId: 'installed_plugins.json',
-        manifestPath: join(this.pluginsDir, 'installed_plugins.json'),
+        manifestPath: joinPath(this.pluginsDir, 'installed_plugins.json'),
         reason: 'revision-unselected',
         detail: skipDetail(selection.error),
       });
@@ -169,13 +168,13 @@ export class BundlePluginLoader {
     } catch (error) {
       sink.skipped.push({
         pluginId: discoveredId,
-        manifestPath: join(pluginDir, '.claude-plugin', 'plugin.json'),
+        manifestPath: joinPath(pluginDir, '.claude-plugin', 'plugin.json'),
         reason: 'revision-unselected',
         detail: skipDetail(error instanceof Error ? error : undefined),
       });
       return;
     }
-    const manifestPath = join(versionDir, '.claude-plugin', 'plugin.json');
+    const manifestPath = joinPath(versionDir, '.claude-plugin', 'plugin.json');
 
     // CORE-029: one broken plugin used to take down ALL of them. `readManifest` throws on
     // unparseable JSON, that throw escaped discovery, and the caller answered with a bare
@@ -220,7 +219,7 @@ export class BundlePluginLoader {
   }
 
   private snapshotInstalledSelection(): IInstalledSelection {
-    const registryPath = join(this.pluginsDir, 'installed_plugins.json');
+    const registryPath = joinPath(this.pluginsDir, 'installed_plugins.json');
     if (!this.fs.existsSync(registryPath)) return {};
     try {
       const records: unknown = JSON.parse(this.fs.readFileSync(registryPath, 'utf-8'));
@@ -258,18 +257,18 @@ export class BundlePluginLoader {
         fields.pluginName !== pluginName ||
         fields.marketplace !== marketplace ||
         typeof fields.installPath !== 'string' ||
-        resolve(fields.installPath) !== resolve(pluginDir, revision)
+        resolvePath(fields.installPath, '.') !== resolvePath(pluginDir, revision)
       )
         throw new Error('Installed record does not match its cached source');
     }
     assertSafePluginSegment(revision, 'source revision');
-    const selected = join(pluginDir, revision);
+    const selected = joinPath(pluginDir, revision);
     if (!versions.includes(revision)) throw new Error('Selected revision is not installed');
-    assertContainedPath(join(this.pluginsDir, 'cache'), selected, 'load installed source', this.fs);
+    assertContainedPath(joinPath(this.pluginsDir, 'cache'), selected, 'load installed source', this.fs);
     assertContainedPath(pluginDir, selected, 'load selected plugin revision', this.fs);
     assertContainedPath(
       selected,
-      join(selected, '.claude-plugin', 'plugin.json'),
+      joinPath(selected, '.claude-plugin', 'plugin.json'),
       'read plugin manifest',
       this.fs,
     );
@@ -324,7 +323,7 @@ export class BundlePluginLoader {
 
   /** Load skills from the plugin's skills/ directory. */
   private loadSkills(pluginDir: string, _pluginName: string): IBundleSkill[] {
-    const skillsDir = join(pluginDir, 'skills');
+    const skillsDir = joinPath(pluginDir, 'skills');
     if (!this.fs.existsSync(skillsDir)) return [];
 
     const entries = this.fs.readdirSync(skillsDir, { withFileTypes: true });
@@ -333,7 +332,7 @@ export class BundlePluginLoader {
     for (const entry of entries) {
       if (!entry.isDirectory()) continue;
 
-      const skillFile = join(skillsDir, entry.name, 'SKILL.md');
+      const skillFile = joinPath(skillsDir, entry.name, 'SKILL.md');
       if (!this.fs.existsSync(skillFile)) continue;
 
       const raw = this.fs.readFileSync(skillFile, 'utf-8');
@@ -346,7 +345,7 @@ export class BundlePluginLoader {
         description,
         skillContent: body === raw ? body : body.trimStart(),
         ...metadata,
-        skillDirectory: join(skillsDir, entry.name),
+        skillDirectory: joinPath(skillsDir, entry.name),
       };
 
       skills.push(skill);
@@ -357,7 +356,7 @@ export class BundlePluginLoader {
 
   /** Load commands from the plugin's commands/ directory (flat .md files). */
   private loadCommands(pluginDir: string, pluginName: string): IBundleSkill[] {
-    const commandsDir = join(pluginDir, 'commands');
+    const commandsDir = joinPath(pluginDir, 'commands');
     if (!this.fs.existsSync(commandsDir)) return [];
 
     const entries = this.fs.readdirSync(commandsDir, { withFileTypes: true });
@@ -366,7 +365,7 @@ export class BundlePluginLoader {
     for (const entry of entries) {
       if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
 
-      const commandFile = join(commandsDir, entry.name);
+      const commandFile = joinPath(commandsDir, entry.name);
       const raw = this.fs.readFileSync(commandFile, 'utf-8');
       const { metadata, body } = decodeBundleSkill(commandFile, raw);
 
@@ -388,7 +387,7 @@ export class BundlePluginLoader {
 
   /** Load hooks from hooks/hooks.json if present. */
   private loadHooks(pluginDir: string): Record<string, unknown> {
-    const hooksPath = join(pluginDir, 'hooks', 'hooks.json');
+    const hooksPath = joinPath(pluginDir, 'hooks', 'hooks.json');
     if (!this.fs.existsSync(hooksPath)) return {};
 
     const raw = this.fs.readFileSync(hooksPath, 'utf-8');
@@ -401,7 +400,7 @@ export class BundlePluginLoader {
 
   /** Load agent definitions from agents/ directory if present. */
   private loadAgents(pluginDir: string): string[] {
-    const agentsDir = join(pluginDir, 'agents');
+    const agentsDir = joinPath(pluginDir, 'agents');
     if (!this.fs.existsSync(agentsDir)) return [];
 
     const entries = this.fs.readdirSync(agentsDir, { withFileTypes: true });

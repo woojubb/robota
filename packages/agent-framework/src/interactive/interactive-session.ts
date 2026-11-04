@@ -37,7 +37,7 @@ import { loadSessionRecord, resumeRefusal } from './interactive-session-restore.
 import { SessionRecordClaim } from './session-record-claim.js';
 import { InteractiveSessionRuntimeTools } from './interactive-session-runtime-tools.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
-import { loadSessionPluginSkills } from './session-plugin-skills.js';
+import { loadSessionPluginSkills, requireSessionPluginFiles } from './session-plugin-skills.js';
 import { SessionTerminalHandoffGate } from './interactive-session-terminal-handoff.js';
 import { SessionTurnMemory } from './interactive-session-turn-memory.js';
 import { ExternalEventIngress } from './external-event-ingress.js';
@@ -72,7 +72,7 @@ import { isLoopStopVerb } from './session-loop-stop-verb.js';
 import { SessionStatusPush, STATUS_CHANGING_EVENTS } from './session-status-push.js';
 import { stopWaitingSelfPacedLoop } from './session-waiting-loop.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
-import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
+import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-format.js';
 import { GoalController, buildGoalContinuationPrompt, isGoalCancelVerb } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
 import { PlanController } from '../plan/index.js';
@@ -111,6 +111,7 @@ import type { TLivePromptOverrides } from '../assembly/create-session-runtime.js
 import type { ICommandHostContext } from '../command-api/index.js';
 import type { IFallbackProviderOptions } from '../routing/fallback-provider.js';
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
+import type { TProviderEnvironment } from '../command-api/provider/provider-environment.js';
 import type {
   IAgentJobHostContext,
   ICommandResult,
@@ -257,7 +258,7 @@ export class InteractiveSession
   private projectNotesFileEntries: IContextFileEntry[] = [];
   private rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null = null;
   private providerDefinitions: readonly IProviderDefinition[] = [];
-  private readonly providerEnvironment?: Readonly<Record<string, string | undefined>>;
+  private readonly providerEnvironment?: TProviderEnvironment;
   private readonly resolveProviderCredential?: IInteractiveSessionStandardOptions['resolveProviderCredential'];
   private activeOutputStyleId = 'default';
   private orgPolicy: IOrgPolicy | null = null;
@@ -324,8 +325,12 @@ export class InteractiveSession
 
   constructor(options: TInteractiveSessionOptions) {
     super();
-    requireFrameworkHost(options.host, 'InteractiveSession');
-    this.providerEnvironment = 'environment' in options ? options.environment : undefined;
+    const host = requireFrameworkHost(options.host, 'InteractiveSession');
+    // The session's own environment snapshot wins; without one the host's environment answers.
+    this.providerEnvironment = ('environment' in options ? options.environment : undefined) ?? host.env;
+    if ('pluginDirectories' in options && options.pluginDirectories !== undefined) {
+      requireSessionPluginFiles(host.files?.sync);
+    }
     this.resolveProviderCredential =
       'resolveProviderCredential' in options ? options.resolveProviderCredential : undefined;
     this.commandProductVocabulary =
@@ -466,6 +471,7 @@ export class InteractiveSession
         ...('bare' in options ? { bare: options.bare } : {}),
         ...('projectAccess' in options ? { projectAccess: options.projectAccess } : {}),
         ...('pluginDirectories' in options ? { pluginDirectories: options.pluginDirectories } : {}),
+        ...(host.files !== undefined ? { fs: host.files.sync } : {}),
         ...('userSettingsSources' in options
           ? { userSettingsSources: options.userSettingsSources }
           : {}),

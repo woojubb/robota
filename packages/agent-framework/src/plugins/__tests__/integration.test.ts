@@ -8,6 +8,10 @@ import { BundlePluginLoader } from '../bundle-plugin-loader.js';
 
 import type { IBundlePluginManifest } from '../bundle-plugin-types.js';
 
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
+
+const nodeFs = new NodeFileSystem();
+
 const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-bundle-integration-')));
 
 function setupDir(path: string): void {
@@ -125,7 +129,7 @@ Perform thorough code reviews.
       mcpConfig,
     });
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -184,7 +188,7 @@ Content for skill-two.
       ],
     });
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -230,7 +234,7 @@ Content.
       hooks: { PostToolUse: [{ matcher: '', hooks: [] }] },
     });
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(2);
@@ -253,7 +257,7 @@ Content.
 
     const loader = new BundlePluginLoader(pluginsDir, {
       'skip-b@market': false,
-    });
+    }, nodeFs);
     const plugins = await loader.loadAll();
 
     const names = plugins.map((p) => p.manifest.name).sort();
@@ -275,7 +279,7 @@ Content.
 
     createPluginInCache(pluginsDir, 'market', 'hooks-only', '1.0.0', manifest, { hooks });
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -306,7 +310,7 @@ Content.
         installedAt: 'fixture',
       },
     });
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);

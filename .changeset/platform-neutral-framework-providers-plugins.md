@@ -1,0 +1,14 @@
+---
+'@robota-sdk/agent-framework': minor
+'@robota-sdk/agent-cli': minor
+'@robota-sdk/agent-command': minor
+---
+
+Make the provider, org-policy, plugin and user-local modules of the framework platform-neutral. They no longer reach for the process environment, the process streams or the file system; each takes what it needs from its caller, and an absent one means the capability is off.
+
+- Provider environment: `$ENV:` references and a definition's default credential variable are read against the `env` the caller passes, which is either a map or a resolver function (`readProviderSettings`, `createProviderFromSettings`, `resolveEnvDefaultProvider`, `resolveActiveProvider`, `validateProviderProfile`, `buildProviderProfile`, `buildProviderSetupPatch`, `checkSettingsDocument`, `buildProviderProfilesSnapshot`, `testProviderProfileCommand`). With none, every reference reads as unset instead of falling back to `process.env`: `resolveEnvDefaultProvider` finds no provider, `readProviderSettings` throws `ProviderConfigError`, and a profile whose credential is an unset reference fails its credential check. A session reads its `environment` option, then `host.env`. `@robota-sdk/agent-cli` always passes its environment snapshot; a host that passed none to the workflows commands gets the unset behaviour.
+- Org policy and settings check: `loadOrgPolicy` and `checkNodeHostSettingsFile` read files, so they moved to `@robota-sdk/agent-framework/node`. `formatOrgPolicyViolationMessage`, `isApiKeyPlaintext` and `checkSettingsDocument` stay on the main entry.
+- Plugins: `fs` is required, with no `NodeFileSystem` default, on `BundlePluginLoader` (third argument, after `enabledPlugins`, which may be `undefined`), `BundlePluginInstaller`, `MarketplaceClient`, `NodeHostPluginSettingsStore`, `createHostBundlePluginLoader`, `loadHostBundlePluginsFromScopes` and `loadHostBundlePluginInspectionFromScopes`, whose options are now required. Each refuses at construction without it, naming `NodeFileSystem`. A registry record refused as outside the plugin root was written to `process.stderr`; it goes to the new `onWarning` option, or the library logger when there is none. `TExecFn` returns `string | Uint8Array` instead of `string | Buffer`. A session whose `pluginDirectories` are set needs `host.files`, and throws at construction without it.
+- User-local: `fsAsync` is required on the memory and storage functions, and `activeRepositoryRoot` must be absolute (a relative one used to be resolved against the process directory). A storage root inside a repository directory whose name starts with two dots is now refused.
+- `@robota-sdk/agent-framework/node` exports `NodeFileSystem` and `NodeFileSystemAsync`.
+- `@robota-sdk/agent-cli`, `@robota-sdk/agent-command`: pass `NodeFileSystem`, `NodeFileSystemAsync` and a stderr `onWarning` where they compose these modules, so their behaviour is unchanged.

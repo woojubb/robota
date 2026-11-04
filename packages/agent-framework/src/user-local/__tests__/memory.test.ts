@@ -4,6 +4,7 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { NodeFileSystemAsync } from '../../adapters/node-file-system.js';
 import {
   deleteUserLocalMemoryItem,
   disableUserLocalMemoryItem,
@@ -13,6 +14,7 @@ import {
   setUserLocalMemoryItem,
 } from '../memory.js';
 
+const fsAsync = new NodeFileSystemAsync();
 const tempRoots: string[] = [];
 const NOW = new Date('2026-05-09T00:00:00.000Z');
 const LATER = new Date('2026-05-09T00:01:00.000Z');
@@ -56,6 +58,7 @@ describe('user-local memory', () => {
 
     const item = await setUserLocalMemoryItem({
       activeRepositoryRoot: repo,
+      fsAsync,
       storageRoot: path.join(home, '.agent'),
       category: 'view-preference',
       key: 'last-panel',
@@ -92,6 +95,7 @@ describe('user-local memory', () => {
 
     await setUserLocalMemoryItem({
       activeRepositoryRoot: repo,
+      fsAsync,
       storageRoot: path.join(home, '.agent'),
       category: 'view-preference',
       key: 'last-panel',
@@ -103,6 +107,7 @@ describe('user-local memory', () => {
 
     const list = await listUserLocalMemoryItems({
       activeRepositoryRoot: repo,
+      fsAsync,
       storageRoot: path.join(home, '.agent'),
     });
     expect(list.items.map((item) => `${item.category}/${item.key}`)).toEqual([
@@ -111,6 +116,7 @@ describe('user-local memory', () => {
 
     const inspected = await inspectUserLocalMemoryItem({
       activeRepositoryRoot: repo,
+      fsAsync,
       storageRoot: path.join(home, '.agent'),
       category: 'view-preference',
       key: 'last-panel',
@@ -119,6 +125,7 @@ describe('user-local memory', () => {
 
     const disabled = await disableUserLocalMemoryItem({
       activeRepositoryRoot: repo,
+      fsAsync,
       storageRoot: path.join(home, '.agent'),
       category: 'view-preference',
       key: 'last-panel',
@@ -129,6 +136,7 @@ describe('user-local memory', () => {
 
     const enabledRead = await readEnabledUserLocalMemoryItem({
       activeRepositoryRoot: repo,
+      fsAsync,
       storageRoot: path.join(home, '.agent'),
       category: 'view-preference',
       key: 'last-panel',
@@ -141,6 +149,7 @@ describe('user-local memory', () => {
 
     await setUserLocalMemoryItem({
       activeRepositoryRoot: repo,
+      fsAsync,
       storageRoot: path.join(home, '.agent'),
       category: 'view-preference',
       key: 'last-panel',
@@ -153,6 +162,7 @@ describe('user-local memory', () => {
     await expect(
       deleteUserLocalMemoryItem({
         activeRepositoryRoot: repo,
+        fsAsync,
         storageRoot: path.join(home, '.agent'),
         category: 'view-preference',
         key: 'last-panel',
@@ -166,6 +176,7 @@ describe('user-local memory', () => {
     await expect(
       inspectUserLocalMemoryItem({
         activeRepositoryRoot: repo,
+        fsAsync,
         storageRoot: path.join(home, '.agent'),
         category: 'view-preference',
         key: 'last-panel',
@@ -178,6 +189,7 @@ describe('user-local memory', () => {
 
     const item = await setUserLocalMemoryItem({
       activeRepositoryRoot: repo,
+      fsAsync,
       storageRoot: path.join(home, '.agent'),
       category: 'display-preference',
       key: 'compact-mode',
@@ -199,6 +211,7 @@ describe('user-local memory', () => {
     await expect(
       setUserLocalMemoryItem({
         activeRepositoryRoot: repo,
+        fsAsync,
         storageRoot: path.join(repo, '.agent'),
         category: 'view-preference',
         key: 'last-panel',

@@ -1,4 +1,5 @@
 import { inspectUserLocalStorage } from '@robota-sdk/agent-framework';
+import { NodeFileSystemAsync } from '@robota-sdk/agent-framework/node';
 
 import { USER_LOCAL_COMMAND_USAGE } from './user-local-command-constants.js';
 import { executeMemoryCommand } from './user-local-memory-command.js';
@@ -134,7 +135,11 @@ async function executeStorageCommand(
     };
   }
 
-  const inspection = await inspectUserLocalStorage({ activeRepositoryRoot: cwd, storageRoot });
+  const inspection = await inspectUserLocalStorage({
+    activeRepositoryRoot: cwd,
+    storageRoot,
+    fsAsync: new NodeFileSystemAsync(),
+  });
   return {
     message:
       parsed.format === 'json'

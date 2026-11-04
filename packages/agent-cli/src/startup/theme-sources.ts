@@ -23,6 +23,7 @@ import {
   createNodeHostContributionSource,
   loadHostBundlePluginsFromScopes,
 } from '@robota-sdk/agent-framework';
+import { NodeFileSystem } from '@robota-sdk/agent-framework/node';
 import {
   escapeThemeText,
   parseThemeDocument,
@@ -174,6 +175,7 @@ function installedPlugins(
   try {
     return loadHostBundlePluginsFromScopes(scopes, {
       settingsPath: productUserSettingsPath(runtime),
+      fs: new NodeFileSystem(),
     }).map((plugin) => ({
       name: plugin.manifest.name,
       pluginDir: plugin.pluginDir,

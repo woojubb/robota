@@ -26,7 +26,11 @@ import { injectSavedMessage } from './interactive-session-restore.js';
 import { deriveContextCapacityHint } from '../assembly/context-capacity-hint.js';
 import { createSession } from '../assembly/index.js';
 import { loadHostBundlePluginsFromScopes } from '../plugins/index.js';
-import { sessionPluginDirectories, sessionPluginSettingsPath } from './session-plugin-skills.js';
+import {
+  requireSessionPluginFiles,
+  sessionPluginDirectories,
+  sessionPluginSettingsPath,
+} from './session-plugin-skills.js';
 import {
   mergePluginHooksWithSources,
   mergeHooksIntoConfig,
@@ -107,10 +111,12 @@ export async function createInteractiveSession(
   // disabled" — indistinguishable from a user who disabled nothing. `pluginsDirs` stays a local
   // because the failure log below names it.
   const pluginSettingsPath = sessionPluginSettingsPath(options);
-  if (pluginSettingsPath !== undefined) {
+  if (pluginSettingsPath !== undefined && pluginsDirs.length > 0) {
+    const fs = requireSessionPluginFiles(options.host.files?.sync);
     try {
       const plugins = loadHostBundlePluginsFromScopes(pluginsDirs, {
         settingsPath: pluginSettingsPath,
+        fs,
       });
       if (plugins.length > 0) {
         const pluginHooks = mergePluginHooksWithSources(plugins);

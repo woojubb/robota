@@ -5,6 +5,10 @@ import { expect, it } from 'vitest';
 import { describeBundleContribution } from '../../contributions/bundle-contribution-descriptor.js';
 import { BundlePluginLoader } from '../bundle-plugin-loader.js';
 
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
+
+const nodeFs = new NodeFileSystem();
+
 it('describes installed source identity without inventing a foreign manifest version or granting authority', () => {
   const root = mkdtempSync(join(tmpdir(), 'bundle-descriptor-'));
   try {
@@ -25,7 +29,7 @@ it('describes installed source identity without inventing a foreign manifest ver
         mcpServers: { observe: { command: 'fixture', env: { SECRET: 'private-value' } } },
       }),
     );
-    const descriptor = new BundlePluginLoader(root).inspectPluginsSync().loaded[0]?.descriptor;
+    const descriptor = new BundlePluginLoader(root, undefined, nodeFs).inspectPluginsSync().loaded[0]?.descriptor;
     expect(descriptor).toMatchObject({
       schemaVersion: 1,
       identity: 'installed-name@market',

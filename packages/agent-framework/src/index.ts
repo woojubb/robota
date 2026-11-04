@@ -210,7 +210,6 @@ export type {} from './capabilities/types.js';
 export type { IOrgPolicy } from './command-api/org-policy/index.js';
 export type { ICommandCostBudget, ICommandCostBudgetAdapter } from './command-api/index.js';
 export {
-  loadOrgPolicy,
   formatOrgPolicyViolationMessage,
   isApiKeyPlaintext,
   OrgPolicyParseError,
@@ -327,7 +326,6 @@ export {
   buildProviderProfile,
   buildProviderSetupPatch,
   checkSettingsDocument,
-  checkNodeHostSettingsFile,
   applyProviderConfiguration,
   applyProviderSwitch,
   applyActiveModelChange,

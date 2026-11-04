@@ -60,7 +60,14 @@ function createExecutor(
   adapter: IProviderCommandSettingsAdapter,
   orgPolicy?: IOrgPolicy,
 ): SystemCommandExecutor {
-  const module = createProviderCommandModule({ providerDefinitions, settings: adapter, orgPolicy });
+  // The host's environment: these cases stub variables in `process.env`, and a command module that is
+  // handed no environment reads every reference as unset.
+  const module = createProviderCommandModule({
+    providerDefinitions,
+    settings: adapter,
+    orgPolicy,
+    env: process.env,
+  });
   return new SystemCommandExecutor([...(module.systemCommands ?? [])]);
 }
 

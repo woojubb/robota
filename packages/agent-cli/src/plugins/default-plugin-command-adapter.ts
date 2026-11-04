@@ -7,6 +7,7 @@ import {
   MarketplaceClient,
   NodeHostPluginSettingsStore,
 } from '@robota-sdk/agent-framework';
+import { NodeFileSystem } from '@robota-sdk/agent-framework/node';
 
 // `BundlePluginLoader` is now a TYPE here and nothing more: this module names it in
 // `IPluginServices` but no longer constructs one — the composition root does (PLG-021).
@@ -36,6 +37,7 @@ interface IPluginServices {
    */
   createLoader: () => BundlePluginLoader;
   settingsStore: NodeHostPluginSettingsStore;
+  fs: NodeFileSystem;
   gitExec: (file: string, args: readonly string[], options: { timeout: number; stdio?: string }) => Buffer;
 }
 
@@ -98,18 +100,26 @@ export function runGit(
   });
 }
 
+/** A refused registry record is said on the terminal's error stream, as the plugin code once wrote it itself. */
+function writeWarning(message: string): void {
+  process.stderr.write(`${message}\n`);
+}
+
 function createPluginServices(cwd: string, runtime: ICliRuntimeContext): IPluginServices {
   const pluginsDir = productPluginDirectories(cwd, runtime).user;
   const userSettingsPath = runtime.layout.userPaths.settings;
 
-  const settingsStore = new NodeHostPluginSettingsStore(userSettingsPath);
+  const fs = new NodeFileSystem();
+  const settingsStore = new NodeHostPluginSettingsStore(userSettingsPath, fs);
   const gitExec: IPluginServices['gitExec'] = (file, args, options) => runGit(file, args, options, runtime.environment);
-  const marketplace = new MarketplaceClient({ pluginsDir, exec: gitExec });
+  const marketplace = new MarketplaceClient({ pluginsDir, exec: gitExec, fs, onWarning: writeWarning });
   const installer = new BundlePluginInstaller({
     pluginsDir,
     settingsStore,
     marketplaceClient: marketplace,
     exec: gitExec,
+    fs,
+    onWarning: writeWarning,
   });
   // PLG-021 / issue #2025: the enablement state was never unreachable here — `settingsStore` is
   // built above and knows exactly which plugins the user disabled. It simply was not passed, and
@@ -119,6 +129,7 @@ function createPluginServices(cwd: string, runtime: ICliRuntimeContext): IPlugin
     createHostBundlePluginLoader({
       pluginsDir,
       enabledPlugins: settingsStore.getEnabledPlugins(),
+      fs,
     });
 
   return {
@@ -128,6 +139,7 @@ function createPluginServices(cwd: string, runtime: ICliRuntimeContext): IPlugin
     installer,
     createLoader,
     settingsStore,
+    fs,
     gitExec,
   };
 }
@@ -188,6 +200,8 @@ async function installPlugin(
       settingsStore: services.settingsStore,
       marketplaceClient: services.marketplace,
       exec: services.gitExec,
+      fs: services.fs,
+      onWarning: writeWarning,
     });
     await projectInstaller.install(name, marketplaceName);
     return;

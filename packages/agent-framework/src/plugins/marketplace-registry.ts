@@ -5,19 +5,17 @@
  * cleanup of installed plugins when a marketplace is removed.
  */
 
-import { join, dirname } from 'node:path';
+import { createLogger, dirnamePath, joinPath } from '@robota-sdk/agent-core';
 
 import { assertContainedPath, PluginPathContainmentError } from './plugin-paths.js';
-import { NodeFileSystem } from '../adapters/node-file-system.js';
 
-import type { TKnownMarketplacesRegistry } from './marketplace-types.js';
+import type { TKnownMarketplacesRegistry, TPluginWarning } from './marketplace-types.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
 
+const logger = createLogger('MarketplaceRegistry');
+
 /** Read the known_marketplaces.json registry. Returns empty object if missing or corrupt. */
-export function readRegistry(
-  registryPath: string,
-  fs: IFileSystem = new NodeFileSystem(),
-): TKnownMarketplacesRegistry {
+export function readRegistry(registryPath: string, fs: IFileSystem): TKnownMarketplacesRegistry {
   if (!fs.existsSync(registryPath)) {
     return {};
   }
@@ -38,9 +36,9 @@ export function readRegistry(
 export function writeRegistry(
   registryPath: string,
   registry: TKnownMarketplacesRegistry,
-  fs: IFileSystem = new NodeFileSystem(),
+  fs: IFileSystem,
 ): void {
-  const dir = dirname(registryPath);
+  const dir = dirnamePath(registryPath);
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
@@ -50,14 +48,16 @@ export function writeRegistry(
 /**
  * Remove all installed plugins that belong to a given marketplace.
  * Reads installed_plugins.json, deletes cache directories for matching plugins,
- * and updates the registry.
+ * and updates the registry. A record whose install path was refused as outside the plugin root is
+ * reported through `onWarning`, or the library logger when none is given.
  */
 export function removeInstalledPluginsForMarketplace(
   pluginsDir: string,
   marketplaceName: string,
-  fs: IFileSystem = new NodeFileSystem(),
+  fs: IFileSystem,
+  onWarning?: TPluginWarning,
 ): void {
-  const installedPath = join(pluginsDir, 'installed_plugins.json');
+  const installedPath = joinPath(pluginsDir, 'installed_plugins.json');
   if (!fs.existsSync(installedPath)) return;
 
   let registry: Record<string, { marketplace?: string; installPath?: string }>;
@@ -85,7 +85,7 @@ export function removeInstalledPluginsForMarketplace(
           // another marketplace clone — inside the plugins root, outside the cache — and have it
           // recursively deleted. One value, one root.
           assertContainedPath(
-            join(pluginsDir, 'cache'),
+            joinPath(pluginsDir, 'cache'),
             record.installPath,
             'remove a plugin directory',
             fs,
@@ -96,7 +96,7 @@ export function removeInstalledPluginsForMarketplace(
           // EBUSY) must propagate — dropping the registry entry after one would leave the directory
           // on disk with nothing tracking it, which is worse than the failed cleanup.
           if (!(error instanceof PluginPathContainmentError)) throw error;
-          process.stderr.write(`${error.message}\n`);
+          (onWarning ?? ((message) => logger.warn(message)))(error.message);
         }
       }
       delete registry[pluginId];
@@ -105,7 +105,7 @@ export function removeInstalledPluginsForMarketplace(
   }
 
   if (changed) {
-    const dir = dirname(installedPath);
+    const dir = dirnamePath(installedPath);
     if (!fs.existsSync(dir)) {
       fs.mkdirSync(dir, { recursive: true });
     }

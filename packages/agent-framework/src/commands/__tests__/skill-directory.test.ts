@@ -17,6 +17,10 @@ import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICommandHostContext, ICommandModule } from '../index.js';
 
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
+
+const nodeFs = new NodeFileSystem();
+
 const testHost = createTestFrameworkHost();
 
 /** The routing the product's `/skills <name>` command performs. */
@@ -165,7 +169,7 @@ describe('${CLAUDE_SKILL_DIR}', () => {
     writeFileSync(join(pluginDir, 'commands', 'lint.md'), '---\ndescription: Lint\n---\nLint.');
 
     const commands = new PluginCommandSource(
-      new BundlePluginLoader(pluginsDir).loadPluginsSync(),
+      new BundlePluginLoader(pluginsDir, undefined, nodeFs).loadPluginsSync(),
     ).getCommands();
 
     expect(commands.find((c) => c.name === 'audit')?.skillDirectory).toBe(

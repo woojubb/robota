@@ -68,10 +68,7 @@ export {
   probeProviderProfile,
   testProviderProfileCommand,
 } from '../command-api/provider/provider-command-probe.js';
-export {
-  checkSettingsDocument,
-  checkNodeHostSettingsFile,
-} from '../command-api/provider/settings-check.js';
+export { checkSettingsDocument } from '../command-api/provider/settings-check.js';
 export type { TSettingsCheck } from '../command-api/provider/settings-check.js';
 export {
   applyProviderConfiguration,

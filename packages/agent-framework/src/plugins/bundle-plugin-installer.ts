@@ -5,21 +5,26 @@
  * cache directory, and tracks installations in `installed_plugins.json`.
  */
 
-import { join } from 'node:path';
+import { createLogger, joinPath } from '@robota-sdk/agent-core';
 
 import {
   readInstalledPluginsRegistry,
   writeInstalledPluginsRegistry,
 } from './installed-plugins-registry.js';
+import { requirePluginFileSystem } from './plugin-file-system.js';
 import {
   assertContainedPath,
   PluginPathContainmentError,
   assertSafePluginSegment,
   resolveContainedRelative,
 } from './plugin-paths.js';
-import { NodeFileSystem } from '../adapters/node-file-system.js';
 
-import type { MarketplaceClient, IMarketplacePluginEntry, TExecFn } from './marketplace-client.js';
+import type {
+  MarketplaceClient,
+  IMarketplacePluginEntry,
+  TExecFn,
+  TPluginWarning,
+} from './marketplace-client.js';
 import type { NodeHostPluginSettingsStore } from './plugin-settings-store.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
 import type {
@@ -42,9 +47,13 @@ export interface IBundlePluginInstallerOptions {
   marketplaceClient: MarketplaceClient;
   /** Shell exec adapter — must be provided at composition root (e.g., execSync). */
   exec: TExecFn;
-  /** File system adapter for testability. */
-  fs?: IFileSystem;
+  /** The files the plugins directory is read and written through. No default: the host names them. */
+  fs: IFileSystem;
+  /** Where a refused registry record is reported while a plugin is uninstalled. */
+  onWarning?: TPluginWarning;
 }
+
+const logger = createLogger('BundlePluginInstaller');
 
 /** Default git clone timeout in milliseconds (60 seconds). */
 const GIT_CLONE_TIMEOUT_MS = 60_000;
@@ -58,15 +67,17 @@ export class BundlePluginInstaller {
   private readonly marketplaceClient: MarketplaceClient;
   private readonly exec: TExecFn;
   private readonly fs: IFileSystem;
+  private readonly onWarning: TPluginWarning | undefined;
 
   constructor(options: IBundlePluginInstallerOptions) {
     this.pluginsDir = options.pluginsDir;
-    this.cacheDir = join(this.pluginsDir, 'cache');
-    this.registryPath = join(this.pluginsDir, 'installed_plugins.json');
+    this.cacheDir = joinPath(this.pluginsDir, 'cache');
+    this.registryPath = joinPath(this.pluginsDir, 'installed_plugins.json');
     this.settingsStore = options.settingsStore;
     this.marketplaceClient = options.marketplaceClient;
     this.exec = options.exec;
-    this.fs = options.fs ?? new NodeFileSystem();
+    this.fs = requirePluginFileSystem(options.fs, 'BundlePluginInstaller');
+    this.onWarning = options.onWarning;
   }
 
   /**
@@ -96,7 +107,7 @@ export class BundlePluginInstaller {
     assertSafePluginSegment(version, 'plugin version');
 
     // Target directory: cache/<marketplace>/<plugin>/<version>/
-    const targetDir = join(this.cacheDir, marketplaceName, pluginName, version);
+    const targetDir = joinPath(this.cacheDir, marketplaceName, pluginName, version);
     assertContainedPath(this.cacheDir, targetDir, 'install a plugin', this.fs);
 
     if (this.fs.existsSync(targetDir)) {
@@ -153,7 +164,7 @@ export class BundlePluginInstaller {
         // EBUSY) must propagate — dropping the registry entry after one would leave the directory on
         // disk with nothing tracking it, which is worse than the failed uninstall.
         if (!(error instanceof PluginPathContainmentError)) throw error;
-        process.stderr.write(`${error.message}\n`);
+        (this.onWarning ?? ((message) => logger.warn(message)))(error.message);
       }
     }
 

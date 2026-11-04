@@ -38,7 +38,7 @@ export interface IProviderCommandModuleOptions {
   /**
    * The environment a `$ENV:` credential or a definition's default credential variable is checked
    * against. A host that withholds its own credentials from `process.env` (so commands it runs do not
-   * inherit them) passes the snapshot it took first; absent, the live `process.env` is read.
+   * inherit them) passes the snapshot it took first; absent, every reference reads as unset.
    */
   env?: Readonly<Record<string, string | undefined>>;
 }

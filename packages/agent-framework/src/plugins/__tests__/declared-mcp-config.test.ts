@@ -4,6 +4,10 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { BundlePluginLoader } from '../bundle-plugin-loader.js';
 
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
+
+const nodeFs = new NodeFileSystem();
+
 const roots: string[] = [];
 function fixture(declaration: unknown) {
   const root = mkdtempSync(join(tmpdir(), 'declared-mcp-'));
@@ -24,7 +28,7 @@ describe('declared MCP contributions', () => {
     const { root, source } = fixture({
       observe: { command: 'fixture-command', args: ['--observe'] },
     });
-    const inspection = new BundlePluginLoader(root).inspectPluginsSync();
+    const inspection = new BundlePluginLoader(root, undefined, nodeFs).inspectPluginsSync();
     expect(inspection.loaded[0]?.mcpConfig).toEqual({
       mcpServers: { observe: { command: 'fixture-command', args: ['--observe'] } },
     });
@@ -52,7 +56,7 @@ describe('declared MCP contributions', () => {
         remote: { url: 'https://fixture.example.test/mcp' },
       }),
     );
-    const inspection = new BundlePluginLoader(root).inspectPluginsSync();
+    const inspection = new BundlePluginLoader(root, undefined, nodeFs).inspectPluginsSync();
     expect(inspection.loaded[0]?.mcpConfig).toEqual({
       mcpServers: {
         base: { command: 'base-command' },
@@ -76,7 +80,7 @@ describe('declared MCP contributions', () => {
       JSON.stringify({ secret: { command: 'outside-command' } }),
     );
     symlinkSync(join(root, 'outside.json'), join(source, 'escape.json'));
-    const inspection = new BundlePluginLoader(root).inspectPluginsSync();
+    const inspection = new BundlePluginLoader(root, undefined, nodeFs).inspectPluginsSync();
     expect(inspection.loaded).toEqual([]);
     expect(inspection.skipped).toMatchObject([{ reason: 'load-failed' }]);
   });
@@ -86,7 +90,7 @@ it.each(['../outside.json', '/absolute.json', './server.mcpb', 17, null])(
   'reports unsupported declarations %j without including raw config',
   (declaration) => {
     const { root } = fixture(declaration);
-    const inspection = new BundlePluginLoader(root).inspectPluginsSync();
+    const inspection = new BundlePluginLoader(root, undefined, nodeFs).inspectPluginsSync();
     expect(inspection.loaded).toEqual([]);
     expect(inspection.skipped[0]?.detail).toMatch(
       /McpContributionError.*(unsupported-path|invalid-object)/,
@@ -96,7 +100,7 @@ it.each(['../outside.json', '/absolute.json', './server.mcpb', 17, null])(
 
 it('preserves an inline server literally named mcpServers', () => {
   const { root } = fixture({ mcpServers: { command: 'node', args: ['server.mjs'] } });
-  const inspection = new BundlePluginLoader(root).inspectPluginsSync();
+  const inspection = new BundlePluginLoader(root, undefined, nodeFs).inspectPluginsSync();
   expect(inspection.loaded[0]?.mcpConfig).toEqual({
     mcpServers: { mcpServers: { command: 'node', args: ['server.mjs'] } },
   });

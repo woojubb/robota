@@ -4,8 +4,8 @@ import {
   resolveEnvReference,
   normalizeProviderConfig,
 } from '@robota-sdk/agent-core';
-import { processEnvResolver } from '@robota-sdk/agent-core/node';
 
+import { resolveProviderEnvironment } from './provider-environment.js';
 import { validateProviderProfile, type IProviderProfileSettings } from './provider-settings.js';
 
 import type { ICommandResult } from '../command-result.js';
@@ -45,10 +45,11 @@ export async function testProviderProfileCommand(
     ? findProviderDefinition(options.providerDefinitions, profile.type)
     : undefined;
   const probe = definition?.probeProfile ?? probeProviderProfile;
+  const resolveEnvironment = resolveProviderEnvironment(options.env);
   const apiKey =
     profile.apiKey === undefined
       ? undefined
-      : resolveEnvReference(profile.apiKey, (name) => (options.env ?? process.env)[name]);
+      : resolveEnvReference(profile.apiKey, resolveEnvironment);
   let resolvedProfile = { ...profile, ...(apiKey === undefined ? {} : { apiKey }) };
   if (profile.apiKeyRef !== undefined) {
     if (options.resolveCredential === undefined)
@@ -66,7 +67,7 @@ export async function testProviderProfileCommand(
             baseURL: profile.baseURL,
           },
           options.providerDefinitions,
-          processEnvResolver,
+          resolveEnvironment,
         ),
       );
       resolvedProfile = { ...profile, apiKey: resolved.apiKey };

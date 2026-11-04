@@ -11,6 +11,10 @@ import { commandToCapabilityDescriptor } from '../../commands/capability-descrip
 
 import type { IBundlePluginManifest, TEnabledPlugins } from '../bundle-plugin-types.js';
 
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
+
+const nodeFs = new NodeFileSystem();
+
 const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-bundle-plugin-test-')));
 
 function setupDir(path: string): void {
@@ -94,7 +98,7 @@ describe('BundlePluginLoader', () => {
     };
     createPluginInCache(pluginsDir, 'test-market', 'test-plugin', '1.0.0', manifest);
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -127,7 +131,7 @@ describe('BundlePluginLoader', () => {
         installedAt: 'fixture',
       },
     });
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -155,7 +159,7 @@ Say hello to the user.
       skills: [{ name: 'greet', content: skillContent }],
     });
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -183,7 +187,7 @@ Content here.
       skills: [{ name: 'tagged-skill', content: skillContent }],
     });
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins[0].skills[0].tags).toEqual(['alpha', 'beta']);
@@ -205,7 +209,7 @@ Content here.
       ],
     });
 
-    const plugin = (await new BundlePluginLoader(pluginsDir).loadAll())[0]!;
+    const plugin = (await new BundlePluginLoader(pluginsDir, undefined, nodeFs).loadAll())[0]!;
     const command = new PluginCommandSource([plugin]).getCommands()[0]!;
     expect(plugin.skills[0]?.disableModelInvocation).toBe(true);
     expect(command.disableModelInvocation).toBe(true);
@@ -229,7 +233,7 @@ Content here.
       ],
     });
 
-    const plugin = (await new BundlePluginLoader(pluginsDir).loadAll())[0]!;
+    const plugin = (await new BundlePluginLoader(pluginsDir, undefined, nodeFs).loadAll())[0]!;
     const command = new PluginCommandSource([plugin]).getCommands()[0]!;
     expect(command).toMatchObject({
       name: 'command-plugin:review',
@@ -259,7 +263,7 @@ Content here.
       skills: [{ name: 'safe', content: '---\ndisable-model-invocation: true\n---\nbody' }],
     });
 
-    const inspection = new BundlePluginLoader(pluginsDir).inspectPluginsSync();
+    const inspection = new BundlePluginLoader(pluginsDir, undefined, nodeFs).inspectPluginsSync();
     expect(inspection.loaded.map((plugin) => plugin.manifest.name)).toEqual(['good']);
     expect(inspection.skipped).toEqual([
       expect.objectContaining({
@@ -283,7 +287,7 @@ Content here.
     };
     createPluginInCache(pluginsDir, 'market', 'hook-plugin', '1.0.0', manifest, { hooks });
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -303,7 +307,7 @@ Content here.
       'disabled-plugin@market': false,
     };
 
-    const loader = new BundlePluginLoader(pluginsDir, enabledPlugins);
+    const loader = new BundlePluginLoader(pluginsDir, enabledPlugins, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(0);
@@ -322,7 +326,7 @@ Content here.
       'enabled-plugin@market': true,
     };
 
-    const loader = new BundlePluginLoader(pluginsDir, enabledPlugins);
+    const loader = new BundlePluginLoader(pluginsDir, enabledPlugins, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -342,7 +346,7 @@ Content here.
       'other-plugin@market': false,
     };
 
-    const loader = new BundlePluginLoader(pluginsDir, enabledPlugins);
+    const loader = new BundlePluginLoader(pluginsDir, enabledPlugins, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -357,7 +361,7 @@ Content here.
     };
     createPluginInCache(pluginsDir, 'market', 'minimal-plugin', '0.1.0', manifest);
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -382,7 +386,7 @@ Content here.
       });
     }
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(3);
@@ -404,7 +408,7 @@ Content here.
     setupDir(badDir);
     writeFile(join(badDir, 'README.md'), '# Not a plugin');
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -412,7 +416,7 @@ Content here.
   });
 
   it('should return empty array when cache directory does not exist', async () => {
-    const loader = new BundlePluginLoader(join(pluginsDir, 'nonexistent'));
+    const loader = new BundlePluginLoader(join(pluginsDir, 'nonexistent'), undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toEqual([]);
@@ -433,7 +437,7 @@ Just content, no frontmatter.
       skills: [{ name: 'simple', content: skillContent }],
     });
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins[0].skills).toHaveLength(1);
@@ -454,7 +458,7 @@ Just content, no frontmatter.
       commands: [{ name: 'plain.md', content: '\n  # Command\nBody' }],
     });
 
-    const plugin = (await new BundlePluginLoader(pluginsDir).loadAll())[0]!;
+    const plugin = (await new BundlePluginLoader(pluginsDir, undefined, nodeFs).loadAll())[0]!;
     expect(plugin.skills[0]?.skillContent).toBe('  # Skill\nBody');
     expect(plugin.commands[0]?.skillContent).toBe('\n  # Command\nBody');
   });
@@ -485,7 +489,7 @@ Just content, no frontmatter.
         features: {},
       });
 
-      const loader = new BundlePluginLoader(pluginsDir);
+      const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
       const plugins = await loader.loadAll();
 
       expect(plugins.map((p) => p.manifest.name)).toEqual(['good-plugin']);
@@ -516,7 +520,7 @@ Just content, no frontmatter.
       mcpServers: { 'my-server': { command: 'node', args: ['server.js'] } },
     });
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -545,7 +549,7 @@ Just content, no frontmatter.
       mcpServers: { 'legacy-server': { command: 'python', args: ['serve.py'] } },
     });
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -569,7 +573,7 @@ Just content, no frontmatter.
 
     writeJson(join(pluginDir, '.mcp.json'), { primary: true });
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -588,7 +592,7 @@ Just content, no frontmatter.
       'name-disabled': false,
     };
 
-    const loader = new BundlePluginLoader(pluginsDir, enabledPlugins);
+    const loader = new BundlePluginLoader(pluginsDir, enabledPlugins, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(0);
@@ -626,7 +630,7 @@ Run the audit.
       ],
     });
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -657,7 +661,7 @@ Content here.
       commands: [{ name: 'my-cmd.md', content: cmdContent }],
     });
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins[0].commands).toHaveLength(1);
@@ -693,7 +697,7 @@ Content.
     writeFile(join(pluginDir, 'commands', 'notes.txt'), 'not a command');
     setupDir(join(pluginDir, 'commands', 'subdir'));
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins[0].commands).toHaveLength(1);

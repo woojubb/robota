@@ -7,6 +7,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { BundlePluginLoader } from '../bundle-plugin-loader.js';
 import { loadHostBundlePluginInspectionFromScopes } from '../host-bundle-plugin-loader.js';
 
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
+
+const nodeFs = new NodeFileSystem();
+
 const roots: string[] = [];
 afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
@@ -39,7 +43,7 @@ const MANIFEST = (name: string) =>
 describe('BundlePluginLoader.inspectPluginsSync (OBSERVABILITY-1991 TC-05)', () => {
   it('reports an absent cache directory without inventing plugins', () => {
     const dir = pluginsDir();
-    const inspection = new BundlePluginLoader(dir).inspectPluginsSync();
+    const inspection = new BundlePluginLoader(dir, undefined, nodeFs).inspectPluginsSync();
     expect(inspection.cacheDirPresent).toBe(false);
     expect(inspection.loaded).toEqual([]);
     expect(inspection.skipped).toEqual([]);
@@ -52,7 +56,7 @@ describe('BundlePluginLoader.inspectPluginsSync (OBSERVABILITY-1991 TC-05)', () 
     install(dir, 'good', { '.claude-plugin/plugin.json': MANIFEST('good') });
     install(dir, 'off', { '.claude-plugin/plugin.json': MANIFEST('off') });
 
-    const loader = new BundlePluginLoader(dir, { 'off@fixture-market': false });
+    const loader = new BundlePluginLoader(dir, { 'off@fixture-market': false }, nodeFs);
     const inspection = loader.inspectPluginsSync();
     expect(inspection.loaded.map((plugin) => plugin.manifest.name)).toEqual(['good']);
     expect(inspection.skipped).toEqual([
@@ -85,7 +89,7 @@ describe('BundlePluginLoader.inspectPluginsSync (OBSERVABILITY-1991 TC-05)', () 
         PreToolUse: [{ matcher: '*', hooks: [{ type: 'command' }] }],
       }),
     });
-    const inspection = new BundlePluginLoader(dir).inspectPluginsSync();
+    const inspection = new BundlePluginLoader(dir, undefined, nodeFs).inspectPluginsSync();
     expect(inspection.loaded).toHaveLength(1);
     expect(inspection.mcpServers).toEqual([
       {
@@ -125,6 +129,7 @@ describe('BundlePluginLoader.inspectPluginsSync (OBSERVABILITY-1991 TC-05)', () 
     install(user, 'dup', { '.claude-plugin/plugin.json': MANIFEST('dup') });
     const inspections = loadHostBundlePluginInspectionFromScopes([project, user], {
       enabledPlugins: {},
+      fs: nodeFs,
     });
     expect(inspections.map((inspection) => inspection.pluginsDir)).toEqual([project, user]);
     expect(inspections.map((inspection) => inspection.loaded.length)).toEqual([1, 1]);

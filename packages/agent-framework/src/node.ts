@@ -68,3 +68,10 @@ export function createNodeFrameworkHost(options: ICreateNodeFrameworkHostOptions
     supportsProjectMutation: supportsWorkspaceProjectMutation(),
   };
 }
+
+// Providers, plugins and user-local (#3693, providers-plugins lane): the Node-only parts of files that
+// are otherwise neutral. The neutral modules take the file system as a required parameter; this is
+// the adapter a Node composition root passes.
+export { NodeFileSystem, NodeFileSystemAsync } from './adapters/node-file-system.js';
+export { loadOrgPolicy } from './command-api/org-policy/org-policy-loader.js';
+export { checkNodeHostSettingsFile } from './command-api/provider/node-host-settings-check.js';

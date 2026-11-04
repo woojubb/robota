@@ -14,6 +14,7 @@ import { resolveActiveProvider } from '../command-api/provider/provider-merge.js
 import { FallbackProvider } from './fallback-provider.js';
 
 import type { IFallbackModelTarget, IFallbackProviderOptions } from './fallback-provider.js';
+import type { TProviderEnvironment } from '../command-api/provider/provider-environment.js';
 import type { TProviderSettingsDocument } from '../command-api/provider/provider-settings.js';
 import type {
   IAIProvider,
@@ -44,7 +45,7 @@ export interface IResolveModelFallbackChainInput {
   primary: IModelFallbackPrimary;
   providerDefinitions: readonly IProviderDefinition[];
   /** Host-selected environment for lazy profile credential resolution. */
-  environment?: Readonly<Record<string, string | undefined>>;
+  environment?: TProviderEnvironment;
   resolveCredential?: TProviderCredentialResolver;
   /** The organization's provider allowlist, by profile name. */
   allowedProviders?: readonly string[];

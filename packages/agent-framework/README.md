@@ -395,6 +395,13 @@ that supports snapshots, `shutdown()` stores the sandbox snapshot ID, and resumi
 | Settings                    | `readSettings`, `writeSettings`, `inspectSettingsLayers`, `createNodeHostSettingsSource`              |
 | Self-hosting verification   | `planSelfHostingVerification`, `transitionSelfHostingLoop`                                            |
 
+The plugin classes (`BundlePluginLoader`, `BundlePluginInstaller`, `MarketplaceClient`,
+`NodeHostPluginSettingsStore`) and the user-local memory and storage functions take the file system
+as a required parameter (`fs`, `fsAsync`) and have no default; on Node pass `NodeFileSystem` or
+`NodeFileSystemAsync` from `@robota-sdk/agent-framework/node`, which also exports `loadOrgPolicy` and
+`checkNodeHostSettingsFile`. A plugin registry record refused as outside the plugin root is reported
+through the `onWarning` option, or the library logger when there is none.
+
 Bundle plugins use the Claude Code plugin layout: a directory with `.claude-plugin/plugin.json`
 (`name` is required; `version` and `description` are optional) that can contribute skills,
 commands, hooks, MCP server configuration and agent definitions. The loader selects the source
@@ -447,7 +454,7 @@ their separate lifecycle implementation.
 ## Settings
 
 Settings are JSON files merged in the order the host gives them, later layers winning.
-`$ENV:NAME` values in provider credentials are replaced with the environment variable. The configured
+`$ENV:NAME` values in provider credentials are replaced with that variable from the environment the host passes (`env` on the provider helpers, `host.env` for a session); with none, every reference reads as unset and the provider's credential error is the answer. The configured
 CLI reads `$PRODUCT_USER_STATE_DIR/settings.json`, `~/.claude/settings.json`, `$PRODUCT_PROJECT_STATE_DIR/settings.json`,
 `$PRODUCT_PROJECT_STATE_DIR/settings.local.json`, `.claude/settings.json` and `.claude/settings.local.json`, in that
 order; project files are read only in a trusted project.

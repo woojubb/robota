@@ -1,9 +1,5 @@
 export type { IOrgPolicy } from './org-policy/index.js';
-export {
-  loadOrgPolicy,
-  formatOrgPolicyViolationMessage,
-  isApiKeyPlaintext,
-} from './org-policy/index.js';
+export { formatOrgPolicyViolationMessage, isApiKeyPlaintext } from './org-policy/index.js';
 export type { ICommand, ICommandSource } from './types.js';
 export type { ICommandModule, TCommandModuleSessionRequirement } from './command-module.js';
 export { DuplicateSystemCommandSemanticRoleError } from './contracts.js';
@@ -168,7 +164,7 @@ export {
   probeProviderProfile,
   testProviderProfileCommand,
 } from './provider/provider-command-probe.js';
-export { checkSettingsDocument, checkNodeHostSettingsFile } from './provider/settings-check.js';
+export { checkSettingsDocument } from './provider/settings-check.js';
 export type { TSettingsCheck } from './provider/settings-check.js';
 export {
   applyProviderConfiguration,

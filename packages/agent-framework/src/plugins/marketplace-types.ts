@@ -2,6 +2,8 @@
  * Shared types for marketplace client and registry.
  */
 
+import type { IFileSystem } from '@robota-sdk/agent-core';
+
 /** Source specification for a marketplace. */
 export type TMarketplaceSource =
   | { type: 'github'; repo: string; ref?: string }
@@ -55,7 +57,15 @@ export type TExecFn = (
   file: string,
   args: readonly string[],
   options: { timeout: number; stdio?: string },
-) => string | Buffer;
+) => string | Uint8Array;
+
+/**
+ * Receives a warning the plugin code would otherwise have nowhere to say: a registry entry whose
+ * recorded install path was refused as outside the plugin root. The library does not write to a
+ * stream of its own; a host passes the sink it wants, and absent one the library logger takes it
+ * (silent unless the host installed a logger sink).
+ */
+export type TPluginWarning = (message: string) => void;
 
 /** Options for constructing a MarketplaceClient. */
 export interface IMarketplaceClientOptions {
@@ -63,4 +73,8 @@ export interface IMarketplaceClientOptions {
   pluginsDir: string;
   /** Argv process adapter — must be provided at composition root (e.g., execFileSync). */
   exec: TExecFn;
+  /** The files the plugins directory is read and written through. No default: the host names them. */
+  fs: IFileSystem;
+  /** Where a refused registry entry is reported while a marketplace is removed. */
+  onWarning?: TPluginWarning;
 }
