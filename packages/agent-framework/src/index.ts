@@ -1027,6 +1027,8 @@ export {
   SESSION_STILL_CLOSING_MESSAGE,
   SessionChangeRefusal,
   SessionDeleteRefusal,
+  claimChangeRefusal,
+  claimDeleteRefusal,
   claimedSessionMessage,
   claimRefusalMessage,
 } from './runtime/index.js';

@@ -13,7 +13,8 @@ import {
   SessionAuthorshipRefusedError,
   SessionChangeRefusal,
   SessionDeleteRefusal,
-  claimRefusalMessage,
+  claimChangeRefusal,
+  claimDeleteRefusal,
   isSessionBusy,
   listResumableSessionSummaries,
   listResumableSessions,
@@ -334,11 +335,9 @@ export function createServeSessionDirectory<
         try {
           persistSessionRename(target.store, sessionId, name);
         } catch (error) {
-          // A writer this pool does not run — another process, a subagent the record is lent to —
-          // refuses the write itself, in words that name it.
-          const words = claimRefusalMessage(error);
-          if (words === undefined) throw error;
-          throw new SessionChangeRefusal('has_writer', words);
+          // A writer this pool does not run — another process, a subagent the record is lent to, or a
+          // session of this process still closing — refuses the write itself, in words that name it.
+          throw claimChangeRefusal(error) ?? error;
         }
       },
       async deleteSession(sessionId) {
@@ -406,9 +405,7 @@ export function createServeSessionDirectory<
         try {
           target.store.delete(sessionId);
         } catch (error) {
-          const words = claimRefusalMessage(error);
-          if (words === undefined) throw error;
-          throw new SessionDeleteRefusal('has_writer', words);
+          throw claimDeleteRefusal(error) ?? error;
         }
       },
     };

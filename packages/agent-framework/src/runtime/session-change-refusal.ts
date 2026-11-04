@@ -61,3 +61,30 @@ export class SessionDeleteRefusal extends Error implements ISessionDeleteRefusal
     super(message);
   }
 }
+
+/**
+ * The change refusal a client is given when the store refused a session's claim or write, or
+ * `undefined` for any other error. A session of that id in this process that is shutting down is the
+ * one writer a client can wait out, so it is `still_closing`; any other holder runs on and is
+ * `has_writer`, named in the store's words.
+ */
+export function claimChangeRefusal(error: unknown): SessionChangeRefusal | undefined {
+  if (!isSessionClaimedError(error)) return undefined;
+  return new SessionChangeRefusal(
+    error.closing ? 'still_closing' : 'has_writer',
+    claimedSessionMessage(error),
+  );
+}
+
+/**
+ * {@link claimChangeRefusal} for a delete: the session still closing here is `running`, the nearest
+ * delete code, since a delete has no `still_closing`.
+ */
+export function claimDeleteRefusal(error: unknown): SessionDeleteRefusal | undefined {
+  const refusal = claimChangeRefusal(error);
+  if (refusal === undefined) return undefined;
+  return new SessionDeleteRefusal(
+    refusal.code === 'still_closing' ? 'running' : 'has_writer',
+    refusal.message,
+  );
+}

@@ -900,6 +900,29 @@ describe('serve session directory (#3189)', () => {
         expect(store.load('b')).toMatchObject({ status: 'valid', record: { id: 'b' } });
       });
 
+      it('tells a client to come back, not that another writer holds it, while a session of this process is still closing', async () => {
+        const { store } = realStore();
+        // A session of `b` in this process that has left the pool's live list but not yet let its
+        // claim go: the one writer a client can simply wait out.
+        const closing = store.claim('b');
+        const { directory } = served(fakeSession('a'), store);
+        const binding = directory.bind('drive');
+
+        const rename = await binding.directory.renameSession('b', 'renamed').then(
+          () => undefined,
+          (reason: unknown) => reason,
+        );
+        expect(rename).toMatchObject({ name: 'SessionChangeRefusal', code: 'still_closing' });
+
+        const deletion = await refusalOfDelete(binding.directory.deleteSession('b'));
+        expect(deletion).toMatchObject({ name: 'SessionDeleteRefusal', code: 'running' });
+        expect((deletion as Error).message).toBe((rename as Error).message);
+
+        closing.release();
+        await binding.directory.deleteSession('b');
+        expect(store.load('b')).toEqual({ status: 'missing' });
+      });
+
       it('names the child of a lent fork the same way, and lets go once the lease ends', async () => {
         const { store, claims } = realStore();
         const lease = store.lend('b');

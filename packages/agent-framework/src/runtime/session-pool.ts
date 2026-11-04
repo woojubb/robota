@@ -17,9 +17,8 @@
  */
 
 import { isTerminalBackgroundTaskStatus } from '@robota-sdk/agent-executor';
-import { isSessionClaimedError } from '@robota-sdk/agent-session';
 
-import { SessionChangeRefusal, claimedSessionMessage } from './session-change-refusal.js';
+import { SessionChangeRefusal, claimChangeRefusal } from './session-change-refusal.js';
 import { SessionSlot, shutdownSessionBounded } from './session-slot.js';
 
 import type {
@@ -491,13 +490,9 @@ async function whenInitialized(session: unknown): Promise<void> {
 }
 
 function startFailed(error: unknown): SessionChangeRefusal {
-  if (isSessionClaimedError(error)) {
-    // A session of that id in this process that is shutting down is the one writer the client can wait
-    // out. Any other holder, a lent fork's subagent included, runs on, and is named in the store's words.
-    return error.closing
-      ? new SessionChangeRefusal('still_closing', claimedSessionMessage(error))
-      : new SessionChangeRefusal('has_writer', claimedSessionMessage(error));
-  }
+  // A lent fork's subagent is among the holders that run on, named in the store's words.
+  const refused = claimChangeRefusal(error);
+  if (refused !== undefined) return refused;
   const reason = error instanceof Error ? error.message : String(error);
   return new SessionChangeRefusal('start_failed', `The session could not be started: ${reason}`);
 }
