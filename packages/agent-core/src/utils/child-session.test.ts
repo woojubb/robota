@@ -256,6 +256,8 @@ function runBoth(
           stdoutLength: stdout.length,
           code: error?.code ?? null,
           killed: error?.killed ?? null,
+          // The returned child's own flag, which a signal sent through `child.kill` sets.
+          childKilled: child.killed,
           signal: error?.signal ?? null,
           name: error?.name ?? null,
         }),
@@ -293,7 +295,7 @@ describe.skipIf(!POSIX)('execFile in a child session', () => {
       file: '/bin/sh',
       args: ['-c', 'sleep 5'],
       options: { timeout: 200 },
-      pick: ['code', 'killed', 'signal'],
+      pick: ['code', 'killed', 'signal', 'childKilled'],
     },
     {
       // `execFile` keeps what fits under `maxBuffer` and drops the rest.
@@ -301,7 +303,7 @@ describe.skipIf(!POSIX)('execFile in a child session', () => {
       file: '/bin/sh',
       args: ['-c', 'head -c 5000 /dev/zero | tr "\\0" x'],
       options: { maxBuffer: 100 },
-      pick: ['code', 'stdoutLength'],
+      pick: ['code', 'stdoutLength', 'childKilled'],
     },
     {
       name: 'a missing program',
@@ -316,7 +318,7 @@ describe.skipIf(!POSIX)('execFile in a child session', () => {
       args: ['-c', 'sleep 5'],
       options: {},
       abortAfterMs: 200,
-      pick: ['name'],
+      pick: ['name', 'childKilled'],
     },
   ];
 

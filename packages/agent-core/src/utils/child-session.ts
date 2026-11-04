@@ -157,6 +157,8 @@ export function signalChildGroup(child: ChildProcess, signal: NodeJS.Signals): b
   if (policy().tracked.has(child) && child.pid !== undefined) {
     try {
       process.kill(-child.pid, signal);
+      // `child.kill` sets this when it delivers a signal; a signal sent to the group is the same fact.
+      (child as { killed: boolean }).killed = true;
       return true;
     } catch {
       // allow-fallback: the group ended between the check and the signal; the leader may remain.
