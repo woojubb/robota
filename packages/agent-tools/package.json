@@ -30,6 +30,30 @@
         }
       }
     },
+    "./node": {
+      "source": "./src/node.ts",
+      "browser": null,
+      "node": {
+        "import": {
+          "types": "./dist/node/node.d.ts",
+          "default": "./dist/node/node.js"
+        },
+        "require": {
+          "types": "./dist/node/node.d.cts",
+          "default": "./dist/node/node.cjs"
+        }
+      },
+      "default": {
+        "import": {
+          "types": "./dist/node/node.d.ts",
+          "default": "./dist/node/node.js"
+        },
+        "require": {
+          "types": "./dist/node/node.d.cts",
+          "default": "./dist/node/node.cjs"
+        }
+      }
+    },
     "./package.json": "./package.json"
   },
   "engines": {

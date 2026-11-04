@@ -30,12 +30,19 @@ export interface IPageComputerDriverOptions {
 const DEFAULT_MEDIA_TYPE = 'image/png';
 const DEFAULT_WAIT_MS = 500;
 
+/** Bytes turned into text per `fromCharCode` call: a screenshot is megabytes, and an argument list that long overflows the stack. */
+const BASE64_CHUNK_BYTES = 0x8000;
+
 /** Encode raw screenshot bytes to base64 (accepts the page's `Uint8Array` or an already-encoded string). */
 function encodeScreenshot(bytes: Uint8Array | string): string {
   if (typeof bytes === 'string') {
     return bytes;
   }
-  return Buffer.from(bytes).toString('base64');
+  let binary = '';
+  for (let offset = 0; offset < bytes.length; offset += BASE64_CHUNK_BYTES) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + BASE64_CHUNK_BYTES));
+  }
+  return btoa(binary);
 }
 
 export class PageComputerDriver implements IComputerDriver {

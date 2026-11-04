@@ -9,13 +9,29 @@ The tool contract itself (`FunctionTool`, `ToolRegistry`, `AbstractTool`, `ITool
 `@robota-sdk/agent-core`. The ready-made default tool set that sessions use is
 `createDefaultTools()` in `@robota-sdk/agent-tool-defaults`.
 
+## Entries
+
+| Entry                          | Holds                                                                                                                                                                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `@robota-sdk/agent-tools`      | `createFunctionTool`, `createZodFunctionTool`, `createAskUserQuestionTool`, `createToolSearchTool`, the sandbox ports, `E2BSandboxClient`, `InMemorySandboxClient`, `applyWorkspaceManifest`, retrieval and computer use |
+| `@robota-sdk/agent-tools/node` | The shell, file, search and web-fetch tools, the OS sandbox (`OsSandboxClient`, `detectOsSandbox`) and `createNodeWorkspaceHostFiles`                                                                                    |
+
+The main entry takes a host's pieces by injection and has no host default: absent a port, the
+capability is absent. Until the next `@robota-sdk/workflows` release is pinned, the main entry also
+re-exports the eleven Node tool names that the published `@robota-sdk/workflows` 0.0.3 imports from
+it (`createShellTool`, `createBashTool`, `createReadTool`, `ReadByteLimitError`,
+`ReadCancelledError`, `createWriteTool`, `createEditTool`, `createGlobTool`, `createGrepTool`,
+`GrepIsolationError`, `webFetchTool`), so the main entry needs Node today. Import them from
+`@robota-sdk/agent-tools/node`.
+
 ## Installation
 
 ```bash
 npm install @robota-sdk/agent-tools @robota-sdk/agent-core
 ```
 
-`@robota-sdk/agent-core` is a peer dependency. Requires Node.js 22.12 or later.
+`@robota-sdk/agent-core` is a peer dependency. The `@robota-sdk/agent-tools/node` entry requires
+Node.js 22.12 or later.
 
 ## Quick Start
 
@@ -46,7 +62,7 @@ import {
   createReadTool,
   createGlobTool,
   createGrepTool,
-} from '@robota-sdk/agent-tools';
+} from '@robota-sdk/agent-tools/node';
 import { ConversationAgent } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
@@ -74,21 +90,22 @@ Every tool that touches the file system is a factory that takes the root it work
 required). There is no ready-made instance of those tools: an instance created at import time could
 carry no root, and a file tool without a root would have no boundary.
 
-| Export                 | Tool name       | Description                                                              |
-| ---------------------- | --------------- | ------------------------------------------------------------------------ |
-| `createShellTool`      | Shell           | Run a shell command; OS-aware (POSIX `sh`/`bash`, Windows PowerShell)    |
-| `createBashTool`       | Bash            | The same implementation as `Shell` under the name models are used to     |
-| `createReadTool`       | Read            | Read a file with line numbers (`cat -n` style)                           |
-| `createWriteTool`      | Write           | Write a file, creating parent directories                                |
-| `createEditTool`       | Edit            | Replace a specific string in a file                                      |
-| `createGlobTool`       | Glob            | Find files matching a glob pattern                                       |
-| `createGrepTool`       | Grep            | Search file contents with a regular expression                           |
-| `createToolSearchTool` | ToolSearch      | Load the schemas of deferred tools by query or exact name                |
-| `webFetchTool`         | WebFetch        | Fetch a URL and convert HTML to text; points to a site's `llms.txt` index |
-| `askUserQuestionTool`  | AskUserQuestion | Ask the user structured questions (options, multi-select or free text)   |
+| Export                 | Entry   | Tool name       | Description                                                               |
+| ---------------------- | ------- | --------------- | ------------------------------------------------------------------------- |
+| `createShellTool`      | `/node` | Shell           | Run a shell command; OS-aware (POSIX `sh`/`bash`, Windows PowerShell)     |
+| `createBashTool`       | `/node` | Bash            | The same implementation as `Shell` under the name models are used to      |
+| `createReadTool`       | `/node` | Read            | Read a file with line numbers (`cat -n` style)                            |
+| `createWriteTool`      | `/node` | Write           | Write a file, creating parent directories                                 |
+| `createEditTool`       | `/node` | Edit            | Replace a specific string in a file                                       |
+| `createGlobTool`       | `/node` | Glob            | Find files matching a glob pattern                                        |
+| `createGrepTool`       | `/node` | Grep            | Search file contents with a regular expression                            |
+| `createToolSearchTool` | main    | ToolSearch      | Load the schemas of deferred tools by query or exact name                 |
+| `webFetchTool`         | `/node` | WebFetch        | Fetch a URL and convert HTML to text; points to a site's `llms.txt` index |
+| `askUserQuestionTool`  | main    | AskUserQuestion | Ask the user structured questions (options, multi-select or free text)    |
 
 `webFetchTool` and `askUserQuestionTool` are ready-made instances because they touch no file
-system; `createWebFetchTool` and `createAskUserQuestionTool` build configured ones.
+system; `createWebFetchTool` (on `/node`) and `createAskUserQuestionTool` build configured ones.
+`WebFetch` fetches under the egress policy of `@robota-sdk/agent-core/node`.
 
 After an HTML page, `WebFetch` checks once per origin, under the same egress policy, whether the site
 publishes an [llms.txt](https://llmstxt.org/) index, and if so ends its result with a pointer to it.
@@ -117,14 +134,15 @@ sandbox-aware factories (`createShellTool`, `createBashTool`, `createReadTool`, 
 `createEditTool`) accept an optional `sandboxClient`; without one they run on the host, contained by
 `cwd`.
 
-| Client                  | What it is                                                                                                         |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `E2BSandboxClient`      | Adapts an E2B sandbox that your application creates; this package does not depend on E2B                           |
-| `OsSandboxClient`       | Confines shell commands on the host with bubblewrap (Linux, WSL2) or Seatbelt (macOS); file tools stay on the host |
-| `InMemorySandboxClient` | Deterministic client for tests                                                                                     |
+| Client                  | Entry   | What it is                                                                                                         |
+| ----------------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| `E2BSandboxClient`      | main    | Adapts an E2B sandbox that your application creates; this package does not depend on E2B                           |
+| `OsSandboxClient`       | `/node` | Confines shell commands on the host with bubblewrap (Linux, WSL2) or Seatbelt (macOS); file tools stay on the host |
+| `InMemorySandboxClient` | main    | Deterministic client for tests                                                                                     |
 
 ```typescript
-import { E2BSandboxClient, createBashTool, createReadTool } from '@robota-sdk/agent-tools';
+import { E2BSandboxClient } from '@robota-sdk/agent-tools';
+import { createBashTool, createReadTool } from '@robota-sdk/agent-tools/node';
 import type { IE2BSandboxAdapter } from '@robota-sdk/agent-tools';
 
 declare const e2b: IE2BSandboxAdapter; // e.g. `await Sandbox.create()` from the `e2b` package
@@ -148,7 +166,7 @@ must return the requested `sandboxId`, while a checkpoint factory can create a n
 These checks validate adapter results, not cloud attestation or snapshot bytes, and do not terminate
 provider processes that were already running; the execution owner must stop and clean those resources.
 
-`detectOsSandbox()` reports whether an OS sandbox backend is available here; `OsSandboxClient` takes
+`detectOsSandbox()` (on `/node`) reports whether an OS sandbox backend is available here; `OsSandboxClient` takes
 that result and the sandbox settings (writable and unreadable paths, network access, excluded
 commands). `routesFilesThroughSandbox(client)` tells whether a client has its own file system, in
 which case file tools go through it instead of the host.
@@ -178,6 +196,24 @@ The applicator writes inline and local files, creates directories and clones Git
 through `ISandboxClient`. Cloud storage mount entries (S3, GCS, R2, Azure Blob) are part of the
 contract but report `unsupported` until a provider-specific adapter implements mounting.
 
+A `localFile` or `localDir` entry reads the host, and the main entry has no host of its own: pass
+`hostFiles`, an `IWorkspaceHostFiles` (`resolve`, which turns a `src` into a host path, `readText` and
+`readDirectory`). Without it a manifest that names a local entry is refused, before any entry is
+applied, with an error naming `hostFiles`; a manifest with no local entry applies without it. On
+Node, `createNodeWorkspaceHostFiles(root)` from `@robota-sdk/agent-tools/node` is the
+implementation.
+
+```typescript
+import { applyWorkspaceManifest, InMemorySandboxClient } from '@robota-sdk/agent-tools';
+import { createNodeWorkspaceHostFiles } from '@robota-sdk/agent-tools/node';
+
+await applyWorkspaceManifest(
+  new InMemorySandboxClient(),
+  { entries: { 'task.md': { type: 'localFile', src: 'task.md' } } },
+  { hostFiles: createNodeWorkspaceHostFiles(process.cwd()) },
+);
+```
+
 ## Codebase retrieval
 
 `createRetrievalTool({ adapter })` adds a `CodebaseRetrieval` tool that returns the most relevant
@@ -189,18 +225,19 @@ the built-in adapter; `buildRepoMapIndex`, `updateRepoMapIndex`, `serializeRepoM
 
 `createComputerTool({ driver })` returns two tools: `ComputerView` (take a screenshot, read-only) and
 `Computer` (one action: click, type, key press, scroll, drag, wait, or hand control to the user).
-They drive an `IComputerDriver`; `PageComputerDriver` adapts a browser page object. There is no host
-fallback without a driver.
+They drive an `IComputerDriver`; `PageComputerDriver` adapts a browser page object and base64-encodes
+its screenshot bytes without a Node global. There is no host fallback without a driver.
 
 ## Dependencies
 
-| Dependency                  | Kind | Purpose                                              |
-| --------------------------- | ---- | ---------------------------------------------------- |
-| `@robota-sdk/agent-core`    | Peer | Tool contract, `FunctionTool`, schemas, event types  |
-| `@robota-sdk/agent-process` | Prod | Terminating shell process trees on cancel or timeout |
-| `fast-glob`                 | Prod | Glob matching                                        |
-| `p-limit`                   | Prod | Concurrency limit in the Glob tool                   |
-| `zod`                       | Prod | Tool parameter schemas and validation                |
+| Dependency                         | Kind | Purpose                                                        |
+| ---------------------------------- | ---- | -------------------------------------------------------------- |
+| `@robota-sdk/agent-core`           | Peer | Tool contract, `FunctionTool`, schemas, event types            |
+| `@robota-sdk/agent-process`        | Prod | Terminating shell process trees on cancel or timeout (`/node`) |
+| `@robota-sdk/agent-file-authority` | Prod | Atomic rooted writes for Write and Edit (`/node`)              |
+| `fast-glob`                        | Prod | Glob matching (`/node`)                                        |
+| `p-limit`                          | Prod | Concurrency limit in the Glob tool (`/node`)                   |
+| `zod`                              | Prod | Tool parameter schemas and validation                          |
 
 ## Documentation
 

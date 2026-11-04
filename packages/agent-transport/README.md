@@ -17,14 +17,14 @@ Requires Node.js 22.12 or later. The root and `./client` entry points also run i
 
 ## Entry points
 
-| Import path                          | Environment      | What it contains                                                                                                                                                                                                                                                    |
-| ------------------------------------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@robota-sdk/agent-transport`        | browser and Node | Wire message types, runtime decoders, `createSessionMessageHandler`, `createOutboundDelivery`, `SessionResumeBridge`, channel frame codec, peer-message ledger, handoff chunking                                                                                    |
-| `@robota-sdk/agent-transport/client` | browser and Node | Only the wire message types and the runtime decoders (`decodeServerMessage`, `decodeClientMessage`, `decodeFrame`)                                                                                                                                                  |
-| `@robota-sdk/agent-transport/node`   | Node only        | Transport admission (`resolveAdmission`, `mintTransportToken`, `credentialMatches`), OAuth access-token verification (`createAccessTokenVerifier`), the bearer resource-server gate, file transfer, handoff integrity (`sealHandoffRecord`, `verifyHandoffPayload`) |
+| Import path                          | Environment      | What it contains                                                                                                                                                                                                                                                                          |
+| ------------------------------------ | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-transport`        | browser and Node | Wire message types, runtime decoders, `createSessionMessageHandler`, `createOutboundDelivery`, `SessionResumeBridge`, channel frame codec, peer-message ledger, handoff chunking, transport admission (`resolveAdmission`, `mintTransportToken`, `bearerCredential`, `credentialMatches`) |
+| `@robota-sdk/agent-transport/client` | browser and Node | Only the wire message types and the runtime decoders (`decodeServerMessage`, `decodeClientMessage`, `decodeFrame`)                                                                                                                                                                        |
+| `@robota-sdk/agent-transport/node`   | Node only        | OAuth access-token verification (`createAccessTokenVerifier`), the bearer resource-server gate, file transfer, the stdio carrier bridge, handoff integrity (`sealHandoffRecord`, `verifyHandoffPayload`)                                                                                  |
 
-Anything that needs `node:crypto` or the network lives under `./node`, so a browser bundle that imports
-the root or `./client` never pulls in a Node built-in.
+Anything that needs a Node built-in or the network lives under `./node`, so a browser bundle that
+imports the root or `./client` never pulls one in.
 
 ## Usage: bridging a connection to a session
 

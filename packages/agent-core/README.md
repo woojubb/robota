@@ -279,7 +279,7 @@ agent-framework       ← assembles sessions, commands, permissions and hooks
 agent-cli             ← the reference host
 ```
 
-- Built-in tools (Shell, Read, Edit, …): `@robota-sdk/agent-tools`
+- Built-in tools (Shell, Read, Edit, …): `@robota-sdk/agent-tools/node`
 - Ready-made plugins (logging, usage, limits, …): `@robota-sdk/agent-plugin`
 - MCP servers and tools: `@robota-sdk/agent-mcp`
 - Sessions with permissions, hooks and compaction: `@robota-sdk/agent-session`

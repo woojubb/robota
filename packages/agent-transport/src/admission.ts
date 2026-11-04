@@ -2,16 +2,14 @@
  * SEC-008 — the machinery behind the admission decision.
  *
  * The SHAPE of the decision is a contract and lives in `@robota-sdk/agent-interface-transport`; an
- * interface package is inert by rule, and minting and comparing a credential need `node:crypto`. So
- * the types are declared there and produced here, in the package every transport already shares.
+ * interface package is inert by rule, so the types are declared there and produced here, in the
+ * package every transport already shares.
  *
- * Splitting them is not bookkeeping. Putting the crypto in the contract package would have given
- * every consumer of those types a runtime dependency edge on a Node builtin — the same defect
- * CORE-028 removed from another package, reintroduced one package over.
+ * Nothing in here reaches a host: a credential is minted from the platform's secure randomness and
+ * compared as strings, so the module runs unchanged wherever `globalThis.crypto` exists.
  */
 
-import { randomBytes, timingSafeEqual } from 'node:crypto';
-
+import { constantTimeEqual, randomHex } from '@robota-sdk/agent-core';
 import type {
   ITransportAdmission,
   ITransportAdmissionConfig,
@@ -27,7 +25,7 @@ const TOKEN_BYTES = 32;
  * built on it fails to construct instead of binding with a guessable credential.
  */
 export function mintTransportToken(): string {
-  const token = randomBytes(TOKEN_BYTES).toString('hex');
+  const token = randomHex(TOKEN_BYTES);
   if (token.length !== TOKEN_BYTES * 2) {
     throw new Error('transport admission: could not mint a credential of the required length');
   }
@@ -96,10 +94,9 @@ export function resolveAdmission(
 /**
  * Whether a presented credential matches the required one.
  *
- * Compared with `timingSafeEqual` over the raw bytes, so the answer takes the same time whatever the
- * first differing character is. The length check before it is unavoidable — `timingSafeEqual` throws
- * on unequal lengths — and it does leak one bit: whether the presented credential is the right
- * LENGTH.
+ * Compared with `constantTimeEqual`, so the answer takes the same time whatever the first differing
+ * character is. That comparison returns early on unequal lengths, and it does leak one bit: whether
+ * the presented credential is the right LENGTH.
  *
  * For a minted token that costs nothing: the length is fixed at 64 hex characters and published in
  * this file. A host that supplies its own token of some other length leaks that length instead, and
@@ -113,10 +110,7 @@ export function resolveAdmission(
  */
 export function credentialMatches(expected: string, presented: string | undefined): boolean {
   if (presented === undefined) return false;
-  const a = Buffer.from(expected, 'utf8');
-  const b = Buffer.from(presented, 'utf8');
-  if (a.length !== b.length) return false;
-  return timingSafeEqual(a, b);
+  return constantTimeEqual(expected, presented);
 }
 
 /**

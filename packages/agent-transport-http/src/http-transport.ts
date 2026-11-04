@@ -5,7 +5,7 @@
  * while exposing the underlying Hono app via getApp().
  */
 
-import { resolveAdmission } from '@robota-sdk/agent-transport/node';
+import { resolveAdmission } from '@robota-sdk/agent-transport';
 import { Hono } from 'hono';
 
 import { createAgentRoutes } from './routes.js';

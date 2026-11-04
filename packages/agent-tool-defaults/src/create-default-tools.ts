@@ -17,8 +17,8 @@
  * prompt synchronously, and dragging it here would force either a static edge back into this leaf or
  * a second async hop through prompt building. It stays beside its consumer in `agent-framework`.
  */
+import { createAskUserQuestionTool, routesFilesThroughSandbox } from '@robota-sdk/agent-tools';
 import {
-  createAskUserQuestionTool,
   createShellTool,
   createBashTool,
   createReadTool,
@@ -27,8 +27,7 @@ import {
   createGlobTool,
   createGrepTool,
   createWebFetchTool,
-  routesFilesThroughSandbox,
-} from '@robota-sdk/agent-tools';
+} from '@robota-sdk/agent-tools/node';
 
 import type { FunctionTool } from '@robota-sdk/agent-core';
 import type { IEditorFileAccess, ISandboxClient } from '@robota-sdk/agent-tools';

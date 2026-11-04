@@ -1,5 +1,8 @@
-import { HISTORY_PAGE_MAX_BYTES, createSessionMessageHandler } from '@robota-sdk/agent-transport';
-import { resolveAdmission } from '@robota-sdk/agent-transport/node';
+import {
+  HISTORY_PAGE_MAX_BYTES,
+  createSessionMessageHandler,
+  resolveAdmission,
+} from '@robota-sdk/agent-transport';
 import {
   extractDtlsFingerprint,
   extractDtlsFingerprintAttribute,

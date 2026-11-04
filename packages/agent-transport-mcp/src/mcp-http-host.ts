@@ -12,7 +12,7 @@ import {
   bearerCredential,
   credentialMatches,
   mintTransportToken,
-} from '@robota-sdk/agent-transport/node';
+} from '@robota-sdk/agent-transport';
 
 import { McpPendingCalls } from './mcp-pending-calls.js';
 import { createMcpRemoteGate } from './mcp-remote-authorization.js';

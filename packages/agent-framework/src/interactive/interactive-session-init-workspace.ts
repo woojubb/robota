@@ -4,6 +4,7 @@
  */
 
 import { applyWorkspaceManifest } from '@robota-sdk/agent-tools';
+import { createNodeWorkspaceHostFiles } from '@robota-sdk/agent-tools/node';
 
 import type { IInteractiveSessionStandardOptions } from './interactive-session-options.js';
 import type { IInitOptions } from './interactive-session-options.js';
@@ -48,7 +49,9 @@ export async function applyInteractiveWorkspaceManifest(
     throw new Error('workspaceManifest requires sandboxClient.');
   }
   await applyWorkspaceManifest(options.sandboxClient, options.workspaceManifest, {
-    hostRoot: cwd,
+    // The framework is a Node composition root: a manifest's local entries are read from this host,
+    // relative to the session's working directory.
+    hostFiles: createNodeWorkspaceHostFiles(cwd),
     ...(options.sandboxWorkspaceRoot ? { targetRoot: options.sandboxWorkspaceRoot } : {}),
   });
 }

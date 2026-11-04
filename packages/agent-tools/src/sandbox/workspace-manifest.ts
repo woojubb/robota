@@ -1,10 +1,10 @@
-import { readdir, readFile } from 'node:fs/promises';
-import { isAbsolute, join, posix, resolve } from 'node:path';
+import { joinPath } from '@robota-sdk/agent-core';
 
 import { refuseUnenforceableManifestControls } from './manifest-enforceability.js';
 
 import type {
   ISandboxClient,
+  IWorkspaceHostFiles,
   IWorkspaceManifest,
   IWorkspaceManifestAppliedEntry,
   IWorkspaceManifestApplyOptions,
@@ -39,6 +39,9 @@ export async function applyWorkspaceManifest(
   // is claiming ownership of the whole manifest, and this function cannot know what it honoured.
   // Making that claim observable needs a wider apply result and is tracked separately on #2027.
   refuseUnenforceableManifestControls(manifest);
+  // The same fail-closed order for the host: a manifest that needs host files and was given none is
+  // refused before its first entry is applied, so it never leaves a half-built workspace behind.
+  refuseLocalEntriesWithoutHostFiles(manifest, options.hostFiles);
 
   const targetRoot = normalizeSandboxRoot(options.targetRoot ?? DEFAULT_TARGET_ROOT);
   const appliedEntries: IWorkspaceManifestAppliedEntry[] = [];
@@ -47,7 +50,14 @@ export async function applyWorkspaceManifest(
     const path = validateWorkspaceManifestPath(rawPath);
     const targetPath = joinSandboxPath(targetRoot, path);
     appliedEntries.push(
-      await applyManifestEntry(sandboxClient, path, targetPath, targetRoot, entry, options),
+      await applyManifestEntry(
+        sandboxClient,
+        path,
+        targetPath,
+        targetRoot,
+        entry,
+        options.hostFiles,
+      ),
     );
   }
 
@@ -87,7 +97,7 @@ async function applyManifestEntry(
   targetPath: string,
   targetRoot: string,
   entry: TWorkspaceManifestEntry,
-  options: IWorkspaceManifestApplyOptions,
+  hostFiles: IWorkspaceHostFiles | undefined,
 ): Promise<IWorkspaceManifestAppliedEntry> {
   switch (entry.type) {
     case 'file':
@@ -97,10 +107,21 @@ async function applyManifestEntry(
       await createSandboxDirectory(sandboxClient, targetPath);
       return createAppliedEntry(path, entry.type);
     case 'localFile':
-      await copyLocalFile(sandboxClient, entry.src, targetPath, targetRoot, options);
+      await copyLocalFile(
+        sandboxClient,
+        requireHostFiles(hostFiles, path, entry.type),
+        entry.src,
+        targetPath,
+        targetRoot,
+      );
       return createAppliedEntry(path, entry.type);
     case 'localDir':
-      await copyLocalDirectory(sandboxClient, entry.src, targetPath, options);
+      await copyLocalDirectory(
+        sandboxClient,
+        requireHostFiles(hostFiles, path, entry.type),
+        entry.src,
+        targetPath,
+      );
       return createAppliedEntry(path, entry.type);
     case 'gitRepo':
       await cloneGitRepository(sandboxClient, entry, targetPath);
@@ -129,46 +150,78 @@ function createAppliedEntry(
 
 async function copyLocalFile(
   sandboxClient: ISandboxClient,
+  hostFiles: IWorkspaceHostFiles,
   source: string,
   targetPath: string,
   targetRoot: string,
-  options: IWorkspaceManifestApplyOptions,
 ): Promise<void> {
-  const hostSourcePath = resolveHostSourcePath(source, options.hostRoot);
-  const content = await readFile(hostSourcePath, 'utf8');
+  const content = await hostFiles.readText(hostFiles.resolve(source));
   await writeSandboxFile(sandboxClient, targetPath, targetRoot, content);
 }
 
 async function copyLocalDirectory(
   sandboxClient: ISandboxClient,
+  hostFiles: IWorkspaceHostFiles,
   source: string,
   targetPath: string,
-  options: IWorkspaceManifestApplyOptions,
 ): Promise<void> {
-  const hostSourcePath = resolveHostSourcePath(source, options.hostRoot);
-  await copyLocalDirectoryRecursive(sandboxClient, hostSourcePath, targetPath);
+  await copyLocalDirectoryRecursive(
+    sandboxClient,
+    hostFiles,
+    hostFiles.resolve(source),
+    targetPath,
+  );
 }
 
 async function copyLocalDirectoryRecursive(
   sandboxClient: ISandboxClient,
+  hostFiles: IWorkspaceHostFiles,
   sourcePath: string,
   targetPath: string,
 ): Promise<void> {
   await createSandboxDirectory(sandboxClient, targetPath);
-  const entries = await readdir(sourcePath, { withFileTypes: true });
+  const entries = await hostFiles.readDirectory(sourcePath);
 
   for (const entry of entries) {
-    const childSourcePath = join(sourcePath, entry.name);
+    const childSourcePath = joinPath(sourcePath, entry.name);
     const childTargetPath = joinSandboxPath(targetPath, entry.name);
-    if (entry.isDirectory()) {
-      await copyLocalDirectoryRecursive(sandboxClient, childSourcePath, childTargetPath);
+    if (entry.kind === 'directory') {
+      await copyLocalDirectoryRecursive(sandboxClient, hostFiles, childSourcePath, childTargetPath);
       continue;
     }
-    if (entry.isFile()) {
-      const content = await readFile(childSourcePath, 'utf8');
+    if (entry.kind === 'file') {
+      const content = await hostFiles.readText(childSourcePath);
       await sandboxClient.writeFile(childTargetPath, content);
     }
   }
+}
+
+function requireHostFiles(
+  hostFiles: IWorkspaceHostFiles | undefined,
+  path: string,
+  type: 'localFile' | 'localDir',
+): IWorkspaceHostFiles {
+  if (hostFiles === undefined) throw missingHostFilesError(path, type);
+  return hostFiles;
+}
+
+function refuseLocalEntriesWithoutHostFiles(
+  manifest: IWorkspaceManifest,
+  hostFiles: IWorkspaceHostFiles | undefined,
+): void {
+  for (const [path, entry] of Object.entries(manifest.entries)) {
+    if (entry.type === 'localFile' || entry.type === 'localDir') {
+      requireHostFiles(hostFiles, path, entry.type);
+    }
+  }
+}
+
+function missingHostFilesError(path: string, type: 'localFile' | 'localDir'): Error {
+  return new Error(
+    `workspace manifest entry "${path}" is a ${type}, which reads the host's files, and no ` +
+      '`hostFiles` option was given. Pass `hostFiles` (on Node, `createNodeWorkspaceHostFiles` from ' +
+      '`@robota-sdk/agent-tools/node`), or use inline `file` entries.',
+  );
 }
 
 async function cloneGitRepository(
@@ -190,7 +243,7 @@ async function writeSandboxFile(
   targetRoot: string,
   content: string,
 ): Promise<void> {
-  const parentPath = posix.dirname(targetPath);
+  const parentPath = parentSandboxPath(targetPath);
   if (parentPath !== targetRoot) {
     await createSandboxDirectory(sandboxClient, parentPath);
   }
@@ -213,10 +266,6 @@ async function runSandboxCommand(sandboxClient: ISandboxClient, command: string)
   }
 }
 
-function resolveHostSourcePath(source: string, hostRoot: string | undefined): string {
-  return isAbsolute(source) ? resolve(source) : resolve(hostRoot ?? process.cwd(), source);
-}
-
 /**
  * Remove every trailing `/`, by index scan.
  *
@@ -236,6 +285,12 @@ function normalizeSandboxRoot(root: string): string {
     throw new Error('workspace manifest targetRoot must be an absolute sandbox path');
   }
   return normalized.length === 0 ? '/' : normalized;
+}
+
+/** The directory of a normalised absolute sandbox path (`/a/b` → `/a`, `/a` → `/`). */
+function parentSandboxPath(targetPath: string): string {
+  const separator = targetPath.lastIndexOf('/');
+  return separator <= 0 ? '/' : targetPath.slice(0, separator);
 }
 
 function joinSandboxPath(root: string, path: string): string {

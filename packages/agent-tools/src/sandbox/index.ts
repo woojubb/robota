@@ -15,6 +15,8 @@ export type {
   IWorkspaceManifestAppliedEntry,
   IWorkspaceManifestApplyOptions,
   IWorkspaceManifestApplyResult,
+  IWorkspaceHostDirectoryEntry,
+  IWorkspaceHostFiles,
   IWorkspaceManifestAzureBlobMountEntry,
   IWorkspaceManifestDirectoryEntry,
   IWorkspaceManifestFileEntry,
@@ -32,22 +34,3 @@ export type {
 export { describeExecutionContainment, routesFilesThroughSandbox } from './containment.js';
 export type { TExecutionContainment } from './containment.js';
 export { applyWorkspaceManifest, validateWorkspaceManifestPath } from './workspace-manifest.js';
-export {
-  DEFAULT_OS_SANDBOX_SETTINGS,
-  detectOsSandbox,
-  OsSandboxClient,
-} from './os-sandbox-client.js';
-export type {
-  IDetectOsSandboxOptions,
-  IOsSandboxAvailability,
-  IOsSandboxClientOptions,
-  IOsSandboxSettings,
-  IOsSandboxStatus,
-  TOsSandboxBackend,
-} from './os-sandbox-client.js';
-export {
-  bubblewrapArguments,
-  protectedWorkspaceEntries,
-  seatbeltProfile,
-} from './os-sandbox-policy.js';
-export type { IBubblewrapInput, IOsSandboxPolicy } from './os-sandbox-policy.js';

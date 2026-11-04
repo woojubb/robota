@@ -19,8 +19,8 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 
 import { getRequestListener } from '@hono/node-server';
+import { bearerCredential } from '@robota-sdk/agent-transport';
 import {
-  bearerCredential,
   createAccessTokenVerifier,
   createBearerResourceServer,
   describeProtectedResource,

@@ -172,7 +172,8 @@ subagent sessions with their own tools and history, and the `__PRODUCT_CLI_NAME_
   `editTool`, `globTool`, `grepTool`, `shellTool` and `bashTool` are gone from
   `@robota-sdk/agent-tools`; create them with `createReadTool({ cwd })`, `createWriteTool({ cwd })`,
   `createEditTool({ cwd })`, `createGlobTool({ cwd })`, `createGrepTool({ cwd })`,
-  `createShellTool({ cwd })` and `createBashTool({ cwd })`. A tool without a root refuses to run.
+  `createShellTool({ cwd })` and `createBashTool({ cwd })`, imported from
+  `@robota-sdk/agent-tools/node`. A tool without a root refuses to run.
 - **`createDefaultTools()`** is in `@robota-sdk/agent-tool-defaults`.
 - **`createSession`** is not exported from `@robota-sdk/agent-framework`; use `InteractiveSession`,
   `createAgentRuntime().createSession(...)` or `createQuery()`.
