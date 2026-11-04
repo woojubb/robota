@@ -7,6 +7,7 @@ import { canonicalName } from '../catalog/naming.js';
 import { base64ToBytes, utf8ToBase64 } from '../bytes.js';
 import { definitionFingerprint, securityIdentity } from '../definition/identity.js';
 import { parseSkillEntry, verifySkillResource } from '../skills/manifest.js';
+import text from './__fixtures__/non-ascii-text.json';
 
 import type { IMCPResolvedEntry, IMCPServerDefinitionResolved } from '../definition/types.js';
 
@@ -90,20 +91,22 @@ describe('activation identity digests', () => {
 
   it('keeps it for text outside ASCII, including a lone surrogate', () => {
     expect(
-      definitionFingerprint(definition({ args: ['--name', '한국어 🌏', 'a\uD800b'] })),
+      definitionFingerprint(definition({ args: ['--name', text.hangulWithGlobe, 'a\uD800b'] })),
     ).toBe('5ae4945e520edf5adbe0843107c4d98e');
   });
 
   it('keeps the security identity of a configured subject', () => {
     expect(securityIdentity(entry())).toBe('1c9fc6a917b8209b97a8a34b549dc68c');
     expect(
-      securityIdentity(entry({ name: '이름', source: 'user', origin: '/home/사용자/.claude.json' })),
+      securityIdentity(
+        entry({ name: text.hangulName, source: 'user', origin: text.hangulHomePath }),
+      ),
     ).toBe('6af1a9a5b56547b223eafedb8ab8d508');
   });
 
   it.each([
     { name: 'plain', origin: '.mcp.json' },
-    { name: '한국어', origin: '/home/사용자/.claude.json' },
+    { name: text.hangulServerName, origin: text.hangulHomePath },
     { name: 'a\uD800', origin: '\uDC00b' },
     { name: 'x'.repeat(200), origin: 'y'.repeat(55) },
     { name: '', origin: '' },
@@ -161,7 +164,7 @@ describe('skill manifests', () => {
     const dynamic = parseSkillEntry(
       {
         uri,
-        frontmatter: { ...frontmatter, extra: { z: 1, a: [true, null, '한'] } },
+        frontmatter: { ...frontmatter, extra: { z: 1, a: [true, null, text.hangulSyllable] } },
         resources: 'dynamic',
       },
       identity,
@@ -172,7 +175,7 @@ describe('skill manifests', () => {
   });
 
   it('verifies a text resource by the SHA-256 of its UTF-8 bytes', () => {
-    const text = 'héllo 한국어 🌏';
+    const resource = text.accentedHangulGlobe;
     const skill = parseSkillEntry(
       {
         uri,
@@ -187,7 +190,10 @@ describe('skill manifests', () => {
       },
       identity,
     );
-    expect(verifySkillResource(skill, uri, { uri, text })).toMatchObject({ size: 21, text });
+    expect(verifySkillResource(skill, uri, { uri, text: resource })).toMatchObject({
+      size: 21,
+      text: resource,
+    });
   });
 
   it('verifies a binary resource across every byte value', () => {
@@ -212,10 +218,10 @@ describe('skill manifests', () => {
 });
 
 describe('base64 without Buffer', () => {
-  it.each(['', 'a', 'ab', 'abc', 'id:secret', 'üser:pässwörd', '한국어:🌏', 'x'.repeat(1000)])(
+  it.each(['', 'a', 'ab', 'abc', 'id:secret', 'üser:pässwörd', text.hangulGlobePair, 'x'.repeat(1000)])(
     'encodes the UTF-8 bytes of %j as Buffer does',
-    (text) => {
-      expect(utf8ToBase64(text)).toBe(Buffer.from(text, 'utf8').toString('base64'));
+    (sample) => {
+      expect(utf8ToBase64(sample)).toBe(Buffer.from(sample, 'utf8').toString('base64'));
     },
   );
 
@@ -234,7 +240,7 @@ describe('base64 without Buffer', () => {
   });
 
   it('decodes an app view blob and measures a text view in UTF-8 bytes', () => {
-    const html = '<p>héllo 한국어</p>';
+    const html = text.accentedHangulHtml;
     const uri = 'ui://widget';
     const mimeType = 'text/html;profile=mcp-app';
     expect(
