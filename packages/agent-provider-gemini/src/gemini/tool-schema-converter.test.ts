@@ -86,6 +86,30 @@ describe('convertToolsToGeminiFormat — nested subset members survive (CORE-039
  * member the fixed-list mapper does not copy is dropped without a trace, so each one is asserted.
  */
 describe('convertToolsToGeminiFormat — size bounds', () => {
+  it('carries a bound the root declares, since the root is mapped like any other node', () => {
+    const [declaration] = convertToolsToGeminiFormat([
+      {
+        name: 'bounded',
+        description: 'bounded',
+        parameters: {
+          type: 'object',
+          properties: { query: { type: 'string' } },
+          required: ['query'],
+          minProperties: 1,
+          maxProperties: 2,
+        },
+      },
+    ]);
+
+    expect(declaration.parameters).toEqual({
+      type: Type.OBJECT,
+      properties: { query: { type: Type.STRING } },
+      required: ['query'],
+      minProperties: '1',
+      maxProperties: '2',
+    });
+  });
+
   it('carries every size bound as a string, including a bound of zero', () => {
     const [declaration] = convertToolsToGeminiFormat([
       {

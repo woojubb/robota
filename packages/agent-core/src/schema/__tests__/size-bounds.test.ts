@@ -176,7 +176,7 @@ describe('projectToolSchema — size bounds per profile', () => {
     expect(keywords).toContain('maxItems');
   });
 
-  it('records each strip so the Schema note names the constraint the model is not shown', () => {
+  it('records each strip, and the Schema note marks where a constraint is not shown', () => {
     const projection = projectToolSchema(tool, STRICT);
 
     expect(projection.changes).toContainEqual({

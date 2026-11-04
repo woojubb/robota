@@ -22,11 +22,7 @@ export function convertToolsToGeminiFormat(tools: IToolSchema[]): FunctionDeclar
   return tools.map((tool) => ({
     name: tool.name,
     description: tool.description,
-    parameters: {
-      type: Type.OBJECT,
-      properties: convertParameterProperties(tool.parameters.properties),
-      required: tool.parameters.required,
-    },
+    parameters: convertParameterSchema(tool.parameters),
   }));
 }
 
