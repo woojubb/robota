@@ -30,6 +30,7 @@ const MEMBERS: Record<keyof IFrameworkHost, true> = {
   reportObserverFailure: true,
   createAsyncScope: true,
   supportsProjectMutation: true,
+  validateSessionReplayLog: true,
 };
 
 let root: string;

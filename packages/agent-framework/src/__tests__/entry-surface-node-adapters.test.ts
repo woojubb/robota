@@ -29,6 +29,8 @@ describe('the Node adapters of the plugin, user-local, provider and org-policy m
     'NodeFileSystemAsync',
     'loadOrgPolicy',
     'checkNodeHostSettingsFile',
+    'resolveGitBranchFromNodeHost',
+    'validateWorkspaceSessionReplayLog',
   ] as const;
 
   it('are exported from ./node and not from the main entry', () => {

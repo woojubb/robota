@@ -662,6 +662,10 @@ export class InteractiveSession
     return this.sessionStore?.hasWriter(sessionId) ?? false;
   }
 
+  protected getSessionReplayValidator(): IFrameworkHost['validateSessionReplayLog'] {
+    return this.frameworkHost.validateSessionReplayLog;
+  }
+
   private configureInjectedSession(options: TInteractiveSessionOptions): boolean {
     if (!('session' in options && options.session)) return false;
     this.session = options.session;

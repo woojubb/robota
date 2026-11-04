@@ -66,3 +66,26 @@ describe('InteractiveSession project reads', () => {
     expect(status).toEqual({ kind: 'failed', message: expect.stringContaining('no git here') });
   });
 });
+
+describe('InteractiveSession replay validation', () => {
+  it('says the check is unavailable, naming the host member, when the host supplies no reader', () => {
+    const session = sessionOn(createTestFrameworkHost({ validateSessionReplayLog: undefined }));
+    expect(() => session.validateCurrentSessionReplayLog()).toThrow(
+      /Session replay validation is unavailable[\s\S]*`validateSessionReplayLog`/u,
+    );
+  });
+
+  it('reads the log through the host reader, with the session id', async () => {
+    const report = {
+      logFile: '/workspace/session.jsonl',
+      entryCount: 0,
+      validation: { ok: true as const, issues: [] },
+    };
+    const validate = vi.fn((_access: unknown, _sessionId: string) => report);
+    const session = sessionOn(createTestFrameworkHost({ validateSessionReplayLog: validate }));
+    await session.whenInitialized();
+    expect(session.validateCurrentSessionReplayLog()).toBe(report);
+    expect(validate).toHaveBeenCalledOnce();
+    expect(typeof validate.mock.calls[0]?.[1]).toBe('string');
+  });
+});

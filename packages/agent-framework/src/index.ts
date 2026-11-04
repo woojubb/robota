@@ -907,7 +907,6 @@ export { SettingsParseError } from './config/settings-parse-error.js';
 export { NoCurrentProviderProfileError } from './config/no-current-provider-profile-error.js';
 
 // ── Git utilities ─────────────────────────────────────────────
-export { resolveGitBranchFromNodeHost } from './git/git-branch.js';
 // BEHAVIOR-2437 / #3282 §4c: the git process port and the `/git status` + `/git diff` readers moved
 // here from `agent-command` (which depends on this package, never the reverse) so the Project panel's
 // session-level reads and the `/git` command run through the exact SAME functions — never a second,

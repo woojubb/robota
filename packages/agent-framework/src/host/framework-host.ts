@@ -22,7 +22,9 @@ import type {
 import type { IBackgroundTaskRunner, IObserverFailure } from '@robota-sdk/agent-executor';
 import type { IFileSessionLoggerOptions } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import type { ICommandSessionReplayValidationReport } from '../command-api/host-context-types.js';
 import type { IGitProcessPort } from '../git/git-process.js';
+import type { TWorkspaceProjectAccess } from '../workspace-trust/types.js';
 
 /**
  * A value that follows one asynchronous call chain, as `AsyncLocalStorage` does on Node. Inside
@@ -89,4 +91,13 @@ export interface IFrameworkHost {
   readonly createAsyncScope?: <T>() => IAsyncScope<T>;
   /** Whether the host can write project files; absent or false, a project permission cannot be persisted. */
   readonly supportsProjectMutation?: boolean;
+  /**
+   * Reads session `sessionId`'s project log and reports whether it replays. A session holds no keys,
+   * so a sealed log is reported through `ArtifactLockedError`, never opened. Absent, the session
+   * cannot read its log and `/validate-session` fails with an error naming this member.
+   */
+  readonly validateSessionReplayLog?: (
+    projectAccess: TWorkspaceProjectAccess,
+    sessionId: string,
+  ) => ICommandSessionReplayValidationReport;
 }

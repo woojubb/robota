@@ -24,6 +24,7 @@ import {
 import { NodeFileSystem, NodeFileSystemAsync } from './adapters/node-file-system.js';
 import { createGitProcess } from './git/node-git-process.js';
 import { readNodeGitRemotes } from './git/read-git-remotes.js';
+import { validateWorkspaceSessionReplayLog } from './interactive/workspace-session-replay-validation.js';
 import { supportsWorkspaceProjectMutation } from './workspace-trust/project-relative-writer.js';
 
 import type { IFrameworkHost } from './host/framework-host.js';
@@ -66,6 +67,10 @@ export function createNodeFrameworkHost(options: ICreateNodeFrameworkHostOptions
     reportObserverFailure: reportObserverFailureAsProcessWarning,
     createAsyncScope: <T>() => new AsyncLocalStorage<T>(),
     supportsProjectMutation: supportsWorkspaceProjectMutation(),
+    // A session holds no keys of its own, so the log is read as plain and a sealed one is reported
+    // as sealed (`ArtifactLockedError`, `no-keys`) instead of being opened.
+    validateSessionReplayLog: (projectAccess, sessionId) =>
+      validateWorkspaceSessionReplayLog(projectAccess, sessionId, { sealing: 'plain' }),
   };
 }
 
@@ -101,6 +106,11 @@ export {
   GIT_MAX_OUTPUT_BYTES,
 } from './git/node-git-process.js';
 export type { ICreateGitProcessOptions } from './git/node-git-process.js';
+// The branch a checkout is on, read from its `.git` directory.
+export { resolveGitBranchFromNodeHost } from './git/git-branch.js';
+
+// The replay-validation report of a session's project log, read through the workspace session store.
+export { validateWorkspaceSessionReplayLog } from './interactive/workspace-session-replay-validation.js';
 
 // Settings, contribution roots, transport settings and the package version: the file-backed halves
 // of modules whose neutral halves are on the main entry. The main entry takes each as a parameter
