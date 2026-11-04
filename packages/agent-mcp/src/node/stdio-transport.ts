@@ -2,6 +2,7 @@
 import { spawn } from 'node:child_process';
 
 import { deserializeMessage, serializeMessage } from '@modelcontextprotocol/client';
+import { endWithProcess, signalChildGroup, withChildSession } from '@robota-sdk/agent-core/node';
 import { DEFAULT_INHERITED_ENV_VARS } from '@modelcontextprotocol/client/stdio';
 import { MCPStdioError } from '../client/stdio-error.js';
 import {
@@ -135,13 +136,21 @@ export class MCPStdioTransport implements Transport {
     for (const key of DEFAULT_INHERITED_ENV_VARS) environment[key] = this.snapshot.env[key] ?? '';
     for (const [key, value] of Object.entries(this.snapshot.env)) environment[key] = value;
     try {
-      const child = spawn(this.snapshot.command, [...this.snapshot.args], {
-        cwd: this.snapshot.cwd,
-        env: environment,
-        stdio: ['pipe', 'pipe', 'pipe'],
-        shell: false,
-        windowsHide: process.platform === 'win32',
-      });
+      // A server is a configured program: in secure mode it gets its own session, so it cannot reach
+      // the owner's terminal, and its group ends with this process.
+      const child = endWithProcess(
+        spawn(
+          this.snapshot.command,
+          [...this.snapshot.args],
+          withChildSession({
+            cwd: this.snapshot.cwd,
+            env: environment,
+            stdio: ['pipe', 'pipe', 'pipe'],
+            shell: false,
+            windowsHide: process.platform === 'win32',
+          }),
+        ),
+      );
       this.child = child;
       const spawned = new Promise<void>((resolve, reject) => {
         child.once('spawn', () => resolve());
@@ -211,11 +220,12 @@ export class MCPStdioTransport implements Transport {
       try {
         await bounded(this.childClose, 2_000);
       } catch {
-        child.kill('SIGTERM');
+        // The group, in secure mode: a server that ignored its EOF may have started others.
+        signalChildGroup(child, 'SIGTERM');
         try {
           await bounded(this.childClose, 2_000);
         } catch {
-          child.kill('SIGKILL');
+          signalChildGroup(child, 'SIGKILL');
           await bounded(this.childClose, this.snapshot.cleanupMs - 4_000);
         }
       }
