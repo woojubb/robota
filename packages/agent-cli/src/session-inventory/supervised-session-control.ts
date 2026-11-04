@@ -8,8 +8,10 @@ import { createConnection, createServer } from 'node:net';
 import { dirname, isAbsolute, join } from 'node:path';
 
 import { admitLocalPeerDirectory, ensureGuardedDirectory } from '@robota-sdk/agent-remote-pairing/local';
+import { isLinkRequest } from '@robota-sdk/agent-transport-link';
 
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
+import type { IRuntimeAdmission, TRuntimeAdmissionFactory } from './runtime-admission.js';
 import type {
   IExternalEventGrantCounters,
   IExternalEventGrantRow,
@@ -364,6 +366,55 @@ function readLine(
     const onError = (): void => finish(() => reject(new Error('Supervised session control is unavailable.')));
     const onEnd = (): void => finish(() => reject(new Error('Supervised session control closed before replying.')));
     socket.setEncoding('utf8');
+    socket.on('data', onData);
+    socket.once('error', onError);
+    socket.once('end', onEnd);
+  });
+}
+
+/**
+ * The first line a connection sends, as bytes, and whatever arrived with it, with the socket paused
+ * again. It is bytes because the owner link's handshake follows its request line in the same chunk,
+ * and a text decoder would rewrite what is not valid text, which a handshake mostly is. The bound
+ * and the deadline are the ones every request has.
+ */
+function readRequestLine(socket: IControlChannel): Promise<{ readonly line: string; readonly rest: Buffer }> {
+  return new Promise((resolve, reject) => {
+    let received = Buffer.alloc(0);
+    let done = false;
+    const timer = setTimeout(
+      () => finish(() => reject(new Error('Supervised session control timed out.'))),
+      REQUEST_TIMEOUT_MS,
+    );
+    const finish = (action: () => void): void => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      socket.off('data', onData);
+      socket.off('error', onError);
+      socket.off('end', onEnd);
+      socket.pause();
+      action();
+    };
+    const onData = (chunk: Buffer | string): void => {
+      received = Buffer.concat([received, typeof chunk === 'string' ? Buffer.from(chunk, 'utf8') : chunk]);
+      const end = received.indexOf(0x0a);
+      // The bound is on the line itself: what follows it belongs to the protocol that line opens.
+      if ((end === -1 ? received.length : end) > MAX_FRAME_BYTES) {
+        finish(() => reject(new Error('Supervised session control frame is too large.')));
+        return;
+      }
+      if (end !== -1) {
+        finish(() =>
+          resolve({
+            line: received.subarray(0, end).toString('utf8'),
+            rest: Buffer.from(received.subarray(end + 1)),
+          }),
+        );
+      }
+    };
+    const onError = (): void => finish(() => reject(new Error('Supervised session control is unavailable.')));
+    const onEnd = (): void => finish(() => reject(new Error('Supervised session control closed before replying.')));
     socket.on('data', onData);
     socket.once('error', onError);
     socket.once('end', onEnd);
@@ -929,7 +980,21 @@ export interface ISupervisedControlOptions {
   readonly externalEvents?: ISupervisedExternalEvents | undefined;
   readonly attachTarget?: TSupervisedAttachTarget | undefined;
   readonly daemon?: ISupervisedDaemon | undefined;
+  /**
+   * Makes this a secure runtime's endpoint: the commands a same-user program may send shrink to
+   * what `CONTROL_ACCESS` leaves open in secure mode, the rest is the owner's through an owner link
+   * the custody serves, and `status` reports what the custody says. Absent, every command is open
+   * as it always was.
+   */
+  readonly admission?: TRuntimeAdmissionFactory | undefined;
 }
+
+/**
+ * Who a command's answer is for: `plain` is a plain runtime's socket (everything, as always), `open`
+ * is a secure runtime's socket (what a program of this user may learn), `owner` is an admitted
+ * owner's `control` request (what the owner may learn).
+ */
+type TControlView = 'plain' | 'open' | 'owner';
 
 /** What one command answers, and what must happen once the answer has been written. */
 interface IControlOutcome {
@@ -950,10 +1015,14 @@ type TControlRequest = Readonly<Record<string, unknown>>;
  */
 function createControlHandler(
   options: ISupervisedControlOptions,
-): (command: TControlCommandName, request: TControlRequest) => IControlOutcome {
+  admissionOf: () => IRuntimeAdmission | undefined,
+): (command: TControlCommandName, request: TControlRequest, view: TControlView) => IControlOutcome {
   const { observe, rename, pr, externalEvents, daemon } = options;
   const refused: IControlOutcome = { body: { status: 'refused' } };
-  const status = (): IControlOutcome => {
+  const status = (view: TControlView): IControlOutcome => {
+    const custody = admissionOf()?.status();
+    // What names the work stays out of a secure runtime's open answer, and is not even read for it.
+    const named = view !== 'open';
     let observed: unknown;
     let cwd: string | undefined;
     let nextLoopAt: unknown;
@@ -977,18 +1046,20 @@ function createControlHandler(
       }
     }
     try {
-      name = observe?.name?.();
+      if (named) name = observe?.name?.();
     } catch {
       // A failed name observation does not change the session's verified activity.
     }
     try {
-      linkedPr = pr?.get();
+      if (named) linkedPr = pr?.get();
     } catch {
       // A failed association observation cannot create a link.
     }
     let grants: TSupervisedGrantSummary[] | undefined;
     try {
-      grants = externalEvents?.list().map(({ grantId, state, counters }) => ({ grantId, state, counters }));
+      if (named) {
+        grants = externalEvents?.list().map(({ grantId, state, counters }) => ({ grantId, state, counters }));
+      }
     } catch {
       // Counts that cannot be read are omitted, never guessed.
     }
@@ -1001,18 +1072,33 @@ function createControlHandler(
         ...(isSupervisedSessionName(name) ? { name } : {}),
         ...(isSupervisedPr(linkedPr) ? { pr: linkedPr } : {}),
         ...(grants !== undefined && grants.length > 0 ? { externalEvents: grants } : {}),
-        ...(daemon !== undefined
-          ? { daemon: true, ...(daemon.restricted === true ? { restricted: true } : {}) }
-          : {}),
+        ...(custody === undefined
+          ? daemon !== undefined
+            ? { daemon: true, ...(daemon.restricted === true ? { restricted: true } : {}) }
+            : {}
+          : {
+              ...(custody.daemon
+                ? { daemon: true, ...(custody.restricted ? { restricted: true } : {}) }
+                : {}),
+              certified: custody.certified,
+            }),
       },
     };
   };
-  return (command, request) => {
+  return (command, request, view) => {
     switch (command) {
       case 'status':
-        return status();
+        return status(view);
+      case 'lock': {
+        const admission = admissionOf();
+        if (admission === undefined) return refused;
+        admission.lock();
+        return { body: { status: 'locked' } };
+      }
+      case 'take-daemon-role':
+        return admissionOf()?.takeDaemonRole() === true ? { body: { status: 'daemon' } } : refused;
       case 'connect': {
-        if (daemon === undefined) return refused;
+        if (daemon === undefined || admissionOf() !== undefined) return refused;
         let url: unknown;
         try {
           url = daemon.url();
@@ -1077,7 +1163,7 @@ function createControlHandler(
         }
       }
       default:
-        // `attach` needs its socket, and `lock`, `link` and the daemon role are not plain commands.
+        // `attach` needs its socket, and `link` is not an answer from state at all.
         return refused;
     }
   };
@@ -1104,20 +1190,37 @@ export async function serveSupervisedControl(options: ISupervisedControlOptions)
   const attach = attachTarget === undefined
     ? undefined
     : createSupervisedAttachCarrier(attachTarget);
-  const handle = createControlHandler(options);
+  let admission: IRuntimeAdmission | undefined;
+  const handle = createControlHandler(options, () => admission);
+  admission = options.admission?.({
+    binding: { runtimeId: id, generation },
+    control: (command, fields) => {
+      // Only what an owner may send, plus the whole status that the open one trims.
+      if (!isControlCommandName(command)) return { status: 'refused' };
+      if (CONTROL_ACCESS[command].secure !== 'owner-control' && command !== 'status') {
+        return { status: 'refused' };
+      }
+      return handle(command, fields, 'owner').body;
+    },
+  });
   const clients = new Set<IControlChannel>();
   const onConnection = (socket: IControlChannel): void => {
     clients.add(socket);
     // readLine owns request errors only; write-side EPIPE can arrive after its listener is removed.
     socket.on('error', () => socket.destroy());
     socket.once('close', () => clients.delete(socket));
-    let rest = '';
-    void readLine(socket, MAX_FRAME_BYTES, (remaining) => { rest = remaining; }).then((line) => {
+    void readRequestLine(socket).then(({ line, rest }) => {
       let value: unknown;
       try {
         value = JSON.parse(line);
       } catch {
         refuse(socket);
+        return;
+      }
+      // An owner link names no runtime and no start; the handshake that follows proves both.
+      if (isLinkRequest(value)) {
+        if (admission === undefined) refuse(socket);
+        else admission.serveLink(socket, rest);
         return;
       }
       if (typeof value !== 'object' || value === null || !('id' in value) || value.id !== id || !('command' in value)) {
@@ -1129,13 +1232,23 @@ export async function serveSupervisedControl(options: ISupervisedControlOptions)
         return;
       }
       const command = value.command;
-      if (!isControlCommandName(command) || CONTROL_ACCESS[command].plain !== 'open') {
+      const access =
+        isControlCommandName(command)
+          ? admission === undefined
+            ? CONTROL_ACCESS[command].plain
+            : CONTROL_ACCESS[command].secure
+          : 'absent';
+      // `owner-control` commands are the owner's, and reach the runtime only inside an owner link.
+      if (!isControlCommandName(command) || access === 'absent' || access === 'owner-control') {
         reply(socket, { status: 'refused' });
         return;
       }
       if (command === 'attach') {
-        // Hold the next frames until the protocol takes over. This runs before any further data
-        // event, so nothing sent after the handshake is dropped.
+        // The protocol that follows is text: what arrived with the request line goes back in front of
+        // the stream, which decodes it from here on, and the socket stays paused until the carrier
+        // takes over, so nothing sent after the handshake is dropped.
+        if (rest.length > 0) socket.unshift(rest);
+        socket.setEncoding('utf8');
         socket.pause();
         // A refused handshake reads again, so the peer's close is seen and the socket is released.
         const refuse = (reason: string): void => {
@@ -1146,7 +1259,7 @@ export async function serveSupervisedControl(options: ISupervisedControlOptions)
           refuse('attach-unavailable');
           return;
         }
-        void attach.admit(socket, value, rest, {
+        void attach.admit(socket, value, '', {
           refuse,
           accept: (driverId) => {
             socket.write(`${JSON.stringify({ id, status: 'attached', driverId, generation })}\n`);
@@ -1154,7 +1267,7 @@ export async function serveSupervisedControl(options: ISupervisedControlOptions)
         }).catch(() => socket.destroy());
         return;
       }
-      const outcome = handle(command, value as TControlRequest);
+      const outcome = handle(command, value as TControlRequest, admission === undefined ? 'plain' : 'open');
       if (outcome.afterReply !== undefined) socket.once('finish', outcome.afterReply);
       reply(socket, outcome.body);
     }).catch(() => socket.destroy());

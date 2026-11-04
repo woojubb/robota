@@ -180,6 +180,7 @@
     "@robota-sdk/agent-transport": "workspace:*",
     "@robota-sdk/agent-transport-acp": "workspace:*",
     "@robota-sdk/agent-transport-http": "workspace:*",
+    "@robota-sdk/agent-transport-link": "workspace:*",
     "@robota-sdk/agent-transport-mcp": "workspace:*",
     "@robota-sdk/agent-transport-webrtc": "workspace:*",
     "@robota-sdk/agent-transport-ws": "workspace:*",

@@ -162,6 +162,16 @@ environment or command line (a process's initial environment stays readable to e
 same user), hands its connection URL to a caller that named its start, so the token leaves only as that URL
 and never in human-readable output.
 
+In secure mode the same endpoint admits by what can be proved, not by who may open the socket. A
+program of the same user is told liveness, activity, directory and whether the runtime is certified,
+and may stop it, lock it (locking needs no proof, since a program that could abuse it could stop or
+kill the runtime, while unlocking always needs one) or start an owner link. What names the work (its
+name, PR and event grants), `connect`, `attach` and every management command do not exist for such a
+program: the owner's requests reach the same handlers only inside an owner link, which proves the
+owner first, and the whole `status` is one of them. One table decides every command in both modes, so
+a command added without a decision does not compile. The request line is read as bytes, because the
+link's handshake follows it in the same chunk and no text decoding may rewrite it.
+
 Observability has two independently gated paths. `usage export` is an explicit,
 local-only action over the same authorized stores as local usage reporting: its aggregate usage,
 verified content-free execution traces, or completion snapshots go only to a caller-named loopback
