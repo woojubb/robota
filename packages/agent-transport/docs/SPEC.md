@@ -48,10 +48,11 @@ by transport implementations.
   declares `"browser": null` — a structural guarantee that Node-only crypto never leaks into a
   browser bundle via the root or `./client` entries. Token signatures are checked by `jose`, not by
   hand-rolled crypto, and key discovery goes through the shared egress boundary rather than a
-  private fetch, so one policy governs every outbound request. Transport admission needs neither
-  crypto nor network: a credential is minted from the platform's secure randomness and compared as
-  strings, so it is on the root and every carrier, in a browser or a Worker too, resolves it the
-  same way.
+  private fetch, so one policy governs every outbound request. Transport admission needs no Node
+  cryptography and no network, so it is on the root and a neutral carrier resolves it as a Node one
+  does: a credential is minted from web-standard secure randomness, and minting fails rather than
+  weakens where that is absent; comparison takes the same time for any two credentials of one
+  length, so only the length can leak.
 - Owns no socket, HTTP listener, WebRTC, terminal, framework-host, registry, or settings lifecycle.
   The one process-stream helper it does own, the stdio carrier bridge, only attaches and detaches: it
   gives a protocol SDK a bridge to read instead of the process input, so stopping a carrier can never
