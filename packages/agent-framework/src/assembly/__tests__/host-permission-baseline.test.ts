@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { createSession } from '../create-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICreateSessionOptions } from '../create-session-types.js';
 import type { PermissionEnforcer } from '@robota-sdk/agent-session';
+
+const testHost = createTestFrameworkHost();
 
 const terminal: ICreateSessionOptions['terminal'] = {
   write: () => undefined,
@@ -17,6 +20,8 @@ const terminal: ICreateSessionOptions['terminal'] = {
 
 function options(extra: Partial<ICreateSessionOptions> = {}): ICreateSessionOptions {
   return {
+    cwd: process.cwd(),
+    host: testHost,
     config: {
       defaultTrustLevel: 'safe',
       provider: { name: 'test', model: 'test-model', apiKey: undefined },

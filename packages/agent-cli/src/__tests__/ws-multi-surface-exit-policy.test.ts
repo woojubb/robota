@@ -15,10 +15,13 @@ import { createExitCommandModule, createLanguageCommandModule } from '@robota-sd
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { describe, expect, it, vi } from 'vitest';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
+
+const testHost = createTestFrameworkHost();
 
 function createRuntimeSession(): Record<string, unknown> {
   return {
@@ -53,6 +56,8 @@ function setupSharedHost(adapters: ICommandHostAdapters): {
   surfaceB: ISurface;
 } {
   const session = new InteractiveSession({
+    host: testHost,
+    cwd: process.cwd(),
     session: createRuntimeSession() as never,
     commandModules: [createExitCommandModule(), createLanguageCommandModule()],
     commandHostAdapters: adapters,
@@ -141,6 +146,8 @@ describe('CMD-004 TC-09 — multi-surface exit/restart acts on the SHARED host (
     const requestExit = vi.fn();
     // Zero attached surfaces → no interactive confirm (the headless embedding); the host action runs.
     const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: createRuntimeSession() as never,
       commandModules: [createExitCommandModule()],
       commandHostAdapters: { process: { requestExit, requestRestart: vi.fn() } },

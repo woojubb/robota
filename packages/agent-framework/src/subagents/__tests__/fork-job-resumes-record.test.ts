@@ -18,11 +18,14 @@ import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createInProcessSubagentRunner } from '../in-process-subagent-runner.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IInProcessSubagentRunnerDeps } from '../in-process-subagent-runner.js';
 import type { IResolvedConfig } from '../../config/config-types.js';
 import type { ITerminalOutput, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { ISubagentJobStart } from '@robota-sdk/agent-executor';
+
+const testHost = createTestFrameworkHost();
 
 const FORK_ID = 'session_cli-1994-fork';
 const PARENT_PROMPT = 'PARENT ASSEMBLED PROMPT — CLI-1994 sentinel';
@@ -109,6 +112,7 @@ describe('a fork job resumes its record through the store (CLI-1994 TC-03)', () 
     });
     scripted = createScriptedProvider([{ text: 'the child answers' }]);
     deps = {
+      host: testHost,
       config: CONFIG,
       context: { agentsMd: '', projectNotesMd: '' },
       tools: [],

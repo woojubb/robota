@@ -10,12 +10,15 @@ import type { SessionRecipe } from '../runtime/runtime-host.js';
 import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
 import type { IInteractiveSessionEvents } from '../interactive/types.js';
 import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IAIProvider, TPermissionMode } from '@robota-sdk/agent-core';
 
 export interface IInteractiveRuntimeOptions {
   channel: IInteractionChannel;
   commandModules: readonly ICommandModule[];
+  /** The platform the runtime's session runs on; `{}` is a host with nothing to lend. */
+  host: IFrameworkHost;
   /** Provider for session creation (production path). */
   provider: IAIProvider;
   /** Working directory for session creation. */
@@ -32,7 +35,10 @@ export interface IInteractiveRuntimeOptions {
 }
 
 /** Shared channel behavior options used by the package's testing-only session injection seam. */
-export type IInteractiveRuntimeTestOptions = Omit<IInteractiveRuntimeOptions, 'provider' | 'cwd'>;
+export type IInteractiveRuntimeTestOptions = Omit<
+  IInteractiveRuntimeOptions,
+  'provider' | 'cwd' | 'host'
+>;
 
 function commandsToCommandInfo(
   commands: ReturnType<IInteractiveSession['listCommands']>,
@@ -113,6 +119,7 @@ export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): I
   const {
     provider,
     cwd,
+    host,
     channel,
     commandModules,
     projectAccess,
@@ -124,6 +131,7 @@ export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): I
   const recipe: SessionRecipe = {
     provider,
     cwd,
+    host,
     projectAccess,
     ...(userSettingsSources !== undefined ? { userSettingsSources } : {}),
     ...(environment !== undefined ? { environment } : {}),

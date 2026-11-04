@@ -10,6 +10,9 @@ import {
   runEval,
   type InteractiveSession,
 } from '../src/index.js';
+import { createTestFrameworkHost } from '../src/testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const root = mkdtempSync(join(tmpdir(), 'agent-cancel-outcome-'));
 const oldHome = process.env.HOME;
@@ -45,7 +48,12 @@ try {
       });
     },
   };
-  first = createAgentRuntime({ cwd: root, provider, sessionStore: store }).createSession({
+  first = createAgentRuntime({
+    host: testHost,
+    cwd: root,
+    provider,
+    sessionStore: store,
+  }).createSession({
     bare: true,
     permissionMode: 'acceptEdits',
     allowedTools: ['Write'],
@@ -75,6 +83,7 @@ try {
     { text: 'Done' },
   ]);
   resumed = createAgentRuntime({
+    host: testHost,
     cwd: root,
     provider: continuation.provider,
     sessionStore: store,

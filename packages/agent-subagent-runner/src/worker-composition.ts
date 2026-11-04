@@ -5,6 +5,7 @@ import type {
   TArtifactSealing,
 } from '@robota-sdk/agent-core';
 import type {
+  IFrameworkHost,
   ISubagentOptions,
   restoreSessionRecordIntoSession,
 } from '@robota-sdk/agent-framework';
@@ -39,6 +40,12 @@ export type TResumeSessionStore = Parameters<typeof restoreSessionRecordIntoSess
  * comparable product does.
  */
 export interface ISubagentWorkerComposition {
+  /**
+   * The platform the child's session runs on. The worker is its own process and its own composition
+   * root, so the product builds the host here as it builds the tools, rather than inheriting the
+   * parent's.
+   */
+  host: IFrameworkHost;
   /** Product-selected hooks receive the same execution boundary as the child tools. */
   createHookTypeExecutors?: (context: {
     readonly cwd: string;

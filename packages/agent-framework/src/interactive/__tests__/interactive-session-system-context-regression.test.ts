@@ -14,6 +14,9 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 // --- Module-level mocks (must appear before any imports) ---
 
@@ -148,6 +151,7 @@ describe('InteractiveSession — system context file regression', () => {
     const { InteractiveSession } = await import('../interactive-session.js');
 
     const session = new InteractiveSession({
+      host: testHost,
       cwd: '/workspace',
       provider: createMockProvider(),
     });
@@ -171,6 +175,7 @@ describe('InteractiveSession — system context file regression', () => {
     const { InteractiveSession } = await import('../interactive-session.js');
 
     const session = new InteractiveSession({
+      host: testHost,
       cwd: '/workspace',
       provider: createMockProvider(),
     });
@@ -198,6 +203,7 @@ describe('InteractiveSession — system context file regression', () => {
     const { InteractiveSession } = await import('../interactive-session.js');
 
     const session = new InteractiveSession({
+      host: testHost,
       cwd: '/workspace',
       provider: createMockProvider(),
     });

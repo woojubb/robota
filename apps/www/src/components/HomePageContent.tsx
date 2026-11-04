@@ -4,13 +4,18 @@ import { CodeBlock } from './CodeBlock';
 import { architectureLayers, featureCatalog, packageGroups, packageScope, permissionModes } from './homeCatalog';
 import { homeCopy } from './homeCopy';
 
-const sdkInstall = 'npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-openai';
+const sdkInstall =
+  'npm install @robota-sdk/agent-framework @robota-sdk/agent-tool-defaults @robota-sdk/agent-provider-openai';
 const sdkMinimalInstall = 'npm install @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic';
 const sdkExample = `import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const model = 'your-loaded-model-id';
 const query = createQuery({
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  cwd: process.cwd(),
   provider: new OpenAIProvider({
     apiKey: 'local',
     baseURL: 'http://127.0.0.1:1234/v1',

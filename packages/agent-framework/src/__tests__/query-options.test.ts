@@ -8,6 +8,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 import { createQuery } from '../index.js';
+import { createTestFrameworkHost } from '../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const roots: string[] = [];
 
@@ -49,7 +52,12 @@ afterEach(() => {
 describe('createQuery options', () => {
   it('sends the model it was given instead of the Anthropic default', async () => {
     const scripted = createScriptedProvider([{ text: 'ok' }]);
-    const query = createQuery({ cwd: tempCwd(), provider: scripted.provider, model: 'gpt-5.2' });
+    const query = createQuery({
+      host: testHost,
+      cwd: tempCwd(),
+      provider: scripted.provider,
+      model: 'gpt-5.2',
+    });
 
     await query('hello');
 
@@ -62,7 +70,7 @@ describe('createQuery options', () => {
       { text: 'second' },
       { text: 'third' },
     ]);
-    const query = createQuery({ cwd: tempCwd(), provider: scripted.provider });
+    const query = createQuery({ host: testHost, cwd: tempCwd(), provider: scripted.provider });
 
     const answers = await Promise.all([query('one'), query('two'), query('three')]);
 
@@ -72,6 +80,7 @@ describe('createQuery options', () => {
   it('does not offer denied tools to the model', async () => {
     const scripted = createScriptedProvider([{ text: 'ok' }]);
     const query = createQuery({
+      host: testHost,
       cwd: tempCwd(),
       provider: scripted.provider,
       deniedTools: ['Bash', 'Write'],
@@ -90,7 +99,12 @@ describe('createQuery options', () => {
       { toolCalls: [{ name: 'Bash', args: { command: 'printf ran > ran.txt' } }] },
       { text: 'done' },
     ]);
-    const query = createQuery({ cwd, provider: scripted.provider, allowedTools: ['Bash'] });
+    const query = createQuery({
+      host: testHost,
+      cwd,
+      provider: scripted.provider,
+      allowedTools: ['Bash'],
+    });
 
     await expect(query('run it')).resolves.toBe('done');
     expect(existsSync(join(cwd, 'ran.txt'))).toBe(true);
@@ -98,7 +112,7 @@ describe('createQuery options', () => {
 
   it('shuts its session down, after which a call is refused', async () => {
     const scripted = createScriptedProvider([{ text: 'ok' }]);
-    const query = createQuery({ cwd: tempCwd(), provider: scripted.provider });
+    const query = createQuery({ host: testHost, cwd: tempCwd(), provider: scripted.provider });
 
     await expect(query('hello')).resolves.toBe('ok');
     await query.shutdown();
@@ -109,7 +123,7 @@ describe('createQuery options', () => {
 
   it('rejects the running call and the waiting ones when shut down, instead of answering them', async () => {
     const { provider, started } = hangingProvider();
-    const query = createQuery({ cwd: tempCwd(), provider });
+    const query = createQuery({ host: testHost, cwd: tempCwd(), provider });
 
     const running = query('first');
     const waiting = query('second');

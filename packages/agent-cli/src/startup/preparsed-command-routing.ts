@@ -71,6 +71,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { TSettingsSource } from '@robota-sdk/agent-framework';
 
 import type { IStartCliOptions } from './command-setup.js';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 
 const SUBCOMMAND_INDEX = 2;
 const ACTION_INDEX = 3;
@@ -201,6 +202,8 @@ export async function runPreparsedCliCommand(
   telemetryEnvironment: Readonly<Record<string, string>> = {},
   renderSessionView?: ISessionViewCommandOptions['render'],
   attachedAppPresentation?: IAttachedAppPresentation,
+  /** The platform the `eval` route runs its sessions on; the other routes build none. */
+  host?: IFrameworkHost,
 ): Promise<boolean> {
   // Product telemetry settings were removed from process.env at startup; the supervised runtime is
   // the one child that receives them, through its explicit spawn environment.
@@ -641,6 +644,7 @@ export async function runPreparsedCliCommand(
   }
   if (argv[SUBCOMMAND_INDEX] !== 'eval') return false;
   process.exitCode = await runEvalCommand(argv.slice(ACTION_INDEX), cwd, {
+    ...(host !== undefined ? { host } : {}),
     settingsSources: composition.settingsSources,
     projectAccess: composition.projectAccess,
     environment: productRuntime.environment,

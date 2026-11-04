@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type {
   IBackgroundTaskHandle,
@@ -21,6 +22,8 @@ import type { SessionHistoryTracker } from '../interactive-session-history-track
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { Session } from '@robota-sdk/agent-session';
+
+const testHost = createTestFrameworkHost();
 
 function createSessionStub(): Session {
   return {
@@ -111,6 +114,8 @@ function setupWithRecord(
   storeAgentToolDeps(sessionStub, { backgroundTaskManager: manager } as unknown as IAgentToolDeps);
   const store = createStore(record);
   const session = new InteractiveSession({
+    host: testHost,
+    cwd: process.cwd(),
     session: sessionStub,
     sessionStore: store as never,
     resumeSessionId: 'session_resumed',
@@ -172,6 +177,8 @@ function setup(nextFireAt: string): { started: string[]; session: InteractiveSes
   storeAgentToolDeps(sessionStub, { backgroundTaskManager: manager } as unknown as IAgentToolDeps);
   const store = createStore(sleepingScheduledRecord(nextFireAt));
   const session = new InteractiveSession({
+    host: testHost,
+    cwd: process.cwd(),
     session: sessionStub,
     sessionStore: store as never,
     resumeSessionId: 'session_resumed',

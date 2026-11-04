@@ -4,8 +4,11 @@ import { join } from 'node:path';
 
 import { InMemorySandboxClient } from '@robota-sdk/agent-tools';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
+
+const testHost = createTestFrameworkHost();
 
 const mockLoadConfigWithHookSources = vi.fn().mockResolvedValue({
   config: {
@@ -85,6 +88,7 @@ describe('createInteractiveSession — workspace manifest', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
+      host: testHost,
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
@@ -105,6 +109,7 @@ describe('createInteractiveSession — workspace manifest', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
+      host: testHost,
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
@@ -128,6 +133,7 @@ describe('createInteractiveSession — workspace manifest', () => {
 
     await expect(
       createInteractiveSession({
+        host: testHost,
         cwd: SESSION_CWD,
         provider: createMockProvider(),
         bare: true,

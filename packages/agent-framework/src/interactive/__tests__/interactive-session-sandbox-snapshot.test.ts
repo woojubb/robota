@@ -13,6 +13,9 @@ import type {
 } from '../session-persistence.js';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import { loadedRecordOrMissing } from './session-load-helpers.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const events: string[] = [];
 
@@ -187,6 +190,7 @@ describe('InteractiveSession sandbox snapshot hydration', () => {
     });
 
     const interactiveSession = new InteractiveSession({
+      host: testHost,
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
@@ -215,6 +219,7 @@ describe('InteractiveSession sandbox snapshot hydration', () => {
     });
 
     const interactiveSession = new InteractiveSession({
+      host: testHost,
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,

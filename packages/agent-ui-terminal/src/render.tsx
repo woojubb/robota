@@ -47,6 +47,7 @@ import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
+  IFrameworkHost,
   IOutputStylePrompt,
   ICommandModule,
   IRemoteCommandPolicy,
@@ -79,6 +80,8 @@ import type {
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 export interface IRenderOptions {
+  /** The platform the TUI's sessions run on; `{}` is a host with nothing to lend. */
+  host: IFrameworkHost;
   cwd: string;
   livePromptTrace?: ILivePromptTracePort;
   /** Product identity for terminal labels, title, and host-facing copy. */
@@ -279,6 +282,7 @@ export function toChannelOptions(
   acceptedDigest?: string,
 ): ConstructorParameters<typeof TuiInteractionChannel>[0] {
   return {
+    host: options.host,
     cwd: options.cwd,
     ...(options.livePromptTrace ? { livePromptTrace: options.livePromptTrace } : {}),
     provider: options.provider,

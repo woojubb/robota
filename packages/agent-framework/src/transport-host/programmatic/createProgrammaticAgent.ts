@@ -21,12 +21,15 @@ import { createInteractiveRuntime } from '../../interaction/createInteractiveRun
 
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { INodeHostSettingsSource } from '../../config/node-host-settings-source.js';
+import type { IFrameworkHost } from '../../host/framework-host.js';
 import type { IInteractiveRuntime } from '../../interaction/InteractiveRuntime.js';
 import type { TWorkspaceProjectAccess } from '../../workspace-trust/types.js';
 import type { IAIProvider, TActionResponse, TPermissionMode } from '@robota-sdk/agent-core';
 import type { IAgentDriver, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export interface ICreateProgrammaticAgentOptions {
+  /** The platform the agent's session runs on; `{}` is a host with nothing to lend. */
+  host: IFrameworkHost;
   /** Provider that answers the agent loop (e.g. a real provider, or the scripted provider in tests). */
   provider: IAIProvider;
   /** Working directory for session creation. */
@@ -53,6 +56,7 @@ export function createProgrammaticAgent(options: ICreateProgrammaticAgentOptions
   const runtime: IInteractiveRuntime = createInteractiveRuntime({
     channel,
     commandModules: options.commandModules ?? [],
+    host: options.host,
     provider: options.provider,
     cwd: options.cwd,
     projectAccess: options.projectAccess,

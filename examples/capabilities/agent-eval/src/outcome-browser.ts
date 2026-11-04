@@ -38,6 +38,10 @@ import { createStdioAdapter } from '@robota-sdk/agent-mcp/node';
 
 import { startBrowserDemo } from './outcome-browser-demo.js';
 import { assertBrowserReconciled } from './outcome-browser-reconciliation.js';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+
+const host = createNodeFrameworkHost({ createDefaultTools });
 
 const [packageArgument, browserArgument, countArgument = '20', variant = 'success'] =
   process.argv.slice(2);
@@ -397,6 +401,7 @@ try {
     const storeDirectory = join(root, 'sessions');
     const store = createNodeHostSessionStore(storeDirectory, { sealing: 'plain' });
     interruptedOwner = createAgentRuntime({
+      host,
       cwd: root,
       provider,
       sessionStore: store,
@@ -418,6 +423,7 @@ try {
     ]);
     const firstCallCount = timings.length;
     restoredOwner = createAgentRuntime({
+      host,
       cwd: root,
       provider: { ...continuation.provider, name: provider.name },
       sessionStore: createNodeHostSessionStore(storeDirectory, { sealing: 'plain' }),
@@ -469,7 +475,7 @@ try {
     restoredOwner = undefined;
   } else {
     result = await createSessionRunFn(
-      createAgentRuntime({ cwd: root, provider }),
+      createAgentRuntime({ host, cwd: root, provider }),
       options,
     )('Observe the disposable app, change its theme, and verify the persisted result.');
   }

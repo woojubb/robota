@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { runSubagentWorkerMain } from '../../../dist/node/index.js';
 
 if (!process.argv.includes('--__agent-subagent-worker')) {
@@ -36,6 +37,7 @@ function openSessionStore(cwd) {
 }
 
 runSubagentWorkerMain({
+  host: createTestFrameworkHost(),
   createTools: () => [],
   providerDefinitions: [
     {

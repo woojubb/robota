@@ -12,6 +12,7 @@
  */
 import { appendFileSync } from 'node:fs';
 
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { runSubagentWorkerMain } from '../../../dist/node/index.js';
 
 const RECORD_PATH = process.env.ARCH_021_RECORD_PATH;
@@ -23,6 +24,7 @@ function record(event) {
 }
 
 runSubagentWorkerMain({
+  host: createTestFrameworkHost(),
   sandboxFactories: {
     scratch: async (snapshotId) => ({ filesystem: 'separate', snapshotId }),
   },

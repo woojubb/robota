@@ -21,6 +21,7 @@ import {
   listedRecords,
   loadedRecordOrMissing,
 } from '../../interactive/__tests__/session-load-helpers.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type {
   IInteractiveSessionRecord,
@@ -28,6 +29,8 @@ import type {
   ISessionListEntry,
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 function createMemoryStore(): IInteractiveSessionStore {
   const records = new Map<string, IInteractiveSessionRecord>();
@@ -80,7 +83,12 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
     const cwd = scratchDir();
     const projectAccess = createRestrictedWorkspaceProjectAccess('untrusted', cwd);
     const scripted = createScriptedProvider([]);
-    const runtime = createAgentRuntime({ cwd, provider: scripted.provider, projectAccess });
+    const runtime = createAgentRuntime({
+      host: testHost,
+      cwd,
+      provider: scripted.provider,
+      projectAccess,
+    });
 
     expect(runtime.projectAccess).toBe(projectAccess);
     expect(runtime.createSession({ bare: true }).getProjectAccess()).toBe(projectAccess);
@@ -89,12 +97,13 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
   it('does not attach ambient user settings to an SDK runtime', () => {
     const cwd = scratchDir();
     const scripted = createScriptedProvider([]);
-    const runtime = createAgentRuntime({ cwd, provider: scripted.provider });
+    const runtime = createAgentRuntime({ host: testHost, cwd, provider: scripted.provider });
 
     expect(runtime.commandHostAdapters.settings).toBeUndefined();
 
     const settings = { read: () => ({}), write: () => {} };
     const explicit = createAgentRuntime({
+      host: testHost,
       cwd,
       provider: scripted.provider,
       commandHostAdapters: { settings },
@@ -109,7 +118,12 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
     const scripted = createScriptedProvider([]);
 
     expect(() =>
-      createAgentRuntime({ cwd: runtimeRoot, provider: scripted.provider, projectAccess }),
+      createAgentRuntime({
+        host: testHost,
+        cwd: runtimeRoot,
+        provider: scripted.provider,
+        projectAccess,
+      }),
     ).toThrow('Trusted project access does not cover the requested working directory.');
   });
 
@@ -121,8 +135,12 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
     const scripted = createScriptedProvider([]);
 
     expect(
-      createAgentRuntime({ cwd: runtimeRoot, provider: scripted.provider, projectAccess })
-        .projectAccess,
+      createAgentRuntime({
+        host: testHost,
+        cwd: runtimeRoot,
+        provider: scripted.provider,
+        projectAccess,
+      }).projectAccess,
     ).toBe(projectAccess);
   });
 
@@ -134,6 +152,7 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
       const projectStore = await createTrustedProjectSessionStoreFixture(cwd);
       const firstProvider = createScriptedProvider([{ text: 'stored context' }]);
       const firstRuntime = createAgentRuntime({
+        host: testHost,
         cwd,
         provider: firstProvider.provider,
         sessionStore: projectStore,
@@ -148,6 +167,7 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
 
       const secondProvider = createScriptedProvider([{ text: 'restored context' }]);
       const secondRuntime = createAgentRuntime({
+        host: testHost,
         cwd,
         provider: secondProvider.provider,
         sessionStore: projectStore,
@@ -167,6 +187,7 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
     const scripted = createScriptedProvider([{ text: 'custom store' }]);
     const runtimeStore = createMemoryStore();
     const runtime = createAgentRuntime({
+      host: testHost,
       cwd,
       provider: scripted.provider,
       sessionStore: runtimeStore,
@@ -187,6 +208,7 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
     const scripted = createScriptedProvider([{ text: 'not persisted' }]);
     const runtimeStore = createMemoryStore();
     const runtime = createAgentRuntime({
+      host: testHost,
       cwd,
       provider: scripted.provider,
       sessionStore: runtimeStore,
@@ -203,7 +225,7 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
   it('keeps omitted persistence disabled for stateless sessions', async () => {
     const cwd = scratchDir();
     const scripted = createScriptedProvider([{ text: 'stateless' }]);
-    const runtime = createStatelessRuntime({ cwd, provider: scripted.provider });
+    const runtime = createStatelessRuntime({ host: testHost, cwd, provider: scripted.provider });
     const session = track(runtime.createSession({}));
 
     await completeTurn(session, 'stay stateless');
@@ -216,7 +238,7 @@ describe('ARCH-023 agent runtime session-store inheritance', () => {
   it('allows a stateless runtime session to opt into a custom store', async () => {
     const cwd = scratchDir();
     const scripted = createScriptedProvider([{ text: 'opted in' }]);
-    const runtime = createStatelessRuntime({ cwd, provider: scripted.provider });
+    const runtime = createStatelessRuntime({ host: testHost, cwd, provider: scripted.provider });
     const customStore = createMemoryStore();
     const session = track(runtime.createSession({ sessionStore: customStore }));
 

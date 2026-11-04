@@ -6,6 +6,9 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
 import { createSessionEventRenderingProjectAccess } from './session-event-rendering-project-access.js';
 import { TuiInteractionChannel } from '../src/index.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 const PROMPT = 'verify the bounded TUI channel';
 const RESPONSE = 'bounded channel response';
@@ -35,6 +38,7 @@ async function main(): Promise<void> {
   const projectAccess = await createSessionEventRenderingProjectAccess(scenarioRoot);
   assertCondition(projectAccess.status === 'trusted', 'scenario project access was not trusted');
   const channel = new TuiInteractionChannel({
+    host: testHost,
     cwd,
     provider: scripted.provider,
     projectAccess,

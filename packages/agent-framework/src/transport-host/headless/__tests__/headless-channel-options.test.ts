@@ -50,7 +50,10 @@ vi.mock('../../../runtime/runtime-host.js', async (importOriginal) => {
 
 import { HeadlessInteractionChannel } from '../HeadlessInteractionChannel.js';
 import { createNodeHostContributionSource } from '../../../contributions/node-host-contribution-source.js';
+import { createTestFrameworkHost } from '../../../testing/framework-host.js';
 import type { IHeadlessInteractionChannelOptions } from '../HeadlessInteractionChannel.js';
+
+const testHost = createTestFrameworkHost();
 
 describe('HeadlessInteractionChannel session options', () => {
   beforeEach(() => {
@@ -71,6 +74,7 @@ describe('HeadlessInteractionChannel session options', () => {
   it('forwards product provider recovery guidance to the live session', async () => {
     const providerErrorGuidance = { authentication: 'Configure product A.' };
     const channel = new HeadlessInteractionChannel({
+      host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
       providerErrorGuidance,
@@ -86,6 +90,7 @@ describe('HeadlessInteractionChannel session options', () => {
   it('forwards the Node host live trace port to a print session', async () => {
     const livePromptTrace = { enqueue: vi.fn() };
     const channel = new HeadlessInteractionChannel({
+      host: testHost,
       cwd: process.cwd(), provider: {} as IAIProvider, outputFormat: 'text',
       shellExec: () => '', livePromptTrace,
     });
@@ -98,6 +103,7 @@ describe('HeadlessInteractionChannel session options', () => {
       IHeadlessInteractionChannelOptions['editCheckpointStore']
     >;
     const channel = new HeadlessInteractionChannel({
+      host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
       outputFormat: 'text',
@@ -110,6 +116,7 @@ describe('HeadlessInteractionChannel session options', () => {
 
   it('forwards host model identifiers to the live session', async () => {
     const channel = new HeadlessInteractionChannel({
+      host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
       promptFileReferenceTag: 'acme_files',
@@ -133,6 +140,7 @@ describe('HeadlessInteractionChannel session options', () => {
   it('forwards the host-owned shell adapter to the live session unchanged', async () => {
     const shellExec = vi.fn(() => 'host result');
     const channel = new HeadlessInteractionChannel({
+      host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
       outputFormat: 'text',
@@ -148,6 +156,7 @@ describe('HeadlessInteractionChannel session options', () => {
     const contributionSources = [createNodeHostContributionSource(process.cwd())];
     const skillRoots = [{ root: 'custom/skills', kind: 'skills' as const }];
     const channel = new HeadlessInteractionChannel({
+      host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
       contributionSources,
@@ -166,6 +175,7 @@ describe('HeadlessInteractionChannel session options', () => {
 
   it('TC-01: passes deniedTools through to the InteractiveSession options', async () => {
     const channel = new HeadlessInteractionChannel({
+      host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
       outputFormat: 'text',
@@ -185,6 +195,7 @@ describe('HeadlessInteractionChannel session options', () => {
 
   it('TC-01 (CLI-063): passes resumeSessionId and forkSession through to the InteractiveSession options', async () => {
     const channel = new HeadlessInteractionChannel({
+      host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
       outputFormat: 'text',
@@ -204,6 +215,7 @@ describe('HeadlessInteractionChannel session options', () => {
 
   it('TC-01 (CLI-063): omits resume fields when not provided', async () => {
     const channel = new HeadlessInteractionChannel({
+      host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
       outputFormat: 'text',
@@ -220,6 +232,7 @@ describe('HeadlessInteractionChannel session options', () => {
 
   it('TC-02 (CLI-076): forwards an explicit model override to the session options', async () => {
     const channel = new HeadlessInteractionChannel({
+      host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
       outputFormat: 'text',
@@ -235,6 +248,7 @@ describe('HeadlessInteractionChannel session options', () => {
 
   it('TC-02 (CLI-076): omits model when not provided (session resolves from config, no substitution)', async () => {
     const channel = new HeadlessInteractionChannel({
+      host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
       outputFormat: 'text',
@@ -263,6 +277,7 @@ describe('HeadlessInteractionChannel session options', () => {
   it('preserves print preset generation and prompt capabilities at the session boundary', async () => {
     const responseFormat = { type: 'json_object' as const };
     const channel = new HeadlessInteractionChannel({
+      host: testHost,
       cwd: process.cwd(),
       provider: {} as IAIProvider,
       outputFormat: 'text',

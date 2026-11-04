@@ -9,8 +9,11 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createInProcessChannelFactory, toChannelOptions } from '../render.js';
 import { buildTuiSessionOptions } from '../tui-session-options.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IChannelServices, IRenderOptions } from '../render.js';
+
+const testHost = createTestFrameworkHost();
 
 const constructed = vi.hoisted(() => [] as Record<string, unknown>[]);
 
@@ -24,7 +27,7 @@ vi.mock('../TuiInteractionChannel.js', () => ({
 
 const DIGEST = 'ab'.repeat(32);
 
-const options = { cwd: '/work', provider: {} as never } as unknown as IRenderOptions;
+const options = { host: testHost, cwd: '/work', provider: {} as never } as unknown as IRenderOptions;
 const services = { terminalHandoff: {}, attention: {} } as unknown as IChannelServices;
 
 describe('toChannelOptions', () => {

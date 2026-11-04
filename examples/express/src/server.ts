@@ -4,6 +4,10 @@ import { z } from 'zod';
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+
+const host = createNodeFrameworkHost({ createDefaultTools });
 
 const app = express();
 app.use(express.json());
@@ -88,6 +92,8 @@ app.post('/api/chat', (req, res) => {
   // and none of the built-in tools that run commands, read or change files, reach the network or
   // send files.
   const query = createQuery({
+    host,
+    cwd: process.cwd(),
     provider: new AnthropicProvider({ apiKey }),
     additionalTools: [calculatorTool, currentTimeTool],
     allowedTools: ['calculate', 'get_current_time'],

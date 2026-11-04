@@ -15,6 +15,7 @@ export function buildTuiSessionOptions(
   opts: ITuiInteractionChannelOptions,
 ): TInteractiveSessionOptions {
   return {
+    host: opts.host,
     cwd: opts.cwd,
     ...(opts.livePromptTrace ? { livePromptTrace: opts.livePromptTrace } : {}),
     provider: opts.provider,

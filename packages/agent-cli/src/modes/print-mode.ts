@@ -9,6 +9,7 @@ import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js
 import type {
   EditCheckpointStore,
   IAgentDefinition,
+  IFrameworkHost,
   ICreateSessionOptions,
   ICommandHostAdapters,
   ICommandModule,
@@ -67,6 +68,7 @@ export type IPrintModePresetOptions = Partial<IPresetSurfaceOptions>;
 
 export async function runPrintMode(
   productRuntime: ICliRuntimeContext,
+  host: IFrameworkHost,
   cwd: string,
   args: IParsedCliArgs,
   provider: IAIProvider,
@@ -136,6 +138,7 @@ export async function runPrintMode(
   };
 
   const channel = new HeadlessInteractionChannel({
+    host,
     cwd,
     ...(livePromptTrace ? { livePromptTrace } : {}),
     provider,

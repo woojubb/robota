@@ -14,8 +14,11 @@ import { InteractiveSession } from '../../../interactive/interactive-session.js'
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createHeadlessTransport } from '../headless-transport.js';
+import { createTestFrameworkHost } from '../../../testing/framework-host.js';
 
 import type { TInteractiveSessionOptions } from '../../../interactive/interactive-session-options.js';
+
+const testHost = createTestFrameworkHost();
 
 type TStandardSessionOptions = Extract<
   TInteractiveSessionOptions,
@@ -89,6 +92,7 @@ describe('headless provider failure exit codes (CLI-064)', () => {
   it('TC-02: text format exits 1 and writes the auth failure to stderr', async () => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-headless-fail-')));
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: createAuthFailingProvider(),
       config: createConfig(),
@@ -115,6 +119,7 @@ describe('headless provider failure exit codes (CLI-064)', () => {
   it('TC-02: json format exits 1 with subtype error and error_code api_error', async () => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-headless-fail-')));
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: createAuthFailingProvider(),
       config: createConfig(),
@@ -159,6 +164,7 @@ describe('headless provider failure exit codes (CLI-064)', () => {
       throw new Error('connection aborted by peer');
     };
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider,
       config: createConfig(),

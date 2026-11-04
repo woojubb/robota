@@ -34,9 +34,12 @@ import {
 import { productDefaultAgentName } from '../product/preset-defaults.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
 import { resolveShellPreset } from '../startup/preset-selection.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
+
+const testHost = createTestFrameworkHost();
 const PRODUCT_DEFAULT_AGENT_NAME = productDefaultAgentName(createTestProductRuntime());
 
 
@@ -114,6 +117,7 @@ function runtimeFixtureOptions(overrides: IProbeOverrides = {}) {
   const { product, fixedCommandModules } = productFixture(overrides);
 
   return buildProductRuntimeOptions({
+    host: testHost,
     product,
     cwd: SEAM_CWD,
     provider: createScriptedProvider([{ text: 'ok' }]).provider,

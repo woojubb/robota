@@ -7,8 +7,11 @@
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { describe, expect, it, vi } from 'vitest';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { TServerMessage } from '@robota-sdk/agent-transport';
+
+const testHost = createTestFrameworkHost();
 
 function createRuntimeSession(): Record<string, unknown> {
   return {
@@ -32,7 +35,7 @@ interface IPromptRegistry {
 }
 
 function setup(): { session: InteractiveSession; registry: IPromptRegistry } {
-  const session = new InteractiveSession({ session: createRuntimeSession() as never, cwd: '/tmp' });
+  const session = new InteractiveSession({ host: testHost, session: createRuntimeSession() as never, cwd: '/tmp' });
   const registry = (session as unknown as { promptRegistry: IPromptRegistry }).promptRegistry;
   return { session, registry };
 }

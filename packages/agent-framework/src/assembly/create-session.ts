@@ -9,6 +9,7 @@ import { applyPresetToolLists } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
 import { nodeSessionPorts } from './node-session-ports.js';
+import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { sandboxApprovalFor } from './sandbox-approval.js';
 import { sessionAdvisorAccess } from '../advisor/advisor-tool.js';
 import { createModelPermissionClassifier } from './model-permission-classifier.js';
@@ -103,13 +104,14 @@ export async function createSession(
   options: ICreateSessionOptions,
   hookSources: readonly IHookDefinitionSource[] = [],
 ): Promise<ICreateSessionResult> {
+  requireFrameworkHost(options.host, 'createSession');
   if (!options.provider) {
     throw new Error(
       'provider is required. SDK is provider-neutral — consumer must create and pass a provider instance.',
     );
   }
   const provider = options.provider;
-  const cwd = options.cwd ?? process.cwd();
+  const { cwd } = options;
   const sessionId = options.sessionId ?? createSessionId();
   const skillCommandSource = new SkillCommandSource(
     options.contributionSources ?? [],

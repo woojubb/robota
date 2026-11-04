@@ -35,6 +35,7 @@ import { createSession } from '../assembly/create-session.js';
 import { SystemCommandExecutor } from '../commands/system-command-executor.js';
 import { createContributionSourcesForProjectAccess } from '../contributions/initial-contribution-sources.js';
 import { WorkspaceTrustService } from '../workspace-trust/workspace-trust-service.js';
+import { createTestFrameworkHost } from '../testing/framework-host.js';
 
 import type { ISystemCommand, ISystemCommandSemanticRoles } from '../command-api/contracts.js';
 import type { IResolvedConfig } from '../config/config-types.js';
@@ -43,6 +44,8 @@ import type {
   IWorkspaceIdentity,
   IWorkspaceTrustStoreSnapshot,
 } from '../workspace-trust/types.js';
+
+const testHost = createTestFrameworkHost();
 
 const CONFIG: IResolvedConfig = {
   defaultTrustLevel: 'moderate',
@@ -123,6 +126,7 @@ async function assembledSystemMessage(
   commandSemanticRoles?: ISystemCommandSemanticRoles,
 ): Promise<string> {
   const created = await createSession({
+    host: testHost,
     config: CONFIG,
     cwd,
     contributionSources: createContributionSourcesForProjectAccess(projectAccess, userHome),

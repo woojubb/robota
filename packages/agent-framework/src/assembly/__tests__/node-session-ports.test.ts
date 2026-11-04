@@ -11,10 +11,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createSession } from '../create-session.js';
 import { createSubagentSession } from '../create-subagent-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICreateSessionOptions } from '../create-session-types.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { ISessionOptions } from '@robota-sdk/agent-session';
+
+const testHost = createTestFrameworkHost();
 
 const constructed = vi.hoisted(() => [] as unknown[]);
 
@@ -91,6 +94,7 @@ function expectNodePorts(options: ISessionOptions): void {
 describe('the Node host ports createSession and createSubagentSession pass', () => {
   it('createSession passes the home directory, resolver, canonicalizer and hook executors', async () => {
     const created = {
+      host: testHost,
       config,
       context,
       terminal,
@@ -106,6 +110,7 @@ describe('the Node host ports createSession and createSubagentSession pass', () 
 
   it('createSubagentSession passes the same, with the built-in hook executors when none are given', () => {
     createSubagentSession({
+      host: testHost,
       agentDefinition: { name: 'worker', description: 'w', systemPrompt: 'Work.' },
       parentConfig: config,
       parentContext: context,
@@ -121,6 +126,7 @@ describe('the Node host ports createSession and createSubagentSession pass', () 
   it('createSubagentSession keeps the executors its parent supplied', () => {
     const parent = [{ type: 'command' as const, execute: vi.fn() }];
     createSubagentSession({
+      host: testHost,
       agentDefinition: { name: 'worker', description: 'w', systemPrompt: 'Work.' },
       parentConfig: config,
       parentContext: context,
@@ -136,6 +142,7 @@ describe('the Node host ports createSession and createSubagentSession pass', () 
 
   it('a session built by createSession names its directory with symlinks followed', async () => {
     const { session } = await createSession({
+      host: testHost,
       config,
       context,
       terminal,

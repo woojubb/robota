@@ -53,6 +53,7 @@ export async function runSkillInFork(
   const agentType = options.agent ?? 'general-purpose';
   const agentDefinition = resolveForkAgentDefinition(agentType, options, parentSession);
   const forkSession = createSubagentSession({
+    host: deps.host,
     pathProtection: deps.pathProtection,
     agentDefinition,
     // Issue #3081: the rules the parent's gate enforces now (presets included), not the settings file.

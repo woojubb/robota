@@ -23,7 +23,7 @@ For walkthroughs, see the [SDK guide](../../content/guide/sdk.md) and
 ## Installation
 
 ```bash
-npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-framework @robota-sdk/agent-tool-defaults @robota-sdk/agent-provider-anthropic
 ```
 
 Requires Node.js 22.12 or later. `InteractiveSession` and `createQuery` work with any provider
@@ -33,15 +33,20 @@ package given a `model`; without one they use the settings files, or Anthropic's
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
+// The platform the framework runs on. It has no host default: a Node process passes its own.
+const host = createNodeFrameworkHost({ createDefaultTools });
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
-const query = createQuery({ provider });
+const query = createQuery({ host, provider, cwd: process.cwd() });
 
 const response = await query('List the TypeScript files in this directory');
 
 // With options
 const verboseQuery = createQuery({
+  host,
   provider,
   cwd: '/path/to/project',
   permissionMode: 'acceptEdits',
@@ -73,11 +78,14 @@ client only renders events and forwards user input.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
+declare const host: IFrameworkHost; // `createNodeFrameworkHost({ createDefaultTools })`, as above
 declare const provider: IAIProvider;
 
 const session = new InteractiveSession({
+  host,
   cwd: process.cwd(),
   provider,
   permissionMode: 'default',
@@ -179,8 +187,10 @@ import {
   createProjectSessionStore,
   getWorkspaceProjectStateStorage,
 } from '@robota-sdk/agent-framework';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
+declare const host: IFrameworkHost;
 declare const provider: IAIProvider;
 const cwd = process.cwd();
 
@@ -205,7 +215,7 @@ const sessionStore =
       )
     : undefined;
 
-const session = new InteractiveSession({ cwd, provider, projectAccess, sessionStore });
+const session = new InteractiveSession({ host, cwd, provider, projectAccess, sessionStore });
 ```
 
 Trust is bound to the Git worktree and repository identity. Non-Git paths, a replaced repository,
@@ -214,7 +224,7 @@ working immediately. The `cwd` must be the trusted root or inside it.
 
 ## Headless and multi-session runtime
 
-`createAgentRuntime()` holds one configuration (provider, `cwd`, project access, command modules,
+`createAgentRuntime()` holds one configuration (host, provider, `cwd`, project access, command modules,
 session store, transports) and creates `InteractiveSession`s from it:
 
 ```typescript
@@ -222,6 +232,7 @@ import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const runtime = createAgentRuntime({
+  host,
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
 });
@@ -284,9 +295,10 @@ A command module is a plain object:
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import type { ICommandModule } from '@robota-sdk/agent-framework';
+import type { ICommandModule, IFrameworkHost } from '@robota-sdk/agent-framework';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
+declare const host: IFrameworkHost;
 declare const provider: IAIProvider;
 
 const statusModule: ICommandModule = {
@@ -301,6 +313,7 @@ const statusModule: ICommandModule = {
 };
 
 const session = new InteractiveSession({
+  host,
   cwd: process.cwd(),
   provider,
   commandModules: [statusModule],
@@ -339,9 +352,11 @@ application creates; `@robota-sdk/agent-framework` does not depend on E2B.
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { E2BSandboxClient } from '@robota-sdk/agent-tools';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { IE2BSandboxAdapter, IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
+declare const host: IFrameworkHost;
 declare const provider: IAIProvider;
 declare const sandbox: IE2BSandboxAdapter; // e.g. `await Sandbox.create()` from the `e2b` package
 
@@ -354,6 +369,7 @@ const workspaceManifest: IWorkspaceManifest = {
 };
 
 const session = new InteractiveSession({
+  host,
   cwd: process.cwd(),
   provider,
   sandboxClient: new E2BSandboxClient({ sandbox }),

@@ -3,6 +3,8 @@ import { installProductProcessEnvironment } from './product/process-environment.
 /** RUNTIME-002: the desktop's presentation-free executable. */
 import { isSubagentWorkerModeArgv, runSubagentWorkerMain } from '@robota-sdk/agent-subagent-runner';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor/node';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 import { installCliDiagnostics } from './bootstrap-diagnostics.js';
 import { hardenProductProcess } from './process-hardening.js';
@@ -49,7 +51,11 @@ if (isSubagentWorkerModeArgv(optionArgv(process.argv))) {
       process.stderr.write('This headless runtime accepts only --serve.\n');
       process.exitCode = 2;
     } else {
-      startCliCore({ productRuntime }, createDefaultBackgroundTaskRunners).catch((error) => {
+      startCliCore(
+        { productRuntime },
+        createNodeFrameworkHost({ createDefaultTools }),
+        createDefaultBackgroundTaskRunners,
+      ).catch((error) => {
         process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
         process.exitCode = 1;
       });

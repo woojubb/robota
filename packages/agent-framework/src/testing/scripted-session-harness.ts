@@ -27,6 +27,7 @@ import { NodeSessionLogSink, NodeSessionStore } from '@robota-sdk/agent-session/
 import type { IContributionSource } from '../contributions/contribution-source.js';
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 
+import { createTestFrameworkHost } from './framework-host.js';
 import { peerTurnOptions } from './harness-peer-driver.js';
 import {
   logEntriesOf,
@@ -241,6 +242,7 @@ export class ScriptedSessionHarness {
       writeFileSync(userSettingsPath, JSON.stringify(settings), 'utf8');
     }
     this.session = new InteractiveSession({
+      host: createTestFrameworkHost(),
       cwd: this.cwd,
       provider,
       ...(userSettingsPath !== undefined

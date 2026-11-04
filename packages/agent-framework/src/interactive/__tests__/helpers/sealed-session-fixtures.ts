@@ -21,6 +21,7 @@ import { SESSION_RECORD_ENVELOPE_VERSION, isSessionClaimedError } from '@robota-
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 
 import { InteractiveSession } from '../../interactive-session.js';
+import { createTestFrameworkHost } from '../../../testing/framework-host.js';
 
 import type { TScriptedTurn, IArtifactSealerDouble } from '@robota-sdk/agent-core/testing';
 import type {
@@ -29,6 +30,8 @@ import type {
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type { TInteractiveSessionOptions } from '../../interactive-session.js';
+
+const testHost = createTestFrameworkHost();
 
 /** Exposes initialization, which a host awaits through `whenInitialized`. */
 export class TestInteractive extends InteractiveSession {
@@ -167,6 +170,7 @@ export function sessionOptions(
   turns: readonly TScriptedTurn[] = [{ text: 'a fresh reply' }],
 ): TInteractiveSessionOptions {
   return {
+    host: testHost,
     cwd,
     sessionStore: store,
     provider: createScriptedProvider(turns).provider,

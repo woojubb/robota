@@ -13,11 +13,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createInProcessChannelFactory } from '../render.js';
 import { TerminalHandoffController } from '../terminal-handoff-controller.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IChannelServices, IRenderOptions } from '../render.js';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { ITuiAppChannelPort } from '../tui-app-channel-port.js';
 import type { EditCheckpointStore } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 const sessionStores = vi.hoisted(() => [] as unknown[]);
 
@@ -60,6 +63,7 @@ describe('#3231: the in-process channel factory', () => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-store-per-channel-')));
     const createEditCheckpointStore = vi.fn(() => ({}) as EditCheckpointStore);
     const options: IRenderOptions = {
+      host: testHost,
       cwd,
       provider: createScriptedProvider([{ text: 'unused' }]).provider,
       cliAdapter: fakeCliAdapter(join(cwd, 'settings.json')),

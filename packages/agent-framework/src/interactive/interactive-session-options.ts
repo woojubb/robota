@@ -26,6 +26,7 @@ import type { IResolvedConfig } from '../config/config-types.js';
 import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
 import type { IProjectSettingsPath } from '../config/settings-source.js';
 import type { IContributionSource } from '../contributions/index.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
@@ -65,6 +66,8 @@ import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools
 
 /** Standard construction: cwd + provider. Config/context loaded internally. */
 export interface IInteractiveSessionStandardOptions {
+  /** The platform this session runs on; `{}` is a host with nothing to lend. See `IFrameworkHost`. */
+  host: IFrameworkHost;
   /** Additive response style applied to the composed system prompt. */
   outputStyle?: IOutputStylePrompt;
   cwd: string;
@@ -294,13 +297,15 @@ export interface IInteractiveSessionStandardOptions {
 /** Test/advanced construction: inject pre-built session directly. */
 export interface IInteractiveSessionInjectedOptions {
   session: Session;
+  /** The platform this session runs on; `{}` is a host with nothing to lend. See `IFrameworkHost`. */
+  host: IFrameworkHost;
   /** Optional product-owned remediation for recognized provider errors; scoped to this session. */
   providerErrorGuidance?: IProviderErrorGuidance;
   promptFileReferenceTag?: string;
   modelCommandToolPrefix?: string;
   subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
   observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
-  cwd?: string;
+  cwd: string;
   provider?: IAIProvider;
   /** #3282 §3 — see {@link IInteractiveSessionStandardOptions.setupRequired}. */
   setupRequired?: boolean;

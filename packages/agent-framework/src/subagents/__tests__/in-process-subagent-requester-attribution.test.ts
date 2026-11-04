@@ -17,9 +17,12 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createInProcessSubagentRunner } from '../in-process-subagent-runner.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IInProcessSubagentRunnerDeps } from '../in-process-subagent-runner.js';
 import type { IPermissionAskContext } from '@robota-sdk/agent-session';
+
+const testHost = createTestFrameworkHost();
 
 const cleanup: Array<() => void> = [];
 afterEach(() => {
@@ -44,6 +47,7 @@ function makeDeps(
     async () => 'done',
   );
   const deps = {
+    host: testHost,
     config: {
       defaultTrustLevel: 'moderate',
       provider: { name: 'scripted', model: 'scripted-model' },

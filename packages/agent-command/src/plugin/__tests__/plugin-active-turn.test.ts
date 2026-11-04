@@ -6,6 +6,9 @@ import { InteractiveSession } from '@robota-sdk/agent-framework';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 import { createPluginCommandModule } from '../plugin-command-module.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 async function heldTurn(denyRemote = false, commandModules = [createPluginCommandModule()]) {
   const root = mkdtempSync(join(tmpdir(), 'plugin-active-turn-'));
@@ -21,6 +24,7 @@ async function heldTurn(denyRemote = false, commandModules = [createPluginComman
     reloadPlugins: async () => ({ loadedPluginCount: 0 }),
   };
   const session = new InteractiveSession({
+    host: testHost,
     cwd: root, bare: true, environment: { HOME: root },
     provider: { name: 'held-provider', version: '1', chat: run } as unknown as IAIProvider,
     config: {

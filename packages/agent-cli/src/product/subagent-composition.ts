@@ -9,6 +9,8 @@ import { findProviderDefinition } from '@robota-sdk/agent-core';
 import { TRANSPORT_ENVIRONMENT } from '@robota-sdk/agent-executor';
 import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import { createGoalStatusTool, sandboxApprovalFor } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { OsSandboxClient } from '@robota-sdk/agent-tools/node';
 import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
@@ -164,6 +166,7 @@ export function createProductSubagentComposition(
   const workerSealing = createProductWorkerSealing(productRuntime);
   declareProductProcessMode(productRuntime, 'subagent');
   return {
+    host: createNodeFrameworkHost({ createDefaultTools }),
     bindWriteGrant: (grant) => {
       enterProductStores(productRuntime);
       return workerSealing.bindWriteGrant(grant);

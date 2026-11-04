@@ -17,10 +17,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { toChannelOptions, type IRenderOptions } from '../render.js';
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 const RESTORE_DEADLINE_MS = 10_000;
 const POLL_MS = 50;
@@ -89,6 +92,7 @@ describe('channel factory restores persisted context (CLI-B11 TC-02)', () => {
     // Exactly the render.tsx factory: toChannelOptions(options, resumeSessionId).
     const scripted = createScriptedProvider([{ text: 'unused in this test' }]);
     const options: IRenderOptions = {
+      host: testHost,
       cwd,
       provider: scripted.provider,
       sessionStore: store,
@@ -123,6 +127,7 @@ describe('channel factory restores persisted context (CLI-B11 TC-02)', () => {
 
     const scripted = createScriptedProvider([{ text: 'unused' }]);
     const options: IRenderOptions = {
+      host: testHost,
       cwd,
       provider: scripted.provider,
       sessionStore: store,

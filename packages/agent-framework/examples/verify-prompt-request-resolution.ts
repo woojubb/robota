@@ -5,12 +5,15 @@ import { join } from 'node:path';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
 import { InteractiveSession } from '../src/index.js';
+import { createTestFrameworkHost } from '../src/testing/framework-host.js';
 
 import type {
   IAskRequestEvent,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
 } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 function assertCondition(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -70,6 +73,7 @@ async function main(): Promise<void> {
     { text: 'ask complete' },
   ]);
   const session = new InteractiveSession({
+    host: testHost,
     cwd,
     provider: script.provider,
     bare: true,

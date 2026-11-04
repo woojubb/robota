@@ -1,6 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IInteractiveSessionStandardOptions } from '../../interactive/interactive-session-options.js';
+
+const testHost = createTestFrameworkHost();
 
 const { buildRuntimeSession } = vi.hoisted(() => ({
   buildRuntimeSession: vi.fn((_recipe: unknown) => ({
@@ -34,6 +37,7 @@ describe('public session factories project into the SessionRecipe kernel', () =>
     const permissionHandler = vi.fn();
     const onTextDelta = vi.fn();
     const queryOptions = {
+      host: testHost,
       provider,
       cwd: process.cwd(),
       userSettingsSources,
@@ -49,6 +53,7 @@ describe('public session factories project into the SessionRecipe kernel', () =>
 
     expect(buildRuntimeSession).toHaveBeenCalledOnce();
     expect(buildRuntimeSession).toHaveBeenCalledWith({
+      host: testHost,
       cwd: queryOptions.cwd,
       provider,
       projectAccess: expect.objectContaining({ status: 'restricted' }),
@@ -62,6 +67,7 @@ describe('public session factories project into the SessionRecipe kernel', () =>
 
   it('projects inherited and session-specific runtime options through the kernel', () => {
     const runtimeOptions = {
+      host: testHost,
       cwd: process.cwd(),
       provider,
       userSettingsSources: [],
@@ -93,6 +99,7 @@ describe('public session factories project into the SessionRecipe kernel', () =>
 
     expect(buildRuntimeSession).toHaveBeenCalledOnce();
     expect(buildRuntimeSession).toHaveBeenCalledWith({
+      host: testHost,
       cwd: runtimeOptions.cwd,
       provider,
       projectAccess: expect.objectContaining({ status: 'restricted' }),
@@ -124,6 +131,7 @@ describe('public session factories project into the SessionRecipe kernel', () =>
   it('requires production provider and cwd and projects interactive options through the kernel', async () => {
     const channel = new MockInteractionChannel();
     const runtime = createInteractiveRuntime({
+      host: testHost,
       channel,
       commandModules: [],
       provider,
@@ -137,6 +145,7 @@ describe('public session factories project into the SessionRecipe kernel', () =>
 
     expect(buildRuntimeSession).toHaveBeenCalledOnce();
     expect(buildRuntimeSession).toHaveBeenCalledWith({
+      host: testHost,
       provider,
       cwd: process.cwd(),
       projectAccess: undefined,

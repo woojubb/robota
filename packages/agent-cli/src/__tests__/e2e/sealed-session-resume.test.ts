@@ -34,9 +34,12 @@ import { startCliCore } from '../../cli-core.js';
 import { createThemeSurface } from '../../startup/theme-surface.js';
 import { createTestProductRuntime } from '../helpers/product-runtime.js';
 import { createTrustedWorkspaceProjectAccess } from '../helpers/trusted-workspace-project-access.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IScriptedProvider } from '@robota-sdk/agent-core/testing';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-sealed-resume-')));
 const ORIGINAL_ARGV = process.argv;
@@ -92,7 +95,7 @@ async function run(
       projectAccess: await createTrustedWorkspaceProjectAccess(project),
     };
     if (presentation === undefined) await startCli(options);
-    else await startCliCore(options, () => [], presentation as never);
+    else await startCliCore(options, testHost, () => [], presentation as never);
     throw new Error('startCli returned without process.exit');
   } catch (error) {
     const match = /^process\.exit:(\d+)$/.exec(

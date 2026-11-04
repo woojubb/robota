@@ -25,10 +25,13 @@ import {
   type ISupervisedControl,
   type ISupervisedExternalEvents,
 } from '../supervised-session-control.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { ISessionBinder, ISessionDirectory } from '@robota-sdk/agent-interface-session';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
+
+const testHost = createTestFrameworkHost();
 
 const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
 
@@ -148,6 +151,7 @@ async function withTarget(
   const scratch = mkdtempSync(join(tmpdir(), prefix));
   const root = join(scratch, 'supervised');
   const session = new InteractiveSession({
+    host: testHost,
     session: runtime(options.run ?? (async () => 'answer')) as never,
     cwd: '/tmp',
     ...(options.withRemoteControl

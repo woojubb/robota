@@ -2,6 +2,10 @@ import { readFile } from 'node:fs/promises';
 import { basename } from 'node:path';
 import { createQuery } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+
+const host = createNodeFrameworkHost({ createDefaultTools });
 
 export interface IDocumentResult {
   filename: string;
@@ -48,6 +52,8 @@ export async function processDocument(filePath: string): Promise<IDocumentResult
   // The document's text goes into the prompt, so the agent gets no built-in tool that runs commands,
   // reads or changes files, reaches the network or sends files: it only answers about the text.
   const query = createQuery({
+    host,
+    cwd: process.cwd(),
     provider: new AnthropicProvider({ apiKey }),
     deniedTools: [
       'Shell',

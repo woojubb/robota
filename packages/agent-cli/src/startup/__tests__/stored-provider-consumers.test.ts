@@ -15,6 +15,9 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 import { createLiveContentSecretsGetter } from '../../telemetry/live-content-secrets.js';
 import { prepareLiveContentRedactor } from '../../telemetry/live-content-redaction.js';
 import { runEvalCommand } from '../../eval/eval-command.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 const token = 'synthetic-stored-consumer-key';
 const reference = { service: 'robota.provider.openrouter', account: 'fixture-connection' };
@@ -78,6 +81,7 @@ describe('CLI consumers of stored provider references', () => {
   it('carries the host resolver into served and recreated sessions', () => {
     const f = fixture();
     const options = buildServeSessionOptions({
+      host: testHost,
       productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true },
@@ -179,6 +183,7 @@ describe('CLI consumers of stored provider references', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
     try {
       const code = await runEvalCommand(['fixture.mjs'], f.dir, {
+        host: testHost,
         settingsSources: f.sources,
         environment: {},
         providerDefinitions: f.definitions,

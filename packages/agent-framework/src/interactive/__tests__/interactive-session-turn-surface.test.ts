@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 function runtime(): Record<string, unknown> {
   return {
@@ -32,7 +35,11 @@ function runtime(): Record<string, unknown> {
 
 describe('the surface a turn was accepted on', () => {
   it('is recorded on the turn usage observation, independently of the driver id', async () => {
-    const session = new InteractiveSession({ session: runtime() as never, cwd: '/tmp' });
+    const session = new InteractiveSession({
+      host: testHost,
+      session: runtime() as never,
+      cwd: '/tmp',
+    });
     for (const surface of ['remote', 'attach'] as const) {
       await (
         await session.submit('hello', undefined, undefined, { driverId: 'device-1', surface })

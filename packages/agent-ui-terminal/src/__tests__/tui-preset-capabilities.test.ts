@@ -2,11 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import { toChannelOptions } from '../render.js';
 import { buildTuiSessionOptions } from '../tui-session-options.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IRenderOptions } from '../render.js';
 
+const testHost = createTestFrameworkHost();
+
 function renderOptions(extra: Partial<IRenderOptions> = {}): IRenderOptions {
-  return { cwd: '/work', provider: {} as never, ...extra } as IRenderOptions;
+  return { host: testHost, cwd: '/work', provider: {} as never, ...extra } as IRenderOptions;
 }
 
 describe('TUI preset capabilities reach the session', () => {

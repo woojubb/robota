@@ -12,8 +12,11 @@ import { join } from 'node:path';
 
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { ICliPresentation } from '../cli-core.js';
+
+const testHost = createTestFrameworkHost();
 
 const calls = vi.hoisted(() => ({
   order: [] as string[],
@@ -87,6 +90,7 @@ async function start(
         productRuntime: createTestProductRuntime('test-product', { HOME: home }),
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted'),
       },
+      testHost,
       () => [],
       options.presentation,
     ),

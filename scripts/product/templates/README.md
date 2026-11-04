@@ -81,9 +81,13 @@ OpenAI provider's `baseURL` (see the [providers guide](./content/guide/providers
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const query = createQuery({
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
 });
 const response = await query('List all TypeScript files in src/');

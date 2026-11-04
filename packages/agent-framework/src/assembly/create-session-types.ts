@@ -13,6 +13,7 @@ import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { IPeerReplyPort } from '../tools/peer-reply-tool.js';
 import type { IPeerSendFilePort } from '../tools/peer-send-file-tool.js';
 import type { IContributionSource } from '../contributions/index.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { TSessionFactory } from '../hooks/agent-executor.js';
 import type { TProviderFactory } from '../hooks/prompt-executor.js';
@@ -73,6 +74,8 @@ export type {
 
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
+  /** The platform this session runs on; `{}` is a host with nothing to lend. See `IFrameworkHost`. */
+  host: IFrameworkHost;
   readonly pathProtection?: IPathProtectionPolicy;
   /** Additive response style; it never replaces framework, project, permission, or capability sections. */
   outputStyle?: IOutputStylePrompt;
@@ -80,8 +83,8 @@ export interface ICreateSessionOptions {
   config: IResolvedConfig;
   /** Host-selected permission patterns independent of config and the active preset. */
   baselinePermissionAllow?: readonly string[];
-  /** Working directory used for project context, skills, and agent definitions. */
-  cwd?: string;
+  /** The absolute working directory used for project context, skills, and agent definitions. */
+  cwd: string;
   /** Explicit contribution sources; absence means no skill or agent-definition file access. */
   contributionSources?: readonly IContributionSource[];
   /** Ordered skill and legacy-command roots selected by the host; absence disables file discovery. */

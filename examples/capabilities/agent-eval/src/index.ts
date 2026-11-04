@@ -18,6 +18,10 @@ import {
   type IMetric,
 } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+
+const host = createNodeFrameworkHost({ createDefaultTools });
 
 const apiKey = process.env.ANTHROPIC_API_KEY;
 if (!apiKey) {
@@ -48,7 +52,7 @@ const definition = defineEval({
 });
 
 const provider = new AnthropicProvider({ apiKey });
-const runtime = createAgentRuntime({ cwd: process.cwd(), provider });
+const runtime = createAgentRuntime({ host, cwd: process.cwd(), provider });
 const runFn = createSessionRunFn(runtime);
 
 const report = await runEval(definition, runFn);

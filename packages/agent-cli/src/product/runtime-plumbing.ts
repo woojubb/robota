@@ -21,6 +21,7 @@ import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
+  IFrameworkHost,
   ICreateSessionOptions,
   ICommandModule,
   IProviderErrorGuidance,
@@ -222,6 +223,8 @@ export function reportUnknownPresetModules(
 export interface IProductRuntimeSeamInput {
   /** The assembled product whose overlay lays the product-owned materials on top. */
   product: IAssembledProduct;
+  /** The platform the product's sessions run on. */
+  host: IFrameworkHost;
   cwd: string;
   provider: IAIProvider;
   /** The shell's already-narrowed module selection (merged superset filtered by the preset delta). */
@@ -282,6 +285,7 @@ export function buildProductRuntimeOptions(
     createRestrictedWorkspaceProjectAccess('identity-unavailable', input.cwd);
   const options = input.product.buildRuntimeOptions({
     session: {
+      host: input.host,
       cwd: input.cwd,
       provider: input.provider,
       commandModules: input.selectedCommandModules,

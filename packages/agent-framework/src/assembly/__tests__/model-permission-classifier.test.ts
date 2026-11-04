@@ -7,9 +7,12 @@ import {
   parseClassifierVerdict,
   PERMISSION_CLASSIFIER_SYSTEM_PROMPT,
 } from '../model-permission-classifier.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICreateSessionOptions } from '../create-session-types.js';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 function providerAnswering(content: string): IAIProvider & { chat: ReturnType<typeof vi.fn> } {
   return {
@@ -88,6 +91,8 @@ describe('createModelPermissionClassifier', () => {
 describe('createSession and auto mode', () => {
   function options(extra: Partial<ICreateSessionOptions> = {}): ICreateSessionOptions {
     return {
+      cwd: process.cwd(),
+      host: testHost,
       config: {
         defaultTrustLevel: 'safe',
         provider: { name: 'test', model: 'test-model', apiKey: undefined },
@@ -128,6 +133,7 @@ describe('createSession and auto mode', () => {
   it('a subagent or forked skill of an auto-mode session runs in auto mode too', () => {
     const base = options();
     const child = createSubagentSession({
+      host: testHost,
       agentDefinition: { name: 'worker', description: 'w', systemPrompt: 'Work.' },
       parentConfig: base.config,
       parentContext: base.context,

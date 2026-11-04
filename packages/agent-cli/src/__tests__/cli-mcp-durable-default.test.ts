@@ -9,8 +9,11 @@ import {
   InMemoryMCPActivationApprovalStore,
 } from '@robota-sdk/agent-mcp';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IMCPActivationRequest } from '@robota-sdk/agent-mcp';
+
+const testHost = createTestFrameworkHost();
 
 const startup = vi.hoisted(() => ({ compose: vi.fn() }));
 vi.mock('../startup/mcp-startup.js', async (original) => ({
@@ -65,6 +68,7 @@ describe('the CLI MCP composition default', () => {
         await expect(
           startCliCore(
             {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),  projectAccess: createRestrictedWorkspaceProjectAccess('untrusted') },
+            testHost,
             () => [],
           ),
         ).rejects.toThrow('composition inspected');

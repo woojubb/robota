@@ -30,11 +30,14 @@ vi.mock('@robota-sdk/agent-framework', async () => {
 });
 
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IAIProvider, IActionRequest } from '@robota-sdk/agent-core';
 
+const testHost = createTestFrameworkHost();
+
 function makeChannel(): TuiInteractionChannel {
-  return new TuiInteractionChannel({ cwd: '/tmp', provider: {} as IAIProvider });
+  return new TuiInteractionChannel({ host: testHost, cwd: '/tmp', provider: {} as IAIProvider });
 }
 
 const SELECT: IActionRequest = {

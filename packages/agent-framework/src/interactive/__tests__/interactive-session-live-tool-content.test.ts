@@ -11,6 +11,7 @@ import {
   LIVE_CONTENT_PRETRUNCATE_MARGIN_BYTES,
   LivePromptContentAccumulator,
 } from '../interactive-session-live-prompt-content.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IEventService } from '@robota-sdk/agent-core';
 import type {
@@ -19,6 +20,8 @@ import type {
   ILivePromptTraceBatch,
 } from '@robota-sdk/agent-interface-analytics';
 import type { ISubmitOptions } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 type TListener = (event: string, data: Record<string, unknown>) => void;
 
@@ -148,6 +151,7 @@ function build(
   const contents: ILivePromptContentBatch[] = [];
   const mock = createMockSession(run);
   const session = new InteractiveSession({
+    host: testHost,
     session: mock.session as never,
     cwd: '/tmp',
     livePromptTrace: {

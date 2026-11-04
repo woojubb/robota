@@ -21,8 +21,11 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 import { describe, expect, it } from 'vitest';
 
 import { buildServeSessionOptions } from '../serve-mode.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IOrgPolicy } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 const POLICY: IOrgPolicy = {
   blockedCommands: ['clear'],
@@ -42,7 +45,7 @@ function makeArgs(): never {
 
 describe('CLI-083: the serve projection carries the org policy', () => {
   it('forwards a supplied policy into the session options', () => {
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: makeArgs(),
       preset: {},
@@ -55,7 +58,7 @@ describe('CLI-083: the serve projection carries the org policy', () => {
   it('carries no policy when none was supplied, rather than inventing one', () => {
     // The absence case has to stay distinguishable: a projection that always attaches a policy
     // object would satisfy the case above and change behaviour for every user without one.
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: makeArgs(),
       preset: {},
@@ -68,7 +71,7 @@ describe('CLI-083: the serve projection carries the org policy', () => {
 describe('serve preset capability projection', () => {
   it('forwards a structured response format into the runtime session', () => {
     const responseFormat = { type: 'json_object' as const };
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: makeArgs(),
       preset: { responseFormat },
@@ -82,7 +85,7 @@ describe('serve skill discovery projection', () => {
   it('forwards host-selected contribution sources and root descriptors unchanged', () => {
     const contributionSources: never[] = [];
     const skillRoots = [{ root: 'custom/skills', kind: 'skills' as const }];
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: makeArgs(),
       preset: {},

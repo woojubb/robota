@@ -467,6 +467,9 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: workspace:*
         version: link:../../packages/agent-provider-anthropic
+      '@robota-sdk/agent-tool-defaults':
+        specifier: workspace:*
+        version: link:../../packages/agent-tool-defaults
       next:
         specifier: ^15.5.24
         version: 15.5.28(@babel/core@7.29.7)(@types/node@22.19.21)(react-dom@19.2.8)(react@19.2.8)
@@ -556,6 +559,9 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: ^3.0.0-beta.67
         version: link:../../packages/agent-provider-anthropic
+      '@robota-sdk/agent-tool-defaults':
+        specifier: ^3.0.0-beta.67
+        version: link:../../packages/agent-tool-defaults
       p-limit:
         specifier: ^6.1.0
         version: 6.2.0
@@ -587,6 +593,9 @@ importers:
       '@robota-sdk/agent-provider-replay':
         specifier: workspace:*
         version: link:../../../packages/agent-provider-replay
+      '@robota-sdk/agent-tool-defaults':
+        specifier: ^3.0.1
+        version: link:../../../packages/agent-tool-defaults
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -631,6 +640,9 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: ^3.0.0-beta.67
         version: link:../../../packages/agent-provider-anthropic
+      '@robota-sdk/agent-tool-defaults':
+        specifier: ^3.0.0-beta.67
+        version: link:../../../packages/agent-tool-defaults
       '@robota-sdk/agent-transport-http':
         specifier: ^3.0.0-beta.67
         version: link:../../../packages/agent-transport-http
@@ -738,6 +750,9 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: ^3.0.0-beta.67
         version: link:../../packages/agent-provider-anthropic
+      '@robota-sdk/agent-tool-defaults':
+        specifier: ^3.0.0-beta.67
+        version: link:../../packages/agent-tool-defaults
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -760,6 +775,9 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: ^3.0.0-beta.67
         version: link:../../packages/agent-provider-anthropic
+      '@robota-sdk/agent-tool-defaults':
+        specifier: ^3.0.0-beta.67
+        version: link:../../packages/agent-tool-defaults
       discord-api-types:
         specifier: ^0.38.50
         version: 0.38.50
@@ -788,6 +806,9 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: ^3.0.0-beta.67
         version: link:../../packages/agent-provider-anthropic
+      '@robota-sdk/agent-tool-defaults':
+        specifier: ^3.0.0-beta.67
+        version: link:../../packages/agent-tool-defaults
       '@robota-sdk/agent-tools':
         specifier: ^3.0.0-beta.67
         version: link:../../packages/agent-tools
@@ -822,6 +843,9 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: ^3.0.0-beta.67
         version: link:../../packages/agent-provider-anthropic
+      '@robota-sdk/agent-tool-defaults':
+        specifier: ^3.0.0-beta.67
+        version: link:../../packages/agent-tool-defaults
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -844,6 +868,9 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: ^3.0.0-beta.67
         version: link:../../packages/agent-provider-anthropic
+      '@robota-sdk/agent-tool-defaults':
+        specifier: ^3.0.0-beta.67
+        version: link:../../packages/agent-tool-defaults
       next:
         specifier: ^15.5.24
         version: 15.5.28(@babel/core@7.29.7)(@types/node@22.19.21)(react-dom@19.2.8)(react@19.2.8)
@@ -875,6 +902,9 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: ^3.0.0-beta.67
         version: link:../../packages/agent-provider-anthropic
+      '@robota-sdk/agent-tool-defaults':
+        specifier: ^3.0.0-beta.67
+        version: link:../../packages/agent-tool-defaults
       '@slack/bolt':
         specifier: ^3.21.1
         version: 3.22.0
@@ -900,6 +930,9 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: ^3.0.0-beta.67
         version: link:../../packages/agent-provider-anthropic
+      '@robota-sdk/agent-tool-defaults':
+        specifier: ^3.0.0-beta.67
+        version: link:../../packages/agent-tool-defaults
       dotenv:
         specifier: ^16.4.5
         version: 16.6.1
@@ -925,6 +958,9 @@ importers:
       '@robota-sdk/agent-provider-anthropic':
         specifier: ^3.0.0-beta.67
         version: link:../../packages/agent-provider-anthropic
+      '@robota-sdk/agent-tool-defaults':
+        specifier: ^3.0.0-beta.67
+        version: link:../../packages/agent-tool-defaults
       ws:
         specifier: ^8.21.1
         version: 8.21.1

@@ -27,6 +27,9 @@ import {
   createCompactCommandModule,
   createSkillsCommandModule,
 } from '../src/index.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 async function main(): Promise<void> {
   const cwd = mkdtempSync(join(tmpdir(), 'arch-024-semantic-roles-'));
@@ -77,6 +80,7 @@ async function main(): Promise<void> {
         systemCommands: alternate,
       };
       interactive = new InteractiveSession({
+        host: testHost,
         session: injectedSession as never,
         cwd,
         projectAccess,

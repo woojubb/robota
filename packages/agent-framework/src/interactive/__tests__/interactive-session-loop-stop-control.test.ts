@@ -14,9 +14,12 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICommandModule, ICommandResult } from '../../commands/index.js';
 import type { SessionExecutionController } from '../interactive-session-execution-controller.js';
+
+const testHost = createTestFrameworkHost();
 
 function createRuntimeSession(): Record<string, unknown> {
   return {
@@ -56,7 +59,7 @@ function createSession(
       ],
     },
   ];
-  return new InteractiveSession({ session: createRuntimeSession() as never, commandModules: modules });
+  return new InteractiveSession({ host: testHost, cwd: process.cwd(), session: createRuntimeSession() as never, commandModules: modules });
 }
 
 function getExecCtrl(session: InteractiveSession): SessionExecutionController {

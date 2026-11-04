@@ -3,8 +3,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { runPrintMode } from '../print-mode.js';
 import { productPermissionBaseline } from '../../product/permission-baseline.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IOrgPolicy } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 const PRODUCT_PERMISSION_BASELINE = productPermissionBaseline(createTestProductRuntime());
 
 
@@ -59,7 +62,7 @@ describe('print and goal session-capability projection', () => {
 
       await expect(
         runPrintMode(
-          createTestProductRuntime(), '/work',
+          createTestProductRuntime(), testHost, '/work',
           { goal, positional, outputFormat: 'text' } as never,
           {} as never,
           {} as never,

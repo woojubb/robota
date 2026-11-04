@@ -15,6 +15,9 @@ import type { IAutomaticMemoryConfig } from '../../memory/automatic-memory-types
 import type { IMemoryStore } from '../../memory/types.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { loadedRecordOrMissing } from './session-load-helpers.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * SELFHOST-008 P2 — post-turn auto-capture wired into the live turn (option B: awaited in the execution
@@ -71,6 +74,7 @@ describe('SELFHOST-008 P2 TC-01/TC-05 — capture fires on a completed turn (que
       const cwd = makeProject();
       const sessionStore = await createTrustedProjectSessionStoreFixture(cwd);
       const session = new InteractiveSession({
+        host: testHost,
         cwd,
         provider: createProvider('noted'),
         bare: true,
@@ -99,6 +103,7 @@ describe('SELFHOST-008 P2 TC-01/TC-05 — capture fires on a completed turn (que
       const cwd = makeProject();
       const sessionStore = await createTrustedProjectSessionStoreFixture(cwd);
       const session = new InteractiveSession({
+        host: testHost,
         cwd,
         provider: createProvider('noted'),
         bare: true,
@@ -126,6 +131,7 @@ describe('SELFHOST-008 P2 TC-03 — adapter-gating: no automaticMemory ⇒ captu
       const cwd = makeProject();
       const sessionStore = await createTrustedProjectSessionStoreFixture(cwd);
       const session = new InteractiveSession({
+        host: testHost,
         cwd,
         provider: createProvider('ok'),
         bare: true,
@@ -146,6 +152,7 @@ describe('SELFHOST-008 P2 TC-04 — sensitive content is refused on the capture 
   it('auto_save: a cue containing a secret yields NO durable save and NO queued candidate', async () => {
     const cwd = makeProject();
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: createProvider('ok'),
       bare: true,
@@ -187,6 +194,7 @@ describe('SELFHOST-008 P2 TC-02a — guarded: a capture failure never breaks the
       },
     };
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: createProvider('ok'),
       bare: true,
@@ -227,6 +235,7 @@ describe('SELFHOST-008 P2 TC-02b — event lands in the SAME turn record even wh
         upsertPending: (c, s, r) => defer(() => base.upsertPending(c, s, r)),
       };
       const session = new InteractiveSession({
+        host: testHost,
         cwd,
         provider: createProvider('noted'),
         bare: true,

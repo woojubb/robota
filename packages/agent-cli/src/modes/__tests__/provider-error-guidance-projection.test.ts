@@ -2,10 +2,13 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 import { describe, expect, it } from 'vitest';
 
 import { buildServeSessionOptions } from '../serve-mode.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 describe('serve and MCP provider recovery guidance', () => {
   it('preserves host model identifiers in both served modes', () => {
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},
@@ -30,7 +33,7 @@ describe('serve and MCP provider recovery guidance', () => {
 
   it('preserves the product guidance in the session options both modes use', () => {
     const providerErrorGuidance = { authentication: 'Configure product A.' };
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},

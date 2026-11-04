@@ -6,8 +6,11 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IUsageObservation } from '@robota-sdk/agent-interface-analytics';
+
+const testHost = createTestFrameworkHost();
 
 function createMockSession(options?: {
   runResult?: string;
@@ -93,7 +96,11 @@ describe('a turn that moved to another model', () => {
       });
       return 'answer';
     });
-    const session = new InteractiveSession({ session: mockSession as never, cwd: '/tmp' });
+    const session = new InteractiveSession({
+      host: testHost,
+      session: mockSession as never,
+      cwd: '/tmp',
+    });
 
     await session.submit('question');
 
@@ -150,7 +157,11 @@ describe('a turn that moved to another model', () => {
       call(2, '123e4567-e89b-42d3-a456-426614174002', 'openai', 'gpt-next', [300, 30]);
       return 'answer';
     });
-    const session = new InteractiveSession({ session: mockSession as never, cwd: '/tmp' });
+    const session = new InteractiveSession({
+      host: testHost,
+      session: mockSession as never,
+      cwd: '/tmp',
+    });
 
     await session.submit('question');
 

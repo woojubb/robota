@@ -21,6 +21,9 @@ import { InteractiveSession } from '../interactive-session.js';
 import { WorkspaceSessionLogSink, createProjectSessionStore } from '../session-persistence.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectStateStorage } from '../../workspace-trust/index.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const linux = process.platform === 'linux';
 const CANARY = 'CANARY-77d1c0-first-persist';
@@ -51,6 +54,7 @@ describe.runIf(linux)(
       const store = createProjectSessionStore(sessions, logs, { sealing: { sealer } });
 
       const interactive = new InteractiveSession({
+        host: testHost,
         cwd,
         projectAccess: access,
         sessionStore: store,
