@@ -21,6 +21,16 @@ export function sha256Hex(input: string | Uint8Array): string {
   return digest.getHash('HEX');
 }
 
+/**
+ * SHA-1 of a string (hashed as UTF-8) or raw bytes, as lowercase hex. For a digest that names
+ * something and must stay equal to the one an earlier run wrote, never for a secret or a signature.
+ */
+export function sha1Hex(input: string | Uint8Array): string {
+  const digest = new jsSHA('SHA-1', 'UINT8ARRAY');
+  digest.update(typeof input === 'string' ? utf8.encode(input) : input);
+  return digest.getHash('HEX');
+}
+
 /** HMAC-SHA-256 of `text` under `key` (both UTF-8), as lowercase hex. */
 export function hmacSha256Hex(key: string, text: string): string {
   const digest = new jsSHA('SHA-256', 'UINT8ARRAY', {
