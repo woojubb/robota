@@ -171,3 +171,243 @@ export function joinPath(...segments: readonly string[]): string {
     trailing,
   );
 }
+
+/**
+ * Whether `path` is anchored on either platform: exactly `posix.isAbsolute(path) || win32.isAbsolute(path)`.
+ * Unlike {@link isAbsolutePath} it counts a bare `\x` — rooted, with its drive taken from elsewhere —
+ * so a check that refuses a path escaping its root refuses that spelling on every platform.
+ */
+export function isRootedPath(path: string): boolean {
+  return path.startsWith('/') || path.startsWith('\\') || DRIVE_ROOT.test(path);
+}
+
+/** The separator `path` is spelled with: `\` for a Windows path (a drive or `\\` UNC root), `/` otherwise. */
+export function separatorOf(absolutePath: string): '/' | '\\' {
+  return flavourOf(absolutePath) === 'win32' ? '\\' : '/';
+}
+
+const SLASH = 47;
+const BACKSLASH = 92;
+const COLON = 58;
+
+function isWindowsSeparator(code: number): boolean {
+  return code === SLASH || code === BACKSLASH;
+}
+
+function isDriveLetter(code: number): boolean {
+  return (code >= 65 && code <= 90) || (code >= 97 && code <= 122);
+}
+
+function posixDirname(path: string): string {
+  if (path.length === 0) return '.';
+  const hasRoot = path.charCodeAt(0) === SLASH;
+  let end = -1;
+  let matchedSlash = true;
+  for (let index = path.length - 1; index >= 1; index -= 1) {
+    if (path.charCodeAt(index) === SLASH) {
+      if (!matchedSlash) {
+        end = index;
+        break;
+      }
+    } else {
+      matchedSlash = false;
+    }
+  }
+  if (end === -1) return hasRoot ? '/' : '.';
+  if (hasRoot && end === 1) return '//';
+  return path.slice(0, end);
+}
+
+/** The end of the `\\server\share` root at the start of `path`, or 0 when it is not one. */
+function windowsUncRootEnd(path: string): number {
+  const length = path.length;
+  const skip = (from: number, separators: boolean): number => {
+    let at = from;
+    while (at < length && isWindowsSeparator(path.charCodeAt(at)) === separators) at += 1;
+    return at;
+  };
+  const serverEnd = skip(2, false);
+  if (serverEnd >= length || serverEnd === 2) return 0;
+  const shareStart = skip(serverEnd, true);
+  if (shareStart >= length || shareStart === serverEnd) return 0;
+  return skip(shareStart, false);
+}
+
+function windowsDirname(path: string): string {
+  const length = path.length;
+  if (length === 0) return '.';
+  const first = path.charCodeAt(0);
+  if (length === 1) return isWindowsSeparator(first) ? path : '.';
+  let rootEnd = -1;
+  let offset = 0;
+  if (isWindowsSeparator(first)) {
+    rootEnd = offset = 1;
+    if (isWindowsSeparator(path.charCodeAt(1))) {
+      const uncEnd = windowsUncRootEnd(path);
+      if (uncEnd === length) return path;
+      if (uncEnd > 0) rootEnd = offset = uncEnd + 1;
+    }
+  } else if (isDriveLetter(first) && path.charCodeAt(1) === COLON) {
+    rootEnd = length > 2 && isWindowsSeparator(path.charCodeAt(2)) ? 3 : 2;
+    offset = rootEnd;
+  }
+  let end = -1;
+  let matchedSlash = true;
+  for (let index = length - 1; index >= offset; index -= 1) {
+    if (isWindowsSeparator(path.charCodeAt(index))) {
+      if (!matchedSlash) {
+        end = index;
+        break;
+      }
+    } else {
+      matchedSlash = false;
+    }
+  }
+  if (end === -1) {
+    if (rootEnd === -1) return '.';
+    end = rootEnd;
+  }
+  return path.slice(0, end);
+}
+
+/**
+ * `path.dirname(path)` on the platform the path belongs to. Like the other helpers here the platform
+ * is read from the text (a drive letter and separator, or a leading `\\`, means Windows), so
+ * `a\b` without a drive is one POSIX name.
+ */
+export function dirnamePath(path: string): string {
+  return flavourOf(path) === 'win32' ? windowsDirname(path) : posixDirname(path);
+}
+
+/**
+ * `path.basename(path, suffix)` on the platform the path belongs to, including Node's quirk that the
+ * suffix is kept when it is the whole last segment (`a/.md` with `.md` stays `.md`) yet removed when
+ * it is the whole path.
+ */
+export function basenamePath(path: string, suffix?: string): string {
+  const windows = flavourOf(path) === 'win32';
+  const isSeparator = (code: number): boolean =>
+    windows ? isWindowsSeparator(code) : code === SLASH;
+  let start =
+    windows && path.length >= 2 && isDriveLetter(path.charCodeAt(0)) && path.charCodeAt(1) === COLON
+      ? 2
+      : 0;
+  let end = -1;
+  let matchedSlash = true;
+  if (suffix !== undefined && suffix.length > 0 && suffix.length <= path.length) {
+    if (suffix === path) return '';
+    let extensionIndex = suffix.length - 1;
+    let firstNonSeparatorEnd = -1;
+    for (let index = path.length - 1; index >= start; index -= 1) {
+      const code = path.charCodeAt(index);
+      if (isSeparator(code)) {
+        if (!matchedSlash) {
+          start = index + 1;
+          break;
+        }
+      } else {
+        if (firstNonSeparatorEnd === -1) {
+          matchedSlash = false;
+          firstNonSeparatorEnd = index + 1;
+        }
+        if (extensionIndex >= 0) {
+          if (code === suffix.charCodeAt(extensionIndex)) {
+            extensionIndex -= 1;
+            if (extensionIndex === -1) end = index;
+          } else {
+            extensionIndex = -1;
+            end = firstNonSeparatorEnd;
+          }
+        }
+      }
+    }
+    if (start === end) end = firstNonSeparatorEnd;
+    else if (end === -1) end = path.length;
+    return path.slice(start, end);
+  }
+  for (let index = path.length - 1; index >= start; index -= 1) {
+    if (isSeparator(path.charCodeAt(index))) {
+      if (!matchedSlash) {
+        start = index + 1;
+        break;
+      }
+    } else if (end === -1) {
+      matchedSlash = false;
+      end = index + 1;
+    }
+  }
+  return end === -1 ? '' : path.slice(start, end);
+}
+
+/** The parts of an absolute path with `.` and `..` collapsed, or `undefined` when it is not anchored. */
+function anchoredParts(path: string, flavour: TPathFlavour): IPathParts | undefined {
+  const anchored =
+    flavour === 'win32'
+      ? /^[A-Za-z]:[\\/]/.test(path) || /^[\\/]{2}/.test(path)
+      : path.startsWith('/');
+  if (!anchored) return undefined;
+  const parts = splitPath(path, flavour);
+  return { root: parts.root, segments: collapse(parts) };
+}
+
+type TRelation =
+  | { readonly segments: readonly string[] }
+  /** `to` is on another root or platform: it is its own relative path, normalised. */
+  | { readonly elsewhere: string };
+
+function relate(from: string, to: string): TRelation {
+  const flavour = flavourOf(from);
+  const origin = anchoredParts(from, flavour);
+  if (origin === undefined) {
+    throw new TypeError(
+      `A relative path needs an absolute starting point, got ${JSON.stringify(from)}.`,
+    );
+  }
+  const target = anchoredParts(to, flavour);
+  if (target === undefined) {
+    const foreign = flavour === 'posix' ? anchoredParts(to, 'win32') : undefined;
+    if (foreign !== undefined) return { elsewhere: assemble(foreign, 'win32', false) };
+    throw new TypeError(`A relative path needs an absolute target, got ${JSON.stringify(to)}.`);
+  }
+  const fold = (text: string): string => (flavour === 'win32' ? text.toLowerCase() : text);
+  if (fold(origin.root) !== fold(target.root)) {
+    return { elsewhere: assemble(target, flavour, false) };
+  }
+  let common = 0;
+  while (
+    common < origin.segments.length &&
+    common < target.segments.length &&
+    fold(origin.segments[common]!) === fold(target.segments[common]!)
+  ) {
+    common += 1;
+  }
+  return {
+    segments: [...origin.segments.slice(common).map(() => '..'), ...target.segments.slice(common)],
+  };
+}
+
+/**
+ * The segments of `path.relative(from, to)`, or `undefined` when `to` is on another root (a Windows
+ * drive or share, or another platform's spelling) and so has no path relative to `from`. A segment
+ * of `..` is a step up. Both paths must be absolute; Windows names compare without regard to case,
+ * as they do in `path.win32.relative`.
+ *
+ * Nothing is anchored to the process directory: a `from` or `to` that is relative (or a Windows path
+ * that names no drive) has no answer without it and throws. Two shares of one server are two roots
+ * here, where `path.win32.relative` reads `\\server\a` and `\\server\b` as sibling directories.
+ */
+export function relativeSegments(from: string, to: string): readonly string[] | undefined {
+  const relation = relate(from, to);
+  return 'segments' in relation ? relation.segments : undefined;
+}
+
+/**
+ * `path.relative(from, to)` on the platform `from` belongs to, lexically: the segments of
+ * {@link relativeSegments} joined with that platform's separator, or the normalised `to` itself when
+ * it is on another root, as `path.win32.relative` answers across drives.
+ */
+export function relativePath(from: string, to: string): string {
+  if (from === to) return '';
+  const relation = relate(from, to);
+  return 'segments' in relation ? relation.segments.join(separatorOf(from)) : relation.elsewhere;
+}

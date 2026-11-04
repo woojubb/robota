@@ -293,7 +293,7 @@ export type { ISpinner, ITerminalOutput } from './terminal-output';
 
 export type { ISession } from './session';
 
-export type { IDirent, IStats, IFileSystem, IFileSystemAsync } from './file-system';
+export type { IDirent, IStats, IFileSystem, IFileSystemAsync, TFileEncoding } from './file-system';
 export type { ICredentialKey, ICredentialStore } from './credential-store';
 export type {
   IArtifactContext,
