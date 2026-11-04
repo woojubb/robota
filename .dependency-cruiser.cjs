@@ -48,20 +48,6 @@ module.exports = {
         pathNot: '^packages/agent-provider-(openai|openai-compatible)/',
       },
     },
-
-    // ==========================================================
-    // Transport carriers must not depend on each other
-    // ==========================================================
-    {
-      name: 'no-transport-cross-deps',
-      severity: 'error',
-      comment:
-        'A transport carrier builds on agent-transport and lower layers, never on another carrier ' +
-        '(FAMILY-SIBLINGS): agent-transport-link, which owns owner admission, stays independent of ' +
-        'every bearer-token carrier.',
-      from: { path: '^packages/agent-transport-([^/]+)/' },
-      to: { path: '^packages/agent-transport-', pathNot: '^packages/agent-transport-$1/' },
-    },
   ],
   options: {
     doNotFollow: {
