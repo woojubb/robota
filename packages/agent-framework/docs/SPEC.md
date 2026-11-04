@@ -274,10 +274,12 @@ These are behaviors a caller cannot infer from a type signature alone.
   the session. Context usage is not part of that: it moves every turn and
   is reported on its own, so counting it would push a status after every turn with nothing changed.
 - **Hook executor registration is replace-vs-extend, and the built-ins are seeded first.** The session
-  resolves an omitted executor list to the Node `command`/`http` executors — an _undefined-only_
-  fallback, so supplying any executor array at all replaces the built-ins rather than extending
-  them; only an actually-omitted array reactivates them. Because the last executor
-  registered for a given hook type wins, the framework's built-ins are seeded _before_ SDK-specific
+  resolves an omitted executor list to the executors the host builds (`host.createHookExecutors`;
+  on Node, `command` and `http`) — an _undefined-only_ fallback, so supplying any executor array at
+  all replaces the built-ins rather than extending them; only an actually-omitted array reactivates
+  them. A host that lends no builder seeds none: the session has no executor of its own, and a
+  declared hook only the host's executors run is refused at assembly. Because the last executor
+  registered for a given hook type wins, the host's built-ins are seeded _before_ SDK-specific
   ones, so a caller-supplied executor of the same type still overrides the built-in — seeding them
   last would make the built-ins unoverridable, and merging instead would remove a sandboxed caller's
   ability to exclude one. The general principle: restriction must be asked for explicitly; extension
