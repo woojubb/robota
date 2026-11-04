@@ -6,6 +6,7 @@
  * If a feature works, these tests pass. If a feature breaks, these fail.
  */
 
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { describe, it, expect, vi } from 'vitest';
 
 import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js';
@@ -1232,12 +1233,12 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   // ── Scenario: SessionStore auto-persist ────────────────────────
 
   it('auto-persists session to SessionStore after submit', async () => {
-    const mockSessionStore = {
+    const mockSessionStore = withHoldReadClaim({
       save: vi.fn(),
       load: vi.fn().mockReturnValue({ status: 'missing' }),
       list: vi.fn().mockReturnValue([]),
       delete: vi.fn(),
-    };
+    });
 
     const session = new InteractiveSession({
       session: createMockSession({ runResult: 'hello' }) as never,
@@ -1285,7 +1286,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       },
     ];
 
-    const mockSessionStore = {
+    const mockSessionStore = withHoldReadClaim({
       save: vi.fn(),
       load: vi.fn().mockReturnValue({
         status: 'valid',
@@ -1315,7 +1316,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       }),
       list: vi.fn().mockReturnValue([]),
       delete: vi.fn(),
-    };
+    });
 
     const mockSession = createMockSession();
     const session = new InteractiveSession({
@@ -1354,7 +1355,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   });
 
   it('setName updates name and persists', () => {
-    const mockSessionStore = {
+    const mockSessionStore = withHoldReadClaim({
       save: vi.fn(),
       load: vi.fn().mockReturnValue({
         status: 'valid',
@@ -1368,7 +1369,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       }),
       list: vi.fn().mockReturnValue([]),
       delete: vi.fn(),
-    };
+    });
 
     const mockSession = createMockSession();
     const session = new InteractiveSession({
@@ -1383,7 +1384,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   });
 
   it('keeps the live name unchanged when a persisted rename is refused', () => {
-    const mockSessionStore = {
+    const mockSessionStore = withHoldReadClaim({
       save: vi.fn(() => {
         throw new Error('storage refused');
       }),
@@ -1399,7 +1400,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       }),
       list: vi.fn().mockReturnValue([]),
       delete: vi.fn(),
-    };
+    });
     const session = new InteractiveSession({
       session: createMockSession() as never,
       cwd: '/tmp',
@@ -1450,12 +1451,12 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   describe('Session persistence and restore — round-trip', () => {
     it('persisted history matches InteractiveSession.getFullHistory() exactly', async () => {
-      const mockSessionStore = {
+      const mockSessionStore = withHoldReadClaim({
         save: vi.fn(),
         load: vi.fn().mockReturnValue({ status: 'missing' }),
         list: vi.fn().mockReturnValue([]),
         delete: vi.fn(),
-      };
+      });
 
       const session = new InteractiveSession({
         session: createMockSession({ runResult: 'answer' }) as never,
@@ -1473,12 +1474,12 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     it('persists system prompt and tool schemas for session restore diagnostics', async () => {
-      const mockSessionStore = {
+      const mockSessionStore = withHoldReadClaim({
         save: vi.fn(),
         load: vi.fn().mockReturnValue({ status: 'missing' }),
         list: vi.fn().mockReturnValue([]),
         delete: vi.fn(),
-      };
+      });
 
       const session = new InteractiveSession({
         session: createMockSession({ runResult: 'answer' }) as never,
@@ -1499,12 +1500,12 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     it('multiple submits accumulate in persisted history', async () => {
-      const mockSessionStore = {
+      const mockSessionStore = withHoldReadClaim({
         save: vi.fn(),
         load: vi.fn().mockReturnValue({ status: 'missing' }),
         list: vi.fn().mockReturnValue([]),
         delete: vi.fn(),
-      };
+      });
 
       const session = new InteractiveSession({
         session: createMockSession({ runResult: 'response' }) as never,
@@ -1555,7 +1556,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
         },
       ];
 
-      const mockSessionStore = {
+      const mockSessionStore = withHoldReadClaim({
         save: vi.fn(),
         load: vi.fn().mockReturnValue({
           status: 'valid',
@@ -1585,7 +1586,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
         }),
         list: vi.fn().mockReturnValue([]),
         delete: vi.fn(),
-      };
+      });
 
       const session = new InteractiveSession({
         session: createMockSession({ runResult: 'new answer' }) as never,

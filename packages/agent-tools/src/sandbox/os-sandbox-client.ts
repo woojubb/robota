@@ -30,7 +30,8 @@ import {
 import { homedir, tmpdir } from 'node:os';
 import { basename, isAbsolute, resolve } from 'node:path';
 
-import { resolvePlatformShell, splitCommandSegments } from '@robota-sdk/agent-core';
+import { splitCommandSegments } from '@robota-sdk/agent-core';
+import { resolvePlatformShell } from '@robota-sdk/agent-core/node';
 
 import {
   bubblewrapArguments,

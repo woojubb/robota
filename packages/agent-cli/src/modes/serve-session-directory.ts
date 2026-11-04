@@ -10,6 +10,7 @@
  */
 
 import {
+  SessionAuthorshipRefusedError,
   SessionChangeRefusal,
   SessionDeleteRefusal,
   isSessionBusy,
@@ -71,7 +72,11 @@ export interface IServeSessionPool<TSession, TSlot extends { readonly current: T
   bind(role: TSessionBindingRole): IServeSessionPoolBinding<TSession, TSlot>;
   acquire(sessionId?: string): Promise<IServeSessionLease<TSession>>;
   /** `session` is the live instance itself — the directory reads it to tell "busy" from "idle". */
-  listLive(): readonly { readonly sessionId: string; readonly clients: number; readonly session: TSession }[];
+  listLive(): readonly {
+    readonly sessionId: string;
+    readonly clients: number;
+    readonly session: TSession;
+  }[];
 }
 
 /** What the served runtime lends the directory once its host has started. */
@@ -141,7 +146,9 @@ export function createServeSessionDirectory<
   };
 
   /** This binding's own session id, or `undefined` while it has not named itself yet. */
-  const currentSessionIdOf = (binding: IServeSessionPoolBinding<TSession, TSlot>): string | undefined => {
+  const currentSessionIdOf = (
+    binding: IServeSessionPoolBinding<TSession, TSlot>,
+  ): string | undefined => {
     try {
       return binding.slot.current.getSession().getSessionId();
     } catch {
@@ -210,7 +217,10 @@ export function createServeSessionDirectory<
         throw new SessionChangeRefusal('stopping', STOPPING_MESSAGE);
       }
       if (changing) {
-        throw new SessionChangeRefusal('in_progress', 'Another session change is already under way.');
+        throw new SessionChangeRefusal(
+          'in_progress',
+          'Another session change is already under way.',
+        );
       }
       const refusal = refusalToLeave();
       if (refusal !== undefined) throw refusal;
@@ -235,7 +245,11 @@ export function createServeSessionDirectory<
       listSessions: () => listFor(target, binding.slot.current),
       async switchSession(sessionId) {
         if (sessionId === binding.slot.current.getSession().getSessionId()) return;
-        if (listUnreadableSessionsForWorkspace(target.store, target.cwd).some((entry) => entry.id === sessionId)) {
+        if (
+          listUnreadableSessionsForWorkspace(target.store, target.cwd).some(
+            (entry) => entry.id === sessionId,
+          )
+        ) {
           throw new SessionChangeRefusal(
             'unreadable',
             `Session ${sessionId} was saved in a form this version cannot read.`,
@@ -249,13 +263,22 @@ export function createServeSessionDirectory<
             lockedSessionMessage(sessionId, lockedReason),
           );
         }
-        const known = listResumableSessionSummaries(target.store, target.cwd).some(
-          (summary) => summary.id === sessionId,
+        const summary = listResumableSessionSummaries(target.store, target.cwd).find(
+          (candidate) => candidate.id === sessionId,
         );
-        if (!known) {
+        if (summary === undefined) {
           throw new SessionChangeRefusal(
             'unknown_session',
             `No session ${sessionId} in this workspace.`,
+          );
+        }
+        // A record nobody vouched for is not started from disk: no client can say yet that it is the
+        // owner's. A session the pool already runs is the one its claim holds, and stays reachable.
+        const live = target.pool.listLive().some((row) => row.sessionId === sessionId);
+        if (!live && summary.authorship === 'unverified') {
+          throw new SessionChangeRefusal(
+            'unverified',
+            new SessionAuthorshipRefusedError(sessionId, 'unverified').message,
           );
         }
         await changeTo(sessionId);
@@ -338,8 +361,9 @@ export function createServeSessionDirectory<
         if (isCurrent) {
           // Switch this binding away before the record it is on disappears: to another session of
           // this workspace when one exists, newest first, or a fresh one when this was the only one.
+          // A record nobody vouched for is never landed in unasked.
           const nextExisting = listResumableSessionSummaries(target.store, target.cwd).find(
-            (summary) => summary.id !== sessionId,
+            (summary) => summary.id !== sessionId && summary.authorship !== 'unverified',
           )?.id;
           await changeTo(nextExisting);
         }

@@ -1,8 +1,14 @@
 const SHUTDOWN_TIMEOUT_MS = 5000;
 
-/** Shut a session down, giving up with a rejection if it has not finished in time. */
+/**
+ * Shut a session down, giving up with a rejection if it has not finished in time. Either way the
+ * caller is done with it, so its claim on its record ends here too.
+ */
 export async function shutdownSession(
-  session: { shutdown(options?: { reason?: string; message?: string }): Promise<void> },
+  session: {
+    shutdown(options?: { reason?: string; message?: string }): Promise<void>;
+    releaseSessionClaim?(): void;
+  },
   message: string,
   surface: string,
 ): Promise<void> {
@@ -19,5 +25,6 @@ export async function shutdownSession(
     ]);
   } finally {
     if (timer !== undefined) clearTimeout(timer);
+    session.releaseSessionClaim?.();
   }
 }

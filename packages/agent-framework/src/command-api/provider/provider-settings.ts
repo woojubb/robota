@@ -9,6 +9,7 @@ import {
   isEnvReference,
   resolveEnvReference,
 } from '@robota-sdk/agent-core';
+import { processEnvResolver } from '@robota-sdk/agent-core/node';
 
 import type {
   IProviderDefinition,
@@ -159,7 +160,7 @@ export function validateProviderProfile(
     isEnvReference(profile.apiKey) &&
     !resolveEnvReference(
       profile.apiKey,
-      options.env === undefined ? undefined : (name) => options.env?.[name],
+      options.env === undefined ? processEnvResolver : (name) => options.env?.[name],
     )
   ) {
     throw new Error(
@@ -273,7 +274,7 @@ function hasUsableRequiredProviderCredential(
   return requirement.anyOf.some((field) =>
     hasUsableSecretReference(
       resolveProviderCredentialValue(field, profile, defaults),
-      env === undefined ? undefined : (name) => env[name],
+      env === undefined ? processEnvResolver : (name) => env[name],
     ),
   );
 }

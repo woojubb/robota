@@ -5,6 +5,7 @@
  * read limit sealed left plain, a file that changed or does not open left alone. Project writes are
  * Linux-only, so these run there.
  */
+import { createHash } from 'node:crypto';
 import {
   existsSync,
   linkSync,
@@ -112,9 +113,21 @@ function seedPlainProject(): void {
 
 const IDS = ['corrupt_one', 'replayed_one', 'saved_one', 'saved_two'];
 
+/**
+ * What a store that seals reports for each session, without the digest of the stored bytes, which
+ * sealing changes by design. Whose a record is stays: a migration seals plaintext any program of the
+ * user could have written, so a migrated record is as unverified as the plain one was.
+ */
 function outcomes(sealer: IArtifactSealer): Record<string, unknown> {
   const store = createProjectSessionStore(sessions, logs, { sealing: { sealer } });
-  return Object.fromEntries(IDS.map((id) => [id, store.load(id)]));
+  return Object.fromEntries(
+    IDS.map((id) => {
+      const outcome = store.load(id);
+      if (outcome.status !== 'valid') return [id, outcome];
+      const { digest: _digest, ...rest } = outcome;
+      return [id, rest];
+    }),
+  );
 }
 
 function everyFile(directory: string): string[] {
@@ -141,7 +154,8 @@ describe.runIf(process.platform === 'linux')('migrating a trusted project sessio
     seedPlainProject();
     const sealer = createTestArtifactSealer();
     const before = outcomes(sealer);
-    expect((before.replayed_one as { status: string }).status).toBe('valid');
+    expect(before.replayed_one).toMatchObject({ status: 'valid', authorship: 'unverified' });
+    expect(before.saved_one).toMatchObject({ status: 'valid', authorship: 'unverified' });
     const sidecars = readdirSync(join(logsDirectory(), 'replayed_one.payloads')).sort();
 
     const result = migrate(sealer, true);
@@ -156,6 +170,32 @@ describe.runIf(process.platform === 'linux')('migrating a trusted project sessio
     expect(withCanary()).toEqual([]);
     expect(readdirSync(join(logsDirectory(), 'replayed_one.payloads')).sort()).toEqual(sidecars);
     expect(outcomes(sealer)).toEqual(before);
+  });
+
+  it('names each valid record it sealed by the digest of the bytes it put in place', () => {
+    seedPlainProject();
+    const sealer = createTestArtifactSealer();
+
+    const result = migrate(sealer, true);
+
+    const valid = Object.entries(outcomes(sealer))
+      .filter(
+        ([id, outcome]) =>
+          (outcome as { status?: string }).status === 'valid' &&
+          existsSync(join(sessionsDirectory(), `${id}.json`)),
+      )
+      .map(([id]) => id)
+      .sort();
+    expect([...(result.records.sealedRecords ?? [])].map((sealed) => sealed.id).sort()).toEqual(
+      valid,
+    );
+    for (const sealed of result.records.sealedRecords ?? []) {
+      expect(sealed.digest).toBe(
+        createHash('sha256')
+          .update(readFileSync(join(sessionsDirectory(), `${sealed.id}.json`)))
+          .digest('hex'),
+      );
+    }
   });
 
   it('is idempotent, and planning writes nothing', () => {

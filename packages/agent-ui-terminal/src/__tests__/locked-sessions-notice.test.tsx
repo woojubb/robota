@@ -4,6 +4,7 @@
  * that was written sealed must not report it as gone.
  */
 
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { render } from 'ink-testing-library';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -28,7 +29,9 @@ function storeOf(
   entries: readonly ISessionListEntry[] = [],
 ): IInteractiveSessionStore & { readonly reads: { count: number } } {
   const reads = { count: 0 };
-  return {
+  const store: Omit<IInteractiveSessionStore, 'claim' | 'hasWriter'> & {
+    readonly reads: { count: number };
+  } = {
     reads,
     list: () => {
       reads.count += 1;
@@ -46,6 +49,7 @@ function storeOf(
           },
         }),
   };
+  return withHoldReadClaim(store);
 }
 
 const READABLE: ISessionListEntry = {

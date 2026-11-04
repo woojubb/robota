@@ -22,7 +22,7 @@ import {
   readHandoffIdentity,
   type IHandoffSourceSession,
 } from '../handoff/handoff-host-adapter.js';
-import { createHandoffReceiver } from '../handoff/handoff-receiving.js';
+import { createHandoffReceiver, saveReceivedSession } from '../handoff/handoff-receiving.js';
 import { prepareOutgoingFile } from '../peer-files/outgoing-file.js';
 import { userLocalStorageRoot } from '../product/user-paths.js';
 
@@ -483,11 +483,12 @@ function attachHandoff(
     resolveCredential: wiring.hasOwnProvider,
     // Saved into this session's project, where the operator resumes it; the source's path means
     // nothing here. Nothing starts it.
-    persist: (record) => {
-      const cwd = handoffSession(live().session)?.getCwd() ?? record.cwd;
-      wiring.sessionStore.save({ ...record, cwd });
-      return true;
-    },
+    persist: (record) =>
+      saveReceivedSession(
+        wiring.sessionStore,
+        record,
+        handoffSession(live().session)?.getCwd() ?? record.cwd,
+      ),
     deviceLabel: 'this session',
   });
   // A linked device's hand-off reaches the same receiver, asked on the link's own authority.

@@ -39,8 +39,14 @@ describe.runIf(process.platform === 'linux')('session persistence facade', () =>
     });
 
     expect(resolveLatestSessionId(store, cwd)).toBe('session_two');
-    expect(resolveSessionIdByIdOrName(store, 'first')).toBe('session_one');
-    expect(resolveSessionIdByIdOrName(store, 'session_two')).toBe('session_two');
+    expect(resolveSessionIdByIdOrName(store, 'first')).toEqual({
+      status: 'found',
+      id: 'session_one',
+    });
+    expect(resolveSessionIdByIdOrName(store, 'session_two')).toEqual({
+      status: 'found',
+      id: 'session_two',
+    });
     expect(loadedRecordOrMissing(store, 'session_one')?.sandboxSnapshotId).toBe(
       'sandbox-snapshot-one',
     );

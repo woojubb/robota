@@ -18,11 +18,13 @@ import { join } from 'node:path';
 import { isSafeSessionId } from './session-id.js';
 import { sweepStaleStoreTemporaries } from './stale-temporaries.js';
 import { readRegularFile, replaceStagedFiles } from './staged-replacements.js';
+import { openStoredSessionRecord } from './stored-session-authorship.js';
 import {
-  StoredSessionRecords,
+  digestOf,
+  isPlainSessionRecordOf,
   sealStoredSessionBytes,
   storedSessionMigrationState,
-} from './stored-session-record.js';
+} from './stored-session-codec.js';
 
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
 
@@ -69,6 +71,18 @@ export interface ISessionRecordMigration {
   readonly changed: readonly string[];
   /** Temp files crashed writes left with a record in them: removed (or to remove) with `sweepTemporaries`, else left. */
   readonly staleTemporaries: number;
+  /**
+   * Each record this run sealed, by its id and the SHA-256 of the sealed bytes it put in place — the
+   * bytes the owner may then vouch for (`ISessionAuthorship.adopt`), and no others.
+   * Empty when planning.
+   */
+  readonly sealedRecords: readonly ISealedSessionRecord[];
+}
+
+/** One record a migration sealed: its id and the SHA-256 (lowercase hex) of the bytes it wrote. */
+export interface ISealedSessionRecord {
+  readonly id: string;
+  readonly digest: string;
 }
 
 /** The `.json` entries of `baseDir`, each a regular file or refused; none when the directory is missing. */
@@ -109,7 +123,9 @@ export function migrateNodeSessionStore(
     refused,
     changed: [] as string[],
     staleTemporaries: 0,
+    sealedRecords: [] as ISealedSessionRecord[],
   };
+  const staged: (ISealedSessionRecord & { readonly path: string })[] = [];
   const replacements = replaceStagedFiles((stage) => {
     for (const name of files) {
       const path = join(baseDir, name);
@@ -132,11 +148,22 @@ export function migrateNodeSessionStore(
         result.sealed += 1;
         continue;
       }
-      stage(path, read.bytes, sealStoredSessionBytes(id, read.bytes, options.sealer));
+      const sealed = sealStoredSessionBytes(id, read.bytes, options.sealer);
+      // Only a record that reads as this session's is a session the owner could mark as theirs; a
+      // corrupt or unsupported one is sealed as it is and stays what it was.
+      if (isPlainSessionRecordOf(id, read.bytes)) {
+        staged.push({ path, id, digest: digestOf(sealed) });
+      }
+      stage(path, read.bytes, sealed);
     }
   }, options.beforeCommit);
   result.sealed += replacements.replaced;
   result.changed.push(...replacements.changed);
+  // Every staged record was put in place but those that changed meanwhile, since anything else
+  // that stops a replacement throws out of it.
+  for (const { path, id, digest } of staged) {
+    if (!replacements.changed.includes(path)) result.sealedRecords.push({ id, digest });
+  }
   result.staleTemporaries = sweepStaleStoreTemporaries(
     baseDir,
     options.apply && options.sweepTemporaries === true,
@@ -154,14 +181,13 @@ export function readSessionStoreWorkingDirectories(
   baseDir: string,
   options: { readonly sealer: IArtifactSealer },
 ): readonly string[] {
-  const records = new StoredSessionRecords({ sealer: options.sealer });
   const directories = new Set<string>();
   for (const name of recordEntries(baseDir).files) {
     const id = name.slice(0, -RECORD_EXTENSION.length);
     if (!isSafeSessionId(id)) continue;
     const read = readRegularFile(join(baseDir, name));
     if (read === undefined) continue;
-    const outcome = records.decode(id, read.bytes);
+    const outcome = openStoredSessionRecord(id, read.bytes, options.sealer);
     const cwd =
       outcome.status === 'valid'
         ? outcome.record.cwd

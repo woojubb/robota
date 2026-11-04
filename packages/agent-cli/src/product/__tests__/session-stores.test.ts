@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { resolveStartupResume } from '../../startup/startup-resume.js';
 import { resolveProductSessionSealing } from '../session-sealing.js';
 import {
   createProductPromptHistoryFile,
@@ -47,6 +48,53 @@ describe('the product session sealing', () => {
     expect(readFileSync(join(home, '.test-product', 'sessions', 'sess_plain.json'), 'utf8')).toBe(
       JSON.stringify({ schemaVersion: 2, record }, null, 2),
     );
+  });
+
+  it('builds stores that say nothing of authorship and offer none of its members, so no surface asks', async () => {
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'product-session-stores-')));
+    roots.push(home);
+    const runtime = createTestProductRuntime('test-product', { HOME: home });
+    const store = createProductUserSessionStore(runtime);
+    store.save({
+      ...record,
+      id: 'sess_older',
+      updatedAt: '2026-08-21T00:00:00.000Z',
+      name: 'older',
+    });
+    store.save(record);
+
+    expect(store.authorship).toBeUndefined();
+    expect(store.load('sess_plain')).toEqual({ status: 'valid', record });
+    expect(store.list().every((entry) => !('authorship' in entry.outcome))).toBe(true);
+    const asked: string[] = [];
+    const written: string[] = [];
+    const resume = (options: Partial<Parameters<typeof resolveStartupResume>[0]>) =>
+      resolveStartupResume(
+        {
+          store,
+          cwd: '/work',
+          continueMode: false,
+          resumeId: undefined,
+          reuseEmptySession: false,
+          interactive: true,
+          confirm: async (question) => {
+            asked.push(question);
+            return false;
+          },
+          write: (text) => written.push(text),
+          ...options,
+        },
+        (idOrName) => `Session not found: ${idOrName}`,
+      );
+    expect(await resume({ continueMode: true })).toEqual({
+      kind: 'start',
+      resumeSessionId: 'sess_plain',
+    });
+    expect(await resume({ resumeId: 'older' })).toEqual({
+      kind: 'start',
+      resumeSessionId: 'sess_older',
+    });
+    expect([...asked, ...written]).toEqual([]);
   });
 
   it('builds the prompt-history file that writes plain lines', () => {

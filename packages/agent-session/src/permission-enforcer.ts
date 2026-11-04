@@ -22,6 +22,7 @@ import {
   requiresFreshApproval,
   runHooks,
 } from '@robota-sdk/agent-core';
+import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 import { decideApproval } from './abortable-approval.js';
 import { checkpointedApproval, hasCheckpointedApproval } from './checkpointed-approval.js';
@@ -45,6 +46,7 @@ import type { ISessionLogger, TSessionLogData } from './session-logger.js';
 import type { TPreToolHookDecision } from './tool-hook-helpers.js';
 import type { IToolWrapperDeps } from './tool-permission-wrapper.js';
 import type {
+  IHookTypeExecutor,
   IToolExecutionContext,
   IToolWithEventService,
   TToolArgs,
@@ -97,7 +99,7 @@ export class PermissionEnforcer {
   private readonly promptForApprovalFn?: IPermissionEnforcerOptions['promptForApprovalFn'];
   private readonly sessionLogger?: ISessionLogger;
   private readonly onToolExecution?: IPermissionEnforcerOptions['onToolExecution'];
-  private readonly hookTypeExecutors?: IPermissionEnforcerOptions['hookTypeExecutors'];
+  private readonly hookTypeExecutors: readonly IHookTypeExecutor[];
   private readonly transcriptPath?: string;
   /**
    * Issue #2351: consent is remembered as PATTERNS (`consentScopeFor`), not tool names, and read
@@ -139,7 +141,10 @@ export class PermissionEnforcer {
     this.promptForApprovalFn = options.promptForApprovalFn;
     this.sessionLogger = options.sessionLogger;
     this.onToolExecution = options.onToolExecution;
-    this.hookTypeExecutors = options.hookTypeExecutors;
+    this.hookTypeExecutors = options.hookTypeExecutors ?? [
+      new CommandExecutor(),
+      new HttpExecutor(),
+    ];
     this.transcriptPath = options.transcriptPath;
     this.onProjectAllowTool = options.onProjectAllowTool;
     this.permissionPolicy = options.permissionPolicy;
@@ -451,7 +456,11 @@ export class PermissionEnforcer {
       deny: [...this.config.permissions.deny, ...(policy?.deny ?? [])],
       ask: this.config.permissions.ask ?? [],
     };
-    const where = { cwd: this.cwd, homeDirectory: this.homeDirectory, pathProtection: this.pathProtection };
+    const where = {
+      cwd: this.cwd,
+      homeDirectory: this.homeDirectory,
+      pathProtection: this.pathProtection,
+    };
     const decision = evaluatePermission(toolName, toolArgs, mode, rules, {
       ...where,
       resolveInWorkspace: this.resolveInWorkspace,
@@ -516,7 +525,14 @@ export class PermissionEnforcer {
       return true;
     }
     if (gate.isPaused()) {
-      const allowed = await this.promptForApproval(toolName, toolArgs, signal, interaction, true, scope);
+      const allowed = await this.promptForApproval(
+        toolName,
+        toolArgs,
+        signal,
+        interaction,
+        true,
+        scope,
+      );
       if (allowed && !this.checkpointedApprovals && !hasCheckpointedApproval(scope.continuation))
         gate.resume();
       return allowed;

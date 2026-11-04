@@ -171,6 +171,8 @@ describe('Session execution continuation', () => {
             save,
             load: () => ({ status: 'missing' }),
             list: () => [],
+            claim: () => ({ outcome: { status: 'missing' }, release: () => undefined }),
+            hasWriter: () => false,
             delete: () => {},
           },
         },

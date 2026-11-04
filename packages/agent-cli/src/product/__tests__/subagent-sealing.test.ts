@@ -8,6 +8,7 @@
  * once it unlocks. The runner gets the product's sealing and its key-change watch from the same
  * decision, and never the one without the other.
  */
+import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -17,6 +18,7 @@ import { leaveProcessScopedDirectory } from '@robota-sdk/agent-core/testing';
 import { TRANSPORT_ENVIRONMENT } from '@robota-sdk/agent-executor';
 import {
   createSubagentLogger,
+  createUserSessionStore,
   readSubagentTranscriptPage,
   resolveSubagentTranscriptPath,
 } from '@robota-sdk/agent-framework';
@@ -240,6 +242,39 @@ function productRunnerOptions(
   expect(factory).toBeTypeOf('function');
   return runner.options.at(-1) as IRunnerSealingOptions;
 }
+
+describe('a product subagent worker’s fork record', () => {
+  it('is reported by the bytes of each save, which the parent then vouches for on the real keyring', async () => {
+    const { holder, sealer } = await parent();
+    await holder.unlock(passphrase);
+    const runtime = createTestProductRuntime();
+    const sessions = runtime.layout.userPaths.sessions;
+    const parentStore = createUserSessionStore(sessions, { sealing: { sealer } });
+    parentStore.save(record('sess_fork'), { handoff: true, provenance: 'owner' });
+    const token = parentStore.exportHeld?.('sess_fork') as string;
+    const composition = createProductSubagentComposition(runtime);
+    composition.bindWriteGrant?.(sealer.writeGrant());
+    const child = composition.openSessionStore?.({ cwd: directory('worker-cwd-') });
+    child?.importHeld?.('sess_fork', token);
+
+    child?.save(record('sess_fork', 'the child turn'));
+    const held = child?.authorship?.heldDigest('sess_fork');
+
+    const digest = createHash('sha256')
+      .update(readFileSync(join(sessions, 'sess_fork.json')))
+      .digest('hex');
+    expect(held).toBe(digest);
+    // Raising a record still handed to a child is refused until its export ends.
+    expect(parentStore.authorship?.adopt('sess_fork', digest)).toBe('exported');
+    parentStore.authorship?.exportEnded('sess_fork');
+    expect(parentStore.authorship?.adopt('sess_fork', digest)).toBe('adopted');
+    const seen = createUserSessionStore(sessions, { sealing: { sealer } }).load('sess_fork');
+    expect(seen.status === 'valid' && seen.authorship).toBe('verified');
+    expect(seen.status === 'valid' && JSON.stringify(seen.record.messages)).toContain(
+      'the child turn',
+    );
+  });
+});
 
 describe('a product subagent worker marks its presence when it binds its parent’s grant', () => {
   const presence = (runtime: ReturnType<typeof createTestProductRuntime>): string[] =>

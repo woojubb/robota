@@ -24,7 +24,10 @@
  *
  * The AAD that binds a sealed artifact to its owner is derived here from the kind and the id, under
  * a fixed versioned prefix, so a sealed file copied to another session's path does not open. It binds;
- * it does not say who sealed: anyone holding the public key can seal an artifact that opens.
+ * it does not say who sealed: anyone holding the public key can seal an artifact that opens. Who wrote
+ * it is what an authorship tag says, and only the sealer over the key holder offers one, since only it
+ * reaches unlocked keys; it also passes on the holder's unlocks, holding each listener weakly so a
+ * store that subscribes is still collected when nothing else refers to it.
  */
 import { Buffer } from 'node:buffer';
 
@@ -299,20 +302,58 @@ const releaseCollectedSealer = new FinalizationRegistry<() => void>((release) =>
   release();
 });
 
-/** Stops hearing the holder's locks and wipes every epoch, the first time it is called only. */
-function releaseOnce(stopHearingLocks: () => void, epochs: WriterEpochs): () => void {
+/** Stops hearing the holder's locks and unlocks and wipes every epoch, the first time it is called only. */
+function releaseOnce(stopHearing: readonly (() => void)[], epochs: WriterEpochs): () => void {
   let released = false;
   return () => {
     if (released) return;
     released = true;
-    stopHearingLocks();
+    for (const stop of stopHearing) stop();
     epochs.retireAll();
   };
+}
+
+/**
+ * Unlock listeners held weakly: a listener whose subscriber was collected is dropped, here when it
+ * is found gone or when the registry reports it, so subscribing keeps nothing alive.
+ */
+class WeakUnlockListeners {
+  readonly #references = new Set<WeakRef<() => void>>();
+  readonly #collected = new FinalizationRegistry<WeakRef<() => void>>((reference) => {
+    this.#references.delete(reference);
+  });
+
+  add(listener: () => void): () => void {
+    const reference = new WeakRef(listener);
+    this.#references.add(reference);
+    this.#collected.register(listener, reference, reference);
+    return () => {
+      this.#references.delete(reference);
+      this.#collected.unregister(reference);
+    };
+  }
+
+  /** Calls every live listener; one listener's failure stops none of the others. */
+  announce(): void {
+    for (const reference of [...this.#references]) {
+      const listener = reference.deref();
+      if (listener === undefined) {
+        this.#references.delete(reference);
+        continue;
+      }
+      try {
+        listener();
+      } catch {
+        // allow-fallback: the keys are unlocked; one listener's failure must not stop the others.
+      }
+    }
+  }
 }
 
 export class KeyHolderArtifactSealer implements IArtifactSealer {
   readonly #holder: KeyHolder;
   readonly #epochs: WriterEpochs;
+  readonly #unlockListeners = new WeakUnlockListeners();
   readonly #release: () => void;
   #disposed = false;
 
@@ -327,14 +368,19 @@ export class KeyHolderArtifactSealer implements IArtifactSealer {
     const stopHearingLocks = holder.onLock(() => {
       epochs.retireAll();
     });
-    this.#release = releaseOnce(stopHearingLocks, epochs);
+    const unlockListeners = this.#unlockListeners;
+    const stopHearingUnlocks = holder.onUnlock(() => {
+      unlockListeners.announce();
+    });
+    this.#release = releaseOnce([stopHearingLocks, stopHearingUnlocks], epochs);
     releaseCollectedSealer.register(this, this.#release, this);
   }
 
   /**
-   * Stops hearing the holder's locks and wipes every epoch's data key. Idempotent. The sealer still
-   * seals afterwards, keeping no data key: each artifact of a writer-epoch kind is sealed as a fresh
-   * kind's is, so nothing outlives a lock this sealer no longer hears.
+   * Stops hearing the holder's locks and unlocks and wipes every epoch's data key. Idempotent. The
+   * sealer still seals afterwards, keeping no data key: each artifact of a writer-epoch kind is sealed
+   * as a fresh kind's is, so nothing outlives a lock this sealer no longer hears. Its unlock listeners
+   * hear nothing more.
    */
   dispose(): void {
     this.#disposed = true;
@@ -369,6 +415,31 @@ export class KeyHolderArtifactSealer implements IArtifactSealer {
   /** The key this sealer seals new epochs to now, as a grant; fails as sealing does when it cannot be read. */
   writeGrant(): string {
     return formatWriteGrant(sealingPublicKeyOf(this.#holder));
+  }
+
+  /** The holder's authorship tag of `bytes` for `context`; `ArtifactLockedError` while locked. */
+  tagAuthorship(bytes: Uint8Array, context: IArtifactContext): Uint8Array {
+    artifactAad(context);
+    try {
+      return this.#holder.tagAuthorship(context, bytes);
+    } catch (error) {
+      throw openFailure(error);
+    }
+  }
+
+  /** Whether `tag` is the holder's authorship tag of `bytes` for `context`; `ArtifactLockedError` while locked. */
+  verifyAuthorship(bytes: Uint8Array, tag: Uint8Array, context: IArtifactContext): boolean {
+    artifactAad(context);
+    try {
+      return this.#holder.verifyAuthorship(context, bytes, tag);
+    } catch (error) {
+      throw openFailure(error);
+    }
+  }
+
+  /** Calls `listener` after each unlock of the holder, holding it weakly; returns the unsubscribe. */
+  onUnlock(listener: () => void): () => void {
+    return this.#unlockListeners.add(listener);
   }
 
   #seal(plain: Uint8Array, context: IArtifactContext): Buffer {

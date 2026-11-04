@@ -91,12 +91,52 @@ The main package-level edges are drawn in [`diagrams/robota-architecture.mmd`](d
 - **SPEC as contract** — Each package's `docs/SPEC.md` records its purpose, contract, invariants and
   design decisions; a change to a contract rewrites the matching SPEC sentence.
 - **No fallback for required capabilities** — Terminal failures stay terminal.
+- **Platform-neutral libraries** — A library's main entry runs wherever its consumer runs; host
+  code sits behind a Node-only subpath and is injected (see Runtime platforms).
+
+## Runtime platforms
+
+A package's main entry is **platform-neutral** unless the package exists to drive a Node host.
+Platform-neutral code runs unchanged in a browser, a Web Worker, Node, Deno and Bun: it uses only
+web-standard globals (`fetch`, `crypto`, `TextEncoder`, `URL`, streams, `AbortController`, timers)
+and never a Node built-in module or a Node global (`process`, `Buffer`, `__dirname`, `require`,
+`setImmediate`) — not behind a lazy `import()`, and not behind a `typeof process` guard. Code that
+needs a host (files, processes, sockets, the process environment) lives in a Node-only subpath,
+conventionally `./node`, and reaches neutral code only by injection at a composition root: a neutral
+library has no host default.
+
+An export subpath is Node-only exactly when its `exports` entry maps `"browser": null`. Every other
+subpath is platform-neutral under every condition, because a Worker, Deno or Bun resolves `default`,
+not `browser`. A third-party dependency of a neutral entry may load a Node module only lazily, behind
+its own runtime detection. `pnpm lint` runs `scripts/harness/check-platform-neutral.mjs`, which
+bundles every neutral subpath and fails on any Node built-in, Node global or Node-only subpath it
+reaches, and on any package whose manifest disagrees with the lists below.
+
+- **Platform-neutral**: `agent-interface-analytics`, `agent-interface-command`,
+  `agent-interface-execution`, `agent-interface-session`, `agent-interface-session-mobility`,
+  `agent-interface-transport`, `agent-interface-tui`, `agent-core`, `agent-organization`,
+  `agent-remote-pairing`, `agent-roundtable`, `agent-roundtable-robota`, `agent-session-analytics`,
+  `agent-telemetry-otel`, `agent-provider-bytedance`, `agent-capability-pack`, `agent-transport`,
+  `product-config`
+- **Browser (DOM)**: `agent-ui-web`, `agent-transport-webrtc-web`, `agent-gui-web` — free of Node
+  like the neutral packages, and they also need a DOM.
+- **Node host**: `agent-cli`, `agent-ui-terminal`, `agent-process`, `agent-file-authority`,
+  `agent-organization-host`, `agent-tool-defaults`, `pack-coding`, `agent-subagent-runner`,
+  `agent-transport-ws`, `agent-transport-mcp`, `agent-transport-acp`, `agent-transport-webrtc`,
+  `agent-provider-replay`, `agent-keyring` — they exist to drive a Node host (a terminal, child
+  processes, the file system, listeners, stdio, `node:crypto` key custody), so their main entry is
+  Node-only.
+- **Not yet neutral**: `agent-provider-anthropic`, `agent-provider-openai`,
+  `agent-provider-openai-compatible`, `agent-provider-gemini`, `agent-builtin-providers`,
+  `agent-plugin`, `agent-executor`, `agent-session`, `agent-tools`, `agent-mcp`, `agent-transport-http`,
+  `agent-framework`, `agent-command`, `agent-preset`, `agent-product` — Node-only today; each becomes
+  platform-neutral, with its Node adapters behind `./node`.
 
 ## Dependency and interface rule identifiers
 
 The identifiers below name architecture boundaries. The former broad dependency scans were removed
-by the minimal-harness reset; no bundle-source graph gate currently exists. This list is not a claim
-that each boundary has an automated gate. Package placement and dependency direction are shown in
+by the minimal-harness reset; the one bundle-source graph gate is the runtime-platform check above.
+This list is not a claim that each boundary has an automated gate. Package placement and dependency direction are shown in
 the System Overview diagram above. Current checks are defined in `AGENTS.md` and CI.
 
 - `FORBIDDEN-DEP` — a production dependency edge listed as forbidden (each entry carries its reason)
@@ -133,8 +173,8 @@ the System Overview diagram above. Current checks are defined in `AGENTS.md` and
   on a circular import it can resolve, but it does not read manifest edges.
 - `ENTRY-POINT-ONLY` — a guarded composition aggregator (a package whose entry statically pulls a
   whole catalog, e.g. the default tool set) belongs at an application
-  entry point or explicit composition root; mid-layer libraries use an injected port or a safe lazy
-  import. The former `GUARDED_AGGREGATORS` scan table no longer exists.
+  entry point or explicit composition root; mid-layer libraries use an injected port, never a lazy
+  import of a default. The former `GUARDED_AGGREGATORS` scan table no longer exists.
 - `PACKAGE-NAME` — the canonical architecture documents (plus every `packages/**/docs/SPEC.md`)
   reference only real workspace package names; a scoped name that resolves to no package is drift
   unless its line is marked "planned".

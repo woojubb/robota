@@ -1,3 +1,4 @@
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { describe, expect, it } from 'vitest';
 
@@ -66,12 +67,13 @@ function record(id: string, totalTokens: number): IInteractiveSessionRecord {
 }
 
 function store(entries: readonly ISessionListEntry[]): IInteractiveSessionStore {
-  return {
+  const double: Omit<IInteractiveSessionStore, 'claim' | 'hasWriter'> = {
     list: () => entries,
     load: () => ({ status: 'missing' }),
     save: () => undefined,
     delete: () => undefined,
   };
+  return withHoldReadClaim(double);
 }
 
 describe('test-product usage', () => {

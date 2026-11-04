@@ -61,6 +61,7 @@
     },
     "./testing": {
       "source": "./src/testing/index.ts",
+      "browser": null,
       "node": {
         "import": {
           "types": "./dist/node/testing/index.d.ts",

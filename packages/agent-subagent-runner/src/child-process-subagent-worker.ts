@@ -17,11 +17,13 @@ import {
   type TSubagentWorkerPermissionResult,
   type TSubagentWorkerWireValue,
 } from './child-process-subagent-ipc.js';
+import { reportRecordSaves } from './child-process-subagent-record-saves.js';
 import { openResumeSessionStore, resumeRequestedRecord } from './child-process-subagent-resume.js';
 import { restoreAgentDefinition, restoreParentContext } from './subagent-worker-start-dto.js';
 import { restoreProjectedSandbox } from './worker-composition.js';
 import { withholdProviderCredential } from './worker-credential.js';
 
+import type { IRecordSaveReporter } from './child-process-subagent-record-saves.js';
 import type {
   ISubagentComposedSandbox,
   ISubagentWorkerComposition,
@@ -52,7 +54,10 @@ type TSubagentSessionToolEvent = Parameters<
 let session: ReturnType<typeof createSubagentSession> | null = null;
 let cancelled = false;
 /** Issue #3288 §1: requests awaiting the parent's answer, by the id this child minted for them. */
-const pendingPermissionRequests = new Map<string, (result: TSubagentWorkerPermissionResult) => void>();
+const pendingPermissionRequests = new Map<
+  string,
+  (result: TSubagentWorkerPermissionResult) => void
+>();
 let permissionRequestSequence = 0;
 /** The parent's sandbox settings most recently sent after a change, newer than the start payload's. */
 let latestParentSandboxSettings: TParentSandboxSettings | undefined;
@@ -64,11 +69,35 @@ let latestWriteGrant: string | undefined;
 /** Whether this child bound its parent's grant at start, so a newer one is taken as it comes. */
 let sealingBound = false;
 let running: Promise<void> = Promise.resolve();
+/** A sealing parent handed this child a record: what has been seen of its saves. */
+let recordSaves: IRecordSaveReporter | undefined;
 
 function sendChildMessage(message: TSubagentWorkerChildMessage): void {
   if (process.send) {
     process.send(message);
   }
+}
+
+/**
+ * The job's terminal message with what a parent that handed a record over is told of a refused
+ * one: a result says it beside the answer, and an error says it first, in fixed words, since the
+ * refusal is why the run could not save.
+ */
+function withRecordSaveRefusal(
+  message: TSubagentWorkerChildMessage,
+  payload: ISubagentWorkerStartPayload,
+): TSubagentWorkerChildMessage {
+  if (recordSaves?.refused() !== true) return message;
+  if (message.type === 'result') return { ...message, recordSaveRefused: true };
+  if (message.type !== 'error') return message;
+  return {
+    type: 'error',
+    message:
+      `Session ${payload.request.resumeSessionId ?? payload.taskId} was changed on disk by ` +
+      `something this subagent cannot verify, so its turns from then on were not saved to it. ` +
+      message.message,
+    recordSaveRefused: true,
+  };
 }
 
 /**
@@ -192,7 +221,14 @@ async function runInitialPrompt(
           sealing,
         })
       : undefined;
-    const resumeSessionStore = openResumeSessionStore(payload, composition);
+    const openedStore = openResumeSessionStore(payload, composition);
+    const resumeSessionId = payload.request.resumeSessionId;
+    // A sealing parent that handed a record over hears of each save of it, to vouch for it.
+    recordSaves =
+      openedStore !== undefined && payload.resumeHeld !== undefined && resumeSessionId !== undefined
+        ? reportRecordSaves(openedStore, resumeSessionId, sendChildMessage)
+        : undefined;
+    const resumeSessionStore = recordSaves?.store ?? openedStore;
     // A sandbox restored from the parent's snapshot, or else one the child composes at its own root.
     // Only a composed sandbox approves commands, from the instance its tools run under; a restored one
     // approves none, so the child asks where the parent might not: stricter, never looser.
@@ -265,6 +301,7 @@ async function runInitialPrompt(
       permissionHandler: requestParentPermission,
     });
     resumeRequestedRecord(payload, session, resumeSessionStore);
+    recordSaves?.restored();
     throwIfParentChangeFailed();
     const output = await session.run(payload.request.prompt);
     if (parentChangeFailure !== undefined) {
@@ -283,7 +320,10 @@ async function runInitialPrompt(
     const usage = readSessionUsage(session);
     // CORE-024 (RUNTIME-20): exit only after this result (with usage) has flushed over IPC, so the
     // parent settles on the result instead of racing a crash-projection from an early exit.
-    sendTerminalMessageAndExit({ type: 'result', output, ...(usage ? { usage } : {}) }, 0);
+    sendTerminalMessageAndExit(
+      withRecordSaveRefusal({ type: 'result', output, ...(usage ? { usage } : {}) }, payload),
+      0,
+    );
   } catch (error) {
     // allow-fallback: child process must report errors to parent via IPC, not crash silently; exit follows the IPC flush (CORE-024 RUNTIME-20)
     if (parentChangeFailure !== undefined) {
@@ -298,7 +338,7 @@ async function runInitialPrompt(
       return;
     }
     const message = error instanceof Error ? error.message : String(error);
-    sendTerminalMessageAndExit({ type: 'error', message }, 0);
+    sendTerminalMessageAndExit(withRecordSaveRefusal({ type: 'error', message }, payload), 0);
   }
 }
 

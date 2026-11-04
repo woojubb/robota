@@ -9,7 +9,7 @@ import type { ICommandProductVocabulary } from '../command-api/host-context-type
 
 import type { IPromptHistoryOptions } from './interactive-session-prompt-history.js';
 import type { ILivePromptTracePort } from './interactive-session-live-prompt-trace.js';
-import type { IInteractiveSessionStore } from './session-persistence.js';
+import type { IInteractiveSessionRecord, IInteractiveSessionStore } from './session-persistence.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
@@ -127,6 +127,19 @@ export interface IInteractiveSessionStandardOptions {
    */
   autoName?: boolean;
   resumeSessionId?: string;
+  /**
+   * The SHA-256 of the stored record bytes the owner accepted as theirs for `resumeSessionId`. Over a
+   * store that seals, a resumed record must be verified as the owner's or be exactly these bytes
+   * (which the session then adopts); anything else is refused. Ignored by a store that never seals.
+   */
+  acceptedDigest?: string;
+  /**
+   * Called with the record the session is about to restore from — over a store that seals, the
+   * claim's own read, after its gate — before anything in it is restored or started. A throw refuses
+   * the resume with that error, and the session never comes to exist. For a host that must judge
+   * the record the session actually runs, not an earlier look at the file.
+   */
+  checkRestoredRecord?: (record: IInteractiveSessionRecord) => void;
   forkSession?: boolean;
   /**
    * Issue #3081: this session is the target of a `/cd` from this directory. The resumed record's
@@ -312,6 +325,10 @@ export interface IInteractiveSessionInjectedOptions {
   /** See the standard options. */
   autoName?: boolean;
   resumeSessionId?: string;
+  /** See the standard options. */
+  acceptedDigest?: string;
+  /** See the standard options. */
+  checkRestoredRecord?: (record: IInteractiveSessionRecord) => void;
   forkSession?: boolean;
   /** Optional command modules composed into this injected session. */
   commandModules?: readonly ICommandModule[];

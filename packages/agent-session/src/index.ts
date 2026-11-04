@@ -110,6 +110,7 @@ export {
 } from './session-record-migration.js';
 export type {
   IMigrateSessionRecordsOptions,
+  ISealedSessionRecord,
   ISessionRecordMigration,
 } from './session-record-migration.js';
 export {
@@ -167,24 +168,33 @@ export { NodeSessionStore } from './session-store.js';
 export type { INodeSessionStoreOptions } from './session-store.js';
 export { loadSessionForUpdate } from './load-session-for-update.js';
 // Sealed session records: the one object both session stores write and read through, so the user's
-// directory and the trusted project's cannot disagree about what a sealed or plain file means.
+// directory and the trusted project's cannot disagree about what a sealed or plain file means. A store
+// gives it one adapter, `IStoredSessionFiles`, for reaching its files.
 export {
-  SealedSessionUnreadableError,
   StoredSessionRecords,
   assertSessionSealing,
-  classifyStoredSessionBytes,
-  isSealedSessionUnreadableError,
-  sealStoredSessionBytes,
   sessionSealingOf,
-  storedSessionMigrationState,
 } from './stored-session-record.js';
+export type { ISessionStoreOptions, IStoredSessionFiles } from './stored-session-record.js';
+export {
+  classifyStoredSessionBytes,
+  isPlainSessionRecordOf,
+  sealStoredSessionBytes,
+  storedSessionMigrationState,
+} from './stored-session-codec.js';
 export type {
   IEncodedSession,
-  ISessionStoreOptions,
-  TSealedSessionRefusal,
   TStoredSessionFile,
   TStoredSessionMigrationState,
-} from './stored-session-record.js';
+} from './stored-session-codec.js';
+export {
+  SealedSessionUnreadableError,
+  isSealedSessionUnreadableError,
+} from './sealed-session-refusal.js';
+export type { TSealedSessionRefusal } from './sealed-session-refusal.js';
+// Claims: the ids a session in this process runs, answered only from content the owner wrote.
+export { SessionClaimedError, isSessionClaimedError } from './session-claims.js';
+export type { TSessionClaimRefusal } from './session-claims.js';
 export type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,

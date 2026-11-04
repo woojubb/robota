@@ -16,6 +16,8 @@
  * What sealing proves is confidentiality and binding, not origin. Sealing needs only the public key,
  * so anyone who can read it can seal an artifact that opens; an artifact that opens says it is bound
  * to its kind and id and has not been altered since it was sealed, and nothing about who sealed it.
+ * Origin is what an authorship tag adds: only unlocked keys make one, so a writer that wants a reader
+ * to tell its own artifacts from anyone else's tags them while unlocked.
  */
 
 /** What a sealed artifact is, which binds it to its own purpose as well as its owner. */
@@ -91,6 +93,27 @@ export interface IArtifactSealer {
    * needs one then refuses to start the writer elsewhere.
    */
   writeGrant?(): string;
+  /**
+   * A tag over `bytes` that only the unlocked keys make, bound to `context`, so a reader holding the
+   * keys can tell that the owner's unlocked process wrote them: an artifact that opens says nothing
+   * about who sealed it. Throws `ArtifactLockedError` while the keys are locked. Optional: a sealer
+   * that holds no secret (a write grant's, a process-local one) offers none, and a writer then cannot
+   * tag.
+   */
+  tagAuthorship?(bytes: Uint8Array, context: IArtifactContext): Uint8Array;
+  /**
+   * Whether `tag` is {@link tagAuthorship} of exactly `bytes` for exactly `context`, compared in
+   * constant time. Throws `ArtifactLockedError` while the keys are locked; a sealer that offers no
+   * tags offers no check either, and what it reads is unverified.
+   */
+  verifyAuthorship?(bytes: Uint8Array, tag: Uint8Array, context: IArtifactContext): boolean;
+  /**
+   * Calls `listener` after each unlock of the keys this sealer opens with, so a writer can tag what
+   * it wrote while they were locked. An implementation may hold the listener weakly, so subscribing
+   * never keeps the subscriber alive: the subscriber keeps its own reference for as long as it wants
+   * to hear unlocks. Returns the unsubscribe. Optional, offered with {@link tagAuthorship}.
+   */
+  onUnlock?(listener: () => void): () => void;
 }
 
 /**

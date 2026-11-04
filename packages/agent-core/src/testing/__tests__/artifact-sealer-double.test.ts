@@ -115,6 +115,81 @@ describe('createTestArtifactSealer', () => {
   });
 });
 
+describe('the double’s authorship tags', () => {
+  const envelope = Buffer.from('{"schemaVersion":1}');
+
+  it('verify for the kind, id and bytes they were made for, and nothing else', () => {
+    const sealer = createTestArtifactSealer();
+    const tag = sealer.tagAuthorship?.(envelope, context) as Uint8Array;
+
+    expect(sealer.verifyAuthorship?.(envelope, tag, context)).toBe(true);
+    expect(sealer.verifyAuthorship?.(envelope, tag, { ...context, id: 'session-b' })).toBe(false);
+    expect(
+      sealer.verifyAuthorship?.(envelope, tag, { kind: 'prompt-history-line', id: context.id }),
+    ).toBe(false);
+    expect(sealer.verifyAuthorship?.(Buffer.from('{"schemaVersion":2}'), tag, context)).toBe(false);
+  });
+
+  it('are made and checked only while unlocked', () => {
+    const sealer = createTestArtifactSealer();
+    const tag = sealer.tagAuthorship?.(envelope, context) as Uint8Array;
+    sealer.lock();
+
+    expect(isArtifactLockedError(throwsWith(() => sealer.tagAuthorship?.(envelope, context)))).toBe(
+      true,
+    );
+    expect(
+      isArtifactLockedError(throwsWith(() => sealer.verifyAuthorship?.(envelope, tag, context))),
+    ).toBe(true);
+  });
+
+  it('verify between doubles that share a key and not otherwise', () => {
+    const key = Buffer.alloc(32, 9);
+    const tag = createTestArtifactSealer({ key }).tagAuthorship?.(envelope, context) as Uint8Array;
+
+    expect(createTestArtifactSealer({ key }).verifyAuthorship?.(envelope, tag, context)).toBe(true);
+    expect(createTestArtifactSealer().verifyAuthorship?.(envelope, tag, context)).toBe(false);
+  });
+
+  it('are not offered by the write-only twin, which holds no keys', () => {
+    const twin = openTestWriteGrant(createTestArtifactSealer().writeGrant());
+    expect(twin.tagAuthorship).toBeUndefined();
+    expect(twin.verifyAuthorship).toBeUndefined();
+    expect(twin.onUnlock).toBeUndefined();
+  });
+});
+
+describe('the double’s unlock listeners', () => {
+  it('hear every unlock until they unsubscribe', () => {
+    const sealer = createTestArtifactSealer({ locked: true });
+    let heard = 0;
+    const listener = (): void => {
+      heard += 1;
+    };
+    const stop = sealer.onUnlock?.(listener) as () => void;
+
+    sealer.unlock();
+    sealer.lock();
+    sealer.unlock();
+    stop();
+    sealer.lock();
+    sealer.unlock();
+
+    expect(heard).toBe(2);
+  });
+
+  it('see the keys unlocked when they are called', () => {
+    const sealer = createTestArtifactSealer({ locked: true });
+    let tagged: Uint8Array | undefined;
+    const listener = (): void => {
+      tagged = sealer.tagAuthorship?.(Buffer.from('x'), context);
+    };
+    sealer.onUnlock?.(listener);
+    sealer.unlock();
+    expect(tagged).toHaveLength(32);
+  });
+});
+
 describe('openTestWriteGrant', () => {
   const key = Buffer.alloc(32, 0x5a);
 

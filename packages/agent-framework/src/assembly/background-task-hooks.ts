@@ -46,7 +46,7 @@ export function fireSubagentLifecycleHook(
   event: TBackgroundTaskEvent,
   cwd: string,
   hooks: THooksConfig | undefined,
-  hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  hookTypeExecutors: readonly IHookTypeExecutor[],
   environmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'],
 ): void {
   const hookEventName = getSubagentHookEvent(event);

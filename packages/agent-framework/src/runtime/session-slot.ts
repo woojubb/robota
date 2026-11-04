@@ -22,7 +22,7 @@ export const RUNTIME_SHUTDOWN_TIMEOUT_MS = 5000;
  * that session behind either way.
  */
 export async function shutdownSessionBounded(
-  session: Pick<IInteractiveSession, 'shutdown'>,
+  session: Pick<IInteractiveSession, 'shutdown'> & IReleasesSessionClaim,
   message: string,
   timeoutMs = RUNTIME_SHUTDOWN_TIMEOUT_MS,
 ): Promise<void> {
@@ -46,6 +46,15 @@ export async function shutdownSessionBounded(
     }),
   ]);
   if (bound !== undefined) clearTimeout(bound);
+  // The caller is done with the session whichever side won, so its claim on its record ends here:
+  // a shutdown still wedged after the bound cannot overwrite the session that claims the id next.
+  session.releaseSessionClaim?.();
+}
+
+/** A session that holds a claim on its record (`InteractiveSession` over a store that seals). */
+export interface IReleasesSessionClaim {
+  /** Ends the session's claim now, whatever its shutdown is still doing. Idempotent. */
+  releaseSessionClaim?(): void;
 }
 
 type THandler = (...args: never[]) => void;
@@ -143,6 +152,9 @@ export class SessionSlot<
   }
 
   shutdown: IInteractiveSession['shutdown'] = (...args) => this.currentSession.shutdown(...args);
+  /** Ends the current session's claim on its record, for a host that gave up waiting on its shutdown. */
+  releaseSessionClaim = (): void =>
+    (this.currentSession as IReleasesSessionClaim).releaseSessionClaim?.();
   submit: IInteractiveSession['submit'] = (...args) => this.currentSession.submit(...args);
   abort: IInteractiveSession['abort'] = (...args) => this.currentSession.abort(...args);
   cancelQueue: IInteractiveSession['cancelQueue'] = (...args) =>

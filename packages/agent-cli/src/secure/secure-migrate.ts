@@ -65,6 +65,8 @@ import { unlockAtTerminal } from './secure-conversations.js';
 import type { ISecretTerminalSession } from '../devices/secret-terminal.js';
 import type { IKeyringStore } from './keyring-store.js';
 import type {
+  IMigratedSessions,
+  IUnmarkedSessions,
   IMigrationContext,
   IMigrationStep,
   IMigrationStepOutcome,
@@ -132,6 +134,11 @@ export interface ISecureMigrateOptions extends ISecureOutput {
   readonly migrationSteps?: readonly IMigrationStep[];
   /** The platform the caveat is for; defaults to this one. */
   readonly platform?: NodeJS.Platform;
+  /**
+   * Whether a person can answer one more question at the end: offered the migrated sessions to mark
+   * as theirs. Defaults to whether stdin and stderr are terminals.
+   */
+  readonly interactive?: boolean;
 }
 
 function count(amount: number, noun: string, plural = `${noun}s`): string {
@@ -412,33 +419,155 @@ async function dryRun(
   return EXIT_OK;
 }
 
+/** The sessions one step sealed from plaintext, and the step's title, which names them when they cannot be marked. */
+interface IStepMigratedSessions {
+  readonly title: string;
+  readonly sessions: IMigratedSessions;
+}
+
 async function runSteps(
   steps: readonly IMigrationStep[],
   context: IMigrationContext,
-): Promise<{ readonly results: string[]; readonly ending: 'done' | 'incomplete' | 'failed' }> {
+): Promise<{
+  readonly results: string[];
+  readonly ending: 'done' | 'incomplete' | 'failed';
+  readonly migrated: readonly IStepMigratedSessions[];
+}> {
   const results: string[] = [];
+  const migrated: IStepMigratedSessions[] = [];
   let incomplete = false;
   for (const step of steps) {
     try {
       context.recheckPresence();
       const outcome = await step.run(context);
       results.push(...outcome.lines);
+      if (outcome.migratedSessions !== undefined) {
+        migrated.push({ title: step.title, sessions: outcome.migratedSessions });
+      }
       if (!outcome.complete) incomplete = true;
     } catch (error) {
       if (!(error instanceof MigrationInterruptedError)) {
         results.push(
           `Stopped at ${step.title}: it failed (${error instanceof Error ? error.name : 'unknown'}).`,
         );
-        return { results, ending: 'failed' };
+        return { results, ending: 'failed', migrated };
       }
       results.push(
         `Stopped before changing ${step.title}: ${count(error.appeared.length, 'process', 'processes')} started meanwhile:`,
         ...error.appeared.map((entry) => `  ${describeProcess(entry)}`),
       );
-      return { results, ending: 'incomplete' };
+      return { results, ending: 'incomplete', migrated };
     }
   }
-  return { results, ending: incomplete ? 'incomplete' : 'done' };
+  return { results, ending: incomplete ? 'incomplete' : 'done', migrated };
+}
+
+/** The question a finished, interactive migration asks about the sessions it sealed from plaintext. */
+export function acceptMigratedQuestion(amount: number): string {
+  const sessions = amount === 1 ? 'the 1 migrated session' : `the ${amount} migrated sessions`;
+  return (
+    `Mark ${sessions} as yours? They came from plaintext files that any program of your user ` +
+    'could have written. [y/N] '
+  );
+}
+
+/** What a migration says of the sessions it sealed from plaintext and nobody marked as the owner's. */
+export function migratedUnverifiedMessage(amount: number): string {
+  const sessions =
+    amount === 1 ? 'The 1 migrated session is' : `The ${amount} migrated sessions are`;
+  return (
+    `${sessions} unverified: they came from plaintext files that any program of your user could ` +
+    'have written. Each asks whether it is yours the first time it is resumed.\n'
+  );
+}
+
+/**
+ * Once a migration finished, offers once to mark the sessions it sealed from plaintext as the
+ * owner's: sealing says nothing about who wrote them, so only the person can. Only a run that
+ * finished, with a person to answer, asks; any other says they are unverified. A yes raises exactly
+ * the bytes the run sealed, after checking no product process appeared meanwhile.
+ */
+async function offerMigratedSessions(
+  migrated: readonly IStepMigratedSessions[],
+  ending: 'done' | 'incomplete' | 'failed',
+  context: IMigrationContext,
+  options: ISecureMigrateOptions,
+): Promise<void> {
+  const amount = migrated.reduce((sum, batch) => sum + batch.sessions.count, 0);
+  if (amount === 0) return;
+  const interactive =
+    options.interactive ?? (process.stdin.isTTY === true && process.stderr.isTTY === true);
+  if (ending !== 'done' || !interactive) {
+    options.stdout(migratedUnverifiedMessage(amount));
+    return;
+  }
+  const answer = await orFailed(options, 'The answer could not be read', async () =>
+    (await (options.confirm ?? confirmOnTerminal)(acceptMigratedQuestion(amount))).trim(),
+  );
+  if (answer === EXIT_FAILED || !YES.test(answer)) {
+    options.stdout(migratedUnverifiedMessage(amount));
+    return;
+  }
+  try {
+    context.recheckPresence();
+  } catch (error) {
+    if (!(error instanceof MigrationInterruptedError)) throw error;
+    options.stdout(
+      `Not marked: ${count(error.appeared.length, 'process', 'processes')} started meanwhile. ` +
+        migratedUnverifiedMessage(amount),
+    );
+    return;
+  }
+  let adopted = 0;
+  let locked = 0;
+  let changed = 0;
+  const unmarked: IUnmarkedSessions[] = [];
+  // Each step's sessions are marked on their own: one that cannot be reached does not stop the rest.
+  for (const { title, sessions } of migrated) {
+    try {
+      const result = sessions.adopt();
+      adopted += result.adopted;
+      locked += result.locked;
+      changed += result.changed;
+      unmarked.push(...result.unmarked);
+    } catch (error) {
+      unmarked.push({
+        where: title,
+        count: sessions.count,
+        failure: error instanceof Error ? error.name : 'unknown',
+      });
+    }
+  }
+  options.stdout(`${markedMessage(adopted, locked, changed, unmarked)}\n`);
+}
+
+/** What a marking says it did: the marked, the ones the keys locked before, the changed, and each store it could not reach. */
+function markedMessage(
+  adopted: number,
+  locked: number,
+  changed: number,
+  unmarked: readonly IUnmarkedSessions[],
+): string {
+  const parts = [`Marked ${count(adopted, 'migrated session')} as yours.`];
+  if (locked > 0) {
+    parts.push(
+      locked === 1
+        ? '1 more was not marked: the keys locked during the run; resume it to mark it.'
+        : `${locked} more were not marked: the keys locked during the run; resume each to mark it.`,
+    );
+  }
+  if (changed > 0) {
+    parts.push(
+      `${count(changed, 'other')} changed after this run sealed ${changed === 1 ? 'it and stays' : 'them and stay'} unverified.`,
+    );
+  }
+  for (const { where, count: amount, failure } of unmarked) {
+    parts.push(
+      `The ${count(amount, 'migrated session')} of ${where} could not be marked (${failure}); ` +
+        `${amount === 1 ? 'it stays' : 'they stay'} unverified.`,
+    );
+  }
+  return parts.join(' ');
 }
 
 /**
@@ -516,8 +645,9 @@ async function migrateUnder(
     options.stderr(CANCELLED);
     return EXIT_FAILED;
   }
-  const { results, ending } = await runSteps(steps, context);
+  const { results, ending, migrated } = await runSteps(steps, context);
   options.stdout(renderSummary(options, results, ending));
+  await offerMigratedSessions(migrated, ending, context, options);
   if (ending === 'failed') return EXIT_FAILED;
   return ending === 'incomplete' ? EXIT_INCOMPLETE : EXIT_OK;
 }

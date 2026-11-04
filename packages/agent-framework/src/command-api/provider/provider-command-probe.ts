@@ -4,6 +4,7 @@ import {
   resolveEnvReference,
   normalizeProviderConfig,
 } from '@robota-sdk/agent-core';
+import { processEnvResolver } from '@robota-sdk/agent-core/node';
 
 import { validateProviderProfile, type IProviderProfileSettings } from './provider-settings.js';
 
@@ -65,6 +66,7 @@ export async function testProviderProfileCommand(
             baseURL: profile.baseURL,
           },
           options.providerDefinitions,
+          processEnvResolver,
         ),
       );
       resolvedProfile = { ...profile, apiKey: resolved.apiKey };

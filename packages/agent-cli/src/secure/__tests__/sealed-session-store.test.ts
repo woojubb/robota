@@ -14,7 +14,7 @@ import { createNodeHostSessionStore, createUserSessionStore } from '@robota-sdk/
 import { SealedSessionUnreadableError } from '@robota-sdk/agent-session';
 import { describe, expect, it } from 'vitest';
 
-import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
+import { KeyHolderArtifactSealer, WriteOnlyArtifactSealer } from '../artifact-sealer.js';
 import { KeyHolder } from '../key-holder.js';
 import { FIXTURE_PASSPHRASE, createMemoryKeyringStore, fixtureKeyring } from './helpers.js';
 
@@ -68,7 +68,13 @@ describe('sessions sealed with the keyring', () => {
     const reader = createNodeHostSessionStore(dir, {
       sealing: { sealer: new KeyHolderArtifactSealer(readerHolder) },
     });
-    expect(reader.load('sess_a')).toEqual({ status: 'valid', record: record('sess_a') });
+    // It opens, and nothing shows the owner's unlocked process wrote it: a locked writer cannot tag.
+    expect(reader.load('sess_a')).toEqual({
+      status: 'valid',
+      record: record('sess_a'),
+      authorship: 'unverified',
+      digest: expect.stringMatching(/^[0-9a-f]{64}$/),
+    });
     expect(reader.list().map((entry) => entry.id)).toEqual(['sess_a']);
     expect(reader.scan?.().locked).toBe(0);
   });
@@ -126,5 +132,53 @@ describe('sessions sealed with the keyring', () => {
     const reread = store.load('sess_a');
     if (reread.status !== 'valid') throw new Error(`expected valid, got ${reread.status}`);
     expect(reread.record.updatedAt).toBe('2026-08-02T00:00:00.000Z');
+  });
+});
+
+describe('authorship with the keyring (#3679 step 3e)', () => {
+  it('reads an owner save made while unlocked as verified in another process, and a forged one as unverified', async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'sealed-real-')));
+    const writerKeys = await holder();
+    await unlock(writerKeys);
+    const writerSealer = new KeyHolderArtifactSealer(writerKeys);
+    const writer = createNodeHostSessionStore(dir, {
+      sealing: { sealer: writerSealer },
+    });
+    writer.save(record('sess_owner'), { provenance: 'owner' });
+    // Any program of the user can seal with the public key alone, as a write grant does.
+    const forger = createNodeHostSessionStore(dir, {
+      sealing: { sealer: new WriteOnlyArtifactSealer(writerSealer.writeGrant()) },
+    });
+    forger.save(record('sess_forged'), { provenance: 'owner' });
+
+    const readerKeys = await holder();
+    await unlock(readerKeys);
+    const reader = createNodeHostSessionStore(dir, {
+      sealing: { sealer: new KeyHolderArtifactSealer(readerKeys) },
+    });
+    expect(reader.load('sess_owner')).toMatchObject({ status: 'valid', authorship: 'verified' });
+    expect(reader.load('sess_forged')).toMatchObject({ status: 'valid', authorship: 'unverified' });
+  });
+
+  it('tags an owner save made while locked when the holder unlocks', async () => {
+    const dir = realpathSync(mkdtempSync(join(tmpdir(), 'sealed-real-')));
+    const keys = await holder();
+    const store = createNodeHostSessionStore(dir, {
+      sealing: { sealer: new KeyHolderArtifactSealer(keys) },
+    });
+    store.save(record('sess_a'), { provenance: 'owner' });
+    const lockedWrite = readFileSync(join(dir, 'sess_a.json'));
+
+    await unlock(keys);
+
+    expect(readFileSync(join(dir, 'sess_a.json')).equals(lockedWrite)).toBe(false);
+    // The store holds what it re-sealed, as the owner's.
+    expect(store.loadHeld?.('sess_a')).toMatchObject({ status: 'valid', authorship: 'verified' });
+    const readerKeys = await holder();
+    await unlock(readerKeys);
+    const reader = createNodeHostSessionStore(dir, {
+      sealing: { sealer: new KeyHolderArtifactSealer(readerKeys) },
+    });
+    expect(reader.load('sess_a')).toMatchObject({ status: 'valid', authorship: 'verified' });
   });
 });

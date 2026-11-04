@@ -31,6 +31,7 @@
     },
     "./local": {
       "source": "./src/local/index.ts",
+      "browser": null,
       "node": {
         "import": {
           "types": "./dist/node/local/index.d.ts",

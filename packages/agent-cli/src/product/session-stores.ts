@@ -45,6 +45,7 @@ import { userPaths } from './user-paths.js';
 
 import type { ICliRuntimeContext } from './runtime-context.js';
 import type { KeyHolder } from '../secure/key-holder.js';
+import type { IArtifactSealer } from '@robota-sdk/agent-core';
 import type {
   IEditCheckpointStateStorage,
   IHostToolResultSpillStore,
@@ -82,6 +83,67 @@ export function createProductProjectSessionStore(
     getWorkspaceProjectStateStorage(authority, 'session-logs'),
     { sealing: resolveProductSessionSealing(runtime) },
   );
+}
+
+/** Where a migration sealed session records: the user's own store, or a trusted project's. */
+export type TMigratedSessionStore =
+  | { readonly kind: 'user'; readonly sessions: string }
+  | { readonly kind: 'project'; readonly authority: ITrustedWorkspaceProjectAccess['authority'] };
+
+/** What raising one store's migrated records to the owner's did, record by record. */
+export interface IMigratedRecordsAdoption {
+  readonly adopted: number;
+  /**
+   * Not raised: the keys locked before the raise, and the store that would raise them at the next
+   * unlock is this call's own, which ends with it.
+   */
+  readonly locked: number;
+  /** Changed after the run sealed them, so left unverified. */
+  readonly changed: number;
+  /** Could not be raised at all, and the name of the first error that stopped one; left unverified. */
+  readonly failed: number;
+  readonly failure?: string;
+}
+
+/**
+ * Raises the session records a migration sealed to the owner's, by the digest of exactly the bytes it
+ * sealed, once the person said they are theirs (`secure migrate`): through a store that seals with
+ * the run's own unlocked sealer, which tags each in place. Built under the migration's marker, so it
+ * does not enter the stores as a running product process does. A record changed since is not raised,
+ * one the locked keys could not tag is counted as not raised (nothing here outlives the call to tag
+ * it at an unlock), and one whose raise fails does not stop the others. Throws when the store cannot
+ * be opened at all.
+ */
+export function adoptMigratedSessionRecords(
+  target: TMigratedSessionStore,
+  sealer: IArtifactSealer,
+  records: readonly { readonly id: string; readonly digest: string }[],
+): IMigratedRecordsAdoption {
+  const options = { sealing: { sealer } } as const;
+  const store =
+    target.kind === 'user'
+      ? createUserSessionStore(target.sessions, options)
+      : createProjectSessionStore(
+          getWorkspaceProjectStateStorage(target.authority, 'sessions'),
+          getWorkspaceProjectStateStorage(target.authority, 'session-logs'),
+          options,
+        );
+  const counts = { adopted: 0, locked: 0, changed: 0, failed: 0 };
+  let failure: string | undefined;
+  for (const { id, digest } of records) {
+    let result: string;
+    try {
+      result = store.authorship?.adopt(id, digest) ?? 'changed';
+    } catch (error) {
+      counts.failed += 1;
+      failure ??= error instanceof Error ? error.name : 'unknown';
+      continue;
+    }
+    if (result === 'adopted') counts.adopted += 1;
+    else if (result === 'pending') counts.locked += 1;
+    else counts.changed += 1;
+  }
+  return failure === undefined ? counts : { ...counts, failure };
 }
 
 /** The user's prompt history: the Ctrl+R search's source and the interactive session's writer. */

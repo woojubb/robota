@@ -5,14 +5,24 @@
  * It keeps the properties those tests assert and nothing more: the stored bytes are opaque
  * (AES-256-GCM under a key held only here), two seals of equal plaintext differ, the sealed content
  * is bound to the artifact's kind and id so a copy at another owner's path does not open, sealing
- * works while locked, and opening while locked throws `ArtifactLockedError`. Its write grant is a
- * handle into this process, so a grant crossing a boundary in a test carries no key. It is NOT the
- * production sealer and its key is not protected by anything.
+ * works while locked, and opening while locked throws `ArtifactLockedError`. Its authorship tags are
+ * an HMAC under a key derived from its own, bound to the kind, id and bytes, made and checked only
+ * while unlocked; `unlock()` calls the unlock listeners, which it holds weakly as the production sealer
+ * does. Its write grant is a handle into this process, so a grant crossing a boundary in a test carries
+ * no key. It is NOT the production sealer and its key is not protected by anything.
  *
  * Test-only: exported via `@robota-sdk/agent-core/testing`; never imported by runtime code.
  */
 
-import { createCipheriv, createDecipheriv, randomBytes, randomUUID } from 'node:crypto';
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  createHmac,
+  randomBytes,
+  randomUUID,
+  timingSafeEqual,
+} from 'node:crypto';
 
 import {
   ArtifactCorruptError,
@@ -37,9 +47,13 @@ const GRANT_PREFIX = 'robota-test-grant/v1:';
 const issuedGrants = new Map<string, Buffer>();
 
 export interface IArtifactSealerDouble extends IArtifactSealer {
-  /** From now on `openBytes`/`openLine` throw `ArtifactLockedError`; sealing keeps working. */
+  /** From now on `openBytes`/`openLine` and the authorship tags throw `ArtifactLockedError`; sealing keeps working. */
   lock(): void;
+  /** Opens again, then calls every live unlock listener. */
   unlock(): void;
+  tagAuthorship(bytes: Uint8Array, context: IArtifactContext): Uint8Array;
+  verifyAuthorship(bytes: Uint8Array, tag: Uint8Array, context: IArtifactContext): boolean;
+  onUnlock(listener: () => void): () => void;
   readonly isLocked: boolean;
   /** `robota-test-grant/v1:<id>`, valid in this process only, for {@link openTestWriteGrant}. */
   writeGrant(): string;
@@ -65,6 +79,13 @@ function sealWith(key: Buffer, plain: Uint8Array, context: IArtifactContext): Bu
   cipher.setAAD(aadFor(context));
   const body = Buffer.concat([cipher.update(plain), cipher.final()]);
   return Buffer.concat([iv, cipher.getAuthTag(), body]);
+}
+
+/** What a double's authorship tag binds: the kind, the id and the SHA-256 of the bytes. */
+function authorshipMessage(bytes: Uint8Array, context: IArtifactContext): string {
+  aadFor(context);
+  const digest = createHash('sha256').update(bytes).digest('hex');
+  return `robota-test-authorship/v1|${context.kind}|${context.id}|${digest}`;
 }
 
 function blobOfBytes(stored: Uint8Array): Uint8Array {
@@ -95,8 +116,15 @@ export function createTestArtifactSealer(
   options: IArtifactSealerDoubleOptions = {},
 ): IArtifactSealerDouble {
   const key = options.key === undefined ? randomBytes(KEY_BYTES) : Buffer.from(options.key);
+  const authorshipKey = createHmac('sha256', key).update('robota-test-authorship-key/v1').digest();
   let locked = options.locked === true;
   let grant: string | undefined;
+  const unlockListeners = new Set<WeakRef<() => void>>();
+
+  const tag = (bytes: Uint8Array, context: IArtifactContext): Buffer => {
+    if (locked) throw new ArtifactLockedError();
+    return createHmac('sha256', authorshipKey).update(authorshipMessage(bytes, context)).digest();
+  };
 
   const open = (blob: Uint8Array, context: IArtifactContext): Buffer => {
     if (locked) throw new ArtifactLockedError();
@@ -124,6 +152,23 @@ export function createTestArtifactSealer(
     },
     unlock() {
       locked = false;
+      for (const reference of [...unlockListeners]) {
+        const listener = reference.deref();
+        if (listener === undefined) unlockListeners.delete(reference);
+        else listener();
+      }
+    },
+    tagAuthorship: tag,
+    verifyAuthorship(bytes, candidate, context) {
+      const expected = tag(bytes, context);
+      return candidate.length === expected.length && timingSafeEqual(expected, candidate);
+    },
+    onUnlock(listener) {
+      const reference = new WeakRef(listener);
+      unlockListeners.add(reference);
+      return () => {
+        unlockListeners.delete(reference);
+      };
     },
     ...sealingWith(key),
     openBytes: (stored, context) => open(blobOfBytes(stored), context),

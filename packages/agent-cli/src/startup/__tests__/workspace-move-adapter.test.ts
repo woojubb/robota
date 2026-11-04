@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { NodeSessionStore } from '@robota-sdk/agent-session';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildWorkspaceMoveArgv, parseCliArgs } from '../../utils/cli-args.js';
@@ -164,6 +165,27 @@ describe('createWorkspaceMoveAdapter', () => {
     expect((options as { env: Record<string, string> }).env['UNRELATED_PRIVATE_TOKEN']).toBeUndefined();
     expect(process.exitCode).toBe(7);
     process.exitCode = previousExitCode;
+  });
+
+  // #3679 step 3e: the copy is the moving session's own state, which its claim's gate let in.
+  it('saves the copy as the owner’s', async () => {
+    const save = vi.spyOn(NodeSessionStore.prototype, 'save');
+    const adapter = createWorkspaceMoveAdapter({
+      productRuntime: createTestProductRuntime('test-product', { HOME: home }),
+      userHome: home,
+      argv: [],
+      requestExit: vi.fn(),
+      resolveAccess: vi.fn(),
+      onProcessExit: () => undefined,
+      runSync: vi.fn() as never,
+    });
+
+    await adapter.move(request(true));
+
+    const moves = save.mock.calls.filter(([record]) => record.id === 'moved-1');
+    expect(moves).toHaveLength(1);
+    expect(moves[0]?.[1]).toEqual({ provenance: 'owner' });
+    save.mockRestore();
   });
 
   it('asks the trust store about the target when the session is trusted', async () => {

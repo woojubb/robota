@@ -11,6 +11,7 @@
 - Keeps all provider-specific transport behavior in provider packages. Core must not branch on concrete provider names or model names.
 - Keeps package-specific domain contracts owned once and reused through public surfaces.
 - Does not own workflow visualization or session persistence; session persistence belongs to the session layer.
+- The main entry is platform-neutral, so the agent loop runs wherever its consumer does. It has no host default: hooks run only through the executors a caller passes, and `$ENV:` references resolve only through the resolver a caller passes; what needs a Node host is on `./node`.
 - **Zero dependency on other agent-\* packages.** `agent-core` must never import any other `@robota-sdk/agent-*` package as a production dependency. This is the foundation of the layered assembly architecture: other agent-\* packages register with agent-core through its abstract contracts; agent-core never depends on them. Plugins were externalized to external plugin packages specifically to preserve this constraint.
 
 ## Architecture
@@ -72,7 +73,9 @@ opens a stored artifact bound to its kind and its owner's id, so a package that 
 takes the port without depending on the keyring behind it, and a sealed file moved to another
 owner's path does not open. Opening proves that binding and that nothing changed since sealing, not
 who sealed: sealing needs only the public key, so a locked process still writes, and so can any
-program that reads the key. Every sealed artifact opens on its own; the kinds appended and read
+program that reads the key. Who wrote an artifact is what an authorship tag says, which only unlocked
+keys make and check, so a sealer that holds no secret offers none, and it says when its keys unlock
+so a writer can tag what it wrote while they were locked. Every sealed artifact opens on its own; the kinds appended and read
 back in bulk may share one data key per writer, because a public-key operation per line is too slow
 to read back, while each whole artifact gets its own key so nothing on disk links two of them, and
 the port classifies every kind so a new one cannot be added unclassified. A sealer may hand its

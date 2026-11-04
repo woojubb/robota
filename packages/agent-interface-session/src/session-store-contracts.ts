@@ -8,6 +8,7 @@
  */
 
 import type { IInteractiveSessionRecord } from './session-contracts.js';
+import type { TSessionAuthorship } from './session-authorship-contracts.js';
 
 /**
  * One decode failure, located (TRANS-005).
@@ -45,9 +46,32 @@ export interface ISessionRecordDecodeIssue {
  * later unlock reads it) — so it is its own member, and a caller that writes must treat it like
  * `corrupt`: there IS a record and writing over it destroys the only copy. The one exception is a
  * session this very store wrote, or loaded to hold, which `loadHeld` hands back.
+ *
+ * A store that seals says, on every `valid` outcome, whose the record is (`authorship`), which stored
+ * bytes it came from (`digest`), and whether it is the copy the store holds for a session it runs
+ * rather than what is on disk now (`diverged`). A record that opens says nothing about who sealed it,
+ * since sealing needs only the public key, so `verified` means the store can show the owner's unlocked
+ * process wrote it. A store that never seals sets none of the three: absent `authorship` means a plain
+ * store, never a trusted record.
  */
 export type TSessionLoadOutcome =
-  | { readonly status: 'valid'; readonly record: IInteractiveSessionRecord }
+  | {
+      readonly status: 'valid';
+      readonly record: IInteractiveSessionRecord;
+      /** Whose the record is, from a store that seals; absent from a store that never seals. */
+      readonly authorship?: TSessionAuthorship;
+      /**
+       * The SHA-256 (lowercase hex) of the stored bytes the record came from, which names exactly
+       * what {@link ISessionAuthorship.adopt} raises. Absent for a record that came
+       * from no single stored file (a project session rebuilt from its replay log).
+       */
+      readonly digest?: string;
+      /**
+       * The store answered with the copy it holds for a session it is running, because the file is
+       * no longer those bytes and nothing shows the owner wrote what is there now. For display only.
+       */
+      readonly diverged?: true;
+    }
   /** No record for this id. The only outcome from which a recovery path may run. */
   | { readonly status: 'missing' }
   /**
@@ -88,6 +112,13 @@ export type TSessionLoadOutcome =
 export type TSessionLockedReason = 'no-keys' | 'changed';
 
 /**
+ * Where the content a save writes came from, when the store cannot know it from what it read.
+ * `owner`: content this process holds from the owner's own source (a session created here, or one
+ * copied from a verified record). `unverified`: content from anywhere else.
+ */
+export type TSessionProvenance = 'owner' | 'unverified';
+
+/**
  * One entry in a store listing, carrying WHY it cannot be read when it cannot.
  *
  * A store that distinguishes four outcomes on `load` and then hides two of them from the surface a
@@ -119,6 +150,19 @@ export interface ISessionSaveOptions {
    * store holds.
    */
   readonly handoff?: boolean;
+  /**
+   * Where the content came from, for a store that seals. It can lower what the store holds for the
+   * id, never raise it: `owner` counts only for an id the store holds nothing for and never handed
+   * unverified content out for, and `unverified` makes any save untagged. Left out, a save of an id
+   * the store holds nothing for is untagged. A store that never seals ignores it.
+   */
+  readonly provenance?: TSessionProvenance;
+  /**
+   * The claim this save is made under ({@link IInteractiveSessionStore.claim}). A save of a claimed id
+   * must carry its live claim, and a claim that was released fences every later save made under it,
+   * so a session that outlived its claim cannot overwrite the one that claimed the id after it.
+   */
+  readonly claim?: ISessionClaim;
 }
 
 /** How an export is meant, which decides whether a store that seals hands a record over. */
@@ -129,7 +173,39 @@ export interface ISessionExportOptions {
    * being handed over by this one.
    */
   readonly keep?: boolean;
+  /**
+   * Hand over only the record a handoff save left here, while the file is still exactly its bytes —
+   * never a record opened from the file, which anyone with the public key could have sealed. Nothing
+   * is handed over when that copy is gone or the file changed.
+   */
+  readonly handoffOnly?: true;
 }
+
+/** How a claim is meant. */
+export interface ISessionClaimOptions {
+  /** The session is new: nothing is stored for it yet, and nothing on disk is taken for it. */
+  readonly fresh?: true;
+}
+
+/**
+ * A running session's hold on its id ({@link IInteractiveSessionStore.claim}): the record the session
+ * restores from, read in the same call that claimed it, and the release.
+ */
+export interface ISessionClaim {
+  /** What the claim's read concluded; the session restores from this and reads nothing before it. */
+  readonly outcome: TSessionLoadOutcome;
+  /** Ends this claim, and only this one: idempotent, and a late release never ends a later claim. */
+  release(): void;
+}
+
+/**
+ * What {@link ISessionAuthorship.adopt} did. `adopted`: the record with those bytes is the owner's from
+ * now on. `pending`: it will be once the keys unlock (the stored bytes are tagged then, if they are
+ * still those bytes). `changed`: nothing here has those bytes, so nothing was raised. `exported`: the
+ * record is handed to another process that may still save it, and tagging it would refuse that
+ * process's saves, so nothing was raised.
+ */
+export type TSessionAdoptResult = 'adopted' | 'pending' | 'changed' | 'exported';
 
 /** One pass over a store: what {@link IInteractiveSessionStore.list} returns, and what it left out. */
 export interface ISessionStoreScan {
@@ -187,5 +263,56 @@ export interface IInteractiveSessionStore {
    * write the record in plaintext over the sealed one.
    */
   importHeld?(id: string, token: string): void;
+  /**
+   * Claims session `id` for a session this process runs, and reads it as a hold read in the same call,
+   * so nothing can change between the read the session restores from and the claim. A claim is
+   * exclusive in its store (a second claim of a claimed id throws, and so does a claim of an id
+   * exported to a process that may still save it) and fences every save of the id: a save must carry
+   * the live claim, and one made under a claim that ended is refused. In a store that
+   * seals, a claimed id is also answered only from content the owner wrote — the stored bytes the store
+   * holds, a file whose authorship tag verifies, or the held copy, never other content from disk nor a
+   * rebuild from a log — and a writer's read of a file changed by something unverifiable is `locked`
+   * with the reason `changed`, so the session's save is refused and the file left as it is.
+   */
+  claim(id: string, options?: ISessionClaimOptions): ISessionClaim;
+  /**
+   * Whether something this process runs may still write session `id`: a live claim on it, or, in a
+   * store that seals, an export to another process that has not ended. A surface that would open the
+   * id as another session asks this first, so a record never gets a second writer in this process.
+   */
+  hasWriter(id: string): boolean;
+  /**
+   * What only a store that seals offers, since only its records carry an authorship; absent from a
+   * store that never seals. A session gates on the outcome its claim read, never on this member, so a
+   * view of the store that leaves it out loses adoption, not the gate.
+   */
+  readonly authorship?: ISessionAuthorship;
   delete(id: string): void;
+}
+
+/** The authorship operations of a store that seals ({@link IInteractiveSessionStore.authorship}). */
+export interface ISessionAuthorship {
+  /**
+   * Raises the record whose stored bytes have SHA-256 `digest` to the owner's — the owner vouched for
+   * exactly those bytes — and tags them when the keys allow. Bytes that are not those raise nothing,
+   * and neither does a record handed to another process that may still save it.
+   */
+  adopt(id: string, digest: string): TSessionAdoptResult;
+  /**
+   * The SHA-256 of the stored bytes this store instance last wrote, read to hold or was handed for
+   * session `id`; `undefined` when it holds nothing for it. What a write-only child reports to its
+   * parent after each save of the record it was handed, so the parent can vouch for exactly those bytes.
+   */
+  heldDigest(id: string): string | undefined;
+  /**
+   * The process a record of session `id` was exported to ({@link IInteractiveSessionStore.exportHeld})
+   * has ended, so nothing goes on saving it under that token: it may be adopted or tagged again.
+   */
+  exportEnded(id: string): void;
+  /**
+   * Calls `listener` after each unlock of the keys this store opens with, so a session whose save the
+   * locked keys stood in the way of can try it again. The listener may be held weakly: the caller keeps
+   * its own reference for as long as it wants to hear unlocks. Returns the unsubscribe.
+   */
+  onUnlock(listener: () => void): () => void;
 }

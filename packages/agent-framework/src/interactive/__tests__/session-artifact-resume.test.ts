@@ -83,6 +83,7 @@ describe('imported session artifact resumes via loadSessionRecord (TC-03)', () =
       store as unknown as IInteractiveSessionStore,
       'sess_resume',
       null,
+      (store as unknown as IInteractiveSessionStore).load('sess_resume', { hold: true }),
     );
 
     // TRANS-006 recorded an asymmetry here — the import decoded and the store did not, so a record

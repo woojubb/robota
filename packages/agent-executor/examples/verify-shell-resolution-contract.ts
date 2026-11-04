@@ -1,6 +1,6 @@
 import { createHook } from 'node:async_hooks';
 
-import { UnsupportedShellError } from '@robota-sdk/agent-core';
+import { UnsupportedShellError } from '@robota-sdk/agent-core/node';
 import {
   createManagedShellProcessRunner,
   createScheduledTaskRunner,

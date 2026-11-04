@@ -216,16 +216,35 @@ export interface ISubagentWorkerResultMessage {
   output: string;
   /** ANALYTICS-001 (Phase 2): total token usage of the subagent run, forwarded to the parent. */
   usage?: ISessionUsageTotals;
+  /**
+   * A save of the fork record this job was handed was refused, because something the child cannot
+   * verify changed the file. Sent only by a child that was handed a record (`resumeHeld`).
+   */
+  recordSaveRefused?: true;
 }
 
 export interface ISubagentWorkerErrorMessage {
   type: 'error';
   message: string;
+  /** As on {@link ISubagentWorkerResultMessage}: the job ended after a save of its fork record was refused. */
+  recordSaveRefused?: true;
 }
 
 export interface ISubagentWorkerCancelledMessage {
   type: 'cancelled';
   reason?: string;
+}
+
+/**
+ * #3679: a child handed a sealed record (`resumeHeld`) says, after each save of it, which stored bytes
+ * it wrote — the only bytes its parent may then vouch for as the owner's, once the child is gone. A
+ * parent that handed no record over takes it as a message it did not ask for.
+ */
+export interface ISubagentWorkerRecordSavedMessage {
+  type: 'record_saved';
+  sessionId: string;
+  /** The SHA-256 (lowercase hex) of the stored bytes the save wrote. */
+  sha256: string;
 }
 
 export type TSubagentWorkerChildMessage =
@@ -236,7 +255,8 @@ export type TSubagentWorkerChildMessage =
   | ISubagentWorkerPermissionRequestMessage
   | ISubagentWorkerResultMessage
   | ISubagentWorkerErrorMessage
-  | ISubagentWorkerCancelledMessage;
+  | ISubagentWorkerCancelledMessage
+  | ISubagentWorkerRecordSavedMessage;
 
 function isRecord(value: TSubagentWorkerWireValue): value is TSubagentWorkerWireRecord {
   return typeof value === 'object' && value !== null;
@@ -392,6 +412,27 @@ export function isSubagentWorkerParentMessage(
   }
 }
 
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+const RECORD_SAVED_KEYS = ['sessionId', 'sha256', 'type'];
+
+/** Exactly a {@link ISubagentWorkerRecordSavedMessage}: these three members and nothing else. */
+function isRecordSavedMessage(value: TSubagentWorkerWireRecord): boolean {
+  const keys = Object.keys(value).sort();
+  return (
+    keys.length === RECORD_SAVED_KEYS.length &&
+    keys.every((key, index) => key === RECORD_SAVED_KEYS[index]) &&
+    hasString(value, 'sessionId') &&
+    (value.sessionId as string).length > 0 &&
+    typeof value.sha256 === 'string' &&
+    SHA256_HEX.test(value.sha256)
+  );
+}
+
+/** `recordSaveRefused` is absent or exactly `true`. */
+function hasValidRefusalFlag(value: TSubagentWorkerWireRecord): boolean {
+  return value.recordSaveRefused === undefined || value.recordSaveRefused === true;
+}
+
 /** A `TSubagentWorkerPermissionResult`: the same three-way answer the session layer allows. */
 function isPermissionResult(value: TSubagentWorkerWireValue): boolean {
   return typeof value === 'boolean' || value === 'allow-session' || value === 'allow-project';
@@ -413,11 +454,15 @@ export function isSubagentWorkerChildMessage(
     case 'permission_request':
       return hasString(value, 'requestId') && hasString(value, 'toolName');
     case 'result':
-      return hasString(value, 'output') && hasValidOptionalUsage(value);
+      return (
+        hasString(value, 'output') && hasValidOptionalUsage(value) && hasValidRefusalFlag(value)
+      );
     case 'error':
-      return hasString(value, 'message');
+      return hasString(value, 'message') && hasValidRefusalFlag(value);
     case 'cancelled':
       return value.reason === undefined || typeof value.reason === 'string';
+    case 'record_saved':
+      return isRecordSavedMessage(value);
     default:
       return false;
   }

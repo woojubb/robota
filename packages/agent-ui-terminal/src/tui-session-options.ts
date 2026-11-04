@@ -85,6 +85,7 @@ export function buildTuiSessionOptions(
     disableSessionLoops: opts.disableSessionLoops,
     resolveDefaultLoopPrompt: opts.resolveDefaultLoopPrompt,
     resumeSessionId: opts.resumeSessionId,
+    ...(opts.acceptedDigest !== undefined ? { acceptedDigest: opts.acceptedDigest } : {}),
     forkSession: opts.forkSession,
     ...(opts.workspaceMovedFrom !== undefined
       ? { workspaceMovedFrom: opts.workspaceMovedFrom }

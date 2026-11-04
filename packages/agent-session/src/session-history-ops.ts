@@ -45,7 +45,7 @@ export interface ICompactContext {
   compactionOrchestrator: CompactionOrchestrator;
   contextTracker: ContextWindowTracker;
   hooks: Record<string, unknown> | undefined;
-  hookTypeExecutors: IHookTypeExecutor[] | undefined;
+  hookTypeExecutors: readonly IHookTypeExecutor[];
   onCompactCallback: ((summary: string) => void) | undefined;
   onCompactEventCallback: ((event: ICompactEvent) => void) | undefined;
   trigger: TCompactTrigger;
@@ -226,6 +226,15 @@ export function persistSession(ctx: IPersistContext): TSessionLoadOutcome {
     toolSchemas: ctx.toolSchemas,
   };
 
-  assertSynchronousCheckpoint(ctx.sessionStore.save(record));
+  // Whose the record is follows what was read (a store that seals says); a store that never seals
+  // gets exactly the save it always got.
+  const authorship = outcome.status === 'valid' ? outcome.authorship : undefined;
+  assertSynchronousCheckpoint(
+    authorship === undefined
+      ? ctx.sessionStore.save(record)
+      : ctx.sessionStore.save(record, {
+          provenance: authorship === 'verified' ? 'owner' : 'unverified',
+        }),
+  );
   return { status: 'valid', record };
 }

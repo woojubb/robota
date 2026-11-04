@@ -27,8 +27,14 @@ const stubDefs: IProviderDefinition[] = [
 ];
 
 describe('normalizeProviderConfig', () => {
+  const noEnv = createRecordEnvResolver({});
+
   it('applies provider defaults for missing fields', () => {
-    const config = normalizeProviderConfig({ name: 'anthropic', apiKey: 'sk-test' }, stubDefs);
+    const config = normalizeProviderConfig(
+      { name: 'anthropic', apiKey: 'sk-test' },
+      stubDefs,
+      noEnv,
+    );
     expect(config.model).toBe('claude-3-opus');
   });
 
@@ -36,6 +42,7 @@ describe('normalizeProviderConfig', () => {
     const config = normalizeProviderConfig(
       { name: 'anthropic', model: 'claude-3-sonnet', apiKey: 'sk-test' },
       stubDefs,
+      noEnv,
     );
     expect(config.model).toBe('claude-3-sonnet');
   });
@@ -44,34 +51,31 @@ describe('normalizeProviderConfig', () => {
     const noModelDefs: IProviderDefinition[] = [
       { type: 'no-model', defaults: {}, createProvider: createStubProvider },
     ];
-    expect(() => normalizeProviderConfig({ name: 'no-model' }, noModelDefs)).toThrow(
+    expect(() => normalizeProviderConfig({ name: 'no-model' }, noModelDefs, noEnv)).toThrow(
       'requires model',
     );
   });
 
   it('resolves $ENV: reference in apiKey', () => {
-    process.env.TEST_AGENT_KEY = 'env-resolved-key';
-    try {
-      const config = normalizeProviderConfig(
-        { name: 'anthropic', model: 'claude-3-opus', apiKey: '$ENV:TEST_AGENT_KEY' },
-        stubDefs,
-      );
-      expect(config.apiKey).toBe('env-resolved-key');
-    } finally {
-      delete process.env.TEST_AGENT_KEY;
-    }
+    const config = normalizeProviderConfig(
+      { name: 'anthropic', model: 'claude-3-opus', apiKey: '$ENV:TEST_AGENT_KEY' },
+      stubDefs,
+      createRecordEnvResolver({ TEST_AGENT_KEY: 'env-resolved-key' }),
+    );
+    expect(config.apiKey).toBe('env-resolved-key');
   });
 
   it('returns raw value when apiKey is not an env reference', () => {
     const config = normalizeProviderConfig(
       { name: 'anthropic', model: 'claude-3-opus', apiKey: 'direct-key' },
       stubDefs,
+      noEnv,
     );
     expect(config.apiKey).toBe('direct-key');
   });
 
   it('applies baseURL default from definition', () => {
-    const config = normalizeProviderConfig({ name: 'ollama' }, stubDefs);
+    const config = normalizeProviderConfig({ name: 'ollama' }, stubDefs, noEnv);
     expect(config.baseURL).toBe('http://localhost:11434');
   });
 });

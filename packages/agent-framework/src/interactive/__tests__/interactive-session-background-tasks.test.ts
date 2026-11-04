@@ -1,3 +1,4 @@
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
 import { summarizeUsageBySource } from '@robota-sdk/agent-session-analytics';
 import { describe, expect, it, vi } from 'vitest';
@@ -21,7 +22,7 @@ import type {
 
 function createSessionStoreStub() {
   const records = new Map<string, unknown>();
-  return {
+  return withHoldReadClaim({
     load: vi.fn((id: string) => {
       const record = records.get(id);
       return record === undefined ? { status: 'missing' } : { status: 'valid', record };
@@ -33,7 +34,7 @@ function createSessionStoreStub() {
       [...records.entries()].map(([id, record]) => ({ id, outcome: { status: 'valid', record } })),
     ),
     delete: vi.fn((id: string) => records.delete(id)),
-  };
+  });
 }
 
 function createResolvedRunner(output: string): IBackgroundTaskRunner<'agent'> {

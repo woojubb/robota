@@ -112,6 +112,11 @@ export interface ITuiInteractionChannelOptions {
   disableSessionLoops?: boolean;
   resolveDefaultLoopPrompt?: () => string;
   resumeSessionId?: string;
+  /**
+   * The SHA-256 of the stored record bytes the person accepted as theirs for `resumeSessionId`.
+   * Projected into the session only when set; a channel without one accepts nothing unverified.
+   */
+  acceptedDigest?: string;
   forkSession?: boolean;
   /** Issue #3081: this channel's session is the target of a `/cd` from this directory. */
   workspaceMovedFrom?: string;

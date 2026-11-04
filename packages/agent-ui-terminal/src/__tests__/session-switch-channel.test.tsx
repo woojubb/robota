@@ -10,6 +10,7 @@
  * channel in its useState initializer and replaces it on every switch.
  */
 
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -166,7 +167,7 @@ function createFakeChannel(createdFor: string | undefined): IFakeChannel & ITuiA
 }
 
 function createFakeStore(records: IInteractiveSessionRecord[]): IInteractiveSessionStore {
-  return {
+  const store: Omit<IInteractiveSessionStore, 'claim' | 'hasWriter'> = {
     save: () => undefined,
     load: (id) => {
       const record = records.find((r) => r.id === id);
@@ -175,6 +176,7 @@ function createFakeStore(records: IInteractiveSessionRecord[]): IInteractiveSess
     list: () => records.map((record) => ({ id: record.id, outcome: { status: 'valid', record } })),
     delete: () => undefined,
   };
+  return withHoldReadClaim(store);
 }
 
 function sessionRecord(

@@ -14,6 +14,7 @@
 import { loadSessionForUpdate } from '@robota-sdk/agent-session';
 
 import { lockedReasonOf, sealedSessionState } from './locked-session-wording.js';
+import { provenanceOfOutcome } from './session-authorship-gate.js';
 
 import type { TLockedSessionReason } from './locked-session-wording.js';
 import type {
@@ -72,5 +73,8 @@ export function persistSessionRename(
     name,
     updatedAt: new Date().toISOString(),
   };
-  sessionStore.save(record);
+  // Whose the record is follows what was read: a rename never makes a record the owner's.
+  const provenance = provenanceOfOutcome(outcome);
+  if (provenance === undefined) sessionStore.save(record);
+  else sessionStore.save(record, { provenance });
 }

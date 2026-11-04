@@ -11,7 +11,8 @@ output. It has no `@robota-sdk/*` dependencies; every other agent runtime packag
 npm install @robota-sdk/agent-core
 ```
 
-Requires Node.js 22.12 or later. A provider package supplies the model connection, for example
+The main entry runs on any standard JavaScript runtime; the `./node` entry requires Node.js 22.12
+or later. A provider package supplies the model connection, for example
 `@robota-sdk/agent-provider-anthropic`.
 
 ## Quick Start
@@ -237,14 +238,16 @@ scheduling by supplying `scheduling`; its existing unplanned strategies retain t
 
 ## Entry points
 
-| Import path                      | What it contains                                                                                                                                                                                           |
-| -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `@robota-sdk/agent-core`         | The main API, listed under Main exports. It also has a browser build: nothing in its static import graph uses Node built-ins.                                                                              |
-| `@robota-sdk/agent-core/node`    | Node-only pieces: the `CommandExecutor` and `HttpExecutor` hook executors, path containment (`canonicalizePath`, `isPathInside`), owner-only file writes, and the egress policy (`fetchWithEgressPolicy`). |
-| `@robota-sdk/agent-core/testing` | Test fixtures: `createScriptedProvider`, `createRecordingProvider`, `createReplayProvider`.                                                                                                                |
+| Import path                      | What it contains                                                                                                                                                                                                                                                            |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `@robota-sdk/agent-core`         | The main API, listed under Main exports. It is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun.                                                                                                                                                    |
+| `@robota-sdk/agent-core/node`    | Node-only pieces: the `CommandExecutor` and `HttpExecutor` hook executors, `processEnvResolver`, shell resolution (`resolvePlatformShell`), path containment (`canonicalizePath`, `isPathInside`), owner-only file writes, and the egress policy (`fetchWithEgressPolicy`). |
+| `@robota-sdk/agent-core/testing` | Test fixtures: `createScriptedProvider`, `createRecordingProvider`, `createReplayProvider`.                                                                                                                                                                                 |
 
-When you pass no executors, `runHooks` loads `CommandExecutor` and `HttpExecutor` on demand (this
-needs Node). Import them from `@robota-sdk/agent-core/node` only to pass them explicitly.
+`runHooks` runs only the executors you pass; a hook whose type has none is reported in
+`unknownHookTypes`. On Node, pass `new CommandExecutor()` and `new HttpExecutor()` from
+`@robota-sdk/agent-core/node`. Functions that resolve a `$ENV:` reference take the resolver to use:
+`processEnvResolver` from `@robota-sdk/agent-core/node`, or `createRecordEnvResolver(record)`.
 
 ## Main exports
 

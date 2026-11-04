@@ -103,7 +103,8 @@ A session moves to another session or device only when its holder's operator pus
 answers a request for a session. The receiving side takes it only on a grant for that one transfer over
 that channel, signed by a device it already knows, and with its own operator's yes; it keeps the
 payload aside until it matches the manifest — in memory alone when its stores seal, so no plaintext
-copy lands beside them — and saves it without starting it. The holder lets go, and ends, only on the
+copy lands beside them — and saves it without starting it as a record nothing vouches for, since a
+peer's word is not the owner's, so its first resume asks. The holder lets go, and ends, only on the
 acknowledgement that the session is saved there, so two processes never run one conversation.
 
 A conversation between local peers is bounded, so two agents that always answer cannot message each
@@ -346,15 +347,20 @@ is past, and counts as gone. A presence that cannot be created is reported, neve
 migration's plan says such processes, like those of builds without presence, are invisible to it.
 `secure migrate` and `secure compact` unlock before writing anything, since before an unlock the
 sealing key is whatever the same-user-writable file holds; they run only in secure mode, at a
-terminal, and are never a slash command, a skill or a transport request. A migration writes a
+terminal, and are never a slash command, a skill or a transport request. A migration marks
+nothing it sealed as the owner's on its own, since any program of the same user could have written
+the plaintext, only what the person at its end says is theirs. A migration writes a
 project only when the trust service says it is trusted now, on a host that can write project state,
 through the authority that service mints: the roots records and the history name are same-user
 writable, so they are candidates, never authority, and every other root is listed and left alone.
 
 There is no unlock or lock command: unlocked keys live in the memory of the process that uses them,
 in one holder that every lock (the user, inactivity, the last client leaving, a locked screen,
-suspend) ends and that offers operations with the keys rather than the keys themselves, so after a
-lock no caller still holds one; a short-lived command could only unlock to throw the keys away.
+suspend) ends and that offers operations with the keys rather than the keys themselves — opening, and
+the authorship tag that is the only proof a stored artifact was written by the owner's unlocked
+process, since anything sealed to the public key opens — so after a lock no caller still holds one,
+and each unlock is announced so what was written while locked can be tagged then; a short-lived
+command could only unlock to throw the keys away.
 Unlocking is where a swapped stored sealing key is caught. From the first unlock in a process the
 holder seals to the key that unlock verified, locked or not and even when the repair of the file
 cannot be written; the mismatch is always reported, and the exit status tells a repair that completed
@@ -730,19 +736,26 @@ startup errors.
 
 ### Session resolution
 
-`--continue`/`-c` resumes the most recent session for the cwd (reusing its id); `--resume [id]`
-resumes an explicit id/name or shows a picker when omitted; `--fork-session` (combined with either)
-creates a fresh id while restoring the resumed context, leaving the original file untouched. `-c`
-with no prior session for the cwd starts a new one — identical in TUI and print mode. Print mode
-requires an explicit `-r <id|name>` (no interactive picker) and rejects `--no-session-persistence`
-combined with `-c`/`-r`. A sealed session whose keys are locked is in no picker and is not what `-c`
-picks, because there is no record to show; so `-r` names the lock for an id, and counts the locked
-sessions for a name it cannot match, instead of reporting the session missing, and every surface
-that lists or picks sessions says how many it left out whenever some are locked — the latest
-readable session may not be the latest one — while `usage export` refuses rather than send a partial
-snapshot. A served rename or delete of a locked session names the lock instead of calling it
-unknown. Resuming a record that is there but cannot be read (locked, corrupt, or from a build this
-one does not read) is refused rather than started empty under its id, and the CLI says so before any
+`--continue`/`-c` resumes the most recent session for the cwd (reusing its id) that is the owner's,
+and does not go on past a newer one that is not without a person's word; `--resume [id]` resumes an
+explicit id or name, or shows a picker when omitted. What an unverified record says of itself — its
+name, its time — never chooses what runs, so such a record never answers for a name, and a text that
+is both a verified record's name and the id of a record not verified as the owner's is refused as
+ambiguous. `--fork-session` (combined with either) creates a fresh id while restoring the resumed
+context, leaving the original file untouched. `-c` with no prior session for the cwd starts a new
+one — identical in TUI and print mode. Print mode requires an explicit `-r <id|name>` (no
+interactive picker) and rejects `--no-session-persistence` combined with `-c`/`-r`. A sealed session
+whose keys are locked is in no picker and is not what `-c` picks, because there is no record to
+show; so `-r` names the lock for an id, and counts the locked sessions for a name it cannot match,
+instead of reporting the session missing, and every surface that lists or picks sessions says how
+many it left out whenever some are locked — the latest readable session may not be the latest one —
+while `usage export` refuses rather than send a partial snapshot. A served rename or delete of a
+locked session names the lock instead of calling it unknown. Resuming a record that is there but
+cannot be read (locked, corrupt, or from a build this one does not read) is refused rather than
+started empty under its id; one not verified as the owner's is resumed only when a person, shown
+fixed text that carries nothing the record says, accepts exactly the bytes they were shown, and is
+refused wherever no one can be asked. Accepting raises nothing until the session has restored from
+those bytes, so a resume that does not go ahead leaves them as they were. The CLI says so before any
 surface starts, so the terminal UI never meets it in its first render.
 
 ### Destructive actions

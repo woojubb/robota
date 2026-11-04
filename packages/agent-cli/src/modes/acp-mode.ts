@@ -1,12 +1,16 @@
 import {
+  SessionAuthorshipRefusedError,
   buildRuntimeSession,
+  isSessionAuthorshipRefusedError,
   isSessionBusy,
   lockedSessionMessage,
   lockedSessionReason,
   restoredScheduleDisposition,
   scanSessionStore,
+  claimedSessionMessage,
   SessionSlot,
 } from '@robota-sdk/agent-framework';
+import { isSessionClaimedError } from '@robota-sdk/agent-session';
 import { createAcpTransport } from '@robota-sdk/agent-transport-acp';
 
 import { runAcpSlashCommand } from './acp-command-port.js';
@@ -71,6 +75,19 @@ function runsOnItsOwn(
   );
 }
 
+/** What `session/load` says of a stored session that would start work on its own once loaded. */
+function runsOnItsOwnMessage(sessionId: string): string {
+  return (
+    `Session ${sessionId} has a goal, loop or schedule that would run on its own; ` +
+    'resume it in the terminal to stop that first.'
+  );
+}
+
+/** A load refused while the session was being built from its claimed record. Fixed text only. */
+class AcpLoadRefusedError extends Error {
+  override readonly name = 'AcpLoadRefusedError';
+}
+
 interface ISessionLoader {
   readonly load: (sessionId: string) => Promise<TAcpSessionLoad>;
   /** Stop accepting loads and wait for one in progress, so teardown shuts the session it left current. */
@@ -117,23 +134,42 @@ function createSessionLoader(
         ? outcome.record
         : undefined;
     if (record === undefined) return refuse(`No session ${sessionId} in this workspace.`);
-    if (runsOnItsOwn(record, Date.now(), options.sessionOptions.disableSessionLoops ?? false)) {
-      return refuse(
-        `Session ${sessionId} has a goal, loop or schedule that would run on its own; ` +
-          'resume it in the terminal to stop that first.',
-      );
+    // An editor has no way yet to ask whether a record nobody vouched for is the owner's.
+    if (outcome?.status === 'valid' && outcome.authorship === 'unverified') {
+      return refuse(new SessionAuthorshipRefusedError(sessionId, 'unverified').message);
     }
-    const next = buildRuntimeSession(
-      buildPooledSessionOptions(
-        options.sessionOptions,
-        { createEditCheckpointStore: options.createEditCheckpointStore },
-        sessionId,
-      ),
-    );
+    const disableSessionLoops = options.sessionOptions.disableSessionLoops ?? false;
+    if (runsOnItsOwn(record, Date.now(), disableSessionLoops))
+      return refuse(runsOnItsOwnMessage(sessionId));
+    let next: InteractiveSession;
+    try {
+      next = buildRuntimeSession({
+        ...buildPooledSessionOptions(
+          options.sessionOptions,
+          { createEditCheckpointStore: options.createEditCheckpointStore },
+          sessionId,
+        ),
+        // The listing above was a look at the file; the record the session restores from is the
+        // claim's own read, and it is judged again on that.
+        checkRestoredRecord: (restored) => {
+          if (runsOnItsOwn(restored, Date.now(), disableSessionLoops)) {
+            throw new AcpLoadRefusedError(runsOnItsOwnMessage(sessionId));
+          }
+        },
+      });
+    } catch (error) {
+      // The session this connection just left still holds the record while it shuts down.
+      if (isSessionClaimedError(error)) return refuse(claimedSessionMessage(error));
+      if (error instanceof AcpLoadRefusedError || isSessionAuthorshipRefusedError(error)) {
+        return refuse(error.message);
+      }
+      throw error;
+    }
     try {
       await next.whenInitialized();
     } catch (error) {
       await shutdownSession(next, 'ACP session load failed', 'ACP');
+      if (isSessionClaimedError(error)) return refuse(claimedSessionMessage(error));
       throw error;
     }
     // The editor went away while the stored session started: it is not served, so it is shut down.

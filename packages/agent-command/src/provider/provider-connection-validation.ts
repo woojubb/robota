@@ -1,4 +1,5 @@
 import { normalizeProviderConfig } from '@robota-sdk/agent-core';
+import { processEnvResolver } from '@robota-sdk/agent-core/node';
 import { validateProviderProfile } from '@robota-sdk/agent-framework';
 
 import type {
@@ -29,6 +30,7 @@ export async function validateProviderConnection(
           baseURL: profile.baseURL,
         },
         options.providerDefinitions,
+        processEnvResolver,
       ),
     );
     if (!resolved.apiKey?.trim()) throw new Error('Host credential unavailable.');

@@ -16,8 +16,10 @@
  * place; each replace is then atomic, and is made only if the file still holds what was read
  * (`project-state-replacement.ts`).
  */
+import { createHash } from 'node:crypto';
 import {
   countPlainSessionLogLines,
+  isPlainSessionRecordOf,
   isSafeSessionId,
   sealSessionLogText,
   sealStoredPayloadBytes,
@@ -81,6 +83,11 @@ export interface IWorkspaceSessionRecordMigration {
   readonly changed: readonly string[];
   /** Stale temp files found: removed (or to remove) with `sweepTemporaries`, else left where they are. */
   readonly staleTemporaries: number;
+  /**
+   * Each record this run sealed, by its id and the SHA-256 of the sealed bytes it put in place — the
+   * bytes the owner may then vouch for, and no others. Empty when planning.
+   */
+  readonly sealedRecords: readonly { readonly id: string; readonly digest: string }[];
 }
 
 /** What a migration of a project's session logs did, or (planning) would do. Paths are project-relative. */
@@ -123,7 +130,9 @@ export function migrateWorkspaceProjectSessionRecords(
     overCap: [] as string[],
     changed: [] as string[],
     staleTemporaries: 0,
+    sealedRecords: [] as { readonly id: string; readonly digest: string }[],
   };
+  const staged: { readonly path: string; readonly id: string; readonly digest: string }[] = [];
   const replacements = replaceStagedProjectStateFiles(
     sessions,
     PURPOSE,
@@ -158,6 +167,10 @@ export function migrateWorkspaceProjectSessionRecords(
           result.sealed += 1;
           continue;
         }
+        // Only a record that reads as this session's is a session the owner could mark as theirs.
+        if (isPlainSessionRecordOf(id, raw)) {
+          staged.push({ path, id, digest: createHash('sha256').update(sealed).digest('hex') });
+        }
         stage(entry.name, path, raw, sealed);
       }
     },
@@ -165,6 +178,11 @@ export function migrateWorkspaceProjectSessionRecords(
   );
   result.sealed += replacements.replaced;
   result.changed.push(...replacements.changed);
+  // Every staged record was put in place but those that changed meanwhile, since anything else
+  // that stops a replacement throws out of it.
+  for (const { path, id, digest } of staged) {
+    if (!replacements.changed.includes(path)) result.sealedRecords.push({ id, digest });
+  }
   result.staleTemporaries = sweepWorkspaceProjectStateTemporaries(
     sessions,
     '',

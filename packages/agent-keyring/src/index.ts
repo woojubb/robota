@@ -1,8 +1,9 @@
 /**
  * `@robota-sdk/agent-keyring` — key custody and sealing primitives for secure conversations, on
  * `node:crypto` only. A passphrase and a recovery key each unwrap one master key; the master key
- * derives an X25519 sealing keypair and an Ed25519 attach keypair; artifacts are encrypted under
- * per-artifact keys that are sealed to the public sealing key, so a locked process can still write.
+ * derives an X25519 sealing keypair, an Ed25519 attach keypair and an HMAC authorship key; artifacts
+ * are encrypted under per-artifact keys that are sealed to the public sealing key, so a locked process
+ * can still write, and only an unlocked one can tag what it wrote.
  */
 export { KeyringError } from './errors.js';
 export type { TKeyringErrorCode } from './errors.js';
