@@ -24,7 +24,7 @@ declared fails even though this package's install brought a copy of it in transi
 `@robota-sdk/agent-core` is a peer dependency, and `@robota-sdk/agent-session` an optional one needed
 only by the `/session` subpath. This package runs the `ConversationAgent`/`Session` instances the host
 constructs with them, so the host's copies and this package's must be the same install. See "Version
-and compatibility" below for what version range that peer dependency actually pins to.
+and compatibility" below for the versions it supports.
 
 ## Supported environments
 
@@ -229,13 +229,11 @@ limits should disable that provider SDK's automatic retries.
 
 ## Version and compatibility
 
-This package's own API follows the release's semantic version, same as `@robota-sdk/agent-roundtable`,
-`@robota-sdk/agent-core` and `@robota-sdk/agent-session` in the same release (they are versioned in
-lockstep). Its `peerDependencies` on the latter two are `workspace:*` in source; publishing pins them
-to the **exact** version they release with, not a range — so the host must have `@robota-sdk/agent-core`
-installed at that exact version (npm 7+ refuses to install a different version; pnpm and Yarn
-warn by default, but a mismatch is still unsupported); `@robota-sdk/agent-session` is required at that same exact version only when the host uses
-the `/session` subpath, since that peer is optional.
+This package is versioned in lockstep with `@robota-sdk/agent-roundtable`, `@robota-sdk/agent-core`
+and `@robota-sdk/agent-session`, and is supported with those packages from the same release. Its
+`peerDependencies` on the latter two are `workspace:^` in source and publish as `^<release version>`,
+so a package manager also accepts a later release of the same major line; `@robota-sdk/agent-session`
+is needed only when the host uses the `/session` subpath, since that peer is optional.
 
 That API version is separate from **checkpoint format compatibility**, which this package owns
 independently of any of those three:
