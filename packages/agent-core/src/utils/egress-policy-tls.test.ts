@@ -62,7 +62,7 @@ function client(
   url: string,
   certificate?: string,
 ): Promise<{ ok: boolean; body?: string; code?: string }> {
-  const entry = new URL('../../dist/node/node.js', import.meta.url).href;
+  const entry = new URL('../../dist/node.js', import.meta.url).href;
   const script = `import { fetchWithEgressPolicy } from ${JSON.stringify(entry)};
   try {
     const url = process.argv[1];

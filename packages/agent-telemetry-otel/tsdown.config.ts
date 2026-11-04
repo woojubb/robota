@@ -8,8 +8,8 @@ const outExtensions = ({ format }: { format: string }) => ({
 export default defineConfig({
   entry: { index: 'src/index.ts' },
   format: { esm: {}, cjs: {} },
-  outDir: 'dist/node',
-  platform: 'node',
+  outDir: 'dist',
+  platform: 'neutral',
   sourcemap: false,
   treeshake: true,
   minify: true,

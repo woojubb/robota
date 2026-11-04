@@ -3,8 +3,8 @@ import { defineConfig } from 'tsdown';
 export default defineConfig({
   entry: { index: 'src/index.ts', 'testing/index': 'src/testing/index.ts' },
   format: { esm: {}, cjs: {} },
-  outDir: 'dist/node',
-  platform: 'node',
+  outDir: 'dist',
+  platform: 'neutral',
   clean: true,
   dts: true,
   sourcemap: false,

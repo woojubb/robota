@@ -6,53 +6,29 @@
   "publishConfig": {
     "access": "public"
   },
-  "main": "dist/node/index.js",
-  "types": "dist/node/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "source": "./src/index.ts",
-      "node": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
       },
-      "default": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
       }
     },
     "./google": {
       "source": "./src/google.ts",
-      "node": {
-        "import": {
-          "types": "./dist/node/google/index.d.ts",
-          "default": "./dist/node/google/index.js"
-        },
-        "require": {
-          "types": "./dist/node/google/index.d.cts",
-          "default": "./dist/node/google/index.cjs"
-        }
+      "import": {
+        "types": "./dist/google/index.d.ts",
+        "default": "./dist/google/index.js"
       },
-      "default": {
-        "import": {
-          "types": "./dist/node/google/index.d.ts",
-          "default": "./dist/node/google/index.js"
-        },
-        "require": {
-          "types": "./dist/node/google/index.d.cts",
-          "default": "./dist/node/google/index.cjs"
-        }
+      "require": {
+        "types": "./dist/google/index.d.cts",
+        "default": "./dist/google/index.cjs"
       }
     },
     "./package.json": "./package.json"

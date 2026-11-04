@@ -1,33 +1,19 @@
 import { defineConfig } from 'tsdown';
 
-const outExtensions = ({ format }: { format: string }) => ({
-  js: format === 'cjs' ? '.cjs' : '.js',
-  dts: format === 'cjs' ? '.d.cts' : '.d.ts',
-});
-
-const shared = {
+// One build serves every runtime that has a DOM: the Node build and the browser build of this package were
+// byte-identical, and `./client` is the same file as `.`.
+export default defineConfig({
   entry: ['src/index.ts'],
+  format: { esm: {}, cjs: {} },
+  outDir: 'dist',
+  platform: 'neutral',
+  clean: true,
   sourcemap: false,
   treeshake: true,
   dts: true,
-  outExtensions,
+  outExtensions: ({ format }) => ({
+    js: format === 'cjs' ? '.cjs' : '.js',
+    dts: format === 'cjs' ? '.d.cts' : '.d.ts',
+  }),
   deps: { neverBundle: [/^@robota-sdk\/.*/] },
-};
-
-export default defineConfig([
-  {
-    ...shared,
-    format: { esm: {}, cjs: {} },
-    outDir: 'dist/node',
-    platform: 'node',
-    clean: true,
-  },
-  {
-    ...shared,
-    format: ['esm'],
-    outDir: 'dist/browser',
-    platform: 'browser',
-    outExtensions: () => ({ js: '.js', dts: '.d.ts' }),
-    define: { 'process.env.NODE_ENV': '"production"' },
-  },
-]);
+});

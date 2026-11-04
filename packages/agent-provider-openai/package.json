@@ -6,77 +6,41 @@
   "publishConfig": {
     "access": "public"
   },
-  "main": "dist/node/index.js",
-  "types": "dist/node/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "source": "./src/index.ts",
-      "node": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
       },
-      "default": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
       }
     },
     "./loggers": {
       "source": "./src/openai/loggers/index.ts",
-      "node": {
-        "import": {
-          "types": "./dist/node/loggers/index.d.ts",
-          "default": "./dist/node/loggers/index.js"
-        },
-        "require": {
-          "types": "./dist/node/loggers/index.d.cts",
-          "default": "./dist/node/loggers/index.cjs"
-        }
+      "import": {
+        "types": "./dist/loggers/index.d.ts",
+        "default": "./dist/loggers/index.js"
       },
-      "default": {
-        "import": {
-          "types": "./dist/node/loggers/index.d.ts",
-          "default": "./dist/node/loggers/index.js"
-        },
-        "require": {
-          "types": "./dist/node/loggers/index.d.cts",
-          "default": "./dist/node/loggers/index.cjs"
-        }
+      "require": {
+        "types": "./dist/loggers/index.d.cts",
+        "default": "./dist/loggers/index.cjs"
       }
     },
     "./node": {
       "source": "./src/node.ts",
       "browser": null,
-      "node": {
-        "import": {
-          "types": "./dist/node/node.d.ts",
-          "default": "./dist/node/node.js"
-        },
-        "require": {
-          "types": "./dist/node/node.d.cts",
-          "default": "./dist/node/node.cjs"
-        }
+      "import": {
+        "types": "./dist/node.d.ts",
+        "default": "./dist/node.js"
       },
-      "default": {
-        "import": {
-          "types": "./dist/node/node.d.ts",
-          "default": "./dist/node/node.js"
-        },
-        "require": {
-          "types": "./dist/node/node.d.cts",
-          "default": "./dist/node/node.cjs"
-        }
+      "require": {
+        "types": "./dist/node.d.cts",
+        "default": "./dist/node.cjs"
       }
     },
     "./package.json": "./package.json"

@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { isAbsolute } from 'node:path';
 import { createInterface } from 'node:readline';
-import { createStreamableHttpAdapter, openMcpSession } from '../dist/node/index.js';
-import { createNodeHttpEgress } from '../dist/node/node.js';
+import { createStreamableHttpAdapter, openMcpSession } from '../dist/index.js';
+import { createNodeHttpEgress } from '../dist/node.js';
 
 // Keep socket accounting in a separate Node process: Bun's HTTP server shim does not
 // expose the same socket close events. The client under test still runs in Node/Bun.

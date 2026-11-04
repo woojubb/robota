@@ -9,7 +9,7 @@ provider key.
   and `runStream()` give the same answer. Run it with `pnpm scenario:verify` from this package.
 - `hook-block-demo.mjs`, `hook-json-response-demo.mjs`, `hook-permission-mode-demo.mjs`,
   `hook-timeout-demo.mjs`: Hook demonstrations that call `runHooks` directly. They import the built
-  package (`../dist/node/index.js`), so build the package first, then run for example
+  package (`../dist/index.js`), so build the package first, then run for example
   `node examples/hook-block-demo.mjs` from this package.
 
 Embedding and demo examples live in the repository-root `examples/` directory.

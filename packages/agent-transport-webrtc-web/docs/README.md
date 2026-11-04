@@ -30,7 +30,7 @@ export function App() {
 }
 ```
 
-`./client` is the browser build of the same exports. The shared conversation view and prompt components
+`./client` is the same file as the root entry. The shared conversation view and prompt components
 come from `@robota-sdk/agent-ui-web`; this package does not re-export them.
 
 ## Documents

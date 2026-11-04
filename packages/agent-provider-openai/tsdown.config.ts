@@ -1,3 +1,5 @@
+import { builtinModules } from 'node:module';
+
 import { defineConfig } from 'tsdown';
 
 const outExtensions = ({ format }: { format: string }) => ({
@@ -7,15 +9,15 @@ const outExtensions = ({ format }: { format: string }) => ({
 
 const shared = {
   format: { esm: {}, cjs: {} } as const,
-  outDir: 'dist/node',
-  platform: 'node' as const,
+  outDir: 'dist',
+  platform: 'neutral' as const,
   clean: true,
   dts: true,
   sourcemap: false,
   treeshake: true,
   minify: true,
   outExtensions,
-  deps: { neverBundle: [/^@robota-sdk\/.*/] },
+  deps: { neverBundle: [/^@robota-sdk\/.*/, /^node:/, ...builtinModules] },
 };
 
 export default defineConfig({

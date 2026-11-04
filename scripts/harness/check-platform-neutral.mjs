@@ -12,6 +12,9 @@
  * built-in unless it is reached only through dynamic imports inside third-party code; globals inside
  * third-party code are not checked.
  *
+ * A neutral subpath is one file for every runtime, so it may not map a `node` or `browser` condition at
+ * any depth: a build per runtime is exactly what a neutral entry makes unnecessary.
+ *
  * The check reads source only, never build output, so it gives the same answer in every checkout.
  * Every package appears in exactly one ARCHITECTURE.md list, and the lists agree with the manifests.
  */
@@ -215,7 +218,7 @@ function exportEntries(manifest) {
 export const isNodeOnly = (target) =>
   target !== null && typeof target === 'object' && target.browser === null;
 
-/** A browser's view of the subpath: the `browser` build if there is one. */
+/** The first value `conditions` names, followed through nested conditions. */
 function pick(target, conditions) {
   if (typeof target === 'string') return target;
   if (!target || typeof target !== 'object') return undefined;
@@ -224,38 +227,13 @@ function pick(target, conditions) {
   return undefined;
 }
 
-/** A shipped browser file (`./dist/browser/x.js`) back to the source file it is built from. */
-function browserBuildSource(packageDir, target) {
-  const match = /^\.\/dist\/(?:[\w-]+\/)?(.+)\.[cm]?js$/u.exec(target ?? '');
-  if (!match) return undefined;
-  for (const candidate of [
-    `${match[1]}.ts`,
-    `${match[1]}.tsx`,
-    `${match[1]}/index.ts`,
-    `${match[1]}/index.tsx`,
-  ]) {
-    const file = path.join(packageDir, 'src', candidate);
-    if (existsSync(file)) return file;
-  }
-  return undefined;
-}
-
-/**
- * The source files behind a neutral subpath: its `source` file, which the default and node builds
- * are built from, and the source of a separate `browser` build. A neutral subpath is neutral under
- * every condition, because a Worker, Deno or Bun resolves `default`, not `browser`.
- */
-function neutralSources(packageDir, target) {
-  const source = pick(target, ['source']);
-  const files = [source && path.join(packageDir, source)];
-  if (target && typeof target === 'object' && target.browser)
-    files.push(
-      browserBuildSource(
-        packageDir,
-        pick(target.browser, ['browser', 'import', 'module', 'default']),
-      ),
-    );
-  return [...new Set(files)];
+/** Every `node` or `browser` condition a subpath maps, at any depth, in the order they appear. */
+function runtimeConditions(target) {
+  if (!target || typeof target !== 'object') return [];
+  return Object.entries(target).flatMap(([condition, value]) => [
+    ...(condition === 'node' || condition === 'browser' ? [condition] : []),
+    ...runtimeConditions(value),
+  ]);
 }
 
 function loadWorkspace(root) {
@@ -410,8 +388,14 @@ function declarationProblems(label, conditions) {
       problems.push(
         `${label} maps browser: null after ${matched.join(', ')}, so a browser resolver never reaches it`,
       );
-  } else if (!pick(conditions, ['source'])) {
-    problems.push(`${label} is platform-neutral but has no source condition to check`);
+  } else {
+    if (!pick(conditions, ['source']))
+      problems.push(`${label} is platform-neutral but has no source condition to check`);
+    const runtime = [...new Set(runtimeConditions(conditions))];
+    if (runtime.length > 0)
+      problems.push(
+        `${label} maps the ${runtime.join(' and ')} ${runtime.length > 1 ? 'conditions' : 'condition'}, but a platform-neutral subpath is one file for every runtime`,
+      );
   }
   return problems;
 }
@@ -464,26 +448,23 @@ export async function checkPlatformNeutral(workspaceRoot) {
   for (const [name, { dir, short, entries }] of packages) {
     for (const [subpath, conditions] of entries) {
       const label = `${name}${subpath === '.' ? '' : subpath.slice(1)}`;
-      const declared = declarationProblems(label, conditions);
-      problems.push(...declared);
-      if (isNodeOnly(conditions) || declared.length > 0) continue;
-      for (const entryFile of neutralSources(dir, conditions)) {
-        if (!entryFile || !existsSync(entryFile)) {
-          problems.push(
-            `${label} is platform-neutral but its browser build has no locatable source file`,
-          );
-          continue;
-        }
-        problems.push(
-          ...(await checkSubpath({
-            root,
-            packages,
-            label,
-            entryFile,
-            allowDom: domPackages.has(short),
-          })),
-        );
+      problems.push(...declarationProblems(label, conditions));
+      const source = pick(conditions, ['source']);
+      if (isNodeOnly(conditions) || !source) continue;
+      const entryFile = path.join(dir, source);
+      if (!existsSync(entryFile)) {
+        problems.push(`${label} is platform-neutral but its source file ${source} does not exist`);
+        continue;
       }
+      problems.push(
+        ...(await checkSubpath({
+          root,
+          packages,
+          label,
+          entryFile,
+          allowDom: domPackages.has(short),
+        })),
+      );
     }
   }
   return problems;

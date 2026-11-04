@@ -13,8 +13,8 @@
  * Usage: node packages/agent-core/examples/hook-json-response-demo.mjs
  */
 
-import { runHooks } from '../dist/node/index.js';
-import { CommandExecutor, HttpExecutor } from '../dist/node/node.js';
+import { runHooks } from '../dist/index.js';
+import { CommandExecutor, HttpExecutor } from '../dist/node.js';
 
 const executors = [new CommandExecutor(), new HttpExecutor()];
 

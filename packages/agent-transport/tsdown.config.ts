@@ -1,39 +1,25 @@
+import { builtinModules } from 'node:module';
+
 import { defineConfig } from 'tsdown';
 
-const shared = {
+// One build serves every runtime. `node` is the Node-only subpath; it shares the neutral entries' chunks.
+export default defineConfig({
+  entry: {
+    index: 'src/index.ts',
+    client: 'src/client.ts',
+    node: 'src/node/index.ts',
+  },
+  format: { esm: {}, cjs: {} },
+  outDir: 'dist',
+  platform: 'neutral',
+  clean: true,
   sourcemap: false,
   treeshake: true,
   minify: true,
   dts: true,
-  outExtensions: ({ format }: { format: string }) => ({
+  outExtensions: ({ format }) => ({
     js: format === 'cjs' ? '.cjs' : '.js',
     dts: format === 'cjs' ? '.d.cts' : '.d.ts',
   }),
-  deps: {
-    neverBundle: [/^@robota-sdk\/.*/],
-  },
-};
-
-export default defineConfig([
-  {
-    ...shared,
-    entry: {
-      index: 'src/index.ts',
-      node: 'src/node/index.ts',
-    },
-    format: { esm: {}, cjs: {} },
-    outDir: 'dist/node',
-    platform: 'node',
-    clean: true,
-  },
-  {
-    ...shared,
-    entry: {
-      index: 'src/index.ts',
-      client: 'src/client.ts',
-    },
-    format: ['esm'],
-    outDir: 'dist/browser',
-    platform: 'browser',
-  },
-]);
+  deps: { neverBundle: [/^@robota-sdk\/.*/, /^node:/, ...builtinModules] },
+});
