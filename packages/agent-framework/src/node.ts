@@ -140,3 +140,41 @@ export type {
   TPreTrustProjectPathKind,
 } from './workspace-trust/pretrust-contribution-inspector.js';
 export { supportsWorkspaceProjectMutation } from './workspace-trust/project-relative-writer.js';
+
+// Lane W (#3693): edit checkpoints and the stores that keep a session. They seal and migrate through
+// `@robota-sdk/agent-session/node`; a host with no files passes its own `IEditCheckpointStore` and
+// `IInteractiveSessionStore`, which the main entry types.
+export { EditCheckpointStore } from './checkpoints/edit-checkpoint-store.js';
+export { createDirectoryEditCheckpointState } from './checkpoints/edit-checkpoint-state-storage.js';
+export type { IEditCheckpointStateStorage } from './checkpoints/edit-checkpoint-state-storage.js';
+export { migrateWorkspaceEditCheckpoints } from './checkpoints/edit-checkpoint-migration.js';
+export type {
+  IEditCheckpointMigration,
+  IMigrateEditCheckpointsOptions,
+  TEditCheckpointKeptPlainReason,
+} from './checkpoints/edit-checkpoint-migration.js';
+export {
+  createNodeHostSessionStore,
+  createNodeToolResultSpillStore,
+  createProjectSessionStore,
+  createUserPromptHistoryFile,
+  createUserSessionStore,
+  sweepStaleToolResultSpillDirectories,
+} from './interactive/node-session-stores.js';
+export {
+  WorkspaceSessionLogSink,
+  WorkspaceSessionLogSource,
+} from './interactive/workspace-session-io.js';
+export {
+  WorkspaceProjectSessionStore,
+  projectSessionClaimsDirectory,
+} from './interactive/workspace-session-store.js';
+export {
+  migrateWorkspaceProjectSessionLogs,
+  migrateWorkspaceProjectSessionRecords,
+} from './interactive/workspace-session-migration.js';
+export type {
+  IMigrateWorkspaceProjectStateOptions,
+  IWorkspaceSessionLogMigration,
+  IWorkspaceSessionRecordMigration,
+} from './interactive/workspace-session-migration.js';

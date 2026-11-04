@@ -244,12 +244,12 @@ import { join } from 'node:path';
 import {
   InteractiveSession,
   createContributionSourcesForProjectAccess,
-  createNodeWorkspaceTrustService,
 } from '@robota-sdk/agent-framework';
 import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 import {
   createDefaultUserContributionSources,
   createNodeHostSettingsSource,
+  createNodeWorkspaceTrustService,
 } from '@robota-sdk/agent-framework/node';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 

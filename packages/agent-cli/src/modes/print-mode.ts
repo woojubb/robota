@@ -7,7 +7,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type {
-  EditCheckpointStore,
+  IEditCheckpointStore,
   IAgentDefinition,
   IFrameworkHost,
   ICreateSessionOptions,
@@ -22,7 +22,7 @@ import type {
   ISkillRootDescriptor,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
-import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
+import type { createProjectSessionStore } from '@robota-sdk/agent-framework/node';
 import { HeadlessInteractionChannel } from '@robota-sdk/agent-framework';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
@@ -102,7 +102,7 @@ export async function runPrintMode(
   commandHookShell?: string,
   livePromptTrace?: ILivePromptTracePort,
   /** A print run checkpoints its edits like any session, so resuming it can rewind them. */
-  editCheckpointStore?: EditCheckpointStore,
+  editCheckpointStore?: IEditCheckpointStore,
   resolveProviderCredential?: TProviderCredentialResolver,
 ): Promise<void> {
   const goalObjective = args.goal?.trim();

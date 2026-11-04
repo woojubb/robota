@@ -34,7 +34,7 @@ import type { ISystemCommandSemanticRoles } from '../command-api/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
 import type { IFrameworkHost } from '../host/framework-host.js';
-import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
+import type { IInteractiveSessionStore } from '../interactive/session-store-types.js';
 import type {
   IToolWithEventService,
   IHookTypeExecutor,

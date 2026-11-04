@@ -16,7 +16,7 @@ import { createTestArtifactSealer, openTestWriteGrant } from '@robota-sdk/agent-
 import { loadSessionForUpdate } from '@robota-sdk/agent-session';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { createProjectSessionStore } from '../interactive/session-persistence.js';
+import { createProjectSessionStore } from '../interactive/node-session-stores.js';
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 

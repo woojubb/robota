@@ -30,9 +30,9 @@ import { fileURLToPath } from 'node:url';
 
 import {
   WorkspaceTrustService,
-  createProjectSessionStore,
   getWorkspaceProjectStateStorage,
 } from '@robota-sdk/agent-framework';
+import { createProjectSessionStore } from '@robota-sdk/agent-framework/node';
 import { parseKeyring } from '@robota-sdk/agent-keyring';
 import { loadSessionLogEntries } from '@robota-sdk/agent-session';
 import { NodePromptHistoryFile, NodeSessionLogSource } from '@robota-sdk/agent-session/node';

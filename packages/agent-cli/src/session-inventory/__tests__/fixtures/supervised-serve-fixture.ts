@@ -1,5 +1,5 @@
 import { createTestProductRuntime } from '../../../__tests__/helpers/product-runtime.js';
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 
 import { runServeMode, type IServeModeOptions } from '../../../modes/serve-mode.js';
 import { createServeSessionDirectory } from '../../../modes/serve-session-directory.js';

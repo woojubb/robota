@@ -12,7 +12,7 @@ import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type { IFrameworkHost } from '../host/framework-host.js';
 import type { ICommandHostAdapters, ICommandModule } from '../commands/index.js';
 import type { CommandRegistry, IRemoteCommandPolicy } from '../commands/index.js';
-import type { IInteractiveSessionStore } from '../interactive/index.js';
+import type { IInteractiveSessionStore } from '../interactive/session-store-types.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TShellExecFn } from '../utils/skill-prompt.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';

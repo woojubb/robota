@@ -7,7 +7,7 @@
  * forward is how a view used to switch a store's guarantees off; here it cannot be forgotten.
  */
 
-import type { IInteractiveSessionStore } from './session-persistence.js';
+import type { IInteractiveSessionStore } from './session-store-types.js';
 
 type TStoreMember = keyof IInteractiveSessionStore;
 

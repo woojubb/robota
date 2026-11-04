@@ -101,7 +101,7 @@ import type {
   TInteractiveSessionOptions,
   IInteractiveSessionStandardOptions,
 } from './interactive-session-options.js';
-import type { IInteractiveSessionStore, TSessionLoadOutcome } from './session-persistence.js';
+import type { IInteractiveSessionStore, TSessionLoadOutcome } from './session-store-types.js';
 import type {
   ISaveRefusalReporter,
   ISessionStateForSave,

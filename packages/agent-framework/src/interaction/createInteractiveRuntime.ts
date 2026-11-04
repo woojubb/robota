@@ -8,7 +8,7 @@ import type { ICommandInfo } from './types.js';
 import type { ICommandModule } from '../command-api/command-module.js';
 import type { IInteractiveSession } from '../interactive/i-interactive-session.js';
 import type { SessionRecipe } from '../runtime/runtime-host.js';
-import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
+import type { IInteractiveSessionStore } from '../interactive/session-store-types.js';
 import type { IInteractiveSessionEvents } from '../interactive/types.js';
 import type { IHostSettingsSource } from '../config/settings-source.js';
 import type { IFrameworkHost } from '../host/framework-host.js';

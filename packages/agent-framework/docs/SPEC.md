@@ -75,7 +75,10 @@ React/Ink UI.
 - **Edit checkpoint state may live outside the project, and is sealed or plain as its store is
   told.** A store keeps its manifests and pre-images in the trusted project's checkpoint directory
   unless the host supplies a location of its own, for a run that must leave nothing in the project;
-  the sealing decision is the store's own and is required, never implied by the location. Only where
+  the sealing decision is the store's own and is required, never implied by the location. A session
+  asks its checkpoints of `IEditCheckpointStore` and its stored sessions of `IInteractiveSessionStore`;
+  the stores that keep them in files, and seal and migrate them through `@robota-sdk/agent-session/node`,
+  are on the `./node` subpath, and a host with no files brings its own. Only where
   the state is kept moves: restoring still writes the project's files back through the project
   mutation capability, so a restore can touch nothing it could not before. Sealed state is never
   trusted for what it says: a file opens only at the place it was written, and a manifest counts

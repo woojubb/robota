@@ -28,7 +28,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectStateStorage } from '../../workspace-trust/index.js';
 import { MAX_PROJECT_READ_BYTES } from '../../workspace-trust/project-reader-path.js';
-import { createProjectSessionStore } from '../session-persistence.js';
+import { createProjectSessionStore } from '../node-session-stores.js';
 import { WorkspaceSessionLogSink } from '../workspace-session-io.js';
 import {
   migrateWorkspaceProjectSessionLogs,

@@ -21,7 +21,7 @@ import type { IFrameworkHost } from '../host/framework-host.js';
 import type {
   IInteractiveSessionStore,
   TSessionLoadOutcome,
-} from '../interactive/session-persistence.js';
+} from '../interactive/session-store-types.js';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,

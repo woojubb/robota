@@ -4,13 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
-  EditCheckpointStore,
   WorkspaceTrustService,
   createRestrictedWorkspaceProjectAccess,
   createWorkspaceProjectSettingsWriter,
   getWorkspaceProjectStateStorage,
   listResumableSessionSummaries,
 } from '@robota-sdk/agent-framework';
+import { EditCheckpointStore } from '@robota-sdk/agent-framework/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createCliWorkspaceComposition } from '../workspace-project-composition.js';

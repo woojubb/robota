@@ -20,7 +20,7 @@ import {
 } from '@robota-sdk/agent-framework/node';
 
 import type {
-  EditCheckpointStore,
+  IEditCheckpointStore,
   IContributionSource,
   IMemoryStore,
   ISettingsDocumentStore,
@@ -74,7 +74,7 @@ export interface ICliWorkspaceComposition {
    * A factory, not a store: a store holds its session's turn in progress, so sessions that run at
    * the same time each need their own.
    */
-  readonly createEditCheckpointStore?: () => EditCheckpointStore;
+  readonly createEditCheckpointStore?: () => IEditCheckpointStore;
 }
 
 export type TCliWorkspaceCompositionOverrides = Partial<

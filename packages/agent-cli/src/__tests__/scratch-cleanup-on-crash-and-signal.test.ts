@@ -129,7 +129,7 @@ describe.skipIf(process.platform === 'win32')('a print run ended by a signal mid
             `import { startCli } from ${JSON.stringify(source('../cli.ts'))};`,
             `import { createTestProductRuntime } from ${JSON.stringify(source('./helpers/product-runtime.ts'))};`,
             `import { prepareSpillParentDirectory } from ${JSON.stringify(source('../startup/ephemeral-state.ts'))};`,
-            `import { createNodeToolResultSpillStore } from ${JSON.stringify(source('../../../agent-framework/src/index.ts'))};`,
+            `import { createNodeToolResultSpillStore } from ${JSON.stringify(source('../../../agent-framework/src/node.ts'))};`,
             `const productRuntime = createTestProductRuntime('test-product', { HOME: ${JSON.stringify(home)}, PRODUCT_SCRATCH_END_TEST_KEY: 'test-only-key' });`,
             'const providerDefinition = {',
             "  type: 'scratch-end-test',",

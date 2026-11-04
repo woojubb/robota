@@ -6,11 +6,11 @@ import { join } from 'path';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
+import { createProjectSessionStore } from '../interactive/node-session-stores.js';
 import {
-  createProjectSessionStore,
   WorkspaceSessionLogSink,
   WorkspaceSessionLogSource,
-} from '../interactive/session-persistence.js';
+} from '../interactive/workspace-session-io.js';
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 

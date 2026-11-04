@@ -4,7 +4,7 @@ import {
   loadSessionForUpdate,
 } from '@robota-sdk/agent-session';
 
-import type { IInteractiveSessionRecord, IInteractiveSessionStore } from './session-persistence.js';
+import type { IInteractiveSessionRecord, IInteractiveSessionStore } from './session-store-types.js';
 import type {
   IBackgroundJobGroupState,
   TBackgroundJobGroupEvent,

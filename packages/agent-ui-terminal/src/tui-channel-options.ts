@@ -20,7 +20,7 @@ import type {
   ICommandModule,
   ICreateSessionOptions,
   ILivePromptTracePort,
-  EditCheckpointStore,
+  IEditCheckpointStore,
   TInteractiveSessionOptions,
   IMemoryStore,
   IPromptHistoryOptions,
@@ -89,7 +89,7 @@ export interface ITuiInteractionChannelOptions {
    * Explicit authority- and permission-backed edit checkpoint capability for this channel's one
    * session. Never shared with another channel's session: a store holds one turn in progress.
    */
-  editCheckpointStore?: EditCheckpointStore;
+  editCheckpointStore?: IEditCheckpointStore;
   /** The host's way to build each external-event grant's verifier; absent, no grant opens. */
   externalEventVerifierFactory?: TInteractiveSessionOptions['externalEventVerifierFactory'];
   /** The run's grant history, shared by every session this TUI binds (#3189). */

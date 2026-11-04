@@ -11,7 +11,7 @@ import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';

@@ -1,6 +1,6 @@
-import { DEFAULT_BRANCH_ID } from '../checkpoints/edit-checkpoint-store-helpers.js';
+import { DEFAULT_BRANCH_ID } from '../checkpoints/edit-checkpoint-types.js';
 
-import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import type { IEditCheckpointStore } from '../checkpoints/edit-checkpoint-types.js';
 import type { IBranchEvent } from '@robota-sdk/agent-interface-session';
 
 /** Exhaustive owner policy for checkpoint operations; resume hydration intentionally has no event. */
@@ -18,7 +18,7 @@ export const BRANCH_OPERATION_EVENT_MATRIX = {
 
 export class SessionBranchEvents {
   constructor(
-    private readonly getStore: () => EditCheckpointStore,
+    private readonly getStore: () => IEditCheckpointStore,
     private readonly getSessionId: () => string,
     private readonly persistSession: () => void,
     private readonly emitEvent: (event: IBranchEvent) => void,

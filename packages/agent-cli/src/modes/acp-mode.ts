@@ -20,7 +20,7 @@ import { shutdownSession } from './session-shutdown.js';
 import type { IEditorFileSlot } from '../product/editor-file-slot.js';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type {
-  EditCheckpointStore,
+  IEditCheckpointStore,
   InteractiveSession,
   TInteractiveSessionOptions,
 } from '@robota-sdk/agent-framework';
@@ -39,7 +39,7 @@ export interface IAcpModeOptions {
   readonly output: Writable;
   readonly admitWorkspace: () => TAcpWorkspaceAdmission;
   /** Builds a loaded session's own edit checkpoint store, as each served session has its own. */
-  readonly createEditCheckpointStore?: () => EditCheckpointStore;
+  readonly createEditCheckpointStore?: () => IEditCheckpointStore;
   /** Where the session's file tools look for the editor's file system; the transport fills it. */
   readonly editorFiles?: IEditorFileSlot;
 }

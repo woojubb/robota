@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { ChildProcessSubagentRunner } from '../index.js';

@@ -2,12 +2,6 @@ export { InteractiveSession } from './interactive-session.js';
 export type { IInteractiveSession } from './i-interactive-session.js';
 export {
   ambiguousSessionNameMessage,
-  createProjectSessionStore,
-  createNodeHostSessionStore,
-  createNodeToolResultSpillStore,
-  sweepStaleToolResultSpillDirectories,
-  createUserSessionStore,
-  createUserPromptHistoryFile,
   isSafeSessionId,
   isSessionLocked,
   listResumableSessionSummaries,
@@ -21,25 +15,13 @@ export {
   resolveReusableEmptySessionId,
   resolveSessionIdByIdOrName,
   scanSessionStore,
-  projectSessionClaimsDirectory,
-  WorkspaceProjectSessionStore,
-  WorkspaceSessionLogSink,
-  WorkspaceSessionLogSource,
 } from './session-persistence.js';
-export type { IHostToolResultSpillStore, TSessionIdResolution } from './session-persistence.js';
+export type { TSessionIdResolution } from './session-persistence.js';
+export type { IHostToolResultSpillStore } from './session-store-types.js';
 // #3679 step 3e: the one way a session store is decorated, so no view drops a member of the port.
 export { decorateSessionStore } from './session-store-view.js';
 export type { TSessionStoreOverrides } from './session-store-view.js';
 export type { TLockedSessionReason } from './locked-session-wording.js';
-export {
-  migrateWorkspaceProjectSessionLogs,
-  migrateWorkspaceProjectSessionRecords,
-} from './workspace-session-migration.js';
-export type {
-  IMigrateWorkspaceProjectStateOptions,
-  IWorkspaceSessionLogMigration,
-  IWorkspaceSessionRecordMigration,
-} from './workspace-session-migration.js';
 export { generateSessionName } from './session-naming.js';
 export { isLoopStopVerb } from './session-loop-stop-verb.js';
 // What restoring a session does with a stored scheduled task; a host asks it to know whether a
@@ -70,7 +52,7 @@ export type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   IResumableSessionSummary,
-} from './session-persistence.js';
+} from './session-store-types.js';
 export type {
   IToolState,
   IDiffLine,

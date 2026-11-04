@@ -1,13 +1,11 @@
 import { isAbsolute, join, relative } from 'node:path';
 
+import { DEFAULT_BRANCH_ID } from './edit-checkpoint-types.js';
 import { workspacePathSegments } from '../workspace-trust/project-reader-path.js';
 
 import type { IEditCheckpointManifest, IEditCheckpointSummary } from './edit-checkpoint-types.js';
 import type { IFileSystem, IFileSystemAsync } from '@robota-sdk/agent-core';
 import type { ICheckpointNode } from '@robota-sdk/agent-session';
-
-/** The branch a checkpoint belongs to when a session has not switched away from the default. */
-export const DEFAULT_BRANCH_ID = 'main';
 
 /** A checkpoint directory's manifest, and the directory beside it that holds its pre-images. */
 export const MANIFEST_FILE = 'manifest.json';

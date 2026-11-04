@@ -18,7 +18,8 @@ import { createScriptedProvider, createTestArtifactSealer } from '@robota-sdk/ag
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
-import { WorkspaceSessionLogSink, createProjectSessionStore } from '../session-persistence.js';
+import { WorkspaceSessionLogSink } from '../workspace-session-io.js';
+import { createProjectSessionStore } from '../node-session-stores.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectStateStorage } from '../../workspace-trust/index.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';

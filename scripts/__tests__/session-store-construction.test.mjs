@@ -39,7 +39,16 @@ const PRODUCT_FILES = [
   'apps/agent-app/src/new-module.ts',
 ];
 
-const BUILDS_A_STORE = [
+const FRAMEWORK = "'@robota-sdk/agent-framework'";
+const FRAMEWORK_NODE = "'@robota-sdk/agent-framework/node'";
+
+/** The framework serves its store constructors from its Node entry; the main entry no longer carries them. */
+const withNodeEntry = (cases) => [
+  ...cases,
+  ...cases.filter((code) => code.includes(FRAMEWORK)).map((code) => code.replace(FRAMEWORK, FRAMEWORK_NODE)),
+];
+
+const BUILDS_A_STORE = withNodeEntry([
   "import { createUserSessionStore } from '@robota-sdk/agent-framework';",
   "import { createProjectSessionStore as projectStore } from '@robota-sdk/agent-framework';",
   "import { createNodeHostSessionStore, inspectSettingsLayers } from '@robota-sdk/agent-framework';",
@@ -64,7 +73,7 @@ const BUILDS_A_STORE = [
   "export { NodeSessionLogSink } from '@robota-sdk/agent-session/node';",
   "export { createNodeToolResultSpillStore } from '@robota-sdk/agent-framework';",
   "export { EditCheckpointStore as Store } from '@robota-sdk/agent-framework';",
-];
+]);
 
 describe('session stores are built only by the product factory', () => {
   it.each(PRODUCT_FILES)(
@@ -102,7 +111,7 @@ describe('session stores are built only by the product factory', () => {
         factory,
       ),
     ).toBe(0);
-    for (const code of [
+    for (const code of withNodeEntry([
       "import type { IHostToolResultSpillStore } from '@robota-sdk/agent-framework';",
       "import { sweepStaleToolResultSpillDirectories } from '@robota-sdk/agent-framework';",
       "import type { WorkspaceProjectSessionStore } from '@robota-sdk/agent-framework';",
@@ -113,7 +122,7 @@ describe('session stores are built only by the product factory', () => {
       "import { EditCheckpointsLockedError } from '@robota-sdk/agent-framework';",
       "import { inspectSettingsLayers, scanSessionStore } from '@robota-sdk/agent-framework';",
       "import { StoredLines, NodeExternalPayloadSource } from '@robota-sdk/agent-session/node';",
-    ]) {
+    ])) {
       expect(await restrictedImports(code, PRODUCT_FILES[0]), code).toBe(0);
     }
     expect(

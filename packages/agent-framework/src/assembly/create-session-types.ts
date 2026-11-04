@@ -17,7 +17,7 @@ import type { IFrameworkHost } from '../host/framework-host.js';
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { TSessionFactory } from '../hooks/agent-executor.js';
 import type { TProviderFactory } from '../hooks/prompt-executor.js';
-import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
+import type { IInteractiveSessionStore } from '../interactive/session-store-types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
 import type {

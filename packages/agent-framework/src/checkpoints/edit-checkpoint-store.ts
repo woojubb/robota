@@ -15,8 +15,8 @@ import {
   SealedEditCheckpointState,
   createSealedEditCheckpointState,
 } from './edit-checkpoint-sealed-state.js';
+import { DEFAULT_BRANCH_ID } from './edit-checkpoint-types.js';
 import {
-  DEFAULT_BRANCH_ID,
   MANIFEST_FILE,
   SNAPSHOT_DIR,
   checkpointIdOf,
@@ -39,6 +39,7 @@ import type {
   IEditCheckpointListing,
   IEditCheckpointManifest,
   IEditCheckpointRestoreResult,
+  IEditCheckpointStore,
   IEditCheckpointSummary,
   IEditCheckpointTurnInput,
   IEditCheckpointUnreadableCounts,
@@ -89,7 +90,7 @@ interface IEditCheckpointStoreOptions {
   now?: () => Date;
 }
 
-export class EditCheckpointStore {
+export class EditCheckpointStore implements IEditCheckpointStore {
   private readonly cwd: string;
   private readonly authorityIO: EditCheckpointAuthorityIO;
   /** Sealed exactly when the state seals; every rule for sealed checkpoints goes through it. */

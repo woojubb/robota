@@ -18,7 +18,7 @@ import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import type { IChannelServices, IRenderOptions } from '../render.js';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { ITuiAppChannelPort } from '../tui-app-channel-port.js';
-import type { EditCheckpointStore } from '@robota-sdk/agent-framework';
+import type { IEditCheckpointStore } from '@robota-sdk/agent-framework';
 
 const testHost = createTestFrameworkHost();
 
@@ -61,7 +61,7 @@ describe('#3231: the in-process channel factory', () => {
 
   it('gives each channel, including a switched-to one, its own checkpoint store', () => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-store-per-channel-')));
-    const createEditCheckpointStore = vi.fn(() => ({}) as EditCheckpointStore);
+    const createEditCheckpointStore = vi.fn(() => ({}) as IEditCheckpointStore);
     const options: IRenderOptions = {
       host: testHost,
       cwd,

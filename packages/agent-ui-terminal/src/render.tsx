@@ -61,7 +61,7 @@ import type {
   IAutomaticMemoryConfig,
   IPerTurnRecallConfig,
   TWorkspaceProjectAccess,
-  EditCheckpointStore,
+  IEditCheckpointStore,
   TInteractiveSessionOptions,
   IOrgPolicy,
   IProviderErrorGuidance,
@@ -124,7 +124,7 @@ export interface IRenderOptions {
    * session keeps checkpoints. A factory, not a store: a session switch builds the next channel
    * while the old session may still be finishing a turn, and a store holds one turn in progress.
    */
-  createEditCheckpointStore?: () => EditCheckpointStore;
+  createEditCheckpointStore?: () => IEditCheckpointStore;
   /** The host's way to build each external-event grant's verifier; absent, no grant opens. */
   externalEventVerifierFactory?: TInteractiveSessionOptions['externalEventVerifierFactory'];
   /**

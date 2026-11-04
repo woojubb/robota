@@ -10,7 +10,7 @@ import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
-import { createNodeHostSessionStore } from '../../agent-framework/src/index.ts';
+import { createNodeHostSessionStore } from '../../agent-framework/src/node.ts';
 import { createNodeWorkspaceTrustService } from '../../agent-framework/src/node.ts';
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../agent-cli/src/__tests__/helpers/product-runtime.ts';
 import { respond, wireReceipts } from '../../agent-cli/src/__tests__/helpers/provider-wire-fixture.ts';

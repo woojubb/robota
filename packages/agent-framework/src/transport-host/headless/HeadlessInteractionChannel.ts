@@ -11,7 +11,7 @@ import { buildRuntimeSession } from '../../runtime/runtime-host.js';
 
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { ICreateSessionOptions } from '../../assembly/create-session-types.js';
-import type { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js';
+import type { IEditCheckpointStore } from '../../checkpoints/edit-checkpoint-types.js';
 import type { IHostSettingsSource, IProjectSettingsPath } from '../../config/settings-source.js';
 import type { IResolvedConfig } from '../../config/config-types.js';
 import type { IContributionSource } from '../../contributions/index.js';
@@ -141,7 +141,7 @@ export interface IHeadlessInteractionChannelOptions {
   /** SELFHOST-008 P6: optional per-turn recall policy (absent ⇒ recall OFF, startup-only injection). */
   recallMemory?: IPerTurnRecallConfig;
   /** The run's edit checkpoint store, so a print run's edits can be rewound when it is resumed. */
-  editCheckpointStore?: EditCheckpointStore;
+  editCheckpointStore?: IEditCheckpointStore;
 }
 
 export class HeadlessInteractionChannel {

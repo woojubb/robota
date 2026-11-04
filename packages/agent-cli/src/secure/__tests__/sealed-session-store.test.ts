@@ -10,7 +10,10 @@ import { mkdtempSync, readFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createNodeHostSessionStore, createUserSessionStore } from '@robota-sdk/agent-framework';
+import {
+  createNodeHostSessionStore,
+  createUserSessionStore,
+} from '@robota-sdk/agent-framework/node';
 import { SealedSessionUnreadableError } from '@robota-sdk/agent-session';
 import { describe, expect, it } from 'vitest';
 

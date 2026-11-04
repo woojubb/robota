@@ -42,7 +42,7 @@ import type {
   IInitOptions,
 } from './interactive-session-options.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import type { IEditCheckpointStore } from '../checkpoints/edit-checkpoint-types.js';
 import type { ICommandResult } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IContextFileEntry } from '../context/context-loader.js';
@@ -221,7 +221,7 @@ export interface IAsyncInitDeps {
   commandSemanticRoles: IInitOptions['commandSemanticRoles'];
   /** The plugin skills the session loaded, so the prompt names the ones the router runs. */
   pluginSkills: readonly ICommand[];
-  setEditCheckpointStore: (store: EditCheckpointStore) => void;
+  setEditCheckpointStore: (store: IEditCheckpointStore) => void;
   /** The session's answer route to a peer (`peer_reply`). */
   peerReply?: IInitOptions['peerReply'];
   /** How the model sends a file to another session (`peer_send_file`). */

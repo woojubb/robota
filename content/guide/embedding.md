@@ -281,8 +281,9 @@ and resume the saved session for each channel with `resumeSessionId`. A session 
 completed turn and again on shutdown.
 
 ```typescript
-import { createAgentRuntime, createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import type { IFrameworkHost } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 declare const host: IFrameworkHost; // `createNodeFrameworkHost({ createDefaultTools })`, as above

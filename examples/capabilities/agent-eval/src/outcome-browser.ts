@@ -22,9 +22,9 @@ import {
   createAgentRuntime,
   createHostBundlePluginLoader,
   createSessionRunFn,
-  createNodeHostSessionStore,
   type InteractiveSession,
 } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import {
   buildCatalog,
   createDiscoveredTool,

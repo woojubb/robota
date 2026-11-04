@@ -19,15 +19,17 @@ import {
   removeDirectoryOnProcessExit,
 } from '@robota-sdk/agent-core/node';
 import {
+  createWorkspaceProjectMutation,
+  getWorkspaceProjectStateStorage,
+} from '@robota-sdk/agent-framework';
+import {
   EditCheckpointStore,
   createDirectoryEditCheckpointState,
   createNodeToolResultSpillStore,
   createProjectSessionStore,
   createUserPromptHistoryFile,
   createUserSessionStore,
-  createWorkspaceProjectMutation,
-  getWorkspaceProjectStateStorage,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-framework/node';
 import { compactPromptHistoryFile, inspectPromptHistoryFile } from '@robota-sdk/agent-session/node';
 
 import { KeyHolderArtifactSealer } from '../secure/artifact-sealer.js';
@@ -47,10 +49,11 @@ import type { ICliRuntimeContext } from './runtime-context.js';
 import type { KeyHolder } from '../secure/key-holder.js';
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
 import type {
-  IEditCheckpointStateStorage,
+  IEditCheckpointStore,
   IHostToolResultSpillStore,
   ITrustedWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
+import type { IEditCheckpointStateStorage } from '@robota-sdk/agent-framework/node';
 import type {
   IInteractiveSessionStore,
   IPromptHistorySource,
@@ -205,7 +208,7 @@ export function createProductEditCheckpointStoreFactory(
   authority: ITrustedWorkspaceProjectAccess['authority'],
   runtime: ICliRuntimeContext,
   options: { readonly ephemeral: boolean },
-): () => EditCheckpointStore {
+): () => IEditCheckpointStore {
   enterProductStores(runtime);
   const ephemeralState = options.ephemeral ? ephemeralCheckpointState(runtime) : undefined;
   return () => {

@@ -191,12 +191,11 @@ only through a trusted `TWorkspaceProjectAccess` decision that the host obtains 
 ```typescript
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { InteractiveSession, getWorkspaceProjectStateStorage } from '@robota-sdk/agent-framework';
 import {
-  InteractiveSession,
+  createNodeWorkspaceTrustService,
   createProjectSessionStore,
-  getWorkspaceProjectStateStorage,
-} from '@robota-sdk/agent-framework';
-import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
+} from '@robota-sdk/agent-framework/node';
 import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
@@ -413,7 +412,7 @@ that supports snapshots, `shutdown()` stores the sandbox snapshot ID, and resumi
 | --------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Model fallback              | `FallbackProvider`, `resolveModelFallbackChain`, `applyModelFallback`                                 |
 | Advisor (second-model tool) | `AdvisorController`, `createAdvisorTool`                                                              |
-| Edit checkpoints and rewind | `EditCheckpointStore`, `createDirectoryEditCheckpointState`, `wrapEditCheckpointTools`                |
+| Edit checkpoints and rewind | `IEditCheckpointStore`, `wrapEditCheckpointTools`; `/node`: `EditCheckpointStore`, `createDirectoryEditCheckpointState` |
 | Reversible execution        | `evaluateReversibleToolSafety`, `wrapReversibleExecutionTools` (session option `reversibleExecution`) |
 | Project and user memory     | `ProjectMemoryStore`, `WorkspaceMemoryStore`, `SemanticMemoryStore`, `listUserLocalMemoryItems`       |
 | Evals                       | `defineEval`, `runEval`, `createSessionRunFn`, matchers such as `exactMatch` and `usedTool`           |

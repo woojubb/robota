@@ -10,7 +10,7 @@ import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   TSessionLoadOutcome,
-} from '../session-persistence.js';
+} from '../session-store-types.js';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import { loadedRecordOrMissing } from './session-load-helpers.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';

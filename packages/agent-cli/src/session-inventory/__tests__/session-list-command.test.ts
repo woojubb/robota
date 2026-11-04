@@ -18,8 +18,8 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   WorkspaceTrustService,
   createRestrictedWorkspaceProjectAccess,
-  createUserSessionStore,
 } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 
 import { productProjectStateDirectories } from '../../product/project-state-directories.js';

@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 import { loadSessionRecord } from '../interactive-session-restore.js';
 
 import type { ISessionRecord } from '@robota-sdk/agent-session';
-import type { IInteractiveSessionStore } from '../session-persistence.js';
+import type { IInteractiveSessionStore } from '../session-store-types.js';
 
 /**
  * SELFHOST-014 TC-03 — an imported artifact resumes through the EXISTING `loadSessionRecord` path (no new resume

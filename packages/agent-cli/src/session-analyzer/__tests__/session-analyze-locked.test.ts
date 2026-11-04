@@ -7,7 +7,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
-import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runSessionAnalyze } from '../session-analyze-command.js';

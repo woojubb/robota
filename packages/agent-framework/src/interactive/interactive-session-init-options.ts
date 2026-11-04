@@ -16,7 +16,7 @@ import type {
  */
 
 import type { ICommand } from '../command-api/types.js';
-import type { IInteractiveSessionStore } from './session-persistence.js';
+import type { IInteractiveSessionStore } from './session-store-types.js';
 import type { TInteractivePermissionHandler } from './types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IPeerReplyPort } from '../tools/peer-reply-tool.js';

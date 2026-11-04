@@ -15,7 +15,7 @@ import { loadSessionRecord } from '../interactive-session-restore.js';
 import { scriptedSession, type ScriptedSessionHarness } from '../../testing/index.js';
 import { createTrustedProjectSessionStoreFixture } from '../../testing/trusted-project-state-fixture.js';
 
-import type { IInteractiveSessionStore } from '../session-persistence.js';
+import type { IInteractiveSessionStore } from '../session-store-types.js';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 import { loadedRecord, loadedRecordOrMissing } from './session-load-helpers.js';
 

@@ -15,7 +15,7 @@ import { join } from 'node:path';
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createProjectSessionStore } from '../interactive/session-persistence.js';
+import { createProjectSessionStore } from '../interactive/node-session-stores.js';
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 

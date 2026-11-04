@@ -30,9 +30,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   WorkspaceSessionLogSink,
   WorkspaceSessionLogSource,
+} from '../interactive/workspace-session-io.js';
+import {
   createProjectSessionStore,
   createUserPromptHistoryFile,
-} from '../interactive/session-persistence.js';
+} from '../interactive/node-session-stores.js';
 import { validateWorkspaceSessionReplayLog } from '../interactive/workspace-session-replay-validation.js';
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';

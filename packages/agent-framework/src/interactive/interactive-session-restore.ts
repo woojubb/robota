@@ -10,7 +10,7 @@ import { lockedReasonOf, sealedSessionState } from './locked-session-wording.js'
 import { assertClaimedOutcomeAccepted } from './session-authorship-gate.js';
 import { isReArmableScheduledTask } from './schedule-rearm.js';
 
-import type { IInteractiveSessionStore, TSessionLoadOutcome } from './session-persistence.js';
+import type { IInteractiveSessionStore, TSessionLoadOutcome } from './session-store-types.js';
 import type {
   IBackgroundJobGroupState,
   TBackgroundJobGroupEvent,

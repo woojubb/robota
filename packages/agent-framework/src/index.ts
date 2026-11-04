@@ -123,13 +123,7 @@ export {
 export { PlanController, type TPlanDecision, type IPlanControllerDeps } from './plan/index.js';
 export {
   ambiguousSessionNameMessage,
-  createProjectSessionStore,
-  createNodeHostSessionStore,
-  createNodeToolResultSpillStore,
   decorateSessionStore,
-  sweepStaleToolResultSpillDirectories,
-  createUserSessionStore,
-  createUserPromptHistoryFile,
   isSafeSessionId,
   isSessionLocked,
   listResumableSessionSummaries,
@@ -154,17 +148,8 @@ export {
   unverifiedSessionNotice,
   SessionRenameUnavailableError,
   persistSessionRename,
-  projectSessionClaimsDirectory,
-  WorkspaceProjectSessionStore,
-  WorkspaceSessionLogSink,
-  WorkspaceSessionLogSource,
-  migrateWorkspaceProjectSessionLogs,
-  migrateWorkspaceProjectSessionRecords,
 } from './interactive/index.js';
 export type {
-  IMigrateWorkspaceProjectStateOptions,
-  IWorkspaceSessionLogMigration,
-  IWorkspaceSessionRecordMigration,
   IHostToolResultSpillStore,
   ISessionRecordRestoreResult,
   TLockedSessionReason,
@@ -544,23 +529,16 @@ export type {
 export type { IPromptHistoryOptions } from './interactive/interactive-session-prompt-history.js';
 // ── Edit checkpointing ─────────────────────────────────────
 export {
-  EditCheckpointStore,
   EditCheckpointNumberingExhaustedError,
   EditCheckpointUnreadableError,
   EditCheckpointsLockedError,
   editCheckpointsLockedMessage,
   EditCheckpointsUnavailableError,
-  createDirectoryEditCheckpointState,
-  migrateWorkspaceEditCheckpoints,
   wrapEditCheckpointTools,
 } from './checkpoints/index.js';
 export type {
-  IEditCheckpointMigration,
-  IMigrateEditCheckpointsOptions,
-  TEditCheckpointKeptPlainReason,
   TEditCheckpointsUnavailableReason,
   TEditCheckpointUnreadableReason,
-  IEditCheckpointStateStorage,
   IEditCheckpointFileInspection,
   IEditCheckpointFileRecord,
   IEditCheckpointInspection,
@@ -569,6 +547,7 @@ export type {
   IEditCheckpointManifest,
   IEditCheckpointRecorder,
   IEditCheckpointRestoreResult,
+  IEditCheckpointStore,
   IEditCheckpointSummary,
   IEditCheckpointTurnInput,
   IEditCheckpointUnreadableCounts,

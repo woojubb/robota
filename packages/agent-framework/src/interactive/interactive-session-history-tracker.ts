@@ -19,12 +19,12 @@ import { EditCheckpointNumberingExhaustedError } from '../checkpoints/edit-check
 import { EditCheckpointsUnavailableError } from '../checkpoints/edit-checkpoints-unavailable-error.js';
 
 import type { IHistoryTrackerState } from './session-history-state.js';
-import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import type { TEditCheckpointsUnavailableReason } from '../checkpoints/edit-checkpoints-unavailable-error.js';
 import type {
   IEditCheckpointInspection,
   IEditCheckpointListing,
   IEditCheckpointRestoreResult,
+  IEditCheckpointStore,
   IEditCheckpointSummary,
   IEditCheckpointUnreadableCounts,
 } from '../checkpoints/edit-checkpoint-types.js';
@@ -46,7 +46,7 @@ export type { IHistoryTrackerState } from './session-history-state.js';
 
 export class SessionHistoryTracker {
   private history: IHistoryEntry[] = [];
-  private editCheckpointStore: EditCheckpointStore | null = null;
+  private editCheckpointStore: IEditCheckpointStore | null = null;
   private readonly branchEvents: SessionBranchEvents;
   /**
    * SELFHOST-007: a persisted active-branch pointer restored on resume, before the session (and
@@ -67,7 +67,7 @@ export class SessionHistoryTracker {
     private readonly persistSession: () => void,
     private readonly emitSkillActivation: (event: ISkillActivationEvent) => void,
     private readonly emitMemoryEvent: (event: IMemoryEvent) => void,
-    editCheckpointStore: EditCheckpointStore | null = null,
+    editCheckpointStore: IEditCheckpointStore | null = null,
     emitBranchEvent: (event: IBranchEvent) => void = () => undefined,
     /** The host's `supportsProjectMutation`; absent, the host cannot keep a checkpoint on disk. */
     private readonly supportsProjectMutation: boolean | undefined = undefined,
@@ -269,7 +269,7 @@ export class SessionHistoryTracker {
     if (this.editCheckpointStore) await this.branchEvents.finalize();
   }
 
-  setEditCheckpointStore(store: EditCheckpointStore): void {
+  setEditCheckpointStore(store: IEditCheckpointStore): void {
     this.editCheckpointStore = store;
     // SELFHOST-007: do NOT apply the stashed pointer here — this runs during async init BEFORE the
     // underlying session is assigned, so getSessionId() would throw. It is applied lazily on the first
@@ -363,7 +363,7 @@ export class SessionHistoryTracker {
     this.emitSkillActivation(event);
     this.persistSession();
   }
-  private getCheckpointStore(): EditCheckpointStore {
+  private getCheckpointStore(): IEditCheckpointStore {
     if (!this.editCheckpointStore) throw new EditCheckpointsUnavailableError(this.noStoreReason());
     this.applyPendingActiveBranch();
     return this.editCheckpointStore;
