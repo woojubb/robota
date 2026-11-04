@@ -90,7 +90,7 @@ function getQualifiedSkillName(rawInput?: string): string | undefined {
 }
 
 export class SessionSkillRouter {
-  /** Absent with the host's `createAsyncScope`: no fork can run, so no fork window exists. */
+  /** Absent when the host has no `createAsyncScope`: no fork can run, so no fork window exists. */
   private readonly forkResourceWindow: IAsyncScope<ISkillResourceWindow> | undefined;
   /**
    * The in-flight command's source and, for CMD-004, its origin driver id (REMOTE-014 E5
