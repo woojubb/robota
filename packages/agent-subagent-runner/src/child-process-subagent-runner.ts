@@ -28,6 +28,7 @@ import {
   type IProjectedStartSealing,
 } from './child-process-subagent-projection.js';
 import { followForkRecordSaves } from './child-process-subagent-record-saves.js';
+import { createSendChannel } from './child-process-subagent-send.js';
 import {
   cancelUnstartedChild,
   createCancellationResult,
@@ -345,6 +346,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     void result.catch(() => undefined);
     const transcriptPath = this.resolveTranscriptPath(job);
     const logSealing = this.logSealing;
+    const sendToChild = createSendChannel(child);
 
     return {
       taskId: job.taskId,
@@ -361,9 +363,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
         cancellation.reject(reason);
         await cancelChildProcess(runtime, reason);
       },
-      send: async (prompt: string) => {
-        await sendWorkerMessage(child, { type: 'send', prompt });
-      },
+      send: sendToChild,
       ...(transcriptPath !== undefined && {
         readLog: async (cursor?: IBackgroundTaskLogCursor) =>
           readTranscriptLog(job.taskId, transcriptPath, cursor, logSealing),
