@@ -23,7 +23,6 @@
  * bytes it opens, so two sealed sidecars swapped with each other are caught. Dedupe is in-process.
  */
 import { randomBytes } from 'node:crypto';
-import { join } from 'node:path';
 
 import {
   ArtifactCorruptError,
@@ -261,7 +260,8 @@ export class StoredPayloads {
     const known = written.get(sha256);
     if (known !== undefined) return { ...reference, relativePath: known };
     const name = randomBytes(SEALED_PAYLOAD_NAME_BYTES).toString('base64url');
-    const relativePath = join(`${sessionId}.payloads`, `${name}${SEALED_PAYLOAD_EXTENSION}`);
+    // Always `/`, like a plain reference: every reader accepts either slash.
+    const relativePath = `${sessionId}.payloads/${name}${SEALED_PAYLOAD_EXTENSION}`;
     const plain = Buffer.from(serialized, 'utf8');
     let data: Uint8Array;
     try {

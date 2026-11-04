@@ -44,24 +44,24 @@ const BUILDS_A_STORE = [
   "import { createProjectSessionStore as projectStore } from '@robota-sdk/agent-framework';",
   "import { createNodeHostSessionStore, readSettings } from '@robota-sdk/agent-framework';",
   "import { WorkspaceProjectSessionStore as Store } from '@robota-sdk/agent-framework';",
-  "import { NodeSessionStore as Store } from '@robota-sdk/agent-session';",
+  "import { NodeSessionStore as Store } from '@robota-sdk/agent-session/node';",
   "import { createUserPromptHistoryFile } from '@robota-sdk/agent-framework';",
   "import { WorkspaceSessionLogSink as Sink } from '@robota-sdk/agent-framework';",
   "import { WorkspaceSessionLogSource } from '@robota-sdk/agent-framework';",
   "import { createSubagentLogger } from '@robota-sdk/agent-framework';",
-  "import { NodePromptHistoryFile } from '@robota-sdk/agent-session';",
-  "import { NodeSessionLogSink, loadSessionLogEntries } from '@robota-sdk/agent-session';",
-  "import { NodeSessionLogSource as Source } from '@robota-sdk/agent-session';",
+  "import { NodePromptHistoryFile } from '@robota-sdk/agent-session/node';",
+  "import { NodeSessionLogSink, StoredLines } from '@robota-sdk/agent-session/node';",
+  "import { NodeSessionLogSource as Source } from '@robota-sdk/agent-session/node';",
   "import { createNodeToolResultSpillStore } from '@robota-sdk/agent-framework';",
-  "import { NodeToolResultSpillStore as Spill } from '@robota-sdk/agent-session';",
+  "import { NodeToolResultSpillStore as Spill } from '@robota-sdk/agent-session/node';",
   "import { EditCheckpointStore } from '@robota-sdk/agent-framework';",
   "import { createDirectoryEditCheckpointState as ephemeral } from '@robota-sdk/agent-framework';",
   "import * as framework from '@robota-sdk/agent-framework';",
-  "import * as session from '@robota-sdk/agent-session';",
+  "import * as session from '@robota-sdk/agent-session/node';",
   "export { createUserSessionStore } from '@robota-sdk/agent-framework';",
-  "export { NodeSessionStore as Store } from '@robota-sdk/agent-session';",
+  "export { NodeSessionStore as Store } from '@robota-sdk/agent-session/node';",
   "export { createUserPromptHistoryFile } from '@robota-sdk/agent-framework';",
-  "export { NodeSessionLogSink } from '@robota-sdk/agent-session';",
+  "export { NodeSessionLogSink } from '@robota-sdk/agent-session/node';",
   "export { createNodeToolResultSpillStore } from '@robota-sdk/agent-framework';",
   "export { EditCheckpointStore as Store } from '@robota-sdk/agent-framework';",
 ];
@@ -106,13 +106,13 @@ describe('session stores are built only by the product factory', () => {
       "import type { IHostToolResultSpillStore } from '@robota-sdk/agent-framework';",
       "import { sweepStaleToolResultSpillDirectories } from '@robota-sdk/agent-framework';",
       "import type { WorkspaceProjectSessionStore } from '@robota-sdk/agent-framework';",
-      "import type { NodeSessionStore } from '@robota-sdk/agent-session';",
-      "import type { NodePromptHistoryFile, NodeSessionLogSource } from '@robota-sdk/agent-session';",
+      "import type { NodeSessionStore } from '@robota-sdk/agent-session/node';",
+      "import type { NodePromptHistoryFile, NodeSessionLogSource } from '@robota-sdk/agent-session/node';",
       "import type { WorkspaceSessionLogSink } from '@robota-sdk/agent-framework';",
       "import type { EditCheckpointStore, IEditCheckpointStateStorage } from '@robota-sdk/agent-framework';",
       "import { EditCheckpointsLockedError } from '@robota-sdk/agent-framework';",
       "import { readSettings, scanSessionStore } from '@robota-sdk/agent-framework';",
-      "import { loadSessionForUpdate, NodeExternalPayloadSource } from '@robota-sdk/agent-session';",
+      "import { StoredLines, NodeExternalPayloadSource } from '@robota-sdk/agent-session/node';",
     ]) {
       expect(await restrictedImports(code, PRODUCT_FILES[0]), code).toBe(0);
     }
@@ -127,7 +127,7 @@ describe('session stores are built only by the product factory', () => {
   it('leaves packages that are not the product alone', async () => {
     expect(
       await restrictedImports(
-        "import { NodeSessionStore } from '@robota-sdk/agent-session';",
+        "import { NodeSessionStore } from '@robota-sdk/agent-session/node';",
         'packages/agent-framework/src/interactive/new-store.ts',
       ),
     ).toBe(0);
