@@ -282,7 +282,7 @@ class FileProcessMarkers implements IProcessMarkers {
     let holder: IProcessMarkerHolder = { self: false, liveness: 'unknown' };
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
       const published = this.#publish(name, path, content);
-      if (published !== 'exists') return this.#acquired(name, path, published, leaseDigest);
+      if (published !== 'exists') return this.#acquired(name, path, published);
       const standing = readMarkerFile(path);
       if (standing === undefined) continue;
       holder = this.#holderOf(path, standing);
@@ -299,7 +299,7 @@ class FileProcessMarkers implements IProcessMarkers {
       });
       if (broken === 'busy') return { status: 'held', holder };
       if (broken !== 'standing' && broken !== 'exists') {
-        return this.#acquired(name, path, broken, leaseDigest);
+        return this.#acquired(name, path, broken);
       }
     }
     const last = readMarkerFile(path);
@@ -334,7 +334,7 @@ class FileProcessMarkers implements IProcessMarkers {
           ? { status: 'absent' }
           : { status: 'held', holder: this.#holderOf(path, now) };
       }
-      return this.#acquired(name, path, published, digest);
+      return this.#acquired(name, path, published);
     });
     return taken === 'busy' ? { status: 'held', holder: this.#holderOf(path, standing) } : taken;
   }
@@ -403,28 +403,21 @@ class FileProcessMarkers implements IProcessMarkers {
     name: string,
     path: string,
     published: IPublishedFile,
-    leaseDigest: string | undefined,
   ): { readonly status: 'acquired'; readonly handle: IProcessMarkerHandle } {
     this.#memory.set(path, published);
-    return { status: 'acquired', handle: this.#handle(name, path, published, leaseDigest) };
+    return { status: 'acquired', handle: this.#handle(name, path, published) };
   }
 
-  #handle(
-    name: string,
-    path: string,
-    published: IPublishedFile,
-    leaseDigest: string | undefined,
-  ): IProcessMarkerHandle {
+  #handle(name: string, path: string, published: IPublishedFile): IProcessMarkerHandle {
     let released = false;
     const forget = (): void => {
       const remembered = this.#memory.get(path);
       if (remembered !== undefined && sameFile(remembered, published)) this.#memory.delete(path);
     };
+    // What it published, bytes included: a freed inode is handed to the next marker on some
+    // filesystems, so device and inode alone name another process's marker as this one's.
     const isMine = (file: IMarkerFile | undefined): boolean =>
-      file !== undefined &&
-      file.dev === published.dev &&
-      file.ino === published.ino &&
-      (leaseDigest === undefined || file.leaseDigest === leaseDigest);
+      file !== undefined && sameFile(published, file);
     return Object.freeze({
       holds: (): boolean => {
         if (released) return false;
