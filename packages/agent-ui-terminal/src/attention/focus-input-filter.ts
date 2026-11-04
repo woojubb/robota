@@ -76,7 +76,11 @@ export interface IFocusReportingStdinSource {
 }
 
 export class FocusReportingStdin extends Readable {
+  /** Set while the terminal is handed over: whatever arrives then is not the composer's. */
+  private held = false;
+
   private readonly onData = (data: Buffer | string): void => {
+    if (this.held) return;
     const chunk = typeof data === 'string' ? Buffer.from(data) : data;
     const result = filterFocusSequences(chunk, this.hooks.negotiated());
     for (let i = 0; i < result.focusOut; i += 1) this.hooks.onFocusOut();
@@ -122,6 +126,21 @@ export class FocusReportingStdin extends Readable {
   asInkStdin(): NodeJS.ReadStream {
     const surface: TInkStdinSurface = this;
     return surface as NodeJS.ReadStream;
+  }
+
+  /**
+   * Drop every byte until {@link release}. While the terminal is handed over, stdin belongs to whoever
+   * has the terminal: a child the person started, or the passphrase prompt, which on Windows reads the
+   * console through this same stream. A byte forwarded then would reach the composer, and from it
+   * prompt history and the model, once the TUI takes the terminal back.
+   */
+  hold(): void {
+    this.held = true;
+  }
+
+  /** Forward again after {@link hold}. */
+  release(): void {
+    this.held = false;
   }
 
   /** Detach from the underlying stdin; the proxy emits nothing afterwards. */
