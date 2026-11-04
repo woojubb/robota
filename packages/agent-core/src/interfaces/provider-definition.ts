@@ -152,12 +152,12 @@ export interface IProviderDefinition {
   /** Available credential acquisition methods; concrete authorization belongs to the host. */
   connectionMethods?: readonly ('api-key' | 'browser')[];
   /**
-   * The provider-hosted web tools the provider vouches for through `options.nativeWebTools`, answered
-   * for the profile being built and the environment its client reads, because they can depend on
-   * where that profile connects. The host passes that environment: a platform-neutral provider cannot
-   * read it for itself. A host only sets the option by default where it is declared here. A tool left
-   * out, or an absent function, is no such claim: asking for it explicitly either fails or is the
-   * caller's own claim about that endpoint, as the provider's capabilities then report.
+   * The provider-hosted web tools a host may turn on by default through `options.nativeWebTools`,
+   * answered for the profile being built and the environment its client reads, because they can
+   * depend on where that profile connects. The host passes that environment: a platform-neutral
+   * provider cannot read it for itself. Declaring a tool vouches that it works there and asks nothing
+   * more of the host. A tool left out, or an absent function, is no such claim: asking for it
+   * explicitly either fails or is the caller's own choice, as the provider's capabilities then report.
    */
   nativeWebTools?: (
     profile: Pick<IProviderDefinitionConfig, 'baseURL' | 'options'>,

@@ -210,14 +210,16 @@ __PRODUCT_CLI_NAME__ trust revoke --yes
 
 웹 검색은 두 가지 방법으로 모델에 닿으며, 둘을 함께 쓸 수 있습니다.
 
-- **모델 자체 검색.** Anthropic, 자체 API의 OpenAI, Gemini는 기본적으로 서버 측에서 검색하며,
+- **모델 자체 검색.** Anthropic과 자체 API의 OpenAI는 기본적으로 서버 측에서 검색하며,
   검색 비용은 해당 업체가 청구합니다. 끄려면 프로필에
   `"options": { "nativeWebTools": { "webSearch": false } }`를 지정하세요.
-  `nativeWebTools`를 지정한 프로필은 쓴 그대로 적용됩니다. 이 CLI의 도구와 함께 쓸 수 있는 검색 도구를
-  업체가 제공하지 않는 경우에는 꺼져 있습니다. 사용자 지정 `baseURL`, Chat Completions 또는
-  `OPENAI_BASE_URL`을 쓰는 OpenAI 프로필, `gpt-4.1-nano`처럼 웹 검색이 없는 OpenAI 모델,
-  `GOOGLE_GEMINI_BASE_URL` 또는 `GOOGLE_VERTEX_BASE_URL`을 쓰는 Gemini 프로필, Gemini 2가 여기에
-  해당합니다.
+  `nativeWebTools`를 지정한 프로필은 쓴 그대로 적용됩니다. 이 CLI의 도구와 함께 쓸 수 있는
+  검색 도구를 업체가 제공하지 않는 경우에는 꺼져 있습니다. 사용자 지정 `baseURL`, Chat Completions,
+  `OPENAI_BASE_URL`을 쓰는 OpenAI 프로필과 `gpt-4.1-nano`처럼 웹 검색이 없는 OpenAI 모델이
+  여기에 해당합니다.
+  Gemini는 프로필에 `"webSearch": true`를 지정할 때만 검색하며, Gemini 3 이상이 필요합니다.
+  Google [약관](https://ai.google.dev/gemini-api/terms)은 검색 기반 결과를 보여 주고 저장하는 데
+  조건을 두고 있고, 터미널은 약관이 요구하는 검색 제안을 표시할 수 없으니 먼저 읽어 보세요.
 - **직접 고르는 MCP 서버.** 어떤 모델이든 MCP 서버로 검색할 수 있습니다. 처음 대화형으로 시작하면
   Exa(`https://mcp.exa.ai/mcp`)나 Parallel(`https://mcp.parallel.ai/mcp`)을 추가할지, 건너뛸지 한 번
   묻습니다. 둘 다 API 키가 필요 없으며, 검색어는 고른 서비스로 전송됩니다. 선택은

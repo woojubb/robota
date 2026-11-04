@@ -36,11 +36,8 @@ export function createGeminiProviderDefinition(): IProviderDefinition {
     displayName: 'Gemini',
     description: 'Google Gemini series — free tier available.',
     category: 'cloud-free',
-    // The SDK reads these base URLs on its own: with one set, the endpoint is one we cannot vouch for.
-    nativeWebTools: (_profile, environment) =>
-      environment['GOOGLE_GEMINI_BASE_URL'] || environment['GOOGLE_VERTEX_BASE_URL']
-        ? []
-        : ['webSearch'],
+    // Google Search is not declared for a host's default, though a profile can ask for it: Google's
+    // terms attach conditions to showing and storing grounded results that only the host can meet.
     // Interim provider-level cost (ARCH-PROVIDER-003), migrated from the former llm-text-gemini node.
     costPerTokenUsd: 0.0005,
     defaults: {

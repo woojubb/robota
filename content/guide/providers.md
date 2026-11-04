@@ -102,8 +102,9 @@ const provider = new AnthropicProvider({
 | `enableWebTools` | `boolean`   | No                             | Attach Anthropic's server-side `web_search` tool to requests (default: off) |
 
 A provider profile sets the same thing with `"options": { "nativeWebTools": { "webSearch": true } }`;
-the CLI turns it on by default for an Anthropic, OpenAI or Gemini profile that does not set
-`nativeWebTools`, wherever that provider can run it.
+the CLI turns it on by default for an Anthropic or OpenAI profile that does not set
+`nativeWebTools`, wherever that provider can run it. A Gemini profile has to ask for it, because
+Google's terms attach conditions to showing and storing grounded results.
 
 ### With a pre-built client
 
