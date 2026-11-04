@@ -4,6 +4,8 @@ import { parsePairingUrl } from '@robota-sdk/agent-remote-pairing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { RemoteControlController } from '../remote-control-controller.js';
+import { overrideProductSecureMode } from '../../product/session-sealing.js';
+import { SECURE_SURFACES } from '../../secure/secure-surfaces.js';
 import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
 
 import type { IRemoteControlControllerDeps } from '../remote-control-controller.js';
@@ -356,6 +358,22 @@ describe('RemoteControlController (REMOTE-008)', () => {
     await Promise.resolve();
     expect(reportError).toHaveBeenCalledWith(
       expect.stringMatching(/failed to start.*WebRTC unavailable/i),
+    );
+    expect(controller.getStatus()).toEqual({ state: 'off' });
+  });
+
+  it('in secure mode refuses to start the transport, says why and returns to off', async () => {
+    const reportError = vi.fn();
+    const { deps, transport } = makeDeps({ reportError });
+    overrideProductSecureMode(deps.productRuntime, true);
+    const { secure } = SECURE_SURFACES['remote-control'];
+    const controller = new RemoteControlController(deps);
+    await controller.enable();
+    await Promise.resolve(); // let the detached start().catch run
+    await Promise.resolve();
+    expect(transport.start).not.toHaveBeenCalled();
+    expect(reportError).toHaveBeenCalledWith(
+      `Remote control failed to start: ${secure.admit === 'none' ? secure.reason : ''}`,
     );
     expect(controller.getStatus()).toEqual({ state: 'off' });
   });

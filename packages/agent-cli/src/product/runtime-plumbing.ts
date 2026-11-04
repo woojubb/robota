@@ -32,6 +32,7 @@ import { PACKS_OWN_TOOL_SURFACE } from './product-profile.js';
 import type { ICliRuntimeContext } from './runtime-context.js';
 import { productUserSettingsPath } from './user-settings.js';
 import { withholdEnvironmentVariables } from './command-environment.js';
+import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 
 import type { IAssembledProduct } from '@robota-sdk/agent-product';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
@@ -120,7 +121,15 @@ export function createDefaultTransportRegistry(
   });
   let registered = false;
   const bindTransports = (session: IInteractiveSession): void => {
-    const bound = bindTransportAdapter(wsTransport, session);
+    const adapter = bindTransportAdapter(wsTransport, session);
+    // The TUI, `--serve`, a daemon and the desktop sidecar all start this listener through the
+    // registry, so its row gates the start of the adapter the registry holds; every other field the
+    // registry and `/transport` read stays the adapter's own.
+    const bound = {
+      ...adapter,
+      start: () =>
+        startListener(SECURE_SURFACES['websocket-transport'], productRuntime, () => adapter.start()),
+    };
     if (registered) registry.replace(bound);
     else {
       registry.register(bound);

@@ -2,6 +2,7 @@ import { installProductProcessEnvironment } from './product/process-environment.
 import { resolveCliRuntimeContext } from './startup/product-bootstrap.js';
 import { readHostedRuntimeConfig } from './hosted/hosted-runtime-config.js';
 import { runHostedRuntime } from './hosted/hosted-runtime-startup.js';
+import { SECURE_SURFACES, startListener } from './secure/secure-surfaces.js';
 
 import { PrintTerminal } from './print-terminal.js';
 import { readExternalEventGrantFiles } from './external-events/external-event-grant-file.js';
@@ -222,11 +223,7 @@ export async function startCliCore(
   installProductProcessEnvironment(productRuntime);
   // Hosted admission precedes launch handlers, project contributions, provider creation and all modes.
   if (readHostedRuntimeConfig(productRuntime.environment) !== undefined) {
-    return runHostedRuntime(
-      initialOptions,
-      productRuntime.environment,
-      productRuntime.config.identity.cliName,
-    );
+    return runHostedRuntime(initialOptions, productRuntime);
   }
   const options = { ...initialOptions, productRuntime };
   const telemetryInput = { ...productRuntime.environment };
@@ -739,7 +736,7 @@ async function runCliCore(
   if (tuiExternalEvents !== undefined) {
     const grantsForEndpoint = tuiExternalEvents;
     try {
-      tuiEventEndpoint = createExternalEventHttpHost({
+      const endpoint = createExternalEventHttpHost({
         grants: tuiGrants,
         receive: (grantId, delivery) => grantsForEndpoint.receive(grantId, delivery),
         countRefusal: (grantId, refusal) => grantsForEndpoint.countRefusal(grantId, refusal),
@@ -749,7 +746,8 @@ async function runCliCore(
           : {}),
         audit: createRefusalReporter((line) => terminal.writeLine(line)),
       });
-      await tuiEventEndpoint.start();
+      tuiEventEndpoint = endpoint;
+      await startListener(SECURE_SURFACES['external-events'], productRuntime, () => endpoint.start());
     } catch (error) {
       process.stderr.write(
         `${error instanceof Error ? error.message : 'External event endpoint could not start.'}\n`,

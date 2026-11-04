@@ -22,6 +22,7 @@ import { createHostCredentialStore } from '../credentials/select-credential-stor
 import { describeReceived } from '../peer-files/receiving.js';
 import { productUserSettingsPath } from '../product/user-settings.js';
 import { userLocalStorageRoot } from '../product/user-paths.js';
+import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 import {
   openDeviceMesh,
   type IDeviceMeshEndpoint,
@@ -413,37 +414,40 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
         serviceNamespace: options.productRuntime.config.credentials.serviceNamespace,
         notify: () => undefined,
       }).store;
-      opened = await (options.open ?? openDeviceMesh)({
-        root,
-        store,
-        cryptoContext: options.productRuntime.cryptoContext,
-        credentialServiceNamespace: options.productRuntime.config.credentials.serviceNamespace,
-        localPolicy: settings.policy,
-        ...(ownRelay !== undefined ? { relay: ownRelay } : {}),
-        ...(lan !== undefined ? { lan } : {}),
-        ...(internet
-          ? {
-              internet: {
-                settings: settings.internet,
-                // Said once: public infrastructure that keeps failing would repeat itself.
-                onError: (error: Error) => {
-                  if (internetErrorSaid) return;
-                  internetErrorSaid = true;
-                  report(
-                    `Part of the device mesh beyond the local network failed; the rest still ` +
-                      `works: ${error.message}`,
-                  );
+      // The mesh host as a whole opens under one row: its node, LAN listener, relay, DHT and mDNS.
+      opened = await startListener(SECURE_SURFACES['device-mesh'], options.productRuntime, () =>
+        (options.open ?? openDeviceMesh)({
+          root,
+          store,
+          cryptoContext: options.productRuntime.cryptoContext,
+          credentialServiceNamespace: options.productRuntime.config.credentials.serviceNamespace,
+          localPolicy: settings.policy,
+          ...(ownRelay !== undefined ? { relay: ownRelay } : {}),
+          ...(lan !== undefined ? { lan } : {}),
+          ...(internet
+            ? {
+                internet: {
+                  settings: settings.internet,
+                  // Said once: public infrastructure that keeps failing would repeat itself.
+                  onError: (error: Error) => {
+                    if (internetErrorSaid) return;
+                    internetErrorSaid = true;
+                    report(
+                      `Part of the device mesh beyond the local network failed; the rest still ` +
+                        `works: ${error.message}`,
+                    );
+                  },
                 },
-              },
-            }
-          : {}),
-        ...(operatorApprover !== undefined ? { operatorApprover } : {}),
-        ...(options.connectTimeoutMs !== undefined
-          ? { connectTimeoutMs: options.connectTimeoutMs }
-          : {}),
-        // A list that could not be saved is taken again from the next peer that has it.
-        onError: () => undefined,
-      });
+              }
+            : {}),
+          ...(operatorApprover !== undefined ? { operatorApprover } : {}),
+          ...(options.connectTimeoutMs !== undefined
+            ? { connectTimeoutMs: options.connectTimeoutMs }
+            : {}),
+          // A list that could not be saved is taken again from the next peer that has it.
+          onError: () => undefined,
+        }),
+      );
     } catch (error) {
       ownRelay?.close();
       ownRelay = undefined;

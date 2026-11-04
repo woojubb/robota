@@ -12,6 +12,7 @@ import type { TUsageReporters } from './default-transport-factory.js';
 import type { IProtocolSession, SessionResumeBridge } from '@robota-sdk/agent-transport';
 
 import { hasTurnServer } from './ice-config.js';
+import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 
 import type { IHostIdentity } from './host-identity.js';
 import type { ITrustedDeviceRecord, ITrustedDeviceStore } from './trusted-device-store.js';
@@ -319,7 +320,9 @@ export class RemoteControlController {
     transport.attach(session);
     // Start out-of-band: the registry's startAll won't pick up a defaultEnabled:false transport, and there is
     // no start-one method. A start failure (WebRTC implementation unavailable, …) fails closed: reset to off + report to the operator.
-    void transport.start().catch((error: unknown) => {
+    void startListener(SECURE_SURFACES['remote-control'], this.deps.productRuntime, () =>
+      transport.start(),
+    ).catch((error: unknown) => {
       if (signal.aborted || this.transport !== transport) return;
       this.deps.reportError?.(
         `Remote control failed to start: ${error instanceof Error ? error.message : String(error)}`,
@@ -480,7 +483,10 @@ export class RemoteControlController {
     this.reconnectPeers.push(peer);
     this.reconnectSignalings.push(signaling);
     peer.attach(session);
-    void peer.start().catch(() => undefined);
+    // Every reconnect room is a listener of its own, opened under the row as the first pairing is.
+    void startListener(SECURE_SURFACES['remote-control'], this.deps.productRuntime, () =>
+      peer.start(),
+    ).catch(() => undefined);
   }
 
   /** A returning device confirmed the E3 reconnect at `usedCounter`. Advance (resync), promote the winner, drop the rest. */

@@ -27,12 +27,29 @@ import {
 } from '@robota-sdk/agent-mcp/node';
 
 import { userLocalStorageRoot } from '../product/user-paths.js';
+import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 import { openInBrowser } from './browser-opener.js';
 
 import type { ICommandMCPOAuthRedirectPrompt } from '@robota-sdk/agent-framework';
-import type { TMCPOAuthNotice } from '@robota-sdk/agent-mcp';
+import type { IMCPOAuthCallbackListener, TMCPOAuthNotice } from '@robota-sdk/agent-mcp';
 import type { INodeOAuthNetworkOptions } from '@robota-sdk/agent-mcp/node';
 import type { IMcpOAuthHost } from './mcp-client-composition.js';
+
+/** The Node host's loopback sign-in callback, opened under its surface row; both MCP sign-ins use it. */
+export function productOAuthCallbackListener(
+  productRuntime: ICliRuntimeContext,
+): IMCPOAuthCallbackListener {
+  return {
+    listen: (options) =>
+      startListener(SECURE_SURFACES['oauth-callback'], productRuntime, () =>
+        loopbackOAuthCallbackListener.listen(options),
+      ),
+    freePort: () =>
+      startListener(SECURE_SURFACES['oauth-callback'], productRuntime, () =>
+        loopbackOAuthCallbackListener.freePort(),
+      ),
+  };
+}
 
 /** The directory OAuth credentials and their refresh locks are kept in. */
 export function mcpCredentialDirectory(runtime: ICliRuntimeContext): string {
@@ -110,7 +127,7 @@ export function createMcpOAuthHost(options: {
         store,
         lock,
         network,
-        callbackListener: loopbackOAuthCallbackListener,
+        callbackListener: productOAuthCallbackListener(options.productRuntime),
         ...(options.callbackTimeoutMs === undefined
           ? {}
           : { callbackTimeoutMs: options.callbackTimeoutMs }),
