@@ -26,6 +26,7 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, readlinkSync } from 'node:fs';
 import { hostname } from 'node:os';
 
+import { withChildSession } from './child-session.js';
 import { sha256Hex } from './digest.js';
 
 import type { IProcessIdentity } from '../interfaces/process-marker.js';
@@ -75,12 +76,16 @@ function readProcStartTime(pid: number): string | undefined {
 export function readDarwinStartTime(
   pid: number,
   runPs: (pid: number) => string = (targetPid) =>
-    execFileSync('/bin/ps', ['-p', String(targetPid), '-o', 'lstart='], {
-      encoding: 'utf8',
-      timeout: PROBE_TIMEOUT_MS,
-      maxBuffer: 128,
-      env: { TZ: 'UTC', LC_ALL: 'C' },
-    }),
+    execFileSync(
+      '/bin/ps',
+      ['-p', String(targetPid), '-o', 'lstart='],
+      withChildSession({
+        encoding: 'utf8',
+        timeout: PROBE_TIMEOUT_MS,
+        maxBuffer: 128,
+        env: { TZ: 'UTC', LC_ALL: 'C' },
+      }),
+    ),
 ): string | undefined {
   try {
     return nonEmpty(runPs(pid));
@@ -109,12 +114,16 @@ export function readBootId(platform: string = process.platform): string | undefi
       return nonEmpty(readFileSync('/proc/sys/kernel/random/boot_id', 'utf8'));
     if (platform === 'darwin') {
       return nonEmpty(
-        execFileSync('/usr/sbin/sysctl', ['-n', 'kern.bootsessionuuid'], {
-          encoding: 'utf8',
-          timeout: PROBE_TIMEOUT_MS,
-          maxBuffer: 128,
-          env: { LC_ALL: 'C' },
-        }),
+        execFileSync(
+          '/usr/sbin/sysctl',
+          ['-n', 'kern.bootsessionuuid'],
+          withChildSession({
+            encoding: 'utf8',
+            timeout: PROBE_TIMEOUT_MS,
+            maxBuffer: 128,
+            env: { LC_ALL: 'C' },
+          }),
+        ),
       );
     }
   } catch {
@@ -154,12 +163,16 @@ function applicationSpecific(rawId: string): string {
 }
 
 function runIoregPlatformExpert(): string {
-  return execFileSync('/usr/sbin/ioreg', ['-rd1', '-c', 'IOPlatformExpertDevice'], {
-    encoding: 'utf8',
-    timeout: PROBE_TIMEOUT_MS,
-    maxBuffer: IOREG_MAX_OUTPUT_BYTES,
-    env: { LC_ALL: 'C' },
-  });
+  return execFileSync(
+    '/usr/sbin/ioreg',
+    ['-rd1', '-c', 'IOPlatformExpertDevice'],
+    withChildSession({
+      encoding: 'utf8',
+      timeout: PROBE_TIMEOUT_MS,
+      maxBuffer: IOREG_MAX_OUTPUT_BYTES,
+      env: { LC_ALL: 'C' },
+    }),
+  );
 }
 
 /** The raw Linux machine id or macOS platform UUID, before it is made application-specific. */

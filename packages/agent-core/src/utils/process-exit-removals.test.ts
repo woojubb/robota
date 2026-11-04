@@ -16,7 +16,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { removeDirectoryOnProcessExit, removeProcessScopedDirectoriesNow } from '../node.js';
+import { removeDirectoryOnProcessExit, runProcessEndNow } from '../node.js';
 
 const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
 const nodeSurface = pathToFileURL(fileURLToPath(new URL('../node.ts', import.meta.url))).href;
@@ -115,11 +115,11 @@ describe('one registry for the whole process', () => {
     const cancelFirst = removeDirectoryOnProcessExit(first);
     removeDirectoryOnProcessExit(second);
 
-    removeProcessScopedDirectoriesNow();
+    runProcessEndNow();
 
     expect(existsSync(first)).toBe(false);
     expect(existsSync(second)).toBe(false);
-    expect(() => removeProcessScopedDirectoriesNow()).not.toThrow();
+    expect(() => runProcessEndNow()).not.toThrow();
     expect(() => cancelFirst()).not.toThrow();
   });
 });

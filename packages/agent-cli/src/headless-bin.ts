@@ -1,5 +1,8 @@
 #!/usr/bin/env node
-import { installProductProcessEnvironment } from './product/process-environment.js';
+import {
+  installProductChildSessions,
+  installProductProcessEnvironment,
+} from './product/process-environment.js';
 /** RUNTIME-002: the desktop's presentation-free executable. */
 import { isSubagentWorkerModeArgv, runSubagentWorkerMain } from '@robota-sdk/agent-subagent-runner';
 import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor/node';
@@ -23,6 +26,7 @@ if (isSubagentWorkerModeArgv(optionArgv(process.argv))) {
   try {
     const runtime = resolveCliRuntimeContext({});
     installProductProcessEnvironment(runtime);
+    installProductChildSessions(runtime);
     installCliDiagnostics(runtime.config.identity.cliName);
     assertLocalWorkerPosture(runtime.environment);
     runSubagentWorkerMain(createProductSubagentComposition(runtime));
@@ -34,6 +38,7 @@ if (isSubagentWorkerModeArgv(optionArgv(process.argv))) {
   try {
     const productRuntime = resolveCliRuntimeContext({});
     installProductProcessEnvironment(productRuntime);
+    installProductChildSessions(productRuntime);
     installCliDiagnostics(productRuntime.config.identity.cliName);
     const args = parseCliArgs();
     if (

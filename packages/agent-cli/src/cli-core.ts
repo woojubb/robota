@@ -1,4 +1,7 @@
-import { installProductProcessEnvironment } from './product/process-environment.js';
+import {
+  installProductChildSessions,
+  installProductProcessEnvironment,
+} from './product/process-environment.js';
 import { resolveCliRuntimeContext } from './startup/product-bootstrap.js';
 import { readHostedRuntimeConfig } from './hosted/hosted-runtime-config.js';
 import { runHostedRuntime } from './hosted/hosted-runtime-startup.js';
@@ -225,6 +228,7 @@ export async function startCliCore(
   const supervisedTransportToken = readHandedOverTransportTokenOrExit();
   const productRuntime = resolveCliRuntimeContext(initialOptions);
   installProductProcessEnvironment(productRuntime);
+  installProductChildSessions(productRuntime);
   // Hosted admission precedes launch handlers, project contributions, provider creation and all modes.
   if (readHostedRuntimeConfig(productRuntime.environment) !== undefined) {
     return runHostedRuntime(initialOptions, productRuntime);

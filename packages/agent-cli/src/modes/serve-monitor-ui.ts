@@ -12,6 +12,8 @@ import { publicProductConfig } from '@robota-sdk/product-config';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import { spawn } from 'node:child_process';
+
+import { withChildSession } from '@robota-sdk/agent-core/node';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { closeSync, existsSync, fstatSync, openSync, readFileSync, realpathSync } from 'node:fs';
 import { createServer } from 'node:http';
@@ -280,11 +282,13 @@ export function openInBrowser(url: string): void {
   const cmd =
     process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
   try {
-    const child = spawn(cmd, [url], {
+    // Detached and unreferenced in both modes: the opener hands off to the browser and is not ended
+    // with this process.
+    const child = spawn(cmd, [url], withChildSession({
       stdio: 'ignore',
       detached: true,
       shell: process.platform === 'win32',
-    });
+    }));
     child.on('error', () => {});
     child.unref();
   } catch {

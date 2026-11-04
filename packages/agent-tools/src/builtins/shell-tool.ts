@@ -31,7 +31,7 @@
 import { spawn } from 'node:child_process';
 
 import { createBoundedOutput, subprocessTraceEnvironment } from '@robota-sdk/agent-core';
-import { resolvePlatformShell } from '@robota-sdk/agent-core/node';
+import { resolvePlatformShell, withChildSession } from '@robota-sdk/agent-core/node';
 import { killProcessTree } from '@robota-sdk/agent-process';
 import { z } from 'zod';
 
@@ -193,7 +193,9 @@ async function runShell(
         SPAWN_DETACHED
           ? ['-c', ownerWatchdog(ownerFd), 'shell-owner-watchdog', invocation.command, ...invocation.args]
           : [...invocation.args],
-        {
+        // Already its own session on POSIX in both modes; its watchdog ends the group when this
+        // process dies, so it is not also registered to end with the process.
+        withChildSession({
         cwd: invocation.cwd,
         // A fresh copy carrying this call's trace when the host enabled it; `process.env` itself is
         // never modified, so no other child can inherit the value.
@@ -208,7 +210,7 @@ async function runShell(
           ...(SPAWN_DETACHED ? ['pipe' as const] : []),
         ],
         detached: SPAWN_DETACHED,
-        },
+        }),
       );
     } catch (error) {
       const note = release();
