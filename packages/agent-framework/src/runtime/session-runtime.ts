@@ -1,17 +1,10 @@
-import { realpathSync } from 'node:fs';
-
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
-import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor/node';
 
 import type { InteractiveSession } from '../interactive/interactive-session.js';
 import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { buildRuntimeSession } from './runtime-host.js';
-import {
-  WorkspaceAuthorityRequiredError,
-  createRestrictedWorkspaceProjectAccess,
-  getWorkspaceProjectIdentity,
-} from '../workspace-trust/index.js';
-import { isWorkspacePathContained } from '../workspace-trust/project-reader-path.js';
+import { assertTrustedProjectCoversCwd } from './trusted-project-cwd.js';
+import { createRestrictedWorkspaceProjectAccess } from '../workspace-trust/index.js';
 
 import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
 import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
@@ -90,32 +83,16 @@ export interface IAgentRuntime {
 
 export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
   requireFrameworkHost(config.host, 'createAgentRuntime');
+  // A host that lends no runner factory has no runner: a task then fails with "No runner for task kind".
   const backgroundTaskRunners =
-    config.backgroundTaskRunners ?? createDefaultBackgroundTaskRunners();
+    config.backgroundTaskRunners ?? config.host.createBackgroundTaskRunners?.() ?? [];
   const commandModules = config.commandModules ?? [];
   const commandHostAdapters = config.commandHostAdapters ?? {};
   const sessionStore = 'sessionStore' in config ? config.sessionStore : undefined;
   const projectAccess =
     config.projectAccess ??
     createRestrictedWorkspaceProjectAccess('identity-unavailable', config.cwd);
-  // Contained — ARCH-048. These boundaries reject cross-root pairs until one canonical project-root
-  // binding contract replaces the independent cwd and projectAccess carriers.
-  if (projectAccess.status === 'trusted') {
-    const trustedRoot = getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot;
-    let resolvedCwd: string;
-    try {
-      resolvedCwd = realpathSync(config.cwd);
-    } catch {
-      throw new WorkspaceAuthorityRequiredError(
-        'Trusted project access cannot validate the requested working directory.',
-      );
-    }
-    if (!isWorkspacePathContained(trustedRoot, resolvedCwd)) {
-      throw new WorkspaceAuthorityRequiredError(
-        'Trusted project access does not cover the requested working directory.',
-      );
-    }
-  }
+  assertTrustedProjectCoversCwd(config.host, projectAccess, config.cwd);
 
   return {
     cwd: config.cwd,

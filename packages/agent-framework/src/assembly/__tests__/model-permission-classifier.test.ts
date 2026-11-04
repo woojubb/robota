@@ -14,6 +14,8 @@ import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
 
 const testHost = createTestFrameworkHost();
 
+const REMOTE_URLS = ['git@github.com:me/repo.git', 'https://example.test/me/repo.git'];
+
 function providerAnswering(content: string): IAIProvider & { chat: ReturnType<typeof vi.fn> } {
   return {
     name: 'test',
@@ -60,11 +62,11 @@ describe('parseClassifierVerdict', () => {
 describe('createModelPermissionClassifier', () => {
   it('shows the model the call and the trust boundary, nothing from the conversation', async () => {
     const provider = providerAnswering('{"decision":"block","reason":"unknown remote"}');
-    const readRemotes = vi.fn(async () => ['git@github.com:me/repo.git']);
+    const readGitRemotes = vi.fn(async () => REMOTE_URLS);
     const classifier = createModelPermissionClassifier(provider, {
       cwd: '/w/project',
       model: 'm',
-      readRemotes,
+      readGitRemotes,
     });
 
     const verdict = await classifier.classify({
@@ -75,16 +77,39 @@ describe('createModelPermissionClassifier', () => {
     await classifier.classify({ toolName: 'Bash', toolArgs: { command: 'ls' }, cwd: '/w/project' });
 
     expect(verdict).toEqual({ decision: 'block', reason: 'unknown remote' });
-    expect(readRemotes).toHaveBeenCalledOnce();
+    expect(readGitRemotes).toHaveBeenCalledExactlyOnceWith('/w/project');
     const [messages, chatOptions] = provider.chat.mock.calls[0]! as [
       TUniversalMessage[],
       Record<string, unknown>,
     ];
     expect(messages).toHaveLength(2);
     expect(messages[0]!.content).toBe(PERMISSION_CLASSIFIER_SYSTEM_PROMPT);
-    expect(messages[1]!.content).toContain('git@github.com:me/repo.git');
+    expect(messages[1]!.content).toContain(
+      'git@github.com:me/repo.git, https://example.test/me/repo.git',
+    );
     expect(messages[1]!.content).toContain('git push other main');
     expect(chatOptions).toMatchObject({ toolChoice: 'none', model: 'm' });
+  });
+});
+
+describe('the git remotes the classifier names', () => {
+  it('are none, and the model is told so, when the host cannot list them', async () => {
+    const provider = providerAnswering('{"decision":"allow","reason":"local"}');
+    const classifier = createModelPermissionClassifier(provider, { cwd: '/w/project' });
+    await classifier.classify({ toolName: 'Bash', toolArgs: { command: 'ls' }, cwd: '/w/project' });
+    const [messages] = provider.chat.mock.calls[0]! as [TUniversalMessage[]];
+    expect(messages[1]!.content).toContain('the git remotes (none)');
+  });
+
+  it('are none when the host lists none', async () => {
+    const provider = providerAnswering('{"decision":"allow","reason":"local"}');
+    const classifier = createModelPermissionClassifier(provider, {
+      cwd: '/w/project',
+      readGitRemotes: async () => [],
+    });
+    await classifier.classify({ toolName: 'Bash', toolArgs: { command: 'ls' }, cwd: '/w/project' });
+    const [messages] = provider.chat.mock.calls[0]! as [TUniversalMessage[]];
+    expect(messages[1]!.content).toContain('the git remotes (none)');
   });
 });
 

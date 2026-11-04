@@ -7,7 +7,6 @@
  */
 
 import { GuardrailExecutor } from '@robota-sdk/agent-core';
-import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 import { AgentExecutor } from '../hooks/agent-executor.js';
 import { PromptExecutor } from '../hooks/prompt-executor.js';
@@ -16,7 +15,11 @@ import type { ICreateSessionOptions } from './create-session-types.js';
 import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
 
 /**
- * Build the executor registry, built-ins first.
+ * Build the executor registry, the host's built-ins first.
+ *
+ * The built-ins are the command and HTTP executors the host builds (`host.createHookExecutors`),
+ * given the shell a product chose for command hooks. A host that lends none (a browser) seeds none,
+ * and `assertConfiguredHookTypesExecutable` then refuses a config that declares a hook only they run.
  *
  * The session runs exactly the executors it is given — it has no built-ins of its own: an empty
  * array runs no hook handler and a non-empty array is the whole registry. So without this seeding,
@@ -37,7 +40,11 @@ import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
 export function buildHookTypeExecutors(options: ICreateSessionOptions): IHookTypeExecutor[] {
   const executors: IHookTypeExecutor[] = options.disableBuiltInHookExecutors
     ? []
-    : [new CommandExecutor(options.commandHookShell), new HttpExecutor()];
+    : [
+        ...(options.host.createHookExecutors?.({
+          ...(options.commandHookShell !== undefined ? { shell: options.commandHookShell } : {}),
+        }) ?? []),
+      ];
 
   if (options.providerFactory) {
     executors.push(

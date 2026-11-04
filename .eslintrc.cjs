@@ -278,7 +278,6 @@ module.exports = {
                   'createUserPromptHistoryFile',
                   'WorkspaceSessionLogSink',
                   'WorkspaceSessionLogSource',
-                  'createSubagentLogger',
                   'createNodeToolResultSpillStore',
                   'EditCheckpointStore',
                   'createDirectoryEditCheckpointState',
@@ -296,6 +295,13 @@ module.exports = {
                   'NodeSessionLogSource',
                   'NodeToolResultSpillStore',
                 ],
+                allowTypeImports: true,
+                message:
+                  'Build conversation stores with packages/agent-cli/src/product/session-stores.ts, which states how they seal.',
+              },
+              {
+                name: '@robota-sdk/agent-framework/node',
+                importNames: ['createSubagentLogger'],
                 allowTypeImports: true,
                 message:
                   'Build conversation stores with packages/agent-cli/src/product/session-stores.ts, which states how they seal.',

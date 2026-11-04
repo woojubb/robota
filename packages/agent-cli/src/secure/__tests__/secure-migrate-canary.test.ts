@@ -34,9 +34,11 @@ import {
   createProjectSessionStore,
   createWorkspaceProjectMutation,
   getWorkspaceProjectStateStorage,
+} from '@robota-sdk/agent-framework';
+import {
   readSubagentTranscriptPage,
   resolveSubagentTranscriptPath,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-framework/node';
 import { serializeKeyring } from '@robota-sdk/agent-keyring';
 import { FileSessionLogger, loadSessionLogEntries } from '@robota-sdk/agent-session';
 import {

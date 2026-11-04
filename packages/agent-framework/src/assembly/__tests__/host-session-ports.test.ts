@@ -1,7 +1,8 @@
 /**
- * Issue #3693 — `Session` is platform-neutral and reads nothing from the machine, so this Node-only
- * package hands it the home directory, the workspace resolver, the path canonicalizer and the hook
- * executors wherever it builds one. These cases watch what reaches the real `Session` constructor.
+ * Issue #3693 — `Session` is platform-neutral and reads nothing from the machine, so the framework
+ * hands it the home directory, the workspace resolver, the path canonicalizer and the hook executors
+ * its host lends, wherever it builds one. A member the host leaves out stays out. These cases watch
+ * what reaches the real `Session` constructor.
  */
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
@@ -14,6 +15,7 @@ import { createSubagentSession } from '../create-subagent-session.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICreateSessionOptions } from '../create-session-types.js';
+import type { ISubagentOptions } from '../create-subagent-session.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { ISessionOptions } from '@robota-sdk/agent-session';
 
@@ -152,5 +154,113 @@ describe('the Node host ports createSession and createSubagentSession pass', () 
     } as unknown as ICreateSessionOptions);
 
     expect(session.getConversationSnapshot().cwd).toBe(workspace);
+  });
+});
+
+describe('a host that lends less than the Node host', () => {
+  const subagent = (host: ISubagentOptions['host'], extra: Partial<ISubagentOptions> = {}) =>
+    createSubagentSession({
+      host,
+      agentDefinition: { name: 'worker', description: 'w', systemPrompt: 'Work.' },
+      parentConfig: config,
+      parentContext: context,
+      parentTools: [],
+      provider,
+      terminal,
+      cwd: workspace,
+      ...extra,
+    });
+  const created = (host: ICreateSessionOptions['host']): ICreateSessionOptions =>
+    ({
+      host,
+      config,
+      context,
+      terminal,
+      provider,
+      defaultTools: [],
+      cwd: workspace,
+    }) as unknown as ICreateSessionOptions;
+
+  it('passes none of the three ports and no hook executor when it lends nothing', async () => {
+    await createSession(created({}));
+    const options = onlyOptions();
+    expect('homeDirectory' in options).toBe(false);
+    expect('resolveInWorkspace' in options).toBe(false);
+    expect('canonicalizePath' in options).toBe(false);
+    expect(options.hookTypeExecutors).toEqual([]);
+  });
+
+  it('gives a subagent no ports and an empty executor list when it lends nothing', () => {
+    subagent({});
+    const options = onlyOptions();
+    expect('homeDirectory' in options).toBe(false);
+    expect('resolveInWorkspace' in options).toBe(false);
+    expect('canonicalizePath' in options).toBe(false);
+    expect(options.hookTypeExecutors).toEqual([]);
+  });
+
+  it('passes exactly the members it lends, and builds the resolver for the session root', async () => {
+    const canonicalizePath = (path: string): string => path;
+    const createWorkspacePathResolver = vi.fn(() => () => undefined);
+    await createSession(
+      created({ homeDirectory: '/home/someone', canonicalizePath, createWorkspacePathResolver }),
+    );
+    const options = onlyOptions();
+    expect(options.homeDirectory).toBe('/home/someone');
+    expect(options.canonicalizePath).toBe(canonicalizePath);
+    expect(createWorkspacePathResolver).toHaveBeenCalledExactlyOnceWith(workspace);
+    expect(options.resolveInWorkspace).toBe(createWorkspacePathResolver.mock.results[0]!.value);
+  });
+
+  it('builds the executors with the shell a product chose for command hooks', async () => {
+    const executor = { type: 'command' as const, execute: vi.fn() };
+    const createHookExecutors = vi.fn(() => [executor]);
+    await createSession({ ...created({ createHookExecutors }), commandHookShell: '/bin/zsh' });
+    expect(createHookExecutors).toHaveBeenCalledExactlyOnceWith({ shell: '/bin/zsh' });
+    expect(onlyOptions().hookTypeExecutors).toEqual([executor]);
+  });
+
+  it('seeds no executor when the session disables the built-in ones, however the host builds them', async () => {
+    const createHookExecutors = vi.fn(() => [{ type: 'command' as const, execute: vi.fn() }]);
+    await createSession({
+      ...created({ createHookExecutors }),
+      disableBuiltInHookExecutors: true,
+    });
+    expect(createHookExecutors).not.toHaveBeenCalled();
+    expect(onlyOptions().hookTypeExecutors).toEqual([]);
+  });
+
+  it('refuses a declared command hook it has no executor for, naming the host member', async () => {
+    const withHook = {
+      ...created({}),
+      config: {
+        ...config,
+        hooks: { PreToolUse: [{ matcher: '', hooks: [{ type: 'command', command: 'true' }] }] },
+      },
+    } as unknown as ICreateSessionOptions;
+    await expect(createSession(withHook)).rejects.toThrow(
+      /"command" \(no command executor: the host lends none \(`host\.createHookExecutors`\)/u,
+    );
+    expect(constructed).toHaveLength(0);
+  });
+
+  it('asks the host for the remotes its auto-mode classifier names, in the session root', async () => {
+    const readGitRemotes = vi.fn(async () => ['git@github.com:me/repo.git']);
+    const host = createTestFrameworkHost({ readGitRemotes });
+    const judged = vi.fn(async () => ({
+      content: '{"decision":"allow","reason":"local"}',
+    }));
+    const judging = { ...provider, chat: judged } as unknown as IAIProvider;
+    const call = { toolName: 'Bash', toolArgs: { command: 'ls' }, cwd: workspace };
+
+    await createSession({ ...created(host), provider: judging });
+    await onlyOptions().permissionClassifier?.classify(call);
+    expect(readGitRemotes).toHaveBeenCalledExactlyOnceWith(workspace);
+
+    constructed.length = 0;
+    readGitRemotes.mockClear();
+    subagent(host, { provider: judging, permissionMode: 'auto' });
+    await onlyOptions().permissionClassifier?.classify(call);
+    expect(readGitRemotes).toHaveBeenCalledExactlyOnceWith(workspace);
   });
 });

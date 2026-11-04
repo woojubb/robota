@@ -68,3 +68,19 @@ export function createNodeFrameworkHost(options: ICreateNodeFrameworkHostOptions
     supportsProjectMutation: supportsWorkspaceProjectMutation(),
   };
 }
+
+// Lane Z (assembly): the subagent transcript, a log file written and paged through Node's `fs`.
+export {
+  createSubagentLogger,
+  migrateSubagentTranscripts,
+  readSubagentTranscriptPage,
+  resolveSubagentLogDir,
+  resolveSubagentLogSessionId,
+  resolveSubagentTranscriptPath,
+} from './assembly/subagent-logger.js';
+export type {
+  IReadSubagentTranscriptPageOptions,
+  ISubagentTranscriptMigration,
+  ISubagentTranscriptPage,
+  ISubagentTranscriptUnreadable,
+} from './assembly/subagent-logger.js';

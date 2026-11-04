@@ -62,11 +62,13 @@ await session.shutdown();
 ### What a session loads
 
 The framework reads only what its host passes to it. It never guesses a settings file, a project
-directory or a storage location. With only `cwd` and `provider`, a session:
+directory or a storage location. With only `cwd`, `provider` and a Node host, a session:
 
 - has the default tools (`Shell`, `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebFetch`,
   `AskUserQuestion`), with file tools confined to `cwd`; none of them is web search, which comes
-  from a provider's own search option or an MCP server;
+  from a provider's own search option or an MCP server. They are what the host builds
+  (`createNodeFrameworkHost({ createDefaultTools })`); a host that lends no `createDefaultTools` has
+  no default tools;
 - has the session's own tools `report_goal_status`, `report_loop_decision` and `peer_send_file`,
   which do nothing unless a goal, a loop or a host that connects the session to other sessions is
   in play (a session from `createAgentRuntime()` also has `BackgroundProcess`). They are listed to

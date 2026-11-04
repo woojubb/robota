@@ -49,8 +49,10 @@ React/Ink UI.
 - **The platform and the working directory are passed in, never assumed.** A session, subagent,
   runtime or query takes a required `host` (`IFrameworkHost`, what the platform lends) and a required
   absolute `cwd`. Neither has a default, because a default would be whichever process the framework
-  happens to run in. Every host member is optional and an absent one means that capability is off, so
-  `{}` is a valid host; a Node composition root builds one with `createNodeFrameworkHost` from the
+  happens to run in. Every host member is optional and an absent one means that capability is off (no
+  default tools, no hook executors, no background runners, no remotes known), so `{}` is a valid host,
+  except that a trusted project decision is compared on real paths and a host that cannot resolve them
+  refuses it; a Node composition root builds one with `createNodeFrameworkHost` from the
   `./node` subpath. A missing `host` throws at construction instead of reading as a host that lends
   nothing, because an untyped caller would otherwise get sessions without a capability and no
   explanation.
@@ -297,7 +299,7 @@ These are behaviors a caller cannot infer from a type signature alone.
   explicit prompt keeps that intent across resume, and the host resolves the current default before
   each iteration; a missing or invalid resolver fails visibly rather than running a stale iteration.
 - **Tool composition is asymmetric on purpose: replace and append are not interchangeable.**
-  `defaultTools` replaces the framework's default tool tier outright; `additionalTools` only appends
+  `defaultTools` replaces the host's default tool tier outright; `additionalTools` only appends
   and, on a name collision with an already-assembled tool, the earlier entry silently wins and the
   contributed one is dropped rather than displacing it. That asymmetry is deliberate: the default tier
   is constructed _with_ session context (the working-directory guard, sandbox client), and an

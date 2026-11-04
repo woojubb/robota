@@ -48,7 +48,7 @@ const BUILDS_A_STORE = [
   "import { createUserPromptHistoryFile } from '@robota-sdk/agent-framework';",
   "import { WorkspaceSessionLogSink as Sink } from '@robota-sdk/agent-framework';",
   "import { WorkspaceSessionLogSource } from '@robota-sdk/agent-framework';",
-  "import { createSubagentLogger } from '@robota-sdk/agent-framework';",
+  "import { createSubagentLogger } from '@robota-sdk/agent-framework/node';",
   "import { NodePromptHistoryFile } from '@robota-sdk/agent-session/node';",
   "import { NodeSessionLogSink, StoredLines } from '@robota-sdk/agent-session/node';",
   "import { NodeSessionLogSource as Source } from '@robota-sdk/agent-session/node';",

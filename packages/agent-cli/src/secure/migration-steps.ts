@@ -12,11 +12,11 @@
 import {
   WorkspaceAuthorityRequiredError,
   getWorkspaceProjectStateStorage,
-  migrateSubagentTranscripts,
   migrateWorkspaceEditCheckpoints,
   migrateWorkspaceProjectSessionLogs,
   migrateWorkspaceProjectSessionRecords,
 } from '@robota-sdk/agent-framework';
+import { migrateSubagentTranscripts } from '@robota-sdk/agent-framework/node';
 import { migrateNodeSessionStore } from '@robota-sdk/agent-session/node';
 
 import { adoptMigratedSessionRecords } from '../product/session-stores.js';

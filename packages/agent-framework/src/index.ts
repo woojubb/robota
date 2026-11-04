@@ -671,22 +671,12 @@ export {
   assembleSubagentPrompt,
   createSubagentSession,
   sandboxApprovalFor,
-  createSubagentLogger,
-  migrateSubagentTranscripts,
-  readSubagentTranscriptPage,
-  resolveSubagentLogDir,
-  resolveSubagentLogSessionId,
-  resolveSubagentTranscriptPath,
   deriveContextCapacityHint,
 } from './assembly/index.js';
 export type {
-  IReadSubagentTranscriptPageOptions,
-  ISubagentTranscriptMigration,
   ISubagentPromptOptions,
   ISubagentOptions,
   ISubagentParentContext,
-  ISubagentTranscriptPage,
-  ISubagentTranscriptUnreadable,
   TSubagentSuffix,
 } from './assembly/index.js';
 // `ICreateSessionOptions` stays exported although `createSession` does not (issue #2270).

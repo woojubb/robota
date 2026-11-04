@@ -1,9 +1,11 @@
 # @robota-sdk/agent-framework
 
 The assembly layer of the Robota SDK. It composes `@robota-sdk/agent-core`,
-`@robota-sdk/agent-session`, `@robota-sdk/agent-tools`, `@robota-sdk/agent-tool-defaults` and
-`@robota-sdk/agent-executor` into one provider-neutral SDK for building agents: sessions with
-tools, permissions, hooks, streaming, context loading, commands, subagents and persistence.
+`@robota-sdk/agent-session`, `@robota-sdk/agent-tools` and `@robota-sdk/agent-executor` into one
+provider-neutral SDK for building agents: sessions with tools, permissions, hooks, streaming, context
+loading, commands, subagents and persistence. The platform it runs on is passed in as `host`: a Node
+process passes `createNodeFrameworkHost` from `@robota-sdk/agent-framework/node`, with the default tool
+set from `@robota-sdk/agent-tool-defaults`; a host that lends nothing is `{}`.
 
 It has three main entry points:
 
@@ -62,6 +64,14 @@ would ask for approval is denied, so an unattended run only does what the mode a
 List the tools that may run anyway in `allowedTools` (your own `additionalTools`, say), pass a
 `permissionHandler` to decide each request, or pass `permissionMode: 'bypassPermissions'` explicitly
 if the run should approve everything. `deniedTools` are never offered to the model.
+
+The built-in tools (`Read`, `Write`, `Edit`, `Bash`, `Glob`, `Grep` and the rest of the default set)
+come from the host: `createNodeFrameworkHost({ createDefaultTools })` builds them for the session's
+`cwd`. `createQuery({ host: {}, provider, cwd })` has none, because the framework imports no tool
+package and a host that lends no `createDefaultTools` has no default tier. The query can then answer
+from the model alone, plus any `additionalTools` you pass, and nothing else. A host that wants a
+different set passes its own `createDefaultTools`, and `defaultTools` on a session replaces whatever the
+host builds.
 
 Pass `model` with any provider other than Anthropic: without it the model comes from the settings
 files, and without one the session asks the provider for `claude-opus-4-5`. Calls run one at a time,
@@ -122,7 +132,7 @@ await session.shutdown();
 | `model`, `effort`, `temperature`                            | Model selection for this session.                                                               |
 | `systemPrompt`, `appendSystemPrompt`                        | Replace or extend the assembled system prompt.                                                  |
 | `additionalTools`                                           | Tools added to the default set.                                                                 |
-| `defaultTools`                                              | Replaces the default tool set from `@robota-sdk/agent-tool-defaults`; `[]` removes it.          |
+| `defaultTools`                                              | Replaces the host's default tool set (`host.createDefaultTools`); `[]` removes it.              |
 | `allowedTools`, `deniedTools`                               | Tool name patterns to allow or deny for this session.                                           |
 | `commandModules`                                            | Command modules the session can execute (for example from `@robota-sdk/agent-command`).         |
 | `sessionStore`, `resumeSessionId`, `forkSession`            | Persistence, and resuming or forking a stored session.                                          |
@@ -479,7 +489,7 @@ order; project files are read only in a trusted project.
 | `@robota-sdk/agent-core`                                                                              | Agent engine, provider contract, permissions, hooks |
 | `@robota-sdk/agent-session`                                                                           | `Session`, logging and persistence ports            |
 | `@robota-sdk/agent-tools`                                                                             | Tool factories and sandbox clients                  |
-| `@robota-sdk/agent-tool-defaults`                                                                     | The default tool set (loaded on first use)          |
+| `@robota-sdk/agent-tool-defaults`                                                                     | The default tool set, for `./testing` only          |
 | `@robota-sdk/agent-executor`                                                                          | Background tasks and subagent managers              |
 | `@robota-sdk/agent-file-authority`                                                                    | Bounded, root-relative project file reads           |
 | `@robota-sdk/agent-interface-*` (analytics, command, execution, session, session-mobility, transport) | Shared contracts                                    |
