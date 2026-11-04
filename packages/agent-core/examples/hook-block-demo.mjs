@@ -10,6 +10,9 @@
  */
 
 import { runHooks } from '../dist/node/index.js';
+import { CommandExecutor, HttpExecutor } from '../dist/node/node.js';
+
+const executors = [new CommandExecutor(), new HttpExecutor()];
 
 const TOOL_NAME = 'Bash';
 // Inert hook-input data: this command is never executed by the example.
@@ -48,7 +51,7 @@ console.log(JSON.stringify(hookInput, null, 2));
 console.log();
 
 // Step 1: run the hooks — simulates what runPreToolHook does internally
-const hookResult = await runHooks(hooksConfig, 'PreToolUse', hookInput);
+const hookResult = await runHooks(hooksConfig, 'PreToolUse', hookInput, executors);
 
 console.log('runHooks result:');
 console.log(JSON.stringify(hookResult, null, 2));

@@ -100,9 +100,11 @@ export async function startRuntimeHost(opts: IRuntimeHostOptions): Promise<IRunt
             buildRuntimeSession({
               ...recipe,
               resumeSessionId,
-              // A pooled session is exactly the one asked for; the launch's fork and name do not carry over.
+              // A pooled session is exactly the one asked for; the launch's fork, name and accepted
+              // record do not carry over.
               forkSession: undefined,
               sessionName: undefined,
+              acceptedDigest: undefined,
             }),
           ...opts.pool,
         });

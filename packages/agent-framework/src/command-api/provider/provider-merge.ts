@@ -1,4 +1,5 @@
 import { normalizeProviderConfig } from '@robota-sdk/agent-core';
+import { processEnvResolver } from '@robota-sdk/agent-core/node';
 
 import { SettingsParseError } from '../../config/settings-parse-error.js';
 import { readSettingsSourceText } from '../../config/settings-source.js';
@@ -113,7 +114,8 @@ export function resolveActiveProvider(
   providerDefinitions: readonly IProviderDefinition[],
   environment?: Readonly<Record<string, string | undefined>>,
 ): IProviderDefinitionConfig | undefined {
-  const resolve = environment === undefined ? undefined : (name: string) => environment[name];
+  const resolve =
+    environment === undefined ? processEnvResolver : (name: string) => environment[name];
   const activeProvider = providerOverride ?? settings.currentProvider;
   if (activeProvider !== undefined) {
     const profile = settings.providers?.[activeProvider];

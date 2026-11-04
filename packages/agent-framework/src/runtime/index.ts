@@ -25,4 +25,9 @@ export type {
   TPoolBusySession,
   TSessionPoolRole,
 } from './session-pool.js';
-export { SessionChangeRefusal, SessionDeleteRefusal } from './session-change-refusal.js';
+export {
+  SESSION_STILL_CLOSING_MESSAGE,
+  SessionChangeRefusal,
+  SessionDeleteRefusal,
+  claimedSessionMessage,
+} from './session-change-refusal.js';

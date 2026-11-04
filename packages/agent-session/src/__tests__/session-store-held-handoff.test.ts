@@ -50,7 +50,7 @@ const sessionIds = (count: number, prefix = 'sess_held'): string[] =>
   Array.from({ length: count }, (_, index) => `${prefix}_${index}`);
 
 function tokenText(token: string): string {
-  const [, , encoded] = token.split('.');
+  const [, , , encoded] = token.split('.');
   return Buffer.from(encoded ?? '', 'base64url').toString('utf8');
 }
 
@@ -93,7 +93,7 @@ describe('a fork record written for a handoff', () => {
 
     const token = store.exportHeld?.('sess_fork');
 
-    expect(token).toMatch(/^rsh1\.[0-9a-f]{64}\.[A-Za-z0-9_-]+$/);
+    expect(token).toMatch(/^rsh2\.unverified\.[0-9a-f]{64}\.[A-Za-z0-9_-]+$/);
     expect(tokenText(token as string)).toContain(CANARY);
     // Consumed: with the keys locked there is nothing left to hand over.
     expect(store.exportHeld?.('sess_fork')).toBeUndefined();
@@ -108,7 +108,7 @@ describe('a fork record written for a handoff', () => {
     const kept = [1, 2].map(() => store.exportHeld?.('sess_fork', { keep: true }));
     const handed = store.exportHeld?.('sess_fork');
 
-    expect(kept[0]).toMatch(/^rsh1\./);
+    expect(kept[0]).toMatch(/^rsh2\./);
     expect(kept).toEqual([handed, handed]);
     expect(store.exportHeld?.('sess_fork', { keep: true })).toBeUndefined();
   });
@@ -142,7 +142,7 @@ describe('exporting a record the store does not hold', () => {
     }
 
     const token = store.exportHeld?.('sess_fork');
-    for (const id of others) expect(store.exportHeld?.(id)).toMatch(/^rsh1\./);
+    for (const id of others) expect(store.exportHeld?.(id)).toMatch(/^rsh2\./);
     sealer.lock();
 
     expect(tokenText(token as string)).toContain(CANARY);
@@ -228,8 +228,15 @@ describe('a store that holds only a write grant', () => {
   });
 
   it.each<[string, (token: string) => string]>([
-    ['a token this build does not issue', () => 'rsh2.abc.def'],
-    ['a digest that is not one', (token) => token.replace(/^rsh1\.[0-9a-f]{4}/, 'rsh1.zzzz')],
+    ['a token this build does not issue', () => 'rsh1.abc.def'],
+    [
+      'a token that does not say whose the record was',
+      (token) => token.replace(/^rsh2\.[a-z]+\./, 'rsh2.'),
+    ],
+    [
+      'a digest that is not one',
+      (token) => token.replace(/^(rsh2\.[a-z]+\.)[0-9a-f]{4}/, '$1zzzz'),
+    ],
     ['a non-canonical encoding', (token) => `${token}=`],
     ['another session’s record', (token) => token],
   ])('refuses %s', (label, mutate) => {

@@ -160,9 +160,65 @@ export function persistSession(
   }
 }
 
+/** Everything of a running session's own state that a save of its record carries. */
+export interface ISessionStateForSave {
+  readonly sessionName?: string;
+  readonly cwd: string;
+  readonly history: IHistoryEntry[];
+  readonly backgroundState?: IBuildInteractiveSessionRecordInput['backgroundState'];
+  readonly memoryState?: IBuildInteractiveSessionRecordInput['memoryState'];
+  readonly skillActivationState?: IBuildInteractiveSessionRecordInput['skillActivationState'];
+  readonly contextReferenceState?: IBuildInteractiveSessionRecordInput['contextReferenceState'];
+  readonly sandboxSnapshotId?: string;
+  readonly goalState?: IGoalState;
+  readonly planState?: IPlanArtifact;
+  readonly activeBranchState?: IActiveBranchPointer;
+  readonly sessionLoops?: readonly ISessionLoopState[];
+}
+
+/**
+ * Writes `state` and the live conversation as a NEW record under `copy.id`, built the way
+ * {@link persistSession} builds one, as an ordinary save of the owner's content: a running session
+ * holds only content its claim's gate let in. Nothing is read first: the copy is all this session's
+ * own state, and it never replaces another record's members.
+ */
+export function saveSessionCopy(
+  sessionStore: IInteractiveSessionStore,
+  session: Session,
+  copy: { readonly id: string; readonly name: string },
+  state: ISessionStateForSave,
+): void {
+  sessionStore.save(
+    buildInteractiveSessionRecord({
+      session,
+      sessionId: copy.id,
+      recordId: copy.id,
+      sessionName: copy.name,
+      cwd: state.cwd,
+      history: state.history,
+      backgroundState: state.backgroundState,
+      memoryState: state.memoryState,
+      skillActivationState: state.skillActivationState,
+      contextReferenceState: state.contextReferenceState,
+      ...(state.sandboxSnapshotId !== undefined
+        ? { sandboxSnapshotId: state.sandboxSnapshotId }
+        : {}),
+      ...(state.goalState !== undefined ? { goalState: state.goalState } : {}),
+      ...(state.planState !== undefined ? { planState: state.planState } : {}),
+      ...(state.activeBranchState !== undefined
+        ? { activeBranchState: state.activeBranchState }
+        : {}),
+      ...(state.sessionLoops !== undefined ? { sessionLoops: state.sessionLoops } : {}),
+    }),
+    { provenance: 'owner' },
+  );
+}
+
 interface IBuildInteractiveSessionRecordInput {
   session: Session;
   sessionId: string;
+  /** The id the record is written under, when it is not the live conversation's own (a copy). */
+  recordId?: string;
   sessionName?: string;
   cwd: string;
   history: IHistoryEntry[];
@@ -195,7 +251,7 @@ function buildInteractiveSessionRecord(
 ): IInteractiveSessionRecord {
   const conversation = input.session.getConversationSnapshot();
   return {
-    id: conversation.id,
+    id: input.recordId ?? conversation.id,
     ...(input.goalState !== undefined ? { goal: input.goalState } : {}),
     ...(input.planState !== undefined ? { plan: input.planState } : {}),
     ...(input.activeBranchState !== undefined ? { activeBranch: input.activeBranchState } : {}),

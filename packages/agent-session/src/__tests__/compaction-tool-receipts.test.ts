@@ -53,7 +53,7 @@ it('retains every ordered receipt through repeated compaction independently of a
     }),
     contextTracker: new ContextWindowTracker('test-model', 100000),
     hooks: undefined,
-    hookTypeExecutors: undefined,
+    hookTypeExecutors: [],
     onCompactCallback: undefined,
     onCompactEventCallback: undefined,
     trigger: 'manual' as const,

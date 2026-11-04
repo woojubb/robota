@@ -10,6 +10,7 @@ import { useTuiChannel } from './useTuiChannel.js';
 import type { IBuildStaticItemsInputs } from '../app-static-items.js';
 import type { IAppInputViewModel, IAppStatusViewModel, IAppViewModel } from '../app-view-model.js';
 import type { ITuiAppChannelPort, ITuiRuntimeStatusSnapshot } from '../tui-app-channel-port.js';
+import type { TSessionSwitch } from '../types.js';
 import type { IAppInteractionState } from './useAppInteractionState.js';
 import type { IAppLifecycleState } from './useAppLifecycleState.js';
 import type { IAppScreenState } from './useAppScreenState.js';
@@ -40,7 +41,7 @@ export interface IUseAppControllerOptions {
   sessionSwitchError?: string;
   sessionSwitchPending?: boolean;
   channel: ITuiAppChannelPort;
-  onSessionSwitch: (sessionId: string) => Promise<void>;
+  onSessionSwitch: TSessionSwitch;
   onRetrySessionSwitch: () => void;
   /** SCREEN-1993: the stored-prompt source and this run's project key; both or neither. */
   promptHistorySource?: IPromptHistorySource;

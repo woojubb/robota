@@ -41,6 +41,7 @@ function makeDeps(overrides: Partial<IToolWrapperDeps> = {}): IToolWrapperDeps {
       prompt: vi.fn().mockResolvedValue(''), select: vi.fn().mockResolvedValue(0),
       spinner: vi.fn().mockReturnValue({ stop: vi.fn(), update: vi.fn() }),
     },
+    hookTypeExecutors: [],
     getPermissionMode: () => 'default',
     log: () => undefined,
     checkPermission: vi.fn().mockResolvedValue(true),

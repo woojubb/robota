@@ -24,6 +24,7 @@ vi.mock('@robota-sdk/agent-framework', async (importOriginal) => {
       return { getSessionId: () => 'test-session' };
     }
     async shutdown(): Promise<void> {}
+    releaseSessionClaim(): void {}
   }
 
   // RUNTIME-001: construction flows through buildRuntimeSession (wraps InteractiveSession in agent-framework).

@@ -3,7 +3,7 @@
  * (TERM-008). Keep all shell choice behind this function so the call sites never change; the
  * per-platform logic (POSIX `$SHELL`/`sh`, Windows PowerShell) lives once in `resolvePlatformShell`.
  */
-import { resolvePlatformShell } from '@robota-sdk/agent-core';
+import { resolvePlatformShell } from '@robota-sdk/agent-core/node';
 
 export interface IResolvedShell {
   /** Executable to spawn. */

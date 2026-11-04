@@ -2,9 +2,11 @@
 
 Key custody and sealing primitives for conversations that must stay unreadable to other programs
 running as the same operating-system user. A passphrase and a one-time recovery key each unwrap one
-master key. The master key derives an X25519 sealing keypair and an Ed25519 attach keypair.
-Artifacts are encrypted under per-artifact data keys that are sealed to the **public** sealing key,
-so a locked process can keep writing and only an unlocked keyring can read.
+master key. The master key derives an X25519 sealing keypair, an Ed25519 attach keypair and an
+HMAC-SHA256 authorship key. Artifacts are encrypted under per-artifact data keys that are sealed to
+the **public** sealing key, so a locked process can keep writing and only an unlocked keyring can
+read; only an unlocked keyring can tag what it wrote (`tagAuthorship`/`verifyAuthorship` on the
+unlocked keys), since an artifact that opens says nothing about who sealed it.
 
 It uses `node:crypto` only (AES-256-GCM, scrypt, HKDF-SHA256, X25519, Ed25519), has no native
 module and no `@robota-sdk` dependency, and runs on Node.js 22.12 or later and on Bun.
@@ -69,7 +71,7 @@ batch with `encryptRecord`, and put the artifact id and a sequence number in the
 | `KeyringError`                                              | The only error thrown deliberately; `code` names the refusal and no message carries a secret  |
 
 See [`docs/SPEC.md`](./docs/SPEC.md) for the contract and its limits: `lock()` drops references and
-does not erase key material, detecting truncated record sequences is the caller's job, a swapped
+does not erase the keypairs, detecting truncated record sequences is the caller's job, a swapped
 sealing public key is detected rather than prevented, and sealed data keys have no forward secrecy.
 
 ## License

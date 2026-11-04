@@ -8,13 +8,18 @@ import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { sandboxApprovalFor } from '../assembly/sandbox-approval.js';
 import { restoreSessionRecordIntoSession } from '../interactive/interactive-session-restore.js';
+import { assertClaimedOutcomeAccepted } from '../interactive/session-authorship-gate.js';
+import { decorateSessionStore } from '../interactive/session-store-view.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ISubagentOptions } from '../assembly/create-subagent-session.js';
 import type { ISystemCommandSemanticRoles } from '../command-api/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { ILoadedContext } from '../context/context-loader.js';
-import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
+import type {
+  IInteractiveSessionStore,
+  TSessionLoadOutcome,
+} from '../interactive/session-persistence.js';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
@@ -198,17 +203,64 @@ function assertSupportedIsolation(job: ISubagentJobStart): void {
 function resumeRequestedRecord(
   job: ISubagentJobStart,
   session: ReturnType<typeof createSubagentSession>,
-  resumeSessionStore: IInteractiveSessionStore | undefined,
+  resumed: IResumedRecord,
 ): void {
   const resumeSessionId = job.request.resumeSessionId;
   if (resumeSessionId === undefined) return;
-  if (resumeSessionStore === undefined) {
+  if (resumed.store === undefined || resumed.outcome === undefined) {
     throw new Error(
       `Subagent job ${job.taskId} asks to resume session ${resumeSessionId}, but this runner was ` +
         'composed without a session record store (resumeSessionStore).',
     );
   }
-  restoreSessionRecordIntoSession(resumeSessionStore, resumeSessionId, session);
+  restoreSessionRecordIntoSession(resumed.store, resumeSessionId, session, resumed.outcome);
+}
+
+/** The store a job's session saves through, the read its claim made, and how the claim ends. */
+interface IResumedRecord {
+  readonly store: IInteractiveSessionStore | undefined;
+  readonly outcome?: TSessionLoadOutcome;
+  release(): void;
+}
+
+/**
+ * A job that resumes a record claims it for as long as it runs, as every session this process runs
+ * does: the claim's read is what the job restores from (it takes over the record `/fork` left for the
+ * job), and a record a store that seals calls unverified is refused, never run — a job has no one to
+ * accept it. Every save of the job's id then carries the claim.
+ */
+function claimRequestedRecord(
+  job: ISubagentJobStart,
+  store: IInteractiveSessionStore | undefined,
+): IResumedRecord {
+  const resumeSessionId = job.request.resumeSessionId;
+  if (resumeSessionId === undefined || store === undefined) {
+    return { store, release: () => undefined };
+  }
+  // Fail closed: a store that cannot claim cannot gate what the job restores from.
+  if (typeof store.claim !== 'function') {
+    throw new TypeError('A session store must offer claim: every session claims its record.');
+  }
+  const claim = store.claim(resumeSessionId);
+  try {
+    assertClaimedOutcomeAccepted(resumeSessionId, claim.outcome, undefined);
+  } catch (error) {
+    claim.release();
+    throw error;
+  }
+  return {
+    store: decorateSessionStore(store, {
+      save: (record, options) => {
+        if (record.id === resumeSessionId) {
+          // The job restored only what the gate let in, so what it saves under its claim is the owner's.
+          store.save(record, { ...options, claim, provenance: 'owner' });
+        } else if (options === undefined) store.save(record);
+        else store.save(record, options);
+      },
+    }),
+    outcome: claim.outcome,
+    release: () => claim.release(),
+  };
 }
 
 function emitToolExecutionEvent(
@@ -274,68 +326,86 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
     start(job: ISubagentJobStart): ISubagentJobHandle {
       assertSupportedIsolation(job);
       const definition = resolveAgentDefinition(job.request.agentType, deps);
-      const resumeSessionId = job.request.resumeSessionId;
-      const session = createSubagentSession({
-        pathProtection: deps.pathProtection,
-        agentDefinition: applyRequestOverrides(definition, job),
-        parentConfig: parentConfigWithEffectiveRules(deps),
-        parentContext: deps.context,
-        parentTools: deps.tools,
-        provider: deps.provider,
-        terminal: deps.terminal,
-        // ARCH-010: the spawn request has always declared `cwd` required; there was simply no option
-        // to pass it to, so the child session read `process.cwd()` — the PARENT's directory.
-        cwd: subagentExecutionRoot(job),
-        ...(resumeSessionId !== undefined ? { sessionId: resumeSessionId } : {}),
-        ...(resumeSessionId !== undefined && deps.resumeSessionStore !== undefined
-          ? { sessionStore: deps.resumeSessionStore }
-          : {}),
-        permissionMode: deps.getParentPermissionMode?.() ?? deps.permissionMode,
-        ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
-        ...(deps.modelCommandToolPrefix
-          ? { modelCommandToolPrefix: deps.modelCommandToolPrefix }
-          : {}),
-        // CORE-025: carry the task's permission policy + its own tool lists so the child session gates tool
-        // calls by policy BEFORE the inherited session mode (deny/preapproved bind even under bypass).
-        ...(job.request.permissionPolicy !== undefined
-          ? { permissionPolicy: job.request.permissionPolicy }
-          : {}),
-        ...(job.request.allowedTools !== undefined
-          ? { taskAllowedTools: job.request.allowedTools }
-          : {}),
-        ...(job.request.disallowedTools !== undefined
-          ? { taskDisallowedTools: job.request.disallowedTools }
-          : {}),
-        permissionHandler: bindRequester(deps.permissionHandler, job),
-        ...subagentCommandSandbox(deps.sandboxClient),
-        hooks: deps.hooks,
-        hookTypeExecutors: deps.hookTypeExecutors,
-        onTextDelta: (delta) => {
-          job.emit?.({ type: 'background_task_text_delta', delta });
-          deps.onTextDelta?.(delta);
-        },
-        onToolExecution: (event) => {
-          emitToolExecutionEvent(job, event, deps.tools);
-          deps.onToolExecution?.(event);
-        },
-      });
-      resumeRequestedRecord(job, session, deps.resumeSessionStore);
+      const resumed = claimRequestedRecord(job, deps.resumeSessionStore);
+      try {
+        return startClaimed(job, definition, resumed);
+      } catch (error) {
+        resumed.release();
+        throw error;
+      }
+    },
+  };
 
-      return {
-        taskId: job.taskId,
-        result: session.run(job.request.prompt).then((output) => {
+  function startClaimed(
+    job: ISubagentJobStart,
+    definition: IAgentDefinition,
+    resumed: IResumedRecord,
+  ): ISubagentJobHandle {
+    const resumeSessionId = job.request.resumeSessionId;
+    const session = createSubagentSession({
+      pathProtection: deps.pathProtection,
+      agentDefinition: applyRequestOverrides(definition, job),
+      parentConfig: parentConfigWithEffectiveRules(deps),
+      parentContext: deps.context,
+      parentTools: deps.tools,
+      provider: deps.provider,
+      terminal: deps.terminal,
+      // ARCH-010: the spawn request has always declared `cwd` required; there was simply no option
+      // to pass it to, so the child session read `process.cwd()` — the PARENT's directory.
+      cwd: subagentExecutionRoot(job),
+      ...(resumeSessionId !== undefined ? { sessionId: resumeSessionId } : {}),
+      ...(resumeSessionId !== undefined && resumed.store !== undefined
+        ? { sessionStore: resumed.store }
+        : {}),
+      permissionMode: deps.getParentPermissionMode?.() ?? deps.permissionMode,
+      ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
+      ...(deps.modelCommandToolPrefix
+        ? { modelCommandToolPrefix: deps.modelCommandToolPrefix }
+        : {}),
+      // CORE-025: carry the task's permission policy + its own tool lists so the child session gates tool
+      // calls by policy BEFORE the inherited session mode (deny/preapproved bind even under bypass).
+      ...(job.request.permissionPolicy !== undefined
+        ? { permissionPolicy: job.request.permissionPolicy }
+        : {}),
+      ...(job.request.allowedTools !== undefined
+        ? { taskAllowedTools: job.request.allowedTools }
+        : {}),
+      ...(job.request.disallowedTools !== undefined
+        ? { taskDisallowedTools: job.request.disallowedTools }
+        : {}),
+      permissionHandler: bindRequester(deps.permissionHandler, job),
+      ...subagentCommandSandbox(deps.sandboxClient),
+      hooks: deps.hooks,
+      hookTypeExecutors: deps.hookTypeExecutors,
+      onTextDelta: (delta) => {
+        job.emit?.({ type: 'background_task_text_delta', delta });
+        deps.onTextDelta?.(delta);
+      },
+      onToolExecution: (event) => {
+        emitToolExecutionEvent(job, event, deps.tools);
+        deps.onToolExecution?.(event);
+      },
+    });
+    resumeRequestedRecord(job, session, resumed);
+
+    return {
+      taskId: job.taskId,
+      result: session
+        .run(job.request.prompt)
+        .then((output) => {
           // ANALYTICS-001 (Phase 2): capture the subagent's total token usage so the parent log can
           // attribute it to this agent as a source. Best-effort — never let usage capture fail the run.
           const usage = readSubagentUsage(session);
           return { taskId: job.taskId, output, ...(usage ? { usage } : {}) };
-        }),
-        cancel: () => {
-          session.abort();
-          return Promise.resolve();
-        },
-      };
-    },
-  };
+        })
+        // The job's run is the whole of what it saves; its claim ends with it, however it ends.
+        .finally(() => resumed.release()),
+      cancel: () => {
+        session.abort();
+        return Promise.resolve();
+      },
+    };
+  }
 }
 
 /**

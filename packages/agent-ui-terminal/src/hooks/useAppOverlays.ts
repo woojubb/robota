@@ -3,12 +3,14 @@ import { listResumableSessions, lockedSessionsNotice } from '@robota-sdk/agent-f
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { usePluginCallbacks } from './usePluginCallbacks.js';
+import { RESUME_CANCELLED_NOTICE, useSessionSelection } from './useSessionSelection.js';
 
 import type {
   IAppPluginViewModel,
   IAppSessionPickerViewModel,
   IAppTransportViewModel,
 } from '../app-view-model.js';
+import type { TSessionSwitch } from '../types.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 import type {
@@ -32,7 +34,7 @@ interface IOptions {
   readonly hostLockedSessionCount: number;
   readonly sessionPickerVisible: boolean;
   readonly setSessionPickerVisible: (visible: boolean) => void;
-  readonly onSessionSwitch: (sessionId: string) => Promise<void>;
+  readonly onSessionSwitch: TSessionSwitch;
   readonly addEntry: (entry: IHistoryEntry) => void;
 }
 
@@ -63,16 +65,9 @@ export function useAppOverlays(options: IOptions): IAppOverlays {
     (content: string) => options.addEntry(messageToHistoryEntry(createSystemMessage(content))),
     [options.addEntry],
   );
-  const selectSession = useCallback(
-    (sessionId: string) => {
-      options.setSessionPickerVisible(false);
-      void options.onSessionSwitch(sessionId);
-    },
-    [options.onSessionSwitch, options.setSessionPickerVisible],
-  );
   const cancelSessionPicker = useCallback(() => {
     options.setSessionPickerVisible(false);
-    options.addEntry(messageToHistoryEntry(createSystemMessage('Session resume cancelled.')));
+    options.addEntry(messageToHistoryEntry(createSystemMessage(RESUME_CANCELLED_NOTICE)));
   }, [options.addEntry, options.setSessionPickerVisible]);
   // The store is read once each time the picker opens, not on every render of the app: a listing
   // decodes every saved session, and the app re-renders on every keystroke and streamed token.
@@ -97,6 +92,15 @@ export function useAppOverlays(options: IOptions): IAppOverlays {
     options.cwd,
   ]);
   const sessions: readonly ISessionListingEntry[] = listing?.sessions ?? NO_SESSIONS;
+  const selection = useSessionSelection({
+    sessions,
+    sessionStore: options.sessionStore,
+    hostListing: options.hostSessions !== undefined,
+    pickerVisible: options.sessionPickerVisible,
+    setPickerVisible: options.setSessionPickerVisible,
+    onSessionSwitch: options.onSessionSwitch,
+    addEntry: options.addEntry,
+  });
   // A picker with nothing to pick would only hold the prompt: say so and give the prompt back.
   const nothingToResume = options.sessionPickerVisible && sessions.length === 0;
   const announced = useRef<typeof listing>(undefined);
@@ -129,8 +133,9 @@ export function useAppOverlays(options: IOptions): IAppOverlays {
     sessionPicker: {
       visible: options.sessionPickerVisible && !nothingToResume,
       sessions,
-      select: selectSession,
+      select: selection.select,
       cancel: cancelSessionPicker,
+      pendingAcceptance: selection.pendingAcceptance,
     },
   };
 }

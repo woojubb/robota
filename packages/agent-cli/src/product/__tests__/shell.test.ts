@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
-import { UnsupportedShellError } from '@robota-sdk/agent-core';
+import { UnsupportedShellError } from '@robota-sdk/agent-core/node';
 
 import { resolveProductShellExecutable } from '../shell.js';
 import {

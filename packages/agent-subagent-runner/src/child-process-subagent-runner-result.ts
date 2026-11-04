@@ -63,6 +63,12 @@ export interface IChildProcessSubagentResultOptions {
    */
   beforeStart?: (payload: ISubagentWorkerStartPayload) => ISubagentWorkerStartPayload;
   /**
+   * The job hands the child a record (`resumeHeld`), so it reports each save of it: those reports are
+   * the parent's own listener's (`followForkRecordSaves`). Absent, such a report fails the job like
+   * any other message this parent did not ask for.
+   */
+  followsRecordSaves?: true;
+  /**
    * Issue #3288 §1: how a child's own tool call gets a human's yes/no — the parent session's own
    * approver, already bound to this job's requester identity by the caller. Absent ⇒ the parent has
    * no approver attached (print mode / a truly headless run): every request from the child is denied
@@ -187,6 +193,12 @@ class ChildProcessSubagentResultController {
       );
       return;
     }
+    if (message.type === 'record_saved' && this.options.followsRecordSaves !== true) {
+      this.rejectOnce(
+        new BackgroundTaskError('runner', 'Received a record save this job did not hand over'),
+      );
+      return;
+    }
     // Any well-formed child message proves the entry reached worker mode.
     this.ready = true;
     clearTimeout(this.handshakeTimer);
@@ -202,7 +214,9 @@ class ChildProcessSubagentResultController {
   };
 
   /** Issue #3288 §1: a child's tool call is waiting on the parent's own approver. */
-  private readonly onPermissionRequest = (message: ISubagentWorkerPermissionRequestMessage): void => {
+  private readonly onPermissionRequest = (
+    message: ISubagentWorkerPermissionRequestMessage,
+  ): void => {
     const promise = this.answerPermissionRequest(message).finally(() => {
       this.pendingPermissionRequests.delete(message.requestId);
     });
@@ -375,16 +389,33 @@ function toSubagentResult(
 ): ISubagentJobResult {
   const transcriptPath = resolveTranscriptPath(job);
   const deniedToolCalls = summarizeDeniedToolCalls(deniedToolCallCounts);
+  const refused = result.recordSaveRefused === true;
+  const metadata = {
+    ...(transcriptPath ? { transcriptPath, logPath: transcriptPath } : {}),
+    ...(refused ? { recordSaveRefused: true } : {}),
+  };
   return {
     taskId: job.taskId,
-    output: result.output,
-    ...(transcriptPath ? { metadata: { transcriptPath, logPath: transcriptPath } } : {}),
+    // The child's answer stands; that its record was not saved is said after it, in fixed words.
+    output: refused
+      ? `${result.output}\n\n${recordSaveRefusedNotice(job.request.resumeSessionId)}`
+      : result.output,
+    ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
     // ANALYTICS-001 (Phase 2): carry the subagent's forwarded token usage so the background-task
     // tracker can attribute it to this agent as a source in the parent log.
     ...(result.usage ? { usage: result.usage } : {}),
     // Issue #3288 §1: additive — a run that refused nothing carries no new field.
     ...(deniedToolCalls ? { deniedToolCalls } : {}),
   };
+}
+
+/** What a parent says of a fork job whose record save was refused. Fixed text and the id only. */
+export function recordSaveRefusedNotice(sessionId: string | undefined): string {
+  const subject = sessionId === undefined ? "This fork's session" : `Session ${sessionId}`;
+  return (
+    `[${subject} was changed on disk by something this subagent cannot verify, so its turns ` +
+    'from then on were not saved to it.]'
+  );
 }
 
 /** `undefined` when nothing was refused, so a task's result carries the field only when it matters. */

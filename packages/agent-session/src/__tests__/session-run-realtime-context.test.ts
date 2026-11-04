@@ -85,7 +85,7 @@ function createContext(
     // autoCompactThreshold=false so executeRun never tries to compact in this test.
     contextTracker: new ContextWindowTracker('test-model', undefined, false),
     hooks: undefined,
-    hookTypeExecutors: undefined,
+    hookTypeExecutors: [],
     sessionStartStdout: '',
     log: vi.fn(),
     compact: vi.fn(async () => {}),

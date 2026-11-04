@@ -13,7 +13,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
-import { NodeSessionStore } from '@robota-sdk/agent-session';
+import { NodeSessionStore, loadSessionForUpdate } from '@robota-sdk/agent-session';
 import { describe, expect, it, vi } from 'vitest';
 
 import { writeForkedSessionRecord } from '../interactive-session-fork-record.js';
@@ -82,7 +82,12 @@ describe('a fork job in this process while the keys are locked', () => {
     const forkId = forkFrom(store);
     const session = childSession();
 
-    restoreSessionRecordIntoSession(store, forkId, session as never);
+    restoreSessionRecordIntoSession(
+      store,
+      forkId,
+      session as never,
+      loadSessionForUpdate(store, forkId),
+    );
 
     expect(session.injectRawMessage).toHaveBeenCalledWith(
       expect.objectContaining({ content: CANARY }),
@@ -96,7 +101,12 @@ describe('a fork job in this process while the keys are locked', () => {
     for (let index = 0; index < 40; index += 1) store.save(record(`sess_other_${index}`));
     const session = childSession();
 
-    restoreSessionRecordIntoSession(store, forkId, session as never);
+    restoreSessionRecordIntoSession(
+      store,
+      forkId,
+      session as never,
+      loadSessionForUpdate(store, forkId),
+    );
 
     expect(session.injectRawMessage).toHaveBeenCalledWith(
       expect.objectContaining({ content: CANARY }),

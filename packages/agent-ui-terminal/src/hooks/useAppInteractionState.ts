@@ -2,6 +2,7 @@ import { useAppInputBindings } from './useAppInputBindings.js';
 import { useAppOverlays } from './useAppOverlays.js';
 import { useAppSubmissionState } from './useAppSubmissionState.js';
 
+import type { TSessionSwitch } from '../types.js';
 import type { IAppOverlays } from './useAppOverlays.js';
 import type { IAppScreenState } from './useAppScreenState.js';
 import type { IAppSubmissionState } from './useAppSubmissionState.js';
@@ -15,7 +16,7 @@ interface IOptions {
   readonly state: ITuiChannelState;
   readonly shell: IAppScreenState;
   readonly sessionStore: IInteractiveSessionStore | undefined;
-  readonly onSessionSwitch: (sessionId: string) => Promise<void>;
+  readonly onSessionSwitch: TSessionSwitch;
   readonly pluginAdapter: ICommandPluginAdapter | undefined;
   readonly transportRegistry: ITransportRegistryView | undefined;
   readonly recoveryError: string | undefined;

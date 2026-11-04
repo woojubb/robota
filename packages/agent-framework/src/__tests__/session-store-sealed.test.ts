@@ -54,6 +54,20 @@ function record(id: string, text = CANARY, updatedAt = '2026-08-01T01:00:00.000Z
   } satisfies IInteractiveSessionRecord;
 }
 
+/**
+ * A valid outcome as a store that seals reports it (#3679 step 3e): it says whose the record is and
+ * which stored bytes it came from. Saves here state no provenance, and a write-only child's handed-over
+ * record is never the owner's, so the records are unverified.
+ */
+function sealedValid(value: IInteractiveSessionRecord) {
+  return {
+    status: 'valid',
+    record: value,
+    authorship: 'unverified',
+    digest: expect.stringMatching(/^[0-9a-f]{64}$/),
+  };
+}
+
 let cwd: string;
 
 beforeEach(() => {
@@ -98,7 +112,7 @@ describe.runIf(linux)('the project store with a sealer', () => {
     expect(bytes.subarray(0, 4).toString('ascii')).toBe('RSL1');
     expect(bytes.includes(Buffer.from(CANARY))).toBe(false);
     expect(statSync(fileOf('sess_a')).mode & 0o777).toBe(0o600);
-    expect(store.load('sess_a')).toEqual({ status: 'valid', record: record('sess_a') });
+    expect(store.load('sess_a')).toEqual(sealedValid(record('sess_a')));
   });
 
   it('seals the same record to different bytes every time', async () => {
@@ -129,7 +143,7 @@ describe.runIf(linux)('the project store with a sealer', () => {
     expect(store.load('sess_new')).toEqual({ status: 'locked' });
 
     sealer.unlock();
-    expect(store.load('sess_new')).toEqual({ status: 'valid', record: record('sess_new') });
+    expect(store.load('sess_new')).toEqual(sealedValid(record('sess_new')));
   });
 
   it('does not rebuild a locked session from its replay log', async () => {
@@ -256,10 +270,9 @@ describe.runIf(linux)('the project store with a sealer', () => {
     const before = readFileSync(fileOf('sess_old'));
     loaded.save(record('sess_old', 'after the lock'));
     expect(readFileSync(fileOf('sess_old')).equals(before)).toBe(false);
-    expect(loaded.loadHeld?.('sess_old')).toEqual({
-      status: 'valid',
-      record: record('sess_old', 'after the lock'),
-    });
+    expect(loaded.loadHeld?.('sess_old')).toEqual(
+      sealedValid(record('sess_old', 'after the lock')),
+    );
   });
 
   it('does not overwrite a file another writer replaced after the lock, and forgets on delete', async () => {
@@ -482,7 +495,7 @@ describe('a project record handed to a subagent process (#3679 step 3b)', () => 
     const token = store.exportHeld?.('sess_fork');
     sealer.lock();
 
-    expect(token).toMatch(/^rsh1\.[0-9a-f]{64}\./);
+    expect(token).toMatch(/^rsh2\.(owner|unverified)\.[0-9a-f]{64}\./);
     expect(store.exportHeld?.('sess_fork')).toBeUndefined();
     expect(store.loadHeld?.('sess_fork')).toBeUndefined();
   });
@@ -498,10 +511,7 @@ describe('a project record handed to a subagent process (#3679 step 3b)', () => 
 
     expect(child.load('sess_fork')).toEqual(NO_KEYS);
     child.importHeld?.('sess_fork', token);
-    expect(loadSessionForUpdate(child, 'sess_fork')).toEqual({
-      status: 'valid',
-      record: record('sess_fork'),
-    });
+    expect(loadSessionForUpdate(child, 'sess_fork')).toEqual(sealedValid(record('sess_fork')));
   });
 
   it.runIf(linux)(
@@ -516,8 +526,8 @@ describe('a project record handed to a subagent process (#3679 step 3b)', () => 
 
       for (const id of held) expect(store.loadHeld?.(id)?.status, id).toBe('valid');
       // An export that keeps it, as a runner's feasibility check does, leaves it for the hand-over.
-      expect(store.exportHeld?.('sess_fork', { keep: true })).toMatch(/^rsh1\./);
-      expect(store.exportHeld?.('sess_fork')).toMatch(/^rsh1\./);
+      expect(store.exportHeld?.('sess_fork', { keep: true })).toMatch(/^rsh2\./);
+      expect(store.exportHeld?.('sess_fork')).toMatch(/^rsh2\./);
       expect(store.exportHeld?.('sess_fork')).toBeUndefined();
     },
   );

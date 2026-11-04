@@ -70,6 +70,20 @@ function record(id: string, text: string): IInteractiveSessionRecord {
   };
 }
 
+/**
+ * A valid outcome as a store that seals reports it (#3679 step 3e): it says whose the record is and
+ * which stored bytes it came from. Saves here state no provenance, and a write-only child's handed-over
+ * record is never the owner's, so the records are unverified.
+ */
+function sealedValid(value: IInteractiveSessionRecord) {
+  return {
+    status: 'valid',
+    record: value,
+    authorship: 'unverified',
+    digest: expect.stringMatching(/^[0-9a-f]{64}$/),
+  };
+}
+
 let cwd: string;
 
 beforeEach(() => {
@@ -103,7 +117,7 @@ describe.runIf(linux)('a project session write that fails part-way', () => {
 
     expect(() => store.save(record('sess_a', 'third'))).not.toThrow();
     sealer.unlock();
-    expect(store.load('sess_a')).toEqual({ status: 'valid', record: record('sess_a', 'third') });
+    expect(store.load('sess_a')).toEqual(sealedValid(record('sess_a', 'third')));
   });
 
   it('counts a record that reached the path before the directory flush failed as its own', async () => {
@@ -127,6 +141,6 @@ describe.runIf(linux)('a project session write that fails part-way', () => {
 
     expect(() => store.save(record('sess_a', 'third'))).not.toThrow();
     sealer.unlock();
-    expect(store.load('sess_a')).toEqual({ status: 'valid', record: record('sess_a', 'third') });
+    expect(store.load('sess_a')).toEqual(sealedValid(record('sess_a', 'third')));
   });
 });

@@ -741,6 +741,8 @@ describe('atomic recovery checkpoints', () => {
         throw new Error('late failure');
       },
       list: () => [],
+      claim: () => ({ outcome: { status: 'missing' as const }, release: () => undefined }),
+      hasWriter: () => false,
       delete: () => undefined,
     };
     const f = fixture([action], { ...allowed, sessionStore: store });

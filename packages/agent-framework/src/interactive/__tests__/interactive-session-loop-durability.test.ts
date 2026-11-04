@@ -1,3 +1,4 @@
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -66,7 +67,7 @@ function setup(
   } as never);
   storeAgentToolDeps(session, { backgroundTaskManager: manager } as unknown as IAgentToolDeps);
   const records = new Map<string, ITestRecord>();
-  const store = {
+  const store = withHoldReadClaim({
     load: vi.fn((id: string) => {
       const record = records.get(id);
       return record ? { status: 'valid' as const, record } : { status: 'missing' as const };
@@ -77,7 +78,7 @@ function setup(
     }),
     list: vi.fn(() => []),
     delete: vi.fn(),
-  };
+  });
   const interactive = new InteractiveSession({
     session,
     sessionStore: store as never,
@@ -296,6 +297,8 @@ describe('session-loop creation durability', () => {
         expect.objectContaining({
           sessionLoops: [expect.objectContaining({ loopId: created.loopId, phase: 'pending' })],
         }),
+        // Every save of the session's own record carries its claim.
+        expect.objectContaining({ claim: expect.anything() }),
       );
       await vi.waitFor(() => expect(held.controller.pendingCount()).toBe(1));
     } finally {

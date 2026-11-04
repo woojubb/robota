@@ -19,6 +19,7 @@ import {
 } from '@robota-sdk/agent-framework';
 import { migrateNodeSessionStore } from '@robota-sdk/agent-session';
 
+import { adoptMigratedSessionRecords } from '../product/session-stores.js';
 import { KeyHolderArtifactSealer } from './artifact-sealer.js';
 import { sweepMigrationLeftovers } from './migration-leftovers.js';
 import { discoverProjectRoots } from './migration-roots.js';
@@ -26,7 +27,15 @@ import { discoverProjectRoots } from './migration-roots.js';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { ILeftovers } from './migration-leftovers.js';
 import type { IListedProjectRoot, ITrustedProjectRoot } from './migration-roots.js';
-import type { IMigrationContext, IMigrationStep, IMigrationStepOutcome } from './migration-step.js';
+import type { TMigratedSessionStore } from '../product/session-stores.js';
+import type {
+  IMigratedSessions,
+  IMigratedSessionsMarked,
+  IMigrationContext,
+  IMigrationStep,
+  IMigrationStepOutcome,
+  IUnmarkedSessions,
+} from './migration-step.js';
 import type {
   IEditCheckpointMigration,
   IWorkspaceSessionLogMigration,
@@ -38,7 +47,8 @@ import type { ISessionLogMigration, ISessionRecordMigration } from '@robota-sdk/
 const NAMED_PATHS = 5;
 const PENDING_MEMORY_FILE = 'pending.json';
 /** What the person does about the files a step refused, before running it again. */
-const MOVE_REFUSED_ASIDE = 'Move each aside, or remove its other name, yourself; then run this again.';
+const MOVE_REFUSED_ASIDE =
+  'Move each aside, or remove its other name, yourself; then run this again.';
 
 export interface IStoreMigrationStepOptions {
   /** The shared temporary directory earlier builds left files in; defaults to this process's. */
@@ -79,6 +89,60 @@ async function withSealer<T>(
   } finally {
     sealer.dispose();
   }
+}
+
+/** The records a run sealed in one store, and where that store is, as the person is told it. */
+interface IMigratedBatch {
+  readonly target: TMigratedSessionStore;
+  readonly where: string;
+  readonly records: readonly { readonly id: string; readonly digest: string }[];
+}
+
+/**
+ * The records a run sealed in each store, as the person may then mark them as theirs: raised with a
+ * sealer of their own over the run's holder, which is still unlocked. Each store is marked on its own,
+ * so one that cannot be reached is named and the others are still marked. Absent when none were sealed.
+ */
+function migratedSessions(
+  context: IMigrationContext,
+  batches: readonly IMigratedBatch[],
+): IMigratedSessions | undefined {
+  const count = batches.reduce((sum, batch) => sum + batch.records.length, 0);
+  if (count === 0) return undefined;
+  return {
+    count,
+    adopt: (): IMigratedSessionsMarked => {
+      const sealer = new KeyHolderArtifactSealer(context.holder);
+      const marked = { adopted: 0, locked: 0, changed: 0 };
+      const unmarked: IUnmarkedSessions[] = [];
+      try {
+        for (const batch of batches) {
+          try {
+            const result = adoptMigratedSessionRecords(batch.target, sealer, batch.records);
+            marked.adopted += result.adopted;
+            marked.locked += result.locked;
+            marked.changed += result.changed;
+            if (result.failed > 0) {
+              unmarked.push({
+                where: batch.where,
+                count: result.failed,
+                failure: result.failure ?? 'unknown',
+              });
+            }
+          } catch (error) {
+            unmarked.push({
+              where: batch.where,
+              count: batch.records.length,
+              failure: error instanceof Error ? error.name : 'unknown',
+            });
+          }
+        }
+        return { ...marked, unmarked };
+      } finally {
+        sealer.dispose();
+      }
+    },
+  };
 }
 
 /** The options every converter of a run takes. */
@@ -229,6 +293,10 @@ function sessionRecordsStep(): IMigrationStep {
     }),
     run: async (context) => {
       const result = await convert(context, true);
+      const sessions = context.productRuntime.layout.userPaths.sessions;
+      const migrated = migratedSessions(context, [
+        { target: { kind: 'user', sessions }, where: sessions, records: result.sealedRecords },
+      ]);
       return {
         lines: describeRecords(
           label(context.productRuntime),
@@ -237,6 +305,7 @@ function sessionRecordsStep(): IMigrationStep {
           context.mayDeleteLeftovers,
         ),
         complete: finished(result, context.mayDeleteLeftovers),
+        ...(migrated !== undefined ? { migratedSessions: migrated } : {}),
       };
     },
   };
@@ -376,9 +445,15 @@ function projectsStep(options: IStoreMigrationStepOptions): IMigrationStep {
       const tense: TTense = apply ? 'done' : 'plan';
       const lines: string[] = [];
       let complete = true;
+      const sealed: IMigratedBatch[] = [];
       for (const project of roots.trusted) {
         try {
           const result = migrateProject(project, context, sealer, apply);
+          sealed.push({
+            target: { kind: 'project', authority: project.authority },
+            where: `the project ${project.root}`,
+            records: result.records.sealedRecords,
+          });
           lines.push(
             ...describeProject(runtime, project, result, tense, context.mayDeleteLeftovers),
           );
@@ -408,7 +483,8 @@ function projectsStep(options: IStoreMigrationStepOptions): IMigrationStep {
           `  ${count(roots.vanished, 'recorded working directory', 'recorded working directories')} ${roots.vanished === 1 ? 'no longer exists' : 'no longer exist'}.`,
         );
       }
-      return { lines, complete };
+      const migrated = migratedSessions(context, sealed);
+      return { lines, complete, ...(migrated !== undefined ? { migratedSessions: migrated } : {}) };
     });
   return {
     title: 'the project state',

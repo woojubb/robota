@@ -9,6 +9,7 @@
  * than leaving the terminal pointed at nothing.
  */
 
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { render } from 'ink-testing-library';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -17,12 +18,16 @@ import ExecutionWorkspaceSwitcher, {
   EXECUTION_WORKSPACE_ATTACH_HINT,
 } from '../ExecutionWorkspaceSwitcher.js';
 import { attachToForkedSession } from '../flows/fork-attach-flow.js';
+import { useForkAttach } from '../hooks/useForkAttach.js';
+import { TuiCliAdapterProvider } from '../tui-cli-adapter-context.js';
 
+import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type {
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
   TExecutionControl,
 } from '@robota-sdk/agent-interface-execution';
+import type { TSessionLoadOutcome } from '@robota-sdk/agent-interface-session';
 
 const FORK_SESSION_ID = 'session_cli-1994-fork';
 
@@ -80,6 +85,7 @@ describe('attaching to a fork switches the view (CLI-1994 TC-08)', () => {
 
     const outcome = attachToForkedSession(makeForkEntry(), {
       hasSessionRecord: storeWith([FORK_SESSION_ID]),
+      hasWriter: () => false,
       switchSession,
       notify,
     });
@@ -96,6 +102,7 @@ describe('attaching to a fork switches the view (CLI-1994 TC-08)', () => {
 
     const intent = attachToForkedSession(makePlainEntry(), {
       hasSessionRecord: storeWith([FORK_SESSION_ID]),
+      hasWriter: () => false,
       switchSession,
       notify,
     });
@@ -172,6 +179,7 @@ describe('attach refuses rather than stranding the terminal (CLI-1994 TC-09)', (
       const intent = attachToForkedSession(makeForkEntry({ status }), {
         // The record is still there; the TASK being terminal is what refuses.
         hasSessionRecord: storeWith([FORK_SESSION_ID]),
+        hasWriter: () => false,
         switchSession,
         notify,
       });
@@ -187,6 +195,7 @@ describe('attach refuses rather than stranding the terminal (CLI-1994 TC-09)', (
     const neutral = vi.fn();
     attachToForkedSession(entry, {
       hasSessionRecord: storeWith([FORK_SESSION_ID]),
+      hasWriter: () => false,
       switchSession: vi.fn(),
       notify: neutral,
     });
@@ -196,6 +205,7 @@ describe('attach refuses rather than stranding the terminal (CLI-1994 TC-09)', (
     const product = vi.fn();
     attachToForkedSession(entry, {
       hasSessionRecord: storeWith([FORK_SESSION_ID]),
+      hasWriter: () => false,
       switchSession: vi.fn(),
       notify: product,
       formatResumeCommand: (id) => `agent --resume ${id}`,
@@ -209,6 +219,7 @@ describe('attach refuses rather than stranding the terminal (CLI-1994 TC-09)', (
 
     const intent = attachToForkedSession(makeForkEntry({ status: 'running' }), {
       hasSessionRecord: storeWith([]),
+      hasWriter: () => false,
       switchSession,
       notify,
     });
@@ -221,15 +232,79 @@ describe('attach refuses rather than stranding the terminal (CLI-1994 TC-09)', (
     expect(reason).toContain('no longer in the session store');
   });
 
+  it('a fork something in this process still writes is refused, saying why and what to do', () => {
+    const switchSession = vi.fn();
+    const notify = vi.fn();
+
+    const intent = attachToForkedSession(makeForkEntry({ status: 'running' }), {
+      hasSessionRecord: storeWith([FORK_SESSION_ID]),
+      hasWriter: (sessionId) => sessionId === FORK_SESSION_ID,
+      switchSession,
+      notify,
+      formatResumeCommand: (id) => `agent -r ${id}`,
+    });
+
+    expect(intent).toBeUndefined();
+    expect(switchSession).not.toHaveBeenCalled();
+    const reason = notify.mock.calls[0]?.[0] as string;
+    expect(reason).toContain('experiment is still running as a subagent job');
+    expect(reason).toContain(`agent -r ${FORK_SESSION_ID}`);
+  });
+
   it('a live fork whose record exists is the ONLY case that switches', () => {
     const switchSession = vi.fn();
 
     attachToForkedSession(makeForkEntry({ status: 'waiting_permission' }), {
       hasSessionRecord: storeWith([FORK_SESSION_ID]),
+      hasWriter: () => false,
       switchSession,
       notify: vi.fn(),
     });
 
     expect(switchSession).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('the attach handler of this terminal', () => {
+  it('asks the store whether the fork has a writer here, and refuses while a session claims it', () => {
+    const fork: TSessionLoadOutcome = {
+      status: 'valid',
+      record: {
+        id: FORK_SESSION_ID,
+        cwd: '/work',
+        createdAt: '2026-09-07T00:00:00.000Z',
+        updatedAt: '2026-09-07T00:00:00.000Z',
+        messages: [],
+      },
+    };
+    const store = withHoldReadClaim({
+      load: () => fork,
+      list: () => [],
+      save: () => undefined,
+      delete: () => undefined,
+    });
+    const claim = store.claim(FORK_SESSION_ID);
+    const addEntry = vi.fn();
+    const onSessionSwitch = vi.fn();
+    let attach!: (entry: IExecutionWorkspaceEntry) => void;
+    function Probe(): React.ReactElement {
+      attach = useForkAttach({ sessionStore: store, onSessionSwitch, addEntry });
+      return <></>;
+    }
+    const view = render(
+      <TuiCliAdapterProvider value={{} as ITuiCliAdapter}>
+        <Probe />
+      </TuiCliAdapterProvider>,
+    );
+
+    attach(makeForkEntry());
+    claim.release();
+    attach(makeForkEntry());
+    view.unmount();
+
+    const said = addEntry.mock.calls.map(([entry]) => JSON.stringify(entry)).join('\n');
+    expect(said).toContain('experiment is still running as a subagent job');
+    expect(onSessionSwitch).toHaveBeenCalledTimes(1);
+    expect(onSessionSwitch).toHaveBeenCalledWith(FORK_SESSION_ID);
   });
 });

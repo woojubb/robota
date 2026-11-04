@@ -32,48 +32,6 @@ const nextConfig: NextConfig = {
     // Keep console.log for debugging (temporarily disabled)
     removeConsole: false,
   },
-
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      config.resolve = config.resolve ?? {};
-      config.resolve.fallback = {
-        ...(config.resolve.fallback ?? {}),
-        child_process: false,
-        fs: false,
-        module: false,
-        net: false,
-        tls: false,
-        worker_threads: false,
-      };
-      // node: protocol modules are not polyfillable in the browser — alias to false (empty module)
-      config.resolve.alias = {
-        ...(config.resolve.alias ?? {}),
-        'node:child_process': false,
-        'node:fs': false,
-        'node:net': false,
-        'node:tls': false,
-        'node:worker_threads': false,
-      };
-      // agent-core compiles `import { randomUUID } from 'node:crypto'` to
-      // `import { randomUUID } from 'crypto'` in its browser dist.
-      // Next.js/webpack has no polyfill for crypto.randomUUID, so we swap
-      // the entire crypto import to a thin browser shim.
-      const { NormalModuleReplacementPlugin } = require('webpack');
-      config.plugins = [
-        ...(config.plugins ?? []),
-        new NormalModuleReplacementPlugin(
-          /^(node:)?crypto$/,
-          require('path').resolve(__dirname, 'src/lib/crypto-browser.js'),
-        ),
-        new NormalModuleReplacementPlugin(
-          /^(node:)?child_process$/,
-          require('path').resolve(__dirname, 'src/lib/child-process-browser.js'),
-        ),
-      ];
-    }
-
-    return config;
-  },
 };
 
 export default withBundleAnalyzer(nextConfig);

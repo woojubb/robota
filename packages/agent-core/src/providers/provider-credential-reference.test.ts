@@ -20,6 +20,7 @@ describe('host provider credential references', () => {
       normalizeProviderConfig(
         { name: 'openrouter', model: 'test-model', apiKeyRef: reference, apiKey: 'literal-secret' },
         [],
+        () => undefined,
       ),
     ).toThrow(/credential/i);
   });

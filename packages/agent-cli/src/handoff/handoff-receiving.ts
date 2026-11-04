@@ -20,6 +20,10 @@ import { createHandoffConsent } from './handoff-consent.js';
 import { checkHandoffGrant } from './handoff-grant.js';
 import { receiveHandoff, type TReceiveHandoffOutcome } from './handoff-receive.js';
 
+import type {
+  IInteractiveSessionRecord,
+  IInteractiveSessionStore,
+} from '@robota-sdk/agent-interface-session';
 import type { IDeviceCertificate } from '@robota-sdk/agent-remote-pairing';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
@@ -122,4 +126,17 @@ export function createHandoffReceiver(
       stopWatching();
     }
   };
+}
+
+/**
+ * Saves a session a peer pushed here, under this side's `cwd`, as a record never this owner's: a
+ * store that seals does not tag it, whatever it already holds for the id, so its first resume asks.
+ */
+export function saveReceivedSession(
+  store: IInteractiveSessionStore,
+  record: IInteractiveSessionRecord,
+  cwd: string,
+): true {
+  store.save({ ...record, cwd }, { provenance: 'unverified' });
+  return true;
 }

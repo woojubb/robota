@@ -54,6 +54,10 @@ export const SESSION_CHANGE_REFUSAL_CODES = Object.freeze([
   'unreadable',
   /** The session could not be started. */
   'start_failed',
+  /** A session of that id in this host still holds its record while it closes: trying again works. */
+  'still_closing',
+  /** The record is not verified as the owner's, and nothing here can ask whether it is. */
+  'unverified',
   /** As many sessions are live as the host allows, and none of them can be closed. */
   'limit',
   /** Anything else; the message says what. */

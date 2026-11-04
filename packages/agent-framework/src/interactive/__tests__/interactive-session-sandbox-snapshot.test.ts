@@ -1,3 +1,4 @@
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,6 +9,7 @@ import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
+  TSessionLoadOutcome,
 } from '../session-persistence.js';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import { loadedRecordOrMissing } from './session-load-helpers.js';
@@ -112,11 +114,11 @@ function createMockProvider() {
 
 function createMemorySessionStore(record: IInteractiveSessionRecord): IInteractiveSessionStore {
   const records = new Map<string, IInteractiveSessionRecord>([[record.id, record]]);
-  return {
-    save(session) {
+  return withHoldReadClaim({
+    save(session: IInteractiveSessionRecord) {
       records.set(session.id, session);
     },
-    load(id) {
+    load(id: string): TSessionLoadOutcome {
       const record = records.get(id);
       return record === undefined ? { status: 'missing' } : { status: 'valid', record };
     },
@@ -126,10 +128,10 @@ function createMemorySessionStore(record: IInteractiveSessionRecord): IInteracti
         outcome: { status: 'valid' as const, record },
       }));
     },
-    delete(id) {
+    delete(id: string) {
       records.delete(id);
     },
-  };
+  });
 }
 
 function createRestoringSandboxClient(): ISandboxClient {

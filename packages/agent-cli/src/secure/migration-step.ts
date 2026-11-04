@@ -39,6 +39,41 @@ export interface IMigrationStepReport {
 export interface IMigrationStepOutcome extends IMigrationStepReport {
   /** False when something the step should have converted is still plain: the run is incomplete. */
   readonly complete: boolean;
+  /** The session records the step sealed from plaintext; absent when it sealed none. */
+  readonly migratedSessions?: IMigratedSessions;
+}
+
+/**
+ * Session records a run sealed from plaintext files any program of the user could have written:
+ * sealing says nothing about who wrote them, so they stay unverified unless the person marks them as
+ * theirs.
+ */
+export interface IMigratedSessions {
+  readonly count: number;
+  /**
+   * Raises each to the owner's while its file is still exactly the bytes the run sealed (the keys are
+   * unlocked for the whole run); a record changed since is left unverified, and a store whose records
+   * could not be raised does not stop the others.
+   */
+  adopt(): IMigratedSessionsMarked;
+}
+
+/** What marking the migrated sessions as the owner's did. */
+export interface IMigratedSessionsMarked {
+  readonly adopted: number;
+  /** Not marked: the keys locked during the run before they could be; each asks on its next resume. */
+  readonly locked: number;
+  /** Changed after the run sealed them, so left unverified. */
+  readonly changed: number;
+  /** The sessions that could not be marked at all, by where they are; they stay unverified. */
+  readonly unmarked: readonly IUnmarkedSessions[];
+}
+
+/** Sessions a marking could not reach, where they are, and the name of the error that stopped it. */
+export interface IUnmarkedSessions {
+  readonly where: string;
+  readonly count: number;
+  readonly failure: string;
 }
 
 /** One kind of stored artifact a migration converts, planned read-only and then run. */

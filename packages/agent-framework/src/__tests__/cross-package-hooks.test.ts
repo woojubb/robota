@@ -11,6 +11,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { runHooks } from '@robota-sdk/agent-core';
+import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
 import { buildSystemPrompt } from '../context/system-prompt-builder.js';
@@ -22,6 +23,7 @@ import type { IPromptProvider } from '../hooks/index.js';
 import type { IBundleSkill, ILoadedBundlePlugin } from '../plugins/index.js';
 import type { THooksConfig, IHookInput, IHookTypeExecutor } from '@robota-sdk/agent-core';
 
+const nodeExecutors = [new CommandExecutor(), new HttpExecutor()];
 let tempDirs: string[] = [];
 
 function createTempDir(): string {
@@ -75,8 +77,8 @@ describe('Cross-package: config -> hook runner', () => {
       tool_input: { command: 'ls' },
     };
 
-    // Use default executors (command + http from agent-core internals)
-    const result = await runHooks(config, 'PreToolUse', input);
+    // Use the Node executors (command + http from agent-core/node)
+    const result = await runHooks(config, 'PreToolUse', input, nodeExecutors);
 
     // echo exits 0, so the hook should not block
     expect(result.blocked).toBe(false);
@@ -99,7 +101,7 @@ describe('Cross-package: config -> hook runner', () => {
       tool_name: 'dangerous',
     };
 
-    const result = await runHooks(config, 'PreToolUse', input);
+    const result = await runHooks(config, 'PreToolUse', input, nodeExecutors);
 
     expect(result.blocked).toBe(true);
     expect(result.reason).toContain('denied');
@@ -122,7 +124,7 @@ describe('Cross-package: config -> hook runner', () => {
       tool_name: 'read', // Does not match "bash"
     };
 
-    const result = await runHooks(config, 'PreToolUse', input);
+    const result = await runHooks(config, 'PreToolUse', input, nodeExecutors);
 
     expect(result.blocked).toBe(false);
   });
@@ -282,7 +284,7 @@ describe('Cross-package: config -> hook runner', () => {
       tool_name: 'bash',
     };
 
-    const result = await runHooks(undefined, 'PreToolUse', input);
+    const result = await runHooks(undefined, 'PreToolUse', input, nodeExecutors);
     expect(result.blocked).toBe(false);
   });
 

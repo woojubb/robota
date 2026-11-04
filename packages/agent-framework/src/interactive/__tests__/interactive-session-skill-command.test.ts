@@ -1,3 +1,4 @@
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { mkdirSync, mkdtempSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -285,14 +286,14 @@ describe('InteractiveSession skill activation common API', () => {
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     let savedRecord: IInteractiveSessionRecord | undefined;
-    const sessionStore: IInteractiveSessionStore = {
-      save: (record) => {
+    const sessionStore = withHoldReadClaim({
+      save: (record: IInteractiveSessionRecord) => {
         savedRecord = record;
       },
       load: () => ({ status: 'missing' }) as const,
       list: () => [],
       delete: vi.fn(),
-    };
+    });
     const session = new InteractiveSession({
       session: parentSession as never,
       cwd,

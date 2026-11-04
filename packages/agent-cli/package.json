@@ -11,6 +11,7 @@
   "exports": {
     ".": {
       "source": "./src/index.ts",
+      "browser": null,
       "node": {
         "import": {
           "types": "./dist/node/index.d.ts",
@@ -26,6 +27,7 @@
     },
     "./host": {
       "source": "./src/product-host.ts",
+      "browser": null,
       "import": {
         "types": "./dist/node/host.d.ts",
         "default": "./dist/node/host.js"
@@ -33,12 +35,14 @@
     },
     "./desktop-host": {
       "source": "./src/desktop-host.ts",
+      "browser": null,
       "import": {
         "types": "./dist/node/desktop-host.d.ts",
         "default": "./dist/node/desktop-host.js"
       }
     },
     "./native-build": {
+      "browser": null,
       "import": {
         "types": "./scripts/native-build.d.mts",
         "default": "./scripts/native-build.mjs"
@@ -183,7 +187,7 @@
     "@robota-sdk/agent-ui-terminal": "workspace:*",
     "@robota-sdk/pack-coding": "workspace:*",
     "@robota-sdk/product-config": "workspace:*",
-    "@robota-sdk/workflows": "0.0.2",
+    "@robota-sdk/workflows": "0.0.3",
     "@types/marked": "^6.0.0",
     "@types/qrcode": "^1.5.5",
     "@types/ws": "^8.18.1",
