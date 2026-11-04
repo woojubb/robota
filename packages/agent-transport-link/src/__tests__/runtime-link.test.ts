@@ -20,6 +20,7 @@ import {
   type IRuntimeIdentity,
   type SpawnerKey,
 } from '@robota-sdk/agent-keyring';
+import { MAX_INBOUND_FRAME_BYTES } from '@robota-sdk/agent-transport';
 
 import {
   LINK_REQUEST_LINE,
@@ -196,6 +197,59 @@ describe('what a runtime sends from inside admit', () => {
     const { spawnerKey, instancePublicKey, runtime, port } = await startRuntime({ onAdmit: early });
     const client = await openSpawnerLink(await connect(port), spawnerKey, instancePublicKey);
     await until(() => client.custody.unlocked);
+    expect(runtime.record.links[0]!.closed).toBe(false);
+    client.close();
+  });
+});
+
+/** A text-delta message from the runtime, serialized, whose `delta` is `text`. */
+const textDelta = (text: string): string => JSON.stringify({ type: 'text_delta', delta: text });
+/** A submit from a client, serialized, whose `prompt` is `text`. */
+const submit = (text: string): string => JSON.stringify({ type: 'submit', prompt: text });
+/** `text` repeated so that `make(text)` is exactly `bytes` UTF-8 bytes long. */
+function sized(make: (text: string) => string, bytes: number): string {
+  return make('x'.repeat(bytes - Buffer.byteLength(make(''))));
+}
+
+describe('a session message at and over the bound the receiving decoder applies', () => {
+  const over = (make: (text: string) => string): string[] => [
+    sized(make, MAX_INBOUND_FRAME_BYTES + 1),
+    // Under the decoder's limit in characters, over it in bytes: the local attach path refuses it too.
+    make('\u20ac'.repeat(Math.ceil(MAX_INBOUND_FRAME_BYTES / 3))),
+  ];
+
+  it('from the runtime: an over-bound send throws, the link stays open, and the next message arrives', async () => {
+    const { spawnerKey, instancePublicKey, runtime, port } = await startRuntime();
+    const client = await openSpawnerLink(await connect(port), spawnerKey, instancePublicKey);
+    const received: unknown[] = [];
+    client.session.onMessage((message) => received.push(message));
+    const link = runtime.record.links[0]!;
+
+    link.sendSession(sized(textDelta, MAX_INBOUND_FRAME_BYTES));
+    for (const data of over(textDelta)) expect(() => link.sendSession(data)).toThrow(RangeError);
+    link.sendSession(textDelta('after'));
+
+    await until(() => received.length === 2);
+    expect(received.at(-1)).toEqual({ type: 'text_delta', delta: 'after' });
+    expect(link.closed).toBe(false);
+    client.close();
+  });
+
+  it('from the client: an over-bound send throws, the link stays open, and the next message arrives', async () => {
+    const { spawnerKey, instancePublicKey, runtime, port } = await startRuntime();
+    const client = await openSpawnerLink(await connect(port), spawnerKey, instancePublicKey);
+
+    client.session.send(JSON.parse(sized(submit, MAX_INBOUND_FRAME_BYTES)));
+    for (const data of over(submit)) {
+      expect(() => client.session.send(JSON.parse(data))).toThrow(RangeError);
+    }
+    client.session.send({ type: 'submit', prompt: 'after' });
+
+    await until(() => runtime.record.sessionData.length === 2);
+    expect(JSON.parse(runtime.record.sessionData.at(-1)!)).toEqual({
+      type: 'submit',
+      prompt: 'after',
+    });
     expect(runtime.record.links[0]!.closed).toBe(false);
     client.close();
   });
