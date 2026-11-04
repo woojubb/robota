@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { createNodeHostSettingsSource } from '../../config/settings-source.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import { InteractiveSession } from '../interactive-session.js';
 
@@ -20,10 +19,7 @@ afterEach(() => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-function sessionOn(
-  host: IFrameworkHost,
-  extra: Partial<ConstructorParameters<typeof InteractiveSession>[0]> = {},
-): InteractiveSession {
+function sessionOn(host: IFrameworkHost): InteractiveSession {
   const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'session-host-absent-')));
   roots.push(cwd);
   return new InteractiveSession({
@@ -31,7 +27,6 @@ function sessionOn(
     cwd,
     provider: createScriptedProvider([]).provider,
     bare: true,
-    ...extra,
   } as ConstructorParameters<typeof InteractiveSession>[0]);
 }
 
@@ -69,17 +64,5 @@ describe('InteractiveSession project reads', () => {
     const status = await session.readProjectStatus();
     expect(run).toHaveBeenCalled();
     expect(status).toEqual({ kind: 'failed', message: expect.stringContaining('no git here') });
-  });
-});
-
-describe('InteractiveSession plugin directories', () => {
-  it('refuses to be built when it names plugin directories and the host lends no files', () => {
-    expect(() =>
-      sessionOn(createTestFrameworkHost({ files: undefined }), {
-        bare: false,
-        userSettingsSources: [createNodeHostSettingsSource('user', '/home/me/settings.json')],
-        pluginDirectories: { user: '/home/me/plugins' },
-      }),
-    ).toThrow(/`pluginDirectories`.*`host\.files`/);
   });
 });

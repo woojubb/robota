@@ -105,14 +105,18 @@ export async function createInteractiveSession(
   const effectiveHookSources = options.skipConfiguredHooks === true ? [] : [...hookSources];
 
   // A restricted session still sees user-installed plugins; see `sessionPluginDirectories`.
-  const pluginsDirs = sessionPluginDirectories(options);
+  const pluginFiles = options.host.files?.sync;
+  const pluginsDirs = sessionPluginDirectories({
+    ...options,
+    ...(pluginFiles !== undefined ? { fs: pluginFiles } : {}),
+  });
   // PLG-021 / issue #2025: built through the composition root so a disabled plugin's hooks do not
   // load. The bare constructor defaults the enablement map to `{}`, which reads as "nothing
   // disabled" — indistinguishable from a user who disabled nothing. `pluginsDirs` stays a local
   // because the failure log below names it.
   const pluginSettingsPath = sessionPluginSettingsPath(options);
   if (pluginSettingsPath !== undefined && pluginsDirs.length > 0) {
-    const fs = requireSessionPluginFiles(options.host.files?.sync);
+    const fs = requireSessionPluginFiles(pluginFiles);
     try {
       const plugins = loadHostBundlePluginsFromScopes(pluginsDirs, {
         settingsPath: pluginSettingsPath,
