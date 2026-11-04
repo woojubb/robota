@@ -130,6 +130,21 @@ describe('Google Search on the request', () => {
     },
   );
 
+  it('keeps the rest of a static tool config when it joins function tools', async () => {
+    const target = new GeminiProvider({
+      apiKey: 'test-key',
+      defaultModel: GEMINI_3,
+      enableWebTools: true,
+      toolConfig: { retrievalConfig: { languageCode: 'en' } },
+    });
+
+    expect((await sent({ tools: [tool] }, target)).toolConfig).toEqual({
+      retrievalConfig: { languageCode: 'en' },
+      includeServerSideToolInvocations: true,
+      functionCallingConfig: { mode: 'VALIDATED' },
+    });
+  });
+
   it('joins function tools on Gemini 4 and on a models/ name', async () => {
     expect((await sent({ tools: [tool] }, provider('gemini-4-argon'))).tools).toHaveLength(2);
     expect((await sent({ tools: [tool] }, provider('models/gemini-3.8-flash'))).tools).toHaveLength(

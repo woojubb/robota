@@ -36,6 +36,16 @@ const ANTHROPIC: IProviderDefinitionConfig = {
   apiKey: 'sk-ant-test',
 };
 const OPENAI: IProviderDefinitionConfig = { name: 'openai', model: 'gpt-5.1', apiKey: 'sk-test' };
+const GEMINI: IProviderDefinitionConfig = {
+  name: 'gemini',
+  model: 'gemini-3-flash-preview',
+  apiKey: 'gemini-test',
+};
+const DEEPSEEK: IProviderDefinitionConfig = {
+  name: 'deepseek',
+  model: 'deepseek-chat',
+  apiKey: 'deepseek-test',
+};
 
 function definitionFor(
   definitions: readonly IProviderDefinition[],
@@ -85,13 +95,27 @@ describe('productProviderDefinitions native web search default', () => {
     expect(received.at(-1)).toBe(empty);
   });
 
-  it('leaves every other provider definition untouched', () => {
-    const provider = definitionFor(productProviderDefinitions(), 'openai').createProvider(OPENAI);
+  it.each([
+    ['OpenAI', OPENAI],
+    ['Gemini', GEMINI],
+  ])('turns it on for a %s profile without options', (_label, profile) => {
+    expect(webSearchEnabled(productProviderDefinitions(), profile)).toBe(true);
+    expect(received.at(-1)?.options).toEqual({ nativeWebTools: { webSearch: true } });
+  });
 
-    // The OpenAI definition throws on `nativeWebTools.webSearch: true`, so a default leaked to it
-    // would fail the build of the provider instead of reaching this line.
-    expect(provider.getCapabilities?.().nativeWebTools.webSearch.enabled).toBe(false);
-    expect(received.at(-1)).toBe(OPENAI);
+  it.each([
+    ['a compatible endpoint', { ...OPENAI, baseURL: 'http://localhost:1234/v1' }],
+    ['Chat Completions', { ...OPENAI, options: { apiSurface: 'chat-completions' } }],
+  ])('builds an OpenAI profile on %s untouched', (_label, profile) => {
+    // The OpenAI definition throws on `nativeWebTools.webSearch: true` here, so a default leaked to
+    // such a profile would fail the build of the provider instead of reaching this line.
+    expect(webSearchEnabled(productProviderDefinitions(), profile)).toBe(false);
+    expect(received.at(-1)).toBe(profile);
+  });
+
+  it('leaves a provider definition that declares nothing untouched', () => {
+    expect(webSearchEnabled(productProviderDefinitions(), DEEPSEEK)).toBe(false);
+    expect(received.at(-1)).toBe(DEEPSEEK);
   });
 });
 

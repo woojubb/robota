@@ -662,8 +662,8 @@ env var name — never the key value) pointing at `--configure` to persist a pro
 
 The CLI must not branch on provider type names to decide defaults, required fields, setup prompts, or
 constructor behavior — those come from the injected `IProviderDefinition` records, including the
-product's model-native web search default, which applies to every definition that declares native web
-search and yields to a profile that sets `nativeWebTools`. The product's definition set is built in one
+product's model-native web search default, which applies wherever a definition declares native web
+search for the profile being built and yields to a profile that sets `nativeWebTools`. The product's definition set is built in one
 place for the parent session and the child-process subagent worker alike; routing it through
 `startCli({ providerDefinitions })` would mark it caller-supplied and make subagents non-reproducible. The
 profile key

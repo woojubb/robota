@@ -212,10 +212,12 @@ lets the model consult a second model. See [Providers](../../content/guide/provi
 
 Web search reaches the model in two ways, and you can use both.
 
-- **The model's own search.** A provider that offers server-side search, such as Anthropic,
-  searches with it by default. Turn it off by setting
+- **The model's own search.** Anthropic, OpenAI on its own API and Gemini search server-side by
+  default, and the vendor bills the searches. Turn it off by setting
   `"options": { "nativeWebTools": { "webSearch": false } }` on the profile; a profile that sets
-  `nativeWebTools` is used as written.
+  `nativeWebTools` is used as written. It stays off where the vendor offers no such tool next to
+  this CLI's own tools: an OpenAI profile with a custom `baseURL`, Chat Completions or
+  `OPENAI_BASE_URL`, an OpenAI model without web search such as `gpt-4.1-nano`, and Gemini 2.
 - **An MCP server you choose.** Any model can search through one. The first interactive start asks
   once whether to add Exa (`https://mcp.exa.ai/mcp`) or Parallel (`https://mcp.parallel.ai/mcp`), or
   to skip. Neither needs an API key, and your search queries go to the service you pick. The choice

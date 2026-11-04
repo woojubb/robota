@@ -42,33 +42,39 @@ describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
     // A host reads `nativeWebTools` to decide where it may set the profile option; a declaration the
     // provider does not honour, or an honoured option it does not declare, would let them drift.
     for (const definition of createDefaultProviderDefinitions()) {
-      const build = () =>
-        definition.createProvider({
-          name: definition.type,
-          model: definition.defaults?.model ?? 'test-model',
-          apiKey: 'test-key',
-          ...(definition.defaults?.baseURL !== undefined && { baseURL: definition.defaults.baseURL }),
-          options: { nativeWebTools: { webSearch: true } },
-        });
-      if (definition.nativeWebTools?.includes('webSearch') === true) {
-        expect(build().getCapabilities?.().nativeWebTools.webSearch.enabled, definition.type).toBe(
-          true,
-        );
-      } else {
-        let enabled = false;
-        try {
-          enabled = build().getCapabilities?.().nativeWebTools.webSearch.enabled === true;
-        } catch {
-          enabled = false;
+      const profiles = [
+        { ...(definition.defaults?.baseURL !== undefined && { baseURL: definition.defaults.baseURL }) },
+        { baseURL: 'http://localhost:1234/v1' },
+        { options: { apiSurface: 'chat-completions' } },
+      ];
+      for (const profile of profiles) {
+        const build = () =>
+          definition.createProvider({
+            name: definition.type,
+            model: definition.defaults?.model ?? 'test-model',
+            apiKey: 'test-key',
+            ...profile,
+            options: { ...profile.options, nativeWebTools: { webSearch: true } },
+          });
+        const label = `${definition.type} ${JSON.stringify(profile)}`;
+        if (definition.nativeWebTools?.(profile).includes('webSearch') === true) {
+          expect(build().getCapabilities?.().nativeWebTools.webSearch.enabled, label).toBe(true);
+        } else {
+          let enabled = false;
+          try {
+            enabled = build().getCapabilities?.().nativeWebTools.webSearch.enabled === true;
+          } catch {
+            enabled = false;
+          }
+          expect(enabled, label).toBe(false);
         }
-        expect(enabled, definition.type).toBe(false);
       }
     }
     expect(
       createDefaultProviderDefinitions()
-        .filter((d) => d.nativeWebTools?.includes('webSearch') === true)
+        .filter((d) => d.nativeWebTools?.({}).includes('webSearch') === true)
         .map((d) => d.type),
-    ).toEqual(['anthropic']);
+    ).toEqual(['anthropic', 'openai', 'gemini']);
   });
 
   it('declares, for every built-in provider, the environment its client reads to pick a destination', () => {
