@@ -27,15 +27,13 @@ export function useFollowHistory({ entry, enabled, read, addEntry }: IOptions): 
   const custody = useTuiCliAdapter().keyCustody;
   const unlockCommand = useUnlockCommand();
   const position = useRef<{
-    entryId: string | undefined;
-    cursor: IExecutionDetailCursor | undefined;
+    cursor: IExecutionDetailCursor;
     seen: Set<string>;
     busy: boolean;
     generation: number;
-  }>({ entryId: undefined, cursor: { offset: 0 }, seen: new Set(), busy: false, generation: 0 });
+  }>({ cursor: { offset: 0 }, seen: new Set(), busy: false, generation: 0 });
   useEffect(() => {
     position.current = {
-      entryId: entry?.id,
       cursor: { offset: 0 },
       seen: new Set(),
       busy: false,
@@ -54,10 +52,6 @@ export function useFollowHistory({ entry, enabled, read, addEntry }: IOptions): 
       const cursor = position.current.cursor;
       const say = (text: string): void =>
         addEntry(messageToHistoryEntry(createSystemMessage(text)));
-      if (cursor === undefined) {
-        say('No more earlier output.');
-        return;
-      }
       const generation = position.current.generation;
       position.current.busy = true;
       void (async () => {

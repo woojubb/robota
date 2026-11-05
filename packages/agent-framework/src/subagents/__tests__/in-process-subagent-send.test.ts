@@ -228,6 +228,9 @@ describe('an in-process job that takes follow-up input', () => {
     it('is the job’s own turns, paged by message, while the job runs', async () => {
       const handle = runner().start(job(cwd));
       await waitFor(() => gated.waiting() === 1);
+      const initial = await handle.readLog?.({ offset: 0 });
+      expect(initial?.lines).toEqual(['user: start the work']);
+      expect(initial?.nextCursor).toBeUndefined();
       await handle.send('and then this');
       await gated.answer('did the first part');
       await waitFor(() => gated.waiting() === 1);
@@ -240,6 +243,7 @@ describe('an in-process job that takes follow-up input', () => {
         'user: and then this',
       ]);
       expect(page?.nextCursor).toBeUndefined();
+      expect((await handle.readLog?.({ offset: 0 }))?.lines).toEqual(page?.lines);
       const second = await handle.readLog?.({ offset: 2 });
       expect(second?.lines).toEqual(['user: and then this']);
       await gated.answer('did the rest');
