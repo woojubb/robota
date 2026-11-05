@@ -5,13 +5,13 @@ import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
 import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { createConnection } from 'node:net';
+import { createConnection, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createKeyring, createRuntimeIdentity, openOwnerHandover, startSpawnerExchange } from '../../packages/agent-keyring/src/index.ts';
-import { completeSpawnerPair, openOwnerLink, openSpawnerLink } from '../../packages/agent-transport-link/src/index.ts';
+import { LINK_HELLO_BYTES, createKeyring, createLinkResponder, createRuntimeIdentity, openOwnerHandover, startSpawnerExchange } from '../../packages/agent-keyring/src/index.ts';
+import { LINK_REQUEST_LINE, completeSpawnerPair, openOwnerLink, openSpawnerLink } from '../../packages/agent-transport-link/src/index.ts';
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../packages/agent-cli/src/__tests__/helpers/product-runtime.ts';
 import { connectSupervisedDaemon, listSupervisedSessions, openSupervisedAttachSocket, resolveSupervisedDirectory } from '../../packages/agent-cli/src/session-inventory/supervised-session-control.ts';
 import { windowsControlPipePath } from '../../packages/agent-cli/src/session-inventory/windows-control-pipe.ts';
@@ -118,6 +118,53 @@ try {
   assert.equal(ownerLink.standing, 'owner');
   assert.equal(await ownerLink.unlock(), 'mismatch', 'a swapped sealing key is reported to the owner');
   assert.deepEqual(readFileSync(store.path), swappedFile, 'unlock must not rewrite the swapped keyring');
+  const strangerOwner = await openOwnerHandover(stranger.keyring, { type: 'passphrase', passphrase: 'fixture-other-passphrase' });
+  try {
+    const impostor = createRuntimeIdentity();
+    const impostorExchange = startSpawnerExchange();
+    const impostorKey = impostorExchange.complete(impostor.answerSpawnerExchange(impostorExchange.message));
+    impostorKey.spawnerKey.wipe();
+    impostor.installTrustRoot(strangerOwner.certify(impostor.instancePublicKey, link.binding), link.binding);
+    const observed = [];
+    let acceptedSocket;
+    let reportClose;
+    const closed = new Promise((resolve) => { reportClose = resolve; });
+    const squatter = createServer((socket) => {
+      acceptedSocket = socket;
+      let buffered = Buffer.alloc(0);
+      let answered = false;
+      socket.on('data', (chunk) => {
+        observed.push(chunk);
+        buffered = Buffer.concat([buffered, chunk]);
+        const start = buffered.indexOf(0x0a) + 1;
+        if (!answered && start > 0 && buffered.length >= start + 4 + LINK_HELLO_BYTES) {
+          answered = true;
+          const challenge = createLinkResponder(impostor, link.binding).challenge(buffered.subarray(start + 4, start + 4 + LINK_HELLO_BYTES));
+          const header = Buffer.alloc(4);
+          header.writeUInt32BE(challenge.length);
+          socket.write(Buffer.concat([header, challenge]));
+        }
+      });
+      socket.once('close', reportClose);
+    });
+    const fakePath = join(root, 'squatter.sock');
+    try {
+      squatter.listen(fakePath);
+      await once(squatter, 'listening');
+      const fakeSocket = createConnection(fakePath);
+      await once(fakeSocket, 'connect');
+      await mustRefuse('owner proof to a certified impostor', () => openOwnerLink(fakeSocket, owner));
+      await closed;
+      const disclosed = Buffer.concat(observed);
+      const requestLength = Buffer.byteLength(LINK_REQUEST_LINE);
+      assert.equal(disclosed.subarray(0, requestLength).toString(), LINK_REQUEST_LINE);
+      assert.equal(disclosed.readUInt32BE(requestLength), LINK_HELLO_BYTES);
+      assert.equal(disclosed.length, requestLength + 4 + LINK_HELLO_BYTES, 'the impostor must receive no owner proof or grant');
+    } finally {
+      acceptedSocket?.destroy();
+      await new Promise((resolve) => squatter.close(resolve));
+    }
+  } finally { strangerOwner.dispose(); }
   const secondId = randomUUID();
   secondChild = spawn(process.execPath, ['--import', loader, '--conditions=source', entry, '--serve', '--safe-mode', '--supervised-session-id', secondId, '--supervised-spawner-pair'], {
     cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'],
@@ -162,7 +209,7 @@ try {
   assert.match(grantStderr, /External events do not start in secure mode/u);
   const afterGrant = await listSupervisedSessions(supervised);
   assert.equal(afterGrant.some((candidate) => candidate.id === grantId), false, 'the refused start must not register a control endpoint');
-  console.log('secure runtime refused plain connect, plain attach, a wrong spawner key, spawner owner requests, and replay into a second runtime; certification admitted the owner; swapped-key grant reported mismatch; external-event start was refused');
+  console.log('secure runtime refused plain connect, plain attach, a wrong spawner key, spawner owner requests, and replay into a second runtime; certification admitted the owner; swapped-key grant reported mismatch; an impostor received no proof; external-event start was refused');
 } finally {
   clearTimeout(watchdog);
   ownerLink?.close();
