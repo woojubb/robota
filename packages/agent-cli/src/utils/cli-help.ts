@@ -166,6 +166,8 @@ Commands:
   {{cli}} daemon start [--json] [--restricted-workspace]
                                   Start this workspace's daemon, or reuse the running one; --json
                                   prints {"id","url"} for the client that connects to it
+                                  In secure mode, an owner at the terminal unlocks to start or reuse it;
+                                  a supervising client may instead supply --spawner-fd <fd>. No URL is printed.
   {{cli}} daemon status [--json]    Show whether this workspace's daemon is running
   {{cli}} daemon stop               Stop this workspace's daemon
   {{cli}} daemon clear-start-lock             Remove a daemon start lock left by a start that is gone

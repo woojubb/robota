@@ -32,8 +32,9 @@ export const SESSION_ATTACH_HELP = (cliName: string): string =>
   'surfaces; --observe follows the conversation read-only. Use it to check on or steer a background\n' +
   `session; find ids with \`${cliName} session list\` or \`${cliName} session view\`.\n` +
   '\n' +
-  'It asks for confirmation on this terminal first and needs an interactive terminal, so only the user\n' +
-  'can run it; a script or an agent should suggest the command instead. Detach with /exit, Ctrl-C or\n' +
+  'It needs an interactive terminal and asks for confirmation there; in secure mode the owner unlocks\n' +
+  'with a passphrase instead, so only the user can run it; a script or an agent should suggest the command instead.\n' +
+  'Detach with /exit, Ctrl-C or\n' +
   'Ctrl-]: the session keeps running. Exits 0 after detaching, 1 when it could not attach.\n';
 
 /** An admitted attach: the protocol connection and the driver id the session assigned it. */
