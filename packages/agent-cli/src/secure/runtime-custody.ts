@@ -76,6 +76,7 @@ export class RuntimeCustody implements IRuntimeAdmission {
   #daemon = false;
   #surfaces = 0;
   #drivers = 0;
+  #seenSpawner = false;
 
   constructor(options: IRuntimeCustodyOptions) {
     this.#options = options;
@@ -130,6 +131,11 @@ export class RuntimeCustody implements IRuntimeAdmission {
     let count = 0;
     for (const link of this.#links) if (link.standing === 'spawner') count += 1;
     return count;
+  }
+
+  /** Whether a spawner ever linked, including before the readiness observer began. */
+  hasSeenSpawner(): boolean {
+    return this.#seenSpawner;
   }
 
   /** Be told when a spawner link opens or closes and when the runtime is certified; returns the way to stop. */
@@ -191,7 +197,10 @@ export class RuntimeCustody implements IRuntimeAdmission {
     };
     // Counted only once its ports exist: a link counted here is one whose `closed` will be called.
     this.#links.add(link);
-    if (link.standing === 'spawner') this.#emit('spawner-linked');
+    if (link.standing === 'spawner') {
+      this.#seenSpawner = true;
+      this.#emit('spawner-linked');
+    }
     return ports;
   }
 

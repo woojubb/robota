@@ -21,6 +21,7 @@ export interface IUncertifiedStopOptions {
   readonly custody: {
     status(): IRuntimeAdmissionStatus;
     spawnerLinks(): number;
+    hasSeenSpawner(): boolean;
     onChange(listener: (event: TCustodyEvent) => void): () => void;
   };
   /** Ends the runtime. Called at most once. */
@@ -92,7 +93,9 @@ export function armUncertifiedStop(options: IUncertifiedStopOptions): () => void
   });
   const stopWatchingCustody = (): void => stopCustody();
 
-  if (custody.spawnerLinks() === 0) {
+  if (custody.spawnerLinks() === 0 && custody.hasSeenSpawner()) {
+    endWhenIdle();
+  } else if (custody.spawnerLinks() === 0) {
     waitingForSpawner = timers.setTimer(
       () => stopNow('no spawner linked to it in time'),
       options.noSpawnerMs ?? DEFAULT_NO_SPAWNER_MS,

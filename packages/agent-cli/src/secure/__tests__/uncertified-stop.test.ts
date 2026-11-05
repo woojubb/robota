@@ -36,6 +36,7 @@ function harness() {
   const custody = {
     certified: false,
     spawnerLinks: 0,
+    seenSpawner: false,
     listeners: new Set<(event: TCustodyEvent) => void>(),
   };
   const activity = { busy: false, listeners: new Set<() => void>() };
@@ -45,6 +46,7 @@ function harness() {
       custody: {
         status: () => ({ certified: custody.certified, daemon: false, restricted: false }),
         spawnerLinks: () => custody.spawnerLinks,
+        hasSeenSpawner: () => custody.seenSpawner,
         onChange: (listener) => {
           custody.listeners.add(listener);
           return () => custody.listeners.delete(listener);
@@ -60,7 +62,7 @@ function harness() {
       noSpawnerMs: READY_MS,
     });
   const emit = (event: TCustodyEvent) => {
-    if (event === 'spawner-linked') custody.spawnerLinks += 1;
+    if (event === 'spawner-linked') { custody.spawnerLinks += 1; custody.seenSpawner = true; }
     if (event === 'spawner-dropped') custody.spawnerLinks -= 1;
     if (event === 'certified') custody.certified = true;
     for (const listener of [...custody.listeners]) listener(event);
@@ -116,6 +118,31 @@ describe('a runtime that no spawner links to', () => {
 });
 
 describe('a runtime whose spawner left without certifying it', () => {
+  it('stops when the last spawner left before the readiness observer was armed', () => {
+    const h = harness();
+    h.emit('spawner-linked');
+    h.emit('spawner-dropped');
+
+    h.arm();
+
+    expect(h.stop).toHaveBeenCalledTimes(1);
+    expect(h.timers.pending()).toBe(0);
+  });
+
+  it('waits for running work when the last spawner left before the observer was armed', () => {
+    const h = harness();
+    h.emit('spawner-linked');
+    h.emit('spawner-dropped');
+    h.activity.busy = true;
+
+    h.arm();
+    expect(h.stop).not.toHaveBeenCalled();
+    h.activity.busy = false;
+    h.activityChanged();
+
+    expect(h.stop).toHaveBeenCalledTimes(1);
+  });
+
   it('stops at once when nothing is running', () => {
     const h = harness();
     h.arm();

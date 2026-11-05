@@ -501,8 +501,10 @@ describe.skipIf(process.platform === 'win32')('what the custody reports of its l
       events.push(`${event}:${started.custody.spawnerLinks()}`),
     );
 
+    expect(started.custody.hasSeenSpawner()).toBe(false);
     const first = await spawnerLink(started);
     const second = await spawnerLink(started);
+    expect(started.custody.hasSeenSpawner()).toBe(true);
     expect(started.custody.spawnerLinks()).toBe(2);
     second.close();
     await second.closed;
