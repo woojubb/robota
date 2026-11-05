@@ -138,7 +138,7 @@ import {
   canAskServeOpenTrustQuestion,
 } from './startup/headless-serve-trust-prompt.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
-import { runEarlyForwardedDaemon } from './startup/early-forwarded-daemon.js';
+import { isEarlyForwardedDaemon, runEarlyForwardedDaemon } from './startup/early-forwarded-daemon.js';
 import { forwardedEnvironmentRequested, receiveForwardedEnvironment } from './startup/forwarded-environment.js';
 import { createCliRuntimeContext } from './product/runtime-context.js';
 import { copyProductSecureMode, productSecureMode } from './product/session-sealing.js';
@@ -249,7 +249,10 @@ export async function startCliCore(
     productRuntime = createCliRuntimeContext(initialRuntime.config, { ...initialRuntime.environment, ...forwarded }, initialRuntime.artifact);
     copyProductSecureMode(initialRuntime, productRuntime);
   }
-  if (await runEarlyForwardedDaemon(productRuntime, process.argv)) return;
+  if (isEarlyForwardedDaemon(process.argv)) {
+    await runEarlyForwardedDaemon(productRuntime, process.argv);
+    return;
+  }
   // The pair and the secure mode of this state root must agree, before the process listens on anything.
   const secureRuntime = startSecureRuntimeOrExit(productRuntime, process.argv, spawnerIdentity);
   // Forwarded provider references remain in the private runtime snapshot, not the ambient env

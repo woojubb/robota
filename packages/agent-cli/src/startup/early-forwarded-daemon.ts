@@ -25,8 +25,8 @@ type TForwardedStart =
 function parseForwardedStart(argv: readonly string[]): TForwardedStart {
   const args = optionArgv(argv).slice(2);
   if (args[0] !== 'daemon' || args[1] !== 'start') return { kind: 'other' };
-  if (argv.includes('--')) return { kind: 'invalid' };
   if (!args.slice(2).some((arg) => arg === '--spawner-fd' || arg.startsWith('--spawner-fd='))) return { kind: 'other' };
+  if (argv.includes('--')) return { kind: 'invalid' };
   let value: string | undefined;
   let json = false;
   let restricted = false;
@@ -42,6 +42,11 @@ function parseForwardedStart(argv: readonly string[]): TForwardedStart {
   const fd = Number(value);
   if (!Number.isSafeInteger(fd) || fd < 3) return { kind: 'invalid' };
   return { kind: 'start', fd, json, restricted };
+}
+
+/** Test synchronously so unrelated starts retain their original startup ordering. */
+export function isEarlyForwardedDaemon(argv: readonly string[]): boolean {
+  return parseForwardedStart(argv).kind !== 'other';
 }
 
 /** After forwarding, admit project settings and retain only their declared provider references. */
