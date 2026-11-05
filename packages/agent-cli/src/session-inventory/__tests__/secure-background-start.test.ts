@@ -16,6 +16,7 @@ import { FIXTURE_PASSPHRASE, fixtureKeyring, scriptedSecureTerminal } from '../.
 import { launchCertifiedRuntime } from '../certified-runtime-launch.js';
 import { startSecureBackground } from '../secure-background-start.js';
 import { secureOwnerControl } from '../secure-owner-control.js';
+import { runSessionViewCommand } from '../session-view-command.js';
 import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
 
 it('requires an owner before taking a start lock and certifies a new background runtime', async () => {
@@ -45,6 +46,9 @@ it('requires an owner before taking a start lock and certifies a new background 
       expect(renamed.status).toBe('renamed');
       const status = await secureOwnerControl({ productRuntime: runtime, root, id: started.id, command: 'status', fields: {}, openOwner });
       expect(status).toMatchObject({ status: 'running', name: 'Owner session' });
+      const refusedOwner = vi.fn(openOwner);
+      await expect(secureOwnerControl({ productRuntime: runtime, root, id: started.id, generation: 'A'.repeat(22), command: 'status', fields: {}, openOwner: refusedOwner })).rejects.toThrow(/changed/i);
+      expect(refusedOwner).not.toHaveBeenCalled();
       overrideProductSecureMode(runtime, true);
       const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
       const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
@@ -57,6 +61,15 @@ it('requires an owner before taking a start lock and certifies a new background 
           expect(process.exitCode, stderr.mock.calls.map(([text]) => String(text)).join('')).toBe(0);
         }
         expect(terminal).toHaveBeenCalledTimes(3);
+        await secureOwnerControl({ productRuntime: runtime, root, id: started.id, command: 'link-pr', fields: { url: 'https://github.com/woojubb/robota/pull/1' }, openOwner });
+        const openUrl = vi.fn(async () => undefined);
+        let views = 0;
+        const render = vi.fn(async (options: { deferPr?: boolean }) => {
+          expect(options.deferPr).toBe(true);
+          return views++ === 0 ? { kind: 'open-pr' as const, ...started } : { kind: 'closed' as const };
+        });
+        expect(await runSessionViewCommand([], { productRuntime: runtime, root, isTTY: true, settings: {}, render, openUrl, openSecureOwner: openOwner })).toBe(0);
+        expect(openUrl).toHaveBeenCalledExactlyOnceWith('https://github.com/woojubb/robota/pull/1');
       } finally { terminal.mockRestore(); stderr.mockRestore(); stdout.mockRestore(); process.exitCode = previousExitCode; }
     } finally { await stopSupervisedSession(started.id, root, started.generation); }
   } finally { rmSync(home, { recursive: true, force: true }); }

@@ -1029,6 +1029,18 @@ describe('supervised session view', () => {
     } finally { view.unmount(); }
   });
 
+  it('hands secure PR lookup to its host even when the public row has no PR', async () => {
+    const deferred = vi.fn();
+    const open = vi.fn(async () => {});
+    const view = render(<SupervisedSessionView loadRows={async () => [{ ...FIRST, pr: undefined }]} onOpenPr={open} onDeferredPr={deferred} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('o');
+      await vi.waitFor(() => expect(deferred).toHaveBeenCalledExactlyOnceWith(FIRST.id, FIRST.generation));
+      expect(open).not.toHaveBeenCalled();
+    } finally { view.unmount(); }
+  });
+
   it('refuses an attach when the row restarts or leaves control while confirmation is open', async () => {
     for (const replacement of [
       { ...FIRST, generation: 'restartedGeneration001' },

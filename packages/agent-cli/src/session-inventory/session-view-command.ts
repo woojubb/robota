@@ -12,6 +12,7 @@ import { readUserSettingsOrExit } from '../startup/user-settings.js';
 import {
   getVerifiedSupervisedPr,
   isSupervisedSessionName,
+  parseSupervisedPr,
   listSupervisedSessions,
   resolveSupervisedDirectory,
   stopSupervisedSession,
@@ -23,6 +24,7 @@ import {
   type TAttachedAppRender,
 } from './session-attach-command.js';
 import { openSecureAttach } from './secure-attach-client.js';
+import { secureOwnerControl } from './secure-owner-control.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
 import type {
@@ -179,6 +181,7 @@ export async function runSessionViewCommand(
         }),
       ...(productSecureMode(options.productRuntime) ? { attachWithoutConfirmation: true } : {}),
       ...(productSecureMode(options.productRuntime) && start !== undefined ? { deferStart: true } : {}),
+      ...(productSecureMode(options.productRuntime) ? { deferPr: true } : {}),
       onStop: (id, generation) => (options.stop ?? stopSupervisedSession)(id, root, generation),
       onOpenPr: async (id, url, generation) => {
         const verified = await getVerifiedSupervisedPr(id, root, generation);
@@ -201,6 +204,20 @@ export async function runSessionViewCommand(
     });
     for (;;) {
       const ended = await view();
+      if (ended?.kind === 'open-pr') {
+        try {
+          const status = await secureOwnerControl({ productRuntime: options.productRuntime, root, id: ended.id,
+            generation: ended.generation, command: 'status', fields: {},
+            ...(options.openSecureOwner === undefined ? {} : { openOwner: options.openSecureOwner }) });
+          const pr = typeof status.pr === 'object' && status.pr !== null && !Array.isArray(status.pr) && 'url' in status.pr
+            ? parseSupervisedPr(status.pr.url) : undefined;
+          if (status.status !== 'running' || pr === undefined) throw new Error('The secure runtime has no verified PR link.');
+          await (options.openUrl ?? createProductSessionPrOpener())(pr.url);
+        } catch (error) {
+          process.stderr.write(`${error instanceof Error ? error.message : 'Unable to open the secure session PR.'}\n`);
+        }
+        continue;
+      }
       if (ended?.kind === 'start') {
         if (start !== undefined) {
           try { await start(startCwd, ended.choice); }

@@ -43,6 +43,7 @@ export interface ISupervisedAttachRequest {
 export type TSupervisedViewExit =
   | { readonly kind: 'closed' }
   | { readonly kind: 'start'; readonly choice?: TSupervisedStartTrustChoice }
+  | { readonly kind: 'open-pr'; readonly id: string; readonly generation: string }
   | ({ readonly kind: 'attach' } & ISupervisedAttachRequest);
 
 const ROLE: Readonly<Record<ISupervisedAttachRequest['mode'], string>> = {
@@ -80,6 +81,9 @@ export interface ISupervisedSessionViewProps {
   /** Product-owned command shown when a long trust question is shortened. */
   readonly trustStatusCommand?: string;
   readonly onOpenPr?: (id: string, url: string, generation: string) => Promise<void>;
+  /** Close the view so the host can authenticate before reading the selected row's PR. */
+  readonly onDeferredPr?: (id: string, generation: string) => void;
+  readonly deferPr?: boolean;
   readonly filteredByCwd?: boolean;
   readonly filteredByName?: boolean;
   readonly filteredByPr?: boolean;
@@ -241,6 +245,7 @@ export default function SupervisedSessionView({
   startTrustQuestion,
   trustStatusCommand,
   onOpenPr,
+  onDeferredPr,
   onAttach,
   attachWithoutConfirmation = false,
   filteredByCwd = false,
@@ -548,7 +553,16 @@ export default function SupervisedSessionView({
     }
     if (input === 'o' && onOpenPr !== undefined) {
       const row = ordered.find((candidate) => candidate.id === selectedId);
-      if (status !== 'ready' || !isControllable(row) || !row.pr) {
+      if (status !== 'ready' || !isControllable(row)) {
+        setPrOpenStatus('unavailable');
+        return;
+      }
+      if (onDeferredPr !== undefined) {
+        onDeferredPr(row.id, row.generation);
+        exit();
+        return;
+      }
+      if (!row.pr) {
         setPrOpenStatus('unavailable');
         return;
       }
@@ -855,6 +869,7 @@ export async function renderSupervisedSessionView(
   }
   let attach: ISupervisedAttachRequest | undefined;
   let start: { readonly choice?: TSupervisedStartTrustChoice } | undefined;
+  let pr: { readonly id: string; readonly generation: string } | undefined;
   // The attached App pauses stdin when it unmounts. A view reopened after detach must resume it
   // before Ink subscribes again, otherwise the view paints but ignores q/Escape and other keys.
   process.stdin.resume();
@@ -869,6 +884,7 @@ export async function renderSupervisedSessionView(
         } } : {})}
         startTrustQuestion={options.startTrustQuestion}
         onOpenPr={options.onOpenPr}
+        {...(options.deferPr === true ? { onDeferredPr: (id: string, generation: string) => { pr = { id, generation }; } } : {})}
         attachWithoutConfirmation={options.attachWithoutConfirmation}
         onAttach={(request) => {
           attach = request;
@@ -893,5 +909,6 @@ export async function renderSupervisedSessionView(
   }
   if (attach !== undefined) return { kind: 'attach', ...attach };
   if (start !== undefined) return { kind: 'start', ...start };
+  if (pr !== undefined) return { kind: 'open-pr', ...pr };
   return { kind: 'closed' };
 }
