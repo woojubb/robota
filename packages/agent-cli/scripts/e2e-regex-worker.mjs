@@ -25,6 +25,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { basename, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveNativeFixtureWorkspace } from './e2e-native-file-authority.mjs';
 import { fixtureProcessEnvironment } from './product-fixture-environment.mjs';
 
 /** Appears in a child's command line only through the regex worker bootstrap (`boundedRegexReplace`). */
@@ -80,6 +81,7 @@ export function parseProcessTable(output) {
 
 const WINDOWS_QUERY = [
   '$ErrorActionPreference = "Stop"',
+  '$ProgressPreference = "SilentlyContinue"',
   '$rows = Get-CimInstance Win32_Process -Filter ("Name = \'" + $env:E2E_WORKER_IMAGE + "\'") |',
   '  Where-Object { $_.CommandLine -and $_.CommandLine.Contains($env:E2E_WORKER_MARKER) } |',
   '  ForEach-Object { [pscustomobject]@{ pid = $_.ProcessId; ppid = $_.ParentProcessId } }',
@@ -90,7 +92,7 @@ const WINDOWS_QUERY = [
 export function workerProcesses(binary) {
   const image = basename(binary);
   if (process.platform === 'win32') {
-    const output = execFileSync(
+    const query = spawnSync(
       'powershell.exe',
       [
         '-NoProfile',
@@ -106,7 +108,11 @@ export function workerProcesses(binary) {
         timeout: 60_000,
         env: { ...process.env, E2E_WORKER_IMAGE: image, E2E_WORKER_MARKER: WORKER_MARKER },
       },
-    ).trim();
+    );
+    if (query.status !== 0) {
+      throw failure('The process table could not be read.', `${query.stdout}\n${query.stderr}`);
+    }
+    const output = query.stdout.trim();
     return output === '' ? [] : JSON.parse(output);
   }
   const output = execFileSync('ps', ['-axww', '-o', 'pid=', '-o', 'ppid=', '-o', 'command='], {
@@ -258,7 +264,8 @@ export async function runRegexWorkerE2e(binaryPath, options = {}) {
   const binary = resolve(binaryPath);
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-regex-worker-')));
   const home = join(root, 'home');
-  const workspace = join(root, 'workspace');
+  // Reassigned once the repository exists: see below.
+  let workspace = join(root, 'workspace');
   const env = fixtureProcessEnvironment(home);
   const context = { binary, workspace, env };
   const cli = (args) =>
@@ -270,22 +277,17 @@ export async function runRegexWorkerE2e(binaryPath, options = {}) {
     mkdirSync(workspace, { recursive: true });
     const git = spawnSync('git', ['init', '--quiet'], { cwd: workspace, env, encoding: 'utf8' });
     if (git.status !== 0) throw failure('git init failed.', `${git.stdout}\n${git.stderr}`);
+    // Workspace trust is keyed by paths the product derives from the directory it is started in. Windows
+    // reports a temporary directory by its 8.3 short name (`RUNNER~1`), which Node's `realpathSync` keeps and
+    // git expands, so the CLI is started in the root as git names it, as the native file authority fixture does.
+    workspace = resolveNativeFixtureWorkspace(workspace, env);
+    context.workspace = workspace;
 
     const trust = cli(['trust', '--yes']);
     if (trust.status !== 0 || !/Workspace trust: trusted/u.test(trust.stdout ?? '')) {
-      const git = (args) =>
-        spawnSync('git', args, { cwd: workspace, env, encoding: 'utf8' }).stdout?.trim();
       throw failure(
         'trust --yes failed.',
-        [
-          trust.stdout,
-          trust.stderr,
-          `DIAG cwd given to the CLI: ${workspace}`,
-          `DIAG realpathSync.native: ${realpathSync.native(workspace)}`,
-          `DIAG os.tmpdir(): ${tmpdir()}`,
-          `DIAG git --show-toplevel: ${git(['rev-parse', '--show-toplevel'])}`,
-          `DIAG git --git-common-dir: ${git(['rev-parse', '--git-common-dir'])}`,
-        ].join('\n'),
+        `${trust.stdout}\n${trust.stderr}\nworkspace given to the CLI: ${workspace}`,
       );
     }
     // Print mode needs a configured provider to start. A local one whose address is never dialled: a workflow
