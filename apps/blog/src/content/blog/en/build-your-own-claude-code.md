@@ -50,7 +50,7 @@ session.on('complete', () => console.log('\n'));
 await session.submit('List all TODO comments in this project and suggest fixes');
 ```
 
-This session automatically loads your project files, respects your permission settings, and maintains multi-turn conversation history.
+This session uses tools inside `cwd`, applies the default permission mode, and maintains multi-turn conversation history. Without a `projectAccess` trust decision, it runs Restricted and does not load project instructions, settings, or memory.
 
 ## Switch to a Cheaper Provider in One Line
 
