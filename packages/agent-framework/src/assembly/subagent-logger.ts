@@ -19,6 +19,7 @@ import { existsSync, lstatSync, readFileSync, readdirSync } from 'node:fs';
 import { basename, extname, join } from 'node:path';
 
 import { isSealedArtifactLine } from '@robota-sdk/agent-core';
+import { ensureOwnerOnlyDirectory } from '@robota-sdk/agent-core/node';
 import { DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE } from '@robota-sdk/agent-executor';
 import { FileSessionLogger } from '@robota-sdk/agent-session';
 import {
@@ -82,7 +83,11 @@ export function createSubagentLogger(
   fs: IFileSystem = new NodeFileSystem(),
 ): FileSessionLogger {
   const subagentDir = resolveSubagentLogDir(parentSessionId, baseLogsDir);
-  fs.mkdirSync(subagentDir, { recursive: true });
+  ensureOwnerOnlyDirectory(subagentDir, {
+    withinRoot: baseLogsDir,
+    rejectSymlinks: true,
+    makeDirectory: (directory, mode) => fs.mkdirSync(directory, { recursive: true, mode }),
+  });
   return new FileSessionLogger(new NodeSessionLogSink(subagentDir, options), {
     registerExitFlush: registerProcessExitFlush,
   });

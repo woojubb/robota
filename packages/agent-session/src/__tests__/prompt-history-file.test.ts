@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -50,6 +50,30 @@ describe('NodePromptHistoryFile (SCREEN-1993 TC-01)', () => {
       expect(statSync(path).mode & 0o777).toBe(0o600);
       expect(statSync(join(root, '.agent')).mode & 0o777).toBe(0o700);
     }
+  });
+
+  it.runIf(process.platform !== 'win32')('refuses a linked history file without changing its target', async () => {
+    const root = temp();
+    const target = join(root, 'target');
+    const path = join(root, 'history.jsonl');
+    writeFileSync(target, 'original');
+    chmodSync(target, 0o644);
+    symlinkSync(target, path);
+    const file = new NodePromptHistoryFile(path, { sealing: 'plain', ownedRoot: root });
+    expect(() => file.append(entry(1))).toThrow();
+    expect(readFileSync(target, 'utf8')).toBe('original');
+    expect(statSync(target).mode & 0o777).toBe(0o644);
+    await expect(collect(file)).rejects.toThrow();
+  });
+
+  it.runIf(process.platform !== 'win32')('refuses a linked owned directory without changing its target', () => {
+    const root = temp();
+    const outside = temp();
+    chmodSync(outside, 0o755);
+    symlinkSync(outside, join(root, 'linked'));
+    const file = new NodePromptHistoryFile(join(root, 'linked', 'history.jsonl'), { sealing: 'plain', ownedRoot: root });
+    expect(() => file.append(entry(1))).toThrow();
+    expect(statSync(outside).mode & 0o777).toBe(0o755);
   });
 
   it('reads newest-first across several blocks, carrying a line split by a block boundary', async () => {

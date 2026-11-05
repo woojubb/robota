@@ -12,13 +12,13 @@
  * opens on its own (`stored-append-lines.ts`), so no line waits for another and the first block
  * still renders before the rest is read.
  */
-import { appendFileSync, closeSync, constants, fstatSync, openSync, readSync } from 'node:fs';
+import { closeSync, constants, fchmodSync, fstatSync, lstatSync, openSync, readSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import {
   OWNER_ONLY_FILE_MODE,
   ensureOwnerOnlyDirectory,
-  tightenExistingFile,
+  ownerOnlyGuarantee,
 } from '@robota-sdk/agent-core/node';
 
 import { StoredLines, splitStoredLines } from './stored-append-lines.js';
@@ -138,11 +138,31 @@ export class NodePromptHistoryFile implements IPromptHistoryWriter, IPromptHisto
     const directory = dirname(this.path);
     ensureOwnerOnlyDirectory(
       directory,
-      this.ownedRoot === undefined ? {} : { withinRoot: this.ownedRoot },
+      this.ownedRoot === undefined
+        ? { rejectSymlinks: true }
+        : { withinRoot: this.ownedRoot, rejectSymlinks: true },
     );
-    // SEC-020: `mode` applies only when the file is created; tightening first repairs an older file.
-    tightenExistingFile(this.path);
-    appendFileSync(this.path, stored, { mode: OWNER_ONLY_FILE_MODE });
+    if (lstatSync(this.path, { throwIfNoEntry: false })?.isSymbolicLink()) {
+      throw new Error('Prompt history must not be a symbolic link.');
+    }
+    const descriptor = openSync(
+      this.path,
+      constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0),
+      OWNER_ONLY_FILE_MODE,
+    );
+    try {
+      const metadata = fstatSync(descriptor);
+      if (!metadata.isFile()) throw new Error('Prompt history must be a regular file.');
+      if (ownerOnlyGuarantee() === 'posix-mode' && (metadata.mode & 0o077) !== 0) {
+        fchmodSync(descriptor, OWNER_ONLY_FILE_MODE);
+        if ((fstatSync(descriptor).mode & 0o077) !== 0) {
+          throw new Error('Prompt history could not be made owner-only.');
+        }
+      }
+      writeFileSync(descriptor, stored);
+    } finally {
+      closeSync(descriptor);
+    }
   }
 
   /**

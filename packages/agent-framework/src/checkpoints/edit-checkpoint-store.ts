@@ -1,4 +1,4 @@
-import { join, relative, resolve } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { CheckpointTree } from '@robota-sdk/agent-session';
 import { assertSessionSealing } from '@robota-sdk/agent-session/node';
@@ -175,7 +175,9 @@ export class EditCheckpointStore implements IEditCheckpointStore {
     const checkpointRoot = this.authorityIO.checkpointRootRelativePath;
     if (
       relativePath.length === 0 ||
-      relativePath.startsWith('..') ||
+      relativePath === '..' ||
+      relativePath.startsWith(`..${sep}`) ||
+      isAbsolute(relativePath) ||
       resolve(this.cwd, relativePath) !== originalPath ||
       (checkpointRoot !== undefined && isInsideCheckpointRoot(relativePath, checkpointRoot))
     ) {

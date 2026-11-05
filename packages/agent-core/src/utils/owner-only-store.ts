@@ -112,6 +112,8 @@ export interface IEnsureOwnerOnlyOptions extends IOwnerOnlyIo {
    * would eventually chmod someone's home directory.
    */
   readonly withinRoot?: string;
+  /** Refuse links in the owned path before creating or changing its directories. */
+  readonly rejectSymlinks?: boolean;
   /**
    * Flush the parent of every directory this call creates, so the new entries survive a crash: a
    * flushed file in a directory whose own entry was never flushed is gone with it. Off by default;
@@ -187,17 +189,27 @@ export function ensureOwnerOnlyDirectory(
     });
   const setMode =
     options.setMode ?? ((target: string, mode: number): void => chmodSync(target, mode));
+  const owned =
+    options.withinRoot === undefined
+      ? [directory]
+      : segmentsFromRoot(options.withinRoot, directory);
+  const refuseLinks = (): void => {
+    if (options.rejectSymlinks !== true) return;
+    for (const target of owned) {
+      if (lstatSync(target, { throwIfNoEntry: false })?.isSymbolicLink()) {
+        throw new OwnerOnlyModeError('An owner-only directory must not be a symbolic link.');
+      }
+    }
+  };
+  refuseLinks();
   const missing = options.durable === true ? missingDirectories(directory) : [];
   makeDirectory(directory, OWNER_ONLY_DIRECTORY_MODE);
+  refuseLinks();
   // The directories just created, outermost first: each one's entry lives in its parent, which is
   // flushed once the whole chain exists.
   for (const created of missing) (options.syncDirectory ?? syncDirectoryOnDisk)(dirname(created));
   // Every directory the caller declared it owns, not only the leaf. `mkdir` set the mode on what it
   // CREATED; a root an older version left at 0755 was created by nobody here and would keep it.
-  const owned =
-    options.withinRoot === undefined
-      ? [directory]
-      : segmentsFromRoot(options.withinRoot, directory);
   for (const target of owned) {
     if (ownerOnlyGuarantee() === 'posix-mode') setMode(target, OWNER_ONLY_DIRECTORY_MODE);
     assertOwnerOnly(target, 'directory', options);

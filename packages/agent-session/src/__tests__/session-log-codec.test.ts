@@ -139,6 +139,7 @@ const fixtures = {
   tool_result: { tool: 'Read', success: true, dataChars: 1, truncated: false },
   tool_blocked: { tool: 'Read', reason: 'hook' },
   tool_denied: { tool: 'Read', reason: 'permission' },
+  tool_call_handoff_refused: { toolName: 'Read', reason: 'blocked' },
   server_tool: { tool: 'web', query: 'find' },
 } satisfies Record<
   (typeof SESSION_LOG_EVENT)[keyof typeof SESSION_LOG_EVENT],
@@ -175,10 +176,18 @@ const malformedField = {
   tool_result: 'dataChars',
   tool_blocked: 'reason',
   tool_denied: 'reason',
+  tool_call_handoff_refused: 'reason',
   server_tool: 'tool',
 } satisfies Record<keyof typeof fixtures, string>;
 
 describe('session-log codec', () => {
+  it('decodes a refused handoff and names an unknown event without echoing arbitrary contents', () => {
+    expect(decodeSessionLogEntries([{ ...envelope, event: 'tool_call_handoff_refused', toolName: 'search', reason: 'blocked' }])[0]).toMatchObject({ event: 'tool_call_handoff_refused', toolName: 'search', reason: 'blocked' });
+    expect(() => decodeSessionLogEntries([{ ...envelope, event: 'future_event' }])).toThrow(/future_event/);
+    expect(() => decodeSessionLogEntries([{ ...envelope, event: 'secret with spaces' }])).not.toThrow(/secret with spaces/);
+    expect(() => decodeSessionLogEntries([{ ...envelope, event: 'tool_call_handoff_refused', toolName: 4, reason: 'blocked' }])).toThrow(SessionLogDecodeError);
+  });
+
   it('decodes the forced-summary provider request without discarding its marker', () => {
     const entry = {
       ...envelope,
@@ -197,10 +206,10 @@ describe('session-log codec', () => {
     const decoded = decodeSessionLogEntries(
       Object.entries(fixtures).map(([event, payload]) => ({ ...envelope, event, ...payload })),
     );
-    expect(decoded).toHaveLength(31);
+    expect(decoded).toHaveLength(32);
     const response = decoded.find((entry) => entry.event === 'provider_response_normalized');
     expect(response?.response.timestamp).toBeInstanceOf(Date);
-    expect(decodeSessionLogEntries(decoded)).toHaveLength(31);
+    expect(decodeSessionLogEntries(decoded)).toHaveLength(32);
   });
 
   it.each(Object.entries(malformedField))('rejects malformed %s payload field', (event, field) => {

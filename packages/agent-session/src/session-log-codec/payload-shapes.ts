@@ -223,5 +223,6 @@ export const PAYLOADS = {
   },
   tool_blocked: { tool: required(decodeString), reason: required(decodeString) },
   tool_denied: { tool: required(decodeString), reason: required(decodeString) },
+  tool_call_handoff_refused: { toolName: required(decodeString), reason: required(decodeString) },
   server_tool: { tool: required(decodeString) },
 } satisfies Record<TSessionLogEventName, TPayloadShape>;

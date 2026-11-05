@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -26,6 +26,20 @@ describe('session log replay support', () => {
   it('ARCH-042: rejects an empty Node session-log path before deriving sidecar authority', () => {
     expect(() => new NodeSessionLogSource('', { sealing: 'plain' })).toThrow(/log-file path/i);
     expect(() => new NodeSessionLogSource('   ', { sealing: 'plain' })).toThrow(/log-file path/i);
+  });
+
+  it('loads and replays a persisted refused tool handoff', () => {
+    const logDir = realpathSync(mkdtempSync(join(tmpdir(), 'handoff-log-')));
+    try {
+      const logger = new FileSessionLogger(new NodeSessionLogSink(logDir, { sealing: 'plain' }));
+      logger.log('session_1', 'tool_call_handoff_refused', { toolName: 'search', reason: 'manager stopped' });
+      logger.flush?.();
+      const entries = loadSessionLogEntries(new NodeSessionLogSource(join(logDir, 'session_1.jsonl'), { sealing: 'plain' }));
+      expect(entries).toMatchObject([{ event: 'tool_call_handoff_refused', toolName: 'search', reason: 'manager stopped' }]);
+      expect(replaySessionLogEntries(entries).sessionId).toBe('session_1');
+    } finally {
+      rmSync(logDir, { recursive: true, force: true });
+    }
   });
 
   it('redacts sensitive fields and stores large payloads by content-addressed reference', () => {
