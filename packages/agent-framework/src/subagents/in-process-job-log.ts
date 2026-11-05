@@ -110,16 +110,20 @@ function linesPage(
 export class InProcessJobLog {
   private readonly lines: string[] = [];
   private readonly seen = new Set<string>();
+  private closed = false;
 
   ignore(history: readonly TUniversalMessage[]): void {
+    if (this.closed) return;
     for (const message of history) this.seen.add(message.id);
   }
 
   startTurn(prompt: string): void {
+    if (this.closed) return;
     this.lines.push(...messageLines(createUserMessage(prompt)));
   }
 
   capture(history: readonly TUniversalMessage[]): void {
+    if (this.closed) return;
     for (const message of history) {
       if (this.seen.has(message.id)) continue;
       this.seen.add(message.id);
@@ -130,5 +134,11 @@ export class InProcessJobLog {
 
   page(taskId: string, cursor: IBackgroundTaskLogCursor | undefined): IBackgroundTaskLogPage {
     return linesPage(taskId, this.lines, cursor);
+  }
+
+  clear(): void {
+    this.closed = true;
+    this.lines.length = 0;
+    this.seen.clear();
   }
 }

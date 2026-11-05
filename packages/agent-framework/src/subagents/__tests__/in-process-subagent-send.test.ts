@@ -12,12 +12,14 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
-import { registerModelMetadata } from '@robota-sdk/agent-core';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { FunctionTool, registerModelMetadata } from '@robota-sdk/agent-core';
+import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { writeForkedSessionRecord } from '../../interactive/interactive-session-fork-record.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import { createInProcessSubagentRunner } from '../in-process-subagent-runner.js';
+import { InProcessJobLog } from '../in-process-job-log.js';
 
 import type { IResolvedConfig } from '../../config/config-types.js';
 import type { IAIProvider, ITerminalOutput, TUniversalMessage } from '@robota-sdk/agent-core';
@@ -226,6 +228,72 @@ describe('an in-process job that takes follow-up input', () => {
   });
 
   describe('its log', () => {
+    it('releases the additional log as the job ends even while its handle remains held', async () => {
+      const clear = vi.spyOn(InProcessJobLog.prototype, 'clear');
+      try {
+        const handle = runner().start(job(cwd));
+        await waitFor(() => gated.waiting() === 1);
+        await gated.answer('finished');
+        await handle.result;
+        expect(clear).toHaveBeenCalledOnce();
+        await expect(handle.readLog?.()).rejects.toThrow('has ended');
+      } finally {
+        clear.mockRestore();
+      }
+    });
+    it('exposes completed tool rounds while a later model round is still running', async () => {
+      const scripted = createScriptedProvider([
+        { toolCalls: [{ name: 'Probe', args: { value: 'hello' } }] },
+        { text: 'finished' },
+      ]).provider;
+      let secondStarted = false;
+      let release!: () => void;
+      const pending = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let calls = 0;
+      const provider = {
+        ...scripted,
+        async chat(...args: Parameters<IAIProvider['chat']>) {
+          calls++;
+          if (calls === 2) {
+            secondStarted = true;
+            await pending;
+          }
+          return scripted.chat(...args);
+        },
+      };
+      const probe = new FunctionTool(
+        {
+          name: 'Probe',
+          description: 'Fixture',
+          parameters: {
+            type: 'object',
+            properties: { value: { type: 'string' } },
+            required: ['value'],
+          },
+        },
+        async () => 'visible tool result',
+      );
+      const handle = createInProcessSubagentRunner({
+        host: testHost,
+        config: CONFIG,
+        context: { agentsMd: '', projectNotesMd: '' },
+        tools: [probe],
+        terminal: NOOP_TERMINAL,
+        provider,
+        permissionMode: 'bypassPermissions',
+      }).start({
+        ...job(cwd),
+        request: { ...job(cwd).request, permissionPolicy: 'preapproved', allowedTools: ['Probe'] },
+      });
+      await waitFor(() => secondStarted);
+      const page = await handle.readLog?.({ offset: 0 });
+      expect(page?.lines.join('\n')).toContain('assistant tool call: Probe');
+      expect(page?.lines.join('\n')).toContain('visible tool result');
+      release();
+      await handle.result;
+    });
     it('retains job turns when a real inherited fork auto-compacts', async () => {
       const model = 'fork-log-compact-test';
       registerModelMetadata({ id: model, name: model, contextWindow: 2000, maxOutput: 100 });
@@ -254,6 +322,9 @@ describe('an in-process job that takes follow-up input', () => {
       }).sessionId;
       const handle = runner(store, model).start(job(cwd, { resumeSessionId: forkId }));
       await waitFor(() => gated.waiting() === 1);
+      const duringCompact = await handle.readLog?.({ offset: 0 });
+      expect(duringCompact?.lines.join('\n')).toContain('user: start the work');
+      expect(duringCompact?.lines.join('\n')).not.toContain('inherited-');
       await gated.answer('COMPACTION SUMMARY');
       await waitFor(() => gated.waiting() === 1);
       const page = await handle.readLog?.({ offset: 0 });

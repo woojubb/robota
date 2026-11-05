@@ -434,15 +434,20 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
           return { taskId: job.taskId, output, ...(usage ? { usage } : {}) };
         })
         // The job's run is the whole of what it saves; its claim ends with it, however it ends.
-        .finally(() => resumed.release()),
+        .finally(() => {
+          log.clear();
+          resumed.release();
+        }),
       cancel: () => {
         turns.end();
+        log.clear();
         session.abort();
         return Promise.resolve();
       },
       send: (prompt) => turns.send(prompt),
       readLog: (cursor) => {
         if (turns.ended) return Promise.reject(endedJobLogError(job, resumeSessionId));
+        log.capture(session.getHistory());
         return Promise.resolve(log.page(job.taskId, cursor));
       },
     };

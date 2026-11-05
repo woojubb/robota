@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { runJobTurns } from '../in-process-job-turns.js';
-import { jobLogPage } from '../in-process-job-log.js';
+import { InProcessJobLog, jobLogPage } from '../in-process-job-log.js';
 
 describe('accepted in-process follow-ups', () => {
   it('runs queued input after a turn fails and reports the failure', async () => {
@@ -25,6 +25,23 @@ describe('accepted in-process follow-ups', () => {
 });
 
 describe('in-process job log', () => {
+  it('releases its plaintext and ignores late captures after closure', () => {
+    const log = new InProcessJobLog();
+    log.startTurn('private prompt');
+    expect(log.page('job', undefined).lines.join()).toContain('private prompt');
+    log.clear();
+    log.startTurn('late prompt');
+    log.capture([
+      {
+        id: 'a',
+        role: 'assistant',
+        content: 'late answer',
+        state: 'complete',
+        timestamp: new Date(),
+      },
+    ]);
+    expect(log.page('job', undefined).lines).toEqual([]);
+  });
   it('includes text-only and embedded resource parts without repeating mirrored content', () => {
     const history = [
       {
