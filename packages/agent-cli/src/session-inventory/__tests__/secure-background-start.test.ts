@@ -30,6 +30,7 @@ it('requires an owner before taking a start lock and certifies a new background 
   const lock = vi.fn(async () => () => {});
   try {
     await expect(startSecureBackground(home, { productRuntime: runtime, env, root, openOwner: async () => undefined, lock })).rejects.toThrow(/needs an unlock/i);
+    await expect(startSecureBackground(home, { productRuntime: runtime, env, root, openOwner: async () => undefined, lock })).rejects.toThrow('test-product session start --background');
     expect(lock).not.toHaveBeenCalled();
     const owner = await openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
     const started = await startSecureBackground(home, { productRuntime: runtime, env, root, restricted: true, openOwner: async () => owner,
@@ -42,6 +43,7 @@ it('requires an owner before taking a start lock and certifies a new background 
       const rows = await listSupervisedSessions(root, undefined, { includeGeneration: true, includeSecure: true });
       expect(rows.find((row) => row.id === started.id)).toMatchObject({ secure: { certified: true }, generation: started.generation });
       const openOwner = () => openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
+      await expect(secureOwnerControl({ productRuntime: runtime, root, id: started.id, command: 'rename', fields: { name: 'x' }, openOwner: async () => undefined })).rejects.toThrow(`test-product session rename ${started.id} <name>`);
       const renamed = await secureOwnerControl({ productRuntime: runtime, root, id: started.id, command: 'rename', fields: { name: 'Owner session' }, openOwner });
       expect(renamed.status).toBe('renamed');
       const status = await secureOwnerControl({ productRuntime: runtime, root, id: started.id, command: 'status', fields: {}, openOwner });

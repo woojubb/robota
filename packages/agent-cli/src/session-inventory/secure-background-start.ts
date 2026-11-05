@@ -20,7 +20,7 @@ export async function startSecureBackground(cwd: string, options: Pick<ISupervis
     terminal: openSecureTerminal(), purpose: 'start a secure background session',
     report: (message) => process.stderr.write(`${message}\n`),
   })))();
-  if (owner === undefined) throw new Error('Not started: secure mode needs an unlock. Run this command in a terminal.');
+  if (owner === undefined) throw new Error(`Not started: secure mode needs an unlock. Ask the user to run: ${runtime.vocabulary.cliName} session start --background`);
   try {
     const release = await (options.lock ?? acquireSupervisedDaemonStartLock)(cwd, root, { cliName: runtime.vocabulary.cliName });
     try {

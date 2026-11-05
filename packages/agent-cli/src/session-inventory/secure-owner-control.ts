@@ -30,7 +30,12 @@ export async function secureOwnerControl(options: {
     terminal: openSecureTerminal(), purpose: `${options.command} on ${options.id}`,
     report: (message) => process.stderr.write(`${message}\n`),
   })))();
-  if (owner === undefined) throw new Error('Secure runtime control needs an unlock in an interactive terminal.');
+  if (owner === undefined) {
+    const cli = runtime.vocabulary.cliName;
+    const command = options.command === 'status' ? `${cli} session view` :
+      `${cli} session ${options.command} ${options.id}${options.command === 'rename' ? ' <name>' : options.command === 'link-pr' ? ' <https-pr-url>' : ''}`;
+    throw new Error(`Secure runtime control needs an unlock in an interactive terminal. Ask the user to run: ${command}`);
+  }
   try {
     const link = await openRegisteredOwnerLink({ root, id: options.id, generation: row.generation, handover: owner });
     let timer: ReturnType<typeof setTimeout> | undefined;

@@ -72,6 +72,7 @@ describe('test-product daemon', () => {
     overrideProductSecureMode(h.options.productRuntime, true);
     expect(await runDaemonCommand(['start'], h.options)).toBe(1);
     expect(h.err()).toMatch(/not started.*secure mode needs an unlock/i);
+    expect(h.err()).toContain('test-product daemon start');
     expect(lock).not.toHaveBeenCalled();
     expect(h.launch).not.toHaveBeenCalled();
   });
@@ -81,7 +82,7 @@ describe('test-product daemon', () => {
     overrideProductSecureMode(h.options.productRuntime, true);
     expect(await runDaemonCommand(['status', '--json'], h.options)).toBe(0);
     expect(h.connect).not.toHaveBeenCalled();
-    expect(JSON.parse(h.out())).toEqual({ running: true, mode: 'secure', id: LIVE, generation: GENERATION, control: 'available', certified: true, verified: false });
+    expect(JSON.parse(h.out())).toEqual({ running: true, mode: 'secure', id: LIVE, generation: GENERATION, control: 'available', keyring: null, certified: true, verified: false });
     expect(h.out()).not.toContain('url');
   });
   it.each(['new', 'reused'])('reports ignored settings for a successful %s Restricted daemon start', async (mode) => {

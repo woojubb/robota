@@ -8,6 +8,7 @@ import { productSecureMode } from '../product/session-sealing.js';
 import { createKeyringFileStore } from '../secure/keyring-store.js';
 import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
 import { openSecureTerminal } from '../secure/secure-terminal.js';
+import { fingerprintOf } from '../secure/sealing-key-warning.js';
 import { launchCertifiedRuntime } from './certified-runtime-launch.js';
 import { proveWorkspaceDaemon } from './prove-workspace-daemon.js';
 
@@ -102,6 +103,15 @@ function findDaemon(options: IDaemonCommandOptions, workspace: string): Promise<
   return findWorkspaceDaemon(workspace, { ...options, root: options.root ?? resolveSupervisedDirectory(options.productRuntime) });
 }
 
+/** A public file fingerprint is informational; it is not proof of the daemon's owner. */
+function localKeyringFingerprint(runtime: ICliRuntimeContext): { readonly fingerprint: string; readonly verified: false } | null {
+  try {
+    const store = createKeyringFileStore({ path: runtime.layout.userPaths.keyring, root: runtime.layout.userRoot });
+    const loaded = store.load();
+    return loaded.status === 'present' ? { fingerprint: fingerprintOf(loaded.keyring), verified: false } : null;
+  } catch { return null; }
+}
+
 async function startSecureDaemon(
   options: IDaemonCommandOptions,
   workspace: string,
@@ -116,7 +126,7 @@ async function startSecureDaemon(
     report: (message) => options.stderr(`${message}\n`),
   })))();
   if (owner === undefined) {
-    options.stderr('Not started: secure mode needs an unlock to start a runtime. Run this command in a terminal.\n');
+    options.stderr(`Not started: secure mode needs an unlock to start a runtime. Ask the user to run: ${runtime.vocabulary.cliName} daemon start\n`);
     return 1;
   }
   try {
@@ -253,7 +263,7 @@ export async function runDaemonCommand(
       }
       if (productSecureMode(options.productRuntime)) {
         options.stdout(parsed.json
-          ? `${JSON.stringify({ running: true, mode: 'secure', id: running.id, generation: running.generation, control: running.control, certified: running.secure?.certified ?? null, verified: false })}\n`
+          ? `${JSON.stringify({ running: true, mode: 'secure', id: running.id, generation: running.generation, control: running.control, keyring: localKeyringFingerprint(options.productRuntime), certified: running.secure?.certified ?? null, verified: false })}\n`
           : `Secure daemon ${running.id} reports it is running in ${workspace}.\n`);
         return 0;
       }
