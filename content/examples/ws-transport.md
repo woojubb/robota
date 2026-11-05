@@ -14,6 +14,8 @@ to loopback or authenticate the upgrade yourself.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { createWsTransport } from '@robota-sdk/agent-transport-ws';
 import { WebSocketServer } from 'ws';
@@ -22,7 +24,7 @@ const wss = new WebSocketServer({ host: '127.0.0.1', port: 8080 });
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 wss.on('connection', async (ws) => {
-  const session = new InteractiveSession({ cwd: process.cwd(), provider });
+  const session = new InteractiveSession({ cwd: process.cwd(), host: createNodeFrameworkHost({ createDefaultTools }), provider });
   const transport = createWsTransport({
     send: (msg) => ws.send(JSON.stringify(msg)),
     // Called once if a message cannot be delivered; the transport stops forwarding after it.

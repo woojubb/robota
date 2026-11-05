@@ -87,11 +87,13 @@ result when the turn ends. The full event list is in [Using the SDK](./sdk.md#ev
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const session = new InteractiveSession({ cwd: process.cwd(), provider });
+const session = new InteractiveSession({ cwd: process.cwd(), host: createNodeFrameworkHost({ createDefaultTools }), provider });
 session.on('text_delta', (delta) => process.stdout.write(delta));
 session.on('complete', (result) => console.log(`\n${result.contextState.usedPercentage}% used`));
 ```

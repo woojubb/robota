@@ -11,11 +11,13 @@ you call `start()`. Do not connect it to another carrier yourself.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { createMcpTransport } from '@robota-sdk/agent-transport-mcp';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
-const session = new InteractiveSession({ cwd: process.cwd(), provider });
+const session = new InteractiveSession({ cwd: process.cwd(), host: createNodeFrameworkHost({ createDefaultTools }), provider });
 
 const transport = createMcpTransport({
   name: 'my-agent',

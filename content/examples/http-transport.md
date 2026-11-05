@@ -10,12 +10,14 @@ them with any Hono adapter.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 import { serve } from '@hono/node-server';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
-const session = new InteractiveSession({ cwd: process.cwd(), provider });
+const session = new InteractiveSession({ cwd: process.cwd(), host: createNodeFrameworkHost({ createDefaultTools }), provider });
 
 const transport = createHttpTransport();
 session.attachTransport(transport);

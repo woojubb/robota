@@ -27,6 +27,8 @@ The CLI is built on top of a programmable SDK. Here's a minimal coding assistant
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({
@@ -34,6 +36,7 @@ const provider = new AnthropicProvider({
 });
 
 const session = new InteractiveSession({
+  host: createNodeFrameworkHost({ createDefaultTools }),
   cwd: process.cwd(), // project context
   provider,
   permissionMode: 'default',
@@ -54,15 +57,19 @@ This session automatically loads your project files, respects your permission se
 This is where Robota's multi-provider design really shines. Anthropic raised prices? Switch to DeepSeek — same code:
 
 ```typescript
+import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 // Before: Anthropic claude-sonnet-4-6
-const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+const anthropicProvider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // After: DeepSeek (10-30x cheaper for many tasks)
 import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
 const provider = new DeepSeekProvider({ apiKey: process.env.DEEPSEEK_API_KEY });
 
 // The rest of your code is unchanged
-const session = new InteractiveSession({ cwd: process.cwd(), provider });
+const session = new InteractiveSession({ cwd: process.cwd(), host: createNodeFrameworkHost({ createDefaultTools }), provider });
 ```
 
 No rewrites. No migration. The provider interface is identical across all 8 supported providers.
@@ -76,14 +83,25 @@ The real power is in the transport layer. The same `InteractiveSession` can be e
 - **MCP** — to be called by Claude Code or other MCP-compatible tools
 - **Headless** — for CI/CD and scripted use cases
 
+Install `@robota-sdk/agent-transport-http` and `@hono/node-server` to serve HTTP requests.
+
 ```typescript
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
-const session = new InteractiveSession({ cwd: '/your/project', provider });
-const transport = new HttpTransport({ port: 3000 });
-await transport.attach(session);
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { serve } from '@hono/node-server';
+
+const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+const session = new InteractiveSession({ cwd: process.cwd(), host: createNodeFrameworkHost({ createDefaultTools }), provider });
+const transport = createHttpTransport();
+transport.attach(session);
 await transport.start();
+await session.whenInitialized();
+console.log('token:', transport.getAdmissionToken());
+serve({ fetch: transport.getApp().fetch, port: 3000 });
 // Your AI coding assistant is now an API
 ```
 

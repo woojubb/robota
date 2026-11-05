@@ -59,12 +59,15 @@ An `InteractiveSession` emits a `text_delta` event for each delta while `submit(
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 declare const provider: IAIProvider;
 
 const session = new InteractiveSession({
   cwd: process.cwd(),
+  host: createNodeFrameworkHost({ createDefaultTools }),
   provider,
 });
 
