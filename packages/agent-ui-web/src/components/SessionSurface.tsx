@@ -425,6 +425,28 @@ export function SessionSurface({
               onClose={() => state.closeExecutionDetail()}
               onLoadMore={() => state.loadMoreExecutionDetail()}
               onStop={openEntry ? () => stopExecutionEntry(openEntry) : undefined}
+              inputState={state.executionDetailInput}
+              mode={state.executionDetailMode}
+              unreadable={state.executionDetailUnreadable}
+              onShowEarlier={state.showEarlierExecutionDetail}
+              onShowLive={state.showLiveExecutionDetail}
+              onSend={
+                openEntry
+                  ? (prompt) =>
+                      state.send({
+                        type: 'send-background-task',
+                        taskId: openEntry.sourceId,
+                        input: { prompt },
+                      })
+                  : undefined
+              }
+              onContinue={
+                openEntry?.resumeSessionId
+                  ? () => {
+                      if (openEntry.resumeSessionId) state.switchSession(openEntry.resumeSessionId);
+                    }
+                  : undefined
+              }
             />
           </div>
         )}

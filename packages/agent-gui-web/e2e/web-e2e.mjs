@@ -1288,6 +1288,26 @@ try {
     await sheet.waitFor({ state: 'detached' });
   });
 
+  await scenario('follows a running fork and reads earlier output on request', async () => {
+    const panel = page.getByRole('complementary', { name: 'Agents' });
+    await panel.getByText('Followed fork').click();
+    const sheet = page.getByRole('dialog', { name: 'Followed fork' });
+    await sheet.getByText('Fork live output').waitFor();
+    const start = sentFrames.length;
+    await sheet.getByRole('textbox', { name: 'Message the fork' }).fill('Check this');
+    await sheet.getByRole('button', { name: 'Send to fork' }).click();
+    await sheet.getByText('Fork received: Check this').waitFor();
+    if (sentFrames.slice(start).some((frame) => frame.type === 'switch-session')) {
+      throw new Error('following a running fork switched the parent session');
+    }
+    await sheet.getByRole('button', { name: 'Earlier output' }).click();
+    await sheet.getByText('Earlier fork output').waitFor();
+    if (!sentFrames.slice(start).some((frame) => frame.type === 'read-execution-detail' && frame.cursor?.offset === 0)) {
+      throw new Error('earlier output was not requested with an explicit zero cursor');
+    }
+    await sheet.getByRole('button', { name: 'Close' }).click();
+  });
+
   // #3288 §1: Stop on an ordinary task sends cancel-background-task and its true status replaces
   // "Done"/silence — it shows "Stopped", never lingering unlabeled.
   await scenario('Stop on a task sends cancel-background-task and shows "Stopped"', async () => {

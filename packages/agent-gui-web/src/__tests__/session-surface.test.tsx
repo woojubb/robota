@@ -1021,3 +1021,46 @@ describe('#3289 §2 — below md, the open sidebar is a sheet over the conversat
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show sessions' }));
   });
 });
+
+describe('fork follow in the GUI surface', () => {
+  it('sends to a running fork without switching the parent session', () => {
+    const send = vi.fn();
+    const switchSession = vi.fn();
+    const entry = {
+      id: 'task:fork',
+      sourceId: 'fork',
+      kind: 'background_task' as const,
+      origin: { kind: 'tool_call' as const, sessionId: 'parent' },
+      status: 'running' as const,
+      state: 'working' as const,
+      title: 'Fork',
+      resumeSessionId: 'fork-session',
+      unread: false,
+      attention: 'none' as const,
+      visibility: 'default' as const,
+      updatedAt: '2026-01-01T00:00:00.000Z',
+      controls: ['select', 'attach', 'send'] as const,
+    };
+    const state = stubState({
+      send,
+      switchSession,
+      openEntryId: entry.id,
+      executionDetailStatus: 'ready',
+      executionDetailRecords: [],
+      executionDetailError: null,
+      executionDetailComplete: true,
+      executionWorkspace: { sessionId: 'parent', updatedAt: entry.updatedAt, entries: [entry] },
+    });
+    render(<SessionSurface state={state} />);
+    fireEvent.change(screen.getByRole('textbox', { name: 'Message the fork' }), {
+      target: { value: 'Check this' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Send to fork' }));
+    expect(send).toHaveBeenCalledWith({
+      type: 'send-background-task',
+      taskId: 'fork',
+      input: { prompt: 'Check this' },
+    });
+    expect(switchSession).not.toHaveBeenCalled();
+  });
+});

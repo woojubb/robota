@@ -286,6 +286,11 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   executionDetailError: string | null;
   /** True once the last page read had no further cursor — nothing more to load. */
   executionDetailComplete: boolean;
+  executionDetailInput?: { taskId: string; status: 'pending' | 'sent' | 'failed' };
+  executionDetailMode?: 'live' | 'transcript';
+  executionDetailUnreadable?: { locked: number; noKeys: number; doesNotOpen: number };
+  showEarlierExecutionDetail?: () => void;
+  showLiveExecutionDetail?: () => void;
   openExecutionDetail: (entryId: string) => void;
   loadMoreExecutionDetail: () => void;
   closeExecutionDetail: () => void;
