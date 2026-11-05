@@ -1,3 +1,5 @@
+import type { IProcessMarkerHandle } from '@robota-sdk/agent-core';
+
 import { assertProjectReadPurpose, workspacePathSegments } from './project-reader-path.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 import {
@@ -72,6 +74,24 @@ class WorkspaceProjectStateStorage {
     assertWorkspaceProjectAuthority(this.#authority);
     assertProjectReadPurpose(purpose);
     this.#mutationBoundary.write(this.projectRelativePath(relativePath), content);
+  }
+
+  acquireWriter(relativeDirectory: string, purpose: string): IProcessMarkerHandle | undefined {
+    assertWorkspaceProjectAuthority(this.#authority);
+    assertProjectReadPurpose(purpose);
+    if (this.#mutationBoundary.acquireWriter === undefined) {
+      throw new WorkspaceAuthorityRequiredError('The project host cannot acquire checkpoint writer leases.');
+    }
+    return this.#mutationBoundary.acquireWriter(this.projectRelativePath(relativeDirectory));
+  }
+
+  claimDirectory(relativePath: string, purpose: string): boolean {
+    assertWorkspaceProjectAuthority(this.#authority);
+    assertProjectReadPurpose(purpose);
+    if (this.#mutationBoundary.claimDirectory === undefined) {
+      throw new WorkspaceAuthorityRequiredError('The project host cannot claim checkpoint directories atomically.');
+    }
+    return this.#mutationBoundary.claimDirectory(this.projectRelativePath(relativePath));
   }
 
   replaceBytes(relativePath: string, content: Uint8Array, purpose: string): void {

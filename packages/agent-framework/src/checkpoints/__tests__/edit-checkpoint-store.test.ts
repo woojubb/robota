@@ -366,7 +366,7 @@ describe('EditCheckpointStore', () => {
     },
   );
 
-  it('loads a legacy v1 manifest as a linear chain (back-compat migration)', async () => {
+  it.runIf(process.platform === 'linux')('loads a legacy v1 manifest as a linear chain (back-compat migration)', async () => {
     const cwd = makeProject();
     const sessionDir = join(cwd, '.agent', 'checkpoints', 'session_1');
     // hand-write two legacy v1 manifests (no parentId/branchId)

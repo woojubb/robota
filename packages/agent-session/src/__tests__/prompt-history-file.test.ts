@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -50,6 +50,56 @@ describe('NodePromptHistoryFile (SCREEN-1993 TC-01)', () => {
       expect(statSync(path).mode & 0o777).toBe(0o600);
       expect(statSync(join(root, '.agent')).mode & 0o777).toBe(0o700);
     }
+  });
+
+  it.runIf(process.platform !== 'win32')('refuses a linked history file without changing its target', async () => {
+    const root = temp();
+    const target = join(root, 'target');
+    const path = join(root, 'history.jsonl');
+    writeFileSync(target, 'original');
+    chmodSync(target, 0o644);
+    symlinkSync(target, path);
+    const file = new NodePromptHistoryFile(path, { sealing: 'plain', ownedRoot: root });
+    expect(() => file.append(entry(1))).toThrow();
+    expect(readFileSync(target, 'utf8')).toBe('original');
+    expect(statSync(target).mode & 0o777).toBe(0o644);
+    await expect(collect(file)).rejects.toThrow();
+  });
+
+  it.runIf(process.platform !== 'win32')('refuses a linked owned directory without changing its target', async () => {
+    const root = temp();
+    const outside = temp();
+    chmodSync(outside, 0o755);
+    symlinkSync(outside, join(root, 'linked'));
+    const file = new NodePromptHistoryFile(join(root, 'linked', 'history.jsonl'), { sealing: 'plain', ownedRoot: root });
+    expect(() => file.append(entry(1))).toThrow();
+    expect(statSync(outside).mode & 0o777).toBe(0o755);
+    writeFileSync(join(outside, 'history.jsonl'), JSON.stringify(entry(2)) + '\n');
+    await expect(collect(file)).rejects.toThrow();
+  });
+
+  it.runIf(process.platform !== 'win32' && process.getuid?.() !== 0)('repairs an owner-readable history file before appending', () => {
+    const root = temp();
+    const path = join(root, 'history.jsonl');
+    writeFileSync(path, JSON.stringify(entry(0)) + '\n');
+    chmodSync(path, 0o400);
+    const file = new NodePromptHistoryFile(path, { sealing: 'plain', ownedRoot: root });
+    file.append(entry(1));
+    expect(statSync(path).mode & 0o777).toBe(0o600);
+    expect(readFileSync(path, 'utf8')).toContain('prompt 1');
+  });
+
+  it.runIf(process.platform !== 'win32' && process.getuid?.() !== 0)('reports how to restore an unreadable history file without changing it', () => {
+    const root = temp();
+    const path = join(root, 'history.jsonl');
+    const original = JSON.stringify(entry(0)) + '\n';
+    writeFileSync(path, original);
+    chmodSync(path, 0o000);
+    const file = new NodePromptHistoryFile(path, { sealing: 'plain', ownedRoot: root });
+    expect(() => file.append(entry(1))).toThrow(/restore owner read\/write permissions.*retry/i);
+    expect(statSync(path).mode & 0o777).toBe(0o000);
+    chmodSync(path, 0o600);
+    expect(readFileSync(path, 'utf8')).toBe(original);
   });
 
   it('reads newest-first across several blocks, carrying a line split by a block boundary', async () => {

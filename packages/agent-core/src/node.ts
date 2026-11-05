@@ -30,6 +30,7 @@ export {
   OWNER_ONLY_FILE_MODE,
   OwnerOnlyModeError,
   OwnerOnlyWriteUnconfirmedError,
+  assertUnlinkedOwnerDirectory,
   ensureOwnerOnlyDirectory,
   ownerOnlyGuarantee,
   stageOwnerOnlyFile,
@@ -66,6 +67,7 @@ export {
   ProcessMarkerError,
   createProcessMarkerMemory,
   createProcessMarkers,
+  createProcessMarkersInOpenDirectory,
 } from './utils/process-marker.js';
 export { removeDirectoryOnProcessExit, runProcessEndNow } from './utils/process-exit-removals.js';
 export type {

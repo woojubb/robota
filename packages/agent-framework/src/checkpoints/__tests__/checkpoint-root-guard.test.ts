@@ -63,6 +63,7 @@ async function captureUnder(root: string, file: string): Promise<number | undefi
   mkdirSync(join(project, '.a', 'cp-two'), { recursive: true });
   writeFileSync(join(project, '.a', 'cp', 's1', 'turn-0001', 'manifest.json'), '{}');
   writeFileSync(join(project, '.a', 'cp-two', 'notes.txt'), 'not state');
+  writeFileSync(join(project, '..dots.txt'), 'a valid project file');
   const access = await createTrustedProjectAccessFixture(project);
   if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
   const store = new EditCheckpointStore({
@@ -80,6 +81,10 @@ async function captureUnder(root: string, file: string): Promise<number | undefi
 }
 
 describe('an EditCheckpointStore whose state sits under the project', () => {
+  it('captures a project file whose name starts with two dots', async () => {
+    expect(await captureUnder('.a/cp', '..dots.txt')).toBe(1);
+  });
+
   it.each(['.a/cp', '.a\\cp'])(
     'does not snapshot its own state as a project file, whether the root is spelled %j',
     async (root) => {

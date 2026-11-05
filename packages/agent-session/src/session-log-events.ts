@@ -68,6 +68,7 @@ export const SESSION_LOG_EVENT = {
   toolResult: 'tool_result',
   toolBlocked: 'tool_blocked',
   toolDenied: 'tool_denied',
+  toolCallHandoffRefused: 'tool_call_handoff_refused',
   serverTool: 'server_tool',
 } as const;
 

@@ -15,6 +15,8 @@ import {
   writeFileSync,
 } from 'node:fs';
 
+import { createProcessMarkersInOpenDirectory } from '@robota-sdk/agent-core/node';
+
 import {
   assertCurrentWorkspaceIdentity,
   refuseProjectRead,
@@ -22,6 +24,7 @@ import {
 } from './project-reader-path.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 
+import type { IProcessMarkerHandle } from '@robota-sdk/agent-core';
 import type {
   IWorkspaceIdentity,
   IWorkspaceIdentityResolver,
@@ -72,7 +75,11 @@ function openAnchoredDirectory(
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     if (!create) return undefined;
-    mkdirSync(target, { mode: OWNER_ONLY_DIRECTORY_MODE });
+    try {
+      mkdirSync(target, { mode: OWNER_ONLY_DIRECTORY_MODE });
+    } catch (creationError) {
+      if ((creationError as NodeJS.ErrnoException).code !== 'EEXIST') throw creationError;
+    }
     descriptor = openSync(target, directoryOpenFlags());
   }
   if (!fstatSync(descriptor).isDirectory()) {
@@ -384,6 +391,10 @@ export function createWorkspaceProjectMutationBoundary(
   identityResolver: IWorkspaceIdentityResolver,
 ): IWorkspaceProjectMutationBoundary {
   return Object.freeze({
+    acquireWriter: (relativeDirectory: string): IProcessMarkerHandle | undefined =>
+      acquireWorkspaceRelativeWriter(identity, identityResolver, relativeDirectory),
+    claimDirectory: (relativePath: string): boolean =>
+      claimWorkspaceRelativeDirectory(identity, identityResolver, relativePath),
     write: (relativePath: string, content: Uint8Array | string): void =>
       writeWorkspaceRelativeFile(identity, identityResolver, relativePath, content),
     replace: (relativePath: string, content: Uint8Array | string): void =>
@@ -412,6 +423,80 @@ export function createWorkspaceProjectMutationBoundary(
       commitStagedWorkspaceRelativeFile(identity, identityResolver, relativePath, temporaryName),
     discardStaged: (relativePath: string, temporaryName: string): void =>
       discardStagedWorkspaceRelativeFile(identity, identityResolver, relativePath, temporaryName),
+  });
+}
+
+/** Retain the checked directory descriptor for every marker operation and its whole lease. */
+function acquireWorkspaceRelativeWriter(
+  identity: IWorkspaceIdentity,
+  identityResolver: IWorkspaceIdentityResolver,
+  relativeDirectory: string,
+): IProcessMarkerHandle | undefined {
+  const segments = workspacePathSegments(relativeDirectory);
+  let descriptor: number | undefined;
+  let acquired: IProcessMarkerHandle | undefined;
+  try {
+    descriptor = withAnchoredParent(identity, identityResolver, segments, (parent, name) => {
+      const opened = openAnchoredDirectory(parent, name, true);
+      if (opened === undefined) refuseProjectRead('The checkpoint writer directory vanished.');
+      return opened;
+    });
+    const retained = descriptor;
+    const original = fstatSync(retained, { bigint: true });
+    const stillNamed = (): boolean =>
+      withExistingAnchoredDirectory(identity, identityResolver, segments, (current) => {
+        const observed = fstatSync(current, { bigint: true });
+        return observed.dev === original.dev && observed.ino === original.ino;
+      }) ?? false;
+    if (!stillNamed()) refuseProjectRead('The checkpoint writer directory is no longer named by the project.');
+    const result = createProcessMarkersInOpenDirectory(retained).acquire('active');
+    if (result.status !== 'acquired') return undefined;
+    acquired = result.handle;
+    if (!stillNamed()) refuseProjectRead('The checkpoint writer directory is no longer named by the project.');
+    const marker = acquired;
+    let released = false;
+    const lease: IProcessMarkerHandle = {
+      holds: () => {
+        if (released) return false;
+        try {
+          return stillNamed() && marker.holds();
+        } catch {
+          return false;
+        }
+      },
+      release: () => {
+        if (released) return;
+        released = true;
+        try { marker.release(); } finally { closeSync(retained); }
+      },
+    };
+    acquired = undefined;
+    descriptor = undefined;
+    return lease;
+  } finally {
+    acquired?.release();
+    if (descriptor !== undefined) closeSync(descriptor);
+  }
+}
+
+function claimWorkspaceRelativeDirectory(
+  identity: IWorkspaceIdentity,
+  identityResolver: IWorkspaceIdentityResolver,
+  relativePath: string,
+): boolean {
+  return withAnchoredParent(identity, identityResolver, workspacePathSegments(relativePath), (parent, name) => {
+    const target = descriptorPath(parent, name);
+    try {
+      mkdirSync(target, { mode: OWNER_ONLY_DIRECTORY_MODE });
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      const metadata = lstatSync(target, { throwIfNoEntry: false });
+      if (metadata !== undefined && !metadata.isDirectory()) {
+        refuseProjectRead('A checkpoint directory claim collided with a non-directory.');
+      }
+      return false;
+    }
   });
 }
 

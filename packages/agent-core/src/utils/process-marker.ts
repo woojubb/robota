@@ -266,10 +266,11 @@ class FileProcessMarkers implements IProcessMarkers {
   readonly #memory: TProcessMarkerMemory;
   #prepared = false;
 
-  constructor(directory: string, options: IProcessMarkersOptions) {
+  constructor(directory: string, options: IProcessMarkersOptions, openedDirectory = false) {
     this.#directory = resolve(directory);
     this.#options = options;
     this.#memory = options.memory ?? processMemory();
+    this.#prepared = openedDirectory;
   }
 
   acquire(name: string, options: IProcessMarkerAcquireOptions = {}): TProcessMarkerAcquireResult {
@@ -609,4 +610,25 @@ export function createProcessMarkers(
   options: IProcessMarkersOptions = {},
 ): IProcessMarkers {
   return new FileProcessMarkers(directory, options);
+}
+
+/**
+ * Markers relative to an already opened directory descriptor on Linux. The caller retains the
+ * descriptor until all handles have been released and is responsible for naming/authority checks.
+ */
+export function createProcessMarkersInOpenDirectory(
+  descriptor: number,
+  options: IProcessMarkersOptions = {},
+): IProcessMarkers {
+  if (process.platform !== 'linux' || !Number.isInteger(descriptor) || descriptor < 0) {
+    throw new ProcessMarkerError('An open marker directory requires a Linux directory descriptor.');
+  }
+  if (!fstatSync(descriptor).isDirectory()) {
+    throw new ProcessMarkerError('The opened marker target must be a directory.');
+  }
+  return new FileProcessMarkers(
+    `/proc/self/fd/${descriptor}`,
+    { ...options, memory: options.memory ?? createProcessMarkerMemory() },
+    true,
+  );
 }

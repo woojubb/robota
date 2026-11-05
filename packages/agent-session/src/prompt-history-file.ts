@@ -12,13 +12,14 @@
  * opens on its own (`stored-append-lines.ts`), so no line waits for another and the first block
  * still renders before the rest is read.
  */
-import { appendFileSync, closeSync, constants, fstatSync, openSync, readSync } from 'node:fs';
+import { closeSync, constants, fchmodSync, fstatSync, lstatSync, openSync, readSync, writeFileSync } from 'node:fs';
 import { dirname } from 'node:path';
 
 import {
   OWNER_ONLY_FILE_MODE,
+  assertUnlinkedOwnerDirectory,
   ensureOwnerOnlyDirectory,
-  tightenExistingFile,
+  ownerOnlyGuarantee,
 } from '@robota-sdk/agent-core/node';
 
 import { StoredLines, splitStoredLines } from './stored-append-lines.js';
@@ -113,6 +114,44 @@ function isMissingFile(error: Error): boolean {
   return (error as NodeJS.ErrnoException).code === 'ENOENT';
 }
 
+function openHistoryForAppend(path: string): number {
+  const safeFlags = (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0);
+  const appendFlags = constants.O_WRONLY | constants.O_APPEND | safeFlags;
+  try {
+    return openSync(path, appendFlags | constants.O_CREAT, OWNER_ONLY_FILE_MODE);
+  } catch (error) {
+    if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== 'EACCES') throw error;
+  }
+
+  let original: number;
+  try {
+    original = openSync(path, constants.O_RDONLY | safeFlags);
+  } catch (error) {
+    if (error instanceof Error && (error as NodeJS.ErrnoException).code === 'EACCES') {
+      throw new Error('Prompt history cannot be opened safely; restore owner read/write permissions on the history file and retry.', { cause: error });
+    }
+    throw error;
+  }
+  try {
+    const before = fstatSync(original, { bigint: true });
+    if (!before.isFile()) throw new Error('Prompt history must be a regular file.');
+    fchmodSync(original, OWNER_ONLY_FILE_MODE);
+    const writable = openSync(path, appendFlags);
+    try {
+      const after = fstatSync(writable, { bigint: true });
+      if (!after.isFile() || before.dev !== after.dev || before.ino !== after.ino) {
+        throw new Error('Prompt history changed while opening it for append.');
+      }
+      return writable;
+    } catch (error) {
+      closeSync(writable);
+      throw error;
+    }
+  } finally {
+    closeSync(original);
+  }
+}
+
 export class NodePromptHistoryFile implements IPromptHistoryWriter, IPromptHistorySource {
   private readonly blockBytes: number;
   private readonly ownedRoot: string | undefined;
@@ -138,11 +177,27 @@ export class NodePromptHistoryFile implements IPromptHistoryWriter, IPromptHisto
     const directory = dirname(this.path);
     ensureOwnerOnlyDirectory(
       directory,
-      this.ownedRoot === undefined ? {} : { withinRoot: this.ownedRoot },
+      this.ownedRoot === undefined
+        ? { rejectSymlinks: true }
+        : { withinRoot: this.ownedRoot, rejectSymlinks: true },
     );
-    // SEC-020: `mode` applies only when the file is created; tightening first repairs an older file.
-    tightenExistingFile(this.path);
-    appendFileSync(this.path, stored, { mode: OWNER_ONLY_FILE_MODE });
+    if (lstatSync(this.path, { throwIfNoEntry: false })?.isSymbolicLink()) {
+      throw new Error('Prompt history must not be a symbolic link.');
+    }
+    const descriptor = openHistoryForAppend(this.path);
+    try {
+      const metadata = fstatSync(descriptor);
+      if (!metadata.isFile()) throw new Error('Prompt history must be a regular file.');
+      if (ownerOnlyGuarantee() === 'posix-mode' && (metadata.mode & 0o077) !== 0) {
+        fchmodSync(descriptor, OWNER_ONLY_FILE_MODE);
+        if ((fstatSync(descriptor).mode & 0o077) !== 0) {
+          throw new Error('Prompt history could not be made owner-only.');
+        }
+      }
+      writeFileSync(descriptor, stored);
+    } finally {
+      closeSync(descriptor);
+    }
   }
 
   /**
@@ -150,6 +205,7 @@ export class NodePromptHistoryFile implements IPromptHistoryWriter, IPromptHisto
    * any other open or read failure is thrown so the surface renders it instead of an empty list.
    */
   async *read(options: IPromptHistoryReadOptions): AsyncIterable<IPromptHistoryBlock> {
+    assertUnlinkedOwnerDirectory(dirname(this.path), this.ownedRoot);
     let descriptor: number;
     try {
       descriptor = openSync(this.path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));

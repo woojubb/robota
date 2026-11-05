@@ -66,6 +66,7 @@ export interface IEditCheckpointCatalog {
     plan: readonly IRestorePlanEntry[],
     checkpoints: IReadableCheckpoints,
     target: IEditCheckpointManifest,
+    assertWriter: () => void,
   ): number;
 }
 
@@ -102,8 +103,9 @@ export class PlainEditCheckpointCatalog implements IEditCheckpointCatalog {
     };
   }
 
-  restore(plan: readonly IRestorePlanEntry[]): number {
+  restore(plan: readonly IRestorePlanEntry[], _checkpoints: IReadableCheckpoints, _target: IEditCheckpointManifest, assertWriter: () => void): number {
     for (const entry of plan) {
+      assertWriter();
       this.io.restoreFile(entry.snapshotPath, entry.record);
     }
     return plan.length;
