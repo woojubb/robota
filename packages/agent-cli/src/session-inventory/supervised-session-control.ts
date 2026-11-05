@@ -206,6 +206,22 @@ function probePid(pid: number): 'present' | 'absent' | 'unknown' {
   }
 }
 
+/** A Linux zombie has exited even when its parent has not yet reaped its PID. */
+function isRegisteredLinuxZombie(pid: number, startedAt: string): boolean {
+  if (process.platform !== 'linux') return false;
+  try {
+    const stat = readFileSync(`/proc/${pid}/stat`, 'utf8');
+    const close = stat.lastIndexOf(')');
+    if (!stat.startsWith(`${pid} (`) || close < 0) return false;
+    // The command name may contain spaces and parentheses; field 3 starts after its last ')'.
+    const fields = stat.slice(close + 1).trim().split(/\s+/u);
+    return fields[0] === 'Z' && fields[19] === startedAt;
+  } catch {
+    // An unreadable process is not evidence that it exited.
+    return false;
+  }
+}
+
 export function resolveSupervisedDirectory(productRuntime: ICliRuntimeContext): string {
   return join(dirname(resolveRendezvousDirectory(productRuntime)), 'supervised');
 }
@@ -600,7 +616,8 @@ export async function stopSupervisedSession(
     const startedAt = readProcessStartTime(record.pid);
     const originalProcessExited = startedAt === undefined
       ? probePid(record.pid) === 'absent'
-      : startedAt !== record.startedAt;
+      : startedAt !== record.startedAt ||
+        (registrationRemoved && isRegisteredLinuxZombie(record.pid, record.startedAt));
     if (registrationRemoved && originalProcessExited) return;
     await new Promise<void>((resolve) => setTimeout(resolve, 25));
   }
