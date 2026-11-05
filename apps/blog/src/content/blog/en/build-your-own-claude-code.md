@@ -19,7 +19,7 @@ __PRODUCT_CLI_NAME__
 
 That's it. On first run, you'll be asked to choose a provider (Anthropic, OpenAI, DeepSeek, Gemini, or a local LM Studio model) and enter your API key. Then you get the same interactive coding assistant experience — file reading, editing, bash execution, multi-turn conversations — all in your terminal.
 
-If you already use Claude Code, your `.claude/settings.json` and `CLAUDE.md` are read automatically. No migration needed.
+If you already use Claude Code, the CLI can read your project’s `.claude/settings.json` and `CLAUDE.md` after you trust the workspace. In Restricted mode it does not load those project files.
 
 ## Build a Custom Agent in 50 Lines
 
