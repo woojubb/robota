@@ -15,6 +15,8 @@ import ExecutionWorkspaceDetailPane from '../ExecutionWorkspaceDetailPane.js';
 import ExecutionWorkspaceSwitcher from '../ExecutionWorkspaceSwitcher.js';
 import { FOLLOW_ROW_TAIL_CHARACTERS, formatFollowRows } from '../execution-workspace-view-model.js';
 import { ScreenReaderProvider } from '../screen-reader-context.js';
+import { KeybindingsProvider } from '../keybindings/keybindings-context.js';
+import { parseKeybindingsDocument } from '../keybindings/keybinding-registry.js';
 
 import type {
   IExecutionDetailPage,
@@ -240,10 +242,49 @@ describe('what the switcher says `a` will do', () => {
           />
         </ScreenReaderProvider>,
       );
-      expect(words(view.lastFrame())).toMatch(/press a/i);
-      view.stdin.write('a');
+      expect(words(view.lastFrame())).toMatch(/press ctrl\+a/i);
+      view.stdin.write('\x01');
       await vi.waitFor(() => expect(onAttach).toHaveBeenCalledWith(entry));
       view.unmount();
     },
   );
+
+  it('does not attach when a numbered screen-reader choice matches a custom attach binding', async () => {
+    const parsed = parseKeybindingsDocument(
+      JSON.stringify({ version: 1, bindings: { 'workspace-switcher': { attach: '2' } } }),
+      '/tmp/keys.json',
+    );
+    if (!parsed.ok) throw new Error(parsed.diagnostic.message);
+    const source = {
+      filePath: '/tmp/keys.json',
+      start: async () => {},
+      isStarted: () => true,
+      ensureFile: async () => '/tmp/keys.json',
+      getSnapshot: () => parsed.snapshot,
+      subscribe: () => () => {},
+      dispose: () => {},
+    };
+    const first = forkEntry();
+    const second = forkEntry({ id: 'task:second', sourceId: 'second', title: 'second' });
+    const onAttach = vi.fn();
+    const onSelect = vi.fn();
+    const view = render(
+      <KeybindingsProvider source={source}>
+        <ScreenReaderProvider enabled>
+          <ExecutionWorkspaceSwitcher
+            snapshot={{ ...snapshotOf(first), entries: [first, second] }}
+            selectedEntryId={first.id}
+            onSelect={onSelect}
+            onClose={vi.fn()}
+            onAttach={onAttach}
+          />
+        </ScreenReaderProvider>
+      </KeybindingsProvider>,
+    );
+    view.stdin.write('2');
+    view.stdin.write('\r');
+    await vi.waitFor(() => expect(onSelect).toHaveBeenCalledWith(second.id));
+    expect(onAttach).not.toHaveBeenCalled();
+    view.unmount();
+  });
 });

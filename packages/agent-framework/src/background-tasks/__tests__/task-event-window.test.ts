@@ -225,6 +225,16 @@ describe('a task event window', () => {
     expect(page.records.at(-1)?.text).toContain(`prompt ${TASK_EVENT_WINDOW_MAX_ROWS}`);
   });
 
+  it('includes the dropped-row notice within the text byte limit', () => {
+    const window = new TaskEventWindow('agent_1', NOW);
+    for (let index = 0; index < 33; index += 1)
+      window.record(text('x'.repeat(TASK_EVENT_WINDOW_ROW_CHARACTERS)));
+    const bytes = window
+      .page(ENTRY)
+      .records.reduce((sum, record) => sum + new TextEncoder().encode(record.text).byteLength, 0);
+    expect(bytes).toBeLessThanOrEqual(TASK_EVENT_WINDOW_MAX_BYTES);
+  });
+
   it('bounds the bytes as well as the rows, for text that is wide in UTF-8', () => {
     const window = new TaskEventWindow('agent_1', NOW);
 

@@ -70,6 +70,30 @@ describe('Esc for a waiting self-paced loop', () => {
     expect(state.abort).not.toHaveBeenCalled();
     view.unmount();
   });
+
+  it('keeps abort behavior for an ordinary background task while the parent is thinking', async () => {
+    const selectedEntry = {
+      id: 'task:plain',
+      sourceId: 'plain',
+      kind: 'background_task' as const,
+      taskKind: 'agent' as const,
+      origin: { kind: 'slash_command' as const, sessionId: 'parent' },
+      status: 'running' as const,
+      state: 'working' as const,
+      title: 'plain',
+      unread: false,
+      attention: 'none' as const,
+      visibility: 'default' as const,
+      updatedAt: '2026-11-05',
+      controls: ['select' as const, 'send' as const],
+    };
+    const state = options({ isThinking: true, selectedEntry, mainThreadEntryId: 'main' });
+    const view = render(<Probe options={state} />);
+    view.stdin.write('\u001b');
+    await vi.waitFor(() => expect(state.abort).toHaveBeenCalledOnce());
+    expect(state.selectWorkspaceEntry).not.toHaveBeenCalled();
+    view.unmount();
+  });
   it('routes idle Esc to targeted loop stop, but active-turn Esc to abort', async () => {
     const idle = options();
     const idleView = render(<Probe options={idle} />);

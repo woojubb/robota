@@ -1,4 +1,5 @@
 import { useApp, useInput } from 'ink';
+import { attachKind } from '@robota-sdk/agent-framework';
 import { useEffect } from 'react';
 
 import { useKeybindingActions } from '../keybindings/keybindings-context.js';
@@ -59,8 +60,8 @@ function overlaysBlockKeys(options: IOptions): boolean {
 }
 
 function useEscapeBindings(options: IOptions): void {
-  const viewingBackground = options.selectedEntry && options.selectedEntry.kind !== 'main_thread';
-  const context = options.isThinking && !viewingBackground ? 'thinking' : 'background-detail';
+  const followingFork = options.selectedEntry && attachKind(options.selectedEntry) === 'follow';
+  const context = options.isThinking && !followingFork ? 'thinking' : 'background-detail';
   useKeybindingActions(context, (actions) => {
     if (overlaysBlockKeys(options)) return;
     if (actions.includes('abort') && options.isThinking) {

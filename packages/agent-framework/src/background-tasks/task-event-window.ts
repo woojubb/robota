@@ -34,6 +34,12 @@ export const TASK_EVENT_WINDOW_ROW_CHARACTERS = 2048;
 const TOOL_LABEL_CHARACTERS = 1024;
 const TOOL_ERROR_CHARACTERS = 512;
 
+function droppedNotice(count: number): string {
+  return count === 1
+    ? '[1 earlier row is not kept here]'
+    : `[${count} earlier rows are not kept here]`;
+}
+
 interface IWindowRow {
   /** The row's number among every row this window ever made; the row's id is built from it. */
   readonly number: number;
@@ -116,10 +122,7 @@ export class TaskEventWindow {
       records.unshift({
         id: `${entryId}:w:earlier`,
         kind: 'progress',
-        text:
-          this.dropped === 1
-            ? '[1 earlier row is not kept here]'
-            : `[${this.dropped} earlier rows are not kept here]`,
+        text: droppedNotice(this.dropped),
       });
     }
     return { entryId, records };
@@ -214,7 +217,8 @@ export class TaskEventWindow {
     while (
       this.rows.length > 1 &&
       (this.rows.length > TASK_EVENT_WINDOW_MAX_ROWS - (this.dropped > 0 ? 1 : 0) ||
-        this.bytes > TASK_EVENT_WINDOW_MAX_BYTES)
+        this.bytes + (this.dropped > 0 ? utf8Length(droppedNotice(this.dropped)) : 0) >
+          TASK_EVENT_WINDOW_MAX_BYTES)
     ) {
       const gone = this.rows.shift();
       if (gone === undefined) return;

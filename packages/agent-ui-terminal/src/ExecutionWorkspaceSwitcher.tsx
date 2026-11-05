@@ -1,4 +1,4 @@
-import { Box } from 'ink';
+import { Box, useInput } from 'ink';
 import { attachKind } from '@robota-sdk/agent-framework';
 import React from 'react';
 
@@ -88,7 +88,6 @@ export default function ExecutionWorkspaceSwitcher({
     'workspace-switcher',
     (actions) => {
       for (const action of actions) {
-        if (screenReader && action !== 'attach') continue;
         if (action === 'attach' && canAttach && focusedEntry) {
           // Attaching replaces what the terminal is looking at, so the switcher has nothing left to
           // switch between — it closes itself rather than making every caller remember to.
@@ -101,7 +100,16 @@ export default function ExecutionWorkspaceSwitcher({
         }
       }
     },
-    { isActive: true },
+    { isActive: !screenReader },
+  );
+  useInput(
+    (input, key) => {
+      if (key.ctrl && input === 'a' && canAttach && focusedEntry) {
+        onAttach(focusedEntry);
+        onClose();
+      }
+    },
+    { isActive: screenReader },
   );
   const footerHints = useKeybindingHints('workspace-switcher', [
     [['previous', 'next'], 'Navigate'],
@@ -152,7 +160,13 @@ export default function ExecutionWorkspaceSwitcher({
           itemCount={entries.length}
           buffer={numbered.buffer}
           invalid={numbered.invalid}
-          attachHint={canAttach ? attachHint : []}
+          attachHint={
+            canAttach && focusedEntry
+              ? attachKind(focusedEntry) === 'follow'
+                ? 'follow'
+                : 'continue'
+              : undefined
+          }
         />
       ) : (
         <KeyHintFooter hints={canAttach ? [...footerHints, ...attachHint] : footerHints} />
@@ -171,7 +185,7 @@ function ScreenReaderSelectionPrompt({
   itemCount: number;
   buffer: string;
   invalid: boolean;
-  attachHint: readonly IKeyHint[];
+  attachHint: string | undefined;
 }): React.ReactElement {
   const prompt = formatNumberedSelectionPrompt(itemCount, true);
   return (
@@ -181,11 +195,7 @@ function ScreenReaderSelectionPrompt({
         {buffer.length > 0 ? ` ${buffer}` : ''}
       </Text>
       {invalid && <Text>{prompt}</Text>}
-      {attachHint.map((hint) => (
-        <Text
-          key={hint.keys}
-        >{`Press ${hint.keys} to ${hint.label.toLowerCase()} the selected fork.`}</Text>
-      ))}
+      {attachHint && <Text>{`Press Ctrl+A to ${attachHint} the selected fork.`}</Text>}
     </Box>
   );
 }
