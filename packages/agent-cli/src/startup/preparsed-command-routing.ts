@@ -49,6 +49,7 @@ import { validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-o
 import { runSecureCommand } from '../secure/secure-command.js';
 import { productSecureMode } from '../product/session-sealing.js';
 import { startSecureBackground } from '../session-inventory/secure-background-start.js';
+import { secureOwnerControl } from '../session-inventory/secure-owner-control.js';
 import { runUsageCommand } from '../usage/usage-command.js';
 import { runUsageExportCommand } from '../usage/usage-export-command.js';
 import { subcommandHelpFor } from '../utils/cli-help.js';
@@ -327,7 +328,10 @@ export async function runPreparsedCliCommand(
     }
     try {
       const id = argv[SUBCOMMAND_ARGUMENT_INDEX]!;
-      await renameSupervisedSession(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!, supervisedRoot);
+      if (productSecureMode(productRuntime)) {
+        const result = await secureOwnerControl({ productRuntime, root: supervisedRoot, id, command: 'rename', fields: { name: argv[SUBCOMMAND_ARGUMENT_INDEX + 1]! } });
+        if (result.status !== 'renamed') throw new Error('The secure runtime did not confirm rename.');
+      } else await renameSupervisedSession(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!, supervisedRoot);
       process.stdout.write(`Renamed supervised session ${id}.\n`);
       process.exitCode = 0;
     } catch (error) {
@@ -351,7 +355,10 @@ export async function runPreparsedCliCommand(
     }
     try {
       const id = argv[SUBCOMMAND_ARGUMENT_INDEX]!;
-      await linkSupervisedPr(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!, supervisedRoot);
+      if (productSecureMode(productRuntime)) {
+        const result = await secureOwnerControl({ productRuntime, root: supervisedRoot, id, command: 'link-pr', fields: { url: argv[SUBCOMMAND_ARGUMENT_INDEX + 1]! } });
+        if (result.status !== 'linked') throw new Error('The secure runtime did not confirm the PR link.');
+      } else await linkSupervisedPr(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!, supervisedRoot);
       process.stdout.write(`Linked PR to supervised session ${id}.\n`);
       process.exitCode = 0;
     } catch (error) {
@@ -372,7 +379,10 @@ export async function runPreparsedCliCommand(
     }
     try {
       const id = argv[SUBCOMMAND_ARGUMENT_INDEX]!;
-      await unlinkSupervisedPr(id, supervisedRoot);
+      if (productSecureMode(productRuntime)) {
+        const result = await secureOwnerControl({ productRuntime, root: supervisedRoot, id, command: 'unlink-pr', fields: {} });
+        if (result.status !== 'unlinked') throw new Error('The secure runtime did not confirm PR unlink.');
+      } else await unlinkSupervisedPr(id, supervisedRoot);
       process.stdout.write(`Unlinked PR from supervised session ${id}.\n`);
       process.exitCode = 0;
     } catch (error) {

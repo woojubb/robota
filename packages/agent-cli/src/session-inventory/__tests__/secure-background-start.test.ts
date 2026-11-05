@@ -1,16 +1,21 @@
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { openOwnerHandover } from '@robota-sdk/agent-keyring';
+import { openOwnerHandover, serializeKeyring } from '@robota-sdk/agent-keyring';
+import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import { expect, it, vi } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
-import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../../secure/__tests__/helpers.js';
+import { overrideProductSecureMode } from '../../product/session-sealing.js';
+import * as secureTerminal from '../../secure/secure-terminal.js';
+import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
+import { FIXTURE_PASSPHRASE, fixtureKeyring, scriptedSecureTerminal } from '../../secure/__tests__/helpers.js';
 import { launchCertifiedRuntime } from '../certified-runtime-launch.js';
 import { startSecureBackground } from '../secure-background-start.js';
+import { secureOwnerControl } from '../secure-owner-control.js';
 import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
 
 it('requires an owner before taking a start lock and certifies a new background runtime', async () => {
@@ -19,6 +24,8 @@ it('requires an owner before taking a start lock and certifies a new background 
   const runtime = createTestProductRuntime('test-product', env);
   const root = resolveSupervisedDirectory(runtime);
   const { keyring } = await fixtureKeyring();
+  mkdirSync(dirname(runtime.layout.userPaths.keyring), { recursive: true, mode: 0o700 });
+  writeFileSync(runtime.layout.userPaths.keyring, serializeKeyring(keyring), { mode: 0o600 });
   const lock = vi.fn(async () => () => {});
   try {
     await expect(startSecureBackground(home, { productRuntime: runtime, env, root, openOwner: async () => undefined, lock })).rejects.toThrow(/needs an unlock/i);
@@ -33,6 +40,24 @@ it('requires an owner before taking a start lock and certifies a new background 
       expect(owner.disposed).toBe(true);
       const rows = await listSupervisedSessions(root, undefined, { includeGeneration: true, includeSecure: true });
       expect(rows.find((row) => row.id === started.id)).toMatchObject({ secure: { certified: true }, generation: started.generation });
+      const openOwner = () => openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
+      const renamed = await secureOwnerControl({ productRuntime: runtime, root, id: started.id, command: 'rename', fields: { name: 'Owner session' }, openOwner });
+      expect(renamed.status).toBe('renamed');
+      const status = await secureOwnerControl({ productRuntime: runtime, root, id: started.id, command: 'status', fields: {}, openOwner });
+      expect(status).toMatchObject({ status: 'running', name: 'Owner session' });
+      overrideProductSecureMode(runtime, true);
+      const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+      const terminal = vi.spyOn(secureTerminal, 'openSecureTerminal').mockImplementation(() => scriptedSecureTerminal({ passphrase: FIXTURE_PASSPHRASE }).session);
+      const previousExitCode = process.exitCode;
+      try {
+        for (const args of [['rename', started.id, 'Updated owner name'], ['link-pr', started.id, 'https://github.com/woojubb/robota/pull/1'], ['unlink-pr', started.id]]) {
+          process.exitCode = 0;
+          await runPreparsedCliCommand({ productRuntime: runtime, providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', home) }, ['node', 'test-product', 'session', ...args], home);
+          expect(process.exitCode, stderr.mock.calls.map(([text]) => String(text)).join('')).toBe(0);
+        }
+        expect(terminal).toHaveBeenCalledTimes(3);
+      } finally { terminal.mockRestore(); stderr.mockRestore(); stdout.mockRestore(); process.exitCode = previousExitCode; }
     } finally { await stopSupervisedSession(started.id, root, started.generation); }
   } finally { rmSync(home, { recursive: true, force: true }); }
 }, 60_000);
