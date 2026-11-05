@@ -122,8 +122,9 @@ confirmation is treated as a decline, never a default yes. Every outcome states 
 lives.
 
 **`/fork`.** A fork is a copy: work done in it never reaches the parent session and never merges back;
-attaching to it later is a view switch, not a merge. It runs in an isolated worktree by default so
-filesystem work cannot collide with the parent's working directory; that isolation must be explicitly
+following it while running or continuing it later never merges the conversations. It runs in an
+isolated worktree by default so filesystem work cannot collide with the parent's working directory;
+that isolation must be explicitly
 opted out of. A rejected fork write spawns no background job; a job-spawn failure after a successful
 write still reports the written session record so it can be resumed by hand.
 The resume command in that failure report is supplied by the host using the saved session id;

@@ -45,8 +45,8 @@ surface can tell a fork's task from an ordinary one; absent, the child starts wi
 conversation.
 
 A fork is a copy, not a branch of one live thing: from the moment the record is written the two
-conversations are separate records that never rejoin. `TExecutionControl` gains `'attach'` for
-exactly that reason — attaching to a fork is a view switch onto its record, never a merge.
+conversations are separate records that never rejoin. Attaching follows a running fork or continues
+its ended record, so observing or continuing it never merges its work into the parent.
 
 ### Loop stop routing (`IExecutionWorkspaceEntry.loopId`)
 

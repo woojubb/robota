@@ -205,7 +205,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   project files. A plain resume is not a copy and always rebuilds, so edits to AGENTS.md between
   sessions still reach it. Writing a fork's record leaves the source record byte-identical; the two
   conversations never rejoin. An unresolved recovery conversation cannot be copied to another
-  session or workspace because discovery is bound to its existing owner. Attaching a surface's view to a fork is a _view switch_, never a merge.
+  session or workspace because discovery is bound to its existing owner. Following a running fork or
+  continuing an ended fork keeps its record separate from the parent; the live view is bounded and
+  transient so observing it does not add another persisted conversation copy.
 - **Host-action parity.** A command's host actions (language change, settings reset, session
   exit/restart/rename, …) are executed by the session through injected host adapters, so headless and
   programmatic embeddings get the same command semantics as an attached UI. An embedding with no

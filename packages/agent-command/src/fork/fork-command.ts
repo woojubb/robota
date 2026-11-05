@@ -11,9 +11,8 @@
  * startup `--fork-session` does.
  *
  * A fork is a copy, not a branch of one live thing: from the moment the record is written, work in
- * the fork and work here are two histories that never rejoin. Attaching to the fork later (the
- * background panel's `attach` control) switches the terminal's VIEW to that session; it does not
- * merge anything back.
+ * the fork and work here are two histories that never rejoin. The background panel follows the
+ * running job or continues its ended session; neither action merges anything back.
  */
 
 import type { ICommandHostAgentJobs, ICommandHostSessionAccess } from '@robota-sdk/agent-framework';
@@ -92,8 +91,8 @@ function describeFork(name: string, taskId: string, isolation: TBackgroundTaskIs
   return [
     `Forked this conversation into "${name}" (${taskId}), running ${where}.`,
     'The fork is a copy: this session keeps going, and the two are separate records.',
-    'See its progress with /background list. Attaching from the background panel points this',
-    "terminal at the copy as it was forked; the fork's own turns stay in its task transcript.",
+    'See its progress with /background list. From the background panel, follow it while it runs',
+    'or continue it after it ends. The fork and this conversation remain separate.',
   ].join('\n');
 }
 

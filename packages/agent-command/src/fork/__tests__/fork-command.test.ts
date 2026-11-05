@@ -80,6 +80,8 @@ describe('/fork writes the copy and starts the job that resumes it (CLI-1994 TC-
     expect(result.success).toBe(true);
     expect(result.message).toContain(DEFAULT_FORK_NAME);
     expect(result.message).toContain(TASK_ID);
+    expect(result.message).toContain('follow it while it runs');
+    expect(result.message).toContain('continue it after it ends');
     expect(result.data).toEqual({
       sessionId: FORK_SESSION_ID,
       name: DEFAULT_FORK_NAME,
