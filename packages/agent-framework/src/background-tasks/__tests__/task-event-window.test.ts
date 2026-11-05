@@ -219,7 +219,7 @@ describe('a task event window', () => {
     const window = new TaskEventWindow('agent_1', NOW);
 
     for (let index = 0; index < 200; index += 1) {
-      window.record(text('가'.repeat(TASK_EVENT_WINDOW_ROW_CHARACTERS)));
+      window.record(text('\uac00'.repeat(TASK_EVENT_WINDOW_ROW_CHARACTERS)));
     }
 
     const shown = window.page(ENTRY).records.filter((record) => record.kind === 'message');
