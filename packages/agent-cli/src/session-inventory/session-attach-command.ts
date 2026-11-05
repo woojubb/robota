@@ -9,8 +9,14 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  */
 
 import { confirmAttachOnTerminal, type IAttachConfirmation } from './attach-confirmation.js';
+import { productSecureMode } from '../product/session-sealing.js';
+import { createKeyringFileStore } from '../secure/keyring-store.js';
+import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
+import { openSecureTerminal } from '../secure/secure-terminal.js';
+import { openSecureAttach } from './secure-attach-client.js';
 import { openSupervisedAttach, type ISupervisedAttachConnection } from './supervised-attach-client.js';
 import { listSupervisedSessions, resolveSupervisedDirectory } from './supervised-session-control.js';
+import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
 
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
@@ -99,6 +105,7 @@ export interface ISessionAttachCommandOptions {
   /** Supplied by the interactive CLI; resolves how the terminal UI ended. */
   readonly render?: TAttachedAppRender;
   readonly confirm?: (question: IAttachConfirmation) => Promise<boolean>;
+  readonly openSecureOwner?: () => Promise<IOwnerHandover | undefined>;
 }
 
 export async function runSessionAttachCommand(
@@ -147,6 +154,35 @@ export async function runSessionAttachCommand(
   if (row?.liveness !== 'alive' || row.control !== 'available' || row.generation === undefined) {
     process.stderr.write(`${id} is not a live supervised session this terminal can attach to.\n`);
     return 1;
+  }
+  if (productSecureMode(options.productRuntime)) {
+    const product = options.productRuntime;
+    let owner: IOwnerHandover | undefined;
+    try {
+      owner = await (options.openSecureOwner ?? (() => openOwnerAtTerminal({
+        store: createKeyringFileStore({ path: product.layout.userPaths.keyring, root: product.layout.userRoot }),
+        terminal: openSecureTerminal(), purpose: `attach to ${id}`,
+        report: (message) => process.stderr.write(`${message}\n`),
+      })))();
+      if (owner === undefined) {
+        process.stderr.write('Attach cancelled: secure mode needs an unlock.\n');
+        return 1;
+      }
+      const handover = owner;
+      return await runConfirmedAttach({
+        id, mode, generation: row.generation, root,
+        open: async (selectedId, selectedMode, selectedRoot, generation) => {
+          if (generation === undefined) throw new Error('Secure attach needs a runtime generation.');
+          return openSecureAttach({ id: selectedId, mode: selectedMode, root: selectedRoot, generation, handover,
+            onMismatch: () => process.stderr.write('Warning: the runtime keyring sealing key differs from the unlocked key. Run secure verify to investigate.\n') });
+        },
+        render: (open) => render({ ...open, mode, sessionLabel: row.name ?? id, screenReaderFlag }),
+        messages: supervisedSessionAttachMessages(id, cliName),
+      });
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : 'Unable to attach.'}\n`);
+      return 1;
+    } finally { owner?.dispose(); }
   }
   const question: IAttachConfirmation = { id, ...(row.name !== undefined ? { name: row.name } : {}), mode };
   if (!(await (options.confirm ?? confirmAttachOnTerminal)(question))) {

@@ -1,0 +1,60 @@
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
+
+import { createKeyring, openOwnerHandover, serializeKeyring } from '@robota-sdk/agent-keyring';
+import { expect, it, vi } from 'vitest';
+
+import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { overrideProductSecureMode } from '../../product/session-sealing.js';
+import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../../secure/__tests__/helpers.js';
+import { launchCertifiedRuntime } from '../certified-runtime-launch.js';
+import { openSecureAttach } from '../secure-attach-client.js';
+import { runSessionAttachCommand } from '../session-attach-command.js';
+import { resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
+
+it('attaches an owner over the verified link and unlocks before detaching', async () => {
+  const home = realpathSync(mkdtempSync(join(process.platform === 'win32' ? tmpdir() : realpathSync('/tmp'), 'sat-')));
+  const env = createTestBinaryEnvironment(home, { PRODUCT_TELEMETRY_ENABLED: '0' });
+  const runtime = createTestProductRuntime('test-product', env);
+  const root = resolveSupervisedDirectory(runtime);
+  const { keyring } = await fixtureKeyring();
+  mkdirSync(dirname(runtime.layout.userPaths.keyring), { recursive: true, mode: 0o700 });
+  writeFileSync(runtime.layout.userPaths.keyring, serializeKeyring(keyring), { mode: 0o600 });
+  const handover = await openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
+  let started: { id: string; generation: string } | undefined;
+  try {
+    started = await launchCertifiedRuntime(home, { productRuntime: runtime, env, root, restricted: true, handover,
+      entrypoint: fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url)),
+      execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source'] });
+    const attach = await openSecureAttach({ ...started, root, mode: 'observe', handover });
+    expect(attach.driverId).toMatch(/^attach:/u);
+    attach.detach();
+    const other = await createKeyring({ passphrase: 'another strong passphrase' });
+    other.unlocked.lock();
+    const stranger = await openOwnerHandover(other.keyring, { type: 'passphrase', passphrase: 'another strong passphrase' });
+    try {
+      await expect(openSecureAttach({ ...started, root, mode: 'drive', handover: stranger })).rejects.toThrow();
+    } finally { stranger.dispose(); }
+    overrideProductSecureMode(runtime, true);
+    const terminalOwner = await openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
+    const confirm = vi.fn(async () => { throw new Error('An extra confirmation must not run'); });
+    const render = vi.fn(async () => 'user' as const);
+    const output = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      const code = await runSessionAttachCommand([started.id, '--observe'], {
+        productRuntime: runtime, root, isTTY: true, render, confirm, openSecureOwner: async () => terminalOwner,
+      });
+      expect(code).toBe(0);
+      expect(render).toHaveBeenCalledOnce();
+      expect(confirm).not.toHaveBeenCalled();
+      expect(terminalOwner.disposed).toBe(true);
+    } finally { output.mockRestore(); }
+  } finally {
+    handover.dispose();
+    if (started) await stopSupervisedSession(started.id, root, started.generation);
+    rmSync(home, { recursive: true, force: true });
+  }
+}, 60_000);
