@@ -38,7 +38,8 @@ if (args[0] === '-e') {
     if (timeoutMs >= 30000) {
       return finish('success', 'Workflow completed in 5ms.\\nOutputs: {\\n  "regex.text": "robota # workers #"\\n}', 0);
     }
-    const refusal = 'Workflow failed (' + (timeoutMs + 20) + 'ms): regex: Task execution timed out after ' + timeoutMs + 'ms';
+    const reportedLimit = mode === 'remaining-timeout' ? timeoutMs - 1 : mode === 'invalid-timeout' ? timeoutMs + 1 : mode === 'zero-timeout' ? 0 : timeoutMs;
+    const refusal = 'Workflow failed (' + (timeoutMs + 20) + 'ms): regex: Task execution timed out after ' + reportedLimit + 'ms';
     const startWorker = (options) =>
       spawn(process.argv[1], ['-e', 'const boundedRegexReplace = 1;'], { stdio: 'ignore', ...options });
     const stopWorker = async (worker) => {
@@ -113,6 +114,18 @@ describe('regex worker e2e verdicts', () => {
       await expect(runFake('ok')).resolves.toMatch(
         /^regex-worker=passed; .*leaked=0; recovery=passed$/u,
       );
+    }, 60_000);
+
+    it('accepts a timeout reported as the remaining node deadline', async () => {
+      await expect(runFake('remaining-timeout')).resolves.toMatch(/^regex-worker=passed/u);
+    }, 60_000);
+
+    it('refuses a reported timeout beyond the node deadline', async () => {
+      await expect(runFake('invalid-timeout')).rejects.toThrow(/against a 600ms timeout/u);
+    }, 60_000);
+
+    it('refuses a reported timeout of zero', async () => {
+      await expect(runFake('zero-timeout')).rejects.toThrow(/against a 600ms timeout/u);
     }, 60_000);
 
     it('refuses a run that hangs while its worker keeps running', async () => {

@@ -240,7 +240,13 @@ export function assertHostileRun(run, { timeoutMs, marginMs, baselineMs }) {
     );
   }
   const [, durationMs, limitMs] = refusal.map(Number);
-  if (limitMs !== timeoutMs || durationMs < timeoutMs || durationMs > timeoutMs + marginMs) {
+  // The worker reports the remaining deadline after setup, not necessarily the configured timeout.
+  if (
+    limitMs <= 0 ||
+    limitMs > timeoutMs ||
+    durationMs < timeoutMs ||
+    durationMs > timeoutMs + marginMs
+  ) {
     throw failure(
       `The refusal reports ${durationMs}ms against a ${timeoutMs}ms timeout; expected the timeout to elapse, then the run to end within ${marginMs}ms.`,
       describe(run),
