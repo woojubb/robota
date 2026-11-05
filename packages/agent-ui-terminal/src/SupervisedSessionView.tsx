@@ -42,6 +42,7 @@ export interface ISupervisedAttachRequest {
 /** How the view ended: closed, or handed to the host to attach and then come back. */
 export type TSupervisedViewExit =
   | { readonly kind: 'closed' }
+  | { readonly kind: 'start'; readonly choice?: TSupervisedStartTrustChoice }
   | ({ readonly kind: 'attach' } & ISupervisedAttachRequest);
 
 const ROLE: Readonly<Record<ISupervisedAttachRequest['mode'], string>> = {
@@ -71,6 +72,9 @@ export interface ISupervisedSessionViewProps {
   /** Receives the generation the row displayed, so a session restarted under the same id is refused. */
   readonly onStop?: (id: string, generation: string) => Promise<void>;
   readonly onStart?: (choice?: TSupervisedStartTrustChoice) => Promise<string>;
+  /** Close the view and let the host start after the terminal is released. */
+  readonly onDeferredStart?: (choice?: TSupervisedStartTrustChoice) => void;
+  readonly deferStart?: boolean;
   /** The question to ask when the folder a new session starts in is not trusted yet; none otherwise. */
   readonly startTrustQuestion?: () => Promise<ISupervisedStartTrustQuestion | undefined>;
   /** Product-owned command shown when a long trust question is shortened. */
@@ -233,6 +237,7 @@ export default function SupervisedSessionView({
   loadRows,
   onStop,
   onStart,
+  onDeferredStart,
   startTrustQuestion,
   trustStatusCommand,
   onOpenPr,
@@ -286,6 +291,11 @@ export default function SupervisedSessionView({
   const mountedRef = useRef(true);
   const runStart = (choice?: TSupervisedStartTrustChoice): void => {
     if (onStart === undefined) return;
+    if (onDeferredStart !== undefined) {
+      onDeferredStart(choice);
+      exit();
+      return;
+    }
     startingRef.current = true;
     setStartStatus('starting');
     void Promise.resolve()
@@ -844,6 +854,7 @@ export async function renderSupervisedSessionView(
     });
   }
   let attach: ISupervisedAttachRequest | undefined;
+  let start: { readonly choice?: TSupervisedStartTrustChoice } | undefined;
   // The attached App pauses stdin when it unmounts. A view reopened after detach must resume it
   // before Ink subscribes again, otherwise the view paints but ignores q/Escape and other keys.
   process.stdin.resume();
@@ -853,6 +864,9 @@ export async function renderSupervisedSessionView(
         loadRows={options.loadRows}
         onStop={options.onStop}
         onStart={options.onStart}
+        {...(options.deferStart === true ? { onDeferredStart: (choice?: TSupervisedStartTrustChoice) => {
+          start = choice === undefined ? {} : { choice };
+        } } : {})}
         startTrustQuestion={options.startTrustQuestion}
         onOpenPr={options.onOpenPr}
         attachWithoutConfirmation={options.attachWithoutConfirmation}
@@ -877,5 +891,7 @@ export async function renderSupervisedSessionView(
   } finally {
     instance.unmount();
   }
-  return attach === undefined ? { kind: 'closed' } : { kind: 'attach', ...attach };
+  if (attach !== undefined) return { kind: 'attach', ...attach };
+  if (start !== undefined) return { kind: 'start', ...start };
+  return { kind: 'closed' };
 }

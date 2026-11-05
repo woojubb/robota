@@ -66,6 +66,18 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
       expect(render).toHaveBeenCalledTimes(2);
       expect(viewOwner.disposed).toBe(true);
     } finally { outputView.mockRestore(); }
+    let viewOpen = false;
+    let calls = 0;
+    const start = vi.fn(async () => { expect(viewOpen).toBe(false); return 'new-runtime'; });
+    const deferredView = vi.fn(async (options: { deferStart?: boolean }) => {
+      expect(options.deferStart).toBe(true);
+      viewOpen = true;
+      const result = calls++ === 0 ? { kind: 'start' as const, choice: 'restricted' as const } : { kind: 'closed' as const };
+      viewOpen = false;
+      return result;
+    });
+    expect(await runSessionViewCommand([], { productRuntime: runtime, root, isTTY: true, settings: {}, render: deferredView, start, launchCwd: home })).toBe(0);
+    expect(start).toHaveBeenCalledExactlyOnceWith(home, 'restricted');
   } finally {
     handover.dispose();
     if (started) await stopSupervisedSession(started.id, root, started.generation);

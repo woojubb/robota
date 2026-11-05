@@ -1017,6 +1017,18 @@ describe('supervised session view', () => {
     } finally { view.unmount(); }
   });
 
+  it('hands a secure start to its host after leaving the view', async () => {
+    const start = vi.fn(async () => 'new-id');
+    const defer = vi.fn();
+    const view = render(<SupervisedSessionView loadRows={async () => [FIRST]} onStart={start} onDeferredStart={defer} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('n');
+      await vi.waitFor(() => expect(defer).toHaveBeenCalledOnce());
+      expect(start).not.toHaveBeenCalled();
+    } finally { view.unmount(); }
+  });
+
   it('refuses an attach when the row restarts or leaves control while confirmation is open', async () => {
     for (const replacement of [
       { ...FIRST, generation: 'restartedGeneration001' },

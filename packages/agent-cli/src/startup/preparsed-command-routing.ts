@@ -448,10 +448,13 @@ export async function runPreparsedCliCommand(
               : access,
           }).settingsSources,
         );
+        if (productSecureMode(productRuntime)) {
+          return (await startSecureBackground(targetCwd, {
+            productRuntime, env: supervisedEnv(targetCwd), ...(restricted ? { restricted: true } : {}),
+          })).id;
+        }
         return launchSupervisedSession(targetCwd, {
-          productRuntime,
-          env: supervisedEnv(targetCwd),
-          ...(restricted ? { restricted: true } : {}),
+          productRuntime, env: supervisedEnv(targetCwd), ...(restricted ? { restricted: true } : {}),
         });
       },
     });

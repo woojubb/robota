@@ -178,6 +178,7 @@ export async function runSessionViewCommand(
           includeGeneration: true,
         }),
       ...(productSecureMode(options.productRuntime) ? { attachWithoutConfirmation: true } : {}),
+      ...(productSecureMode(options.productRuntime) && start !== undefined ? { deferStart: true } : {}),
       onStop: (id, generation) => (options.stop ?? stopSupervisedSession)(id, root, generation),
       onOpenPr: async (id, url, generation) => {
         const verified = await getVerifiedSupervisedPr(id, root, generation);
@@ -200,6 +201,13 @@ export async function runSessionViewCommand(
     });
     for (;;) {
       const ended = await view();
+      if (ended?.kind === 'start') {
+        if (start !== undefined) {
+          try { await start(startCwd, ended.choice); }
+          catch (error) { process.stderr.write(`${error instanceof Error ? error.message : 'Unable to start a secure session.'}\n`); }
+        }
+        continue;
+      }
       if (ended === undefined || ended.kind !== 'attach') return 0;
       reopen = { id: ended.id, groupByDirectory: ended.groupByDirectory };
       const renderAttached = options.renderAttached;
