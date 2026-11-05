@@ -209,6 +209,7 @@ const PARSE_ARGS_CONFIG = {
     'supervised-external-event-grants': { type: 'boolean' },
     'supervised-transport-token-fd': { type: 'boolean' },
     'supervised-spawner-pair': { type: 'boolean' },
+    'supervised-forwarded-environment': { type: 'boolean' },
     daemon: { type: 'boolean' },
     'external-event-grant': { type: 'string', multiple: true },
     'external-event-port': { type: 'string' },
@@ -455,6 +456,9 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     (!Number.isInteger(args.httpPort) || args.httpPort < 1 || args.httpPort > 65535)
   ) {
     throw new Error('--http-port must be an integer in 1..65535');
+  }
+  if (values['supervised-forwarded-environment'] === true && values['supervised-spawner-pair'] !== true) {
+    throw new Error('--supervised-forwarded-environment requires a spawner pair');
   }
   if (args.supervisedSessionId !== undefined) {
     if (

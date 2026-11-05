@@ -138,6 +138,10 @@ import {
   canAskServeOpenTrustQuestion,
 } from './startup/headless-serve-trust-prompt.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
+import { runEarlyForwardedDaemon } from './startup/early-forwarded-daemon.js';
+import { forwardedEnvironmentRequested, receiveForwardedEnvironment } from './startup/forwarded-environment.js';
+import { createCliRuntimeContext } from './product/runtime-context.js';
+import { copyProductSecureMode, productSecureMode } from './product/session-sealing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { tuiInitialInputProps } from './startup/tui-initial-input.js';
@@ -234,7 +238,17 @@ export async function startCliCore(
   // one channel only this process and its spawner hold, and it is closed before anything can start.
   const spawnerIdentity = answerSpawnerPairOrExit(process.argv);
   const supervisedTransportToken = readHandedOverTransportTokenOrExit();
-  const productRuntime = resolveCliRuntimeContext(initialOptions);
+  const initialRuntime = resolveCliRuntimeContext(initialOptions);
+  let productRuntime = initialRuntime;
+  if (forwardedEnvironmentRequested(process.argv)) {
+    if (spawnerIdentity === undefined || !productSecureMode(initialRuntime)) {
+      throw new Error('A forwarded environment requires a secure runtime and its spawner pair.');
+    }
+    const forwarded = await receiveForwardedEnvironment(process.argv);
+    productRuntime = createCliRuntimeContext(initialRuntime.config, { ...initialRuntime.environment, ...forwarded }, initialRuntime.artifact);
+    copyProductSecureMode(initialRuntime, productRuntime);
+  }
+  if (await runEarlyForwardedDaemon(productRuntime, process.argv)) return;
   // The pair and the secure mode of this state root must agree, before the process listens on anything.
   const secureRuntime = startSecureRuntimeOrExit(productRuntime, process.argv, spawnerIdentity);
   installProductProcessEnvironment(productRuntime);

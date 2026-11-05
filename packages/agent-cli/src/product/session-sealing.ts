@@ -50,6 +50,12 @@ export function overrideProductSecureMode(runtime: ICliRuntimeContext, on: boole
   secureModeOverrides.set(runtime, on);
 }
 
+/** Preserve an invocation's secure-mode decision when its admitted environment is rebound. */
+export function copyProductSecureMode(from: ICliRuntimeContext, to: ICliRuntimeContext): void {
+  const mode = secureModeOverrides.get(from);
+  if (mode !== undefined) secureModeOverrides.set(to, mode);
+}
+
 /** The runtimes of subagent workers in this process, each with what its parent handed it. */
 const workerSealings = new WeakMap<ICliRuntimeContext, IWorkerSealing>();
 /** The runtimes that hold keys of their own, each sealing with its holder's. */

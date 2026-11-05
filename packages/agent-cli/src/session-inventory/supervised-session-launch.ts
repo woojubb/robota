@@ -16,6 +16,7 @@ import {
 } from '../subagents/self-fork-worker-entry.js';
 import { RESTRICTED_WORKSPACE_FLAG } from '../startup/workspace-project-composition.js';
 import { SUPERVISED_SPAWNER_PAIR_FLAG } from './supervised-spawner-pair.js';
+import { FORWARDED_ENVIRONMENT_FLAG } from '../startup/forwarded-environment.js';
 import {
   discardSupervisedGrantHandoff,
   isSupervisedSessionName,
@@ -256,7 +257,7 @@ export interface ISupervisedLaunchOptions {
     readonly restricted?: boolean;
   }
 
-type TLaunchMode = { readonly kind: 'plain' } | { readonly kind: 'spawner'; readonly pairTimeoutMs?: number } | { readonly kind: 'forwarded'; readonly spawnerFd: number; readonly closeParent: () => void };
+type TLaunchMode = { readonly kind: 'plain' } | { readonly kind: 'spawner'; readonly pairTimeoutMs?: number } | { readonly kind: 'forwarded'; readonly spawnerFd: number; readonly closeParent: () => void; readonly prepareEnvironment?: () => Promise<NodeJS.ProcessEnv> };
 type TLaunchResult = { readonly kind: 'plain' | 'forwarded'; readonly id: string } | ({ readonly kind: 'spawner'; readonly id: string } & ISpawnerPairResult);
 
 /** Start one opt-in supervised runtime without sending credentials through the control channel. */
@@ -281,7 +282,7 @@ export async function launchRuntimeProcess(
 /** Forward a desktop spawner's inherited pair without reading or certifying it. */
 export async function launchForwardedRuntime(
   cwd: string,
-  options: ISupervisedLaunchOptions & { readonly spawnerFd: number },
+  options: ISupervisedLaunchOptions & { readonly spawnerFd: number; readonly prepareEnvironment?: () => Promise<NodeJS.ProcessEnv> },
 ): Promise<string> {
   const fd = options.spawnerFd;
   if (!Number.isSafeInteger(fd) || fd < 3) throw new Error('The spawner descriptor is invalid.');
@@ -297,7 +298,7 @@ export async function launchForwardedRuntime(
     try { closeSync(fd); } catch { /* The descriptor is already closed. */ }
   };
   try {
-    const result = await launchRuntime(cwd, options, { kind: 'forwarded', spawnerFd: fd, closeParent });
+    const result = await launchRuntime(cwd, options, { kind: 'forwarded', spawnerFd: fd, closeParent, ...(options.prepareEnvironment === undefined ? {} : { prepareEnvironment: options.prepareEnvironment }) });
     return result.id;
   } finally {
     closeParent();
@@ -348,6 +349,7 @@ async function launchRuntime(
       ...(grants.length > 0 ? ['--supervised-external-event-grants'] : []),
       ...(transportToken === undefined ? [] : [SUPERVISED_TRANSPORT_TOKEN_FLAG]),
       ...(mode.kind !== 'plain' ? [SUPERVISED_SPAWNER_PAIR_FLAG] : []),
+      ...(mode.kind === 'forwarded' && mode.prepareEnvironment !== undefined ? [FORWARDED_ENVIRONMENT_FLAG] : []),
       ...(options.daemon === true ? ['--daemon'] : []),
       ...(options.restricted === true ? [RESTRICTED_WORKSPACE_FLAG] : []),
       ...(grants.length > 0 && options.eventEndpoint !== undefined
@@ -393,6 +395,8 @@ async function launchRuntime(
     let ready = false;
     let acknowledged = false;
     let pair: ISpawnerPairResult | undefined;
+    let admissionRequested = false;
+    let admissionSent = false;
     const timer = setTimeout(
       () => failFromChild('Supervised session did not become ready in time.'),
       20_000,
@@ -477,6 +481,23 @@ async function launchRuntime(
       }
     }
     child.on('message', (message: unknown) => {
+      if (mode.kind === 'forwarded' && mode.prepareEnvironment !== undefined &&
+          typeof message === 'object' && message !== null && 'kind' in message &&
+          message.kind === 'forwarded-environment-needed' && 'id' in message && message.id === id) {
+        if (admissionRequested || ready) return fail('Supervised session requested admission out of order.');
+        admissionRequested = true;
+        void mode.prepareEnvironment().then((environment) => {
+          if (done) return;
+          const entries = Object.entries(environment).filter((entry): entry is [string, string] => typeof entry[1] === 'string');
+          const accepted = Object.fromEntries(entries);
+          if (Buffer.byteLength(JSON.stringify(accepted), 'utf8') > 128 * 1024) return fail('Supervised session admission environment is too large.');
+          admissionSent = true;
+          child.send({ kind: 'forwarded-environment', id, environment: accepted }, (error) => {
+            if (error) fail('Supervised session admission channel failed.');
+          });
+        }).catch(() => fail('Secure runtime workspace admission failed. Check workspace trust and settings.'));
+        return;
+      }
       if (!isHandshakeMessage(message, id)) return fail('Supervised session sent an invalid readiness message.');
       if (message.kind === 'error') {
         return fail(message.code === 'grant-refused' && typeof message.grant === 'string' &&
@@ -491,6 +512,9 @@ async function launchRuntime(
                 : 'Supervised session refused to start.');
       }
       if (message.kind === 'ready' && !ready) {
+        if (mode.kind === 'forwarded' && mode.prepareEnvironment !== undefined && !admissionSent) {
+          return fail('Supervised session did not request workspace admission.');
+        }
         if (!sameGrants(message.grants, sentGrantIds)) {
           return fail('Supervised session did not open exactly the external event grants it was given.');
         }
