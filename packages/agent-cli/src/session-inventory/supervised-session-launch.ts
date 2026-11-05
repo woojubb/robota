@@ -125,11 +125,11 @@ function redactEnvCredentialValues(
   const secrets = [
     ...Object.entries(env)
       .filter(([name]) => CREDENTIAL_ENV_NAME.test(name))
-      .map(([, value]) => value),
+      .map(([, value]) => value)
+      .filter((value): value is string => value !== undefined && value.length >= MIN_CREDENTIAL_VALUE_LENGTH),
     ...handedOverSecrets,
-  ];
+  ].map(stripAnsiAndControlChars).filter((value) => value.length > 0).sort((a, b) => b.length - a.length);
   for (const value of secrets) {
-    if (value === undefined || value.length < MIN_CREDENTIAL_VALUE_LENGTH) continue;
     if (!result.includes(value)) continue;
     result = result.split(value).join('[REDACTED]');
   }
@@ -491,6 +491,7 @@ async function launchRuntime(
           const entries = Object.entries(environment).filter((entry): entry is [string, string] => typeof entry[1] === 'string');
           const accepted = Object.fromEntries(entries);
           if (Buffer.byteLength(JSON.stringify(accepted), 'utf8') > 128 * 1024) return fail('Supervised session admission environment is too large.');
+          handedOverSecrets.push(...entries.map(([, value]) => value));
           admissionSent = true;
           child.send({ kind: 'forwarded-environment', id, environment: accepted }, (error) => {
             if (error) fail('Supervised session admission channel failed.');
