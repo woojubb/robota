@@ -88,6 +88,7 @@ export default function ExecutionWorkspaceSwitcher({
     'workspace-switcher',
     (actions) => {
       for (const action of actions) {
+        if (screenReader && action !== 'attach') continue;
         if (action === 'attach' && canAttach && focusedEntry) {
           // Attaching replaces what the terminal is looking at, so the switcher has nothing left to
           // switch between — it closes itself rather than making every caller remember to.
@@ -100,7 +101,7 @@ export default function ExecutionWorkspaceSwitcher({
         }
       }
     },
-    { isActive: !screenReader },
+    { isActive: true },
   );
   const footerHints = useKeybindingHints('workspace-switcher', [
     [['previous', 'next'], 'Navigate'],
@@ -151,6 +152,7 @@ export default function ExecutionWorkspaceSwitcher({
           itemCount={entries.length}
           buffer={numbered.buffer}
           invalid={numbered.invalid}
+          attachHint={canAttach ? attachHint : []}
         />
       ) : (
         <KeyHintFooter hints={canAttach ? [...footerHints, ...attachHint] : footerHints} />
@@ -164,10 +166,12 @@ function ScreenReaderSelectionPrompt({
   itemCount,
   buffer,
   invalid,
+  attachHint,
 }: {
   itemCount: number;
   buffer: string;
   invalid: boolean;
+  attachHint: readonly IKeyHint[];
 }): React.ReactElement {
   const prompt = formatNumberedSelectionPrompt(itemCount, true);
   return (
@@ -177,6 +181,11 @@ function ScreenReaderSelectionPrompt({
         {buffer.length > 0 ? ` ${buffer}` : ''}
       </Text>
       {invalid && <Text>{prompt}</Text>}
+      {attachHint.map((hint) => (
+        <Text
+          key={hint.keys}
+        >{`Press ${hint.keys} to ${hint.label.toLowerCase()} the selected fork.`}</Text>
+      ))}
     </Box>
   );
 }

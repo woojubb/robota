@@ -14,6 +14,7 @@ import { describe, expect, it, vi } from 'vitest';
 import ExecutionWorkspaceDetailPane from '../ExecutionWorkspaceDetailPane.js';
 import ExecutionWorkspaceSwitcher from '../ExecutionWorkspaceSwitcher.js';
 import { FOLLOW_ROW_TAIL_CHARACTERS, formatFollowRows } from '../execution-workspace-view-model.js';
+import { ScreenReaderProvider } from '../screen-reader-context.js';
 
 import type {
   IExecutionDetailPage,
@@ -222,4 +223,27 @@ describe('what the switcher says `a` will do', () => {
     expect(words(continueFrame)).toContain('A Continue');
     expect(words(continueFrame)).not.toContain('A Follow');
   });
+
+  it.each(['running', 'completed'] as const)(
+    'makes attach available in screen-reader mode for a %s fork',
+    async (status) => {
+      const entry = forkEntry({ status, controls: ['select', 'attach'] });
+      const onAttach = vi.fn();
+      const view = render(
+        <ScreenReaderProvider enabled>
+          <ExecutionWorkspaceSwitcher
+            snapshot={snapshotOf(entry)}
+            selectedEntryId={entry.id}
+            onSelect={vi.fn()}
+            onClose={vi.fn()}
+            onAttach={onAttach}
+          />
+        </ScreenReaderProvider>,
+      );
+      expect(words(view.lastFrame())).toMatch(/press a/i);
+      view.stdin.write('a');
+      await vi.waitFor(() => expect(onAttach).toHaveBeenCalledWith(entry));
+      view.unmount();
+    },
+  );
 });

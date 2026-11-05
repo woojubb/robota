@@ -29,13 +29,15 @@ export function useFollowHistory({ entry, enabled, read, addEntry }: IOptions): 
   const position = useRef<{
     entryId: string | undefined;
     cursor: IExecutionDetailCursor | undefined;
+    seen: Set<string>;
     busy: boolean;
     generation: number;
-  }>({ entryId: undefined, cursor: { offset: 0 }, busy: false, generation: 0 });
+  }>({ entryId: undefined, cursor: { offset: 0 }, seen: new Set(), busy: false, generation: 0 });
   useEffect(() => {
     position.current = {
       entryId: entry?.id,
       cursor: { offset: 0 },
+      seen: new Set(),
       busy: false,
       generation: position.current.generation + 1,
     };
@@ -81,12 +83,19 @@ export function useFollowHistory({ entry, enabled, read, addEntry }: IOptions): 
           );
           return;
         }
-        for (const record of page.records) say(record.text);
+        const unseen = page.records.filter((record) => !position.current.seen.has(record.id));
+        for (const record of unseen) {
+          say(record.text);
+          position.current.seen.add(record.id);
+        }
         if (page.unreadable && Object.values(page.unreadable).some((count) => count > 0)) {
           say('Some earlier output could not be read.');
         }
-        position.current.cursor = page.nextCursor;
-        if (page.records.length === 0 && !page.unreadable) say('No earlier output.');
+        if (page.nextCursor) {
+          position.current.cursor = page.nextCursor;
+          position.current.seen.clear();
+        }
+        if (unseen.length === 0 && !page.unreadable) say('No more earlier output yet.');
       })()
         .catch(() => {
           if (position.current.generation === generation) say('Could not read earlier output.');

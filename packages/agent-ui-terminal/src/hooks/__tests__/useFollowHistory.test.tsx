@@ -40,6 +40,35 @@ function adapter(ensureReadable: IKeyCustodyPort['ensureReadable']): ITuiCliAdap
 }
 
 describe('follow history', () => {
+  it('revisits the last page as a running transcript grows without repeating its rows', async () => {
+    const first = { id: 'r1', kind: 'message', text: 'first' };
+    const second = { id: 'r2', kind: 'message', text: 'second' };
+    const read = vi
+      .fn()
+      .mockResolvedValueOnce({ entryId: fork.id, records: [] })
+      .mockResolvedValueOnce({ entryId: fork.id, records: [first] })
+      .mockResolvedValueOnce({ entryId: fork.id, records: [first, second] });
+    const addEntry = vi.fn();
+    function Probe(): React.ReactElement {
+      useFollowHistory({ entry: fork, enabled: true, read, addEntry });
+      return <Text>ready</Text>;
+    }
+    const view = render(
+      <TuiCliAdapterProvider value={adapter(vi.fn().mockResolvedValue('readable'))}>
+        <Probe />
+      </TuiCliAdapterProvider>,
+    );
+    for (let i = 1; i <= 3; i++) {
+      view.stdin.write('\x0f');
+      await vi.waitFor(() => expect(addEntry).toHaveBeenCalledTimes(i));
+    }
+    expect(read).toHaveBeenCalledTimes(3);
+    expect(read.mock.calls.every((call) => call[1]?.offset === 0)).toBe(true);
+    expect(JSON.stringify(addEntry.mock.calls[1])).toContain('first');
+    expect(JSON.stringify(addEntry.mock.calls[2])).toContain('second');
+    expect(JSON.stringify(addEntry.mock.calls[2])).not.toContain('first');
+    view.unmount();
+  });
   it('asks for unlock only after a person requests a locked page, then rereads it', async () => {
     const read = vi
       .fn()
