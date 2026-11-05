@@ -308,7 +308,11 @@ describe('WireTuiChannel', () => {
 
   it('issue #3288 §1: carries a background agent requester onto the shown permission request', async () => {
     const { channel, link } = await attached();
-    const requester = { kind: 'background-agent' as const, label: 'general-purpose', taskId: 'agent_1' };
+    const requester = {
+      kind: 'background-agent' as const,
+      label: 'general-purpose',
+      taskId: 'agent_1',
+    };
     link.push({
       type: 'permission_request',
       event: { id: 'p1', toolName: 'Glob', toolArgs: { pattern: '**/*' }, requester },
@@ -1270,7 +1274,7 @@ describe('WireTuiChannel refused session changes (#3189 step 5)', () => {
     await channel.stop();
   });
 
-  it("settles a switch an older host refuses with a protocol error that names no request", async () => {
+  it('settles a switch an older host refuses with a protocol error that names no request', async () => {
     const { channel, link } = await attached();
     const switched = channel.requestSessionSwitch('s2');
     link.push({ type: 'protocol_error', message: 'Stop the running turn first.' });
@@ -1308,6 +1312,22 @@ function lastNotice(channel: WireTuiChannel): unknown {
 }
 
 describe('WireTuiChannel background work and loops (#3189 step 3b)', () => {
+  it('sends the requested transcript cursor to the host', async () => {
+    const { channel, link } = await attached();
+    const read = channel.readExecutionWorkspaceDetail('task-1', { offset: 20 });
+    expect(link.sent.at(-1)).toMatchObject({
+      type: 'read-execution-detail',
+      entryId: 'task-1',
+      cursor: { offset: 20 },
+    });
+    link.push({
+      type: 'execution_detail',
+      requestId: lastRequestId(link.sent, 'read-execution-detail'),
+      page: { entryId: 'task-1', records: [] },
+    });
+    await read;
+    await channel.stop();
+  });
   it("reads a workspace entry's detail page from the host, and fails with the host's reason", async () => {
     const { channel, link } = await attached();
     const page = { entryId: 'task-1', items: [], nextCursor: undefined } as never;
@@ -1347,11 +1367,26 @@ describe('WireTuiChannel background work and loops (#3189 step 3b)', () => {
       taskId: 'task-1',
       input: { prompt: 'more please' },
     });
-    link.push({ type: 'background_task_control_result', action: 'cancel', taskId: 'task-1', success: true });
-    link.push({ type: 'background_task_control_result', action: 'send', taskId: 'task-2', success: true });
+    link.push({
+      type: 'background_task_control_result',
+      action: 'cancel',
+      taskId: 'task-1',
+      success: true,
+    });
+    link.push({
+      type: 'background_task_control_result',
+      action: 'send',
+      taskId: 'task-2',
+      success: true,
+    });
     await flush();
     expect(settled).toBe(false);
-    link.push({ type: 'background_task_control_result', action: 'send', taskId: 'task-1', success: true });
+    link.push({
+      type: 'background_task_control_result',
+      action: 'send',
+      taskId: 'task-1',
+      success: true,
+    });
     await sending;
 
     const refused = channel.sendAgentJob('task-1', 'again');
