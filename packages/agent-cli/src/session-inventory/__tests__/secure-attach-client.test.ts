@@ -55,9 +55,10 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
       const states: boolean[] = [];
       surfaces[0]!.onCustody((state) => states.push(state.unlocked));
       await expect(openSecureAttach({ ...started, root, mode: 'observe', handover })).rejects.toThrow();
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      expect(states).toContain(true);
-      expect(surfaces[0]!.custody.unlocked).toBe(false);
+      await vi.waitFor(() => {
+        expect(states).toContain(true);
+        expect(surfaces[0]!.custody.unlocked).toBe(false);
+      }, { timeout: 2_000 });
     } finally { for (const link of surfaces) link.close(); }
     const other = await createKeyring({ passphrase: 'another strong passphrase' });
     other.unlocked.lock();
