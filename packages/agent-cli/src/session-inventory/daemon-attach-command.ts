@@ -16,8 +16,8 @@ import { createKeyringFileStore } from '../secure/keyring-store.js';
 import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
 import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { confirmAttachOnTerminal, type IAttachConfirmation } from './attach-confirmation.js';
-import { findWorkspaceDaemon } from './daemon-command.js';
-import { openRegisteredOwnerLink } from './owner-link-client.js';
+import { findWorkspaceDaemon, type TWorkspaceDaemon } from './daemon-command.js';
+import { proveWorkspaceDaemon } from './prove-workspace-daemon.js';
 import { runConfirmedAttach, type TAttachedAppRender } from './session-attach-command.js';
 import { openSecureAttach } from './secure-attach-client.js';
 import { listSupervisedSessions, resolveSupervisedDirectory } from './supervised-session-control.js';
@@ -38,9 +38,10 @@ export const DAEMON_ATTACH_HELP = (cliName: string): string =>
   "see, and its sessions to list, start and switch. The daemon's session is shaped by the daemon, so\n" +
   'no option that shapes a session is taken; to change one, restart the daemon.\n' +
   '\n' +
-  'It asks for confirmation on this terminal first and needs an interactive terminal, so only the user\n' +
-  'can run it; a script or an agent should suggest the command instead, or connect to the URL that\n' +
-  `\`${cliName} daemon start --json\` prints. Detach with /exit or Ctrl-C: the daemon keeps running. Exits 0\n` +
+  'It needs an interactive terminal and asks for confirmation there; in secure mode the owner unlocks\n' +
+  'with a passphrase instead, so only the user can run it; a script or an agent should suggest the command instead.\n' +
+  `In plain mode a client may instead use the URL from \`${cliName} daemon start --json\`. Detach with /exit\n` +
+  'or Ctrl-C: the daemon keeps running. Exits 0\n' +
   'after detaching, 1 when it could not attach.\n';
 
 export interface IDaemonAttachCommandOptions {
@@ -154,18 +155,10 @@ export async function runDaemonAttachCommand(
       const rows = await (options.list ?? listSupervisedSessions)(root, undefined, {
         cwd: workspace, includeCwd: true, includeGeneration: true, includeDaemon: true, includeName: true,
       });
-      const candidates = rows.filter((row) => row.daemon === true && row.cwd === workspace &&
+      const candidates = rows.filter((row): row is TWorkspaceDaemon => row.daemon === true && row.cwd === workspace &&
         row.liveness === 'alive' && row.control === 'available' && row.generation !== undefined)
         .sort((a, b) => a.id.localeCompare(b.id));
-      let selected: { readonly id: string; readonly generation: string; readonly name?: string } | undefined;
-      for (const candidate of candidates) {
-        if (candidate.generation === undefined) continue;
-        try {
-          const link = await openRegisteredOwnerLink({ root, id: candidate.id, generation: candidate.generation, handover });
-          link.close();
-          selected ??= { id: candidate.id, generation: candidate.generation, ...(candidate.name === undefined ? {} : { name: candidate.name }) };
-        } catch { /* A reported daemon is a candidate until its owner link proves it. */ }
-      }
+      const selected = await proveWorkspaceDaemon({ root, workspace, candidates, handover });
       if (selected === undefined) throw new Error('No reported daemon could be proved by this owner.');
       const { id, generation, name } = selected;
       return await runConfirmedAttach({

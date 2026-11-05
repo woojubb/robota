@@ -9,7 +9,7 @@ import { createKeyringFileStore } from '../secure/keyring-store.js';
 import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
 import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { launchCertifiedRuntime } from './certified-runtime-launch.js';
-import { openRegisteredOwnerLink } from './owner-link-client.js';
+import { proveWorkspaceDaemon } from './prove-workspace-daemon.js';
 
 import {
   acquireSupervisedDaemonStartLock,
@@ -26,7 +26,8 @@ export const DAEMON_USAGE = (cliName: string): string =>
   `Usage: ${cliName} daemon start [--json] [--restricted-workspace]\n` +
   `       ${cliName} daemon status [--json]\n` +
   `       ${cliName} daemon stop\n` +
-  `       ${cliName} daemon clear-start-lock\n`;
+  `       ${cliName} daemon clear-start-lock\n` +
+  'In secure mode, a supervising client may hand its inherited spawner descriptor to start with --spawner-fd <fd>.\n';
 
 export interface IDaemonCommandOptions {
   readonly productRuntime: ICliRuntimeContext;
@@ -127,14 +128,7 @@ async function startSecureDaemon(
       const candidates = rows.filter((row): row is TWorkspaceDaemon => row.daemon === true && row.cwd === workspace &&
         row.liveness === 'alive' && row.control === 'available' && row.generation !== undefined)
         .sort((a, b) => a.id.localeCompare(b.id));
-      let found: TWorkspaceDaemon | undefined;
-      for (const row of candidates) {
-        try {
-          const link = await openRegisteredOwnerLink({ root, id: row.id, generation: row.generation, handover: owner });
-          link.close();
-          found ??= row;
-        } catch { /* An unproven endpoint cannot become the workspace daemon. */ }
-      }
+      const found = await proveWorkspaceDaemon({ root, workspace, candidates, handover: owner });
       if (found !== undefined) {
         if (parsed.restricted && found.restricted !== true) throw new Error(`Daemon ${found.id} uses project configuration and cannot be started Restricted.`);
         if (!parsed.restricted && found.restricted === true && await options.trusted(workspace)) throw new Error(`Daemon ${found.id} is Restricted in a trusted workspace. Stop it before starting with project configuration.`);
