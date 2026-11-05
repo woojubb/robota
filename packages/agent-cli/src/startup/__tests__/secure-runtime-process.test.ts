@@ -4,6 +4,7 @@ import { once } from 'node:events';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createConnection } from 'node:net';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Duplex } from 'node:stream';
@@ -14,6 +15,7 @@ import { afterEach, expect, it } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { connectSupervisedDaemon, listSupervisedSessions, openSupervisedAttachSocket, resolveSupervisedDirectory } from '../../session-inventory/supervised-session-control.js';
+import { windowsControlPipePath } from '../../session-inventory/windows-control-pipe.js';
 
 const fixture = fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url));
 const roots: string[] = [];
@@ -29,8 +31,9 @@ afterEach(async () => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 25 });
 });
 
-it.runIf(process.platform !== 'win32')('starts the real secure CLI runtime and admits its spawner on the control socket', async () => {
-  const root = realpathSync(mkdtempSync(join(realpathSync('/tmp'), 'sa-')));
+it('starts the real secure CLI runtime and admits its spawner on the control socket', async () => {
+  const temporaryRoot = process.platform === 'win32' ? tmpdir() : realpathSync('/tmp');
+  const root = realpathSync(mkdtempSync(join(temporaryRoot, 'sa-')));
   roots.push(root);
   const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '0' });
   const runtime = createTestProductRuntime('test-product', env);
@@ -62,7 +65,9 @@ it.runIf(process.platform !== 'win32')('starts the real secure CLI runtime and a
   await expect(connectSupervisedDaemon(id, supervisedRoot, row?.generation)).rejects.toThrow();
   await expect(openSupervisedAttachSocket(id, 'drive', supervisedRoot, row?.generation)).rejects.toThrow();
   const hash = createHash('sha256').update(id).digest('hex').slice(0, 16);
-  const socketPath = join(supervisedRoot, `${hash}.sock`);
+  const socketPath = process.platform === 'win32'
+    ? windowsControlPipePath(supervisedRoot, id)
+    : join(supervisedRoot, `${hash}.sock`);
   const otherExchange = startSpawnerExchange();
   const other = otherExchange.complete(createRuntimeIdentity().answerSpawnerExchange(otherExchange.message));
   const impostor = createConnection(socketPath);

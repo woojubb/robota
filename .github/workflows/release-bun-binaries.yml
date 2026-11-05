@@ -214,6 +214,8 @@ jobs:
         run: |
           pnpm --filter './packages/agent-file-authority' exec vitest run --no-file-parallelism --reporter verbose
           pnpm --filter './packages/agent-file-authority' qualify:native
+          pnpm --filter './packages/agent-transport-link' exec vitest run --no-file-parallelism --reporter verbose src/__tests__/spawner-pair-process.test.ts
+          pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/startup/__tests__/secure-runtime-spawn-guard.test.ts src/startup/__tests__/secure-runtime-process.test.ts
           qualifier="$RUNNER_TEMP/native-qualification${{ runner.os == 'Windows' && '.exe' || '' }}"
           pnpm --filter './packages/agent-file-authority' qualify:bun:build -- "$qualifier"
           "$qualifier"
