@@ -273,7 +273,20 @@ export async function runRegexWorkerE2e(binaryPath, options = {}) {
 
     const trust = cli(['trust', '--yes']);
     if (trust.status !== 0 || !/Workspace trust: trusted/u.test(trust.stdout ?? '')) {
-      throw failure('trust --yes failed.', `${trust.stdout}\n${trust.stderr}`);
+      const git = (args) =>
+        spawnSync('git', args, { cwd: workspace, env, encoding: 'utf8' }).stdout?.trim();
+      throw failure(
+        'trust --yes failed.',
+        [
+          trust.stdout,
+          trust.stderr,
+          `DIAG cwd given to the CLI: ${workspace}`,
+          `DIAG realpathSync.native: ${realpathSync.native(workspace)}`,
+          `DIAG os.tmpdir(): ${tmpdir()}`,
+          `DIAG git --show-toplevel: ${git(['rev-parse', '--show-toplevel'])}`,
+          `DIAG git --git-common-dir: ${git(['rev-parse', '--git-common-dir'])}`,
+        ].join('\n'),
+      );
     }
     // Print mode needs a configured provider to start. A local one whose address is never dialled: a workflow
     // file runs without a model.
