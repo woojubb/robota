@@ -240,7 +240,8 @@ export async function startCliCore(
   const supervisedTransportToken = readHandedOverTransportTokenOrExit();
   const initialRuntime = resolveCliRuntimeContext(initialOptions);
   let productRuntime = initialRuntime;
-  if (forwardedEnvironmentRequested(process.argv)) {
+  const hasForwardedEnvironment = forwardedEnvironmentRequested(process.argv);
+  if (hasForwardedEnvironment) {
     if (spawnerIdentity === undefined || !productSecureMode(initialRuntime)) {
       throw new Error('A forwarded environment requires a secure runtime and its spawner pair.');
     }
@@ -251,7 +252,9 @@ export async function startCliCore(
   if (await runEarlyForwardedDaemon(productRuntime, process.argv)) return;
   // The pair and the secure mode of this state root must agree, before the process listens on anything.
   const secureRuntime = startSecureRuntimeOrExit(productRuntime, process.argv, spawnerIdentity);
-  installProductProcessEnvironment(productRuntime);
+  // Forwarded provider references remain in the private runtime snapshot, not the ambient env
+  // inherited by the trust probe or any other process started before settings are composed.
+  installProductProcessEnvironment(hasForwardedEnvironment ? initialRuntime : productRuntime);
   installProductChildSessions(productRuntime);
   // Hosted admission precedes launch handlers, project contributions, provider creation and all modes.
   if (readHostedRuntimeConfig(productRuntime.environment) !== undefined) {

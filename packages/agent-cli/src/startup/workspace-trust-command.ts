@@ -9,6 +9,7 @@ import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/nod
 
 import { formatProjectContributionPreview } from './project-contribution-preview.js';
 import { userPaths } from '../product/user-paths.js';
+import { workspaceGitEnvironment } from '../product/workspace-git-environment.js';
 import { trustQuestionFor } from './interactive-trust-prompt.js';
 import { createInitialCliWorkspaceComposition } from './workspace-project-composition.js';
 import { providerEnvironmentReferences } from '../product/restart-environment.js';
@@ -67,6 +68,7 @@ export async function runWorkspaceTrustCommand(
   service: WorkspaceTrustService = createNodeWorkspaceTrustService(
     userPaths(runtime).workspaceTrust,
     runtime.layout.projectStateDirectories,
+    workspaceGitEnvironment(runtime),
   ),
   providerDefinitions?: readonly IProviderDefinition[],
 ): Promise<number> {

@@ -1,6 +1,6 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer, type Server } from 'node:http';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
@@ -41,7 +41,14 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
   const root = realpathSync(mkdtempSync(join(process.platform === 'win32' ? tmpdir() : realpathSync('/tmp'), 'forward-daemon-')));
   roots.push(root);
   expect(spawnSync('git', ['init', '-q', root]).status).toBe(0);
-  const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '0', SYNTHETIC_OWNER_PROVIDER: 'owner-provider-key' });
+  const bin = join(root, 'bin');
+  mkdirSync(bin);
+  if (process.platform !== 'win32') {
+    const git = join(bin, 'git');
+    writeFileSync(git, '#!/bin/sh\nif [ "${PRODUCT_SYNTHETIC_CREDENTIAL+x}" = x ]; then echo "$PPID present" >> "$HOME/git-env-audit"; else echo "$PPID absent" >> "$HOME/git-env-audit"; fi\nexec /usr/bin/git "$@"\n');
+    chmodSync(git, 0o700);
+  }
+  const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '0', PRODUCT_SYNTHETIC_CREDENTIAL: 'owner-provider-key', PATH: `${bin}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}` });
   let authorization: string | undefined;
   const server = createHttpServer((request, response) => {
     authorization = request.headers.authorization;
@@ -60,7 +67,7 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
   const { keyring } = await fixtureKeyring();
   mkdirSync(dirname(runtime.layout.userPaths.keyring), { recursive: true, mode: 0o700 });
   writeFileSync(runtime.layout.userPaths.keyring, serializeKeyring(keyring), { mode: 0o600 });
-  writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ currentProvider: 'openai', providers: { openai: { type: 'openai', model: 'fixture-model', apiKey: '$ENV:SYNTHETIC_OWNER_PROVIDER', baseURL: `http://127.0.0.1:${address.port}/v1`, options: { apiSurface: 'chat-completions' } } } }), { mode: 0o600 });
+  writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ currentProvider: 'openai', providers: { openai: { type: 'openai', model: 'fixture-model', apiKey: '$ENV:PRODUCT_SYNTHETIC_CREDENTIAL', baseURL: `http://127.0.0.1:${address.port}/v1`, options: { apiSurface: 'chat-completions' } } } }), { mode: 0o600 });
   const trusted = spawnSync(process.execPath, ['--import', tsx, '--conditions=source', fixture, 'trust', '--yes'], { cwd: root, env, encoding: 'utf8', timeout: 30_000 });
   expect(trusted.status).toBe(0);
   const child = spawn(process.execPath, ['--import', tsx, '--import', recorder, '--conditions=source', fixture, 'daemon', 'start', '--spawner-fd', '4', '--json'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] });
@@ -98,6 +105,16 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
   link.session.send({ type: 'submit', prompt: 'Hello from the desktop spawner' });
   await complete;
   expect(authorization).toBe('Bearer owner-provider-key');
+  if (process.platform !== 'win32') {
+    const registration = JSON.parse(readFileSync(join(supervisedRoot, reply.id, 'state.json'), 'utf8')) as { pid: number };
+    const audit = readFileSync(join(root, 'git-env-audit'), 'utf8').trim().split('\n');
+    const runtimeGit = audit.filter((line) => line.startsWith(`${registration.pid} `));
+    const launcherGit = audit.filter((line) => line.startsWith(`${child.pid} `));
+    expect(runtimeGit.length).toBeGreaterThan(0);
+    expect(launcherGit.length).toBeGreaterThan(0);
+    expect(launcherGit).not.toContain(`${child.pid} present`);
+    expect(runtimeGit).not.toContain(`${registration.pid} present`);
+  }
   await stopSupervisedSession(reply.id, supervisedRoot, row.generation);
   link.close();
   pair.spawnerKey.wipe();

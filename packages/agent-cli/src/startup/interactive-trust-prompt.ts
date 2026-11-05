@@ -9,6 +9,7 @@ import { createInterface } from 'node:readline/promises';
 import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
 
 import { userPaths } from '../product/user-paths.js';
+import { workspaceGitEnvironment } from '../product/workspace-git-environment.js';
 import { formatProjectContributionPreview } from './project-contribution-preview.js';
 
 import { subcommandWord, type IParsedCliArgs } from '../utils/cli-args.js';
@@ -103,6 +104,7 @@ export function grantWorkspaceTrust(cwd: string, runtime: ICliRuntimeContext): P
   return createNodeWorkspaceTrustService(
     userPaths(runtime).workspaceTrust,
     runtime.layout.projectStateDirectories,
+    workspaceGitEnvironment(runtime),
   ).grant(cwd);
 }
 
