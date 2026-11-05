@@ -9,14 +9,20 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  */
 
 import { realpathSync } from 'node:fs';
+import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
 
+import { productSecureMode } from '../product/session-sealing.js';
+import { createKeyringFileStore } from '../secure/keyring-store.js';
+import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
+import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { confirmAttachOnTerminal, type IAttachConfirmation } from './attach-confirmation.js';
 import { findWorkspaceDaemon } from './daemon-command.js';
+import { openRegisteredOwnerLink } from './owner-link-client.js';
 import { runConfirmedAttach, type TAttachedAppRender } from './session-attach-command.js';
-import { resolveSupervisedDirectory } from './supervised-session-control.js';
+import { openSecureAttach } from './secure-attach-client.js';
+import { listSupervisedSessions, resolveSupervisedDirectory } from './supervised-session-control.js';
 
 import type { openSupervisedAttach } from './supervised-attach-client.js';
-import type { listSupervisedSessions } from './supervised-session-control.js';
 
 export const DAEMON_ATTACH_FLAG = '--attach';
 
@@ -48,6 +54,7 @@ export interface IDaemonAttachCommandOptions {
   readonly render?: TAttachedAppRender;
   readonly confirm?: (question: IAttachConfirmation) => Promise<boolean>;
   readonly open?: typeof openSupervisedAttach;
+  readonly openSecureOwner?: () => Promise<IOwnerHandover | undefined>;
 }
 
 /** `the CLI --attach …`: the flag given to the CLI itself, not to a subcommand. */
@@ -129,6 +136,53 @@ export async function runDaemonAttachCommand(
         `Ask the user to run: ${cliName} ${DAEMON_ATTACH_FLAG}\n`,
     );
     return 1;
+  }
+  if (productSecureMode(options.productRuntime)) {
+    const product = options.productRuntime;
+    let owner: IOwnerHandover | undefined;
+    try {
+      owner = await (options.openSecureOwner ?? (() => openOwnerAtTerminal({
+        store: createKeyringFileStore({ path: product.layout.userPaths.keyring, root: product.layout.userRoot }),
+        terminal: openSecureTerminal(), purpose: 'attach to the secure daemon',
+        report: (message) => process.stderr.write(`${message}\n`),
+      })))();
+      if (owner === undefined) {
+        process.stderr.write('Attach cancelled: secure mode needs an unlock.\n');
+        return 1;
+      }
+      const handover = owner;
+      const rows = await (options.list ?? listSupervisedSessions)(root, undefined, {
+        cwd: workspace, includeCwd: true, includeGeneration: true, includeDaemon: true, includeName: true,
+      });
+      const candidates = rows.filter((row) => row.daemon === true && row.cwd === workspace &&
+        row.liveness === 'alive' && row.control === 'available' && row.generation !== undefined)
+        .sort((a, b) => a.id.localeCompare(b.id));
+      let selected: { readonly id: string; readonly generation: string; readonly name?: string } | undefined;
+      for (const candidate of candidates) {
+        if (candidate.generation === undefined) continue;
+        try {
+          const link = await openRegisteredOwnerLink({ root, id: candidate.id, generation: candidate.generation, handover });
+          link.close();
+          selected ??= { id: candidate.id, generation: candidate.generation, ...(candidate.name === undefined ? {} : { name: candidate.name }) };
+        } catch { /* A reported daemon is a candidate until its owner link proves it. */ }
+      }
+      if (selected === undefined) throw new Error('No reported daemon could be proved by this owner.');
+      const { id, generation, name } = selected;
+      return await runConfirmedAttach({
+        id, mode: 'drive', generation, root,
+        open: async (selectedId, mode, selectedRoot, selectedGeneration) => {
+          if (selectedGeneration === undefined) throw new Error('Secure attach needs a runtime generation.');
+          return openSecureAttach({ id: selectedId, mode, root: selectedRoot, generation: selectedGeneration, handover,
+            onMismatch: () => process.stderr.write('Warning: the runtime keyring sealing key differs from the unlocked key. Run secure verify to investigate.\n') });
+        },
+        render: (open) => render({ ...open, mode: 'drive', sessionLabel: name ?? id, screenReaderFlag: parsed.screenReader }),
+        messages: { detached: `Detached from daemon ${id}. It keeps running; stop it with ${cliName} daemon stop.`,
+          closed: 'The daemon closed the connection (it stopped, or cut this terminal off).' },
+      });
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : 'Unable to attach.'}\n`);
+      return 1;
+    } finally { owner?.dispose(); }
   }
   const { id, name, generation } = daemon;
   const question: IAttachConfirmation = { id, ...(name !== undefined ? { name } : {}), mode: 'drive' };

@@ -1,10 +1,10 @@
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { createKeyring, openOwnerHandover } from '@robota-sdk/agent-keyring';
+import { createKeyring, openOwnerHandover, serializeKeyring } from '@robota-sdk/agent-keyring';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
@@ -13,6 +13,7 @@ import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../../secure/__tests__/helpe
 import { openRegisteredOwnerLink } from '../owner-link-client.js';
 import { launchCertifiedRuntime } from '../certified-runtime-launch.js';
 import { runDaemonCommand } from '../daemon-command.js';
+import { runDaemonAttachCommand } from '../daemon-attach-command.js';
 import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
 
 const roots: string[] = [];
@@ -25,6 +26,8 @@ it('certifies a real launched runtime and assigns its daemon role under owner pr
   const runtime = createTestProductRuntime('test-product', env);
   const root = resolveSupervisedDirectory(runtime);
   const { keyring } = await fixtureKeyring();
+  mkdirSync(dirname(runtime.layout.userPaths.keyring), { recursive: true, mode: 0o700 });
+  writeFileSync(runtime.layout.userPaths.keyring, serializeKeyring(keyring), { mode: 0o600 });
   const handover = await openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
   try {
     const started = await launchCertifiedRuntime(home, { productRuntime: runtime, env, restricted: true, root,
@@ -48,6 +51,17 @@ it('certifies a real launched runtime and assigns its daemon role under owner pr
       const reused = await runDaemonCommand(['start', '--json'], { ...base, openSecureOwner: () => openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE }) });
       expect(reused).toBe(0);
       expect(JSON.parse(output.join(''))).toEqual({ id: started.id, generation: started.generation, mode: 'secure' });
+      const attachOwner = await openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
+      const render = vi.fn(async () => 'user' as const);
+      const confirm = vi.fn(async () => { throw new Error('Unexpected second confirmation'); });
+      const outputSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+      try {
+        const attached = await runDaemonAttachCommand(['--attach'], { productRuntime: runtime, cwd: home, root, isTTY: true, render, confirm, openSecureOwner: async () => attachOwner });
+        expect(attached).toBe(0);
+        expect(render).toHaveBeenCalledOnce();
+        expect(confirm).not.toHaveBeenCalled();
+        expect(attachOwner.disposed).toBe(true);
+      } finally { outputSpy.mockRestore(); }
     } finally {
       owner.close();
       await stopSupervisedSession(started.id, root, started.generation);
