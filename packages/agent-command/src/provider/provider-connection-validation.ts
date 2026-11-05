@@ -1,4 +1,4 @@
-import { normalizeProviderConfig } from '@robota-sdk/agent-core';
+import { ENV_REFERENCE_PREFIX, findProviderDefinition, normalizeProviderConfig } from '@robota-sdk/agent-core';
 import { resolveProviderEnvironment, validateProviderProfile } from '@robota-sdk/agent-framework';
 
 import type {
@@ -12,6 +12,16 @@ export async function validateProviderConnection(
   profile: IProviderProfileSettings,
   options: IProviderCommandModuleOptions,
 ): Promise<void> {
+  if (options.missingEnvironmentCredentialHint !== undefined && profile.apiKeyRef === undefined) {
+    const definition = profile.type === undefined ? undefined : findProviderDefinition(options.providerDefinitions, profile.type);
+    const reference = profile.apiKey ?? definition?.defaults?.apiKey;
+    if (reference?.startsWith(ENV_REFERENCE_PREFIX) === true) {
+      const name = reference.slice(ENV_REFERENCE_PREFIX.length).trim();
+      if (name !== '' && !resolveProviderEnvironment(options.env)(name)?.trim()) {
+        throw new Error(options.missingEnvironmentCredentialHint);
+      }
+    }
+  }
   validateProviderProfile(profileName, profile, {
     providerDefinitions: options.providerDefinitions,
     ...(options.env === undefined ? {} : { env: options.env }),

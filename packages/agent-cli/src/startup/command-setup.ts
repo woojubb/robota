@@ -1,4 +1,5 @@
 import { resolveCliRuntimeContext } from './product-bootstrap.js';
+import { forwardedEnvironmentRequested } from './forwarded-environment.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
@@ -304,6 +305,7 @@ export function buildCommandSetup(
     providerSettingsAdapter,
     providerConnectionHost,
     providerCredentialResolver: providerConnectionHost.resolveCredential,
+    ...(forwardedEnvironmentRequested(process.argv) ? { missingEnvironmentCredentialHint: 'Select this profile as active in settings, then restart the secure runtime from its supervising app.' } : {}),
     // The provider commands check `$ENV:` credentials against the snapshot taken before the runtime
     // withheld its own credentials from `process.env` — the live env no longer has them.
     providerEnvironment: productRuntime.environment,

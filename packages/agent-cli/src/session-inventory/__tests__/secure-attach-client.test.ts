@@ -45,7 +45,7 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
       await locked;
       expect(otherLink.custody.unlocked).toBe(false);
     } finally { otherLink.close(); }
-    const surfaces = [];
+    const surfaces: Array<Awaited<ReturnType<typeof openRegisteredOwnerLink>>> = [];
     try {
       for (let index = 0; index < 4; index += 1) {
         const link = await openRegisteredOwnerLink({ ...started, root, handover });

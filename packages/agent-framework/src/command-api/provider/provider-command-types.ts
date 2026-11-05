@@ -36,6 +36,8 @@ export interface IProviderCommandModuleOptions {
   orgPolicy?: IOrgPolicy;
   connectionHost?: IProviderConnectionHost;
   resolveCredential?: TProviderCredentialResolver;
+  /** Host guidance when a referenced environment credential is unavailable to this runtime. */
+  missingEnvironmentCredentialHint?: string;
   /**
    * The environment a `$ENV:` credential or a definition's default credential variable is checked
    * against. A host that withholds its own credentials from `process.env` (so commands it runs do not

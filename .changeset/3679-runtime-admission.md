@@ -3,6 +3,7 @@
 '@robota-sdk/agent-keyring': minor
 '@robota-sdk/agent-core': patch
 '@robota-sdk/agent-framework': minor
+'@robota-sdk/agent-command': minor
 '@robota-sdk/agent-cli': patch
 ---
 

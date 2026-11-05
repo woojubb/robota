@@ -86,7 +86,7 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
   const { keyring } = await fixtureKeyring();
   mkdirSync(dirname(runtime.layout.userPaths.keyring), { recursive: true, mode: 0o700 });
   writeFileSync(runtime.layout.userPaths.keyring, serializeKeyring(keyring), { mode: 0o600 });
-  writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ currentProvider: 'openai', fallbackModel: ['backup'], providers: { openai: { type: 'openai', model: 'fixture-model', apiKey: '$ENV:PRODUCT_SYNTHETIC_CREDENTIAL', baseURL: `http://127.0.0.1:${address.port}/v1`, options: { apiSurface: 'chat-completions' } }, backup: { type: 'openai', model: 'fallback-model', apiKey: '$ENV:FALLBACK_PROVIDER_REF', baseURL: `http://127.0.0.1:${address.port}/fallback/v1`, options: { apiSurface: 'chat-completions' } }, unused: { type: 'anthropic', apiKey: '$ENV:UNSELECTED_PROVIDER_REF' } } }), { mode: 0o600 });
+  writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ currentProvider: 'openai', fallbackModel: ['backup'], providers: { openai: { type: 'openai', model: 'fixture-model', apiKey: '$ENV:PRODUCT_SYNTHETIC_CREDENTIAL', baseURL: `http://127.0.0.1:${address.port}/v1`, options: { apiSurface: 'chat-completions' } }, backup: { type: 'openai', model: 'fallback-model', apiKey: '$ENV:FALLBACK_PROVIDER_REF', baseURL: `http://127.0.0.1:${address.port}/fallback/v1`, options: { apiSurface: 'chat-completions' } }, unused: { type: 'openai', model: 'unused-model', apiKey: '$ENV:UNSELECTED_PROVIDER_REF' } } }), { mode: 0o600 });
   const trusted = spawnSync(process.execPath, ['--import', tsx, '--conditions=source', fixture, 'trust', '--yes'], { cwd: root, env, encoding: 'utf8', timeout: 30_000 });
   expect(trusted.status).toBe(0);
   telemetryRequests = 0;
@@ -138,6 +138,28 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
   link.session.send({ type: 'submit', prompt: 'Exercise the configured fallback' });
   await fallbackComplete;
   expect(fallbackAuthorization).toBe('Bearer fallback-key');
+  for (const [name, args] of [['provider', 'switch unused'], ['model', 'unused-model']] as const) {
+    const requestId = `switch-${name}`;
+    const command = new Promise<{ success: boolean; message: string }>((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('The provider switch did not answer.')), 10_000);
+      link.session.onMessage((message) => {
+        if (message.type === 'command_result' && message.requestId === requestId) { clearTimeout(timer); resolve(message); }
+      });
+    });
+    link.session.send({ type: 'command', name, args, requestId });
+    const result = await command;
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/select.*active.*restart.*secure runtime/i);
+  }
+  expect(JSON.parse(readFileSync(runtime.layout.userPaths.settings, 'utf8')).currentProvider).toBe('openai');
+  const switchBackup = new Promise<{ success: boolean; message: string }>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('The admitted provider switch did not answer.')), 10_000);
+    link.session.onMessage((message) => {
+      if (message.type === 'command_result' && message.requestId === 'switch-backup') { clearTimeout(timer); resolve(message); }
+    });
+  });
+  link.session.send({ type: 'command', name: 'provider', args: 'switch backup', requestId: 'switch-backup' });
+  expect((await switchBackup).success).toBe(true);
   if (process.platform !== 'win32') {
     const registration = JSON.parse(readFileSync(join(supervisedRoot, reply.id, 'state.json'), 'utf8')) as { pid: number };
     const audit = readFileSync(join(root, 'git-env-audit'), 'utf8').trim().split('\n');
