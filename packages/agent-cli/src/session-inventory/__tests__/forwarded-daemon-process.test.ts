@@ -49,9 +49,16 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
     writeFileSync(git, '#!/bin/sh\nif [ "${PRODUCT_SYNTHETIC_CREDENTIAL+x}" = x ]; then echo "$PPID present" >> "$HOME/git-env-audit"; else echo "$PPID absent" >> "$HOME/git-env-audit"; fi\nexec /usr/bin/git "$@"\n');
     chmodSync(git, 0o700);
   }
-  const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '0', PRODUCT_SYNTHETIC_CREDENTIAL: 'owner-provider-key', PATH: `${bin}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}` });
+  const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'otlp', PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf', PRODUCT_SYNTHETIC_CREDENTIAL: 'owner-provider-key', PATH: `${bin}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}` });
   let authorization: string | undefined;
+  let telemetryRequests = 0;
   const server = createHttpServer((request, response) => {
+    if (request.url === '/v1/traces') {
+      telemetryRequests += 1;
+      request.resume();
+      response.writeHead(200).end();
+      return;
+    }
     authorization = request.headers.authorization;
     request.resume();
     request.on('end', () => {
@@ -63,6 +70,7 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   const address = server.address();
   if (address === null || typeof address === 'string') throw new Error('Fixture did not listen');
+  env.PRODUCT_TELEMETRY_OTLP_ENDPOINT = `http://127.0.0.1:${address.port}`;
   const runtime = createTestProductRuntime('test-product', env);
   mkdirSync(runtime.layout.userRoot, { recursive: true });
   const { keyring } = await fixtureKeyring();
@@ -71,6 +79,7 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
   writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ currentProvider: 'openai', providers: { openai: { type: 'openai', model: 'fixture-model', apiKey: '$ENV:PRODUCT_SYNTHETIC_CREDENTIAL', baseURL: `http://127.0.0.1:${address.port}/v1`, options: { apiSurface: 'chat-completions' } } } }), { mode: 0o600 });
   const trusted = spawnSync(process.execPath, ['--import', tsx, '--conditions=source', fixture, 'trust', '--yes'], { cwd: root, env, encoding: 'utf8', timeout: 30_000 });
   expect(trusted.status).toBe(0);
+  telemetryRequests = 0;
   const child = spawn(process.execPath, ['--import', tsx, '--import', recorder, '--conditions=source', fixture, 'daemon', 'start', '--spawner-fd', '4', '--json'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] });
   children.push(child);
   let stdout = '';
@@ -84,6 +93,7 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
   const [code] = await once(child, 'exit');
   expect(code, stderr).toBe(0);
   expect(stderr).toContain('TEST_FORWARD_FD_CLOSED');
+  expect(stderr).toMatch(/telemetry.*not forwarded/i);
   expect(stderr).not.toContain('TEST_PRE_FORWARD_SPAWN');
   const reply = JSON.parse(stdout);
   expect(reply).toEqual({ id: expect.any(String) });
@@ -117,6 +127,7 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
     expect(runtimeGit).not.toContain(`${registration.pid} present`);
   }
   await stopSupervisedSession(reply.id, supervisedRoot, row.generation);
+  expect(telemetryRequests).toBe(0);
   link.close();
   pair.spawnerKey.wipe();
 }, 60_000);

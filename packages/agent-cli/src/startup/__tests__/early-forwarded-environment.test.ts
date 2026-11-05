@@ -60,3 +60,13 @@ it('withholds an inherited proxy in the secure forwarding path but retains it fo
   expect(forwarded.HTTPS_PROXY).toBeUndefined();
   await expect(validateForwardedEnvironment(runtime, root, true, { HTTPS_PROXY: 'http://127.0.0.1:9999' })).rejects.toThrow(/not admitted/i);
 });
+
+it('withholds inherited telemetry rather than allowing the forwarding peer to choose an exporter', async () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'forward-telemetry-')));
+  roots.push(root);
+  const runtime = createTestProductRuntime('test-product', { HOME: root, PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'otlp', PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf', PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318' });
+  const forwarded = await prepareForwardedEnvironment(runtime, root, true);
+  expect(forwarded.PRODUCT_TELEMETRY_ENABLED).toBeUndefined();
+  expect(forwarded.PRODUCT_TELEMETRY_OTLP_ENDPOINT).toBeUndefined();
+  await expect(validateForwardedEnvironment(runtime, root, true, { PRODUCT_TELEMETRY_ENABLED: '1' })).rejects.toThrow(/not admitted/i);
+});

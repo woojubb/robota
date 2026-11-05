@@ -9,7 +9,7 @@ import { createProductUserSettingsSources } from '../product/user-settings.js';
 import { productSecureMode } from '../product/session-sealing.js';
 import { launchForwardedRuntime } from '../session-inventory/supervised-session-launch.js';
 import { optionArgv } from '../utils/option-argv.js';
-import { isSupportedLiveTelemetrySetting, validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
+import { validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
 import { takeProductTelemetryEnvironment } from '../telemetry/live-telemetry-env.js';
 import { canAskToTrust } from './interactive-trust-prompt.js';
 import { runtimeVersion } from './version.js';
@@ -77,7 +77,8 @@ export async function prepareForwardedEnvironment(runtime: ICliRuntimeContext, c
   });
   const environment = restartProductEnvironment(runtime, sources, productProviderDefinitions());
   for (const name of TRANSPORT_ENVIRONMENT) delete environment[name];
-  return { ...environment, ...telemetry };
+  for (const name of Object.keys(environment)) if (name.startsWith('PRODUCT_TELEMETRY_')) delete environment[name];
+  return environment;
 }
 
 /** Recheck workspace authority and the allowed names before installing an IPC environment. */
@@ -92,10 +93,11 @@ export async function validateForwardedEnvironment(runtime: ICliRuntimeContext, 
     ...productConfigEntries().map(({ descriptor }) => descriptor.variable.toUpperCase()),
   ]);
   for (const [name, value] of Object.entries(forwarded)) {
+    if (name.toUpperCase().startsWith('PRODUCT_TELEMETRY_')) throw new Error('The forwarded environment was not admitted.');
     const baselineName = Object.keys(baseline).find((key) => key.toUpperCase() === name.toUpperCase());
     if (protectedNames.has(name.toUpperCase()) || baselineName !== undefined) {
       if (baselineName === undefined || baseline[baselineName] !== value) throw new Error('The forwarded environment was not admitted.');
-    } else if (!names.has(name) && !isSupportedLiveTelemetrySetting(name)) {
+    } else if (!names.has(name)) {
       throw new Error('The forwarded environment was not admitted.');
     }
   }
@@ -116,13 +118,20 @@ export async function runEarlyForwardedDaemon(runtime: ICliRuntimeContext, argv:
     return true;
   }
   try {
+    const environment = childProductEnvironment(runtime);
+    for (const name of Object.keys(environment)) {
+      if (name.startsWith('PRODUCT_TELEMETRY_') && name !== 'PRODUCT_TELEMETRY_SERVICE_NAME') delete environment[name];
+    }
     const id = await launchForwardedRuntime(process.cwd(), {
       productRuntime: runtime,
-      env: { ...childProductEnvironment(runtime), ...(runtime.environment.PRODUCT_CONFIG_FILE === undefined ? {} : { PRODUCT_CONFIG_FILE: runtime.environment.PRODUCT_CONFIG_FILE }) },
+      env: { ...environment, ...(runtime.environment.PRODUCT_CONFIG_FILE === undefined ? {} : { PRODUCT_CONFIG_FILE: runtime.environment.PRODUCT_CONFIG_FILE }) },
       spawnerFd: request.fd,
       prepareEnvironment: () => prepareForwardedEnvironment(runtime, process.cwd(), request.restricted),
       ...(request.restricted ? { restricted: true } : {}),
     });
+    if (runtime.environment.PRODUCT_TELEMETRY_ENABLED === '1') {
+      process.stderr.write('Telemetry settings are not forwarded to this secure runtime.\n');
+    }
     process.stdout.write(request.json ? `${JSON.stringify({ id })}\n` : `Secure runtime ${id} started.\n`);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : 'The secure runtime could not start.'}\n`);

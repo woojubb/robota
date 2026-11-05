@@ -49,6 +49,7 @@ it.each([
   { PATH: '/attacker/bin' },
   { NODE_OPTIONS: '--require=/tmp/unapproved.js' },
   { PRODUCT_TELEMETRY_UNAPPROVED: 'unapproved' },
+  { PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'otlp', PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf', PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'https://example.com' },
 ])('rejects an IPC environment not admitted by the runtime', async (environment) => {
   const home = realpathSync(mkdtempSync(join(process.platform === 'win32' ? tmpdir() : realpathSync('/tmp'), 'unapproved-fd-')));
   const id = '7bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
