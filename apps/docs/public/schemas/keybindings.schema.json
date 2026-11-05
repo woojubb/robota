@@ -122,6 +122,9 @@
       "properties": {
         "return-to-main": {
           "$ref": "#/$defs/binding"
+        },
+        "follow-earlier": {
+          "$ref": "#/$defs/binding"
         }
       }
     },

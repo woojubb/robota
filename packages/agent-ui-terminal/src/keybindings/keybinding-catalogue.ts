@@ -1,7 +1,7 @@
 export const KEYBINDING_ACTIONS = {
   app: ['open-workspace-switcher'],
   thinking: ['abort'],
-  'background-detail': ['return-to-main'],
+  'background-detail': ['return-to-main', 'follow-earlier'],
   recovery: ['retry'],
   'chat-input': [
     'submit',
@@ -65,7 +65,7 @@ type TDefaultKeybindings = {
 export const DEFAULT_KEYBINDINGS = {
   app: { 'open-workspace-switcher': ['ctrl+b'] },
   thinking: { abort: ['escape'] },
-  'background-detail': { 'return-to-main': ['escape'] },
+  'background-detail': { 'return-to-main': ['escape'], 'follow-earlier': ['ctrl+o'] },
   recovery: { retry: ['enter'] },
   'chat-input': {
     submit: ['enter'],

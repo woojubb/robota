@@ -44,6 +44,9 @@ export default function ExecutionWorkspaceDetailPane({
   const backHint = useKeybindingHints('background-detail', [
     ['return-to-main', 'Back to the main thread'],
   ]);
+  const earlierHint = useKeybindingHints('background-detail', [
+    ['follow-earlier', 'Earlier output'],
+  ]);
   const switchHint = useKeybindingHints('app', [['open-workspace-switcher', 'open the workspace']]);
 
   return (
@@ -71,6 +74,9 @@ export default function ExecutionWorkspaceDetailPane({
           );
         })}
       {page?.nextCursor ? <Text dimColor>... more detail available</Text> : null}
+      {kind !== 'none' && (
+        <Text dimColor>{earlierHint.map((hint) => `${hint.keys} ${hint.label}`).join(' · ')}</Text>
+      )}
       {kind === 'follow' && (
         <Text dimColor>
           Type to message this job ·{' '}

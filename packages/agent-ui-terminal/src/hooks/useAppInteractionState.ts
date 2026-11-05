@@ -1,6 +1,7 @@
 import { useAppInputBindings } from './useAppInputBindings.js';
 import { useAppOverlays } from './useAppOverlays.js';
 import { useAppSubmissionState } from './useAppSubmissionState.js';
+import { useFollowHistory } from './useFollowHistory.js';
 
 import type { TSessionSwitch } from '../types.js';
 import type { IAppOverlays } from './useAppOverlays.js';
@@ -33,6 +34,24 @@ export interface IAppInteractionState {
 
 export function useAppInteractionState(options: IOptions): IAppInteractionState {
   const { screens, workspace } = options.shell;
+  useFollowHistory({
+    entry: workspace.background.selectedEntry,
+    enabled: !(
+      options.coordinationBlocked ||
+      options.state.permissionRequest ||
+      options.state.pendingUserAction ||
+      screens.showPluginTUI ||
+      screens.showTransportTUI ||
+      screens.showSessionPicker ||
+      screens.showThemePicker ||
+      workspace.background.switcherVisible ||
+      workspace.background.continueQuestion ||
+      options.shell.historySearchOpen ||
+      workspace.isBackgroundListFocused
+    ),
+    read: options.state.readExecutionWorkspaceDetail,
+    addEntry: options.state.addEntry,
+  });
   const submission = useAppSubmissionState({
     selectedEntry: workspace.background.selectedEntry,
     submit: screens.handleSubmit,

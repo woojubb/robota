@@ -1,0 +1,100 @@
+import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import { useEffect, useRef } from 'react';
+
+import { mintUserReadRequest } from '../key-custody/user-read-request-mint.js';
+import { useKeybindingActions } from '../keybindings/keybindings-context.js';
+import { useTuiCliAdapter, useUnlockCommand } from '../tui-cli-adapter-context.js';
+
+import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type {
+  IExecutionDetailCursor,
+  IExecutionDetailPage,
+  IExecutionWorkspaceEntry,
+} from '@robota-sdk/agent-interface-execution';
+
+interface IOptions {
+  readonly entry: IExecutionWorkspaceEntry | undefined;
+  readonly enabled: boolean;
+  readonly read: (
+    entryId: string,
+    cursor?: IExecutionDetailCursor,
+  ) => Promise<IExecutionDetailPage>;
+  readonly addEntry: (entry: IHistoryEntry) => void;
+}
+
+/** Read earlier fork output only in response to this terminal's key action. */
+export function useFollowHistory({ entry, enabled, read, addEntry }: IOptions): void {
+  const custody = useTuiCliAdapter().keyCustody;
+  const unlockCommand = useUnlockCommand();
+  const position = useRef<{
+    entryId: string | undefined;
+    cursor: IExecutionDetailCursor | undefined;
+    busy: boolean;
+    generation: number;
+  }>({ entryId: undefined, cursor: { offset: 0 }, busy: false, generation: 0 });
+  useEffect(() => {
+    position.current = {
+      entryId: entry?.id,
+      cursor: { offset: 0 },
+      busy: false,
+      generation: position.current.generation + 1,
+    };
+    return () => {
+      position.current.generation++;
+    };
+  }, [entry?.id]);
+
+  useKeybindingActions(
+    'background-detail',
+    (actions) => {
+      if (!actions.includes('follow-earlier') || !entry?.resumeSessionId || position.current.busy)
+        return;
+      const cursor = position.current.cursor;
+      const say = (text: string): void =>
+        addEntry(messageToHistoryEntry(createSystemMessage(text)));
+      if (cursor === undefined) {
+        say('No more earlier output.');
+        return;
+      }
+      const generation = position.current.generation;
+      position.current.busy = true;
+      void (async () => {
+        let page = await read(entry.id, cursor);
+        if (position.current.generation !== generation) return;
+        if ((page.unreadable?.locked ?? 0) > 0) {
+          if (!custody || !unlockCommand) {
+            say('Earlier output is locked and cannot be unlocked here.');
+            return;
+          }
+          const result = await custody.ensureReadable(mintUserReadRequest('follow-history'));
+          if (position.current.generation !== generation) return;
+          if (result !== 'readable') {
+            say(`Earlier output remains locked. Run ${unlockCommand} and try again.`);
+            return;
+          }
+          page = await read(entry.id, cursor);
+          if (position.current.generation !== generation) return;
+        }
+        if ((page.unreadable?.locked ?? 0) > 0) {
+          say(
+            `Earlier output remains locked.${unlockCommand ? ` Run ${unlockCommand} and try again.` : ''}`,
+          );
+          return;
+        }
+        for (const record of page.records) say(record.text);
+        if (page.unreadable && Object.values(page.unreadable).some((count) => count > 0)) {
+          say('Some earlier output could not be read.');
+        }
+        position.current.cursor = page.nextCursor;
+        if (page.records.length === 0 && !page.unreadable) say('No earlier output.');
+      })()
+        .catch(() => {
+          if (position.current.generation === generation) say('Could not read earlier output.');
+        })
+        .finally(() => {
+          if (position.current.generation === generation) position.current.busy = false;
+        });
+    },
+    { isActive: enabled && entry?.resumeSessionId !== undefined },
+  );
+}
