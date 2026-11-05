@@ -11,7 +11,7 @@ import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { restoreSessionRecordIntoSession } from '../interactive/interactive-session-restore.js';
 import { assertClaimedOutcomeAccepted } from '../interactive/session-authorship-gate.js';
 import { decorateSessionStore } from '../interactive/session-store-view.js';
-import { jobLogPage, logMessages } from './in-process-job-log.js';
+import { InProcessJobLog } from './in-process-job-log.js';
 import { runJobTurns } from './in-process-job-turns.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
@@ -359,6 +359,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
     resumed: IResumedRecord,
   ): ISubagentJobHandle {
     const resumeSessionId = job.request.resumeSessionId;
+    const log = new InProcessJobLog();
     const session = createSubagentSession({
       host: deps.host,
       pathProtection: deps.pathProtection,
@@ -399,6 +400,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
         job.emit?.({ type: 'background_task_text_delta', delta });
         deps.onTextDelta?.(delta);
       },
+      onCompact: () => log.ignore(session.getHistory()),
       onToolExecution: (event) => {
         emitToolExecutionEvent(job, event, deps.tools);
         deps.onToolExecution?.(event);
@@ -406,9 +408,22 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
     });
     resumeRequestedRecord(job, session, resumed);
 
-    // The conversation the job inherited ends here: what follows is the job's own, which its log shows.
-    const logStart = logMessages(session.getHistory()).length;
-    const turns = runJobTurns(session, job.request.prompt, job.taskId);
+    // The inherited history and future compaction summaries are not part of the job's own log.
+    log.ignore(session.getHistory());
+    const turns = runJobTurns(
+      {
+        run: async (prompt) => {
+          log.startTurn(prompt);
+          try {
+            return await session.run(prompt);
+          } finally {
+            log.capture(session.getHistory());
+          }
+        },
+      },
+      job.request.prompt,
+      job.taskId,
+    );
     return {
       taskId: job.taskId,
       result: turns.result
@@ -428,7 +443,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
       send: (prompt) => turns.send(prompt),
       readLog: (cursor) => {
         if (turns.ended) return Promise.reject(endedJobLogError(job, resumeSessionId));
-        return Promise.resolve(jobLogPage(job.taskId, session.getHistory(), logStart, cursor));
+        return Promise.resolve(log.page(job.taskId, cursor));
       },
     };
   }

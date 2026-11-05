@@ -12,6 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
+import { registerModelMetadata } from '@robota-sdk/agent-core';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { writeForkedSessionRecord } from '../../interactive/interactive-session-fork-record.js';
@@ -141,10 +142,10 @@ describe('an in-process job that takes follow-up input', () => {
     rmSync(cwd, { recursive: true, force: true });
   });
 
-  function runner(store?: NodeSessionStore) {
+  function runner(store?: NodeSessionStore, model?: string) {
     return createInProcessSubagentRunner({
       host: testHost,
-      config: CONFIG,
+      config: model === undefined ? CONFIG : { ...CONFIG, provider: { ...CONFIG.provider, model } },
       context: { agentsMd: '', projectNotesMd: '' },
       tools: [],
       terminal: NOOP_TERMINAL,
@@ -225,6 +226,55 @@ describe('an in-process job that takes follow-up input', () => {
   });
 
   describe('its log', () => {
+    it('retains job turns when a real inherited fork auto-compacts', async () => {
+      const model = 'fork-log-compact-test';
+      registerModelMetadata({ id: model, name: model, contextWindow: 2000, maxOutput: 100 });
+      const sessions = join(cwd, 'sessions');
+      mkdirSync(sessions, { mode: 0o700 });
+      const store = new NodeSessionStore(sessions, { sealing: 'plain' });
+      const inherited = Array.from({ length: 8 }, (_, index) => ({
+        id: `old-${index}`,
+        role: 'user' as const,
+        content: `inherited-${index} ${'long text '.repeat(300)}`,
+        timestamp: new Date(),
+        state: 'complete' as const,
+      }));
+      const forkId = writeForkedSessionRecord({
+        source: {
+          getHistory: () => inherited,
+          getSystemMessage: () => 'parent prompt',
+          getToolSchemas: () => [],
+        },
+        fullHistory: () => [],
+        sessionStore: store,
+        requestedName: undefined,
+        sourceName: 'parent',
+        sourceId: 'session_parent',
+        cwd,
+      }).sessionId;
+      const handle = runner(store, model).start(job(cwd, { resumeSessionId: forkId }));
+      await waitFor(() => gated.waiting() === 1);
+      await gated.answer('COMPACTION SUMMARY');
+      await waitFor(() => gated.waiting() === 1);
+      const page = await handle.readLog?.({ offset: 0 });
+      expect(page?.lines.join('\n')).toContain('user: start the work');
+      expect(page?.lines.join('\n')).not.toContain('COMPACTION SUMMARY');
+      expect(page?.lines.join('\n')).not.toContain('inherited-');
+      await handle.send('follow-up');
+      await gated.answer('job answer '.repeat(2000));
+      await waitFor(() => gated.waiting() === 1);
+      await gated.answer('SECOND COMPACTION SUMMARY');
+      await waitFor(() => gated.waiting() === 1);
+      const after = await handle.readLog?.({ offset: 0 });
+      const rendered = after?.lines.join('\n') ?? '';
+      expect(rendered).toContain('user: start the work');
+      expect(rendered).toContain('assistant: job answer');
+      expect(rendered).toContain('user: follow-up');
+      expect(rendered).not.toContain('COMPACTION SUMMARY');
+      expect(rendered).not.toContain('inherited-');
+      await gated.answer('follow-up answer');
+      await handle.result;
+    });
     it('is the job’s own turns, paged by message, while the job runs', async () => {
       const handle = runner().start(job(cwd));
       await waitFor(() => gated.waiting() === 1);

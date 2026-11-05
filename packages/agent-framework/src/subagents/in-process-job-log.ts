@@ -8,6 +8,7 @@
  * that, and an ended fork's conversation is the fork's record.
  */
 
+import { createUserMessage } from '@robota-sdk/agent-core';
 import { DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE } from '@robota-sdk/agent-executor';
 
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
@@ -18,6 +19,7 @@ import type {
 
 /** Bound each displayed line without splitting a UTF-16 surrogate pair. */
 const LINE_LENGTH = 4096;
+const PAGE_WIRE_BUDGET = 512 * 1024;
 function splitLongLine(text: string): string[] {
   const result: string[] = [];
   let remaining = text;
@@ -37,9 +39,19 @@ export function messageLines(message: TUniversalMessage): string[] {
   const text = typeof message.content === 'string' ? message.content : '';
   const label = message.role === 'tool' ? `tool ${message.name ?? ''}`.trimEnd() : message.role;
   const lines: string[] = [];
-  if (text.length > 0 || message.role !== 'assistant') {
+  const mirrored =
+    message.parts?.some((part) => part.type === 'text' && part.text === text) === true;
+  if (!mirrored && (text.length > 0 || message.role !== 'assistant')) {
     const [first = '', ...rest] = text.split(/\r?\n/u);
     lines.push(`${label}: ${first}`, ...rest);
+  }
+  for (const part of message.parts ?? []) {
+    const partText =
+      part.type === 'text' ? part.text : part.type === 'resource_embedded' ? part.text : undefined;
+    if (partText !== undefined) {
+      const [first = '', ...rest] = partText.split(/\r?\n/u);
+      lines.push(`${label}: ${first}`, ...rest);
+    }
   }
   if (message.role === 'assistant') {
     for (const call of message.toolCalls ?? []) {
@@ -65,12 +77,58 @@ export function jobLogPage(
   cursor: IBackgroundTaskLogCursor | undefined,
 ): IBackgroundTaskLogPage {
   const lines = logMessages(history).slice(start).flatMap(messageLines);
+  return linesPage(taskId, lines, cursor);
+}
+
+function linesPage(
+  taskId: string,
+  lines: readonly string[],
+  cursor: IBackgroundTaskLogCursor | undefined,
+): IBackgroundTaskLogPage {
   const from = Math.max(0, Math.trunc(cursor?.offset ?? 0));
-  const index = Math.min(from + DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE, lines.length);
+  const encoder = new TextEncoder();
+  const rowOverhead = encoder.encode(JSON.stringify(taskId)).length * 2 + 256;
+  let bytes = 1024;
+  let index = Math.min(from, lines.length);
+  while (index < lines.length && index - from < DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE) {
+    const line = lines[index];
+    if (line === undefined) break;
+    const cost = encoder.encode(JSON.stringify(line)).length + rowOverhead;
+    if (index > from && bytes + cost > PAGE_WIRE_BUDGET) break;
+    bytes += cost;
+    index++;
+  }
   return {
     taskId,
     ...(cursor === undefined ? {} : { cursor }),
     ...(index < lines.length ? { nextCursor: { offset: index } } : {}),
     lines: lines.slice(from, index),
   };
+}
+
+/** A job-owned log survives changes to the model's compacted context. */
+export class InProcessJobLog {
+  private readonly lines: string[] = [];
+  private readonly seen = new Set<string>();
+
+  ignore(history: readonly TUniversalMessage[]): void {
+    for (const message of history) this.seen.add(message.id);
+  }
+
+  startTurn(prompt: string): void {
+    this.lines.push(...messageLines(createUserMessage(prompt)));
+  }
+
+  capture(history: readonly TUniversalMessage[]): void {
+    for (const message of history) {
+      if (this.seen.has(message.id)) continue;
+      this.seen.add(message.id);
+      if (message.role !== 'system' && message.role !== 'user')
+        this.lines.push(...messageLines(message));
+    }
+  }
+
+  page(taskId: string, cursor: IBackgroundTaskLogCursor | undefined): IBackgroundTaskLogPage {
+    return linesPage(taskId, this.lines, cursor);
+  }
 }
