@@ -104,19 +104,20 @@ export function provenanceOfOutcome(outcome: TSessionLoadOutcome): TSessionProve
 }
 
 /**
- * Refuses an outcome a store that seals calls unverified, unless it is exactly the bytes the owner
- * accepted. Keyed on the outcome alone, so no view of a store can switch it off. Any other status is
- * the caller's to judge.
+ * Refuses an unverified outcome without acceptance, and refuses any valid outcome whose bytes differ
+ * from the accepted digest even if those new bytes are verified. A store view cannot switch the gate
+ * off. Non-valid outcomes remain the caller's to judge.
  */
 export function assertClaimedOutcomeAccepted(
   sessionId: string,
   outcome: TSessionLoadOutcome,
   acceptedDigest: string | undefined,
 ): void {
-  if (outcome.status !== 'valid' || outcome.authorship !== 'unverified') return;
-  if (acceptedDigest === undefined)
-    throw new SessionAuthorshipRefusedError(sessionId, 'unverified');
-  if (outcome.digest !== acceptedDigest) {
+  if (outcome.status !== 'valid') return;
+  if (acceptedDigest !== undefined && outcome.digest !== acceptedDigest) {
     throw new SessionAuthorshipRefusedError(sessionId, 'changed-since-accepted');
+  }
+  if (outcome.authorship === 'unverified' && acceptedDigest === undefined) {
+    throw new SessionAuthorshipRefusedError(sessionId, 'unverified');
   }
 }

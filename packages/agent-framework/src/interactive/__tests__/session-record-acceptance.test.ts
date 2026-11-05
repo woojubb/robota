@@ -38,6 +38,27 @@ const FORGED_TEXT = 'CANARY-3e-accept-unverified-6b1d';
 afterEach(cleanUpSealedSessionFixtures);
 
 describe('an accepted record', () => {
+  it('refuses different bytes even if the replacement is already verified', () => {
+    const cwd = directory();
+    const dir = directory();
+    const sealer = createTestArtifactSealer();
+    forgeRecord(dir, sealer, record('sess_swapped', cwd, FORGED_TEXT));
+    const acceptedDigest = digestOfFile(dir, 'sess_swapped');
+    const store = sealedStore(dir, sealer);
+    store.save(record('sess_swapped', cwd, 'different verified record'), {
+      handoff: true,
+      provenance: 'owner',
+    });
+    expect(authorshipOf(readFresh(dir, sealer, 'sess_swapped'))).toBe('verified');
+
+    const { session, error } = construct(
+      sessionOptions(cwd, store, { resumeSessionId: 'sess_swapped', acceptedDigest }),
+    );
+
+    expect(session).toBeUndefined();
+    expect(error).toMatchObject({ reason: 'changed-since-accepted' });
+  });
+
   it('copied by --fork-session is left exactly as it was, and the copy is the owner’s', async () => {
     const cwd = directory();
     const dir = directory();
