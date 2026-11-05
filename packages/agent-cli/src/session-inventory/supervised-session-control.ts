@@ -631,6 +631,18 @@ function verifyLiveOwner(
   return { directory, record, generation: record.generation };
 }
 
+/** Revalidate the selected runtime start before connecting its owner-link carrier. */
+export async function openRegisteredControlStream(
+  root: string,
+  id: string,
+  generation: string,
+  signal?: AbortSignal,
+): Promise<IControlChannel> {
+  signal?.throwIfAborted();
+  const live = verifyLiveOwner(root, id, generation);
+  return connectControlSocket(live.directory, id, signal);
+}
+
 export async function linkSupervisedPr(
   id: string,
   url: string,
