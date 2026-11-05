@@ -835,13 +835,13 @@ function readDaemonStartLockOwner(
   return { pid, state: readProcessStartTime(pid) === match[2] ? 'live' : 'gone' };
 }
 
-const unlockHint = (cliName: string): string => `If no daemon start is running, remove it with: ${cliName} daemon unlock`;
+const unlockHint = (cliName: string): string => `If no daemon start is running, remove it with: ${cliName} daemon clear-start-lock`;
 
 /**
  * Serialize `the CLI daemon start` in one workspace, so two starts never launch two daemons. The lock
  * is a file created exclusively in the private supervised directory, holding its owner's pid. A live
  * owner is waited for. A lock this start did not take is never removed here: one left by a start
- * that is gone refuses the start and names `the CLI daemon unlock`, so removing it is the user's call.
+ * that is gone refuses the start and names `the CLI daemon clear-start-lock`, so removing it is the user's call.
  * Resolves to the release of this start's own lock.
  */
 export async function acquireSupervisedDaemonStartLock(
@@ -884,7 +884,7 @@ export async function acquireSupervisedDaemonStartLock(
 }
 
 /**
- * `the CLI daemon unlock`: remove this workspace's daemon start lock at the user's request. A lock whose
+ * `the CLI daemon clear-start-lock`: remove this workspace's daemon start lock at the user's request. A lock whose
  * owner is still running is kept, since that start is still in progress.
  */
 export function removeSupervisedDaemonStartLock(

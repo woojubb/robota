@@ -168,7 +168,7 @@ Commands:
                                   prints {"id","url"} for the client that connects to it
   {{cli}} daemon status [--json]    Show whether this workspace's daemon is running
   {{cli}} daemon stop               Stop this workspace's daemon
-  {{cli}} daemon unlock             Remove a daemon start lock left by a start that is gone
+  {{cli}} daemon clear-start-lock             Remove a daemon start lock left by a start that is gone
   {{cli}} secure setup              Create the keyring that secure conversations are sealed to; shows the
                                   recovery key once (your terminal only; the passphrase is typed, never an argument)
   {{cli}} secure status             Show the keyring file, its slots and its sealing key fingerprint (no unlock)

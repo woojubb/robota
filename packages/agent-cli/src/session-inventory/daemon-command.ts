@@ -18,7 +18,7 @@ export const DAEMON_USAGE = (cliName: string): string =>
   `Usage: ${cliName} daemon start [--json] [--restricted-workspace]\n` +
   `       ${cliName} daemon status [--json]\n` +
   `       ${cliName} daemon stop\n` +
-  `       ${cliName} daemon unlock\n`;
+  `       ${cliName} daemon clear-start-lock\n`;
 
 export interface IDaemonCommandOptions {
   readonly productRuntime: ICliRuntimeContext;
@@ -49,13 +49,13 @@ type TAction =
   | { readonly action: 'start'; readonly json: boolean; readonly restricted: boolean }
   | { readonly action: 'status'; readonly json: boolean }
   | { readonly action: 'stop' }
-  | { readonly action: 'unlock' };
+  | { readonly action: 'clear-start-lock' };
 
 const START_FLAGS: ReadonlySet<string> = new Set(['--json', '--restricted-workspace']);
 
 function parseDaemonArgs(args: readonly string[]): TAction | undefined {
   const [action, ...flags] = args;
-  if (action === 'stop' || action === 'unlock') return args.length === 1 ? { action } : undefined;
+  if (action === 'stop' || action === 'clear-start-lock') return args.length === 1 ? { action } : undefined;
   const allowed = action === 'start' ? START_FLAGS : new Set(['--json']);
   if (action !== 'start' && action !== 'status') return undefined;
   if (flags.some((flag) => !allowed.has(flag)) || new Set(flags).size !== flags.length) return undefined;
@@ -163,7 +163,7 @@ export async function runDaemonCommand(
   }
   try {
     const workspace = realpathSync(options.cwd);
-    if (parsed.action === 'unlock') {
+    if (parsed.action === 'clear-start-lock') {
       // Only at the user's request: a start never removes a lock it did not take.
       const removed = removeSupervisedDaemonStartLock(workspace, (options.root ?? resolveSupervisedDirectory(options.productRuntime)));
       if (removed.outcome === 'held') {
