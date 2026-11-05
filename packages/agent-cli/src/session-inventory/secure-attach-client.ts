@@ -67,7 +67,19 @@ export async function openSecureAttach(options: {
         closedListeners.add(listener);
         return () => { closedListeners.delete(listener); };
       },
-      detach: () => link.close(),
+      detach: async () => {
+        let deadline: ReturnType<typeof setTimeout> | undefined;
+        try {
+          await Promise.race([link.lock('explicit'), new Promise<never>((_resolve, reject) => {
+            deadline = setTimeout(() => reject(new Error('Secure detach timed out.')), 5_000);
+          })]);
+        } catch {
+          throw new Error('Secure detach could not confirm the runtime is locked.');
+        } finally {
+          if (deadline !== undefined) clearTimeout(deadline);
+          link.close();
+        }
+      },
     };
   } catch (error) {
     link.close();

@@ -11,6 +11,7 @@ import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__t
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../../secure/__tests__/helpers.js';
 import { launchCertifiedRuntime } from '../certified-runtime-launch.js';
+import { openRegisteredOwnerLink } from '../owner-link-client.js';
 import { openSecureAttach } from '../secure-attach-client.js';
 import { runSessionAttachCommand } from '../session-attach-command.js';
 import { runSessionViewCommand } from '../session-view-command.js';
@@ -33,7 +34,17 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
       execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source'] });
     const attach = await openSecureAttach({ ...started, root, mode: 'observe', handover });
     expect(attach.driverId).toMatch(/^attach:/u);
-    attach.detach();
+    const otherLink = await openRegisteredOwnerLink({ ...started, root, handover });
+    try {
+      expect(otherLink.custody.unlocked).toBe(true);
+      const locked = new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Runtime stayed unlocked after detach.')), 1_000);
+        otherLink.onCustody((state) => { if (!state.unlocked) { clearTimeout(timer); resolve(); } });
+      });
+      await attach.detach();
+      await locked;
+      expect(otherLink.custody.unlocked).toBe(false);
+    } finally { otherLink.close(); }
     const other = await createKeyring({ passphrase: 'another strong passphrase' });
     other.unlocked.lock();
     const stranger = await openOwnerHandover(other.keyring, { type: 'passphrase', passphrase: 'another strong passphrase' });

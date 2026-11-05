@@ -15,7 +15,7 @@ import { createAttachedAppRender, type IAttachedAppPresentation } from '../../st
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
 import { createThemeSurface } from '../../startup/theme-surface.js';
 import { describeAttachConfirmation } from '../attach-confirmation.js';
-import { runSessionAttachCommand, type ISessionAttachCommandOptions } from '../session-attach-command.js';
+import { runConfirmedAttach, runSessionAttachCommand, type ISessionAttachCommandOptions } from '../session-attach-command.js';
 import {
   listSupervisedSessions,
   startSupervisedControl,
@@ -125,6 +125,19 @@ afterEach(() => {
 });
 
 describe('test-product session attach', () => {
+  it('reports failure when a secure detach cannot confirm locking', async () => {
+    const io = output();
+    try {
+      const code = await runConfirmedAttach({ id: ID, generation: 'generation', mode: 'observe', root: '/tmp',
+        render: async () => 'user', messages: { detached: 'Detached successfully', closed: 'Closed' },
+        open: async () => ({ driverId: 'driver', send: () => {}, subscribe: () => () => {}, onClose: () => () => {},
+          detach: async () => { throw new Error('Secure detach could not confirm the runtime is locked.'); } }),
+      });
+      expect(code).toBe(1);
+      expect(io.stderr()).toMatch(/could not confirm.*locked/i);
+      expect(io.stdout()).not.toContain('Detached successfully');
+    } finally { io.restore(); }
+  });
   it('refuses without an interactive terminal and names the command for the user to run', async () => {
     const io = output();
     const confirm = vi.fn(async () => true);

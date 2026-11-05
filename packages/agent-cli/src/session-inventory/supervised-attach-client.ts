@@ -28,8 +28,8 @@ export interface ISupervisedAttachConnection {
   /** Frames that arrived before the first subscriber are delivered to it, in order. */
   subscribe(listener: (message: TServerMessage) => void): () => void;
   onClose(listener: () => void): () => void;
-  /** Leave the session. Nothing is sent to it: the session keeps running and its turn continues. */
-  detach(): void;
+  /** Leave the session; secure connections also wait for the runtime to lock. */
+  detach(): void | Promise<void>;
 }
 
 export async function openSupervisedAttach(

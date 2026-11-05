@@ -79,13 +79,18 @@ export async function runConfirmedAttach(attach: IConfirmedAttach): Promise<numb
     return 1;
   }
   let ended: 'user' | 'closed';
+  let detachFailure: unknown;
   try {
     ended = await attach.render({
       connection: { send: connection.send, subscribe: connection.subscribe, onClose: connection.onClose },
       driverId: connection.driverId,
     });
   } finally {
-    connection.detach();
+    try { await connection.detach(); } catch (error) { detachFailure = error; }
+  }
+  if (detachFailure !== undefined) {
+    process.stderr.write(`${detachFailure instanceof Error ? detachFailure.message : 'Unable to confirm detach.'}\n`);
+    return 1;
   }
   process.stdout.write(`${ended === 'closed' ? attach.messages.closed : attach.messages.detached}\n`);
   return 0;
