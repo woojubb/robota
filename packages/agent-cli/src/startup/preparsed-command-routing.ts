@@ -47,6 +47,7 @@ import type { TAttachedAppRender } from '../session-inventory/session-attach-com
 import type { ISessionViewCommandOptions } from '../session-inventory/session-view-command.js';
 import { validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
 import { runSecureCommand } from '../secure/secure-command.js';
+import { productSecureMode } from '../product/session-sealing.js';
 import { runUsageCommand } from '../usage/usage-command.js';
 import { runUsageExportCommand } from '../usage/usage-export-command.js';
 import { subcommandHelpFor } from '../utils/cli-help.js';
@@ -300,6 +301,11 @@ export async function runPreparsedCliCommand(
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'events') {
+    if (productSecureMode(productRuntime)) {
+      process.stderr.write('External event management is not available in secure mode.\n');
+      process.exitCode = 1;
+      return true;
+    }
     process.exitCode = await runSessionEventsCommand(
       argv.slice(SUBCOMMAND_ARGUMENT_INDEX),
       supervisedRoot,

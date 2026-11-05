@@ -8,8 +8,24 @@ import { describe, expect, it, vi } from 'vitest';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
+import { overrideProductSecureMode } from '../../product/session-sealing.js';
 
 describe('supervised background session command', () => {
+  it('reports external event management unavailable in secure mode', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'secure-events-'));
+    const previousExitCode = process.exitCode;
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const runtime = createTestProductRuntime();
+    overrideProductSecureMode(runtime, true);
+    try {
+      for (const args of [['list', '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4'], ['revoke', '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4', 'ci']]) {
+        await runPreparsedCliCommand({ productRuntime: runtime, providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd) }, ['node', 'test-product', 'session', 'events', ...args], cwd);
+        expect(process.exitCode).toBe(1);
+        expect(stderr.mock.calls.map(([text]) => String(text)).join('')).toMatch(/not available in secure mode/i);
+        stderr.mockClear();
+      }
+    } finally { stderr.mockRestore(); process.exitCode = previousExitCode; rmSync(cwd, { recursive: true, force: true }); }
+  });
   it('routes the cross-project view before shell startup and terminates on non-TTY input', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'rs-view-'));
     const previousExitCode = process.exitCode;
