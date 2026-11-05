@@ -233,7 +233,7 @@ export class StoredSessionRecords {
       return this.#authorship === undefined
         ? this.#readPlain(id, file, unreadable)
         : this.#authorship.claimRead(id, fresh, file, unreadable, () => this.#rebuild(id));
-    });
+    }, () => this.#authorship?.discardHeld(id));
   }
 
   /**

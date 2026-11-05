@@ -2,6 +2,7 @@
 '@robota-sdk/agent-interface-session': minor
 '@robota-sdk/agent-transport-link': minor
 '@robota-sdk/agent-framework': minor
+'@robota-sdk/agent-session': minor
 '@robota-sdk/agent-transport': patch
 '@robota-sdk/agent-ui-terminal': minor
 '@robota-sdk/agent-cli': minor

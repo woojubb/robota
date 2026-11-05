@@ -10,6 +10,8 @@
  */
 
 import { createTestArtifactSealer, openTestWriteGrant } from '@robota-sdk/agent-core/testing';
+import { unlinkSync } from 'node:fs';
+import { join } from 'node:path';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -28,6 +30,7 @@ import {
   forgeRecord,
   readFresh,
   record,
+  savedByAnotherProcess,
   sealedStore,
   sessionOptions,
   started,
@@ -41,6 +44,49 @@ const FORGED_TEXT = 'CANARY-3e-accept-unverified-6b1d';
 afterEach(cleanUpSealedSessionFixtures);
 
 describe('an accepted record', () => {
+  it('does not claim a served acceptance from a store that cannot discard held plaintext', () => {
+    const cwd = directory();
+    const dir = directory();
+    const sealer = createTestArtifactSealer();
+    forgeRecord(dir, sealer, record('sess_legacy_view', cwd, FORGED_TEXT));
+    const store = sealedStore(dir, sealer);
+    const claim = vi.fn((...args: Parameters<NodeSessionStore['claim']>) => store.claim(...args));
+    const legacy: IInteractiveSessionStore = {
+      load: (...args) => store.load(...args), save: (...args) => store.save(...args),
+      list: () => store.list(), delete: (id) => store.delete(id), claim,
+      lend: (...args) => store.lend(...args), hasWriter: (id) => store.hasWriter(id), authorship: store.authorship,
+    };
+    const { session, error } = construct(sessionOptions(cwd, legacy, {
+      resumeSessionId: 'sess_legacy_view', acceptedDigest: digestOfFile(dir, 'sess_legacy_view'),
+      resumeAdmissionSignal: new AbortController().signal,
+    }));
+    expect(session).toBeUndefined();
+    expect(String(error)).toContain('discard');
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it.each(['replaced', 'deleted'] as const)('refuses a record %s after claim but before binding commit', async (change) => {
+    const cwd = directory();
+    const dir = directory();
+    const sealer = createTestArtifactSealer();
+    forgeRecord(dir, sealer, record('sess_late_change', cwd, FORGED_TEXT));
+    const store = sealedStore(dir, sealer);
+    const controller = new AbortController();
+    const { session, error } = construct(sessionOptions(cwd, store, {
+      resumeSessionId: 'sess_late_change', acceptedDigest: digestOfFile(dir, 'sess_late_change'),
+      resumeAdmissionSignal: controller.signal,
+    }));
+    if (session === undefined) throw error;
+    await session.ready();
+    if (change === 'replaced') savedByAnotherProcess(dir, sealer, record('sess_late_change', cwd, 'other verified bytes'));
+    else unlinkSync(join(dir, 'sess_late_change.json'));
+
+    expect(() => session.commitAcceptedAdmission()).toThrow();
+    controller.abort();
+    await session.shutdown();
+    expect(claimable(store, 'sess_late_change')).toBe(true);
+  });
+
   it('does not persist or snapshot an initialized acceptance that never reaches its owner', async () => {
     const cwd = directory();
     const dir = directory();
@@ -68,7 +114,10 @@ describe('an accepted record', () => {
     expect(authorshipOf(readFresh(dir, sealer, 'sess_unmoved'))).toBe('unverified');
     expect(saves).not.toHaveBeenCalled();
     expect(snapshot).not.toHaveBeenCalled();
-    expect(claimable(store, 'sess_unmoved')).toBe(true);
+    sealer.lock();
+    const reopened = store.claim('sess_unmoved');
+    expect(reopened.outcome.status).toBe('locked');
+    reopened.release();
   });
 
   it('starts normal persistence only when an initialized acceptance is committed', async () => {
@@ -125,6 +174,82 @@ describe('an accepted record', () => {
     expect(snapshot).not.toHaveBeenCalled();
     expect(saves).not.toHaveBeenCalled();
     expect(claimable(store, 'sess_lease')).toBe(true);
+    await pool.shutdownAll();
+  });
+
+  it.each(['context_update', 'session_switched'] as const)(
+    'keeps an adopted binding committed if a %s listener throws',
+    async (event) => {
+      const cwd = directory();
+      const dir = directory();
+      const sealer = createTestArtifactSealer();
+      forgeRecord(dir, sealer, record('sess_listener', cwd, FORGED_TEXT));
+      const store = sealedStore(dir, sealer);
+      const digest = digestOfFile(dir, 'sess_listener');
+      const primary = createTestInteractiveSession({ getSession: () => ({ getSessionId: () => 'primary' }) });
+      const pool = new SessionPool<IInteractiveSession>({
+        primary,
+        build: () => primary,
+        buildAccepted: (_id, acceptedDigest, resumeAdmissionSignal) => {
+          const result = construct(sessionOptions(cwd, store, { resumeSessionId: 'sess_listener', acceptedDigest, resumeAdmissionSignal }));
+          if (result.session === undefined) throw result.error;
+          return result.session;
+        },
+      });
+      const owner = pool.bind('drive');
+      owner.slot.on(event, () => { throw new Error('listener failed'); });
+      const lease = await pool.acquireAccepted('sess_listener', digest, new AbortController().signal);
+      expect(() => owner.moveTo(lease)).not.toThrow();
+      expect(owner.slot.current).toBe(lease.session);
+      expect(authorshipOf(readFresh(dir, sealer, 'sess_listener'))).toBe('verified');
+      owner.release();
+      await pool.shutdownAll();
+    },
+  );
+
+  it.each(['before', 'after'] as const)('keeps the binding faulted when adoption throws %s the write', async (when) => {
+    const cwd = directory();
+    const dir = directory();
+    const sealer = createTestArtifactSealer();
+    forgeRecord(dir, sealer, record('sess_uncertain', cwd, FORGED_TEXT));
+    const store = sealedStore(dir, sealer);
+    const digest = digestOfFile(dir, 'sess_uncertain');
+    const authorship = store.authorship!;
+    const view: IInteractiveSessionStore = {
+      supportsClaimDiscard: true,
+      load: (...args) => store.load(...args), save: (...args) => store.save(...args),
+      list: () => store.list(), delete: (id) => store.delete(id),
+      claim: (...args) => store.claim(...args), lend: (...args) => store.lend(...args),
+      hasWriter: (id) => store.hasWriter(id),
+      authorship: {
+        ...authorship,
+        adopt: (id, accepted) => {
+          if (when === 'after') authorship.adopt(id, accepted);
+          throw new Error('write confirmation lost');
+        },
+      },
+    };
+    const primary = createTestInteractiveSession({ getSession: () => ({ getSessionId: () => 'primary' }) });
+    const pool = new SessionPool<IInteractiveSession>({
+      primary, build: () => primary,
+      buildAccepted: (_id, acceptedDigest, resumeAdmissionSignal) => {
+        const result = construct(sessionOptions(cwd, view, { resumeSessionId: 'sess_uncertain', acceptedDigest, resumeAdmissionSignal }));
+        if (result.session === undefined) throw result.error;
+        return result.session;
+      },
+    });
+    const owner = pool.bind('drive');
+    const notices: Error[] = [];
+    owner.slot.on('error', (error) => notices.push(error));
+    const lease = await pool.acquireAccepted('sess_uncertain', digest, new AbortController().signal);
+    expect(() => owner.moveTo(lease)).not.toThrow();
+    expect(owner.slot.current).toBe(lease.session);
+    expect(authorshipOf(readFresh(dir, sealer, 'sess_uncertain'))).toBe(when === 'after' ? 'verified' : 'unverified');
+    expect(notices[0]?.message).toContain('may have been marked as yours');
+    await expect(lease.session.submit('must not run')).rejects.toThrow(/ended|shutting down/);
+    expect(pool.listLive().some((entry) => entry.sessionId === 'sess_uncertain')).toBe(false);
+    await expect(pool.acquire('sess_uncertain')).rejects.toMatchObject({ code: 'in_progress' });
+    owner.release();
     await pool.shutdownAll();
   });
 

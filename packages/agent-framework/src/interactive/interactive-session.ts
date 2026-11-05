@@ -38,6 +38,7 @@ import { applyModelFallback } from '../routing/model-fallback-chain.js';
 import { persistSessionRename } from './interactive-session-rename.js';
 import { loadSessionRecord, resumeRefusal } from './interactive-session-restore.js';
 import { SessionRecordClaim } from './session-record-claim.js';
+import { isSessionAuthorshipRefusedError } from './session-authorship-gate.js';
 import { InteractiveSessionRuntimeTools } from './interactive-session-runtime-tools.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { loadSessionPluginSkills, requireSessionPluginFiles } from './session-plugin-skills.js';
@@ -631,13 +632,16 @@ export class InteractiveSession
     const cancelAdmission = (): void => {
       this.discardedAcceptedAdmission = true;
       this.execCtrl.shuttingDown = true;
-      this.recordClaim?.end();
+      this.recordClaim?.discard();
     };
     if (admission !== undefined) this.pendingAcceptedAdmission = { signal: admission, onAbort: cancelAdmission };
     admission?.addEventListener('abort', cancelAdmission, { once: true });
     // A claim taken from here on is let go if the session never comes to exist.
     try {
       admission?.throwIfAborted();
+      if (admission !== undefined && options.sessionStore?.supportsClaimDiscard !== true) {
+        throw new Error('This session store cannot discard an abandoned owner decision.');
+      }
       if (admission !== undefined && 'workspaceManifest' in options && options.workspaceManifest !== undefined) {
         throw new Error('This session uses a sandbox workspace that cannot be cancelled safely; review it in a local interactive terminal.');
       }
@@ -665,7 +669,8 @@ export class InteractiveSession
       if (admission === undefined) this.resumeGoalIfActive();
     } catch (error) {
       admission?.removeEventListener('abort', cancelAdmission);
-      this.recordClaim?.end();
+      if (admission === undefined) this.recordClaim?.end();
+      else this.recordClaim?.discard();
       throw error;
     }
   }
@@ -775,7 +780,8 @@ export class InteractiveSession
     this.initPromise.catch((error: unknown) => {
       this.initFailure = error instanceof Error ? error : new Error(String(error));
       // A session that never came to exist holds nothing: its claim ends with the build.
-      this.recordClaim?.end();
+      if (options.resumeAdmissionSignal === undefined) this.recordClaim?.end();
+      else this.recordClaim?.discard();
     });
   }
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
@@ -891,19 +897,51 @@ export class InteractiveSession
   }
 
   /** Activate a privately initialized owner acceptance only as its binding moves onto it. */
-  commitAcceptedAdmission(): void {
+  commitAcceptedAdmission(): boolean {
     const admission = this.pendingAcceptedAdmission;
-    if (admission === undefined) return;
+    if (admission === undefined) return !this.discardedAcceptedAdmission;
     admission.signal.throwIfAborted();
     const session = this.getSessionOrThrow();
-    this.recordClaim?.restored();
+    this.recordClaim?.assertAcceptedStillCurrent();
+    try {
+      this.recordClaim?.restored();
+    } catch (error) {
+      if (isSessionAuthorshipRefusedError(error)) throw error;
+      // An I/O error can follow the on-disk replacement. Keep the binding where it is, but do not
+      // run or save this session when the adoption result cannot be confirmed.
+      this.discardAcceptedAdmission();
+      try {
+        this.reportBackgroundError(new Error(
+          'The session may have been marked as yours, but the result could not be confirmed. ' +
+          'No turns will start here; reopen it in a local interactive terminal to check it.',
+        ), 'session-admission');
+      } catch {
+        // allow-fallback: an observer cannot turn an uncertain write into a false rollback.
+      }
+      return false;
+    }
     admission.signal.removeEventListener('abort', admission.onAbort);
     this.pendingAcceptedAdmission = undefined;
-    this.bgTracker.subscribe(session);
-    this.resumeSelfPacedLoops();
-    this.persistCurrentSession();
-    this.emit('context_update', this.getContextState());
-    this.resumeGoalIfActive();
+    // Adoption has committed: an observer or subsequent activation step cannot undo the binding.
+    const steps = [
+      () => this.bgTracker.subscribe(session),
+      () => this.resumeSelfPacedLoops(),
+      () => this.persistCurrentSession(),
+      () => this.emit('context_update', this.getContextState()),
+      () => this.resumeGoalIfActive(),
+    ];
+    for (const step of steps) {
+      try {
+        step();
+      } catch (error) {
+        try {
+          this.reportBackgroundError(error instanceof Error ? error : new Error(String(error)), 'session-admission');
+        } catch {
+          // allow-fallback: reporting cannot undo a record already adopted at this binding.
+        }
+      }
+    }
+    return true;
   }
 
   /** Drop a private accepted session without starting work or creating a sandbox snapshot. */

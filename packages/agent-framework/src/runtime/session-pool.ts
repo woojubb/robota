@@ -147,8 +147,9 @@ interface ILeaseState<TSession> {
 }
 
 interface IAcceptedAdmissionSession {
-  commitAcceptedAdmission?(): void;
+  commitAcceptedAdmission?(): boolean | void;
   discardAcceptedAdmission?(): void;
+  reportBackgroundError?(error: Error, source?: string): void;
 }
 
 const STOPPING_MESSAGE = 'This runtime is stopping.';
@@ -210,21 +211,34 @@ export class SessionPool<TSession extends IInteractiveSession> {
         entry = held.entry;
         this.join(entry, role);
         this.leave(previous, role);
+        let finalized = !entry.exclusive;
         try {
+          const onNotifyError = entry.exclusive ? (error: unknown): void => {
+            try {
+              (entry.session as IAcceptedAdmissionSession).reportBackgroundError?.(
+                error instanceof Error ? error : new Error(String(error)), 'session-admission',
+              );
+            } catch {
+              // allow-fallback: a failed observer cannot undo a binding already committed.
+            }
+          } : undefined;
           slot.moveTo(entry.session, () => {
             if (entry.exclusive) {
-              (entry.session as IAcceptedAdmissionSession).commitAcceptedAdmission?.();
-              entry.exclusive = false;
+              const active = (entry.session as IAcceptedAdmissionSession).commitAcceptedAdmission?.();
+              finalized = true;
+              entry.exclusive = active === false;
             }
-          });
+          }, onNotifyError);
         } catch (error) {
-          if (entry.exclusive) {
+          if (!finalized) {
             const rejected = entry;
             this.leave(rejected, role);
             entry = previous;
             this.join(previous, role);
-            (rejected.session as IAcceptedAdmissionSession).discardAcceptedAdmission?.();
-            if (this.entries.has(rejected)) this.close(rejected, 'owner acceptance could not move');
+            if (this.entries.has(rejected)) {
+              (rejected.session as IAcceptedAdmissionSession).discardAcceptedAdmission?.();
+              this.close(rejected, 'owner acceptance could not move');
+            }
           }
           throw error;
         }
@@ -473,6 +487,11 @@ export class SessionPool<TSession extends IInteractiveSession> {
   private settle(entry: IEntry<TSession>): void {
     if (entry.primary || entry.clients > 0 || entry.holds > 0) return;
     if (this.drained !== undefined || !this.entries.has(entry)) return;
+    if (entry.exclusive) {
+      (entry.session as IAcceptedAdmissionSession).discardAcceptedAdmission?.();
+      this.close(entry, 'owner acceptance did not complete');
+      return;
+    }
     this.clearGrace(entry);
     const grace = setTimeout(() => {
       entry.grace = undefined;
