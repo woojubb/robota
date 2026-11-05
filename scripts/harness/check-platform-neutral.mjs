@@ -17,6 +17,9 @@
  *
  * The check reads source only, never build output, so it gives the same answer in every checkout.
  * Every package appears in exactly one ARCHITECTURE.md list, and the lists agree with the manifests.
+ *
+ * The half that runs the same bundles in a realm with only web-standard globals is
+ * `browser-runtime-proof.mjs`, next to this file.
  */
 
 import { existsSync, readFileSync, realpathSync } from 'node:fs';
