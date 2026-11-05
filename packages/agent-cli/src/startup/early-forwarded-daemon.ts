@@ -12,6 +12,7 @@ import { optionArgv } from '../utils/option-argv.js';
 import { canAskToTrust } from './interactive-trust-prompt.js';
 import { resolveInitialCliWorkspaceProjectAccess } from './workspace-project-composition.js';
 import { formatHeadlessWorkspaceTrustError, requiresHeadlessWorkspaceTrust } from './workspace-trust-admission.js';
+import { MAX_REPORTED_CREDENTIAL_NAMES } from './forwarded-environment.js';
 
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
@@ -101,9 +102,26 @@ function selectedProviderReferences(sources: readonly TSettingsSource[], environ
   return [...names];
 }
 
-/** After forwarding, admit project settings and retain only their declared provider references. */
-export async function prepareForwardedEnvironment(runtime: ICliRuntimeContext, cwd: string, restricted: boolean): Promise<NodeJS.ProcessEnv> {
-  const sources = await admittedSources(runtime, cwd, restricted);
+/** References in admitted provider profiles; this reports names, never credentials. */
+function configuredCredentialReferences(sources: readonly TSettingsSource[]): readonly string[] {
+  const settings = readMergedProviderSettings(sources);
+  const definitions = productProviderDefinitions();
+  const excluded = new Set([...TRANSPORT_ENVIRONMENT, ...definitions.flatMap((definition) => definition.destinationEnvironment ?? [])].map((name) => name.toUpperCase()));
+  const names = new Set<string>();
+  const collect = (type: string | undefined, key: string | undefined, hostKey: unknown): void => {
+    if (type === undefined || hostKey !== undefined) return;
+    const definition = definitions.find((entry) => entry.type === type || entry.aliases?.includes(type));
+    const reference = key ?? definition?.defaults?.apiKey;
+    if (reference?.startsWith(ENV_REFERENCE_PREFIX) !== true) return;
+    const name = reference.slice(ENV_REFERENCE_PREFIX.length).trim();
+    if (!excluded.has(name.toUpperCase()) && !name.toUpperCase().startsWith('PRODUCT_TELEMETRY_') && name.length <= 256 && /^[A-Za-z_][A-Za-z0-9_]*$/u.test(name)) names.add(name);
+  };
+  for (const profile of Object.values(settings.providers ?? {})) collect(profile.type, profile.apiKey, profile.apiKeyRef);
+  if (settings.provider !== undefined) collect(settings.provider.name, settings.provider.apiKey, settings.provider.apiKeyRef);
+  return [...names].sort();
+}
+
+function environmentFromSources(runtime: ICliRuntimeContext, sources: readonly TSettingsSource[]): NodeJS.ProcessEnv {
   const environment = childProductEnvironment(runtime);
   if (runtime.environment.PRODUCT_CONFIG_FILE !== undefined) environment.PRODUCT_CONFIG_FILE = runtime.environment.PRODUCT_CONFIG_FILE;
   for (const name of selectedProviderReferences(sources, runtime.environment)) {
@@ -114,9 +132,27 @@ export async function prepareForwardedEnvironment(runtime: ICliRuntimeContext, c
   return environment;
 }
 
-/** Recheck workspace authority and the allowed names before installing an IPC environment. */
-export async function validateForwardedEnvironment(runtime: ICliRuntimeContext, cwd: string, restricted: boolean, forwarded: Readonly<Record<string, string>>): Promise<void> {
+/** After forwarding, admit project settings and retain only their declared provider references. */
+export async function prepareForwardedEnvironment(runtime: ICliRuntimeContext, cwd: string, restricted: boolean): Promise<NodeJS.ProcessEnv> {
+  return environmentFromSources(runtime, await admittedSources(runtime, cwd, restricted));
+}
+
+async function prepareForwardedAdmission(runtime: ICliRuntimeContext, cwd: string, restricted: boolean) {
   const sources = await admittedSources(runtime, cwd, restricted);
+  const environment = environmentFromSources(runtime, sources);
+  const availableCredentialNames = configuredCredentialReferences(sources)
+    .filter((name) => environment[name] === undefined && Boolean(runtime.environment[name]?.trim()))
+    .slice(0, MAX_REPORTED_CREDENTIAL_NAMES);
+  return { environment, availableCredentialNames };
+}
+
+/** Recheck workspace authority and the allowed names before installing an IPC environment. */
+export async function validateForwardedEnvironment(runtime: ICliRuntimeContext, cwd: string, restricted: boolean, forwarded: Readonly<Record<string, string>>, availableCredentialNames: readonly string[] = []): Promise<void> {
+  const sources = await admittedSources(runtime, cwd, restricted);
+  const configured = new Set(configuredCredentialReferences(sources));
+  if (availableCredentialNames.some((name) => !configured.has(name) || Object.hasOwn(forwarded, name))) {
+    throw new Error('The forwarded credential availability report was not admitted.');
+  }
   const names = new Set(selectedProviderReferences(sources, { ...runtime.environment, ...forwarded }));
   const baseline: NodeJS.ProcessEnv = { ...childProductEnvironment(runtime), ...(runtime.environment.PRODUCT_CONFIG_FILE === undefined ? {} : { PRODUCT_CONFIG_FILE: runtime.environment.PRODUCT_CONFIG_FILE }) };
   const protectedNames = new Set([
@@ -158,7 +194,7 @@ export async function runEarlyForwardedDaemon(runtime: ICliRuntimeContext, argv:
       productRuntime: runtime,
       env: { ...environment, ...(runtime.environment.PRODUCT_CONFIG_FILE === undefined ? {} : { PRODUCT_CONFIG_FILE: runtime.environment.PRODUCT_CONFIG_FILE }) },
       spawnerFd: request.fd,
-      prepareEnvironment: () => prepareForwardedEnvironment(runtime, process.cwd(), request.restricted),
+      prepareEnvironment: () => prepareForwardedAdmission(runtime, process.cwd(), request.restricted),
       ...(request.restricted ? { restricted: true } : {}),
     });
     if (Object.entries(runtime.environment).some(([name, value]) => name.startsWith('PRODUCT_TELEMETRY_') &&

@@ -1,5 +1,5 @@
 import { resolveCliRuntimeContext } from './product-bootstrap.js';
-import { forwardedEnvironmentRequested } from './forwarded-environment.js';
+import { resolve } from 'node:path';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
@@ -211,6 +211,7 @@ export function buildCommandSetup(
    * with it, so a plain product, or a process with no terminal to ask on, has neither.
    */
   keyCustodyPort?: IKeyCustodyCommandPort,
+  reportedCredentialNames?: readonly string[],
 ): ICliSetup {
   const productRuntime = resolveCliRuntimeContext(options);
   const workspaceComposition = createCliWorkspaceComposition({
@@ -305,7 +306,17 @@ export function buildCommandSetup(
     providerSettingsAdapter,
     providerConnectionHost,
     providerCredentialResolver: providerConnectionHost.resolveCredential,
-    ...(forwardedEnvironmentRequested(process.argv) ? { missingEnvironmentCredentialHint: 'Select this profile as active in settings, then restart the secure runtime from its supervising app.' } : {}),
+    ...(reportedCredentialNames === undefined ? {} : {
+      missingEnvironmentCredentialHint: (profile: string, name: string): string => {
+        const report = reportedCredentialNames.includes(name)
+          ? `The launching process reported ${name} was set, but it was not forwarded.`
+          : `The launching process did not report ${name} as set. Set it in the environment used to start the runtime.`;
+        const path = providerSettingsStore.kind === 'project' ? resolve(cwd, providerSettingsStore.displayName) : providerSettingsStore.displayName;
+        const cli = productRuntime.vocabulary.cliName;
+        const stop = args.supervisedSessionId === undefined ? 'Stop this secure runtime' : `Stop it with ${cli} session stop ${args.supervisedSessionId}`;
+        return `${report} In ${JSON.stringify(path)}, set "currentProvider" to ${JSON.stringify(profile)}. ${stop}; then start a new secure daemon with ${cli} daemon start from the workspace, using an environment where ${name} is set, or restart through a supervisor that supports secure forwarding.`;
+      },
+    }),
     // The provider commands check `$ENV:` credentials against the snapshot taken before the runtime
     // withheld its own credentials from `process.env` — the live env no longer has them.
     providerEnvironment: productRuntime.environment,

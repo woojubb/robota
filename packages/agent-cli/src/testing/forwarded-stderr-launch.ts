@@ -10,7 +10,7 @@ try {
     entrypoint: fileURLToPath(new URL('./forwarded-stderr-child.mjs', import.meta.url)),
     env: { PATH: process.env.PATH },
     spawnerFd: 4,
-    prepareEnvironment: async () => ({ REFERENCE_ONLY: 'synthetic-sensitive-reference-value', REFERENCE_TWO: 'xY' }),
+    prepareEnvironment: async () => ({ environment: { REFERENCE_ONLY: 'synthetic-sensitive-reference-value', REFERENCE_TWO: 'xY' }, availableCredentialNames: [] }),
   });
 } catch (error) {
   process.send?.({ error: error instanceof Error ? error.message : 'failed' });

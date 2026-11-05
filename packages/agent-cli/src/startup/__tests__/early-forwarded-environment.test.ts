@@ -78,6 +78,23 @@ it('forwards configured fallback profiles and rejects unrelated profiles', async
   expect(forwarded.UNUSED_REF).toBeUndefined();
   await expect(validateForwardedEnvironment(runtime, root, true, { FALLBACK_REF: 'fallback' })).resolves.toBeUndefined();
   await expect(validateForwardedEnvironment(runtime, root, true, { UNUSED_REF: 'unused' })).rejects.toThrow(/not admitted/i);
+  await expect(validateForwardedEnvironment(runtime, root, true, {}, ['UNUSED_REF'])).resolves.toBeUndefined();
+  await expect(validateForwardedEnvironment(runtime, root, true, {}, ['UNKNOWN_REF'])).rejects.toThrow(/not admitted/i);
+  await expect(validateForwardedEnvironment(runtime, root, true, { PRIMARY_REF: 'primary' }, ['PRIMARY_REF'])).rejects.toThrow(/not admitted/i);
+});
+
+it('rejects transport and destination names in credential availability reports even if a profile refers to them', async () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'forward-report-')));
+  roots.push(root);
+  const runtime = createTestProductRuntime('test-product', { HOME: root });
+  mkdirSync(runtime.layout.userRoot, { recursive: true, mode: 0o700 });
+  writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ currentProvider: 'primary', providers: {
+    primary: { type: 'openai', model: 'primary', apiKey: '$ENV:PRIMARY_REF' },
+    proxy: { type: 'openai', model: 'proxy', apiKey: '$ENV:HTTPS_PROXY' },
+    destination: { type: 'openai', model: 'destination', apiKey: '$ENV:OPENAI_BASE_URL' },
+  } }), { mode: 0o600 });
+  await expect(validateForwardedEnvironment(runtime, root, true, {}, ['HTTPS_PROXY'])).rejects.toThrow(/not admitted/i);
+  await expect(validateForwardedEnvironment(runtime, root, true, {}, ['OPENAI_BASE_URL'])).rejects.toThrow(/not admitted/i);
 });
 
 it('forwards the automatically selected environment default without other providers', async () => {

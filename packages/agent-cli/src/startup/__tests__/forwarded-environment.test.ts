@@ -31,8 +31,8 @@ async function reader(timeoutMs = 5_000) {
 it('accepts a bounded string environment from its private admission channel', async () => {
   const child = await reader();
   const result = once(child, 'message');
-  child.send({ kind: 'forwarded-environment', id: ID, environment: { APPROVED_KEY: 'synthetic' } });
-  expect((await result)[0]).toEqual({ result: 'accepted', environment: { APPROVED_KEY: 'synthetic' } });
+  child.send({ kind: 'forwarded-environment', id: ID, environment: { APPROVED_KEY: 'synthetic' }, availableCredentialNames: ['UNSELECTED'] });
+  expect((await result)[0]).toEqual({ result: 'accepted', environment: { APPROVED_KEY: 'synthetic' }, availableCredentialNames: ['UNSELECTED'] });
 });
 
 it.each([
@@ -42,6 +42,10 @@ it.each([
   { kind: 'forwarded-environment', id: ID, environment: { KEY: 'x'.repeat(129 * 1024) } },
   { kind: 'forwarded-environment', id: ID, environment: { PRODUCT_RUNTIME_POSTURE: 'local' } },
   { kind: 'forwarded-environment', id: ID, environment: { PRODUCT_HOSTED_RUNTIME_CONFIG: '/tmp/hosted.json' } },
+  { kind: 'forwarded-environment', id: ID, environment: {}, availableCredentialNames: ['DUPLICATE', 'DUPLICATE'] },
+  { kind: 'forwarded-environment', id: ID, environment: {}, availableCredentialNames: ['BAD-NAME'] },
+  { kind: 'forwarded-environment', id: ID, environment: {}, availableCredentialNames: Array.from({ length: 257 }, (_, i) => `NAME_${i}`) },
+  { kind: 'forwarded-environment', id: ID, environment: {}, availableCredentialNames: [3] },
 ])('rejects malformed admission without accepting it', async (message) => {
   const child = await reader();
   const result = once(child, 'message');

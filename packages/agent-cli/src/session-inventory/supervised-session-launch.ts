@@ -257,7 +257,8 @@ export interface ISupervisedLaunchOptions {
     readonly restricted?: boolean;
   }
 
-type TLaunchMode = { readonly kind: 'plain' } | { readonly kind: 'spawner'; readonly pairTimeoutMs?: number } | { readonly kind: 'forwarded'; readonly spawnerFd: number; readonly closeParent: () => void; readonly prepareEnvironment?: () => Promise<NodeJS.ProcessEnv> };
+type TPreparedForwardedEnvironment = { readonly environment: NodeJS.ProcessEnv; readonly availableCredentialNames: readonly string[] };
+type TLaunchMode = { readonly kind: 'plain' } | { readonly kind: 'spawner'; readonly pairTimeoutMs?: number } | { readonly kind: 'forwarded'; readonly spawnerFd: number; readonly closeParent: () => void; readonly prepareEnvironment?: () => Promise<TPreparedForwardedEnvironment> };
 type TLaunchResult = { readonly kind: 'plain' | 'forwarded'; readonly id: string } | ({ readonly kind: 'spawner'; readonly id: string } & ISpawnerPairResult);
 
 /** Start one opt-in supervised runtime without sending credentials through the control channel. */
@@ -282,7 +283,7 @@ export async function launchRuntimeProcess(
 /** Forward a desktop spawner's inherited pair without reading or certifying it. */
 export async function launchForwardedRuntime(
   cwd: string,
-  options: ISupervisedLaunchOptions & { readonly spawnerFd: number; readonly prepareEnvironment?: () => Promise<NodeJS.ProcessEnv> },
+  options: ISupervisedLaunchOptions & { readonly spawnerFd: number; readonly prepareEnvironment?: () => Promise<TPreparedForwardedEnvironment> },
 ): Promise<string> {
   const fd = options.spawnerFd;
   if (!Number.isSafeInteger(fd) || fd < 3) throw new Error('The spawner descriptor is invalid.');
@@ -489,14 +490,14 @@ async function launchRuntime(
           message.kind === 'forwarded-environment-needed' && 'id' in message && message.id === id) {
         if (admissionRequested || ready) return fail('Supervised session requested admission out of order.');
         admissionRequested = true;
-        void mode.prepareEnvironment().then((environment) => {
+        void mode.prepareEnvironment().then(({ environment, availableCredentialNames }) => {
           if (done) return;
           const entries = Object.entries(environment).filter((entry): entry is [string, string] => typeof entry[1] === 'string');
           const accepted = Object.fromEntries(entries);
-          if (Buffer.byteLength(JSON.stringify(accepted), 'utf8') > 128 * 1024) return fail('Supervised session admission environment is too large.');
+          if (Buffer.byteLength(JSON.stringify({ environment: accepted, availableCredentialNames }), 'utf8') > 128 * 1024) return fail('Supervised session admission environment is too large.');
           handedOverSecrets.push(...entries.map(([, value]) => value));
           admissionSent = true;
-          child.send({ kind: 'forwarded-environment', id, environment: accepted }, (error) => {
+          child.send({ kind: 'forwarded-environment', id, environment: accepted, availableCredentialNames }, (error) => {
             if (error) fail('Supervised session admission channel failed.');
           });
         }).catch(() => fail('Secure runtime workspace admission failed. Check workspace trust and settings.'));

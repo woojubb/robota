@@ -8,6 +8,14 @@ const MAX_ENVIRONMENT_BYTES = 128 * 1024;
 const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/u;
 const HOSTED_DECISION_NAMES = new Set(['PRODUCT_RUNTIME_POSTURE', 'PRODUCT_HOSTED_RUNTIME_CONFIG']);
 const WAIT_MS = 20_000;
+export const MAX_REPORTED_CREDENTIAL_NAMES = 256;
+const MAX_CREDENTIAL_NAME_LENGTH = 256;
+
+export interface IForwardedAdmission {
+  readonly environment: Readonly<Record<string, string>>;
+  /** Advisory names reported as set by the launcher; no credential values. */
+  readonly availableCredentialNames: readonly string[];
+}
 
 export function forwardedEnvironmentRequested(argv: readonly string[]): boolean {
   return optionArgv(argv).includes(FORWARDED_ENVIRONMENT_FLAG);
@@ -17,7 +25,7 @@ export function forwardedEnvironmentRequested(argv: readonly string[]): boolean 
 export async function receiveForwardedEnvironment(
   argv: readonly string[],
   options: { readonly timeoutMs?: number } = {},
-): Promise<Record<string, string>> {
+): Promise<IForwardedAdmission> {
   const args = optionArgv(argv);
   const index = args.indexOf('--supervised-session-id');
   const id = index < 0 ? undefined : args[index + 1];
@@ -36,12 +44,16 @@ export async function receiveForwardedEnvironment(
         return;
       }
       const entries = Object.entries(message.environment);
+      const available = 'availableCredentialNames' in message ? message.availableCredentialNames : [];
       if (entries.some(([name, value]) => !ENVIRONMENT_NAME.test(name) || HOSTED_DECISION_NAMES.has(name.toUpperCase()) || typeof value !== 'string') ||
-          Buffer.byteLength(JSON.stringify(message.environment), 'utf8') > MAX_ENVIRONMENT_BYTES) {
+          !Array.isArray(available) || available.length > MAX_REPORTED_CREDENTIAL_NAMES ||
+          available.some((name: unknown) => typeof name !== 'string' || name.length > MAX_CREDENTIAL_NAME_LENGTH || !ENVIRONMENT_NAME.test(name)) ||
+          new Set(available).size !== available.length ||
+          Buffer.byteLength(JSON.stringify({ environment: message.environment, available }), 'utf8') > MAX_ENVIRONMENT_BYTES) {
         finish(() => reject(new Error('The forwarded runtime admission was malformed.')));
         return;
       }
-      finish(() => resolve(Object.fromEntries(entries)));
+      finish(() => resolve({ environment: Object.fromEntries(entries), availableCredentialNames: available }));
     };
     const finish = (complete: () => void): void => {
       if (settled) return;

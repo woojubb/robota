@@ -18,7 +18,7 @@ export async function validateProviderConnection(
     if (reference?.startsWith(ENV_REFERENCE_PREFIX) === true) {
       const name = reference.slice(ENV_REFERENCE_PREFIX.length).trim();
       if (name !== '' && !resolveProviderEnvironment(options.env)(name)?.trim()) {
-        throw new Error(options.missingEnvironmentCredentialHint);
+        throw new Error(options.missingEnvironmentCredentialHint(profileName, name));
       }
     }
   }

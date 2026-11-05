@@ -240,6 +240,7 @@ export async function startCliCore(
   const supervisedTransportToken = readHandedOverTransportTokenOrExit();
   const initialRuntime = resolveCliRuntimeContext(initialOptions);
   let productRuntime = initialRuntime;
+  let reportedCredentialNames: readonly string[] | undefined;
   const hasForwardedEnvironment = forwardedEnvironmentRequested(process.argv);
   const earlyForwardedDaemon = isEarlyForwardedDaemon(process.argv);
   if (hasForwardedEnvironment || earlyForwardedDaemon) assertLocalForwardingPosture(initialRuntime.environment);
@@ -250,8 +251,9 @@ export async function startCliCore(
     }
     const forwarded = await receiveForwardedEnvironment(process.argv);
     installProductChildSessions(initialRuntime);
-    await validateForwardedEnvironment(initialRuntime, process.cwd(), optionArgv(process.argv).includes('--restricted-workspace'), forwarded);
-    productRuntime = createCliRuntimeContext(initialRuntime.config, { ...initialRuntime.environment, ...forwarded }, initialRuntime.artifact);
+    await validateForwardedEnvironment(initialRuntime, process.cwd(), optionArgv(process.argv).includes('--restricted-workspace'), forwarded.environment, forwarded.availableCredentialNames);
+    reportedCredentialNames = forwarded.availableCredentialNames;
+    productRuntime = createCliRuntimeContext(initialRuntime.config, { ...initialRuntime.environment, ...forwarded.environment }, initialRuntime.artifact);
     copyProductSecureMode(initialRuntime, productRuntime);
   }
   if (earlyForwardedDaemon) {
@@ -313,6 +315,7 @@ export async function startCliCore(
       telemetryEnvironment,
       supervisedTransportToken,
       secureRuntime,
+      reportedCredentialNames,
     );
   } finally {
     protocolOutput?.restore();
@@ -330,6 +333,7 @@ async function runCliCore(
   telemetryEnvironment: Readonly<Record<string, string>> = {},
   supervisedTransportToken?: string,
   secureRuntime?: ISecureServeRuntime,
+  reportedCredentialNames?: readonly string[],
 ): Promise<void> {
   const productRuntime = resolveCliRuntimeContext(options);
   const cwd = process.cwd();
@@ -700,6 +704,7 @@ async function runCliCore(
       identityChanged: () => void deviceMesh.identityChanged(),
     },
     keyCustody?.commands,
+    reportedCredentialNames,
   );
   // A process that died without running its exit handlers leaves its scratch directories behind.
   sweepStaleEphemeralState(productRuntime);

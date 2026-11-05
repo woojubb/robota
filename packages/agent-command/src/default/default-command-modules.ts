@@ -85,7 +85,7 @@ export interface IDefaultCommandModulesOptions {
   providerConnectionHost?: IProviderConnectionHost;
   /** Host-owned resolution of an opaque saved credential reference. */
   providerCredentialResolver?: TProviderCredentialResolver;
-  missingEnvironmentCredentialHint?: string;
+  missingEnvironmentCredentialHint?: (profileName: string, environmentName: string) => string;
   /** Optional TUI-owned file capability; absent, `/keybindings` says it belongs to an interactive terminal. */
   keybindingsFilePort?: IKeybindingsFilePort;
   /**

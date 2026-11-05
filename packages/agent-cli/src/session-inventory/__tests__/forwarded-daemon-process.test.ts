@@ -50,6 +50,7 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
     chmodSync(git, 0o700);
   }
   const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'otlp', PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf', PRODUCT_SYNTHETIC_CREDENTIAL: 'owner-provider-key', FALLBACK_PROVIDER_REF: 'fallback-key', UNSELECTED_PROVIDER_REF: 'unused-fixture', PATH: `${bin}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}` });
+  delete env.MISSING_PROVIDER_REF;
   let authorization: string | undefined;
   let fallbackAuthorization: string | undefined;
   let failPrimary = false;
@@ -86,7 +87,7 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
   const { keyring } = await fixtureKeyring();
   mkdirSync(dirname(runtime.layout.userPaths.keyring), { recursive: true, mode: 0o700 });
   writeFileSync(runtime.layout.userPaths.keyring, serializeKeyring(keyring), { mode: 0o600 });
-  writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ currentProvider: 'openai', fallbackModel: ['backup'], providers: { openai: { type: 'openai', model: 'fixture-model', apiKey: '$ENV:PRODUCT_SYNTHETIC_CREDENTIAL', baseURL: `http://127.0.0.1:${address.port}/v1`, options: { apiSurface: 'chat-completions' } }, backup: { type: 'openai', model: 'fallback-model', apiKey: '$ENV:FALLBACK_PROVIDER_REF', baseURL: `http://127.0.0.1:${address.port}/fallback/v1`, options: { apiSurface: 'chat-completions' } }, unused: { type: 'openai', model: 'unused-model', apiKey: '$ENV:UNSELECTED_PROVIDER_REF' } } }), { mode: 0o600 });
+  writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ currentProvider: 'openai', fallbackModel: ['backup'], providers: { openai: { type: 'openai', model: 'fixture-model', apiKey: '$ENV:PRODUCT_SYNTHETIC_CREDENTIAL', baseURL: `http://127.0.0.1:${address.port}/v1`, options: { apiSurface: 'chat-completions' } }, backup: { type: 'openai', model: 'fallback-model', apiKey: '$ENV:FALLBACK_PROVIDER_REF', baseURL: `http://127.0.0.1:${address.port}/fallback/v1`, options: { apiSurface: 'chat-completions' } }, unused: { type: 'openai', model: 'unused-model', apiKey: '$ENV:UNSELECTED_PROVIDER_REF' }, missing: { type: 'openai', model: 'missing-model', apiKey: '$ENV:MISSING_PROVIDER_REF' } } }), { mode: 0o600 });
   const trusted = spawnSync(process.execPath, ['--import', tsx, '--conditions=source', fixture, 'trust', '--yes'], { cwd: root, env, encoding: 'utf8', timeout: 30_000 });
   expect(trusted.status).toBe(0);
   telemetryRequests = 0;
@@ -138,8 +139,13 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
   link.session.send({ type: 'submit', prompt: 'Exercise the configured fallback' });
   await fallbackComplete;
   expect(fallbackAuthorization).toBe('Bearer fallback-key');
-  for (const [name, args] of [['provider', 'switch unused'], ['model', 'unused-model']] as const) {
-    const requestId = `switch-${name}`;
+  for (const [name, args, expectation] of [
+    ['provider', 'switch unused', /reported.*UNSELECTED_PROVIDER_REF.*set.*not forwarded/i],
+    ['model', 'unused-model', /reported.*UNSELECTED_PROVIDER_REF.*set.*not forwarded/i],
+    ['provider', 'switch missing', /did not report.*MISSING_PROVIDER_REF.*as set/i],
+    ['model', 'missing-model', /did not report.*MISSING_PROVIDER_REF.*as set/i],
+  ] as const) {
+    const requestId = `switch-${name}-${args}`;
     const command = new Promise<{ success: boolean; message: string }>((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error('The provider switch did not answer.')), 10_000);
       link.session.onMessage((message) => {
@@ -149,7 +155,9 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
     link.session.send({ type: 'command', name, args, requestId });
     const result = await command;
     expect(result.success).toBe(false);
-    expect(result.message).toMatch(/select.*active.*restart.*secure runtime/i);
+    expect(result.message).toMatch(expectation);
+    expect(result.message).toContain(runtime.layout.userPaths.settings);
+    expect(result.message).toMatch(/currentProvider.*stop.*start/i);
   }
   expect(JSON.parse(readFileSync(runtime.layout.userPaths.settings, 'utf8')).currentProvider).toBe('openai');
   const switchBackup = new Promise<{ success: boolean; message: string }>((resolve, reject) => {
@@ -170,7 +178,9 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
     expect(launcherGit).not.toContain(`${child.pid} present`);
     expect(runtimeGit).not.toContain(`${registration.pid} present`);
   }
-  await stopSupervisedSession(reply.id, supervisedRoot, row.generation);
+  const stopped = spawnSync(process.execPath, ['--import', tsx, '--conditions=source', fixture, 'session', 'stop', reply.id],
+    { cwd: root, env, encoding: 'utf8', timeout: 30_000 });
+  expect(stopped.status, stopped.stderr).toBe(0);
   expect(telemetryRequests).toBe(0);
   link.close();
   pair.spawnerKey.wipe();
