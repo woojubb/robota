@@ -81,6 +81,13 @@ export class SealedEditCheckpointState implements IEditCheckpointStateStorage {
     return stored === undefined ? undefined : this.openStoredBytes(relativePath, stored);
   }
 
+  claimDirectory(relativePath: string, purpose: string): boolean {
+    if (this.inner.claimDirectory === undefined) {
+      throw new Error('Checkpoint storage must support atomic directory claims.');
+    }
+    return this.inner.claimDirectory(relativePath, purpose);
+  }
+
   writeText(relativePath: string, content: string, purpose: string): void {
     this.writeBytes(relativePath, Buffer.from(content, 'utf8'), purpose);
   }

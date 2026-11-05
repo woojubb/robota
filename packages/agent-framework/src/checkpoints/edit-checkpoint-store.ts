@@ -6,6 +6,7 @@ import { assertSessionSealing } from '@robota-sdk/agent-session/node';
 import { EditCheckpointAuthorityIO } from './edit-checkpoint-authority-io.js';
 import { PlainEditCheckpointCatalog } from './edit-checkpoint-catalog.js';
 import {
+  EditCheckpointNumberingExhaustedError,
   EditCheckpointUnreadableError,
   EditCheckpointsLockedError,
 } from './edit-checkpoint-errors.js';
@@ -18,6 +19,7 @@ import {
 import { DEFAULT_BRANCH_ID } from './edit-checkpoint-types.js';
 import {
   MANIFEST_FILE,
+  MAX_CHECKPOINT_SEQUENCE,
   SNAPSHOT_DIR,
   checkpointIdOf,
   checkpointTreeNodesOf,
@@ -139,9 +141,18 @@ export class EditCheckpointStore implements IEditCheckpointStore {
     // SELFHOST-007: the new checkpoint's parent is the active branch HEAD (the checkpoint the last
     // restore/rollback forked from, or the previous head). Falls back to the last checkpoint by
     // sequence for a fresh store. branchId groups the line (default 'main', a fresh id after a fork).
-    const { nextSequence, parentId } = this.nextCheckpoint(input.sessionId);
-    const id = checkpointIdOf(nextSequence);
-    const dir = join(this.sessionDir(input.sessionId), id);
+    const next = this.nextCheckpoint(input.sessionId);
+    const parentId = next.parentId;
+    let nextSequence = next.nextSequence;
+    let id: string;
+    let dir: string;
+    for (;;) {
+      if (nextSequence > MAX_CHECKPOINT_SEQUENCE) throw new EditCheckpointNumberingExhaustedError();
+      id = checkpointIdOf(nextSequence);
+      dir = join(this.sessionDir(input.sessionId), id);
+      if (this.authorityIO.claimDirectory(dir)) break;
+      nextSequence += 1;
+    }
     const branchId = this.activeBranch.get(input.sessionId) ?? DEFAULT_BRANCH_ID;
 
     const manifest: IEditCheckpointManifest = {

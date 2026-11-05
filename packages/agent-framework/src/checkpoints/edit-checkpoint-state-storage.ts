@@ -2,6 +2,8 @@ import {
   closeSync,
   constants,
   fstatSync,
+  lstatSync,
+  mkdirSync,
   openSync,
   readdirSync,
   readFileSync,
@@ -45,6 +47,8 @@ export interface IEditCheckpointStateStorage {
   readonly seals?: boolean;
   readText(relativePath: string, purpose: string): string | undefined;
   readBytes(relativePath: string, purpose: string): Uint8Array | undefined;
+  /** Claim a new checkpoint directory atomically; false means it already exists as a plain directory. */
+  claimDirectory?(relativePath: string, purpose: string): boolean;
   writeText(relativePath: string, content: string, purpose: string): void;
   writeBytes(relativePath: string, content: Uint8Array, purpose: string): void;
   /**
@@ -100,6 +104,22 @@ class DirectoryEditCheckpointState implements IEditCheckpointStateStorage {
       return readFileSync(descriptor);
     } finally {
       closeSync(descriptor);
+    }
+  }
+
+  claimDirectory(relativePath: string, _purpose: string): boolean {
+    const path = this.resolve(relativePath);
+    ensureOwnerOnlyDirectory(dirname(path), { withinRoot: this.root, rejectSymlinks: true });
+    try {
+      mkdirSync(path, { mode: 0o700 });
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      const metadata = lstatSync(path, { throwIfNoEntry: false });
+      if (metadata !== undefined && !metadata.isDirectory()) {
+        refuseProjectRead('A checkpoint directory claim collided with a non-directory.');
+      }
+      return false;
     }
   }
 

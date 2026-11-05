@@ -74,6 +74,15 @@ class WorkspaceProjectStateStorage {
     this.#mutationBoundary.write(this.projectRelativePath(relativePath), content);
   }
 
+  claimDirectory(relativePath: string, purpose: string): boolean {
+    assertWorkspaceProjectAuthority(this.#authority);
+    assertProjectReadPurpose(purpose);
+    if (this.#mutationBoundary.claimDirectory === undefined) {
+      throw new WorkspaceAuthorityRequiredError('The project host cannot claim checkpoint directories atomically.');
+    }
+    return this.#mutationBoundary.claimDirectory(this.projectRelativePath(relativePath));
+  }
+
   replaceBytes(relativePath: string, content: Uint8Array, purpose: string): void {
     assertWorkspaceProjectAuthority(this.#authority);
     assertProjectReadPurpose(purpose);

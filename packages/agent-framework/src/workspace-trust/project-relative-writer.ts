@@ -72,7 +72,11 @@ function openAnchoredDirectory(
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     if (!create) return undefined;
-    mkdirSync(target, { mode: OWNER_ONLY_DIRECTORY_MODE });
+    try {
+      mkdirSync(target, { mode: OWNER_ONLY_DIRECTORY_MODE });
+    } catch (creationError) {
+      if ((creationError as NodeJS.ErrnoException).code !== 'EEXIST') throw creationError;
+    }
     descriptor = openSync(target, directoryOpenFlags());
   }
   if (!fstatSync(descriptor).isDirectory()) {
@@ -384,6 +388,8 @@ export function createWorkspaceProjectMutationBoundary(
   identityResolver: IWorkspaceIdentityResolver,
 ): IWorkspaceProjectMutationBoundary {
   return Object.freeze({
+    claimDirectory: (relativePath: string): boolean =>
+      claimWorkspaceRelativeDirectory(identity, identityResolver, relativePath),
     write: (relativePath: string, content: Uint8Array | string): void =>
       writeWorkspaceRelativeFile(identity, identityResolver, relativePath, content),
     replace: (relativePath: string, content: Uint8Array | string): void =>
@@ -412,6 +418,27 @@ export function createWorkspaceProjectMutationBoundary(
       commitStagedWorkspaceRelativeFile(identity, identityResolver, relativePath, temporaryName),
     discardStaged: (relativePath: string, temporaryName: string): void =>
       discardStagedWorkspaceRelativeFile(identity, identityResolver, relativePath, temporaryName),
+  });
+}
+
+function claimWorkspaceRelativeDirectory(
+  identity: IWorkspaceIdentity,
+  identityResolver: IWorkspaceIdentityResolver,
+  relativePath: string,
+): boolean {
+  return withAnchoredParent(identity, identityResolver, workspacePathSegments(relativePath), (parent, name) => {
+    const target = descriptorPath(parent, name);
+    try {
+      mkdirSync(target, { mode: OWNER_ONLY_DIRECTORY_MODE });
+      return true;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+      const metadata = lstatSync(target, { throwIfNoEntry: false });
+      if (metadata !== undefined && !metadata.isDirectory()) {
+        refuseProjectRead('A checkpoint directory claim collided with a non-directory.');
+      }
+      return false;
+    }
   });
 }
 

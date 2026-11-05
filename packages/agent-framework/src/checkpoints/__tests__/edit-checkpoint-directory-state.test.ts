@@ -173,6 +173,32 @@ describe('createDirectoryEditCheckpointState', () => {
   );
 });
 
+describe('atomic checkpoint directory claims', () => {
+  it('refuses a link or a regular file at the claimed path without touching the target', () => {
+    const root = join(base, 'state');
+    const outside = join(base, 'outside');
+    mkdirSync(outside);
+    const state = createDirectoryEditCheckpointState(root);
+    mkdirSync(join(root, 'session_1'));
+    symlinkSync(outside, join(root, 'session_1', 'turn-0001'));
+    writeFileSync(join(root, 'session_1', 'turn-0002'), 'existing file');
+    expect(() => state.claimDirectory?.('session_1/turn-0001', 'test')).toThrow();
+    expect(() => state.claimDirectory?.('session_1/turn-0002', 'test')).toThrow();
+    expect(readdirSync(outside)).toEqual([]);
+    expect(readFileSync(join(root, 'session_1', 'turn-0002'), 'utf8')).toBe('existing file');
+  });
+
+  it('fails closed when a host store cannot claim directories', async () => {
+    const project = join(base, 'project');
+    mkdirSync(project);
+    const backing = createDirectoryEditCheckpointState(join(base, 'state'));
+    const state = Object.create(backing, { claimDirectory: { value: undefined } }) as IEditCheckpointStateStorage;
+    const store = await storeKeepingStateIn(project, state);
+    await expect(store.beginTurn({ sessionId: 'session_1', prompt: 'edit' })).rejects.toThrow(/atomic directory claims/);
+    expect(readdirSync(join(base, 'state'))).toEqual([]);
+  });
+});
+
 describe('an EditCheckpointStore given state held outside the project', () => {
   async function recordOneEdit(project: string, state: IEditCheckpointStateStorage) {
     const file = join(project, 'notes.txt');

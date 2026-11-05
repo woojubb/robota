@@ -124,6 +124,32 @@ describe('project-relative writer containment', () => {
     for (const root of roots.splice(0)) fs.rmSync(root, { recursive: true, force: true });
   });
 
+  it.runIf(process.platform === 'linux')('claims one plain directory without following a substituted parent or target', () => {
+    const root = fs.mkdtempSync(join(tmpdir(), 'agent-claim-root-'));
+    const outside = fs.mkdtempSync(join(tmpdir(), 'agent-claim-outside-'));
+    roots.push(root, outside);
+    const parent = join(root, 'state');
+    const moved = join(root, 'state-original');
+    fs.mkdirSync(parent);
+    const boundary = boundaryFor(root);
+    if (boundary.claimDirectory === undefined) throw new Error('atomic claim missing');
+    swap.armedParent = parent;
+    swap.movedParent = moved;
+    swap.outside = outside;
+    expect(boundary.claimDirectory('state/turn-0001')).toBe(true);
+    expect(fs.existsSync(join(moved, 'turn-0001'))).toBe(true);
+    expect(fs.readdirSync(outside)).toEqual([]);
+
+    fs.unlinkSync(parent);
+    fs.renameSync(moved, parent);
+    expect(boundary.claimDirectory('state/turn-0001')).toBe(false);
+    fs.symlinkSync(outside, join(parent, 'turn-0002'));
+    expect(() => boundary.claimDirectory?.('state/turn-0002')).toThrow();
+    fs.writeFileSync(join(parent, 'turn-0003'), 'existing');
+    expect(() => boundary.claimDirectory?.('state/turn-0003')).toThrow();
+    expect(fs.readdirSync(outside)).toEqual([]);
+  });
+
   it.runIf(process.platform === 'linux')(
     'does not redirect a write when a verified parent is replaced with an outside link',
     () => {

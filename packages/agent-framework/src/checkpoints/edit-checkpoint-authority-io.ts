@@ -59,6 +59,13 @@ export class EditCheckpointAuthorityIO {
     this.mutation = assertWorkspaceProjectMutationForAuthority(mutation, authority);
   }
 
+  claimDirectory(path: string): boolean {
+    if (this.state.claimDirectory === undefined) {
+      throw new Error('Checkpoint storage must support atomic directory claims.');
+    }
+    return this.state.claimDirectory(path, 'claim a new edit checkpoint');
+  }
+
   inspectKind(relativePath: string): TWorkspaceContributionKind | undefined {
     return this.reader.inspectKind(relativePath, 'inspect checkpoint capture target');
   }
