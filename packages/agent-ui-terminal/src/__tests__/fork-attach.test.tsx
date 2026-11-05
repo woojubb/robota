@@ -14,9 +14,7 @@ import { render } from 'ink-testing-library';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import ExecutionWorkspaceSwitcher, {
-  EXECUTION_WORKSPACE_ATTACH_HINT,
-} from '../ExecutionWorkspaceSwitcher.js';
+import ExecutionWorkspaceSwitcher from '../ExecutionWorkspaceSwitcher.js';
 import { attachToForkedSession } from '../flows/fork-attach-flow.js';
 import type { IForkAttachDeps } from '../flows/fork-attach-flow.js';
 import { useForkAttach } from '../hooks/useForkAttach.js';
@@ -168,7 +166,7 @@ describe('attaching to a fork follows the job or switches the view (CLI-1994 TC-
       />,
     );
 
-    expect(lastFrame()).toContain(EXECUTION_WORKSPACE_ATTACH_HINT.label);
+    expect(lastFrame()).toMatch(/\ba Follow\b/);
 
     stdin.write('a');
 
@@ -188,7 +186,7 @@ describe('attaching to a fork follows the job or switches the view (CLI-1994 TC-
       />,
     );
 
-    expect(lastFrame()).not.toContain(EXECUTION_WORKSPACE_ATTACH_HINT.label);
+    expect(lastFrame()).not.toMatch(/\ba (Follow|Continue)\b/);
 
     stdin.write('a');
 
@@ -278,13 +276,16 @@ describe('the attach handler of this terminal', () => {
     };
   }
 
-  function probeOf(sessionStore: IInteractiveSessionStore | undefined) {
+  function probeOf(
+    sessionStore: IInteractiveSessionStore | undefined,
+    snapshot: IExecutionWorkspaceSnapshot | null = null,
+  ) {
     const addEntry = vi.fn();
     const onSessionSwitch = vi.fn();
     const select = vi.fn();
-    let attach!: (entry: IExecutionWorkspaceEntry) => void;
+    let latest!: ReturnType<typeof useForkAttach>;
     function Probe(): React.ReactElement {
-      attach = useForkAttach({ sessionStore, onSessionSwitch, select, addEntry });
+      latest = useForkAttach({ sessionStore, onSessionSwitch, select, addEntry, snapshot });
       return <></>;
     }
     const view = render(
@@ -293,7 +294,9 @@ describe('the attach handler of this terminal', () => {
       </TuiCliAdapterProvider>,
     );
     return {
-      attach: (entry: IExecutionWorkspaceEntry) => attach(entry),
+      attach: (entry: IExecutionWorkspaceEntry) => latest.attach(entry),
+      /** The question the person is being asked now, if any. */
+      question: () => latest.continueQuestion,
       said: () => addEntry.mock.calls.map(([entry]) => JSON.stringify(entry)).join('\n'),
       addEntry,
       onSessionSwitch,
@@ -360,5 +363,171 @@ describe('the attach handler of this terminal', () => {
     expect(probe.said()).toContain('still has a writer');
     expect(probe.onSessionSwitch).toHaveBeenCalledTimes(1);
     expect(probe.onSessionSwitch).toHaveBeenCalledWith(FORK_SESSION_ID);
+  });
+});
+
+describe('continuing an ended fork while other jobs of the session run', () => {
+  function validFork(): TSessionLoadOutcome {
+    return {
+      status: 'valid',
+      record: {
+        id: FORK_SESSION_ID,
+        cwd: '/work',
+        createdAt: '2026-09-07T00:00:00.000Z',
+        updatedAt: '2026-09-07T00:00:00.000Z',
+        messages: [],
+      },
+    };
+  }
+
+  function storeOf(): IInteractiveSessionStore {
+    return withHoldReadClaim({
+      load: () => validFork(),
+      list: () => [],
+      save: () => undefined,
+      delete: () => undefined,
+    });
+  }
+
+  function sibling(id: string, status: IExecutionWorkspaceEntry['status']) {
+    const { resumeSessionId: _dropped, ...entry } = makeForkEntry({
+      id: `task:${id}`,
+      sourceId: id,
+      title: id,
+      status,
+      controls: ['select', 'cancel'],
+    });
+    return entry;
+  }
+
+  function probeOf(
+    sessionStore: IInteractiveSessionStore | undefined,
+    snapshot: IExecutionWorkspaceSnapshot | null,
+  ) {
+    const addEntry = vi.fn();
+    const onSessionSwitch = vi.fn();
+    const select = vi.fn();
+    let latest!: ReturnType<typeof useForkAttach>;
+    function Probe(): React.ReactElement {
+      latest = useForkAttach({ sessionStore, onSessionSwitch, select, addEntry, snapshot });
+      return <></>;
+    }
+    const view = render(
+      <TuiCliAdapterProvider value={{} as ITuiCliAdapter}>
+        <Probe />
+      </TuiCliAdapterProvider>,
+    );
+    return {
+      attach: (entry: IExecutionWorkspaceEntry) => latest.attach(entry),
+      question: () => latest.continueQuestion,
+      said: () => addEntry.mock.calls.map(([entry]) => JSON.stringify(entry)).join('\n'),
+      onSessionSwitch,
+      select,
+      done: () => view.unmount(),
+    };
+  }
+
+  const ended = (): IExecutionWorkspaceEntry => makeForkEntry({ status: 'completed' });
+
+  it('asks first, says how many jobs will be stopped, and switches only on yes', async () => {
+    const snapshot = makeSnapshot([
+      ended(),
+      sibling('agent_2', 'running'),
+      sibling('agent_3', 'queued'),
+    ]);
+    const probe = probeOf(storeOf(), snapshot);
+
+    probe.attach(ended());
+    await vi.waitFor(() => expect(probe.question()).toBeDefined());
+
+    expect(probe.question()?.message).toContain(
+      '2 background jobs are still running and will be stopped',
+    );
+    expect(probe.question()?.message).toContain('experiment');
+    expect(probe.onSessionSwitch).not.toHaveBeenCalled();
+
+    probe.question()?.answer(true);
+
+    expect(probe.onSessionSwitch).toHaveBeenCalledWith(FORK_SESSION_ID);
+    await vi.waitFor(() => expect(probe.question()).toBeUndefined());
+    probe.done();
+  });
+
+  it('stops nothing and switches nothing on no, and says so', async () => {
+    const snapshot = makeSnapshot([ended(), sibling('agent_2', 'running')]);
+    const probe = probeOf(storeOf(), snapshot);
+
+    probe.attach(ended());
+    await vi.waitFor(() => expect(probe.question()).toBeDefined());
+    probe.question()?.answer(false);
+
+    expect(probe.onSessionSwitch).not.toHaveBeenCalled();
+    expect(probe.said()).toContain('still running');
+    expect(probe.said()).toContain('not switched');
+    await vi.waitFor(() => expect(probe.question()).toBeUndefined());
+    probe.done();
+  });
+
+  it('names a single job in the singular', async () => {
+    const snapshot = makeSnapshot([ended(), sibling('agent_2', 'running')]);
+    const probe = probeOf(storeOf(), snapshot);
+
+    probe.attach(ended());
+    await vi.waitFor(() => expect(probe.question()).toBeDefined());
+
+    expect(probe.question()?.message).toContain(
+      '1 background job is still running and will be stopped',
+    );
+    probe.done();
+  });
+
+  it('switches at once, with no question, when no other job is running', () => {
+    const snapshot = makeSnapshot([ended(), sibling('agent_2', 'completed')]);
+    const probe = probeOf(storeOf(), snapshot);
+
+    probe.attach(ended());
+
+    expect(probe.question()).toBeUndefined();
+    expect(probe.onSessionSwitch).toHaveBeenCalledWith(FORK_SESSION_ID);
+    probe.done();
+  });
+
+  it('refuses without asking when the switch would be refused anyway', () => {
+    const store = storeOf();
+    const claim = store.claim(FORK_SESSION_ID);
+    const snapshot = makeSnapshot([ended(), sibling('agent_2', 'running')]);
+    const probe = probeOf(store, snapshot);
+
+    probe.attach(ended());
+    claim.release();
+
+    expect(probe.question()).toBeUndefined();
+    expect(probe.said()).toContain('still has a writer');
+    expect(probe.onSessionSwitch).not.toHaveBeenCalled();
+    probe.done();
+  });
+
+  it('does not ask on a surface with no store: the host keeps its session while jobs run', () => {
+    const snapshot = makeSnapshot([ended(), sibling('agent_2', 'running')]);
+    const probe = probeOf(undefined, snapshot);
+
+    probe.attach(ended());
+
+    expect(probe.question()).toBeUndefined();
+    expect(probe.onSessionSwitch).toHaveBeenCalledWith(FORK_SESSION_ID);
+    probe.done();
+  });
+
+  it('does not ask when it follows a running fork: nothing is stopped by following', () => {
+    const running = makeForkEntry({ status: 'running' });
+    const snapshot = makeSnapshot([running, sibling('agent_2', 'running')]);
+    const probe = probeOf(storeOf(), snapshot);
+
+    probe.attach(running);
+
+    expect(probe.question()).toBeUndefined();
+    expect(probe.select).toHaveBeenCalledWith('task:agent_1');
+    expect(probe.onSessionSwitch).not.toHaveBeenCalled();
+    probe.done();
   });
 });

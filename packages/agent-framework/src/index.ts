@@ -728,6 +728,7 @@ export {
   // CLI-1994: a surface asks this what attaching to an entry does; the answer is the framework's
   // because the same table (`attachKind`) decides when the `attach` control is offered.
   attachKind,
+  liveBackgroundJobCount,
   resolveExecutionAttach,
   summarizeBackgroundJobGroup,
 } from './background-tasks/index.js';

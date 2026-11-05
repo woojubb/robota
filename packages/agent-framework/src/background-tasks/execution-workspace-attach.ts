@@ -29,7 +29,10 @@
 
 import { isTerminalBackgroundTaskStatus } from '@robota-sdk/agent-executor';
 
-import type { IExecutionWorkspaceEntry } from './execution-workspace-types.js';
+import type {
+  IExecutionWorkspaceEntry,
+  IExecutionWorkspaceSnapshot,
+} from './execution-workspace-types.js';
 
 /** What the surface does next: follow the job, switch its view, or say why it will not. */
 export type TExecutionAttachOutcome =
@@ -91,6 +94,25 @@ export function attachKind(
 ): TExecutionAttachKind {
   if (target.resumeSessionId === undefined) return 'none';
   return isTerminalEntryStatus(target.status) ? 'continue' : 'follow';
+}
+
+/**
+ * How many jobs of the session, other than the one being continued, have not ended — the jobs the
+ * session left behind by a switch would cancel when it shuts down. Counted from the entries' own
+ * statuses with the table the manager's shutdown acts on, so the number a person is told is the
+ * number that is stopped.
+ */
+export function liveBackgroundJobCount(
+  snapshot: Pick<IExecutionWorkspaceSnapshot, 'entries'> | null,
+  exceptEntryId: string,
+): number {
+  if (snapshot === null) return 0;
+  return snapshot.entries.filter(
+    (entry) =>
+      entry.kind === 'background_task' &&
+      entry.id !== exceptEntryId &&
+      !isTerminalEntryStatus(entry.status),
+  ).length;
 }
 
 export function resolveExecutionAttach(
