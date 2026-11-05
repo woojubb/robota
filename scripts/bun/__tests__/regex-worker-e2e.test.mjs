@@ -1,4 +1,6 @@
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -110,6 +112,24 @@ describe('regex worker e2e verdicts', () => {
   });
 
   describe.skipIf(process.platform === 'win32')('against a stand-in executable', () => {
+    it('leaves an unrelated matching worker running', async () => {
+      const directory = mkdtempSync(join(tmpdir(), 'regex-worker-unrelated-'));
+      const fake = join(directory, 'fake-agent');
+      writeFileSync(fake, fakeCli('ok'));
+      chmodSync(fake, 0o755);
+      const unrelated = spawn(fake, ['-e', 'const boundedRegexReplace = 1;'], { stdio: 'ignore' });
+      try {
+        await once(unrelated, 'spawn');
+        await expect(runRegexWorkerE2e(fake, options)).resolves.toMatch(/^regex-worker=passed/u);
+        expect(unrelated.exitCode).toBeNull();
+        expect(unrelated.signalCode).toBeNull();
+        expect(() => process.kill(unrelated.pid, 0)).not.toThrow();
+      } finally {
+        unrelated.kill('SIGKILL');
+        rmSync(directory, { recursive: true, force: true });
+      }
+    }, 60_000);
+
     it('passes one that ends the hostile run in the timeout refusal through a worker it kills', async () => {
       await expect(runFake('ok')).resolves.toMatch(
         /^regex-worker=passed; .*leaked=0; recovery=passed$/u,

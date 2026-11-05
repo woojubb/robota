@@ -139,10 +139,10 @@ function failure(label, detail) {
 }
 
 /**
- * Runs `/workflows run <file>` in print mode. With `watchWorkers`, samples the process table while it runs and
- * records the workers that were children of this very process. A run that outlasts `limitMs` is killed and flagged.
+ * Runs `/workflows run <file>` in print mode and records workers observed as this process's children.
+ * A run that outlasts `limitMs` is killed and flagged.
  */
-async function runWorkflow(context, file, { limitMs, watchWorkers = false }) {
+async function runWorkflow(context, file, { limitMs }) {
   const started = Date.now();
   const child = spawn(
     context.binary,
@@ -178,9 +178,12 @@ async function runWorkflow(context, file, { limitMs, watchWorkers = false }) {
     if (child.pid !== undefined) killProcess(child.pid);
   }, limitMs);
   const workers = new Set();
-  while (watchWorkers && !exited) {
+  while (!exited) {
     for (const { pid, ppid } of workerProcesses(context.binary)) {
-      if (ppid === child.pid) workers.add(pid);
+      if (ppid === child.pid) {
+        workers.add(pid);
+        context.workers.add(pid);
+      }
     }
     await Promise.race([closed, sleep(100)]);
   }
@@ -208,14 +211,17 @@ function describe(run) {
 }
 
 /** Waits briefly for a worker's exit to be reaped, then removes any that remain so a failure leaves no busy process. */
-async function leftoverWorkers(binary) {
+async function leftoverWorkers(binary, ownedWorkers) {
+  if (ownedWorkers.size === 0) return [];
+  const owned = () => workerProcesses(binary).filter(({ pid }) => ownedWorkers.has(pid));
   const deadline = Date.now() + 5000;
-  let remaining = workerProcesses(binary);
+  let remaining = owned();
   while (remaining.length > 0 && Date.now() < deadline) {
     await sleep(250);
-    remaining = workerProcesses(binary);
+    remaining = owned();
   }
   for (const { pid } of remaining) killProcess(pid);
+  ownedWorkers.clear();
   return remaining.map(({ pid }) => pid);
 }
 
@@ -273,7 +279,7 @@ export async function runRegexWorkerE2e(binaryPath, options = {}) {
   // Reassigned once the repository exists: see below.
   let workspace = join(root, 'workspace');
   const env = fixtureProcessEnvironment(home);
-  const context = { binary, workspace, env };
+  const context = { binary, workspace, env, workers: new Set() };
   const cli = (args) =>
     spawnSync(binary, args, { cwd: workspace, env, encoding: 'utf8', timeout: 120_000 });
   const writeWorkflow = (name, definition) =>
@@ -341,7 +347,7 @@ export async function runRegexWorkerE2e(binaryPath, options = {}) {
       }
     };
     const expectNoWorkerLeft = async (label) => {
-      const leaked = await leftoverWorkers(binary);
+      const leaked = await leftoverWorkers(binary, context.workers);
       if (leaked.length > 0) {
         throw failure(
           `${label}: regex worker process(es) ${leaked.join(', ')} outlived the run (now killed).`,
@@ -356,13 +362,12 @@ export async function runRegexWorkerE2e(binaryPath, options = {}) {
 
     const hostile = await runWorkflow(context, 'hostile.json', {
       limitMs: ordinary.wallMs + timeoutMs + marginMs,
-      watchWorkers: true,
     });
     try {
       assertHostileRun(hostile, { timeoutMs, marginMs, baselineMs: ordinary.wallMs });
     } catch (error) {
       // A run that failed its own checks may have left its worker busy; remove it before reporting.
-      await leftoverWorkers(binary);
+      await leftoverWorkers(binary, context.workers);
       throw error;
     }
     await expectNoWorkerLeft('Hostile run');
@@ -376,7 +381,7 @@ export async function runRegexWorkerE2e(binaryPath, options = {}) {
       `hostile=timeout refusal in ${hostile.wallMs}ms (ordinary ${ordinary.wallMs}ms); leaked=0; recovery=passed`
     );
   } finally {
-    await leftoverWorkers(binary).catch(() => undefined);
+    await leftoverWorkers(binary, context.workers).catch(() => undefined);
     rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
   }
 }
