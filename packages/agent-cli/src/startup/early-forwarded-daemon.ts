@@ -9,10 +9,7 @@ import { createProductUserSettingsSources } from '../product/user-settings.js';
 import { productSecureMode } from '../product/session-sealing.js';
 import { launchForwardedRuntime } from '../session-inventory/supervised-session-launch.js';
 import { optionArgv } from '../utils/option-argv.js';
-import { validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
-import { takeProductTelemetryEnvironment } from '../telemetry/live-telemetry-env.js';
 import { canAskToTrust } from './interactive-trust-prompt.js';
-import { runtimeVersion } from './version.js';
 import { resolveInitialCliWorkspaceProjectAccess } from './workspace-project-composition.js';
 import { formatHeadlessWorkspaceTrustError, requiresHeadlessWorkspaceTrust } from './workspace-trust-admission.js';
 
@@ -67,14 +64,6 @@ async function admittedSources(runtime: ICliRuntimeContext, cwd: string, restric
 /** After forwarding, admit project settings and retain only their declared provider references. */
 export async function prepareForwardedEnvironment(runtime: ICliRuntimeContext, cwd: string, restricted: boolean): Promise<NodeJS.ProcessEnv> {
   const sources = await admittedSources(runtime, cwd, restricted);
-  const telemetryInput = { ...runtime.environment };
-  delete telemetryInput.PRODUCT_TELEMETRY_SERVICE_NAME;
-  const telemetry = takeProductTelemetryEnvironment(telemetryInput);
-  validateNodeOtlpLiveTelemetrySettings(telemetry, {
-    telemetryServiceName: runtime.config.identity.telemetryServiceName,
-    serviceVersion: runtimeVersion(runtime),
-    surface: 'serve',
-  });
   const environment = restartProductEnvironment(runtime, sources, productProviderDefinitions());
   for (const name of TRANSPORT_ENVIRONMENT) delete environment[name];
   for (const name of Object.keys(environment)) if (name.startsWith('PRODUCT_TELEMETRY_')) delete environment[name];
@@ -129,7 +118,8 @@ export async function runEarlyForwardedDaemon(runtime: ICliRuntimeContext, argv:
       prepareEnvironment: () => prepareForwardedEnvironment(runtime, process.cwd(), request.restricted),
       ...(request.restricted ? { restricted: true } : {}),
     });
-    if (runtime.environment.PRODUCT_TELEMETRY_ENABLED === '1') {
+    if (Object.entries(runtime.environment).some(([name, value]) => name.startsWith('PRODUCT_TELEMETRY_') &&
+        name !== 'PRODUCT_TELEMETRY_SERVICE_NAME' && value !== undefined && !(name === 'PRODUCT_TELEMETRY_ENABLED' && value === '0'))) {
       process.stderr.write('Telemetry settings are not forwarded to this secure runtime.\n');
     }
     process.stdout.write(request.json ? `${JSON.stringify({ id })}\n` : `Secure runtime ${id} started.\n`);

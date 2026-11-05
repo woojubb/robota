@@ -70,3 +70,11 @@ it('withholds inherited telemetry rather than allowing the forwarding peer to ch
   expect(forwarded.PRODUCT_TELEMETRY_OTLP_ENDPOINT).toBeUndefined();
   await expect(validateForwardedEnvironment(runtime, root, true, { PRODUCT_TELEMETRY_ENABLED: '1' })).rejects.toThrow(/not admitted/i);
 });
+
+it('does not reject an interactive-only telemetry setting that the forwarded runtime will not receive', async () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'forward-telemetry-')));
+  roots.push(root);
+  const runtime = createTestProductRuntime('test-product', { HOME: root, PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_LOGS: 'otlp', PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf', PRODUCT_TELEMETRY_OTLP_ENDPOINT: 'http://127.0.0.1:4318', PRODUCT_TELEMETRY_LOG_USER_PROMPTS: '1' });
+  const forwarded = await prepareForwardedEnvironment(runtime, root, true);
+  expect(Object.keys(forwarded).filter((name) => name.startsWith('PRODUCT_TELEMETRY_'))).toEqual([]);
+});
