@@ -293,12 +293,13 @@ function loopEntry() {
     loopId: 'loop-e2e-1',
   };
 }
+const forkLiveRecord = () => ({ id: 'f1', kind: 'message', text: ['Fork live output', ...Array.from({ length: 80 }, (_, index) => `Live line ${index + 1}`)].join('\n') });
 const executionDetailRecords = {
   'task:e2e-task-1': [
     { id: 'r1', kind: 'message', text: 'Reviewing packages/auth/login.ts' },
     { id: 'r2', kind: 'tool_activity', text: 'Read login.ts' },
   ],
-  'task:e2e-fork': [{ id: 'f1', kind: 'message', text: 'Fork live output' }],
+  'task:e2e-fork': [forkLiveRecord()],
   'task:loop-e2e-1': [{ id: 'l1', kind: 'message', text: 'check the deploy' }],
 };
 
@@ -515,7 +516,7 @@ class ScriptedSession extends EventEmitter {
     // only on this explicit trigger, so every other scenario's session keeps none, ever.
     if (lower.includes('show background work')) {
       this.#executionWorkspaceEntries = [backgroundTaskEntry(), loopEntry(), forkEntry()];
-      executionDetailRecords['task:e2e-fork'] = [{ id: 'f1', kind: 'message', text: 'Fork live output' }];
+      executionDetailRecords['task:e2e-fork'] = [forkLiveRecord()];
       this.#emitExecutionWorkspaceUpdated();
       await tick();
       this.emit('thinking', true);
@@ -959,7 +960,7 @@ class ScriptedSession extends EventEmitter {
   // and cancelling one is permanent, exactly like the real `BackgroundTaskManager.cancel()`.
   async sendBackgroundTask(taskId, input) {
     if (taskId !== 'e2e-fork') throw new Error(`Unknown background task: ${taskId}`);
-    executionDetailRecords['task:e2e-fork'].push({ id: 'f2', kind: 'message', text: `Fork received: ${input.prompt}` });
+    executionDetailRecords['task:e2e-fork'].push({ id: `f${executionDetailRecords['task:e2e-fork'].length + 1}`, kind: 'message', text: `Fork received: ${input.prompt}` });
     this.#emitExecutionWorkspaceUpdated();
   }
   async cancelBackgroundTask(taskId) {

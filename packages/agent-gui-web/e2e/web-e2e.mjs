@@ -1293,10 +1293,32 @@ try {
     await panel.getByText('Followed fork').click();
     const sheet = page.getByRole('dialog', { name: 'Followed fork' });
     await sheet.getByText('Fork live output').waitFor();
+    const log = sheet.getByRole('log', { name: 'Live fork output' });
+    await page.waitForFunction(() => {
+      const output = document.querySelector('[aria-label="Live fork output"]');
+      return output && output.scrollHeight > output.clientHeight && output.scrollHeight - output.scrollTop - output.clientHeight <= 1;
+    });
+    await log.evaluate((output) => new Promise((resolve) => {
+      output.addEventListener('scroll', resolve, { once: true });
+      output.scrollTop = 0;
+    }));
     const start = sentFrames.length;
     await sheet.getByRole('textbox', { name: 'Message the fork' }).fill('Check this');
     await sheet.getByRole('button', { name: 'Send to fork' }).click();
     await sheet.getByText('Fork received: Check this').waitFor();
+    if (await log.evaluate((output) => output.scrollTop) !== 0) {
+      throw new Error('new output moved a reader away from earlier content');
+    }
+    await log.evaluate((output) => new Promise((resolve) => {
+      output.addEventListener('scroll', resolve, { once: true });
+      output.scrollTop = output.scrollHeight;
+    }));
+    await sheet.getByRole('textbox', { name: 'Message the fork' }).fill('Next message');
+    await sheet.getByRole('button', { name: 'Send to fork' }).click();
+    await sheet.getByText('Fork received: Next message').waitFor();
+    if (await log.evaluate((output) => output.scrollHeight - output.scrollTop - output.clientHeight) > 1) {
+      throw new Error('new output did not follow a reader at the bottom');
+    }
     if (sentFrames.slice(start).some((frame) => frame.type === 'switch-session')) {
       throw new Error('following a running fork switched the parent session');
     }

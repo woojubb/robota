@@ -15,6 +15,8 @@ const STATUS_TAG_TONE: Record<string, string> = {
   muted: 'bg-subtle/15 text-subtle',
 };
 
+const FOLLOW_BOTTOM_MARGIN_PX = 32;
+
 const RECORD_KIND_LABEL: Record<IExecutionDetailRecord['kind'], string> = {
   message: '',
   tool_activity: 'Tool',
@@ -65,6 +67,18 @@ export function ExecutionDetailSheet({
 }): React.ReactElement | null {
   const [prompt, setPrompt] = React.useState('');
   const submitted = React.useRef<string | null>(null);
+  const outputRef = React.useRef<HTMLDivElement | null>(null);
+  const followingRef = React.useRef(true);
+  const isFork = Boolean(entry?.resumeSessionId && entry.controls.includes('attach'));
+  React.useLayoutEffect(() => {
+    followingRef.current = true;
+  }, [entry?.id, mode]);
+  React.useLayoutEffect(() => {
+    const output = outputRef.current;
+    if (output && isFork && mode === 'live' && followingRef.current) {
+      output.scrollTop = output.scrollHeight;
+    }
+  }, [entry?.id, isFork, mode, records]);
   React.useEffect(() => {
     setPrompt('');
     submitted.current = null;
@@ -80,7 +94,6 @@ export function ExecutionDetailSheet({
   if (!entry) return null;
   const described = describeExecutionEntryStatus(entry);
   const canStop = onStop !== undefined && entry.controls.includes('cancel');
-  const isFork = Boolean(entry.resumeSessionId && entry.controls.includes('attach'));
   const ended =
     entry.status === 'completed' || entry.status === 'failed' || entry.status === 'cancelled';
   const askedLine = entry.headline?.text ?? entry.preview;
@@ -151,7 +164,24 @@ export function ExecutionDetailSheet({
           </button>
         </div>
       )}
-      <div className="flex-1 space-y-2 overflow-y-auto px-4 py-3">
+      <div
+        ref={outputRef}
+        role={isFork ? (mode === 'live' ? 'log' : 'region') : undefined}
+        aria-label={
+          isFork ? (mode === 'live' ? 'Live fork output' : 'Earlier fork output') : undefined
+        }
+        aria-live={isFork && mode === 'live' ? 'polite' : undefined}
+        aria-relevant={isFork && mode === 'live' ? 'additions text' : undefined}
+        aria-atomic={isFork && mode === 'live' ? false : undefined}
+        tabIndex={isFork ? 0 : undefined}
+        onScroll={(event) => {
+          if (!isFork || mode !== 'live') return;
+          const output = event.currentTarget;
+          followingRef.current =
+            output.scrollHeight - output.scrollTop - output.clientHeight <= FOLLOW_BOTTOM_MARGIN_PX;
+        }}
+        className="flex-1 space-y-2 overflow-y-auto px-4 py-3"
+      >
         {records.map((record) => (
           <div key={record.id} className="text-[13px] leading-relaxed text-foreground">
             {RECORD_KIND_LABEL[record.kind] && (
