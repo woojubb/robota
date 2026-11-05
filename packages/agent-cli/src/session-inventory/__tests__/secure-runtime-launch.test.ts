@@ -73,6 +73,16 @@ it('ends a child that never answers the exchange, without accepting readiness', 
   expect(child?.exitCode !== null || child?.signalCode !== null).toBe(true);
 }, 15_000);
 
+it('redacts every passed reference from a secure child startup failure', async () => {
+  const entrypoint = fileURLToPath(new URL('../../testing/spawner-stderr-child.ts', import.meta.url));
+  const { root, launch } = options(entrypoint);
+  const env = { ...launch.env, REFERENCE_ONLY: 'synthetic-spawner-reference-value', REFERENCE_SHORT: 'xY' };
+  await expect(launchRuntimeProcess(root, { ...launch, env, mode: 'spawner' })).rejects.toSatisfy((error: unknown) => {
+    const message = error instanceof Error ? error.message : '';
+    return message.includes('startup failure') && !message.includes('synthetic-spawner-reference-value') && !message.includes('xY');
+  });
+}, 30_000);
+
 
 it('forwards an inherited pair to a secure grandchild and closes its own copy', async () => {
   const { root, env, runtime } = options();

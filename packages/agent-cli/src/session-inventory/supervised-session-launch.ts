@@ -387,7 +387,10 @@ async function launchRuntime(
   }
 
   const tokenPipe = transportToken === undefined ? undefined : child.stdio[SUPERVISED_TRANSPORT_TOKEN_FD];
-  const handedOverSecrets = transportToken === undefined ? [] : [transportToken];
+  const handedOverSecrets = [
+    ...(transportToken === undefined ? [] : [transportToken]),
+    ...(mode.kind === 'spawner' ? Object.values(childEnv).filter((value): value is string => value !== undefined) : []),
+  ];
   const pairPipe = mode.kind === 'spawner' ? child.stdio[SUPERVISED_TRANSPORT_TOKEN_FD] : undefined;
 
   return new Promise<TLaunchResult>((resolve, reject) => {
