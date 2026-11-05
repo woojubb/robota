@@ -47,6 +47,7 @@ describe('an accepted record', () => {
     const sealer = createTestArtifactSealer();
     forgeRecord(dir, sealer, record('sess_unmoved', cwd, FORGED_TEXT));
     const store = sealedStore(dir, sealer);
+    const original = fileBytes(dir, 'sess_unmoved');
     const saves = vi.spyOn(store, 'save');
     const snapshot = vi.fn(async () => 'late-snapshot');
     const controller = new AbortController();
@@ -58,9 +59,13 @@ describe('an accepted record', () => {
     if (session === undefined) throw error;
     await session.ready();
     const writesBeforeCancel = saves.mock.calls.length;
+    const unchangedBeforeCancel = fileBytes(dir, 'sess_unmoved').equals(original);
     controller.abort();
     await session.shutdown();
     expect(writesBeforeCancel).toBe(0);
+    expect(unchangedBeforeCancel).toBe(true);
+    expect(fileBytes(dir, 'sess_unmoved').equals(original)).toBe(true);
+    expect(authorshipOf(readFresh(dir, sealer, 'sess_unmoved'))).toBe('unverified');
     expect(saves).not.toHaveBeenCalled();
     expect(snapshot).not.toHaveBeenCalled();
     expect(claimable(store, 'sess_unmoved')).toBe(true);

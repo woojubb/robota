@@ -441,9 +441,11 @@ describe.skipIf(process.platform === 'win32')('owner decisions over a real link'
 
     const delayedQuestion = await client.question(delayedId);
     if (delayedQuestion.kind !== 'accept') throw new Error('Expected delayed owner question');
+    const delayedOriginal = readFileSync(join(records, `${delayedId}.json`));
     const opening = client.openAccepted(attached.driverId, delayedId, delayedQuestion.digest, delayedQuestion.questionId).catch(() => undefined);
     await restoring;
     const adopted = readFileSync(join(records, `${delayedId}.json`));
+    expect(adopted.equals(delayedOriginal)).toBe(true);
     await client.lock('explicit');
     await opening;
     const claim = store.claim(delayedId);
@@ -452,15 +454,19 @@ describe.skipIf(process.platform === 'win32')('owner decisions over a real link'
     releaseRestore();
     await expect(delayedSession?.whenInitialized()).rejects.toBeDefined();
     expect(readFileSync(join(records, `${delayedId}.json`)).equals(adopted)).toBe(true);
+    expect(new NodeSessionStore(records, { sealing: { sealer } }).load(delayedId))
+      .toMatchObject({ status: 'valid', authorship: 'unverified' });
     expect(pool?.listLive().some((row) => row.sessionId === delayedId)).toBe(false);
     expect(heard.frames.some((frame) => frame.type === 'session_switched' && frame.event.sessionId === delayedId)).toBe(false);
 
     const other = await ownerLink(started);
     const closeQuestion = await client.question(closeId);
     if (closeQuestion.kind !== 'accept') throw new Error('Expected close owner question');
+    const closeOriginal = readFileSync(join(records, `${closeId}.json`));
     const closing = client.openAccepted(attached.driverId, closeId, closeQuestion.digest, closeQuestion.questionId).catch(() => undefined);
     await closeRestoring;
     const closeAdopted = readFileSync(join(records, `${closeId}.json`));
+    expect(closeAdopted.equals(closeOriginal)).toBe(true);
     client.close();
     await closing;
     await vi.waitFor(() => {
@@ -471,6 +477,8 @@ describe.skipIf(process.platform === 'win32')('owner decisions over a real link'
     releaseCloseRestore();
     await expect(closeSession?.whenInitialized()).rejects.toBeDefined();
     expect(readFileSync(join(records, `${closeId}.json`)).equals(closeAdopted)).toBe(true);
+    expect(new NodeSessionStore(records, { sealing: { sealer } }).load(closeId))
+      .toMatchObject({ status: 'valid', authorship: 'unverified' });
     expect(pool?.listLive().some((row) => row.sessionId === closeId)).toBe(false);
     expect(heard.frames.some((frame) => frame.type === 'session_switched' && frame.event.sessionId === closeId)).toBe(false);
     other.close();

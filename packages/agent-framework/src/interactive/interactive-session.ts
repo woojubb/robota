@@ -701,7 +701,7 @@ export class InteractiveSession
       ('workspaceMovedFrom' in options && options.workspaceMovedFrom !== undefined);
     // The claim's own read is the one the session restores from — gated there, so nothing can swap
     // the file between a check and the restore. A copy claims its source only for that read. Accepted
-    // bytes are raised to the owner's only once the restore went ahead.
+    // bytes are raised only after restore, or at the binding move for a revocable owner decision.
     const outcome = this.recordClaim.readForRestore(options.resumeSessionId, this.startedAsFork);
     try {
       if (options.resumeAdmissionSignal !== undefined && outcome.status === 'valid' && outcome.record.sandboxSnapshotId) {
@@ -710,7 +710,7 @@ export class InteractiveSession
       if (outcome.status === 'valid') options.checkRestoredRecord?.(outcome.record);
       this.restoreFromOutcome(options.resumeSessionId, outcome, copy);
       options.resumeAdmissionSignal?.throwIfAborted();
-      this.recordClaim.restored();
+      if (options.resumeAdmissionSignal === undefined) this.recordClaim.restored();
     } finally {
       if (this.startedAsFork) this.recordClaim.copied();
     }
@@ -896,6 +896,7 @@ export class InteractiveSession
     if (admission === undefined) return;
     admission.signal.throwIfAborted();
     const session = this.getSessionOrThrow();
+    this.recordClaim?.restored();
     admission.signal.removeEventListener('abort', admission.onAbort);
     this.pendingAcceptedAdmission = undefined;
     this.bgTracker.subscribe(session);
