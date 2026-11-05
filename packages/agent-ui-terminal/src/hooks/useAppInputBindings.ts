@@ -24,6 +24,7 @@ interface IOptions {
   readonly transportVisible: boolean;
   readonly sessionPickerVisible: boolean;
   readonly workspaceSwitcherVisible: boolean;
+  readonly continueForkQuestionOpen?: boolean;
   /** SCREEN-1993: the history-search overlay owns Esc and the switcher key while open. */
   readonly historySearchOpen: boolean;
   readonly selectedEntry: IExecutionWorkspaceEntry | undefined;
@@ -93,6 +94,7 @@ function useWorkspaceSwitcherBinding(options: IOptions): void {
       options.pendingUserAction ||
       options.pluginVisible ||
       options.sessionPickerVisible ||
+      options.continueForkQuestionOpen ||
       options.historySearchOpen ||
       options.themePickerVisible ||
       options.coordinationBlocked ||

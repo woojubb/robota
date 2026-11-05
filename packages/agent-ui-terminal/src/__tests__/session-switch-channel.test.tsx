@@ -312,6 +312,9 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     await waitForFrame(lastFrame, (frame) => frame.includes('Execution workspace'));
     stdin.write('a');
     await waitForFrame(lastFrame, (frame) => frame.includes('1 background job is still running'));
+    stdin.write('\x02');
+    await tick();
+    expect(lastFrame()).not.toContain('Execution workspace');
     stdin.write('\r'); // Default is No.
     await tick();
     expect(initial.stop).not.toHaveBeenCalled();
