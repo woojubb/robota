@@ -46,7 +46,7 @@ import type {
   ISubagentWorkerStartPayload,
   TSubagentWorkerPermissionResult,
 } from './child-process-subagent-ipc.js';
-import type { TParentSandboxSettings, TResumeSessionStore } from './worker-composition.js';
+import type { TParentSandboxSettings, TResumeSessionStore, TResumeStoreReference } from './worker-composition.js';
 import type {
   IProviderDefinition,
   IProviderDefinitionConfig,
@@ -73,6 +73,8 @@ type TPermissionApprover = (
 ) => Promise<TSubagentWorkerPermissionResult>;
 
 export interface IChildProcessSubagentRunnerOptions {
+  /** Parent-selected store reference; the worker composition must independently verify it. */
+  resumeStore?: TResumeStoreReference;
   /**
    * DIST-006: how to start a copy of the running artifact in subagent-worker mode, stated by the
    * composition root. It replaced `workerPath`, which asked this package to locate a file whose
@@ -166,6 +168,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   private readonly expectedEnvironment?: NodeJS.ProcessEnv;
   private readonly inheritEnvironment: boolean;
   private readonly logsDir?: string;
+  private readonly resumeStore?: TResumeStoreReference;
   private readonly keepProviderCredential: boolean;
   private readonly parentSandboxSettings?: () => TParentSandboxSettings | undefined;
   private readonly watchParentSandboxSettings?: IChildProcessSubagentRunnerOptions['watchParentSandboxSettings'];
@@ -192,6 +195,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       );
     }
     this.logsDir = options.logsDir;
+    this.resumeStore = options.resumeStore;
     this.keepProviderCredential = options.keepProviderCredential === true;
     this.parentSandboxSettings = options.parentSandboxSettings;
     this.watchParentSandboxSettings = options.watchParentSandboxSettings;
@@ -458,6 +462,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       connection,
       providerDefinitions: this.providerDefinitions,
       ...(this.logsDir !== undefined ? { logsDir: this.logsDir } : {}),
+      ...(this.resumeStore !== undefined ? { resumeStore: this.resumeStore } : {}),
       ...(this.keepProviderCredential ? { keepProviderCredential: true } : {}),
       ...(parentSandboxSettings !== undefined ? { parentSandboxSettings } : {}),
       ...sealing,

@@ -5,7 +5,7 @@ import {
   type ISubagentWorkerParentContextDto,
 } from './subagent-worker-start-dto.js';
 
-import type { ISandboxProjection, TParentSandboxSettings } from './worker-composition.js';
+import type { ISandboxProjection, TParentSandboxSettings, TResumeStoreReference } from './worker-composition.js';
 import type { ISessionUsageTotals, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import type { IConnectionEnvironmentCheck } from '@robota-sdk/agent-executor';
 import type { IResolvedConfig } from '@robota-sdk/agent-framework';
@@ -113,6 +113,8 @@ export interface ISubagentWorkerStartPayload {
    * has one writer while the child runs. Not the conversation; it rides only beside the id it resumes.
    */
   resumeLease?: string;
+  /** The product must independently verify a project reference before opening its store. */
+  resumeStore?: TResumeStoreReference;
 }
 
 /** The most token characters a held record may take on the wire; a larger one fails the job before spawning. */
@@ -383,6 +385,22 @@ function hasValidSealingFields(value: TSubagentWorkerWireRecord): boolean {
   return isRecord(value.request) && hasRequestString(value.request, 'resumeSessionId');
 }
 
+function hasValidResumeStore(value: TSubagentWorkerWireRecord): boolean {
+  if (value.resumeStore === undefined) return true;
+  if (!isRecord(value.request) || !hasRequestString(value.request, 'resumeSessionId')) return false;
+  const store = value.resumeStore;
+  if (!isRecord(store)) return false;
+  if (store.scope === 'user') return Object.keys(store).length === 1;
+  return (
+    store.scope === 'project' &&
+    Object.keys(store).length === 3 &&
+    typeof store.repositoryKey === 'string' &&
+    store.repositoryKey.length > 0 &&
+    typeof store.worktreeRoot === 'string' &&
+    store.worktreeRoot.length > 0
+  );
+}
+
 function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWorkerStartPayload {
   if (!isRecord(value)) return false;
   if (!hasPayloadString(value, 'taskId')) return false;
@@ -419,6 +437,7 @@ function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWork
     return false;
   }
   if (!hasValidSealingFields(value)) return false;
+  if (!hasValidResumeStore(value)) return false;
   return isConnectionCheck(value.connectionCheck);
 }
 

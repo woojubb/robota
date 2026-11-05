@@ -247,7 +247,8 @@ async function runInitialPrompt(
           sealing,
         })
       : undefined;
-    const openedStore = openResumeSessionStore(payload, composition);
+    const openedStore = await openResumeSessionStore(payload, composition);
+    throwIfParentChangeFailed();
     const resumeSessionId = payload.request.resumeSessionId;
     // The record is this child's to write only under the lease its parent lent it: claimed before
     // anything reads it, released on every way out of the process.

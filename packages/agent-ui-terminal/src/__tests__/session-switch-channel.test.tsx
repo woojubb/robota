@@ -371,6 +371,8 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     initial.stateManager.selectedExecutionEntryId = 'task:fork';
     initial.onChange?.();
     await waitForFrame(lastFrame, (frame) => frame.includes('Earlier output'));
+    await vi.waitFor(() => expect(initial.readExecutionWorkspaceDetail).toHaveBeenCalledWith('task:fork', undefined));
+    await tick();
     stdin.write('\x0f');
     await vi.waitFor(() => expect(initial.readExecutionWorkspaceDetail).toHaveBeenCalledWith('task:fork', { offset: 0 }));
     await waitForFrame(lastFrame, (frame) => frame.includes('earlier fork output'));

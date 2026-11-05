@@ -263,6 +263,25 @@ describe('the sealing fields of a start payload', () => {
     ).toBe(false);
   });
 
+  it('accepts only a well-formed store reference attached to a fork', () => {
+    for (const resumeStore of [
+      { scope: 'user' },
+      { scope: 'project', repositoryKey: 'repo', worktreeRoot: '/workspace' },
+    ]) {
+      expect(isSubagentWorkerParentMessage({ type: 'start', payload: forkPayload({ resumeStore }) })).toBe(true);
+    }
+    for (const resumeStore of [
+      null, [], { scope: 'other' }, { scope: 'project' }, { scope: 'user', extra: true },
+      { scope: 'project', repositoryKey: '', worktreeRoot: '/workspace' },
+      { scope: 'project', repositoryKey: 'repo', worktreeRoot: '' },
+    ]) {
+      expect(isSubagentWorkerParentMessage({ type: 'start', payload: forkPayload({ resumeStore }) })).toBe(false);
+    }
+    expect(isSubagentWorkerParentMessage({
+      type: 'start', payload: { ...validStartPayload(), resumeStore: { scope: 'user' } },
+    })).toBe(false);
+  });
+
   it('rejects a held record with no session to resume', () => {
     expect(
       isSubagentWorkerParentMessage({

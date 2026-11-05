@@ -868,6 +868,7 @@ async function runCliCore(
   const backgroundTaskRunnerInput = createBackgroundTaskRunners(shellExecutable);
   const subagentRunnerFactoryInput = createProductSubagentRunnerFactory({
     productRuntime,
+    workspace: workspaceComposition,
     packContext,
     providerConfig: { ...providerSettings, model: modelId },
     providerDefinitions,
