@@ -2,4 +2,4 @@
 '@robota-sdk/agent-framework': minor
 ---
 
-Claim checkpoint directories atomically so concurrent processes cannot overwrite one another. Hosts that supply custom checkpoint state or project mutation boundaries must implement the atomic directory claim capability before creating checkpoints.
+Serialize each session's checkpoint writer and restore, and claim checkpoint directories atomically so concurrent processes cannot overwrite or reorder pre-images. Custom checkpoint-state hosts must supply the writer lease and atomic directory claim capabilities; custom project mutation boundaries must support atomic directory claims.

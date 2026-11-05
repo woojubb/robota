@@ -14,11 +14,16 @@ const store = new EditCheckpointStore({
   ...(kind === 'directory' ? { stateStorage: createDirectoryEditCheckpointState(stateRoot) } : {}),
   sealing: 'plain',
 });
-const checkpoint = await store.beginTurn({ sessionId: 'session_1', prompt: file });
-process.send?.({ type: 'ready', id: checkpoint.id });
-process.once('message', async () => {
-  await store.captureFile(join(project, file));
-  await store.finalizeTurn();
-  process.send?.({ type: 'done', id: checkpoint.id });
+try {
+  const checkpoint = await store.beginTurn({ sessionId: 'session_1', prompt: file });
+  process.send?.({ type: 'ready', id: checkpoint.id });
+  process.once('message', async () => {
+    await store.captureFile(join(project, file));
+    await store.finalizeTurn();
+    process.send?.({ type: 'done', id: checkpoint.id });
+    process.disconnect?.();
+  });
+} catch (error) {
+  process.send?.({ type: 'refused', message: String(error) });
   process.disconnect?.();
-});
+}

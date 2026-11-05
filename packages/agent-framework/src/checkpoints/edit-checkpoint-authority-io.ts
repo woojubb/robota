@@ -59,6 +59,15 @@ export class EditCheckpointAuthorityIO {
     this.mutation = assertWorkspaceProjectMutationForAuthority(mutation, authority);
   }
 
+  acquireTurn(sessionId: string) {
+    if (this.state.acquireTurn === undefined) {
+      throw new Error('Checkpoint storage must support an exclusive session writer lease.');
+    }
+    const lease = this.state.acquireTurn(sessionId, 'acquire checkpoint writer');
+    if (lease === undefined) throw new Error('Another checkpoint writer is active for this session.');
+    return lease;
+  }
+
   claimDirectory(path: string): boolean {
     if (this.state.claimDirectory === undefined) {
       throw new Error('Checkpoint storage must support atomic directory claims.');

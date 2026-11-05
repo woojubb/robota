@@ -15,6 +15,7 @@ import {
   rmSync,
   statSync,
   symlinkSync,
+  unlinkSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -195,7 +196,41 @@ describe('atomic checkpoint directory claims', () => {
     const state = Object.create(backing, { claimDirectory: { value: undefined } }) as IEditCheckpointStateStorage;
     const store = await storeKeepingStateIn(project, state);
     await expect(store.beginTurn({ sessionId: 'session_1', prompt: 'edit' })).rejects.toThrow(/atomic directory claims/);
-    expect(readdirSync(join(base, 'state'))).toEqual([]);
+    expect(readdirSync(join(base, 'state', 'session_1'))).toEqual(['.writer']);
+  });
+});
+
+describe('checkpoint session writer lease', () => {
+  it('refuses a competing turn or restore until the first writer finishes', async () => {
+    const project = join(base, 'project');
+    mkdirSync(project);
+    const state = createDirectoryEditCheckpointState(join(base, 'state'));
+    const first = await storeKeepingStateIn(project, state);
+    const second = await storeKeepingStateIn(project, state);
+    await first.beginTurn({ sessionId: 'session_1', prompt: 'one' });
+    await expect(second.beginTurn({ sessionId: 'session_1', prompt: 'two' })).rejects.toThrow(/Another checkpoint writer/);
+    await expect(second.rollbackThroughCheckpoint('session_1', 'turn-0001')).rejects.toThrow(/Another checkpoint writer/);
+    await first.finalizeTurn();
+    await expect(second.beginTurn({ sessionId: 'session_1', prompt: 'two' })).resolves.toMatchObject({ id: 'turn-0002' });
+    await second.finalizeTurn();
+  });
+
+  it('refuses capture and finalize after losing its marker, then permits a new writer', async () => {
+    const project = join(base, 'project');
+    mkdirSync(project);
+    const path = join(project, 'notes.txt');
+    writeFileSync(path, 'original');
+    const root = join(base, 'state');
+    const state = createDirectoryEditCheckpointState(root);
+    const first = await storeKeepingStateIn(project, state);
+    await first.beginTurn({ sessionId: 'session_1', prompt: 'one' });
+    unlinkSync(join(root, 'session_1', '.writer', 'active.owner'));
+    await expect(first.captureFile(path)).rejects.toThrow(/lease was lost/);
+    await expect(first.finalizeTurn()).rejects.toThrow(/lease was lost/);
+    const second = await storeKeepingStateIn(project, state);
+    await expect(second.beginTurn({ sessionId: 'session_1', prompt: 'two' })).resolves.toMatchObject({ id: 'turn-0002' });
+    await second.finalizeTurn();
+    expect(readFileSync(path, 'utf8')).toBe('original');
   });
 });
 

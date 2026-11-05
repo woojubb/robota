@@ -13,6 +13,8 @@ import { dirname, join } from 'node:path';
 
 import {
   OWNER_ONLY_FILE_MODE,
+  assertUnlinkedOwnerDirectory,
+  createProcessMarkers,
   ensureOwnerOnlyDirectory,
   writeOwnerOnlyFile,
 } from '@robota-sdk/agent-core/node';
@@ -22,7 +24,11 @@ import {
   workspacePathSegments,
 } from '../workspace-trust/project-reader-path.js';
 
+import { workspaceProjectStateDirectoryPath } from '../workspace-trust/node-project-state-directory.js';
+
+import type { IProcessMarkerHandle } from '@robota-sdk/agent-core';
 import type {
+  IWorkspaceProjectStateStorage,
   IWorkspaceDirectoryEntry,
   TWorkspaceContributionKind,
 } from '../workspace-trust/index.js';
@@ -47,6 +53,8 @@ export interface IEditCheckpointStateStorage {
   readonly seals?: boolean;
   readText(relativePath: string, purpose: string): string | undefined;
   readBytes(relativePath: string, purpose: string): Uint8Array | undefined;
+  /** Acquire the sole checkpoint writer for a session, or return undefined while another holds it. */
+  acquireTurn?(sessionId: string, purpose: string): IProcessMarkerHandle | undefined;
   /** Claim a new checkpoint directory atomically; false means it already exists as a plain directory. */
   claimDirectory?(relativePath: string, purpose: string): boolean;
   writeText(relativePath: string, content: string, purpose: string): void;
@@ -105,6 +113,13 @@ class DirectoryEditCheckpointState implements IEditCheckpointStateStorage {
     } finally {
       closeSync(descriptor);
     }
+  }
+
+  acquireTurn(sessionId: string, _purpose: string): IProcessMarkerHandle | undefined {
+    const directory = this.resolve(join(sessionId, '.writer'));
+    assertUnlinkedOwnerDirectory(directory, this.root);
+    const result = createProcessMarkers(directory).acquire('active');
+    return result.status === 'acquired' ? result.handle : undefined;
   }
 
   claimDirectory(relativePath: string, _purpose: string): boolean {
@@ -168,4 +183,35 @@ class DirectoryEditCheckpointState implements IEditCheckpointStateStorage {
  */
 export function createDirectoryEditCheckpointState(root: string): IEditCheckpointStateStorage {
   return new DirectoryEditCheckpointState(root);
+}
+
+/** Bind the project authority's state facet to its per-session checkpoint writer markers. */
+export function createProjectEditCheckpointState(storage: IWorkspaceProjectStateStorage): IEditCheckpointStateStorage {
+  return {
+    rootRelativePath: storage.rootRelativePath,
+    acquireTurn: (sessionId) => {
+      if (storage.claimDirectory === undefined) throw new Error('Checkpoint storage must support atomic directory claims.');
+      storage.claimDirectory(join(sessionId, '.writer'), 'prepare checkpoint writer markers');
+      const directory = workspaceProjectStateDirectoryPath(storage, join(sessionId, '.writer'));
+      const result = createProcessMarkers(directory).acquire('active');
+      if (result.status !== 'acquired') return undefined;
+      try {
+        workspaceProjectStateDirectoryPath(storage, join(sessionId, '.writer'));
+        return result.handle;
+      } catch (error) {
+        result.handle.release();
+        throw error;
+      }
+    },
+    claimDirectory: (path, purpose) => {
+      if (storage.claimDirectory === undefined) throw new Error('Checkpoint storage must support atomic directory claims.');
+      return storage.claimDirectory(path, purpose);
+    },
+    readText: (path, purpose) => storage.readText(path, purpose),
+    readBytes: (path, purpose) => storage.readBytes(path, purpose),
+    writeText: (path, content, purpose) => storage.writeText(path, content, purpose),
+    writeBytes: (path, content, purpose) => storage.writeBytes(path, content, purpose),
+    replaceBytes: (path, content, purpose) => storage.replaceBytes(path, content, purpose),
+    listDirectory: (path, purpose) => storage.listDirectory(path, purpose),
+  };
 }

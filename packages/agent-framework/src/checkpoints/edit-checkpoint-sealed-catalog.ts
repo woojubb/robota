@@ -240,6 +240,7 @@ export class SealedEditCheckpointCatalog implements IEditCheckpointCatalog {
     plan: readonly IRestorePlanEntry[],
     checkpoints: IReadableCheckpoints,
     target: IEditCheckpointManifest,
+    assertWriter: () => void,
   ): number {
     const refusing = refusingCheckpoint(checkpoints.unreadable, target.sequence);
     if (refusing !== undefined) {
@@ -269,6 +270,7 @@ export class SealedEditCheckpointCatalog implements IEditCheckpointCatalog {
         else preimage.fill(0);
       });
       for (const index of deciding) {
+        assertWriter();
         this.io.restoreVerifiedFile(plan[index]!.record, kept.get(index));
       }
     } finally {

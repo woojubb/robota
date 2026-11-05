@@ -4,6 +4,7 @@ import { CheckpointTree } from '@robota-sdk/agent-session';
 import { assertSessionSealing } from '@robota-sdk/agent-session/node';
 
 import { EditCheckpointAuthorityIO } from './edit-checkpoint-authority-io.js';
+import { createProjectEditCheckpointState } from './edit-checkpoint-state-storage.js';
 import { PlainEditCheckpointCatalog } from './edit-checkpoint-catalog.js';
 import {
   EditCheckpointNumberingExhaustedError,
@@ -50,7 +51,7 @@ import type {
   IWorkspaceProjectAuthority,
   IWorkspaceProjectMutation,
 } from '../workspace-trust/index.js';
-import type { TArtifactSealing } from '@robota-sdk/agent-core';
+import type { IProcessMarkerHandle, TArtifactSealing } from '@robota-sdk/agent-core';
 import type { IActiveBranchPointer } from '@robota-sdk/agent-interface-session';
 
 const SNAPSHOT_PAD = 6;
@@ -59,6 +60,7 @@ interface IActiveEditCheckpointTurn {
   manifest: IEditCheckpointManifest;
   dir: string;
   capturedPaths: Set<string>;
+  lease: IProcessMarkerHandle;
 }
 
 interface IEditCheckpointStoreOptions {
@@ -119,7 +121,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
       );
     }
     const state = createSealedEditCheckpointState(
-      options.stateStorage ?? getWorkspaceProjectStateStorage(options.authority, 'checkpoints'),
+      options.stateStorage ?? createProjectEditCheckpointState(getWorkspaceProjectStateStorage(options.authority, 'checkpoints')),
       options.sealing,
       options.sealedOnly === true ? { sealedOnly: true } : {},
     );
@@ -141,6 +143,9 @@ export class EditCheckpointStore implements IEditCheckpointStore {
     // SELFHOST-007: the new checkpoint's parent is the active branch HEAD (the checkpoint the last
     // restore/rollback forked from, or the previous head). Falls back to the last checkpoint by
     // sequence for a fresh store. branchId groups the line (default 'main', a fresh id after a fork).
+    const lease = this.authorityIO.acquireTurn(this.sessionDir(input.sessionId));
+    try {
+    if (!lease.holds()) throw new Error('The checkpoint writer lease was lost.');
     const next = this.nextCheckpoint(input.sessionId);
     const parentId = next.parentId;
     let nextSequence = next.nextSequence;
@@ -172,13 +177,19 @@ export class EditCheckpointStore implements IEditCheckpointStore {
       manifest,
       dir,
       capturedPaths: new Set<string>(),
+      lease,
     };
 
     return toSummary(manifest);
+    } catch (error) {
+      lease.release();
+      throw error;
+    }
   }
 
   async captureFile(filePath: string): Promise<void> {
     if (!this.activeTurn) return;
+    if (!this.activeTurn.lease.holds()) throw new Error('The checkpoint writer lease was lost.');
 
     const originalPath = resolve(this.cwd, filePath);
     if (this.activeTurn.capturedPaths.has(originalPath)) return;
@@ -211,6 +222,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
             snapshotFile,
           )
         : { originalPath, existed: false };
+    if (!this.activeTurn.lease.holds()) throw new Error('The checkpoint writer lease was lost.');
     this.activeTurn.manifest.files.push(record);
     this.activeTurn.manifest.fileCount = this.activeTurn.manifest.files.length;
     this.activeTurn.capturedPaths.add(originalPath);
@@ -225,9 +237,14 @@ export class EditCheckpointStore implements IEditCheckpointStore {
     if (!this.activeTurn) return undefined;
     const active = this.activeTurn;
     this.activeTurn = null;
-    this.writeManifest(active.dir, active.manifest);
-    this.activeHead.set(active.manifest.sessionId, active.manifest.id);
-    return toSummary(active.manifest);
+    try {
+      if (!active.lease.holds()) throw new Error('The checkpoint writer lease was lost.');
+      this.writeManifest(active.dir, active.manifest);
+      this.activeHead.set(active.manifest.sessionId, active.manifest.id);
+      return toSummary(active.manifest);
+    } finally {
+      active.lease.release();
+    }
   }
 
   list(sessionId: string): IEditCheckpointSummary[] {
@@ -272,6 +289,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
     sessionId: string,
     checkpointId: string,
   ): Promise<IEditCheckpointRestoreResult> {
+    return this.withCheckpointWriter(sessionId, (lease) => {
     const checkpoints = this.readable(sessionId);
     const target = this.requireTarget(checkpoints, checkpointId);
 
@@ -283,6 +301,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
       this.planRestore(sessionId, later),
       checkpoints,
       target,
+      () => { if (!lease.holds()) throw new Error('The checkpoint writer lease was lost.'); },
     );
 
     // SELFHOST-007: NON-DESTRUCTIVE — the later checkpoints are NOT removed; they stay on disk as a
@@ -297,6 +316,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
       restoredFileCount,
       removedCheckpointCount: 0,
     };
+    });
   }
 
   /**
@@ -313,6 +333,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
     sessionId: string,
     checkpointId: string,
   ): Promise<IEditCheckpointRestoreResult> {
+    return this.withCheckpointWriter(sessionId, (lease) => {
     const checkpoints = this.readable(sessionId);
     const target = this.requireTarget(checkpoints, checkpointId);
 
@@ -324,6 +345,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
       this.planRestore(sessionId, rollbackRange),
       checkpoints,
       target,
+      () => { if (!lease.holds()) throw new Error('The checkpoint writer lease was lost.'); },
     );
 
     // SELFHOST-007: NON-DESTRUCTIVE — rollback reverts THROUGH the target (inclusive) but keeps those
@@ -338,6 +360,7 @@ export class EditCheckpointStore implements IEditCheckpointStore {
       restoredFileCount,
       removedCheckpointCount: 0,
     };
+    });
   }
 
   /**
@@ -346,6 +369,16 @@ export class EditCheckpointStore implements IEditCheckpointStore {
    * before the first mutation. One invalid entry throws here and nothing is restored; the
    * alternative (validate as you go) is a partial restore with an error at the end.
    */
+  private withCheckpointWriter<T>(sessionId: string, operation: (lease: IProcessMarkerHandle) => T): T {
+    const lease = this.authorityIO.acquireTurn(this.sessionDir(sessionId));
+    try {
+      if (!lease.holds()) throw new Error('The checkpoint writer lease was lost.');
+      return operation(lease);
+    } finally {
+      lease.release();
+    }
+  }
+
   private planRestore(
     sessionId: string,
     manifests: readonly IEditCheckpointManifest[],
