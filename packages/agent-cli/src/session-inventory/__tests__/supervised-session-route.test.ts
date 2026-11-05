@@ -9,8 +9,26 @@ import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framew
 
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
+import * as secureTerminal from '../../secure/secure-terminal.js';
 
 describe('supervised background session command', () => {
+  it('refuses secure background start without a terminal before starting a runtime', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'secure-start-'));
+    const previousExitCode = process.exitCode;
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    const terminal = vi.spyOn(secureTerminal, 'openSecureTerminal').mockReturnValue(undefined);
+    const runtime = createTestProductRuntime();
+    overrideProductSecureMode(runtime, true);
+    try {
+      await runPreparsedCliCommand({ productRuntime: runtime, providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd) }, ['node', 'test-product', 'session', 'start', '--background', '--restricted-workspace'], cwd);
+      expect(process.exitCode).toBe(1);
+      expect(stderr.mock.calls.map(([text]) => String(text)).join('')).toMatch(/not started.*needs an unlock/i);
+      stderr.mockClear();
+      await runPreparsedCliCommand({ productRuntime: runtime, providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd) }, ['node', 'test-product', 'session', 'start', '--background', '--restricted-workspace', '--external-event-grant', '/missing/grant', '--external-event-port', '8443'], cwd);
+      expect(process.exitCode).toBe(1);
+      expect(stderr.mock.calls.map(([text]) => String(text)).join('')).toMatch(/external event grants are not available in secure mode/i);
+    } finally { terminal.mockRestore(); stderr.mockRestore(); process.exitCode = previousExitCode; rmSync(cwd, { recursive: true, force: true }); }
+  });
   it('reports external event management unavailable in secure mode', async () => {
     const cwd = mkdtempSync(join(tmpdir(), 'secure-events-'));
     const previousExitCode = process.exitCode;

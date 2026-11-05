@@ -48,6 +48,7 @@ import type { ISessionViewCommandOptions } from '../session-inventory/session-vi
 import { validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
 import { runSecureCommand } from '../secure/secure-command.js';
 import { productSecureMode } from '../product/session-sealing.js';
+import { startSecureBackground } from '../session-inventory/secure-background-start.js';
 import { runUsageCommand } from '../usage/usage-command.js';
 import { runUsageExportCommand } from '../usage/usage-export-command.js';
 import { subcommandHelpFor } from '../utils/cli-help.js';
@@ -596,6 +597,11 @@ export async function runPreparsedCliCommand(
       process.exitCode = 1;
       return true;
     }
+    if (productSecureMode(productRuntime) && (start.grantFiles.length > 0 || start.port !== undefined || start.trustedProxies.length > 0)) {
+      process.stderr.write('External event grants are not available in secure mode.\n');
+      process.exitCode = 1;
+      return true;
+    }
     // Every grant is validated before anything starts; a refusal names the grant, never a value.
     let grants: IExternalEventGrant[];
     let eventEndpoint: ReturnType<typeof parseEventEndpoint>;
@@ -644,13 +650,17 @@ export async function runPreparsedCliCommand(
           }).settingsSources,
         );
       }
-      const id = await launchSupervisedSession(cwd, {
-        productRuntime,
-        env: supervisedEnv(),
-        ...(start.name !== undefined ? { name: start.name } : {}),
-        ...(start.restricted ? { restricted: true } : {}),
-        ...(grants.length > 0 && eventEndpoint !== undefined ? { grants, eventEndpoint } : {}),
-      });
+      const id = productSecureMode(productRuntime)
+        ? (await startSecureBackground(cwd, { productRuntime, env: supervisedEnv(),
+            ...(start.name !== undefined ? { name: start.name } : {}),
+            ...(start.restricted ? { restricted: true } : {}) })).id
+        : await launchSupervisedSession(cwd, {
+            productRuntime,
+            env: supervisedEnv(),
+            ...(start.name !== undefined ? { name: start.name } : {}),
+            ...(start.restricted ? { restricted: true } : {}),
+            ...(grants.length > 0 && eventEndpoint !== undefined ? { grants, eventEndpoint } : {}),
+          });
       process.stdout.write(`Supervised session: ${id}\n`);
     } catch (error) {
       process.stderr.write(
