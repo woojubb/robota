@@ -40,6 +40,7 @@ it.skipIf(process.platform === 'win32')('refuses forged daemon status relayed to
     const realSocket = `${publicSocket}.real`;
     renameSync(publicSocket, realSocket);
     let destination = realSocket;
+    let proofBytes = 0;
     let stall = false;
     let stalledClosed: (() => void) | undefined;
     const fake = createServer((socket) => {
@@ -59,6 +60,9 @@ it.skipIf(process.platform === 'win32')('refuses forged daemon status relayed to
           return;
         }
         const upstream = createConnection(destination);
+        let challengeArrived = false;
+        upstream.on('data', () => { challengeArrived = true; });
+        socket.on('data', (bytes: Buffer) => { if (challengeArrived) proofBytes += bytes.length; });
         upstream.on('error', () => socket.destroy());
         socket.on('error', () => upstream.destroy());
         upstream.on('connect', () => { upstream.write(pending); socket.pipe(upstream).pipe(socket); });
@@ -79,10 +83,12 @@ it.skipIf(process.platform === 'win32')('refuses forged daemon status relayed to
     try {
       for (const target of [realSocket, socketFor(daemon.id)]) {
         destination = target;
+        proofBytes = 0;
         expect(await runDaemonCommand(['start', '--restricted-workspace'], base)).toBe(1);
         expect(stderr.join('')).toMatch(/unproven runtime/i);
         expect(await runDaemonAttachCommand(['--attach'], { productRuntime: runtime, cwd: home, root, list: onlyOrdinary, isTTY: true, openSecureOwner, render })).toBe(1);
         expect(render).not.toHaveBeenCalled();
+        if (target !== realSocket) expect(proofBytes).toBe(0);
       }
       stall = true;
       const closed = new Promise<void>((resolve) => { stalledClosed = resolve; });

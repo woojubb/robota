@@ -42,12 +42,12 @@ async function openBoundLink<T extends IRuntimeLinkClient>(
   }
 }
 
-/** Prove the runtime's certificate before sending an owner proof, then bind it to the selected row. */
+/** Prove the selected runtime's certificate and binding before sending an owner proof. */
 export async function openRegisteredOwnerLink(options: IRegistration & { readonly handover: IOwnerHandover }): Promise<IOwnerRuntimeLinkClient> {
-  return openBoundLink(options, (stream) => openOwnerLink(stream, options.handover));
+  return openBoundLink(options, (stream) => openOwnerLink(stream, options.handover, { expectedBinding: { runtimeId: options.id, generation: options.generation } }));
 }
 
-/** Prove the exchanged instance key, then bind the link to the selected row. */
+/** Prove the exchanged instance key and selected binding before sending a spawner proof. */
 export async function openRegisteredSpawnerLink(options: IRegistration & { readonly spawnerKey: SpawnerKey; readonly instancePublicKey: Uint8Array }): Promise<IRuntimeLinkClient> {
-  return openBoundLink(options, (stream) => openSpawnerLink(stream, options.spawnerKey, options.instancePublicKey));
+  return openBoundLink(options, (stream) => openSpawnerLink(stream, options.spawnerKey, options.instancePublicKey, { expectedBinding: { runtimeId: options.id, generation: options.generation } }));
 }

@@ -61,6 +61,8 @@ export const DEFAULT_OPEN_TIMEOUT_MS = 10_000;
 
 export interface IOpenRuntimeLinkOptions {
   readonly timeoutMs?: number;
+  /** Require this authenticated runtime start before sending the client proof. */
+  readonly expectedBinding?: ILinkBinding;
 }
 
 /** The session protocol over the link: what an attach client or a desktop relay sends and hears. */
@@ -363,7 +365,7 @@ function openRuntimeLink(
         }
         if (link === undefined) {
           try {
-            const answered = initiator.answer(frame);
+            const answered = initiator.answer(frame, options.expectedBinding);
             link = answered.link;
             stream.write(encodeLinkFrame(answered.proof));
           } catch (error) {

@@ -247,7 +247,7 @@ export interface ILinkInitiator {
    * Checks the runtime's challenge and, only if every check passed, returns the proof to send and
    * the established link. Throws `LinkRefusedError` otherwise. Once, whatever the outcome.
    */
-  answer(challenge: Uint8Array): { readonly proof: Uint8Array; readonly link: IInitiatorLink };
+  answer(challenge: Uint8Array, expectedBinding?: ILinkBinding): { readonly proof: Uint8Array; readonly link: IInitiatorLink };
 }
 
 type TInitiatorState =
@@ -292,7 +292,7 @@ class LinkInitiator implements ILinkInitiator {
     ]);
   }
 
-  answer(challenge: Uint8Array): { readonly proof: Uint8Array; readonly link: IInitiatorLink } {
+  answer(challenge: Uint8Array, expectedBinding?: ILinkBinding): { readonly proof: Uint8Array; readonly link: IInitiatorLink } {
     const state = this.#state;
     if (state.step !== 'waiting') throw new LinkRefusedError('out-of-order');
     this.#state = { step: 'spent' };
@@ -335,6 +335,12 @@ class LinkInitiator implements ILinkInitiator {
       if (!macMatches || !signatureMatches) throw new LinkRefusedError('bad-runtime-proof');
     } else if (!verifyEd25519(answer.instancePublicKey, signed, answer.runtimeProof)) {
       throw new LinkRefusedError('bad-runtime-proof');
+    }
+    if (expectedBinding !== undefined) {
+      const expected = checkLinkBinding(expectedBinding);
+      if (answer.binding.runtimeId !== expected.runtimeId || answer.binding.generation !== expected.generation) {
+        throw new LinkRefusedError('binding-mismatch');
+      }
     }
     // Every check passed: from here on the initiator may produce what depends on its secret.
     const keys = frameKeysFor(state.ephemeral, answer.responderEphemeral, th);
