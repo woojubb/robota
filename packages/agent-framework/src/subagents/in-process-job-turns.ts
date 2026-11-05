@@ -33,10 +33,18 @@ export function runJobTurns(
   let ended = false;
   const result = (async (): Promise<string> => {
     try {
-      let output = await session.run(firstPrompt);
-      for (let next = queue.shift(); next !== undefined; next = queue.shift()) {
-        output = await session.run(next);
+      let output = '';
+      let failure: { error: unknown } | undefined;
+      let prompt: string | undefined = firstPrompt;
+      while (prompt !== undefined) {
+        try {
+          output = await session.run(prompt);
+        } catch (error) {
+          failure ??= { error };
+        }
+        prompt = ended ? undefined : queue.shift();
       }
+      if (failure) throw failure.error;
       return output;
     } finally {
       // The check that found nothing queued and this assignment are one step: no send runs between.
@@ -48,7 +56,10 @@ export function runJobTurns(
     result,
     send: async (prompt) => {
       if (ended) {
-        throw new BackgroundTaskError('runner', `The job ${jobId} has ended; it takes no more input.`);
+        throw new BackgroundTaskError(
+          'runner',
+          `The job ${jobId} has ended; it takes no more input.`,
+        );
       }
       queue.push(prompt);
     },

@@ -55,6 +55,8 @@ runSubagentWorkerMain({
             await new Promise((resolve) => setTimeout(resolve, 10));
           }
           record({ chat: number, phase: 'end' });
+          if (process.env.FOLLOW_FIXTURE_FAIL_FIRST === '1' && number === 1)
+            throw new Error('fixture first turn failed');
           return { role: 'assistant', content: `answer-${number}`, timestamp: new Date() };
         },
       }),

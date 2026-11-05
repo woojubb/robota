@@ -5,7 +5,14 @@
  * turn runs is run as the job's next turn, and the job ends only after it; a prompt that reaches a
  * worker that has begun to finish is refused, so `send` never resolves for input that was dropped.
  */
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -141,6 +148,23 @@ async function waitFor(condition: () => boolean, timeoutMs = 10_000): Promise<vo
 
 describe('a child-process job that takes follow-up input', () => {
   it(
+    'runs accepted input after a failed turn and reports the failure',
+    async () => {
+      const job = startJob({ FOLLOW_FIXTURE_FAIL_FIRST: '1' });
+      const result = expect(job.handle.result).rejects.toThrow('fixture first turn failed');
+      await job.reached(1, 'start');
+      await job.handle.send('accepted after failure');
+      job.release(1);
+      await job.reached(2, 'start');
+      job.release(2);
+      await result;
+      expect(
+        job.events().find((event) => event.chat === 2 && event.phase === 'start')?.prompt,
+      ).toBe('accepted after failure');
+    },
+    TEST_TIMEOUT_MS,
+  );
+  it(
     'runs a prompt sent mid-turn as the next turn, and its answer is the job’s result',
     async () => {
       const job = startJob();
@@ -181,11 +205,12 @@ describe('a child-process job that takes follow-up input', () => {
       const result = await job.handle.result;
 
       expect(result.output).toBe('answer-3');
-      expect(job.events().filter((e) => e.phase === 'start').map((e) => e.prompt)).toEqual([
-        'start the work',
-        'second',
-        'third',
-      ]);
+      expect(
+        job
+          .events()
+          .filter((e) => e.phase === 'start')
+          .map((e) => e.prompt),
+      ).toEqual(['start the work', 'second', 'third']);
     },
     TEST_TIMEOUT_MS,
   );

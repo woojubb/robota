@@ -3,8 +3,8 @@
  *
  * A child-process job writes a transcript file; an in-process job has none, only the session it runs.
  * Its log is that session's conversation from where the job began — the prefix a fork inherited is the
- * parent's, never the job's own — as display lines, paged by message with the cursor counting messages
- * from the job's start. It exists while the job runs: the runner holds the session no longer than
+ * parent's, never the job's own — as bounded display lines, paged from the job's start. It exists
+ * while the job runs: the runner holds the session no longer than
  * that, and an ended fork's conversation is the fork's record.
  */
 
@@ -16,17 +16,25 @@ import type {
   IBackgroundTaskLogPage,
 } from '@robota-sdk/agent-interface-execution';
 
-/** The longest text one message shows in the log; the conversation keeps the rest. */
-const MESSAGE_TEXT_LIMIT = 4096;
-const TOOL_ARGUMENT_LIMIT = 200;
-
-function clip(text: string, limit: number): string {
-  return text.length > limit ? `${text.slice(0, limit)}…` : text;
+/** Bound each displayed line without splitting a UTF-16 surrogate pair. */
+const LINE_LENGTH = 4096;
+function splitLongLine(text: string): string[] {
+  const result: string[] = [];
+  let remaining = text;
+  while (remaining.length > LINE_LENGTH) {
+    let end = LINE_LENGTH;
+    const code = remaining.charCodeAt(end - 1);
+    if (code >= 0xd800 && code <= 0xdbff) end--;
+    result.push(remaining.slice(0, end));
+    remaining = remaining.slice(end);
+  }
+  result.push(remaining);
+  return result;
 }
 
 /** One message as display lines: its first line says who spoke, and a tool call is one line. */
 export function messageLines(message: TUniversalMessage): string[] {
-  const text = typeof message.content === 'string' ? clip(message.content, MESSAGE_TEXT_LIMIT) : '';
+  const text = typeof message.content === 'string' ? message.content : '';
   const label = message.role === 'tool' ? `tool ${message.name ?? ''}`.trimEnd() : message.role;
   const lines: string[] = [];
   if (text.length > 0 || message.role !== 'assistant') {
@@ -35,12 +43,10 @@ export function messageLines(message: TUniversalMessage): string[] {
   }
   if (message.role === 'assistant') {
     for (const call of message.toolCalls ?? []) {
-      lines.push(
-        `assistant tool call: ${call.function.name}(${clip(call.function.arguments, TOOL_ARGUMENT_LIMIT)})`,
-      );
+      lines.push(`assistant tool call: ${call.function.name}(${call.function.arguments})`);
     }
   }
-  return lines;
+  return lines.flatMap(splitLongLine);
 }
 
 /**
@@ -51,25 +57,20 @@ export function logMessages(history: readonly TUniversalMessage[]): TUniversalMe
   return history.filter((message) => message.role !== 'system');
 }
 
-/** The page of the log at `cursor`, counting from `start`: whole messages, at least one. */
+/** The page of display lines at `cursor`, after the inherited message prefix. */
 export function jobLogPage(
   taskId: string,
   history: readonly TUniversalMessage[],
   start: number,
   cursor: IBackgroundTaskLogCursor | undefined,
 ): IBackgroundTaskLogPage {
-  const messages = logMessages(history);
-  const lines: string[] = [];
-  const from = Math.max(0, Math.trunc(cursor?.offset ?? 0)) + start;
-  let index = Math.min(from, messages.length);
-  while (index < messages.length && lines.length < DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE) {
-    lines.push(...messageLines(messages[index] as TUniversalMessage));
-    index += 1;
-  }
+  const lines = logMessages(history).slice(start).flatMap(messageLines);
+  const from = Math.max(0, Math.trunc(cursor?.offset ?? 0));
+  const index = Math.min(from + DEFAULT_BACKGROUND_TASK_LOG_PAGE_SIZE, lines.length);
   return {
     taskId,
     ...(cursor === undefined ? {} : { cursor }),
-    ...(index < messages.length ? { nextCursor: { offset: index - start } } : {}),
-    lines,
+    ...(index < lines.length ? { nextCursor: { offset: index } } : {}),
+    lines: lines.slice(from, index),
   };
 }

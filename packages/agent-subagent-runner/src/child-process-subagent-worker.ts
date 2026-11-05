@@ -359,10 +359,17 @@ async function runInitialPrompt(
     );
   } catch (error) {
     finishing = true;
+    const unrun = followUps.length;
     followUps.length = 0;
     // allow-fallback: child process must report errors to parent via IPC, not crash silently; exit follows the IPC flush (CORE-024 RUNTIME-20)
     if (parentChangeFailure !== undefined) {
-      sendTerminalMessageAndExit({ type: 'error', message: parentChangeFailure }, 0);
+      sendTerminalMessageAndExit(
+        {
+          type: 'error',
+          message: `${parentChangeFailure}${unrun > 0 ? ` ${unrun} accepted follow-up(s) could not run.` : ''}`,
+        },
+        0,
+      );
       return;
     }
     if (cancelled) {
@@ -426,12 +433,21 @@ async function runTurns(
   turnSession: { run(prompt: string): Promise<string> },
   firstPrompt: string,
 ): Promise<string> {
-  let output = await turnSession.run(firstPrompt);
-  for (let next = followUps.shift(); next !== undefined; next = followUps.shift()) {
-    output = await turnSession.run(next);
+  let output = '';
+  let failure: { error: unknown } | undefined;
+  let prompt: string | undefined = firstPrompt;
+  while (prompt !== undefined) {
+    try {
+      output = await turnSession.run(prompt);
+    } catch (error) {
+      failure ??= { error };
+      if (parentChangeFailure !== undefined || cancelled) break;
+    }
+    prompt = cancelled ? undefined : followUps.shift();
   }
   // The check that found nothing queued and this assignment are one step: no message runs between.
   finishing = true;
+  if (failure) throw failure.error;
   return output;
 }
 
