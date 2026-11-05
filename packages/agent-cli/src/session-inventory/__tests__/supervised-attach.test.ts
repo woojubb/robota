@@ -164,15 +164,20 @@ async function withTarget(
   const registry = (session as unknown as { promptRegistry: IPromptRegistry }).promptRegistry;
   let control: ISupervisedControl | undefined;
   try {
-    control = await startSupervisedControl(
-      ID, () => undefined, root, () => session.getLocalActivityStatus(), undefined, undefined,
-      undefined, undefined, undefined, options.externalEvents,
-      options.attachable === false
+    control = await startSupervisedControl({
+      id: ID,
+      onStop: () => undefined,
+      root,
+      observe: {
+        activity: () => session.getLocalActivityStatus(),
+      },
+      externalEvents: options.externalEvents,
+      attachTarget: options.attachable === false
         ? undefined
         : options.sessionDirectory !== undefined
           ? { binder: binderOf(session, options.sessionDirectory) }
           : { session },
-    );
+    });
     const attach = (mode: 'drive' | 'observe', extra: Record<string, unknown> = {}, pipelined = '') =>
       handshake(
         root, { command: 'attach', id: ID, generation: generationOf(root), mode, protocol: 1, ...extra },

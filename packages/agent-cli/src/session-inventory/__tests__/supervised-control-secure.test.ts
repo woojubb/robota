@@ -28,7 +28,7 @@ import type {
 } from '../runtime-admission.js';
 import {
   parseSupervisedPr,
-  serveSupervisedControl,
+  startSupervisedControl,
   type ISupervisedControl,
   type ISupervisedControlOptions,
 } from '../supervised-session-control.js';
@@ -89,7 +89,7 @@ async function start(
   const directory = mkdtempSync(join(tmpdir(), 'rs-secure-'));
   scratch.push(directory);
   const root = join(directory, 'supervised');
-  running.push(await serveSupervisedControl({ id: ID, onStop: () => undefined, root, ...options }));
+  running.push(await startSupervisedControl({ id: ID, onStop: () => undefined, root, ...options }));
   const generation = (
     JSON.parse(readFileSync(join(root, ID, 'state.json'), 'utf8')) as { generation: string }
   ).generation;

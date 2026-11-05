@@ -91,6 +91,11 @@ import {
   readSupervisedTransportToken,
   SUPERVISED_TRANSPORT_TOKEN_FLAG,
 } from './session-inventory/supervised-transport-token.js';
+import {
+  answerSpawnerPairOrExit,
+  startSecureRuntimeOrExit,
+  type ISecureServeRuntime,
+} from './startup/secure-runtime-startup.js';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from './telemetry/live-trace-otlp.js';
 import { takeProductTelemetryEnvironment } from './telemetry/live-telemetry-env.js';
 import { resolveLiveTelemetrySurface } from './telemetry/live-resource.js';
@@ -225,8 +230,13 @@ export async function startCliCore(
   // First, before anything can start a process: until it is read and closed, the token's pipe is an
   // open descriptor of this process, and whether a process started here gets it is then up to how
   // that process is started. Held by the transport from here on, never written into the environment.
+  // The spawner pair of a secure runtime comes first of all, for the same reason and more: it is the
+  // one channel only this process and its spawner hold, and it is closed before anything can start.
+  const spawnerIdentity = answerSpawnerPairOrExit(process.argv);
   const supervisedTransportToken = readHandedOverTransportTokenOrExit();
   const productRuntime = resolveCliRuntimeContext(initialOptions);
+  // The pair and the secure mode of this state root must agree, before the process listens on anything.
+  const secureRuntime = startSecureRuntimeOrExit(productRuntime, process.argv, spawnerIdentity);
   installProductProcessEnvironment(productRuntime);
   installProductChildSessions(productRuntime);
   // Hosted admission precedes launch handlers, project contributions, provider creation and all modes.
@@ -277,6 +287,7 @@ export async function startCliCore(
       parsedProtocolArgs,
       telemetryEnvironment,
       supervisedTransportToken,
+      secureRuntime,
     );
   } finally {
     protocolOutput?.restore();
@@ -293,6 +304,7 @@ async function runCliCore(
   preParsedArgs?: IParsedCliArgs,
   telemetryEnvironment: Readonly<Record<string, string>> = {},
   supervisedTransportToken?: string,
+  secureRuntime?: ISecureServeRuntime,
 ): Promise<void> {
   const productRuntime = resolveCliRuntimeContext(options);
   const cwd = process.cwd();
@@ -1148,6 +1160,7 @@ async function runCliCore(
       host,
       cwd,
       ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
+      ...(secureRuntime !== undefined ? { secureRuntime } : {}),
       args,
       provider,
       providerDefinitions,

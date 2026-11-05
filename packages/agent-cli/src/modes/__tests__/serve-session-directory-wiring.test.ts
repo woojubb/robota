@@ -92,17 +92,20 @@ vi.mock('../../session-inventory/supervised-session-control.js', () => ({
   ensureSupervisedAuditDirectory: () => '/audit',
   resolveSupervisedDirectory: () => '/supervised',
   takeSupervisedGrantHandoff: () => [],
-  startSupervisedControl: async (
-    _id: string,
-    onStop: () => void,
-    _root: string | undefined,
-    getActivity: () => string | undefined,
-    _getCwd: unknown,
-    getNextLoopAt: () => string | undefined,
-    ...rest: unknown[]
-  ) => {
+  startSupervisedControl: async (options: {
+    readonly onStop: () => void;
+    readonly observe?: {
+      readonly activity?: () => string | undefined;
+      readonly nextLoopAt?: () => string | undefined;
+    };
+    readonly attachTarget?: unknown;
+    readonly daemon?: unknown;
+  }) => {
+    const { onStop, observe, attachTarget, daemon } = options;
+    const getActivity = observe?.activity as () => string | undefined;
+    const getNextLoopAt = observe?.nextLoopAt as () => string | undefined;
     await new Promise<void>((proceed) => {
-      supervised = { onStop, getActivity, getNextLoopAt, attachTarget: rest[4], daemon: rest[5], proceed };
+      supervised = { onStop, getActivity, getNextLoopAt, attachTarget, daemon, proceed };
     });
     return { close: async () => undefined };
   },

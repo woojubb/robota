@@ -1169,7 +1169,7 @@ function createControlHandler(
   };
 }
 
-export async function serveSupervisedControl(options: ISupervisedControlOptions): Promise<ISupervisedControl> {
+export async function startSupervisedControl(options: ISupervisedControlOptions): Promise<ISupervisedControl> {
   const { id, root, attachTarget } = options;
   if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
   ensurePrivateDirectory(root);
@@ -1321,35 +1321,4 @@ export async function serveSupervisedControl(options: ISupervisedControlOptions)
       rmSync(directory, { recursive: true, force: true });
     },
   };
-}
-
-/**
- * The positional entry the runtime's startup still calls, until that startup is converted to
- * {@link serveSupervisedControl}'s options object and this entry takes its name.
- */
-export function startSupervisedControl(
-  id: string,
-  onStop: () => void,
-  root: string,
-  getActivity?: IControlObservation['activity'],
-  getCwd?: IControlObservation['cwd'],
-  getNextLoopAt?: IControlObservation['nextLoopAt'],
-  getName?: IControlObservation['name'],
-  onRename?: ISupervisedControlOptions['rename'],
-  pr?: ISupervisedControlOptions['pr'],
-  externalEvents?: ISupervisedExternalEvents,
-  attachTarget?: TSupervisedAttachTarget,
-  daemon?: ISupervisedDaemon,
-): Promise<ISupervisedControl> {
-  return serveSupervisedControl({
-    id,
-    onStop,
-    root,
-    observe: { activity: getActivity, cwd: getCwd, nextLoopAt: getNextLoopAt, name: getName },
-    rename: onRename,
-    pr,
-    externalEvents,
-    attachTarget,
-    daemon,
-  });
 }

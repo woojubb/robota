@@ -61,6 +61,9 @@ export interface IRuntimeCustodyOptions {
   readonly closeFlushTimeoutMs?: number;
 }
 
+/** What a runtime's stop rules follow: its spawner coming and going, and its certification. */
+export type TCustodyEvent = 'spawner-linked' | 'spawner-dropped' | 'certified';
+
 const NOT_THE_OWNER = 'Only the owner may ask this.';
 
 const notAllowed = (): OwnerRequestRefusedError => new OwnerRequestRefusedError('not-allowed', NOT_THE_OWNER);
@@ -68,6 +71,7 @@ const notAllowed = (): OwnerRequestRefusedError => new OwnerRequestRefusedError(
 export class RuntimeCustody implements IRuntimeAdmission {
   readonly #options: IRuntimeCustodyOptions;
   readonly #links = new Set<IAdmittedRuntimeLink>();
+  readonly #listeners = new Set<(event: TCustodyEvent) => void>();
   #context: IRuntimeAdmissionContext | undefined;
   #daemon = false;
   #surfaces = 0;
@@ -121,6 +125,31 @@ export class RuntimeCustody implements IRuntimeAdmission {
     return true;
   }
 
+  /** How many links its spawner holds open now. */
+  spawnerLinks(): number {
+    let count = 0;
+    for (const link of this.#links) if (link.standing === 'spawner') count += 1;
+    return count;
+  }
+
+  /** Be told when a spawner link opens or closes and when the runtime is certified; returns the way to stop. */
+  onChange(listener: (event: TCustodyEvent) => void): () => void {
+    this.#listeners.add(listener);
+    return () => {
+      this.#listeners.delete(listener);
+    };
+  }
+
+  #emit(event: TCustodyEvent): void {
+    for (const listener of [...this.#listeners]) {
+      try {
+        listener(event);
+      } catch {
+        // allow-fallback: a rule that fails must not keep the custody's own work, or the other rules, from running.
+      }
+    }
+  }
+
   #state(): IRuntimeCustodyState {
     return { unlocked: this.#options.holder.isUnlocked, certified: this.#options.identity.certified };
   }
@@ -162,6 +191,7 @@ export class RuntimeCustody implements IRuntimeAdmission {
     };
     // Counted only once its ports exist: a link counted here is one whose `closed` will be called.
     this.#links.add(link);
+    if (link.standing === 'spawner') this.#emit('spawner-linked');
     return ports;
   }
 
@@ -200,6 +230,7 @@ export class RuntimeCustody implements IRuntimeAdmission {
         } finally {
           // The keys go with the last link whatever the host's cleanup of its binding did.
           if (this.#links.size === 0) this.#options.holder.lock('last-client-detached');
+          if (link.standing === 'spawner') this.#emit('spawner-dropped');
         }
       },
     };
@@ -236,6 +267,7 @@ export class RuntimeCustody implements IRuntimeAdmission {
       throw error;
     }
     this.#announce();
+    this.#emit('certified');
     // The spawner's part is over: its links end once the answer to this request has gone out.
     setImmediate(() => {
       for (const open of [...this.#links]) if (open.standing === 'spawner') open.close();

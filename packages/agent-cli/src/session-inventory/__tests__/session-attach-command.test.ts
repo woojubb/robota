@@ -68,10 +68,16 @@ async function withTarget(prefix: string, run: (target: ITarget) => Promise<void
   const scratch = mkdtempSync(join(tmpdir(), prefix));
   const root = join(scratch, 'supervised');
   const session = new InteractiveSession({ host: testHost, session: runtime() as never, cwd: '/tmp' });
-  const start = (): Promise<ISupervisedControl> => startSupervisedControl(
-    ID, () => undefined, root, () => session.getLocalActivityStatus(), undefined, undefined,
-    () => 'Morning review', undefined, undefined, undefined, { session },
-  );
+  const start = (): Promise<ISupervisedControl> => startSupervisedControl({
+    id: ID,
+    onStop: () => undefined,
+    root,
+    observe: {
+      activity: () => session.getLocalActivityStatus(),
+      name: () => 'Morning review',
+    },
+    attachTarget: { session },
+  });
   let control = await start();
   try {
     await run({

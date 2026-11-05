@@ -31,7 +31,7 @@ import type { TServerMessage } from '@robota-sdk/agent-transport';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import {
-  serveSupervisedControl,
+  startSupervisedControl,
   type ISupervisedControl,
 } from '../../session-inventory/supervised-session-control.js';
 import { MAX_ATTACHED_SURFACES } from '../../session-inventory/supervised-attach.js';
@@ -204,7 +204,7 @@ async function start(options: IStartOptions = {}): Promise<IStarted> {
   });
   const rename = vi.fn();
   controls.push(
-    await serveSupervisedControl({
+    await startSupervisedControl({
       id: ID,
       root,
       onStop: () => undefined,
@@ -490,6 +490,59 @@ describe.skipIf(process.platform === 'win32')('a certified runtime and its owner
     await client.closed;
 
     await vi.waitFor(() => expect(started.released).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe.skipIf(process.platform === 'win32')('what the custody reports of its links', () => {
+  it('counts spawner links as they open and close, and tells when the runtime is certified', async () => {
+    const started = await start();
+    const events: string[] = [];
+    const stopWatching = started.custody.onChange((event) =>
+      events.push(`${event}:${started.custody.spawnerLinks()}`),
+    );
+
+    const first = await spawnerLink(started);
+    const second = await spawnerLink(started);
+    expect(started.custody.spawnerLinks()).toBe(2);
+    second.close();
+    await second.closed;
+    await vi.waitFor(() => expect(started.custody.spawnerLinks()).toBe(1));
+    await first.installTrustRoot(owner.certify(first.instancePublicKey, first.binding));
+    await first.closed;
+    await vi.waitFor(() => expect(started.custody.spawnerLinks()).toBe(0));
+
+    expect(events).toEqual([
+      'spawner-linked:1',
+      'spawner-linked:2',
+      'spawner-dropped:1',
+      'certified:1',
+      'spawner-dropped:0',
+    ]);
+    stopWatching();
+  });
+
+  it('does not count owner links as spawner links', async () => {
+    const started = await certified();
+    const events: string[] = [];
+    started.custody.onChange((event) => events.push(event));
+
+    const client = await ownerLink(started);
+    client.close();
+    await client.closed;
+
+    expect(started.custody.spawnerLinks()).toBe(0);
+    expect(events).toEqual([]);
+  });
+
+  it('stops telling a listener that stopped listening', async () => {
+    const started = await start();
+    const events: string[] = [];
+    const stopWatching = started.custody.onChange((event) => events.push(event));
+    stopWatching();
+
+    await spawnerLink(started);
+
+    expect(events).toEqual([]);
   });
 });
 

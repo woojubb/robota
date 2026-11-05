@@ -15,7 +15,7 @@ import { openDescriptorCount } from './descriptor-count.js';
 
 import {
   parseSupervisedPr,
-  serveSupervisedControl,
+  startSupervisedControl,
   type ISupervisedControl,
   type ISupervisedControlOptions,
 } from '../supervised-session-control.js';
@@ -37,7 +37,7 @@ async function start(
   const directory = mkdtempSync(join(tmpdir(), 'rs-endpoint-'));
   scratch.push(directory);
   const root = join(directory, 'supervised');
-  running.push(await serveSupervisedControl({ id: ID, onStop: () => undefined, root, ...options }));
+  running.push(await startSupervisedControl({ id: ID, onStop: () => undefined, root, ...options }));
   const generation = (
     JSON.parse((await import('node:fs')).readFileSync(join(root, ID, 'state.json'), 'utf8')) as {
       generation: string;
