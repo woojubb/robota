@@ -54,7 +54,7 @@ interface IRegistration {
 /** The commands a client of the plain socket sends one request line for. */
 type TControlCommand = Extract<
   TControlCommandName,
-  'status' | 'stop' | 'rename' | 'link-pr' | 'unlink-pr' | 'events-list' | 'events-revoke' | 'connect'
+  'status' | 'stop' | 'lock' | 'rename' | 'link-pr' | 'unlink-pr' | 'events-list' | 'events-revoke' | 'connect'
 >;
 
 const GRANT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/u;
@@ -190,6 +190,8 @@ export interface ISupervisedSessionRow {
   readonly restricted?: true;
   /** Present only when requested and verified: the registration this row's actions must still address. */
   readonly generation?: string;
+  /** Present when requested and the endpoint reports secure custody. */
+  readonly secure?: { readonly certified: boolean };
   /** Present only when requested: each external-event grant's label, state and counts. */
   readonly externalEvents?: readonly TSupervisedGrantSummary[];
   readonly problem?: 'invalid-registration';
@@ -487,7 +489,7 @@ export async function listSupervisedSessions(
   options: { readonly cwd?: string; readonly name?: string; readonly pr?: number;
     readonly includeName?: boolean; readonly includeCwd?: boolean; readonly includePr?: boolean;
     readonly includeGeneration?: boolean; readonly includeExternalEvents?: boolean;
-    readonly includeDaemon?: boolean } = {},
+    readonly includeDaemon?: boolean; readonly includeSecure?: boolean } = {},
 ): Promise<readonly ISupervisedSessionRow[]> {
   signal?.throwIfAborted();
   try {
@@ -540,6 +542,8 @@ export async function listSupervisedSessions(
           ...(options.includeCwd && cwd !== undefined ? { cwd } : {}),
           ...(options.includePr && pr !== undefined ? { pr } : {}),
           ...(options.includeGeneration ? { generation: record.generation } : {}),
+          ...(options.includeSecure && 'certified' in response && typeof response.certified === 'boolean'
+            ? { secure: { certified: response.certified } } : {}),
           ...(options.includeDaemon && 'daemon' in response && response.daemon === true
             ? { daemon: true as const,
                 ...('restricted' in response && response.restricted === true ? { restricted: true as const } : {}) }
@@ -559,6 +563,15 @@ export async function listSupervisedSessions(
   }));
   return rows.filter((row): row is ISupervisedSessionRow => row !== null)
     .sort((a, b) => a.id.localeCompare(b.id));
+}
+
+/** Lock one registered secure runtime without opening an owner link. */
+export async function lockSupervisedSession(id: string, root: string, expectedGeneration: string): Promise<void> {
+  const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
+  const response = await request(directory, id, generation, 'lock');
+  if (!('status' in response) || response.status !== 'locked') {
+    throw new Error('Supervised session did not confirm locking.');
+  }
 }
 
 /**

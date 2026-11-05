@@ -172,6 +172,7 @@ Commands:
   {{cli}} secure setup              Create the keyring that secure conversations are sealed to; shows the
                                   recovery key once (your terminal only; the passphrase is typed, never an argument)
   {{cli}} secure status             Show the keyring file, its slots and its sealing key fingerprint (no unlock)
+  {{cli}} secure lock               Ask all reachable secure runtimes to discard their keys, without a prompt
   {{cli}} secure verify [--recovery]
                                   Unlock with the passphrase (or recovery key) and check the stored sealing
                                   key against it; if it had been swapped: exit 2 once repaired, 4 if not

@@ -788,8 +788,9 @@ describe('the passphrase comes from a person at a terminal and nowhere else', ()
     },
   );
 
-  it('has no unlock or lock subcommand: unlocked keys live in the process that uses them', () => {
-    expect(SECURE_USAGE('test-product')).not.toMatch(/\bunlock\b|\block\b/);
+  it('offers lock but no unlock subcommand: unlocked keys live in the process that uses them', () => {
+    expect(SECURE_USAGE('test-product')).not.toMatch(/\bunlock\b/);
+    expect(SECURE_USAGE('test-product')).toContain('secure lock');
   });
 });
 
