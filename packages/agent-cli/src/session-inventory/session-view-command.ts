@@ -1,6 +1,11 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { realpathSync, statSync } from 'node:fs';
+import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
 
+import { productSecureMode } from '../product/session-sealing.js';
+import { createKeyringFileStore } from '../secure/keyring-store.js';
+import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
+import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { openInBrowser, type TStartOpener } from '../startup/browser-opener.js';
 import { resolveScreenReaderRenderFields } from '../startup/screen-reader-enablement.js';
 import { readUserSettingsOrExit } from '../startup/user-settings.js';
@@ -17,6 +22,7 @@ import {
   supervisedSessionAttachMessages,
   type TAttachedAppRender,
 } from './session-attach-command.js';
+import { openSecureAttach } from './secure-attach-client.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
 import type {
@@ -68,6 +74,7 @@ export interface ISessionViewCommandOptions {
   readonly startTrustQuestion?: (cwd: string) => Promise<ISupervisedStartTrustQuestion | undefined>;
   readonly launchCwd?: string;
   readonly openUrl?: (url: string) => Promise<unknown>;
+  readonly openSecureOwner?: () => Promise<IOwnerHandover | undefined>;
 }
 
 /** Run the global supervised view without constructing a foreground interactive session. */
@@ -170,6 +177,7 @@ export async function runSessionViewCommand(
           includePr: true,
           includeGeneration: true,
         }),
+      ...(productSecureMode(options.productRuntime) ? { attachWithoutConfirmation: true } : {}),
       onStop: (id, generation) => (options.stop ?? stopSupervisedSession)(id, root, generation),
       onOpenPr: async (id, url, generation) => {
         const verified = await getVerifiedSupervisedPr(id, root, generation);
@@ -203,6 +211,35 @@ export async function runSessionViewCommand(
       const rows = await listSupervisedSessions(root, undefined, { includeName: true }).catch(() => []);
       const { mode } = ended;
       const sessionLabel = rows.find((row) => row.id === ended.id)?.name ?? ended.id;
+      if (productSecureMode(options.productRuntime)) {
+        const product = options.productRuntime;
+        let owner: IOwnerHandover | undefined;
+        try {
+          owner = await (options.openSecureOwner ?? (() => openOwnerAtTerminal({
+            store: createKeyringFileStore({ path: product.layout.userPaths.keyring, root: product.layout.userRoot }),
+            terminal: openSecureTerminal(), purpose: `attach to ${ended.id}`,
+            report: (message) => process.stderr.write(`${message}\n`),
+          })))();
+          if (owner === undefined) {
+            process.stderr.write('Attach cancelled: secure mode needs an unlock.\n');
+            continue;
+          }
+          const handover = owner;
+          await runConfirmedAttach({
+            id: ended.id, mode, generation: ended.generation, root,
+            open: async (id, selectedMode, selectedRoot, generation) => {
+              if (generation === undefined) throw new Error('Secure attach needs a runtime generation.');
+              return openSecureAttach({ id, mode: selectedMode, root: selectedRoot, generation, handover,
+                onMismatch: () => process.stderr.write('Warning: the runtime keyring sealing key differs from the unlocked key. Run secure verify to investigate.\n') });
+            },
+            render: (open) => renderAttached({ ...open, mode, sessionLabel, screenReaderFlag: flag, announce: false }),
+            messages: supervisedSessionAttachMessages(ended.id, cliName),
+          });
+        } catch (error) {
+          process.stderr.write(`${error instanceof Error ? error.message : 'Unable to attach.'}\n`);
+        } finally { owner?.dispose(); }
+        continue;
+      }
       await runConfirmedAttach({
         id: ended.id,
         mode,

@@ -13,6 +13,7 @@ import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../../secure/__tests__/helpe
 import { launchCertifiedRuntime } from '../certified-runtime-launch.js';
 import { openSecureAttach } from '../secure-attach-client.js';
 import { runSessionAttachCommand } from '../session-attach-command.js';
+import { runSessionViewCommand } from '../session-view-command.js';
 import { resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
 
 it('attaches an owner over the verified link and unlocks before detaching', async () => {
@@ -52,6 +53,19 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
       expect(confirm).not.toHaveBeenCalled();
       expect(terminalOwner.disposed).toBe(true);
     } finally { output.mockRestore(); }
+    const viewOwner = await openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
+    let renders = 0;
+    const renderView = vi.fn(async (options: { attachWithoutConfirmation?: boolean }) => {
+      expect(options.attachWithoutConfirmation).toBe(true);
+      return renders++ === 0 ? { kind: 'attach' as const, ...started!, mode: 'observe' as const, groupByDirectory: false } : { kind: 'closed' as const };
+    });
+    const outputView = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      const code = await runSessionViewCommand([], { productRuntime: runtime, root, isTTY: true, settings: {}, render: renderView, renderAttached: render, openSecureOwner: async () => viewOwner });
+      expect(code).toBe(0);
+      expect(render).toHaveBeenCalledTimes(2);
+      expect(viewOwner.disposed).toBe(true);
+    } finally { outputView.mockRestore(); }
   } finally {
     handover.dispose();
     if (started) await stopSupervisedSession(started.id, root, started.generation);

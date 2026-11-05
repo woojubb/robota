@@ -66,6 +66,8 @@ export interface ISupervisedSessionViewProps {
   readonly loadRows: (signal: AbortSignal) => Promise<readonly ISupervisedViewRow[]>;
   /** Called once the user confirmed; the view then closes so the host can attach this terminal. */
   readonly onAttach?: (request: ISupervisedAttachRequest) => void;
+  /** The host will obtain the person's credential after the view closes. */
+  readonly attachWithoutConfirmation?: boolean;
   /** Receives the generation the row displayed, so a session restarted under the same id is refused. */
   readonly onStop?: (id: string, generation: string) => Promise<void>;
   readonly onStart?: (choice?: TSupervisedStartTrustChoice) => Promise<string>;
@@ -235,6 +237,7 @@ export default function SupervisedSessionView({
   trustStatusCommand,
   onOpenPr,
   onAttach,
+  attachWithoutConfirmation = false,
   filteredByCwd = false,
   filteredByName = false,
   filteredByPr = false,
@@ -519,6 +522,11 @@ export default function SupervisedSessionView({
       } else {
         setAttachStatus('idle');
         setStopStatus('idle');
+        if (attachWithoutConfirmation) {
+          onAttach({ id: row.id, generation: row.generation, mode: input === 'a' ? 'drive' : 'observe', groupByDirectory });
+          exit();
+          return;
+        }
         setConfirmStop({
           id: row.id,
           generation: row.generation,
@@ -847,6 +855,7 @@ export async function renderSupervisedSessionView(
         onStart={options.onStart}
         startTrustQuestion={options.startTrustQuestion}
         onOpenPr={options.onOpenPr}
+        attachWithoutConfirmation={options.attachWithoutConfirmation}
         onAttach={(request) => {
           attach = request;
         }}

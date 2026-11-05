@@ -1005,6 +1005,18 @@ describe('supervised session view', () => {
     }
   });
 
+  it('hands secure attach to its host without an extra confirmation', async () => {
+    const onAttach = vi.fn();
+    const view = render(<SupervisedSessionView loadRows={async () => [FIRST]} onAttach={onAttach} attachWithoutConfirmation />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('p');
+      await vi.waitFor(() => expect(onAttach).toHaveBeenCalledExactlyOnceWith({
+        id: FIRST.id, generation: FIRST.generation, mode: 'observe', groupByDirectory: false,
+      }));
+    } finally { view.unmount(); }
+  });
+
   it('refuses an attach when the row restarts or leaves control while confirmation is open', async () => {
     for (const replacement of [
       { ...FIRST, generation: 'restartedGeneration001' },
