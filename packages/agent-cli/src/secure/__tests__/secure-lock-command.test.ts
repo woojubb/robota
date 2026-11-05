@@ -46,8 +46,8 @@ it.skipIf(process.platform === 'win32')('does not treat a substituted socket wit
     acknowledge = true;
     const output: string[] = [];
     const acknowledged = await runSecureCommand(['lock'], { productRuntime: runtime, stdout: (text) => output.push(text), stderr: (text) => errors.push(text), stdinIsTTY: false });
-    expect(acknowledged).toBe(0);
-    expect(output.join('')).toMatch(/lock acknowledged/i);
+    expect(acknowledged).toBe(1);
+    expect(errors.join('')).toMatch(/cannot verify/i);
     expect(lock).not.toHaveBeenCalled();
   } finally {
     await new Promise<void>((resolve) => fake.close(() => resolve()));
@@ -70,7 +70,8 @@ it('requests a lock without a terminal and reports endpoints that cannot confirm
   const errors: string[] = [];
   const openTerminal = vi.fn(() => { throw new Error('Unexpected terminal'); });
   const code = await runSecureCommand(['lock'], { productRuntime: runtime, stdout: (s) => output.push(s), stderr: (s) => errors.push(s), stdinIsTTY: false, openTerminal });
-  expect(code, errors.join('')).toBe(0);
+  expect(code, errors.join('')).toBe(1);
+  expect(errors.join('')).toMatch(/cannot verify/i);
   expect(lockOne).toHaveBeenCalledOnce();
   expect(lockTwo).toHaveBeenCalledOnce();
   expect(openTerminal).not.toHaveBeenCalled();

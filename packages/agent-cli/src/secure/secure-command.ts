@@ -418,7 +418,11 @@ export async function runSecureCommand(
         options.stderr(`Could not confirm locking ${failed} runtime(s).\n`);
         return EXIT_FAILED;
       }
-      options.stdout(`Lock acknowledged by ${targets.length} runtime(s).\n`);
+      if (targets.length > 0) {
+        options.stderr(`Lock requested from ${targets.length} runtime(s), but this command cannot verify runtime identity or lock state.\n`);
+        return EXIT_FAILED;
+      }
+      options.stdout('No live registered runtimes found.\n');
       return EXIT_OK;
     }
 

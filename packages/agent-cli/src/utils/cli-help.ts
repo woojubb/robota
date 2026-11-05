@@ -173,7 +173,7 @@ Commands:
                                   recovery key once (your terminal only; the passphrase is typed, never an argument)
   {{cli}} secure status             Show the keyring file, its slots and its sealing key fingerprint (no unlock)
   {{cli}} secure lock               Ask all live runtimes to discard keys without a prompt; reports unconfirmed requests
-                                  (success means replies arrived, not proof of the runtime's identity)
+                                  (requests return unverified: open replies cannot prove identity or lock state)
   {{cli}} secure verify [--recovery]
                                   Unlock with the passphrase (or recovery key) and check the stored sealing
                                   key against it; if it had been swapped: exit 2 once repaired, 4 if not
