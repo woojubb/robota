@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { createConnection, createServer } from 'node:net';
@@ -11,12 +11,13 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { LINK_HELLO_BYTES, createKeyring, createLinkResponder, createRuntimeIdentity, openOwnerHandover, startSpawnerExchange } from '../../packages/agent-keyring/src/index.ts';
+import { LINK_HELLO_BYTES, createKeyring, createLinkInitiator, createLinkResponder, createRuntimeIdentity, openOwnerHandover, startSpawnerExchange } from '../../packages/agent-keyring/src/index.ts';
 import { LINK_REQUEST_LINE, completeSpawnerPair, openOwnerLink, openSpawnerLink } from '../../packages/agent-transport-link/src/index.ts';
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../packages/agent-cli/src/__tests__/helpers/product-runtime.ts';
 import { connectSupervisedDaemon, listSupervisedSessions, openSupervisedAttachSocket, resolveSupervisedDirectory } from '../../packages/agent-cli/src/session-inventory/supervised-session-control.ts';
 import { windowsControlPipePath } from '../../packages/agent-cli/src/session-inventory/windows-control-pipe.ts';
 import { createKeyringFileStore } from '../../packages/agent-cli/src/secure/keyring-store.ts';
+import { readProcessStartTime } from '../../packages/agent-core/src/node.ts';
 import { createMemoryKeyringStore } from '../../packages/agent-cli/src/secure/__tests__/helpers.ts';
 import { KeyHolder } from '../../packages/agent-cli/src/secure/key-holder.ts';
 import { KeyHolderArtifactSealer } from '../../packages/agent-cli/src/secure/artifact-sealer.ts';
@@ -129,6 +130,21 @@ try {
   try {
     await mustRefuse('wrong spawner key', async () => openSpawnerLink(await connect(), wrong.spawnerKey, key.instancePublicKey));
   } finally { wrong.spawnerKey.wipe(); }
+  const noProofSocket = await connect();
+  const noProofBytes = [];
+  noProofSocket.on('data', (chunk) => noProofBytes.push(chunk));
+  const firstChallenge = once(noProofSocket, 'data');
+  const noProofClosed = once(noProofSocket, 'close');
+  const noProofInitiator = createLinkInitiator({ mode: 'spawner', spawnerKey: key.spawnerKey, instancePublicKey: key.instancePublicKey });
+  const hello = noProofInitiator.hello();
+  const helloSize = Buffer.alloc(4);
+  helloSize.writeUInt32BE(hello.length);
+  noProofSocket.write(Buffer.concat([Buffer.from(LINK_REQUEST_LINE), helloSize, hello]));
+  await firstChallenge;
+  noProofSocket.end();
+  await noProofClosed;
+  const challengeOnly = Buffer.concat(noProofBytes);
+  assert.equal(challengeOnly.length, 4 + challengeOnly.readUInt32BE(0), 'a link without proof must receive no custody or session frames');
   link = await openSpawnerLink(await connect(), key.spawnerKey, key.instancePublicKey);
   assert.equal(link.standing, 'spawner');
   await mustRefuse('spawner rename', () => link.control({ command: 'rename', fields: { name: 'Intruder' } }));
@@ -183,19 +199,26 @@ try {
     const impostorKey = impostorExchange.complete(impostor.answerSpawnerExchange(impostorExchange.message));
     impostorKey.spawnerKey.wipe();
     impostor.installTrustRoot(strangerOwner.certify(impostor.instancePublicKey, link.binding), link.binding);
-    const observed = [];
+    let disclosed = Buffer.alloc(0);
     let acceptedSocket;
     let reportClose;
     const closed = new Promise((resolve) => { reportClose = resolve; });
     const squatter = createServer((socket) => {
-      acceptedSocket = socket;
       let buffered = Buffer.alloc(0);
       let answered = false;
+      let isLink = false;
       socket.on('data', (chunk) => {
-        observed.push(chunk);
         buffered = Buffer.concat([buffered, chunk]);
         const start = buffered.indexOf(0x0a) + 1;
-        if (!answered && start > 0 && buffered.length >= start + 4 + LINK_HELLO_BYTES) {
+        if (start === 0) return;
+        if (!isLink && buffered.subarray(0, start).toString() === LINK_REQUEST_LINE) {
+          isLink = true;
+          acceptedSocket = socket;
+        }
+        if (!isLink && !answered) {
+          answered = true;
+          socket.end(`${JSON.stringify({ id, generation: row.generation, status: 'running', activity: 'idle' })}\n`);
+        } else if (isLink && !answered && buffered.length >= start + 4 + LINK_HELLO_BYTES) {
           answered = true;
           const challenge = createLinkResponder(impostor, link.binding).challenge(buffered.subarray(start + 4, start + 4 + LINK_HELLO_BYTES));
           const header = Buffer.alloc(4);
@@ -203,24 +226,31 @@ try {
           socket.write(Buffer.concat([header, challenge]));
         }
       });
-      socket.once('close', reportClose);
+      socket.once('close', () => { if (isLink) { disclosed = buffered; reportClose(); } });
     });
-    const fakePath = join(root, 'squatter.sock');
+    const statePath = join(supervised, id, 'state.json');
+    const originalState = readFileSync(statePath);
+    const startedAt = readProcessStartTime(process.pid);
+    assert.ok(startedAt, 'the fixture attacker must have a verifiable process identity');
     try {
-      squatter.listen(fakePath);
+      unlinkSync(socketPath);
+      writeFileSync(statePath, JSON.stringify({ id, pid: process.pid, startedAt, generation: row.generation }), { mode: 0o600 });
+      squatter.listen(socketPath);
       await once(squatter, 'listening');
-      const fakeSocket = createConnection(fakePath);
+      const forged = (await listSupervisedSessions(supervised, undefined, { includeGeneration: true })).find((candidate) => candidate.id === id);
+      assert.equal(forged?.control, 'available', 'the forged state and stolen socket must look live before proof');
+      const fakeSocket = createConnection(socketPath);
       await once(fakeSocket, 'connect');
       await mustRefuse('owner proof to a certified impostor', () => openOwnerLink(fakeSocket, owner));
       await closed;
-      const disclosed = Buffer.concat(observed);
       const requestLength = Buffer.byteLength(LINK_REQUEST_LINE);
       assert.equal(disclosed.subarray(0, requestLength).toString(), LINK_REQUEST_LINE);
       assert.equal(disclosed.readUInt32BE(requestLength), LINK_HELLO_BYTES);
       assert.equal(disclosed.length, requestLength + 4 + LINK_HELLO_BYTES, 'the impostor must receive no owner proof or grant');
     } finally {
       acceptedSocket?.destroy();
-      await new Promise((resolve) => squatter.close(resolve));
+      if (squatter.listening) await new Promise((resolve) => squatter.close(resolve));
+      writeFileSync(statePath, originalState, { mode: 0o600 });
     }
   } finally { strangerOwner.dispose(); }
   const secondId = randomUUID();
@@ -267,7 +297,7 @@ try {
   assert.match(grantStderr, /External events do not start in secure mode/u);
   const afterGrant = await listSupervisedSessions(supervised);
   assert.equal(afterGrant.some((candidate) => candidate.id === grantId), false, 'the refused start must not register a control endpoint');
-  console.log('secure runtime refused plain connect, plain attach, a wrong spawner key, spawner owner requests, and replay into a second runtime; certification admitted the owner; swapped-key grant reported mismatch and the owner key opened a sealed turn; an impostor received no proof; external-event start was refused');
+  console.log('secure runtime refused plain connect, plain attach, a wrong spawner key, a missing proof, spawner owner requests, and replay into a second runtime; certification admitted the owner; swapped-key grant reported mismatch and the owner key opened a sealed turn; a socket squatter with forged state received no proof; external-event start was refused');
 } finally {
   clearTimeout(watchdog);
   ownerLink?.close();
