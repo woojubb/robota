@@ -85,7 +85,7 @@ it.skipIf(process.platform === 'win32')('refuses forged daemon status relayed to
         destination = target;
         proofBytes = 0;
         expect(await runDaemonCommand(['start', '--restricted-workspace'], base)).toBe(1);
-        expect(stderr.join('')).toMatch(/unproven runtime/i);
+        expect(stderr.join('')).toMatch(target === realSocket ? /unexpected launch/i : /unproven runtime/i);
         expect(await runDaemonAttachCommand(['--attach'], { productRuntime: runtime, cwd: home, root, list: onlyOrdinary, isTTY: true, openSecureOwner, render })).toBe(1);
         expect(render).not.toHaveBeenCalled();
         if (target !== realSocket) expect(proofBytes).toBe(0);
@@ -113,6 +113,88 @@ it.skipIf(process.platform === 'win32')('refuses forged daemon status relayed to
   } finally {
     owner.dispose();
     if (ordinary) await stopSupervisedSession(ordinary.id, root, ordinary.generation);
+    if (daemon) await stopSupervisedSession(daemon.id, root, daemon.generation);
+    rmSync(home, { recursive: true, force: true });
+  }
+}, 60_000);
+
+it.skipIf(process.platform === 'win32')('finds a real daemon despite forged public role or workspace', async () => {
+  const home = realpathSync(mkdtempSync(join(realpathSync('/tmp'), 'sd-hide-')));
+  const env = createTestBinaryEnvironment(home, { PRODUCT_TELEMETRY_ENABLED: '0' });
+  const runtime = createTestProductRuntime('test-product', env);
+  const root = resolveSupervisedDirectory(runtime);
+  const { keyring } = await fixtureKeyring();
+  mkdirSync(dirname(runtime.layout.userPaths.keyring), { recursive: true, mode: 0o700 });
+  writeFileSync(runtime.layout.userPaths.keyring, serializeKeyring(keyring), { mode: 0o600 });
+  const owner = await openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
+  const entrypoint = fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url));
+  const execArgs = ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source'];
+  let daemon: Awaited<ReturnType<typeof launchCertifiedRuntime>> | undefined;
+  try {
+    daemon = await launchCertifiedRuntime(home, { productRuntime: runtime, root, env, handover: owner, entrypoint, execArgs, daemonRole: true });
+    overrideProductSecureMode(runtime, true);
+    const publicSocket = join(root, `${createHash('sha256').update(daemon.id).digest('hex').slice(0, 16)}.sock`);
+    const realSocket = `${publicSocket}.real`;
+    renameSync(publicSocket, realSocket);
+    let forged = { daemon: false, cwd: home };
+    let unavailable = false;
+    const fake = createServer((socket) => {
+      let pending = Buffer.alloc(0);
+      const read = (chunk: Buffer): void => {
+        pending = Buffer.concat([pending, chunk]);
+        const end = pending.indexOf(10);
+        if (end < 0) return;
+        socket.off('data', read);
+        const request = JSON.parse(pending.subarray(0, end).toString()) as { command: string };
+        if (request.command === 'status') {
+          if (unavailable) { socket.end('{}\n'); return; }
+          socket.end(`${JSON.stringify({ id: daemon!.id, generation: daemon!.generation, status: 'running', ...forged })}\n`);
+          return;
+        }
+        const upstream = createConnection(realSocket);
+        upstream.on('error', () => socket.destroy());
+        socket.on('error', () => upstream.destroy());
+        upstream.on('connect', () => { upstream.write(pending); socket.pipe(upstream).pipe(socket); });
+      };
+      socket.on('data', read);
+    });
+    await new Promise<void>((resolve) => fake.listen(publicSocket, resolve));
+    const launchSecure = vi.fn(async () => { throw new Error('duplicate daemon'); });
+    const stdout: string[] = [];
+    const outputSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const errorSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      for (const report of [{ daemon: false, cwd: home }, { daemon: true, cwd: '/different-workspace' }]) {
+        forged = report;
+        const result = await runDaemonCommand(['start'], { productRuntime: runtime, cwd: home, root, env: () => env,
+          openSecureOwner: () => openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE }),
+          admit: async () => {}, trusted: async () => false, launchSecure,
+          stdout: (value) => stdout.push(value), stderr: () => {} });
+        expect(result).toBe(0);
+        expect(stdout.join('')).toContain(daemon.id);
+        expect(launchSecure).not.toHaveBeenCalled();
+        const render = vi.fn(async () => 'user' as const);
+        const attached = await runDaemonAttachCommand(['--attach'], { productRuntime: runtime, cwd: home, root,
+          isTTY: true, render,
+          openSecureOwner: () => openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE }),
+        });
+        expect(attached, JSON.stringify(errorSpy.mock.calls)).toBe(0);
+        expect(render).toHaveBeenCalledOnce();
+      }
+      unavailable = true;
+      expect(await runDaemonCommand(['start'], { productRuntime: runtime, cwd: home, root, env: () => env,
+        openSecureOwner: () => openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE }),
+        admit: async () => {}, trusted: async () => false, launchSecure,
+        stdout: () => {}, stderr: () => {} })).toBe(1);
+      expect(launchSecure).not.toHaveBeenCalled();
+    } finally {
+      outputSpy.mockRestore(); errorSpy.mockRestore();
+      await new Promise<void>((resolve) => fake.close(() => resolve()));
+      if (existsSync(publicSocket)) unlinkSync(publicSocket);
+      renameSync(realSocket, publicSocket);
+    }
+  } finally {
+    owner.dispose();
     if (daemon) await stopSupervisedSession(daemon.id, root, daemon.generation);
     rmSync(home, { recursive: true, force: true });
   }

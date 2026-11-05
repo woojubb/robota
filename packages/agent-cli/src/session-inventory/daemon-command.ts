@@ -133,19 +133,15 @@ async function startSecureDaemon(
     const release = await (options.lock ?? acquireSupervisedDaemonStartLock)(workspace, root, { cliName: runtime.vocabulary.cliName });
     try {
       const rows = await (options.list ?? listSupervisedSessions)(root, undefined, {
-        cwd: workspace, includeCwd: true, includeGeneration: true, includeDaemon: true,
+        includeGeneration: true,
       });
-      const candidates = rows.filter((row): row is TWorkspaceDaemon => row.daemon === true && row.cwd === workspace &&
-        row.liveness === 'alive' && row.control === 'available' && row.generation !== undefined)
-        .sort((a, b) => a.id.localeCompare(b.id));
-      const found = await proveWorkspaceDaemon({ root, workspace, candidates, handover: owner });
+      const found = await proveWorkspaceDaemon({ root, workspace, candidates: rows, handover: owner });
       if (found !== undefined) {
         if (parsed.restricted && found.restricted !== true) throw new Error(`Daemon ${found.id} uses project configuration and cannot be started Restricted.`);
         if (!parsed.restricted && found.restricted === true && await options.trusted(workspace)) throw new Error(`Daemon ${found.id} is Restricted in a trusted workspace. Stop it before starting with project configuration.`);
         options.stdout(parsed.json ? `${JSON.stringify({ id: found.id, generation: found.generation, mode: 'secure' })}\n` : `Secure daemon ${found.id} is running in ${workspace}.\n`);
         return 0;
       }
-      if (candidates.length > 0) throw new Error(`An unproven runtime is running in ${workspace}; unlock it in its own app or stop it with ${runtime.vocabulary.cliName} daemon stop.`);
       const admission = await options.admit(workspace, { restricted: parsed.restricted });
       const restricted = parsed.restricted || (typeof admission === 'object' && admission !== null && admission.restricted);
       const started = await (options.launchSecure ?? launchCertifiedRuntime)(workspace, {

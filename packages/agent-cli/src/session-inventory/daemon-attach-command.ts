@@ -16,7 +16,7 @@ import { createKeyringFileStore } from '../secure/keyring-store.js';
 import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
 import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { confirmAttachOnTerminal, type IAttachConfirmation } from './attach-confirmation.js';
-import { findWorkspaceDaemon, type TWorkspaceDaemon } from './daemon-command.js';
+import { findWorkspaceDaemon } from './daemon-command.js';
 import { proveWorkspaceDaemon } from './prove-workspace-daemon.js';
 import { runConfirmedAttach, type TAttachedAppRender } from './session-attach-command.js';
 import { openSecureAttach } from './secure-attach-client.js';
@@ -118,16 +118,15 @@ export async function runDaemonAttachCommand(
   let daemon: Awaited<ReturnType<typeof findWorkspaceDaemon>>;
   try {
     workspace = realpathSync(options.cwd);
-    daemon = await findWorkspaceDaemon(workspace, {
-      root,
-      ...(options.list !== undefined ? { list: options.list } : {}),
+    daemon = productSecureMode(options.productRuntime) ? undefined : await findWorkspaceDaemon(workspace, {
+      root, ...(options.list !== undefined ? { list: options.list } : {}),
     });
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : 'Unable to find the daemon.'}\n`);
     return 1;
   }
   // Before the terminal check: a script learns the step it can take itself.
-  if (daemon === undefined) {
+  if (daemon === undefined && !productSecureMode(options.productRuntime)) {
     process.stderr.write(`No daemon is running in ${workspace}. Start one with: ${cliName} daemon start\n`);
     return 1;
   }
@@ -153,12 +152,9 @@ export async function runDaemonAttachCommand(
       }
       const handover = owner;
       const rows = await (options.list ?? listSupervisedSessions)(root, undefined, {
-        cwd: workspace, includeCwd: true, includeGeneration: true, includeDaemon: true, includeName: true,
+        includeGeneration: true,
       });
-      const candidates = rows.filter((row): row is TWorkspaceDaemon => row.daemon === true && row.cwd === workspace &&
-        row.liveness === 'alive' && row.control === 'available' && row.generation !== undefined)
-        .sort((a, b) => a.id.localeCompare(b.id));
-      const selected = await proveWorkspaceDaemon({ root, workspace, candidates, handover });
+      const selected = await proveWorkspaceDaemon({ root, workspace, candidates: rows, handover });
       if (selected === undefined) throw new Error('No reported daemon could be proved by this owner.');
       const { id, generation } = selected;
       return await runConfirmedAttach({
@@ -177,6 +173,7 @@ export async function runDaemonAttachCommand(
       return 1;
     } finally { owner?.dispose(); }
   }
+  if (daemon === undefined) throw new Error('No daemon is available.');
   const { id, name, generation } = daemon;
   const question: IAttachConfirmation = { id, ...(name !== undefined ? { name } : {}), mode: 'drive' };
   if (!(await (options.confirm ?? confirmAttachOnTerminal)(question))) {

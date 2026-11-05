@@ -9,7 +9,7 @@ type TWorkspaceDaemon = ISupervisedSessionRow & { readonly generation: string };
 export async function proveWorkspaceDaemon(options: {
   readonly root: string;
   readonly workspace: string;
-  readonly candidates: readonly TWorkspaceDaemon[];
+  readonly candidates: readonly ISupervisedSessionRow[];
   readonly handover: IOwnerHandover;
   readonly timeoutMs?: number;
 }): Promise<TWorkspaceDaemon | undefined> {
@@ -17,7 +17,12 @@ export async function proveWorkspaceDaemon(options: {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeoutMs ?? 5_000);
   try {
+    let found: TWorkspaceDaemon | undefined;
     for (const row of options.candidates) {
+      if (row.liveness === 'dead') continue;
+      if (row.liveness !== 'alive' || row.control !== 'available' || row.generation === undefined) {
+        throw new Error('An unproven runtime registration prevents secure daemon discovery.');
+      }
       if (controller.signal.aborted) throw new Error('Secure daemon proof timed out.');
       try {
         const link = await openRegisteredOwnerLink({ root: options.root, id: row.id, generation: row.generation,
@@ -28,17 +33,25 @@ export async function proveWorkspaceDaemon(options: {
           if (controller.signal.aborted) throw new Error('Secure daemon proof timed out.');
           const result = await link.control({ command: 'status', fields: {} });
           if (controller.signal.aborted) throw new Error('Secure daemon proof timed out.');
-          if (result.status === 'running' && result.daemon === true && result.cwd === options.workspace &&
-              (result.restricted === true) === (row.restricted === true)) return row;
+          if (result.status !== 'running' || (result.daemon !== undefined && result.daemon !== true) ||
+              (result.daemon === true && typeof result.cwd !== 'string') ||
+              (result.restricted !== undefined && result.restricted !== true)) {
+            throw new Error('The authenticated runtime returned an incomplete status.');
+          }
+          if (result.daemon === true && result.cwd === options.workspace && found === undefined) {
+            found = { id: row.id, generation: row.generation, liveness: row.liveness, control: row.control,
+              activity: row.activity, daemon: true, cwd: options.workspace,
+              ...(result.restricted === true ? { restricted: true as const } : {}) };
+          }
         } finally {
           controller.signal.removeEventListener('abort', abort);
           link.close();
         }
       } catch {
         if (controller.signal.aborted) throw new Error('Secure daemon proof timed out.');
-        // A candidate that cannot prove its binding and reported facts is not selected.
+        throw new Error('An unproven runtime registration prevents secure daemon discovery.');
       }
     }
-    return undefined;
+    return found;
   } finally { clearTimeout(timer); }
 }
