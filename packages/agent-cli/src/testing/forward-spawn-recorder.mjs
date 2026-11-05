@@ -25,7 +25,18 @@ for (const name of ['spawn', 'spawnSync', 'exec', 'execSync', 'execFile', 'execF
       }
       forwarded = true;
     }
-    return Reflect.apply(original, childProcess, args);
+    const result = Reflect.apply(original, childProcess, args);
+    if (name === 'spawn' && forwarded && result && typeof result.send === 'function') {
+      const send = result.send;
+      result.send = function (message, ...rest) {
+        if (message?.kind === 'forwarded-environment') {
+          const names = message.environment ?? {};
+          fs.writeSync(2, `TEST_PROVIDER_NAMES selected=${Object.hasOwn(names, 'PRODUCT_SYNTHETIC_CREDENTIAL')} fallback=${Object.hasOwn(names, 'FALLBACK_PROVIDER_REF')} unused=${Object.hasOwn(names, 'UNSELECTED_PROVIDER_REF')}\n`);
+        }
+        return Reflect.apply(send, this, [message, ...rest]);
+      };
+    }
+    return result;
   };
 }
 syncBuiltinESMExports();

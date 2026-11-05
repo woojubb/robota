@@ -29,6 +29,8 @@ import type {
 export interface IFallbackModelTarget {
   /** The provider (vendor) and model this entry answers on. */
   ref: IModelRef;
+  /** Settings profile used to construct this target, when it has one. */
+  profile?: string;
   /** Build the provider for this entry. A throw means it cannot be reached, and the chain moves on. */
   create: () => IAIProvider;
   /** Optional host resolution for credentials held outside settings. */

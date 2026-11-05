@@ -166,6 +166,7 @@ function buildTarget(
   const { settings, primary, providerDefinitions } = input;
   return {
     ref: { provider: entry.providerType, model: entry.model },
+    ...(entry.profile !== undefined ? { profile: entry.profile } : {}),
     ...(input.resolveCredential !== undefined
       ? {
           createAsync: async () => {

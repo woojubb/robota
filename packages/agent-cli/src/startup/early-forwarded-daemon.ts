@@ -1,10 +1,10 @@
-import { createWorkspaceProjectSettingsSources, getWorkspaceProjectReader } from '@robota-sdk/agent-framework';
+import { createWorkspaceProjectSettingsSources, getWorkspaceProjectReader, ProviderConfigError, readMergedProviderSettings, readProviderSettings, resolveModelFallbackChain, selectFallbackModelEntries, type TSettingsSource } from '@robota-sdk/agent-framework';
 import { TRANSPORT_ENVIRONMENT } from '@robota-sdk/agent-executor';
+import { ENV_REFERENCE_PREFIX } from '@robota-sdk/agent-core';
 import { productConfigEntries } from '@robota-sdk/product-config';
 
 import { childProductEnvironment } from '../product/child-environment.js';
 import { productProviderDefinitions } from '../product/provider-definitions.js';
-import { providerEnvironmentReferences, restartProductEnvironment } from '../product/restart-environment.js';
 import { createProductUserSettingsSources } from '../product/user-settings.js';
 import { productSecureMode } from '../product/session-sealing.js';
 import { launchForwardedRuntime } from '../session-inventory/supervised-session-launch.js';
@@ -61,11 +61,55 @@ async function admittedSources(runtime: ICliRuntimeContext, cwd: string, restric
   ];
 }
 
+/** Match the startup provider; other saved profiles are not granted to this runtime. */
+function selectedProviderReferences(sources: readonly TSettingsSource[], environment: NodeJS.ProcessEnv): readonly string[] {
+  const settings = readMergedProviderSettings(sources);
+  const definitions = productProviderDefinitions();
+  let primary;
+  try {
+    primary = readProviderSettings(sources, { providerDefinitions: definitions, env: environment });
+  } catch (error) {
+    if (error instanceof ProviderConfigError) return [];
+    throw error;
+  }
+  const names = new Set<string>();
+  const reference = (value: string | undefined): void => {
+    if (value?.startsWith(ENV_REFERENCE_PREFIX) !== true) return;
+    const name = value.slice(ENV_REFERENCE_PREFIX.length).trim();
+    if (/^[A-Za-z_][A-Za-z0-9_]*$/u.test(name)) names.add(name);
+  };
+  const includeProvider = (type: string, apiKey: string | undefined, hasHostKey: boolean): void => {
+    const definition = definitions.find((candidate) => candidate.type === type || candidate.aliases?.includes(type));
+    if (definition === undefined) throw new Error('The selected provider is unavailable.');
+    if (!hasHostKey) reference(apiKey ?? definition.defaults?.apiKey);
+    for (const name of definition.destinationEnvironment ?? []) {
+      if (/^[A-Za-z_][A-Za-z0-9_]*$/u.test(name)) names.add(name);
+    }
+  };
+  const primaryProfile = primary.source === 'env-default' ? undefined : settings.currentProvider;
+  const primarySetting = primaryProfile === undefined ? settings.provider : settings.providers?.[primaryProfile];
+  includeProvider(primary.name, primarySetting?.apiKey ?? (primary.apiKeyEnv === undefined ? undefined : `${ENV_REFERENCE_PREFIX}${primary.apiKeyEnv}`), primarySetting?.apiKeyRef !== undefined);
+  const chain = resolveModelFallbackChain({ entries: selectFallbackModelEntries(undefined, settings), settings,
+    primary: { ...(primaryProfile !== undefined ? { profile: primaryProfile } : {}), config: primary },
+    providerDefinitions: definitions, environment });
+  for (const target of chain.targets) {
+    if (target.profile === undefined || target.profile === primaryProfile) continue;
+    const profile = settings.providers?.[target.profile];
+    if (profile?.type !== undefined) includeProvider(profile.type, profile.apiKey, profile.apiKeyRef !== undefined);
+  }
+  for (const name of TRANSPORT_ENVIRONMENT) names.delete(name);
+  return [...names];
+}
+
 /** After forwarding, admit project settings and retain only their declared provider references. */
 export async function prepareForwardedEnvironment(runtime: ICliRuntimeContext, cwd: string, restricted: boolean): Promise<NodeJS.ProcessEnv> {
   const sources = await admittedSources(runtime, cwd, restricted);
-  const environment = restartProductEnvironment(runtime, sources, productProviderDefinitions());
-  for (const name of TRANSPORT_ENVIRONMENT) delete environment[name];
+  const environment = childProductEnvironment(runtime);
+  if (runtime.environment.PRODUCT_CONFIG_FILE !== undefined) environment.PRODUCT_CONFIG_FILE = runtime.environment.PRODUCT_CONFIG_FILE;
+  for (const name of selectedProviderReferences(sources, runtime.environment)) {
+    const value = runtime.environment[name];
+    if (value !== undefined) environment[name] = value;
+  }
   for (const name of Object.keys(environment)) if (name.startsWith('PRODUCT_TELEMETRY_')) delete environment[name];
   return environment;
 }
@@ -73,8 +117,7 @@ export async function prepareForwardedEnvironment(runtime: ICliRuntimeContext, c
 /** Recheck workspace authority and the allowed names before installing an IPC environment. */
 export async function validateForwardedEnvironment(runtime: ICliRuntimeContext, cwd: string, restricted: boolean, forwarded: Readonly<Record<string, string>>): Promise<void> {
   const sources = await admittedSources(runtime, cwd, restricted);
-  const names = new Set(providerEnvironmentReferences(sources, productProviderDefinitions()));
-  for (const name of TRANSPORT_ENVIRONMENT) names.delete(name);
+  const names = new Set(selectedProviderReferences(sources, { ...runtime.environment, ...forwarded }));
   const baseline: NodeJS.ProcessEnv = { ...childProductEnvironment(runtime), ...(runtime.environment.PRODUCT_CONFIG_FILE === undefined ? {} : { PRODUCT_CONFIG_FILE: runtime.environment.PRODUCT_CONFIG_FILE }) };
   const protectedNames = new Set([
     'PATH', 'HOME', 'USERPROFILE', 'SYSTEMROOT', 'TMPDIR', 'TMP', 'TEMP', 'SHELL', 'XDG_RUNTIME_DIR',

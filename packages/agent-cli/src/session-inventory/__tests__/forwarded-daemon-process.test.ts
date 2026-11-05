@@ -49,8 +49,10 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
     writeFileSync(git, '#!/bin/sh\nif [ "${PRODUCT_SYNTHETIC_CREDENTIAL+x}" = x ]; then echo "$PPID present" >> "$HOME/git-env-audit"; else echo "$PPID absent" >> "$HOME/git-env-audit"; fi\nexec /usr/bin/git "$@"\n');
     chmodSync(git, 0o700);
   }
-  const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'otlp', PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf', PRODUCT_SYNTHETIC_CREDENTIAL: 'owner-provider-key', PATH: `${bin}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}` });
+  const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '1', PRODUCT_TELEMETRY_TRACES: 'otlp', PRODUCT_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf', PRODUCT_SYNTHETIC_CREDENTIAL: 'owner-provider-key', FALLBACK_PROVIDER_REF: 'fallback-key', UNSELECTED_PROVIDER_REF: 'unused-fixture', PATH: `${bin}${process.platform === 'win32' ? ';' : ':'}${process.env.PATH ?? ''}` });
   let authorization: string | undefined;
+  let fallbackAuthorization: string | undefined;
+  let failPrimary = false;
   let telemetryRequests = 0;
   const server = createHttpServer((request, response) => {
     if (request.url === '/v1/traces') {
@@ -59,7 +61,15 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
       response.writeHead(200).end();
       return;
     }
-    authorization = request.headers.authorization;
+    if (request.url?.startsWith('/fallback/')) fallbackAuthorization = request.headers.authorization;
+    else {
+      authorization = request.headers.authorization;
+      if (failPrimary) {
+        request.resume();
+        response.writeHead(404, { 'content-type': 'application/json' }).end('{"error":{"message":"model unavailable","code":"model_not_found","type":"invalid_request_error"}}');
+        return;
+      }
+    }
     request.resume();
     request.on('end', () => {
       response.writeHead(200, { 'content-type': 'text/event-stream' });
@@ -76,7 +86,7 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
   const { keyring } = await fixtureKeyring();
   mkdirSync(dirname(runtime.layout.userPaths.keyring), { recursive: true, mode: 0o700 });
   writeFileSync(runtime.layout.userPaths.keyring, serializeKeyring(keyring), { mode: 0o600 });
-  writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ currentProvider: 'openai', providers: { openai: { type: 'openai', model: 'fixture-model', apiKey: '$ENV:PRODUCT_SYNTHETIC_CREDENTIAL', baseURL: `http://127.0.0.1:${address.port}/v1`, options: { apiSurface: 'chat-completions' } } } }), { mode: 0o600 });
+  writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ currentProvider: 'openai', fallbackModel: ['backup'], providers: { openai: { type: 'openai', model: 'fixture-model', apiKey: '$ENV:PRODUCT_SYNTHETIC_CREDENTIAL', baseURL: `http://127.0.0.1:${address.port}/v1`, options: { apiSurface: 'chat-completions' } }, backup: { type: 'openai', model: 'fallback-model', apiKey: '$ENV:FALLBACK_PROVIDER_REF', baseURL: `http://127.0.0.1:${address.port}/fallback/v1`, options: { apiSurface: 'chat-completions' } }, unused: { type: 'anthropic', apiKey: '$ENV:UNSELECTED_PROVIDER_REF' } } }), { mode: 0o600 });
   const trusted = spawnSync(process.execPath, ['--import', tsx, '--conditions=source', fixture, 'trust', '--yes'], { cwd: root, env, encoding: 'utf8', timeout: 30_000 });
   expect(trusted.status).toBe(0);
   telemetryRequests = 0;
@@ -93,6 +103,7 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
   const [code] = await once(child, 'exit');
   expect(code, stderr).toBe(0);
   expect(stderr).toContain('TEST_FORWARD_FD_CLOSED');
+  expect(stderr).toContain('TEST_PROVIDER_NAMES selected=true fallback=true unused=false');
   expect(stderr).toMatch(/telemetry.*not forwarded/i);
   expect(stderr).not.toContain('TEST_PRE_FORWARD_SPAWN');
   const reply = JSON.parse(stdout);
@@ -116,6 +127,17 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
   link.session.send({ type: 'submit', prompt: 'Hello from the desktop spawner' });
   await complete;
   expect(authorization).toBe('Bearer owner-provider-key');
+  failPrimary = true;
+  const fallbackComplete = new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('The configured fallback did not complete.')), 30_000);
+    link.session.onMessage((message) => {
+      if (message.type === 'complete') { clearTimeout(timer); resolve(); }
+      else if (message.type === 'error') { clearTimeout(timer); reject(new Error(`Fallback failed: ${JSON.stringify(message)}`)); }
+    });
+  });
+  link.session.send({ type: 'submit', prompt: 'Exercise the configured fallback' });
+  await fallbackComplete;
+  expect(fallbackAuthorization).toBe('Bearer fallback-key');
   if (process.platform !== 'win32') {
     const registration = JSON.parse(readFileSync(join(supervisedRoot, reply.id, 'state.json'), 'utf8')) as { pid: number };
     const audit = readFileSync(join(root, 'git-env-audit'), 'utf8').trim().split('\n');

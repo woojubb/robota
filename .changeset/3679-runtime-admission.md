@@ -2,6 +2,7 @@
 '@robota-sdk/agent-transport-link': minor
 '@robota-sdk/agent-keyring': minor
 '@robota-sdk/agent-core': patch
+'@robota-sdk/agent-framework': minor
 '@robota-sdk/agent-cli': patch
 ---
 
