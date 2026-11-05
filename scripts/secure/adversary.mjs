@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -15,6 +15,7 @@ import { completeSpawnerPair, openOwnerLink, openSpawnerLink } from '../../packa
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../packages/agent-cli/src/__tests__/helpers/product-runtime.ts';
 import { connectSupervisedDaemon, listSupervisedSessions, openSupervisedAttachSocket, resolveSupervisedDirectory } from '../../packages/agent-cli/src/session-inventory/supervised-session-control.ts';
 import { windowsControlPipePath } from '../../packages/agent-cli/src/session-inventory/windows-control-pipe.ts';
+import { createKeyringFileStore } from '../../packages/agent-cli/src/secure/keyring-store.ts';
 
 const repo = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const cli = join(repo, 'packages/agent-cli');
@@ -30,7 +31,9 @@ const mode = plain ? ['--daemon', '--supervised-transport-token-fd'] : ['--super
 const child = spawn(process.execPath, ['--import', loader, '--conditions=source', entry, '--serve', '--safe-mode', '--supervised-session-id', id, ...mode], {
   cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'],
 });
-const watchdog = setTimeout(() => child.kill('SIGKILL'), 25_000);
+let secondChild;
+let grantChild;
+const watchdog = setTimeout(() => { child.kill('SIGKILL'); secondChild?.kill('SIGKILL'); grantChild?.kill('SIGKILL'); }, 25_000);
 watchdog.unref();
 let stderr = '';
 child.stderr?.on('data', (chunk) => { stderr += chunk.toString(); });
@@ -90,6 +93,11 @@ try {
   const passphrase = 'fixture-only-adversary-passphrase';
   const made = await createKeyring({ passphrase });
   made.unlocked.lock();
+  const stranger = await createKeyring({ passphrase: 'fixture-other-passphrase' });
+  stranger.unlocked.lock();
+  const store = createKeyringFileStore({ path: runtime.layout.userPaths.keyring, root: runtime.layout.userRoot });
+  store.create({ ...made.keyring, sealingPublicKey: stranger.keyring.sealingPublicKey });
+  const swappedFile = readFileSync(store.path);
   owner = await openOwnerHandover(made.keyring, { type: 'passphrase', passphrase });
   await mustRefuse('uncertified owner', async () => openOwnerLink(await connect(), owner));
   const wrongExchange = startSpawnerExchange();
@@ -108,13 +116,69 @@ try {
   await mustRefuse('spawner replay after certification', async () => openSpawnerLink(await connect(), key.spawnerKey, key.instancePublicKey));
   ownerLink = await openOwnerLink(await connect(), owner);
   assert.equal(ownerLink.standing, 'owner');
-  console.log('secure runtime refused plain connect, plain attach, a wrong spawner key, and spawner owner requests; certification admitted the owner');
+  assert.equal(await ownerLink.unlock(), 'mismatch', 'a swapped sealing key is reported to the owner');
+  assert.deepEqual(readFileSync(store.path), swappedFile, 'unlock must not rewrite the swapped keyring');
+  const secondId = randomUUID();
+  secondChild = spawn(process.execPath, ['--import', loader, '--conditions=source', entry, '--serve', '--safe-mode', '--supervised-session-id', secondId, '--supervised-spawner-pair'], {
+    cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'],
+  });
+  let secondStderr = '';
+  secondChild.stderr?.on('data', (chunk) => { secondStderr += chunk.toString(); });
+  const secondReady = new Promise((resolve, reject) => {
+    secondChild.on('message', (message) => {
+      if (message?.kind === 'ready' && message.id === secondId) secondChild.send({ kind: 'ack', id: secondId });
+      else if (message?.kind === 'acknowledged' && message.id === secondId) resolve();
+    });
+    secondChild.once('exit', () => reject(new Error(`Second runtime exited before readiness: ${secondStderr}`)));
+  });
+  const [secondKey] = await Promise.all([completeSpawnerPair(secondChild.stdio[4]), secondReady]);
+  try {
+    const secondPath = process.platform === 'win32'
+      ? windowsControlPipePath(supervised, secondId)
+      : join(supervised, `${createHash('sha256').update(secondId).digest('hex').slice(0, 16)}.sock`);
+    const connectSecond = async () => {
+      const socket = createConnection(secondPath);
+      await once(socket, 'connect');
+      return socket;
+    };
+    await mustRefuse('spawner key replay into a second runtime', async () => openSpawnerLink(await connectSecond(), key.spawnerKey, secondKey.instancePublicKey));
+    const secondLink = await openSpawnerLink(await connectSecond(), secondKey.spawnerKey, secondKey.instancePublicKey);
+    assert.equal(secondLink.standing, 'spawner');
+    secondLink.close();
+  } finally {
+    secondKey.spawnerKey.wipe();
+  }
+  const grantId = randomUUID();
+  grantChild = spawn(process.execPath, ['--import', loader, '--conditions=source', entry, '--serve', '--safe-mode', '--supervised-session-id', grantId, '--supervised-spawner-pair', '--supervised-external-event-grants', '--external-event-port', '34567'], {
+    cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'],
+  });
+  let grantStderr = '';
+  grantChild.stderr?.on('data', (chunk) => { grantStderr += chunk.toString(); });
+  const grantExit = once(grantChild, 'exit');
+  const grantKey = await completeSpawnerPair(grantChild.stdio[4]);
+  grantKey.spawnerKey.wipe();
+  const [grantCode] = await grantExit;
+  assert.equal(grantCode, 1, 'secure start with external-event grants must fail');
+  assert.match(grantStderr, /External events do not start in secure mode/u);
+  const afterGrant = await listSupervisedSessions(supervised);
+  assert.equal(afterGrant.some((candidate) => candidate.id === grantId), false, 'the refused start must not register a control endpoint');
+  console.log('secure runtime refused plain connect, plain attach, a wrong spawner key, spawner owner requests, and replay into a second runtime; certification admitted the owner; swapped-key grant reported mismatch; external-event start was refused');
 } finally {
   clearTimeout(watchdog);
   ownerLink?.close();
   owner?.dispose();
   link?.close();
   key?.spawnerKey.wipe();
+  if (grantChild && grantChild.exitCode === null && grantChild.signalCode === null) {
+    const ended = once(grantChild, 'exit');
+    grantChild.kill();
+    await ended;
+  }
+  if (secondChild && secondChild.exitCode === null && secondChild.signalCode === null) {
+    const ended = once(secondChild, 'exit');
+    secondChild.kill();
+    await ended;
+  }
   if (child.exitCode === null && child.signalCode === null) {
     const ended = once(child, 'exit');
     child.kill();
