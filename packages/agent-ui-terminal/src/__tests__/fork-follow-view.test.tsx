@@ -163,7 +163,9 @@ describe('the rows of a follow view', () => {
   });
 
   it('always shows the newest row, even when it alone is longer than the budget', () => {
-    const shown = formatFollowRows(page(['message', 'older'], ['message', 'y'.repeat(5000)]).records);
+    const shown = formatFollowRows(
+      page(['message', 'older'], ['message', 'y'.repeat(5000)]).records,
+    );
 
     expect(shown.at(-1)?.text.endsWith('y')).toBe(true);
     expect(shown.at(-1)?.text.length).toBeLessThanOrEqual(1300);
@@ -203,9 +205,9 @@ describe('what the switcher says `a` will do', () => {
       />,
     ).lastFrame();
 
-    expect(words(followFrame)).toContain('a Follow');
-    expect(words(followFrame)).not.toContain('a Continue');
-    expect(words(continueFrame)).toContain('a Continue');
-    expect(words(continueFrame)).not.toContain('a Follow');
+    expect(words(followFrame)).toContain('A Follow');
+    expect(words(followFrame)).not.toContain('A Continue');
+    expect(words(continueFrame)).toContain('A Continue');
+    expect(words(continueFrame)).not.toContain('A Follow');
   });
 });

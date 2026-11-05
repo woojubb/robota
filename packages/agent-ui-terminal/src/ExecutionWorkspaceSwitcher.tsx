@@ -1,4 +1,5 @@
 import { Box } from 'ink';
+import { attachKind } from '@robota-sdk/agent-framework';
 import React from 'react';
 
 import { useWorkspaceSwitcherSelection } from './execution-workspace-switcher-selection.js';
@@ -106,7 +107,9 @@ export default function ExecutionWorkspaceSwitcher({
     ['select', 'Switch'],
     ['close', 'Close'],
   ]);
-  const attachHint = useKeybindingHints('workspace-switcher', [['attach', 'Attach']]);
+  const attachHint = useKeybindingHints('workspace-switcher', [
+    ['attach', focusedEntry && attachKind(focusedEntry) === 'follow' ? 'Follow' : 'Continue'],
+  ]);
 
   return (
     <Box

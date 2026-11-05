@@ -166,7 +166,7 @@ describe('attaching to a fork follows the job or switches the view (CLI-1994 TC-
       />,
     );
 
-    expect(lastFrame()).toMatch(/\ba Follow\b/);
+    expect(lastFrame()).toMatch(/\bA Follow\b/);
 
     stdin.write('a');
 
@@ -218,7 +218,10 @@ describe('attach refuses rather than stranding the terminal (CLI-1994 TC-09)', (
     attachToForkedSession(entry, neutral);
     expect(neutral.notify.mock.calls[0]?.[0]).toContain(FORK_SESSION_ID);
 
-    const product = depsOf({ records: [] }, { formatResumeCommand: (id) => `agent --resume ${id}` });
+    const product = depsOf(
+      { records: [] },
+      { formatResumeCommand: (id) => `agent --resume ${id}` },
+    );
     attachToForkedSession(entry, product);
     // Nothing to resume from a record that is gone: the command is not offered for it.
     expect(product.notify.mock.calls[0]?.[0]).not.toContain('agent --resume');
