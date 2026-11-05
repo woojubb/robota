@@ -38,6 +38,24 @@ const FORGED_TEXT = 'CANARY-3e-accept-unverified-6b1d';
 afterEach(cleanUpSealedSessionFixtures);
 
 describe('an accepted record', () => {
+  it('refuses to create a new session when the accepted record was deleted', () => {
+    const cwd = directory();
+    const dir = directory();
+    const sealer = createTestArtifactSealer();
+    forgeRecord(dir, sealer, record('sess_deleted', cwd, FORGED_TEXT));
+    const acceptedDigest = digestOfFile(dir, 'sess_deleted');
+    const store = sealedStore(dir, sealer);
+    store.delete('sess_deleted');
+
+    const { session, error } = construct(
+      sessionOptions(cwd, store, { resumeSessionId: 'sess_deleted', acceptedDigest }),
+    );
+
+    expect(session).toBeUndefined();
+    expect(error).toMatchObject({ reason: 'changed-since-accepted' });
+    expect(store.load('sess_deleted').status).toBe('missing');
+  });
+
   it('refuses different bytes even if the replacement is already verified', () => {
     const cwd = directory();
     const dir = directory();

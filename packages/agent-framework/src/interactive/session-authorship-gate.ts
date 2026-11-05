@@ -104,19 +104,23 @@ export function provenanceOfOutcome(outcome: TSessionLoadOutcome): TSessionProve
 }
 
 /**
- * Refuses an unverified outcome without acceptance, and refuses any valid outcome whose bytes differ
- * from the accepted digest even if those new bytes are verified. A store view cannot switch the gate
- * off. Non-valid outcomes remain the caller's to judge.
+ * Refuses an unverified outcome without acceptance, and refuses a missing or valid outcome whose
+ * bytes differ from the accepted digest, even if replacement bytes are verified. A store view cannot
+ * switch the gate off. Other non-valid outcomes remain the caller's to judge.
  */
 export function assertClaimedOutcomeAccepted(
   sessionId: string,
   outcome: TSessionLoadOutcome,
   acceptedDigest: string | undefined,
 ): void {
-  if (outcome.status !== 'valid') return;
-  if (acceptedDigest !== undefined && outcome.digest !== acceptedDigest) {
+  if (
+    acceptedDigest !== undefined &&
+    (outcome.status === 'missing' ||
+      (outcome.status === 'valid' && outcome.digest !== acceptedDigest))
+  ) {
     throw new SessionAuthorshipRefusedError(sessionId, 'changed-since-accepted');
   }
+  if (outcome.status !== 'valid') return;
   if (outcome.authorship === 'unverified' && acceptedDigest === undefined) {
     throw new SessionAuthorshipRefusedError(sessionId, 'unverified');
   }
