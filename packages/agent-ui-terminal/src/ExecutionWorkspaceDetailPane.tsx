@@ -79,7 +79,7 @@ export default function ExecutionWorkspaceDetailPane({
       )}
       {kind === 'follow' && (
         <Text dimColor>
-          Type to message this job ·{' '}
+          {entry.controls.includes('send') ? 'Type to message this job · ' : ''}
           {backHint.map((hint) => `${hint.keys} ${hint.label}`).join(' · ')}
         </Text>
       )}

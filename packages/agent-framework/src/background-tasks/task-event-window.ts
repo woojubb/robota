@@ -213,7 +213,8 @@ export class TaskEventWindow {
   private trim(): void {
     while (
       this.rows.length > 1 &&
-      (this.rows.length > TASK_EVENT_WINDOW_MAX_ROWS || this.bytes > TASK_EVENT_WINDOW_MAX_BYTES)
+      (this.rows.length > TASK_EVENT_WINDOW_MAX_ROWS - (this.dropped > 0 ? 1 : 0) ||
+        this.bytes > TASK_EVENT_WINDOW_MAX_BYTES)
     ) {
       const gone = this.rows.shift();
       if (gone === undefined) return;

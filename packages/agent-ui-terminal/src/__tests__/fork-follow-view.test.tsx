@@ -66,6 +66,18 @@ function words(frame: string | undefined): string {
 }
 
 describe('the pane of a running fork', () => {
+  it.each(['queued', 'waiting_permission'] as const)(
+    'does not offer typing when a %s fork cannot accept input',
+    (status) => {
+      const { lastFrame } = render(
+        <ExecutionWorkspaceDetailPane
+          entry={forkEntry({ status, controls: ['select', 'attach'] })}
+          page={page()}
+        />,
+      );
+      expect(words(lastFrame())).not.toContain('Type to message this job');
+    },
+  );
   it('says the job is being followed, shows its rows, and says how to steer it and go back', () => {
     const { lastFrame } = render(
       <ExecutionWorkspaceDetailPane

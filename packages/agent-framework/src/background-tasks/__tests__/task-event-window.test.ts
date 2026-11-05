@@ -215,6 +215,16 @@ describe('a task event window', () => {
     expect(page.nextCursor).toBeUndefined();
   });
 
+  it('includes the dropped-row notice within the page limit', () => {
+    const window = new TaskEventWindow('agent_1', NOW);
+    for (let index = 0; index <= TASK_EVENT_WINDOW_MAX_ROWS; index += 1)
+      window.recordSent(`prompt ${index}`);
+    const page = window.page(ENTRY);
+    expect(page.records).toHaveLength(TASK_EVENT_WINDOW_MAX_ROWS);
+    expect(page.records[0]?.text).toBe('[2 earlier rows are not kept here]');
+    expect(page.records.at(-1)?.text).toContain(`prompt ${TASK_EVENT_WINDOW_MAX_ROWS}`);
+  });
+
   it('bounds the bytes as well as the rows, for text that is wide in UTF-8', () => {
     const window = new TaskEventWindow('agent_1', NOW);
 
