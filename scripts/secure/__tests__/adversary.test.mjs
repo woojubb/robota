@@ -19,6 +19,7 @@ describe.skipIf(process.platform === 'win32')('the same-user adversary against r
     expect(result.stdout).toContain('secure runtime refused plain connect');
     expect(result.stdout).toContain('replay into a second runtime');
     expect(result.stdout).toContain('swapped-key grant reported mismatch');
+    expect(result.stdout).toContain('owner key opened a sealed turn');
     expect(result.stdout).toContain('an impostor received no proof');
     expect(result.stdout).toContain('external-event start was refused');
   }, 40_000);

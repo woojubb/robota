@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
-import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { createServer as createHttpServer } from 'node:http';
 import { createRequire } from 'node:module';
 import { createConnection, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -16,6 +17,10 @@ import { createTestBinaryEnvironment, createTestProductRuntime } from '../../pac
 import { connectSupervisedDaemon, listSupervisedSessions, openSupervisedAttachSocket, resolveSupervisedDirectory } from '../../packages/agent-cli/src/session-inventory/supervised-session-control.ts';
 import { windowsControlPipePath } from '../../packages/agent-cli/src/session-inventory/windows-control-pipe.ts';
 import { createKeyringFileStore } from '../../packages/agent-cli/src/secure/keyring-store.ts';
+import { createMemoryKeyringStore } from '../../packages/agent-cli/src/secure/__tests__/helpers.ts';
+import { KeyHolder } from '../../packages/agent-cli/src/secure/key-holder.ts';
+import { KeyHolderArtifactSealer } from '../../packages/agent-cli/src/secure/artifact-sealer.ts';
+import { NodeSessionStore } from '../../packages/agent-session/src/node.ts';
 
 const repo = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const cli = join(repo, 'packages/agent-cli');
@@ -23,8 +28,27 @@ const loader = createRequire(join(cli, 'package.json')).resolve('tsx');
 const plain = process.argv.includes('--plain-negative-control');
 const temporaryRoot = process.platform === 'win32' ? tmpdir() : realpathSync('/tmp');
 const root = realpathSync(mkdtempSync(join(temporaryRoot, 'adversary-')));
-const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '0' });
+const modelRequests = [];
+const model = createHttpServer(async (request, response) => {
+  let body = '';
+  for await (const part of request) body += String(part);
+  const input = JSON.parse(body);
+  modelRequests.push(input);
+  const reply = { id: 'fixture', object: input.stream ? 'chat.completion.chunk' : 'chat.completion', created: 1, model: 'fixture-model', choices: [{ index: 0, finish_reason: 'stop', ...(input.stream ? { delta: { role: 'assistant', content: 'SEALED_FIXTURE_REPLY' } } : { message: { role: 'assistant', content: 'SEALED_FIXTURE_REPLY' } }) }] };
+  response.writeHead(200, { 'Content-Type': input.stream ? 'text/event-stream' : 'application/json' });
+  response.end(input.stream ? `data: ${JSON.stringify(reply)}\n\ndata: [DONE]\n\n` : JSON.stringify(reply));
+});
+model.listen(0, '127.0.0.1');
+await once(model, 'listening');
+const address = model.address();
+assert.ok(address && typeof address !== 'string');
+const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '0', SMOKE_FIXTURE_KEY: 'fixture-only-key' });
 const runtime = createTestProductRuntime('test-product', env);
+mkdirSync(runtime.layout.userRoot, { recursive: true, mode: 0o700 });
+writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({
+  autoCompactThreshold: false, currentProvider: 'openai',
+  providers: { openai: { type: 'openai', model: 'fixture-model', apiKey: '$ENV:SMOKE_FIXTURE_KEY', baseURL: `http://127.0.0.1:${address.port}/v1`, options: { apiSurface: 'chat-completions' } } },
+}), { mode: 0o600 });
 const id = randomUUID();
 const entry = join(cli, plain ? 'src/testing/plain-runtime-entry.ts' : 'src/testing/secure-runtime-entry.ts');
 const mode = plain ? ['--daemon', '--supervised-transport-token-fd'] : ['--supervised-spawner-pair'];
@@ -118,6 +142,40 @@ try {
   assert.equal(ownerLink.standing, 'owner');
   assert.equal(await ownerLink.unlock(), 'mismatch', 'a swapped sealing key is reported to the owner');
   assert.deepEqual(readFileSync(store.path), swappedFile, 'unlock must not rewrite the swapped keyring');
+  const attached = await ownerLink.control({ command: 'attach', fields: { mode: 'drive' } });
+  assert.equal(attached.status, 'attached');
+  function nextMessage(predicate) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => { stop(); reject(new Error('The owner turn did not finish.')); }, 12_000);
+      const stop = ownerLink.session.onMessage((message) => {
+        if (message.type === 'protocol_error') { clearTimeout(timer); stop(); reject(new Error(message.message)); }
+        else if (predicate(message)) { clearTimeout(timer); stop(); resolve(message); }
+      });
+    });
+  }
+  const completed = nextMessage((message) => message.type === 'complete');
+  ownerLink.session.send({ type: 'submit', prompt: 'SEALED_FIXTURE_CANARY' });
+  await completed;
+  assert.ok(modelRequests.some((request) => JSON.stringify(request).includes('SEALED_FIXTURE_CANARY')));
+  const command = nextMessage((message) => message.type === 'command_result' && message.requestId === 'fixture-help');
+  ownerLink.session.send({ type: 'command', name: 'help', args: '', requestId: 'fixture-help' });
+  assert.equal((await command).success, true);
+  const reader = new KeyHolder({ store: createMemoryKeyringStore(made.keyring) });
+  await reader.unlock({ type: 'passphrase', passphrase });
+  const readerSealer = new KeyHolderArtifactSealer(reader);
+  try {
+    const sessions = new NodeSessionStore(runtime.layout.userPaths.sessions, { sealing: { sealer: readerSealer } });
+    const records = sessions.list().filter((entry) => entry.outcome.status === 'valid');
+    const record = records.find((entry) => entry.outcome.record.messages.some((message) => message.content === 'SEALED_FIXTURE_CANARY'));
+    assert.ok(record, 'the owner key must open the session written after mismatch');
+    assert.ok(record.outcome.record.messages.some((message) => message.role === 'assistant' && message.content === 'SEALED_FIXTURE_REPLY'), 'the opened session must contain the completed reply');
+    const stored = readFileSync(join(runtime.layout.userPaths.sessions, `${record.id}.json`));
+    assert.equal(stored.includes('SEALED_FIXTURE_CANARY'), false, 'the saved session must not contain the prompt in plaintext');
+    assert.equal(stored.includes('SEALED_FIXTURE_REPLY'), false, 'the saved session must not contain the reply in plaintext');
+  } finally {
+    readerSealer.dispose();
+    reader.lock('explicit');
+  }
   const strangerOwner = await openOwnerHandover(stranger.keyring, { type: 'passphrase', passphrase: 'fixture-other-passphrase' });
   try {
     const impostor = createRuntimeIdentity();
@@ -209,7 +267,7 @@ try {
   assert.match(grantStderr, /External events do not start in secure mode/u);
   const afterGrant = await listSupervisedSessions(supervised);
   assert.equal(afterGrant.some((candidate) => candidate.id === grantId), false, 'the refused start must not register a control endpoint');
-  console.log('secure runtime refused plain connect, plain attach, a wrong spawner key, spawner owner requests, and replay into a second runtime; certification admitted the owner; swapped-key grant reported mismatch; an impostor received no proof; external-event start was refused');
+  console.log('secure runtime refused plain connect, plain attach, a wrong spawner key, spawner owner requests, and replay into a second runtime; certification admitted the owner; swapped-key grant reported mismatch and the owner key opened a sealed turn; an impostor received no proof; external-event start was refused');
 } finally {
   clearTimeout(watchdog);
   ownerLink?.close();
@@ -231,5 +289,7 @@ try {
     child.kill();
     await ended;
   }
+  model.closeAllConnections();
+  await new Promise((resolve) => model.close(resolve));
   rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 25 });
 }
