@@ -95,6 +95,7 @@ const sessionId = session.getSession().getSessionId();
 
 session.setName('architecture-review');
 console.log(session.getName()); // 'architecture-review'
+await session.shutdown(); // release the writer before reopening this session
 
 // Resume: restores the history and the model's context
 const resumed = new InteractiveSession({
@@ -104,6 +105,8 @@ const resumed = new InteractiveSession({
   sessionStore,
   resumeSessionId: sessionId,
 });
+await resumed.whenInitialized();
+await resumed.shutdown(); // release the writer before forking
 
 // Fork: a new session ID that starts from the same history
 const forked = new InteractiveSession({
