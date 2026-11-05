@@ -38,7 +38,7 @@ afterEach(async () => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 25 });
 });
 
-it('forwards the pair before workspace trust can spawn a child and leaves admission to the runtime', async () => {
+it.each([false, true])('forwards the pair with project-local provider override: %s', async (projectOverride) => {
   const root = realpathSync(mkdtempSync(join(process.platform === 'win32' ? tmpdir() : realpathSync('/tmp'), 'forward-daemon-')));
   roots.push(root);
   expect(spawnSync('git', ['init', '-q', root]).status).toBe(0);
@@ -88,6 +88,11 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
   mkdirSync(dirname(runtime.layout.userPaths.keyring), { recursive: true, mode: 0o700 });
   writeFileSync(runtime.layout.userPaths.keyring, serializeKeyring(keyring), { mode: 0o600 });
   writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ currentProvider: 'openai', fallbackModel: ['backup'], providers: { openai: { type: 'openai', model: 'fixture-model', apiKey: '$ENV:PRODUCT_SYNTHETIC_CREDENTIAL', baseURL: `http://127.0.0.1:${address.port}/v1`, options: { apiSurface: 'chat-completions' } }, backup: { type: 'openai', model: 'fallback-model', apiKey: '$ENV:FALLBACK_PROVIDER_REF', baseURL: `http://127.0.0.1:${address.port}/fallback/v1`, options: { apiSurface: 'chat-completions' } }, unused: { type: 'openai', model: 'unused-model', apiKey: '$ENV:UNSELECTED_PROVIDER_REF' }, missing: { type: 'openai', model: 'missing-model', apiKey: '$ENV:MISSING_PROVIDER_REF' } } }), { mode: 0o600 });
+  const projectLocalPath = join(root, runtime.layout.projectSettingsPaths.find((entry) => entry.scope === 'project-local')!.relativePath);
+  if (projectOverride) {
+    mkdirSync(dirname(projectLocalPath), { recursive: true });
+    writeFileSync(projectLocalPath, JSON.stringify({ currentProvider: 'openai' }), { mode: 0o600 });
+  }
   const trusted = spawnSync(process.execPath, ['--import', tsx, '--conditions=source', fixture, 'trust', '--yes'], { cwd: root, env, encoding: 'utf8', timeout: 30_000 });
   expect(trusted.status).toBe(0);
   telemetryRequests = 0;
@@ -156,7 +161,7 @@ it('forwards the pair before workspace trust can spawn a child and leaves admiss
     const result = await command;
     expect(result.success).toBe(false);
     expect(result.message).toMatch(expectation);
-    expect(result.message).toContain(runtime.layout.userPaths.settings);
+    expect(result.message).toContain(projectOverride ? projectLocalPath : runtime.layout.userPaths.settings);
     expect(result.message).toMatch(/currentProvider.*stop.*start/i);
   }
   expect(JSON.parse(readFileSync(runtime.layout.userPaths.settings, 'utf8')).currentProvider).toBe('openai');
