@@ -7,6 +7,8 @@ import {
   OrgPolicyParseError,
   readMergedProviderSettings,
   inspectSettingsLayers,
+  getWorkspaceProjectIdentity,
+  getWorkspaceProjectReader,
   prepareWorkflowJsonMutation,
   resolveProviderSettingsWriteTarget,
 } from '@robota-sdk/agent-framework';
@@ -24,6 +26,7 @@ import type {
   IWorkspaceProjectMutation,
   TProviderSettingsDocument,
   TSettingsSource,
+  TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import {
   getStartupCliUpdateNotice,
@@ -196,12 +199,17 @@ export function providerSelectionSettingsPath(
   cwd: string,
   sources: readonly TSettingsSource[],
   fallback: TSettingsSource,
+  projectAccess?: TWorkspaceProjectAccess,
 ): string | undefined {
   try {
     const inspection = inspectSettingsLayers(sources);
     if (inspection.partial) return undefined;
     const source = inspection.layers.findLast((layer) => layer.settings?.currentProvider !== undefined)?.source ?? fallback;
-    if (source.kind === 'project') return resolve(cwd, source.relativePath);
+    if (source.kind === 'project') {
+      if (projectAccess?.status !== 'trusted') return undefined;
+      if (source.reader !== getWorkspaceProjectReader(projectAccess.authority)) return undefined;
+      return resolve(getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot, source.relativePath);
+    }
     return source.path === undefined ? undefined : resolve(cwd, source.path);
   } catch {
     return undefined;
@@ -330,7 +338,7 @@ export function buildCommandSetup(
         const report = reportedCredentialNames.includes(name)
           ? `The launching process reported ${name} was set, but it was not forwarded.`
           : `The launching process did not report ${name} as set. Set it in the environment used to start the runtime.`;
-        const path = providerSelectionSettingsPath(cwd, providerSettingsSources, providerSettingsStore.source);
+        const path = providerSelectionSettingsPath(cwd, providerSettingsSources, providerSettingsStore.source, workspaceComposition.projectAccess);
         const selection = path === undefined
           ? 'The effective settings source could not be determined; inspect the settings layers before changing "currentProvider".'
           : `In ${JSON.stringify(path)}, set "currentProvider" to ${JSON.stringify(profile)}.`;

@@ -89,14 +89,16 @@ it.each([false, true])('forwards the pair with project-local provider override: 
   writeFileSync(runtime.layout.userPaths.keyring, serializeKeyring(keyring), { mode: 0o600 });
   writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ currentProvider: 'openai', fallbackModel: ['backup'], providers: { openai: { type: 'openai', model: 'fixture-model', apiKey: '$ENV:PRODUCT_SYNTHETIC_CREDENTIAL', baseURL: `http://127.0.0.1:${address.port}/v1`, options: { apiSurface: 'chat-completions' } }, backup: { type: 'openai', model: 'fallback-model', apiKey: '$ENV:FALLBACK_PROVIDER_REF', baseURL: `http://127.0.0.1:${address.port}/fallback/v1`, options: { apiSurface: 'chat-completions' } }, unused: { type: 'openai', model: 'unused-model', apiKey: '$ENV:UNSELECTED_PROVIDER_REF' }, missing: { type: 'openai', model: 'missing-model', apiKey: '$ENV:MISSING_PROVIDER_REF' } } }), { mode: 0o600 });
   const projectLocalPath = join(root, runtime.layout.projectSettingsPaths.find((entry) => entry.scope === 'project-local')!.relativePath);
+  const launchCwd = projectOverride ? join(root, 'nested') : root;
   if (projectOverride) {
     mkdirSync(dirname(projectLocalPath), { recursive: true });
     writeFileSync(projectLocalPath, JSON.stringify({ currentProvider: 'openai' }), { mode: 0o600 });
+    mkdirSync(launchCwd);
   }
   const trusted = spawnSync(process.execPath, ['--import', tsx, '--conditions=source', fixture, 'trust', '--yes'], { cwd: root, env, encoding: 'utf8', timeout: 30_000 });
   expect(trusted.status).toBe(0);
   telemetryRequests = 0;
-  const child = spawn(process.execPath, ['--import', tsx, '--import', recorder, '--conditions=source', fixture, 'daemon', 'start', '--spawner-fd', '4', '--json'], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] });
+  const child = spawn(process.execPath, ['--import', tsx, '--import', recorder, '--conditions=source', fixture, 'daemon', 'start', '--spawner-fd', '4', '--json'], { cwd: launchCwd, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] });
   children.push(child);
   let stdout = '';
   let stderr = '';
