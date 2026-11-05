@@ -71,6 +71,7 @@ const notAllowed = (): OwnerRequestRefusedError => new OwnerRequestRefusedError(
 export class RuntimeCustody implements IRuntimeAdmission {
   readonly #options: IRuntimeCustodyOptions;
   readonly #links = new Set<IAdmittedRuntimeLink>();
+  readonly #spawnerSessions = new Set<LinkSession>();
   readonly #listeners = new Set<(event: TCustodyEvent) => void>();
   #context: IRuntimeAdmissionContext | undefined;
   #daemon = false;
@@ -198,6 +199,7 @@ export class RuntimeCustody implements IRuntimeAdmission {
     // Counted only once its ports exist: a link counted here is one whose `closed` will be called.
     this.#links.add(link);
     if (link.standing === 'spawner') {
+      this.#spawnerSessions.add(session);
       this.#seenSpawner = true;
       this.#emit('spawner-linked');
     }
@@ -234,6 +236,7 @@ export class RuntimeCustody implements IRuntimeAdmission {
       },
       closed: () => {
         this.#links.delete(link);
+        this.#spawnerSessions.delete(session);
         try {
           session.end();
         } finally {
@@ -275,6 +278,8 @@ export class RuntimeCustody implements IRuntimeAdmission {
       }
       throw error;
     }
+    // Certification ends every spawner's session authority before callbacks or another frame can run.
+    for (const session of this.#spawnerSessions) session.revoke();
     this.#announce();
     this.#emit('certified');
     // The spawner's part is over: its links end once the answer to this request has gone out.

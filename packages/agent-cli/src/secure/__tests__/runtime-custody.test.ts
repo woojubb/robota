@@ -296,6 +296,56 @@ describe.skipIf(process.platform === 'win32')('a runtime before anyone certified
     ).rejects.toBeDefined();
   });
 
+  it('revokes a bound spawner before processing a session frame batched with certification', async () => {
+    const started = await start();
+    const spawner = await spawnerLink(started);
+    expect(await attach(spawner, 'drive')).toMatchObject({ status: 'attached' });
+    const socket = socketOf.get(spawner);
+    if (socket === undefined) throw new Error('Spawner socket missing');
+    const queued: Buffer[] = [];
+    const intercept = vi.spyOn(socket, 'write').mockImplementation((chunk) => {
+      if (!(chunk instanceof Uint8Array)) throw new Error('Expected a binary frame');
+      queued.push(Buffer.from(chunk));
+      return true;
+    });
+    const root = owner.certify(spawner.instancePublicKey, spawner.binding);
+    const installing = spawner.installTrustRoot(root);
+    spawner.session.send({ type: 'submit', prompt: 'must not run after certification' });
+    intercept.mockRestore();
+    expect(queued).toHaveLength(2);
+    socket.write(Buffer.concat(queued));
+
+    await expect(installing).resolves.toBeUndefined();
+    await spawner.closed;
+    expect(started.runtime.run).not.toHaveBeenCalled();
+  });
+
+  it('does not bind a new spawner session after certification in the same batch', async () => {
+    const started = await start({ withBinder: true });
+    const spawner = await spawnerLink(started);
+    const socket = socketOf.get(spawner);
+    if (socket === undefined) throw new Error('Spawner socket missing');
+    const queued: Buffer[] = [];
+    const intercept = vi.spyOn(socket, 'write').mockImplementation((chunk) => {
+      if (!(chunk instanceof Uint8Array)) throw new Error('Expected a binary frame');
+      queued.push(Buffer.from(chunk));
+      return true;
+    });
+    const root = owner.certify(spawner.instancePublicKey, spawner.binding);
+    const installing = spawner.installTrustRoot(root);
+    const attaching = attach(spawner, 'drive').catch(() => undefined);
+    spawner.session.send({ type: 'submit', prompt: 'must not bind after certification' });
+    intercept.mockRestore();
+    expect(queued).toHaveLength(3);
+    socket.write(Buffer.concat(queued));
+
+    await expect(installing).resolves.toBeUndefined();
+    const result = await attaching;
+    expect(result).not.toMatchObject({ status: 'attached' });
+    await spawner.closed;
+    expect(started.runtime.run).not.toHaveBeenCalled();
+  });
+
   it('lets its spawner drive a session it binds, and nothing else of an owner', async () => {
     const started = await start();
     const spawner = await spawnerLink(started);

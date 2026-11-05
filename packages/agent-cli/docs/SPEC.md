@@ -156,25 +156,11 @@ Restricted, and a Restricted start is never handed one with the project's config
 person chose Restricted, while a plain start in a folder trusted since is not handed a Restricted one,
 because the person who trusted it expects that configuration; a daemon that could not hand over a connection is never left running, and
 the lock that keeps racing starts apart is removed only by the start that took it or by the user. The
-transport's per-launch authentication token is never exposed through the control endpoint or inventory,
-with one exception: a daemon, which receives it only over a pipe its launcher hands it, never through its
-environment or command line (a process's initial environment stays readable to every program of the
-same user), hands its connection URL to a caller that named its start, so the token leaves only as that URL
-and never in human-readable output.
-
-In secure mode the same endpoint admits by what can be proved, not by who may open the socket, and
-standing is the only authority. A program of the same user is told liveness and whether the runtime
-is certified, and may stop it, lock it or start an owner link; everything else, what names the work
-included, is the owner's and exists only inside an owner link, which proves the owner first. Taking
-access away needs no proof, since a program that could abuse that could stop or kill the runtime,
-while giving it always does. A spawner may certify the runtime once and drive what it starts, and its
-part ends at certification for good; it never reads or touches what the owner stored, because it
-holds no read keys. Only what the person at the keyboard does counts as activity toward the idle
-lock, so a viewer left open cannot keep keys open, and a lock never closes a link. A keyring file
-that holds another sealing key than the owner's is reported and never repaired, because repair takes
-the passphrase. One table decides every command in both modes, so a command added without a
-decision does not compile. The request line is read as bytes, because the link's handshake follows
-it in the same chunk and no text decoding may rewrite it.
+plain transport's per-launch authentication token is never exposed through the control endpoint or
+inventory except by a daemon to a caller that named its start; the launcher passes it through a pipe
+because another program of the same user can read the environment. A secure runtime grants access to
+conversation content only to a proven owner, and a spawner's authority ends at certification; locking
+requires no proof because it only removes access.
 
 Observability has two independently gated paths. `usage export` is an explicit,
 local-only action over the same authorized stores as local usage reporting: its aggregate usage,
@@ -394,7 +380,7 @@ it did not make — or for `/unlock`, a user-only command, and `/lock` drops the
 is then asked on the secret terminal while the session has handed the terminal over, one question at
 a time, and never where nobody can answer, so no command or tool the model runs opens the prompt and
 nothing typed there reaches the conversation.
-Unlocking is where a swapped stored sealing key is caught. From the first unlock in a process the
+Unlocking catches a swapped stored sealing key: a terminal may repair it with the credential, while a runtime receiving an owner grant reports it and leaves the file untouched. From the first unlock in a process the
 holder seals to the key that unlock verified, locked or not and even when the repair of the file
 cannot be written; the mismatch is always reported, and the exit status tells a repair that completed
 from one that did not. Before that first unlock a locked writer seals to the key the file holds: that

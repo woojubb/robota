@@ -79,6 +79,7 @@ export class LinkSession implements ILinkSessionSink {
   readonly #standing: TLinkMode;
   #bound: IBound | undefined;
   #ended = false;
+  #revoked = false;
 
   constructor(options: ILinkSessionOptions) {
     this.#options = options;
@@ -88,7 +89,7 @@ export class LinkSession implements ILinkSessionSink {
   /** Binds this link to the runtime's session in `mode`, once. */
   bind(mode: unknown): TLinkAttachAnswer {
     if (mode !== 'drive' && mode !== 'observe') return refused('unsupported-attach');
-    if (this.#bound !== undefined || this.#ended) return refused('already-attached');
+    if (this.#bound !== undefined || this.#ended || this.#revoked) return refused('already-attached');
     const releaseSurface = this.#options.acquireSurface();
     if (releaseSurface === undefined) return refused('attach-limit');
     const { link, target } = this.#options;
@@ -105,7 +106,7 @@ export class LinkSession implements ILinkSessionSink {
         ? startOnly(binding.directory)
         : binding.directory;
     const deliver = createOutboundDelivery(
-      (message) => link.sendSession(JSON.stringify(message)),
+      (message) => { if (!this.#revoked) link.sendSession(JSON.stringify(message)); },
       // A reader that stopped reading, or a frame too large to carry, costs only this link.
       () => link.close(),
       () => link.pendingBytes(),
@@ -141,7 +142,7 @@ export class LinkSession implements ILinkSessionSink {
 
   receive(data: string): void {
     const bound = this.#bound;
-    if (bound === undefined) return;
+    if (bound === undefined || this.#revoked) return;
     if (bound.countsInput && isOwnerInput(data)) this.#options.onOwnerInput();
     try {
       bound.handler.onMessage(data);
@@ -149,6 +150,11 @@ export class LinkSession implements ILinkSessionSink {
       // allow-fallback: a frame the handler cannot take ends this link, as it ends an attached terminal's connection.
       this.#options.link.close();
     }
+  }
+
+  /** End this link's session authority at once; transport closure may still flush a control reply. */
+  revoke(): void {
+    this.#revoked = true;
   }
 
   /** The link is gone: unsubscribes from the session and gives the binding and the slot back. */
