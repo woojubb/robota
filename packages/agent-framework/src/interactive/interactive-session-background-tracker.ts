@@ -17,6 +17,7 @@ import {
   summarizeBackgroundJobGroup,
 } from '../background-tasks/index.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
+import { TaskEventWindows } from '../background-tasks/task-event-window.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
 
 import type {
@@ -57,6 +58,14 @@ export class SessionBackgroundTaskTracker {
   private backgroundTaskUnsubscribe: (() => void) | null = null;
   private backgroundJobUnsubscribe: (() => void) | null = null;
   private backgroundJobOrchestrator: BackgroundJobOrchestrator | null = null;
+  /**
+   * A fork job's recent events, which a surface following the fork reads. A view of the events the
+   * parent already receives, never saved: the record above is what persists.
+   */
+  private readonly forkEventWindows = new TaskEventWindows(
+    (taskId) => this.isForkTask(taskId),
+    () => new Date().toISOString(),
+  );
 
   constructor(
     private readonly getManager: () => IBackgroundTaskManager | undefined,
@@ -204,9 +213,11 @@ export class SessionBackgroundTaskTracker {
     this.backgroundJobUnsubscribe = null;
     this.backgroundJobOrchestrator?.dispose();
     this.backgroundJobOrchestrator = null;
+    this.forkEventWindows.clear();
   }
 
   restoreState(state: IBackgroundTrackerState): void {
+    this.forkEventWindows.clear();
     this.backgroundTasks = state.tasks;
     this.heldSessionLoops = [];
     this.backgroundTaskEvents = state.taskEvents;
@@ -256,6 +267,10 @@ export class SessionBackgroundTaskTracker {
 
   async sendTask(taskId: string, input: IBackgroundTaskInput): Promise<void> {
     await this.getManagerOrThrow().send(taskId, input);
+    // Shown only once the job took it: a refused message is not part of what the job is doing.
+    if (input.prompt !== undefined && this.forkEventWindows.recordSent(taskId, input.prompt)) {
+      this.onChanged('background_task', createBackgroundTaskExecutionEntryId(taskId));
+    }
   }
 
   async readTaskLog(
@@ -318,7 +333,15 @@ export class SessionBackgroundTaskTracker {
   ): Promise<IExecutionDetailPage> {
     const task = this.getManagerOrThrow().get(taskId);
     if (!task) throw new Error(`Unknown background task: ${taskId}`);
-    if (task.logPath || task.transcriptPath) {
+    // A fork is read in two ways: with no cursor, what it is doing now (the window); with one, its own
+    // conversation from the start, page by page — which only its runner can read, so a runner that
+    // keeps the conversation without a path (an in-process job) is asked too.
+    const fork = task.kind === 'agent' && task.resumeSessionId !== undefined;
+    if (fork && cursor === undefined) {
+      const window = this.forkEventWindows.page(taskId, entryId);
+      if (window !== undefined) return window;
+    }
+    if (task.logPath || task.transcriptPath || (fork && cursor !== undefined)) {
       const page = await this.getManagerOrThrow().readLog(taskId, cursor);
       return createLineDetailPage({
         entryId,
@@ -326,6 +349,7 @@ export class SessionBackgroundTaskTracker {
         cursor: page.cursor,
         nextCursor: page.nextCursor,
         kind: task.kind === 'process' ? 'process_output' : 'progress',
+        ...(page.unreadable === undefined ? {} : { unreadable: page.unreadable }),
       });
     }
     const detailKind =
@@ -370,7 +394,14 @@ export class SessionBackgroundTaskTracker {
     });
   }
 
+  /** Whether the task is a fork job: an agent task that continues a copy of a conversation. */
+  private isForkTask(taskId: string): boolean {
+    const task = this.getManager()?.get(taskId);
+    return task?.kind === 'agent' && task.resumeSessionId !== undefined;
+  }
+
   private recordTaskEvent(event: TBackgroundTaskEvent): void {
+    this.forkEventWindows.record(event);
     this.backgroundTasks = this.getTaskSnapshots();
     this.backgroundTaskEvents.push(event);
     this.recordCompletedTaskUsage(event);

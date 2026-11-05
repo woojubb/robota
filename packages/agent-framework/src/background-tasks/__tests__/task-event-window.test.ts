@@ -24,7 +24,9 @@ import type {
 const ENTRY = 'task:agent_1';
 const NOW = (): string => '2026-11-05T00:00:00.000Z';
 
-function text(delta: string): TBackgroundTaskEvent {
+function text(
+  delta: string,
+): Extract<TBackgroundTaskEvent, { type: 'background_task_text_delta' }> {
   return { type: 'background_task_text_delta', taskId: 'agent_1', delta };
 }
 
@@ -47,7 +49,9 @@ function toolEnd(toolName: string, success: boolean, error?: string): TBackgroun
   };
 }
 
-function task(overrides: Partial<IBackgroundTaskState<'agent'>> = {}): IBackgroundTaskState<'agent'> {
+function task(
+  overrides: Partial<IBackgroundTaskState<'agent'>> = {},
+): IBackgroundTaskState<'agent'> {
   return {
     id: 'agent_1',
     kind: 'agent',

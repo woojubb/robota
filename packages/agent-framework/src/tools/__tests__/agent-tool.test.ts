@@ -20,7 +20,7 @@ const mockProvider = {
 
 // Mock createSubagentSession
 const mockRun = vi.fn().mockResolvedValue('task completed successfully');
-const mockSessionInstance = { run: mockRun };
+const mockSessionInstance = { run: mockRun, getHistory: () => [] };
 vi.mock('../../assembly/create-subagent-session.js', () => ({
   createSubagentSession: vi.fn(() => mockSessionInstance),
 }));
