@@ -62,7 +62,7 @@ import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 // Before: Anthropic claude-sonnet-4-6
-const anthropicProvider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+// const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // After: DeepSeek (10-30x cheaper for many tasks)
 import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
