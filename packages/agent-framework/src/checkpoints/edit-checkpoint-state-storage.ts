@@ -24,8 +24,6 @@ import {
   workspacePathSegments,
 } from '../workspace-trust/project-reader-path.js';
 
-import { workspaceProjectStateDirectoryPath } from '../workspace-trust/node-project-state-directory.js';
-
 import type { IProcessMarkerHandle } from '@robota-sdk/agent-core';
 import type {
   IWorkspaceProjectStateStorage,
@@ -189,19 +187,9 @@ export function createDirectoryEditCheckpointState(root: string): IEditCheckpoin
 export function createProjectEditCheckpointState(storage: IWorkspaceProjectStateStorage): IEditCheckpointStateStorage {
   return {
     rootRelativePath: storage.rootRelativePath,
-    acquireTurn: (sessionId) => {
-      if (storage.claimDirectory === undefined) throw new Error('Checkpoint storage must support atomic directory claims.');
-      storage.claimDirectory(join(sessionId, '.writer'), 'prepare checkpoint writer markers');
-      const directory = workspaceProjectStateDirectoryPath(storage, join(sessionId, '.writer'));
-      const result = createProcessMarkers(directory).acquire('active');
-      if (result.status !== 'acquired') return undefined;
-      try {
-        workspaceProjectStateDirectoryPath(storage, join(sessionId, '.writer'));
-        return result.handle;
-      } catch (error) {
-        result.handle.release();
-        throw error;
-      }
+    acquireTurn: (sessionId, purpose) => {
+      if (storage.acquireWriter === undefined) throw new Error('The project host must support checkpoint writer leases.');
+      return storage.acquireWriter(join(sessionId, '.writer'), purpose);
     },
     claimDirectory: (path, purpose) => {
       if (storage.claimDirectory === undefined) throw new Error('Checkpoint storage must support atomic directory claims.');

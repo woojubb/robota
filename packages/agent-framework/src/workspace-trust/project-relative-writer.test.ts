@@ -150,6 +150,67 @@ describe('project-relative writer containment', () => {
     expect(fs.readdirSync(outside)).toEqual([]);
   });
 
+  it.runIf(process.platform === 'linux')('closes its retained marker directory after refusal and release', () => {
+    const root = fs.mkdtempSync(join(tmpdir(), 'agent-marker-fds-'));
+    roots.push(root);
+    const boundary = boundaryFor(root);
+    if (!boundary.acquireWriter) throw new Error('project host must expose an anchored writer lease');
+    const directory = join(root, 'state', '.writer');
+    const descriptors = (): number => fs.readdirSync('/proc/self/fd').filter((name) => {
+      try { return fs.readlinkSync(`/proc/self/fd/${name}`) === directory; }
+      catch { return false; }
+    }).length;
+    const before = descriptors();
+    const lease = boundary.acquireWriter('state/.writer');
+    expect(lease?.holds()).toBe(true);
+    expect(descriptors()).toBe(before + 1);
+    expect(boundary.acquireWriter('state/.writer')).toBeUndefined();
+    expect(descriptors()).toBe(before + 1);
+    lease?.release();
+    lease?.release();
+    expect(descriptors()).toBe(before);
+  });
+
+  it.runIf(process.platform === 'linux')('anchors writer-marker operations when a parent is swapped', () => {
+    const root = fs.mkdtempSync(join(tmpdir(), 'agent-marker-root-'));
+    const outside = fs.mkdtempSync(join(tmpdir(), 'agent-marker-outside-'));
+    roots.push(root, outside);
+    const parent = join(root, 'state');
+    const moved = join(root, 'state-original');
+    fs.mkdirSync(parent);
+    fs.mkdirSync(join(outside, '.writer'));
+    fs.chmodSync(join(outside, '.writer'), 0o755);
+    const boundary = boundaryFor(root);
+    expect(boundary.acquireWriter).toBeDefined();
+    if (!boundary.acquireWriter) throw new Error('project host must expose an anchored writer lease');
+    swap.armedParent = parent;
+    swap.movedParent = moved;
+    swap.outside = outside;
+    expect(() => boundary.acquireWriter?.('state/.writer')).toThrow();
+    expect(swap.armedParent).toBeUndefined();
+    expect(fs.statSync(join(outside, '.writer')).mode & 0o777).toBe(0o755);
+    expect(fs.readdirSync(join(outside, '.writer'))).toEqual([]);
+  });
+
+  it.runIf(process.platform === 'linux')('loses a writer lease when its directory is renamed and never releases into a replacement', () => {
+    const root = fs.mkdtempSync(join(tmpdir(), 'agent-marker-root-'));
+    const outside = fs.mkdtempSync(join(tmpdir(), 'agent-marker-outside-'));
+    roots.push(root, outside);
+    const parent = join(root, 'state');
+    const moved = join(root, 'state-original');
+    fs.mkdirSync(parent);
+    const boundary = boundaryFor(root);
+    if (!boundary.acquireWriter) throw new Error('project host must expose an anchored writer lease');
+    const lease = boundary.acquireWriter('state/.writer');
+    expect(lease?.holds()).toBe(true);
+    fs.renameSync(parent, moved);
+    fs.symlinkSync(outside, parent);
+    expect(lease?.holds()).toBe(false);
+    lease?.release();
+    expect(fs.readdirSync(outside)).toEqual([]);
+    expect(fs.readdirSync(join(moved, '.writer'))).toEqual([]);
+  });
+
   it.runIf(process.platform === 'linux')(
     'does not redirect a write when a verified parent is replaced with an outside link',
     () => {
