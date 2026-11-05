@@ -17,6 +17,7 @@ import { dirname } from 'node:path';
 
 import {
   OWNER_ONLY_FILE_MODE,
+  assertUnlinkedOwnerDirectory,
   ensureOwnerOnlyDirectory,
   ownerOnlyGuarantee,
 } from '@robota-sdk/agent-core/node';
@@ -170,6 +171,7 @@ export class NodePromptHistoryFile implements IPromptHistoryWriter, IPromptHisto
    * any other open or read failure is thrown so the surface renders it instead of an empty list.
    */
   async *read(options: IPromptHistoryReadOptions): AsyncIterable<IPromptHistoryBlock> {
+    assertUnlinkedOwnerDirectory(dirname(this.path), this.ownedRoot);
     let descriptor: number;
     try {
       descriptor = openSync(this.path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));

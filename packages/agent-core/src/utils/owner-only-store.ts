@@ -172,6 +172,16 @@ function assertOwnerOnly(target: string, kind: 'directory' | 'file', io: IOwnerO
   }
 }
 
+/** Refuse existing symbolic links in a caller-owned directory chain. */
+export function assertUnlinkedOwnerDirectory(directory: string, withinRoot?: string): void {
+  const owned = withinRoot === undefined ? [directory] : segmentsFromRoot(withinRoot, directory);
+  for (const target of owned) {
+    if (lstatSync(target, { throwIfNoEntry: false })?.isSymbolicLink()) {
+      throw new OwnerOnlyModeError('An owner-only directory must not be a symbolic link.');
+    }
+  }
+}
+
 /**
  * Ensure `directory` exists and only its owner can enter it.
  *
@@ -194,11 +204,8 @@ export function ensureOwnerOnlyDirectory(
       ? [directory]
       : segmentsFromRoot(options.withinRoot, directory);
   const refuseLinks = (): void => {
-    if (options.rejectSymlinks !== true) return;
-    for (const target of owned) {
-      if (lstatSync(target, { throwIfNoEntry: false })?.isSymbolicLink()) {
-        throw new OwnerOnlyModeError('An owner-only directory must not be a symbolic link.');
-      }
+    if (options.rejectSymlinks === true) {
+      assertUnlinkedOwnerDirectory(directory, options.withinRoot);
     }
   };
   refuseLinks();

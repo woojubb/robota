@@ -30,6 +30,7 @@ export {
   OWNER_ONLY_FILE_MODE,
   OwnerOnlyModeError,
   OwnerOnlyWriteUnconfirmedError,
+  assertUnlinkedOwnerDirectory,
   ensureOwnerOnlyDirectory,
   ownerOnlyGuarantee,
   stageOwnerOnlyFile,

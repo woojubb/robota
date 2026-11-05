@@ -66,7 +66,7 @@ describe('NodePromptHistoryFile (SCREEN-1993 TC-01)', () => {
     await expect(collect(file)).rejects.toThrow();
   });
 
-  it.runIf(process.platform !== 'win32')('refuses a linked owned directory without changing its target', () => {
+  it.runIf(process.platform !== 'win32')('refuses a linked owned directory without changing its target', async () => {
     const root = temp();
     const outside = temp();
     chmodSync(outside, 0o755);
@@ -74,6 +74,8 @@ describe('NodePromptHistoryFile (SCREEN-1993 TC-01)', () => {
     const file = new NodePromptHistoryFile(join(root, 'linked', 'history.jsonl'), { sealing: 'plain', ownedRoot: root });
     expect(() => file.append(entry(1))).toThrow();
     expect(statSync(outside).mode & 0o777).toBe(0o755);
+    writeFileSync(join(outside, 'history.jsonl'), JSON.stringify(entry(2)) + '\n');
+    await expect(collect(file)).rejects.toThrow();
   });
 
   it('reads newest-first across several blocks, carrying a line split by a block boundary', async () => {
