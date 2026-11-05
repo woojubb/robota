@@ -35,6 +35,7 @@ export type { ISessionRecordRestoreResult } from './interactive-session-restore.
 // #3679 step 3e: why a resume over a store that seals was refused, for every surface that resumes.
 export {
   SessionAuthorshipRefusedError,
+  OWNER_SANDBOX_REVIEW_UNAVAILABLE,
   UNVERIFIED_SESSION_QUESTION,
   isSessionAuthorshipRefusedError,
   unacceptableSessionMessage,

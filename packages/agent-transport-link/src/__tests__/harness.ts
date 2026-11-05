@@ -176,6 +176,7 @@ export function recordingRuntime(identity: IRuntimeIdentity) {
         },
       },
       sessions: {
+        cancelQuestion: () => undefined,
         // `held` is never answered, so a test can close the link while a request waits; `gated` is
         // answered when the test opens its gate.
         question: (sessionId) =>
@@ -187,12 +188,13 @@ export function recordingRuntime(identity: IRuntimeIdentity) {
                 )
               : Promise.resolve({
                   kind: 'accept',
+                  questionId: 'question-1',
                   digest: 'd'.repeat(64),
                   notice: 'This session was not verified as yours.',
                   question: `Resume ${sessionId} and mark it as yours?`,
                 } as const),
-        openAccepted: (bindingId, sessionId, digest) => {
-          record.calls.push(['open-accepted', bindingId, sessionId, digest]);
+        openAccepted: (bindingId, sessionId, digest, questionId) => {
+          record.calls.push(['open-accepted', bindingId, sessionId, digest, questionId]);
         },
       },
       session: {

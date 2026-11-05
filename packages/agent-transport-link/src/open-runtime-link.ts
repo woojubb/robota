@@ -89,7 +89,8 @@ export interface IRuntimeLinkClient {
   installTrustRoot(root: ITrustRoot): Promise<void>;
   lock(reason: TRequestedLockReason): Promise<void>;
   question(sessionId: string): Promise<TOwnerSessionQuestion>;
-  openAccepted(bindingId: string, sessionId: string, acceptedDigest: string): Promise<void>;
+  cancelQuestion(): Promise<void>;
+  openAccepted(bindingId: string, sessionId: string, acceptedDigest: string, questionId: string): Promise<void>;
   control(request: IOwnerControlRequest): Promise<TOwnerControlResult>;
   readonly session: ILinkSessionChannel;
   /** Settles once the link has closed, for whatever reason. */
@@ -203,9 +204,13 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
     return (reply as Extract<TRuntimeMessage, { op: 'question' }>).question;
   }
 
-  async openAccepted(bindingId: string, sessionId: string, acceptedDigest: string): Promise<void> {
+  async cancelQuestion(): Promise<void> {
+    await this.#request((requestId) => ({ op: 'cancel-question', requestId }), 'done');
+  }
+
+  async openAccepted(bindingId: string, sessionId: string, acceptedDigest: string, questionId: string): Promise<void> {
     await this.#request(
-      (requestId) => ({ op: 'open-accepted', requestId, bindingId, sessionId, acceptedDigest }),
+      (requestId) => ({ op: 'open-accepted', requestId, bindingId, sessionId, acceptedDigest, questionId }),
       'done',
     );
   }

@@ -68,6 +68,11 @@ export function unverifiedSessionNotice(sessionId: string): string {
 /** The question asked after {@link unverifiedSessionNotice}; no is the default. */
 export const UNVERIFIED_SESSION_QUESTION = 'Resume it and mark it as yours?';
 
+/** Fixed recovery instruction for a served review whose sandbox setup cannot be cancelled. */
+export const OWNER_SANDBOX_REVIEW_UNAVAILABLE =
+  'This session requires sandbox setup that cannot be cancelled while attached. ' +
+  'Review it in a local interactive terminal with --resume and its session ID.';
+
 /**
  * What a person is told of an unverified record that has no stored bytes to accept — one rebuilt
  * from its replay log — so it cannot be marked as theirs. Fixed text and the id only.

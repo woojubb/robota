@@ -24,6 +24,8 @@ import type { TLinkMode } from '@robota-sdk/agent-keyring';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import type { IAdmittedRuntimeLink, ILinkSessionSink } from '@robota-sdk/agent-transport-link';
 import type { TSupervisedAttachTarget } from '../session-inventory/supervised-attach.js';
+import type { IServeOwnerDirectory } from '../modes/serve-session-directory.js';
+import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface-session';
 
 export type TLinkAttachRefusal = 'unsupported-attach' | 'already-attached' | 'attach-limit';
 
@@ -39,23 +41,29 @@ export interface ILinkSessionOptions {
   readonly nextDriverId: () => string;
   /** The owner did something a person does. */
   readonly onOwnerInput: () => void;
+  readonly ownerUnlocked: () => boolean;
 }
 
 interface IBound {
   readonly handler: ReturnType<typeof createSessionMessageHandler>;
   readonly release: () => void;
   readonly countsInput: boolean;
+  readonly driverId: string;
+  readonly ownerDirectory: IServeOwnerDirectory | undefined;
 }
 
 interface IBinding {
   readonly session: IProtocolSession;
   readonly directory: ISessionDirectory | undefined;
+  readonly ownerDirectory?: IServeOwnerDirectory;
   release(): void;
 }
 
-function bindingOf(target: TSupervisedAttachTarget, mode: TSessionBindingRole): IBinding {
+function bindingOf(target: TSupervisedAttachTarget, mode: TSessionBindingRole, owner: boolean): IBinding {
   return 'binder' in target
-    ? target.binder.bind(mode)
+    ? owner && mode === 'drive' && target.binder.bindOwner !== undefined
+      ? target.binder.bindOwner(mode)
+      : target.binder.bind(mode)
     : { session: target.session, directory: undefined, release: () => undefined };
 }
 
@@ -80,6 +88,7 @@ export class LinkSession implements ILinkSessionSink {
   #bound: IBound | undefined;
   #ended = false;
   #revoked = false;
+  #ownerDecision = new AbortController();
 
   constructor(options: ILinkSessionOptions) {
     this.#options = options;
@@ -95,7 +104,7 @@ export class LinkSession implements ILinkSessionSink {
     const { link, target } = this.#options;
     let binding: IBinding;
     try {
-      binding = bindingOf(target, mode);
+      binding = bindingOf(target, mode, this.#standing === 'owner');
     } catch (error) {
       releaseSurface();
       throw error;
@@ -122,6 +131,8 @@ export class LinkSession implements ILinkSessionSink {
     });
     this.#bound = {
       handler,
+      driverId,
+      ownerDirectory: binding.ownerDirectory,
       // Each step runs whatever the one before did: a binding or a slot is never kept for a link that is gone.
       release: () => {
         try {
@@ -140,6 +151,40 @@ export class LinkSession implements ILinkSessionSink {
     return { status: 'attached', driverId };
   }
 
+  /** Ends all questions issued before a lock, even if the holder is unlocked again. */
+  invalidateOwnerDecisions(): void {
+    this.#ownerDecision.abort();
+    this.#ownerDecision = new AbortController();
+    this.#bound?.ownerDirectory?.invalidate();
+  }
+
+  question(sessionId: string): TOwnerSessionQuestion {
+    const bound = this.#ownerBinding();
+    this.#options.onOwnerInput();
+    return bound.ownerDirectory!.question(sessionId);
+  }
+
+  cancelQuestion(): void {
+    const bound = this.#ownerBinding();
+    bound.ownerDirectory!.invalidate();
+  }
+
+  async openAccepted(bindingId: string, sessionId: string, digest: string, questionId: string): Promise<void> {
+    const bound = this.#ownerBinding();
+    if (bound.driverId !== bindingId) throw new Error('This session decision is no longer active.');
+    this.#options.onOwnerInput();
+    await bound.ownerDirectory!.openAccepted(sessionId, digest, questionId, this.#ownerDecision.signal);
+  }
+
+  #ownerBinding(): IBound {
+    const bound = this.#bound;
+    if (this.#standing !== 'owner' || this.#ended || this.#revoked || !this.#options.ownerUnlocked() ||
+        bound === undefined || !bound.countsInput || bound.ownerDirectory === undefined) {
+      throw new Error('This session decision is no longer active.');
+    }
+    return bound;
+  }
+
   receive(data: string): void {
     const bound = this.#bound;
     if (bound === undefined || this.#revoked) return;
@@ -155,11 +200,13 @@ export class LinkSession implements ILinkSessionSink {
   /** End this link's session authority at once; transport closure may still flush a control reply. */
   revoke(): void {
     this.#revoked = true;
+    this.invalidateOwnerDecisions();
   }
 
   /** The link is gone: unsubscribes from the session and gives the binding and the slot back. */
   end(): void {
     this.#ended = true;
+    this.invalidateOwnerDecisions();
     const bound = this.#bound;
     this.#bound = undefined;
     bound?.release();

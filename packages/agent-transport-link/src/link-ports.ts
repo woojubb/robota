@@ -63,7 +63,8 @@ export interface IOwnerLinkDesk {
 /** The runtime's session decisions for one admitted link. */
 export interface IOwnerLinkSessions {
   question(sessionId: string): TOwnerSessionQuestion | Promise<TOwnerSessionQuestion>;
-  openAccepted(bindingId: string, sessionId: string, acceptedDigest: string): void | Promise<void>;
+  cancelQuestion(): void | Promise<void>;
+  openAccepted(bindingId: string, sessionId: string, acceptedDigest: string, questionId: string): void | Promise<void>;
 }
 
 /** Where the session protocol of an admitted link goes: one serialized client message at a time. */

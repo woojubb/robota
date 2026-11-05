@@ -72,6 +72,7 @@ export class RuntimeCustody implements IRuntimeAdmission {
   readonly #options: IRuntimeCustodyOptions;
   readonly #links = new Set<IAdmittedRuntimeLink>();
   readonly #spawnerSessions = new Set<LinkSession>();
+  readonly #ownerSessions = new Set<LinkSession>();
   readonly #listeners = new Set<(event: TCustodyEvent) => void>();
   #context: IRuntimeAdmissionContext | undefined;
   #daemon = false;
@@ -82,8 +83,14 @@ export class RuntimeCustody implements IRuntimeAdmission {
   constructor(options: IRuntimeCustodyOptions) {
     this.#options = options;
     // Every change of what the keys can do is told to every link, whoever caused it.
-    options.holder.onLock(() => this.#announce());
-    options.holder.onUnlock(() => this.#announce());
+    options.holder.onLock(() => {
+      for (const session of this.#ownerSessions) session.invalidateOwnerDecisions();
+      this.#announce();
+    });
+    options.holder.onUnlock(() => {
+      for (const session of this.#ownerSessions) session.invalidateOwnerDecisions();
+      this.#announce();
+    });
   }
 
   /** What the control endpoint is given: the custody, once it knows this runtime start's binding. */
@@ -190,14 +197,16 @@ export class RuntimeCustody implements IRuntimeAdmission {
       acquireSurface: () => this.#acquireSurface(),
       nextDriverId: () => `attach:${(this.#drivers += 1)}`,
       onOwnerInput: () => this.#options.holder.touch(),
+      ownerUnlocked: () => this.#options.holder.isUnlocked,
     });
     const ports = {
       desk: this.#deskOf(link, session, context),
-      sessions: this.#sessionsOf(link),
+      sessions: this.#sessionsOf(link, session),
       session,
     };
     // Counted only once its ports exist: a link counted here is one whose `closed` will be called.
     this.#links.add(link);
+    if (link.standing === 'owner') this.#ownerSessions.add(session);
     if (link.standing === 'spawner') {
       this.#spawnerSessions.add(session);
       this.#seenSpawner = true;
@@ -237,6 +246,7 @@ export class RuntimeCustody implements IRuntimeAdmission {
       closed: () => {
         this.#links.delete(link);
         this.#spawnerSessions.delete(session);
+        this.#ownerSessions.delete(session);
         try {
           session.end();
         } finally {
@@ -248,23 +258,19 @@ export class RuntimeCustody implements IRuntimeAdmission {
     };
   }
 
-  #sessionsOf(link: IAdmittedRuntimeLink): IOwnerLinkSessions {
+  #sessionsOf(link: IAdmittedRuntimeLink, session: LinkSession): IOwnerLinkSessions {
     return {
-      question: () => {
+      question: (sessionId) => {
         if (link.standing !== 'owner') throw notAllowed();
-        // Until an owner surface can show the notice and take the answer, a runtime that cannot ask refuses.
-        return {
-          kind: 'refused',
-          message:
-            'This runtime cannot ask whether a session not verified as yours may be opened. Resume it at a terminal.',
-        };
+        return session.question(sessionId);
       },
-      openAccepted: () => {
+      cancelQuestion: () => {
         if (link.standing !== 'owner') throw notAllowed();
-        throw new OwnerRequestRefusedError(
-          'unverified',
-          'This runtime cannot open a session that is not verified as yours.',
-        );
+        session.cancelQuestion();
+      },
+      openAccepted: (bindingId, sessionId, digest, questionId) => {
+        if (link.standing !== 'owner') throw notAllowed();
+        return session.openAccepted(bindingId, sessionId, digest, questionId);
       },
     };
   }

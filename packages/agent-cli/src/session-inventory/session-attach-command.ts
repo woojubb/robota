@@ -82,7 +82,12 @@ export async function runConfirmedAttach(attach: IConfirmedAttach): Promise<numb
   let detachFailure: unknown;
   try {
     ended = await attach.render({
-      connection: { send: connection.send, subscribe: connection.subscribe, onClose: connection.onClose },
+      connection: {
+        send: connection.send,
+        subscribe: connection.subscribe,
+        onClose: connection.onClose,
+        ...(connection.ownerSessions !== undefined ? { ownerSessions: connection.ownerSessions } : {}),
+      },
       driverId: connection.driverId,
     });
   } finally {

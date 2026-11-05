@@ -4,6 +4,7 @@ export type TOwnerSessionQuestion =
   | {
       readonly kind: 'accept';
       readonly digest: string;
+      readonly questionId: string;
       readonly notice: string;
       readonly question: string;
     }
@@ -15,5 +16,6 @@ export type TOwnerSessionQuestion =
  */
 export interface IOwnerSessionDirectory {
   question(sessionId: string): TOwnerSessionQuestion | Promise<TOwnerSessionQuestion>;
-  openAccepted(sessionId: string, acceptedDigest: string): void | Promise<void>;
+  cancelQuestion(): void | Promise<void>;
+  openAccepted(sessionId: string, acceptedDigest: string, questionId: string): void | Promise<void>;
 }

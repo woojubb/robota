@@ -68,6 +68,8 @@ export interface ISessionPoolOptions<TSession> {
   primary: TSession;
   /** Build a session, resuming `resumeSessionId` when given, or a fresh one. */
   build(resumeSessionId?: string): TSession;
+  /** Build only the exact record accepted by a still-authorized owner. */
+  buildAccepted?(sessionId: string, digest: string, signal: AbortSignal): TSession;
   /** Live sessions at most, the primary and sessions still starting included. */
   maxLive?: number;
   /** How long a session nobody is bound to stays live once idle. */
@@ -114,6 +116,8 @@ interface IEntry<TSession> {
   id: string | undefined;
   readonly session: TSession;
   readonly primary: boolean;
+  /** An accepted record stays private until the accepting binding actually moves to it. */
+  exclusive: boolean;
   clients: number;
   drivers: number;
   /** Leases not yet moved to or cancelled. */
@@ -130,6 +134,7 @@ interface IBuildState<TSession> {
   waiters: number;
   /** `shutdownAll` has already shut this build down. */
   abandoned: boolean;
+  readonly exclusive: boolean;
 }
 
 interface IBuild<TSession> extends IBuildState<TSession> {
@@ -139,6 +144,11 @@ interface IBuild<TSession> extends IBuildState<TSession> {
 interface ILeaseState<TSession> {
   readonly entry: IEntry<TSession>;
   state: 'held' | 'moved' | 'cancelled';
+}
+
+interface IAcceptedAdmissionSession {
+  commitAcceptedAdmission?(): void;
+  discardAcceptedAdmission?(): void;
 }
 
 const STOPPING_MESSAGE = 'This runtime is stopping.';
@@ -200,7 +210,24 @@ export class SessionPool<TSession extends IInteractiveSession> {
         entry = held.entry;
         this.join(entry, role);
         this.leave(previous, role);
-        slot.moveTo(entry.session);
+        try {
+          slot.moveTo(entry.session, () => {
+            if (entry.exclusive) {
+              (entry.session as IAcceptedAdmissionSession).commitAcceptedAdmission?.();
+              entry.exclusive = false;
+            }
+          });
+        } catch (error) {
+          if (entry.exclusive) {
+            const rejected = entry;
+            this.leave(rejected, role);
+            entry = previous;
+            this.join(previous, role);
+            (rejected.session as IAcceptedAdmissionSession).discardAcceptedAdmission?.();
+            if (this.entries.has(rejected)) this.close(rejected, 'owner acceptance could not move');
+          }
+          throw error;
+        }
       },
       isLastDriver: () => !released && role === 'drive' && entry.drivers === 1,
       release: () => {
@@ -228,12 +255,14 @@ export class SessionPool<TSession extends IInteractiveSession> {
       this.assertOpen();
       const live = this.findLive(sessionId);
       if (live !== undefined) {
+        if (live.exclusive) throw acceptedBuildInProgress();
         live.holds += 1;
         this.touch(live);
         return this.lease(live);
       }
       const building = this.building.get(sessionId);
       if (building !== undefined) {
+        if (building.exclusive) throw acceptedBuildInProgress();
         building.waiters += 1;
         return this.lease(await building.ready);
       }
@@ -242,10 +271,54 @@ export class SessionPool<TSession extends IInteractiveSession> {
     return this.lease(await this.startBuild(sessionId).ready);
   }
 
+  /** An acceptance never joins or lends its build to another request. */
+  async acquireAccepted(
+    sessionId: string,
+    digest: string,
+    signal: AbortSignal,
+  ): Promise<ISessionLease<TSession>> {
+    this.assertOpen();
+    if (signal.aborted) throw acceptedBuildCancelled();
+    await this.namePrimaryForAdmission(signal);
+    this.assertOpen();
+    if (signal.aborted) throw acceptedBuildCancelled();
+    if (this.findLive(sessionId) !== undefined || this.building.has(sessionId) || this.closing.has(sessionId)) {
+      throw acceptedBuildInProgress();
+    }
+    if (this.options.buildAccepted === undefined) throw acceptedBuildInProgress();
+    this.makeRoom();
+    const build = this.startBuild(sessionId, { digest, signal });
+    let rejectCancelled!: (reason: unknown) => void;
+    const cancelled = new Promise<never>((_resolve, reject) => { rejectCancelled = reject; });
+    const abort = (): void => {
+      if (build.abandoned) return;
+      build.abandoned = true;
+      if (this.building.get(sessionId) === build) this.building.delete(sessionId);
+      const entry = this.findLive(sessionId);
+      if (entry !== undefined && entry.session === build.session) {
+        this.clearGrace(entry);
+        this.entries.delete(entry);
+      }
+      (build.session as IAcceptedAdmissionSession).discardAcceptedAdmission?.();
+      this.trackClosing(sessionId, this.shutdownQuietly(build.session, 'owner acceptance cancelled'));
+      rejectCancelled(acceptedBuildCancelled());
+    };
+    signal.addEventListener('abort', abort, { once: true });
+    if (signal.aborted) abort();
+    try {
+      const entry = await Promise.race([build.ready, cancelled]);
+      if (signal.aborted) throw acceptedBuildCancelled();
+      return this.lease(entry, true);
+    } finally {
+      signal.removeEventListener('abort', abort);
+    }
+  }
+
   /** The live sessions that have named themselves, and who is on each. */
   listLive(): ISessionPoolEntry<TSession>[] {
     const rows: ISessionPoolEntry<TSession>[] = [];
     for (const entry of this.entries) {
+      if (entry.exclusive) continue;
       const sessionId = this.entryId(entry);
       if (sessionId === undefined) continue;
       rows.push({
@@ -301,11 +374,13 @@ export class SessionPool<TSession extends IInteractiveSession> {
     id: string | undefined,
     holds: number,
     primary = false,
+    exclusive = false,
   ): IEntry<TSession> {
     const entry: IEntry<TSession> = {
       id,
       session,
       primary,
+      exclusive,
       clients: 0,
       drivers: 0,
       holds,
@@ -334,6 +409,20 @@ export class SessionPool<TSession extends IInteractiveSession> {
     await whenInitialized(this.primaryEntry.session).catch(() => undefined);
   }
 
+  private async namePrimaryForAdmission(signal: AbortSignal): Promise<void> {
+    let cancel!: () => void;
+    const cancelled = new Promise<never>((_resolve, reject) => {
+      cancel = () => reject(acceptedBuildCancelled());
+    });
+    signal.addEventListener('abort', cancel, { once: true });
+    try {
+      if (signal.aborted) cancel();
+      await Promise.race([this.namePrimary(), cancelled]);
+    } finally {
+      signal.removeEventListener('abort', cancel);
+    }
+  }
+
   private findLive(sessionId: string): IEntry<TSession> | undefined {
     for (const entry of this.entries) {
       if (this.entryId(entry) === sessionId) return entry;
@@ -341,7 +430,7 @@ export class SessionPool<TSession extends IInteractiveSession> {
     return undefined;
   }
 
-  private lease(entry: IEntry<TSession>): ISessionLease<TSession> {
+  private lease(entry: IEntry<TSession>, closeOnCancel = false): ISessionLease<TSession> {
     const held: ILeaseState<TSession> = { entry, state: 'held' };
     const lease: ISessionLease<TSession> = {
       session: entry.session,
@@ -350,6 +439,11 @@ export class SessionPool<TSession extends IInteractiveSession> {
         held.state = 'cancelled';
         entry.holds -= 1;
         this.touch(entry);
+        if (closeOnCancel && entry.clients === 0 && entry.holds === 0 && this.entries.has(entry)) {
+          (entry.session as IAcceptedAdmissionSession).discardAcceptedAdmission?.();
+          this.close(entry, 'owner acceptance cancelled');
+          return;
+        }
         this.settle(entry);
       },
     };
@@ -446,15 +540,22 @@ export class SessionPool<TSession extends IInteractiveSession> {
     return this.shutdownSession(session, message).catch(() => undefined);
   }
 
-  private startBuild(sessionId: string | undefined): IBuild<TSession> {
+  private startBuild(
+    sessionId: string | undefined,
+    accepted?: { readonly digest: string; readonly signal: AbortSignal },
+  ): IBuild<TSession> {
     let session: TSession;
     try {
-      session = this.options.build(sessionId);
+      session = accepted === undefined
+        ? this.options.build(sessionId)
+        : this.options.buildAccepted!(sessionId!, accepted.digest, accepted.signal);
     } catch (error) {
       throw startFailed(error);
     }
     const key = sessionId ?? `\0new#${(this.freshBuilds += 1)}`;
-    const state: IBuildState<TSession> = { key, session, waiters: 1, abandoned: false };
+    const state: IBuildState<TSession> = {
+      key, session, waiters: 1, abandoned: false, exclusive: accepted !== undefined,
+    };
     // One object: `shutdownAll` marks the map's build abandoned, and `finishBuild` reads the mark.
     const build: IBuild<TSession> = Object.assign(state, {
       ready: this.finishBuild(state, sessionId),
@@ -470,17 +571,25 @@ export class SessionPool<TSession extends IInteractiveSession> {
     try {
       await whenInitialized(build.session);
     } catch (error) {
-      this.building.delete(build.key);
+      if (this.building.get(build.key) === build) this.building.delete(build.key);
       if (build.abandoned) throw new SessionChangeRefusal('stopping', STOPPING_MESSAGE);
       const done = this.shutdownQuietly(build.session, 'session failed to start');
       this.trackClosing(sessionId, done);
       await done;
       throw startFailed(error);
     }
-    this.building.delete(build.key);
+    if (this.building.get(build.key) === build) this.building.delete(build.key);
     if (build.abandoned) throw new SessionChangeRefusal('stopping', STOPPING_MESSAGE);
-    return this.register(build.session, sessionId, build.waiters);
+    return this.register(build.session, sessionId, build.waiters, false, build.exclusive);
   }
+}
+
+function acceptedBuildInProgress(): SessionChangeRefusal {
+  return new SessionChangeRefusal('in_progress', 'This session changed while being reviewed; review it again.');
+}
+
+function acceptedBuildCancelled(): SessionChangeRefusal {
+  return new SessionChangeRefusal('in_progress', 'The session review was cancelled.');
 }
 
 /** Resolves once `session` has started, for a session that says when; a sync throw rejects too. */

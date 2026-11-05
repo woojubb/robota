@@ -205,9 +205,14 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
           requestId,
           question: await linked.sessions.question(request.sessionId),
         }));
+      case 'cancel-question':
+        return reply(requestId, async () => {
+          await linked.sessions.cancelQuestion();
+          return { op: 'done', requestId };
+        });
       case 'open-accepted':
         return reply(requestId, async () => {
-          await linked.sessions.openAccepted(request.bindingId, request.sessionId, request.acceptedDigest);
+          await linked.sessions.openAccepted(request.bindingId, request.sessionId, request.acceptedDigest, request.questionId);
           return { op: 'done', requestId };
         });
       case 'control':

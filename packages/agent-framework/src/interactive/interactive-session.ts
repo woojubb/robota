@@ -328,6 +328,8 @@ export class InteractiveSession
    * ends on every way out of the session.
    */
   private readonly recordClaim?: SessionRecordClaim;
+  private pendingAcceptedAdmission: { readonly signal: AbortSignal; readonly onAbort: () => void } | undefined;
+  private discardedAcceptedAdmission = false;
 
   constructor(options: TInteractiveSessionOptions) {
     super();
@@ -624,12 +626,29 @@ export class InteractiveSession
       });
     }
 
+    // A revoked owner decision immediately gives up its claim, including while initialization waits.
+    const admission = options.resumeAdmissionSignal;
+    const cancelAdmission = (): void => {
+      this.discardedAcceptedAdmission = true;
+      this.execCtrl.shuttingDown = true;
+      this.recordClaim?.end();
+    };
+    if (admission !== undefined) this.pendingAcceptedAdmission = { signal: admission, onAbort: cancelAdmission };
+    admission?.addEventListener('abort', cancelAdmission, { once: true });
     // A claim taken from here on is let go if the session never comes to exist.
     try {
+      admission?.throwIfAborted();
+      if (admission !== undefined && 'workspaceManifest' in options && options.workspaceManifest !== undefined) {
+        throw new Error('This session uses a sandbox workspace that cannot be cancelled safely; review it in a local interactive terminal.');
+      }
       const hasInjectedSession = this.configureInjectedSession(options);
       this.restoreSessionRecordIfNeeded(options);
       if (hasInjectedSession) this.recordClaim?.claimSession(this.session!.getSessionId());
       this.startAsyncInitializationIfNeeded(options, hasInjectedSession);
+      if (this.initPromise !== null) void this.initPromise.catch(() => {
+        admission?.removeEventListener('abort', cancelAdmission);
+        this.pendingAcceptedAdmission = undefined;
+      });
       // The baseline is the initialized session's status, so the first push is a real change.
       if (this.initialized) this.statusPush.prime();
       else
@@ -638,13 +657,14 @@ export class InteractiveSession
           () => undefined,
         );
 
-      if (this.initialized) {
+      if (this.initialized && admission === undefined) {
         this.bgTracker.subscribe(this.session!);
         this.resumeSelfPacedLoops();
       }
-      if (this.initialized) this.persistCurrentSession();
-      this.resumeGoalIfActive();
+      if (this.initialized && admission === undefined) this.persistCurrentSession();
+      if (admission === undefined) this.resumeGoalIfActive();
     } catch (error) {
+      admission?.removeEventListener('abort', cancelAdmission);
       this.recordClaim?.end();
       throw error;
     }
@@ -684,8 +704,12 @@ export class InteractiveSession
     // bytes are raised to the owner's only once the restore went ahead.
     const outcome = this.recordClaim.readForRestore(options.resumeSessionId, this.startedAsFork);
     try {
+      if (options.resumeAdmissionSignal !== undefined && outcome.status === 'valid' && outcome.record.sandboxSnapshotId) {
+        throw new Error('This session uses a sandbox snapshot that cannot be cancelled safely; review it in a local interactive terminal.');
+      }
       if (outcome.status === 'valid') options.checkRestoredRecord?.(outcome.record);
       this.restoreFromOutcome(options.resumeSessionId, outcome, copy);
+      options.resumeAdmissionSignal?.throwIfAborted();
       this.recordClaim.restored();
     } finally {
       if (this.startedAsFork) this.recordClaim.copied();
@@ -831,6 +855,10 @@ export class InteractiveSession
         },
       },
     });
+    if (options.resumeAdmissionSignal?.aborted === true) {
+      void result.session.shutdown({ reason: 'other' }).catch(() => undefined);
+      options.resumeAdmissionSignal.throwIfAborted();
+    }
     // A new session claims its id before its first save; a resumed one already holds it.
     try {
       this.recordClaim?.claimSession(result.session.getSessionId());
@@ -854,10 +882,36 @@ export class InteractiveSession
       this.announceWorkspaceMove(options.workspaceMovedFrom, result.agentsFileEntries);
     }
     this.initialized = true;
-    this.bgTracker.subscribe(this.session);
+    if (options.resumeAdmissionSignal === undefined) {
+      this.bgTracker.subscribe(this.session);
+      this.resumeSelfPacedLoops();
+      this.persistCurrentSession();
+      this.emit('context_update', this.getContextState());
+    }
+  }
+
+  /** Activate a privately initialized owner acceptance only as its binding moves onto it. */
+  commitAcceptedAdmission(): void {
+    const admission = this.pendingAcceptedAdmission;
+    if (admission === undefined) return;
+    admission.signal.throwIfAborted();
+    const session = this.getSessionOrThrow();
+    admission.signal.removeEventListener('abort', admission.onAbort);
+    this.pendingAcceptedAdmission = undefined;
+    this.bgTracker.subscribe(session);
     this.resumeSelfPacedLoops();
     this.persistCurrentSession();
     this.emit('context_update', this.getContextState());
+    this.resumeGoalIfActive();
+  }
+
+  /** Drop a private accepted session without starting work or creating a sandbox snapshot. */
+  discardAcceptedAdmission(): void {
+    const admission = this.pendingAcceptedAdmission;
+    if (admission === undefined) return;
+    admission.signal.removeEventListener('abort', admission.onAbort);
+    this.pendingAcceptedAdmission = undefined;
+    admission.onAbort();
   }
 
   /** Issue #3081: tell the model (once) that it now works in this directory, with what it loaded. */
@@ -1757,6 +1811,7 @@ export class InteractiveSession
 
   shutdown(options: IInteractiveSessionShutdownOptions = {}): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
+    this.discardAcceptedAdmission();
     this.execCtrl.shuttingDown = true;
     this.externalEventIngress?.closeAll();
     for (const timer of this.sessionLoopExpiryTimers.values()) clearTimeout(timer);
@@ -1771,8 +1826,10 @@ export class InteractiveSession
         await this.runtimeTools.drain();
         await this.getBackgroundTaskManager()?.shutdown(options.message ?? 'Session shutdown');
         this.bgTracker.dispose();
-        await this.captureSandboxSnapshot();
-        this.persistCurrentSession();
+        if (!this.discardedAcceptedAdmission) {
+          await this.captureSandboxSnapshot();
+          this.persistCurrentSession();
+        }
         // That was the last save of the record, so the claim ends now — a refusal still standing is
         // saved as a copy and said while listeners still hear it.
         this.recordClaim?.end();

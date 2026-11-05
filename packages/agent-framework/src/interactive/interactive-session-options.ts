@@ -135,6 +135,8 @@ export interface IInteractiveSessionStandardOptions {
    * (which the session then adopts); anything else is refused. Ignored by a store that never seals.
    */
   acceptedDigest?: string;
+  /** Revokes an owner-approved restore until initialization finishes. */
+  resumeAdmissionSignal?: AbortSignal;
   /**
    * Called with the record the session is about to restore from — over a store that seals, the
    * claim's own read, after its gate — before anything in it is restored or started. A throw refuses
@@ -331,6 +333,8 @@ export interface IInteractiveSessionInjectedOptions {
   resumeSessionId?: string;
   /** See the standard options. */
   acceptedDigest?: string;
+  /** See the standard options. */
+  resumeAdmissionSignal?: AbortSignal;
   /** See the standard options. */
   checkRestoredRecord?: (record: IInteractiveSessionRecord) => void;
   forkSession?: boolean;

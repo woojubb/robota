@@ -354,6 +354,7 @@ describe.skipIf(process.platform === 'win32')('the front door of the owner link'
             closed: () => undefined,
           },
           sessions: {
+            cancelQuestion: () => undefined,
             question: () => ({ kind: 'open' }),
             openAccepted: () => undefined,
           },

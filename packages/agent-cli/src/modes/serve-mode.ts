@@ -378,6 +378,7 @@ export function buildPooledSessionOptions(
     sessionName: undefined,
     // What the owner accepted at launch was one record's bytes; a pooled session is another record.
     acceptedDigest: undefined,
+    resumeAdmissionSignal: undefined,
   };
 }
 
@@ -554,6 +555,16 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
             primary,
             build: (resumeSessionId) =>
               buildRuntimeSession(buildPooledSessionOptions(sessionOptions, opts, resumeSessionId)),
+            buildAccepted: (resumeSessionId, acceptedDigest, resumeAdmissionSignal) =>
+              buildRuntimeSession({
+                ...buildPooledSessionOptions(sessionOptions, opts, resumeSessionId),
+                acceptedDigest,
+                resumeAdmissionSignal,
+                checkRestoredRecord: (record) => {
+                  if (record.cwd !== opts.cwd) throw new Error('The session is no longer in this workspace.');
+                  sessionOptions.checkRestoredRecord?.(record);
+                },
+              }),
             maxLive: SESSION_POOL_MAX_LIVE,
           });
           pool = live;
@@ -562,6 +573,8 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
             primary,
             store: sessionOptions.sessionStore,
             cwd: opts.cwd,
+            ownerReviewHasUncancellableSandbox:
+              'workspaceManifest' in sessionOptions && sessionOptions.workspaceManifest !== undefined,
             isStopping: () => settling,
           });
         }

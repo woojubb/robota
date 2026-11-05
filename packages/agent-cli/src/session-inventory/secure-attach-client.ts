@@ -70,8 +70,33 @@ export async function openSecureAttach(options: {
     if (attached.status !== 'attached' || typeof attached.driverId !== 'string' || attached.driverId.length === 0) {
       throw new Error('The secure runtime refused attach.');
     }
+    const driverId = attached.driverId;
     return {
-      driverId: attached.driverId,
+      driverId,
+      ...(options.mode === 'drive' ? {
+        ownerSessions: {
+          directory: {
+            question: (sessionId: string) => link.question(sessionId),
+            cancelQuestion: async () => {
+              try {
+                await link.cancelQuestion();
+              } catch (error) {
+                link.close();
+                throw error;
+              }
+            },
+            openAccepted: (sessionId: string, digest: string, questionId: string) =>
+              link.openAccepted(driverId, sessionId, digest, questionId),
+          },
+          onInvalidate: (listener: () => void) => {
+            let active = true;
+            const unsubscribeCustody = link.onCustody(() => { if (active) listener(); });
+            if (!link.custody.unlocked) queueMicrotask(() => { if (active) listener(); });
+            void link.closed.then(() => { if (active) listener(); });
+            return () => { active = false; unsubscribeCustody(); };
+          },
+        },
+      } : {}),
       send: (message) => link.session.send(message),
       subscribe: (listener) => {
         listeners.add(listener);

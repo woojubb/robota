@@ -34,6 +34,7 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
       execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source'] });
     const attach = await openSecureAttach({ ...started, root, mode: 'observe', handover });
     expect(attach.driverId).toMatch(/^attach:/u);
+    expect(attach.ownerSessions).toBeUndefined();
     const otherLink = await openRegisteredOwnerLink({ ...started, root, handover });
     try {
       expect(otherLink.custody.unlocked).toBe(true);
@@ -44,6 +45,20 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
       await attach.detach();
       await locked;
       expect(otherLink.custody.unlocked).toBe(false);
+      const driver = await openSecureAttach({ ...started, root, mode: 'drive', handover });
+      expect(driver.ownerSessions).toBeDefined();
+      const invalidated = vi.fn();
+      const unsubscribe = driver.ownerSessions!.onInvalidate(invalidated);
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      expect(invalidated).not.toHaveBeenCalled();
+      await otherLink.unlock();
+      await vi.waitFor(() => expect(invalidated).toHaveBeenCalledOnce(), { timeout: 2_000 });
+      expect(otherLink.custody.unlocked).toBe(true);
+      invalidated.mockClear();
+      await otherLink.lock('explicit');
+      await vi.waitFor(() => expect(invalidated).toHaveBeenCalledOnce(), { timeout: 2_000 });
+      unsubscribe();
+      await driver.detach();
     } finally { otherLink.close(); }
     const surfaces: Array<Awaited<ReturnType<typeof openRegisteredOwnerLink>>> = [];
     try {

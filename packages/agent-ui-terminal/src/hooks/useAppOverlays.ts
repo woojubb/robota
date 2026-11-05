@@ -3,8 +3,9 @@ import { listResumableSessions, lockedSessionsNotice } from '@robota-sdk/agent-f
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 import { useUnlockCommand } from '../tui-cli-adapter-context.js';
+import { linkedPickerDecisions, localPickerDecisions, plainHostedPickerDecisions } from '../session-picker-decisions.js';
 import { usePluginCallbacks } from './usePluginCallbacks.js';
-import { RESUME_CANCELLED_NOTICE, useSessionSelection } from './useSessionSelection.js';
+import { useSessionSelection } from './useSessionSelection.js';
 
 import type {
   IAppPluginViewModel,
@@ -17,6 +18,7 @@ import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command'
 import type {
   IInteractiveSessionStore,
   ISessionListingEntry,
+  IOwnerSessionDirectory,
 } from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
@@ -29,6 +31,8 @@ interface IOptions {
   readonly transportVisible: boolean;
   readonly setTransportVisible: (visible: boolean) => void;
   readonly sessionStore: IInteractiveSessionStore | undefined;
+  readonly ownerSessions?: IOwnerSessionDirectory | undefined;
+  readonly onOwnerInvalidated?: ((listener: () => void) => () => void) | undefined;
   /** The host's sessions, when the channel's host keeps them; they replace the local store's. */
   readonly hostSessions: readonly ISessionListingEntry[] | undefined;
   /** The sealed sessions the host left out of `hostSessions`, for whatever reason it cannot open them. */
@@ -66,10 +70,6 @@ export function useAppOverlays(options: IOptions): IAppOverlays {
     (content: string) => options.addEntry(messageToHistoryEntry(createSystemMessage(content))),
     [options.addEntry],
   );
-  const cancelSessionPicker = useCallback(() => {
-    options.setSessionPickerVisible(false);
-    options.addEntry(messageToHistoryEntry(createSystemMessage(RESUME_CANCELLED_NOTICE)));
-  }, [options.addEntry, options.setSessionPickerVisible]);
   // The store is read once each time the picker opens, not on every render of the app: a listing
   // decodes every saved session, and the app re-renders on every keystroke and streamed token.
   const unlockCommand = useUnlockCommand();
@@ -95,10 +95,23 @@ export function useAppOverlays(options: IOptions): IAppOverlays {
     options.cwd,
   ]);
   const sessions: readonly ISessionListingEntry[] = listing?.sessions ?? NO_SESSIONS;
+  const sessionsRef = useRef(sessions);
+  sessionsRef.current = sessions;
+  const switchRef = useRef(options.onSessionSwitch);
+  switchRef.current = options.onSessionSwitch;
+  const hostListing = options.hostSessions !== undefined;
+  // Identity changes only when the store or linked authority changes; normal listing updates keep
+  // the current question alive while the adapter reads the latest rows and switch callback.
+  const decisions = useMemo(() => {
+    if (hostListing) return options.ownerSessions === undefined
+      ? plainHostedPickerDecisions()
+      : linkedPickerDecisions(options.ownerSessions);
+    return localPickerDecisions(options.sessionStore, () => sessionsRef.current,
+      (id, switchOptions) => switchRef.current(id, switchOptions));
+  }, [hostListing, options.ownerSessions, options.sessionStore]);
   const selection = useSessionSelection({
-    sessions,
-    sessionStore: options.sessionStore,
-    hostListing: options.hostSessions !== undefined,
+    ownerSessions: decisions,
+    onOwnerInvalidated: options.onOwnerInvalidated,
     pickerVisible: options.sessionPickerVisible,
     setPickerVisible: options.setSessionPickerVisible,
     onSessionSwitch: options.onSessionSwitch,
@@ -136,8 +149,9 @@ export function useAppOverlays(options: IOptions): IAppOverlays {
     sessionPicker: {
       visible: options.sessionPickerVisible && !nothingToResume,
       sessions,
+      pickerKey: selection.pickerKey,
       select: selection.select,
-      cancel: cancelSessionPicker,
+      cancel: selection.cancel,
       pendingAcceptance: selection.pendingAcceptance,
     },
   };

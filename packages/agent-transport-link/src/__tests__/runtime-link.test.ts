@@ -332,18 +332,19 @@ describe('an owner link', () => {
     await client.lock('screen-lock');
     expect(await client.question('sess_1')).toEqual({
       kind: 'accept',
+      questionId: 'question-1',
       digest: 'd'.repeat(64),
       notice: 'This session was not verified as yours.',
       question: 'Resume sess_1 and mark it as yours?',
     });
-    await client.openAccepted('attach:1', 'sess_1', 'd'.repeat(64));
+    await client.openAccepted('attach:1', 'sess_1', 'd'.repeat(64), 'question-1');
     expect(await client.control({ command: 'rename', fields: { name: 'Mine' } })).toEqual({
       status: 'renamed',
       name: 'Mine',
     });
     expect(runtime.record.calls.slice(-3)).toEqual([
       ['lock', 'screen-lock'],
-      ['open-accepted', 'attach:1', 'sess_1', 'd'.repeat(64)],
+      ['open-accepted', 'attach:1', 'sess_1', 'd'.repeat(64), 'question-1'],
       ['control', 'rename'],
     ]);
 

@@ -3,12 +3,15 @@
  * unlock does and what takes the keys away again. Every client is the real carrier's, over the real
  * endpoint, so what is admitted and what is refused is what a program on the socket meets.
  */
-import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { createConnection, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { InteractiveSession, SessionPool, SessionSlot } from '@robota-sdk/agent-framework';
+import { createScriptedProvider, createTestArtifactSealer, openTestWriteGrant } from '@robota-sdk/agent-core/testing';
+import { SESSION_RECORD_ENVELOPE_VERSION } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import {
   createKeyring,
@@ -35,6 +38,7 @@ import {
   type ISupervisedControl,
 } from '../../session-inventory/supervised-session-control.js';
 import { MAX_ATTACHED_SURFACES } from '../../session-inventory/supervised-attach.js';
+import { createServeSessionDirectory } from '../../modes/serve-session-directory.js';
 import { KeyHolder, type IKeyHolderTimer, type IKeyHolderTimers, type TLockReason } from '../key-holder.js';
 import { RuntimeCustody } from '../runtime-custody.js';
 import {
@@ -47,6 +51,7 @@ import {
 
 import type { ISessionBinder, ISessionDirectory } from '@robota-sdk/agent-interface-session';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
+import type { IServeOwnerBinding, IServeOwnerDirectory } from '../../modes/serve-session-directory.js';
 
 const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
 const IDLE_MS = 15 * 60_000;
@@ -164,6 +169,10 @@ interface IStartOptions {
   readonly withBinder?: boolean;
   /** The binder's `release` fails, as a host that cannot tell a client it is gone might. */
   readonly releaseThrows?: boolean;
+  readonly ownerDirectory?: IServeOwnerDirectory;
+  readonly binderFactory?: (primary: InteractiveSession) => ISessionBinder<IProtocolSession> & {
+    bindOwner(role: 'drive' | 'observe'): IServeOwnerBinding<IProtocolSession>;
+  };
 }
 
 async function start(options: IStartOptions = {}): Promise<IStarted> {
@@ -191,13 +200,20 @@ async function start(options: IStartOptions = {}): Promise<IStarted> {
   const released = vi.fn(() => {
     if (options.releaseThrows) throw new Error('The host could not release the binding.');
   });
-  const binder: ISessionBinder<IProtocolSession> = {
+  const binder: ISessionBinder<IProtocolSession> & { bindOwner?: (role: 'drive' | 'observe') => {
+    session: IProtocolSession; directory: ISessionDirectory; release: () => void; ownerDirectory: IServeOwnerDirectory;
+  } } = {
     bind: () => ({ session, directory: directory as unknown as ISessionDirectory, release: released }),
+    ...(options.ownerDirectory !== undefined ? {
+      bindOwner: () => ({ session, directory: directory as unknown as ISessionDirectory, release: released, ownerDirectory: options.ownerDirectory! }),
+    } : {}),
   };
   const custody = new RuntimeCustody({
     identity,
     holder,
-    attachTarget: options.withBinder ? { binder } : { session },
+    attachTarget: options.binderFactory !== undefined
+      ? { binder: options.binderFactory(session) }
+      : options.withBinder ? { binder } : { session },
     ...(options.closeFlushTimeoutMs === undefined
       ? {}
       : { closeFlushTimeoutMs: options.closeFlushTimeoutMs }),
@@ -278,6 +294,249 @@ async function attach(client: IRuntimeLinkClient, mode: string): Promise<unknown
 
 const refusedWith = (code: string): unknown =>
   expect.objectContaining({ name: 'OwnerRequestRefusedError', code });
+
+describe.skipIf(process.platform === 'win32')('owner decisions over a real link', () => {
+  it('invalidates an existing owner question when another grant replaces the holder keys', async () => {
+    const invalidate = vi.fn();
+    const started = await certified({ withBinder: true, ownerDirectory: {
+      question: () => ({ kind: 'open' }), invalidate, openAccepted: async () => undefined,
+    } });
+    const first = await ownerLink(started);
+    const second = await ownerLink(started);
+    await first.unlock();
+    await attach(first, 'drive');
+    await first.question('sess_test');
+    invalidate.mockClear();
+    await second.unlock();
+    expect(invalidate).toHaveBeenCalled();
+  });
+
+  it('asks, accepts and moves the driving binding to the exact sealed record', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'rs-owner-record-'));
+    scratch.push(cwd);
+    const records = join(cwd, 'records');
+    mkdirSync(records);
+    const sealer = createTestArtifactSealer();
+    const store = new NodeSessionStore(records, { sealing: { sealer } });
+    const sessionId = 'sess_owner_decision';
+    const delayedId = 'sess_owner_delayed';
+    const closeId = 'sess_owner_close';
+    const swappedId = 'sess_owner_swapped';
+    const deletedId = 'sess_owner_deleted';
+    const regrantId = 'sess_owner_regrant';
+    let releaseRestore!: () => void;
+    let announceRestore!: () => void;
+    const restoring = new Promise<void>((resolve) => { announceRestore = resolve; });
+    const restore = new Promise<void>((resolve) => { releaseRestore = resolve; });
+    let releaseCloseRestore!: () => void;
+    let announceCloseRestore!: () => void;
+    const closeRestoring = new Promise<void>((resolve) => { announceCloseRestore = resolve; });
+    const closeRestore = new Promise<void>((resolve) => { releaseCloseRestore = resolve; });
+    const record = {
+      id: sessionId, cwd,
+      createdAt: '2026-11-01T00:00:00.000Z', updatedAt: '2026-11-01T00:01:00.000Z',
+      messages: [{ id: 'm1', role: 'user', content: 'untrusted record text', state: 'complete', timestamp: '2026-11-01T00:00:00.000Z' }],
+      history: [],
+    };
+    const grant = openTestWriteGrant(sealer.writeGrant());
+    writeFileSync(join(records, `${sessionId}.json`), grant.sealBytes(
+      Buffer.from(JSON.stringify({ schemaVersion: SESSION_RECORD_ENVELOPE_VERSION, record })),
+      { kind: 'session-record', id: sessionId },
+    ));
+    writeFileSync(join(records, `${delayedId}.json`), grant.sealBytes(
+      Buffer.from(JSON.stringify({ schemaVersion: SESSION_RECORD_ENVELOPE_VERSION,
+        record: { ...record, id: delayedId } })),
+      { kind: 'session-record', id: delayedId },
+    ));
+    writeFileSync(join(records, `${closeId}.json`), grant.sealBytes(
+      Buffer.from(JSON.stringify({ schemaVersion: SESSION_RECORD_ENVELOPE_VERSION,
+        record: { ...record, id: closeId } })),
+      { kind: 'session-record', id: closeId },
+    ));
+    for (const id of [swappedId, deletedId, regrantId]) {
+      writeFileSync(join(records, `${id}.json`), grant.sealBytes(
+        Buffer.from(JSON.stringify({ schemaVersion: SESSION_RECORD_ENVELOPE_VERSION, record: { ...record, id } })),
+        { kind: 'session-record', id },
+      ));
+    }
+    let pool: SessionPool<InteractiveSession> | undefined;
+    let delayedSession: InteractiveSession | undefined;
+    let closeSession: InteractiveSession | undefined;
+    const started = await certified({ binderFactory: (primary) => {
+      const build = (id: string | undefined, acceptedDigest?: string, resumeAdmissionSignal?: AbortSignal): InteractiveSession => {
+        const built = new InteractiveSession({ host: testHost, cwd, provider: createScriptedProvider([{ text: 'ok' }]).provider,
+          bare: id !== delayedId && id !== closeId, defaultTools: [], sessionStore: store, resumeSessionId: id, acceptedDigest, resumeAdmissionSignal,
+          ...(id === delayedId || id === closeId ? { memoryStore: {
+            loadStartupMemory: async () => {
+              if (id === closeId) { announceCloseRestore(); await closeRestore; }
+              else { announceRestore(); await restore; }
+              return undefined;
+            },
+          } as never } : {}),
+        });
+        if (id === delayedId) delayedSession = built;
+        if (id === closeId) closeSession = built;
+        return built;
+      };
+      pool = new SessionPool({ primary, build, buildAccepted: (id, digest, signal) => build(id, digest, signal) });
+      const directory = createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>();
+      directory.attach({ pool, primary, store, cwd });
+      return directory;
+    } });
+    const client = await ownerLink(started);
+    const heard = hear(client);
+    await client.unlock();
+    const attached = await attach(client, 'drive') as { driverId: string };
+    client.session.send({ type: 'switch-session', sessionId, acceptedDigest: 'a'.repeat(64) } as never);
+    expect((await heard.waitFor('protocol_error')).message).toContain('acceptedDigest');
+    expect(store.load(sessionId)).toMatchObject({ status: 'valid', authorship: 'unverified' });
+    const cancelled = await client.question(sessionId);
+    expect(cancelled.kind).toBe('accept');
+    if (cancelled.kind !== 'accept') throw new Error('Expected owner question');
+    await client.cancelQuestion();
+    await expect(client.openAccepted(attached.driverId, sessionId, cancelled.digest, cancelled.questionId)).rejects.toBeDefined();
+    expect(store.load(sessionId)).toMatchObject({ status: 'valid', authorship: 'unverified' });
+    const question = await client.question(sessionId);
+    expect(question.kind).toBe('accept');
+    if (question.kind !== 'accept') throw new Error('Expected owner question');
+    expect(JSON.stringify(question)).not.toContain('untrusted record text');
+
+    await expect(client.openAccepted(attached.driverId, sessionId, cancelled.digest, cancelled.questionId)).rejects.toBeDefined();
+    await client.openAccepted(attached.driverId, sessionId, question.digest, question.questionId);
+    expect((await heard.waitFor('session_switched')).event.sessionId).toBe(sessionId);
+    expect(store.load(sessionId)).toMatchObject({ status: 'valid', authorship: 'verified' });
+    expect(pool?.listLive().some((row) => row.sessionId === sessionId && row.clients === 1)).toBe(true);
+
+    const oldQuestion = await client.question(regrantId);
+    if (oldQuestion.kind !== 'accept') throw new Error('Expected regrant owner question');
+    const replacementOwner = await ownerLink(started);
+    await replacementOwner.unlock();
+    await expect(client.openAccepted(attached.driverId, regrantId, oldQuestion.digest, oldQuestion.questionId)).rejects.toBeDefined();
+    const newQuestion = await client.question(regrantId);
+    if (newQuestion.kind !== 'accept') throw new Error('Expected new owner question');
+    expect(newQuestion.digest).toBe(oldQuestion.digest);
+    expect(newQuestion.questionId).not.toBe(oldQuestion.questionId);
+    await expect(client.openAccepted(attached.driverId, regrantId, oldQuestion.digest, oldQuestion.questionId)).rejects.toBeDefined();
+    expect(store.load(regrantId)).toMatchObject({ status: 'valid', authorship: 'unverified' });
+    await client.cancelQuestion();
+    replacementOwner.close();
+
+    const swappedQuestion = await client.question(swappedId);
+    if (swappedQuestion.kind !== 'accept') throw new Error('Expected swapped owner question');
+    const beforeSwap = store.load(swappedId);
+    if (beforeSwap.status !== 'valid') throw new Error('Expected swapped record');
+    new NodeSessionStore(records, { sealing: { sealer } })
+      .save({ ...beforeSwap.record, messages: [] }, { provenance: 'owner', handoff: true });
+    await expect(client.openAccepted(attached.driverId, swappedId, swappedQuestion.digest, swappedQuestion.questionId)).rejects.toBeDefined();
+    expect(new NodeSessionStore(records, { sealing: { sealer } }).load(swappedId))
+      .toMatchObject({ status: 'valid', authorship: 'verified' });
+    expect(pool?.listLive().some((row) => row.sessionId === swappedId)).toBe(false);
+
+    const deletedQuestion = await client.question(deletedId);
+    if (deletedQuestion.kind !== 'accept') throw new Error('Expected deleted owner question');
+    store.delete(deletedId);
+    await expect(client.openAccepted(attached.driverId, deletedId, deletedQuestion.digest, deletedQuestion.questionId)).rejects.toBeDefined();
+    expect(store.load(deletedId).status).toBe('missing');
+    expect(pool?.listLive().some((row) => row.sessionId === deletedId)).toBe(false);
+
+    const delayedQuestion = await client.question(delayedId);
+    if (delayedQuestion.kind !== 'accept') throw new Error('Expected delayed owner question');
+    const opening = client.openAccepted(attached.driverId, delayedId, delayedQuestion.digest, delayedQuestion.questionId).catch(() => undefined);
+    await restoring;
+    const adopted = readFileSync(join(records, `${delayedId}.json`));
+    await client.lock('explicit');
+    await opening;
+    const claim = store.claim(delayedId);
+    claim.release();
+    await client.unlock();
+    releaseRestore();
+    await expect(delayedSession?.whenInitialized()).rejects.toBeDefined();
+    expect(readFileSync(join(records, `${delayedId}.json`)).equals(adopted)).toBe(true);
+    expect(pool?.listLive().some((row) => row.sessionId === delayedId)).toBe(false);
+    expect(heard.frames.some((frame) => frame.type === 'session_switched' && frame.event.sessionId === delayedId)).toBe(false);
+
+    const other = await ownerLink(started);
+    const closeQuestion = await client.question(closeId);
+    if (closeQuestion.kind !== 'accept') throw new Error('Expected close owner question');
+    const closing = client.openAccepted(attached.driverId, closeId, closeQuestion.digest, closeQuestion.questionId).catch(() => undefined);
+    await closeRestoring;
+    const closeAdopted = readFileSync(join(records, `${closeId}.json`));
+    client.close();
+    await closing;
+    await vi.waitFor(() => {
+      const released = store.claim(closeId);
+      released.release();
+    });
+    expect(started.holder.isUnlocked).toBe(true);
+    releaseCloseRestore();
+    await expect(closeSession?.whenInitialized()).rejects.toBeDefined();
+    expect(readFileSync(join(records, `${closeId}.json`)).equals(closeAdopted)).toBe(true);
+    expect(pool?.listLive().some((row) => row.sessionId === closeId)).toBe(false);
+    expect(heard.frames.some((frame) => frame.type === 'session_switched' && frame.event.sessionId === closeId)).toBe(false);
+    other.close();
+    await pool?.shutdownAll();
+  });
+
+  it('binds the decision to the driving link and cancels it when the holder locks', async () => {
+    const digest = 'a'.repeat(64);
+    const question = vi.fn(() => ({ kind: 'accept' as const, digest, questionId: 'q1', notice: 'notice', question: 'question' }));
+    const invalidate = vi.fn();
+    const openAccepted = vi.fn((_id: string, _digest: string, _questionId: string, signal: AbortSignal) =>
+      new Promise<void>((_resolve, reject) => signal.addEventListener('abort', () => reject(new Error('cancelled')), { once: true })));
+    const started = await certified({ withBinder: true, ownerDirectory: { question, invalidate, openAccepted } });
+    const first = await ownerLink(started);
+    const second = await ownerLink(started);
+    await first.unlock();
+    const firstAttach = await attach(first, 'drive') as { driverId: string };
+    const secondAttach = await attach(second, 'drive') as { driverId: string };
+    expect(await first.question('sess_test')).toMatchObject({ kind: 'accept', digest });
+    await expect(first.openAccepted(secondAttach.driverId, 'sess_test', digest, 'q1')).rejects.toBeDefined();
+    expect(openAccepted).not.toHaveBeenCalled();
+    const opening = first.openAccepted(firstAttach.driverId, 'sess_test', digest, 'q1').catch(() => undefined);
+    await vi.waitFor(() => expect(openAccepted).toHaveBeenCalledTimes(1));
+    const signal = openAccepted.mock.calls[0]![3];
+    await first.lock('explicit');
+    await opening;
+    expect(signal.aborted).toBe(true);
+    expect(invalidate).toHaveBeenCalled();
+    await first.unlock();
+    expect(signal.aborted).toBe(true);
+  });
+
+  it('does not give an observer the owner decision port', async () => {
+    const question = vi.fn(() => ({ kind: 'open' as const }));
+    const started = await certified({ withBinder: true, ownerDirectory: { question, invalidate: () => undefined, openAccepted: async () => undefined } });
+    const client = await ownerLink(started);
+    await client.unlock();
+    await attach(client, 'observe');
+    await expect(client.question('sess_test')).rejects.toBeDefined();
+    expect(question).not.toHaveBeenCalled();
+  });
+
+  it('cancels the first link decision on close even while another owner keeps the holder unlocked', async () => {
+    const digest = 'a'.repeat(64);
+    const openAccepted = vi.fn((_id: string, _digest: string, _questionId: string, signal: AbortSignal) =>
+      new Promise<void>((_resolve, reject) => signal.addEventListener('abort', () => reject(new Error('cancelled')), { once: true })));
+    const started = await certified({ withBinder: true, ownerDirectory: {
+      question: () => ({ kind: 'accept', digest, questionId: 'q1', notice: 'notice', question: 'question' }),
+      invalidate: () => undefined,
+      openAccepted,
+    } });
+    const first = await ownerLink(started);
+    const second = await ownerLink(started);
+    await first.unlock();
+    const attached = await attach(first, 'drive') as { driverId: string };
+    await first.question('sess_test');
+    const opening = first.openAccepted(attached.driverId, 'sess_test', digest, 'q1').catch(() => undefined);
+    await vi.waitFor(() => expect(openAccepted).toHaveBeenCalledTimes(1));
+    const signal = openAccepted.mock.calls[0]![3];
+    first.close();
+    await opening;
+    await vi.waitFor(() => expect(signal.aborted).toBe(true));
+    expect(started.holder.isUnlocked).toBe(true);
+    expect(second.custody.unlocked).toBe(true);
+  });
+});
 
 describe.skipIf(process.platform === 'win32')('a runtime before anyone certified it', () => {
   it('admits its spawner, which certifies it once; the spawner link then ends and the spawner is no longer admitted', async () => {
@@ -362,7 +621,7 @@ describe.skipIf(process.platform === 'win32')('a runtime before anyone certified
     );
     await expect(spawner.control({ command: 'status', fields: {} })).rejects.toEqual(refusedWith('not-allowed'));
     await expect(spawner.question('anything')).rejects.toEqual(refusedWith('not-allowed'));
-    await expect(spawner.openAccepted('attach:1', 'anything', 'a'.repeat(64))).rejects.toEqual(refusedWith('not-allowed'));
+    await expect(spawner.openAccepted('attach:1', 'anything', 'a'.repeat(64), 'q1')).rejects.toEqual(refusedWith('not-allowed'));
     await expect(spawner.lock('explicit')).rejects.toEqual(refusedWith('not-allowed'));
     expect(started.rename).not.toHaveBeenCalled();
   });
@@ -512,12 +771,12 @@ describe.skipIf(process.platform === 'win32')('a certified runtime and its owner
     expect(started.custody.status().daemon).toBe(true);
   });
 
-  it('declines to say whether an unverified record may be opened, until the owner surfaces can ask', async () => {
+  it('refuses owner decisions when no driving directory is attached', async () => {
     const started = await certified();
     const client = await ownerLink(started);
 
-    expect(await client.question('session_x')).toMatchObject({ kind: 'refused' });
-    await expect(client.openAccepted('attach:1', 'session_x', 'a'.repeat(64))).rejects.toEqual(refusedWith('unverified'));
+    await expect(client.question('session_x')).rejects.toBeDefined();
+    await expect(client.openAccepted('attach:1', 'session_x', 'a'.repeat(64), 'q1')).rejects.toBeDefined();
   });
 
   it('lets the owner switch to a stored record through its own binding, which a spawner could not', async () => {
