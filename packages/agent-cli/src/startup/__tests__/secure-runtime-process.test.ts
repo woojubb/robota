@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { Duplex } from 'node:stream';
 
+import { createRuntimeIdentity, startSpawnerExchange } from '@robota-sdk/agent-keyring';
 import { completeSpawnerPair, openSpawnerLink } from '@robota-sdk/agent-transport-link';
 import { afterEach, expect, it } from 'vitest';
 
@@ -61,10 +62,19 @@ it.runIf(process.platform !== 'win32')('starts the real secure CLI runtime and a
   await expect(connectSupervisedDaemon(id, supervisedRoot, row?.generation)).rejects.toThrow();
   await expect(openSupervisedAttachSocket(id, 'drive', supervisedRoot, row?.generation)).rejects.toThrow();
   const hash = createHash('sha256').update(id).digest('hex').slice(0, 16);
-  const socket = createConnection(join(resolveSupervisedDirectory(runtime), `${hash}.sock`));
+  const socketPath = join(supervisedRoot, `${hash}.sock`);
+  const otherExchange = startSpawnerExchange();
+  const other = otherExchange.complete(createRuntimeIdentity().answerSpawnerExchange(otherExchange.message));
+  const impostor = createConnection(socketPath);
+  await once(impostor, 'connect');
+  await expect(openSpawnerLink(impostor, other.spawnerKey, instancePublicKey)).rejects.toThrow();
+  other.spawnerKey.wipe();
+  const socket = createConnection(socketPath);
   await once(socket, 'connect');
   const client = await openSpawnerLink(socket, spawnerKey, instancePublicKey);
   expect(client.standing).toBe('spawner');
+  await expect(client.control({ command: 'rename', fields: { name: 'Not the owner' } })).rejects.toThrow();
+  await expect(client.question('another session')).rejects.toThrow();
   const stopped = once(child, 'exit');
   client.close();
   spawnerKey.wipe();

@@ -7,6 +7,8 @@
  * token of a plain one cannot stand in for it. Each disagreement ends the start with a fixed message
  * before the process listens on anything.
  */
+import { holdChildSpawns } from '@robota-sdk/agent-core/node';
+
 import { optionArgv } from '../utils/option-argv.js';
 import { createKeyringFileStore } from '../secure/keyring-store.js';
 import { KeyHolder } from '../secure/key-holder.js';
@@ -71,12 +73,15 @@ export function secureStartupRefusal(facts: ISecureStartupFacts): string | undef
  */
 export function answerSpawnerPairOrExit(argv: readonly string[]): IRuntimeIdentity | undefined {
   if (!spawnerPairRequested(argv)) return undefined;
+  const release = holdChildSpawns();
   try {
     return answerHandedOverSpawnerPair();
   } catch (error) {
     // allow-fallback: the message is fixed text with nothing that was exchanged; exit is the correct response
     process.stderr.write(`${error instanceof Error ? error.message : 'The spawner pair could not be answered.'}\n`);
     process.exit(1);
+  } finally {
+    release();
   }
 }
 

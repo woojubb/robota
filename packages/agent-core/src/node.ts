@@ -78,6 +78,7 @@ export {
   enableOwnChildSessions,
   endWithProcess,
   execFileInChildSession,
+  holdChildSpawns,
   signalChildGroup,
   withChildSession,
 } from './utils/child-session.js';
