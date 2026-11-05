@@ -177,7 +177,7 @@ export async function runSessionAttachCommand(
           return openSecureAttach({ id: selectedId, mode: selectedMode, root: selectedRoot, generation, handover,
             onMismatch: () => process.stderr.write('Warning: the runtime keyring sealing key differs from the unlocked key. Run secure verify to investigate.\n') });
         },
-        render: (open) => render({ ...open, mode, sessionLabel: row.name ?? id, screenReaderFlag }),
+        render: (open) => render({ ...open, mode, sessionLabel: id, screenReaderFlag }),
         messages: supervisedSessionAttachMessages(id, cliName),
       });
     } catch (error) {

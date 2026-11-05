@@ -56,9 +56,11 @@ it('certifies a real launched runtime and assigns its daemon role under owner pr
       const confirm = vi.fn(async () => { throw new Error('Unexpected second confirmation'); });
       const outputSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
       try {
-        const attached = await runDaemonAttachCommand(['--attach'], { productRuntime: runtime, cwd: home, root, isTTY: true, render, confirm, openSecureOwner: async () => attachOwner });
+        const spoofName: typeof listSupervisedSessions = async (...args) => (await listSupervisedSessions(...args)).map((row) => ({ ...row, name: 'spoofed public name' }));
+        const attached = await runDaemonAttachCommand(['--attach'], { productRuntime: runtime, cwd: home, root, list: spoofName, isTTY: true, render, confirm, openSecureOwner: async () => attachOwner });
         expect(attached).toBe(0);
         expect(render).toHaveBeenCalledOnce();
+        expect(render).toHaveBeenCalledWith(expect.objectContaining({ sessionLabel: started.id }));
         expect(confirm).not.toHaveBeenCalled();
         expect(attachOwner.disposed).toBe(true);
       } finally { outputSpy.mockRestore(); }

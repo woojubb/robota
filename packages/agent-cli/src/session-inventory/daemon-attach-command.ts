@@ -160,7 +160,7 @@ export async function runDaemonAttachCommand(
         .sort((a, b) => a.id.localeCompare(b.id));
       const selected = await proveWorkspaceDaemon({ root, workspace, candidates, handover });
       if (selected === undefined) throw new Error('No reported daemon could be proved by this owner.');
-      const { id, generation, name } = selected;
+      const { id, generation } = selected;
       return await runConfirmedAttach({
         id, mode: 'drive', generation, root,
         open: async (selectedId, mode, selectedRoot, selectedGeneration) => {
@@ -168,7 +168,7 @@ export async function runDaemonAttachCommand(
           return openSecureAttach({ id: selectedId, mode, root: selectedRoot, generation: selectedGeneration, handover,
             onMismatch: () => process.stderr.write('Warning: the runtime keyring sealing key differs from the unlocked key. Run secure verify to investigate.\n') });
         },
-        render: (open) => render({ ...open, mode: 'drive', sessionLabel: name ?? id, screenReaderFlag: parsed.screenReader }),
+        render: (open) => render({ ...open, mode: 'drive', sessionLabel: id, screenReaderFlag: parsed.screenReader }),
         messages: { detached: `Detached from daemon ${id}. It keeps running; stop it with ${cliName} daemon stop.`,
           closed: 'The daemon closed the connection (it stopped, or cut this terminal off).' },
       });

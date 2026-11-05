@@ -15,6 +15,7 @@ import { openSecureAttach } from '../secure-attach-client.js';
 import { runSessionAttachCommand } from '../session-attach-command.js';
 import { runSessionViewCommand } from '../session-view-command.js';
 import { resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
+import * as supervisedControl from '../supervised-session-control.js';
 
 it('attaches an owner over the verified link and unlocks before detaching', async () => {
   const home = realpathSync(mkdtempSync(join(process.platform === 'win32' ? tmpdir() : realpathSync('/tmp'), 'sat-')));
@@ -44,15 +45,19 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
     const confirm = vi.fn(async () => { throw new Error('An extra confirmation must not run'); });
     const render = vi.fn(async () => 'user' as const);
     const output = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const listActual = supervisedControl.listSupervisedSessions;
+    const list = vi.spyOn(supervisedControl, 'listSupervisedSessions').mockImplementation(async (...args) =>
+      (await listActual(...args)).map((row) => ({ ...row, name: 'spoofed public name' })));
     try {
       const code = await runSessionAttachCommand([started.id, '--observe'], {
         productRuntime: runtime, root, isTTY: true, render, confirm, openSecureOwner: async () => terminalOwner,
       });
       expect(code).toBe(0);
       expect(render).toHaveBeenCalledOnce();
+      expect(render).toHaveBeenCalledWith(expect.objectContaining({ sessionLabel: started.id }));
       expect(confirm).not.toHaveBeenCalled();
       expect(terminalOwner.disposed).toBe(true);
-    } finally { output.mockRestore(); }
+    } finally { list.mockRestore(); output.mockRestore(); }
     const viewOwner = await openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
     let renders = 0;
     const renderView = vi.fn(async (options: { attachWithoutConfirmation?: boolean }) => {
@@ -60,12 +65,15 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
       return renders++ === 0 ? { kind: 'attach' as const, ...started!, mode: 'observe' as const, groupByDirectory: false } : { kind: 'closed' as const };
     });
     const outputView = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const listForView = vi.spyOn(supervisedControl, 'listSupervisedSessions').mockImplementation(async (...args) =>
+      (await listActual(...args)).map((row) => ({ ...row, name: 'spoofed public name' })));
     try {
       const code = await runSessionViewCommand([], { productRuntime: runtime, root, isTTY: true, settings: {}, render: renderView, renderAttached: render, openSecureOwner: async () => viewOwner });
       expect(code).toBe(0);
       expect(render).toHaveBeenCalledTimes(2);
+      expect(render).toHaveBeenLastCalledWith(expect.objectContaining({ sessionLabel: started.id }));
       expect(viewOwner.disposed).toBe(true);
-    } finally { outputView.mockRestore(); }
+    } finally { listForView.mockRestore(); outputView.mockRestore(); }
     let viewOpen = false;
     let calls = 0;
     const start = vi.fn(async () => { expect(viewOpen).toBe(false); return 'new-runtime'; });
