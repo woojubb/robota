@@ -21,9 +21,10 @@
  */
 
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { randomUUID } from 'node:crypto';
+import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, join, resolve } from 'node:path';
+import { basename, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveNativeFixtureWorkspace } from './e2e-native-file-authority.mjs';
 import { fixtureProcessEnvironment } from './product-fixture-environment.mjs';
@@ -182,7 +183,6 @@ async function runWorkflow(context, file, { limitMs }) {
     for (const { pid, ppid } of workerProcesses(context.binary)) {
       if (ppid === child.pid) {
         workers.add(pid);
-        context.workers.add(pid);
       }
     }
     await Promise.race([closed, sleep(100)]);
@@ -211,17 +211,14 @@ function describe(run) {
 }
 
 /** Waits briefly for a worker's exit to be reaped, then removes any that remain so a failure leaves no busy process. */
-async function leftoverWorkers(binary, ownedWorkers) {
-  if (ownedWorkers.size === 0) return [];
-  const owned = () => workerProcesses(binary).filter(({ pid }) => ownedWorkers.has(pid));
+async function leftoverWorkers(binary) {
   const deadline = Date.now() + 5000;
-  let remaining = owned();
+  let remaining = workerProcesses(binary);
   while (remaining.length > 0 && Date.now() < deadline) {
     await sleep(250);
-    remaining = owned();
+    remaining = workerProcesses(binary);
   }
   for (const { pid } of remaining) killProcess(pid);
-  ownedWorkers.clear();
   return remaining.map(({ pid }) => pid);
 }
 
@@ -273,18 +270,21 @@ export async function runRegexWorkerE2e(binaryPath, options = {}) {
   const timeoutMs = options.timeoutMs ?? HOSTILE_TIMEOUT_MS;
   const marginMs = options.marginMs ?? MARGIN_MS;
   const hostileInput = options.hostileInput ?? HOSTILE_INPUT;
-  const binary = resolve(binaryPath);
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-regex-worker-')));
+  // The worker deliberately drops inherited environment variables. A per-fixture executable name
+  // still identifies its workers after reparenting without selecting another run's processes.
+  const binary = join(root, `regex-worker-${randomUUID()}${extname(binaryPath)}`);
   const home = join(root, 'home');
   // Reassigned once the repository exists: see below.
   let workspace = join(root, 'workspace');
   const env = fixtureProcessEnvironment(home);
-  const context = { binary, workspace, env, workers: new Set() };
+  const context = { binary, workspace, env };
   const cli = (args) =>
     spawnSync(binary, args, { cwd: workspace, env, encoding: 'utf8', timeout: 120_000 });
   const writeWorkflow = (name, definition) =>
     writeFileSync(join(workspace, name), JSON.stringify(definition));
   try {
+    copyFileSync(resolve(binaryPath), binary);
     mkdirSync(home, { recursive: true });
     mkdirSync(workspace, { recursive: true });
     const git = spawnSync('git', ['init', '--quiet'], { cwd: workspace, env, encoding: 'utf8' });
@@ -347,7 +347,7 @@ export async function runRegexWorkerE2e(binaryPath, options = {}) {
       }
     };
     const expectNoWorkerLeft = async (label) => {
-      const leaked = await leftoverWorkers(binary, context.workers);
+      const leaked = await leftoverWorkers(binary);
       if (leaked.length > 0) {
         throw failure(
           `${label}: regex worker process(es) ${leaked.join(', ')} outlived the run (now killed).`,
@@ -367,7 +367,7 @@ export async function runRegexWorkerE2e(binaryPath, options = {}) {
       assertHostileRun(hostile, { timeoutMs, marginMs, baselineMs: ordinary.wallMs });
     } catch (error) {
       // A run that failed its own checks may have left its worker busy; remove it before reporting.
-      await leftoverWorkers(binary, context.workers);
+      await leftoverWorkers(binary);
       throw error;
     }
     await expectNoWorkerLeft('Hostile run');
@@ -381,7 +381,7 @@ export async function runRegexWorkerE2e(binaryPath, options = {}) {
       `hostile=timeout refusal in ${hostile.wallMs}ms (ordinary ${ordinary.wallMs}ms); leaked=0; recovery=passed`
     );
   } finally {
-    await leftoverWorkers(binary, context.workers).catch(() => undefined);
+    await leftoverWorkers(binary).catch(() => undefined);
     rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
   }
 }

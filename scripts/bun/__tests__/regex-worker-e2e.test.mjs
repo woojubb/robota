@@ -1,4 +1,4 @@
-import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { tmpdir } from 'node:os';
@@ -16,11 +16,12 @@ import {
 // executables behave as the packaged CLI does for one workflow run, and each broken one must be refused.
 
 /** A stand-in for the packaged CLI, in the way `mode` says the regex worker behaves on the hostile run. */
-function fakeCli(mode) {
+function fakeCli(mode, pidLog) {
   return `#!${process.execPath}
 const { spawn } = require('node:child_process');
-const { readFileSync } = require('node:fs');
+const { appendFileSync, readFileSync } = require('node:fs');
 const mode = ${JSON.stringify(mode)};
+const pidLog = ${JSON.stringify(pidLog)};
 const args = process.argv.slice(2);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const finish = (subtype, result, code) =>
@@ -38,6 +39,11 @@ if (args[0] === '-e') {
     const file = args[1].replace('/workflows run ', '');
     const timeoutMs = JSON.parse(readFileSync(file, 'utf8')).nodes[1].timeoutMs;
     if (timeoutMs >= 30000) {
+      if (mode === 'orphan') {
+        const worker = spawn(process.argv[1], ['-e', 'const boundedRegexReplace = 1;'], { detached: true, stdio: 'ignore' });
+        worker.unref();
+        appendFileSync(pidLog, worker.pid + '\\n');
+      }
       return finish('success', 'Workflow completed in 5ms.\\nOutputs: {\\n  "regex.text": "robota # workers #"\\n}', 0);
     }
     const reportedLimit = mode === 'remaining-timeout' ? timeoutMs - 1 : mode === 'invalid-timeout' ? timeoutMs + 1 : mode === 'zero-timeout' ? 0 : timeoutMs;
@@ -112,6 +118,34 @@ describe('regex worker e2e verdicts', () => {
   });
 
   describe.skipIf(process.platform === 'win32')('against a stand-in executable', () => {
+    it('detects a worker orphaned as soon as its CLI exits', async () => {
+      const directory = mkdtempSync(join(tmpdir(), 'regex-worker-orphan-'));
+      const fake = join(directory, `fake-agent-${process.pid}`);
+      const pidLog = join(directory, 'workers');
+      writeFileSync(fake, fakeCli('orphan', pidLog));
+      chmodSync(fake, 0o755);
+      try {
+        await expect(runRegexWorkerE2e(fake, options)).rejects.toThrow(
+          /Ordinary run:.*outlived the run/u,
+        );
+      } finally {
+        if (existsSync(pidLog)) {
+          for (const pid of readFileSync(pidLog, 'utf8')
+            .trim()
+            .split('\n')
+            .map(Number)
+            .filter((value) => value > 0)) {
+            try {
+              process.kill(pid, 'SIGKILL');
+            } catch {
+              /* Already gone. */
+            }
+          }
+        }
+        rmSync(directory, { recursive: true, force: true });
+      }
+    }, 60_000);
+
     it('leaves an unrelated matching worker running', async () => {
       const directory = mkdtempSync(join(tmpdir(), 'regex-worker-unrelated-'));
       const fake = join(directory, 'fake-agent');
