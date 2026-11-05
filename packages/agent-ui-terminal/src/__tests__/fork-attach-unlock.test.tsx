@@ -18,7 +18,10 @@ import type {
   TUserReadRequest,
 } from '../key-custody/key-custody-port.js';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
+import type {
+  IExecutionWorkspaceEntry,
+  IExecutionWorkspaceSnapshot,
+} from '@robota-sdk/agent-interface-execution';
 import type {
   IInteractiveSessionStore,
   TSessionLoadOutcome,
@@ -80,13 +83,27 @@ function custody(answer: TReadability, onAsk: () => void = () => undefined) {
   return { port: { ensureReadable } satisfies IKeyCustodyPort, ensureReadable };
 }
 
-function attachWith(store: IInteractiveSessionStore, keyCustody?: IKeyCustodyPort) {
+function attachWith(
+  store: IInteractiveSessionStore,
+  keyCustody?: IKeyCustodyPort,
+  initialSnapshot?: IExecutionWorkspaceSnapshot,
+) {
   const addEntry = vi.fn();
   const onSessionSwitch = vi.fn();
   const select = vi.fn();
   let attach!: (entry: IExecutionWorkspaceEntry) => void;
+  let currentSnapshot = initialSnapshot;
+  let question: ReturnType<typeof useForkAttach>['continueQuestion'];
   function Probe(): React.ReactElement {
-    attach = useForkAttach({ sessionStore: store, onSessionSwitch, select, addEntry }).attach;
+    const result = useForkAttach({
+      sessionStore: store,
+      onSessionSwitch,
+      select,
+      addEntry,
+      snapshot: currentSnapshot,
+    });
+    attach = result.attach;
+    question = result.continueQuestion;
     return <></>;
   }
   const adapter = (keyCustody === undefined ? {} : { keyCustody }) as ITuiCliAdapter;
@@ -101,6 +118,15 @@ function attachWith(store: IInteractiveSessionStore, keyCustody?: IKeyCustodyPor
     addEntry,
     onSessionSwitch,
     select,
+    question: () => question,
+    update: (next: IExecutionWorkspaceSnapshot) => {
+      currentSnapshot = next;
+      view.rerender(
+        <TuiCliAdapterProvider value={adapter}>
+          <Probe />
+        </TuiCliAdapterProvider>,
+      );
+    },
     done: () => view.unmount(),
   };
 }
@@ -165,6 +191,59 @@ describe('attaching to a fork sealed with the keys locked', () => {
 
     expect(keys.ensureReadable).not.toHaveBeenCalled();
     expect(probe.onSessionSwitch).not.toHaveBeenCalled();
+  });
+
+  it('refuses if a writer claims the fork while unlock is pending', async () => {
+    let unlocked = false;
+    let finish!: (result: TReadability) => void;
+    const { store } = storeOf(() => (unlocked ? READABLE : { status: 'locked' }));
+    const ensureReadable = vi.fn(
+      () =>
+        new Promise<TReadability>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const probe = attachWith(store, { ensureReadable });
+    probe.attach(forkEntry());
+    await vi.waitFor(() => expect(ensureReadable).toHaveBeenCalledOnce());
+    const claim = store.claim(FORK);
+    unlocked = true;
+    finish('readable');
+    await vi.waitFor(() => expect(probe.addEntry).toHaveBeenCalled());
+    expect(probe.onSessionSwitch).not.toHaveBeenCalled();
+    expect(probe.said()).toContain('still has a writer');
+    claim.release();
+    probe.done();
+  });
+
+  it('asks before stopping a job that starts while unlock is pending', async () => {
+    let unlocked = false;
+    let finish!: (result: TReadability) => void;
+    const { store } = storeOf(() => (unlocked ? READABLE : { status: 'locked' }));
+    const ensureReadable = vi.fn(
+      () =>
+        new Promise<TReadability>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    const snapshot = (entries: IExecutionWorkspaceEntry[]): IExecutionWorkspaceSnapshot => ({
+      sessionId: 'session_parent',
+      selectedEntryId: forkEntry().id,
+      updatedAt: '2026-11-05',
+      entries,
+    });
+    const probe = attachWith(store, { ensureReadable }, snapshot([forkEntry()]));
+    probe.attach(forkEntry());
+    await vi.waitFor(() => expect(ensureReadable).toHaveBeenCalledOnce());
+    const sibling = { ...forkEntry('running'), id: 'task:other', sourceId: 'other' };
+    probe.update(snapshot([forkEntry(), sibling]));
+    unlocked = true;
+    finish('readable');
+    await vi.waitFor(() => expect(probe.question()?.message).toContain('1 background job'));
+    expect(probe.onSessionSwitch).not.toHaveBeenCalled();
+    probe.question()?.answer(true);
+    expect(probe.onSessionSwitch).toHaveBeenCalledWith(FORK);
+    probe.done();
   });
 });
 
