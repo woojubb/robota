@@ -14,6 +14,7 @@ import { completeSpawnerPair } from '@robota-sdk/agent-transport-link';
 import { afterEach, expect, it } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { hostedFixture } from '../../hosted/__tests__/hosted-fixture.js';
 import { openRegisteredSpawnerLink } from '../owner-link-client.js';
 import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
 
@@ -161,3 +162,36 @@ it('refuses the spawner flag in plain mode before starting any child', async () 
   expect(stderr).toMatch(/only in secure mode/i);
   expect(stderr).not.toContain('TEST_PRE_FORWARD_SPAWN');
 }, 30_000);
+
+it('refuses forwarded local startup for valid and invalid hosted posture before spawning', async () => {
+  const root = realpathSync(mkdtempSync(join(process.platform === 'win32' ? tmpdir() : realpathSync('/tmp'), 'forward-hosted-')));
+  roots.push(root);
+  expect(spawnSync('git', ['init', '-q', root]).status).toBe(0);
+  const base = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '0' });
+  const runtime = createTestProductRuntime('test-product', base);
+  expect(spawnSync(process.execPath, ['--import', tsx, '--conditions=source', fixture, 'trust', '--yes'], { cwd: root, env: base, encoding: 'utf8', timeout: 30_000 }).status).toBe(0);
+  const hosted = await hostedFixture();
+  try {
+    for (const environment of [hosted.environment, { PRODUCT_RUNTIME_POSTURE: 'hosted', PRODUCT_HOSTED_RUNTIME_CONFIG: join(root, 'missing.json') }]) {
+      const child = spawn(process.execPath, ['--import', tsx, '--import', recorder, '--conditions=source', fixture, 'daemon', 'start', '--spawner-fd', '4', '--json'], { cwd: root, env: { ...base, ...environment }, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] });
+      children.push(child);
+      let stdout = '';
+      let stderr = '';
+      child.stdout?.on('data', (part: Buffer) => { stdout += part.toString(); });
+      child.stderr?.on('data', (part: Buffer) => { stderr += part.toString(); });
+      const pipe = child.stdio[4];
+      if (!(pipe instanceof Duplex)) throw new Error('Missing spawner pipe');
+      const pair = completeSpawnerPair(pipe, { timeoutMs: 5_000 }).catch(() => undefined);
+      const [code] = await once(child, 'exit');
+      (await pair)?.spawnerKey.wipe();
+      if (code === 0) {
+        const result = JSON.parse(stdout) as { id: string };
+        const rows = await listSupervisedSessions(resolveSupervisedDirectory(runtime), undefined, { includeGeneration: true });
+        await stopSupervisedSession(result.id, resolveSupervisedDirectory(runtime), rows.find((row) => row.id === result.id)?.generation);
+      }
+      expect(code).not.toBe(0);
+      expect(stderr).toMatch(/hosted runtime admission refused/i);
+      expect(stderr).not.toContain('TEST_FORWARD_FD_CLOSED');
+    }
+  } finally { await hosted.close(); }
+}, 60_000);

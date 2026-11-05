@@ -40,6 +40,8 @@ it.each([
   { kind: 'forwarded-environment', id: ID, environment: { 'BAD-NAME': 'x' } },
   { kind: 'forwarded-environment', id: ID, environment: { KEY: 7 } },
   { kind: 'forwarded-environment', id: ID, environment: { KEY: 'x'.repeat(129 * 1024) } },
+  { kind: 'forwarded-environment', id: ID, environment: { PRODUCT_RUNTIME_POSTURE: 'local' } },
+  { kind: 'forwarded-environment', id: ID, environment: { PRODUCT_HOSTED_RUNTIME_CONFIG: '/tmp/hosted.json' } },
 ])('rejects malformed admission without accepting it', async (message) => {
   const child = await reader();
   const result = once(child, 'message');

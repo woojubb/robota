@@ -7,7 +7,10 @@ import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/nod
 import { afterEach, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
-import { prepareForwardedEnvironment } from '../early-forwarded-daemon.js';
+import { productProviderDefinitions } from '../../product/provider-definitions.js';
+import { restartProductEnvironment } from '../../product/restart-environment.js';
+import { createProductUserSettingsSources } from '../../product/user-settings.js';
+import { prepareForwardedEnvironment, validateForwardedEnvironment } from '../early-forwarded-daemon.js';
 
 const roots: string[] = [];
 afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
@@ -30,6 +33,12 @@ it('forwards only admitted provider references and withholds unrelated secrets',
   expect(restricted.PROJECT_PROVIDER_REF).toBeUndefined();
   expect(restricted.UNRELATED_PRIVATE_TOKEN).toBeUndefined();
   expect(restricted.PRODUCT_WS_TOKEN).toBeUndefined();
+  await expect(validateForwardedEnvironment(runtime, project, true, { USER_PROVIDER_REF: 'user-fixture' })).resolves.toBeUndefined();
+  await expect(validateForwardedEnvironment(runtime, project, true, { PROJECT_PROVIDER_REF: 'project-fixture' })).rejects.toThrow(/not admitted/i);
+  await expect(validateForwardedEnvironment(runtime, project, true, { NODE_OPTIONS: '--require=/tmp/unapproved' })).rejects.toThrow(/not admitted/i);
+  writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ providers: { user: { type: 'openai', apiKey: '$ENV:PRODUCT_CONFIG_FILE' } } }), { mode: 0o600 });
+  await expect(validateForwardedEnvironment(runtime, project, true, { PRODUCT_CONFIG_FILE: '/tmp/attacker-config' })).rejects.toThrow(/not admitted/i);
+  writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({ providers: { user: { type: 'openai', apiKey: '$ENV:USER_PROVIDER_REF' } } }), { mode: 0o600 });
 
   const trust = createNodeWorkspaceTrustService(runtime.layout.userPaths.workspaceTrust, runtime.layout.projectStateDirectories);
   expect((await trust.grant(project)).status).toBe('trusted');
@@ -38,4 +47,16 @@ it('forwards only admitted provider references and withholds unrelated secrets',
   expect(trusted.PROJECT_PROVIDER_REF).toBe('project-fixture');
   expect(trusted.UNRELATED_PRIVATE_TOKEN).toBeUndefined();
   expect(trusted.PRODUCT_WS_TOKEN).toBeUndefined();
+  await expect(validateForwardedEnvironment(runtime, project, false, { PROJECT_PROVIDER_REF: 'project-fixture' })).resolves.toBeUndefined();
+});
+
+it('withholds an inherited proxy in the secure forwarding path but retains it for an ordinary restart', async () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'forward-proxy-')));
+  roots.push(root);
+  const runtime = createTestProductRuntime('test-product', { HOME: root, HTTPS_PROXY: 'http://127.0.0.1:9999' });
+  const ordinary = restartProductEnvironment(runtime, createProductUserSettingsSources(runtime), productProviderDefinitions());
+  expect(ordinary.HTTPS_PROXY).toBe('http://127.0.0.1:9999');
+  const forwarded = await prepareForwardedEnvironment(runtime, root, true);
+  expect(forwarded.HTTPS_PROXY).toBeUndefined();
+  await expect(validateForwardedEnvironment(runtime, root, true, { HTTPS_PROXY: 'http://127.0.0.1:9999' })).rejects.toThrow(/not admitted/i);
 });

@@ -3,7 +3,7 @@ import {
   installProductProcessEnvironment,
 } from './product/process-environment.js';
 import { resolveCliRuntimeContext } from './startup/product-bootstrap.js';
-import { readHostedRuntimeConfig } from './hosted/hosted-runtime-config.js';
+import { assertLocalForwardingPosture, readHostedRuntimeConfig } from './hosted/hosted-runtime-config.js';
 import { runHostedRuntime } from './hosted/hosted-runtime-startup.js';
 import { SECURE_SURFACES, startListener } from './secure/secure-surfaces.js';
 
@@ -138,7 +138,7 @@ import {
   canAskServeOpenTrustQuestion,
 } from './startup/headless-serve-trust-prompt.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
-import { isEarlyForwardedDaemon, runEarlyForwardedDaemon } from './startup/early-forwarded-daemon.js';
+import { isEarlyForwardedDaemon, runEarlyForwardedDaemon, validateForwardedEnvironment } from './startup/early-forwarded-daemon.js';
 import { forwardedEnvironmentRequested, receiveForwardedEnvironment } from './startup/forwarded-environment.js';
 import { createCliRuntimeContext } from './product/runtime-context.js';
 import { copyProductSecureMode, productSecureMode } from './product/session-sealing.js';
@@ -241,15 +241,20 @@ export async function startCliCore(
   const initialRuntime = resolveCliRuntimeContext(initialOptions);
   let productRuntime = initialRuntime;
   const hasForwardedEnvironment = forwardedEnvironmentRequested(process.argv);
+  const earlyForwardedDaemon = isEarlyForwardedDaemon(process.argv);
+  if (hasForwardedEnvironment || earlyForwardedDaemon) assertLocalForwardingPosture(initialRuntime.environment);
+  if (earlyForwardedDaemon && productSecureMode(initialRuntime)) installProductChildSessions(initialRuntime);
   if (hasForwardedEnvironment) {
     if (spawnerIdentity === undefined || !productSecureMode(initialRuntime)) {
       throw new Error('A forwarded environment requires a secure runtime and its spawner pair.');
     }
     const forwarded = await receiveForwardedEnvironment(process.argv);
+    installProductChildSessions(initialRuntime);
+    await validateForwardedEnvironment(initialRuntime, process.cwd(), optionArgv(process.argv).includes('--restricted-workspace'), forwarded);
     productRuntime = createCliRuntimeContext(initialRuntime.config, { ...initialRuntime.environment, ...forwarded }, initialRuntime.artifact);
     copyProductSecureMode(initialRuntime, productRuntime);
   }
-  if (isEarlyForwardedDaemon(process.argv)) {
+  if (earlyForwardedDaemon) {
     await runEarlyForwardedDaemon(productRuntime, process.argv);
     return;
   }

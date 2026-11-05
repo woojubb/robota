@@ -1,13 +1,15 @@
 import { createWorkspaceProjectSettingsSources, getWorkspaceProjectReader } from '@robota-sdk/agent-framework';
+import { TRANSPORT_ENVIRONMENT } from '@robota-sdk/agent-executor';
+import { productConfigEntries } from '@robota-sdk/product-config';
 
 import { childProductEnvironment } from '../product/child-environment.js';
 import { productProviderDefinitions } from '../product/provider-definitions.js';
-import { restartProductEnvironment } from '../product/restart-environment.js';
+import { providerEnvironmentReferences, restartProductEnvironment } from '../product/restart-environment.js';
 import { createProductUserSettingsSources } from '../product/user-settings.js';
 import { productSecureMode } from '../product/session-sealing.js';
 import { launchForwardedRuntime } from '../session-inventory/supervised-session-launch.js';
 import { optionArgv } from '../utils/option-argv.js';
-import { validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
+import { isSupportedLiveTelemetrySetting, validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
 import { takeProductTelemetryEnvironment } from '../telemetry/live-telemetry-env.js';
 import { canAskToTrust } from './interactive-trust-prompt.js';
 import { runtimeVersion } from './version.js';
@@ -49,12 +51,22 @@ export function isEarlyForwardedDaemon(argv: readonly string[]): boolean {
   return parseForwardedStart(argv).kind !== 'other';
 }
 
-/** After forwarding, admit project settings and retain only their declared provider references. */
-export async function prepareForwardedEnvironment(runtime: ICliRuntimeContext, cwd: string, restricted: boolean): Promise<NodeJS.ProcessEnv> {
+async function admittedSources(runtime: ICliRuntimeContext, cwd: string, restricted: boolean) {
   const access = await resolveInitialCliWorkspaceProjectAccess(cwd, { productRuntime: runtime });
   if (requiresHeadlessWorkspaceTrust(access) && !(restricted && canAskToTrust(access))) {
     throw new Error(formatHeadlessWorkspaceTrustError(access, cwd, runtime.config.identity.cliName));
   }
+  return [
+    ...createProductUserSettingsSources(runtime),
+    ...(access.status === 'trusted' && !restricted
+      ? createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(access.authority), runtime.layout.projectSettingsPaths)
+      : []),
+  ];
+}
+
+/** After forwarding, admit project settings and retain only their declared provider references. */
+export async function prepareForwardedEnvironment(runtime: ICliRuntimeContext, cwd: string, restricted: boolean): Promise<NodeJS.ProcessEnv> {
+  const sources = await admittedSources(runtime, cwd, restricted);
   const telemetryInput = { ...runtime.environment };
   delete telemetryInput.PRODUCT_TELEMETRY_SERVICE_NAME;
   const telemetry = takeProductTelemetryEnvironment(telemetryInput);
@@ -63,13 +75,30 @@ export async function prepareForwardedEnvironment(runtime: ICliRuntimeContext, c
     serviceVersion: runtimeVersion(runtime),
     surface: 'serve',
   });
-  const sources = [
-    ...createProductUserSettingsSources(runtime),
-    ...(access.status === 'trusted' && !restricted
-      ? createWorkspaceProjectSettingsSources(getWorkspaceProjectReader(access.authority), runtime.layout.projectSettingsPaths)
-      : []),
-  ];
-  return { ...restartProductEnvironment(runtime, sources, productProviderDefinitions()), ...telemetry };
+  const environment = restartProductEnvironment(runtime, sources, productProviderDefinitions());
+  for (const name of TRANSPORT_ENVIRONMENT) delete environment[name];
+  return { ...environment, ...telemetry };
+}
+
+/** Recheck workspace authority and the allowed names before installing an IPC environment. */
+export async function validateForwardedEnvironment(runtime: ICliRuntimeContext, cwd: string, restricted: boolean, forwarded: Readonly<Record<string, string>>): Promise<void> {
+  const sources = await admittedSources(runtime, cwd, restricted);
+  const names = new Set(providerEnvironmentReferences(sources, productProviderDefinitions()));
+  for (const name of TRANSPORT_ENVIRONMENT) names.delete(name);
+  const baseline: NodeJS.ProcessEnv = { ...childProductEnvironment(runtime), ...(runtime.environment.PRODUCT_CONFIG_FILE === undefined ? {} : { PRODUCT_CONFIG_FILE: runtime.environment.PRODUCT_CONFIG_FILE }) };
+  const protectedNames = new Set([
+    'PATH', 'HOME', 'USERPROFILE', 'SYSTEMROOT', 'TMPDIR', 'TMP', 'TEMP', 'SHELL', 'XDG_RUNTIME_DIR',
+    'PRODUCT_CONFIG_FILE', 'PRODUCT_WS_TOKEN', `${runtime.config.identity.envPrefix}WS_TOKEN`.toUpperCase(),
+    ...productConfigEntries().map(({ descriptor }) => descriptor.variable.toUpperCase()),
+  ]);
+  for (const [name, value] of Object.entries(forwarded)) {
+    const baselineName = Object.keys(baseline).find((key) => key.toUpperCase() === name.toUpperCase());
+    if (protectedNames.has(name.toUpperCase()) || baselineName !== undefined) {
+      if (baselineName === undefined || baseline[baselineName] !== value) throw new Error('The forwarded environment was not admitted.');
+    } else if (!names.has(name) && !isSupportedLiveTelemetrySetting(name)) {
+      throw new Error('The forwarded environment was not admitted.');
+    }
+  }
 }
 
 /** Forward an inherited spawner pair before trust inspection can start another process. */

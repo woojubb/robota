@@ -57,6 +57,11 @@ const SUPPORTED_SETTINGS = new Set([
   'METRIC_ATTRIBUTES', 'PROPAGATE_TO', 'PROPAGATE_TO_SUBPROCESSES', 'SEMCONV',
 ].map((suffix) => `PRODUCT_TELEMETRY_${suffix}`).concat(LIVE_CONTENT_SETTINGS));
 
+/** Whether a telemetry setting is recognized by the live telemetry host. */
+export function isSupportedLiveTelemetrySetting(name: string): boolean {
+  return SUPPORTED_SETTINGS.has(name);
+}
+
 const METRIC_ATTRIBUTES_SETTING = 'PRODUCT_TELEMETRY_METRIC_ATTRIBUTES';
 const METRIC_ATTRIBUTE_TOKENS: ReadonlySet<TLiveMetricAttribute> = new Set(['session', 'provider', 'model']);
 

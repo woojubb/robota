@@ -6,6 +6,7 @@ import { optionArgv } from '../utils/option-argv.js';
 export const FORWARDED_ENVIRONMENT_FLAG = '--supervised-forwarded-environment';
 const MAX_ENVIRONMENT_BYTES = 128 * 1024;
 const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/u;
+const HOSTED_DECISION_NAMES = new Set(['PRODUCT_RUNTIME_POSTURE', 'PRODUCT_HOSTED_RUNTIME_CONFIG']);
 const WAIT_MS = 20_000;
 
 export function forwardedEnvironmentRequested(argv: readonly string[]): boolean {
@@ -35,7 +36,7 @@ export async function receiveForwardedEnvironment(
         return;
       }
       const entries = Object.entries(message.environment);
-      if (entries.some(([name, value]) => !ENVIRONMENT_NAME.test(name) || typeof value !== 'string') ||
+      if (entries.some(([name, value]) => !ENVIRONMENT_NAME.test(name) || HOSTED_DECISION_NAMES.has(name.toUpperCase()) || typeof value !== 'string') ||
           Buffer.byteLength(JSON.stringify(message.environment), 'utf8') > MAX_ENVIRONMENT_BYTES) {
         finish(() => reject(new Error('The forwarded runtime admission was malformed.')));
         return;
