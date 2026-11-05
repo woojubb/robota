@@ -249,6 +249,8 @@ async function certified(options: IStartOptions = {}): Promise<IStarted> {
   const spawner = await spawnerLink(started);
   await spawner.installTrustRoot(owner.certify(spawner.instancePublicKey, spawner.binding));
   await spawner.closed;
+  // The client may observe its close before the runtime processes its end of the link.
+  await vi.waitFor(() => expect(started.custody.spawnerLinks()).toBe(0));
   return started;
 }
 
@@ -579,8 +581,12 @@ describe.skipIf(process.platform === 'win32')('what the custody reports of its l
     started.custody.onChange((event) => events.push(event));
 
     const client = await ownerLink(started);
+    await client.unlock();
+    expect(started.holder.isUnlocked).toBe(true);
     client.close();
     await client.closed;
+    // The last-link lock establishes that the runtime processed the owner close.
+    await vi.waitFor(() => expect(started.holder.isUnlocked).toBe(false));
 
     expect(started.custody.spawnerLinks()).toBe(0);
     expect(events).toEqual([]);
