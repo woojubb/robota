@@ -14,7 +14,16 @@ import type { IHostedRuntimeConfig } from '../hosted-runtime-types.js';
 
 export async function organizationGatewayFixture(options: { idempotency?: boolean; timeMs?: number; blockInventory?: boolean; rejectAdmission?: boolean } = {}) {
   let handler: ReturnType<typeof createHostedOrganizationGateway> | undefined;
-  const ingress = createServer((request, response) => { if (handler) handler(request, response); else response.writeHead(503).end(); });
+  let workerRequests = 0;
+  let secondWorkerProcessed!: () => void;
+  const secondWorker = new Promise<void>((resolve) => { secondWorkerProcessed = resolve; });
+  const ingress = createServer((request, response) => {
+    if (request.url === '/worker' && ++workerRequests === 2) {
+      // The handler drains the body asynchronously; run after its end-of-stream continuations.
+      request.once('end', () => setImmediate(secondWorkerProcessed));
+    }
+    if (handler) handler(request, response); else response.writeHead(503).end();
+  });
   await new Promise<void>((resolve) => ingress.listen(0, '127.0.0.1', resolve));
   const address = ingress.address(); if (!address || typeof address === 'string') throw new Error('missing address');
   const origin = `http://127.0.0.1:${address.port}`;
@@ -82,6 +91,7 @@ export async function organizationGatewayFixture(options: { idempotency?: boolea
   return { owner, a, control, config, token, origin, content, payloads, upstreamCalls, dispatch, unknown, incidents, terminations,
     inventoryListCount: () => inventoryLists,
     inventoryStart,
+    secondWorker,
     releaseInventory: inventoryReleased,
     setMode: (next: typeof mode) => { mode = next; }, setInputTokens: (next: number) => { inputTokens = next; }, release,
     async call(key = 'duplicate') {
