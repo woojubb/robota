@@ -45,6 +45,20 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
       await locked;
       expect(otherLink.custody.unlocked).toBe(false);
     } finally { otherLink.close(); }
+    const surfaces = [];
+    try {
+      for (let index = 0; index < 4; index += 1) {
+        const link = await openRegisteredOwnerLink({ ...started, root, handover });
+        surfaces.push(link);
+        expect((await link.control({ command: 'attach', fields: { mode: 'observe' } })).status).toBe('attached');
+      }
+      const states: boolean[] = [];
+      surfaces[0]!.onCustody((state) => states.push(state.unlocked));
+      await expect(openSecureAttach({ ...started, root, mode: 'observe', handover })).rejects.toThrow();
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      expect(states).toContain(true);
+      expect(surfaces[0]!.custody.unlocked).toBe(false);
+    } finally { for (const link of surfaces) link.close(); }
     const other = await createKeyring({ passphrase: 'another strong passphrase' });
     other.unlocked.lock();
     const stranger = await openOwnerHandover(other.keyring, { type: 'passphrase', passphrase: 'another strong passphrase' });

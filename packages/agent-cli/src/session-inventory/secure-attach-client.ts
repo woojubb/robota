@@ -37,9 +37,28 @@ export async function openSecureAttach(options: {
     closedListeners.clear();
   });
   let timer: ReturnType<typeof setTimeout> | undefined;
+  let unlockAttempted = false;
+  let unlockCompleted = false;
+  let cancelled = false;
+  const lockAndClose = async (): Promise<void> => {
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([link.lock('explicit'), new Promise<never>((_resolve, reject) => {
+        deadline = setTimeout(() => reject(new Error('Secure detach timed out.')), 5_000);
+      })]);
+    } catch {
+      throw new Error('Secure detach could not confirm the runtime is locked.');
+    } finally {
+      if (deadline !== undefined) clearTimeout(deadline);
+      link.close();
+    }
+  };
   try {
     const attached = await Promise.race([(async () => {
+      unlockAttempted = true;
       const outcome = await link.unlock();
+      unlockCompleted = true;
+      if (cancelled) throw new Error('Secure attach was cancelled.');
       if (outcome === 'mismatch') {
         if (options.onMismatch === undefined) throw new Error('The runtime sealing key differs from the unlocked key.');
         options.onMismatch();
@@ -67,22 +86,16 @@ export async function openSecureAttach(options: {
         closedListeners.add(listener);
         return () => { closedListeners.delete(listener); };
       },
-      detach: async () => {
-        let deadline: ReturnType<typeof setTimeout> | undefined;
-        try {
-          await Promise.race([link.lock('explicit'), new Promise<never>((_resolve, reject) => {
-            deadline = setTimeout(() => reject(new Error('Secure detach timed out.')), 5_000);
-          })]);
-        } catch {
-          throw new Error('Secure detach could not confirm the runtime is locked.');
-        } finally {
-          if (deadline !== undefined) clearTimeout(deadline);
-          link.close();
-        }
-      },
+      detach: lockAndClose,
     };
   } catch (error) {
-    link.close();
+    cancelled = true;
+    if (unlockAttempted) {
+      const unlockWasPending = !unlockCompleted;
+      await lockAndClose();
+      if (unlockWasPending) throw new Error('Secure attach could not confirm the runtime is locked.');
+    }
+    else link.close();
     throw error;
   } finally {
     if (timer !== undefined) clearTimeout(timer);
