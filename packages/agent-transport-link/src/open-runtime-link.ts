@@ -11,6 +11,8 @@
  */
 import type { Duplex } from 'node:stream';
 
+import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface-session';
+
 import {
   KeyringError,
   LINK_CHALLENGE_MAX_BYTES,
@@ -39,7 +41,6 @@ import {
   type IRuntimeCustodyState,
   type TGrantOutcome,
   type TOwnerControlResult,
-  type TOwnerSessionQuestion,
   type TRequestedLockReason,
 } from './link-ports.js';
 import {
@@ -88,7 +89,7 @@ export interface IRuntimeLinkClient {
   installTrustRoot(root: ITrustRoot): Promise<void>;
   lock(reason: TRequestedLockReason): Promise<void>;
   question(sessionId: string): Promise<TOwnerSessionQuestion>;
-  openAccepted(sessionId: string, acceptedDigest: string): Promise<void>;
+  openAccepted(bindingId: string, sessionId: string, acceptedDigest: string): Promise<void>;
   control(request: IOwnerControlRequest): Promise<TOwnerControlResult>;
   readonly session: ILinkSessionChannel;
   /** Settles once the link has closed, for whatever reason. */
@@ -202,9 +203,9 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
     return (reply as Extract<TRuntimeMessage, { op: 'question' }>).question;
   }
 
-  async openAccepted(sessionId: string, acceptedDigest: string): Promise<void> {
+  async openAccepted(bindingId: string, sessionId: string, acceptedDigest: string): Promise<void> {
     await this.#request(
-      (requestId) => ({ op: 'open-accepted', requestId, sessionId, acceptedDigest }),
+      (requestId) => ({ op: 'open-accepted', requestId, bindingId, sessionId, acceptedDigest }),
       'done',
     );
   }

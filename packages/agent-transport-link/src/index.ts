@@ -34,7 +34,6 @@ export type {
   TGrantOutcome,
   TOwnerControlResult,
   TOwnerControlValue,
-  TOwnerSessionQuestion,
   TRequestedLockReason,
 } from './link-ports.js';
 export {

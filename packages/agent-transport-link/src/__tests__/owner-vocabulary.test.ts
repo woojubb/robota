@@ -21,7 +21,7 @@ const REQUESTS = [
   { op: 'install-trust-root', requestId: 'r1', attachPublicKey: b64(32), certificate: b64(64) },
   { op: 'lock', requestId: 'r2', reason: 'screen-lock' },
   { op: 'question', requestId: 'r3', sessionId: 'sess_01-a.b:c' },
-  { op: 'open-accepted', requestId: 'r4', sessionId: 's', acceptedDigest: 'ab'.repeat(32) },
+  { op: 'open-accepted', requestId: 'r4', bindingId: 'attach:1', sessionId: 's', acceptedDigest: 'ab'.repeat(32) },
   { op: 'control', requestId: 'r5', command: 'rename', fields: { name: 'My session' } },
   { op: 'control', requestId: 'r6', command: 'events-list', fields: {} },
 ] as const;
@@ -56,6 +56,23 @@ const RUNTIME_MESSAGES = [
 ] as const;
 
 describe('owner requests', () => {
+  it('binds an acceptance to one attached surface', () => {
+    const wire = {
+      op: 'open-accepted',
+      requestId: 'r4',
+      bindingId: 'attach:1',
+      sessionId: 'session-1',
+      acceptedDigest: 'ab'.repeat(32),
+    };
+    const decoded = decodeOwnerRequest(utf8(wire));
+    expect(decoded).toEqual(wire);
+    expect(JSON.parse(Buffer.from(encodeOwnerRequest(decoded!)).toString())).toEqual(wire);
+    expect(decodeOwnerRequest(utf8({ ...wire, bindingId: '' }))).toBeUndefined();
+    expect(decodeOwnerRequest(utf8({ ...wire, bindingId: 'other surface' }))).toBeUndefined();
+    const { bindingId: _bindingId, ...withoutBinding } = wire;
+    expect(decodeOwnerRequest(utf8(withoutBinding))).toBeUndefined();
+  });
+
   it('decode every request the vocabulary has, and encode back to the same bytes', () => {
     for (const wire of REQUESTS) {
       const decoded = decodeOwnerRequest(utf8(wire));

@@ -207,7 +207,7 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
         }));
       case 'open-accepted':
         return reply(requestId, async () => {
-          await linked.sessions.openAccepted(request.sessionId, request.acceptedDigest);
+          await linked.sessions.openAccepted(request.bindingId, request.sessionId, request.acceptedDigest);
           return { op: 'done', requestId };
         });
       case 'control':

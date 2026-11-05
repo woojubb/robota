@@ -336,14 +336,14 @@ describe('an owner link', () => {
       notice: 'This session was not verified as yours.',
       question: 'Resume sess_1 and mark it as yours?',
     });
-    await client.openAccepted('sess_1', 'd'.repeat(64));
+    await client.openAccepted('attach:1', 'sess_1', 'd'.repeat(64));
     expect(await client.control({ command: 'rename', fields: { name: 'Mine' } })).toEqual({
       status: 'renamed',
       name: 'Mine',
     });
     expect(runtime.record.calls.slice(-3)).toEqual([
       ['lock', 'screen-lock'],
-      ['open-accepted', 'sess_1', 'd'.repeat(64)],
+      ['open-accepted', 'attach:1', 'sess_1', 'd'.repeat(64)],
       ['control', 'rename'],
     ]);
 

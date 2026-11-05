@@ -12,6 +12,7 @@
  */
 import { Buffer } from 'node:buffer';
 
+import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface-session';
 import type { ITrustRoot } from '@robota-sdk/agent-keyring';
 
 import type {
@@ -20,7 +21,6 @@ import type {
   TGrantOutcome,
   TOwnerControlResult,
   TOwnerControlValue,
-  TOwnerSessionQuestion,
   TRequestedLockReason,
 } from './link-ports.js';
 
@@ -32,6 +32,7 @@ export type TOwnerRequest =
   | {
       readonly op: 'open-accepted';
       readonly requestId: string;
+      readonly bindingId: string;
       readonly sessionId: string;
       readonly acceptedDigest: string;
     }
@@ -252,9 +253,10 @@ export function decodeOwnerRequest(bytes: Uint8Array): TOwnerRequest | undefined
       return { op, requestId: record['requestId'], sessionId: record['sessionId'] };
     }
     case 'open-accepted': {
-      const record = exactly(value, ['op', 'requestId', 'sessionId', 'acceptedDigest']);
+      const record = exactly(value, ['op', 'requestId', 'bindingId', 'sessionId', 'acceptedDigest']);
       if (
         !matches(record?.['requestId'], REQUEST_ID_PATTERN) ||
+        !matches(record['bindingId'], SESSION_ID_PATTERN) ||
         !matches(record['sessionId'], SESSION_ID_PATTERN) ||
         !matches(record['acceptedDigest'], DIGEST_PATTERN)
       ) {
@@ -263,6 +265,7 @@ export function decodeOwnerRequest(bytes: Uint8Array): TOwnerRequest | undefined
       return {
         op,
         requestId: record['requestId'],
+        bindingId: record['bindingId'],
         sessionId: record['sessionId'],
         acceptedDigest: record['acceptedDigest'],
       };

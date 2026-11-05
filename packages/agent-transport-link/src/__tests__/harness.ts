@@ -191,8 +191,8 @@ export function recordingRuntime(identity: IRuntimeIdentity) {
                   notice: 'This session was not verified as yours.',
                   question: `Resume ${sessionId} and mark it as yours?`,
                 } as const),
-        openAccepted: (sessionId, digest) => {
-          record.calls.push(['open-accepted', sessionId, digest]);
+        openAccepted: (bindingId, sessionId, digest) => {
+          record.calls.push(['open-accepted', bindingId, sessionId, digest]);
         },
       },
       session: {

@@ -362,7 +362,7 @@ describe.skipIf(process.platform === 'win32')('a runtime before anyone certified
     );
     await expect(spawner.control({ command: 'status', fields: {} })).rejects.toEqual(refusedWith('not-allowed'));
     await expect(spawner.question('anything')).rejects.toEqual(refusedWith('not-allowed'));
-    await expect(spawner.openAccepted('anything', 'a'.repeat(64))).rejects.toEqual(refusedWith('not-allowed'));
+    await expect(spawner.openAccepted('attach:1', 'anything', 'a'.repeat(64))).rejects.toEqual(refusedWith('not-allowed'));
     await expect(spawner.lock('explicit')).rejects.toEqual(refusedWith('not-allowed'));
     expect(started.rename).not.toHaveBeenCalled();
   });
@@ -517,7 +517,7 @@ describe.skipIf(process.platform === 'win32')('a certified runtime and its owner
     const client = await ownerLink(started);
 
     expect(await client.question('session_x')).toMatchObject({ kind: 'refused' });
-    await expect(client.openAccepted('session_x', 'a'.repeat(64))).rejects.toEqual(refusedWith('unverified'));
+    await expect(client.openAccepted('attach:1', 'session_x', 'a'.repeat(64))).rejects.toEqual(refusedWith('unverified'));
   });
 
   it('lets the owner switch to a stored record through its own binding, which a spawner could not', async () => {

@@ -7,6 +7,8 @@
 // names execution, command and analytics contracts and depends on those packages downward. Nothing
 // at layer 0 names a type from here.
 
+export type { IOwnerSessionDirectory, TOwnerSessionQuestion } from './owner-session-directory.js';
+
 // ── Context-compaction contracts (INFRA-025 SSOT) ────────────
 export type { TCompactTrigger, ICompactEvent } from './compact-contracts.js';
 export type {

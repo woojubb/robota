@@ -2385,6 +2385,9 @@ importers:
 
   packages/agent-transport-link:
     dependencies:
+      '@robota-sdk/agent-interface-session':
+        specifier: workspace:*
+        version: link:../agent-interface-session
       '@robota-sdk/agent-keyring':
         specifier: workspace:*
         version: link:../agent-keyring
