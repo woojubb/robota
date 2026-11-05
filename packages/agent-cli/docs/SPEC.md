@@ -372,8 +372,9 @@ screen, suspend) ends and that offers operations with the keys rather than the k
 opening, and the authorship tag that is the only proof a stored artifact was written by the owner's
 unlocked process, since anything sealed to the public key opens — so after a lock no caller still
 holds one, and each unlock is announced so what was written while locked can be tagged then; a
-short-lived command could only unlock to throw the keys away. `secure lock` asks reachable secure
-runtimes to discard their keys without a credential and reports when it cannot confirm a lock. A terminal session holding keys is
+short-lived command could only unlock to throw the keys away. `secure lock` asks live runtimes to
+discard their keys without a credential and reports any unconfirmed request, including a plain runtime's
+refusal. Success records replies only; open control replies are not owner proof. A terminal session holding keys is
 unlocked where it runs instead, by the local unlock gate: store reads never say why they read (many
 are not the person's), so the reason lives on the prompt, which opens only for a read the terminal UI
 says the person started — a request its action modules mint from a key press, which the import rule

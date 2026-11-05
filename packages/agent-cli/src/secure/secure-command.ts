@@ -408,9 +408,9 @@ export async function runSecureCommand(
     if (parsed.action === 'status') return runStatus(store, options);
     if (parsed.action === 'lock') {
       const root = resolveSupervisedDirectory(options.productRuntime);
-      const rows = await listSupervisedSessions(root, undefined, { includeGeneration: true, includeSecure: true });
+      const rows = await listSupervisedSessions(root, undefined, { includeGeneration: true });
       const targets = rows.filter((row): row is typeof row & { readonly generation: string } =>
-        row.secure !== undefined && row.generation !== undefined);
+        row.liveness === 'alive' && row.control === 'available' && row.generation !== undefined);
       const results = await Promise.allSettled(targets.map((row) => lockSupervisedSession(row.id, root, row.generation)));
       const failed = results.filter((result) => result.status === 'rejected').length +
         rows.filter((row) => row.liveness !== 'dead' && row.control === 'unavailable').length;
@@ -418,7 +418,7 @@ export async function runSecureCommand(
         options.stderr(`Could not confirm locking ${failed} runtime(s).\n`);
         return EXIT_FAILED;
       }
-      options.stdout(`Locked ${targets.length} secure runtime(s).\n`);
+      options.stdout(`Lock acknowledged by ${targets.length} runtime(s).\n`);
       return EXIT_OK;
     }
 
