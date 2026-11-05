@@ -266,6 +266,68 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     return { ...instance, records };
   }
 
+  it('asks before continuing a fork when another job is running', async () => {
+    const forkId = 'session-aaaaaaaa';
+    const { stdin, lastFrame, unmount } = renderApp({ showSessionPickerOnStart: false });
+    await tick();
+    const initial = created[0]!;
+    const base = {
+      kind: 'background_task' as const,
+      taskKind: 'agent' as const,
+      origin: { kind: 'slash_command' as const, sessionId: 'parent' },
+      state: 'working' as const,
+      subtitle: 'general-purpose',
+      unread: false,
+      attention: 'none' as const,
+      visibility: 'default' as const,
+      updatedAt: '2026-11-05T00:00:00.000Z',
+    };
+    initial.stateManager.executionWorkspaceSnapshot = {
+      sessionId: 'parent',
+      selectedEntryId: 'task:fork',
+      updatedAt: base.updatedAt,
+      entries: [
+        {
+          ...base,
+          id: 'task:fork',
+          sourceId: 'fork',
+          title: 'fork',
+          status: 'completed',
+          controls: ['select', 'attach'],
+          resumeSessionId: forkId,
+        },
+        {
+          ...base,
+          id: 'task:other',
+          sourceId: 'other',
+          title: 'other',
+          status: 'running',
+          controls: ['select', 'cancel'],
+        },
+      ],
+    };
+    initial.onChange?.();
+    await tick();
+    stdin.write('\x02');
+    await waitForFrame(lastFrame, (frame) => frame.includes('Execution workspace'));
+    stdin.write('a');
+    await waitForFrame(lastFrame, (frame) => frame.includes('1 background job is still running'));
+    stdin.write('\r'); // Default is No.
+    await tick();
+    expect(initial.stop).not.toHaveBeenCalled();
+    expect(createChannel).toHaveBeenCalledTimes(1);
+
+    stdin.write('\x02');
+    await waitForFrame(lastFrame, (frame) => frame.includes('Execution workspace'));
+    stdin.write('a');
+    await waitForFrame(lastFrame, (frame) => frame.includes('1 background job is still running'));
+    stdin.write('y');
+    await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 2);
+    expect(initial.stop).toHaveBeenCalledTimes(1);
+    expect(createChannel).toHaveBeenLastCalledWith(forkId);
+    unmount();
+  });
+
   it('TC-01 (B11) / TC-01 (B12): the factory is the sole channel source — once at mount, once per switch with the selected sessionId', async () => {
     const { stdin, lastFrame } = renderApp();
     await waitForSessionPicker(lastFrame);
