@@ -411,8 +411,15 @@ describe('continuing an ended fork while other jobs of the session run', () => {
     const onSessionSwitch = vi.fn();
     const select = vi.fn();
     let latest!: ReturnType<typeof useForkAttach>;
+    let currentSnapshot = snapshot;
     function Probe(): React.ReactElement {
-      latest = useForkAttach({ sessionStore, onSessionSwitch, select, addEntry, snapshot });
+      latest = useForkAttach({
+        sessionStore,
+        onSessionSwitch,
+        select,
+        addEntry,
+        snapshot: currentSnapshot,
+      });
       return <></>;
     }
     const view = render(
@@ -426,6 +433,14 @@ describe('continuing an ended fork while other jobs of the session run', () => {
       said: () => addEntry.mock.calls.map(([entry]) => JSON.stringify(entry)).join('\n'),
       onSessionSwitch,
       select,
+      update: (next: IExecutionWorkspaceSnapshot) => {
+        currentSnapshot = next;
+        view.rerender(
+          <TuiCliAdapterProvider value={{} as ITuiCliAdapter}>
+            <Probe />
+          </TuiCliAdapterProvider>,
+        );
+      },
       done: () => view.unmount(),
     };
   }
@@ -520,6 +535,21 @@ describe('continuing an ended fork while other jobs of the session run', () => {
     expect(probe.onSessionSwitch).not.toHaveBeenCalled();
     expect(probe.said()).toContain('still has a writer');
     claim.release();
+    probe.done();
+  });
+
+  it('asks again if more jobs started while the question was open', async () => {
+    const probe = probeOf(storeOf(), makeSnapshot([ended(), sibling('agent_2', 'running')]));
+    probe.attach(ended());
+    await vi.waitFor(() => expect(probe.question()).toBeDefined());
+    probe.update(
+      makeSnapshot([ended(), sibling('agent_2', 'running'), sibling('agent_3', 'running')]),
+    );
+    probe.question()?.answer(true);
+    await vi.waitFor(() => expect(probe.question()?.message).toContain('2 background jobs'));
+    expect(probe.onSessionSwitch).not.toHaveBeenCalled();
+    probe.question()?.answer(true);
+    expect(probe.onSessionSwitch).toHaveBeenCalledWith(FORK_SESSION_ID);
     probe.done();
   });
 
