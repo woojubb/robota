@@ -510,6 +510,19 @@ describe('continuing an ended fork while other jobs of the session run', () => {
     probe.done();
   });
 
+  it('checks the writer again after the person answers', async () => {
+    const store = storeOf();
+    const probe = probeOf(store, makeSnapshot([ended(), sibling('agent_2', 'running')]));
+    probe.attach(ended());
+    await vi.waitFor(() => expect(probe.question()).toBeDefined());
+    const claim = store.claim(FORK_SESSION_ID);
+    probe.question()?.answer(true);
+    expect(probe.onSessionSwitch).not.toHaveBeenCalled();
+    expect(probe.said()).toContain('still has a writer');
+    claim.release();
+    probe.done();
+  });
+
   it('does not ask on a surface with no store: the host keeps its session while jobs run', () => {
     const snapshot = makeSnapshot([ended(), sibling('agent_2', 'running')]);
     const probe = probeOf(undefined, snapshot);

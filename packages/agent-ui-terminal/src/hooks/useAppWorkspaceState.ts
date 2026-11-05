@@ -107,12 +107,6 @@ export function useAppWorkspaceState(options: IOptions): IAppWorkspaceState {
     () => getDefaultBackgroundWorkspaceEntries(options.snapshot),
     [options.snapshot],
   );
-  const { focusedIndex, focusList } = useBackgroundFocus(
-    entries.map((entry) => entry.id),
-    options.select,
-    options.navigationEnabled,
-  );
-
   const panel = useBackgroundPanel({
     selectedEntryId: options.selectedEntryId,
     snapshot: options.snapshot,
@@ -122,6 +116,11 @@ export function useAppWorkspaceState(options: IOptions): IAppWorkspaceState {
     select: options.select,
     addEntry: options.addEntry,
   });
+  const { focusedIndex, focusList } = useBackgroundFocus(
+    entries.map((entry) => entry.id),
+    options.select,
+    options.navigationEnabled && panel.continueQuestion === undefined,
+  );
   const switcher = useSwitcherActions(options.setSwitcherVisible);
   const selected = panel.entry;
   return {
@@ -136,6 +135,7 @@ export function useAppWorkspaceState(options: IOptions): IAppWorkspaceState {
       select: options.select,
       closeSwitcher: switcher.close,
       attachToFork: panel.attachToFork,
+      continueQuestion: panel.continueQuestion,
     },
     activeBackgroundTaskCount: countActiveBackgroundWorkspaceEntries(options.snapshot),
     activeAgentLabel: selected?.kind === 'main_thread' ? undefined : selected?.title,

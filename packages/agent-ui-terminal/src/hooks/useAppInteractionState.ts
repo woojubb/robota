@@ -49,7 +49,8 @@ export function useAppInteractionState(options: IOptions): IAppInteractionState 
     pluginVisible: screens.showPluginTUI,
     transportVisible: screens.showTransportTUI,
     sessionPickerVisible: screens.showSessionPicker,
-    workspaceSwitcherVisible: workspace.background.switcherVisible,
+    workspaceSwitcherVisible:
+      workspace.background.switcherVisible || workspace.background.continueQuestion !== undefined,
     historySearchOpen: options.shell.historySearchOpen,
     themePickerVisible: screens.showThemePicker,
     selectedEntry: workspace.background.selectedEntry,

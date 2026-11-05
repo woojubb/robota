@@ -15,8 +15,13 @@
  */
 
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import { attachKind, lockedSessionMessage, lockedSessionReason } from '@robota-sdk/agent-framework';
-import { useCallback } from 'react';
+import {
+  attachKind,
+  liveBackgroundJobCount,
+  lockedSessionMessage,
+  lockedSessionReason,
+} from '@robota-sdk/agent-framework';
+import { useCallback, useRef, useState } from 'react';
 
 import { attachToForkedSession } from '../flows/fork-attach-flow.js';
 import { mintUserReadRequest } from '../key-custody/user-read-request-mint.js';
@@ -24,7 +29,10 @@ import { useTuiCliAdapter, useUnlockCommand } from '../tui-cli-adapter-context.j
 
 import type { TReadability } from '../key-custody/key-custody-port.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
+import type {
+  IExecutionWorkspaceEntry,
+  IExecutionWorkspaceSnapshot,
+} from '@robota-sdk/agent-interface-execution';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export interface IUseForkAttachOptions {
@@ -39,6 +47,12 @@ export interface IUseForkAttachOptions {
   readonly select: (entryId: string) => void;
   /** Where a refusal is written, so it reaches the operator instead of disappearing. */
   readonly addEntry: (entry: IHistoryEntry) => void;
+  readonly snapshot?: IExecutionWorkspaceSnapshot | null;
+}
+
+export interface IContinueForkQuestion {
+  readonly message: string;
+  readonly answer: (yes: boolean) => void;
 }
 
 /** What is said when the person did not unlock: the fixed lock wording, then where to unlock. */
@@ -64,10 +78,17 @@ export function useForkAttach({
   onSessionSwitch,
   select,
   addEntry,
-}: IUseForkAttachOptions): (entry: IExecutionWorkspaceEntry) => void {
+  snapshot,
+}: IUseForkAttachOptions): {
+  attach: (entry: IExecutionWorkspaceEntry) => void;
+  continueQuestion: IContinueForkQuestion | undefined;
+} {
   const cliAdapter = useTuiCliAdapter();
   const unlockCommand = useUnlockCommand();
-  return useCallback(
+  const [continueQuestion, setContinueQuestion] = useState<IContinueForkQuestion>();
+  const snapshotRef = useRef(snapshot);
+  snapshotRef.current = snapshot;
+  const attach = useCallback(
     (entry: IExecutionWorkspaceEntry): void => {
       const notify = (message: string): void =>
         addEntry(messageToHistoryEntry(createSystemMessage(message)));
@@ -104,8 +125,13 @@ export function useForkAttach({
       // The passphrase is asked for on the switch itself, so only an attach the framework would
       // honour asks: a fork whose record still has a writer is refused without a prompt.
       const unlockThenSwitch = (target: string): void => {
-        if (keys === undefined || unlockCommand === undefined || lockedReason === undefined) {
+        const currentReason = lockedSessionReason(sessionStore, target);
+        if (currentReason === undefined) {
           onSessionSwitch(target);
+          return;
+        }
+        if (currentReason !== 'locked' || keys === undefined || unlockCommand === undefined) {
+          notify(lockedSessionMessage(target, currentReason, unlockCommand));
           return;
         }
         void keys.ensureReadable(mintUserReadRequest('continue-fork')).then(
@@ -133,9 +159,50 @@ export function useForkAttach({
             sessionStore.load(target).status === 'valid',
           hasWriter: (target) => sessionStore.hasWriter(target),
         },
-        switchSession: unlockThenSwitch,
+        switchSession: (target) => {
+          const count = snapshot ? liveBackgroundJobCount(snapshot, entry.id) : 0;
+          if (count === 0) {
+            unlockThenSwitch(target);
+            return;
+          }
+          const ask = (number: number): void =>
+            setContinueQuestion({
+              message: `${number} background ${number === 1 ? 'job is' : 'jobs are'} still running and will be stopped. Continue ${entry.title}?`,
+              answer: (yes) => {
+                setContinueQuestion(undefined);
+                if (!yes) {
+                  notify('Background jobs are still running; session not switched.');
+                  return;
+                }
+                const current = snapshotRef.current;
+                const latestCount = liveBackgroundJobCount(current ?? null, entry.id);
+                if (latestCount > number) {
+                  ask(latestCount);
+                  return;
+                }
+                const latestEntry = current?.entries.find((candidate) => candidate.id === entry.id);
+                if (current && !latestEntry) {
+                  notify('The fork is no longer available; session not switched.');
+                  return;
+                }
+                attachToForkedSession(latestEntry ?? entry, {
+                  ...resume,
+                  facts: {
+                    kind: 'store',
+                    hasSessionRecord: (id) =>
+                      lockedSessionReason(sessionStore, id) === 'locked' ||
+                      sessionStore.load(id).status === 'valid',
+                    hasWriter: (id) => sessionStore.hasWriter(id),
+                  },
+                  switchSession: unlockThenSwitch,
+                });
+              },
+            });
+          ask(count);
+        },
       });
     },
-    [addEntry, cliAdapter, onSessionSwitch, select, sessionStore, unlockCommand],
+    [addEntry, cliAdapter, onSessionSwitch, select, sessionStore, snapshot, unlockCommand],
   );
+  return { attach, continueQuestion };
 }

@@ -14,6 +14,7 @@ import { useExecutionDetailPage } from './useExecutionDetailPage.js';
 import { useForkAttach } from './useForkAttach.js';
 
 import type { IExecutionDetailState } from './useExecutionDetailPage.js';
+import type { IContinueForkQuestion } from './useForkAttach.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IExecutionDetailPage,
@@ -41,6 +42,7 @@ export interface IBackgroundPanel {
   readonly entry: IExecutionWorkspaceEntry | undefined;
   readonly detail: IExecutionDetailState;
   readonly attachToFork: (entry: IExecutionWorkspaceEntry) => void;
+  readonly continueQuestion: IContinueForkQuestion | undefined;
 }
 
 /** Wire the background panel's detail read and its attach handler together. */
@@ -51,11 +53,12 @@ export function useBackgroundPanel(inputs: IUseBackgroundPanelOptions): IBackgro
     [snapshot, selectedEntryId],
   );
   const detail = useExecutionDetailPage({ entry, snapshot, read: inputs.read });
-  const attachToFork = useForkAttach({
+  const fork = useForkAttach({
     sessionStore: inputs.sessionStore,
     onSessionSwitch: inputs.onSessionSwitch,
     select: inputs.select,
     addEntry: inputs.addEntry,
+    snapshot,
   });
-  return { entry, detail, attachToFork };
+  return { entry, detail, attachToFork: fork.attach, continueQuestion: fork.continueQuestion };
 }

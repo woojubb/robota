@@ -237,7 +237,12 @@ function attachWith(store: IInteractiveSessionStore) {
   const onSessionSwitch = vi.fn();
   let attach!: (entry: IExecutionWorkspaceEntry) => void;
   function Probe(): React.ReactElement {
-    attach = useForkAttach({ sessionStore: store, onSessionSwitch, select: vi.fn(), addEntry });
+    attach = useForkAttach({
+      sessionStore: store,
+      onSessionSwitch,
+      select: vi.fn(),
+      addEntry,
+    }).attach;
     return <></>;
   }
   const view = render(
