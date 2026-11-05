@@ -138,13 +138,16 @@ beforeAll(async () => {
   });
   expect(trust.status, trust.stderr).toBe(0);
 
+  // Simulate a busy CLI event loop during shutdown; the launcher must not kill it early.
+  const delaySignal = path.join(root, 'delay-sigterm.cjs');
+  writeFileSync(delaySignal, "process.on('SIGTERM', () => { const until = Date.now() + 200; while (Date.now() < until) {} });\n");
   const port = await freePort();
   serve = spawn(
     launcher,
     ['--serve', '--http-port', String(port), '--permission-mode', 'bypassPermissions'],
     {
       cwd: workspace,
-      env: { ...environment, PRODUCT_HTTP_TOKEN: TOKEN },
+      env: { ...environment, PRODUCT_HTTP_TOKEN: TOKEN, NODE_OPTIONS: `--require ${JSON.stringify(delaySignal)}` },
       stdio: ['ignore', 'ignore', 'pipe'],
     },
   );
