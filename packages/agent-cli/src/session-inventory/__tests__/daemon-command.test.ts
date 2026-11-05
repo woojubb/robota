@@ -8,6 +8,7 @@ import { join } from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runDaemonCommand, type IDaemonCommandOptions } from '../daemon-command.js';
+import { overrideProductSecureMode } from '../../product/session-sealing.js';
 
 import { readProcessStartTime } from '../../remote-control/local-peer-registry.js';
 import { acquireSupervisedDaemonStartLock, type ISupervisedSessionRow } from '../supervised-session-control.js';
@@ -65,6 +66,24 @@ function harness(rows: readonly ISupervisedSessionRow[], overrides: Partial<IDae
 }
 
 describe('test-product daemon', () => {
+  it('refuses a secure start with no terminal before taking a lock or launching', async () => {
+    const lock = vi.fn(async () => () => {});
+    const h = harness([], { lock, openSecureOwner: async () => undefined });
+    overrideProductSecureMode(h.options.productRuntime, true);
+    expect(await runDaemonCommand(['start'], h.options)).toBe(1);
+    expect(h.err()).toMatch(/not started.*secure mode needs an unlock/i);
+    expect(lock).not.toHaveBeenCalled();
+    expect(h.launch).not.toHaveBeenCalled();
+  });
+
+  it('reports secure daemon status without opening an owner or requesting a URL', async () => {
+    const h = harness([daemonRow(LIVE, { secure: { certified: true } })]);
+    overrideProductSecureMode(h.options.productRuntime, true);
+    expect(await runDaemonCommand(['status', '--json'], h.options)).toBe(0);
+    expect(h.connect).not.toHaveBeenCalled();
+    expect(JSON.parse(h.out())).toEqual({ running: true, mode: 'secure', id: LIVE, generation: GENERATION, control: 'available', certified: true, verified: false });
+    expect(h.out()).not.toContain('url');
+  });
   it.each(['new', 'reused'])('reports ignored settings for a successful %s Restricted daemon start', async (mode) => {
     const h = harness(mode === 'new' ? [] : [daemonRow(LIVE, { restricted: true })]);
     expect(await runDaemonCommand(['start', '--restricted-workspace', '--json'], h.options)).toBe(0);

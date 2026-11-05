@@ -4,13 +4,15 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { openOwnerHandover } from '@robota-sdk/agent-keyring';
+import { createKeyring, openOwnerHandover } from '@robota-sdk/agent-keyring';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../../secure/__tests__/helpers.js';
 import { openRegisteredOwnerLink } from '../owner-link-client.js';
 import { launchCertifiedRuntime } from '../certified-runtime-launch.js';
+import { runDaemonCommand } from '../daemon-command.js';
 import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
 
 const roots: string[] = [];
@@ -33,11 +35,51 @@ it('certifies a real launched runtime and assigns its daemon role under owner pr
     try {
       const rows = await listSupervisedSessions(root, undefined, { includeGeneration: true, includeDaemon: true, includeSecure: true });
       expect(rows.find((row) => row.id === started.id)).toMatchObject({ daemon: true, secure: { certified: true }, generation: started.generation });
+      overrideProductSecureMode(runtime, true);
+      const output: string[] = [];
+      const errors: string[] = [];
+      const stranger = await createKeyring({ passphrase: 'another strong passphrase' });
+      stranger.unlocked.lock();
+      const base = { productRuntime: runtime, cwd: home, root, env: () => env, admit: async () => { throw new Error('Unexpected launch'); },
+        trusted: async () => false, stdout: (s: string) => output.push(s), stderr: (s: string) => errors.push(s) };
+      const refused = await runDaemonCommand(['start', '--json'], { ...base, openSecureOwner: () => openOwnerHandover(stranger.keyring, { type: 'passphrase', passphrase: 'another strong passphrase' }) });
+      expect(refused).toBe(1);
+      expect(errors.join('')).toMatch(/unproven runtime/i);
+      const reused = await runDaemonCommand(['start', '--json'], { ...base, openSecureOwner: () => openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE }) });
+      expect(reused).toBe(0);
+      expect(JSON.parse(output.join(''))).toEqual({ id: started.id, generation: started.generation, mode: 'secure' });
     } finally {
       owner.close();
       await stopSupervisedSession(started.id, root, started.generation);
     }
   } finally { handover.dispose(); }
+}, 60_000);
+
+it('starts and certifies a daemon through the secure daemon command', async () => {
+  const home = realpathSync(mkdtempSync(join(process.platform === 'win32' ? tmpdir() : realpathSync('/tmp'), 'cert-')));
+  roots.push(home);
+  const env = createTestBinaryEnvironment(home, { PRODUCT_TELEMETRY_ENABLED: '0' });
+  const runtime = createTestProductRuntime('test-product', env);
+  overrideProductSecureMode(runtime, true);
+  const root = resolveSupervisedDirectory(runtime);
+  const { keyring } = await fixtureKeyring();
+  const output: string[] = [];
+  const errors: string[] = [];
+  const code = await runDaemonCommand(['start', '--json', '--restricted-workspace'], {
+    productRuntime: runtime, cwd: home, root, env: () => env, admit: async () => {}, trusted: async () => false,
+    stdout: (s) => output.push(s), stderr: (s) => errors.push(s),
+    openSecureOwner: () => openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE }),
+    launchSecure: (cwd, options) => launchCertifiedRuntime(cwd, { ...options,
+      entrypoint: fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url)),
+      execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source'] }),
+  });
+  expect(code, errors.join('')).toBe(0);
+  const result = JSON.parse(output.join('')) as { id: string; generation: string; mode: string };
+  expect(result.mode).toBe('secure');
+  try {
+    const rows = await listSupervisedSessions(root, undefined, { includeGeneration: true, includeDaemon: true, includeSecure: true });
+    expect(rows.find((row) => row.id === result.id)).toMatchObject({ daemon: true, secure: { certified: true }, generation: result.generation });
+  } finally { await stopSupervisedSession(result.id, root, result.generation); }
 }, 60_000);
 
 it('stops a proved runtime when certification fails', async () => {

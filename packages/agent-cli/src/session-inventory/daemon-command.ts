@@ -2,6 +2,14 @@ import { formatHeadlessRestrictedNotice } from '../startup/workspace-trust-admis
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { randomBytes } from 'node:crypto';
 import { realpathSync } from 'node:fs';
+import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
+
+import { productSecureMode } from '../product/session-sealing.js';
+import { createKeyringFileStore } from '../secure/keyring-store.js';
+import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
+import { openSecureTerminal } from '../secure/secure-terminal.js';
+import { launchCertifiedRuntime } from './certified-runtime-launch.js';
+import { openRegisteredOwnerLink } from './owner-link-client.js';
 
 import {
   acquireSupervisedDaemonStartLock,
@@ -43,6 +51,9 @@ export interface IDaemonCommandOptions {
   readonly stop?: typeof stopSupervisedSession;
   /** Serializes starts in one workspace; resolves to the release. */
   readonly lock?: typeof acquireSupervisedDaemonStartLock;
+  /** Owner handover for a secure start; tests may supply a scripted terminal. */
+  readonly openSecureOwner?: () => Promise<IOwnerHandover | undefined>;
+  readonly launchSecure?: typeof launchCertifiedRuntime;
 }
 
 type TAction =
@@ -77,7 +88,7 @@ export async function findWorkspaceDaemon(
   lookup: { readonly root: string; readonly list?: typeof listSupervisedSessions },
 ): Promise<TWorkspaceDaemon | undefined> {
   const rows = await (lookup.list ?? listSupervisedSessions)(lookup.root, undefined, {
-    cwd: workspace, includeCwd: true, includeGeneration: true, includeDaemon: true, includeName: true,
+    cwd: workspace, includeCwd: true, includeGeneration: true, includeDaemon: true, includeName: true, includeSecure: true,
   });
   return rows
     .filter((row): row is TWorkspaceDaemon =>
@@ -88,6 +99,59 @@ export async function findWorkspaceDaemon(
 
 function findDaemon(options: IDaemonCommandOptions, workspace: string): Promise<TWorkspaceDaemon | undefined> {
   return findWorkspaceDaemon(workspace, { ...options, root: options.root ?? resolveSupervisedDirectory(options.productRuntime) });
+}
+
+async function startSecureDaemon(
+  options: IDaemonCommandOptions,
+  workspace: string,
+  parsed: Extract<TAction, { readonly action: 'start' }>,
+): Promise<number> {
+  const runtime = options.productRuntime;
+  const root = options.root ?? resolveSupervisedDirectory(runtime);
+  const owner = await (options.openSecureOwner ?? (() => openOwnerAtTerminal({
+    store: createKeyringFileStore({ path: runtime.layout.userPaths.keyring, root: runtime.layout.userRoot }),
+    terminal: openSecureTerminal(),
+    purpose: 'start or connect to a secure runtime',
+    report: (message) => options.stderr(`${message}\n`),
+  })))();
+  if (owner === undefined) {
+    options.stderr('Not started: secure mode needs an unlock to start a runtime. Run this command in a terminal.\n');
+    return 1;
+  }
+  try {
+    const release = await (options.lock ?? acquireSupervisedDaemonStartLock)(workspace, root, { cliName: runtime.vocabulary.cliName });
+    try {
+      const rows = await (options.list ?? listSupervisedSessions)(root, undefined, {
+        cwd: workspace, includeCwd: true, includeGeneration: true, includeDaemon: true,
+      });
+      const candidates = rows.filter((row): row is TWorkspaceDaemon => row.daemon === true && row.cwd === workspace &&
+        row.liveness === 'alive' && row.control === 'available' && row.generation !== undefined)
+        .sort((a, b) => a.id.localeCompare(b.id));
+      let found: TWorkspaceDaemon | undefined;
+      for (const row of candidates) {
+        try {
+          const link = await openRegisteredOwnerLink({ root, id: row.id, generation: row.generation, handover: owner });
+          link.close();
+          found ??= row;
+        } catch { /* An unproven endpoint cannot become the workspace daemon. */ }
+      }
+      if (found !== undefined) {
+        if (parsed.restricted && found.restricted !== true) throw new Error(`Daemon ${found.id} uses project configuration and cannot be started Restricted.`);
+        if (!parsed.restricted && found.restricted === true && await options.trusted(workspace)) throw new Error(`Daemon ${found.id} is Restricted in a trusted workspace. Stop it before starting with project configuration.`);
+        options.stdout(parsed.json ? `${JSON.stringify({ id: found.id, generation: found.generation, mode: 'secure' })}\n` : `Secure daemon ${found.id} is running in ${workspace}.\n`);
+        return 0;
+      }
+      if (candidates.length > 0) throw new Error(`An unproven runtime is running in ${workspace}; unlock it in its own app or stop it with ${runtime.vocabulary.cliName} daemon stop.`);
+      const admission = await options.admit(workspace, { restricted: parsed.restricted });
+      const restricted = parsed.restricted || (typeof admission === 'object' && admission !== null && admission.restricted);
+      const started = await (options.launchSecure ?? launchCertifiedRuntime)(workspace, {
+        productRuntime: runtime, root, env: options.env(workspace), handover: owner, daemonRole: true,
+        ...(restricted ? { restricted: true } : {}),
+      });
+      options.stdout(parsed.json ? `${JSON.stringify({ ...started, mode: 'secure' })}\n` : `Secure daemon ${started.id} started in ${workspace}.\n`);
+      return 0;
+    } finally { release(); }
+  } finally { owner.dispose(); }
 }
 
 /** A running daemon that cannot hand over its connection blocks every later start until it is stopped. */
@@ -175,6 +239,9 @@ export async function runDaemonCommand(
         : `No daemon start lock in ${workspace}.\n`);
       return 0;
     }
+    if (parsed.action === 'start' && productSecureMode(options.productRuntime)) {
+      return await startSecureDaemon(options, workspace, parsed);
+    }
     const running = await findDaemon(options, workspace);
     if (parsed.action === 'stop') {
       if (running === undefined) {
@@ -187,7 +254,13 @@ export async function runDaemonCommand(
     }
     if (parsed.action === 'status') {
       if (running === undefined) {
-        options.stdout(parsed.json ? `${JSON.stringify({ running: false })}\n` : `No daemon is running in ${workspace}.\n`);
+        options.stdout(parsed.json ? `${JSON.stringify(productSecureMode(options.productRuntime) ? { running: false, mode: 'secure' } : { running: false })}\n` : `No daemon is running in ${workspace}.\n`);
+        return 0;
+      }
+      if (productSecureMode(options.productRuntime)) {
+        options.stdout(parsed.json
+          ? `${JSON.stringify({ running: true, mode: 'secure', id: running.id, generation: running.generation, control: running.control, certified: running.secure?.certified ?? null, verified: false })}\n`
+          : `Secure daemon ${running.id} reports it is running in ${workspace}.\n`);
         return 0;
       }
       options.stdout(parsed.json
