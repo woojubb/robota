@@ -1,4 +1,7 @@
 import { once } from 'node:events';
+import { spawn } from 'node:child_process';
+import { Duplex } from 'node:stream';
+import { completeSpawnerPair } from '@robota-sdk/agent-transport-link';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
@@ -9,7 +12,7 @@ import { afterEach, expect, it } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { openRegisteredSpawnerLink } from '../owner-link-client.js';
-import { listSupervisedSessions, resolveSupervisedDirectory } from '../supervised-session-control.js';
+import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
 import { launchRuntimeProcess } from '../supervised-session-launch.js';
 
 import type { ChildProcess } from 'node:child_process';
@@ -69,3 +72,26 @@ it('ends a child that never answers the exchange, without accepting readiness', 
   const child = children[children.length - 1];
   expect(child?.exitCode !== null || child?.signalCode !== null).toBe(true);
 }, 15_000);
+
+
+it('forwards an inherited pair to a secure grandchild and closes its own copy', async () => {
+  const { root, env, runtime } = options();
+  const forwarder = fileURLToPath(new URL('../../testing/forward-spawner-pair.ts', import.meta.url));
+  const child = spawn(process.execPath, ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source', forwarder], { cwd: root, env, stdio: ['ignore', 'ignore', 'pipe', 'ipc', 'pipe'] });
+  children.push(child);
+  const pipe = child.stdio[4];
+  if (!(pipe instanceof Duplex)) throw new Error('Missing outer spawner pair');
+  const message = once(child, 'message');
+  const [pair, [reply]] = await Promise.all([completeSpawnerPair(pipe), message]);
+  if (typeof reply !== 'object' || reply === null || !('id' in reply) || typeof reply.id !== 'string') throw new Error('Forwarder failed');
+  expect(reply).toHaveProperty('pairClosed', true);
+  const supervisedRoot = resolveSupervisedDirectory(runtime);
+  const rows = await listSupervisedSessions(supervisedRoot, undefined, { includeGeneration: true });
+  const row = rows.find((item) => item.id === reply.id);
+  if (!row?.generation) throw new Error('Forwarded runtime has no generation');
+  const link = await openRegisteredSpawnerLink({ root: supervisedRoot, id: reply.id, generation: row.generation, ...pair });
+  expect(link.standing).toBe('spawner');
+  await stopSupervisedSession(reply.id, supervisedRoot, row.generation);
+  link.close();
+  pair.spawnerKey.wipe();
+}, 60_000);

@@ -3,6 +3,7 @@ import { childProductEnvironment } from '../product/child-environment.js';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
+import { closeSync, fstatSync } from 'node:fs';
 import { Duplex, Writable } from 'node:stream';
 import { completeSpawnerPair, type ISpawnerPairResult } from '@robota-sdk/agent-transport-link';
 
@@ -255,8 +256,8 @@ export interface ISupervisedLaunchOptions {
     readonly restricted?: boolean;
   }
 
-type TLaunchMode = { readonly kind: 'plain' } | { readonly kind: 'spawner'; readonly pairTimeoutMs?: number };
-type TLaunchResult = { readonly kind: 'plain'; readonly id: string } | ({ readonly kind: 'spawner'; readonly id: string } & ISpawnerPairResult);
+type TLaunchMode = { readonly kind: 'plain' } | { readonly kind: 'spawner'; readonly pairTimeoutMs?: number } | { readonly kind: 'forwarded'; readonly spawnerFd: number; readonly closeParent: () => void };
+type TLaunchResult = { readonly kind: 'plain' | 'forwarded'; readonly id: string } | ({ readonly kind: 'spawner'; readonly id: string } & ISpawnerPairResult);
 
 /** Start one opt-in supervised runtime without sending credentials through the control channel. */
 export async function launchSupervisedSession(cwd: string, options: ISupervisedLaunchOptions): Promise<string> {
@@ -277,6 +278,32 @@ export async function launchRuntimeProcess(
   return result;
 }
 
+/** Forward a desktop spawner's inherited pair without reading or certifying it. */
+export async function launchForwardedRuntime(
+  cwd: string,
+  options: ISupervisedLaunchOptions & { readonly spawnerFd: number },
+): Promise<string> {
+  const fd = options.spawnerFd;
+  if (!Number.isSafeInteger(fd) || fd < 3) throw new Error('The spawner descriptor is invalid.');
+  if (process.platform !== 'win32') {
+    let isSocket = false;
+    try { isSocket = fstatSync(fd, { bigint: true }).isSocket(); } catch { /* Not a live descriptor. */ }
+    if (!isSocket) throw new Error('The spawner descriptor is not a handed-over pair.');
+  }
+  let owned = true;
+  const closeParent = (): void => {
+    if (!owned) return;
+    owned = false;
+    try { closeSync(fd); } catch { /* The descriptor is already closed. */ }
+  };
+  try {
+    const result = await launchRuntime(cwd, options, { kind: 'forwarded', spawnerFd: fd, closeParent });
+    return result.id;
+  } finally {
+    closeParent();
+  }
+}
+
 async function launchRuntime(
   cwd: string,
   options: ISupervisedLaunchOptions,
@@ -286,7 +313,7 @@ async function launchRuntime(
     throw new Error('Supervised session name is invalid or too long.');
   }
   const transportToken = options.transportToken;
-  if (mode.kind === 'spawner' && (transportToken !== undefined || options.daemon === true || (options.grants?.length ?? 0) > 0)) {
+  if (mode.kind !== 'plain' && (transportToken !== undefined || options.daemon === true || (options.grants?.length ?? 0) > 0)) {
     throw new Error('A secure runtime cannot start with a plain token, daemon flag or external grants.');
   }
   if (transportToken !== undefined && !isSupervisedTransportToken(transportToken)) {
@@ -320,7 +347,7 @@ async function launchRuntime(
       ...(options.name === undefined ? [] : [`--name=${options.name}`]),
       ...(grants.length > 0 ? ['--supervised-external-event-grants'] : []),
       ...(transportToken === undefined ? [] : [SUPERVISED_TRANSPORT_TOKEN_FLAG]),
-      ...(mode.kind === 'spawner' ? [SUPERVISED_SPAWNER_PAIR_FLAG] : []),
+      ...(mode.kind !== 'plain' ? [SUPERVISED_SPAWNER_PAIR_FLAG] : []),
       ...(options.daemon === true ? ['--daemon'] : []),
       ...(options.restricted === true ? [RESTRICTED_WORKSPACE_FLAG] : []),
       ...(grants.length > 0 && options.eventEndpoint !== undefined
@@ -339,12 +366,14 @@ async function launchRuntime(
       // #3282 §3: stderr is piped (was 'ignore') so a death before readiness can report why —
       // otherwise discarded exactly as before, and released on every exit path below.
       // The transport token's pipe, when there is one, is the child's descriptor 4.
-      stdio: ['ignore', 'ignore', 'pipe', 'ipc', ...(transportToken === undefined && mode.kind === 'plain' ? [] : ['pipe' as const])],
+      stdio: ['ignore', 'ignore', 'pipe', 'ipc', ...(mode.kind === 'forwarded' ? [mode.spawnerFd] : transportToken === undefined && mode.kind === 'plain' ? [] : ['pipe' as const])],
       env: childEnv,
     }));
   } catch (error) {
     discardHandoff();
     throw error;
+  } finally {
+    if (mode.kind === 'forwarded') mode.closeParent();
   }
   const stderrTail = trackStderrTail(child);
   try {
@@ -384,7 +413,7 @@ async function launchRuntime(
         try {
           child.disconnect();
           child.unref();
-          if (mode.kind === 'plain') resolve({ kind: 'plain', id });
+          if (mode.kind !== 'spawner') resolve({ kind: mode.kind, id });
           else if (pair !== undefined) resolve({ kind: 'spawner', id, ...pair });
           else reject(new Error('The secure runtime did not complete its spawner exchange.'));
         } catch {
@@ -405,7 +434,7 @@ async function launchRuntime(
     };
     const fail = (message: string): void => finish({ ok: false, message });
     const finishWhenReady = (): void => {
-      if (acknowledged && (mode.kind === 'plain' || pair !== undefined)) finish({ ok: true });
+      if (acknowledged && (mode.kind !== 'spawner' || pair !== undefined)) finish({ ok: true });
     };
     if (mode.kind === 'spawner') {
       if (!(pairPipe instanceof Duplex)) fail('Supervised session could not receive its spawner pair.');
