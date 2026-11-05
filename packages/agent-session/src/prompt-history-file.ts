@@ -114,6 +114,44 @@ function isMissingFile(error: Error): boolean {
   return (error as NodeJS.ErrnoException).code === 'ENOENT';
 }
 
+function openHistoryForAppend(path: string): number {
+  const safeFlags = (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0);
+  const appendFlags = constants.O_WRONLY | constants.O_APPEND | safeFlags;
+  try {
+    return openSync(path, appendFlags | constants.O_CREAT, OWNER_ONLY_FILE_MODE);
+  } catch (error) {
+    if (!(error instanceof Error) || (error as NodeJS.ErrnoException).code !== 'EACCES') throw error;
+  }
+
+  let original: number;
+  try {
+    original = openSync(path, constants.O_RDONLY | safeFlags);
+  } catch (error) {
+    if (error instanceof Error && (error as NodeJS.ErrnoException).code === 'EACCES') {
+      throw new Error('Prompt history cannot be opened safely; restore owner read/write permissions on the history file and retry.', { cause: error });
+    }
+    throw error;
+  }
+  try {
+    const before = fstatSync(original, { bigint: true });
+    if (!before.isFile()) throw new Error('Prompt history must be a regular file.');
+    fchmodSync(original, OWNER_ONLY_FILE_MODE);
+    const writable = openSync(path, appendFlags);
+    try {
+      const after = fstatSync(writable, { bigint: true });
+      if (!after.isFile() || before.dev !== after.dev || before.ino !== after.ino) {
+        throw new Error('Prompt history changed while opening it for append.');
+      }
+      return writable;
+    } catch (error) {
+      closeSync(writable);
+      throw error;
+    }
+  } finally {
+    closeSync(original);
+  }
+}
+
 export class NodePromptHistoryFile implements IPromptHistoryWriter, IPromptHistorySource {
   private readonly blockBytes: number;
   private readonly ownedRoot: string | undefined;
@@ -146,11 +184,7 @@ export class NodePromptHistoryFile implements IPromptHistoryWriter, IPromptHisto
     if (lstatSync(this.path, { throwIfNoEntry: false })?.isSymbolicLink()) {
       throw new Error('Prompt history must not be a symbolic link.');
     }
-    const descriptor = openSync(
-      this.path,
-      constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0),
-      OWNER_ONLY_FILE_MODE,
-    );
+    const descriptor = openHistoryForAppend(this.path);
     try {
       const metadata = fstatSync(descriptor);
       if (!metadata.isFile()) throw new Error('Prompt history must be a regular file.');
