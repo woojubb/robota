@@ -56,7 +56,7 @@ afterEach(async () => {
 
 interface IFixtureEvent {
   chat: number;
-  phase: 'start' | 'end';
+  phase: 'start' | 'end' | 'change';
   prompt?: string;
 }
 
@@ -94,12 +94,19 @@ function createDeps(): IInProcessSubagentRunnerDeps {
 function startJob(environment: Record<string, string> = {}) {
   const directory = realpathSync(mkdtempSync(join(tmpdir(), 'follow-up-')));
   roots.push(directory);
+  let sendSettings: ((settings: Readonly<Record<string, unknown>>) => void) | undefined;
   const runner = new ChildProcessSubagentRunner(createDeps(), {
     logSealing: 'plain',
     workerEntry: FOLLOW_WORKER,
     env: { FOLLOW_FIXTURE_DIR: directory, ...environment },
     worktreeAdapter: NO_WORKTREES,
     providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+    watchParentSandboxSettings: (listener) => {
+      sendSettings = listener;
+      return () => {
+        sendSettings = undefined;
+      };
+    },
   });
   const emitted: TBackgroundTaskRunnerEvent[] = [];
   const handle = runner.start({
@@ -132,9 +139,10 @@ function startJob(environment: Record<string, string> = {}) {
     /** Lets provider call `number` answer. */
     release: (number: number) => writeFileSync(join(directory, `gate-${number}`), ''),
     /** Resolves once the fixture recorded `chat` `number` in `phase`. */
-    reached: async (number: number, phase: 'start' | 'end') => {
+    reached: async (number: number, phase: 'start' | 'end' | 'change') => {
       await waitFor(() => events().some((e) => e.chat === number && e.phase === phase));
     },
+    changeSettings: () => sendSettings?.({ unreadable: true }),
   };
 }
 
@@ -147,6 +155,24 @@ async function waitFor(condition: () => boolean, timeoutMs = 10_000): Promise<vo
 }
 
 describe('a child-process job that takes follow-up input', () => {
+  it(
+    'does not run accepted follow-ups after a failed sandbox update even if the active provider ignores abort',
+    async () => {
+      const job = startJob({ FOLLOW_FIXTURE_FAIL_SANDBOX: '1' });
+      const outcome = job.handle.result.catch((error: Error) => error);
+      await job.reached(1, 'start');
+      await job.handle.send('must not execute');
+      job.changeSettings();
+      await job.reached(0, 'change');
+      job.release(1);
+      const error = await outcome;
+      expect(error).toBeInstanceOf(Error);
+      expect(String(error)).toContain('fixture sandbox update failed');
+      expect(String(error)).toContain('accepted follow-up');
+      expect(job.events().some((event) => event.chat === 2)).toBe(false);
+    },
+    TEST_TIMEOUT_MS,
+  );
   it(
     'runs accepted input after a failed turn and reports the failure',
     async () => {

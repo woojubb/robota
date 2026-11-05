@@ -41,6 +41,17 @@ let calls = 0;
 runSubagentWorkerMain({
   host: createTestFrameworkHost(),
   createTools: () => [],
+  ...(process.env.FOLLOW_FIXTURE_FAIL_SANDBOX === '1'
+    ? {
+        createSandbox: () => ({
+          client: {},
+          applyParentSettings: () => {
+            record({ chat: 0, phase: 'change' });
+            throw new Error('fixture sandbox update failed');
+          },
+        }),
+      }
+    : {}),
   providerDefinitions: [
     {
       type: 'openai',

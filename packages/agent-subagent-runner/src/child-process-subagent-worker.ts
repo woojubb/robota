@@ -27,6 +27,7 @@ import {
 import { restoreAgentDefinition, restoreParentContext } from './subagent-worker-start-dto.js';
 import { restoreProjectedSandbox } from './worker-composition.js';
 import { withholdProviderCredential } from './worker-credential.js';
+import { runWorkerTurns } from './worker-turns.js';
 
 import type { IRecordSaveReporter } from './child-process-subagent-record-saves.js';
 import type { IClaimedResumeRecord } from './child-process-subagent-resume.js';
@@ -433,22 +434,17 @@ async function runTurns(
   turnSession: { run(prompt: string): Promise<string> },
   firstPrompt: string,
 ): Promise<string> {
-  let output = '';
-  let failure: { error: unknown } | undefined;
-  let prompt: string | undefined = firstPrompt;
-  while (prompt !== undefined) {
-    try {
-      output = await turnSession.run(prompt);
-    } catch (error) {
-      failure ??= { error };
-      if (parentChangeFailure !== undefined || cancelled) break;
-    }
-    prompt = cancelled ? undefined : followUps.shift();
+  try {
+    return await runWorkerTurns(
+      turnSession,
+      firstPrompt,
+      followUps,
+      () => parentChangeFailure,
+      () => cancelled,
+    );
+  } finally {
+    finishing = true;
   }
-  // The check that found nothing queued and this assignment are one step: no message runs between.
-  finishing = true;
-  if (failure) throw failure.error;
-  return output;
 }
 
 /** A follow-up prompt from the parent: queued for the next turn, or refused once the job is finishing. */
