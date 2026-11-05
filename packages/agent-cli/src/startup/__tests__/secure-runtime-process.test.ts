@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Duplex } from 'node:stream';
 
 import { createRuntimeIdentity, startSpawnerExchange } from '@robota-sdk/agent-keyring';
@@ -18,7 +18,7 @@ import { connectSupervisedDaemon, listSupervisedSessions, openSupervisedAttachSo
 import { windowsControlPipePath } from '../../session-inventory/windows-control-pipe.js';
 
 const fixture = fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url));
-const recorder = fileURLToPath(new URL('../../testing/spawn-recorder.mjs', import.meta.url));
+const recorder = new URL('../../testing/spawn-recorder.mjs', import.meta.url).href;
 const roots: string[] = [];
 const children: ChildProcess[] = [];
 
@@ -39,7 +39,7 @@ it('starts the real secure CLI runtime and admits its spawner on the control soc
   const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '0' });
   const runtime = createTestProductRuntime('test-product', env);
   const id = randomUUID();
-  const child = spawn(process.execPath, ['--import', createRequire(import.meta.url).resolve('tsx'), '--import', recorder, '--conditions=source', fixture, '--serve', '--safe-mode', '--supervised-session-id', id, '--supervised-spawner-pair'], {
+  const child = spawn(process.execPath, ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--import', recorder, '--conditions=source', fixture, '--serve', '--safe-mode', '--supervised-session-id', id, '--supervised-spawner-pair'], {
     cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'],
   });
   children.push(child);

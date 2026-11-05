@@ -1,9 +1,8 @@
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 
 import { expect, it } from 'vitest';
 
-const preload = fileURLToPath(new URL('../../testing/spawn-recorder.mjs', import.meta.url));
+const preload = new URL('../../testing/spawn-recorder.mjs', import.meta.url).href;
 
 function run(program: string) {
   return spawnSync(process.execPath, ['--import', preload, '--eval', program], {

@@ -9,7 +9,7 @@ import { createRequire } from 'node:module';
 import { createConnection, createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { LINK_HELLO_BYTES, createKeyring, createLinkInitiator, createLinkResponder, createRuntimeIdentity, openOwnerHandover, startSpawnerExchange } from '../../packages/agent-keyring/src/index.ts';
 import { LINK_REQUEST_LINE, completeSpawnerPair, openOwnerLink, openSpawnerLink } from '../../packages/agent-transport-link/src/index.ts';
@@ -25,7 +25,7 @@ import { NodeSessionStore } from '../../packages/agent-session/src/node.ts';
 
 const repo = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const cli = join(repo, 'packages/agent-cli');
-const loader = createRequire(join(cli, 'package.json')).resolve('tsx');
+const loader = pathToFileURL(createRequire(join(cli, 'package.json')).resolve('tsx')).href;
 const plain = process.argv.includes('--plain-negative-control');
 const temporaryRoot = process.platform === 'win32' ? tmpdir() : realpathSync('/tmp');
 const root = realpathSync(mkdtempSync(join(temporaryRoot, 'adversary-')));
