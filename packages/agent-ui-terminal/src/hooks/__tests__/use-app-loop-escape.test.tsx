@@ -46,6 +46,30 @@ function options(overrides: Partial<TOptions> = {}): TOptions {
 afterEach(cleanup);
 
 describe('Esc for a waiting self-paced loop', () => {
+  it('returns from a followed job without aborting an active parent turn', async () => {
+    const selectedEntry = {
+      id: 'task:fork',
+      sourceId: 'fork',
+      kind: 'background_task' as const,
+      taskKind: 'agent' as const,
+      origin: { kind: 'slash_command' as const, sessionId: 'parent' },
+      status: 'running' as const,
+      state: 'working' as const,
+      title: 'fork',
+      unread: false,
+      attention: 'none' as const,
+      visibility: 'default' as const,
+      updatedAt: '2026-11-05',
+      controls: ['select' as const, 'send' as const],
+      resumeSessionId: 'fork-session',
+    };
+    const state = options({ isThinking: true, selectedEntry, mainThreadEntryId: 'main' });
+    const view = render(<Probe options={state} />);
+    view.stdin.write('\u001b');
+    await vi.waitFor(() => expect(state.selectWorkspaceEntry).toHaveBeenCalledWith('main'));
+    expect(state.abort).not.toHaveBeenCalled();
+    view.unmount();
+  });
   it('routes idle Esc to targeted loop stop, but active-turn Esc to abort', async () => {
     const idle = options();
     const idleView = render(<Probe options={idle} />);
@@ -75,7 +99,10 @@ describe('Esc for a waiting self-paced loop', () => {
   });
 
   it('stops nothing on an observing terminal: neither the turn nor the loop', async () => {
-    for (const observing of [options({ readOnly: true }), options({ readOnly: true, isThinking: true })]) {
+    for (const observing of [
+      options({ readOnly: true }),
+      options({ readOnly: true, isThinking: true }),
+    ]) {
       const view = render(<Probe options={observing} />);
       view.stdin.write('\u001b');
       await new Promise<void>((resolve) => setTimeout(resolve, 200));

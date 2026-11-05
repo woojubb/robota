@@ -59,7 +59,8 @@ function overlaysBlockKeys(options: IOptions): boolean {
 }
 
 function useEscapeBindings(options: IOptions): void {
-  const context = options.isThinking ? 'thinking' : 'background-detail';
+  const viewingBackground = options.selectedEntry && options.selectedEntry.kind !== 'main_thread';
+  const context = options.isThinking && !viewingBackground ? 'thinking' : 'background-detail';
   useKeybindingActions(context, (actions) => {
     if (overlaysBlockKeys(options)) return;
     if (actions.includes('abort') && options.isThinking) {
@@ -76,11 +77,7 @@ function useEscapeBindings(options: IOptions): void {
       options.selectWorkspaceEntry(options.mainThreadEntryId);
       return;
     }
-    if (
-      actions.includes('return-to-main') &&
-      !options.backgroundListFocused &&
-      !options.readOnly
-    ) {
+    if (actions.includes('return-to-main') && !options.backgroundListFocused && !options.readOnly) {
       void options.stopWaitingLoop();
     }
   });
