@@ -1,6 +1,8 @@
 import { createKeyring, fingerprint, getSealingPublicKey } from '@robota-sdk/agent-keyring';
 import { describe, expect, it } from 'vitest';
 
+const noopReport = (): void => {};
+
 import { openOwnerAtTerminal } from '../owner-at-terminal.js';
 import {
   createMemoryKeyringStore,
@@ -15,9 +17,11 @@ describe('owner handover at the secret terminal', () => {
     const { keyring } = await fixtureKeyring();
     const store = createMemoryKeyringStore(keyring);
     const terminal = scriptedSecureTerminal({ passphrase: ['wrong', FIXTURE_PASSPHRASE] });
-    const handover = await openOwnerAtTerminal({ store, purpose: 'start a secure runtime', terminal: terminal.session });
+    const reports: string[] = [];
+    const handover = await openOwnerAtTerminal({ store, purpose: 'start a secure runtime', report: (message) => reports.push(message), terminal: terminal.session });
     expect(handover?.fingerprint).toBe(fingerprint(getSealingPublicKey(keyring)));
-    expect(terminal.prompts().filter((prompt) => prompt.startsWith('Passphrase:'))).toHaveLength(2);
+    expect(terminal.prompts()).toEqual(['Passphrase: ', 'Passphrase: ']);
+    expect(reports.join('\n')).toContain(fingerprint(getSealingPublicKey(keyring)));
     expect(terminal.everything()).toContain('That did not unlock the keyring.');
     expect(terminal.everything()).not.toContain(FIXTURE_PASSPHRASE);
     expect(store.saves).toHaveLength(0);
@@ -28,7 +32,7 @@ describe('owner handover at the secret terminal', () => {
   it('accepts a recovery key on the same secret terminal', async () => {
     const { keyring, recoveryKey } = await fixtureKeyring();
     const terminal = scriptedSecureTerminal({ recoveryKey });
-    const handover = await openOwnerAtTerminal({ store: createMemoryKeyringStore(keyring), purpose: 'attach', terminal: terminal.session, credential: 'recoveryKey' });
+    const handover = await openOwnerAtTerminal({ store: createMemoryKeyringStore(keyring), purpose: 'attach', report: noopReport, terminal: terminal.session, credential: 'recoveryKey' });
     expect(handover?.sealingKeyMatches).toBe(true);
     expect(terminal.everything()).not.toContain(recoveryKey);
     handover?.dispose();
@@ -37,16 +41,14 @@ describe('owner handover at the secret terminal', () => {
   it('cancels without a terminal, on empty input or on Ctrl-C, and gives up after three wrong tries', async () => {
     const { keyring } = await fixtureKeyring();
     const store = createMemoryKeyringStore(keyring);
-    await expect(openOwnerAtTerminal({ store, purpose: 'attach', terminal: undefined })).resolves.toBeUndefined();
+    await expect(openOwnerAtTerminal({ store, purpose: 'attach', report: noopReport, terminal: undefined })).resolves.toBeUndefined();
     const empty = scriptedSecureTerminal({ passphrase: '' });
-    await expect(openOwnerAtTerminal({ store, purpose: 'attach', terminal: empty.session })).resolves.toBeUndefined();
+    await expect(openOwnerAtTerminal({ store, purpose: 'attach', report: noopReport, terminal: empty.session })).resolves.toBeUndefined();
     expect(empty.prompts()).toHaveLength(1);
     const cancelled = scriptedSecureTerminal({ cancelAt: /^Passphrase:/ });
-    await expect(openOwnerAtTerminal({ store, purpose: 'attach', terminal: cancelled.session })).resolves.toBeUndefined();
-    const cancelledAfterUnlock = scriptedSecureTerminal({ passphrase: FIXTURE_PASSPHRASE, cancelAt: /^Press Enter/ });
-    await expect(openOwnerAtTerminal({ store, purpose: 'attach', terminal: cancelledAfterUnlock.session })).resolves.toBeUndefined();
+    await expect(openOwnerAtTerminal({ store, purpose: 'attach', report: noopReport, terminal: cancelled.session })).resolves.toBeUndefined();
     const wrong = scriptedSecureTerminal({ passphrase: 'wrong' });
-    await expect(openOwnerAtTerminal({ store, purpose: 'attach', terminal: wrong.session })).resolves.toBeUndefined();
+    await expect(openOwnerAtTerminal({ store, purpose: 'attach', report: noopReport, terminal: wrong.session })).resolves.toBeUndefined();
     expect(wrong.prompts()).toHaveLength(3);
   });
 
@@ -57,11 +59,12 @@ describe('owner handover at the secret terminal', () => {
     const swapped = withSwappedSealingKey(keyring, other.keyring);
     const store = createMemoryKeyringStore(swapped);
     const terminal = scriptedSecureTerminal({ passphrase: FIXTURE_PASSPHRASE });
-    const handover = await openOwnerAtTerminal({ store, purpose: 'attach', terminal: terminal.session });
+    const reports: string[] = [];
+    const handover = await openOwnerAtTerminal({ store, purpose: 'attach', report: (message) => reports.push(message), terminal: terminal.session });
     expect(handover?.sealingKeyMatches).toBe(false);
-    expect(terminal.everything()).toContain(fingerprint(getSealingPublicKey(swapped)));
-    expect(terminal.everything()).toContain(fingerprint(getSealingPublicKey(keyring)));
-    expect(terminal.everything()).toMatch(/changed|mismatch|different|differs/i);
+    expect(reports.join('\n')).toContain(fingerprint(getSealingPublicKey(swapped)));
+    expect(reports.join('\n')).toContain(fingerprint(getSealingPublicKey(keyring)));
+    expect(reports.join('\n')).toMatch(/changed|mismatch|different|differs/i);
     expect(store.saves).toHaveLength(0);
     handover?.dispose();
   });
@@ -72,6 +75,6 @@ describe('owner handover at the secret terminal', () => {
     other.unlocked.lock();
     const store = createMemoryKeyringStore(keyring);
     const terminal = scriptedSecureTerminal({ passphrase: FIXTURE_PASSPHRASE, meanwhile: { when: /^Passphrase:/, run: () => store.tamper(other.keyring) } });
-    await expect(openOwnerAtTerminal({ store, purpose: 'attach', terminal: terminal.session })).rejects.toThrow(/changed/i);
+    await expect(openOwnerAtTerminal({ store, purpose: 'attach', report: noopReport, terminal: terminal.session })).rejects.toThrow(/changed/i);
   });
 });
