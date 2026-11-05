@@ -1,23 +1,14 @@
 ---
 '@robota-sdk/agent-transport-link': minor
 '@robota-sdk/agent-keyring': patch
+'@robota-sdk/agent-core': patch
 '@robota-sdk/agent-cli': patch
 ---
 
-The runtime half of owner-link admission, first pieces (issue #3679). Nothing turns secure mode on
-yet, so no runtime or command changes behaviour.
+Add the runtime half of owner-link admission. Secure mode remains dormant until the product enables it.
 
-`@robota-sdk/agent-transport-link` adds the spawner pair: `answerSpawnerPair` is the runtime's end of
-the exchange over the descriptor it inherited (synchronous, closing the descriptor on every path) and
-`completeSpawnerPair` is the spawner's end, with `SPAWNER_PAIR_FD` and `SpawnerPairError`. An admitted
-link now reports `pendingBytes()` so a runtime can cut a client that stopped reading, and its
-`close()` delivers what is queued, for a bounded grace (`closeFlushTimeoutMs`, default 5 s), before it
-cuts, so an answer sent just before is not lost.
-
-`@robota-sdk/agent-keyring` exports the exchange's message lengths. `@robota-sdk/agent-cli`'s
-`KeyHolder` can take the read keys of an owner link (`unlockWithGrant`): it reports a keyring file
-that holds another sealing key as a mismatch and leaves the file alone. A secure runtime's custody
-(`RuntimeCustody`) admits links by standing, carries the session protocol in sealed frames and
-locks the keys on the owner's request, when the last link closes and after fifteen idle minutes.
-
-What to do: nothing.
+The transport provides the spawner-pair exchange and bounded delivery of queued link frames. The CLI
+uses the exchanged runtime identity to admit owner links, receives read grants without a passphrase,
+locks keys when access ends, and refuses unsecured listener and control paths. The child-session spawn
+paths can be held while a handed-over descriptor is consumed, and the runtime uses that hold during the
+exchange.
