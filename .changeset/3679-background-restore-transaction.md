@@ -5,10 +5,10 @@
 '@robota-sdk/agent-framework': minor
 ---
 
-Preserve restored background task identities and prepare scheduled tasks before resuming them. A resumed schedule activates only after a claim-fenced atomic store confirms a complete save; an unknown result stops initialization without assuming which record is present. Paused schedules stay paused, and a normal shutdown retains scheduled tasks for the next resume.
+Preserve restored background task identities and prepare scheduled tasks before resuming them. A resumed schedule activates only after the store confirms a complete save; an unknown result stops initialization without assuming which record is present. Paused schedules stay paused, and a normal shutdown retains scheduled tasks for the next resume.
 
 When a claimed session has a background manager, it requires an exclusively bound built-in manager. Scheduled tasks in a claimed session require the built-in scheduled runner and a verifiable writer claim. Restoring schedules also requires a store that supplies the restore transaction. Custom managers and scheduled runners remain available to unpersisted sessions, but their saved schedules cannot be resumed. A manager must reserve restored IDs before a session with stored tasks can resume; an already-used manager is refused for a restore.
 
-This protects restore and restart boundaries; it does not promise exactly-once effects from arbitrary external commands.
+The built-in store checks the writer claim and atomically replaces the record, but the check and replacement are separate operations. A concurrent force release or marker replacement between them can allow an earlier writer to overwrite a newer record. This race remains unresolved. External commands do not have an exactly-once guarantee.
 
-When a claimed session detects that it no longer owns the writer claim, it stops admitting wakes and reports a failure without saving over the new owner. In-flight subprocess cancellation is best effort. Ownership checks cannot be atomic with external effects, and a process that has already started may still have effects.
+When a claimed session detects that it no longer owns the writer claim, it stops admitting wakes and reports a failure without intentionally saving over the new owner. A claim lost after a check can still permit a stale write or external effect. In-flight subprocess cancellation is best effort, and a process that has already started may still have effects.
