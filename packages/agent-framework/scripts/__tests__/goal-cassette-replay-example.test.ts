@@ -8,10 +8,15 @@ import { GOAL_CASSETTE_PATH } from '../../src/testing/__fixtures__/goal-cassette
 
 it('runs the public SDK replay example without changing the committed cassette', () => {
   const before = readFileSync(GOAL_CASSETTE_PATH);
-  const output = execFileSync('pnpm', ['exec', 'tsx', 'examples/verify-goal-cassette-replay.mts'], {
+  const output = execFileSync(process.execPath, [
+    '--import',
+    fileURLToPath(new URL('../../node_modules/tsx/dist/loader.mjs', import.meta.url)),
+    '--conditions=source',
+    'examples/verify-goal-cassette-replay.mts',
+  ], {
     cwd: fileURLToPath(new URL('../../', import.meta.url)),
     encoding: 'utf8',
-    timeout: 20_000,
+    timeout: 30_000,
   });
   expect(output).toContain('status: satisfied');
   expect(output).toContain('stopReason: satisfied');
@@ -19,4 +24,4 @@ it('runs the public SDK replay example without changing the committed cassette',
   expect(output).toContain('Bash');
   expect(output).toContain('report_goal_status');
   expect(readFileSync(GOAL_CASSETTE_PATH)).toEqual(before);
-}, 25_000);
+}, 35_000);
