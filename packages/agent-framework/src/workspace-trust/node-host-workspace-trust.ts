@@ -54,9 +54,11 @@ function runGit(cwd: string, args: readonly string[]): string {
   }
 }
 
-function canonicalPath(value: string): string {
+function canonicalPath(value: string, expandWindowsAlias = false): string {
   try {
-    return realpathSync(value);
+    return expandWindowsAlias && process.platform === 'win32'
+      ? realpathSync.native(value)
+      : realpathSync(value);
   } catch (error) {
     throw new Error(`Git workspace identity is unavailable for ${value}`, { cause: error });
   }
@@ -186,10 +188,11 @@ export function createNodeWorkspaceIdentityResolver(): IWorkspaceIdentityResolve
     resolve(cwd: string): IWorkspaceIdentity {
       const canonicalCwd = canonicalPath(resolve(cwd));
       const worktreeRoot = canonicalPath(runGit(canonicalCwd, ['rev-parse', '--show-toplevel']));
+      // Keep Git's original cwd: relative GIT_DIR and GIT_WORK_TREE are interpreted from there.
       const commonDirValue = runGit(canonicalCwd, ['rev-parse', '--git-common-dir']);
       const commonDir = canonicalPath(
-        // Git returns a relative common-dir from the command's cwd, which may be below the root.
         isAbsolute(commonDirValue) ? commonDirValue : join(canonicalCwd, commonDirValue),
+        true,
       );
       const repositoryKey = repositoryIdentityKey(commonDir);
       return Object.freeze({

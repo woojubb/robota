@@ -40,6 +40,71 @@ afterEach(() => {
 });
 
 describe('Node host workspace trust', () => {
+  it('resolves a relative Git environment from the requested working directory', () => {
+    const root = tempRoot('agent-workspace-relative-git-');
+    gitInit(root);
+    const nested = join(root, 'nested');
+    mkdirSync(nested);
+    const oldDir = process.env['GIT_DIR'];
+    const oldWorkTree = process.env['GIT_WORK_TREE'];
+    process.env['GIT_DIR'] = join('..', '.git');
+    process.env['GIT_WORK_TREE'] = '..';
+    try {
+      const identity = createNodeWorkspaceIdentityResolver().resolve(nested);
+      expect(identity.worktreeRoot).toBe(realpathSync.native(root));
+    } finally {
+      if (oldDir === undefined) delete process.env['GIT_DIR'];
+      else process.env['GIT_DIR'] = oldDir;
+      if (oldWorkTree === undefined) delete process.env['GIT_WORK_TREE'];
+      else process.env['GIT_WORK_TREE'] = oldWorkTree;
+    }
+  });
+
+  it('does not apply a trust grant to another relative Git directory', async () => {
+    const root = tempRoot('agent-workspace-separate-git-');
+    const nested = join(root, 'nested');
+    mkdirSync(nested);
+    execFileSync('git', ['init', '--bare', '--quiet', join(root, 'relgit')]);
+    execFileSync('git', ['init', '--bare', '--quiet', join(nested, 'relgit')]);
+    const store = createNodeWorkspaceTrustStore(join(tempRoot('agent-workspace-separate-store-'), 'trust.json'));
+    const service = new WorkspaceTrustService({
+      identityResolver: createNodeWorkspaceIdentityResolver(),
+      store,
+      projectFiles: createNodeWorkspaceProjectFiles(),
+    });
+    const oldDir = process.env['GIT_DIR'];
+    const oldWorkTree = process.env['GIT_WORK_TREE'];
+    process.env['GIT_DIR'] = 'relgit';
+    process.env['GIT_WORK_TREE'] = root;
+    try {
+      expect(await service.grant(root)).toMatchObject({ status: 'trusted' });
+      expect(await service.inspect(nested)).toMatchObject({ status: 'restricted' });
+    } finally {
+      if (oldDir === undefined) delete process.env['GIT_DIR'];
+      else process.env['GIT_DIR'] = oldDir;
+      if (oldWorkTree === undefined) delete process.env['GIT_WORK_TREE'];
+      else process.env['GIT_WORK_TREE'] = oldWorkTree;
+    }
+  });
+
+  it('keeps the same trusted identity when Git returns another spelling for the worktree root', async () => {
+    const root = tempRoot('agent-workspace-canonical-');
+    gitInit(root);
+    const resolver = createNodeWorkspaceIdentityResolver();
+    const identity = resolver.resolve(root);
+    const canonicalIdentity = resolver.resolve(identity.worktreeRoot);
+    expect(canonicalIdentity).toEqual(identity);
+
+    const store = createNodeWorkspaceTrustStore(join(tempRoot('agent-workspace-grant-'), 'trust.json'));
+    const service = new WorkspaceTrustService({
+      identityResolver: resolver,
+      store,
+      projectFiles: createNodeWorkspaceProjectFiles(),
+    });
+    expect(await service.grant(root)).toMatchObject({ status: 'trusted', identity });
+    expect(await service.inspect(identity.worktreeRoot)).toMatchObject({ status: 'trusted', identity });
+  });
+
   it('resolves the same repository identity from a nested working directory', () => {
     const root = tempRoot('agent-workspace-nested-cwd-');
     gitInit(root);
