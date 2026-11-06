@@ -251,7 +251,7 @@ describe('Windows session operation guard', () => {
       const moduleUrl = pathToFileURL(
         createRequire(import.meta.url).resolve('@robota-sdk/agent-session/node'),
       ).href;
-      const script = `import { createProcessOperationLock } from ${JSON.stringify(moduleUrl)}; const lock = createProcessOperationLock(process.argv[1]).tryAcquire('session_a'); if (!lock) process.exit(2); process.send('ready'); setInterval(() => {}, 1000);`;
+      const script = `import { createProcessOperationLock, NodeSessionStore } from ${JSON.stringify(moduleUrl)}; import { join } from 'node:path'; const root = process.argv[1]; const store = new NodeSessionStore(root, { sealing: 'plain' }); store.claim('session_a', { fresh: true }); const lock = createProcessOperationLock(join(root, 'claims')).tryAcquire('session_a'); if (!lock) process.exit(2); process.send('ready'); setInterval(() => {}, 1000);`;
       const child = spawn(process.execPath, ['--input-type=module', '-e', script, root], {
         stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
       });
@@ -259,7 +259,7 @@ describe('Windows session operation guard', () => {
         expect((await once(child, 'message', { signal: AbortSignal.timeout(10_000) }))[0]).toBe(
           'ready',
         );
-        const lock = createProcessOperationLock(root);
+        const lock = createProcessOperationLock(join(root, 'claims'));
         expect(lock.tryAcquire('session_a')).toBeUndefined();
         const exited = once(child, 'exit', { signal: AbortSignal.timeout(5_000) });
         child.kill('SIGKILL');
@@ -267,6 +267,10 @@ describe('Windows session operation guard', () => {
         const recovered = lock.tryAcquire('session_a');
         expect(recovered).toBeDefined();
         recovered?.release();
+        const store = new NodeSessionStore(root, { sealing: 'plain' });
+        const claim = store.claim('session_a', { fresh: true });
+        claim.release();
+        expect(store.hasWriter('session_a')).toBe(false);
       } finally {
         if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
         rmSync(root, { recursive: true, force: true });
