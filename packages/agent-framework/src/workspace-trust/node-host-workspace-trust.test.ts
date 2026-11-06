@@ -40,6 +40,24 @@ afterEach(() => {
 });
 
 describe('Node host workspace trust', () => {
+  it('keeps the same trusted identity when Git returns another spelling for the worktree root', async () => {
+    const root = tempRoot('agent-workspace-canonical-');
+    gitInit(root);
+    const resolver = createNodeWorkspaceIdentityResolver();
+    const identity = resolver.resolve(root);
+    const canonicalIdentity = resolver.resolve(identity.worktreeRoot);
+    expect(canonicalIdentity).toEqual(identity);
+
+    const store = createNodeWorkspaceTrustStore(join(tempRoot('agent-workspace-grant-'), 'trust.json'));
+    const service = new WorkspaceTrustService({
+      identityResolver: resolver,
+      store,
+      projectFiles: createNodeWorkspaceProjectFiles(),
+    });
+    expect(await service.grant(root)).toMatchObject({ status: 'trusted', identity });
+    expect(await service.inspect(identity.worktreeRoot)).toMatchObject({ status: 'trusted', identity });
+  });
+
   it('resolves the same repository identity from a nested working directory', () => {
     const root = tempRoot('agent-workspace-nested-cwd-');
     gitInit(root);
