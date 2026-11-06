@@ -312,6 +312,12 @@ describe('keyring store — saving', () => {
     writeFileSync(unrelated, 'keep', { mode: 0o600 });
 
     storeFor().create(keyring);
+    if (readBootId() === undefined) {
+      // The pid is not trustworthy without a boot identity: leave the fresh file alone.
+      expect(existsSync(crashed)).toBe(true);
+      ageFile(crashed, 10 * 60_000);
+      storeFor().save(reordered(keyring), keyring);
+    }
     expect(existsSync(crashed)).toBe(false);
     expect(existsSync(legacy)).toBe(false);
     expect(existsSync(unrelated)).toBe(true);
@@ -465,6 +471,12 @@ describe('keyring store — one writer at a time', () => {
     const { keyring } = await fixtureKeyring();
     writeKeyringFile(keyring);
     writeFileSync(lockPath(), lockOf(deadPid(), thisMachine()), { mode: 0o600 });
+    if (readBootId() === undefined) {
+      expect(
+        refusal(() => storeFor({ lockWaitMs: 0 }).save(reordered(keyring), keyring)).code,
+      ).toBe('busy');
+      ageFile(lockPath(), 10 * 60_000);
+    }
 
     storeFor().save(reordered(keyring), keyring);
     expect(readFileSync(keyringPath, 'utf8')).toBe(serializeKeyring(reordered(keyring)));
@@ -552,6 +564,11 @@ describe('keyring store — one writer at a time', () => {
     ageFile(elsewhereOld, 10 * 60_000);
 
     storeFor().save(reordered(keyring), keyring);
+    if (readBootId() === undefined) {
+      expect(existsSync(gone)).toBe(true);
+      ageFile(gone, 10 * 60_000);
+      storeFor().save(keyring, reordered(keyring));
+    }
     expect(existsSync(gone)).toBe(false);
     expect(existsSync(live)).toBe(true);
     expect(existsSync(elsewhereFresh)).toBe(true);
