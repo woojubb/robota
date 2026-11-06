@@ -3,4 +3,4 @@
 # tool which spawns a command binary can use too (the desktop app's configured CLI command, the
 # browser GUI's sidecar). No build needed: workspace packages resolve through their `source` condition.
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
-exec "$root/node_modules/.bin/tsx" --conditions=source "$root/packages/agent-cli/src/bin.ts" "$@"
+exec node --import "$root/node_modules/tsx/dist/loader.mjs" --conditions=source "$root/packages/agent-cli/src/bin.ts" "$@"

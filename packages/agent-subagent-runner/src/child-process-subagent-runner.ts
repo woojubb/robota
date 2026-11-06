@@ -15,7 +15,7 @@ import {
   resolveSubagentLogSessionId,
   resolveSubagentTranscriptPath,
 } from '@robota-sdk/agent-framework/node';
-import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
+import { CommandExecutor, HttpExecutor, withChildSession } from '@robota-sdk/agent-core/node';
 import { DEFAULT_KILL_GRACE_MS } from '@robota-sdk/agent-process';
 
 import {
@@ -252,10 +252,12 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     const lease = this.lendForkRecord(job);
     let child: ChildProcess;
     try {
+      // Already its own session on POSIX. Not registered to end with this process: on disconnect the
+      // worker saves its record and ends itself, which a kill at exit would cut short.
       child = spawn(
         entry.execPath,
         [...(entry.execArgv ?? []), ...entry.args, SUBAGENT_WORKER_MODE_FLAG],
-        {
+        withChildSession({
           // ARCH-010/ARCH-031: the forked process's OS working directory answers the same question
           // as the session's execution root, so it reads the same rule. Reading `request.cwd`
           // directly was only ever correct while the worktree runner rewrote that field — this is
@@ -267,7 +269,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
           // diagnosed by hand — the cause was written to a stream nothing was reading.
           stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
           detached: SPAWN_DETACHED,
-        },
+        }),
       );
     } catch (error) {
       lease?.end();

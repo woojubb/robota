@@ -1,5 +1,5 @@
 import { spawn, type ChildProcess } from 'node:child_process';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { organizationGatewayFixture } from './organization-gateway-fixture.js';
 
 function worker(origin: string, token: string) {
@@ -63,16 +63,17 @@ it('rejects malformed model requests before consulting hosted inventory', async 
 
 it('shares one hosted admission while concurrent requests wait on inventory', async () => {
   const f = await organizationGatewayFixture({ blockInventory: true });
+  const admit = vi.spyOn(f.control, 'admit');
   try {
     const first = workerProbe(f);
     await f.inventoryStart;
     const second = workerProbe(f);
-    await new Promise<void>((resolve) => setTimeout(resolve, 30));
-    expect(f.inventoryListCount()).toBe(1);
+    await f.secondWorker;
+    expect(admit).toHaveBeenCalledTimes(1);
     f.releaseInventory();
     const responses = await Promise.all([first, second]);
     expect(responses.map((response) => response.status)).toEqual([200, 200]);
-    expect(f.inventoryListCount()).toBe(1);
+    expect(admit).toHaveBeenCalledTimes(1);
   } finally {
     f.releaseInventory();
     await f.close();
@@ -81,6 +82,7 @@ it('shares one hosted admission while concurrent requests wait on inventory', as
 
 it('keeps shared admission available when the first waiter disconnects', async () => {
   const f = await organizationGatewayFixture({ blockInventory: true });
+  const admit = vi.spyOn(f.control, 'admit');
   const controller = new AbortController();
   try {
     const first = workerProbe(f, controller.signal);
@@ -88,11 +90,11 @@ it('keeps shared admission available when the first waiter disconnects', async (
     controller.abort();
     await expect(first).rejects.toThrow();
     const second = workerProbe(f);
-    await new Promise<void>((resolve) => setTimeout(resolve, 30));
-    expect(f.inventoryListCount()).toBe(1);
+    await f.secondWorker;
+    expect(admit).toHaveBeenCalledTimes(1);
     f.releaseInventory();
     expect((await second).status).toBe(200);
-    expect(f.inventoryListCount()).toBe(1);
+    expect(admit).toHaveBeenCalledTimes(1);
   } finally {
     f.releaseInventory();
     await f.close();

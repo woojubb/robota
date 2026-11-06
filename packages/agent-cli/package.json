@@ -126,7 +126,6 @@
     "marked-terminal": "^7.3.0",
     "multicast-dns": "^7.2.5",
     "nostr-tools": "^2.25.2",
-    "open": "^11.0.0",
     "openai": "^6.0.0",
     "p-limit": "^7.3.0",
     "qrcode": "^1.5.4",

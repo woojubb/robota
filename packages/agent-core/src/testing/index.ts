@@ -36,3 +36,7 @@ export {
 
 // Process markers as another process left them, for tests of a store or a command that meets one.
 export { leaveProcessMarker } from './process-marker-fixture.js';
+
+// The child-session policy only ever turns on in a product process; a test that turned it on turns it
+// back off, so the next test starts as a plain process does.
+export { resetChildSessionPolicy as resetChildSessionsForTesting } from '../utils/child-session.js';

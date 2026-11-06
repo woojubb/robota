@@ -23,6 +23,7 @@ import { lstatSync, statSync } from 'node:fs';
 import { realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 
+import { endWithProcess, signalChildGroup, withChildSession } from '@robota-sdk/agent-core/node';
 import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
 import {
   createNodeWorkspaceIdentityResolver,
@@ -116,12 +117,13 @@ type TProbeAnswer = 'answered' | 'unanswered' | 'unavailable';
  */
 export const probeWithGit: TCandidateProbe = (candidate, signal) =>
   new Promise<void>((settle, fail) => {
-    const child = spawn(
-      'git',
-      ['-C', candidate, 'rev-parse', '--show-toplevel', '--git-common-dir'],
-      {
-        stdio: 'ignore',
-      },
+    // git from PATH, on a candidate a repository may have planted: its own session in secure mode.
+    const child = endWithProcess(
+      spawn(
+        'git',
+        ['-C', candidate, 'rev-parse', '--show-toplevel', '--git-common-dir'],
+        withChildSession({ stdio: 'ignore' }),
+      ),
     );
     let started = false;
     child.once('spawn', () => {
@@ -134,7 +136,7 @@ export const probeWithGit: TCandidateProbe = (candidate, signal) =>
     signal.addEventListener(
       'abort',
       () => {
-        child.kill('SIGKILL');
+        signalChildGroup(child, 'SIGKILL');
         child.unref();
       },
       { once: true },

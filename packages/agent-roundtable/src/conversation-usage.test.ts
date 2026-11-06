@@ -913,14 +913,20 @@ describe('per-turn usage services and the admission ledger', () => {
   });
 
   it('a response that settles after the run stops on a timeout still records its tokens; a new admission afterward is refused', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    let entered!: () => void;
+    const enteredTurn = new Promise<void>((resolve) => { entered = resolve; });
     let secondAdmissionError: unknown;
     const room = createRoundtable({
       conversationId: 'late-settlement',
       participants: [
         agent('a', async (_turn, options) => {
           await options.services.admitModelCall({ callId: 'c1', providerId: 'p', modelId: 'm' });
-          // The provider response arrives well after the run's timeout already fired.
-          await new Promise((resolve) => setTimeout(resolve, 100));
+          entered();
+          // Settle only after the run has stopped, regardless of scheduler latency.
+          if (!options.signal.aborted) {
+            await new Promise<void>((resolve) => options.signal.addEventListener('abort', () => resolve(), { once: true }));
+          }
           await options.services.recordUsage({
             callId: 'c1',
             outcome: 'completed',
@@ -938,15 +944,22 @@ describe('per-turn usage services and the admission ledger', () => {
       ],
       limits: { maxTurnsPerRun: 1, timeoutMs: 30 },
     });
-    const result = await room.run();
-    expect(result).toMatchObject({ status: 'limited', reason: 'time' });
-    expect(room.snapshot().usage.find((r) => r.callId === 'c1')).toMatchObject({
-      status: 'settled',
-      outcome: 'completed',
-      tokens: { input: 5, output: 10 },
-    });
-    expect(secondAdmissionError).toBeDefined();
-    await room.dispose();
+    try {
+      const pending = room.run();
+      await enteredTurn;
+      await vi.advanceTimersByTimeAsync(30);
+      const result = await pending;
+      expect(result).toMatchObject({ status: 'limited', reason: 'time' });
+      expect(room.snapshot().usage.find((r) => r.callId === 'c1')).toMatchObject({
+        status: 'settled',
+        outcome: 'completed',
+        tokens: { input: 5, output: 10 },
+      });
+      expect(secondAdmissionError).toBeDefined();
+      await room.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   describe('the pre-dispatch group limit check', () => {

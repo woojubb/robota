@@ -6,6 +6,7 @@ import { isAbsolute } from 'node:path';
 import { Writable } from 'node:stream';
 
 import { scrubSecrets } from '@robota-sdk/agent-core';
+import { withChildSession } from '@robota-sdk/agent-core/node';
 
 import {
   resolveSelfForkWorkerEntry,
@@ -299,7 +300,9 @@ export async function launchSupervisedSession(
             ),
           ]
         : []),
-    ], {
+    // The runtime outlives this launcher by design, in its own session in both modes, so it is not
+    // registered to end with this process.
+    ], withChildSession({
       cwd,
       detached: true,
       // #3282 §3: stderr is piped (was 'ignore') so a death before readiness can report why —
@@ -307,7 +310,7 @@ export async function launchSupervisedSession(
       // The transport token's pipe, when there is one, is the child's descriptor 4.
       stdio: ['ignore', 'ignore', 'pipe', 'ipc', ...(transportToken === undefined ? [] : ['pipe' as const])],
       env: childEnv,
-    });
+    }));
   } catch (error) {
     discardHandoff();
     throw error;

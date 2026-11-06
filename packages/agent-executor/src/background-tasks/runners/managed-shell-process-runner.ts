@@ -1,5 +1,6 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 
+import { endWithProcess, withChildSession } from '@robota-sdk/agent-core/node';
 import { DEFAULT_KILL_GRACE_MS, killProcessTree } from '@robota-sdk/agent-process';
 
 import {
@@ -107,12 +108,20 @@ function startProcessTask(
   const runtime: IProcessTaskRuntime = {
     taskId,
     request,
-    child: spawn(shell.executable, shell.args, {
-      cwd: request.cwd,
-      env: { ...process.env, ...(request.env ?? {}) },
-      stdio: ['pipe', 'pipe', 'pipe'],
-      detached: SPAWN_DETACHED,
-    }),
+    // Already its own session on POSIX; in secure mode it also ends with this process, since the
+    // terminal's hangup no longer reaches it and nothing else would.
+    child: endWithProcess(
+      spawn(
+        shell.executable,
+        shell.args,
+        withChildSession({
+          cwd: request.cwd,
+          env: { ...process.env, ...(request.env ?? {}) },
+          stdio: ['pipe', 'pipe', 'pipe'],
+          detached: SPAWN_DETACHED,
+        }),
+      ),
+    ),
     logs: [],
     capture: createLimitedOutputCapture({
       limitBytes: request.outputLimitBytes ?? DEFAULT_OUTPUT_LIMIT_BYTES,

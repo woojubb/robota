@@ -1,4 +1,4 @@
-import { removeProcessScopedDirectoriesNow } from '@robota-sdk/agent-core/node';
+import { runProcessEndNow } from '@robota-sdk/agent-core/node';
 
 import { areTuiProcessGuardsActive, classifyUncaughtException } from './process-guards.js';
 
@@ -26,8 +26,9 @@ export function installCliCrashPolicy(cliName: string): void {
     }
     if (decision === 'guard-owned') return;
     // Rethrowing from this handler ends the process without an `exit` event, so the run's scratch
-    // directories (conversation content) are removed here; the exit code stays the fatal-handler one.
-    removeProcessScopedDirectoriesNow();
+    // directories (conversation content) are removed, and the groups of children in their own session
+    // ended, here; the exit code stays the fatal-handler one.
+    runProcessEndNow();
     throw error;
   });
 }

@@ -1,4 +1,4 @@
-import { execFile } from 'node:child_process';
+import { execFileInChildSession } from '@robota-sdk/agent-core/node';
 
 const GIT_REMOTE_TIMEOUT_MS = 2_000;
 
@@ -12,14 +12,20 @@ const GIT_REMOTE_TIMEOUT_MS = 2_000;
  */
 export function readNodeGitRemotes(cwd: string): Promise<string[]> {
   return new Promise((resolve) => {
-    execFile('git', ['remote', '-v'], { cwd, timeout: GIT_REMOTE_TIMEOUT_MS }, (error, stdout) => {
-      // allow-fallback: no git, or not a repository, means no remote is trusted
-      if (error !== null) return resolve([]);
-      const urls = stdout
-        .split('\n')
-        .map((line) => line.split(/\s+/)[1])
-        .filter((url): url is string => url !== undefined && url.length > 0);
-      resolve([...new Set(urls)]);
-    });
+    // git from PATH, in its own session in secure mode.
+    execFileInChildSession(
+      'git',
+      ['remote', '-v'],
+      { cwd, timeout: GIT_REMOTE_TIMEOUT_MS },
+      (error, stdout) => {
+        // allow-fallback: no git, or not a repository, means no remote is trusted
+        if (error !== null) return resolve([]);
+        const urls = stdout
+          .split('\n')
+          .map((line) => line.split(/\s+/)[1])
+          .filter((url): url is string => url !== undefined && url.length > 0);
+        resolve([...new Set(urls)]);
+      },
+    );
   });
 }

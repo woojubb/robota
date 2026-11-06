@@ -3,6 +3,8 @@ import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, 
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { enableOwnChildSessions } from '@robota-sdk/agent-core/node';
+import { resetChildSessionsForTesting } from '@robota-sdk/agent-core/testing';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -108,6 +110,37 @@ describe('createWorkspaceMoveAdapter', () => {
       },
     };
   }
+
+  // Guard: the re-exec is the terminal handover's exemption from children in their own session.
+  it.skipIf(process.platform === 'win32')('reruns the target with the terminal even in secure mode', async () => {
+    let exitListener: (() => void) | undefined;
+    const runSync = vi.fn().mockReturnValue({ status: 0 });
+    const adapter = createWorkspaceMoveAdapter({productRuntime: createTestProductRuntime('test-product', { HOME: home }),
+      providerDefinitions: [],
+      userHome: home,
+      argv: [],
+      requestExit: vi.fn(),
+      environment: {},
+      resolveAccess: vi.fn(),
+      onProcessExit: (listener) => {
+        exitListener = listener;
+      },
+      runSync: runSync as never,
+    });
+    enableOwnChildSessions();
+    try {
+      await adapter.move(request(true));
+      const previousExitCode = process.exitCode;
+      exitListener!();
+      process.exitCode = previousExitCode;
+    } finally {
+      resetChildSessionsForTesting();
+    }
+
+    const [, , options] = runSync.mock.calls[0]!;
+    expect(options).toEqual(expect.objectContaining({ cwd: target, stdio: 'inherit' }));
+    expect(options).not.toHaveProperty('detached');
+  });
 
   it('saves the copy where the target session will look, then ends the TUI and reruns there', async () => {
     let exitListener: (() => void) | undefined;

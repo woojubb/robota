@@ -1591,9 +1591,10 @@ describe('AnthropicProvider', () => {
             content_block: {
               type: 'server_tool_use',
               name: 'web_search',
-              input: { query: 'Next.js latest' },
             },
           },
+          { type: 'content_block_delta', delta: { type: 'input_json_delta', partial_json: '{"query":"Next.js ' } },
+          { type: 'content_block_delta', delta: { type: 'input_json_delta', partial_json: 'latest"}' } },
           { type: 'content_block_stop' },
           {
             type: 'content_block_start',
@@ -1648,6 +1649,8 @@ describe('AnthropicProvider', () => {
       expect(result.content).toContain('Searching: "Next.js latest"');
       expect(result.content).toContain('Next.js 16.2 Released');
       expect(result.content).toContain('Based on search results...');
+      const content = result.content ?? '';
+      expect(content.indexOf('Searching:')).toBeLessThan(content.indexOf('Next.js 16.2 Released'));
 
       // onServerToolUse callback should have fired
       expect(serverToolCalls).toHaveLength(1);
@@ -1656,6 +1659,51 @@ describe('AnthropicProvider', () => {
 
       // onTextDelta should have received search indicator
       expect(textDeltas.some((d) => d.includes('Searching'))).toBe(true);
+    });
+
+    it.each([
+      ['no input', []],
+      ['empty object', ['{}']],
+      ['non-string query', ['{"query":42}']],
+      ['malformed input', ['{"query":']],
+    ])('uses a bare marker and empty query for %s', async (_case, fragments) => {
+      mockClient.messages.create.mockResolvedValue(
+        makeStream([
+          { type: 'content_block_start', content_block: { type: 'server_tool_use', name: 'web_search' } },
+          ...fragments.map((partial_json) => ({ type: 'content_block_delta', delta: { type: 'input_json_delta', partial_json } })),
+          { type: 'content_block_stop' },
+        ]),
+      );
+      const callbacks: Array<{ name: string; query: string }> = [];
+      provider.onServerToolUse = (name, input) => callbacks.push({ name, query: input.query ?? '' });
+      const result = await provider.chat(
+        [{ id: 'msg-1', state: 'complete', role: 'user', content: 'search', timestamp: new Date() }],
+        { model: 'test' },
+      );
+      expect(result.content).toBe('\n🔍 [web_search]\n');
+      expect(textDeltas).toEqual(['\n🔍 [web_search]\n']);
+      expect(callbacks).toEqual([{ name: 'web_search', query: '' }]);
+    });
+
+    it('handles separate server searches without leaking arguments between blocks', async () => {
+      mockClient.messages.create.mockResolvedValue(
+        makeStream([
+          { type: 'content_block_start', content_block: { type: 'server_tool_use', name: 'web_search' } },
+          { type: 'content_block_delta', delta: { type: 'input_json_delta', partial_json: '{"query":"first"}' } },
+          { type: 'content_block_stop' },
+          { type: 'content_block_start', content_block: { type: 'server_tool_use', name: 'web_search' } },
+          { type: 'content_block_delta', delta: { type: 'input_json_delta', partial_json: '{"query":"second"}' } },
+          { type: 'content_block_stop' },
+        ]),
+      );
+      const queries: string[] = [];
+      provider.onServerToolUse = (_name, input) => queries.push(input.query ?? '');
+      const result = await provider.chat(
+        [{ id: 'msg-1', state: 'complete', role: 'user', content: 'search', timestamp: new Date() }],
+        { model: 'test' },
+      );
+      expect(result.content).toBe('\n🔍 Searching: "first"\n\n🔍 Searching: "second"\n');
+      expect(queries).toEqual(['first', 'second']);
     });
 
     it('should parse mixed text + tool_use + server_tool_use', async () => {
@@ -1676,9 +1724,9 @@ describe('AnthropicProvider', () => {
             content_block: {
               type: 'server_tool_use',
               name: 'web_search',
-              input: { query: 'test' },
             },
           },
+          { type: 'content_block_delta', delta: { type: 'input_json_delta', partial_json: '{"query":"test"}' } },
           { type: 'content_block_stop' },
           {
             type: 'content_block_start',

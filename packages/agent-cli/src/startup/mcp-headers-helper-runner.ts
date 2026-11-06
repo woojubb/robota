@@ -14,6 +14,7 @@
 
 import { spawn, spawnSync } from 'node:child_process';
 
+import { endWithProcess, withChildSession } from '@robota-sdk/agent-core/node';
 import {
   MCPHeadersHelperError,
   isCredentialShapedName,
@@ -121,14 +122,16 @@ export function runHeadersHelper(run: IHeadersHelperRun): Promise<string> {
     }
     let child: ChildProcess;
     try {
-      child = spawn(run.helper.command, [...run.helper.args], {
+      // Already its own group in both modes, ended by this module's own exit hook; in secure mode the
+      // process-end registry also ends it on a signal nothing handles.
+      child = endWithProcess(spawn(run.helper.command, [...run.helper.args], withChildSession({
         cwd: run.cwd,
         env: run.env,
         shell: false,
         stdio: ['ignore', 'pipe', 'ignore'],
         detached: !isWindows,
         windowsHide: true,
-      });
+      })));
     } catch {
       // allow-fallback: a synchronous spawn failure is reported by reason only.
       reject(new MCPHeadersHelperError('spawn-failed'));
