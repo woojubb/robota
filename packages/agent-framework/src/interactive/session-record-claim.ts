@@ -96,6 +96,7 @@ export class SessionRecordClaim {
     this.#store = store;
     this.#acceptedDigest = acceptedDigest;
     this.#host = host;
+    const saveRestoreTransaction = store.saveRestoreTransaction?.bind(store);
     this.store = decorateSessionStore(store, {
       save: (record: IInteractiveSessionRecord, options?: ISessionSaveOptions): void => {
         const claimed = this.#saveOptionsFor(record.id);
@@ -106,6 +107,20 @@ export class SessionRecordClaim {
         }
         store.save(record, { ...options, ...claimed });
       },
+      ...(saveRestoreTransaction
+        ? {
+            saveRestoreTransaction: (
+              record: IInteractiveSessionRecord,
+              options?: ISessionSaveOptions,
+            ) => {
+              const claimed = this.#saveOptionsFor(record.id);
+              if (claimed?.claim === undefined) {
+                throw new TypeError('A live session claim is required for restore commit.');
+              }
+              return saveRestoreTransaction(record, { ...options, ...claimed });
+            },
+          }
+        : {}),
     });
   }
 
@@ -139,6 +154,33 @@ export class SessionRecordClaim {
   /** Whether this session holds a live claim on `id`. */
   holds(id: string): boolean {
     return !this.#ended && this.#claim !== undefined && this.#claimedId === id;
+  }
+
+  holdsWriter(id: string): boolean {
+    if (!this.holds(id) || !this.#claim?.holdsWriter) return false;
+    try {
+      return this.#claim.holdsWriter() === true;
+    } catch {
+      return false;
+    }
+  }
+
+  /** Fence all later saves before releasing a writer whose ownership is no longer reliable. */
+  loseWriter(): void {
+    if (this.#ended) return;
+    this.#ended = true;
+    this.#stopWaitingForUnlock();
+    try {
+      this.#source?.release();
+    } catch {
+      /* The claim is already fenced in this session. */
+    }
+    this.#source = undefined;
+    try {
+      this.#claim?.release();
+    } catch {
+      /* A stale marker must not permit another save here. */
+    }
   }
 
   /**

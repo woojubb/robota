@@ -27,6 +27,7 @@ const TERMINAL_STATUSES = new Set<TBackgroundTaskStatus>(['completed', 'failed',
 const TRANSITIONS: readonly IBackgroundTaskTransition[] = [
   { from: 'queued', event: 'START', to: 'running' },
   { from: 'queued', event: 'CANCEL', to: 'cancelled' },
+  { from: 'queued', event: 'FAIL', to: 'failed' },
   { from: 'running', event: 'REQUEST_PERMISSION', to: 'waiting_permission' },
   { from: 'running', event: 'COMPLETE', to: 'completed' },
   { from: 'running', event: 'FAIL', to: 'failed' },
@@ -35,14 +36,17 @@ const TRANSITIONS: readonly IBackgroundTaskTransition[] = [
   { from: 'waiting_permission', event: 'PERMISSION_ALLOWED', to: 'running' },
   { from: 'waiting_permission', event: 'PERMISSION_DENIED', to: 'failed' },
   { from: 'waiting_permission', event: 'CANCEL', to: 'cancelled' },
+  { from: 'waiting_permission', event: 'FAIL', to: 'failed' },
   { from: 'sleeping', event: 'WAKE', to: 'running' },
   { from: 'sleeping', event: 'CANCEL', to: 'cancelled' },
+  { from: 'sleeping', event: 'FAIL', to: 'failed' },
   // SELFHOST-012: non-destructive pause/resume for scheduled tasks. `paused` is non-terminal; a paused
   // schedule does not fire (croner `.pause()`), and RESUME returns it to `sleeping` (re-armed).
   { from: 'sleeping', event: 'PAUSE', to: 'paused' },
   { from: 'running', event: 'PAUSE', to: 'paused' },
   { from: 'paused', event: 'RESUME', to: 'sleeping' },
   { from: 'paused', event: 'CANCEL', to: 'cancelled' },
+  { from: 'paused', event: 'FAIL', to: 'failed' },
 ];
 
 export function isTerminalBackgroundTaskStatus(status: TBackgroundTaskStatus): boolean {

@@ -244,6 +244,7 @@ export class InteractiveSession
     resumeQueuedTurn: (entry) => this.resumeQueuedTurn(entry),
   });
   private shutdownPromise: Promise<void> | null = null;
+  private restoredOwnershipLost = false;
   private externalEventIngress?: ExternalEventIngress;
   private readonly peerTurnRate = new PeerTurnRateLimiter();
   private readonly sandboxClient?: ISandboxClient;
@@ -337,7 +338,8 @@ export class InteractiveSession
     const host = requireFrameworkHost(options.host, 'InteractiveSession');
     this.frameworkHost = host;
     // The session's own environment snapshot wins; without one the host's environment answers.
-    this.providerEnvironment = ('environment' in options ? options.environment : undefined) ?? host.env;
+    this.providerEnvironment =
+      ('environment' in options ? options.environment : undefined) ?? host.env;
     if ('pluginDirectories' in options && options.pluginDirectories !== undefined) {
       requireSessionPluginFiles(host.files?.sync);
     }
@@ -662,7 +664,7 @@ export class InteractiveSession
         );
 
       if (this.initialized && admission === undefined) {
-        this.bgTracker.subscribe(this.session!);
+        this.subscribeBackgroundTasks(this.session!);
         this.resumeSelfPacedLoops();
       }
       if (this.initialized && admission === undefined) this.persistCurrentSession();
@@ -671,6 +673,8 @@ export class InteractiveSession
       admission?.removeEventListener('abort', cancelAdmission);
       if (admission === undefined) this.recordClaim?.end();
       else this.recordClaim?.discard();
+      this.bgTracker.releaseTaskIdReservation();
+      this.clearSessionLoopExpiryTimers();
       throw error;
     }
   }
@@ -693,6 +697,23 @@ export class InteractiveSession
     this.autoCompactThresholdSource = 'session';
     this.initialized = true;
     return true;
+  }
+
+  private subscribeBackgroundTasks(session: Session): void {
+    this.bgTracker.subscribe(session, {
+      ownsRecord: this.recordClaim !== undefined,
+      canRun: () =>
+        this.session === session &&
+        !this.execCtrl.shuttingDown &&
+        (this.recordClaim === undefined || this.recordClaim.holdsWriter(session.getSessionId())),
+      canCommit: () =>
+        typeof this.sessionStore?.saveRestoreTransaction === 'function' &&
+        this.session === session &&
+        !this.execCtrl.shuttingDown &&
+        this.recordClaim?.holdsWriter(session.getSessionId()) === true,
+      commit: () => this.persistCurrentSession(true, undefined, undefined, true),
+      onLoss: () => this.loseRestoredOwnership(),
+    });
   }
 
   private restoreSessionRecordIfNeeded(options: TInteractiveSessionOptions): void {
@@ -738,12 +759,15 @@ export class InteractiveSession
       skillActivationEvents: restored.skillActivationEvents,
     });
     if (restored.sessionName) this.sessionName = restored.sessionName;
-    this.bgTracker.restoreState({
-      tasks: restored.backgroundTasks,
-      taskEvents: restored.backgroundTaskEvents,
-      groups: restored.backgroundJobGroups,
-      groupEvents: restored.backgroundJobGroupEvents,
-    });
+    this.bgTracker.restoreState(
+      {
+        tasks: restored.backgroundTasks,
+        taskEvents: restored.backgroundTaskEvents,
+        groups: restored.backgroundJobGroups,
+        groupEvents: restored.backgroundJobGroupEvents,
+      },
+      !copy,
+    );
     this.pendingRestoreMessages = restored.pendingRestoreMessages;
     this.pendingRestoreConversation = restored.pendingRestoreConversation;
     // CLI-1994: a fork is a copy, prompt included; the deferred path applies it after assembly.
@@ -885,7 +909,16 @@ export class InteractiveSession
     }
     this.initialized = true;
     if (options.resumeAdmissionSignal === undefined) {
-      this.bgTracker.subscribe(this.session);
+      try {
+        this.subscribeBackgroundTasks(this.session);
+      } catch (error) {
+        this.initialized = false;
+        this.session = null;
+        this.bgTracker.releaseTaskIdReservation();
+        this.clearSessionLoopExpiryTimers();
+        await result.session.shutdown({ reason: 'other' }).catch(() => undefined);
+        throw error;
+      }
       this.resumeSelfPacedLoops();
       this.persistCurrentSession();
       this.emit('context_update', this.getContextState());
@@ -920,7 +953,7 @@ export class InteractiveSession
     this.pendingAcceptedAdmission = undefined;
     // Adoption has committed: an observer or subsequent activation step cannot undo the binding.
     const steps = [
-      () => this.bgTracker.subscribe(session),
+      () => this.subscribeBackgroundTasks(session),
       () => this.resumeSelfPacedLoops(),
       () => this.persistCurrentSession(),
       () => this.emit('context_update', this.getContextState()),
@@ -1203,6 +1236,7 @@ export class InteractiveSession
   }
 
   private async executeAcceptedTurn(entry: IQueuedInput): Promise<void> {
+    if (!this.admitRestoredWake(entry)) return;
     try {
       this.getSessionOrThrow().assertInputAllowed();
     } catch (error) {
@@ -1292,6 +1326,7 @@ export class InteractiveSession
       const memory = await this.injectedMemoryStore.loadStartupMemory();
       this.rebuildLivePrompt({ memoryMd: memory.content });
     }
+    if (!this.admitRestoredWake(entry)) return;
     await this.execCtrl.executePrompt(
       input,
       displayInput,
@@ -1389,6 +1424,11 @@ export class InteractiveSession
       );
     });
     return true;
+  }
+
+  private clearSessionLoopExpiryTimers(): void {
+    for (const timer of this.sessionLoopExpiryTimers.values()) clearTimeout(timer);
+    this.sessionLoopExpiryTimers.clear();
   }
 
   private armSessionLoopExpiry(task: IBackgroundTaskState, retryDelayMs?: number): void {
@@ -1723,6 +1763,7 @@ export class InteractiveSession
   }
 
   override async cancelBackgroundTask(taskId: string, reason?: string): Promise<void> {
+    if (this.execCtrl.shuttingDown) throw new Error('The session is shutting down.');
     const task = this.getBackgroundTaskManager()?.get(taskId);
     if (task?.metadata?.['sessionLoopSelfPaced'] === true) {
       const loopId = task.metadata['sessionLoopId'];
@@ -1849,8 +1890,7 @@ export class InteractiveSession
     this.discardAcceptedAdmission();
     this.execCtrl.shuttingDown = true;
     this.externalEventIngress?.closeAll();
-    for (const timer of this.sessionLoopExpiryTimers.values()) clearTimeout(timer);
-    this.sessionLoopExpiryTimers.clear();
+    this.clearSessionLoopExpiryTimers();
     this.shutdownPromise = (async () => {
       try {
         await this.ensureInitialized();
@@ -1859,11 +1899,13 @@ export class InteractiveSession
         session?.abort();
         const moduleShutdownErrors = await this.skillRouter.shutdownModules();
         await this.runtimeTools.drain();
+        const preservedSchedules =
+          this.sessionStore !== undefined && this.bgTracker.preserveSchedulesForShutdown();
         await this.getBackgroundTaskManager()?.shutdown(options.message ?? 'Session shutdown');
         this.bgTracker.dispose();
         if (!this.discardedAcceptedAdmission) {
           await this.captureSandboxSnapshot();
-          this.persistCurrentSession();
+          this.persistCurrentSession(preservedSchedules);
         }
         // That was the last save of the record, so the claim ends now — a refusal still standing is
         // saved as a copy and said while listeners still hear it.
@@ -1879,6 +1921,7 @@ export class InteractiveSession
         }
       } finally {
         this.recordClaim?.end();
+        this.bgTracker.releaseTaskIdReservation();
       }
     })();
     return this.shutdownPromise;
@@ -1891,7 +1934,44 @@ export class InteractiveSession
    * persists nothing.
    */
   releaseSessionClaim(): void {
-    this.recordClaim?.end();
+    this.loseRestoredOwnership();
+  }
+
+  private loseRestoredOwnership(): void {
+    if (this.restoredOwnershipLost) return;
+    this.restoredOwnershipLost = true;
+    const ids = this.bgTracker.invalidateRestoredSchedules(this.sessionId, () =>
+      this.recordClaim?.loseWriter(),
+    );
+    for (const id of ids) {
+      this.stoppedWakeTaskIds.add(id);
+      this.execCtrl.wakeTaskIds.delete(id);
+    }
+    if (this.recordClaim)
+      this.execCtrl.failPendingQueue(new Error('Session writer claim was lost.'));
+    if (this.recordClaim && this.execCtrl.executing) {
+      this.promptRegistry.drain();
+      this.session?.abort();
+    }
+    this.clearSessionLoopExpiryTimers();
+    if (this.recordClaim)
+      this.reportBackgroundError(new Error('Session writer claim was lost.'), 'session-claim');
+  }
+
+  private admitRestoredWake(entry: IQueuedInput): boolean {
+    const id = entry.options.wakeTaskId;
+    if (this.restoredOwnershipLost && this.recordClaim) {
+      this.execCtrl.turns.fail(entry.turnId, new Error('Session writer claim was lost.'));
+      if (id) this.execCtrl.wakeTaskIds.delete(id);
+      return false;
+    }
+    if (!id || !this.bgTracker.requiresWriterForWake(id, this.sessionId)) return true;
+    if (!this.restoredOwnershipLost && this.recordClaim?.holdsWriter(this.sessionId) === true)
+      return true;
+    this.loseRestoredOwnership();
+    this.execCtrl.turns.fail(entry.turnId, new Error('Session writer claim was lost.'));
+    this.execCtrl.wakeTaskIds.delete(id);
+    return false;
   }
 
   get isInitialized(): boolean {
@@ -2239,6 +2319,7 @@ export class InteractiveSession
     strict = false,
     acceptedLoopId?: string,
     loopStateOverride?: readonly ISessionLoopState[],
+    restoreTransaction = false,
   ): void {
     if (!this.sessionStore || !this.session) {
       if (strict) throw new Error('A session store is required for a resumable loop.');
@@ -2268,6 +2349,7 @@ export class InteractiveSession
       strict,
       state.sessionLoops,
       this.reportRefusedSave,
+      restoreTransaction,
     );
   }
 

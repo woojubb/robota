@@ -52,6 +52,7 @@ import type {
   ISessionSaveOptions,
   ISessionStoreScan,
   TSessionLoadOutcome,
+  TSessionRestoreCommitOutcome,
 } from '@robota-sdk/agent-interface-session';
 
 function errnoCode(error: unknown): unknown {
@@ -266,6 +267,20 @@ export class NodeSessionStore implements IInteractiveSessionStore {
     // A store that seals writes the same envelope sealed to this session's id, tagged when it can
     // vouch that the content is the owner's and the keys are unlocked.
     this.records.save(session, options);
+  }
+
+  saveRestoreTransaction(
+    session: IInteractiveSessionRecord,
+    options?: ISessionSaveOptions,
+  ): TSessionRestoreCommitOutcome {
+    if (!options?.claim)
+      throw new TypeError('A live session claim is required for restore commit.');
+    try {
+      this.save(session, options);
+      return { status: 'committed' };
+    } catch (error) {
+      return { status: 'unknown', error };
+    }
   }
 
   /**

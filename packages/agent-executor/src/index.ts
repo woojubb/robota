@@ -1,6 +1,7 @@
 export {
   BackgroundTaskError,
   BackgroundTaskManager,
+  isBuiltInRestoreManager,
   nextScheduledFireOnOrAfter,
   createToolInvocationBackgroundTaskRunner,
   getBackgroundTaskTransitions,
@@ -19,6 +20,8 @@ export type {
   TObserverFailureReporter,
   IBackgroundTaskHandle,
   IBackgroundTaskManager,
+  IBackgroundTaskIdReservation,
+  IPreparedRestoredSchedules,
   IBackgroundTaskManagerOptions,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,

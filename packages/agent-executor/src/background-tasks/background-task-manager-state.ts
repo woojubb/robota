@@ -5,7 +5,7 @@ import {
   normalizeBackgroundTaskError,
   type ITrackedBackgroundTask,
 } from './background-task-manager-helpers.js';
-import { transitionBackgroundTaskStatus } from './state-machine.js';
+import { isTerminalBackgroundTaskStatus, transitionBackgroundTaskStatus } from './state-machine.js';
 import { BackgroundTaskError } from './types.js';
 
 import type {
@@ -13,6 +13,7 @@ import type {
   TBackgroundTaskRequest,
   IBackgroundTaskResult,
   IBackgroundTaskRunner,
+  IBackgroundTaskStart,
   IBackgroundTaskState,
   TBackgroundTaskRunnerEvent,
 } from './types.js';
@@ -174,6 +175,7 @@ export function applyBackgroundTaskRunnerStateEvent(
 interface IStartBackgroundTaskRunnerOptions {
   task: ITrackedBackgroundTask;
   runner: IBackgroundTaskRunner;
+  startOverride?: (task: IBackgroundTaskStart) => IBackgroundTaskHandle;
   now: () => string;
   onEvent: (event: TBackgroundTaskRunnerEvent) => void;
   onStarted: () => void;
@@ -192,11 +194,23 @@ export function startBackgroundTaskRunner(options: IStartBackgroundTaskRunnerOpt
     }
     // The kind check establishes the correlation that TypeScript cannot recover from a
     // runtime registry of the four runner variants.
-    const handle = options.runner.start({
+    const input = {
       taskId: options.task.state.id,
       request: options.task.request,
       emit: options.onEvent,
-    } as never);
+    };
+    const handle = options.startOverride
+      ? options.startOverride(input as IBackgroundTaskStart)
+      : options.runner.start(input as never);
+    if (isTerminalBackgroundTaskStatus(options.task.state.status)) {
+      void handle.result.catch(() => undefined);
+      try {
+        void handle.cancel('Task ended during runner startup').catch(() => undefined);
+      } catch {
+        /* Best-effort cancellation. */
+      }
+      return;
+    }
     const updated = attachBackgroundTaskHandleMetadata(options.task, handle, options.now);
     if (updated) options.onUpdated(updated);
     options.onStarted();

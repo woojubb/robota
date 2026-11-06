@@ -123,6 +123,7 @@ export type {
   ISessionLoadOptions,
   ISessionRecordDecodeIssue,
   ISessionSaveOptions,
+  TSessionRestoreCommitOutcome,
   ISessionStoreScan,
   TSessionAdoptResult,
   TSessionLoadOutcome,

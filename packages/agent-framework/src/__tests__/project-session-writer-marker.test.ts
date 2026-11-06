@@ -34,6 +34,37 @@ function thrownBy(action: () => unknown): unknown {
 }
 
 describe('a project session claimed by one store instance', () => {
+  it.runIf(process.platform === 'linux')(
+    'commits restore state only under a live project claim',
+    async () => {
+      const store = await createTrustedProjectSessionStoreFixture(root);
+      const value = {
+        id: 'sess_project',
+        cwd: root,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        messages: [],
+      };
+      store.save(value);
+      const claim = store.claim(value.id);
+      try {
+        expect(
+          store.saveRestoreTransaction?.(
+            { ...value, updatedAt: '2026-01-02T00:00:00.000Z' },
+            { claim },
+          ),
+        ).toEqual({ status: 'committed' });
+      } finally {
+        claim.release();
+      }
+      expect(store.load(value.id)).toMatchObject({
+        status: 'valid',
+        record: { updatedAt: '2026-01-02T00:00:00.000Z' },
+      });
+      expect(store.saveRestoreTransaction?.(value, { claim })).toMatchObject({ status: 'unknown' });
+    },
+  );
+
   it('is refused to a second instance over the same project, and free once released', async () => {
     const first = await createTrustedProjectSessionStoreFixture(root);
     const second = await createTrustedProjectSessionStoreFixture(root);
