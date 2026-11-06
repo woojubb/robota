@@ -13,7 +13,7 @@
  * place; each replace is then atomic, and is made only if the file still holds the bytes that were
  * read, so a record a running process saved meanwhile is left for the next run.
  */
-import { createProcessOperationLock } from './process-operation-lock.js';
+import { createProcessOperationLock } from '@robota-sdk/agent-node-lock';
 
 import { lstatSync, readdirSync } from 'node:fs';
 import { basename, join } from 'node:path';

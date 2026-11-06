@@ -1,4 +1,4 @@
-import { createProcessOperationLock } from '../process-operation-lock.js';
+import { createProcessOperationLock } from '@robota-sdk/agent-node-lock';
 
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
@@ -42,7 +42,7 @@ describe('record replacement and forced release', () => {
     const require = createRequire(import.meta.url);
     const markerModule = pathToFileURL(require.resolve('@robota-sdk/agent-core/node')).href;
     const lockModule = pathToFileURL(require.resolve('@robota-sdk/agent-session/node')).href;
-    const child = `import { createProcessMarkers } from ${JSON.stringify(markerModule)}; import { createProcessOperationLock } from ${JSON.stringify(lockModule)}; const directory = process.argv[1]; console.log(JSON.stringify(createProcessMarkers(directory, { operationLock: createProcessOperationLock(directory), lockWaitMs: 0 }).remove('session_guard', { force: true })));`;
+    const child = `import { createProcessMarkers } from ${JSON.stringify(markerModule)}; import session from ${JSON.stringify(lockModule)}; const { createProcessOperationLock } = session; const directory = process.argv[1]; console.log(JSON.stringify(createProcessMarkers(directory, { operationLock: createProcessOperationLock(directory), lockWaitMs: 0 }).remove('session_guard', { force: true })));`;
     let result: string | undefined;
     const store = new StoredSessionRecords(
       'plain',

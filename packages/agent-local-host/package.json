@@ -53,6 +53,7 @@
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-keyring": "workspace:*",
+    "@robota-sdk/agent-node-lock": "workspace:*",
     "@robota-sdk/agent-remote-pairing": "workspace:*",
     "koffi": "3.3.1"
   },

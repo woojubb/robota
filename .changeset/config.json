@@ -22,6 +22,7 @@
       "@robota-sdk/agent-interface-tui",
       "@robota-sdk/agent-keyring",
       "@robota-sdk/agent-mcp",
+      "@robota-sdk/agent-node-lock",
       "@robota-sdk/agent-organization",
       "@robota-sdk/agent-plugin",
       "@robota-sdk/agent-preset",
