@@ -15,7 +15,7 @@ import { afterEach, expect, it } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { connectSupervisedDaemon, listSupervisedSessions, openSupervisedAttachSocket, resolveSupervisedDirectory } from '../../session-inventory/supervised-session-control.js';
-import { windowsControlPipePath } from '../../session-inventory/windows-control-pipe.js';
+import { windowsControlPipePath } from '@robota-sdk/agent-local-host';
 
 const fixture = fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url));
 const recorder = new URL('../../testing/spawn-recorder.mjs', import.meta.url).href;

@@ -21,7 +21,7 @@ import {
   createSessionMessageHandler,
 } from '@robota-sdk/agent-transport';
 
-import type { IControlChannel } from './windows-control-pipe.js';
+import type { IControlChannel } from '@robota-sdk/agent-local-host';
 import type { IServeOwnerBinding } from '../modes/serve-session-directory.js';
 import type { ISessionBinder } from '@robota-sdk/agent-interface-session';
 import type {

@@ -12,7 +12,7 @@ import {
   createWindowsPrivateDirectory,
   readWindowsProcessIdentity,
   readWindowsProcessStartTime,
-} from '../windows-security.js';
+} from '@robota-sdk/agent-local-host';
 import { readProcessStartTime } from '../../remote-control/local-peer-registry.js';
 
 const SID = 'S-1-5-21-1-2-3-1001';

@@ -1,3 +1,4 @@
+import { SupervisedControlPathTooLongError } from '@robota-sdk/agent-local-host';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { childProductEnvironment } from '../product/child-environment.js';
 import { spawn, type ChildProcess } from 'node:child_process';
@@ -21,7 +22,6 @@ import {
   discardSupervisedGrantHandoff,
   isSupervisedSessionName,
   resolveSupervisedDirectory,
-  SupervisedControlPathTooLongError,
   writeSupervisedGrantHandoff,
 } from './supervised-session-control.js';
 import {

@@ -1,13 +1,12 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { createHash, randomBytes } from 'node:crypto';
 import {
-  closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync,
+  lstatSync, mkdirSync, readFileSync, readdirSync,
   renameSync, rmSync, writeFileSync,
 } from 'node:fs';
-import { createConnection, createServer } from 'node:net';
+import { createServer } from 'node:net';
 import { dirname, isAbsolute, join } from 'node:path';
 
-import { admitLocalPeerDirectory, ensureGuardedDirectory } from '@robota-sdk/agent-remote-pairing/local';
 import { isLinkRequest } from '@robota-sdk/agent-transport-link';
 
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
@@ -29,27 +28,17 @@ import {
   type TControlCommandName,
 } from './control-access.js';
 import { createSupervisedAttachCarrier, type TSupervisedAttachTarget } from './supervised-attach.js';
-import { connectWindowsControlPipe, WindowsControlPipeServer, windowsControlPipePath, type IControlChannel } from './windows-control-pipe.js';
-import { assertWindowsPrivatePath, createWindowsPrivateDirectory } from './windows-security.js';
+import { MAX_CONTROL_FRAME_BYTES, SUPERVISED_ID_PATTERN, WindowsControlPipeServer, connectControlSocket, controlSocketPath, createWindowsPrivateDirectory, ensurePrivateDirectory, readOwnedFile, readRegistration, sessionDirectory, verifyExistingDirectory, verifyLiveOwner, type IControlChannel, type IRegistration } from '@robota-sdk/agent-local-host';
 
 
-const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
-const MAX_FRAME_BYTES = 4_096;
+const MAX_FRAME_BYTES = MAX_CONTROL_FRAME_BYTES;
 const MAX_STATUS_RESPONSE_BYTES = 32_768;
 const REQUEST_TIMEOUT_MS = 2_000;
 const MAX_ENTRIES = 256;
 const MAX_NAME_BYTES = 240;
 const MAX_PR_URL_BYTES = 2_048;
 const NAME_CONTROLS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
-const GENERATION_PATTERN = /^[A-Za-z0-9_-]{22}$/u;
 
-interface IRegistration {
-  readonly id: string;
-  readonly pid: number;
-  readonly startedAt: string;
-  /** Minted per process start; absent only in a registration written before generations existed. */
-  readonly generation?: string;
-}
 
 /** The commands a client of the plain socket sends one request line for. */
 type TControlCommand = Extract<
@@ -111,9 +100,6 @@ function readList<T>(value: unknown, read: (item: unknown) => T | undefined): T[
   return items.every((item) => item !== undefined) ? (items as T[]) : undefined;
 }
 
-function isGeneration(value: unknown): value is string {
-  return typeof value === 'string' && GENERATION_PATTERN.test(value);
-}
 
 type TSupervisedActivity = 'working' | 'needs-input' | 'idle' | 'unknown';
 
@@ -226,126 +212,6 @@ export function resolveSupervisedDirectory(productRuntime: ICliRuntimeContext): 
   return join(dirname(resolveRendezvousDirectory(productRuntime)), 'supervised');
 }
 
-function verifyExistingDirectory(directory: string): void {
-  const stat = lstatSync(directory);
-  if (process.platform === 'win32') {
-    if (!stat.isDirectory() || stat.isSymbolicLink()) throw new Error('Supervised session directory was refused.');
-    assertWindowsPrivatePath(directory, true);
-    return;
-  }
-  if (!stat.isDirectory() || stat.isSymbolicLink() || stat.uid !== (process.getuid?.() ?? 0) || (stat.mode & 0o077) !== 0) {
-    throw new Error('Supervised session directory is not private to this user.');
-  }
-  const admission = admitLocalPeerDirectory(directory, { expectedUid: process.getuid?.() ?? 0 });
-  if (!admission.admitted) throw new Error('Supervised session directory was refused.');
-}
-
-function ensurePrivateDirectory(directory: string): void {
-  try {
-    verifyExistingDirectory(directory);
-    return;
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
-  }
-  if (process.platform === 'win32') {
-    createWindowsPrivateDirectory(directory);
-    verifyExistingDirectory(directory);
-    return;
-  }
-  const admission = ensureGuardedDirectory(directory, { expectedUid: process.getuid?.() ?? 0 });
-  if (!admission.admitted) throw new Error('Unable to create a private supervised session directory.');
-  verifyExistingDirectory(directory);
-}
-
-function sessionDirectory(root: string, id: string): string {
-  if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
-  return join(root, id);
-}
-
-// macOS truncates overlong Unix-domain paths on some Node/runtime combinations.
-const MAX_SOCKET_PATH_BYTES = 100;
-
-/** The supervised directory is too deep for a Unix-domain socket; the message says how to move it. */
-export class SupervisedControlPathTooLongError extends Error {
-  constructor(readonly directory: string) {
-    super(`Supervised session control socket path is too long under ${directory}: a local socket path ` +
-      `allows ${MAX_SOCKET_PATH_BYTES} bytes. Set PRODUCT_USER_STATE_DIR to a shorter absolute path, or set XDG_RUNTIME_DIR to a short ` +
-      'private directory for every CLI command.');
-    this.name = 'SupervisedControlPathTooLongError';
-  }
-}
-
-function controlSocketPath(root: string, id: string): string {
-  if (process.platform === 'win32') return windowsControlPipePath(root, id);
-  const name = createHash('sha256').update(id).digest('hex').slice(0, 16);
-  const socketPath = join(root, `${name}.sock`);
-  if (Buffer.byteLength(socketPath, 'utf8') > MAX_SOCKET_PATH_BYTES) {
-    throw new SupervisedControlPathTooLongError(root);
-  }
-  return socketPath;
-}
-
-/**
- * Read a regular file this user owns, never through a link. The checks run on the descriptor that
- * is then read, so a file swapped in at the path after they pass is never the one read; a FIFO is
- * refused without blocking. Anything that fails a check throws `refusal`; a missing file throws the
- * system error, so callers can still tell ENOENT apart.
- */
-function readOwnedFile(
-  file: string,
-  rules: { readonly ownerOnly: boolean; readonly maxBytes?: number; readonly refusal: string },
-): string {
-  if (process.platform === 'win32') {
-    verifyExistingDirectory(dirname(file));
-    assertWindowsPrivatePath(file, false);
-  }
-  let fd: number;
-  try {
-    // The mode is a no-op without O_CREAT; it is passed so the open states an owner-only mode,
-    // which is what static analysis looks for on an open.
-    fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK, 0o600);
-  } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code;
-    // Not a regular file: a link under O_NOFOLLOW (ELOOP; EMLINK on some BSDs) or a socket.
-    if (code === 'ELOOP' || code === 'EMLINK' || code === 'ENXIO' || code === 'EOPNOTSUPP') {
-      throw new Error(rules.refusal);
-    }
-    throw error;
-  }
-  try {
-    const stat = fstatSync(fd);
-    if (!stat.isFile() || (process.platform !== 'win32' && (stat.uid !== (process.getuid?.() ?? 0) ||
-      (rules.ownerOnly && (stat.mode & 0o077) !== 0))) ||
-      (rules.maxBytes !== undefined && stat.size > rules.maxBytes)) {
-      throw new Error(rules.refusal);
-    }
-    // The size is checked again on what was read: the file may have grown since `fstat`.
-    const bytes = readFileSync(fd);
-    if (rules.maxBytes !== undefined && bytes.length > rules.maxBytes) throw new Error(rules.refusal);
-    return bytes.toString('utf8');
-  } finally {
-    closeSync(fd);
-  }
-}
-
-function readRegistration(directory: string, id: string): IRegistration {
-  verifyExistingDirectory(directory);
-  const record = JSON.parse(readOwnedFile(join(directory, 'state.json'), {
-    ownerOnly: true, maxBytes: MAX_FRAME_BYTES, refusal: 'Supervised session record was refused.',
-  })) as unknown;
-  if (typeof record !== 'object' || record === null ||
-    !('id' in record) || record.id !== id ||
-    !('pid' in record) || !Number.isSafeInteger(record.pid) || Number(record.pid) <= 0 ||
-    !('startedAt' in record) || typeof record.startedAt !== 'string' ||
-    ('generation' in record && !isGeneration(record.generation))) {
-    throw new Error('Supervised session record is invalid.');
-  }
-  return {
-    id, pid: Number(record.pid), startedAt: record.startedAt,
-    ...('generation' in record && isGeneration(record.generation) ? { generation: record.generation } : {}),
-  };
-}
-
 /** `onRest` receives whatever arrived after the line, for a connection that stays open. */
 function readLine(
   socket: IControlChannel,
@@ -444,14 +310,6 @@ function readRequestLine(socket: IControlChannel): Promise<{ readonly line: stri
  * generation, so a reply from a different process start is never taken as this registration's.
  */
 /** Open the owner's control socket, refusing one this user does not own. */
-async function connectControlSocket(directory: string, id: string, signal?: AbortSignal): Promise<IControlChannel> {
-  verifyExistingDirectory(directory);
-  const socketPath = controlSocketPath(dirname(directory), id);
-  if (process.platform === 'win32') return connectWindowsControlPipe(socketPath, readRegistration(directory, id), signal);
-  const info = lstatSync(socketPath);
-  if (!info.isSocket() || info.uid !== (process.getuid?.() ?? 0)) throw new Error('Supervised session control socket was refused.');
-  return createConnection(socketPath);
-}
 
 async function request(
   directory: string,
@@ -514,7 +372,7 @@ export async function listSupervisedSessions(
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
     throw error;
   }
-  const names = readdirSync(root).filter((name) => ID_PATTERN.test(name));
+  const names = readdirSync(root).filter((name) => SUPERVISED_ID_PATTERN.test(name));
   if (names.length > MAX_ENTRIES) throw new Error('Too many supervised session records to list safely.');
   const unfiltered = options.cwd === undefined && options.name === undefined && options.pr === undefined;
   const rows = await Promise.all(names.map(async (id): Promise<ISupervisedSessionRow | null> => {
@@ -643,35 +501,6 @@ export async function renameSupervisedSession(
  * Re-read the registration at action time instead of trusting a displayed row: its generation must
  * still be the expected one, and the registered process must still be the one that wrote it.
  */
-function verifyLiveOwner(
-  root: string,
-  id: string,
-  expectedGeneration?: string,
-): { readonly directory: string; readonly record: IRegistration; readonly generation: string } {
-  const directory = sessionDirectory(root, id);
-  const record = readRegistration(directory, id);
-  if (record.generation === undefined) throw new Error('Supervised session registration cannot be controlled.');
-  if (expectedGeneration !== undefined && record.generation !== expectedGeneration) {
-    throw new Error('Supervised session changed since it was listed.');
-  }
-  const currentStart = readProcessStartTime(record.pid);
-  if (currentStart === undefined || currentStart !== record.startedAt) {
-    throw new Error('Supervised session is not proven alive.');
-  }
-  return { directory, record, generation: record.generation };
-}
-
-/** Revalidate the selected runtime start before connecting its owner-link carrier. */
-export async function openRegisteredControlStream(
-  root: string,
-  id: string,
-  generation: string,
-  signal?: AbortSignal,
-): Promise<IControlChannel> {
-  signal?.throwIfAborted();
-  const live = verifyLiveOwner(root, id, generation);
-  return connectControlSocket(live.directory, id, signal);
-}
 
 export async function linkSupervisedPr(
   id: string,
@@ -1213,7 +1042,7 @@ function createControlHandler(
 
 export async function startSupervisedControl(options: ISupervisedControlOptions): Promise<ISupervisedControl> {
   const { id, root, attachTarget } = options;
-  if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
+  if (!SUPERVISED_ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
   ensurePrivateDirectory(root);
   const directory = sessionDirectory(root, id);
   // A UUID directory is visible to list only after its registration is complete.

@@ -7,7 +7,7 @@ import { decodeFrame, decodeServerMessage } from '@robota-sdk/agent-transport';
 
 import { openSupervisedAttachSocket } from './supervised-session-control.js';
 
-import type { IControlChannel } from './windows-control-pipe.js';
+import type { IControlChannel } from '@robota-sdk/agent-local-host';
 import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport';
 import type { IOwnerSessionDirectory } from '@robota-sdk/agent-interface-session';
 

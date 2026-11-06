@@ -2,3 +2,8 @@ export { KeyringStoreError, createKeyringFileStore } from './keyring-store.js';
 export type { IKeyringFileState, IKeyringFileStoreOptions, IKeyringStore, IMachineIdentity, TKeyringLoadResult, TKeyringStoreErrorCode } from './keyring-store.js';
 export { createWorkspaceDaemonProver } from './workspace-daemon-proof.js';
 export type { IProvenWorkspaceDaemon, IWorkspaceDaemonCandidate, IWorkspaceDaemonProofAttempt, IWorkspaceDaemonProofLink } from './workspace-daemon-proof.js';
+export { MAX_CONTROL_FRAME_BYTES, SUPERVISED_ID_PATTERN, SupervisedControlPathTooLongError, connectControlSocket, controlSocketPath, ensurePrivateDirectory, isGeneration, openRegisteredControlStream, readOwnedFile, readRegistration, sessionDirectory, verifyExistingDirectory, verifyLiveOwner } from './supervised-control-carrier.js';
+export type { IRegistration } from './supervised-control-carrier.js';
+export { WindowsControlPipeServer, connectWindowsControlPipe, windowsControlPipePath } from './windows-control-pipe.js';
+export type { IControlChannel } from './windows-control-pipe.js';
+export { assertWindowsPrivatePath, createWindowsPrivateDirectory, currentWindowsSid, isPrivateWindowsSddl, readWindowsProcessIdentity, readWindowsProcessStartTime, withWindowsPrivateDescriptor } from './windows-security.js';

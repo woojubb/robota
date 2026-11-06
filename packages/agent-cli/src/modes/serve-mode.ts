@@ -1,3 +1,4 @@
+import { SupervisedControlPathTooLongError } from '@robota-sdk/agent-local-host';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 /**
  * RUNTIME-001 — the headless `the product --serve` runtime host entry.
@@ -25,7 +26,6 @@ import {
   ensureSupervisedAuditDirectory,
   resolveSupervisedDirectory,
   startSupervisedControl,
-  SupervisedControlPathTooLongError,
   takeSupervisedGrantHandoff,
   type ISupervisedControl,
   type ISupervisedPr,

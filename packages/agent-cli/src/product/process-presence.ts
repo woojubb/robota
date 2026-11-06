@@ -45,7 +45,7 @@ import {
   type TProcessOwnerLiveness,
 } from '@robota-sdk/agent-core/node';
 
-import { readWindowsProcessStartTime } from '../session-inventory/windows-security.js';
+import { readWindowsProcessStartTime } from '@robota-sdk/agent-local-host';
 
 import type { ICliRuntimeContext } from './runtime-context.js';
 

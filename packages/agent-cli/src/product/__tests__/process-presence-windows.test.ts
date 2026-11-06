@@ -12,12 +12,13 @@ import { leaveProcessScopedDirectory } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
-import { readWindowsProcessStartTime } from '../../session-inventory/windows-security.js';
+import { readWindowsProcessStartTime } from '@robota-sdk/agent-local-host';
 import { writeProductMigrationMarker } from '../process-presence.js';
 
 import type { ICliRuntimeContext } from '../runtime-context.js';
 
-vi.mock('../../session-inventory/windows-security.js', () => ({
+vi.mock('@robota-sdk/agent-local-host', async (importOriginal) => ({
+  ...await importOriginal<typeof import('@robota-sdk/agent-local-host')>(),
   readWindowsProcessStartTime: vi.fn((pid: number) => `creation-time-${pid}`),
 }));
 
