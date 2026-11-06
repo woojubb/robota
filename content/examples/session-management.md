@@ -1,5 +1,9 @@
 # Session Management
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 `InteractiveSession` is the event-driven session every Robota surface is built on. It keeps the
 conversation, runs the built-in tools under a permission mode, tracks the context window, and can save
 and resume itself through a session store.
@@ -8,12 +12,15 @@ and resume itself through a session store.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const session = new InteractiveSession({
   cwd: process.cwd(),
+  host: createNodeFrameworkHost({ createDefaultTools }),
   provider,
   permissionMode: 'default',
 });
@@ -68,7 +75,8 @@ JSON.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
+import { createNodeFrameworkHost, createUserSessionStore } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -80,6 +88,7 @@ const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }
 
 const session = new InteractiveSession({
   cwd: process.cwd(),
+  host: createNodeFrameworkHost({ createDefaultTools }),
   provider,
   sessionStore,
   sessionName: 'my-task',
@@ -90,18 +99,23 @@ const sessionId = session.getSession().getSessionId();
 
 session.setName('architecture-review');
 console.log(session.getName()); // 'architecture-review'
+await session.shutdown(); // release the writer before reopening this session
 
 // Resume: restores the history and the model's context
 const resumed = new InteractiveSession({
   cwd: process.cwd(),
+  host: createNodeFrameworkHost({ createDefaultTools }),
   provider,
   sessionStore,
   resumeSessionId: sessionId,
 });
+await resumed.whenInitialized();
+await resumed.shutdown(); // release the writer before forking
 
 // Fork: a new session ID that starts from the same history
 const forked = new InteractiveSession({
   cwd: process.cwd(),
+  host: createNodeFrameworkHost({ createDefaultTools }),
   provider,
   sessionStore,
   resumeSessionId: sessionId,

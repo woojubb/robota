@@ -1,5 +1,9 @@
 # Deployment — one agent definition, many channels
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Robota needs no separate gateway to serve one agent over many surfaces. You build **one** session from
 one agent definition and bind that session to as many channels as you need. Every channel is a
 transport that `attach()`es the **same** session instance, so a WebSocket client, an HTTP caller and
@@ -20,7 +24,8 @@ import {
   bindTransportAdapter,
   createAgentRuntime,
 } from '@robota-sdk/agent-framework';
-import { createFileTransportSettingsRepository } from '@robota-sdk/agent-framework/node';
+import { createFileTransportSettingsRepository, createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
@@ -28,6 +33,7 @@ import { WsTransport } from '@robota-sdk/agent-transport-ws';
 // 1. One definition → one session, built once.
 const runtime = createAgentRuntime({
   cwd: process.cwd(),
+  host: createNodeFrameworkHost({ createDefaultTools }),
   provider: createAnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY ?? '' }),
 });
 const session = runtime.createSession({});

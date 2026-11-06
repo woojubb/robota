@@ -227,7 +227,7 @@ describe('a plain parent’s child-process fork', () => {
       );
 
       await vi.waitFor(() => expect(parent.hasWriter(FORK_ID)).toBe(false));
-      expect(readdirSync(join(sessions, 'claims'))).toEqual([]);
+      expect(readdirSync(join(sessions, 'claims'))).toEqual([`${FORK_ID}.guard`]);
       createUserSessionStore(sessions, { sealing: 'plain' }).claim(FORK_ID).release();
     },
     TEST_TIMEOUT_MS,

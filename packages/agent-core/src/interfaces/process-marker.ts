@@ -50,14 +50,27 @@ export interface IProcessMarkerHolder {
   readonly liveness: TProcessOwnerLiveness;
 }
 
+/** A cooperative OS-backed lock on one name in a marker directory. */
+export interface IProcessMarkerOperationLock {
+  /** Returns a held lock, or undefined when another process owns it. */
+  tryAcquire(name: string): { release(): void } | undefined;
+}
+
+/** A guarded marker operation either ran, lost its marker, or could not acquire the guard. */
+export type TProcessMarkerGuardResult<T> =
+  | { readonly status: 'ran'; readonly value: T }
+  | { readonly status: 'lost' }
+  | { readonly status: 'busy' };
+
 /** A marker this process published or took over. */
 export interface IProcessMarkerHandle {
   /**
    * Whether the marker at the path is still the one this handle published: the same file, and the
-   * same lease digest for a lent marker. A writer asks before each write, so one that lost its marker
-   * to a break stops instead of writing beside the one that took it.
+   * same lease digest for a lent marker. This is a snapshot; a mutation must use `withGuard` to keep its check and write together.
    */
   holds(): boolean;
+  /** Run a synchronous mutation under the same operation lock as marker transitions. */
+  withGuard<T>(operation: () => T): TProcessMarkerGuardResult<T>;
   /** Removes the marker, only while it is still this handle's own. Idempotent, and never throws. */
   release(): void;
 }

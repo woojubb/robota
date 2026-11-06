@@ -13,6 +13,8 @@
  *   - a store with no sealer is the store it always was.
  */
 
+import { createProcessOperationLock } from '../process-operation-lock.js';
+
 import {
   chmodSync,
   copyFileSync,
@@ -59,7 +61,10 @@ function decodeStoredSessionBytes(
       current: () => ({ kind: 'absent' }),
       replace: () => undefined,
     },
-    createProcessMarkers(path.join(newStoreDir(), 'claims')),
+    ((directory: string) =>
+      createProcessMarkers(directory, { operationLock: createProcessOperationLock(directory) }))(
+      path.join(newStoreDir(), 'claims'),
+    ),
   ).load(id);
 }
 

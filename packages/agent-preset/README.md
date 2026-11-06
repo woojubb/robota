@@ -1,5 +1,8 @@
 # @robota-sdk/agent-preset
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Presets and output styles for the Robota SDK. A preset is a named bundle of
 `@robota-sdk/agent-framework` session option overrides: persona, model and effort, permission
 posture, command-module selection, execution capabilities and autonomy. An output style is a named

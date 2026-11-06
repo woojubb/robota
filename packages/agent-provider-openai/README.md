@@ -1,5 +1,8 @@
 # @robota-sdk/agent-provider-openai
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 OpenAI provider for the Robota SDK, built on the official `openai` SDK. `OpenAIProvider` implements
 the `@robota-sdk/agent-core` provider contract, so a `ConversationAgent` agent can run on OpenAI models with
 streaming and tool calling. It is a protocol client rather than a vendor lock: set `baseURL` and the

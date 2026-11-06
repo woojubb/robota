@@ -76,9 +76,13 @@ describe('a project session claimed by one store instance', () => {
       holder: { pid: process.pid, self: true },
     });
     expect(second.hasWriter('sess_project')).toBe(true);
-    expect(readdirSync(join(root, '.agent', 'sessions', 'claims'))).toEqual(['sess_project.owner']);
+    expect(readdirSync(join(root, '.agent', 'sessions', 'claims')).sort()).toEqual([
+      'sess_project.guard',
+      'sess_project.owner',
+    ]);
 
     claim.release();
+    expect(readdirSync(join(root, '.agent', 'sessions', 'claims'))).toEqual(['sess_project.guard']);
     expect(second.hasWriter('sess_project')).toBe(false);
     second.claim('sess_project').release();
   });

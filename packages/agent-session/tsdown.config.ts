@@ -17,6 +17,6 @@ export default defineConfig({
     dts: format === 'cjs' ? '.d.cts' : '.d.ts',
   }),
   deps: {
-    neverBundle: [/^@robota-sdk\/.*/, /^node:/, ...builtinModules],
+    neverBundle: [/^@robota-sdk\/.*/, /^node:/, /^koffi$/, ...builtinModules],
   },
 });

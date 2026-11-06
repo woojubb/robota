@@ -1,5 +1,9 @@
 # Using the SDK
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 `@robota-sdk/agent-framework` assembles the lower Robota packages — `agent-core`, `agent-session`,
 `agent-tools` and `agent-executor` — into a ready-to-use agent session: built-in file, shell and web
 tools, permission checks, hooks, context tracking and compaction, slash commands, subagents, and

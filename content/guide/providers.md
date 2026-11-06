@@ -40,6 +40,16 @@ OpenRouter), Azure, vLLM, Ollama, LM Studio. Model slugs pass through verbatim, 
 
 ---
 
+## Browser hosts
+
+A platform-neutral provider entry does not guarantee that every client configuration works in a
+browser. The OpenAI and Anthropic SDK clients created by Robota from an `apiKey` reject browser
+page use by default. Both providers also accept an injected `client` or `executor`; the host must
+choose a suitable way to reach the service and protect credentials. A server-side proxy can keep
+provider credentials on the server. Endpoint CORS and authentication still apply. The
+OpenRouter browser connection below authorizes the Node-hosted CLI or App; it does not run the
+provider client in the browser.
+
 ## Connect OpenRouter in the CLI or App
 
 Choose **OpenRouter** during setup, or run `/provider add openrouter` in a session. Select **Browser**

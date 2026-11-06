@@ -1,9 +1,25 @@
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from 'node:fs';
+import { execFileSync, spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
+import {
+  closeSync,
+  fstatSync,
+  linkSync,
+  lstatSync,
+  mkdtempSync,
+  mkdirSync,
+  openSync,
+  writeFileSync,
+  symlinkSync,
+  rmSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+import { createProcessOperationLock, NodeSessionStore } from '@robota-sdk/agent-session/node';
+import { createProcessMarkers } from '@robota-sdk/agent-core/node';
 
 import {
   assertWindowsPrivatePath,
@@ -104,5 +120,162 @@ describe('Windows daemon security', () => {
         rmSync(root, { recursive: true, force: true });
       }
     },
+  );
+});
+
+describe('Windows session operation guard', () => {
+  it.runIf(process.platform === 'win32')('compares hard links using descriptor identities', () => {
+    const root = mkdtempSync(join(tmpdir(), 'test-session-link-'));
+    try {
+      const first = join(root, 'temporary');
+      const second = join(root, 'marker');
+      writeFileSync(first, 'owner');
+      const firstDescriptor = openSync(first, 'r');
+      try {
+        const temporary = fstatSync(firstDescriptor, { bigint: true });
+        linkSync(first, second);
+        const secondDescriptor = openSync(second, 'r');
+        try {
+          const opened = fstatSync(secondDescriptor, { bigint: true });
+          const pathStat = lstatSync(first, { bigint: true });
+          const identity = (stat: typeof temporary): string => `${stat.dev}/${stat.ino}`;
+          expect(identity(opened), `path observation ${identity(pathStat)}`).toBe(
+            identity(temporary),
+          );
+        } finally {
+          closeSync(secondDescriptor);
+        }
+      } finally {
+        closeSync(firstDescriptor);
+      }
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it.runIf(process.platform === 'win32')(
+    'treats a marker junction as unknown without following it',
+    () => {
+      const root = mkdtempSync(join(tmpdir(), 'test-session-junction-'));
+      try {
+        const claims = join(root, 'claims');
+        const target = join(root, 'target');
+        mkdirSync(claims);
+        mkdirSync(target);
+        writeFileSync(join(target, 'keep'), 'unchanged');
+        symlinkSync(target, join(claims, 'session_a.owner'), 'junction');
+        const markers = createProcessMarkers(claims, {
+          operationLock: createProcessOperationLock(claims),
+          lockWaitMs: 0,
+        });
+        expect(markers.inspect('session_a')).toMatchObject({
+          status: 'held',
+          holder: { liveness: 'unknown' },
+        });
+        expect(markers.acquire('session_a').status).toBe('held');
+        expect(lstatSync(join(claims, 'session_a.owner')).isSymbolicLink()).toBe(true);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.runIf(process.platform === 'win32')('saves and releases a claim made by this process', () => {
+    const root = mkdtempSync(join(tmpdir(), 'test-session-claim-'));
+    try {
+      const store = new NodeSessionStore(root, { sealing: 'plain' });
+      const claim = store.claim('session_a', { fresh: true });
+      store.save(
+        {
+          id: 'session_a',
+          cwd: root,
+          createdAt: '2026-01-01T00:00:00.000Z',
+          updatedAt: '2026-01-01T00:00:00.000Z',
+          messages: [],
+        },
+        { claim },
+      );
+      claim.release();
+      expect(store.hasWriter('session_a')).toBe(false);
+      const next = store.claim('session_a');
+      expect(next.outcome.status).toBe('valid');
+      next.release();
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it.runIf(process.platform === 'win32')(
+    'does not mistake a replacement marker for its earlier claim',
+    () => {
+      const root = mkdtempSync(join(tmpdir(), 'test-session-replaced-'));
+      const id = 'session_a';
+      const record = (name: string) => ({
+        id,
+        name,
+        cwd: root,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+        messages: [],
+      });
+      try {
+        const first = new NodeSessionStore(root, { sealing: 'plain' });
+        const old = first.claim(id, { fresh: true });
+        first.save(record('old'), { claim: old });
+        const claims = join(root, 'claims');
+        const breaker = createProcessMarkers(claims, {
+          operationLock: createProcessOperationLock(claims),
+          lockWaitMs: 0,
+        });
+        expect(breaker.remove(id, { force: true }).status).toBe('removed');
+        const second = new NodeSessionStore(root, { sealing: 'plain' });
+        const current = second.claim(id);
+        second.save(record('new'), { claim: current });
+        expect(() => first.save(record('stale'), { claim: old })).toThrow();
+        old.release();
+        second.save(record('still-new'), { claim: current });
+        const loaded = second.load(id);
+        expect(loaded.status).toBe('valid');
+        if (loaded.status === 'valid') expect(loaded.record.name).toBe('still-new');
+        current.release();
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+  );
+
+  it.runIf(process.platform === 'win32')(
+    'excludes another process and recovers after the holder is killed',
+    async () => {
+      const root = mkdtempSync(join(tmpdir(), 'test-session-guard-'));
+      const moduleUrl = pathToFileURL(
+        createRequire(import.meta.url).resolve('@robota-sdk/agent-session/node'),
+      ).href;
+      const script = `import { createProcessOperationLock, NodeSessionStore } from ${JSON.stringify(moduleUrl)}; import { join } from 'node:path'; const root = process.argv[1]; const store = new NodeSessionStore(root, { sealing: 'plain' }); store.claim('session_a', { fresh: true }); const lock = createProcessOperationLock(join(root, 'claims')).tryAcquire('session_a'); if (!lock) process.exit(2); process.send('ready'); setInterval(() => {}, 1000);`;
+      const child = spawn(process.execPath, ['--input-type=module', '-e', script, root], {
+        stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+      });
+      try {
+        expect((await once(child, 'message', { signal: AbortSignal.timeout(10_000) }))[0]).toBe(
+          'ready',
+        );
+        const lock = createProcessOperationLock(join(root, 'claims'));
+        expect(lock.tryAcquire('session_a')).toBeUndefined();
+        const exited = once(child, 'exit', { signal: AbortSignal.timeout(5_000) });
+        child.kill('SIGKILL');
+        await exited;
+        const recovered = lock.tryAcquire('session_a');
+        expect(recovered).toBeDefined();
+        recovered?.release();
+        const store = new NodeSessionStore(root, { sealing: 'plain' });
+        const claim = store.claim('session_a', { fresh: true });
+        claim.release();
+        expect(store.hasWriter('session_a')).toBe(false);
+      } finally {
+        if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+    20_000,
   );
 });

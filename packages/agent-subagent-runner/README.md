@@ -1,5 +1,8 @@
 # @robota-sdk/agent-subagent-runner
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Child-process subagent runner for the Robota SDK. It runs each subagent in its own Node.js child
 process, talks to it over a typed IPC protocol, and can wrap each job in worktree isolation and stream
 its logs to disk.

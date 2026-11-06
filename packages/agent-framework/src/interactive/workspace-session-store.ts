@@ -1,3 +1,5 @@
+import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
+
 import { isArtifactCorruptError, isArtifactLockedError } from '@robota-sdk/agent-core';
 import { createProcessMarkers } from '@robota-sdk/agent-core/node';
 import {
@@ -162,7 +164,9 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     assertWorkspaceProjectStateStoragePair(this.sessions, this.logs);
     // The writer markers are published by hard links, which no facet call makes, so the claims
     // directory beside the records is reached by its path, checked through the authority-gated facet.
-    const markers = createProcessMarkers(projectSessionClaimsDirectory(this.sessions));
+    const markers = createProcessMarkers(projectSessionClaimsDirectory(this.sessions), {
+      operationLock: createProcessOperationLock(projectSessionClaimsDirectory(this.sessions)),
+    });
     this.records = new StoredSessionRecords(
       this.sealing,
       {

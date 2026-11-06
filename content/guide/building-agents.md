@@ -1,5 +1,9 @@
 # Building Agents
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 This guide covers building agents directly with `@robota-sdk/agent-core`, the foundation package.
 `agent-core` gives you the `Robota` agent class: a conversation with one or more AI providers, tool
 calling, plugins, and structured output. It reads no files and loads no project configuration.

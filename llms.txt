@@ -15,7 +15,10 @@ documents — follow the links; do not infer capabilities from package counts or
 ## Minimal embedding set
 
 `agent-core` plus one provider package; add `agent-tools` for tools. The other `@robota-sdk/*`
-packages are optional assembly on top of them. Published packages need Node.js >= 22.12.
+packages are optional assembly on top of them. Packages declare Node.js >= 22.12 for Node
+installations; the npm CLI and Node adapters need a Node host. Neutral entries and Node adapters are separate in the current source; check your installed
+version for its available exports. Provider
+clients and host capabilities have their own requirements.
 
 - [packages/agent-core/README.md](packages/agent-core/README.md): `ConversationAgent` class — `run`/`runStream`, conversation history, plugins, structured output
 - [content/guide/providers.md](content/guide/providers.md): one provider package per vendor — `agent-provider-anthropic`, `-openai`, `-gemini`, `-openai-compatible` (DeepSeek / Qwen / Gemma), `-bytedance` (video)

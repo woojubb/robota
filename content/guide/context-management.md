@@ -1,5 +1,9 @@
 # Context Management
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Every model has a context window — the number of tokens it can read in one request. A session sends
 its whole conversation on every turn, so the conversation eventually outgrows the window. This page
 explains how an Robota session tracks usage, compacts the conversation before it overflows, and what
@@ -87,11 +91,13 @@ result when the turn ends. The full event list is in [Using the SDK](./sdk.md#ev
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-const session = new InteractiveSession({ cwd: process.cwd(), provider });
+const session = new InteractiveSession({ cwd: process.cwd(), host: createNodeFrameworkHost({ createDefaultTools }), provider });
 session.on('text_delta', (delta) => process.stdout.write(delta));
 session.on('complete', (result) => console.log(`\n${result.contextState.usedPercentage}% used`));
 ```

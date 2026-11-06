@@ -1,14 +1,17 @@
 ---
 title: Migrating to 3.0
-description: Upgrade from the Robota SDK 2.x packages to the 3.0.0 beta line, and between 3.0.0 betas.
+description: Upgrade from the Robota SDK 2.x packages and earlier 3.0 versions.
 ---
 
 # Migrating to 3.0
 
-Robota 3.0 is published as the `3.0.0-beta.x` line (for example `3.0.0-beta.83`). npm's `latest` tag
-points at the newest beta, so `npm install @robota-sdk/agent-core` installs it. In `package.json`,
-use a caret range on a beta version such as `^3.0.0-beta.83`: it accepts later betas and the stable
-`3.0.0`, while a plain `^3.0.0` does not match any beta.
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
+The 3.0.7 SDK is published. This source describes the planned 3.1.0 platform changes; check the
+registry and install that release only after it is published. npm dist-tags can move, so check the
+version installed before relying on its exports.
 
 This guide has two parts: moving from the 2.x packages, and changes between 3.0.0 betas.
 
@@ -35,11 +38,11 @@ The 2.x packages had short names; 3.0 packages are named by role.
 -  "@robota-sdk/openai": "^2.0.9",
 -  "@robota-sdk/anthropic": "^2.0.9",
 -  "@robota-sdk/google": "^2.0.9",
-+  "@robota-sdk/agent-core": "^3.0.0-beta.83",
-+  "@robota-sdk/agent-plugin": "^3.0.0-beta.83",
-+  "@robota-sdk/agent-provider-openai": "^3.0.0-beta.83",
-+  "@robota-sdk/agent-provider-anthropic": "^3.0.0-beta.83",
-+  "@robota-sdk/agent-provider-gemini": "^3.0.0-beta.83",
++  "@robota-sdk/agent-core": "^3.1.0",
++  "@robota-sdk/agent-plugin": "^3.1.0",
++  "@robota-sdk/agent-provider-openai": "^3.1.0",
++  "@robota-sdk/agent-provider-anthropic": "^3.1.0",
++  "@robota-sdk/agent-provider-gemini": "^3.1.0",
 ```
 
 Each provider package brings its vendor SDK (`openai`, `@anthropic-ai/sdk`, `@google/genai`) as its
@@ -186,7 +189,8 @@ subagent sessions with their own tools and history, and the `__PRODUCT_CLI_NAME_
   server definitions and the client are in `@robota-sdk/agent-mcp`.
 - **ESM only.** `@robota-sdk/agent-cli` and `@robota-sdk/agent-ui-terminal` have no CommonJS entry;
   load them with `import`.
-- **Node.js 22.12.0 or newer** is required by every published package.
+- **Node.js 22.12.0 or newer** is declared by published packages for Node installations; the npm CLI
+  and Node adapters require a Node host. Check the released version for its available entries.
 
 ---
 

@@ -1,5 +1,8 @@
 # @robota-sdk/agent-tools
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Tool implementations for the Robota SDK: factories for building your own tools from Zod schemas,
 the built-in tools (Shell, Read, Write, Edit, Glob, Grep, WebFetch, AskUserQuestion,
 ToolSearch), codebase retrieval and computer-use tools, and the sandbox clients that run tools
