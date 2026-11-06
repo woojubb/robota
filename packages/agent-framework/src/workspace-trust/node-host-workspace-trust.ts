@@ -186,10 +186,11 @@ export function createNodeWorkspaceIdentityResolver(): IWorkspaceIdentityResolve
     resolve(cwd: string): IWorkspaceIdentity {
       const canonicalCwd = canonicalPath(resolve(cwd));
       const worktreeRoot = canonicalPath(runGit(canonicalCwd, ['rev-parse', '--show-toplevel']));
-      const commonDirValue = runGit(canonicalCwd, ['rev-parse', '--git-common-dir']);
+      // Ask from Git's worktree root: resolving a relative common-dir against the original cwd can
+      // preserve a Windows short path even when Git names the worktree root with its long spelling.
+      const commonDirValue = runGit(worktreeRoot, ['rev-parse', '--git-common-dir']);
       const commonDir = canonicalPath(
-        // Git returns a relative common-dir from the command's cwd, which may be below the root.
-        isAbsolute(commonDirValue) ? commonDirValue : join(canonicalCwd, commonDirValue),
+        isAbsolute(commonDirValue) ? commonDirValue : join(worktreeRoot, commonDirValue),
       );
       const repositoryKey = repositoryIdentityKey(commonDir);
       return Object.freeze({
