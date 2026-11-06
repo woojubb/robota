@@ -8,7 +8,7 @@ describe('desktop session client', () => {
     let receive = (_frame: string): void => {};
     let closed = (): void => {};
     const bridge = {
-      listen(onFrame: (frame: string) => void, onClose: () => void, onReady: () => void) {
+      subscribe(onFrame: (frame: string) => void, onClose: () => void, onReady: () => void) {
         receive = onFrame;
         closed = onClose;
         onReady();
@@ -70,7 +70,7 @@ describe('desktop session client', () => {
     let ready = (): void => {};
     const client = createDesktopSessionClient(
       {
-        listen: (_onFrame, _onClose, onReady) => {
+        subscribe: (_onFrame, _onClose, onReady) => {
           ready = onReady;
           return () => {};
         },

@@ -11,7 +11,7 @@ import type { TClientMessage } from '@robota-sdk/agent-transport';
 
 /** A context-isolated preload exposes only this session facade, never its MessagePort. */
 export interface IDesktopSessionBridge {
-  listen(onFrame: (frame: string) => void, onClose: () => void, onReady: () => void): () => void;
+  subscribe(onFrame: (frame: string) => void, onClose: () => void, onReady: () => void): () => void;
   send(frame: string): boolean;
   close(): void;
 }
@@ -64,7 +64,7 @@ export function createDesktopSessionClient(
       send({ type: 'get-messages' });
     }
     try {
-      const release = bridge.listen(
+      const release = bridge.subscribe(
         (frame) => {
           if (state !== 'connected') return;
           if (typeof frame !== 'string' || !fits(frame)) {

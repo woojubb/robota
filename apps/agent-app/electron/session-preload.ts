@@ -114,7 +114,7 @@ if (process.isMainFrame) {
   });
 
   contextBridge.exposeInMainWorld('desktopSession', {
-    listen(onFrame: (frame: string) => void, onClose: () => void, onReady: () => void): () => void {
+    subscribe(onFrame: (frame: string) => void, onClose: () => void, onReady: () => void): () => void {
       if (
         ended ||
         receive ||
