@@ -1,6 +1,8 @@
 import { randomBytes } from 'node:crypto';
 
 import { authorityError, StableFileAuthorityError } from './contracts.js';
+
+import type { IStableRootedDirectoryEntry } from './contracts.js';
 import { WindowsNativeAuthority, type IWindowsIdentity } from './windows-native-authority.js';
 
 import type { IFileAuthorityTestHooks, IStableFileHostBackend } from './host-backend.js';
@@ -94,6 +96,28 @@ export class WindowsStableFileHostBackend implements IStableFileHostBackend {
     } finally {
       if (fileHandle !== undefined) this.native.close(fileHandle);
       if (ownsParent) this.native.close(parentHandle);
+    }
+  }
+
+  listDirectory(relativeSegments: readonly string[]): readonly IStableRootedDirectoryEntry[] {
+    const rootHandle = this.rootHandle;
+    if (rootHandle === undefined) throw authorityError('AUTHORITY_CLOSED', 'list-directory');
+    this.assertRootIdentity(rootHandle);
+    let parent = rootHandle;
+    let owned = false;
+    try {
+      for (let index = 0; index < relativeSegments.length; index += 1) {
+        const next = this.native.openRelative(parent, relativeSegments[index], false, index);
+        if (next === undefined) return [];
+        if (owned) this.native.close(parent);
+        parent = next;
+        owned = true;
+      }
+      const entries = this.native.readDirectory(parent);
+      this.assertRootIdentity(rootHandle);
+      return entries;
+    } finally {
+      if (owned) this.native.close(parent);
     }
   }
 

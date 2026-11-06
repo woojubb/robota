@@ -1,8 +1,11 @@
 import {
   appendFileSync,
+  closeSync,
+  constants,
   mkdirSync,
   mkdtempSync,
   renameSync,
+  openSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -18,7 +21,10 @@ import {
 } from '../stable-rooted-file-reader.js';
 import {
   assertSameStableRoot,
+  assertSameStablePosixRootDescriptor,
+  assertSameStableRootedWriter,
   createStableRootedFileReader,
+  createStableRootedFileWriter,
   StableFileAuthorityError,
   type TStableFileAuthorityErrorCode,
 } from '../index.js';
@@ -60,6 +66,44 @@ function expectCode(operation: () => unknown, code: TStableFileAuthorityErrorCod
 }
 
 describe('stable rooted file reader', () => {
+  it.skipIf(process.platform === 'win32')('compares the exact descriptor a project mutation will use', () => {
+    const { root, outside } = fixture();
+    const approved = track(createStableRootedFileReader(root));
+    const same = openSync(root, constants.O_RDONLY | constants.O_DIRECTORY);
+    const different = openSync(outside, constants.O_RDONLY | constants.O_DIRECTORY);
+    try {
+      expect(() => assertSameStablePosixRootDescriptor(approved, same)).not.toThrow();
+      expectCode(() => assertSameStablePosixRootDescriptor(approved, different), 'ROOT_CHANGED');
+    } finally {
+      closeSync(same);
+      closeSync(different);
+    }
+  });
+
+  it('compares a held workflow writer with the approved root before a write', () => {
+    const { root, outside } = fixture();
+    const approved = track(createStableRootedFileReader(root));
+    const same = track(createStableRootedFileWriter(root));
+    const different = track(createStableRootedFileWriter(outside));
+    expect(() => assertSameStableRootedWriter(approved, same)).not.toThrow();
+    expectCode(() => assertSameStableRootedWriter(approved, different), 'ROOT_CHANGED');
+  });
+
+  it('lists and classifies entries through the retained root after its name is replaced', () => {
+    const { root, cleanupRoot } = fixture();
+    writeFileSync(join(root, 'nested', 'approved.txt'), 'A');
+    const reader = track(createStableRootedFileReader(root));
+    const moved = join(cleanupRoot, 'original');
+    renameSync(root, moved);
+    mkdirSync(join(root, 'nested'), { recursive: true });
+    writeFileSync(join(root, 'nested', 'outside.txt'), 'B');
+
+    expect(reader.listDirectory(['nested'])).toEqual([{ name: 'approved.txt', kind: 'file' }]);
+    expect(reader.inspectKind(['nested', 'approved.txt'])).toBe('file');
+    expect(reader.inspectKind(['nested', 'outside.txt'])).toBeUndefined();
+    expect(reader.listDirectory(['missing'])).toEqual([]);
+  });
+
   it('compares the objects held by two open readers without accepting another root', () => {
     const { root, outside } = fixture();
     const approved = track(createStableRootedFileReader(root));

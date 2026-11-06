@@ -13,6 +13,7 @@ import * as koffi from 'koffi';
 
 import { authorityError, StableFileAuthorityError } from './contracts.js';
 
+import type { IStableRootedDirectoryEntry } from './contracts.js';
 import type { IFileAuthorityTestHooks, IStableFileHostBackend } from './host-backend.js';
 
 interface IPosixIdentity {
@@ -47,6 +48,11 @@ type TExchangeAt = TRenameAt;
 type TUnlinkAt = (directory: number, path: string, flags: number) => number;
 type TFchmod = (descriptor: number, mode: number) => number;
 type TFstatfs = (descriptor: number, buffer: Buffer) => number;
+type TDirectoryPointer = unknown;
+type TFdopendir = (descriptor: number) => TDirectoryPointer | null;
+type TReaddir = (directory: TDirectoryPointer) => TDirectoryPointer | null;
+type TClosedir = (directory: TDirectoryPointer) => number;
+type TDup = (descriptor: number) => number;
 
 const CHUNK_BYTES = 1_048_576;
 const DARWIN_CLOSE_ON_EXEC = 0x01000000;
@@ -66,6 +72,32 @@ const LINUX_LOCAL_FILESYSTEMS = new Set([
   0xf2f52010, // F2FS
   0x01021994, // tmpfs
 ]);
+const MAX_DIRECTORY_RECORD_BYTES = 4_096;
+
+function directoryEntry(pointer: TDirectoryPointer): IStableRootedDirectoryEntry | undefined {
+  const nameOffset = process.platform === 'darwin' ? 21 : 19;
+  const header = Buffer.from(koffi.decode(pointer, 'uint8_t', nameOffset));
+  const recordBytes = header.readUInt16LE(16);
+  if (recordBytes <= nameOffset || recordBytes > MAX_DIRECTORY_RECORD_BYTES) {
+    throw authorityError('HOST_IO', 'decode-directory');
+  }
+  const record = Buffer.from(koffi.decode(pointer, 'uint8_t', recordBytes));
+  const nameBytes = process.platform === 'darwin'
+    ? header.readUInt16LE(18)
+    : record.subarray(nameOffset).indexOf(0);
+  if (nameBytes < 1 || nameBytes > 255 || nameOffset + nameBytes >= recordBytes ||
+      record[nameOffset + nameBytes] !== 0) {
+    throw authorityError('HOST_IO', 'decode-directory');
+  }
+  const name = record.toString('utf8', nameOffset, nameOffset + nameBytes);
+  if (name === '.' || name === '..') return undefined;
+  if (name.includes('\0') || name.includes('/') || name.includes('\\')) {
+    throw authorityError('HOST_IO', 'decode-directory');
+  }
+  const type = header[process.platform === 'darwin' ? 20 : 18];
+  const kind = type === 8 ? 'file' : type === 4 ? 'directory' : type === 10 ? 'link' : 'other';
+  return { name, kind };
+}
 
 function identity(metadata: BigIntStats): IPosixIdentity {
   return { device: metadata.dev, inode: metadata.ino, mode: metadata.mode };
@@ -141,6 +173,10 @@ interface IPosixFunctions {
   readonly unlinkAt: TUnlinkAt;
   readonly fchmod: TFchmod;
   readonly fstatfs: TFstatfs;
+  readonly dup: TDup;
+  readonly fdopendir: TFdopendir;
+  readonly readdir: TReaddir;
+  readonly closedir: TClosedir;
 }
 
 let libc: IPosixFunctions | undefined;
@@ -200,6 +236,10 @@ function libcFunctions(): IPosixFunctions {
       unlinkAt: library.func('int unlinkat(int fd, const char *path, int flags)') as TUnlinkAt,
       fchmod: library.func('int fchmod(int fd, unsigned int mode)') as TFchmod,
       fstatfs: library.func('int fstatfs(int fd, void *buf)') as TFstatfs,
+      dup: library.func('int dup(int fd)') as TDup,
+      fdopendir: library.func('void *fdopendir(int fd)') as TFdopendir,
+      readdir: library.func('void *readdir(void *dirp)') as TReaddir,
+      closedir: library.func('int closedir(void *dirp)') as TClosedir,
     };
   }
   return libc;
@@ -245,6 +285,22 @@ export class PosixStableFileHostBackend implements IStableFileHostBackend {
     this.assertSupportedLocalRoot(left);
     other.assertSupportedLocalRoot(right);
     if (!sameObject(this.rootIdentity, other.rootIdentity)) {
+      throw authorityError('ROOT_CHANGED', 'compare-roots');
+    }
+  }
+
+  assertSamePosixDescriptor(descriptor: number): void {
+    const approved = this.rootDescriptor;
+    if (approved === undefined) throw authorityError('AUTHORITY_CLOSED', 'compare-roots');
+    if (!Number.isSafeInteger(descriptor) || descriptor < 0) {
+      throw authorityError('INVALID_PATH', 'compare-roots');
+    }
+    this.assertRootIdentity(approved);
+    const current = safeFstat(descriptor, 'compare-roots');
+    if (!current.isDirectory()) throw authorityError('UNSAFE_ENTRY', 'compare-roots');
+    this.assertSupportedLocalRoot(approved);
+    this.assertSupportedLocalRoot(descriptor);
+    if (!sameObject(this.rootIdentity, identity(current))) {
       throw authorityError('ROOT_CHANGED', 'compare-roots');
     }
   }
@@ -329,6 +385,57 @@ export class PosixStableFileHostBackend implements IStableFileHostBackend {
     } finally {
       this.closeOptionalDescriptor(fileDescriptor);
       this.closeOptionalDescriptor(ownsParent ? parentDescriptor : undefined);
+    }
+  }
+
+  listDirectory(relativeSegments: readonly string[]): readonly IStableRootedDirectoryEntry[] {
+    const rootDescriptor = this.rootDescriptor;
+    if (rootDescriptor === undefined) throw authorityError('AUTHORITY_CLOSED', 'list-directory');
+    this.assertRootIdentity(rootDescriptor);
+    let directoryDescriptor = rootDescriptor;
+    let owned = false;
+    try {
+      for (let index = 0; index < relativeSegments.length; index += 1) {
+        const next = this.openAt(directoryDescriptor, relativeSegments[index], flags(true), 0);
+        if (next < 0) {
+          if (koffi.errno() === koffi.os.errno.ENOENT) return [];
+          this.throwOpenFailure(koffi.errno(), 'open-directory', index);
+        }
+        if (!safeFstat(next, 'inspect-directory').isDirectory()) {
+          this.closeDescriptor(next);
+          throw authorityError('UNSAFE_ENTRY', 'inspect-directory', { segmentIndex: index });
+        }
+        if (owned) this.closeDescriptor(directoryDescriptor);
+        directoryDescriptor = next;
+        owned = true;
+      }
+      const api = libcFunctions();
+      const duplicate = api.dup(directoryDescriptor);
+      if (duplicate < 0) throw authorityError('HOST_IO', 'duplicate-directory');
+      const directory = api.fdopendir(duplicate);
+      if (directory === null) {
+        this.closeDescriptor(duplicate);
+        throw authorityError('HOST_IO', 'open-directory-stream');
+      }
+      try {
+        const entries: IStableRootedDirectoryEntry[] = [];
+        for (;;) {
+          koffi.errno(0);
+          const pointer = api.readdir(directory);
+          if (pointer === null) {
+            if (koffi.errno() !== 0) throw authorityError('HOST_IO', 'list-directory');
+            break;
+          }
+          const entry = directoryEntry(pointer);
+          if (entry !== undefined) entries.push(entry);
+        }
+        this.assertRootIdentity(rootDescriptor);
+        return entries;
+      } finally {
+        if (api.closedir(directory) !== 0) throw authorityError('HOST_IO', 'close-directory-stream');
+      }
+    } finally {
+      if (owned) this.closeDescriptor(directoryDescriptor);
     }
   }
 

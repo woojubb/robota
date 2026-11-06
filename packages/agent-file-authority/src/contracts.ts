@@ -47,6 +47,8 @@ export interface IStableRootedDirectoryEntry {
 /** Opaque authority for bounded regular-file reads beneath one retained directory identity. */
 export interface IStableRootedFileReader {
   readBytes(relativeSegments: readonly string[], maxBytes: number): Uint8Array | undefined;
+  listDirectory(relativeSegments: readonly string[]): readonly IStableRootedDirectoryEntry[];
+  inspectKind(relativeSegments: readonly string[]): IStableRootedDirectoryEntry['kind'] | undefined;
   close(): void;
   [Symbol.dispose](): void;
 }

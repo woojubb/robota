@@ -9,7 +9,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  */
 import { createInterface } from 'node:readline/promises';
 
-import { canAskToTrust, grantWorkspaceTrust, trustQuestionFor } from './interactive-trust-prompt.js';
+import { canAskToTrust, prepareWorkspaceTrustApproval, trustQuestionFor } from './interactive-trust-prompt.js';
 
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 
@@ -52,6 +52,15 @@ export async function askServeOpenTrustQuestion(
   const question = trustQuestionFor(access, cwd, options.productRuntime);
   if (question === undefined) return { decision: 'restricted', access };
   const write = options.write ?? ((text: string) => void process.stdout.write(text));
+  let approval: Awaited<ReturnType<typeof prepareWorkspaceTrustApproval>> | undefined;
+  if (options.grant === undefined) {
+    try {
+      approval = await prepareWorkspaceTrustApproval(cwd, options.productRuntime);
+    } catch (error) {
+      write(`Could not prepare workspace trust (${error instanceof Error ? error.message : String(error)}). Starting Restricted.\n`);
+      return { decision: 'restricted', access };
+    }
+  }
   write(
     [
       `This folder is not trusted: ${question.folder}`,
@@ -61,17 +70,20 @@ export async function askServeOpenTrustQuestion(
       '',
     ].join('\n'),
   );
-  const answer = (
-    await (options.ask ?? askOnTerminal)(
+  let answer: string;
+  try {
+    answer = (await (options.ask ?? askOnTerminal)(
       'Trust this folder? [y] trust and start / [r] start Restricted / [N] quit: ',
-    )
-  )
-    .trim()
-    .toLowerCase();
+    )).trim().toLowerCase();
+  } catch (error) {
+    if (approval !== undefined) await approval.release().catch(() => undefined);
+    throw error;
+  }
   if (answer === 'y' || answer === 'yes') {
     try {
-      return { decision: 'trust', access: await (options.grant ?? ((path) => grantWorkspaceTrust(path, options.productRuntime)))(cwd) };
+      return { decision: 'trust', access: await (options.grant ?? (() => approval!.grant()))(cwd) };
     } catch (error) {
+      if (approval !== undefined) await approval.release().catch(() => undefined);
       write(
         `Could not record trust (${error instanceof Error ? error.message : String(error)}). ` +
           'Starting Restricted.\n',
@@ -80,9 +92,11 @@ export async function askServeOpenTrustQuestion(
     }
   }
   if (answer === 'r' || answer === 'restricted') {
+    if (approval !== undefined) await approval.release().catch(() => undefined);
     write('Starting Restricted.\n');
     return { decision: 'restricted', access };
   }
+  if (approval !== undefined) await approval.release().catch(() => undefined);
   write(`${options.productRuntime.config.identity.cliName} --serve --open: not started. Trust it later with: ${options.productRuntime.config.identity.cliName} trust --yes\n`);
   return { decision: 'quit' };
 }

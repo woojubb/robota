@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { mkdtempSync, mkdirSync, renameSync, rmSync } from 'node:fs';
+import { randomBytes } from 'node:crypto';
+import { mkdtempSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -60,7 +61,7 @@ function fixture() {
   const second = join(parent, 'second');
   mkdirSync(first);
   mkdirSync(second);
-  return { endpoint: join(privateDirectory, 'broker.sock'), first, second, parent };
+  return { endpoint: join(privateDirectory, 'broker.sock'), privateDirectory, first, second, parent };
 }
 
 afterEach(async () => {
@@ -69,7 +70,83 @@ afterEach(async () => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true });
 });
 
-describe.skipIf(process.platform === 'win32')('non-authorizing root broker registry', () => {
+describe.skipIf(process.platform !== 'win32')('protected Windows root broker', () => {
+  it('serves only the approved folder through a private native pipe', async () => {
+    const f = fixture();
+    const endpoint = `\\\\.\\pipe\\robota-root-${randomBytes(12).toString('hex')}`;
+    writeFileSync(join(f.first, 'approved.txt'), 'A');
+    writeFileSync(join(f.second, 'outside.txt'), 'B');
+    servers.push(await startWorkspaceRootBroker(endpoint, f.privateDirectory));
+    const pending = await requestWorkspaceRootBroker(endpoint, { op: 'prepare', root: f.first });
+    expect(pending.status).toBe('prepared');
+    if (pending.status !== 'prepared') return;
+    const approved = await requestWorkspaceRootBroker(endpoint, {
+      op: 'approve', candidate: pending.candidate, root: f.first,
+    });
+    expect(approved.status).toBe('trusted');
+    if (approved.status !== 'trusted') return;
+    expect(await requestWorkspaceRootBroker(endpoint, {
+      op: 'list', lease: approved.lease, segments: [],
+    })).toMatchObject({ status: 'entries', entries: [{ name: 'approved.txt', kind: 'file' }] });
+    const parked = join(f.parent, 'parked');
+    renameSync(f.first, parked);
+    renameSync(f.second, f.first);
+    expect(await requestWorkspaceRootBroker(endpoint, {
+      op: 'read', lease: approved.lease, segments: ['outside.txt'], maxBytes: 8,
+    })).toMatchObject({ status: 'refused', reason: 'root-changed' });
+  });
+});
+
+describe.skipIf(process.platform === 'win32')('root broker custody', () => {
+  it('serves an approved root only while the current name still opens that same object', async () => {
+    const f = fixture();
+    writeFileSync(join(f.first, 'approved.txt'), 'A');
+    writeFileSync(join(f.second, 'outside.txt'), 'B');
+    servers.push(await startWorkspaceRootBroker(f.endpoint));
+    const pending = await requestWorkspaceRootBroker(f.endpoint, { op: 'prepare', root: f.first });
+    expect(pending.status).toBe('prepared');
+    if (pending.status !== 'prepared') return;
+    const approved = await requestWorkspaceRootBroker(f.endpoint, {
+      op: 'approve', candidate: pending.candidate, root: f.first,
+    });
+    expect(approved.status).toBe('trusted');
+    if (approved.status !== 'trusted') return;
+    expect(await requestWorkspaceRootBroker(f.endpoint, {
+      op: 'list', lease: approved.lease, segments: [],
+    })).toMatchObject({ status: 'entries', entries: [{ name: 'approved.txt', kind: 'file' }] });
+    const parked = join(f.parent, 'parked');
+    renameSync(f.first, parked);
+    renameSync(f.second, f.first);
+    expect(await requestWorkspaceRootBroker(f.endpoint, {
+      op: 'read', lease: approved.lease, segments: ['outside.txt'], maxBytes: 8,
+    })).toMatchObject({ status: 'refused', reason: 'root-changed' });
+    expect(await requestWorkspaceRootBroker(f.endpoint, {
+      op: 'inspect', root: f.first,
+    })).toMatchObject({ status: 'stale/replaced' });
+    renameSync(f.first, f.second);
+    renameSync(parked, f.first);
+    expect(await requestWorkspaceRootBroker(f.endpoint, {
+      op: 'read', lease: approved.lease, segments: ['approved.txt'], maxBytes: 8,
+    })).toMatchObject({ status: 'bytes', content: Buffer.from('A').toString('base64') });
+  });
+
+  it('requires approval again after the broker restarts', async () => {
+    const f = fixture();
+    const first = await spawnBroker(f.endpoint);
+    const pending = await requestWorkspaceRootBroker(f.endpoint, { op: 'prepare', root: f.first });
+    expect(pending.status).toBe('prepared');
+    if (pending.status !== 'prepared') return;
+    const approved = await requestWorkspaceRootBroker(f.endpoint, {
+      op: 'approve', candidate: pending.candidate, root: f.first,
+    });
+    expect(approved.status).toBe('trusted');
+    await stopChild(first, 'SIGKILL');
+    await spawnBroker(f.endpoint);
+    expect(await requestWorkspaceRootBroker(f.endpoint, {
+      op: 'inspect', root: f.first,
+    })).toMatchObject({ status: 'untrusted' });
+  });
+
   it('compares two live prepared roots and keeps B refused after A returns to its pathname', async () => {
     const f = fixture();
     servers.push(await startWorkspaceRootBroker(f.endpoint));
@@ -129,7 +206,7 @@ describe.skipIf(process.platform === 'win32')('non-authorizing root broker regis
     const outcome = await new Promise<string>((resolve, reject) => {
       const socket = createConnection(f.endpoint);
       let received = '';
-      socket.on('connect', () => socket.write(`${'x'.repeat(8_192)}\n`));
+      socket.on('connect', () => socket.write(`${'x'.repeat(6 * 1_024 * 1_024 + 1)}\n`));
       socket.on('data', (chunk: Buffer) => { received += chunk.toString('utf8'); });
       socket.on('end', () => resolve(received));
       socket.on('error', reject);

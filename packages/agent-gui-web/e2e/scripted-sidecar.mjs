@@ -155,6 +155,7 @@ async function daemonStart(restricted) {
  * folder the CLI is run in), as the real CLI's grants are.
  */
 function trust(command) {
+  const candidate = '00000000-0000-4000-8000-000000000001';
   const trustDir = process.env.PRODUCT_E2E_TRUST_DIR;
   const trustFile = trustDir
     ? join(trustDir, createHash('sha256').update(process.cwd()).digest('hex'))
@@ -163,11 +164,12 @@ function trust(command) {
     process.stderr.write(line('scripted-sidecar: PRODUCT_E2E_TRUST_FILE or PRODUCT_E2E_TRUST_DIR required for trust'));
     process.exit(1);
   }
-  if (command === 'trust --yes') {
+  if (command === `trust --yes --desktop-approved-candidate ${candidate}`) {
     writeFileSync(trustFile, 'trusted');
     process.stdout.write(line('Workspace trust: trusted'));
     process.exit(0);
   }
+  if (command === `trust release --candidate ${candidate}`) process.exit(0);
   // A slow trust read, so a test can act while the app is waiting on it.
   const delayMs = Number(process.env.PRODUCT_E2E_TRUST_STATUS_DELAY_MS ?? 0);
   if (delayMs > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
@@ -188,6 +190,7 @@ function trust(command) {
               state: 'untrusted',
               workspace,
               askable: true,
+              candidate,
               loads: ['  [file] AGENTS.md — Agent instructions'],
             },
       ),
@@ -200,7 +203,8 @@ const argv = process.argv.slice(2);
 const command = argv.join(' ');
 if (command === 'daemon start --json') await daemonStart(false);
 if (command === 'daemon start --json --restricted-workspace') await daemonStart(true);
-if (command === 'trust status --json' || command === 'trust --yes') trust(command);
+if (command === 'trust status --json' || command.startsWith('trust --yes --desktop-approved-candidate ') ||
+    command.startsWith('trust release --candidate ')) trust(command);
 
 const token = process.env.PRODUCT_WS_TOKEN;
 const port = Number.parseInt(process.env.PRODUCT_WS_PORT ?? '0', 10);
