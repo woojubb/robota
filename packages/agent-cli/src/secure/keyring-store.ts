@@ -463,8 +463,9 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
     if (process.platform === 'win32') {
       const result = readWindowsKeyringFile(lockPath, MAX_LOCK_FILE_BYTES);
       if (result.status === 'missing') return undefined;
-      if (result.status !== 'present') throw new Error('Could not safely read the lock marker.');
-      return parseLock(result.content.toString('utf8'), {
+      if (result.status !== 'present' && result.status !== 'too-large')
+        throw new Error('Could not safely read the lock marker.');
+      return parseLock(result.status === 'present' ? result.content.toString('utf8') : '', {
         kind: 'windows',
         identity: result.identity,
         modified: result.modified,

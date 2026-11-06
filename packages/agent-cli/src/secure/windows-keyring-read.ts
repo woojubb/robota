@@ -2,7 +2,13 @@ import * as koffi from 'koffi';
 
 type THandle = bigint | null;
 type TReadResult =
-  | { readonly status: 'missing' | 'symlink' | 'not-regular-file' | 'unreadable' | 'too-large' }
+  | { readonly status: 'missing' | 'symlink' | 'not-regular-file' | 'unreadable' }
+  | {
+      readonly status: 'too-large';
+      readonly identity: Buffer;
+      readonly modified: Buffer;
+      readonly mtimeMs: number;
+    }
   | {
       readonly status: 'present';
       readonly content: Buffer;
@@ -133,7 +139,7 @@ export function readWindowsKeyringFile(
       if (count === 0) break;
       filled += count;
     }
-    if (filled > limit) return { status: 'too-large' };
+    if (filled > limit) return { status: 'too-large', identity: secondIdentity, modified, mtimeMs };
     return {
       status: 'present',
       content: buffer.subarray(0, filled),

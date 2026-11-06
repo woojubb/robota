@@ -137,3 +137,23 @@ it.runIf(process.platform === 'win32')(
     }
   },
 );
+
+it('can recover an oversized abandoned marker without reading the whole file', async () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'keyring-large-marker-')));
+  try {
+    const secure = join(root, 'secure');
+    mkdirSync(secure);
+    const path = join(secure, 'keyring.json');
+    const marker = `${path}.lock`;
+    writeFileSync(marker, Buffer.alloc(2048, 120));
+    const old = new Date(Date.now() - 120_000);
+    utimesSync(marker, old, old);
+    const store = createKeyringFileStore({ root, path, lockWaitMs: 0 });
+    const { keyring } = await fixtureKeyring();
+    store.create(keyring);
+    expect(store.load().status).toBe('present');
+    expect(existsSync(marker)).toBe(false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
