@@ -131,9 +131,11 @@ function writeDraft(namespace: string, sessionId: string | undefined, value: ISt
  * context). The row's controls run the session's own commands (`/provider`, `/mode`, `/effort`), so a
  * setting changes through the one path every client shares.
  */
-export const Composer = forwardRef<
+const ComposerInstance = forwardRef<
   IComposerHandle,
   {
+    /** Volatile drafts stay within this composer lifetime and never access persistent storage. */
+    draftMode?: 'persistent' | 'volatile';
     onSubmit: (prompt: string) => void;
     onCommand: (name: string, args?: string) => void;
     catalog: TCommandCatalog | null;
@@ -177,6 +179,7 @@ export const Composer = forwardRef<
   }
 >(function Composer(
   {
+    draftMode = 'persistent',
     onSubmit,
     onCommand,
     catalog,
@@ -211,7 +214,7 @@ export const Composer = forwardRef<
   // state below by `setDraft`/`setAttachments`, the only two places that mutate it.
   const stateRef = useRef<IStoredDraft>(EMPTY_DRAFT);
   const [draft, setDraftState] = useState(() => {
-    const initial = readDraft(browserNamespace, sessionId);
+    const initial = draftMode === 'volatile' ? EMPTY_DRAFT : readDraft(browserNamespace, sessionId);
     stateRef.current = initial;
     return initial.text;
   });
@@ -237,7 +240,7 @@ export const Composer = forwardRef<
   const setDraft = (value: string): void => {
     stateRef.current = { ...stateRef.current, text: value };
     setDraftState(value);
-    writeDraft(browserNamespace, sessionIdRef.current, stateRef.current);
+    if (draftMode === 'persistent') writeDraft(browserNamespace, sessionIdRef.current, stateRef.current);
   };
   /** #3282 §4d: attachment chips persist alongside the text, under the same per-session draft key. */
   const setAttachments = (
@@ -246,7 +249,7 @@ export const Composer = forwardRef<
     const next = typeof updater === 'function' ? updater(stateRef.current.attachments) : updater;
     stateRef.current = { ...stateRef.current, attachments: next };
     setAttachmentsState(next);
-    writeDraft(browserNamespace, sessionIdRef.current, stateRef.current);
+    if (draftMode === 'persistent') writeDraft(browserNamespace, sessionIdRef.current, stateRef.current);
   };
   // #3280 §4: a session switch shows THAT session's own saved draft, never what was typed for
   // another one. The session id becoming known for the very FIRST time (the fallback key was in use
@@ -256,6 +259,7 @@ export const Composer = forwardRef<
   // arrives, so keystrokes typed during the round trip never land under the wrong session (or the
   // fallback key).
   useEffect(() => {
+    if (draftMode === 'volatile') return;
     if (sessionId === undefined && hasKnownSessionRef.current) return;
     if (sessionIdRef.current === sessionId) return;
     const firstArrival = !hasKnownSessionRef.current;
@@ -274,7 +278,7 @@ export const Composer = forwardRef<
     setDraftState(stored.text);
     setAttachmentsState(stored.attachments);
     setAttachmentNotice(null); // a notice belongs to the attempt just made in the session left behind
-  }, [browserNamespace, sessionId]);
+  }, [browserNamespace, draftMode, sessionId]);
 
   const submit = (): void => {
     if (!connected) return;
@@ -317,17 +321,27 @@ export const Composer = forwardRef<
     absolutePath: getPathForFile ? getPathForFile(file) || undefined : undefined,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // A picker may settle after its originating session was replaced or unmounted.
+  const pickerMounted = useRef(false);
+  useEffect(() => {
+    pickerMounted.current = true;
+    return () => { pickerMounted.current = false; };
+  }, []);
   const handleAttachClick = (): void => {
     if (!connected) return;
     if (pickFiles) {
       pickFiles()
-        .then((picked) =>
-          addCandidates(picked.map((f) => ({ name: f.name, size: f.size, absolutePath: f.path }))),
-        )
+        .then((picked) => {
+          if (!pickerMounted.current) return;
+          addCandidates(picked.map((f) => ({ name: f.name, size: f.size, absolutePath: f.path })));
+        })
         // The host's dialog IPC can reject (e.g. the window closed mid-pick) — say so rather than
         // leaving an unhandled rejection and a button that silently did nothing (rule 5: never fail
         // silently).
-        .catch(() => setAttachmentNotice('Could not open the file picker. Try again.'));
+        .catch(() => {
+          if (!pickerMounted.current) return;
+          setAttachmentNotice('Could not open the file picker. Try again.');
+        });
       return;
     }
     fileInputRef.current?.click();
@@ -636,6 +650,16 @@ export const Composer = forwardRef<
     </div>
   );
 });
+
+/** Volatile state belongs to one session and never crosses a mode or session boundary. */
+export const Composer = forwardRef<IComposerHandle, React.ComponentProps<typeof ComposerInstance>>(
+  function Composer(props, ref) {
+    const key = props.draftMode === 'volatile'
+      ? JSON.stringify(['volatile', props.status?.sessionId ?? null])
+      : 'persistent';
+    return <ComposerInstance {...props} key={key} ref={ref} />;
+  },
+);
 
 /**
  * The goal being pursued (`/goal`), above the composer while it is active — the objective, how far
