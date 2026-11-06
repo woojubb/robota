@@ -96,8 +96,9 @@ describe('stable rooted file reader', () => {
   });
 
   it.skipIf(process.platform === 'win32')('refuses a pseudo-filesystem even when both readers hold it', () => {
-    const first = track(createStableRootedFileReader('/dev'));
-    const second = track(createStableRootedFileReader('/dev'));
+    const pseudoRoot = process.platform === 'linux' ? '/proc' : '/dev';
+    const first = track(createStableRootedFileReader(pseudoRoot));
+    const second = track(createStableRootedFileReader(pseudoRoot));
 
     expectCode(() => assertSameStableRoot(first, second), 'UNSUPPORTED_BACKEND');
   });
