@@ -159,12 +159,14 @@ it('waits for a worker to finish writing before removing its temporary directory
   const root = directory('sealing-cleanup-');
   const child = spawn(process.execPath, [
     '-e',
-    "setTimeout(() => require('node:fs').writeFileSync(process.argv[1], 'finished'), 150)",
+    "process.stdin.resume(); process.stdin.on('end', () => require('node:fs').writeFileSync(process.argv[1], 'finished'))",
     join(root, 'late-write'),
   ]);
   await once(child, 'spawn');
   const closed = once(child, 'close');
-  await cleanupTestState();
+  const cleanup = cleanupTestState();
+  child.stdin?.end();
+  await cleanup;
   const [code] = await closed;
   expect(code).toBe(0);
   expect(existsSync(root)).toBe(false);
@@ -174,15 +176,17 @@ it('keeps the temporary directory until the exited worker closes its streams', a
   const root = directory('sealing-cleanup-close-');
   const child = spawn(process.execPath, [
     '-e',
-    "require('node:child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 150)'], {stdio: ['ignore', 1, 2]}).unref()",
+    "require('node:child_process').spawn(process.execPath, ['-e', \"process.stdin.resume(); process.stdin.on('end', () => {})\"], {stdio: [0, 1, 2]}).unref()",
   ]);
   let rootAtClose = false;
   child.once('close', () => {
     rootAtClose = existsSync(root);
   });
-  await once(child, 'exit');
   const closed = once(child, 'close');
-  await cleanupTestState();
+  await once(child, 'exit');
+  const cleanup = cleanupTestState();
+  child.stdin?.end();
+  await cleanup;
   await closed;
   expect(rootAtClose).toBe(true);
   expect(existsSync(root)).toBe(false);
@@ -194,16 +198,18 @@ it('keeps the temporary directory until the exited worker disconnects its IPC ch
     process.execPath,
     [
       '-e',
-      "require('node:child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 150)'], {stdio: ['ignore', 1, 2, 3]}).unref()",
+      "require('node:child_process').spawn(process.execPath, ['-e', \"process.stdin.resume(); process.stdin.on('end', () => {})\"], {stdio: [0, 1, 2, 3]}).unref()",
     ],
-    { stdio: ['ignore', 'pipe', 'pipe', 'ipc'] },
+    { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] },
   );
   let rootAtDisconnect = false;
   child.once('disconnect', () => {
     rootAtDisconnect = existsSync(root);
   });
   await once(child, 'exit');
-  await cleanupTestState();
+  const cleanup = cleanupTestState();
+  child.stdin?.end();
+  await cleanup;
   expect(rootAtDisconnect).toBe(true);
   expect(existsSync(root)).toBe(false);
 });
