@@ -40,7 +40,7 @@ built from the same libraries.
 
 ## Install
 
-These Node.js examples and the CLI need Node.js 22.12 or later. Published packages declare this
+These Node.js examples and the npm CLI need Node.js 22.12 or later. Published packages declare this
 minimum for Node installations. Neutral entries and Node adapters are separate in the current
 source; check your installed version for its available exports.
 

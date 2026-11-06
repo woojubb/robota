@@ -11,7 +11,7 @@ export function getLlmsIndex(): string {
     `> ${marketingCopy('en', 'home').description}`,
     '',
     'The SDK embeds agents in applications. The coding CLI is a first-party interface built with the public SDK packages.',
-    'The CLI and Node examples need Node.js 22.12 or later. Runtime requirements depend on the package entry, host, and provider. Hosted providers may charge separately.',
+    'The npm CLI and Node examples need Node.js 22.12 or later. Runtime requirements depend on the package entry, host, and provider. Hosted providers may charge separately.',
     'Packages are in public beta; APIs may change. Conversation persistence requires a session store. Tool access depends on workspace trust, permission settings, and the host.',
     '',
   ];

@@ -16,7 +16,7 @@ documents — follow the links; do not infer capabilities from package counts or
 
 `agent-core` plus one provider package; add `agent-tools` for tools. The other `@robota-sdk/*`
 packages are optional assembly on top of them. Packages declare Node.js >= 22.12 for Node
-installations; the CLI and Node adapters need a Node host. Neutral entries and Node adapters are separate in the current source; check your installed
+installations; the npm CLI and Node adapters need a Node host. Neutral entries and Node adapters are separate in the current source; check your installed
 version for its available exports. Provider
 clients and host capabilities have their own requirements.
 

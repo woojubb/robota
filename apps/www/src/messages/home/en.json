@@ -347,7 +347,7 @@
   "packagesLink": "Browse the package index",
   "installEyebrow": "Install",
   "installTitle": "Choose how to run it.",
-  "installLead": "The CLI and Node examples need Node.js 22.12 or later. The standalone binary needs nothing else installed.",
+  "installLead": "The npm CLI and Node examples need Node.js 22.12 or later. The standalone binary needs nothing else installed.",
   "installOptions": {
     "npx": {
       "title": "Run without installing",

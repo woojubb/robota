@@ -44,7 +44,7 @@ For Ollama or llama.cpp, see [Local LLM Setup](../guide/local-llm.md).
 ## Prerequisites
 
 - **Node.js 22.12 or later** — the Robota CLI and every published `@robota-sdk/*` package declare
-  `node >=22.12.0` for Node installations. The CLI and Node examples below need Node; check with
+  `node >=22.12.0` for Node installations. The npm CLI and Node examples below need Node; check with
   `node --version`. The current source separates neutral entries from Node adapters; check your
   installed version for its available exports.
 - **An API key** for Anthropic, OpenAI, Gemini, DeepSeek or Qwen — _or_ a local model server such as
@@ -309,7 +309,7 @@ __PRODUCT_CLI_NAME__ --model claude-opus-4-6
 **[iTerm2](https://iterm2.com/)** or another terminal, or use print mode (`__PRODUCT_CLI_NAME__ -p`). The CLI warns
 when it starts in Terminal.app.
 
-**Node.js version**: The CLI and Node examples need Node.js 22.12 or later. Check with `node --version`. Use
+**Node.js version**: The npm CLI and Node examples need Node.js 22.12 or later. Check with `node --version`. Use
 [Volta](https://volta.sh/) or [nvm](https://github.com/nvm-sh/nvm) to manage versions.
 
 **API key not found**: Set your key as an environment variable (`export ANTHROPIC_API_KEY=...`), or

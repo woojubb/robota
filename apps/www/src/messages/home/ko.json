@@ -347,7 +347,7 @@
   "packagesLink": "패키지 목록(영문)",
   "installEyebrow": "설치",
   "installTitle": "실행 방법을 고르세요.",
-  "installLead": "CLI와 Node 예제에는 Node.js 22.12 이상이 필요합니다. 단독 실행 파일은 다른 프로그램을 설치하지 않아도 실행할 수 있습니다.",
+  "installLead": "npm CLI와 Node 예제에는 Node.js 22.12 이상이 필요합니다. 단독 실행 파일은 다른 프로그램을 설치하지 않아도 실행할 수 있습니다.",
   "installOptions": {
     "npx": {
       "title": "설치 없이 실행",
