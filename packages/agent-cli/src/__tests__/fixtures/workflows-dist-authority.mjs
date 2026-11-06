@@ -1,5 +1,5 @@
 /**
- * A consumer of the PUBLISHED `@robota-sdk/workflows` 0.0.3 dist, in plain Node, over the framework's
+ * A consumer of the PUBLISHED `@robota-sdk/workflows` dist, in plain Node, over the framework's
  * built `dist`: the authority is minted through `@robota-sdk/agent-framework/node`, as the CLI mints
  * it, and the workflows package — which imports only the framework's main entry — must accept it.
  *

@@ -54,7 +54,6 @@ function workspace({ packages, lists, thirdParty = {} }) {
       item('Platform-neutral', lists.neutral ?? []),
       item('Browser (DOM)', lists.dom ?? []),
       item('Node host', lists.host ?? []),
-      item('Not yet neutral', lists.pending ?? []),
       '',
       '## Next',
       '',
@@ -313,6 +312,23 @@ describe('platform-neutral entry check', () => {
       lists: { host: ['a'] },
     });
     expect(await checkPlatformNeutral(root)).toEqual([]);
+  });
+
+  it('reports a package that is in two lists, and a list ARCHITECTURE.md lacks', async () => {
+    const root = workspace({
+      packages: { a: { exports: neutralExport(), files: { 'src/index.ts': '' } } },
+      lists: { neutral: ['a'], dom: ['a'] },
+    });
+    expect(await checkPlatformNeutral(root)).toEqual([
+      'a is listed as both Platform-neutral and Browser (DOM)',
+    ]);
+    writeFileSync(
+      path.join(root, 'ARCHITECTURE.md'),
+      '## Runtime platforms\n\n- **Platform-neutral**: `a`\n- **Browser (DOM)**: none\n\n## Next\n',
+    );
+    expect(await checkPlatformNeutral(root)).toEqual([
+      'ARCHITECTURE.md "Runtime platforms" has no "Node host" list',
+    ]);
   });
 
   it('reports lists that disagree with the manifests', async () => {

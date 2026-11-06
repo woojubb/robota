@@ -1273,8 +1273,8 @@ importers:
         specifier: workspace:*
         version: link:../product-config
       '@robota-sdk/workflows':
-        specifier: 0.0.3
-        version: 0.0.3(@robota-sdk/agent-builtin-providers@packages+agent-builtin-providers)(@robota-sdk/agent-core@packages+agent-core)(@robota-sdk/agent-framework@packages+agent-framework)(@robota-sdk/agent-interface-command@packages+agent-interface-command)(@robota-sdk/agent-tools@packages+agent-tools)
+        specifier: 0.0.4
+        version: 0.0.4(@robota-sdk/agent-builtin-providers@packages+agent-builtin-providers)(@robota-sdk/agent-core@packages+agent-core)(@robota-sdk/agent-framework@packages+agent-framework)(@robota-sdk/agent-interface-command@packages+agent-interface-command)(@robota-sdk/agent-tools@packages+agent-tools)
       '@types/marked':
         specifier: ^6.0.0
         version: 6.0.0
@@ -7630,15 +7630,15 @@ packages:
       quansync: 1.0.0
     dev: true
 
-  /@robota-sdk/workflows@0.0.3(@robota-sdk/agent-builtin-providers@packages+agent-builtin-providers)(@robota-sdk/agent-core@packages+agent-core)(@robota-sdk/agent-framework@packages+agent-framework)(@robota-sdk/agent-interface-command@packages+agent-interface-command)(@robota-sdk/agent-tools@packages+agent-tools):
-    resolution: {integrity: sha512-SGIugfMJPSi8FS/rxiK0x+9QIiVjc+d5IQLXfVoB3AZWXoUHzsgynddnfzC/uRwG3QUi9nG54CIsx+p3Er1Www==}
+  /@robota-sdk/workflows@0.0.4(@robota-sdk/agent-builtin-providers@packages+agent-builtin-providers)(@robota-sdk/agent-core@packages+agent-core)(@robota-sdk/agent-framework@packages+agent-framework)(@robota-sdk/agent-interface-command@packages+agent-interface-command)(@robota-sdk/agent-tools@packages+agent-tools):
+    resolution: {integrity: sha512-XEA7WvtuqwC70W7+mNozIF/0B4YG/iAhRGzL+tbLkLG/Owh+vvu51Ag244BoFEQ4EVszKppG10FrwZZZ6IjivQ==}
     engines: {node: ^22.14.0}
     peerDependencies:
-      '@robota-sdk/agent-builtin-providers': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107 || ~3.0.0
-      '@robota-sdk/agent-core': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107 || ~3.0.0
-      '@robota-sdk/agent-framework': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107 || ~3.0.0
-      '@robota-sdk/agent-interface-command': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107 || ~3.0.0
-      '@robota-sdk/agent-tools': 3.0.0-beta.102 || 3.0.0-beta.103 || 3.0.0-beta.104 || 3.0.0-beta.106 || 3.0.0-beta.107 || ~3.0.0
+      '@robota-sdk/agent-builtin-providers': ~3.1.0
+      '@robota-sdk/agent-core': ~3.1.0
+      '@robota-sdk/agent-framework': ~3.1.0
+      '@robota-sdk/agent-interface-command': ~3.1.0
+      '@robota-sdk/agent-tools': ~3.1.0
     dependencies:
       '@marcbachmann/cel-js': 7.6.1
       '@robota-sdk/agent-builtin-providers': link:packages/agent-builtin-providers

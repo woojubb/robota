@@ -71,8 +71,8 @@ provides `/schedule`, `/monitor`, and `/loop`.
 | Terminal           | `/shell`, `/editor`, `/keybindings`, `/theme`, `/statusline`                                                     |
 | Project and tools  | `/git`, `/memory`, `/skills`, `/mcp`, `/plugin`, `/reload-plugins`                                               |
 
-| Settings and state | `/settings`, `/reset`, `/user-local`, `/doctor`                                                                  |
-| Other sessions     | `/peers`, `/handoff`, `/events`, `/remote-control`, `/devices`                                                   |
+| Settings and state | `/settings`, `/reset`, `/user-local`, `/doctor` |
+| Other sessions | `/peers`, `/handoff`, `/events`, `/remote-control`, `/devices` |
 
 `/memory correct <user|feedback|project|reference> <topic> <text>` replaces **every entry** in that topic. `/memory forget <topic>` removes the source topic file and its active index entries. Both operations are user-only and block subsequent automatic or model additions to that topic; use `correct` to deliberately restore it. Project memory retains only the current replacement or a topic tombstone in `lifecycle.json`, which remains authoritative if source cleanup is interrupted. Historical transcripts and backups remain. A configured semantic backend must support `removeTopic` for these commands; an index cleanup failure is reported, while active recall continues to read current durable source content. The next model turn refreshes its retained startup memory.
 
@@ -84,8 +84,9 @@ itself (see `createTerminalClientCommands`).
 
 ## `@robota-sdk/agent-command/node`
 
-The main entry names no Node module. What starts a process, reads the file system or the network for a
-command, or runs a command on the user's terminal is on `/node`, and a Node host passes it in:
+The main entry is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun and names no
+Node module. What starts a process, reads the file system or the network for a command, or runs a
+command on the user's terminal is on `/node`, and a Node host passes it in:
 
 | Export                                                                  | What it does                                                                                            |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
@@ -95,16 +96,19 @@ command, or runs a command on the user's terminal is on `/node`, and a Node host
 | `createTerminalClientCommands`                                          | The commands an attached terminal runs in its own process                                               |
 
 `/git` runs through the process a host passes as `gitProcess`, `createGitProcess()` from
-`@robota-sdk/agent-framework/node`.
+`@robota-sdk/agent-framework/node`. `/user-local` and `executeUserLocalDirectCommand` read and write
+their storage root through the file system a host passes as `userLocalFileSystem` (`fsAsync` for the
+direct command), `new NodeFileSystemAsync()` from the same entry.
 
 What a command does when the host supplies none of it:
 
-| Absent                | Behaviour                                                                                         |
-| --------------------- | ------------------------------------------------------------------------------------------------- |
-| `doctorDeps`          | `/doctor` is listed and answers that it is unavailable on this host; nothing is probed or written |
-| `gitProcess`          | `/git` is listed and answers that it is unavailable on this host; no process starts               |
-| `keybindingsEditor`   | `/keybindings` answers that the editor is unavailable here, and creates no file                   |
-| `providerEnvironment` | `/provider` and `/model` read a `$ENV:` credential reference as unset                             |
+| Absent                | Behaviour                                                                                           |
+| --------------------- | --------------------------------------------------------------------------------------------------- |
+| `doctorDeps`          | `/doctor` is listed and answers that it is unavailable on this host; nothing is probed or written   |
+| `gitProcess`          | `/git` is listed and answers that it is unavailable on this host; no process starts                 |
+| `userLocalFileSystem` | `/user-local` is listed and answers that it is unavailable on this host; nothing is read or written |
+| `keybindingsEditor`   | `/keybindings` answers that the editor is unavailable here, and creates no file                     |
+| `providerEnvironment` | `/provider` and `/model` read a `$ENV:` credential reference as unset                               |
 
 For what each command does and its arguments, see the [CLI guide](../../content/guide/cli.md#slash-commands).
 
