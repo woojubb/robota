@@ -100,6 +100,13 @@ function restoredWake(events: TBackgroundTaskRunnerEvent[]): IBackgroundTaskStar
 }
 
 describe('createScheduledTaskRunner', () => {
+  it('refuses activation when the prepared handle was cancelled', async () => {
+    const prepared = createScheduledTaskRunner().prepareRestore!(restoredWake([]), {
+      paused: false,
+    });
+    await prepared.handle.cancel();
+    expect(prepared.activate()).toBe('aborted');
+  });
   it('continues firing after a restored paused schedule is resumed and edited', async () => {
     vi.useFakeTimers();
     try {

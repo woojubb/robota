@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { createScriptedProvider, createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
 import { createScheduledTaskRunner } from '@robota-sdk/agent-executor/node';
 import { NodeSessionStore } from '@robota-sdk/agent-session/node';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { createAgentRuntime } from '../../runtime/session-runtime.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
@@ -24,7 +24,10 @@ const PARENT = 'parent';
 const CANARY = 'SENSITIVE-FORK-RESULT-8194';
 const updatedAt = '2026-01-01T00:00:00.000Z';
 
-afterEach(cleanUpSealedSessionFixtures);
+afterEach(() => {
+  vi.useRealTimers();
+  return cleanUpSealedSessionFixtures();
+});
 
 function completedFork(cwd: string): IAgentBackgroundTaskState {
   return {
@@ -49,6 +52,7 @@ function completedFork(cwd: string): IAgentBackgroundTaskState {
 
 describe('restored background tasks', () => {
   it('does not activate a schedule when its writer marker is replaced during commit', async () => {
+    vi.useFakeTimers();
     const cwd = directory();
     const dir = directory();
     const store = new NodeSessionStore(dir, { sealing: 'plain' });
@@ -80,32 +84,17 @@ describe('restored background tasks', () => {
         return result;
       },
     });
-    const runner = createScheduledTaskRunner();
-    let activated = 0;
-    const observed = {
-      ...runner,
-      prepareRestore: (...args: Parameters<NonNullable<typeof runner.prepareRestore>>) => {
-        const prepared = runner.prepareRestore!(...args);
-        return {
-          ...prepared,
-          activate: () => {
-            activated += 1;
-            return prepared.activate();
-          },
-        };
-      },
-    };
     const runtime = createAgentRuntime({
       host: createTestFrameworkHost(),
       cwd,
       provider: createScriptedProvider([]).provider,
       sessionStore: view,
-      backgroundTaskRunners: [observed],
+      backgroundTaskRunners: [createScheduledTaskRunner()],
     });
     const session = runtime.createSession({ resumeSessionId: PARENT });
     try {
       await expect(session.whenInitialized()).rejects.toThrow(/claim|ownership/i);
-      expect(activated).toBe(0);
+      expect(vi.getTimerCount()).toBe(0);
       expect(secondClaim).toBeDefined();
     } finally {
       secondClaim?.release();
@@ -114,6 +103,7 @@ describe('restored background tasks', () => {
     }
   });
   it('does not activate a schedule if the claim is released during commit', async () => {
+    vi.useFakeTimers();
     const cwd = directory();
     const store = new NodeSessionStore(directory(), { sealing: 'plain' });
     const task = {
@@ -141,31 +131,16 @@ describe('restored background tasks', () => {
         return result;
       },
     });
-    const runner = createScheduledTaskRunner();
-    let activated = 0;
-    const observed = {
-      ...runner,
-      prepareRestore: (...args: Parameters<NonNullable<typeof runner.prepareRestore>>) => {
-        const prepared = runner.prepareRestore!(...args);
-        return {
-          ...prepared,
-          activate: () => {
-            activated += 1;
-            return prepared.activate();
-          },
-        };
-      },
-    };
     const runtime = createAgentRuntime({
       host: createTestFrameworkHost(),
       cwd,
       provider: createScriptedProvider([]).provider,
       sessionStore: view,
-      backgroundTaskRunners: [observed],
+      backgroundTaskRunners: [createScheduledTaskRunner()],
     });
     session = runtime.createSession({ resumeSessionId: PARENT });
     await expect(session.whenInitialized()).rejects.toThrow(/claim|ownership/i);
-    expect(activated).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
     expect(store.load(PARENT)).toMatchObject({
       status: 'valid',
       record: { backgroundTasks: [expect.objectContaining({ id: task.id })] },
@@ -317,6 +292,7 @@ describe('restored background tasks', () => {
   );
 
   it('does not activate a schedule after an uncertain committed sealed-store write', async () => {
+    vi.useFakeTimers();
     const cwd = directory();
     const sealer = createTestArtifactSealer();
     const store = new NodeSessionStore(directory(), { sealing: { sealer } });
@@ -344,33 +320,16 @@ describe('restored background tasks', () => {
         return { status: 'unknown', error: new Error('injected post-write failure') };
       },
     });
-    const runner = createScheduledTaskRunner();
-    let activated = 0;
-    const observedRunner = {
-      ...runner,
-      prepareRestore: (...args: Parameters<NonNullable<typeof runner.prepareRestore>>) => {
-        const prepare = runner.prepareRestore;
-        if (!prepare) throw new Error('expected prepared runner');
-        const prepared = prepare(...args);
-        return {
-          ...prepared,
-          activate: () => {
-            activated += 1;
-            return prepared.activate();
-          },
-        };
-      },
-    };
     const runtime = createAgentRuntime({
       host: createTestFrameworkHost(),
       cwd,
       provider: createScriptedProvider([]).provider,
       sessionStore: view,
-      backgroundTaskRunners: [observedRunner],
+      backgroundTaskRunners: [createScheduledTaskRunner()],
     });
     const session = runtime.createSession({ resumeSessionId: PARENT });
     await expect(session.whenInitialized()).rejects.toThrow(/unknown/i);
-    expect(activated).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
     expect(store.load(PARENT)).toMatchObject({
       status: 'valid',
       record: { backgroundTasks: [expect.objectContaining({ id: task.id, status: 'sleeping' })] },

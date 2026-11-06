@@ -1,4 +1,4 @@
-export { BackgroundTaskManager } from './background-task-manager.js';
+export { BackgroundTaskManager, isBuiltInRestoreManager } from './background-task-manager.js';
 export {
   nextScheduledFireOnOrAfter,
   createToolInvocationBackgroundTaskRunner,

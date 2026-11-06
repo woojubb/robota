@@ -26,6 +26,7 @@ import {
   type TBackgroundTaskRunnerEvent,
 } from '../types.js';
 import { nextScheduledFireOnOrAfter } from './scheduled-fire-time.js';
+import { registerBuiltInScheduledRunner } from './scheduled-restore-trust.js';
 import { resolveBackgroundTaskShellCommand } from './shell-command-resolution.js';
 
 const DEFAULT_OUTPUT_LIMIT_BYTES = 30_000;
@@ -56,7 +57,7 @@ interface IScheduledTaskState {
 export function createScheduledTaskRunner(
   options: IScheduledTaskRunnerOptions = {},
 ): IBackgroundTaskRunner<'scheduled'> {
-  return {
+  return registerBuiltInScheduledRunner({
     kind: 'scheduled',
     nextScheduledFireOnOrAfter: (cronExpression, firstAllowedAt) =>
       nextScheduledFireOnOrAfter(cronExpression, firstAllowedAt, options),
@@ -85,7 +86,7 @@ export function createScheduledTaskRunner(
         restore,
       );
     },
-  };
+  });
 }
 
 function startScheduledTask(

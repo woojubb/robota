@@ -6,6 +6,7 @@
 
 import {
   isTerminalBackgroundTaskStatus,
+  isBuiltInRestoreManager,
   nextScheduledFireOnOrAfter,
 } from '@robota-sdk/agent-executor';
 
@@ -219,6 +220,9 @@ export class SessionBackgroundTaskTracker {
       });
     }
     if (schedules.length === 0) return;
+    if (!isBuiltInRestoreManager(manager)) {
+      throw new Error('Restoring schedules requires the built-in background task manager.');
+    }
     if (!restore?.canCommit() || !manager.prepareRestoredSchedules || !this.taskIdReservation) {
       throw new Error(
         'Restoring schedules requires an atomic store and a prepared schedule manager.',

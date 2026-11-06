@@ -1,6 +1,7 @@
 export {
   BackgroundTaskError,
   BackgroundTaskManager,
+  isBuiltInRestoreManager,
   nextScheduledFireOnOrAfter,
   createToolInvocationBackgroundTaskRunner,
   getBackgroundTaskTransitions,

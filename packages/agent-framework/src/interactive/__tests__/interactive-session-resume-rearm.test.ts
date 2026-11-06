@@ -13,11 +13,7 @@ import { storeAgentToolDeps } from '../../tools/agent-tool.js';
 import { InteractiveSession } from '../interactive-session.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
-import type {
-  IBackgroundTaskHandle,
-  IBackgroundTaskRunner,
-  IBackgroundTaskStart,
-} from '@robota-sdk/agent-executor';
+import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { SessionHistoryTracker } from '../interactive-session-history-tracker.js';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
@@ -46,71 +42,13 @@ function createSessionStub(): Session {
   } as unknown as Session;
 }
 
-interface IFakeScheduled {
+interface ITestScheduled {
   runner: IBackgroundTaskRunner<'scheduled'>;
   started: string[];
 }
 
-function createFakeScheduledRunner(): IFakeScheduled {
-  const started: string[] = [];
-  const runner: IBackgroundTaskRunner<'scheduled'> = {
-    kind: 'scheduled',
-    prepareRestore(task, options) {
-      let aborted = false;
-      let active = false;
-      let paused = options.paused;
-      const emit = task.emit ?? (() => undefined);
-      const handle: IBackgroundTaskHandle<'scheduled'> = {
-        taskId: task.taskId,
-        result: new Promise<never>(() => {}),
-        cancel: () => {
-          aborted = true;
-          return Promise.resolve();
-        },
-        pause: () => {
-          paused = true;
-          return Promise.resolve();
-        },
-        resume: () => {
-          paused = false;
-          emit({ type: 'background_task_sleeping', nextFireAt: '2999-01-01T00:00:00.000Z' });
-          return Promise.resolve();
-        },
-        editSchedule: () => Promise.resolve(),
-      };
-      return {
-        handle,
-        activate: () => {
-          if (aborted) return 'aborted';
-          if (active) return 'active';
-          active = true;
-          started.push(task.taskId);
-          void Promise.resolve().then(() => {
-            if (!aborted && !paused)
-              emit({ type: 'background_task_sleeping', nextFireAt: '2999-01-01T00:00:00.000Z' });
-          });
-          return 'active';
-        },
-        abort: () => {
-          aborted = true;
-        },
-      };
-    },
-    start(task: IBackgroundTaskStart<'scheduled'>): IBackgroundTaskHandle<'scheduled'> {
-      started.push(task.taskId);
-      const emit = task.emit ?? (() => undefined);
-      emit({ type: 'background_task_sleeping', nextFireAt: '2999-01-01T00:00:00.000Z' });
-      return {
-        taskId: task.taskId,
-        result: new Promise<never>(() => {}),
-        cancel: () => Promise.resolve(),
-        pause: () => Promise.resolve(),
-        resume: () => Promise.resolve(),
-        editSchedule: () => Promise.resolve(),
-      };
-    },
-  };
-  return { runner, started };
+function createTestScheduledRunner(): ITestScheduled {
+  return { runner: createScheduledTaskRunner(), started: [] };
 }
 
 function pausedScheduledRecord(): Record<string, unknown> {
@@ -149,7 +87,7 @@ function setupWithRecord(
   session: InteractiveSession;
   store: ReturnType<typeof createStore>;
 } {
-  const { runner, started } = createFakeScheduledRunner();
+  const { runner, started } = createTestScheduledRunner();
   const manager = new BackgroundTaskManager({ runners: [scheduledRunner ?? runner] });
   const sessionStub = createSessionStub();
   storeAgentToolDeps(sessionStub, { backgroundTaskManager: manager } as unknown as IAgentToolDeps);
@@ -162,6 +100,7 @@ function setupWithRecord(
     resumeSessionId: 'session_resumed',
     disableSessionLoops,
   });
+  started.push(...manager.list().map((task) => task.id));
   return { started, manager, session, store };
 }
 
@@ -217,7 +156,7 @@ function history(session: InteractiveSession): IHistoryEntry[] {
 }
 
 function setup(nextFireAt: string): { started: string[]; session: InteractiveSession } {
-  const { runner, started } = createFakeScheduledRunner();
+  const { runner, started } = createTestScheduledRunner();
   const manager = new BackgroundTaskManager({ runners: [runner] });
   const sessionStub = createSessionStub();
   storeAgentToolDeps(sessionStub, { backgroundTaskManager: manager } as unknown as IAgentToolDeps);
@@ -229,6 +168,7 @@ function setup(nextFireAt: string): { started: string[]; session: InteractiveSes
     sessionStore: store as never,
     resumeSessionId: 'session_resumed',
   });
+  started.push(...manager.list().map((task) => task.id));
   return { started, session };
 }
 
@@ -525,7 +465,7 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
 
 describe('restored task reservation capability', () => {
   it('refuses a manager that admits another task while subscribing', async () => {
-    const { runner } = createFakeScheduledRunner();
+    const { runner } = createTestScheduledRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });
     const subscribe = manager.subscribe.bind(manager);
     Object.defineProperty(manager, 'subscribe', {
@@ -566,7 +506,7 @@ describe('restored task reservation capability', () => {
   });
 
   it('refuses a manager that emits during subscription before writing any record', () => {
-    const { runner } = createFakeScheduledRunner();
+    const { runner } = createTestScheduledRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });
     const subscribe = manager.subscribe.bind(manager);
     Object.defineProperty(manager, 'subscribe', {
@@ -597,7 +537,7 @@ describe('restored task reservation capability', () => {
   });
 
   it('refuses a restored session when the manager already owns an unrelated task', async () => {
-    const { runner } = createFakeScheduledRunner();
+    const { runner } = createTestScheduledRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });
     const other = await manager.spawn({
       kind: 'scheduled',
@@ -637,7 +577,7 @@ describe('restored task reservation capability', () => {
   it.each(['store', 'manager'] as const)(
     'refuses a restored schedule before any write when the %s lacks the transaction capability',
     (missing) => {
-      const { runner, started } = createFakeScheduledRunner();
+      const { runner, started } = createTestScheduledRunner();
       const manager = new BackgroundTaskManager({ runners: [runner] });
       const sessionStub = createSessionStub();
       storeAgentToolDeps(sessionStub, {
@@ -657,7 +597,11 @@ describe('restored task reservation capability', () => {
             sessionStore: store as never,
             resumeSessionId: 'session_resumed',
           }),
-      ).toThrow(/atomic store and a prepared schedule manager/i);
+      ).toThrow(
+        missing === 'store'
+          ? /atomic store and a prepared schedule manager/i
+          : /built.in.*manager/i,
+      );
       expect(started).toEqual([]);
       expect(store.save).not.toHaveBeenCalled();
       expect(store.hasWriter('session_resumed')).toBe(false);
@@ -665,12 +609,11 @@ describe('restored task reservation capability', () => {
     },
   );
 
-  it('rejects an asynchronous prepared batch before committing the restored record', async () => {
-    const { runner } = createFakeScheduledRunner();
+  it('rejects a custom asynchronous preparation before committing the restored record', async () => {
+    const { runner } = createTestScheduledRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });
-    Object.defineProperty(manager, 'prepareRestoredSchedules', {
-      value: () => Promise.reject(new Error('late preparation failure')),
-    });
+    const prepare = vi.fn(() => Promise.reject(new Error('late preparation failure')));
+    Object.defineProperty(manager, 'prepareRestoredSchedules', { value: prepare });
     const sessionStub = createSessionStub();
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
@@ -686,19 +629,49 @@ describe('restored task reservation capability', () => {
           sessionStore: store as never,
           resumeSessionId: 'session_resumed',
         }),
-    ).toThrow(/prepared.*synchronous/i);
+    ).toThrow(/built.in.*manager/i);
     await Promise.resolve();
+    expect(prepare).not.toHaveBeenCalled();
     expect(store.save).not.toHaveBeenCalled();
     expect(store.load('session_resumed')).toMatchObject({ status: 'valid', record: saved });
   });
 
-  it('aborts a prepared batch returned asynchronously so the manager remains usable', async () => {
-    const { runner } = createFakeScheduledRunner();
+  it('refuses a custom manager that ignores the final activation gate before saving', () => {
+    const { runner } = createTestScheduledRunner();
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    const activate = vi.fn(() => 'active' as const);
+    const prepare = vi.fn(() => ({ activate, abort: vi.fn() }));
+    Object.defineProperty(manager, 'prepareRestoredSchedules', { value: prepare });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const saved = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+    const store = createStore(saved);
+    expect(
+      () =>
+        new InteractiveSession({
+          host: testHost,
+          cwd: process.cwd(),
+          session: sessionStub,
+          sessionStore: store as never,
+          resumeSessionId: 'session_resumed',
+        }),
+    ).toThrow(/built.in.*manager/i);
+    expect(prepare).not.toHaveBeenCalled();
+    expect(activate).not.toHaveBeenCalled();
+    expect(store.save).not.toHaveBeenCalled();
+    expect(store.load('session_resumed')).toMatchObject({ status: 'valid', record: saved });
+  });
+
+  it('does not invoke a custom asynchronous batch and leaves the manager usable', async () => {
+    const { runner } = createTestScheduledRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });
     const prepare = manager.prepareRestoredSchedules.bind(manager);
-    Object.defineProperty(manager, 'prepareRestoredSchedules', {
-      value: (...args: Parameters<typeof prepare>) => Promise.resolve(prepare(...args)),
-    });
+    const customPrepare = vi.fn((...args: Parameters<typeof prepare>) =>
+      Promise.resolve(prepare(...args)),
+    );
+    Object.defineProperty(manager, 'prepareRestoredSchedules', { value: customPrepare });
     const sessionStub = createSessionStub();
     storeAgentToolDeps(sessionStub, {
       backgroundTaskManager: manager,
@@ -713,8 +686,9 @@ describe('restored task reservation capability', () => {
           sessionStore: store as never,
           resumeSessionId: 'session_resumed',
         }),
-    ).toThrow(/prepared.*synchronous/i);
+    ).toThrow(/built.in.*manager/i);
     await Promise.resolve();
+    expect(customPrepare).not.toHaveBeenCalled();
     expect(store.save).not.toHaveBeenCalled();
     const task = await manager.spawn({
       kind: 'scheduled',
@@ -775,33 +749,22 @@ describe('restored task reservation capability', () => {
   });
 
   it('refuses an explicit cancellation while normal shutdown preserves the schedule', async () => {
-    const { runner } = createFakeScheduledRunner();
-    const original = runner.prepareRestore;
-    if (!original) throw new Error('expected prepared runner');
+    const { session, store, manager } = setupWithRecord(
+      sleepingScheduledRecord('2999-01-01T00:00:00.000Z'),
+    );
+    const original = manager.shutdown.bind(manager);
     let releaseCancel: (() => void) | undefined;
     let signalCancel: (() => void) | undefined;
     const cancelStarted = new Promise<void>((resolve) => {
       signalCancel = resolve;
     });
-    runner.prepareRestore = (task, options) => {
-      const prepared = original(task, options);
-      return {
-        ...prepared,
-        handle: {
-          ...prepared.handle,
-          cancel: () =>
-            new Promise<void>((resolve) => {
-              releaseCancel = resolve;
-              signalCancel?.();
-            }),
-        },
-      };
-    };
-    const { session, store } = setupWithRecord(
-      sleepingScheduledRecord('2999-01-01T00:00:00.000Z'),
-      false,
-      runner,
-    );
+    vi.spyOn(manager, 'shutdown').mockImplementation(async (reason) => {
+      await new Promise<void>((resolve) => {
+        releaseCancel = resolve;
+        signalCancel?.();
+      });
+      await original(reason);
+    });
     const shutdown = session.shutdown();
     await cancelStarted;
     try {
@@ -821,7 +784,7 @@ describe('restored task reservation capability', () => {
   });
 
   it('does not start a restored schedule when the store reports an unknown commit', () => {
-    const { runner, started } = createFakeScheduledRunner();
+    const { runner, started } = createTestScheduledRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });
     const sessionStub = createSessionStub();
     storeAgentToolDeps(sessionStub, {
@@ -848,7 +811,7 @@ describe('restored task reservation capability', () => {
   });
 
   it('does not activate a schedule when a complete candidate was saved before an unknown outcome', () => {
-    const { runner, started } = createFakeScheduledRunner();
+    const { runner, started } = createTestScheduledRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });
     const sessionStub = createSessionStub();
     storeAgentToolDeps(sessionStub, {
@@ -931,7 +894,7 @@ describe('restored task reservation capability', () => {
       return timer(...args);
     });
     try {
-      const { runner } = createFakeScheduledRunner();
+      const { runner } = createTestScheduledRunner();
       const manager = new BackgroundTaskManager({ runners: [runner] });
       const sessionStub = createSessionStub();
       storeAgentToolDeps(sessionStub, {
@@ -982,7 +945,7 @@ describe('restored task reservation capability', () => {
   });
 
   it('refuses to resume tasks when a custom manager cannot reserve their IDs, without saving', () => {
-    const { runner } = createFakeScheduledRunner();
+    const { runner } = createTestScheduledRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });
     Object.defineProperty(manager, 'reserveTaskIds', { value: undefined });
     const sessionStub = createSessionStub();
@@ -1007,7 +970,7 @@ describe('restored task reservation capability', () => {
   });
 
   it('refuses asynchronous custom reservation before rearming or saving', () => {
-    const { runner, started } = createFakeScheduledRunner();
+    const { runner, started } = createTestScheduledRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });
     Object.defineProperty(manager, 'reserveTaskIds', {
       value: () => Promise.reject(new Error('late reservation failure')),
@@ -1033,7 +996,7 @@ describe('restored task reservation capability', () => {
   });
 
   it('releases a reservation returned asynchronously after refusing the restore', async () => {
-    const { runner } = createFakeScheduledRunner();
+    const { runner } = createTestScheduledRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });
     const reserve = manager.reserveTaskIds.bind(manager);
     Object.defineProperty(manager, 'reserveTaskIds', {
@@ -1082,7 +1045,7 @@ describe('restored task reservation capability', () => {
   });
 
   it('refuses duplicate restored task IDs rather than overwriting either record', () => {
-    const { runner } = createFakeScheduledRunner();
+    const { runner } = createTestScheduledRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });
     const sessionStub = createSessionStub();
     storeAgentToolDeps(sessionStub, {
@@ -1109,7 +1072,7 @@ describe('restored task reservation capability', () => {
 });
 
 it('restores the original schedule ID even if the manager factory repeats that ID', async () => {
-  const { runner, started } = createFakeScheduledRunner();
+  const { runner, started } = createTestScheduledRunner();
   const manager = new BackgroundTaskManager({ runners: [runner], idFactory: () => 'sched_old' });
   const sessionStub = createSessionStub();
   storeAgentToolDeps(sessionStub, { backgroundTaskManager: manager } as unknown as IAgentToolDeps);
@@ -1124,7 +1087,7 @@ it('restores the original schedule ID even if the manager factory repeats that I
   });
   try {
     await Promise.resolve();
-    expect(started).toEqual(['sched_old']);
+    expect(manager.list().map((task) => task.id)).toEqual(['sched_old']);
     expect(store.load('session_resumed')).toMatchObject({
       status: 'valid',
       record: {

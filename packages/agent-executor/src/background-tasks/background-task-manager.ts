@@ -25,6 +25,7 @@ import {
   type TObserverFailureReporter,
 } from './observer-delivery.js';
 import { nextScheduledFireOnOrAfter } from './runners/scheduled-fire-time.js';
+import { isBuiltInScheduledRestoreRunner } from './runners/scheduled-restore-trust.js';
 import { isTerminalBackgroundTaskStatus } from './state-machine.js';
 import {
   BackgroundTaskError,
@@ -55,6 +56,7 @@ import type { BackgroundTaskWatchdogController } from './background-task-watchdo
 const DEFAULT_MAX_CONCURRENT = 4;
 const DEFAULT_MAX_DEPTH = 1;
 const PREVIEW_LENGTH = 120;
+const builtInManagers = new WeakSet<BackgroundTaskManager>();
 
 export class BackgroundTaskManager implements IBackgroundTaskManager {
   private readonly runners = new Map<string, IBackgroundTaskRunner>();
@@ -84,6 +86,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   private shutdownPromise?: Promise<void>;
 
   constructor(options: IBackgroundTaskManagerOptions) {
+    builtInManagers.add(this);
     for (const runner of options.runners) this.runners.set(runner.kind, runner);
     this.maxConcurrent = options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT;
     this.maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
@@ -142,6 +145,12 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       throw new BackgroundTaskError(
         'validation',
         'A reservation and a prepared schedule runner are required.',
+      );
+    }
+    if (!isBuiltInScheduledRestoreRunner(runner)) {
+      throw new BackgroundTaskError(
+        'validation',
+        'Restoring schedules requires a built-in scheduled runner.',
       );
     }
     const ids = new Set(states.map((state) => state.id));
@@ -749,6 +758,18 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     const observers = this.eventSink ? [this.eventSink, ...this.listeners] : [...this.listeners];
     deliverToObservers(event, observers, this.onObserverFailure);
   }
+}
+
+const builtInPrepareRestoredSchedules = BackgroundTaskManager.prototype.prepareRestoredSchedules;
+
+/** Whether restore uses this package's manager and its original activation protocol. */
+export function isBuiltInRestoreManager(manager: IBackgroundTaskManager): boolean {
+  return (
+    manager instanceof BackgroundTaskManager &&
+    builtInManagers.has(manager) &&
+    Object.getPrototypeOf(manager) === BackgroundTaskManager.prototype &&
+    manager.prepareRestoredSchedules === builtInPrepareRestoredSchedules
+  );
 }
 
 function isPreparedScheduledHandle(

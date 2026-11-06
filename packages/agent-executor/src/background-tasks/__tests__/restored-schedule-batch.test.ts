@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { BackgroundTaskManager } from '../background-task-manager.js';
+import { BackgroundTaskManager, isBuiltInRestoreManager } from '../background-task-manager.js';
 import { createScheduledTaskRunner } from '../runners/scheduled-task-runner.js';
 
 import type { IScheduledBackgroundTaskState, TBackgroundTaskEvent } from '../types.js';
@@ -25,19 +25,77 @@ function schedule(
 }
 
 describe('prepared restored schedules', () => {
-  it('rejects asynchronous runner preparation without exposing a batch or an unhandled rejection', async () => {
+  it('recognizes only the original built-in manager, not a clone, proxy, or altered implementation', () => {
+    const manager = new BackgroundTaskManager({ runners: [createScheduledTaskRunner()] });
+    expect(isBuiltInRestoreManager(manager)).toBe(true);
+    expect(isBuiltInRestoreManager({ ...manager } as unknown as BackgroundTaskManager)).toBe(false);
+    expect(isBuiltInRestoreManager(new Proxy(manager, {}))).toBe(false);
+    Object.defineProperty(manager, 'prepareRestoredSchedules', {
+      value: () => ({ activate: () => 'active', abort() {} }),
+    });
+    expect(isBuiltInRestoreManager(manager)).toBe(false);
+  });
+
+  it.each(['clone', 'proxy', 'altered'] as const)(
+    'refuses a %s built-in runner during restore',
+    async (mode) => {
+      const runner = createScheduledTaskRunner();
+      let candidate = runner;
+      if (mode === 'clone') candidate = { ...runner };
+      if (mode === 'proxy') candidate = new Proxy(runner, {});
+      if (mode === 'altered')
+        Object.defineProperty(runner, 'prepareRestore', { value: () => undefined });
+      const manager = new BackgroundTaskManager({ runners: [candidate] });
+      const reservation = manager.reserveTaskIds(['one']);
+      expect(() => manager.prepareRestoredSchedules([schedule('one')], reservation)).toThrow(
+        /built.in.*runner/i,
+      );
+      expect(manager.list()).toEqual([]);
+      reservation.release();
+      await manager.shutdown();
+    },
+  );
+  it('refuses an untrusted scheduled runner before it can prepare a restored timer', async () => {
+    const base = createScheduledTaskRunner();
+    const prepare = vi.fn((...args: Parameters<NonNullable<typeof base.prepareRestore>>) =>
+      base.prepareRestore!(...args),
+    );
+    const manager = new BackgroundTaskManager({ runners: [{ ...base, prepareRestore: prepare }] });
+    const reservation = manager.reserveTaskIds(['one']);
+    expect(() => manager.prepareRestoredSchedules([schedule('one')], reservation)).toThrow(
+      /built.in.*runner/i,
+    );
+    expect(prepare).not.toHaveBeenCalled();
+    expect(manager.list()).toEqual([]);
+    const spawned = await manager.spawn({
+      kind: 'scheduled',
+      cronExpression: '0 0 * * *',
+      agentInstruction: 'wake',
+      label: 'new',
+      mode: 'background',
+      parentSessionId: 'session_1',
+      depth: 0,
+      cwd: process.cwd(),
+    });
+    expect(spawned.label).toBe('new');
+    reservation.release();
+    await manager.shutdown();
+  });
+  it('rejects an asynchronous custom runner before invoking it', async () => {
+    const prepare = vi.fn(() => Promise.reject(new Error('late runner failure')));
     const runner = {
       ...createScheduledTaskRunner(),
-      prepareRestore: () => Promise.reject(new Error('late runner failure')),
+      prepareRestore: prepare,
     };
     const manager = new BackgroundTaskManager({
       runners: [runner as unknown as ReturnType<typeof createScheduledTaskRunner>],
     });
     const reservation = manager.reserveTaskIds(['one']);
     expect(() => manager.prepareRestoredSchedules([schedule('one')], reservation)).toThrow(
-      /prepared.*synchronous/i,
+      /built.in.*runner/i,
     );
     await Promise.resolve();
+    expect(prepare).not.toHaveBeenCalled();
     expect(manager.list()).toEqual([]);
     await manager.shutdown();
     reservation.release();
@@ -55,23 +113,11 @@ describe('prepared restored schedules', () => {
     reservation.release();
   });
 
-  it('refuses to activate a batch whose prepared handle was already cancelled', async () => {
-    const base = createScheduledTaskRunner();
-    let cancelPrepared: (() => Promise<void>) | undefined;
-    const runner = {
-      ...base,
-      prepareRestore: (...args: Parameters<NonNullable<typeof base.prepareRestore>>) => {
-        const prepare = base.prepareRestore;
-        if (!prepare) throw new Error('expected prepared runner');
-        const prepared = prepare(...args);
-        cancelPrepared = prepared.handle.cancel;
-        return prepared;
-      },
-    };
-    const manager = new BackgroundTaskManager({ runners: [runner] });
+  it('refuses to activate an aborted batch', async () => {
+    const manager = new BackgroundTaskManager({ runners: [createScheduledTaskRunner()] });
     const reservation = manager.reserveTaskIds(['one']);
     const batch = manager.prepareRestoredSchedules([schedule('one')], reservation);
-    await cancelPrepared?.();
+    batch.abort();
     expect(batch.activate()).toBe('aborted');
     expect(manager.list()).toEqual([]);
     await manager.shutdown();
