@@ -8,12 +8,15 @@ and resume itself through a session store.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const session = new InteractiveSession({
   cwd: process.cwd(),
+  host: createNodeFrameworkHost({ createDefaultTools }),
   provider,
   permissionMode: 'default',
 });
@@ -68,7 +71,8 @@ JSON.
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
-import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
+import { createNodeFrameworkHost, createUserSessionStore } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -80,6 +84,7 @@ const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }
 
 const session = new InteractiveSession({
   cwd: process.cwd(),
+  host: createNodeFrameworkHost({ createDefaultTools }),
   provider,
   sessionStore,
   sessionName: 'my-task',
@@ -90,18 +95,23 @@ const sessionId = session.getSession().getSessionId();
 
 session.setName('architecture-review');
 console.log(session.getName()); // 'architecture-review'
+await session.shutdown(); // release the writer before reopening this session
 
 // Resume: restores the history and the model's context
 const resumed = new InteractiveSession({
   cwd: process.cwd(),
+  host: createNodeFrameworkHost({ createDefaultTools }),
   provider,
   sessionStore,
   resumeSessionId: sessionId,
 });
+await resumed.whenInitialized();
+await resumed.shutdown(); // release the writer before forking
 
 // Fork: a new session ID that starts from the same history
 const forked = new InteractiveSession({
   cwd: process.cwd(),
+  host: createNodeFrameworkHost({ createDefaultTools }),
   provider,
   sessionStore,
   resumeSessionId: sessionId,

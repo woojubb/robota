@@ -20,7 +20,8 @@ import {
   bindTransportAdapter,
   createAgentRuntime,
 } from '@robota-sdk/agent-framework';
-import { createFileTransportSettingsRepository } from '@robota-sdk/agent-framework/node';
+import { createFileTransportSettingsRepository, createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
@@ -28,6 +29,7 @@ import { WsTransport } from '@robota-sdk/agent-transport-ws';
 // 1. One definition → one session, built once.
 const runtime = createAgentRuntime({
   cwd: process.cwd(),
+  host: createNodeFrameworkHost({ createDefaultTools }),
   provider: createAnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY ?? '' }),
 });
 const session = runtime.createSession({});
