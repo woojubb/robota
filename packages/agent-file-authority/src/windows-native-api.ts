@@ -94,6 +94,7 @@ export interface IWindowsApi {
   readonly getAttributeTagInfo: TGetInformation;
   readonly getFileIdInfo: TGetInformation;
   readonly getStandardInfo: TGetInformation;
+  readonly getVolumeFilesystemName: (handle: TNativeHandle, output: Uint16Array) => boolean;
   readonly getFileSizeEx: (handle: TNativeHandle, size: bigint[]) => boolean;
   readonly readFile: (
     handle: TNativeHandle,
@@ -197,6 +198,7 @@ function bindKernel32(
   | 'getAttributeTagInfo'
   | 'getFileIdInfo'
   | 'getStandardInfo'
+  | 'getVolumeFilesystemName'
   | 'getFileSizeEx'
   | 'readFile'
   | 'writeFile'
@@ -216,6 +218,29 @@ function bindKernel32(
     ]) as TCreateFileW,
     closeHandle: library.func('CloseHandle', 'bool', [types.handleType]),
     ...bindInformationFunctions(library, types),
+    getVolumeFilesystemName: (() => {
+      const query = library.func('GetVolumeInformationByHandleW', 'bool', [
+        types.handleType,
+        'void *',
+        'uint32_t',
+        'void *',
+        'void *',
+        'void *',
+        koffi.out(koffi.pointer('uint16_t')),
+        'uint32_t',
+      ]) as (
+        handle: TNativeHandle,
+        name: null,
+        nameSize: number,
+        serial: null,
+        maxComponent: null,
+        flags: null,
+        filesystem: Uint16Array,
+        filesystemSize: number,
+      ) => boolean;
+      return (handle: TNativeHandle, output: Uint16Array) =>
+        query(handle, null, 0, null, null, null, output, output.length);
+    })(),
     getFileSizeEx: library.func('GetFileSizeEx', 'bool', [
       types.handleType,
       koffi.out(koffi.pointer('int64_t')),

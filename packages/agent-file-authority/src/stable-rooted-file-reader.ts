@@ -17,6 +17,7 @@ export type { IFileAuthorityTestHooks } from './host-backend.js';
 const finalizer = new FinalizationRegistry<IStableFileHostBackend>((backend) => {
   backend.close();
 });
+const readerBackends = new WeakMap<IStableRootedFileReader, IStableFileHostBackend>();
 
 function validateReadInput(relativeSegments: readonly string[], maxBytes: number): void {
   validateRelativeSegments(relativeSegments);
@@ -33,6 +34,7 @@ class StableRootedFileReader implements IStableRootedFileReader {
   ) {
     const backend = createHostBackend(validateRootDirectory(rootDirectory));
     this.backend = backend;
+    readerBackends.set(this, backend);
     finalizer.register(this, backend, this.finalizerToken);
   }
 
@@ -69,6 +71,19 @@ class StableRootedFileReader implements IStableRootedFileReader {
 /** Create a stable, opaque read authority rooted at the currently opened directory identity. */
 export function createStableRootedFileReader(rootDirectory: string): IStableRootedFileReader {
   return new StableRootedFileReader(rootDirectory, {});
+}
+
+/** Refuse unless two live opaque readers retain the same directory object. */
+export function assertSameStableRoot(
+  approved: IStableRootedFileReader,
+  operation: IStableRootedFileReader,
+): void {
+  const approvedBackend = readerBackends.get(approved);
+  const operationBackend = readerBackends.get(operation);
+  if (approvedBackend === undefined || operationBackend === undefined) {
+    throw authorityError('INVALID_PATH', 'compare-roots');
+  }
+  approvedBackend.assertSameRoot(operationBackend);
 }
 
 /** Internal-only deterministic seams used by native replacement tests. */

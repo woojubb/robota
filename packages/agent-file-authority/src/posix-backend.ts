@@ -46,6 +46,7 @@ type TRenameAt = (
 type TExchangeAt = TRenameAt;
 type TUnlinkAt = (directory: number, path: string, flags: number) => number;
 type TFchmod = (descriptor: number, mode: number) => number;
+type TFstatfs = (descriptor: number, buffer: Buffer) => number;
 
 const CHUNK_BYTES = 1_048_576;
 const DARWIN_CLOSE_ON_EXEC = 0x01000000;
@@ -56,6 +57,15 @@ const LINUX_RENAME_NO_REPLACE = 0x00000001;
 const TEMP_RANDOM_BYTES = 16;
 const WRITE_MODE_BITS = 0o7777;
 const MAX_TEMP_ATTEMPTS = 32;
+const STATFS_BUFFER_BYTES = 4096;
+const DARWIN_MNT_LOCAL = 0x00001000;
+const LINUX_LOCAL_FILESYSTEMS = new Set([
+  0xef53, // ext2/3/4
+  0x58465342, // XFS
+  0x9123683e, // Btrfs
+  0xf2f52010, // F2FS
+  0x01021994, // tmpfs
+]);
 
 function identity(metadata: BigIntStats): IPosixIdentity {
   return { device: metadata.dev, inode: metadata.ino, mode: metadata.mode };
@@ -130,6 +140,7 @@ interface IPosixFunctions {
   readonly exchangeAt: TExchangeAt;
   readonly unlinkAt: TUnlinkAt;
   readonly fchmod: TFchmod;
+  readonly fstatfs: TFstatfs;
 }
 
 let libc: IPosixFunctions | undefined;
@@ -188,6 +199,7 @@ function libcFunctions(): IPosixFunctions {
         renameExchange(sourceDirectory, source, targetDirectory, target, RENAME_EXCHANGE),
       unlinkAt: library.func('int unlinkat(int fd, const char *path, int flags)') as TUnlinkAt,
       fchmod: library.func('int fchmod(int fd, unsigned int mode)') as TFchmod,
+      fstatfs: library.func('int fstatfs(int fd, void *buf)') as TFstatfs,
     };
   }
   return libc;
@@ -217,6 +229,40 @@ export class PosixStableFileHostBackend implements IStableFileHostBackend {
       if (error instanceof StableFileAuthorityError) throw error;
       throw authorityError('UNSUPPORTED_BACKEND', 'load-posix-backend');
     }
+  }
+
+  assertSameRoot(other: IStableFileHostBackend): void {
+    if (!(other instanceof PosixStableFileHostBackend)) {
+      throw authorityError('UNSUPPORTED_BACKEND', 'compare-roots');
+    }
+    const left = this.rootDescriptor;
+    const right = other.rootDescriptor;
+    if (left === undefined || right === undefined) {
+      throw authorityError('AUTHORITY_CLOSED', 'compare-roots');
+    }
+    this.assertRootIdentity(left);
+    other.assertRootIdentity(right);
+    this.assertSupportedLocalRoot(left);
+    other.assertSupportedLocalRoot(right);
+    if (!sameObject(this.rootIdentity, other.rootIdentity)) {
+      throw authorityError('ROOT_CHANGED', 'compare-roots');
+    }
+  }
+
+  private assertSupportedLocalRoot(descriptor: number): void {
+    const buffer = Buffer.alloc(STATFS_BUFFER_BYTES);
+    if (libcFunctions().fstatfs(descriptor, buffer) !== 0) {
+      throw authorityError('UNSUPPORTED_BACKEND', 'compare-roots');
+    }
+    if (process.platform === 'darwin') {
+      const flags = buffer.readUInt32LE(64);
+      const name = buffer.subarray(72, 88).toString('utf8').split('\0', 1)[0];
+      if ((flags & DARWIN_MNT_LOCAL) !== 0 && name === 'apfs') return;
+    } else if (process.platform === 'linux') {
+      const type = buffer.readUInt32LE(0);
+      if (LINUX_LOCAL_FILESYSTEMS.has(type)) return;
+    }
+    throw authorityError('UNSUPPORTED_BACKEND', 'compare-roots');
   }
 
   assertNamedRoot(rootDirectory: string): void {

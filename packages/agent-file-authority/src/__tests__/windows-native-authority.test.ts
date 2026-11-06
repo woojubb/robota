@@ -2,12 +2,67 @@ import * as koffi from 'koffi';
 import { describe, expect, it, vi } from 'vitest';
 
 import { WindowsNativeAuthority } from '../windows-native-authority.js';
+import { queryWindowsIdentity } from '../windows-native-read.js';
+import { StableFileAuthorityError } from '../contracts.js';
 
-import type { IWindowsRenameInfo, TNativeHandle } from '../windows-native-api.js';
+import type { IWindowsApi, IWindowsRenameInfo, TNativeHandle } from '../windows-native-api.js';
 
 function uninitializedAuthority(): WindowsNativeAuthority {
   return Object.create(WindowsNativeAuthority.prototype) as WindowsNativeAuthority;
 }
+
+describe('Windows root comparison profile', () => {
+  it('refuses an unsupported volume even if the root has an open handle', () => {
+    const authority = uninitializedAuthority();
+    Reflect.set(authority, 'api', {
+      getVolumeFilesystemName: (_handle: TNativeHandle, output: Uint16Array) => {
+        output.set([70, 65, 84]); // FAT
+        return true;
+      },
+    });
+
+    expect(() => authority.assertSupportedLocalRoot(BigInt(42))).toThrowError(
+      expect.objectContaining({ code: 'UNSUPPORTED_BACKEND' }),
+    );
+  });
+
+  it('refuses when the held handle cannot prove its volume profile', () => {
+    const authority = uninitializedAuthority();
+    Reflect.set(authority, 'api', {
+      getVolumeFilesystemName: () => false,
+      getLastError: () => 50,
+    });
+
+    expect(() => authority.assertSupportedLocalRoot(BigInt(42))).toThrowError(
+      expect.objectContaining({ code: 'UNSUPPORTED_BACKEND' }),
+    );
+  });
+
+  it('refuses a missing volume serial or zero file ID', () => {
+    const fileIdInfoType = koffi.struct('TestIncompleteRootFileIdInfo', {
+      VolumeSerialNumber: 'uint64_t',
+      FileId: koffi.array('uint8_t', 16, 'Typed'),
+    });
+    const api = {
+      fileIdInfoType,
+      getFileIdInfo: (_handle: TNativeHandle, _class: number, output: object) => {
+        Object.assign(output, { FileId: new Uint8Array(16) });
+        return true;
+      },
+    } as unknown as IWindowsApi;
+
+    expect(() => queryWindowsIdentity(api, BigInt(42), 'inspect-root')).toThrowError(
+      expect.objectContaining({ code: 'UNSUPPORTED_BACKEND' }),
+    );
+    Reflect.set(api, 'getFileIdInfo', (_handle: TNativeHandle, _class: number, output: object) => {
+      Object.assign(output, { VolumeSerialNumber: BigInt(1), FileId: new Uint8Array(16) });
+      return true;
+    });
+    expect(() => queryWindowsIdentity(api, BigInt(42), 'inspect-root')).toThrowError(
+      StableFileAuthorityError,
+    );
+  });
+});
 
 describe('WindowsNativeAuthority cleanup', () => {
   it('closes a successfully opened handle when safety inspection rejects it', () => {

@@ -57,6 +57,7 @@ const FILE_DISPOSITION_INFO_CLASS = 4;
 const HANDLE_WIDTH_BITS = 64;
 const INVALID_HANDLE_VALUE = BigInt('-1');
 const MAX_FILE_NAME_CODE_UNITS = 255;
+const FILESYSTEM_NAME_CHARS = 64;
 
 function assertWindowsSegmentLength(segment: string): void {
   if (segment.length === 0 || segment.length > MAX_FILE_NAME_CODE_UNITS) {
@@ -99,6 +100,20 @@ export class WindowsNativeAuthority {
     } catch (error) {
       this.close(handle);
       throw error;
+    }
+  }
+
+  assertSupportedLocalRoot(handle: TNativeHandle): void {
+    const filesystem = new Uint16Array(FILESYSTEM_NAME_CHARS);
+    if (!this.api.getVolumeFilesystemName(handle, filesystem)) {
+      throw authorityError('UNSUPPORTED_BACKEND', 'compare-roots', {
+        hostCode: this.lastErrorCode(),
+      });
+    }
+    const terminator = filesystem.indexOf(0);
+    const name = String.fromCharCode(...filesystem.subarray(0, terminator)).toUpperCase();
+    if (terminator <= 0 || (name !== 'NTFS' && name !== 'REFS')) {
+      throw authorityError('UNSUPPORTED_BACKEND', 'compare-roots');
     }
   }
 

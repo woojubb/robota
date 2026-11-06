@@ -17,6 +17,7 @@ import {
   type IFileAuthorityTestHooks,
 } from '../stable-rooted-file-reader.js';
 import {
+  assertSameStableRoot,
   createStableRootedFileReader,
   StableFileAuthorityError,
   type TStableFileAuthorityErrorCode,
@@ -59,6 +60,59 @@ function expectCode(operation: () => unknown, code: TStableFileAuthorityErrorCod
 }
 
 describe('stable rooted file reader', () => {
+  it('compares the objects held by two open readers without accepting another root', () => {
+    const { root, outside } = fixture();
+    const approved = track(createStableRootedFileReader(root));
+    const same = track(createStableRootedFileReader(root));
+    const different = track(createStableRootedFileReader(outside));
+
+    expect(() => assertSameStableRoot(approved, same)).not.toThrow();
+    expectCode(() => assertSameStableRoot(approved, different), 'ROOT_CHANGED');
+  });
+
+  it.skipIf(process.platform === 'win32')('refuses a held B root even after the A pathname returns', () => {
+    const { root, outside, cleanupRoot } = fixture();
+    writeFileSync(join(outside, 'payload.bin'), 'B');
+    const approved = track(createStableRootedFileReader(root));
+    const moved = join(cleanupRoot, 'approved-moved');
+    renameSync(root, moved);
+    renameSync(outside, root);
+    const substituted = track(createStableRootedFileReader(root));
+    renameSync(root, outside);
+    renameSync(moved, root);
+
+    expectCode(() => assertSameStableRoot(approved, substituted), 'ROOT_CHANGED');
+    expect(Buffer.from(substituted.readBytes(['payload.bin'], 1) ?? []).toString()).toBe('B');
+  });
+
+  it('refuses closed and unminted readers', () => {
+    const { root } = fixture();
+    const approved = track(createStableRootedFileReader(root));
+    const other = createStableRootedFileReader(root);
+    other.close();
+
+    expectCode(() => assertSameStableRoot(approved, other), 'AUTHORITY_CLOSED');
+    expectCode(() => assertSameStableRoot(approved, {} as never), 'INVALID_PATH');
+  });
+
+  it.skipIf(process.platform === 'win32')('refuses a pseudo-filesystem even when both readers hold it', () => {
+    const pseudoRoot = process.platform === 'linux' ? '/proc' : '/dev';
+    const first = track(createStableRootedFileReader(pseudoRoot));
+    const second = track(createStableRootedFileReader(pseudoRoot));
+
+    expectCode(() => assertSameStableRoot(first, second), 'UNSUPPORTED_BACKEND');
+  });
+
+  it.skipIf(process.platform !== 'win32')('accepts a case alias for the same held Windows root', () => {
+    const { root } = fixture();
+    const alias = root.replace('agent-file-authority-', 'AGENT-FILE-AUTHORITY-');
+    expect(alias).not.toBe(root);
+    const approved = track(createStableRootedFileReader(root));
+    const operation = track(createStableRootedFileReader(alias));
+
+    expect(() => assertSameStableRoot(approved, operation)).not.toThrow();
+  });
+
   it('reads one nested regular file and represents only missing as undefined', () => {
     const { root } = fixture();
     writeFileSync(join(root, 'nested', 'payload.bin'), 'approved');
