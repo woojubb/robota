@@ -83,13 +83,8 @@ export function openDesktopSessionRelay(options: IRelayOptions): { dispose: () =
     }
   }
 
-  function onNavigation(
-    _event: unknown,
-    _url: string,
-    _inPlace: boolean,
-    isMainFrame: boolean,
-  ): void {
-    if (isMainFrame) dispose();
+  function onNavigation(details: { isMainFrame: boolean }): void {
+    if (details.isMainFrame) dispose();
   }
 
   function onMessage(event: MessageEvent): void {

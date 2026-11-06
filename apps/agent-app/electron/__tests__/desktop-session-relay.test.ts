@@ -152,9 +152,9 @@ describe('desktop session relay', () => {
   it('revokes on navigation and refuses malformed and replayed frames', () => {
     const s = setup();
     openDesktopSessionRelay(s.options);
-    s.sender.emit('did-start-navigation', {}, 'https://example.invalid/child', false, false);
+    s.sender.emit('did-start-navigation', { isMainFrame: false });
     expect(s.port.close).not.toHaveBeenCalled();
-    s.sender.emit('did-start-navigation', {}, 'https://example.invalid/', false, true);
+    s.sender.emit('did-start-navigation', { isMainFrame: true });
     s.port.receive({ kind: 'frame', seq: 1, frame: '{"type":"get-messages"}' });
     expect(s.send).not.toHaveBeenCalled();
     expect(s.port.close).toHaveBeenCalledOnce();
