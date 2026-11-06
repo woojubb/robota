@@ -44,7 +44,10 @@ try {
   await within(application.evaluate(() => globalThis.desktopAdmissionFixture.requested()), 'Actual renderer request');
   assert.deepEqual(await within(application.evaluate(() => globalThis.desktopAdmissionFixture.foreignRequest()), 'Foreign renderer request'), { child: 'not-ready', foreign: 'not-ready' });
   assert.equal((await application.evaluate(() => globalThis.desktopAdmissionFixture.state())).prompts, 0);
-  const promptWindow = application.waitForEvent('window', { timeout: 10_000 });
+  const promptWindow = application.waitForEvent('window', { timeout: 10_000, predicate: async (page) => {
+    try { await page.locator('#secret-value').waitFor({ timeout: 2_000 }); return true; }
+    catch { return false; }
+  } });
   await within(application.evaluate(() => globalThis.desktopAdmissionFixture.invokeNativeAction()), 'Native menu action');
   const prompt = await promptWindow;
   await prompt.locator('#secret-value').fill('synthetic-test-value', { timeout: 10_000 });
@@ -54,6 +57,10 @@ try {
   assert.deepEqual(await parent.evaluate(() => Object.keys(window.desktopSession).sort()), ['close', 'send', 'subscribe']);
   assert.equal(await parent.evaluate(() => typeof window.desktopSession.unlock), 'undefined');
   await parent.evaluate(() => window.fixtureSend());
+  await parent.evaluate(() => window.desktopSession.close());
+  await within(application.evaluate(() => globalThis.desktopAdmissionFixture.released()), 'Owner release after renderer close', 2_000);
+  await within(application.evaluate(() => globalThis.desktopAdmissionFixture.invokeNativeAction()), 'Native action after closure');
+  assert.equal(await application.evaluate(() => globalThis.desktopAdmissionFixture.result()), 'not-ready');
   await within(application.evaluate(() => globalThis.desktopAdmissionFixture.dispose()), 'Session disposal');
   await within(parent.waitForFunction(() => window.fixtureStatus === 'disconnected'), 'Session disconnection');
   const state = await within(application.evaluate(() => globalThis.desktopAdmissionFixture.state()), 'Fixture state');

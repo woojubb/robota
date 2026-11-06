@@ -4,7 +4,7 @@ import type { IpcMain, MessageChannelMain, WebContents } from 'electron';
 
 import { registerDesktopSessionAdmission } from '../desktop-session-admission.js';
 
-const relay = vi.hoisted(() => ({ open: vi.fn(() => ({ dispose: vi.fn() })) }));
+const relay = vi.hoisted(() => ({ open: vi.fn((_options: { onClosed: () => void }) => ({ dispose: vi.fn() })) }));
 vi.mock('../desktop-session-relay.js', () => ({ openDesktopSessionRelay: relay.open }));
 
 function deferred<T>() {
@@ -154,6 +154,60 @@ describe('desktop session admission', () => {
     expect(s.sender.listenerCount('render-process-gone')).toBe(0);
     expect(s.sender.listenerCount('did-start-navigation')).toBe(0);
     expect((await s.admission.openFromNativeAction()).kind).toBe('not-ready');
+  });
+
+  it('locks and releases the owner when the relay closes', async () => {
+    const s = setup();
+    s.request();
+    expect((await s.admission.openFromNativeAction()).kind).toBe('open');
+    relay.open.mock.calls[0]?.[0].onClosed();
+    await s.admission.dispose();
+    expect(s.link.lock).toHaveBeenCalledOnce();
+    expect(s.link.close).toHaveBeenCalledOnce();
+    expect(s.release).toHaveBeenCalledOnce();
+    expect((await s.admission.openFromNativeAction()).kind).toBe('not-ready');
+  });
+
+  it('reports an unconfirmed lock after the relay closes', async () => {
+    const s = setup();
+    s.request();
+    expect((await s.admission.openFromNativeAction()).kind).toBe('open');
+    s.link.lock.mockRejectedValueOnce(new Error('lock failed'));
+    relay.open.mock.calls[0]?.[0].onClosed();
+    await expect(s.admission.dispose()).rejects.toThrow('The runtime lock could not be confirmed.');
+    expect(s.onUnconfirmed).toHaveBeenCalledOnce();
+    expect(s.link.close).toHaveBeenCalledOnce();
+    expect(s.release).toHaveBeenCalledOnce();
+  });
+
+  it('revokes an owner if the relay closes during its initialization', async () => {
+    const s = setup();
+    relay.open.mockImplementationOnce((options) => {
+      options.onClosed();
+      return { dispose: vi.fn() };
+    });
+    s.request();
+    expect((await s.admission.openFromNativeAction()).kind).toBe('cancelled');
+    await s.admission.dispose();
+    expect(s.link.lock).toHaveBeenCalledOnce();
+    expect(s.link.close).toHaveBeenCalledOnce();
+    expect(s.release).toHaveBeenCalledOnce();
+    expect((await s.admission.openFromNativeAction()).kind).toBe('not-ready');
+  });
+
+  it('handles reentrant relay notification during owner close', async () => {
+    const s = setup();
+    relay.open.mockImplementationOnce((options) => ({ dispose: vi.fn(options.onClosed) }));
+    s.request();
+    const result = await s.admission.openFromNativeAction();
+    expect(result.kind).toBe('open');
+    if (result.kind !== 'open') return;
+    await result.close();
+    await s.admission.dispose();
+    expect(s.link.lock).toHaveBeenCalledOnce();
+    expect(s.link.close).toHaveBeenCalledOnce();
+    expect(s.release).toHaveBeenCalledOnce();
+    expect(s.onUnconfirmed).not.toHaveBeenCalled();
   });
 
 });

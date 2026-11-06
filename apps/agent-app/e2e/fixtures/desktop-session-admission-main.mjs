@@ -12,6 +12,8 @@ app.whenReady().then(async () => {
   await parent.loadFile(process.env.FIXTURE_HTML);
   let sent = [];
   let released = 0;
+  let resolveReleased;
+  const releaseComplete = new Promise((resolve) => { resolveReleased = resolve; });
   let locked = 0;
   let closed = 0;
   let prompts = 0;
@@ -43,7 +45,7 @@ app.whenReady().then(async () => {
     requestSecret: (signal) => { prompts++; return secretModule.openSecretWindow(parent, signal); },
     openOwner: async (secret) => {
       if (secret.type !== 'passphrase' || secret.value !== 'synthetic-test-value') throw new Error('Unexpected fixture input.');
-      return { link, release: () => { released++; } };
+      return { link, release: () => { released++; resolveReleased(); } };
     },
     createChannel: () => new MessageChannelMain(), onUnconfirmed: () => { unconfirmed++; },
   });
@@ -57,6 +59,7 @@ app.whenReady().then(async () => {
     invokeNativeAction: () => menu.getMenuItemById('fixture-unlock').click(),
     result: async () => (await opened).kind,
     dispose: () => admission.dispose(),
+    released: () => releaseComplete,
     foreignRequest: async () => {
       const probe = new BrowserWindow({ show: false, webPreferences: {
         preload: join(import.meta.dirname, 'desktop-adversarial-preload.cjs'),

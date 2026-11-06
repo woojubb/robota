@@ -51,7 +51,7 @@ export function registerDesktopSessionAdmission(options: IAdmissionOptions): {
       if (!source || !valid() || source.senderFrame !== frame) throw new Error('The renderer is no longer eligible.');
       signal.addEventListener('abort', stop, { once: true });
       if (signal.aborted) { stop(); throw new Error('The owner session has closed.'); }
-      return openDesktopSessionRelay({ sender, source, session, signal, isCurrent, createChannel: options.createChannel });
+      return openDesktopSessionRelay({ sender, source, session, signal, isCurrent, createChannel: options.createChannel, onClosed: stop });
     },
   });
   const onRequest = (event: IpcMainEvent, ...args: unknown[]): void => {

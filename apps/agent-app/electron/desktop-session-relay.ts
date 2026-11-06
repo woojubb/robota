@@ -24,6 +24,7 @@ interface IRelayOptions {
   signal: AbortSignal;
   isCurrent: () => boolean;
   createChannel: () => MessageChannelMain;
+  onClosed?: () => void;
 }
 
 function fits(frame: string): boolean {
@@ -58,23 +59,19 @@ export function openDesktopSessionRelay(options: IRelayOptions): { dispose: () =
     if (closed) return;
     closed = true;
     active.delete(sender);
-    sender.removeListener('destroyed', dispose);
-    sender.removeListener('did-start-navigation', onNavigation);
-    sender.removeListener('render-process-gone', dispose);
-    signal.removeEventListener('abort', dispose);
-    port1.removeListener('message', onMessage);
-    port1.removeListener('close', dispose);
-    try {
-      releaseSession?.();
-    } catch {
-      // A failed listener cleanup must not leave the renderer's port open.
-    }
+    const cleanup = (action: () => void): void => {
+      try { action(); } catch { /* Continue revocation even when a listener fails. */ }
+    };
+    cleanup(() => { sender.removeListener('destroyed', dispose); });
+    cleanup(() => { sender.removeListener('did-start-navigation', onNavigation); });
+    cleanup(() => { sender.removeListener('render-process-gone', dispose); });
+    cleanup(() => { signal.removeEventListener('abort', dispose); });
+    cleanup(() => { port1.removeListener('message', onMessage); });
+    cleanup(() => { port1.removeListener('close', dispose); });
+    cleanup(() => { releaseSession?.(); });
     pending.clear();
-    try {
-      port1.close();
-    } catch {
-      // The port may already be destroyed during renderer teardown.
-    }
+    cleanup(() => { port1.close(); });
+    cleanup(() => { options.onClosed?.(); });
   }
 
   function validGeneration(): boolean {

@@ -115,6 +115,15 @@ describe('desktop session relay', () => {
     expect(s2.port.close).toHaveBeenCalledOnce();
   });
 
+  it('notifies the owner once when malformed input closes the relay', () => {
+    const s = setup();
+    const onClosed = vi.fn();
+    const relay = openDesktopSessionRelay({ ...s.options, onClosed });
+    s.port.receive({ kind: 'frame', seq: 1, frame: '{' });
+    relay.dispose();
+    expect(onClosed).toHaveBeenCalledOnce();
+  });
+
   it('accepts more output after the renderer acknowledges a frame', () => {
     const s = setup();
     openDesktopSessionRelay(s.options);
