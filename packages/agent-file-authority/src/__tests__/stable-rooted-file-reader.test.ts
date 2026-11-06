@@ -95,6 +95,23 @@ describe('stable rooted file reader', () => {
     expectCode(() => assertSameStableRoot(approved, {} as never), 'INVALID_PATH');
   });
 
+  it.skipIf(process.platform === 'win32')('refuses a pseudo-filesystem even when both readers hold it', () => {
+    const first = track(createStableRootedFileReader('/dev'));
+    const second = track(createStableRootedFileReader('/dev'));
+
+    expectCode(() => assertSameStableRoot(first, second), 'UNSUPPORTED_BACKEND');
+  });
+
+  it.skipIf(process.platform !== 'win32')('accepts a case alias for the same held Windows root', () => {
+    const { root } = fixture();
+    const alias = root.replace('agent-file-authority-', 'AGENT-FILE-AUTHORITY-');
+    expect(alias).not.toBe(root);
+    const approved = track(createStableRootedFileReader(root));
+    const operation = track(createStableRootedFileReader(alias));
+
+    expect(() => assertSameStableRoot(approved, operation)).not.toThrow();
+  });
+
   it('reads one nested regular file and represents only missing as undefined', () => {
     const { root } = fixture();
     writeFileSync(join(root, 'nested', 'payload.bin'), 'approved');

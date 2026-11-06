@@ -45,6 +45,8 @@ export class WindowsStableFileHostBackend implements IStableFileHostBackend {
     }
     this.assertRootIdentity(left);
     other.assertRootIdentity(right);
+    this.native.assertSupportedLocalRoot(left);
+    other.native.assertSupportedLocalRoot(right);
     if (!sameIdentity(this.rootIdentity, other.rootIdentity)) {
       throw authorityError('ROOT_CHANGED', 'compare-roots');
     }
