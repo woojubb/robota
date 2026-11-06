@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { spawnSync } from 'node:child_process';
 
 import { createScriptedProvider, createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
 import { createScheduledTaskRunner } from '@robota-sdk/agent-executor/node';
@@ -47,6 +48,100 @@ function completedFork(cwd: string): IAgentBackgroundTaskState {
 }
 
 describe('restored background tasks', () => {
+  it.runIf(process.platform !== 'win32').each(['before', 'after'] as const)(
+    'restarts safely after a process dies %s a restore commit',
+    async (phase) => {
+      const cwd = directory();
+      const dir = directory();
+      const task = {
+        id: 'scheduled_1',
+        kind: 'scheduled' as const,
+        label: 'Later',
+        status: 'sleeping' as const,
+        mode: 'background' as const,
+        parentSessionId: PARENT,
+        depth: 1,
+        cwd,
+        updatedAt,
+        unread: false,
+        nextFireAt: '2999-01-01T00:00:00.000Z',
+        schedule: { cronExpression: '0 0 * * *', agentInstruction: 'wake' },
+      };
+      new NodeSessionStore(dir, { sealing: 'plain' }).save(
+        record(PARENT, cwd, 'owner message', { backgroundTasks: [task] }),
+      );
+      const runtimeUrl = new URL('../../runtime/session-runtime.ts', import.meta.url).href;
+      const hostUrl = new URL('../../testing/framework-host.ts', import.meta.url).href;
+      const viewUrl = new URL('../session-store-view.ts', import.meta.url).href;
+      const source = `
+        import { writeSync } from 'node:fs';
+        import { NodeSessionStore } from '@robota-sdk/agent-session/node';
+        import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
+        import { createScheduledTaskRunner } from '@robota-sdk/agent-executor/node';
+        import { createAgentRuntime } from ${JSON.stringify(runtimeUrl)};
+        import { createTestFrameworkHost } from ${JSON.stringify(hostUrl)};
+        import { decorateSessionStore } from ${JSON.stringify(viewUrl)};
+        const store = new NodeSessionStore(process.env.TEST_STORE, { sealing: 'plain' });
+        const view = decorateSessionStore(store, {
+          saveRestoreTransaction(value, options) {
+            if (process.env.TEST_PHASE === 'after') {
+              const result = store.saveRestoreTransaction(value, options);
+              if (result.status !== 'committed') process.exit(92);
+            }
+            writeSync(1, 'REACHED_COMMIT_BOUNDARY\\n');
+            process.kill(process.pid, 'SIGKILL');
+            throw new Error('process survived termination');
+          },
+        });
+        const runtime = createAgentRuntime({ host: createTestFrameworkHost(), cwd: process.env.TEST_CWD,
+          provider: createScriptedProvider([]).provider, sessionStore: view,
+          backgroundTaskRunners: [createScheduledTaskRunner()] });
+        await runtime.createSession({ resumeSessionId: ${JSON.stringify(PARENT)} }).whenInitialized();
+        process.exit(93);
+      `;
+      const child = spawnSync(
+        process.execPath,
+        ['--import', 'tsx', '--conditions=source', '--input-type=module', '-e', source],
+        {
+          cwd: process.cwd(),
+          encoding: 'utf8',
+          timeout: 20_000,
+          env: {
+            PATH: process.env.PATH,
+            HOME: cwd,
+            TMPDIR: cwd,
+            TEST_STORE: dir,
+            TEST_CWD: cwd,
+            TEST_PHASE: phase,
+            PRODUCT_USER_STATE_DIR: join(cwd, 'product'),
+            ROBOTA_USER_STATE_DIR: join(cwd, 'product'),
+          },
+        },
+      );
+      expect(child.stdout).toContain('REACHED_COMMIT_BOUNDARY');
+      expect(child.signal).toBe('SIGKILL');
+      const store = new NodeSessionStore(dir, { sealing: 'plain' });
+      expect(store.load(PARENT)).toMatchObject({
+        status: 'valid',
+        record: { backgroundTasks: [expect.objectContaining({ id: task.id, status: 'sleeping' })] },
+      });
+      const runtime = createAgentRuntime({
+        host: createTestFrameworkHost(),
+        cwd,
+        provider: createScriptedProvider([]).provider,
+        sessionStore: store,
+        backgroundTaskRunners: [createScheduledTaskRunner()],
+      });
+      const session = runtime.createSession({ resumeSessionId: PARENT });
+      await session.whenInitialized();
+      expect(session.listSchedules()).toEqual([
+        expect.objectContaining({ id: task.id, status: 'sleeping' }),
+      ]);
+      await session.shutdown();
+    },
+    30_000,
+  );
+
   it('does not activate a schedule after an uncertain committed sealed-store write', async () => {
     const cwd = directory();
     const sealer = createTestArtifactSealer();
