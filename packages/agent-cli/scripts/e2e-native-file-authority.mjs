@@ -2,6 +2,7 @@
 
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { createRequire } from 'node:module';
 import {
   existsSync,
   mkdirSync,
@@ -18,6 +19,38 @@ import { fixtureProcessEnvironment } from './product-fixture-environment.mjs';
 
 function run(command, arguments_, cwd, env) {
   return spawnSync(command, arguments_, { cwd, env, encoding: 'utf8' });
+}
+
+/** The fixture answers the real terminal question; the product has no headless grant route. */
+function approveOnTerminal(command, arguments_, cwd, env) {
+  const require = createRequire(import.meta.url);
+  const pty = require('@homebridge/node-pty-prebuilt-multiarch');
+  return new Promise((resolve, reject) => {
+    let terminal;
+    try {
+      terminal = pty.spawn(command, arguments_, { cwd, env, cols: 100, rows: 30 });
+    } catch (error) {
+      reject(error);
+      return;
+    }
+    let output = '';
+    let answered = false;
+    const timer = setTimeout(() => {
+      terminal.kill();
+      reject(new Error('The native trust question timed out.'));
+    }, 30_000);
+    terminal.onData((chunk) => {
+      output += chunk;
+      if (!answered && output.includes('Trust this exact folder? [y/N]')) {
+        answered = true;
+        terminal.write('y\r');
+      }
+    });
+    terminal.onExit(({ exitCode }) => {
+      clearTimeout(timer);
+      resolve({ status: exitCode, stdout: output, stderr: '' });
+    });
+  });
 }
 
 function commandFailure(label, result) {
@@ -233,7 +266,7 @@ function runUserSessionStoreScenario(command, prefixArguments, home, workspace, 
   return { replaySucceeded: true, projectStateWritten };
 }
 
-export function runNativeFileAuthorityE2e(binaryPath, options = {}) {
+export async function runNativeFileAuthorityE2e(binaryPath, options = {}) {
   const binary = resolve(binaryPath);
   if (!existsSync(binary)) throw new Error(`The packaged agent executable is missing: ${binary}`);
   if (options.node !== true) assertStandaloneNativeRuntime(binary);
@@ -255,7 +288,7 @@ export function runNativeFileAuthorityE2e(binaryPath, options = {}) {
     if (git.status !== 0) throw commandFailure('git init', git);
     const workspace = resolveNativeFixtureWorkspace(workspaceDirectory, env);
 
-    const trust = run(command, [...prefixArguments, 'trust', '--yes'], workspace, env);
+    const trust = await approveOnTerminal(command, [...prefixArguments, 'trust', '--yes'], workspace, env);
     if (trust.status !== 0 || !/Workspace trust: trusted/u.test(trust.stdout ?? '')) {
       throw commandFailure(`${env.PRODUCT_CLI_NAME} trust --yes`, trust);
     }
@@ -292,7 +325,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     if (!binaryPath) {
       throw new Error('Usage: e2e-native-file-authority.mjs [--node] <agent-executable>');
     }
-    process.stdout.write(`${runNativeFileAuthorityE2e(binaryPath, { node: nodeMode })}\n`);
+    process.stdout.write(`${await runNativeFileAuthorityE2e(binaryPath, { node: nodeMode })}\n`);
   } catch (error) {
     process.stderr.write(
       `native-file-authority e2e: ${error instanceof Error ? error.message : String(error)}\n`,

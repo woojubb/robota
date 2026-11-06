@@ -147,6 +147,26 @@ describe.skipIf(process.platform === 'win32')('root broker custody', () => {
     })).toMatchObject({ status: 'untrusted' });
   });
 
+  it('revokes the held folder through its new name after a rename', async () => {
+    const f = fixture();
+    servers.push(await startWorkspaceRootBroker(f.endpoint));
+    const prepared = await requestWorkspaceRootBroker(f.endpoint, { op: 'prepare', root: f.first });
+    expect(prepared.status).toBe('prepared');
+    if (prepared.status !== 'prepared') return;
+    expect(await requestWorkspaceRootBroker(f.endpoint, {
+      op: 'approve', candidate: prepared.candidate, root: f.first,
+    })).toMatchObject({ status: 'trusted' });
+    const moved = join(f.parent, 'moved');
+    renameSync(f.first, moved);
+    expect(await requestWorkspaceRootBroker(f.endpoint, { op: 'inspect', root: moved }))
+      .toMatchObject({ status: 'trusted' });
+    expect(await requestWorkspaceRootBroker(f.endpoint, { op: 'revoke', root: moved }))
+      .toMatchObject({ status: 'revoked' });
+    renameSync(moved, f.first);
+    expect(await requestWorkspaceRootBroker(f.endpoint, { op: 'inspect', root: f.first }))
+      .toMatchObject({ status: 'revoked' });
+  });
+
   it('compares two live prepared roots and keeps B refused after A returns to its pathname', async () => {
     const f = fixture();
     servers.push(await startWorkspaceRootBroker(f.endpoint));

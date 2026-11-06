@@ -53,8 +53,7 @@ describe.runIf(process.platform === 'linux' || process.platform === 'darwin')('p
           options: { apiSurface: 'chat-completions' },
         } },
       }));
-      const trust = await approveTestWorkspaceCommand((args) =>
-        spawnSync(launcher, args, { cwd: workspace, env, encoding: 'utf8', timeout: 30_000 }));
+      const trust = await approveTestWorkspaceCommand(launcher, workspace, env);
       expect(trust.status, trust.stderr).toBe(0);
 
       const originalPrompt = 'Run the one-time marker command.';

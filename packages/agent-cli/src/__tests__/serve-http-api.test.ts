@@ -131,12 +131,7 @@ beforeAll(async () => {
       },
     }),
   );
-  const trust = await approveTestWorkspaceCommand((args) => spawnSync(launcher, args, {
-    cwd: workspace,
-    env: environment,
-    encoding: 'utf8',
-    timeout: 60_000,
-  }));
+  const trust = await approveTestWorkspaceCommand(launcher, workspace, environment);
   expect(trust.status, trust.stderr).toBe(0);
 
   // Simulate a busy CLI event loop during shutdown; the launcher must not kill it early.

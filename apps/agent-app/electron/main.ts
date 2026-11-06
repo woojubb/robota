@@ -643,17 +643,17 @@ ipcMain.handle(
       if (pendingTrust !== asked) return {};
       if (choice === 'trust') {
         const candidate = pendingTrustCandidate;
-        if (candidate === undefined) return { error: 'The prepared workspace approval is unavailable.' };
-        const granted = await runCli(productCli(), [
-          'trust', '--yes', '--desktop-approved-candidate', candidate,
-        ], cliEnv());
-        if (!granted.spawned) return { error: granted.detail };
-        if (granted.exitCode !== 0) {
+        if (candidate === undefined || workspaceFolder === undefined) {
+          return { error: 'The prepared workspace approval is unavailable.' };
+        }
+        try {
+          const { approveDesktopTrustCandidate } = await import('@robota-sdk/agent-cli/desktop-host');
+          if (!await approveDesktopTrustCandidate(productConfig, cliEnv(), workspaceFolder, candidate)) {
+            return { error: 'Workspace trust could not be confirmed.' };
+          }
+        } catch (error) {
           return {
-            error:
-              granted.stderr.trim() ||
-              granted.stdout.trim() ||
-              `${productConfig.identity.cliName} trust --yes failed (exit ${granted.exitCode ?? 'signal'}).`,
+            error: error instanceof Error ? error.message : 'Workspace trust could not be confirmed.',
           };
         }
         pendingTrustCandidate = undefined;

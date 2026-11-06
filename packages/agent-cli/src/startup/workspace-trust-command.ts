@@ -90,31 +90,25 @@ export async function runWorkspaceTrustCommand(
     }
     let prepared: string | undefined;
     if (action === 'grant' && brokered !== undefined) {
-      const index = argv.indexOf('--desktop-approved-candidate');
-      const desktopCandidate = index < 0 ? undefined : argv[index + 1];
-      if (desktopCandidate !== undefined) {
-        prepared = desktopCandidate;
-      } else {
-        if (process.stdin.isTTY !== true) {
-          process.stderr.write('Workspace trust requires a person at this terminal.\n');
-          return 1;
-        }
-        prepared = await brokered.prepare(cwd);
-        const current = await brokered.inspect(cwd);
-        process.stdout.write(`Workspace: ${accessPath(current) ?? cwd}\n`);
-        process.stdout.write(formatProjectContributionPreview(current.identity, cwd, runtime));
-        const prompt = createInterface({ input: process.stdin, output: process.stdout });
-        let answer: string;
-        try {
-          answer = await prompt.question('Trust this exact folder? [y/N] ');
-        } finally {
-          prompt.close();
-        }
-        if (!['y', 'yes'].includes(answer.trim().toLowerCase())) {
-          await brokered.release(prepared);
-          process.stdout.write('Workspace trust was not granted.\n');
-          return 1;
-        }
+      if (process.stdin.isTTY !== true) {
+        process.stderr.write('Workspace trust requires a person at this terminal.\n');
+        return 1;
+      }
+      prepared = await brokered.prepare(cwd);
+      const current = await brokered.inspect(cwd);
+      process.stdout.write(`Workspace: ${accessPath(current) ?? cwd}\n`);
+      process.stdout.write(formatProjectContributionPreview(current.identity, cwd, runtime));
+      const prompt = createInterface({ input: process.stdin, output: process.stdout });
+      let answer: string;
+      try {
+        answer = await prompt.question('Trust this exact folder? [y/N] ');
+      } finally {
+        prompt.close();
+      }
+      if (!['y', 'yes'].includes(answer.trim().toLowerCase())) {
+        await brokered.release(prepared);
+        process.stdout.write('Workspace trust was not granted.\n');
+        return 1;
       }
     }
     const access =

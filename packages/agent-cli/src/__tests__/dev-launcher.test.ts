@@ -158,7 +158,7 @@ describe('scripts/dev/agent', () => {
           },
         }),
       );
-      const trust = await approveTestWorkspaceCommand(run);
+      const trust = await approveTestWorkspaceCommand(launcher, workspace, environment);
       expect(trust.code, trust.stderr).toBe(0);
       expect(trust.stdout).toContain('Workspace trust: trusted');
 

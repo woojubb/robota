@@ -10,6 +10,7 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 import { BrokeredWorkspaceTrustService } from '../brokered-workspace-trust.js';
 import { workspaceRootBrokerEndpoint } from '../workspace-root-broker-process.js';
+import { runWorkspaceTrustCommand } from '../workspace-trust-command.js';
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -43,6 +44,10 @@ describe.skipIf(process.platform === 'win32')('brokered CLI workspace trust', ()
     const first = await BrokeredWorkspaceTrustService.create(runtime);
     expect(await first.inspect(root)).toMatchObject({ status: 'restricted', trustState: 'untrusted' });
     const candidate = await first.prepare(root);
+    expect(await runWorkspaceTrustCommand(
+      ['--yes', '--desktop-approved-candidate', candidate], root, runtime,
+    )).toBe(1);
+    expect(await first.inspect(root)).toMatchObject({ status: 'restricted', trustState: 'untrusted' });
     const access = await first.grant(root, candidate);
     expect(access.status).toBe('trusted');
     if (access.status !== 'trusted') return;

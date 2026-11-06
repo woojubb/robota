@@ -200,12 +200,7 @@ beforeAll(async () => {
       },
     }),
   );
-  const trust = await approveTestWorkspaceCommand((args) => spawnSync(launcher, args, {
-    cwd: workspace,
-    env: environment,
-    encoding: 'utf8',
-    timeout: 60_000,
-  }));
+  const trust = await approveTestWorkspaceCommand(launcher, workspace, environment);
   expect(trust.status, trust.stderr).toBe(0);
 
   apiPort = await freePort();

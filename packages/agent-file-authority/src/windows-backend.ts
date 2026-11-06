@@ -121,6 +121,48 @@ export class WindowsStableFileHostBackend implements IStableFileHostBackend {
     }
   }
 
+  inspectKind(relativeSegments: readonly string[]): IStableRootedDirectoryEntry['kind'] | undefined {
+    const rootHandle = this.rootHandle;
+    if (rootHandle === undefined) throw authorityError('AUTHORITY_CLOSED', 'inspect-kind');
+    this.assertRootIdentity(rootHandle);
+    let parent = rootHandle;
+    let owned = false;
+    try {
+      for (let index = 0; index < relativeSegments.length - 1; index += 1) {
+        const next = this.native.openRelative(parent, relativeSegments[index], false, index);
+        if (next === undefined) return undefined;
+        if (owned) this.native.close(parent);
+        parent = next;
+        owned = true;
+      }
+      const target = relativeSegments.at(-1)!;
+      const index = relativeSegments.length - 1;
+      for (const entry of ['file', 'directory'] as const) {
+        let handle: TNativeHandle | undefined;
+        try {
+          handle = entry === 'file'
+            ? this.native.openIdentity(parent, target, index)
+            : this.native.openRelative(parent, target, false, index);
+          if (handle !== undefined) {
+            this.assertRootIdentity(rootHandle);
+            return entry;
+          }
+        } catch (error) {
+          if (!(error instanceof StableFileAuthorityError) || error.code !== 'UNSAFE_ENTRY') {
+            throw error;
+          }
+        } finally {
+          if (handle !== undefined) this.native.close(handle);
+        }
+      }
+      const exact = this.native.readDirectory(parent).find((entry) => entry.name === target);
+      this.assertRootIdentity(rootHandle);
+      return exact?.kind;
+    } finally {
+      if (owned) this.native.close(parent);
+    }
+  }
+
   writeUtf8(
     relativeSegments: readonly string[],
     content: string,

@@ -31,6 +31,7 @@
     "vitest": "^3.2.6"
   },
   "dependencies": {
+    "@robota-sdk/agent-cli": "workspace:*",
     "@robota-sdk/product-config": "workspace:*",
     "ws": "^8.21.1"
   },

@@ -21,6 +21,7 @@ export interface IStableFileHostBackend {
     hooks: IFileAuthorityTestHooks,
   ): Uint8Array | undefined;
   listDirectory(relativeSegments: readonly string[]): readonly IStableRootedDirectoryEntry[];
+  inspectKind?(relativeSegments: readonly string[]): IStableRootedDirectoryEntry['kind'] | undefined;
   writeUtf8(
     relativeSegments: readonly string[],
     content: string,

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 export async function startTestBroker(endpoint: string, lockDirectory: string, history: string): Promise<{
   close(): Promise<void>;
 }> {
-  const loader = fileURLToPath(new URL('../../../node_modules/tsx/dist/loader.mjs', import.meta.url));
+  const loader = new URL('../../../node_modules/tsx/dist/loader.mjs', import.meta.url).href;
   const bin = fileURLToPath(new URL('../../bin.ts', import.meta.url));
   const child = spawn(process.execPath, [
     '--import', loader, '--conditions=source', bin,

@@ -146,7 +146,7 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
       '---\nname: probe\ndescription: Inspect command environment isolation with synthetic credentials.\n---\n!`printf "%s" "${OPENAI_API_KEY:-absent}" > skill-probe.txt`\n' +
         `!\`${runtimeProbeCommand('runtime-probe.json')}\`\n`,
     );
-    const trust = await approveTestWorkspaceCommand(run);
+    const trust = await approveTestWorkspaceCommand(launcher, workspace, environment);
     expect(trust.code, trust.stderr).toBe(0);
     const result = await run([
       '-p',

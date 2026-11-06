@@ -363,10 +363,39 @@ export async function startWorkspaceRootBroker(
       }
     }
     if (request.op === 'revoke') {
+      let named: IStableRootedFileReader | undefined;
+      try {
+        named = createStableRootedFileReader(request.root);
+        assertSameStableRoot(named, named);
+      } catch {
+        named?.close();
+        named = undefined;
+      }
+      const matching: string[] = [];
+      try {
+        for (const [lease, approved] of active) {
+          if (approved.root === request.root) {
+            matching.push(lease);
+            continue;
+          }
+          if (named === undefined) continue;
+          try {
+            assertSameStableRoot(approved.reader, named);
+            matching.push(lease);
+          } catch (error) {
+            if (!(error instanceof StableFileAuthorityError) || error.code !== 'ROOT_CHANGED') {
+              return refuse('root-unavailable');
+            }
+          }
+        }
+      } finally {
+        named?.close();
+      }
       let historicalIdentity: IWorkspaceIdentity | undefined;
-      for (const [lease, approved] of active) {
-        if (approved.root !== request.root) continue;
+      for (const lease of matching) {
+        const approved = active.get(lease)!;
         historicalIdentity ??= approved.identity;
+        revokedPaths.add(approved.root);
         active.delete(lease);
         for (const [writerId, writer] of writers) {
           if (writer.lease !== lease) continue;

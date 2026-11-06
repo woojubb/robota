@@ -104,6 +104,14 @@ describe('stable rooted file reader', () => {
     expect(reader.listDirectory(['missing'])).toEqual([]);
   });
 
+  it.skipIf(process.platform !== 'win32')('classifies a Windows file through the same case-insensitive native lookup as reading', () => {
+    const { root } = fixture();
+    writeFileSync(join(root, 'Config.json'), 'A');
+    const reader = track(createStableRootedFileReader(root));
+    expect(Buffer.from(reader.readBytes(['config.json'], 8) ?? []).toString()).toBe('A');
+    expect(reader.inspectKind(['config.json'])).toBe('file');
+  });
+
   it('compares the objects held by two open readers without accepting another root', () => {
     const { root, outside } = fixture();
     const approved = track(createStableRootedFileReader(root));

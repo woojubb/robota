@@ -64,6 +64,7 @@ class StableRootedFileReader implements IStableRootedFileReader {
     if (!Array.isArray(relativeSegments)) throw authorityError('INVALID_PATH', 'validate-segments');
     if (relativeSegments.length === 0) return 'directory';
     validateRelativeSegments(relativeSegments);
+    if (this.backend.inspectKind !== undefined) return this.backend.inspectKind(relativeSegments);
     const entries = this.listDirectory(relativeSegments.slice(0, -1));
     return entries.find((entry) => entry.name === relativeSegments.at(-1))?.kind;
   }

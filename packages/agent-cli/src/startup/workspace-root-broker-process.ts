@@ -57,10 +57,10 @@ export async function ensureWorkspaceRootBroker(runtime: ICliRuntimeContext): Pr
   brokerDirectory(runtime, true);
   if (await isReady(endpoint)) return endpoint;
   const sourceBin = fileURLToPath(new URL('../bin.ts', import.meta.url));
-  const sourceLoader = fileURLToPath(new URL('../../node_modules/tsx/dist/loader.mjs', import.meta.url));
-  const source = existsSync(sourceBin) && existsSync(sourceLoader);
+  const loaderUrl = new URL('../../node_modules/tsx/dist/loader.mjs', import.meta.url);
+  const source = existsSync(sourceBin) && existsSync(loaderUrl);
   const script = source
-    ? ['--import', sourceLoader, '--conditions=source', sourceBin]
+    ? ['--import', loaderUrl.href, '--conditions=source', sourceBin]
     : process.argv[1] !== undefined && existsSync(process.argv[1]) &&
         resolve(process.argv[1]) !== resolve(process.execPath)
       ? [process.argv[1]] : [];
