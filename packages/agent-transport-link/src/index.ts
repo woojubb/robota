@@ -48,3 +48,4 @@ export type {
   ISpawnerPairIo,
   ISpawnerPairResult,
 } from './spawner-pair.js';
+export { openSelectedOwnerLink, openSelectedSpawnerLink } from './selected-link.js';
