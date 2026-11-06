@@ -34,13 +34,46 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ChildProcessSubagentRunner, createChildProcessSubagentRunnerFactory } from '../index.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
-const spawned = vi.hoisted(() => ({ children: [] as import('node:child_process').ChildProcess[] }));
+const spawned = vi.hoisted(() => ({
+  children: [] as import('node:child_process').ChildProcess[],
+  settled: new WeakMap<import('node:child_process').ChildProcess, Promise<void>>(),
+}));
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>();
   return {
     ...actual,
     spawn: (...args: Parameters<typeof actual.spawn>) => {
       const child = actual.spawn(...args);
+      spawned.settled.set(
+        child,
+        new Promise<void>((resolve) => {
+          let exited = false;
+          let disconnected = !child.connected;
+          let closed = false;
+          const finish = (): void => {
+            if (exited && disconnected && closed) resolve();
+          };
+          child.once('exit', () => {
+            exited = true;
+            finish();
+          });
+          child.once('disconnect', () => {
+            disconnected = true;
+            finish();
+          });
+          child.once('close', () => {
+            closed = true;
+            finish();
+          });
+          child.once('error', () => {
+            if (child.pid === undefined) {
+              exited = true;
+              disconnected = true;
+              finish();
+            }
+          });
+        }),
+      );
       spawned.children.push(child);
       return child;
     },
@@ -91,12 +124,21 @@ const roots: string[] = [];
 async function cleanupTestState(): Promise<void> {
   await Promise.all(
     spawned.children.map(async (child) => {
-      if (child.exitCode !== null || child.signalCode !== null) return;
+      const settled = spawned.settled.get(child);
+      if (!settled) throw new Error('Missing child lifecycle tracker');
+      let timer: ReturnType<typeof setTimeout> | undefined;
       try {
-        await once(child, 'close', { signal: AbortSignal.timeout(5_000) });
-      } catch (error) {
-        child.kill('SIGKILL');
-        throw error;
+        await Promise.race([
+          settled,
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => {
+              child.kill('SIGKILL');
+              reject(new Error('Child did not close and disconnect within 5 seconds'));
+            }, 5_000);
+          }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
       }
     }),
   );
@@ -125,6 +167,44 @@ it('waits for a worker to finish writing before removing its temporary directory
   await cleanupTestState();
   const [code] = await closed;
   expect(code).toBe(0);
+  expect(existsSync(root)).toBe(false);
+});
+
+it('keeps the temporary directory until the exited worker closes its streams', async () => {
+  const root = directory('sealing-cleanup-close-');
+  const child = spawn(process.execPath, [
+    '-e',
+    "require('node:child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 150)'], {stdio: ['ignore', 1, 2]}).unref()",
+  ]);
+  let rootAtClose = false;
+  child.once('close', () => {
+    rootAtClose = existsSync(root);
+  });
+  await once(child, 'exit');
+  const closed = once(child, 'close');
+  await cleanupTestState();
+  await closed;
+  expect(rootAtClose).toBe(true);
+  expect(existsSync(root)).toBe(false);
+});
+
+it('keeps the temporary directory until the exited worker disconnects its IPC channel', async () => {
+  const root = directory('sealing-cleanup-ipc-');
+  const child = spawn(
+    process.execPath,
+    [
+      '-e',
+      "require('node:child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, 150)'], {stdio: ['ignore', 1, 2, 3]}).unref()",
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe', 'ipc'] },
+  );
+  let rootAtDisconnect = false;
+  child.once('disconnect', () => {
+    rootAtDisconnect = existsSync(root);
+  });
+  await once(child, 'exit');
+  await cleanupTestState();
+  expect(rootAtDisconnect).toBe(true);
   expect(existsSync(root)).toBe(false);
 });
 
