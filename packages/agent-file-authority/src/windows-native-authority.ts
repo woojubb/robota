@@ -19,6 +19,7 @@ import {
   type IWindowsIdentity,
 } from './windows-native-read.js';
 import { classifyNtOpenFailure, ntStatusHostCode } from './windows-native-status.js';
+import { readWindowsDirectory } from './windows-native-directory.js';
 
 import type { IFileAuthorityTestHooks } from './host-backend.js';
 
@@ -81,11 +82,11 @@ export class WindowsNativeAuthority {
     }
   }
 
-  openRoot(rootDirectory: string): TNativeHandle {
+  openRoot(rootDirectory: string, preventDelete = false): TNativeHandle {
     const handle = this.api.createFileW(
       rootDirectory,
       GENERIC_READ,
-      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | (preventDelete ? 0 : FILE_SHARE_DELETE),
       null,
       OPEN_EXISTING,
       FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
@@ -207,12 +208,7 @@ export class WindowsNativeAuthority {
     segment: string,
     segmentIndex: number,
   ): TNativeHandle {
-    const { handle, status } = this.issueRelativeCreate(
-      parentHandle,
-      segment,
-      true,
-      FILE_OPEN_IF,
-    );
+    const { handle, status } = this.issueRelativeCreate(parentHandle, segment, true, FILE_OPEN_IF);
     if (status < 0 || isInvalidHandle(handle)) {
       if (!isInvalidHandle(handle)) this.close(handle);
       const failure = classifyNtOpenFailure(status);
@@ -325,6 +321,10 @@ export class WindowsNativeAuthority {
 
   readFile(handle: TNativeHandle, maxBytes: number, hooks: IFileAuthorityTestHooks): Uint8Array {
     return readWindowsFile(this.api, handle, maxBytes, hooks);
+  }
+
+  readDirectory(handle: TNativeHandle) {
+    return readWindowsDirectory(this.api, handle);
   }
 
   queryIdentity(handle: TNativeHandle, operation: string): IWindowsIdentity {

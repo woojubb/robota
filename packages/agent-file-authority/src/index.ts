@@ -1,5 +1,6 @@
 export {
   StableFileAuthorityError,
+  type IStableRootedDirectoryEntry,
   type IStableRootedFileReader,
   type IStableRootedFileWriter,
   type INamedStableRootedFileWriter,
@@ -7,3 +8,4 @@ export {
 } from './contracts.js';
 export { assertSameStableRoot, createStableRootedFileReader } from './stable-rooted-file-reader.js';
 export { createStableRootedFileWriter } from './stable-rooted-file-writer.js';
+export { listWindowsRootedDirectory } from './windows-rooted-directory.js';
