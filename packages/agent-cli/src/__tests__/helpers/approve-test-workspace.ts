@@ -2,6 +2,8 @@ import { BrokeredWorkspaceTrustService } from '../../startup/brokered-workspace-
 import { requestWorkspaceRootBroker } from '../../startup/workspace-root-broker.js';
 import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
 import { spawn } from '@homebridge/node-pty-prebuilt-multiarch';
+import { rmSync } from 'node:fs';
+import { dirname } from 'node:path';
 
 import type { ICliRuntimeContext } from '../../product/runtime-context.js';
 
@@ -18,12 +20,33 @@ export async function approveTestWorkspace(cwd: string, runtime: ICliRuntimeCont
 
 /** Stop only the broker launched for this fixture's disposable product state. */
 export async function stopTestWorkspaceBroker(runtime: ICliRuntimeContext): Promise<void> {
+  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  let pid: number;
   try {
-    const response = await requestWorkspaceRootBroker(workspaceRootBrokerEndpoint(runtime), { op: 'ping' });
-    if (response.status === 'ready' && typeof response.pid === 'number') process.kill(response.pid);
+    const response = await requestWorkspaceRootBroker(endpoint, { op: 'ping' });
+    if (response.status !== 'ready') return;
+    pid = response.pid;
   } catch {
-    // No broker was started, or it has already exited.
+    return;
   }
+  if (pid === process.pid) throw new Error('The test broker resolved to the test process.');
+  try {
+    process.kill(pid);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+  }
+  const deadline = Date.now() + 2_000;
+  while (Date.now() < deadline) {
+    try {
+      process.kill(pid, 0);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ESRCH') throw error;
+      if (process.platform !== 'win32') rmSync(dirname(endpoint), { recursive: true, force: true });
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error(`The test broker ${pid} did not exit after SIGTERM.`);
 }
 
 /** Test-owned terminal enters an affirmative answer through the normal CLI prompt. */
