@@ -10,6 +10,8 @@
  * - What cannot be handed over fails before anything is spawned; a child whose parent seals never
  *   writes plain; a child started before the parent's key was verified follows the newer grant.
  */
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import {
   existsSync,
   mkdirSync,
@@ -22,6 +24,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { Writable } from 'node:stream';
 
 import { ArtifactCorruptError, ArtifactLockedError } from '@robota-sdk/agent-core';
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
@@ -32,13 +35,46 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ChildProcessSubagentRunner, createChildProcessSubagentRunnerFactory } from '../index.js';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
-const spawned = vi.hoisted(() => ({ children: [] as import('node:child_process').ChildProcess[] }));
+const spawned = vi.hoisted(() => ({
+  children: [] as import('node:child_process').ChildProcess[],
+  settled: new WeakMap<import('node:child_process').ChildProcess, Promise<void>>(),
+}));
 vi.mock('node:child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:child_process')>();
   return {
     ...actual,
     spawn: (...args: Parameters<typeof actual.spawn>) => {
       const child = actual.spawn(...args);
+      spawned.settled.set(
+        child,
+        new Promise<void>((resolve) => {
+          let exited = false;
+          let disconnected = !child.connected;
+          let closed = false;
+          const finish = (): void => {
+            if (exited && disconnected && closed) resolve();
+          };
+          child.once('exit', () => {
+            exited = true;
+            finish();
+          });
+          child.once('disconnect', () => {
+            disconnected = true;
+            finish();
+          });
+          child.once('close', () => {
+            closed = true;
+            finish();
+          });
+          child.once('error', () => {
+            if (child.pid === undefined) {
+              exited = true;
+              disconnected = true;
+              finish();
+            }
+          });
+        }),
+      );
       spawned.children.push(child);
       return child;
     },
@@ -86,19 +122,111 @@ const NO_WORKTREES: ISubagentWorktreeAdapter = {
 const CANARY = 'CANARY-sealed-fork-0f7e-conversation-text';
 
 const roots: string[] = [];
-afterEach(() => {
-  // A fork job's child and the parent's follower let the record's marker go just after the job's
-  // result, so a removal can meet a marker or break lock written meanwhile; Node retries ENOTEMPTY.
+async function cleanupTestState(): Promise<void> {
+  await Promise.all(
+    spawned.children.map(async (child) => {
+      const settled = spawned.settled.get(child);
+      if (!settled) throw new Error('Missing child lifecycle tracker');
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          settled,
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => {
+              child.kill('SIGKILL');
+              reject(new Error('Child did not close and disconnect within 5 seconds'));
+            }, 5_000);
+          }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    }),
+  );
+  // The parent's follower may release its marker after the child exits.
   for (const root of roots.splice(0)) {
     rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 25 });
   }
   spawned.children.length = 0;
-});
+}
+afterEach(cleanupTestState);
 function directory(prefix: string): string {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
   roots.push(dir);
   return dir;
 }
+
+it('waits for a worker to finish writing before removing its temporary directory', async () => {
+  const root = directory('sealing-cleanup-');
+  const child = spawn(
+    process.execPath,
+    [
+      '-e',
+      "const s=require('node:fs').createReadStream(null,{fd:4});s.on('end',()=>require('node:fs').writeFileSync(process.argv[1],'finished'));s.resume();process.stdout.write('ready')",
+      join(root, 'late-write'),
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe', 'ignore', 'pipe'] },
+  );
+  await once(child, 'spawn');
+  const closed = once(child, 'close');
+  await once(child.stdout!, 'data');
+  const cleanup = cleanupTestState();
+  (child.stdio[4] as Writable).end();
+  await cleanup;
+  const [code] = await closed;
+  expect(code).toBe(0);
+  expect(existsSync(root)).toBe(false);
+});
+
+it('keeps the temporary directory until the exited worker closes its streams', async () => {
+  const root = directory('sealing-cleanup-close-');
+  const child = spawn(
+    process.execPath,
+    [
+      '-e',
+      "require('node:child_process').spawn(process.execPath, ['-e', \"const s=require('node:fs').createReadStream(null,{fd:4});s.resume();process.stdout.write('ready')\"], {stdio: ['ignore', 1, 2, 'ignore', 4]}).unref()",
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe', 'ignore', 'pipe'] },
+  );
+  let rootAtClose = false;
+  child.once('close', () => {
+    rootAtClose = existsSync(root);
+  });
+  const closed = once(child, 'close');
+  const exited = once(child, 'exit');
+  await once(child.stdout!, 'data');
+  await exited;
+  const cleanup = cleanupTestState();
+  (child.stdio[4] as Writable).end();
+  await cleanup;
+  await closed;
+  expect(rootAtClose).toBe(true);
+  expect(existsSync(root)).toBe(false);
+});
+
+it('keeps the temporary directory until the exited worker disconnects its IPC channel', async () => {
+  const root = directory('sealing-cleanup-ipc-');
+  const child = spawn(
+    process.execPath,
+    [
+      '-e',
+      "require('node:child_process').spawn(process.execPath, ['-e', \"const s=require('node:fs').createReadStream(null,{fd:4});s.resume();process.stdout.write('ready')\"], {stdio: ['ignore', 1, 2, 3, 4]}).unref()",
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] },
+  );
+  let rootAtDisconnect = false;
+  child.once('disconnect', () => {
+    rootAtDisconnect = existsSync(root);
+  });
+  const exited = once(child, 'exit');
+  await once(child.stdout!, 'data');
+  await exited;
+  const cleanup = cleanupTestState();
+  (child.stdio[4] as Writable).end();
+  await cleanup;
+  expect(rootAtDisconnect).toBe(true);
+  expect(existsSync(root)).toBe(false);
+});
 
 function createDeps(
   extra: Partial<IInProcessSubagentRunnerDeps> = {},
