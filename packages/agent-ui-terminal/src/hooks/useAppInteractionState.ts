@@ -1,6 +1,7 @@
 import { useAppInputBindings } from './useAppInputBindings.js';
 import { useAppOverlays } from './useAppOverlays.js';
 import { useAppSubmissionState } from './useAppSubmissionState.js';
+import { useFollowHistory } from './useFollowHistory.js';
 
 import type { TSessionSwitch } from '../types.js';
 import type { IAppOverlays } from './useAppOverlays.js';
@@ -36,6 +37,24 @@ export interface IAppInteractionState {
 
 export function useAppInteractionState(options: IOptions): IAppInteractionState {
   const { screens, workspace } = options.shell;
+  useFollowHistory({
+    entry: workspace.background.selectedEntry,
+    enabled: !(
+      options.coordinationBlocked ||
+      options.state.permissionRequest ||
+      options.state.pendingUserAction ||
+      screens.showPluginTUI ||
+      screens.showTransportTUI ||
+      screens.showSessionPicker ||
+      screens.showThemePicker ||
+      workspace.background.switcherVisible ||
+      workspace.background.continueQuestion ||
+      options.shell.historySearchOpen ||
+      workspace.isBackgroundListFocused
+    ),
+    read: options.state.readExecutionWorkspaceDetail,
+    addEntry: options.state.addEntry,
+  });
   const submission = useAppSubmissionState({
     selectedEntry: workspace.background.selectedEntry,
     submit: screens.handleSubmit,
@@ -52,7 +71,9 @@ export function useAppInteractionState(options: IOptions): IAppInteractionState 
     pluginVisible: screens.showPluginTUI,
     transportVisible: screens.showTransportTUI,
     sessionPickerVisible: screens.showSessionPicker,
-    workspaceSwitcherVisible: workspace.background.switcherVisible,
+    workspaceSwitcherVisible:
+      workspace.background.switcherVisible || workspace.background.continueQuestion !== undefined,
+    continueForkQuestionOpen: workspace.background.continueQuestion !== undefined,
     historySearchOpen: options.shell.historySearchOpen,
     themePickerVisible: screens.showThemePicker,
     selectedEntry: workspace.background.selectedEntry,

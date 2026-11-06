@@ -27,6 +27,7 @@ import {
 import { restoreAgentDefinition, restoreParentContext } from './subagent-worker-start-dto.js';
 import { restoreProjectedSandbox } from './worker-composition.js';
 import { withholdProviderCredential } from './worker-credential.js';
+import { runWorkerTurns } from './worker-turns.js';
 
 import type { IRecordSaveReporter } from './child-process-subagent-record-saves.js';
 import type { IClaimedResumeRecord } from './child-process-subagent-resume.js';
@@ -75,6 +76,13 @@ let latestWriteGrant: string | undefined;
 /** Whether this child bound its parent's grant at start, so a newer one is taken as it comes. */
 let sealingBound = false;
 let running: Promise<void> = Promise.resolve();
+/** Prompts the parent sent that are waiting for their turn, in the order they came. */
+const followUps: string[] = [];
+/**
+ * The job has run its last turn, or failed, or was cancelled: it takes no more prompts. Set in the same
+ * step that finds none queued, so a prompt is either queued before it and run, or refused after it.
+ */
+let finishing = false;
 /** A sealing parent handed this child a record: what has been seen of its saves. */
 let recordSaves: IRecordSaveReporter | undefined;
 /** The claim this child holds, under its parent's lease, on the record it resumes. */
@@ -239,7 +247,8 @@ async function runInitialPrompt(
           sealing,
         })
       : undefined;
-    const openedStore = openResumeSessionStore(payload, composition);
+    const openedStore = await openResumeSessionStore(payload, composition);
+    throwIfParentChangeFailed();
     const resumeSessionId = payload.request.resumeSessionId;
     // The record is this child's to write only under the lease its parent lent it: claimed before
     // anything reads it, released on every way out of the process.
@@ -329,7 +338,7 @@ async function runInitialPrompt(
     resumeRequestedRecord(payload, session, resumeSessionStore, claimedRecord);
     recordSaves?.restored();
     throwIfParentChangeFailed();
-    const output = await session.run(payload.request.prompt);
+    const output = await runTurns(session, payload.request.prompt);
     if (parentChangeFailure !== undefined) {
       sendTerminalMessageAndExit({ type: 'error', message: parentChangeFailure }, 0);
       return;
@@ -351,9 +360,18 @@ async function runInitialPrompt(
       0,
     );
   } catch (error) {
+    finishing = true;
+    const unrun = followUps.length;
+    followUps.length = 0;
     // allow-fallback: child process must report errors to parent via IPC, not crash silently; exit follows the IPC flush (CORE-024 RUNTIME-20)
     if (parentChangeFailure !== undefined) {
-      sendTerminalMessageAndExit({ type: 'error', message: parentChangeFailure }, 0);
+      sendTerminalMessageAndExit(
+        {
+          type: 'error',
+          message: `${parentChangeFailure}${unrun > 0 ? ` ${unrun} accepted follow-up(s) could not run.` : ''}`,
+        },
+        0,
+      );
       return;
     }
     if (cancelled) {
@@ -408,25 +426,42 @@ function forwardToolExecution(event: TSubagentSessionToolEvent): void {
   sendChildMessage({ type: 'tool_end', toolName: event.toolName, success: event.success ?? true });
 }
 
-function runFollowUp(prompt: string): void {
-  if (session === null) {
-    sendChildMessage({ type: 'error', message: 'Subagent worker has not started' });
+/**
+ * The job's turns: the initial prompt, then each follow-up the parent sent meanwhile, one at a time.
+ * The job's result is the last turn's output, and it is sent only once none is left — a follow-up
+ * queued behind a turn in flight would otherwise be cut off by the exit that follows the result.
+ */
+async function runTurns(
+  turnSession: { run(prompt: string): Promise<string> },
+  firstPrompt: string,
+): Promise<string> {
+  try {
+    return await runWorkerTurns(
+      turnSession,
+      firstPrompt,
+      followUps,
+      () => parentChangeFailure,
+      () => cancelled,
+    );
+  } finally {
+    finishing = true;
+  }
+}
+
+/** A follow-up prompt from the parent: queued for the next turn, or refused once the job is finishing. */
+function takeFollowUp(prompt: string, sendId: number): void {
+  if (finishing) {
+    sendChildMessage({ type: 'send_refused', sendId });
     return;
   }
-  running = running.then(async () => {
-    try {
-      // allow-fallback: child process must report errors to parent via IPC, not crash silently
-      await session?.run(prompt);
-    } catch (error) {
-      // allow-fallback: child process must report errors to parent via IPC, not crash silently
-      const message = error instanceof Error ? error.message : String(error);
-      sendChildMessage({ type: 'error', message });
-    }
-  });
+  followUps.push(prompt);
+  sendChildMessage({ type: 'send_accepted', sendId });
 }
 
 async function cancelWorker(reason?: string): Promise<void> {
   cancelled = true;
+  finishing = true;
+  followUps.length = 0;
   session?.abort();
   sendChildMessage({ type: 'cancelled', reason });
   await session?.shutdown({ reason: 'other' }).catch(() => undefined); // allow-fallback: shutdown during cancel — process will exit regardless
@@ -523,7 +558,7 @@ export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): 
         running = running.then(() => runInitialPrompt(message.payload, composition));
         break;
       case 'send':
-        runFollowUp(message.prompt);
+        takeFollowUp(message.prompt, message.sendId);
         break;
       case 'cancel':
         void cancelWorker(message.reason);

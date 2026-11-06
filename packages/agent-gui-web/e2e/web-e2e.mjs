@@ -1288,6 +1288,48 @@ try {
     await sheet.waitFor({ state: 'detached' });
   });
 
+  await scenario('follows a running fork and reads earlier output on request', async () => {
+    const panel = page.getByRole('complementary', { name: 'Agents' });
+    await panel.getByText('Followed fork').click();
+    const sheet = page.getByRole('dialog', { name: 'Followed fork' });
+    await sheet.getByText('Fork live output').waitFor();
+    const log = sheet.getByRole('log', { name: 'Live fork output' });
+    await page.waitForFunction(() => {
+      const output = document.querySelector('[aria-label="Live fork output"]');
+      return output && output.scrollHeight > output.clientHeight && output.scrollHeight - output.scrollTop - output.clientHeight <= 1;
+    });
+    await log.evaluate((output) => new Promise((resolve) => {
+      output.addEventListener('scroll', resolve, { once: true });
+      output.scrollTop = 0;
+    }));
+    const start = sentFrames.length;
+    await sheet.getByRole('textbox', { name: 'Message the fork' }).fill('Check this');
+    await sheet.getByRole('button', { name: 'Send to fork' }).click();
+    await sheet.getByText('Fork received: Check this').waitFor();
+    if (await log.evaluate((output) => output.scrollTop) !== 0) {
+      throw new Error('new output moved a reader away from earlier content');
+    }
+    await log.evaluate((output) => new Promise((resolve) => {
+      output.addEventListener('scroll', resolve, { once: true });
+      output.scrollTop = output.scrollHeight;
+    }));
+    await sheet.getByRole('textbox', { name: 'Message the fork' }).fill('Next message');
+    await sheet.getByRole('button', { name: 'Send to fork' }).click();
+    await sheet.getByText('Fork received: Next message').waitFor();
+    if (await log.evaluate((output) => output.scrollHeight - output.scrollTop - output.clientHeight) > 1) {
+      throw new Error('new output did not follow a reader at the bottom');
+    }
+    if (sentFrames.slice(start).some((frame) => frame.type === 'switch-session')) {
+      throw new Error('following a running fork switched the parent session');
+    }
+    await sheet.getByRole('button', { name: 'Earlier output' }).click();
+    await sheet.getByText('Earlier fork output').waitFor();
+    if (!sentFrames.slice(start).some((frame) => frame.type === 'read-execution-detail' && frame.cursor?.offset === 0)) {
+      throw new Error('earlier output was not requested with an explicit zero cursor');
+    }
+    await sheet.getByRole('button', { name: 'Close' }).click();
+  });
+
   // #3288 §1: Stop on an ordinary task sends cancel-background-task and its true status replaces
   // "Done"/silence — it shows "Stopped", never lingering unlabeled.
   await scenario('Stop on a task sends cancel-background-task and shows "Stopped"', async () => {

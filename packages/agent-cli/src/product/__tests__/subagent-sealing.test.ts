@@ -124,7 +124,7 @@ describe('a product subagent worker binds its parent’s grant', () => {
     const before = keyringFiles.opened;
 
     const sealing = composition.bindWriteGrant?.(sealer.writeGrant());
-    const store = composition.openSessionStore?.({ cwd: directory('worker-cwd-') });
+    const store = await composition.openSessionStore?.({ cwd: directory('worker-cwd-') });
     store?.save(record('sess_child'));
 
     expect(sealing).not.toBe('plain');
@@ -255,7 +255,7 @@ describe('a product subagent worker’s fork record', () => {
     const token = parentStore.exportHeld?.('sess_fork') as string;
     const composition = createProductSubagentComposition(runtime);
     composition.bindWriteGrant?.(sealer.writeGrant());
-    const child = composition.openSessionStore?.({ cwd: directory('worker-cwd-') });
+    const child = await composition.openSessionStore?.({ cwd: directory('worker-cwd-') });
     child?.importHeld?.('sess_fork', token);
     const claim = child?.claim('sess_fork', { lease: lease.nonce });
 

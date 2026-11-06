@@ -256,12 +256,16 @@ function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTas
         ...(subagentHandle.transcriptSealed === true ? { transcriptSealed: true as const } : {}),
         result: subagentHandle.result.then((result) => toBackgroundResult(result)),
         cancel: (reason?: string) => subagentHandle.cancel(reason),
+        send: async (input) => {
+          // A turn needs something to say: an empty prompt would fail the job it was meant to steer.
+          const prompt = input.prompt;
+          if (prompt === undefined || prompt.trim().length === 0) {
+            throw new BackgroundTaskError('validation', 'An agent job takes a prompt to send.');
+          }
+          await subagentHandle.send(prompt);
+        },
       };
 
-      if (subagentHandle.send) {
-        const send = subagentHandle.send;
-        handle.send = (input) => send(input.prompt ?? '');
-      }
       if (subagentHandle.readLog) {
         const readLog = subagentHandle.readLog;
         handle.readLog = (cursor) => readLog(cursor);

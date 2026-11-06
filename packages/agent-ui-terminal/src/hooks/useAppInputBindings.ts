@@ -1,4 +1,5 @@
 import { useApp, useInput } from 'ink';
+import { attachKind } from '@robota-sdk/agent-framework';
 import { useEffect } from 'react';
 
 import { useKeybindingActions } from '../keybindings/keybindings-context.js';
@@ -24,6 +25,7 @@ interface IOptions {
   readonly transportVisible: boolean;
   readonly sessionPickerVisible: boolean;
   readonly workspaceSwitcherVisible: boolean;
+  readonly continueForkQuestionOpen?: boolean;
   /** SCREEN-1993: the history-search overlay owns Esc and the switcher key while open. */
   readonly historySearchOpen: boolean;
   readonly selectedEntry: IExecutionWorkspaceEntry | undefined;
@@ -58,7 +60,8 @@ function overlaysBlockKeys(options: IOptions): boolean {
 }
 
 function useEscapeBindings(options: IOptions): void {
-  const context = options.isThinking ? 'thinking' : 'background-detail';
+  const followingFork = options.selectedEntry && attachKind(options.selectedEntry) === 'follow';
+  const context = options.isThinking && !followingFork ? 'thinking' : 'background-detail';
   useKeybindingActions(context, (actions) => {
     if (overlaysBlockKeys(options)) return;
     if (actions.includes('abort') && options.isThinking) {
@@ -75,11 +78,7 @@ function useEscapeBindings(options: IOptions): void {
       options.selectWorkspaceEntry(options.mainThreadEntryId);
       return;
     }
-    if (
-      actions.includes('return-to-main') &&
-      !options.backgroundListFocused &&
-      !options.readOnly
-    ) {
+    if (actions.includes('return-to-main') && !options.backgroundListFocused && !options.readOnly) {
       void options.stopWaitingLoop();
     }
   });
@@ -93,6 +92,7 @@ function useWorkspaceSwitcherBinding(options: IOptions): void {
       options.pendingUserAction ||
       options.pluginVisible ||
       options.sessionPickerVisible ||
+      options.continueForkQuestionOpen ||
       options.historySearchOpen ||
       options.themePickerVisible ||
       options.coordinationBlocked ||

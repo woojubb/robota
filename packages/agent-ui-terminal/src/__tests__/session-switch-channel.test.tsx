@@ -151,6 +151,9 @@ function createFakeChannel(createdFor: string | undefined): IFakeChannel & ITuiA
       pendingPrompt: manager.pendingPrompt,
       pendingCount: 0,
       executionWorkspaceSnapshot: manager.executionWorkspaceSnapshot,
+      ...(manager.selectedExecutionEntryId === undefined
+        ? {}
+        : { selectedExecutionEntryId: manager.selectedExecutionEntryId }),
       permissionRequest: null,
       pendingUserAction: null,
       contextState: manager.contextState,
@@ -158,7 +161,10 @@ function createFakeChannel(createdFor: string | undefined): IFakeChannel & ITuiA
     getSessionUiEventPort: () => fakeSession,
     getCommandQueryPort: () => fakeRegistry,
     getRuntimeStatusSnapshot: (permissionMode) => ({ permissionMode, sessionId: '' }),
-    addEntry: (entry) => manager.addEntry(entry),
+    addEntry: (entry) => {
+      manager.addEntry(entry);
+      onChange?.();
+    },
     sendAgentJob: vi.fn(async () => {}),
     resolveUserAction: vi.fn(),
     emitSessionEvent: (event, payload) => {
@@ -265,6 +271,114 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     );
     return { ...instance, records };
   }
+
+  it('asks before continuing a fork when another job is running', async () => {
+    const forkId = 'session-aaaaaaaa';
+    const { stdin, lastFrame, unmount } = renderApp({ showSessionPickerOnStart: false });
+    await tick();
+    const initial = created[0]!;
+    const base = {
+      kind: 'background_task' as const,
+      taskKind: 'agent' as const,
+      origin: { kind: 'slash_command' as const, sessionId: 'parent' },
+      state: 'working' as const,
+      subtitle: 'general-purpose',
+      unread: false,
+      attention: 'none' as const,
+      visibility: 'default' as const,
+      updatedAt: '2026-11-05T00:00:00.000Z',
+    };
+    initial.stateManager.executionWorkspaceSnapshot = {
+      sessionId: 'parent',
+      selectedEntryId: 'task:fork',
+      updatedAt: base.updatedAt,
+      entries: [
+        {
+          ...base,
+          id: 'task:fork',
+          sourceId: 'fork',
+          title: 'fork',
+          status: 'completed',
+          controls: ['select', 'attach'],
+          resumeSessionId: forkId,
+        },
+        {
+          ...base,
+          id: 'task:other',
+          sourceId: 'other',
+          title: 'other',
+          status: 'running',
+          controls: ['select', 'cancel'],
+        },
+      ],
+    };
+    initial.onChange?.();
+    await tick();
+    stdin.write('\x02');
+    await waitForFrame(lastFrame, (frame) => frame.includes('Execution workspace'));
+    stdin.write('a');
+    await waitForFrame(lastFrame, (frame) => frame.includes('1 background job is still running'));
+    stdin.write('\x02');
+    await tick();
+    expect(lastFrame()).not.toContain('Execution workspace');
+    stdin.write('\r'); // Default is No.
+    await tick();
+    expect(initial.stop).not.toHaveBeenCalled();
+    expect(createChannel).toHaveBeenCalledTimes(1);
+
+    stdin.write('\x02');
+    await waitForFrame(lastFrame, (frame) => frame.includes('Execution workspace'));
+    stdin.write('a');
+    await waitForFrame(lastFrame, (frame) => frame.includes('1 background job is still running'));
+    stdin.write('y');
+    await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 2);
+    expect(initial.stop).toHaveBeenCalledTimes(1);
+    expect(createChannel).toHaveBeenLastCalledWith(forkId);
+    unmount();
+  });
+
+  it('reads earlier fork output from the actual background view on the user key', async () => {
+    const { stdin, lastFrame, unmount } = renderApp({ showSessionPickerOnStart: false });
+    await tick();
+    const initial = created[0]!;
+    initial.readExecutionWorkspaceDetail.mockImplementation(async (_id, cursor) => ({
+      entryId: 'task:fork',
+      records: cursor ? [{ id: 'earlier', kind: 'message', text: 'earlier fork output' }] : [],
+    }));
+    initial.stateManager.executionWorkspaceSnapshot = {
+      sessionId: 'parent',
+      selectedEntryId: 'task:fork',
+      updatedAt: '2026-11-05T00:00:00.000Z',
+      entries: [
+        {
+          id: 'task:fork',
+          sourceId: 'fork',
+          kind: 'background_task',
+          taskKind: 'agent',
+          origin: { kind: 'slash_command', sessionId: 'parent' },
+          status: 'running',
+          state: 'working',
+          title: 'fork',
+          unread: false,
+          attention: 'none',
+          visibility: 'default',
+          updatedAt: '2026-11-05T00:00:00.000Z',
+          controls: ['select', 'send', 'attach'],
+          resumeSessionId: 'session-aaaaaaaa',
+        },
+      ],
+    };
+    initial.stateManager.selectedExecutionEntryId = 'task:fork';
+    initial.onChange?.();
+    await waitForFrame(lastFrame, (frame) => frame.includes('Earlier output'));
+    await vi.waitFor(() => expect(initial.readExecutionWorkspaceDetail).toHaveBeenCalledWith('task:fork', undefined));
+    await tick();
+    stdin.write('\x0f');
+    await vi.waitFor(() => expect(initial.readExecutionWorkspaceDetail).toHaveBeenCalledWith('task:fork', { offset: 0 }));
+    await waitForFrame(lastFrame, (frame) => frame.includes('earlier fork output'));
+    expect(initial.readExecutionWorkspaceDetail).toHaveBeenCalledWith('task:fork', { offset: 0 });
+    unmount();
+  });
 
   it('TC-01 (B11) / TC-01 (B12): the factory is the sole channel source — once at mount, once per switch with the selected sessionId', async () => {
     const { stdin, lastFrame } = renderApp();

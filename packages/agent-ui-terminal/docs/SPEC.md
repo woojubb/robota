@@ -93,7 +93,9 @@ contract is authoritative for how the TUI releases resources on session switch a
 - On session switch, nothing of the old session reaches what shows the new one: a channel that owns
   its session is fully stopped before the new one becomes active, and on stop failure stays selected
   with input disabled until a retry succeeds, rather than silently creating a second live channel. A
-  session another writer holds is refused in the store's words before the old one stops, so the
+  running fork is followed without stopping its parent; continuing an ended fork asks before a local
+  switch would stop other background work. Earlier sealed output remains subject to the user's read
+  gate. A session another writer holds is refused in the store's words before the old one stops, so the
   person stays on it; a writer that took the id since sends them back to the session they were on,
   never to a retry of the refused id. A channel attached to a host asks the host to switch and, when
   the host does, drops the old session's questions unanswered, re-reads everything it shows and

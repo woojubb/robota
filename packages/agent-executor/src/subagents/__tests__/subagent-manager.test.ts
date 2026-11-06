@@ -19,6 +19,8 @@ interface IStartedJob {
   taskId: string;
   deferred: ITestDeferred;
   cancelReason?: string;
+  /** Every prompt the job was handed with `send`, in order. */
+  sent: string[];
 }
 
 function createTestDeferred(): ITestDeferred {
@@ -41,6 +43,7 @@ function createControllableRunner(): { runner: ISubagentRunner; started: IStarte
         const startedJob: IStartedJob = {
           taskId: job.taskId,
           deferred,
+          sent: [],
         };
         started.push(startedJob);
         return {
@@ -48,6 +51,10 @@ function createControllableRunner(): { runner: ISubagentRunner; started: IStarte
           result: deferred.promise,
           cancel: (reason?: string) => {
             startedJob.cancelReason = reason;
+            return Promise.resolve();
+          },
+          send: (prompt: string) => {
+            startedJob.sent.push(prompt);
             return Promise.resolve();
           },
         };
@@ -66,6 +73,7 @@ function createResolvedRunner(output: string): ISubagentRunner {
           output,
         }),
         cancel: () => Promise.resolve(),
+        send: () => Promise.resolve(),
       };
     },
   };
@@ -79,6 +87,7 @@ function createUsageReportingRunner(output: string, usage: ITokenUsage): ISubage
         taskId: job.taskId,
         result: Promise.resolve({ taskId: job.taskId, output, usage }),
         cancel: () => Promise.resolve(),
+        send: () => Promise.resolve(),
       };
     },
   };
@@ -185,6 +194,29 @@ describe('SubagentManager', () => {
     expect(controlled.started[0]?.cancelReason).toBe('stop first');
   });
 
+  // #3679 3f: `send` steers a running job, so it reaches the job's own handle with the prompt, and a
+  // send with nothing to say never does — an empty turn would fail the job it was meant to steer.
+  it('hands a sent prompt to the running job', async () => {
+    const controlled = createControllableRunner();
+    const manager = new SubagentManager({ runner: controlled.runner });
+    const job = await manager.spawn(createSpawnRequest('Long job'));
+
+    await manager.send(job.id, 'also check the tests');
+
+    expect(controlled.started[0]?.sent).toEqual(['also check the tests']);
+  });
+
+  it('refuses a send with no prompt before it reaches the job', async () => {
+    const controlled = createControllableRunner();
+    const manager = new SubagentManager({ runner: controlled.runner });
+    const job = await manager.spawn(createSpawnRequest('Long job'));
+
+    await expect(manager.send(job.id, '')).rejects.toThrow('takes a prompt to send');
+    await expect(manager.send(job.id, '   ')).rejects.toThrow('takes a prompt to send');
+
+    expect(controlled.started[0]?.sent).toEqual([]);
+  });
+
   it('starts queued jobs only when capacity is available', async () => {
     const controlled = createControllableRunner();
     const manager = new SubagentManager({
@@ -237,6 +269,7 @@ describe('SubagentManager — a sealed transcript is part of the task state', ()
           ...(sealed ? { transcriptSealed: true as const } : {}),
           result: Promise.resolve({ taskId: job.taskId, output: 'done' }),
           cancel: () => Promise.resolve(),
+          send: () => Promise.resolve(),
         };
       },
     };

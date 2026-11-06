@@ -119,9 +119,8 @@ export class WorktreeSubagentRunner implements ISubagentRunner {
         void cancellation.then(() => lifecycle.cleanupClean()).catch(() => undefined);
         return cancellation;
       },
+      send: (prompt) => handle.send(prompt),
     };
-    const send = handle.send;
-    if (send) wrapped.send = (prompt) => send(prompt);
     const readLog = handle.readLog;
     if (readLog) wrapped.readLog = (cursor) => readLog(cursor);
     return wrapped;

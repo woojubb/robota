@@ -403,6 +403,15 @@ describe('what a fork job puts on the wire (CLI-1994 TC-06, ARCH-044, #3679)', (
     expect(kept.keepProviderCredential).toBe(true);
   });
 
+  it('carries the selected store reference only for a fork', async () => {
+    const resumeStore = { scope: 'project' as const, repositoryKey: 'repo', worktreeRoot: '/workspace' };
+    const options = { providerDefinitions: TEST_PROVIDER_DEFINITIONS, resumeStore };
+    const plain = await projectStartPayload(job(undefined), DEPS, options);
+    const fork = await projectStartPayload(job(FORK_SESSION_ID), DEPS, options);
+    expect(plain.resumeStore).toBeUndefined();
+    expect(fork.resumeStore).toEqual(resumeStore);
+  });
+
   it('no message array and no copied-conversation or AGENTS.md/CLAUDE.md text crosses a plain wire', async () => {
     const fork = await projectStartPayload(job(FORK_SESSION_ID), DEPS, {
       providerDefinitions: TEST_PROVIDER_DEFINITIONS,

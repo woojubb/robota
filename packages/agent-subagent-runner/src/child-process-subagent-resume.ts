@@ -139,10 +139,10 @@ function sealedRecordRefusal(
 }
 
 /** Open the store once so the resumed child can both restore and persist its copied record. */
-export function openResumeSessionStore(
+export async function openResumeSessionStore(
   payload: ISubagentWorkerStartPayload,
   composition: ISubagentWorkerComposition,
-): TResumeSessionStore | undefined {
+): Promise<TResumeSessionStore | undefined> {
   const resumeSessionId = payload.request.resumeSessionId;
   if (resumeSessionId === undefined) return undefined;
   if (composition.openSessionStore === undefined) {
@@ -152,7 +152,10 @@ export function openResumeSessionStore(
         'at the composition root — the same place providerDefinitions is registered.',
     );
   }
-  const store = composition.openSessionStore({ cwd: payload.request.cwd });
+  const store = await composition.openSessionStore({
+    cwd: payload.request.cwd,
+    ...(payload.resumeStore !== undefined ? { resumeStore: payload.resumeStore } : {}),
+  });
   if (payload.resumeHeld !== undefined) {
     if (store.importHeld === undefined) {
       throw new Error(

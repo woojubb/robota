@@ -1,4 +1,5 @@
-import { Box } from 'ink';
+import { Box, useInput } from 'ink';
+import { attachKind } from '@robota-sdk/agent-framework';
 import React from 'react';
 
 import { useWorkspaceSwitcherSelection } from './execution-workspace-switcher-selection.js';
@@ -101,12 +102,23 @@ export default function ExecutionWorkspaceSwitcher({
     },
     { isActive: !screenReader },
   );
+  useInput(
+    (input, key) => {
+      if (key.ctrl && input === 'a' && canAttach && focusedEntry) {
+        onAttach(focusedEntry);
+        onClose();
+      }
+    },
+    { isActive: screenReader },
+  );
   const footerHints = useKeybindingHints('workspace-switcher', [
     [['previous', 'next'], 'Navigate'],
     ['select', 'Switch'],
     ['close', 'Close'],
   ]);
-  const attachHint = useKeybindingHints('workspace-switcher', [['attach', 'Attach']]);
+  const attachHint = useKeybindingHints('workspace-switcher', [
+    ['attach', focusedEntry && attachKind(focusedEntry) === 'follow' ? 'Follow' : 'Continue'],
+  ]);
 
   return (
     <Box
@@ -148,6 +160,13 @@ export default function ExecutionWorkspaceSwitcher({
           itemCount={entries.length}
           buffer={numbered.buffer}
           invalid={numbered.invalid}
+          attachHint={
+            canAttach && focusedEntry
+              ? attachKind(focusedEntry) === 'follow'
+                ? 'follow'
+                : 'continue'
+              : undefined
+          }
         />
       ) : (
         <KeyHintFooter hints={canAttach ? [...footerHints, ...attachHint] : footerHints} />
@@ -161,10 +180,12 @@ function ScreenReaderSelectionPrompt({
   itemCount,
   buffer,
   invalid,
+  attachHint,
 }: {
   itemCount: number;
   buffer: string;
   invalid: boolean;
+  attachHint: string | undefined;
 }): React.ReactElement {
   const prompt = formatNumberedSelectionPrompt(itemCount, true);
   return (
@@ -174,6 +195,7 @@ function ScreenReaderSelectionPrompt({
         {buffer.length > 0 ? ` ${buffer}` : ''}
       </Text>
       {invalid && <Text>{prompt}</Text>}
+      {attachHint && <Text>{`Press Ctrl+A to ${attachHint} the selected fork.`}</Text>}
     </Box>
   );
 }

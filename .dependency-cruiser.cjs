@@ -60,7 +60,7 @@ module.exports = {
         'modules listed here may say so: nothing else imports the mint, so no command or tool the ' +
         'model can run can open the prompt. A new importer is a reviewed edit of this list.',
       from: {
-        pathNot: '^packages/agent-ui-terminal/src/hooks/useForkAttach\\.ts$',
+        pathNot: '^packages/agent-ui-terminal/src/hooks/(useForkAttach|useFollowHistory)\\.ts$',
       },
       to: { path: '^packages/agent-ui-terminal/src/key-custody/user-read-request-mint\\.ts$' },
     },

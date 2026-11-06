@@ -683,10 +683,6 @@ export class InteractiveSession
     return this.workspace.projectAccess;
   }
 
-  protected sessionRecordHasWriter(sessionId: string): boolean {
-    return this.sessionStore?.hasWriter(sessionId) ?? false;
-  }
-
   protected getSessionReplayValidator(): IFrameworkHost['validateSessionReplayLog'] {
     return this.frameworkHost.validateSessionReplayLog;
   }

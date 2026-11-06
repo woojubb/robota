@@ -111,6 +111,9 @@ function Overlays({ model }: { model: IAppViewModel }): React.ReactElement {
           onAttach={background.attachToFork}
         />
       )}
+      {background.continueQuestion && (
+        <SessionAcceptancePrompt acceptance={background.continueQuestion} />
+      )}
       {model.permissionRequest && <PermissionPrompt request={model.permissionRequest} />}
       {pendingUserAction && (
         <PendingActionPrompt

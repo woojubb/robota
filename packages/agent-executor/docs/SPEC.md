@@ -62,7 +62,7 @@ A subagent spawn request carries an optional `resumeSessionId` — the persisted
 passes through it, onto the queued task's state, so a surface can distinguish a fork's task from
 an ordinary one and offer an "attach" control. Resolving the id into a conversation is the
 runner's job. A fork is a **copy** of a conversation under its own record — the parent's record is
-neither read nor written by the job — and attaching to it is a **view switch, not a merge**.
+neither read nor written by the job — and following or continuing it never merges the conversations.
 
 ## Tool-invocation runner: adopts, does not start
 

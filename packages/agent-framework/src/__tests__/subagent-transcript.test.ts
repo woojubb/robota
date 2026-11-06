@@ -100,6 +100,17 @@ describe('where a subagent transcript is', () => {
 });
 
 describe('a page of a plain transcript', () => {
+  it('can reread a caught-up offset after a child appends output', () => {
+    const file = transcriptFile(root());
+    writeFileSync(file, 'first\n');
+    const first = readSubagentTranscriptPage(file, { offset: 0, sealing: 'plain' });
+    expect(first?.nextOffset).toBeUndefined();
+    appendFileSync(file, 'second\n');
+    expect(readSubagentTranscriptPage(file, { offset: 0, sealing: 'plain' })?.lines).toEqual([
+      'first',
+      'second',
+    ]);
+  });
   it('is cut by display lines, offsets and all, whoever reads it', () => {
     const file = transcriptFile(root());
     const text = Array.from({ length: 450 }, (_, index) => `{"line":${index}}`).join('\n') + '\n';

@@ -58,6 +58,7 @@ const NL = '\r\n';
  */
 export const READ_PURPOSES: { readonly [P in TReadPurpose]: string } = {
   'continue-fork': 'Unlock to continue the forked conversation; it is sealed to your keyring.',
+  'follow-history': 'Unlock to read the earlier fork conversation; it is sealed to your keyring.',
 };
 
 /** The line `/unlock` shows above the prompt. */

@@ -119,6 +119,7 @@ describe('SELFHOST-001 P3 — group-chat orchestration', () => {
             output: job.request.agentType.toUpperCase(),
           }),
           cancel: async () => {},
+          send: async () => {},
         };
       },
     };

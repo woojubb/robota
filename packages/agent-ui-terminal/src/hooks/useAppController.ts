@@ -105,7 +105,8 @@ function buildInput(composition: IComposition): IAppInputViewModel {
     screens.showTransportTUI ||
     screens.showSessionPicker ||
     screens.showThemePicker ||
-    workspace.background.switcherVisible,
+    workspace.background.switcherVisible ||
+    workspace.background.continueQuestion,
   );
   const interactionBlocked =
     composition.coordination.blocked ||

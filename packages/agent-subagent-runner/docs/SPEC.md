@@ -62,7 +62,8 @@ extra dependency.
   neither this process nor another opens the record while the child may still write it. Queued
   fork jobs live only in the parent's memory (tasks are not persisted), so a parent that crashes
   loses them and a fresh fork is the way back. A composition with no registered session store fails
-  such a job outright rather than starting it with an empty history.
+  such a job outright rather than starting it with an empty history. A follow-up accepted by a child
+  runs before the job ends; input that cannot be accepted is refused instead of silently lost.
 - **A child seals as its parent decided.** A sealing parent's start payload carries the write grant
   its sealer issues when the payload is sent, which seals and opens nothing; the composition binds it
   before anything is built, so every store and the subagent log seal to the parent's key and the

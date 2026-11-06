@@ -41,8 +41,6 @@ export interface IWorkspaceSnapshotDeps {
   pendingRequest?: () => IExecutionPendingRequest | undefined;
   /** #3288 §1: this session's self-paced loops, for the `pending`/`running` ones' own entries. */
   selfPacedLoops?: () => readonly IExecutionSelfPacedLoopSummary[];
-  /** Whether a session's record may have a writer now, here or in another process (its store's `hasWriter`). */
-  sessionHasWriter: (sessionId: string) => boolean;
 }
 
 export function buildExecutionWorkspaceSnapshot(
@@ -71,7 +69,6 @@ export function buildExecutionWorkspaceSnapshot(
     selfPacedLoops: deps.selfPacedLoops?.(),
     selectedEntryId: options.selectedEntryId,
     filter: options.filter,
-    sessionHasWriter: deps.sessionHasWriter,
   });
 }
 
