@@ -7,3 +7,6 @@ export type { IRegistration } from './supervised-control-carrier.js';
 export { WindowsControlPipeServer, connectWindowsControlPipe, windowsControlPipePath } from './windows-control-pipe.js';
 export type { IControlChannel } from './windows-control-pipe.js';
 export { assertWindowsPrivatePath, createWindowsPrivateDirectory, currentWindowsSid, isPrivateWindowsSddl, readWindowsProcessIdentity, readWindowsProcessStartTime, withWindowsPrivateDescriptor } from './windows-security.js';
+export { listRegisteredCandidates } from './registered-candidates.js';
+export type { IRegisteredCandidate } from './registered-candidates.js';
+export { probeRegisteredPid, readRegisteredProcessStartTime } from './supervised-control-carrier.js';

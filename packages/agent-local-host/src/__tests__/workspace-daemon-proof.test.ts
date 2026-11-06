@@ -18,6 +18,27 @@ function proveWorkspaceDaemon(options: Parameters<ReturnType<typeof createWorksp
 }
 
 describe('authenticated workspace daemon proof', () => {
+  it('authenticates an unprobed registration before reporting control as available', async () => {
+    const first = link();
+    const open = vi.fn(async () => first);
+    const prover = createWorkspaceDaemonProver({ open });
+    const attempt = prover.start({ workspace: '/workspace', candidates: [{ ...row, control: 'unprobed' }] });
+    await expect(attempt.result).resolves.toMatchObject({ id: row.id, control: 'available', daemon: true });
+    await attempt.settled;
+    expect(open).toHaveBeenCalledOnce();
+    expect(first.close).toHaveBeenCalledOnce();
+  });
+
+  it('rejects an invalid control state without opening a link', async () => {
+    const open = vi.fn(async () => link());
+    const prover = createWorkspaceDaemonProver({ open });
+    const invalid = { ...row, control: 'forged' } as unknown as typeof row;
+    const attempt = prover.start({ workspace: '/workspace', candidates: [invalid] });
+    await expect(attempt.result).rejects.toThrow(/unproven/i);
+    await attempt.settled;
+    expect(open).not.toHaveBeenCalled();
+  });
+
   it('continues past a match and fails closed on an unproven later candidate', async () => {
     const first = link();
     const open = vi.fn(async () => first);

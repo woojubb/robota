@@ -5,6 +5,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { createKeyring, openOwnerHandover, serializeKeyring } from '@robota-sdk/agent-keyring';
+import { createWorkspaceDaemonProver, listRegisteredCandidates } from '@robota-sdk/agent-local-host';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
@@ -36,6 +37,13 @@ it('certifies a real launched runtime and assigns its daemon role under owner pr
       handover, daemonRole: true });
     const owner = await openRegisteredOwnerLink({ root, ...started, handover });
     try {
+      const candidates = await listRegisteredCandidates(root);
+      const prover = createWorkspaceDaemonProver({
+        open: ({ id, generation }, signal) => openRegisteredOwnerLink({ root, id, generation, handover, signal }),
+      });
+      const proof = prover.start({ workspace: home, candidates });
+      await expect(proof.result).resolves.toMatchObject({ id: started.id, generation: started.generation, daemon: true, control: 'available', restricted: true });
+      await proof.settled;
       const rows = await listSupervisedSessions(root, undefined, { includeGeneration: true, includeDaemon: true, includeSecure: true });
       expect(rows.find((row) => row.id === started.id)).toMatchObject({ daemon: true, secure: { certified: true }, generation: started.generation });
       overrideProductSecureMode(runtime, true);

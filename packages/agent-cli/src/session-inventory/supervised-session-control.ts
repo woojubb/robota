@@ -1,7 +1,7 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import { createHash, randomBytes } from 'node:crypto';
 import {
-  lstatSync, mkdirSync, readFileSync, readdirSync,
+  lstatSync, mkdirSync, readFileSync,
   renameSync, rmSync, writeFileSync,
 } from 'node:fs';
 import { createServer } from 'node:net';
@@ -20,7 +20,7 @@ import {
   parseExternalEventGrant,
   toExternalEventGrantDocument,
 } from '../external-events/external-event-grant-file.js';
-import { readProcessStartTime } from '../remote-control/local-peer-registry.js';
+
 import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezvous.js';
 import {
   CONTROL_ACCESS,
@@ -28,13 +28,12 @@ import {
   type TControlCommandName,
 } from './control-access.js';
 import { createSupervisedAttachCarrier, type TSupervisedAttachTarget } from './supervised-attach.js';
-import { MAX_CONTROL_FRAME_BYTES, SUPERVISED_ID_PATTERN, WindowsControlPipeServer, connectControlSocket, controlSocketPath, createWindowsPrivateDirectory, ensurePrivateDirectory, readOwnedFile, readRegistration, sessionDirectory, verifyExistingDirectory, verifyLiveOwner, type IControlChannel, type IRegistration } from '@robota-sdk/agent-local-host';
+import { MAX_CONTROL_FRAME_BYTES, SUPERVISED_ID_PATTERN, WindowsControlPipeServer, connectControlSocket, controlSocketPath, createWindowsPrivateDirectory, ensurePrivateDirectory, listRegisteredCandidates, probeRegisteredPid as probePid, readRegisteredProcessStartTime as readProcessStartTime, readOwnedFile, sessionDirectory, verifyExistingDirectory, verifyLiveOwner, type IControlChannel, type IRegistration } from '@robota-sdk/agent-local-host';
 
 
 const MAX_FRAME_BYTES = MAX_CONTROL_FRAME_BYTES;
 const MAX_STATUS_RESPONSE_BYTES = 32_768;
 const REQUEST_TIMEOUT_MS = 2_000;
-const MAX_ENTRIES = 256;
 const MAX_NAME_BYTES = 240;
 const MAX_PR_URL_BYTES = 2_048;
 const NAME_CONTROLS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
@@ -183,14 +182,6 @@ export interface ISupervisedSessionRow {
   readonly problem?: 'invalid-registration';
 }
 
-function probePid(pid: number): 'present' | 'absent' | 'unknown' {
-  try {
-    process.kill(pid, 0);
-    return 'present';
-  } catch (error) {
-    return (error as NodeJS.ErrnoException).code === 'ESRCH' ? 'absent' : 'unknown';
-  }
-}
 
 /** A Linux zombie has exited even when its parent has not yet reaped its PID. */
 function isRegisteredLinuxZombie(pid: number, startedAt: string): boolean {
@@ -366,41 +357,18 @@ export async function listSupervisedSessions(
     readonly includeDaemon?: boolean; readonly includeSecure?: boolean } = {},
 ): Promise<readonly ISupervisedSessionRow[]> {
   signal?.throwIfAborted();
-  try {
-    verifyExistingDirectory(root);
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return [];
-    throw error;
-  }
-  const names = readdirSync(root).filter((name) => SUPERVISED_ID_PATTERN.test(name));
-  if (names.length > MAX_ENTRIES) throw new Error('Too many supervised session records to list safely.');
+  const candidates = await listRegisteredCandidates(root, signal);
   const unfiltered = options.cwd === undefined && options.name === undefined && options.pr === undefined;
-  const rows = await Promise.all(names.map(async (id): Promise<ISupervisedSessionRow | null> => {
+  const rows = await Promise.all(candidates.map(async (candidate): Promise<ISupervisedSessionRow | null> => {
     signal?.throwIfAborted();
-    const directory = sessionDirectory(root, id);
-    let record: IRegistration;
-    try {
-      record = readRegistration(directory, id);
-    } catch {
-      try {
-        lstatSync(directory);
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
-      }
-      return unfiltered
-        ? { id, liveness: 'unknown', control: 'unavailable', activity: 'unknown', problem: 'invalid-registration' }
-        : null;
-    }
-    const currentStart = readProcessStartTime(record.pid);
-    const liveness = currentStart === undefined
-      ? probePid(record.pid) === 'absent' ? 'dead' : 'unknown'
-      : currentStart === record.startedAt ? 'alive' : 'dead';
-    // A registration without a generation cannot bind an action to its process start.
-    if (liveness !== 'alive' || record.generation === undefined) return unfiltered
-      ? { id, liveness, control: 'unavailable', activity: 'unknown' }
+    const { id, liveness, generation } = candidate;
+    if (liveness !== 'alive' || generation === undefined) return unfiltered
+      ? { id, liveness, control: 'unavailable', activity: 'unknown',
+          ...(candidate.problem ? { problem: candidate.problem } : {}) }
       : null;
     try {
-      const response = await request(directory, id, record.generation, 'status', signal);
+      const { directory } = verifyLiveOwner(root, id, generation);
+      const response = await request(directory, id, generation, 'status', signal);
       if ('status' in response && response.status === 'running') {
         if (options.cwd !== undefined && (!('cwd' in response) || response.cwd !== options.cwd)) return null;
         const name = 'name' in response && isSupervisedSessionName(response.name) ? response.name : undefined;
@@ -415,7 +383,7 @@ export async function listSupervisedSessions(
           ...(options.includeName && name !== undefined ? { name } : {}),
           ...(options.includeCwd && cwd !== undefined ? { cwd } : {}),
           ...(options.includePr && pr !== undefined ? { pr } : {}),
-          ...(options.includeGeneration ? { generation: record.generation } : {}),
+          ...(options.includeGeneration ? { generation } : {}),
           ...(options.includeSecure && 'certified' in response && typeof response.certified === 'boolean'
             ? { secure: { certified: response.certified } } : {}),
           ...(options.includeDaemon && 'daemon' in response && response.daemon === true

@@ -3,7 +3,7 @@ export interface IWorkspaceDaemonCandidate {
   readonly id: string;
   readonly generation?: string;
   readonly liveness: 'alive' | 'dead' | 'unknown';
-  readonly control: 'available' | 'unavailable';
+  readonly control: 'available' | 'unavailable' | 'unprobed';
   readonly activity: 'working' | 'needs-input' | 'idle' | 'unknown';
 }
 
@@ -15,6 +15,7 @@ export interface IWorkspaceDaemonProofLink {
 
 export interface IProvenWorkspaceDaemon extends IWorkspaceDaemonCandidate {
   readonly generation: string;
+  readonly control: 'available';
   readonly daemon: true;
   readonly cwd: string;
   readonly restricted?: true;
@@ -107,7 +108,7 @@ async function scanWorkspaceDaemon(
     let found: IProvenWorkspaceDaemon | undefined;
     for (const row of candidates) {
       if (row.liveness === 'dead') continue;
-      if (row.liveness !== 'alive' || row.control !== 'available' || !row.id || !row.generation) {
+      if (row.liveness !== 'alive' || (row.control !== 'available' && row.control !== 'unprobed') || !row.id || !row.generation) {
         throw new Error('An unproven runtime registration prevents secure daemon discovery.');
       }
       if (controller.signal.aborted) throw abortError();
@@ -157,7 +158,7 @@ async function scanWorkspaceDaemon(
             throw new Error('The authenticated runtime returned an incomplete status.');
           }
           if (result.daemon === true && result.cwd === workspace && found === undefined) {
-            found = { ...row, generation: row.generation, daemon: true, cwd: workspace,
+            found = { ...row, generation: row.generation, control: 'available', daemon: true, cwd: workspace,
               ...(result.restricted === true ? { restricted: true as const } : {}) };
           }
         } finally {

@@ -20,8 +20,13 @@ export interface IRegistration {
 export function isGeneration(value: unknown): value is string {
   return typeof value === 'string' && GENERATION_PATTERN.test(value);
 }
-function readProcessStartTime(pid: number): string | undefined {
+export function readRegisteredProcessStartTime(pid: number): string | undefined {
   return readCoreProcessStartTime(pid, { readWindows: readWindowsProcessStartTime });
+}
+
+export function probeRegisteredPid(pid: number): 'present' | 'absent' | 'unknown' {
+  try { process.kill(pid, 0); return 'present'; }
+  catch (error) { return (error as NodeJS.ErrnoException).code === 'ESRCH' ? 'absent' : 'unknown'; }
 }
 
 export function verifyExistingDirectory(directory: string): void {
@@ -165,7 +170,7 @@ export function verifyLiveOwner(
   if (expectedGeneration !== undefined && record.generation !== expectedGeneration) {
     throw new Error('Supervised session changed since it was listed.');
   }
-  const currentStart = readProcessStartTime(record.pid);
+  const currentStart = readRegisteredProcessStartTime(record.pid);
   if (currentStart === undefined || currentStart !== record.startedAt) {
     throw new Error('Supervised session is not proven alive.');
   }
