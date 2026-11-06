@@ -24,6 +24,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import type { Writable } from 'node:stream';
 
 import { ArtifactCorruptError, ArtifactLockedError } from '@robota-sdk/agent-core';
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
@@ -157,15 +158,20 @@ function directory(prefix: string): string {
 
 it('waits for a worker to finish writing before removing its temporary directory', async () => {
   const root = directory('sealing-cleanup-');
-  const child = spawn(process.execPath, [
-    '-e',
-    "process.stdin.resume(); process.stdin.on('end', () => require('node:fs').writeFileSync(process.argv[1], 'finished'))",
-    join(root, 'late-write'),
-  ]);
+  const child = spawn(
+    process.execPath,
+    [
+      '-e',
+      "const s=require('node:fs').createReadStream(null,{fd:4});s.on('end',()=>require('node:fs').writeFileSync(process.argv[1],'finished'));s.resume();process.stdout.write('ready')",
+      join(root, 'late-write'),
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe', 'ignore', 'pipe'] },
+  );
   await once(child, 'spawn');
   const closed = once(child, 'close');
+  await once(child.stdout!, 'data');
   const cleanup = cleanupTestState();
-  child.stdin?.end();
+  (child.stdio[4] as Writable).end();
   await cleanup;
   const [code] = await closed;
   expect(code).toBe(0);
@@ -174,18 +180,24 @@ it('waits for a worker to finish writing before removing its temporary directory
 
 it('keeps the temporary directory until the exited worker closes its streams', async () => {
   const root = directory('sealing-cleanup-close-');
-  const child = spawn(process.execPath, [
-    '-e',
-    "require('node:child_process').spawn(process.execPath, ['-e', \"process.stdin.resume(); process.stdin.on('end', () => {})\"], {stdio: [0, 1, 2]}).unref()",
-  ]);
+  const child = spawn(
+    process.execPath,
+    [
+      '-e',
+      "require('node:child_process').spawn(process.execPath, ['-e', \"const s=require('node:fs').createReadStream(null,{fd:4});s.resume();process.stdout.write('ready')\"], {stdio: ['ignore', 1, 2, 'ignore', 4]}).unref()",
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe', 'ignore', 'pipe'] },
+  );
   let rootAtClose = false;
   child.once('close', () => {
     rootAtClose = existsSync(root);
   });
   const closed = once(child, 'close');
-  await once(child, 'exit');
+  const exited = once(child, 'exit');
+  await once(child.stdout!, 'data');
+  await exited;
   const cleanup = cleanupTestState();
-  child.stdin?.end();
+  (child.stdio[4] as Writable).end();
   await cleanup;
   await closed;
   expect(rootAtClose).toBe(true);
@@ -198,17 +210,19 @@ it('keeps the temporary directory until the exited worker disconnects its IPC ch
     process.execPath,
     [
       '-e',
-      "require('node:child_process').spawn(process.execPath, ['-e', \"process.stdin.resume(); process.stdin.on('end', () => {})\"], {stdio: [0, 1, 2, 3]}).unref()",
+      "require('node:child_process').spawn(process.execPath, ['-e', \"const s=require('node:fs').createReadStream(null,{fd:4});s.resume();process.stdout.write('ready')\"], {stdio: ['ignore', 1, 2, 3, 4]}).unref()",
     ],
-    { stdio: ['pipe', 'pipe', 'pipe', 'ipc'] },
+    { stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'] },
   );
   let rootAtDisconnect = false;
   child.once('disconnect', () => {
     rootAtDisconnect = existsSync(root);
   });
-  await once(child, 'exit');
+  const exited = once(child, 'exit');
+  await once(child.stdout!, 'data');
+  await exited;
   const cleanup = cleanupTestState();
-  child.stdin?.end();
+  (child.stdio[4] as Writable).end();
   await cleanup;
   expect(rootAtDisconnect).toBe(true);
   expect(existsSync(root)).toBe(false);
