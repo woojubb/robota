@@ -200,6 +200,8 @@ describe.skipIf(process.platform === 'win32')('root broker custody', () => {
     const server = await startWorkspaceRootBroker(f.endpoint);
     servers.push(server);
     await expect(startWorkspaceRootBroker(f.endpoint)).rejects.toThrow();
+    expect(await requestWorkspaceRootBroker(f.endpoint, { op: 'ping' }))
+      .toEqual({ status: 'ready', pid: process.pid });
     expect(await requestWorkspaceRootBroker(f.endpoint, { op: 'ping' }, 999))
       .toMatchObject({ status: 'refused', reason: 'version' });
     const prepared = await requestWorkspaceRootBroker(f.endpoint, { op: 'prepare', root: f.first });

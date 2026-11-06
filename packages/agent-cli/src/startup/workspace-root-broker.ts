@@ -57,7 +57,7 @@ export type TWorkspaceRootBrokerRequest =
   | { readonly op: 'release'; readonly candidate: string };
 
 export type TWorkspaceRootBrokerResponse =
-  | { readonly status: 'ready' }
+  | { readonly status: 'ready'; readonly pid: number }
   | { readonly status: 'prepared'; readonly candidate: string }
   | { readonly status: 'trusted'; readonly lease: string; readonly grantedAt: string; readonly generation: number }
   | { readonly status: 'untrusted' | 'stale/replaced' | 'revoked'; readonly generation: number }
@@ -291,7 +291,7 @@ export async function startWorkspaceRootBroker(
     if (parsed === undefined) return refuse('malformed');
     if (parsed.version !== PROTOCOL_VERSION) return refuse('version');
     const request = parsed.request;
-    if (request.op === 'ping') return { status: 'ready' };
+    if (request.op === 'ping') return { status: 'ready', pid: process.pid };
     if (request.op === 'prepare') {
       if (prepared.size >= MAX_PREPARED_ROOTS) return refuse('capacity');
       let root: IStableRootedFileReader | undefined;

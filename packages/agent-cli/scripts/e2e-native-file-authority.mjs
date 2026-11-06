@@ -3,6 +3,7 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { createRequire } from 'node:module';
+import { createConnection } from 'node:net';
 import {
   existsSync,
   mkdirSync,
@@ -13,7 +14,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fixtureProcessEnvironment } from './product-fixture-environment.mjs';
 
@@ -59,51 +60,48 @@ function commandFailure(label, result) {
   );
 }
 
-/** Stop only this disposable fixture's detached broker before removing its Windows guard file. */
-function stopFixtureBroker(command, fixtureRoot, env) {
-  let pids;
-  if (process.platform === 'win32') {
-    const script = [
-      '$ErrorActionPreference = "Stop"',
-      '$ProgressPreference = "SilentlyContinue"',
-      '$rows = Get-CimInstance Win32_Process -Filter ("Name = \'" + $env:E2E_BROKER_IMAGE + "\'") |',
-      '  Where-Object { $_.CommandLine -and',
-      '  $_.CommandLine.Contains("--internal-root-broker") -and',
-      '  $_.CommandLine.IndexOf($env:E2E_BROKER_ROOT, [StringComparison]::OrdinalIgnoreCase) -ge 0',
-      '  } | ForEach-Object { $_.ProcessId }',
-      '$rows',
-    ].join('\n');
-    const query = spawnSync('powershell.exe', [
-      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
-      '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64'),
-    ], {
-      encoding: 'utf8',
-      windowsHide: true,
-      env: {
-        ...env,
-        E2E_BROKER_IMAGE: basename(command),
-        E2E_BROKER_ROOT: fixtureRoot,
-      },
-      timeout: 30_000,
+/** Stop only the broker at this fixture's unique product-state endpoint. */
+async function stopFixtureBroker(env) {
+  const namespace = createHash('sha256').update(env.PRODUCT_USER_STATE_DIR).digest('hex').slice(0, 24);
+  const endpoint = process.platform === 'win32'
+    ? `\\\\.\\pipe\\robota-root-${namespace}`
+    : join('/tmp', `robota-root-${process.getuid()}-${namespace}`, 'broker.sock');
+  const pid = await new Promise((resolvePid, reject) => {
+    const socket = createConnection(endpoint);
+    let response = '';
+    let settled = false;
+    const timer = setTimeout(() => finish(new Error('Fixture broker ping timed out.')), 5_000);
+    function finish(error, value) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      socket.destroy();
+      if (error) reject(error);
+      else resolvePid(value);
+    }
+    socket.once('connect', () => socket.write('{"version":1,"op":"ping"}\n'));
+    socket.once('error', (error) => {
+      if (error.code === 'ENOENT' || error.code === 'ECONNREFUSED') finish(undefined, undefined);
+      else finish(error);
     });
-    if (query.status !== 0) throw commandFailure('Find fixture root broker', query);
-    pids = query.stdout.trim().split(/\s+/u);
-  } else {
-    const query = spawnSync('ps', ['-ww', '-axo', 'pid=,command='], { encoding: 'utf8', timeout: 10_000 });
-    if (query.status !== 0) throw commandFailure('Find fixture root broker', query);
-    pids = query.stdout.split('\n').flatMap((line) => {
-      const row = /^\s*(\d+)\s+(.*)$/u.exec(line);
-      return row && row[2].includes('--internal-root-broker') && row[2].includes(fixtureRoot)
-        ? [row[1]] : [];
+    socket.on('data', (chunk) => {
+      response += chunk.toString('utf8');
+      if (response.length > 1_024) return finish(new Error('Fixture broker ping was oversized.'));
+      if (!response.includes('\n')) return;
+      try {
+        const ready = JSON.parse(response.trim());
+        if (ready.status !== 'ready' || !Number.isSafeInteger(ready.pid) || ready.pid <= 0 ||
+            ready.pid === process.pid) throw new Error('Fixture broker ping returned an invalid PID.');
+        finish(undefined, ready.pid);
+      } catch (error) {
+        finish(error);
+      }
     });
-  }
-  for (const value of pids) {
-    if (!/^\d+$/u.test(value)) continue;
-    const pid = Number(value);
-    if (pid === process.pid) continue;
-    try { process.kill(pid, 'SIGTERM'); }
-    catch (error) { if (error.code !== 'ESRCH') throw error; }
-  }
+    socket.once('end', () => finish(new Error('Fixture broker ping ended without a response.')));
+  });
+  if (pid === undefined) return;
+  try { process.kill(pid, 'SIGTERM'); }
+  catch (error) { if (error.code !== 'ESRCH') throw error; }
 }
 
 export function assertStandaloneNativeRuntime(binaryPath) {
@@ -351,7 +349,7 @@ export async function runNativeFileAuthorityE2e(binaryPath, options = {}) {
         )
       : runUserSessionStoreScenario(command, prefixArguments, home, workspace, env, sessionId);
   } finally {
-    stopFixtureBroker(command, fixtureRoot, env);
+    await stopFixtureBroker(env);
     rmSync(fixtureRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
   }
 
