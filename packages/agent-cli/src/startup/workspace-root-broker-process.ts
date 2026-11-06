@@ -73,7 +73,11 @@ export async function ensureWorkspaceRootBroker(runtime: ICliRuntimeContext): Pr
     ...(source || compiledBun ? [] : process.execArgv), ...script,
     '--internal-root-broker', endpoint, brokerDirectory(runtime),
     runtime.layout.userPaths.workspaceTrust,
-  ], { detached: true, stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
+  ], { detached: true, stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
+  let startupError = '';
+  child.stderr?.on('data', (chunk: Buffer) => {
+    startupError = `${startupError}${chunk.toString('utf8')}`.slice(0, 2_048);
+  });
   let outcome: 'ready' | 'exit';
   try {
     outcome = await new Promise<'ready' | 'exit'>((settle, reject) => {
@@ -89,9 +93,13 @@ export async function ensureWorkspaceRootBroker(runtime: ICliRuntimeContext): Pr
     throw error;
   }
   if (child.connected) child.disconnect();
+  child.stderr?.destroy();
   child.unref();
   if (outcome === 'ready' && await isReady(endpoint)) return endpoint;
   // A concurrent CLI may have won the namespace lock. Only attach to its proved live endpoint.
   if (await isReady(endpoint)) return endpoint;
-  throw new Error('The workspace broker could not be attached.');
+  const detail = startupError.trim();
+  throw new Error(detail === ''
+    ? 'The workspace broker could not be attached.'
+    : `The workspace broker could not be attached: ${detail}`);
 }
