@@ -51,9 +51,13 @@ jobs:
   tests:
     needs: [scope, workspace-build]
     if: needs.scope.outputs.developer_docs != 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [tests-cli-1, tests-cli-2, tests-rest]
     uses: ./.github/workflows/ci-check.yml
     with:
-      kind: tests
+      kind: ${{ matrix.kind }}
       plan: ${{ needs.scope.outputs.plan }}
       artifact-id: ${{ needs.workspace-build.outputs.artifact-id }}
   pr-validation:

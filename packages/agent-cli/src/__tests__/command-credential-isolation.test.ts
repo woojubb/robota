@@ -14,7 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { respond, type WireRequest } from './helpers/provider-wire-fixture.js';
-import { approveTestWorkspaceCommand } from './helpers/approve-test-workspace.js';
+import { approveTestWorkspaceCommand, stopTestWorkspaceBroker } from './helpers/approve-test-workspace.js';
 
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const launcher = path.join(repoRoot, 'scripts', 'dev', 'agent');
@@ -187,6 +187,7 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve) => server.close(() => resolve()));
+    await stopTestWorkspaceBroker(state);
     rmSync(root, { recursive: true, force: true });
   }
 }

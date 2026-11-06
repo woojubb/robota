@@ -19,8 +19,9 @@ export async function approveTestWorkspace(cwd: string, runtime: ICliRuntimeCont
 }
 
 /** Stop only the broker launched for this fixture's disposable product state. */
-export async function stopTestWorkspaceBroker(runtime: ICliRuntimeContext): Promise<void> {
-  const endpoint = workspaceRootBrokerEndpoint(runtime);
+export async function stopTestWorkspaceBroker(runtime: ICliRuntimeContext | string): Promise<void> {
+  const endpoint = workspaceRootBrokerEndpoint(typeof runtime === 'string'
+    ? { layout: { userRoot: runtime } } as ICliRuntimeContext : runtime);
   let pid: number;
   try {
     const response = await requestWorkspaceRootBroker(endpoint, { op: 'ping' });
