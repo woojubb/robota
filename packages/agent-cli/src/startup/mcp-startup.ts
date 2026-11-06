@@ -141,9 +141,18 @@ async function inspectRealWorkspaceTrust(
   runtime: ICliRuntimeContext,
 ): Promise<IMcpWorkspaceTrustSnapshot> {
   const endpoint = workspaceRootBrokerEndpoint(runtime);
-  const response = await requestWorkspaceRootBroker(endpoint, {
-    op: 'inspect', root: identity.worktreeRoot,
-  });
+  let response;
+  try {
+    response = await requestWorkspaceRootBroker(endpoint, {
+      op: 'inspect', root: identity.worktreeRoot,
+    });
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ECONNREFUSED') {
+      return { state: 'untrusted', generation: 0 };
+    }
+    throw error;
+  }
   if (response.status === 'trusted' || response.status === 'untrusted' ||
       response.status === 'revoked' || response.status === 'stale/replaced') {
     return { state: response.status, generation: response.generation };

@@ -417,8 +417,9 @@ export class PosixStableFileHostBackend implements IStableFileHostBackend {
         this.closeDescriptor(duplicate);
         throw authorityError('HOST_IO', 'open-directory-stream');
       }
+      const entries: IStableRootedDirectoryEntry[] = [];
+      let readFailure: unknown;
       try {
-        const entries: IStableRootedDirectoryEntry[] = [];
         for (;;) {
           koffi.errno(0);
           const pointer = api.readdir(directory);
@@ -430,10 +431,13 @@ export class PosixStableFileHostBackend implements IStableFileHostBackend {
           if (entry !== undefined) entries.push(entry);
         }
         this.assertRootIdentity(rootDescriptor);
-        return entries;
-      } finally {
-        if (api.closedir(directory) !== 0) throw authorityError('HOST_IO', 'close-directory-stream');
+      } catch (error) {
+        readFailure = error;
       }
+      const closeFailed = api.closedir(directory) !== 0;
+      if (readFailure !== undefined) throw readFailure;
+      if (closeFailed) throw authorityError('HOST_IO', 'close-directory-stream');
+      return entries;
     } finally {
       if (owned) this.closeDescriptor(directoryDescriptor);
     }

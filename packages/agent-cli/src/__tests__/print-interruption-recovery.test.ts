@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 
 import { respond, type WireRequest } from './helpers/provider-wire-fixture.js';
+import { approveTestWorkspaceCommand } from './helpers/approve-test-workspace.js';
 
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const launcher = join(repoRoot, 'scripts', 'dev', 'agent');
@@ -52,7 +53,8 @@ describe.runIf(process.platform === 'linux' || process.platform === 'darwin')('p
           options: { apiSurface: 'chat-completions' },
         } },
       }));
-      const trust = spawnSync(launcher, ['trust', '--yes'], { cwd: workspace, env, encoding: 'utf8', timeout: 30_000 });
+      const trust = await approveTestWorkspaceCommand((args) =>
+        spawnSync(launcher, args, { cwd: workspace, env, encoding: 'utf8', timeout: 30_000 }));
       expect(trust.status, trust.stderr).toBe(0);
 
       const originalPrompt = 'Run the one-time marker command.';

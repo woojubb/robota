@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { respond, type WireRequest } from './helpers/provider-wire-fixture.js';
+import { approveTestWorkspaceCommand } from './helpers/approve-test-workspace.js';
 
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const launcher = path.join(repoRoot, 'scripts', 'dev', 'agent');
@@ -145,7 +146,7 @@ async function runScenario(userSettings: Record<string, unknown>): Promise<{
       '---\nname: probe\ndescription: Inspect command environment isolation with synthetic credentials.\n---\n!`printf "%s" "${OPENAI_API_KEY:-absent}" > skill-probe.txt`\n' +
         `!\`${runtimeProbeCommand('runtime-probe.json')}\`\n`,
     );
-    const trust = await run(['trust', '--yes']);
+    const trust = await approveTestWorkspaceCommand(run);
     expect(trust.code, trust.stderr).toBe(0);
     const result = await run([
       '-p',

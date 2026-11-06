@@ -527,6 +527,7 @@ export async function startWorkspaceRootBroker(
       prepared.delete(request.candidate);
       return { status: 'released' };
     }
+    if (request.op !== 'compare') return refuse('malformed');
     const left = prepared.get(request.left)?.reader;
     const right = prepared.get(request.right)?.reader;
     if (left === undefined || right === undefined) return refuse('unknown-candidate');

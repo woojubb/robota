@@ -16,6 +16,7 @@ import {
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
 import { createThemeSurface } from '../../startup/theme-surface.js';
 import { runWorkspaceTrustCommand } from '../../startup/workspace-trust-command.js';
+import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
 import { runSessionViewCommand, type ISessionViewCommandOptions } from '../session-view-command.js';
 
@@ -53,7 +54,7 @@ describe('session view background start route', () => {
       return 0;
     });
     try {
-      expect(await runWorkspaceTrustCommand(['--yes'], cwd, createTestProductRuntime())).toBe(0);
+      expect(await approveTestWorkspace(cwd, createTestProductRuntime())).toBe(0);
       expect(
         await runPreparsedCliCommand(
           { productRuntime: createTestProductRuntime(),

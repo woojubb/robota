@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { respond, wireReceipts, type WireRequest } from './helpers/provider-wire-fixture.js';
+import { approveTestWorkspaceCommand } from './helpers/approve-test-workspace.js';
 
 const repoRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const launcher = path.join(repoRoot, 'scripts', 'dev', 'agent');
@@ -130,12 +131,12 @@ beforeAll(async () => {
       },
     }),
   );
-  const trust = spawnSync(launcher, ['trust', '--yes'], {
+  const trust = await approveTestWorkspaceCommand((args) => spawnSync(launcher, args, {
     cwd: workspace,
     env: environment,
     encoding: 'utf8',
     timeout: 60_000,
-  });
+  }));
   expect(trust.status, trust.stderr).toBe(0);
 
   // Simulate a busy CLI event loop during shutdown; the launcher must not kill it early.

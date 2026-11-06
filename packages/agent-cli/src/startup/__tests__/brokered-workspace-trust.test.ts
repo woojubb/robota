@@ -7,9 +7,9 @@ import { getWorkspaceProjectReader, getWorkspaceProjectStateStorage } from '@rob
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 import { BrokeredWorkspaceTrustService } from '../brokered-workspace-trust.js';
 import { workspaceRootBrokerEndpoint } from '../workspace-root-broker-process.js';
-import { startWorkspaceRootBroker } from '../workspace-root-broker.js';
 
 const cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => {
@@ -31,7 +31,7 @@ describe.skipIf(process.platform === 'win32')('brokered CLI workspace trust', ()
     const runtime = createTestProductRuntime('test-product', { HOME: home });
     const endpoint = workspaceRootBrokerEndpoint(runtime);
     mkdirSync(dirname(endpoint), { recursive: true, mode: 0o700 });
-    let broker = await startWorkspaceRootBroker(
+    let broker = await startTestBroker(
       endpoint, dirname(endpoint), runtime.layout.userPaths.workspaceTrust,
     );
     cleanups.push(async () => {
@@ -68,7 +68,7 @@ describe.skipIf(process.platform === 'win32')('brokered CLI workspace trust', ()
     expect(reader.readText('approved.txt', 'broker test')).toBe('A');
 
     await broker.close();
-    broker = await startWorkspaceRootBroker(
+    broker = await startTestBroker(
       endpoint, dirname(endpoint), runtime.layout.userPaths.workspaceTrust,
     );
     expect(await (await BrokeredWorkspaceTrustService.create(runtime)).inspect(root))
@@ -92,7 +92,7 @@ describe.skipIf(process.platform !== 'win32')('brokered Windows CLI workspace tr
     const endpoint = workspaceRootBrokerEndpoint(runtime);
     const lockDirectory = join(runtime.layout.userRoot, 'root-broker');
     mkdirSync(lockDirectory, { recursive: true });
-    const broker = await startWorkspaceRootBroker(
+    const broker = await startTestBroker(
       endpoint, lockDirectory, runtime.layout.userPaths.workspaceTrust,
     );
     cleanups.push(async () => {
