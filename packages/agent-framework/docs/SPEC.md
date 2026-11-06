@@ -198,8 +198,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   names, since merging the file would launder it and overwriting it could destroy newer work; a
   refusal only the locked keys stand behind is decided at the unlock, and a session that ends while
   either refusal stands saves that copy as it ends and reports a copy it could not write. A project
-  session record is replaced whole and flushed, so a write that fails part-way leaves the previous
-  record; a replay log rebuilds only the session it names.
+  session record is replaced whole, so a failed write can leave either the prior record or the
+  complete replacement; a replay log rebuilds only the session it names.
 - **Fork vs. resume is exactly one bit of difference.** Resume reuses the source session id; fork
   generates a fresh id while still restoring the same messages and the parent's assembled system
   prompt verbatim — a fork inherits the parent's full assembled prompt (including any active output
