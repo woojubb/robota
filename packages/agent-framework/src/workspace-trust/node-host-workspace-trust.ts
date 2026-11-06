@@ -40,14 +40,14 @@ interface IPersistedTrustStore {
   readonly grants: IPersistedGrant[];
 }
 
-function runGit(cwd: string, args: readonly string[]): string {
+function runGit(cwd: string, args: readonly string[], environment?: NodeJS.ProcessEnv): string {
   try {
     // The trust check runs before trust exists, on a repository's own configuration: in secure mode
     // git gets its own session.
     return execFileSync(
       'git',
       [...args],
-      withChildSession({ cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }),
+      withChildSession({ cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], ...(environment === undefined ? {} : { env: environment }) }),
     ).trim();
   } catch (error) {
     throw new Error(`Git workspace identity is unavailable for ${cwd}`, { cause: error });
@@ -181,12 +181,12 @@ function repositoryIdentityKey(commonDir: string): string {
 }
 
 /** Resolve a Git worktree to a replacement-safe host identity. */
-export function createNodeWorkspaceIdentityResolver(): IWorkspaceIdentityResolver {
+export function createNodeWorkspaceIdentityResolver(environment?: NodeJS.ProcessEnv): IWorkspaceIdentityResolver {
   return Object.freeze({
     resolve(cwd: string): IWorkspaceIdentity {
       const canonicalCwd = canonicalPath(resolve(cwd));
-      const worktreeRoot = canonicalPath(runGit(canonicalCwd, ['rev-parse', '--show-toplevel']));
-      const commonDirValue = runGit(canonicalCwd, ['rev-parse', '--git-common-dir']);
+      const worktreeRoot = canonicalPath(runGit(canonicalCwd, ['rev-parse', '--show-toplevel'], environment));
+      const commonDirValue = runGit(canonicalCwd, ['rev-parse', '--git-common-dir'], environment);
       const commonDir = canonicalPath(
         // Git returns a relative common-dir from the command's cwd, which may be below the root.
         isAbsolute(commonDirValue) ? commonDirValue : join(canonicalCwd, commonDirValue),
@@ -308,9 +308,10 @@ export function createNodeWorkspaceTrustStore(
 export function createNodeWorkspaceTrustService(
   filePath: string,
   projectStateDirectories?: TWorkspaceProjectStateDirectories,
+  gitEnvironment?: NodeJS.ProcessEnv,
 ): WorkspaceTrustService {
   return new WorkspaceTrustService({
-    identityResolver: createNodeWorkspaceIdentityResolver(),
+    identityResolver: createNodeWorkspaceIdentityResolver(gitEnvironment),
     store: createNodeWorkspaceTrustStore(filePath),
     projectFiles: createNodeWorkspaceProjectFiles(),
     ...(projectStateDirectories === undefined ? {} : { projectStateDirectories }),

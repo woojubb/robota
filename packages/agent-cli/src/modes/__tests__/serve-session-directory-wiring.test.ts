@@ -92,17 +92,20 @@ vi.mock('../../session-inventory/supervised-session-control.js', () => ({
   ensureSupervisedAuditDirectory: () => '/audit',
   resolveSupervisedDirectory: () => '/supervised',
   takeSupervisedGrantHandoff: () => [],
-  startSupervisedControl: async (
-    _id: string,
-    onStop: () => void,
-    _root: string | undefined,
-    getActivity: () => string | undefined,
-    _getCwd: unknown,
-    getNextLoopAt: () => string | undefined,
-    ...rest: unknown[]
-  ) => {
+  startSupervisedControl: async (options: {
+    readonly onStop: () => void;
+    readonly observe?: {
+      readonly activity?: () => string | undefined;
+      readonly nextLoopAt?: () => string | undefined;
+    };
+    readonly attachTarget?: unknown;
+    readonly daemon?: unknown;
+  }) => {
+    const { onStop, observe, attachTarget, daemon } = options;
+    const getActivity = observe?.activity as () => string | undefined;
+    const getNextLoopAt = observe?.nextLoopAt as () => string | undefined;
     await new Promise<void>((proceed) => {
-      supervised = { onStop, getActivity, getNextLoopAt, attachTarget: rest[4], daemon: rest[5], proceed };
+      supervised = { onStop, getActivity, getNextLoopAt, attachTarget, daemon, proceed };
     });
     return { close: async () => undefined };
   },
@@ -195,6 +198,38 @@ const byId = (id: string): IFake => {
 };
 
 describe('serve mode session pool wiring (#3189)', () => {
+  it('passes the accepted digest and cancellation to the served builder and rechecks the claimed workspace', async () => {
+    const digest = 'a'.repeat(64);
+    const record = {
+      id: 'stored', cwd: '/work/project', createdAt: '2026-09-01T00:00:00Z',
+      updatedAt: '2026-09-01T00:00:00Z', messages: [],
+    };
+    const outcome = { status: 'valid' as const, record, authorship: 'unverified' as const, digest };
+    const directory = createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>();
+    const bindTransports = vi.fn();
+    const base = serveOptions(directory, bindTransports);
+    const options: IServeModeOptions = {
+      ...base,
+      sessionStore: { ...base.sessionStore!, load: () => outcome, list: () => [{ id: record.id, outcome }] },
+    };
+    const run = runServeMode(options);
+    await vi.waitFor(() => expect(bindTransports).toHaveBeenCalled());
+    const owner = directory.bindOwner('drive');
+    const question = await owner.ownerDirectory.question('stored');
+    expect(question).toMatchObject({ kind: 'accept', digest });
+    if (question.kind !== 'accept') throw new Error('Expected owner question');
+    await owner.ownerDirectory.openAccepted('stored', digest, question.questionId, new AbortController().signal);
+    const created = built.at(-1)!;
+    expect(created['acceptedDigest']).toBe(digest);
+    expect(created['resumeAdmissionSignal']).toBeInstanceOf(AbortSignal);
+    const check = created['checkRestoredRecord'] as (value: typeof record) => void;
+    expect(() => check({ ...record, cwd: '/other' })).toThrow(/workspace/);
+    expect(() => check(record)).not.toThrow();
+    owner.release();
+    options.commandHostAdapters.process?.requestExit('other');
+    await run;
+  });
+
   it('attaches the directory before binding transports and moves only the client that switched', async () => {
     const directory = createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>();
     let listedAtBind: string | undefined;

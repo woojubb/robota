@@ -7,7 +7,11 @@
  * domain-typed desk and session ports, and decides there what each standing may do.
  */
 export { LINK_PROTOCOL, LINK_REQUEST_LINE, isLinkRequest } from './link-request.js';
-export { DEFAULT_HANDSHAKE_TIMEOUT_MS, serveRuntimeLink } from './serve-runtime-link.js';
+export {
+  DEFAULT_CLOSE_FLUSH_TIMEOUT_MS,
+  DEFAULT_HANDSHAKE_TIMEOUT_MS,
+  serveRuntimeLink,
+} from './serve-runtime-link.js';
 export type {
   IAdmittedRuntimeLink,
   IRuntimeLinkDeps,
@@ -30,6 +34,17 @@ export type {
   TGrantOutcome,
   TOwnerControlResult,
   TOwnerControlValue,
-  TOwnerSessionQuestion,
   TRequestedLockReason,
 } from './link-ports.js';
+export {
+  DEFAULT_SPAWNER_PAIR_TIMEOUT_MS,
+  SPAWNER_PAIR_FD,
+  SpawnerPairError,
+  answerSpawnerPair,
+  completeSpawnerPair,
+} from './spawner-pair.js';
+export type {
+  ICompleteSpawnerPairOptions,
+  ISpawnerPairIo,
+  ISpawnerPairResult,
+} from './spawner-pair.js';

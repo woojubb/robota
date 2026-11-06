@@ -24,7 +24,7 @@ import {
   type IKeyHolderTimers,
   type TLockReason,
 } from '../key-holder.js';
-import { KeyringStoreError, createKeyringFileStore } from '../keyring-store.js';
+import { KeyringStoreError, createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import {
   FIXTURE_PASSPHRASE,
   OTHER_PASSPHRASE,

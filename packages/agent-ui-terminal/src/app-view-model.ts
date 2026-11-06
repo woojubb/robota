@@ -90,6 +90,7 @@ export interface IAppTransportViewModel {
 }
 
 export interface IAppSessionPickerViewModel {
+  readonly pickerKey?: number;
   readonly visible: boolean;
   readonly sessions: readonly ISessionListingEntry[];
   readonly select: (sessionId: string) => void;

@@ -3,7 +3,9 @@ import { childProductEnvironment } from '../product/child-environment.js';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { isAbsolute } from 'node:path';
-import { Writable } from 'node:stream';
+import { closeSync, fstatSync } from 'node:fs';
+import { Duplex, Writable } from 'node:stream';
+import { completeSpawnerPair, type ISpawnerPairResult } from '@robota-sdk/agent-transport-link';
 
 import { scrubSecrets } from '@robota-sdk/agent-core';
 import { withChildSession } from '@robota-sdk/agent-core/node';
@@ -13,6 +15,8 @@ import {
   withInspectorSignalDisabled,
 } from '../subagents/self-fork-worker-entry.js';
 import { RESTRICTED_WORKSPACE_FLAG } from '../startup/workspace-project-composition.js';
+import { SUPERVISED_SPAWNER_PAIR_FLAG } from './supervised-spawner-pair.js';
+import { FORWARDED_ENVIRONMENT_FLAG } from '../startup/forwarded-environment.js';
 import {
   discardSupervisedGrantHandoff,
   isSupervisedSessionName,
@@ -121,11 +125,11 @@ function redactEnvCredentialValues(
   const secrets = [
     ...Object.entries(env)
       .filter(([name]) => CREDENTIAL_ENV_NAME.test(name))
-      .map(([, value]) => value),
+      .map(([, value]) => value)
+      .filter((value): value is string => value !== undefined && value.length >= MIN_CREDENTIAL_VALUE_LENGTH),
     ...handedOverSecrets,
-  ];
+  ].map(stripAnsiAndControlChars).filter((value) => value.length > 0).sort((a, b) => b.length - a.length);
   for (const value of secrets) {
-    if (value === undefined || value.length < MIN_CREDENTIAL_VALUE_LENGTH) continue;
     if (!result.includes(value)) continue;
     result = result.split(value).join('[REDACTED]');
   }
@@ -224,10 +228,8 @@ function withoutTransportTokenNames(env: NodeJS.ProcessEnv, envPrefix: string): 
   return Object.fromEntries(Object.entries(env).filter(([name]) => !names.has(name.toUpperCase())));
 }
 
-/** Start one opt-in supervised runtime without sending credentials through the control channel. */
-export async function launchSupervisedSession(
-  cwd: string,
-  options: {
+/** Options common to plain and secure supervised launches. */
+export interface ISupervisedLaunchOptions {
     readonly productRuntime: ICliRuntimeContext;
     readonly entrypoint?: string;
     readonly execArgs?: readonly string[];
@@ -253,12 +255,69 @@ export async function launchSupervisedSession(
     readonly transportToken?: string;
     /** Start it Restricted: a person chose to run this untrusted folder without its own configuration. */
     readonly restricted?: boolean;
-  },
+  }
+
+type TPreparedForwardedEnvironment = { readonly environment: NodeJS.ProcessEnv; readonly availableCredentialNames: readonly string[] };
+type TLaunchMode = { readonly kind: 'plain' } | { readonly kind: 'spawner'; readonly pairTimeoutMs?: number } | { readonly kind: 'forwarded'; readonly spawnerFd: number; readonly closeParent: () => void; readonly prepareEnvironment?: () => Promise<TPreparedForwardedEnvironment> };
+type TLaunchResult = { readonly kind: 'plain' | 'forwarded'; readonly id: string } | ({ readonly kind: 'spawner'; readonly id: string } & ISpawnerPairResult);
+
+/** Start one opt-in supervised runtime without sending credentials through the control channel. */
+export async function launchSupervisedSession(cwd: string, options: ISupervisedLaunchOptions): Promise<string> {
+  const result = await launchRuntime(cwd, options, { kind: 'plain' });
+  return result.id;
+}
+
+/** Start a secure runtime and receive its spawner key over the inherited pair before readiness. */
+export async function launchRuntimeProcess(
+  cwd: string,
+  options: ISupervisedLaunchOptions & { readonly mode: 'spawner'; readonly pairTimeoutMs?: number },
+): Promise<{ readonly id: string } & ISpawnerPairResult> {
+  const result = await launchRuntime(cwd, options, {
+    kind: 'spawner',
+    ...(options.pairTimeoutMs === undefined ? {} : { pairTimeoutMs: options.pairTimeoutMs }),
+  });
+  if (result.kind !== 'spawner') throw new Error('The secure runtime did not complete its spawner exchange.');
+  return result;
+}
+
+/** Forward a desktop spawner's inherited pair without reading or certifying it. */
+export async function launchForwardedRuntime(
+  cwd: string,
+  options: ISupervisedLaunchOptions & { readonly spawnerFd: number; readonly prepareEnvironment?: () => Promise<TPreparedForwardedEnvironment> },
 ): Promise<string> {
+  const fd = options.spawnerFd;
+  if (!Number.isSafeInteger(fd) || fd < 3) throw new Error('The spawner descriptor is invalid.');
+  if (process.platform !== 'win32') {
+    let isSocket = false;
+    try { isSocket = fstatSync(fd, { bigint: true }).isSocket(); } catch { /* Not a live descriptor. */ }
+    if (!isSocket) throw new Error('The spawner descriptor is not a handed-over pair.');
+  }
+  let owned = true;
+  const closeParent = (): void => {
+    if (!owned) return;
+    owned = false;
+    try { closeSync(fd); } catch { /* The descriptor is already closed. */ }
+  };
+  try {
+    const result = await launchRuntime(cwd, options, { kind: 'forwarded', spawnerFd: fd, closeParent, ...(options.prepareEnvironment === undefined ? {} : { prepareEnvironment: options.prepareEnvironment }) });
+    return result.id;
+  } finally {
+    closeParent();
+  }
+}
+
+async function launchRuntime(
+  cwd: string,
+  options: ISupervisedLaunchOptions,
+  mode: TLaunchMode,
+): Promise<TLaunchResult> {
   if (options.name !== undefined && !isSupervisedSessionName(options.name)) {
     throw new Error('Supervised session name is invalid or too long.');
   }
   const transportToken = options.transportToken;
+  if (mode.kind !== 'plain' && (transportToken !== undefined || options.daemon === true || (options.grants?.length ?? 0) > 0)) {
+    throw new Error('A secure runtime cannot start with a plain token, daemon flag or external grants.');
+  }
   if (transportToken !== undefined && !isSupervisedTransportToken(transportToken)) {
     throw new Error('Supervised session transport token is invalid.');
   }
@@ -280,7 +339,7 @@ export async function launchSupervisedSession(
   // #3282 §3: the same env handed to the child — reused to redact its own credential values out of
   // whatever the child echoes back on stderr, in `sanitizeStderrTail`.
   const inheritedEnv = options.env ?? childProductEnvironment(options.productRuntime);
-  const childEnv = transportToken === undefined
+  const childEnv = transportToken === undefined && mode.kind === 'plain'
     ? inheritedEnv
     : withoutTransportTokenNames(inheritedEnv, options.productRuntime.config.identity.envPrefix);
   let child: ChildProcess;
@@ -290,6 +349,8 @@ export async function launchSupervisedSession(
       ...(options.name === undefined ? [] : [`--name=${options.name}`]),
       ...(grants.length > 0 ? ['--supervised-external-event-grants'] : []),
       ...(transportToken === undefined ? [] : [SUPERVISED_TRANSPORT_TOKEN_FLAG]),
+      ...(mode.kind !== 'plain' ? [SUPERVISED_SPAWNER_PAIR_FLAG] : []),
+      ...(mode.kind === 'forwarded' && mode.prepareEnvironment !== undefined ? [FORWARDED_ENVIRONMENT_FLAG] : []),
       ...(options.daemon === true ? ['--daemon'] : []),
       ...(options.restricted === true ? [RESTRICTED_WORKSPACE_FLAG] : []),
       ...(grants.length > 0 && options.eventEndpoint !== undefined
@@ -308,12 +369,14 @@ export async function launchSupervisedSession(
       // #3282 §3: stderr is piped (was 'ignore') so a death before readiness can report why —
       // otherwise discarded exactly as before, and released on every exit path below.
       // The transport token's pipe, when there is one, is the child's descriptor 4.
-      stdio: ['ignore', 'ignore', 'pipe', 'ipc', ...(transportToken === undefined ? [] : ['pipe' as const])],
+      stdio: ['ignore', 'ignore', 'pipe', 'ipc', ...(mode.kind === 'forwarded' ? [mode.spawnerFd] : transportToken === undefined && mode.kind === 'plain' ? [] : ['pipe' as const])],
       env: childEnv,
     }));
   } catch (error) {
     discardHandoff();
     throw error;
+  } finally {
+    if (mode.kind === 'forwarded') mode.closeParent();
   }
   const stderrTail = trackStderrTail(child);
   try {
@@ -325,11 +388,19 @@ export async function launchSupervisedSession(
   }
 
   const tokenPipe = transportToken === undefined ? undefined : child.stdio[SUPERVISED_TRANSPORT_TOKEN_FD];
-  const handedOverSecrets = transportToken === undefined ? [] : [transportToken];
+  const handedOverSecrets = [
+    ...(transportToken === undefined ? [] : [transportToken]),
+    ...(mode.kind === 'spawner' ? Object.values(childEnv).filter((value): value is string => value !== undefined) : []),
+  ];
+  const pairPipe = mode.kind === 'spawner' ? child.stdio[SUPERVISED_TRANSPORT_TOKEN_FD] : undefined;
 
-  return new Promise<string>((resolve, reject) => {
+  return new Promise<TLaunchResult>((resolve, reject) => {
     let done = false;
     let ready = false;
+    let acknowledged = false;
+    let pair: ISpawnerPairResult | undefined;
+    let admissionRequested = false;
+    let admissionSent = false;
     const timer = setTimeout(
       () => failFromChild('Supervised session did not become ready in time.'),
       20_000,
@@ -350,13 +421,18 @@ export async function launchSupervisedSession(
         try {
           child.disconnect();
           child.unref();
-          resolve(id);
+          if (mode.kind !== 'spawner') resolve({ kind: mode.kind, id });
+          else if (pair !== undefined) resolve({ kind: 'spawner', id, ...pair });
+          else reject(new Error('The secure runtime did not complete its spawner exchange.'));
         } catch {
+          pair?.spawnerKey.wipe();
           void terminateFailedStart(child).then(() => reject(new Error('Supervised session could not detach.')));
         }
       } else {
         child.stderr?.destroy();
         if (tokenPipe instanceof Writable) tokenPipe.destroy();
+        if (pairPipe instanceof Duplex) pairPipe.destroy();
+        pair?.spawnerKey.wipe();
         // A child that never read its grants must not leave them behind.
         discardHandoff();
         void terminateFailedStart(child).then((exited) => {
@@ -365,6 +441,22 @@ export async function launchSupervisedSession(
       }
     };
     const fail = (message: string): void => finish({ ok: false, message });
+    const finishWhenReady = (): void => {
+      if (acknowledged && (mode.kind !== 'spawner' || pair !== undefined)) finish({ ok: true });
+    };
+    if (mode.kind === 'spawner') {
+      if (!(pairPipe instanceof Duplex)) fail('Supervised session could not receive its spawner pair.');
+      else {
+        void completeSpawnerPair(pairPipe, mode.pairTimeoutMs === undefined ? {} : { timeoutMs: mode.pairTimeoutMs }).then(
+          (completed) => {
+            if (done) { completed.spawnerKey.wipe(); return; }
+            pair = completed;
+            finishWhenReady();
+          },
+          () => fail('Supervised session could not complete its spawner exchange.'),
+        );
+      }
+    }
     // #3282 §3: these three are generic — "something killed the child before it said why". The
     // child's own stderr tail, when it wrote one, IS why; a fallback text stands in only when it
     // wrote nothing. The handshake's own structured errors below already know their own precise
@@ -393,6 +485,24 @@ export async function launchSupervisedSession(
       }
     }
     child.on('message', (message: unknown) => {
+      if (mode.kind === 'forwarded' && mode.prepareEnvironment !== undefined &&
+          typeof message === 'object' && message !== null && 'kind' in message &&
+          message.kind === 'forwarded-environment-needed' && 'id' in message && message.id === id) {
+        if (admissionRequested || ready) return fail('Supervised session requested admission out of order.');
+        admissionRequested = true;
+        void mode.prepareEnvironment().then(({ environment, availableCredentialNames }) => {
+          if (done) return;
+          const entries = Object.entries(environment).filter((entry): entry is [string, string] => typeof entry[1] === 'string');
+          const accepted = Object.fromEntries(entries);
+          if (Buffer.byteLength(JSON.stringify({ environment: accepted, availableCredentialNames }), 'utf8') > 128 * 1024) return fail('Supervised session admission environment is too large.');
+          handedOverSecrets.push(...entries.map(([, value]) => value));
+          admissionSent = true;
+          child.send({ kind: 'forwarded-environment', id, environment: accepted, availableCredentialNames }, (error) => {
+            if (error) fail('Supervised session admission channel failed.');
+          });
+        }).catch(() => fail('Secure runtime workspace admission failed. Check workspace trust and settings.'));
+        return;
+      }
       if (!isHandshakeMessage(message, id)) return fail('Supervised session sent an invalid readiness message.');
       if (message.kind === 'error') {
         return fail(message.code === 'grant-refused' && typeof message.grant === 'string' &&
@@ -407,6 +517,9 @@ export async function launchSupervisedSession(
                 : 'Supervised session refused to start.');
       }
       if (message.kind === 'ready' && !ready) {
+        if (mode.kind === 'forwarded' && mode.prepareEnvironment !== undefined && !admissionSent) {
+          return fail('Supervised session did not request workspace admission.');
+        }
         if (!sameGrants(message.grants, sentGrantIds)) {
           return fail('Supervised session did not open exactly the external event grants it was given.');
         }
@@ -416,7 +529,10 @@ export async function launchSupervisedSession(
         });
         return;
       }
-      if (message.kind === 'acknowledged' && ready) finish({ ok: true });
+      if (message.kind === 'acknowledged' && ready && !acknowledged) {
+        acknowledged = true;
+        finishWhenReady();
+      }
       else fail('Supervised session sent an out-of-order readiness message.');
     });
   });

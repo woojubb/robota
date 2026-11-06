@@ -130,6 +130,7 @@ function Overlays({ model }: { model: IAppViewModel }): React.ReactElement {
       )}
       {sessionPicker.visible && sessionPicker.pendingAcceptance === undefined && (
         <SessionPicker
+          key={sessionPicker.pickerKey}
           sessions={sessionPicker.sessions}
           onSelect={sessionPicker.select}
           onCancel={sessionPicker.cancel}

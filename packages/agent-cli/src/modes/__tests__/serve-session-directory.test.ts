@@ -121,12 +121,17 @@ function served(
   store: IInteractiveSessionStore,
   build: (resumeSessionId: string | undefined) => TFakeSession = (resumeSessionId) =>
     fakeSession(resumeSessionId ?? 'fresh'),
-  options: { maxLive?: number; stopping?: () => boolean } = {},
+  options: {
+    maxLive?: number;
+    stopping?: () => boolean;
+    buildAccepted?: (id: string, digest: string, signal: AbortSignal) => TFakeSession;
+  } = {},
 ) {
   const buildSession = vi.fn(build);
   const pool = new SessionPool<TFakeSession>({
     primary,
     build: buildSession,
+    ...(options.buildAccepted !== undefined ? { buildAccepted: options.buildAccepted } : {}),
     ...(options.maxLive !== undefined ? { maxLive: options.maxLive } : {}),
   });
   const directory = createServeSessionDirectory<TFakeSession, SessionSlot<TFakeSession>>();
@@ -160,6 +165,83 @@ async function deleteRefusalOf(change: Promise<void>): Promise<TSessionDeleteRef
 }
 
 describe('serve session directory (#3189)', () => {
+  it('offers a safe local terminal remedy before asking about a sandbox snapshot', async () => {
+    const digest = 'a'.repeat(64);
+    const store = storeOf([{
+      id: 'planted',
+      outcome: { status: 'valid', record: { ...record('planted', '2026-09-02T00:00:00Z'), sandboxSnapshotId: 'snapshot' }, authorship: 'unverified', digest },
+    }]);
+    const { directory } = served(fakeSession('primary'), store);
+    const binding = directory.bindOwner('drive');
+    expect(await binding.ownerDirectory.question('planted')).toEqual({
+      kind: 'refused',
+      message: 'This session requires sandbox setup that cannot be cancelled while attached. Review it in a local interactive terminal with --resume and its session ID.',
+    });
+    binding.release();
+  });
+
+  it('cannot use a cancelled answer for a later question about the same bytes', async () => {
+    const digest = 'a'.repeat(64);
+    const store = storeOf([{
+      id: 'planted',
+      outcome: { status: 'valid', record: record('planted', '2026-09-02T00:00:00Z'), authorship: 'unverified', digest },
+    }]);
+    const buildAccepted = vi.fn((id: string) => fakeSession(id));
+    const { directory } = served(fakeSession('primary'), store, undefined, { buildAccepted });
+    const binding = directory.bindOwner('drive');
+    const first = await binding.ownerDirectory.question('planted');
+    binding.ownerDirectory.invalidate();
+    const second = await binding.ownerDirectory.question('planted');
+    if (first.kind !== 'accept' || second.kind !== 'accept') throw new Error('Expected questions');
+    expect(first.questionId).not.toBe(second.questionId);
+    await expect(binding.ownerDirectory.openAccepted('planted', digest, first.questionId, new AbortController().signal)).rejects.toThrow();
+    expect(buildAccepted).not.toHaveBeenCalled();
+    await binding.ownerDirectory.openAccepted('planted', digest, second.questionId, new AbortController().signal);
+    expect(binding.session.current.getSession().getSessionId()).toBe('planted');
+    binding.release();
+  });
+  it('accepts only the exact question for this owner binding, once', async () => {
+    const digest = 'a'.repeat(64);
+    const store = storeOf([{
+      id: 'planted',
+      outcome: { status: 'valid', record: record('planted', '2026-09-02T00:00:00Z'), authorship: 'unverified', digest },
+    }]);
+    const buildAccepted = vi.fn((id: string) => fakeSession(id));
+    const { directory } = served(fakeSession('primary'), store, undefined, { buildAccepted });
+    const binding = directory.bindOwner('drive');
+    const signal = new AbortController().signal;
+
+    const question = await binding.ownerDirectory.question('planted');
+    expect(question).toMatchObject({ kind: 'accept', digest });
+    if (question.kind !== 'accept') throw new Error('Expected owner question');
+    expect(JSON.stringify(question)).not.toContain('reply in planted');
+    const other = directory.bindOwner('drive');
+    await expect(other.ownerDirectory.openAccepted('planted', digest, question.questionId, signal)).rejects.toThrow();
+    other.release();
+    await expect(binding.ownerDirectory.openAccepted('planted', 'b'.repeat(64), question.questionId, signal)).rejects.toThrow();
+    expect(buildAccepted).not.toHaveBeenCalled();
+    await binding.ownerDirectory.openAccepted('planted', digest, question.questionId, signal);
+    expect(binding.session.current.getSession().getSessionId()).toBe('planted');
+    await expect(binding.ownerDirectory.openAccepted('planted', digest, question.questionId, signal)).rejects.toThrow();
+    binding.release();
+  });
+
+  it('invalidates a question when the owner binding ends', async () => {
+    const digest = 'a'.repeat(64);
+    const store = storeOf([{
+      id: 'planted',
+      outcome: { status: 'valid', record: record('planted', '2026-09-02T00:00:00Z'), authorship: 'unverified', digest },
+    }]);
+    const buildAccepted = vi.fn((id: string) => fakeSession(id));
+    const { directory } = served(fakeSession('primary'), store, undefined, { buildAccepted });
+    const binding = directory.bindOwner('drive');
+    const question = await binding.ownerDirectory.question('planted');
+    if (question.kind !== 'accept') throw new Error('Expected owner question');
+    binding.release();
+
+    await expect(binding.ownerDirectory.openAccepted('planted', digest, question.questionId, new AbortController().signal)).rejects.toThrow();
+    expect(buildAccepted).not.toHaveBeenCalled();
+  });
   it("lists this workspace's sessions newest first, which are live, and the unreadable ids", () => {
     const store = storeOf([
       { id: 'old', outcome: { status: 'valid', record: record('old', '2026-09-01T00:00:00Z') } },

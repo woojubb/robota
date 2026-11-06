@@ -7,11 +7,10 @@
  * owner's, or not a file, from being read as one. A refusal names the rule and the path and never
  * quotes the file: a malformed keyring may be anything, including a secret pasted into the wrong place.
  *
- * Every change is made under one lock file beside the keyring, and only to the keyring it was built
- * from: `save` replaces the file only while it still holds `expected`, and `create` only where nothing
- * is. Without that, a repair built on a snapshot taken before a slow unlock could put back a passphrase
- * slot that a concurrent change had just replaced. The lock is held for file work only, never across a
- * key derivation, so a live holder is never waited on for long.
+ * Changes use a lock file beside the keyring. `save` checks the keyring it was built from before
+ * replacement, so it refuses a change it observes after a slow unlock. The check and replacement are
+ * separate: a holder overtaken after its last check, or a writer ignoring the lock, can still replace
+ * a newer keyring. The lock is held only for file work, never across a key derivation.
  *
  * The lock names its holder by host, boot and (on Linux) pid namespace as well as pid, because the
  * home directory may be shared by other machines or containers whose pids mean nothing here. A pid is
@@ -158,11 +157,11 @@ export interface IKeyringStore {
   readonly path: string;
   /** Reads and parses the keyring, tightening a group- or world-readable mode first. */
   load(): TKeyringLoadResult;
-  /** Writes `keyring` where there is none yet; `exists` when one is already there, which is left alone. */
+  /** Creates a keyring if absent; without hard links, the absence check and rename can race. */
   create(keyring: IKeyring): void;
   /**
-   * Replaces the keyring with `keyring`, but only while the file still holds `expected`, the keyring
-   * the change was built from; `changed` otherwise. Durable, atomic, and read back to confirm.
+   * Checks `expected` before replacing the keyring; an observed mismatch reports `changed`. The
+   * check and atomic replacement are separate, and the result is read back to confirm the write.
    */
   save(keyring: IKeyring, expected: IKeyring): void;
   /** The path's current state, for a report; it neither tightens nor reads. */
@@ -744,9 +743,8 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
     underLock((token) => {
       assertUnchanged();
       try {
-        // Checked again right before the rename: a writer that took over a lock this one held past
-        // the stale bound has changed the file by then, and that is reported as `changed`, not
-        // overwritten.
+        // Check again before the rename to refuse changes already visible at that point. A writer
+        // that takes the lock after this check can still race the replacement.
         commit(document, token, 'replace', assertUnchanged);
       } catch (error) {
         // A write that failed for want of the lock or of its temp file (which the writer that took

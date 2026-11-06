@@ -47,6 +47,9 @@ import type { TAttachedAppRender } from '../session-inventory/session-attach-com
 import type { ISessionViewCommandOptions } from '../session-inventory/session-view-command.js';
 import { validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
 import { runSecureCommand } from '../secure/secure-command.js';
+import { productSecureMode } from '../product/session-sealing.js';
+import { startSecureBackground } from '../session-inventory/secure-background-start.js';
+import { secureOwnerControl } from '../session-inventory/secure-owner-control.js';
 import { runUsageCommand } from '../usage/usage-command.js';
 import { runUsageExportCommand } from '../usage/usage-export-command.js';
 import { subcommandHelpFor } from '../utils/cli-help.js';
@@ -300,6 +303,11 @@ export async function runPreparsedCliCommand(
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'events') {
+    if (productSecureMode(productRuntime)) {
+      process.stderr.write('External event management is not available in secure mode.\n');
+      process.exitCode = 1;
+      return true;
+    }
     process.exitCode = await runSessionEventsCommand(
       argv.slice(SUBCOMMAND_ARGUMENT_INDEX),
       supervisedRoot,
@@ -320,7 +328,10 @@ export async function runPreparsedCliCommand(
     }
     try {
       const id = argv[SUBCOMMAND_ARGUMENT_INDEX]!;
-      await renameSupervisedSession(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!, supervisedRoot);
+      if (productSecureMode(productRuntime)) {
+        const result = await secureOwnerControl({ productRuntime, root: supervisedRoot, id, command: 'rename', fields: { name: argv[SUBCOMMAND_ARGUMENT_INDEX + 1]! } });
+        if (result.status !== 'renamed') throw new Error('The secure runtime did not confirm rename.');
+      } else await renameSupervisedSession(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!, supervisedRoot);
       process.stdout.write(`Renamed supervised session ${id}.\n`);
       process.exitCode = 0;
     } catch (error) {
@@ -344,7 +355,10 @@ export async function runPreparsedCliCommand(
     }
     try {
       const id = argv[SUBCOMMAND_ARGUMENT_INDEX]!;
-      await linkSupervisedPr(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!, supervisedRoot);
+      if (productSecureMode(productRuntime)) {
+        const result = await secureOwnerControl({ productRuntime, root: supervisedRoot, id, command: 'link-pr', fields: { url: argv[SUBCOMMAND_ARGUMENT_INDEX + 1]! } });
+        if (result.status !== 'linked') throw new Error('The secure runtime did not confirm the PR link.');
+      } else await linkSupervisedPr(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!, supervisedRoot);
       process.stdout.write(`Linked PR to supervised session ${id}.\n`);
       process.exitCode = 0;
     } catch (error) {
@@ -365,7 +379,10 @@ export async function runPreparsedCliCommand(
     }
     try {
       const id = argv[SUBCOMMAND_ARGUMENT_INDEX]!;
-      await unlinkSupervisedPr(id, supervisedRoot);
+      if (productSecureMode(productRuntime)) {
+        const result = await secureOwnerControl({ productRuntime, root: supervisedRoot, id, command: 'unlink-pr', fields: {} });
+        if (result.status !== 'unlinked') throw new Error('The secure runtime did not confirm PR unlink.');
+      } else await unlinkSupervisedPr(id, supervisedRoot);
       process.stdout.write(`Unlinked PR from supervised session ${id}.\n`);
       process.exitCode = 0;
     } catch (error) {
@@ -431,10 +448,13 @@ export async function runPreparsedCliCommand(
               : access,
           }).settingsSources,
         );
+        if (productSecureMode(productRuntime)) {
+          return (await startSecureBackground(targetCwd, {
+            productRuntime, env: supervisedEnv(targetCwd), ...(restricted ? { restricted: true } : {}),
+          })).id;
+        }
         return launchSupervisedSession(targetCwd, {
-          productRuntime,
-          env: supervisedEnv(targetCwd),
-          ...(restricted ? { restricted: true } : {}),
+          productRuntime, env: supervisedEnv(targetCwd), ...(restricted ? { restricted: true } : {}),
         });
       },
     });
@@ -590,6 +610,11 @@ export async function runPreparsedCliCommand(
       process.exitCode = 1;
       return true;
     }
+    if (productSecureMode(productRuntime) && (start.grantFiles.length > 0 || start.port !== undefined || start.trustedProxies.length > 0)) {
+      process.stderr.write('External event grants are not available in secure mode.\n');
+      process.exitCode = 1;
+      return true;
+    }
     // Every grant is validated before anything starts; a refusal names the grant, never a value.
     let grants: IExternalEventGrant[];
     let eventEndpoint: ReturnType<typeof parseEventEndpoint>;
@@ -638,13 +663,17 @@ export async function runPreparsedCliCommand(
           }).settingsSources,
         );
       }
-      const id = await launchSupervisedSession(cwd, {
-        productRuntime,
-        env: supervisedEnv(),
-        ...(start.name !== undefined ? { name: start.name } : {}),
-        ...(start.restricted ? { restricted: true } : {}),
-        ...(grants.length > 0 && eventEndpoint !== undefined ? { grants, eventEndpoint } : {}),
-      });
+      const id = productSecureMode(productRuntime)
+        ? (await startSecureBackground(cwd, { productRuntime, env: supervisedEnv(),
+            ...(start.name !== undefined ? { name: start.name } : {}),
+            ...(start.restricted ? { restricted: true } : {}) })).id
+        : await launchSupervisedSession(cwd, {
+            productRuntime,
+            env: supervisedEnv(),
+            ...(start.name !== undefined ? { name: start.name } : {}),
+            ...(start.restricted ? { restricted: true } : {}),
+            ...(grants.length > 0 && eventEndpoint !== undefined ? { grants, eventEndpoint } : {}),
+          });
       process.stdout.write(`Supervised session: ${id}\n`);
     } catch (error) {
       process.stderr.write(

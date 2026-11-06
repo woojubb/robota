@@ -8,6 +8,7 @@
  * standing when the link is admitted, and decide what that standing may do: this package carries
  * requests, it does not grant them.
  */
+import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface-session';
 import type { IReadKeys, ITrustRoot } from '@robota-sdk/agent-keyring';
 
 /** What a client may ask a runtime to lock for; idle and last-link-closed are the runtime's own. */
@@ -25,21 +26,6 @@ export interface IRuntimeCustodyState {
   /** Whether owner links are possible: a spawner installed a trust root. */
   readonly certified: boolean;
 }
-
-/**
- * The runtime's answer to "may I open this session?". `accept` asks the owner, on a surface that
- * shows the fixed `notice` and `question` and never the record, and `digest` binds the answer to
- * the bytes the runtime read.
- */
-export type TOwnerSessionQuestion =
-  | { readonly kind: 'open' }
-  | {
-      readonly kind: 'accept';
-      readonly digest: string;
-      readonly notice: string;
-      readonly question: string;
-    }
-  | { readonly kind: 'refused'; readonly message: string };
 
 /** One of the runtime's existing control commands, carried inside the link. */
 export interface IOwnerControlRequest {
@@ -77,7 +63,8 @@ export interface IOwnerLinkDesk {
 /** The runtime's session decisions for one admitted link. */
 export interface IOwnerLinkSessions {
   question(sessionId: string): TOwnerSessionQuestion | Promise<TOwnerSessionQuestion>;
-  openAccepted(sessionId: string, acceptedDigest: string): void | Promise<void>;
+  cancelQuestion(): void | Promise<void>;
+  openAccepted(bindingId: string, sessionId: string, acceptedDigest: string, questionId: string): void | Promise<void>;
 }
 
 /** Where the session protocol of an admitted link goes: one serialized client message at a time. */

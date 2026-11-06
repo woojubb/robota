@@ -153,7 +153,8 @@ export class SessionRecordClaim {
     try {
       assertClaimedOutcomeAccepted(id, claim.outcome, this.#acceptedDigest);
     } catch (error) {
-      claim.release();
+      if (claim.discard !== undefined) claim.discard();
+      else claim.release();
       throw error;
     }
     const outcome = claim.outcome;
@@ -167,6 +168,17 @@ export class SessionRecordClaim {
       this.#toAdopt = { id, digest: outcome.digest };
     }
     return outcome;
+  }
+
+  /** A decision held across initialization still names the current on-disk bytes at commit. */
+  assertAcceptedStillCurrent(): void {
+    const id = this.#claimedId;
+    const accepted = this.#acceptedDigest;
+    if (id === undefined || accepted === undefined) return;
+    const current = this.#store.load(id);
+    if (current.status !== 'valid' || current.diverged === true || current.digest !== accepted) {
+      throw new SessionAuthorshipRefusedError(id, 'changed-since-accepted');
+    }
   }
 
   /**
@@ -258,9 +270,18 @@ export class SessionRecordClaim {
    * failed earlier is tried once more.
    */
   end(): void {
+    this.#end(false);
+  }
+
+  /** An uncommitted owner decision must not keep the abandoned record's held plaintext. */
+  discard(): void {
+    this.#end(true);
+  }
+
+  #end(discard: boolean): void {
     if (this.#ended) return;
     const id = this.#claimedId;
-    if (id !== undefined && this.#claim !== undefined) {
+    if (!discard && id !== undefined && this.#claim !== undefined) {
       if (this.#refusal === 'locked') this.#saveCopy(id, 'locked', true);
       else if (this.#refusal === 'changed' && this.#copy === 'owed') {
         this.#saveCopy(id, 'changed', true);
@@ -270,7 +291,8 @@ export class SessionRecordClaim {
     this.#stopWaitingForUnlock();
     this.#source?.release();
     this.#source = undefined;
-    this.#claim?.release();
+    if (discard && this.#claim?.discard !== undefined) this.#claim.discard();
+    else this.#claim?.release();
   }
 
   /** What a save of `id` carries: the claim, and that the content is the owner's, for its own id only. */

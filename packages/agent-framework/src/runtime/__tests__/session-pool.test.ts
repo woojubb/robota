@@ -84,6 +84,130 @@ describe('SessionPool (#3189)', () => {
     vi.useRealTimers();
   });
 
+  it('does not share an accepted build with an ordinary acquire', async () => {
+    const ready = deferred();
+    const accepted = poolSession('s-accepted', ready.promise);
+    const buildAccepted = vi.fn(() => accepted);
+    const { pool } = createPool({ buildAccepted });
+    const controller = new AbortController();
+    const opening = pool.acquireAccepted('s-accepted', 'a'.repeat(64), controller.signal);
+    await flush();
+
+    await expect(pool.acquire('s-accepted')).rejects.toMatchObject({ code: 'in_progress' });
+    ready.resolve();
+    const lease = await opening;
+    expect(lease.session).toBe(accepted);
+    expect(buildAccepted).toHaveBeenCalledTimes(1);
+    lease.cancel();
+  });
+
+  it('keeps a ready accepted lease private until its owner binding moves', async () => {
+    const session = poolSession('s-accepted');
+    const { pool } = createPool({ buildAccepted: () => session });
+    const owner = pool.bind('drive');
+    const lease = await pool.acquireAccepted('s-accepted', 'a'.repeat(64), new AbortController().signal);
+
+    expect(pool.listLive().some((entry) => entry.sessionId === 's-accepted')).toBe(false);
+    await expect(pool.acquire('s-accepted')).rejects.toMatchObject({ code: 'in_progress' });
+    owner.moveTo(lease);
+    const ordinary = await pool.acquire('s-accepted');
+    expect(ordinary.session).toBe(session);
+    ordinary.cancel();
+    owner.release();
+  });
+
+  it('activates an accepted session before telling the moved binding', async () => {
+    const commitAcceptedAdmission = vi.fn();
+    const session = Object.assign(poolSession('s-accepted'), { commitAcceptedAdmission });
+    const { pool } = createPool({ buildAccepted: () => session });
+    const owner = pool.bind('drive');
+    owner.slot.on('session_switched', () => {
+      expect(commitAcceptedAdmission).toHaveBeenCalledOnce();
+      expect(pool.listLive().some((entry) => entry.sessionId === 's-accepted')).toBe(true);
+    });
+    const lease = await pool.acquireAccepted('s-accepted', 'a'.repeat(64), new AbortController().signal);
+    expect(commitAcceptedAdmission).not.toHaveBeenCalled();
+    owner.moveTo(lease);
+    expect(owner.slot.current).toBe(session);
+    owner.release();
+  });
+
+  it('returns the owner to its original session if acceptance activation fails', async () => {
+    const commitAcceptedAdmission = vi.fn(() => { throw new Error('decision expired'); });
+    const discardAcceptedAdmission = vi.fn();
+    const session = Object.assign(poolSession('s-accepted'), { commitAcceptedAdmission, discardAcceptedAdmission });
+    const { pool, primary } = createPool({ buildAccepted: () => session });
+    const owner = pool.bind('drive');
+    const lease = await pool.acquireAccepted('s-accepted', 'a'.repeat(64), new AbortController().signal);
+    expect(() => owner.moveTo(lease)).toThrow('decision expired');
+    expect(owner.slot.current).toBe(primary);
+    expect(discardAcceptedAdmission).toHaveBeenCalledOnce();
+    expect(session.shutdown).toHaveBeenCalledOnce();
+    expect(pool.listLive().some((entry) => entry.sessionId === 's-accepted')).toBe(false);
+    owner.release();
+  });
+
+  it('closes a cancelled ready accepted lease without ever sharing it', async () => {
+    const session = poolSession('s-accepted');
+    const { pool } = createPool({ buildAccepted: () => session });
+    const lease = await pool.acquireAccepted('s-accepted', 'a'.repeat(64), new AbortController().signal);
+    await expect(pool.acquire('s-accepted')).rejects.toMatchObject({ code: 'in_progress' });
+    lease.cancel();
+    expect(session.shutdown).toHaveBeenCalledTimes(1);
+    expect(pool.listLive().some((entry) => entry.sessionId === 's-accepted')).toBe(false);
+  });
+
+  it('cancels before a delayed primary names itself without starting an accepted build', async () => {
+    const primaryReady = deferred();
+    const primary = poolSession('primary', primaryReady.promise);
+    primary.getSession = () => { throw new Error('not initialized'); };
+    const buildAccepted = vi.fn(() => poolSession('s-accepted'));
+    const pool = new SessionPool({ primary, build: () => poolSession('other'), buildAccepted });
+    const controller = new AbortController();
+    const outcomes: string[] = [];
+    const opening = pool.acquireAccepted('s-accepted', 'a'.repeat(64), controller.signal)
+      .then(() => outcomes.push('opened'), () => outcomes.push('refused'));
+    await flush();
+    controller.abort();
+    await flush();
+    const outcomesBeforeReady = [...outcomes];
+    primaryReady.resolve();
+    await opening;
+    expect(outcomesBeforeReady).toEqual(['refused']);
+    expect(buildAccepted).not.toHaveBeenCalled();
+  });
+
+  it('refuses acceptance while an ordinary build for that id is in flight', async () => {
+    const ready = deferred();
+    const build = vi.fn((id?: string) => poolSession(id ?? 'fresh', ready.promise));
+    const buildAccepted = vi.fn(() => poolSession('s-accepted'));
+    const { pool } = createPool({ build, buildAccepted });
+    const opening = pool.acquire('s-accepted');
+    await flush();
+
+    await expect(pool.acquireAccepted('s-accepted', 'a'.repeat(64), new AbortController().signal))
+      .rejects.toMatchObject({ code: 'in_progress' });
+    expect(buildAccepted).not.toHaveBeenCalled();
+    ready.resolve();
+    (await opening).cancel();
+  });
+
+  it('shuts an accepted build down when its owner cancels before initialization', async () => {
+    const ready = deferred();
+    const session = poolSession('s-accepted', ready.promise);
+    const { pool } = createPool({ buildAccepted: () => session });
+    const controller = new AbortController();
+    const opening = pool.acquireAccepted('s-accepted', 'a'.repeat(64), controller.signal);
+    const outcome = opening.then(() => 'opened', () => 'refused');
+    await flush();
+    controller.abort();
+    await flush();
+    expect(session.shutdown).toHaveBeenCalledTimes(1);
+    ready.resolve();
+    expect(await outcome).toBe('refused');
+    expect(pool.listLive().some((row) => row.sessionId === 's-accepted')).toBe(false);
+  });
+
   it('starts every binding on the primary and counts its clients and drivers', () => {
     const { pool, primary } = createPool();
     const driver = pool.bind('drive');

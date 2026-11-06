@@ -138,6 +138,7 @@ export function projectSessionClaimsDirectory(sessions: IWorkspaceProjectStateSt
 
 /** Project session record adapter backed only by runtime-minted state facets. */
 export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
+  readonly supportsClaimDiscard = true as const;
   private readonly sessions: IWorkspaceProjectStateStorage;
   private readonly logs: IWorkspaceProjectStateStorage;
   /** How this store keeps what it writes; its replay logs are read with the same sealing. */

@@ -408,6 +408,8 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
   ['get-history from a fractional index', { type: 'get-history', fromIndex: 1.5 }],
   ['command with an empty requestId', { type: 'command', name: 'n', requestId: '' }],
   ['switch-session with an empty sessionId', { type: 'switch-session', sessionId: '' }],
+  ['switch-session with owner acceptance', { type: 'switch-session', sessionId: 's', acceptedDigest: 'a'.repeat(64) }],
+  ['switch-session with an owner digest', { type: 'switch-session', sessionId: 's', digest: 'a'.repeat(64) }],
   [
     'switch-session with a numeric requestId',
     { type: 'switch-session', sessionId: 's', requestId: 1 },

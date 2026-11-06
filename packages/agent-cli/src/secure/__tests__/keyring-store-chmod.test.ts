@@ -34,7 +34,7 @@ vi.mock('node:fs', async (importOriginal) => {
   };
 });
 
-const { createKeyringFileStore } = await import('../keyring-store.js');
+const { createKeyringFileStore } = await import('@robota-sdk/agent-local-host');
 
 let root: string;
 

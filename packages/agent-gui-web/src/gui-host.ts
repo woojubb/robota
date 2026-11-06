@@ -9,6 +9,8 @@
 
 import { readInjectedWsUrl, resolveWsUrl } from './ws-url.js';
 
+import type { TMakeSessionClient } from '@robota-sdk/agent-ui-web/client';
+
 /** The runtime's state as the desktop host reports it. A browser host has no process to report. */
 export type TGuiHostState = 'starting' | 'ready' | 'fatal';
 
@@ -52,6 +54,8 @@ export interface IDesktopBridge {
 
 export interface IGuiHost {
   readonly kind: 'desktop' | 'browser';
+  /** A host-injected session transport; each invocation must acquire a fresh admitted channel. */
+  readonly makeSessionClient?: TMakeSessionClient;
   /** The runtime's WebSocket URL, token included. */
   getEndpoint(): Promise<string | null>;
   /** The session is live. */

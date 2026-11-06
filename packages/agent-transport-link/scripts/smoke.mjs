@@ -2,7 +2,9 @@
 // runtime, then an owner link unlocks it with a read grant and carries a session frame each way.
 // Run under both runtimes: `node scripts/smoke.mjs` and `bun scripts/smoke.mjs`.
 import assert from 'node:assert/strict';
+import { spawn, spawnSync } from 'node:child_process';
 import { createServer, connect } from 'node:net';
+import { fileURLToPath } from 'node:url';
 
 import {
   createKeyring,
@@ -104,6 +106,21 @@ assert.deepEqual(heard[0], { type: 'text_delta', delta: 'hi' });
 await owner.lock('explicit');
 owner.close();
 await owner.closed;
+
+// The spawner pair between real processes, with this runtime as the one that answers: a Node spawner
+// (see smoke-pair-spawner.mjs) starts it with a pipe at descriptor 4. On Bun and on Windows this is
+// the first measurement of that pipe, read and written by the child.
+const pairRun = spawnSync(
+  'node',
+  [fileURLToPath(new URL('./smoke-pair-spawner.mjs', import.meta.url)), process.execPath],
+  { stdio: 'inherit', timeout: 120_000 },
+);
+assert.equal(pairRun.status, 0, 'the spawner pair between real processes');
+// Informational: whether this runtime, as a spawner, is given a stream for an extra pipe. The
+// product's launcher needs one (`child.stdio[4]`) to hand a runtime its pair or its token.
+const probe = spawn(process.execPath, ['-e', ''], { stdio: ['ignore', 'ignore', 'ignore', 'ignore', 'pipe'] });
+console.log(`spawner side on ${runtime}: child.stdio[4] is ${probe.stdio[4] === null ? 'null' : 'a stream'}`);
+probe.kill();
 
 granted[0].lock();
 created.unlocked.lock();

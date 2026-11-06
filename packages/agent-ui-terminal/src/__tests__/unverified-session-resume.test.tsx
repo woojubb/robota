@@ -23,6 +23,7 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import App from '../App.js';
+import { localPickerDecisions } from '../session-picker-decisions.js';
 
 import type { ITuiAppChannelPort, ITuiChannelSnapshot } from '../tui-app-channel-port.js';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
@@ -31,6 +32,7 @@ import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   ISessionListingEntry,
+  IOwnerSessionDirectory,
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
 
@@ -44,6 +46,7 @@ const ENTER = '\r';
 const VERIFIED_ID = 'session_11111111-aaaa';
 const UNVERIFIED_ID = 'session_22222222-bbbb';
 const DIGEST = 'ab'.repeat(32);
+const QUESTION_ID = 'question-1';
 
 const OWN_NAME = 'OWN-NAME';
 // Everything an unverified record says about itself, which must never reach the person before they decide.
@@ -77,9 +80,11 @@ interface IFakeChannel extends ITuiAppChannelPort {
   readonly said: () => string[];
   /** The operator runs `/resume`. */
   readonly openResumePicker: () => void;
+  readonly setHostSessions: (sessions: readonly ISessionListingEntry[]) => void;
 }
 
 function fakeChannel(hostSessions?: readonly ISessionListingEntry[]): IFakeChannel {
+  let currentHostSessions = hostSessions;
   let history: readonly IHistoryEntry[] = [];
   const listeners = new Set<() => void>();
   const intentHandlers = new Set<(event: unknown) => void>();
@@ -108,7 +113,7 @@ function fakeChannel(hostSessions?: readonly ISessionListingEntry[]): IFakeChann
     permissionRequest: null,
     pendingUserAction: null,
     contextState: { percentage: 0, usedTokens: 0, maxTokens: 0 },
-    ...(hostSessions === undefined ? {} : { hostSessions }),
+    ...(currentHostSessions === undefined ? {} : { hostSessions: currentHostSessions }),
   });
   const idle = vi.fn(async () => undefined);
   return {
@@ -139,6 +144,10 @@ function fakeChannel(hostSessions?: readonly ISessionListingEntry[]): IFakeChann
     sendAgentJob: idle,
     resolveUserAction: vi.fn(),
     said: () => history.map((entry) => JSON.stringify(entry)),
+    setHostSessions: (sessions) => {
+      currentHostSessions = sessions;
+      for (const listener of [...listeners]) listener();
+    },
     openResumePicker: () => {
       for (const handler of [...intentHandlers]) {
         handler({ intent: { type: 'show-session-picker' }, requesterDriverId: 'owner' });
@@ -238,6 +247,8 @@ describe('resuming an unverified record from the picker', () => {
   function openPicker(
     store: IInteractiveSessionStore,
     requestSessionSwitch?: (sessionId: string) => Promise<void>,
+    ownerSessions?: IOwnerSessionDirectory,
+    onOwnerInvalidated?: (listener: () => void) => () => void,
   ): TView {
     return render(
       <App
@@ -246,6 +257,8 @@ describe('resuming an unverified record from the picker', () => {
         sessionStore={store}
         showSessionPickerOnStart
         {...(requestSessionSwitch === undefined ? {} : { requestSessionSwitch })}
+        {...(ownerSessions === undefined ? {} : { ownerSessions })}
+        {...(onOwnerInvalidated === undefined ? {} : { onOwnerInvalidated })}
         cliAdapter={cliAdapter(join(cwd, 'settings.json'))}
       />,
     );
@@ -527,6 +540,234 @@ describe('resuming an unverified record from the picker', () => {
     expect(store.load).not.toHaveBeenCalled();
     expect(store.adopt).not.toHaveBeenCalled();
     expect(createChannel).toHaveBeenCalledTimes(1);
+  });
+
+  it('asks a secure owner in fixed words and sends acceptance only through the owner port', async () => {
+    hostSessions = [{ id: UNVERIFIED_ID, name: PLANTED_NAME, cwd, updatedAt: '2026-09-07T00:00:00.000Z', messageCount: 2, preview: PLANTED_PREVIEW, authorship: 'unverified' }];
+    const requestSessionSwitch = vi.fn(async () => undefined);
+    const ownerSessions: IOwnerSessionDirectory = {
+      question: vi.fn(async () => ({ kind: 'accept' as const, digest: DIGEST, questionId: QUESTION_ID, notice: 'PLANTED-NOTICE', question: 'PLANTED-QUESTION' })),
+      openAccepted: vi.fn(async () => undefined),
+      cancelQuestion: vi.fn(async () => undefined),
+    };
+    const view = openPicker(sealingStore(cwd), requestSessionSwitch, ownerSessions);
+    await pickerShown(view);
+    view.stdin.write(ENTER);
+    const frame = await questionShown(view);
+    expect(words(frame)).toContain(words(unverifiedSessionNotice(UNVERIFIED_ID)));
+    expect(frame).not.toContain('PLANTED-NOTICE');
+    expect(frame).not.toContain('PLANTED-QUESTION');
+    expect(frame).toContain('> No');
+    view.stdin.write('y');
+    await waitFor(() => vi.mocked(ownerSessions.openAccepted).mock.calls.length === 1, () => view.lastFrame() ?? '<none>');
+    expect(ownerSessions.openAccepted).toHaveBeenCalledWith(UNVERIFIED_ID, DIGEST, QUESTION_ID);
+    expect(requestSessionSwitch).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('discards a late owner question after the picker is cancelled', async () => {
+    hostSessions = [{ id: UNVERIFIED_ID, cwd, updatedAt: '2026-09-07T00:00:00.000Z', messageCount: 0, preview: '', authorship: 'unverified' }];
+    let reply!: (value: Awaited<ReturnType<IOwnerSessionDirectory['question']>>) => void;
+    const ownerSessions = {
+      question: () => new Promise<Awaited<ReturnType<IOwnerSessionDirectory['question']>>>((resolve) => { reply = resolve; }),
+      openAccepted: vi.fn(),
+      cancelQuestion: vi.fn(async () => undefined),
+    };
+    const requestSessionSwitch = vi.fn(async () => undefined);
+    const view = openPicker(sealingStore(cwd), requestSessionSwitch, ownerSessions);
+    await pickerShown(view);
+    view.stdin.write(ENTER);
+    await tick();
+    view.stdin.write('\u001b');
+    await saidInTranscript(view, 'Session resume cancelled.');
+    expect(ownerSessions.cancelQuestion).toHaveBeenCalledOnce();
+    reply({ kind: 'open' });
+    await tick();
+    expect(requestSessionSwitch).not.toHaveBeenCalled();
+    expect(ownerSessions.openAccepted).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it.each([
+    { kind: 'open' as const },
+    { kind: 'accept' as const, digest: DIGEST, questionId: QUESTION_ID, notice: 'untrusted', question: 'untrusted' },
+  ])('discards an earlier $kind answer after the person selects another session', async (lateReply) => {
+    hostSessions = [VERIFIED_ID, UNVERIFIED_ID].map((id) => ({ id, cwd, updatedAt: '2026-09-07T00:00:00.000Z', messageCount: 0, preview: '' }));
+    let firstReply!: (value: Awaited<ReturnType<IOwnerSessionDirectory['question']>>) => void;
+    let finishCancel!: () => void;
+    const ownerSessions = {
+      question: vi.fn((id: string) => id === VERIFIED_ID
+        ? new Promise<Awaited<ReturnType<IOwnerSessionDirectory['question']>>>((resolve) => { firstReply = resolve; })
+        : Promise.resolve({ kind: 'open' as const })),
+      openAccepted: vi.fn(),
+      cancelQuestion: vi.fn(() => new Promise<void>((resolve) => { finishCancel = resolve; })),
+    };
+    const requestSessionSwitch = vi.fn(async () => undefined);
+    const view = openPicker(sealingStore(cwd), requestSessionSwitch, ownerSessions);
+    await pickerShown(view);
+    view.stdin.write(ENTER);
+    await tick();
+    view.stdin.write(DOWN);
+    await tick();
+    view.stdin.write(ENTER);
+    await waitFor(() => requestSessionSwitch.mock.calls.length === 1, () => view.lastFrame() ?? '<none>');
+    expect(ownerSessions.cancelQuestion).toHaveBeenCalledOnce();
+    expect(ownerSessions.question.mock.invocationCallOrder[0]).toBeLessThan(ownerSessions.cancelQuestion.mock.invocationCallOrder[0]!);
+    expect(ownerSessions.cancelQuestion.mock.invocationCallOrder[0]).toBeLessThan(ownerSessions.question.mock.invocationCallOrder[1]!);
+    firstReply(lateReply);
+    finishCancel();
+    await tick();
+    expect(requestSessionSwitch).toHaveBeenCalledExactlyOnceWith(UNVERIFIED_ID);
+    expect(ownerSessions.openAccepted).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('does not send owner acceptance when the default No is chosen', async () => {
+    hostSessions = [{ id: UNVERIFIED_ID, cwd, updatedAt: '2026-09-07T00:00:00.000Z', messageCount: 0, preview: '', authorship: 'unverified' }];
+    const ownerSessions = {
+      question: async () => ({ kind: 'accept' as const, digest: DIGEST, questionId: QUESTION_ID, notice: '', question: '' }),
+      openAccepted: vi.fn(),
+      cancelQuestion: vi.fn(async () => undefined),
+    };
+    const view = openPicker(sealingStore(cwd), vi.fn(async () => undefined), ownerSessions);
+    await pickerShown(view);
+    view.stdin.write(ENTER);
+    await questionShown(view);
+    view.stdin.write(ENTER);
+    await saidInTranscript(view, 'Session resume cancelled.');
+    expect(ownerSessions.cancelQuestion).toHaveBeenCalledOnce();
+    expect(ownerSessions.openAccepted).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('cancels the issued owner question when the view unmounts', async () => {
+    hostSessions = [{ id: UNVERIFIED_ID, cwd, updatedAt: '2026-09-07T00:00:00.000Z', messageCount: 0, preview: '', authorship: 'unverified' }];
+    const ownerSessions = {
+      question: async () => ({ kind: 'accept' as const, digest: DIGEST, questionId: QUESTION_ID, notice: '', question: '' }),
+      openAccepted: vi.fn(),
+      cancelQuestion: vi.fn(async () => undefined),
+    };
+    const view = openPicker(sealingStore(cwd), vi.fn(async () => undefined), ownerSessions);
+    await pickerShown(view);
+    view.stdin.write(ENTER);
+    await questionShown(view);
+    view.unmount();
+    await waitFor(() => ownerSessions.cancelQuestion.mock.calls.length === 1, () => 'owner question was not cancelled');
+  });
+
+  it('refuses an unsafe session id without displaying it or sending an owner question', async () => {
+    const unsafeId = 'session_\u001b[2Jbad';
+    hostSessions = [{ id: unsafeId, name: 'unsafe', cwd, updatedAt: '2026-09-07T00:00:00.000Z', messageCount: 0, preview: '', authorship: 'unverified' }];
+    const ownerSessions: IOwnerSessionDirectory = { question: vi.fn(), openAccepted: vi.fn(), cancelQuestion: vi.fn() };
+    const requestSessionSwitch = vi.fn(async () => undefined);
+    const view = openPicker(sealingStore(cwd), requestSessionSwitch, ownerSessions);
+    await pickerShown(view);
+    view.stdin.write(ENTER);
+    await saidInTranscript(view, 'The session could not be resumed.');
+    expect(ownerSessions.question).not.toHaveBeenCalled();
+    expect(requestSessionSwitch).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('withdraws the question when the owner link locks or closes', async () => {
+    hostSessions = [{ id: UNVERIFIED_ID, cwd, updatedAt: '2026-09-07T00:00:00.000Z', messageCount: 0, preview: '', authorship: 'unverified' }];
+    const ownerSessions: IOwnerSessionDirectory = {
+      question: async () => ({ kind: 'accept', digest: DIGEST, questionId: QUESTION_ID, notice: '', question: '' }),
+      openAccepted: vi.fn(),
+      cancelQuestion: vi.fn(),
+    };
+    let invalidate!: () => void;
+    const view = openPicker(sealingStore(cwd), vi.fn(async () => undefined), ownerSessions,
+      (listener) => { invalidate = listener; return () => undefined; });
+    await pickerShown(view);
+    view.stdin.write(ENTER);
+    await questionShown(view);
+    invalidate();
+    await waitFor(() => !(view.lastFrame() ?? '').includes(UNVERIFIED_SESSION_QUESTION), () => view.lastFrame() ?? '<none>');
+    view.stdin.write('y');
+    await tick();
+    expect(ownerSessions.openAccepted).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('withdraws an earlier question when the owner connection changes', async () => {
+    hostSessions = [{ id: UNVERIFIED_ID, cwd, updatedAt: '2026-09-07T00:00:00.000Z', messageCount: 0, preview: '', authorship: 'unverified' }];
+    const original: IOwnerSessionDirectory = {
+      question: async () => ({ kind: 'accept', digest: DIGEST, questionId: QUESTION_ID, notice: '', question: '' }),
+      cancelQuestion: vi.fn(),
+      openAccepted: vi.fn(),
+    };
+    const replacement: IOwnerSessionDirectory = { question: vi.fn(), cancelQuestion: vi.fn(), openAccepted: vi.fn() };
+    const store = sealingStore(cwd);
+    const requestSessionSwitch = vi.fn(async () => undefined);
+    const view = openPicker(store, requestSessionSwitch, original);
+    await pickerShown(view);
+    view.stdin.write(ENTER);
+    await questionShown(view);
+    view.rerender(<App cwd={cwd} createChannel={createChannel} sessionStore={store} showSessionPickerOnStart requestSessionSwitch={requestSessionSwitch} ownerSessions={replacement} cliAdapter={cliAdapter(join(cwd, 'settings.json'))} />);
+    await tick();
+    expect(original.cancelQuestion).toHaveBeenCalledOnce();
+    expect(view.lastFrame()).not.toContain(UNVERIFIED_SESSION_QUESTION);
+    view.stdin.write('y');
+    await tick();
+    expect(original.openAccepted).not.toHaveBeenCalled();
+    expect(replacement.openAccepted).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('withdraws a local question when the session store changes', async () => {
+    const firstStore = sealingStore(cwd);
+    const secondStore = sealingStore(cwd);
+    const view = openPicker(firstStore);
+    await pickerShown(view);
+    await pickUnverified(view);
+    await questionShown(view);
+    view.rerender(<App cwd={cwd} createChannel={createChannel} sessionStore={secondStore} showSessionPickerOnStart cliAdapter={cliAdapter(join(cwd, 'settings.json'))} />);
+    await tick();
+    expect(view.lastFrame()).not.toContain(UNVERIFIED_SESSION_QUESTION);
+    view.stdin.write('y');
+    await tick();
+    expect(createChannel).toHaveBeenCalledTimes(1);
+    expect(secondStore.adopt).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('keeps a question when the same host publishes a refreshed session listing', async () => {
+    hostSessions = [{ id: UNVERIFIED_ID, cwd, updatedAt: '2026-09-07T00:00:00.000Z', messageCount: 0, preview: '', authorship: 'unverified' }];
+    const ownerSessions: IOwnerSessionDirectory = {
+      question: async () => ({ kind: 'accept', digest: DIGEST, questionId: QUESTION_ID, notice: '', question: '' }),
+      cancelQuestion: vi.fn(),
+      openAccepted: vi.fn(),
+    };
+    const view = openPicker(sealingStore(cwd), vi.fn(async () => undefined), ownerSessions);
+    await pickerShown(view);
+    view.stdin.write(ENTER);
+    await questionShown(view);
+    channels[0]!.setHostSessions([...hostSessions]);
+    await tick();
+    expect(view.lastFrame()).toContain(UNVERIFIED_SESSION_QUESTION);
+    expect(ownerSessions.cancelQuestion).not.toHaveBeenCalled();
+    view.unmount();
+  });
+
+  it('rejects an earlier local answer after reissuing the same question and consumes each answer once', async () => {
+    const store = sealingStore(cwd);
+    const session = { id: UNVERIFIED_ID, cwd, updatedAt: '2026-09-07T00:00:00.000Z', messageCount: 0, preview: '', authorship: 'unverified' as const };
+    const switchSession = vi.fn(async () => undefined);
+    const decisions = localPickerDecisions(store, () => [session], switchSession);
+    const first = await decisions.question(UNVERIFIED_ID);
+    const second = await decisions.question(UNVERIFIED_ID);
+    if (first.kind !== 'accept' || second.kind !== 'accept') throw new Error('Expected acceptance questions');
+    expect(second.questionId).not.toBe(first.questionId);
+    await expect(async () => decisions.openAccepted(UNVERIFIED_ID, DIGEST, first.questionId)).rejects.toThrow();
+    expect(switchSession).not.toHaveBeenCalled();
+    await decisions.openAccepted(UNVERIFIED_ID, DIGEST, second.questionId);
+    expect(switchSession).toHaveBeenCalledExactlyOnceWith(UNVERIFIED_ID, { acceptedDigest: DIGEST });
+    await expect(async () => decisions.openAccepted(UNVERIFIED_ID, DIGEST, second.questionId)).rejects.toThrow();
+    const third = await decisions.question(UNVERIFIED_ID);
+    if (third.kind !== 'accept') throw new Error('Expected acceptance question');
+    await decisions.cancelQuestion();
+    await expect(async () => decisions.openAccepted(UNVERIFIED_ID, DIGEST, third.questionId)).rejects.toThrow();
   });
 });
 

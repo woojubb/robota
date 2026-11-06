@@ -95,6 +95,7 @@ export interface IDefaultCommandModulesOptions {
   providerConnectionHost?: IProviderConnectionHost;
   /** Host-owned resolution of an opaque saved credential reference. */
   providerCredentialResolver?: TProviderCredentialResolver;
+  missingEnvironmentCredentialHint?: (profileName: string, environmentName: string) => string;
   /** Optional TUI-owned file capability; absent, `/keybindings` says it belongs to an interactive terminal. */
   keybindingsFilePort?: IKeybindingsFilePort;
   /**
@@ -201,6 +202,7 @@ export function createDefaultCommandModules({
   providerEnvironment,
   providerConnectionHost,
   providerCredentialResolver,
+  missingEnvironmentCredentialHint,
 }: IDefaultCommandModulesOptions): IDefaultCommandModulesResult {
   const modules: readonly ICommandModule[] = [
     createSkillsCommandModule({ contributionSources: contributionSources ?? [], skillRoots }),
@@ -257,6 +259,7 @@ export function createDefaultCommandModules({
       ...(providerCredentialResolver === undefined
         ? {}
         : { resolveCredential: providerCredentialResolver }),
+      ...(missingEnvironmentCredentialHint === undefined ? {} : { missingEnvironmentCredentialHint }),
     }),
     // #3282 §2: shares the provider command's settings adapter and definitions — one settings write
     // owner, never a second copy that could drift from what `/provider switch` reads and writes.
@@ -268,6 +271,7 @@ export function createDefaultCommandModules({
       ...(providerCredentialResolver === undefined
         ? {}
         : { resolveCredential: providerCredentialResolver }),
+      ...(missingEnvironmentCredentialHint === undefined ? {} : { missingEnvironmentCredentialHint }),
     }),
   ];
   const builtModuleNames = modules.map((module) => module.name);
