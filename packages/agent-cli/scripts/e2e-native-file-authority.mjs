@@ -65,20 +65,26 @@ function stopFixtureBroker(command, fixtureRoot, env) {
   if (process.platform === 'win32') {
     const script = [
       '$ErrorActionPreference = "Stop"',
-      'Get-CimInstance Win32_Process | Where-Object {',
-      '  $_.Name -eq $env:E2E_BROKER_IMAGE -and $_.CommandLine -and',
+      '$ProgressPreference = "SilentlyContinue"',
+      '$rows = Get-CimInstance Win32_Process -Filter ("Name = \'" + $env:E2E_BROKER_IMAGE + "\'") |',
+      '  Where-Object { $_.CommandLine -and',
       '  $_.CommandLine.Contains("--internal-root-broker") -and',
       '  $_.CommandLine.IndexOf($env:E2E_BROKER_ROOT, [StringComparison]::OrdinalIgnoreCase) -ge 0',
-      '} | ForEach-Object { $_.ProcessId }',
+      '  } | ForEach-Object { $_.ProcessId }',
+      '$rows',
     ].join('\n');
-    const query = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+    const query = spawnSync('powershell.exe', [
+      '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass',
+      '-EncodedCommand', Buffer.from(script, 'utf16le').toString('base64'),
+    ], {
       encoding: 'utf8',
+      windowsHide: true,
       env: {
         ...env,
         E2E_BROKER_IMAGE: basename(command),
         E2E_BROKER_ROOT: fixtureRoot,
       },
-      timeout: 10_000,
+      timeout: 30_000,
     });
     if (query.status !== 0) throw commandFailure('Find fixture root broker', query);
     pids = query.stdout.trim().split(/\s+/u);
