@@ -648,7 +648,7 @@ ipcMain.handle(
         }
         try {
           const { approveDesktopTrustCandidate } = await import('@robota-sdk/agent-cli/desktop-host');
-          if (!await approveDesktopTrustCandidate(productConfig, cliEnv(), workspaceFolder, candidate)) {
+          if (!await approveDesktopTrustCandidate(productConfig, cliEnv(), asked, candidate)) {
             return { error: 'Workspace trust could not be confirmed.' };
           }
         } catch (error) {

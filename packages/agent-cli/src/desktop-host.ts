@@ -4,7 +4,8 @@ import { embeddedProductIdentity, productConfigEntries, scopeProductEnvironment 
 
 import { createProductCliHost } from './product-host.js';
 import { createCliRuntimeContext } from './product/runtime-context.js';
-import { BrokeredWorkspaceTrustService } from './startup/brokered-workspace-trust.js';
+import { workspaceRootBrokerEndpoint } from './startup/workspace-root-broker-process.js';
+import { requestWorkspaceRootBroker } from './startup/workspace-root-broker.js';
 
 import type { TConfigEnvironment } from '@robota-sdk/product-config';
 import type { IProductConfig } from '@robota-sdk/product-config';
@@ -45,15 +46,15 @@ export interface IDesktopCliControllerOptions {
 export async function approveDesktopTrustCandidate(
   config: IProductConfig,
   environment: TConfigEnvironment,
-  folder: string,
+  question: IDesktopTrustQuestion,
   candidate: string,
 ): Promise<boolean> {
-  const service = await BrokeredWorkspaceTrustService.create(createCliRuntimeContext(config, environment));
-  try {
-    return (await service.grant(folder, candidate)).status === 'trusted';
-  } finally {
-    service.close();
-  }
+  // The CLI status request started the broker before the UI question. Never launch a child from
+  // Electron here: process.execPath is the fused Electron binary, not the bundled CLI sidecar.
+  const endpoint = workspaceRootBrokerEndpoint(createCliRuntimeContext(config, environment));
+  return (await requestWorkspaceRootBroker(endpoint, {
+    op: 'approve', candidate, root: question.folder,
+  })).status === 'trusted';
 }
 
 const OS_VARIABLES = [
@@ -153,7 +154,7 @@ export function createDesktopCliController(options: IDesktopCliControllerOptions
       if (choice === 'trust') {
         if (trust.candidate === undefined) return { ok: false, detail: 'The prepared workspace approval is unavailable.' };
         const approved = options.approveTrust === undefined
-          ? await approveDesktopTrustCandidate(config, environment, trust.question.folder, trust.candidate)
+          ? await approveDesktopTrustCandidate(config, environment, trust.question, trust.candidate)
           : await options.approveTrust(trust.question.folder, trust.candidate);
         if (!approved) return { ok: false, detail: 'Workspace trust grant failed.' };
         const renewed = await options.execute(['trust', 'status', '--json'], childEnvironment());
