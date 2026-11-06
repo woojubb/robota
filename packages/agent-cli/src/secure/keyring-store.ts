@@ -42,6 +42,8 @@ import {
   writeSync,
 } from 'node:fs';
 import { hostname } from 'node:os';
+
+import { readWindowsKeyringFile, removeWindowsMarker } from './windows-keyring-read.js';
 import { basename, dirname, join } from 'node:path';
 
 import {
@@ -290,8 +292,17 @@ function sleepSync(ms: number): void {
 }
 
 /** What a lock file says about its holder, and which file it was, so a break never removes a newer lock. */
+type TLockIdentity =
+  | { readonly kind: 'posix'; readonly stats: Stats }
+  | {
+      readonly kind: 'windows';
+      readonly identity: Buffer;
+      readonly modified: Buffer;
+      readonly mtimeMs: number;
+    };
+
 interface ILockHolder {
-  readonly stats: Stats;
+  readonly file: TLockIdentity;
   /** Absent when the file is not one this store wrote (or was cut short before it was written). */
   readonly owner?: {
     readonly token: string;
@@ -307,7 +318,7 @@ function optionalString(value: unknown): string | undefined | false {
   return typeof value === 'string' && value.length > 0 ? value : false;
 }
 
-function parseLock(text: string, stats: Stats): ILockHolder {
+function parseLock(text: string, file: TLockIdentity): ILockHolder {
   try {
     const value = JSON.parse(text) as Record<string, unknown>;
     const bootId = optionalString(value['bootId']);
@@ -323,7 +334,7 @@ function parseLock(text: string, stats: Stats): ILockHolder {
       Number.isFinite(value['monotonicMs'])
     ) {
       return {
-        stats,
+        file,
         owner: {
           token: value['token'],
           pid: value['pid'] as number,
@@ -339,7 +350,7 @@ function parseLock(text: string, stats: Stats): ILockHolder {
   } catch {
     // allow-fallback: an unreadable lock is judged by its age alone.
   }
-  return { stats };
+  return { file };
 }
 
 function sameFile(a: Stats, b: Stats): boolean {
@@ -381,48 +392,59 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
   }
 
   function load(): TKeyringLoadResult {
-    let before: Stats;
-    try {
-      before = lstatSync(path);
-    } catch (error) {
-      if (isMissing(error)) return { status: 'missing' };
-      throw new KeyringStoreError('unreadable', path);
-    }
-    const refusal = refusalFor(before);
-    if (refusal !== undefined) throw new KeyringStoreError(refusal, path);
-
     let content: Buffer;
-    let descriptor: number | undefined;
-    try {
-      descriptor = openSync(path, openFlags());
-      // What was opened must be what was checked: a swap between the check and the open shows up as
-      // a different file, and every decision below is made on the open descriptor.
-      const opened = fstatSync(descriptor);
-      if (opened.ino !== before.ino || opened.dev !== before.dev) {
+    if (process.platform === 'win32') {
+      let result: ReturnType<typeof readWindowsKeyringFile>;
+      try {
+        result = readWindowsKeyringFile(path, MAX_KEYRING_FILE_BYTES);
+      } catch {
         throw new KeyringStoreError('unreadable', path);
       }
-      const openedRefusal = refusalFor(opened);
-      if (openedRefusal !== undefined) throw new KeyringStoreError(openedRefusal, path);
-      if (process.platform !== 'win32' && (opened.mode & GROUP_AND_OTHER_BITS) !== 0) {
-        try {
-          fchmodSync(descriptor, OWNER_ONLY_FILE_MODE);
-        } catch {
-          // allow-fallback: tightening is best effort; the passphrase, not the mode, is what protects the keyring, and `inspect` reports a mode that stays wide.
-        }
+      if (result.status === 'missing') return { status: 'missing' };
+      if (result.status !== 'present') throw new KeyringStoreError(result.status, path);
+      content = result.content;
+    } else {
+      let before: Stats;
+      try {
+        before = lstatSync(path);
+      } catch (error) {
+        if (isMissing(error)) return { status: 'missing' };
+        throw new KeyringStoreError('unreadable', path);
       }
-      content = readBounded(descriptor, MAX_KEYRING_FILE_BYTES);
-    } catch (error) {
-      if (error instanceof KeyringStoreError) throw error;
-      // ELOOP: the link was swapped in after the check; the open itself refused to follow it.
-      throw new KeyringStoreError(
-        (error as NodeJS.ErrnoException).code === 'ELOOP' ? 'symlink' : 'unreadable',
-        path,
-      );
-    } finally {
-      if (descriptor !== undefined) closeSync(descriptor);
-    }
-    if (content.length > MAX_KEYRING_FILE_BYTES) throw new KeyringStoreError('too-large', path);
+      const refusal = refusalFor(before);
+      if (refusal !== undefined) throw new KeyringStoreError(refusal, path);
 
+      let descriptor: number | undefined;
+      try {
+        descriptor = openSync(path, openFlags());
+        // What was opened must be what was checked: a swap between the check and the open shows up as
+        // a different file, and every decision below is made on the open descriptor.
+        const opened = fstatSync(descriptor);
+        if (opened.ino !== before.ino || opened.dev !== before.dev) {
+          throw new KeyringStoreError('unreadable', path);
+        }
+        const openedRefusal = refusalFor(opened);
+        if (openedRefusal !== undefined) throw new KeyringStoreError(openedRefusal, path);
+        if ((opened.mode & GROUP_AND_OTHER_BITS) !== 0) {
+          try {
+            fchmodSync(descriptor, OWNER_ONLY_FILE_MODE);
+          } catch {
+            // allow-fallback: tightening is best effort; the passphrase, not the mode, is what protects the keyring, and `inspect` reports a mode that stays wide.
+          }
+        }
+        content = readBounded(descriptor, MAX_KEYRING_FILE_BYTES);
+      } catch (error) {
+        if (error instanceof KeyringStoreError) throw error;
+        // ELOOP: the link was swapped in after the check; the open itself refused to follow it.
+        throw new KeyringStoreError(
+          (error as NodeJS.ErrnoException).code === 'ELOOP' ? 'symlink' : 'unreadable',
+          path,
+        );
+      } finally {
+        if (descriptor !== undefined) closeSync(descriptor);
+      }
+      if (content.length > MAX_KEYRING_FILE_BYTES) throw new KeyringStoreError('too-large', path);
+    }
     try {
       return { status: 'present', keyring: parseKeyring(content.toString('utf8')) };
     } catch (error) {
@@ -438,11 +460,25 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
 
   /** The current lock file, or `undefined` when there is none. */
   function readLock(): ILockHolder | undefined {
+    if (process.platform === 'win32') {
+      const result = readWindowsKeyringFile(lockPath, MAX_LOCK_FILE_BYTES);
+      if (result.status === 'missing') return undefined;
+      if (result.status !== 'present') throw new Error('Could not safely read the lock marker.');
+      return parseLock(result.content.toString('utf8'), {
+        kind: 'windows',
+        identity: result.identity,
+        modified: result.modified,
+        mtimeMs: result.mtimeMs,
+      });
+    }
     let descriptor: number | undefined;
     try {
       descriptor = openSync(lockPath, openFlags());
       const stats = fstatSync(descriptor);
-      return parseLock(readBounded(descriptor, MAX_LOCK_FILE_BYTES).toString('utf8'), stats);
+      return parseLock(readBounded(descriptor, MAX_LOCK_FILE_BYTES).toString('utf8'), {
+        kind: 'posix',
+        stats,
+      });
     } catch (error) {
       if (isMissing(error)) return undefined;
       throw error;
@@ -472,7 +508,10 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
   }
 
   /** Whether a file is older than the stale bound on the filesystem's clock; never for a time in the future. */
-  function isOldOnFilesystem(stats: Stats, now: number | undefined): boolean {
+  function isOldOnFilesystem(
+    stats: { readonly mtimeMs: number },
+    now: number | undefined,
+  ): boolean {
     return now !== undefined && now - stats.mtimeMs > staleAfterMs;
   }
 
@@ -489,7 +528,10 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
       if (!processExists(owner.pid)) return true;
       return monotonicNowMs() - owner.monotonicMs > staleAfterMs;
     }
-    return isOldOnFilesystem(holder.stats, filesystemNowMs(token));
+    return isOldOnFilesystem(
+      holder.file.kind === 'windows' ? holder.file : holder.file.stats,
+      filesystemNowMs(token),
+    );
   }
 
   /**
@@ -500,8 +542,11 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
    */
   function breakLock(holder: ILockHolder): void {
     try {
-      if (!sameFile(lstatSync(lockPath), holder.stats)) return;
-      unlinkSync(lockPath);
+      if (holder.file.kind === 'windows') {
+        removeWindowsMarker(lockPath, holder.file.identity, holder.file.modified);
+      } else if (sameFile(lstatSync(lockPath), holder.file.stats)) {
+        unlinkSync(lockPath);
+      }
     } catch (error) {
       if (!isMissing(error)) throw error;
     }
@@ -569,7 +614,13 @@ export function createKeyringFileStore(options: IKeyringFileStoreOptions): IKeyr
 
   function releaseLock(token: string): void {
     try {
-      if (readLock()?.owner?.token === token) unlinkSync(lockPath);
+      const holder = readLock();
+      if (holder?.owner?.token !== token) return;
+      if (holder.file.kind === 'windows') {
+        removeWindowsMarker(lockPath, holder.file.identity, holder.file.modified);
+      } else {
+        unlinkSync(lockPath);
+      }
     } catch {
       // allow-fallback: a lock that cannot be removed is broken by the next writer once it is stale.
     }
