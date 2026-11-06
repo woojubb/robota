@@ -24,7 +24,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { goneProcessOwner, leaveProcessScopedDirectory } from '@robota-sdk/agent-core/testing';
 import {
@@ -50,6 +50,9 @@ import {
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
+import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
+import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
 import { KeyHolder } from '../key-holder.js';
@@ -70,6 +73,7 @@ let home: string;
 let temporary: string;
 let runtime: ICliRuntimeContext;
 let project: string;
+let broker: Awaited<ReturnType<typeof startTestBroker>> | undefined;
 
 beforeEach(() => {
   home = realpathSync(mkdtempSync(join(tmpdir(), 'secure-migrate-canary-')));
@@ -80,7 +84,11 @@ beforeEach(() => {
   overrideProductSecureMode(runtime, true);
 });
 
-afterEach(() => {
+afterEach(async () => {
+  await broker?.close();
+  broker = undefined;
+  if (process.platform !== 'win32')
+    rmSync(dirname(workspaceRootBrokerEndpoint(runtime)), { recursive: true, force: true });
   rmSync(home, { recursive: true, force: true });
 });
 
@@ -185,6 +193,10 @@ async function seedProject(): Promise<void> {
     runtime.layout.userPaths.workspaceTrust,
     runtime.layout.projectStateDirectories,
   ).grant(project);
+  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  mkdirSync(dirname(endpoint), { recursive: true, mode: 0o700 });
+  broker = await startTestBroker(endpoint, dirname(endpoint), runtime.layout.userPaths.workspaceTrust);
+  if (await approveTestWorkspace(project, runtime) !== 0) throw new Error('live project approval failed');
   const authority = await projectAuthority();
   const sessions = getWorkspaceProjectStateStorage(authority, 'sessions');
   const logs = getWorkspaceProjectStateStorage(authority, 'session-logs');

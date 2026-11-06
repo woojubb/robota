@@ -16,7 +16,7 @@ import {
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
 import { createThemeSurface } from '../../startup/theme-surface.js';
 import { runWorkspaceTrustCommand } from '../../startup/workspace-trust-command.js';
-import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
+import { approveTestWorkspace, stopTestWorkspaceBroker } from '../../__tests__/helpers/approve-test-workspace.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
 import { runSessionViewCommand, type ISessionViewCommandOptions } from '../session-view-command.js';
 
@@ -69,6 +69,7 @@ describe('session view background start route', () => {
       ).toBe(true);
       expect(process.exitCode).toBe(0);
     } finally {
+      await stopTestWorkspaceBroker(createTestProductRuntime());
       if (previousHome === undefined) delete process.env['HOME'];
       else process.env['HOME'] = previousHome;
       process.exitCode = previousExitCode;
@@ -138,6 +139,7 @@ describe('session view background start route', () => {
       expect(process.exitCode).toBe(0);
       expect(launchSupervisedSession).toHaveBeenCalledTimes(3);
     } finally {
+      await stopTestWorkspaceBroker(createTestProductRuntime());
       vi.unstubAllEnvs();
       process.exitCode = previousExitCode;
       vi.clearAllMocks();

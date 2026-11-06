@@ -1,4 +1,6 @@
 import { BrokeredWorkspaceTrustService } from '../../startup/brokered-workspace-trust.js';
+import { requestWorkspaceRootBroker } from '../../startup/workspace-root-broker.js';
+import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
 import { spawn } from '@homebridge/node-pty-prebuilt-multiarch';
 
 import type { ICliRuntimeContext } from '../../product/runtime-context.js';
@@ -11,6 +13,16 @@ export async function approveTestWorkspace(cwd: string, runtime: ICliRuntimeCont
     return (await brokered.grant(cwd, candidate)).status === 'trusted' ? 0 : 1;
   } finally {
     brokered.close();
+  }
+}
+
+/** Stop only the broker launched for this fixture's disposable product state. */
+export async function stopTestWorkspaceBroker(runtime: ICliRuntimeContext): Promise<void> {
+  try {
+    const response = await requestWorkspaceRootBroker(workspaceRootBrokerEndpoint(runtime), { op: 'ping' });
+    if (response.status === 'ready' && typeof response.pid === 'number') process.kill(response.pid);
+  } catch {
+    // No broker was started, or it has already exited.
   }
 }
 

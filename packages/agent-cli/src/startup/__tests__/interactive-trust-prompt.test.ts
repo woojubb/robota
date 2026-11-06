@@ -15,7 +15,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { askToTrustWorkspace, startsNewTuiSession, trustQuestionFor } from '../interactive-trust-prompt.js';
 import { resolveInitialCliWorkspaceProjectAccess } from '../workspace-project-composition.js';
 import { runWorkspaceTrustCommand } from '../workspace-trust-command.js';
-import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
+import { approveTestWorkspace, stopTestWorkspaceBroker } from '../../__tests__/helpers/approve-test-workspace.js';
 
 // #3282 §3: `inspectPreTrustProjectPaths` reports every path as `unavailable` unless run on Linux (see
 // its own doc comment), which makes the filtering `trustQuestionFor` does deterministic to assert only
@@ -29,9 +29,9 @@ vi.mock('@robota-sdk/agent-framework/node', async (importOriginal) => {
   return { ...actual, inspectPreTrustProjectPaths };
 });
 
-const cleanup: Array<() => void> = [];
-afterEach(() => {
-  for (const undo of cleanup.splice(0)) undo();
+const cleanup: Array<() => void | Promise<void>> = [];
+afterEach(async () => {
+  for (const undo of cleanup.splice(0).reverse()) await undo();
   vi.unstubAllEnvs();
 });
 
@@ -44,6 +44,7 @@ function untrustedRepository(): string {
   mkdirSync(home);
   execFileSync('git', ['init', '--quiet', repo]);
   vi.stubEnv('HOME', home);
+  cleanup.push(() => stopTestWorkspaceBroker(createTestProductRuntime('test-product', { HOME: home })));
   return repo;
 }
 
