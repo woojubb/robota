@@ -15,12 +15,20 @@ import { once } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { serializeKeyring } from '@robota-sdk/agent-keyring';
+import { createKeyring, serializeKeyring, type IKeyring } from '@robota-sdk/agent-keyring';
 import { expect, it } from 'vitest';
 
 import { createKeyringFileStore } from '../keyring-store.js';
 import { readWindowsKeyringFile, removeWindowsMarker } from '../windows-keyring-read.js';
-import { fixtureKeyring } from './helpers.js';
+
+let fixture: Promise<{ readonly keyring: IKeyring }> | undefined;
+function fixtureKeyring(): Promise<{ readonly keyring: IKeyring }> {
+  fixture ??= createKeyring({ passphrase: 'correct horse battery staple' }).then(({ keyring, unlocked }) => {
+    unlocked.lock();
+    return { keyring };
+  });
+  return fixture;
+}
 
 it('creates and reads the same synthetic keyring on a real filesystem', async () => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'keyring-identity-')));
@@ -67,7 +75,7 @@ it('recovers an abandoned marker without waiting for an old dead owner', async (
     }
     const old = new Date(Date.now() - 120_000);
     utimesSync(marker, old, old);
-    const store = createKeyringFileStore({ root, path, lockWaitMs: 0 });
+    const store = createKeyringFileStore({ root, path });
     store.create(keyring);
     expect(store.load().status).toBe('present');
     expect(existsSync(marker)).toBe(false);
@@ -148,7 +156,7 @@ it('can recover an oversized abandoned marker without reading the whole file', a
     writeFileSync(marker, Buffer.alloc(2048, 120));
     const old = new Date(Date.now() - 120_000);
     utimesSync(marker, old, old);
-    const store = createKeyringFileStore({ root, path, lockWaitMs: 0 });
+    const store = createKeyringFileStore({ root, path });
     const { keyring } = await fixtureKeyring();
     store.create(keyring);
     expect(store.load().status).toBe('present');

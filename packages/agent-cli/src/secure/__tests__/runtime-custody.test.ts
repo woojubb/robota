@@ -473,7 +473,7 @@ describe.skipIf(process.platform === 'win32')('owner decisions over a real link'
       const released = store.claim(closeId);
       released.release();
     });
-    expect(started.holder.isUnlocked).toBe(true);
+    await vi.waitFor(() => expect(started.holder.isUnlocked).toBe(false));
     releaseCloseRestore();
     await expect(closeSession?.whenInitialized()).rejects.toBeDefined();
     expect(readFileSync(join(records, `${closeId}.json`)).equals(closeAdopted)).toBe(true);
@@ -534,6 +534,7 @@ describe.skipIf(process.platform === 'win32')('owner decisions over a real link'
     const second = await ownerLink(started);
     await first.unlock();
     const attached = await attach(first, 'drive') as { driverId: string };
+    await attach(second, 'observe');
     await first.question('sess_test');
     const opening = first.openAccepted(attached.driverId, 'sess_test', digest, 'q1').catch(() => undefined);
     await vi.waitFor(() => expect(openAccepted).toHaveBeenCalledTimes(1));
@@ -888,22 +889,40 @@ describe.skipIf(process.platform === 'win32')('what locks a runtime', () => {
     },
   );
 
-  it('locks when the last link closes, and not before', async () => {
-    const started = await certified();
+  it('locks when the last attached client leaves even while a proof-only link remains', async () => {
+    const started = await certified({ withBinder: true });
     const first = await ownerLink(started);
     const second = await ownerLink(started);
+    const proofOnly = await ownerLink(started);
     await first.unlock();
+    expect(await attach(first, 'drive')).toMatchObject({ status: 'attached' });
+    expect(await attach(second, 'observe')).toMatchObject({ status: 'attached' });
 
     first.close();
     await first.closed;
-    await second.control({ command: 'status', fields: {} });
+    await vi.waitFor(() => expect(started.released).toHaveBeenCalledTimes(1));
     expect(started.holder.isUnlocked).toBe(true);
     expect(started.locks).toEqual([]);
 
     second.close();
     await second.closed;
+    await vi.waitFor(() => expect(started.released).toHaveBeenCalledTimes(2));
     await vi.waitFor(() => expect(started.holder.isUnlocked).toBe(false));
     expect(started.locks).toEqual(['last-client-detached']);
+    await vi.waitFor(() => expect(proofOnly.custody.unlocked).toBe(false));
+  });
+
+  it('locks a grant-only control link when it closes while a proof-only link remains', async () => {
+    const started = await certified();
+    const control = await ownerLink(started);
+    const proofOnly = await ownerLink(started);
+    await control.unlock();
+
+    control.close();
+    await control.closed;
+    await vi.waitFor(() => expect(started.holder.isUnlocked).toBe(false));
+    expect(started.locks).toEqual(['last-client-detached']);
+    await vi.waitFor(() => expect(proofOnly.custody.unlocked).toBe(false));
   });
 
   it('locks on the open lock command, which needs no proof, and tells the links', async () => {

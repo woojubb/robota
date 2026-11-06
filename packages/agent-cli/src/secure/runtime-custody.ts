@@ -6,7 +6,8 @@
  * spawner is admitted, and the one thing a spawner can do is certify it, once, after which every
  * spawner link ends and no new one is admitted. After that only the owner is admitted. The owner
  * unlocks the runtime by handing it read keys over the link, and what takes them away again is
- * always the same few things: the owner's own request, the last link closing, a lock command that
+ * always the same few things: the owner's own request, the last attached client or grant owner
+ * closing, a lock command that
  * needs no proof (taking access away is something anyone who could stop the runtime can do), and
  * fifteen minutes in which the owner did nothing. Locking never closes a link, and every change is
  * told to every link.
@@ -73,6 +74,8 @@ export class RuntimeCustody implements IRuntimeAdmission {
   readonly #links = new Set<IAdmittedRuntimeLink>();
   readonly #spawnerSessions = new Set<LinkSession>();
   readonly #ownerSessions = new Set<LinkSession>();
+  readonly #attachedOwners = new Set<LinkSession>();
+  readonly #grantOwners = new Set<LinkSession>();
   readonly #listeners = new Set<(event: TCustodyEvent) => void>();
   #context: IRuntimeAdmissionContext | undefined;
   #daemon = false;
@@ -84,6 +87,7 @@ export class RuntimeCustody implements IRuntimeAdmission {
     this.#options = options;
     // Every change of what the keys can do is told to every link, whoever caused it.
     options.holder.onLock(() => {
+      this.#grantOwners.clear();
       for (const session of this.#ownerSessions) session.invalidateOwnerDecisions();
       this.#announce();
     });
@@ -230,7 +234,9 @@ export class RuntimeCustody implements IRuntimeAdmission {
       },
       unlock: (keys) => {
         requireOwner();
-        return this.#unlock(keys);
+        const outcome = this.#unlock(keys);
+        this.#grantOwners.add(session);
+        return outcome;
       },
       lock: (reason) => {
         requireOwner();
@@ -238,7 +244,11 @@ export class RuntimeCustody implements IRuntimeAdmission {
       },
       control: (request) => {
         // Binding a session is what a spawner is admitted for; every other command is the owner's.
-        if (request.command === 'attach') return { ...session.bind(request.fields['mode']) };
+        if (request.command === 'attach') {
+          const result = session.bind(request.fields['mode']);
+          if (isOwner && result.status === 'attached') this.#attachedOwners.add(session);
+          return { ...result };
+        }
         requireOwner();
         if (isOwnerControlAct(request.command)) this.#options.holder.touch();
         return answerOf(context, request);
@@ -246,12 +256,18 @@ export class RuntimeCustody implements IRuntimeAdmission {
       closed: () => {
         this.#links.delete(link);
         this.#spawnerSessions.delete(session);
-        this.#ownerSessions.delete(session);
+        const wasAttached = this.#attachedOwners.delete(session);
+        this.#grantOwners.delete(session);
         try {
+          // A status/proof link is not a read lease. The last attached owner leaves before
+          // host cleanup, so a slow release cannot keep read keys open.
+          if (this.#options.holder.isUnlocked && this.#attachedOwners.size === 0 &&
+              (wasAttached || this.#grantOwners.size === 0)) {
+            this.#options.holder.lock('last-client-detached');
+          }
           session.end();
         } finally {
-          // The keys go with the last link whatever the host's cleanup of its binding did.
-          if (this.#links.size === 0) this.#options.holder.lock('last-client-detached');
+          this.#ownerSessions.delete(session);
           if (link.standing === 'spawner') this.#emit('spawner-dropped');
         }
       },

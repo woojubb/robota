@@ -473,7 +473,7 @@ describe('keyring store — one writer at a time', () => {
     writeFileSync(lockPath(), lockOf(deadPid(), thisMachine()), { mode: 0o600 });
     if (readBootId() === undefined) {
       expect(
-        refusal(() => storeFor({ lockWaitMs: 0 }).save(reordered(keyring), keyring)).code,
+        refusal(() => storeFor().save(reordered(keyring), keyring)).code,
       ).toBe('busy');
       ageFile(lockPath(), 10 * 60_000);
     }
