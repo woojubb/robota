@@ -156,6 +156,15 @@ export class SessionRecordClaim {
     return !this.#ended && this.#claim !== undefined && this.#claimedId === id;
   }
 
+  holdsWriter(id: string): boolean {
+    if (!this.holds(id) || !this.#claim?.holdsWriter) return false;
+    try {
+      return this.#claim.holdsWriter() === true;
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Claims `id` and returns the outcome the session restores from, gated: a record a store that seals
    * calls unverified is refused unless it is the accepted bytes, and the claim let go. A `copy` keeps

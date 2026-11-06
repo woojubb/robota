@@ -683,7 +683,7 @@ export class InteractiveSession
         typeof this.sessionStore?.saveRestoreTransaction === 'function' &&
         this.session === session &&
         !this.execCtrl.shuttingDown &&
-        this.recordClaim?.holds(session.getSessionId()) === true,
+        this.recordClaim?.holdsWriter(session.getSessionId()) === true,
       commit: () => this.persistCurrentSession(true, undefined, undefined, true),
     });
   }

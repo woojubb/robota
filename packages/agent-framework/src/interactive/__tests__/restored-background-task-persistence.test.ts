@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -48,6 +48,71 @@ function completedFork(cwd: string): IAgentBackgroundTaskState {
 }
 
 describe('restored background tasks', () => {
+  it('does not activate a schedule when its writer marker is replaced during commit', async () => {
+    const cwd = directory();
+    const dir = directory();
+    const store = new NodeSessionStore(dir, { sealing: 'plain' });
+    const task = {
+      id: 'scheduled_1',
+      kind: 'scheduled' as const,
+      label: 'Later',
+      status: 'sleeping' as const,
+      mode: 'background' as const,
+      parentSessionId: PARENT,
+      depth: 1,
+      cwd,
+      updatedAt,
+      unread: false,
+      nextFireAt: '2999-01-01T00:00:00.000Z',
+      schedule: { cronExpression: '0 0 * * *', agentInstruction: 'wake' },
+    };
+    store.save(record(PARENT, cwd, 'owner message', { backgroundTasks: [task] }), {
+      provenance: 'owner',
+    });
+    let secondClaim: ReturnType<NodeSessionStore['claim']> | undefined;
+    const view = decorateSessionStore(store, {
+      saveRestoreTransaction(value, options) {
+        const result = store.saveRestoreTransaction(value, options);
+        const claims = join(dir, 'claims');
+        for (const entry of readdirSync(claims))
+          rmSync(join(claims, entry), { recursive: true, force: true });
+        secondClaim = new NodeSessionStore(dir, { sealing: 'plain' }).claim(PARENT);
+        return result;
+      },
+    });
+    const runner = createScheduledTaskRunner();
+    let activated = 0;
+    const observed = {
+      ...runner,
+      prepareRestore: (...args: Parameters<NonNullable<typeof runner.prepareRestore>>) => {
+        const prepared = runner.prepareRestore!(...args);
+        return {
+          ...prepared,
+          activate: () => {
+            activated += 1;
+            return prepared.activate();
+          },
+        };
+      },
+    };
+    const runtime = createAgentRuntime({
+      host: createTestFrameworkHost(),
+      cwd,
+      provider: createScriptedProvider([]).provider,
+      sessionStore: view,
+      backgroundTaskRunners: [observed],
+    });
+    const session = runtime.createSession({ resumeSessionId: PARENT });
+    try {
+      await expect(session.whenInitialized()).rejects.toThrow(/claim|ownership/i);
+      expect(activated).toBe(0);
+      expect(secondClaim).toBeDefined();
+    } finally {
+      secondClaim?.release();
+      session.releaseSessionClaim();
+      await session.shutdown().catch(() => undefined);
+    }
+  });
   it('does not activate a schedule if the claim is released during commit', async () => {
     const cwd = directory();
     const store = new NodeSessionStore(directory(), { sealing: 'plain' });

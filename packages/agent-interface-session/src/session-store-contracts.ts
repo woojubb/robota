@@ -221,6 +221,8 @@ export interface ISessionLease {
 export interface ISessionClaim {
   /** What the claim's read concluded; the session restores from this and reads nothing before it. */
   readonly outcome: TSessionLoadOutcome;
+  /** Whether this exact claim still owns its writer marker; absent when the store cannot verify it. */
+  holdsWriter?(): boolean;
   /** Ends this claim, and only this one: idempotent, and a late release never ends a later claim. */
   release(): void;
 }

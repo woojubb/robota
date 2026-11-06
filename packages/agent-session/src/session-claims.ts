@@ -294,6 +294,8 @@ export class SessionClaims {
     let released = false;
     const handle: ISessionClaim = Object.freeze({
       outcome,
+      holdsWriter: (): boolean =>
+        !released && this.#live.get(id) === state && marker !== undefined && marker.holds(),
       release: (): void => {
         if (released) return;
         released = true;
