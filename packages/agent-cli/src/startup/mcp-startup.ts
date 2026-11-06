@@ -12,7 +12,6 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * receives a policy; a positive `autoBackgroundMs` in `print` mode is reported once as ignored.
  */
 
-import { createNodeWorkspaceTrustStore } from '@robota-sdk/agent-framework/node';
 import { mcpUnavailableServersNotice } from '@robota-sdk/agent-command';
 import { mkdirSync } from 'node:fs';
 
@@ -24,7 +23,9 @@ import {
   isWorkspaceHelperSource,
   withoutExpansions,
 } from '@robota-sdk/agent-mcp';
-import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
+import { userLocalStorageRoot } from '../product/user-paths.js';
+import { workspaceRootBrokerEndpoint } from './workspace-root-broker-process.js';
+import { requestWorkspaceRootBroker } from './workspace-root-broker.js';
 import { commandEnvironment } from '../product/command-environment.js';
 import { createProductToolResultSpillStore } from '../product/session-stores.js';
 
@@ -139,7 +140,24 @@ async function inspectRealWorkspaceTrust(
   identity: IWorkspaceIdentity,
   runtime: ICliRuntimeContext,
 ): Promise<IMcpWorkspaceTrustSnapshot> {
-  return createNodeWorkspaceTrustStore(userPaths(runtime).workspaceTrust).inspect(identity);
+  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  let response;
+  try {
+    response = await requestWorkspaceRootBroker(endpoint, {
+      op: 'inspect', root: identity.worktreeRoot,
+    });
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ECONNREFUSED') {
+      return { state: 'untrusted', generation: 0 };
+    }
+    throw error;
+  }
+  if (response.status === 'trusted' || response.status === 'untrusted' ||
+      response.status === 'revoked' || response.status === 'stale/replaced') {
+    return { state: response.status, generation: response.generation };
+  }
+  throw new Error('Live workspace trust could not be confirmed.');
 }
 
 /**

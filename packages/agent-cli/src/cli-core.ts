@@ -613,6 +613,13 @@ async function runCliCore(
         settingsSources: mcpSettingsSources,
         projectAccess,
         cwd,
+        // An embedding host that supplied the exact access object owns its trust decision.
+        // Product starts without that object recheck the live broker below.
+        ...(options.projectAccess === projectAccess ? {
+          inspectTrust: async () => projectAccess.status === 'trusted'
+            ? { state: 'trusted' as const, generation: 0 }
+            : { state: projectAccess.trustState, generation: 0 },
+        } : {}),
         env: productRuntime.environment,
         mode: mcpStartupMode,
         askSurface: mcpAskSurface,

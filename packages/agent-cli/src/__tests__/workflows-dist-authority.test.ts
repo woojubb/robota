@@ -22,9 +22,7 @@ const FIXTURE = join(
   'fixtures',
   'workflows-dist-authority.mjs',
 );
-const FRAMEWORK_DIST = fileURLToPath(
-  new URL('../../../agent-framework/dist/', import.meta.url),
-);
+const FRAMEWORK_DIST = fileURLToPath(new URL('../../../agent-framework/dist/', import.meta.url));
 const built = ['index.js', 'index.cjs', 'node.js', 'node.cjs'].every((name) =>
   existsSync(join(FRAMEWORK_DIST, name)),
 );
@@ -67,7 +65,7 @@ describe.skipIf(!built && !requireBuilt)(
         expect(result).toMatchObject({
           trust: 'trusted',
           canMutate: true,
-          executionRoot: root,
+          executionRoot: realpathSync.native(root),
           read: '# project guidance\n',
           forged: 'WorkspaceAuthorityRequiredError',
         });

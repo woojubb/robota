@@ -95,6 +95,12 @@ export interface IWindowsApi {
   readonly getFileIdInfo: TGetInformation;
   readonly getStandardInfo: TGetInformation;
   readonly getVolumeFilesystemName: (handle: TNativeHandle, output: Uint16Array) => boolean;
+  readonly getDirectoryInfo: (
+    handle: TNativeHandle,
+    informationClass: number,
+    output: Uint8Array,
+    outputBytes: number,
+  ) => boolean;
   readonly getFileSizeEx: (handle: TNativeHandle, size: bigint[]) => boolean;
   readonly readFile: (
     handle: TNativeHandle,
@@ -118,6 +124,7 @@ export interface IWindowsApi {
     informationBytes: number,
   ) => boolean;
   readonly getLastError: () => number;
+  readonly getDriveType: (root: string) => number;
   readonly ntCreateFile: TNtCreateFile;
   readonly ntSetInformationFile: TNtSetInformationFile;
   readonly ntClose: (handle: TNativeHandle) => number;
@@ -139,13 +146,13 @@ const FILE_ID_BYTES = 16;
 const FILE_NAME_CHARS = 256;
 
 function defineWindowsTypes(): IWindowsTypes {
-  const handleType = koffi.pointer('ConversationAgentStableFileHandle', koffi.opaque());
-  const unicodeStringType = koffi.struct('ConversationAgentUnicodeString', {
+  const handleType = koffi.pointer(koffi.opaque());
+  const unicodeStringType = koffi.struct({
     Length: 'uint16_t',
     MaximumLength: 'uint16_t',
     Buffer: koffi.pointer('char16_t'),
   });
-  const objectAttributesType = koffi.struct('ConversationAgentObjectAttributes', {
+  const objectAttributesType = koffi.struct({
     Length: 'uint32_t',
     RootDirectory: handleType,
     ObjectName: koffi.pointer(unicodeStringType),
@@ -157,32 +164,32 @@ function defineWindowsTypes(): IWindowsTypes {
     handleType,
     unicodeStringType,
     objectAttributesType,
-    ioStatusBlockType: koffi.struct('ConversationAgentIoStatusBlock', {
+    ioStatusBlockType: koffi.struct({
       Status: 'intptr_t',
       Information: 'uintptr_t',
     }),
-    attributeTagInfoType: koffi.struct('ConversationAgentFileAttributeTagInfo', {
+    attributeTagInfoType: koffi.struct({
       FileAttributes: 'uint32_t',
       ReparseTag: 'uint32_t',
     }),
-    fileIdInfoType: koffi.struct('ConversationAgentFileIdInfo', {
+    fileIdInfoType: koffi.struct({
       VolumeSerialNumber: 'uint64_t',
       FileId: koffi.array('uint8_t', FILE_ID_BYTES, 'Typed'),
     }),
-    standardInfoType: koffi.struct('ConversationAgentFileStandardInfo', {
+    standardInfoType: koffi.struct({
       AllocationSize: 'int64_t',
       EndOfFile: 'int64_t',
       NumberOfLinks: 'uint32_t',
       DeletePending: 'uint8_t',
       Directory: 'uint8_t',
     }),
-    renameInfoType: koffi.struct('ConversationAgentFileRenameInfo', {
+    renameInfoType: koffi.struct({
       ReplaceIfExists: 'uint8_t',
       RootDirectory: handleType,
       FileNameLength: 'uint32_t',
       FileName: koffi.array('uint16_t', FILE_NAME_CHARS, 'Typed'),
     }),
-    dispositionInfoType: koffi.struct('ConversationAgentFileDispositionInfo', {
+    dispositionInfoType: koffi.struct({
       DeleteFile: 'uint8_t',
     }),
   };
@@ -199,12 +206,14 @@ function bindKernel32(
   | 'getFileIdInfo'
   | 'getStandardInfo'
   | 'getVolumeFilesystemName'
+  | 'getDirectoryInfo'
   | 'getFileSizeEx'
   | 'readFile'
   | 'writeFile'
   | 'flushFileBuffers'
   | 'setFileInformation'
   | 'getLastError'
+  | 'getDriveType'
 > {
   return {
     createFileW: library.func('CreateFileW', types.handleType, [
@@ -241,6 +250,12 @@ function bindKernel32(
       return (handle: TNativeHandle, output: Uint16Array) =>
         query(handle, null, 0, null, null, null, output, output.length);
     })(),
+    getDirectoryInfo: library.func('GetFileInformationByHandleEx', 'bool', [
+      types.handleType,
+      'int32_t',
+      koffi.out(koffi.pointer('uint8_t')),
+      'uint32_t',
+    ]),
     getFileSizeEx: library.func('GetFileSizeEx', 'bool', [
       types.handleType,
       koffi.out(koffi.pointer('int64_t')),
@@ -267,6 +282,7 @@ function bindKernel32(
       'uint32_t',
     ]),
     getLastError: library.func('GetLastError', 'uint32_t', []),
+    getDriveType: library.func('GetDriveTypeW', 'uint32_t', [koffi.pointer('char16_t')]),
   };
 }
 

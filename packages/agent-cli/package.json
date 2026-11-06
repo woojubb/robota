@@ -153,6 +153,7 @@
     "@robota-sdk/agent-command": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-executor": "workspace:*",
+    "@robota-sdk/agent-file-authority": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-gui-web": "workspace:*",
     "@robota-sdk/agent-interface-analytics": "workspace:*",

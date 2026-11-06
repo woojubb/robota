@@ -17,6 +17,7 @@ import type { TListenerSurface } from '../secure-surfaces.js';
 const LISTENER_SITES: Readonly<Record<string, readonly TListenerSurface[]>> = {
   'packages/agent-cli/src/session-inventory/supervised-session-control.ts': ['control-socket'],
   'packages/agent-cli/src/session-inventory/windows-control-pipe.ts': ['control-socket'],
+  'packages/agent-cli/src/startup/workspace-root-broker.ts': ['control-socket'],
   'packages/agent-transport-ws/src/ws-transport-configurable.ts': ['websocket-transport'],
   'packages/agent-cli/src/modes/serve-http-host.ts': ['serve-http'],
   'packages/agent-cli/src/modes/serve-monitor-ui.ts': ['serve-monitor'],
@@ -42,7 +43,10 @@ const LISTENER_SITES: Readonly<Record<string, readonly TListenerSurface[]>> = {
 
 /** For each row, the product files whose `startListener(SECURE_SURFACES[row], …)` opens it. */
 const LISTENER_GATES: { readonly [S in TListenerSurface]: readonly string[] } = {
-  'control-socket': ['packages/agent-cli/src/modes/serve-mode.ts'],
+  'control-socket': [
+    'packages/agent-cli/src/modes/serve-mode.ts',
+    'packages/agent-cli/src/cli-entry.ts',
+  ],
   'websocket-transport': ['packages/agent-cli/src/product/runtime-plumbing.ts'],
   'serve-http': ['packages/agent-cli/src/modes/serve-mode.ts'],
   'serve-monitor': ['packages/agent-cli/src/modes/serve-mode.ts'],

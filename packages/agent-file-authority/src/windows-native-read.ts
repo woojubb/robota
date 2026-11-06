@@ -21,18 +21,23 @@ const ZERO_SIZE = BigInt('0');
 
 function bytesToHex(value: Uint8Array | number[] | undefined): string {
   const bytes = value instanceof Uint8Array || Array.isArray(value) ? value : undefined;
-  if (bytes?.length !== FILE_ID_BYTES || bytes.every((byte) => byte === 0)) {
+  if (
+    bytes?.length !== FILE_ID_BYTES ||
+    !Array.from(bytes).every((byte) => Number.isInteger(byte) && byte >= 0 && byte <= 255) ||
+    Array.from(bytes).every((byte) => byte === 0) ||
+    Array.from(bytes).every((byte) => byte === 255)
+  ) {
     throw authorityError('UNSUPPORTED_BACKEND', 'decode-file-identity');
   }
   return Buffer.from(bytes).toString('hex');
 }
 
-export function windowsLastErrorCode(api: IWindowsApi): string {
+export function windowsLastErrorCode(api: Pick<IWindowsApi, 'getLastError'>): string {
   return `WIN32_${api.getLastError()}`;
 }
 
 export function queryWindowsIdentity(
-  api: IWindowsApi,
+  api: Pick<IWindowsApi, 'fileIdInfoType' | 'getFileIdInfo' | 'getLastError'>,
   handle: TNativeHandle,
   operation: string,
 ): IWindowsIdentity {

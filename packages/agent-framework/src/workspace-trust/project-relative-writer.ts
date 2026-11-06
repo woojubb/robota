@@ -101,6 +101,7 @@ function withAnchoredParent<T>(
   let parentDescriptor: number | undefined;
   try {
     rootDescriptor = openSync(identity.worktreeRoot, directoryOpenFlags());
+    identityResolver.assertOpenedRootDescriptor?.(rootDescriptor);
     if (realpathSync(descriptorPath(rootDescriptor)) !== identity.worktreeRoot) {
       refuseProjectRead('The opened project root no longer matches the trusted workspace root.');
     }
@@ -473,6 +474,7 @@ function withExistingAnchoredDirectory<T>(
   try {
     const rootDescriptor = openSync(identity.worktreeRoot, directoryOpenFlags());
     opened.push(rootDescriptor);
+    identityResolver.assertOpenedRootDescriptor?.(rootDescriptor);
     if (realpathSync(descriptorPath(rootDescriptor)) !== identity.worktreeRoot) {
       refuseProjectRead('The opened project root no longer matches the trusted workspace root.');
     }
