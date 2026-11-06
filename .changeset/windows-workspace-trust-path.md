@@ -2,4 +2,4 @@
 '@robota-sdk/agent-framework': patch
 ---
 
-Resolve a Git workspace's common directory from its canonical worktree root so Windows short and long path spellings keep the same trusted identity.
+Resolve Windows short and long Git common-directory paths to the same trusted identity without changing how Git interprets the caller's environment.
