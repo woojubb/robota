@@ -8,11 +8,19 @@
 import { LINK_FRAME_OVERHEAD_BYTES } from '@robota-sdk/agent-keyring';
 import { MAX_INBOUND_FRAME_BYTES } from '@robota-sdk/agent-transport';
 
+import { LENGTH_PREFIX_BYTES } from './link-stream.js';
+
 export const SESSION_FRAME_MAX_BYTES = MAX_INBOUND_FRAME_BYTES;
 export const OWNER_FRAME_MAX_BYTES = 1024 * 1024;
 /** The largest sealed frame either end accepts, of any kind. */
 export const SEALED_FRAME_MAX_BYTES =
   Math.max(SESSION_FRAME_MAX_BYTES, OWNER_FRAME_MAX_BYTES) + LINK_FRAME_OVERHEAD_BYTES;
+/** A largest session frame and a largest owner frame may be pending on a client link. */
+export const MAX_PENDING_CLIENT_BYTES =
+  SEALED_FRAME_MAX_BYTES +
+  OWNER_FRAME_MAX_BYTES +
+  LINK_FRAME_OVERHEAD_BYTES +
+  2 * LENGTH_PREFIX_BYTES;
 /**
  * Owner requests and read grants one link may have waiting at once. A client refuses its own request
  * beyond it, so a well-behaved caller never loses its link; the runtime ends a link whose peer sends

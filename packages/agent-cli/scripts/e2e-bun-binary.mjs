@@ -2,7 +2,8 @@
 /**
  * DIST-001 — e2e smoke for the Bun single-binary. Builds the host binary and runs it: asserts `--version`
  * prints the REAL version (not the `0.0.0` fs-walk fallback), `--help` prints usage (exit 0), and both are
- * no-provider paths (no API key needed). GUARDS on Bun: when `bun` is unavailable on PATH the test SKIPS
+ * no-provider paths (no API key needed). It then runs the native file authority, standalone autoload and regex
+ * worker fixtures against that binary. GUARDS on Bun: when `bun` is unavailable on PATH the test SKIPS
  * (exit 0, not fail) so CI without Bun stays green.
  */
 
@@ -16,6 +17,7 @@ import {
   assertStandaloneNativeRuntime,
   runNativeFileAuthorityE2e,
 } from './e2e-native-file-authority.mjs';
+import { runRegexWorkerE2e } from './e2e-regex-worker.mjs';
 import { runStandaloneAutoloadE2e } from './e2e-standalone-autoload.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -106,6 +108,16 @@ try {
   } catch (error) {
     console.error(error);
     check('a bunfig.toml preload and .env in the working directory are ignored', false);
+  }
+
+  try {
+    console.log(await runRegexWorkerE2e(standalone));
+    // The regex node's child-process worker exists only in the compiled executable: a hostile pattern ends in
+    // the node's timeout refusal, through a child that is gone afterwards, and the next run still works.
+    check('a catastrophic regex ends in the timeout refusal and leaves no worker process behind', true);
+  } catch (error) {
+    console.error(error);
+    check('a catastrophic regex ends in the timeout refusal and leaves no worker process behind', false);
   }
 } finally {
   rmSync(cleanRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });

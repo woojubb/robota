@@ -3,6 +3,14 @@
   "compilerOptions": {
     "noEmit": false
   },
-  "include": ["main.ts", "preload.ts", "sidecar.ts"],
+  "include": [
+    "main.ts",
+    "preload.ts",
+    "sidecar.ts",
+    "secret-window.ts",
+    "secret-preload.ts",
+    "desktop-session-relay.ts",
+    "session-preload.ts"
+  ],
   "exclude": ["../node_modules", "../dist", "__tests__"]
 }

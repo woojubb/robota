@@ -23,7 +23,8 @@ endpoint reads the request line stay with the runtime that serves the link.
 - An admitted link reports its standing, and the runtime's desk decides what that standing may do;
   the carrier never grants a request by itself.
 - Every frame is bounded by what may come next before any of it is read, and every owner message
-  decodes strictly on both ends. Anything else ends the link before a port sees it.
+  decodes strictly on both ends. Anything else ends the link before a port sees it; a client also
+  ends its link when its outgoing stream cannot accept another frame within bounded memory.
 - Wire shapes stop in this package: runtimes and clients deal only in domain values (trust roots,
   read keys, custody states, session questions, control commands).
 - A read grant reaches the runtime only as read keys handed to its desk, and the keys of a grant the

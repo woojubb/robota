@@ -11,7 +11,7 @@ import type { Duplex } from 'node:stream';
 
 import { LINK_REQUEST_LINE } from './link-request.js';
 
-const LENGTH_PREFIX_BYTES = 4;
+export const LENGTH_PREFIX_BYTES = 4;
 
 /** One frame: its length, then its bytes. */
 export function encodeLinkFrame(payload: Uint8Array): Buffer {

@@ -58,9 +58,10 @@ export async function streamAndAssemble(
     type: 'function';
     function: { name: string; arguments: string };
   }> = [];
-  let currentToolId = '';
-  let currentToolName = '';
-  let currentToolJson = '';
+  let currentTool:
+    | { kind: 'client'; id: string; name: string; json: string }
+    | { kind: 'server'; name: string; json: string }
+    | undefined;
   const citations: Anthropic.Messages.TextCitation[] = [];
   let usage = { input_tokens: 0, output_tokens: 0 };
   let sawUsageStart = false;
@@ -88,23 +89,11 @@ export async function streamAndAssemble(
 
         case 'content_block_start':
           if (event.content_block.type === 'tool_use') {
-            currentToolId = event.content_block.id;
-            currentToolName = event.content_block.name;
-            currentToolJson = '';
-          } else if (event.content_block.type === 'server_tool_use') {
-            const serverBlock = event.content_block as {
-              name?: string;
-              input?: { query?: string };
+            currentTool = {
+              kind: 'client', id: event.content_block.id, name: event.content_block.name, json: '',
             };
-            const query = serverBlock.input?.query ?? '';
-            const toolLabel = query
-              ? `\n🔍 Searching: "${query}"\n`
-              : `\n🔍 [${serverBlock.name ?? 'server_tool'}]\n`;
-            textParts.push(toolLabel);
-            onTextDelta(toolLabel);
-            if (onServerToolUse) {
-              onServerToolUse(serverBlock.name ?? 'server_tool', { query });
-            }
+          } else if (event.content_block.type === 'server_tool_use') {
+            currentTool = { kind: 'server', name: event.content_block.name, json: '' };
           } else if (event.content_block.type === 'web_search_tool_result') {
             const resultBlock = event.content_block as Anthropic.Messages.WebSearchToolResultBlock;
             const formatted = formatWebSearchResults(resultBlock);
@@ -122,24 +111,27 @@ export async function streamAndAssemble(
           } else if (event.delta.type === 'citations_delta') {
             citations.push(event.delta.citation);
           } else if (event.delta.type === 'input_json_delta') {
-            currentToolJson += event.delta.partial_json;
+            if (currentTool) currentTool.json += event.delta.partial_json;
           }
           break;
 
         case 'content_block_stop':
-          if (currentToolId) {
+          if (currentTool?.kind === 'client') {
             toolCalls.push({
-              id: currentToolId,
-              type: 'function' as const,
-              function: {
-                name: currentToolName,
-                arguments: currentToolJson || '{}',
-              },
+              id: currentTool.id,
+              type: 'function',
+              function: { name: currentTool.name, arguments: currentTool.json || '{}' },
             });
-            currentToolId = '';
-            currentToolName = '';
-            currentToolJson = '';
+          } else if (currentTool?.kind === 'server') {
+            const query = serverToolQuery(currentTool.json);
+            const toolLabel = query
+              ? `\n🔍 Searching: "${query}"\n`
+              : `\n🔍 [${currentTool.name}]\n`;
+            textParts.push(toolLabel);
+            onTextDelta(toolLabel);
+            onServerToolUse?.(currentTool.name, { query });
           }
+          currentTool = undefined;
           break;
 
         case 'message_delta':
@@ -194,6 +186,19 @@ export async function streamAndAssemble(
   }
 
   return result;
+}
+
+function serverToolQuery(json: string): string {
+  if (!json) return '';
+  try {
+    const value: unknown = JSON.parse(json);
+    if (typeof value === 'object' && value !== null && 'query' in value && typeof value.query === 'string') {
+      return value.query;
+    }
+  } catch {
+    // An incomplete or malformed server input still has a readable bare marker.
+  }
+  return '';
 }
 
 function buildPartialResult(

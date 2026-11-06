@@ -1,0 +1,151 @@
+import { EventEmitter } from 'node:events';
+
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { BrowserWindow } from 'electron';
+
+type TListener = (...args: unknown[]) => void;
+interface ITestWindow extends EventEmitter {
+  readonly options: Record<string, unknown>;
+  readonly webContents: EventEmitter & {
+    readonly mainFrame: object;
+    setWindowOpenHandler: ReturnType<typeof vi.fn>;
+  };
+  readonly loadFile: ReturnType<typeof vi.fn>;
+  readonly show: ReturnType<typeof vi.fn>;
+  isDestroyed(): boolean;
+  destroy(): void;
+}
+const mocks = vi.hoisted(() => ({
+  windows: [] as ITestWindow[],
+  listeners: new Map<string, Set<TListener>>(),
+}));
+vi.mock('electron', async () => {
+  const { EventEmitter: Emitter } = await import('node:events');
+  class Window extends Emitter {
+    readonly webContents = Object.assign(new Emitter(), {
+      mainFrame: {},
+      setWindowOpenHandler: vi.fn(),
+    });
+    readonly loadFile = vi.fn(async () => {});
+    readonly show = vi.fn();
+    private destroyed = false;
+    constructor(readonly options: Record<string, unknown>) {
+      super();
+      mocks.windows.push(this);
+    }
+    isDestroyed(): boolean { return this.destroyed; }
+    destroy(): void {
+      if (this.destroyed) return;
+      this.destroyed = true;
+      this.emit('closed');
+    }
+  }
+  return {
+    BrowserWindow: Window,
+    ipcMain: {
+      on: (channel: string, listener: TListener) => {
+        const listeners = mocks.listeners.get(channel) ?? new Set<TListener>();
+        listeners.add(listener);
+        mocks.listeners.set(channel, listeners);
+      },
+      removeListener: (channel: string, listener: TListener) => {
+        mocks.listeners.get(channel)?.delete(listener);
+      },
+    },
+  };
+});
+
+import { openSecretWindow } from '../secret-window.js';
+
+function send(channel: string, sender: object, senderFrame: object, value?: unknown): void {
+  for (const listener of [...(mocks.listeners.get(channel) ?? [])]) {
+    listener({ sender, senderFrame }, value);
+  }
+}
+function activeWindow(): ITestWindow {
+  const window = mocks.windows.at(-1);
+  if (!window) throw new Error('The secret window was not created.');
+  return window;
+}
+const parent = Object.assign(new EventEmitter(), { isDestroyed: () => false }) as BrowserWindow;
+
+beforeEach(() => {
+  mocks.windows.length = 0;
+  mocks.listeners.clear();
+});
+
+describe('desktop owner secret window', () => {
+  it('accepts a credential only from its own top frame and removes its IPC handlers', async () => {
+    const result = openSecretWindow(parent);
+    const window = activeWindow();
+    const options = window.options['webPreferences'];
+    expect(options).toMatchObject({ contextIsolation: true, nodeIntegration: false, sandbox: true, devTools: false });
+    expect(window.options).toMatchObject({ modal: true, parent, show: false });
+    let settled = false;
+    void result.then(() => { settled = true; });
+    send('desktop-secret:submit', {}, window.webContents.mainFrame, { type: 'passphrase', value: 'wrong-sender' });
+    send('desktop-secret:submit', window.webContents, {}, { type: 'passphrase', value: 'wrong-frame' });
+    send('desktop-secret:submit', window.webContents, window.webContents.mainFrame, { type: 'other', value: 'invalid' });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    send('desktop-secret:submit', window.webContents, window.webContents.mainFrame, { type: 'passphrase', value: 'only-from-secret-window' });
+    await expect(result).resolves.toEqual({ type: 'passphrase', value: 'only-from-secret-window' });
+    expect(window.isDestroyed()).toBe(true);
+    expect([...mocks.listeners.values()].every((listeners) => listeners.size === 0)).toBe(true);
+  });
+
+  it('supports a recovery key, and cancelling or closing returns no credential', async () => {
+    const recover = openSecretWindow(parent);
+    const first = activeWindow();
+    send('desktop-secret:submit', first.webContents, first.webContents.mainFrame, { type: 'recovery', value: 'recovery-key' });
+    await expect(recover).resolves.toEqual({ type: 'recovery', value: 'recovery-key' });
+
+    const cancel = openSecretWindow(parent);
+    const second = activeWindow();
+    send('desktop-secret:cancel', second.webContents, second.webContents.mainFrame);
+    await expect(cancel).resolves.toBeUndefined();
+
+    const closed = openSecretWindow(parent);
+    activeWindow().destroy();
+    await expect(closed).resolves.toBeUndefined();
+  });
+
+  it('cancels if its parent closes and denies navigation and new windows', async () => {
+    const otherParent = Object.assign(new EventEmitter(), { isDestroyed: () => false }) as BrowserWindow;
+    const result = openSecretWindow(otherParent);
+    const window = activeWindow();
+    const deny = window.webContents.setWindowOpenHandler.mock.calls[0]?.[0];
+    expect(deny()).toEqual({ action: 'deny' });
+    const preventDefault = vi.fn();
+    window.webContents.emit('will-navigate', { preventDefault });
+    window.webContents.emit('will-redirect', { preventDefault });
+    expect(preventDefault).toHaveBeenCalledTimes(2);
+    otherParent.emit('closed');
+    await expect(result).resolves.toBeUndefined();
+    expect(window.isDestroyed()).toBe(true);
+  });
+
+  it('refuses a second concurrent prompt, rejects malformed values and leaves no stale listener', async () => {
+    const result = openSecretWindow(parent);
+    const window = activeWindow();
+    await expect(openSecretWindow(parent)).rejects.toThrow(/already open/i);
+    send('desktop-secret:submit', window.webContents, window.webContents.mainFrame, { type: 'passphrase', value: '' });
+    send('desktop-secret:submit', window.webContents, window.webContents.mainFrame, { type: 'passphrase', value: 42 });
+    send('desktop-secret:cancel', window.webContents, window.webContents.mainFrame);
+    await expect(result).resolves.toBeUndefined();
+    expect([...mocks.listeners.values()].every((listeners) => listeners.size === 0)).toBe(true);
+  });
+
+  it('cancels on owner revocation and refuses an already revoked request', async () => {
+    const controller = new AbortController();
+    const result = openSecretWindow(parent, controller.signal);
+    const window = activeWindow();
+    controller.abort();
+    await expect(result).resolves.toBeUndefined();
+    expect(window.isDestroyed()).toBe(true);
+    expect([...mocks.listeners.values()].every((listeners) => listeners.size === 0)).toBe(true);
+    const count = mocks.windows.length;
+    await expect(openSecretWindow(parent, controller.signal)).resolves.toBeUndefined();
+    expect(mocks.windows.length).toBe(count);
+  });
+});
