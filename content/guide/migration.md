@@ -5,6 +5,10 @@ description: Upgrade from the Robota SDK 2.x packages to the 3.0.0 beta line, an
 
 # Migrating to 3.0
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Robota 3.0 is published as the `3.0.0-beta.x` line (for example `3.0.0-beta.83`). npm's `latest` tag
 points at the newest beta, so `npm install @robota-sdk/agent-core` installs it. In `package.json`,
 use a caret range on a beta version such as `^3.0.0-beta.83`: it accepts later betas and the stable

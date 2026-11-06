@@ -1,13 +1,16 @@
 # Getting Started
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Robota provides composable TypeScript libraries and agent interfaces on the same foundation.
 Our direction is [our agents developing and advancing our agents](__PROJECT_REPOSITORY_URL__/blob/develop/VISION.md);
 this guide covers current capabilities. Use the SDK to build an agent or the `__PRODUCT_CLI_NAME__` CLI
 as a coding assistant. This page takes you from installation to a first agent, a session with
 built-in tools, and the CLI.
 
-> **Beta** — the packages are published as `3.0.0-beta` versions. APIs may still change before a
-> stable release. [Report issues](__PROJECT_REPOSITORY_URL__/issues).
+> **Beta** — public packages are in beta. APIs may still change before a stable release. [Report issues](__PROJECT_REPOSITORY_URL__/issues).
 
 ## Which path is right for you?
 

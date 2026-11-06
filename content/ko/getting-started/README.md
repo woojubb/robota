@@ -4,13 +4,17 @@ description: __PRODUCT_DISPLAY_NAME__ CLI와 SDK의 설치, 프로바이더 설�
 
 # 시작하기
 
+> **버전 안내:** 이 페이지의 플랫폼 지원, 진입점과 호스트 API는 3.1.0 출시를 기준으로 합니다.
+> npm에 출시된 뒤 3.1.0 이상을 설치하고 제공되는 진입점을 확인하세요. 3.0.7에는
+> `@robota-sdk/agent-framework/node`가 없습니다.
+
 Robota provides composable TypeScript libraries and agent interfaces on the same foundation.
 Our direction is [our agents developing and advancing our agents](__PROJECT_REPOSITORY_URL__/blob/develop/VISION.md);
 this guide covers current capabilities. Use the SDK to build an agent or the `__PRODUCT_CLI_NAME__` CLI
 as a coding assistant. This page takes you from installation to a first agent, a session with
 built-in tools, and the CLI.
 
-> **베타** — 패키지는 `3.0.0-beta` 버전으로 배포됩니다. 정식 릴리스 전에 API가 바뀔 수 있습니다.
+> **베타** — 공개 패키지는 베타 버전입니다. 정식 릴리스 전에 API가 바뀔 수 있습니다.
 > [이슈 보고](__PROJECT_REPOSITORY_URL__/issues).
 
 ## 어떤 경로가 적합한가요?

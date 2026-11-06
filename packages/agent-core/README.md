@@ -1,5 +1,9 @@
 # @robota-sdk/agent-core
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 The foundation of the Robota SDK. It provides the `ConversationAgent` class (a conversation loop with
 tool calling), the provider, tool and plugin contracts with their abstract base classes, the
 permission evaluator, the hook runner, event services, typed errors, model metadata, and structured

@@ -1,5 +1,9 @@
 # @robota-sdk/agent-framework
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 The assembly layer of the Robota SDK. It composes `@robota-sdk/agent-core`,
 `@robota-sdk/agent-session`, `@robota-sdk/agent-tools` and `@robota-sdk/agent-executor` into one
 provider-neutral SDK for building agents: sessions with tools, permissions, hooks, streaming, context

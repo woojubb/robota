@@ -1,5 +1,9 @@
 # WebSocket Transport
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Drive an `InteractiveSession` over a WebSocket connection with `@robota-sdk/agent-transport-ws`. The
 client sends JSON messages (submit a prompt, run a command, answer a permission prompt) and receives
 the session's events as they happen.

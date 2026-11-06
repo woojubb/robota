@@ -1,5 +1,9 @@
 # MCP Transport
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Expose an `InteractiveSession` as a Model Context Protocol server with
 `@robota-sdk/agent-transport-mcp`, so an MCP client (a desktop assistant, an IDE, another agent) can
 call the session's tools or hand it a prompt.
