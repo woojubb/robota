@@ -74,6 +74,8 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   private readonly preparedRestores = new Set<IPreparedRestoredSchedules>();
   private readonly preparedRestoreOwners = new WeakMap<IPreparedRestoredSchedules, string>();
   private readonly revokedOwners = new Set<string>();
+  private readonly attachedSessions = new Set<object>();
+  private exclusiveSession?: object;
   private preparingRestore = false;
   private readonly allocatedTaskIds = new Set<string>();
   private readonly queue: string[] = [];
@@ -107,6 +109,30 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
         this.sequence += 1;
         return `task_${this.sequence}`;
       });
+  }
+
+  /** Bind a claimed framework session exclusively until its lifecycle releases the binding. */
+  attachSession(owner: object, exclusive: boolean): () => void {
+    if (
+      (this.exclusiveSession && this.exclusiveSession !== owner) ||
+      (exclusive && [...this.attachedSessions].some((session) => session !== owner))
+    ) {
+      throw new BackgroundTaskError(
+        'validation',
+        'The background task manager is exclusively bound to another session.',
+      );
+    }
+    if (this.attachedSessions.has(owner))
+      throw new BackgroundTaskError('validation', 'The session is already attached.');
+    this.attachedSessions.add(owner);
+    if (exclusive) this.exclusiveSession = owner;
+    let released = false;
+    return () => {
+      if (released) return;
+      released = true;
+      this.attachedSessions.delete(owner);
+      if (this.exclusiveSession === owner) this.exclusiveSession = undefined;
+    };
   }
 
   reserveTaskIds(taskIds: readonly string[]): IBackgroundTaskIdReservation {

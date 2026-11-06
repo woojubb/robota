@@ -464,6 +464,45 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
 });
 
 describe('restored task reservation capability', () => {
+  it.each(['restored first', 'empty first'] as const)(
+    'rejects a second claimed session sharing a manager and the same session id: %s',
+    async (order) => {
+      const manager = new BackgroundTaskManager({ runners: [createScheduledTaskRunner()] });
+      const restored = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+      const empty = { ...restored, backgroundTasks: [] };
+      const firstStub = createSessionStub();
+      const secondStub = createSessionStub();
+      storeAgentToolDeps(firstStub, {
+        backgroundTaskManager: manager,
+      } as unknown as IAgentToolDeps);
+      storeAgentToolDeps(secondStub, {
+        backgroundTaskManager: manager,
+      } as unknown as IAgentToolDeps);
+      const firstStore = createStore(order === 'restored first' ? restored : empty);
+      const secondStore = createStore(order === 'restored first' ? empty : restored);
+      const first = new InteractiveSession({
+        host: testHost,
+        cwd: process.cwd(),
+        session: firstStub,
+        sessionStore: firstStore as never,
+        resumeSessionId: 'session_resumed',
+      });
+      expect(
+        () =>
+          new InteractiveSession({
+            host: testHost,
+            cwd: process.cwd(),
+            session: secondStub,
+            sessionStore: secondStore as never,
+            resumeSessionId: 'session_resumed',
+          }),
+      ).toThrow(/exclusive/i);
+      expect(secondStore.save).not.toHaveBeenCalled();
+      if (order === 'restored first')
+        expect(manager.get('sched_old')).toMatchObject({ status: 'sleeping' });
+      await first.shutdown();
+    },
+  );
   it('refuses a manager that admits another task while subscribing', async () => {
     const { runner } = createTestScheduledRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });
@@ -606,6 +645,10 @@ describe('restored task reservation capability', () => {
       expect(store.save).not.toHaveBeenCalled();
       expect(store.hasWriter('session_resumed')).toBe(false);
       expect(store.load('session_resumed')).toMatchObject({ status: 'valid', record: saved });
+      if (missing === 'store') {
+        const release = manager.attachSession({}, true);
+        release();
+      }
     },
   );
 

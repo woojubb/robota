@@ -34,6 +34,7 @@ import type {
 import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
+  BackgroundTaskManager,
   IBackgroundTaskIdReservation,
   IBackgroundTaskManager,
   IPreparedRestoredSchedules,
@@ -55,11 +56,22 @@ export interface IBackgroundTrackerState {
   groupEvents: TBackgroundJobGroupEvent[];
 }
 
+interface IBackgroundRestoreOwnership {
+  ownsRecord: boolean;
+  canRun(): boolean;
+  canCommit(): boolean;
+  commit(): void;
+  onLoss(): void;
+}
+
 export class SessionBackgroundTaskTracker {
   private backgroundTasks: IBackgroundTaskState[] = [];
   private restoredTaskIds: string[] = [];
   private restoredScheduleIds = new Set<string>();
   private restoreOwnershipLost = false;
+  private writerSessionId?: string;
+  private managerSessionRelease?: () => void;
+  private boundManager?: BackgroundTaskManager;
   private taskIdReservation?: IBackgroundTaskIdReservation;
   private restoredTerminalTasks: IBackgroundTaskState[] = [];
   private preparedSchedules: IBackgroundTaskState<'scheduled'>[] = [];
@@ -94,14 +106,20 @@ export class SessionBackgroundTaskTracker {
     private readonly reportObserverFailure?: IFrameworkHost['reportObserverFailure'],
   ) {}
 
-  subscribe(
-    session: Session,
-    restore?: { canCommit(): boolean; commit(): void; onLoss(): void },
-  ): void {
+  subscribe(session: Session, restore?: IBackgroundRestoreOwnership): void {
     if (this.backgroundTaskUnsubscribe) return;
     const manager =
       retrieveSessionBackgroundTaskManager(session) ??
       retrieveAgentToolDeps(session)?.backgroundTaskManager;
+    this.writerSessionId = restore?.ownsRecord ? session.getSessionId() : undefined;
+    const builtInManager = manager && isBuiltInRestoreManager(manager) ? manager : undefined;
+    if (manager && restore?.ownsRecord && !builtInManager) {
+      throw new Error('A claimed session requires the built-in background task manager.');
+    }
+    if (builtInManager) {
+      this.managerSessionRelease = builtInManager.attachSession(this, restore?.ownsRecord === true);
+      this.boundManager = builtInManager;
+    }
     if (this.restoredTaskIds.length > 0) {
       if (!manager?.reserveTaskIds)
         throw new Error('Restoring background tasks requires a manager that can reserve task IDs.');
@@ -132,7 +150,7 @@ export class SessionBackgroundTaskTracker {
       ) {
         let owned = false;
         try {
-          owned = restore?.canCommit() === true;
+          owned = restore?.canRun() === true;
         } catch {
           /* An unverifiable claim is not owned. */
         }
@@ -171,7 +189,7 @@ export class SessionBackgroundTaskTracker {
   private reArmRestoredSchedules(
     manager: IBackgroundTaskManager,
     sessionId: string,
-    restore?: { canCommit(): boolean; commit(): void; onLoss(): void },
+    restore?: IBackgroundRestoreOwnership,
   ): void {
     if (this.restoredTaskIds.length === 0) return;
     const nowMs = Date.now();
@@ -255,7 +273,7 @@ export class SessionBackgroundTaskTracker {
     }
     this.restoredScheduleIds = new Set(schedules.map((task) => task.id));
     const candidate: unknown = prepare.call(manager, schedules, this.taskIdReservation, {
-      canRun: restore.canCommit,
+      canRun: restore.canRun,
       onLoss: restore.onLoss,
     });
     if (!isPreparedSchedules(candidate)) {
@@ -314,8 +332,14 @@ export class SessionBackgroundTaskTracker {
   }
 
   releaseTaskIdReservation(): void {
-    this.taskIdReservation?.release();
-    this.taskIdReservation = undefined;
+    try {
+      this.taskIdReservation?.release();
+    } finally {
+      this.taskIdReservation = undefined;
+      this.managerSessionRelease?.();
+      this.managerSessionRelease = undefined;
+      this.boundManager = undefined;
+    }
   }
 
   preserveSchedulesForShutdown(): boolean {
@@ -446,24 +470,20 @@ export class SessionBackgroundTaskTracker {
     return this.restoredTerminalTasks.some((task) => task.id === taskId);
   }
 
-  hasRestoredSchedules(): boolean {
-    return this.restoredScheduleIds.size > 0;
-  }
-
   requiresWriterForWake(taskId: string, sessionId: string): boolean {
-    if (!this.hasRestoredSchedules()) return false;
+    if (this.writerSessionId !== sessionId) return false;
     const task = this.getManager()?.get(taskId);
     return task?.kind === 'scheduled' && task.parentSessionId === sessionId;
   }
 
   invalidateRestoredSchedules(sessionId: string, beforeReport: () => void): string[] {
-    if (this.restoredScheduleIds.size === 0) {
+    if (this.writerSessionId !== sessionId) {
       beforeReport();
       return [];
     }
     this.restoreOwnershipLost = true;
-    const manager = this.getManager();
-    if (manager && isBuiltInRestoreManager(manager)) {
+    const manager = this.boundManager;
+    if (manager) {
       for (const task of manager.list()) {
         if (task.kind === 'scheduled' && task.parentSessionId === sessionId)
           this.restoredScheduleIds.add(task.id);

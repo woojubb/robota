@@ -680,6 +680,11 @@ export class InteractiveSession
 
   private subscribeBackgroundTasks(session: Session): void {
     this.bgTracker.subscribe(session, {
+      ownsRecord: this.recordClaim !== undefined,
+      canRun: () =>
+        this.session === session &&
+        !this.execCtrl.shuttingDown &&
+        (this.recordClaim === undefined || this.recordClaim.holdsWriter(session.getSessionId())),
       canCommit: () =>
         typeof this.sessionStore?.saveRestoreTransaction === 'function' &&
         this.session === session &&
@@ -1843,27 +1848,27 @@ export class InteractiveSession
   private loseRestoredOwnership(): void {
     if (this.restoredOwnershipLost) return;
     this.restoredOwnershipLost = true;
-    const ids = this.bgTracker.invalidateRestoredSchedules(this.sessionId, () => {
-      if (this.bgTracker.hasRestoredSchedules()) this.recordClaim?.loseWriter();
-      else this.recordClaim?.end();
-    });
+    const ids = this.bgTracker.invalidateRestoredSchedules(this.sessionId, () =>
+      this.recordClaim?.loseWriter(),
+    );
     for (const id of ids) {
       this.stoppedWakeTaskIds.add(id);
       this.execCtrl.wakeTaskIds.delete(id);
     }
-    if (ids.length > 0) this.execCtrl.failPendingQueue(new Error('Session writer claim was lost.'));
-    if (ids.length > 0 && this.execCtrl.executing) {
+    if (this.recordClaim)
+      this.execCtrl.failPendingQueue(new Error('Session writer claim was lost.'));
+    if (this.recordClaim && this.execCtrl.executing) {
       this.promptRegistry.drain();
       this.session?.abort();
     }
     this.clearSessionLoopExpiryTimers();
-    if (ids.length > 0)
+    if (this.recordClaim)
       this.reportBackgroundError(new Error('Session writer claim was lost.'), 'session-claim');
   }
 
   private admitRestoredWake(entry: IQueuedInput): boolean {
     const id = entry.options.wakeTaskId;
-    if (this.restoredOwnershipLost && this.bgTracker.hasRestoredSchedules()) {
+    if (this.restoredOwnershipLost && this.recordClaim) {
       this.execCtrl.turns.fail(entry.turnId, new Error('Session writer claim was lost.'));
       if (id) this.execCtrl.wakeTaskIds.delete(id);
       return false;

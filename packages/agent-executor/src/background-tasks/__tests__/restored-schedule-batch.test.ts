@@ -25,6 +25,28 @@ function schedule(
 }
 
 describe('prepared restored schedules', () => {
+  it('binds a claimed manager exclusively to a session identity for its lifetime', async () => {
+    const manager = new BackgroundTaskManager({ runners: [createScheduledTaskRunner()] });
+    const first = {};
+    const second = {};
+    const release = manager.attachSession(first, true);
+    expect(() => manager.attachSession(second, false)).toThrow(/exclusive/i);
+    release();
+    release();
+    const otherRelease = manager.attachSession(second, false);
+    expect(() => manager.attachSession(first, true)).toThrow(/exclusive/i);
+    otherRelease();
+    const finalRelease = manager.attachSession(first, true);
+    finalRelease();
+    const sharedFirst = manager.attachSession(first, false);
+    const sharedSecond = manager.attachSession(second, false);
+    expect(() => manager.attachSession({}, true)).toThrow(/exclusive/i);
+    sharedFirst();
+    sharedSecond();
+    const afterShared = manager.attachSession({}, true);
+    afterShared();
+    await manager.shutdown();
+  });
   it('does not start a runner when an observer revokes the claim at task admission', async () => {
     const start = vi.fn(({ taskId }: { taskId: string }) => ({
       taskId,

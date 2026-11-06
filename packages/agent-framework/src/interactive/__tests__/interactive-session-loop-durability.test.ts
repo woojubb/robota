@@ -1,5 +1,6 @@
 import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
+import { createScheduledTaskRunner } from '@robota-sdk/agent-executor/node';
 import { describe, expect, it, vi } from 'vitest';
 
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
@@ -278,6 +279,7 @@ describe('session-loop creation durability', () => {
 
   it('does not leave a restored loop waiting when its timer cannot be re-armed', async () => {
     const { interactive, store, records } = setup(() => undefined, 0);
+    await interactive.shutdown();
     const now = Date.now();
     records.set('loop_durable', {
       ...records.get('loop_durable')!,
@@ -297,9 +299,22 @@ describe('session-loop creation durability', () => {
         },
       ] as never,
     });
+    const resumedSession = createSessionStub({
+      getSessionId: () => 'loop_durable',
+      getEventService: () => ({ subscribe: vi.fn(), unsubscribe: vi.fn() }),
+      getModelId: () => 'test-model',
+      run: vi.fn().mockResolvedValue('done'),
+    } as never);
+    const resumedManager = new BackgroundTaskManager({
+      runners: [createScheduledTaskRunner()],
+      maxConcurrent: 0,
+    });
+    storeAgentToolDeps(resumedSession, {
+      backgroundTaskManager: resumedManager,
+    } as unknown as IAgentToolDeps);
     const resumed = new InteractiveSession({
       host: testHost,
-      session: interactive.getSession(),
+      session: resumedSession,
       sessionStore: store as never,
       resumeSessionId: 'loop_durable',
       cwd: '/workspace',
@@ -310,6 +325,7 @@ describe('session-loop creation durability', () => {
         terminalReason: 'Could not restore timer',
       }),
     );
+    await resumed.shutdown();
   });
 
   it('settles a loop whose wake cannot enter the full queue without disturbing other entries', async () => {

@@ -53,9 +53,16 @@ function completedFork(cwd: string): IAgentBackgroundTaskState {
 }
 
 describe('restored background tasks', () => {
-  it.each(['release', 'marker replacement'] as const)(
-    'closes a newly created schedule after %s',
-    async (loss) => {
+  it.each([
+    { initial: 'scheduled', loss: 'release' },
+    { initial: 'scheduled', loss: 'marker replacement' },
+    { initial: 'terminal', loss: 'release' },
+    { initial: 'terminal', loss: 'marker replacement' },
+    { initial: 'empty', loss: 'release' },
+    { initial: 'empty', loss: 'marker replacement' },
+  ] as const)(
+    'closes a newly created schedule after $loss with $initial history',
+    async ({ initial, loss }) => {
       vi.useFakeTimers();
       vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
       const cwd = directory();
@@ -75,9 +82,15 @@ describe('restored background tasks', () => {
         nextFireAt: '2999-01-01T00:00:00.000Z',
         schedule: { cronExpression: '0 0 * * *', agentInstruction: 'old wake' },
       };
-      store.save(record(PARENT, cwd, 'owner message', { backgroundTasks: [restored] }), {
-        provenance: 'owner',
-      });
+      store.save(
+        record(PARENT, cwd, 'owner message', {
+          backgroundTasks:
+            initial === 'empty' ? [] : [initial === 'terminal' ? completedFork(cwd) : restored],
+        }),
+        {
+          provenance: 'owner',
+        },
+      );
       const runtime = createAgentRuntime({
         host: createTestFrameworkHost(),
         cwd,
