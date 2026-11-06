@@ -13,7 +13,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fixtureProcessEnvironment } from './product-fixture-environment.mjs';
 
@@ -57,6 +57,47 @@ function commandFailure(label, result) {
   return new Error(
     `${label} failed with status ${String(result.status)}.\nstdout:\n${result.stdout ?? ''}\nstderr:\n${result.stderr ?? ''}`,
   );
+}
+
+/** Stop only this disposable fixture's detached broker before removing its Windows guard file. */
+function stopFixtureBroker(command, fixtureRoot, env) {
+  let pids;
+  if (process.platform === 'win32') {
+    const script = [
+      '$ErrorActionPreference = "Stop"',
+      'Get-CimInstance Win32_Process | Where-Object {',
+      '  $_.Name -eq $env:E2E_BROKER_IMAGE -and $_.CommandLine -and',
+      '  $_.CommandLine.Contains("--internal-root-broker") -and',
+      '  $_.CommandLine.IndexOf($env:E2E_BROKER_ROOT, [StringComparison]::OrdinalIgnoreCase) -ge 0',
+      '} | ForEach-Object { $_.ProcessId }',
+    ].join('\n');
+    const query = spawnSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
+      encoding: 'utf8',
+      env: {
+        ...env,
+        E2E_BROKER_IMAGE: basename(command),
+        E2E_BROKER_ROOT: fixtureRoot,
+      },
+      timeout: 10_000,
+    });
+    if (query.status !== 0) throw commandFailure('Find fixture root broker', query);
+    pids = query.stdout.trim().split(/\s+/u);
+  } else {
+    const query = spawnSync('ps', ['-ww', '-axo', 'pid=,command='], { encoding: 'utf8', timeout: 10_000 });
+    if (query.status !== 0) throw commandFailure('Find fixture root broker', query);
+    pids = query.stdout.split('\n').flatMap((line) => {
+      const row = /^\s*(\d+)\s+(.*)$/u.exec(line);
+      return row && row[2].includes('--internal-root-broker') && row[2].includes(fixtureRoot)
+        ? [row[1]] : [];
+    });
+  }
+  for (const value of pids) {
+    if (!/^\d+$/u.test(value)) continue;
+    const pid = Number(value);
+    if (pid === process.pid) continue;
+    try { process.kill(pid, 'SIGTERM'); }
+    catch (error) { if (error.code !== 'ESRCH') throw error; }
+  }
 }
 
 export function assertStandaloneNativeRuntime(binaryPath) {
@@ -304,6 +345,7 @@ export async function runNativeFileAuthorityE2e(binaryPath, options = {}) {
         )
       : runUserSessionStoreScenario(command, prefixArguments, home, workspace, env, sessionId);
   } finally {
+    stopFixtureBroker(command, fixtureRoot, env);
     rmSync(fixtureRoot, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
   }
 
