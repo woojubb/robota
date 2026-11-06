@@ -73,13 +73,16 @@ export async function ensurePrWorkflowVersion({ sourceRoot, isPullRequest, versi
 }
 
 function versionPrCandidate(sourceRoot) {
-  const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm';
-  const result = spawnSync(pnpm, ['run', 'version'], {
-    cwd: sourceRoot,
-    stdio: 'inherit',
-    timeout: 300_000,
-    shell: process.platform === 'win32',
-  });
+  const windows = process.platform === 'win32';
+  const result = spawnSync(
+    windows ? 'cmd.exe' : 'pnpm',
+    windows ? ['/d', '/s', '/c', 'pnpm.cmd run version'] : ['run', 'version'],
+    {
+      cwd: sourceRoot,
+      stdio: 'inherit',
+      timeout: 300_000,
+    },
+  );
   if (result.error || result.status !== 0)
     throw new Error(
       `PR candidate version generation failed: ${result.error?.message ?? result.status}`,
