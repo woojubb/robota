@@ -98,6 +98,38 @@ describe('WorkspaceTrustService project authority', () => {
     };
   }
 
+  it('lists a trusted project root and nested directory', async () => {
+    const { root, service } = fixture();
+    mkdirSync(join(root, 'nested'));
+    writeFileSync(join(root, 'nested', 'canary.txt'), 'trusted canary', 'utf8');
+    const granted = await service.grant(root);
+    if (granted.status !== 'trusted') throw new Error('expected trusted access');
+    const reader = getWorkspaceProjectReader(granted.authority);
+
+    expect(reader.listDirectory('', 'list trusted root')).toContainEqual({
+      name: 'nested',
+      kind: 'directory',
+    });
+    expect(reader.listDirectory('nested', 'list trusted nested directory')).toContainEqual({
+      name: 'canary.txt',
+      kind: 'file',
+    });
+  });
+
+  it('refuses to list a project directory link', async () => {
+    const { root, service } = fixture();
+    const outside = realpathSync(mkdtempSync(join(tmpdir(), 'agent-arch-042-list-outside-')));
+    roots.push(outside);
+    writeFileSync(join(outside, 'outside.txt'), 'outside', 'utf8');
+    symlinkSync(outside, join(root, 'linked-outside'), process.platform === 'win32' ? 'junction' : 'dir');
+    const granted = await service.grant(root);
+    if (granted.status !== 'trusted') throw new Error('expected trusted access');
+
+    expect(() =>
+      getWorkspaceProjectReader(granted.authority).listDirectory('linked-outside', 'list linked directory'),
+    ).toThrowError(WorkspaceAuthorityRequiredError);
+  });
+
   it('returns Restricted until the host trust store grants the current identity', async () => {
     const { root, service } = fixture();
 
