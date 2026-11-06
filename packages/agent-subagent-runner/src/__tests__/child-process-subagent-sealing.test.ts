@@ -10,6 +10,8 @@
  * - What cannot be handed over fails before anything is spawned; a child whose parent seals never
  *   writes plain; a child started before the parent's key was verified follows the newer grant.
  */
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import {
   existsSync,
   mkdirSync,
@@ -86,19 +88,45 @@ const NO_WORKTREES: ISubagentWorktreeAdapter = {
 const CANARY = 'CANARY-sealed-fork-0f7e-conversation-text';
 
 const roots: string[] = [];
-afterEach(() => {
-  // A fork job's child and the parent's follower let the record's marker go just after the job's
-  // result, so a removal can meet a marker or break lock written meanwhile; Node retries ENOTEMPTY.
+async function cleanupTestState(): Promise<void> {
+  await Promise.all(
+    spawned.children.map(async (child) => {
+      if (child.exitCode !== null || child.signalCode !== null) return;
+      try {
+        await once(child, 'close', { signal: AbortSignal.timeout(5_000) });
+      } catch (error) {
+        child.kill('SIGKILL');
+        throw error;
+      }
+    }),
+  );
+  // The parent's follower may release its marker after the child exits.
   for (const root of roots.splice(0)) {
     rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 25 });
   }
   spawned.children.length = 0;
-});
+}
+afterEach(cleanupTestState);
 function directory(prefix: string): string {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), prefix)));
   roots.push(dir);
   return dir;
 }
+
+it('waits for a worker to finish writing before removing its temporary directory', async () => {
+  const root = directory('sealing-cleanup-');
+  const child = spawn(process.execPath, [
+    '-e',
+    "setTimeout(() => require('node:fs').writeFileSync(process.argv[1], 'finished'), 150)",
+    join(root, 'late-write'),
+  ]);
+  await once(child, 'spawn');
+  const closed = once(child, 'close');
+  await cleanupTestState();
+  const [code] = await closed;
+  expect(code).toBe(0);
+  expect(existsSync(root)).toBe(false);
+});
 
 function createDeps(
   extra: Partial<IInProcessSubagentRunnerDeps> = {},
