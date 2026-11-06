@@ -25,6 +25,36 @@ function schedule(
 }
 
 describe('prepared restored schedules', () => {
+  it('rejects asynchronous runner preparation without exposing a batch or an unhandled rejection', async () => {
+    const runner = {
+      ...createScheduledTaskRunner(),
+      prepareRestore: () => Promise.reject(new Error('late runner failure')),
+    };
+    const manager = new BackgroundTaskManager({
+      runners: [runner as unknown as ReturnType<typeof createScheduledTaskRunner>],
+    });
+    const reservation = manager.reserveTaskIds(['one']);
+    expect(() => manager.prepareRestoredSchedules([schedule('one')], reservation)).toThrow(
+      /prepared.*synchronous/i,
+    );
+    await Promise.resolve();
+    expect(manager.list()).toEqual([]);
+    await manager.shutdown();
+    reservation.release();
+  });
+  it('keeps an activated task accessible to cancellation if abort is called later', async () => {
+    const manager = new BackgroundTaskManager({ runners: [createScheduledTaskRunner()] });
+    const reservation = manager.reserveTaskIds(['one']);
+    const batch = manager.prepareRestoredSchedules([schedule('one')], reservation);
+    expect(batch.activate()).toBe('active');
+    await Promise.resolve();
+    batch.abort();
+    expect(manager.get('one')).toMatchObject({ id: 'one', status: 'sleeping' });
+    await manager.cancel('one');
+    await manager.shutdown();
+    reservation.release();
+  });
+
   it('refuses to activate a batch whose prepared handle was already cancelled', async () => {
     const base = createScheduledTaskRunner();
     let cancelPrepared: (() => Promise<void>) | undefined;
@@ -73,7 +103,7 @@ describe('prepared restored schedules', () => {
     }
   });
 
-  it('can close an activated batch before deferred wakes without touching unrelated jobs', async () => {
+  it('aborts on a failed final check without touching unrelated jobs', async () => {
     vi.useFakeTimers();
     try {
       vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
@@ -94,8 +124,11 @@ describe('prepared restored schedules', () => {
       const reservation = manager.reserveTaskIds(['one']);
       const prepared = manager.prepareRestoredSchedules([schedule('one')], reservation);
       await vi.advanceTimersByTimeAsync(2000);
-      expect(prepared.activate()).toBe('active');
-      prepared.abort();
+      expect(() =>
+        prepared.activate(() => {
+          throw new Error('final check failed');
+        }),
+      ).toThrow(/final check failed/);
       await Promise.resolve();
       await Promise.resolve();
       expect(events).toEqual([]);

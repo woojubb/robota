@@ -679,8 +679,10 @@ export class InteractiveSession
 
   private subscribeBackgroundTasks(session: Session): void {
     this.bgTracker.subscribe(session, {
-      canCommit:
+      canCommit: () =>
         typeof this.sessionStore?.saveRestoreTransaction === 'function' &&
+        this.session === session &&
+        !this.execCtrl.shuttingDown &&
         this.recordClaim?.holds(session.getSessionId()) === true,
       commit: () => this.persistCurrentSession(true, undefined, undefined, true),
     });

@@ -35,6 +35,7 @@ import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskIdReservation,
   IBackgroundTaskManager,
+  IPreparedRestoredSchedules,
 } from '@robota-sdk/agent-executor';
 import type {
   IBackgroundTaskInput,
@@ -90,7 +91,7 @@ export class SessionBackgroundTaskTracker {
     private readonly reportObserverFailure?: IFrameworkHost['reportObserverFailure'],
   ) {}
 
-  subscribe(session: Session, restore?: { readonly canCommit: boolean; commit(): void }): void {
+  subscribe(session: Session, restore?: { canCommit(): boolean; commit(): void }): void {
     if (this.backgroundTaskUnsubscribe) return;
     const manager =
       retrieveSessionBackgroundTaskManager(session) ??
@@ -144,7 +145,7 @@ export class SessionBackgroundTaskTracker {
    */
   private reArmRestoredSchedules(
     manager: IBackgroundTaskManager,
-    restore?: { readonly canCommit: boolean; commit(): void },
+    restore?: { canCommit(): boolean; commit(): void },
   ): void {
     if (this.restoredTaskIds.length === 0) return;
     const nowMs = Date.now();
@@ -214,38 +215,46 @@ export class SessionBackgroundTaskTracker {
       });
     }
     if (schedules.length === 0) return;
-    if (!restore?.canCommit || !manager.prepareRestoredSchedules || !this.taskIdReservation) {
+    if (!restore?.canCommit() || !manager.prepareRestoredSchedules || !this.taskIdReservation) {
       throw new Error(
         'Restoring schedules requires an atomic store and a prepared schedule manager.',
       );
     }
-    const batch = manager.prepareRestoredSchedules(schedules, this.taskIdReservation);
+    const candidate: unknown = manager.prepareRestoredSchedules(schedules, this.taskIdReservation);
+    if (!isPreparedSchedules(candidate)) {
+      void Promise.resolve(candidate).catch(() => undefined);
+      throw new Error('Prepared schedule batch must complete synchronously.');
+    }
+    const batch = candidate;
     this.preparedSchedules = schedules;
     try {
       restore.commit();
+      if (!restore.canCommit()) throw new Error('Restored schedule claim ownership was lost.');
       this.assertNoRestoreEvent();
       if (manager.list().length > 0) {
         throw new Error('Cannot restore background tasks: the manager already owns a task.');
       }
-      if (batch.activate() !== 'active')
-        throw new Error('Prepared schedule activation was aborted.');
-      this.assertNoRestoreEvent();
-      const active = manager.list();
       const expected = new Set(schedules.map((task) => task.id));
-      if (active.length !== expected.size || active.some((task) => !expected.has(task.id))) {
-        throw new Error('Unexpected background task during restore.');
-      }
-      for (const task of schedules) {
-        if (task.metadata?.['sessionLoop'] === true) this.onSessionLoopRearmed?.(task);
-      }
-      this.assertNoRestoreEvent();
-      const afterSetup = manager.list();
-      if (
-        afterSetup.length !== expected.size ||
-        afterSetup.some((task) => !expected.has(task.id))
-      ) {
-        throw new Error('Unexpected background task during restore.');
-      }
+      const activated = batch.activate(() => {
+        this.assertNoRestoreEvent();
+        const active = manager.list();
+        if (active.length !== expected.size || active.some((task) => !expected.has(task.id))) {
+          throw new Error('Unexpected background task during restore.');
+        }
+        for (const task of schedules) {
+          if (task.metadata?.['sessionLoop'] === true) this.onSessionLoopRearmed?.(task);
+        }
+        this.assertNoRestoreEvent();
+        const afterSetup = manager.list();
+        if (
+          afterSetup.length !== expected.size ||
+          afterSetup.some((task) => !expected.has(task.id))
+        ) {
+          throw new Error('Unexpected background task during restore.');
+        }
+        if (!restore.canCommit()) throw new Error('Restored schedule claim ownership was lost.');
+      });
+      if (activated !== 'active') throw new Error('Prepared schedule activation was aborted.');
     } catch (error) {
       batch.abort();
       throw error;
@@ -285,7 +294,7 @@ export class SessionBackgroundTaskTracker {
     this.restoredTerminalTasks = preserveTerminalTasks
       ? state.tasks.filter((task) => isTerminalBackgroundTaskStatus(task.status))
       : [];
-    this.backgroundTasks = state.tasks;
+    this.backgroundTasks = preserveTerminalTasks ? state.tasks : [];
     this.heldSessionLoops = [];
     this.backgroundTaskEvents = state.taskEvents;
     this.backgroundJobGroups = state.groups;
@@ -355,14 +364,17 @@ export class SessionBackgroundTaskTracker {
   }
 
   async cancelTask(taskId: string, reason?: string): Promise<void> {
+    this.assertTaskWritable(taskId);
     await this.getManagerOrThrow().cancel(taskId, reason);
   }
 
   async closeTask(taskId: string): Promise<void> {
+    this.assertTaskWritable(taskId);
     await this.getManagerOrThrow().close(taskId);
   }
 
   async sendTask(taskId: string, input: IBackgroundTaskInput): Promise<void> {
+    this.assertTaskWritable(taskId);
     await this.getManagerOrThrow().send(taskId, input);
   }
 
@@ -370,15 +382,32 @@ export class SessionBackgroundTaskTracker {
     taskId: string,
     cursor?: IBackgroundTaskLogCursor,
   ): Promise<IBackgroundTaskLogPage> {
+    this.assertTaskWritable(taskId);
     return this.getManagerOrThrow().readLog(taskId, cursor);
   }
 
   listTasks(filter?: IBackgroundTaskListFilter): IBackgroundTaskState[] {
-    return this.getManagerOrThrow().list(filter);
+    const historical = this.restoredTerminalTasks.filter(
+      (task) =>
+        (!filter?.kind || task.kind === filter.kind) &&
+        (!filter?.status || task.status === filter.status) &&
+        (!filter?.mode || task.mode === filter.mode),
+    );
+    return [...this.getManagerOrThrow().list(filter), ...structuredClone(historical)];
   }
 
   getTask(taskId: string): IBackgroundTaskState | undefined {
-    return this.getManagerOrThrow().get(taskId);
+    const historical = this.restoredTerminalTasks.find((task) => task.id === taskId);
+    return historical ? structuredClone(historical) : this.getManagerOrThrow().get(taskId);
+  }
+
+  isRestoredTerminalTask(taskId: string): boolean {
+    return this.restoredTerminalTasks.some((task) => task.id === taskId);
+  }
+
+  private assertTaskWritable(taskId: string): void {
+    if (this.isRestoredTerminalTask(taskId))
+      throw new Error('Restored terminal background tasks are read-only.');
   }
 
   listHeldSessionLoops(): IBackgroundTaskState[] {
@@ -424,9 +453,9 @@ export class SessionBackgroundTaskTracker {
     taskId: string,
     cursor?: IExecutionDetailCursor,
   ): Promise<IExecutionDetailPage> {
-    const task = this.getManagerOrThrow().get(taskId);
+    const task = this.getTask(taskId);
     if (!task) throw new Error(`Unknown background task: ${taskId}`);
-    if (task.logPath || task.transcriptPath) {
+    if (!this.isRestoredTerminalTask(taskId) && (task.logPath || task.transcriptPath)) {
       const page = await this.getManagerOrThrow().readLog(taskId, cursor);
       return createLineDetailPage({
         entryId,
@@ -456,7 +485,11 @@ export class SessionBackgroundTaskTracker {
 
   getTaskSnapshots(): IBackgroundTaskState[] {
     try {
-      return [...this.getManagerOrThrow().list(), ...this.heldSessionLoops];
+      return [
+        ...this.getManagerOrThrow().list(),
+        ...this.heldSessionLoops,
+        ...structuredClone(this.restoredTerminalTasks),
+      ];
     } catch {
       return this.backgroundTasks;
     }
@@ -522,6 +555,18 @@ function isTaskIdReservation(value: unknown): value is IBackgroundTaskIdReservat
     value !== null &&
     'release' in value &&
     typeof value.release === 'function'
+  );
+}
+
+function isPreparedSchedules(value: unknown): value is IPreparedRestoredSchedules {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !('then' in value && typeof value.then === 'function') &&
+    'activate' in value &&
+    typeof value.activate === 'function' &&
+    'abort' in value &&
+    typeof value.abort === 'function'
   );
 }
 

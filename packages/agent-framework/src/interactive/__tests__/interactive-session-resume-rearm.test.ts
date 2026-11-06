@@ -665,6 +665,33 @@ describe('restored task reservation capability', () => {
     },
   );
 
+  it('rejects an asynchronous prepared batch before committing the restored record', async () => {
+    const { runner } = createFakeScheduledRunner();
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    Object.defineProperty(manager, 'prepareRestoredSchedules', {
+      value: () => Promise.reject(new Error('late preparation failure')),
+    });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const saved = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+    const store = createStore(saved);
+    expect(
+      () =>
+        new InteractiveSession({
+          host: testHost,
+          cwd: process.cwd(),
+          session: sessionStub,
+          sessionStore: store as never,
+          resumeSessionId: 'session_resumed',
+        }),
+    ).toThrow(/prepared.*synchronous/i);
+    await Promise.resolve();
+    expect(store.save).not.toHaveBeenCalled();
+    expect(store.load('session_resumed')).toMatchObject({ status: 'valid', record: saved });
+  });
+
   it('retains a sleeping schedule across a normal shutdown and another resume', async () => {
     const first = setupWithRecord(sleepingScheduledRecord('2999-01-01T00:00:00.000Z'));
     await first.session.shutdown();

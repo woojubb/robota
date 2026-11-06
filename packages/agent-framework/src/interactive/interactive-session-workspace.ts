@@ -36,7 +36,8 @@ export interface IWorkspaceSnapshotDeps {
   sessionId: string;
   execCtrl: Pick<SessionExecutionController, 'executing' | 'pendingPrompt' | 'streamingText'>;
   histTracker: Pick<SessionHistoryTracker, 'getHistory'>;
-  bgTracker: Pick<SessionBackgroundTaskTracker, 'getTaskSnapshots' | 'getGroupSnapshots'>;
+  bgTracker: Pick<SessionBackgroundTaskTracker, 'getTaskSnapshots' | 'getGroupSnapshots'> &
+    Partial<Pick<SessionBackgroundTaskTracker, 'isRestoredTerminalTask'>>;
   /** SCREEN-1992: the parked permission/ask the main thread waits on, when the session has one. */
   pendingRequest?: () => IExecutionPendingRequest | undefined;
   /** #3288 §1: this session's self-paced loops, for the `pending`/`running` ones' own entries. */
@@ -52,7 +53,7 @@ export function buildExecutionWorkspaceSnapshot(
   const { sessionId, execCtrl, histTracker, bgTracker } = deps;
   const history = histTracker.getHistory();
   const pendingRequest = deps.pendingRequest?.();
-  return createExecutionWorkspaceSnapshot({
+  const snapshot = createExecutionWorkspaceSnapshot({
     sessionId,
     mainThread: {
       sessionId,
@@ -73,6 +74,15 @@ export function buildExecutionWorkspaceSnapshot(
     filter: options.filter,
     sessionHasWriter: deps.sessionHasWriter,
   });
+  return {
+    ...snapshot,
+    entries: snapshot.entries.map((entry) => {
+      const ref = parseExecutionWorkspaceEntryId(entry.id);
+      return ref?.kind === 'background_task' && bgTracker.isRestoredTerminalTask?.(ref.sourceId)
+        ? { ...entry, controls: ['select'] }
+        : entry;
+    }),
+  };
 }
 
 /**

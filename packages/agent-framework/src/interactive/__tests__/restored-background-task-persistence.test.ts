@@ -48,6 +48,115 @@ function completedFork(cwd: string): IAgentBackgroundTaskState {
 }
 
 describe('restored background tasks', () => {
+  it('does not activate a schedule if the claim is released during commit', async () => {
+    const cwd = directory();
+    const store = new NodeSessionStore(directory(), { sealing: 'plain' });
+    const task = {
+      id: 'scheduled_1',
+      kind: 'scheduled' as const,
+      label: 'Later',
+      status: 'sleeping' as const,
+      mode: 'background' as const,
+      parentSessionId: PARENT,
+      depth: 1,
+      cwd,
+      updatedAt,
+      unread: false,
+      nextFireAt: '2999-01-01T00:00:00.000Z',
+      schedule: { cronExpression: '0 0 * * *', agentInstruction: 'wake' },
+    };
+    store.save(record(PARENT, cwd, 'owner message', { backgroundTasks: [task] }), {
+      provenance: 'owner',
+    });
+    let session: ReturnType<ReturnType<typeof createAgentRuntime>['createSession']>;
+    const view = decorateSessionStore(store, {
+      saveRestoreTransaction(value, options) {
+        const result = store.saveRestoreTransaction(value, options);
+        session.releaseSessionClaim();
+        return result;
+      },
+    });
+    const runner = createScheduledTaskRunner();
+    let activated = 0;
+    const observed = {
+      ...runner,
+      prepareRestore: (...args: Parameters<NonNullable<typeof runner.prepareRestore>>) => {
+        const prepared = runner.prepareRestore!(...args);
+        return {
+          ...prepared,
+          activate: () => {
+            activated += 1;
+            return prepared.activate();
+          },
+        };
+      },
+    };
+    const runtime = createAgentRuntime({
+      host: createTestFrameworkHost(),
+      cwd,
+      provider: createScriptedProvider([]).provider,
+      sessionStore: view,
+      backgroundTaskRunners: [observed],
+    });
+    session = runtime.createSession({ resumeSessionId: PARENT });
+    await expect(session.whenInitialized()).rejects.toThrow(/claim|ownership/i);
+    expect(activated).toBe(0);
+    expect(store.load(PARENT)).toMatchObject({
+      status: 'valid',
+      record: { backgroundTasks: [expect.objectContaining({ id: task.id })] },
+    });
+    const next = store.claim(PARENT);
+    next.release();
+  });
+  it.each(['plain', 'sealed'] as const)(
+    'shows a restored completed fork and its saved result as read-only in a %s session',
+    async (mode) => {
+      const cwd = directory();
+      const sealer = createTestArtifactSealer();
+      const store = new NodeSessionStore(directory(), {
+        sealing: mode === 'sealed' ? { sealer } : 'plain',
+      });
+      const task = {
+        ...completedFork(cwd),
+        transcriptPath: join(cwd, 'unavailable.jsonl'),
+        transcriptSealed: true as const,
+      };
+      store.save(record(PARENT, cwd, 'owner message', { backgroundTasks: [task] }), {
+        provenance: 'owner',
+      });
+      const runtime = createAgentRuntime({
+        host: createTestFrameworkHost(),
+        cwd,
+        provider: createScriptedProvider([]).provider,
+        sessionStore: store,
+      });
+      const session = runtime.createSession({ resumeSessionId: PARENT });
+      try {
+        await session.whenInitialized();
+        const entry = session
+          .getExecutionWorkspaceSnapshot()
+          .entries.find((item) => item.id === 'task:agent_1');
+        expect(entry).toMatchObject({
+          id: 'task:agent_1',
+          status: 'completed',
+          controls: ['select'],
+        });
+        expect(session.getBackgroundTask('agent_1')).toMatchObject({
+          id: 'agent_1',
+          status: 'completed',
+        });
+        expect(session.listBackgroundTasks({ status: 'completed' })).toEqual([
+          expect.objectContaining({ id: 'agent_1' }),
+        ]);
+        const detail = await session.readExecutionWorkspaceDetail('task:agent_1');
+        expect(detail.records).toEqual([expect.objectContaining({ kind: 'result', text: CANARY })]);
+        await expect(session.closeBackgroundTask('agent_1')).rejects.toThrow(/read.only/i);
+      } finally {
+        await session.shutdown();
+      }
+    },
+  );
+
   it.runIf(process.platform !== 'win32').each(['before', 'after'] as const)(
     'restarts safely after a process dies %s a restore commit',
     async (phase) => {

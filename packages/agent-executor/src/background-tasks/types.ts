@@ -200,7 +200,9 @@ export interface IBackgroundTaskIdReservation {
 }
 
 export interface IPreparedRestoredSchedules {
-  activate(): 'active' | 'aborted';
+  /** Runs final synchronous checks with every timer still gated, then opens the batch. */
+  activate(beforeOpen?: () => void): 'active' | 'aborted';
+  /** Aborts preparation. Once activated, the manager's ordinary cancellation owns the tasks. */
   abort(): void;
 }
 

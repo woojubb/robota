@@ -199,7 +199,7 @@ function startScheduledTask(
       state.request = { ...state.request, ...patch };
       if (patch.cronExpression !== undefined) {
         state.job.stop();
-        state.job = new Cron(patch.cronExpression, cronOptions, fire);
+        state.job = new Cron(patch.cronExpression, { ...cronOptions, paused: state.paused }, fire);
         if (state.paused) state.job.pause();
       }
       if (!state.paused) emitSleeping(state);

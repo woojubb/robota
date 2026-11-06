@@ -100,6 +100,26 @@ function restoredWake(events: TBackgroundTaskRunnerEvent[]): IBackgroundTaskStar
 }
 
 describe('createScheduledTaskRunner', () => {
+  it('continues firing after a restored paused schedule is resumed and edited', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const events: TBackgroundTaskRunnerEvent[] = [];
+      const prepared = createScheduledTaskRunner().prepareRestore!(restoredWake(events), {
+        paused: true,
+      });
+      expect(prepared.activate()).toBe('active');
+      await prepared.handle.resume!();
+      await prepared.handle.editSchedule!({ cronExpression: '* * * * * *' });
+      await vi.advanceTimersByTimeAsync(2100);
+      expect(
+        events.filter((event) => event.type === 'background_task_waking').length,
+      ).toBeGreaterThan(0);
+      await prepared.handle.cancel();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it('refuses lifecycle changes until a prepared schedule is activated', async () => {
     const events: TBackgroundTaskRunnerEvent[] = [];
     const prepared = createScheduledTaskRunner().prepareRestore!(restoredWake(events), {

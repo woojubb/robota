@@ -163,6 +163,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       handle: IPreparedBackgroundTaskHandle<'scheduled'>;
     }> = [];
     let phase: 'prepared' | 'active' | 'aborted' = 'prepared';
+    const isAborted = (): boolean => phase === 'aborted';
     const abortPrepared = (): void => {
       if (phase === 'aborted') return;
       phase = 'aborted';
@@ -210,7 +211,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
           textDeltas: 0,
           repeatedDeltaCount: 0,
         };
-        const handle = runner.prepareRestore(
+        const candidate: unknown = runner.prepareRestore(
           {
             taskId: state.id,
             request,
@@ -220,6 +221,21 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
           },
           { paused: state.status === 'paused' },
         );
+        if (!isPreparedScheduledHandle(candidate)) {
+          void Promise.resolve(candidate)
+            .then((late: unknown) => {
+              if (isPreparedScheduledHandle(late)) {
+                void late.handle.result.catch(() => undefined);
+                late.abort();
+              }
+            })
+            .catch(() => undefined);
+          throw new BackgroundTaskError(
+            'validation',
+            'Prepared runner handle must complete synchronously.',
+          );
+        }
+        const handle = candidate;
         prepared.push({ task, handle });
         if (this.shuttingDown)
           throw new BackgroundTaskError('validation', 'Background task manager is shutting down');
@@ -244,7 +260,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       this.preparingRestore = false;
     }
     const batch: IPreparedRestoredSchedules = {
-      activate: () => {
+      activate: (beforeOpen) => {
         if (phase === 'active') return 'active';
         if (
           phase === 'aborted' ||
@@ -259,6 +275,24 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
           task.handle = handle.handle;
           this.tasks.set(task.state.id, task);
           this.allocatedTaskIds.add(task.state.id);
+        }
+        try {
+          beforeOpen?.();
+        } catch (error) {
+          abortPrepared();
+          for (const { task } of prepared) {
+            if (this.tasks.get(task.state.id) === task) this.tasks.delete(task.state.id);
+          }
+          this.preparedRestores.delete(batch);
+          throw error;
+        }
+        if (isAborted() || this.shuttingDown || this.reservationOwners.get(reservation) !== owner) {
+          abortPrepared();
+          for (const { task } of prepared) {
+            if (this.tasks.get(task.state.id) === task) this.tasks.delete(task.state.id);
+          }
+          this.preparedRestores.delete(batch);
+          return 'aborted';
         }
         try {
           for (const { handle } of prepared) {
@@ -286,7 +320,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
         return 'active';
       },
       abort: () => {
-        if (phase === 'aborted') return;
+        if (phase !== 'prepared') return;
         abortPrepared();
         for (const { task } of prepared) {
           if (this.tasks.get(task.state.id) === task) this.tasks.delete(task.state.id);
@@ -715,4 +749,36 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     const observers = this.eventSink ? [this.eventSink, ...this.listeners] : [...this.listeners];
     deliverToObservers(event, observers, this.onObserverFailure);
   }
+}
+
+function isPreparedScheduledHandle(
+  value: unknown,
+): value is IPreparedBackgroundTaskHandle<'scheduled'> {
+  if (
+    typeof value !== 'object' ||
+    value === null ||
+    ('then' in value && typeof value.then === 'function') ||
+    !('activate' in value) ||
+    typeof value.activate !== 'function' ||
+    !('abort' in value) ||
+    typeof value.abort !== 'function' ||
+    !('handle' in value) ||
+    typeof value.handle !== 'object' ||
+    value.handle === null
+  )
+    return false;
+  const handle = value.handle;
+  return (
+    'taskId' in handle &&
+    typeof handle.taskId === 'string' &&
+    'cancel' in handle &&
+    typeof handle.cancel === 'function' &&
+    'result' in handle &&
+    typeof handle.result === 'object' &&
+    handle.result !== null &&
+    'then' in handle.result &&
+    typeof handle.result.then === 'function' &&
+    'catch' in handle.result &&
+    typeof handle.result.catch === 'function'
+  );
 }
