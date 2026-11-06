@@ -110,7 +110,7 @@ for (const format of ['esm', 'cjs'] as const) {
           ) => { writeBytes(path: string, bytes: Uint8Array, purpose: string): void };
 
           expect(assertAuthority(authority)).toBe(authority);
-          expect(identityOf(authority).worktreeRoot).toBe(root);
+          expect(identityOf(authority).worktreeRoot).toBe(realpathSync.native(root));
           expect(readerOf(authority).readText('AGENTS.md', 'dist entry sharing')).toBe(
             '# from the project\n',
           );

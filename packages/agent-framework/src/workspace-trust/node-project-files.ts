@@ -1,5 +1,6 @@
 import {
   createStableRootedFileReader,
+  listWindowsRootedDirectory,
   createStableRootedFileWriter,
   StableFileAuthorityError,
 } from '@robota-sdk/agent-file-authority';
@@ -14,6 +15,7 @@ import {
 } from './project-reader-portable.js';
 import { createWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
 import { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
+import { assertCurrentWorkspaceIdentity } from './project-reader-path.js';
 
 import type { IWorkspaceProjectFiles } from './types.js';
 
@@ -50,17 +52,33 @@ function readStableBytes(
 
 /**
  * The project file operations of a Node host: reads through `@robota-sdk/agent-file-authority`'s
- * stable rooted reader and, for a listing or a kind, the descriptor walk on Linux or the portable
+ * stable rooted reader and, for listings, a rooted handle walk on Linux and Windows or the portable
  * no-follow walk elsewhere; writes through the anchored writer, which Linux alone can prove and every
  * other platform refuses. The workspace trust service takes this as `projectFiles`.
  */
 export function createNodeWorkspaceProjectFiles(): IWorkspaceProjectFiles {
   const files: IWorkspaceProjectFiles = {
     readBytes: readStableBytes,
-    listDirectory: (identity, identityResolver, segments) =>
-      process.platform === 'linux'
-        ? listProjectDirectoryFromHandle(identity, identityResolver, segments)
-        : listPortableProjectDirectory(identity, identityResolver, segments),
+    listDirectory: (identity, identityResolver, segments) => {
+      if (process.platform === 'linux') {
+        return listProjectDirectoryFromHandle(identity, identityResolver, segments);
+      }
+      if (process.platform !== 'win32') {
+        return listPortableProjectDirectory(identity, identityResolver, segments);
+      }
+      assertCurrentWorkspaceIdentity(identity, identityResolver);
+      try {
+        const entries = listWindowsRootedDirectory(identity.worktreeRoot, segments);
+        assertCurrentWorkspaceIdentity(identity, identityResolver);
+        return entries;
+      } catch (error) {
+        if (error instanceof WorkspaceAuthorityRequiredError) throw error;
+        throw new WorkspaceAuthorityRequiredError(
+          'The project directory could not be enumerated from a stable handle.',
+          error instanceof Error ? error : undefined,
+        );
+      }
+    },
     inspectKind: (identity, identityResolver, segments) =>
       process.platform === 'linux'
         ? inspectProjectKindFromHandle(identity, identityResolver, segments)

@@ -94,6 +94,12 @@ export interface IWindowsApi {
   readonly getAttributeTagInfo: TGetInformation;
   readonly getFileIdInfo: TGetInformation;
   readonly getStandardInfo: TGetInformation;
+  readonly getDirectoryInfo: (
+    handle: TNativeHandle,
+    informationClass: number,
+    output: Uint8Array,
+    outputBytes: number,
+  ) => boolean;
   readonly getFileSizeEx: (handle: TNativeHandle, size: bigint[]) => boolean;
   readonly readFile: (
     handle: TNativeHandle,
@@ -197,6 +203,7 @@ function bindKernel32(
   | 'getAttributeTagInfo'
   | 'getFileIdInfo'
   | 'getStandardInfo'
+  | 'getDirectoryInfo'
   | 'getFileSizeEx'
   | 'readFile'
   | 'writeFile'
@@ -216,6 +223,12 @@ function bindKernel32(
     ]) as TCreateFileW,
     closeHandle: library.func('CloseHandle', 'bool', [types.handleType]),
     ...bindInformationFunctions(library, types),
+    getDirectoryInfo: library.func('GetFileInformationByHandleEx', 'bool', [
+      types.handleType,
+      'int32_t',
+      koffi.out(koffi.pointer('uint8_t')),
+      'uint32_t',
+    ]),
     getFileSizeEx: library.func('GetFileSizeEx', 'bool', [
       types.handleType,
       koffi.out(koffi.pointer('int64_t')),

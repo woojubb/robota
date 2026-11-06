@@ -3,8 +3,9 @@
 ## Scope
 
 This package owns domain-free file access through opaque read and write authorities rooted at one
-directory identity. It gives Node.js callers the same non-retargetable, component-by-component
-no-follow behavior on supported Linux, macOS, and Windows hosts without exposing native handles.
+directory identity, including root-relative directory enumeration on Windows. It gives Node.js callers
+non-retargetable, component-by-component no-follow behavior on supported Linux, macOS, and Windows
+hosts without exposing native handles.
 
 The package is published with no `@robota-sdk` dependency. Koffi is the pinned transport for
 calling the host primitives; Koffi does not define the public contract and cannot introduce a

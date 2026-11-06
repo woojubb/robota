@@ -121,12 +121,19 @@ describe('WorkspaceTrustService project authority', () => {
     const outside = realpathSync(mkdtempSync(join(tmpdir(), 'agent-arch-042-list-outside-')));
     roots.push(outside);
     writeFileSync(join(outside, 'outside.txt'), 'outside', 'utf8');
-    symlinkSync(outside, join(root, 'linked-outside'), process.platform === 'win32' ? 'junction' : 'dir');
+    symlinkSync(
+      outside,
+      join(root, 'linked-outside'),
+      process.platform === 'win32' ? 'junction' : 'dir',
+    );
     const granted = await service.grant(root);
     if (granted.status !== 'trusted') throw new Error('expected trusted access');
 
     expect(() =>
-      getWorkspaceProjectReader(granted.authority).listDirectory('linked-outside', 'list linked directory'),
+      getWorkspaceProjectReader(granted.authority).listDirectory(
+        'linked-outside',
+        'list linked directory',
+      ),
     ).toThrowError(WorkspaceAuthorityRequiredError);
   });
 

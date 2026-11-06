@@ -38,6 +38,12 @@ export class StableFileAuthorityError extends Error {
   }
 }
 
+/** One entry observed through a retained rooted directory handle. */
+export interface IStableRootedDirectoryEntry {
+  readonly name: string;
+  readonly kind: 'file' | 'directory' | 'link' | 'other';
+}
+
 /** Opaque authority for bounded regular-file reads beneath one retained directory identity. */
 export interface IStableRootedFileReader {
   readBytes(relativeSegments: readonly string[], maxBytes: number): Uint8Array | undefined;
