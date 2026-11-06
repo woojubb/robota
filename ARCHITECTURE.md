@@ -117,7 +117,9 @@ It also runs `scripts/harness/browser-runtime-proof.mjs`, which evaluates every 
 and a scenario for the packages that have one, in a realm that has only web-standard globals, so a Node
 global that no scan of the source can see, such as a dependency reading `process.env` when it is called,
 fails by name. That realm is Worker-shaped, with no `window` or `document`: the Browser (DOM) packages
-are outside this proof.
+are outside this proof. This checks import graphs and selected behavior, not every host, provider
+configuration or network endpoint. In particular, a provider SDK may refuse client-side use; see
+[Browser hosts](content/guide/providers.md#browser-hosts).
 
 - **Platform-neutral**: `agent-interface-analytics`, `agent-interface-command`,
   `agent-interface-execution`, `agent-interface-session`, `agent-interface-session-mobility`,

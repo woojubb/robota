@@ -14,9 +14,9 @@ assembled from the same neutral building blocks you can embed in your own applic
 
 ## Quick start: embed an agent
 
-Install `agent-core` and a provider package to run an agent. Published packages require Node.js
-22.12 or later. This example uses Anthropic and requires an `ANTHROPIC_API_KEY` environment
-variable. See the [providers guide](./content/guide/providers.md) for other providers and local
+Install `agent-core` and a provider package to run an agent. This Node.js example requires
+Node.js 22.12 or later and an `ANTHROPIC_API_KEY` environment variable. Packages declare that
+minimum for Node installations; runtime requirements depend on the entry and host. See the [providers guide](./content/guide/providers.md) for other providers and local
 model servers.
 
 ```bash

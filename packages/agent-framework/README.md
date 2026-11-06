@@ -7,7 +7,8 @@ loading, commands, subagents and persistence. The main entry is platform-neutral
 browser, a Web Worker, Node, Deno and Bun and never reaches the file system or the process. The
 platform it runs on is passed in as `host`: a Node process passes `createNodeFrameworkHost` from
 `@robota-sdk/agent-framework/node`, with the default tool set from `@robota-sdk/agent-tool-defaults`;
-a host that lends nothing is `{}`.
+a host that lends nothing is `{}`. Provider clients have their own host and credential requirements;
+see [Browser hosts](../../content/guide/providers.md#browser-hosts).
 
 It has three main entry points:
 

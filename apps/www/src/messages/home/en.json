@@ -5,7 +5,7 @@
   "lead": "{name} provides a TypeScript SDK for AI agents and a coding CLI built from the same public components. Build agents into your app or use the CLI in your terminal. Configure a model endpoint, tools, permissions, and sessions for your task.",
   "sdkAction": "Build with the SDK",
   "cliAction": "Try the CLI",
-  "heroNote": "Public packages · Node.js 22.12 or later · Model endpoint required",
+  "heroNote": "Public packages · Node.js examples · Model endpoint required",
   "heroVision": "We aim to build agents that can reliably improve the systems they are built on.",
   "jumpLabel": "On this page",
   "jumpLinks": {
@@ -347,7 +347,7 @@
   "packagesLink": "Browse the package index",
   "installEyebrow": "Install",
   "installTitle": "Choose how to run it.",
-  "installLead": "Published packages need Node.js 22.12 or later. The standalone binary needs nothing else installed.",
+  "installLead": "The CLI and Node examples need Node.js 22.12 or later. The standalone binary needs nothing else installed.",
   "installOptions": {
     "npx": {
       "title": "Run without installing",

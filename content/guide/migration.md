@@ -186,7 +186,8 @@ subagent sessions with their own tools and history, and the `__PRODUCT_CLI_NAME_
   server definitions and the client are in `@robota-sdk/agent-mcp`.
 - **ESM only.** `@robota-sdk/agent-cli` and `@robota-sdk/agent-ui-terminal` have no CommonJS entry;
   load them with `import`.
-- **Node.js 22.12.0 or newer** is required by every published package.
+- **Node.js 22.12.0 or newer** is declared by published packages for Node installations; the CLI
+  and Node adapters require a Node host. Check the released version for its available entries.
 
 ---
 
