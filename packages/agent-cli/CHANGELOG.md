@@ -1,5 +1,32 @@
 # @robota-sdk/agent-cli
 
+## 3.0.7
+
+## 3.0.6
+### Patch Changes
+
+- Launch supervised runtimes, including the workspace daemon, with `--disable-sigusr1` where Node supports it, so another program of the same user cannot open their inspector, and redact `authToken` values from persisted session logs and share artifacts.
+
+## 3.0.5
+### Patch Changes
+
+- Clarify workflow ownership and the CLI's interactive approval policy.
+
+## 3.0.4
+### Patch Changes
+
+- Coordinate verification of published desktop and native release artifacts.
+
+## 3.0.3
+### Patch Changes
+
+- Align React dependencies with Ink so supported mixed CLI and web installs share the same React instance.
+
+## 3.0.2
+### Patch Changes
+
+- Allow users to approve workflow JSON creation in trusted macOS projects.
+
 ## 3.0.1
 ### Patch Changes
 

@@ -1,5 +1,47 @@
 # @robota-sdk/agent-transport-mcp
 
+## 3.0.7
+### Patch Changes
+
+  - @robota-sdk/agent-interface-session@3.0.7
+  - @robota-sdk/agent-interface-transport@3.0.7
+  - @robota-sdk/agent-transport@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+  - @robota-sdk/agent-interface-session@3.0.6
+  - @robota-sdk/agent-interface-transport@3.0.6
+  - @robota-sdk/agent-transport@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-interface-session@3.0.5
+  - @robota-sdk/agent-interface-transport@3.0.5
+  - @robota-sdk/agent-transport@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-interface-session@3.0.4
+  - @robota-sdk/agent-interface-transport@3.0.4
+  - @robota-sdk/agent-transport@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-interface-session@3.0.3
+  - @robota-sdk/agent-interface-transport@3.0.3
+  - @robota-sdk/agent-transport@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-interface-session@3.0.2
+  - @robota-sdk/agent-interface-transport@3.0.2
+  - @robota-sdk/agent-transport@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

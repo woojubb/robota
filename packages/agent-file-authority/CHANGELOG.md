@@ -1,5 +1,20 @@
 # @robota-sdk/agent-file-authority
 
+## 3.0.7
+
+## 3.0.6
+### Patch Changes
+
+- 7c4eb0d: Commit Windows root-relative writes through `NtSetInformationFile`, so atomic replacement (and the Write and Edit tools built on it) works on Windows instead of failing with `WIN32_87`.
+
+## 3.0.5
+
+## 3.0.4
+
+## 3.0.3
+
+## 3.0.2
+
 ## 3.0.1
 
 ## 3.0.0

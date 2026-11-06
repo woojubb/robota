@@ -1,5 +1,60 @@
 # robota-capability-agent-eval
 
+## 0.1.8
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-framework@3.0.7
+  - @robota-sdk/agent-core@3.0.7
+  - @robota-sdk/agent-mcp@3.0.7
+  - @robota-sdk/agent-provider-anthropic@3.0.7
+  - @robota-sdk/agent-provider-replay@3.0.7
+
+## 0.1.7
+### Patch Changes
+
+  - @robota-sdk/agent-framework@3.0.6
+  - @robota-sdk/agent-provider-replay@3.0.6
+  - @robota-sdk/agent-core@3.0.6
+  - @robota-sdk/agent-mcp@3.0.6
+  - @robota-sdk/agent-provider-anthropic@3.0.6
+
+## 0.1.6
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+  - @robota-sdk/agent-framework@3.0.5
+  - @robota-sdk/agent-mcp@3.0.5
+  - @robota-sdk/agent-provider-anthropic@3.0.5
+  - @robota-sdk/agent-provider-replay@3.0.5
+
+## 0.1.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.4
+  - @robota-sdk/agent-framework@3.0.4
+  - @robota-sdk/agent-mcp@3.0.4
+  - @robota-sdk/agent-provider-anthropic@3.0.4
+  - @robota-sdk/agent-provider-replay@3.0.4
+
+## 0.1.4
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.3
+  - @robota-sdk/agent-framework@3.0.3
+  - @robota-sdk/agent-mcp@3.0.3
+  - @robota-sdk/agent-provider-anthropic@3.0.3
+  - @robota-sdk/agent-provider-replay@3.0.3
+
+## 0.1.3
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+  - @robota-sdk/agent-framework@3.0.2
+  - @robota-sdk/agent-mcp@3.0.2
+  - @robota-sdk/agent-provider-anthropic@3.0.2
+  - @robota-sdk/agent-provider-replay@3.0.2
+
 ## 0.1.2
 ### Patch Changes
 

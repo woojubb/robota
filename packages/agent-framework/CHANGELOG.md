@@ -1,5 +1,112 @@
 # @robota-sdk/agent-framework
 
+## 3.0.7
+### Patch Changes
+
+- Republish the 3.0.6 changes as 3.0.7. `@robota-sdk/agent-framework@3.0.6` did not appear on the npm registry until about an hour after the other 3.0.6 packages, so the packages that depend on it could not be installed during that time.
+- Updated dependencies
+  - @robota-sdk/agent-core@3.0.7
+  - @robota-sdk/agent-executor@3.0.7
+  - @robota-sdk/agent-file-authority@3.0.7
+  - @robota-sdk/agent-interface-analytics@3.0.7
+  - @robota-sdk/agent-interface-command@3.0.7
+  - @robota-sdk/agent-interface-execution@3.0.7
+  - @robota-sdk/agent-interface-session@3.0.7
+  - @robota-sdk/agent-interface-session-mobility@3.0.7
+  - @robota-sdk/agent-interface-transport@3.0.7
+  - @robota-sdk/agent-roundtable@3.0.7
+  - @robota-sdk/agent-session@3.0.7
+  - @robota-sdk/agent-tool-defaults@3.0.7
+  - @robota-sdk/agent-tools@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+- Updated dependencies
+- Updated dependencies
+- Updated dependencies [7c4eb0d]
+  - @robota-sdk/agent-session@3.0.6
+  - @robota-sdk/agent-file-authority@3.0.6
+  - @robota-sdk/agent-tools@3.0.6
+  - @robota-sdk/agent-tool-defaults@3.0.6
+  - @robota-sdk/agent-core@3.0.6
+  - @robota-sdk/agent-executor@3.0.6
+  - @robota-sdk/agent-interface-analytics@3.0.6
+  - @robota-sdk/agent-interface-command@3.0.6
+  - @robota-sdk/agent-interface-execution@3.0.6
+  - @robota-sdk/agent-interface-session@3.0.6
+  - @robota-sdk/agent-interface-session-mobility@3.0.6
+  - @robota-sdk/agent-interface-transport@3.0.6
+  - @robota-sdk/agent-roundtable@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+  - @robota-sdk/agent-executor@3.0.5
+  - @robota-sdk/agent-file-authority@3.0.5
+  - @robota-sdk/agent-interface-analytics@3.0.5
+  - @robota-sdk/agent-interface-command@3.0.5
+  - @robota-sdk/agent-interface-execution@3.0.5
+  - @robota-sdk/agent-interface-session@3.0.5
+  - @robota-sdk/agent-interface-session-mobility@3.0.5
+  - @robota-sdk/agent-interface-transport@3.0.5
+  - @robota-sdk/agent-roundtable@3.0.5
+  - @robota-sdk/agent-session@3.0.5
+  - @robota-sdk/agent-tool-defaults@3.0.5
+  - @robota-sdk/agent-tools@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.4
+  - @robota-sdk/agent-executor@3.0.4
+  - @robota-sdk/agent-file-authority@3.0.4
+  - @robota-sdk/agent-interface-analytics@3.0.4
+  - @robota-sdk/agent-interface-command@3.0.4
+  - @robota-sdk/agent-interface-execution@3.0.4
+  - @robota-sdk/agent-interface-session@3.0.4
+  - @robota-sdk/agent-interface-session-mobility@3.0.4
+  - @robota-sdk/agent-interface-transport@3.0.4
+  - @robota-sdk/agent-roundtable@3.0.4
+  - @robota-sdk/agent-session@3.0.4
+  - @robota-sdk/agent-tool-defaults@3.0.4
+  - @robota-sdk/agent-tools@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.3
+  - @robota-sdk/agent-executor@3.0.3
+  - @robota-sdk/agent-file-authority@3.0.3
+  - @robota-sdk/agent-interface-analytics@3.0.3
+  - @robota-sdk/agent-interface-command@3.0.3
+  - @robota-sdk/agent-interface-execution@3.0.3
+  - @robota-sdk/agent-interface-session@3.0.3
+  - @robota-sdk/agent-interface-session-mobility@3.0.3
+  - @robota-sdk/agent-interface-transport@3.0.3
+  - @robota-sdk/agent-roundtable@3.0.3
+  - @robota-sdk/agent-session@3.0.3
+  - @robota-sdk/agent-tool-defaults@3.0.3
+  - @robota-sdk/agent-tools@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+  - @robota-sdk/agent-executor@3.0.2
+  - @robota-sdk/agent-file-authority@3.0.2
+  - @robota-sdk/agent-interface-analytics@3.0.2
+  - @robota-sdk/agent-interface-command@3.0.2
+  - @robota-sdk/agent-interface-execution@3.0.2
+  - @robota-sdk/agent-interface-session@3.0.2
+  - @robota-sdk/agent-interface-session-mobility@3.0.2
+  - @robota-sdk/agent-interface-transport@3.0.2
+  - @robota-sdk/agent-roundtable@3.0.2
+  - @robota-sdk/agent-session@3.0.2
+  - @robota-sdk/agent-tool-defaults@3.0.2
+  - @robota-sdk/agent-tools@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

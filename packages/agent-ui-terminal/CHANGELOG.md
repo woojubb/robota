@@ -1,5 +1,85 @@
 # @robota-sdk/agent-ui-terminal
 
+## 3.0.7
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-framework@3.0.7
+  - @robota-sdk/agent-core@3.0.7
+  - @robota-sdk/agent-interface-analytics@3.0.7
+  - @robota-sdk/agent-interface-command@3.0.7
+  - @robota-sdk/agent-interface-execution@3.0.7
+  - @robota-sdk/agent-interface-session@3.0.7
+  - @robota-sdk/agent-interface-transport@3.0.7
+  - @robota-sdk/agent-interface-tui@3.0.7
+  - @robota-sdk/agent-transport@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+  - @robota-sdk/agent-framework@3.0.6
+  - @robota-sdk/agent-core@3.0.6
+  - @robota-sdk/agent-interface-analytics@3.0.6
+  - @robota-sdk/agent-interface-command@3.0.6
+  - @robota-sdk/agent-interface-execution@3.0.6
+  - @robota-sdk/agent-interface-session@3.0.6
+  - @robota-sdk/agent-interface-transport@3.0.6
+  - @robota-sdk/agent-interface-tui@3.0.6
+  - @robota-sdk/agent-transport@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+  - @robota-sdk/agent-framework@3.0.5
+  - @robota-sdk/agent-interface-analytics@3.0.5
+  - @robota-sdk/agent-interface-command@3.0.5
+  - @robota-sdk/agent-interface-execution@3.0.5
+  - @robota-sdk/agent-interface-session@3.0.5
+  - @robota-sdk/agent-interface-transport@3.0.5
+  - @robota-sdk/agent-interface-tui@3.0.5
+  - @robota-sdk/agent-transport@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.4
+  - @robota-sdk/agent-framework@3.0.4
+  - @robota-sdk/agent-interface-analytics@3.0.4
+  - @robota-sdk/agent-interface-command@3.0.4
+  - @robota-sdk/agent-interface-execution@3.0.4
+  - @robota-sdk/agent-interface-session@3.0.4
+  - @robota-sdk/agent-interface-transport@3.0.4
+  - @robota-sdk/agent-interface-tui@3.0.4
+  - @robota-sdk/agent-transport@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+- Align React dependencies with Ink so supported mixed CLI and web installs share the same React instance.
+  - @robota-sdk/agent-core@3.0.3
+  - @robota-sdk/agent-framework@3.0.3
+  - @robota-sdk/agent-interface-analytics@3.0.3
+  - @robota-sdk/agent-interface-command@3.0.3
+  - @robota-sdk/agent-interface-execution@3.0.3
+  - @robota-sdk/agent-interface-session@3.0.3
+  - @robota-sdk/agent-interface-transport@3.0.3
+  - @robota-sdk/agent-interface-tui@3.0.3
+  - @robota-sdk/agent-transport@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+  - @robota-sdk/agent-framework@3.0.2
+  - @robota-sdk/agent-interface-analytics@3.0.2
+  - @robota-sdk/agent-interface-command@3.0.2
+  - @robota-sdk/agent-interface-execution@3.0.2
+  - @robota-sdk/agent-interface-session@3.0.2
+  - @robota-sdk/agent-interface-transport@3.0.2
+  - @robota-sdk/agent-interface-tui@3.0.2
+  - @robota-sdk/agent-transport@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 
