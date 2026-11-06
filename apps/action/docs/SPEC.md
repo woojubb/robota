@@ -10,9 +10,9 @@ integration point between GitHub CI/CD workflows and the configured agent CLI.
 
 - All AI execution, authentication, provider selection, and output formatting are delegated to
   `@robota-sdk/agent-cli`; this app does not implement agent runtime, session, provider, or tool logic.
-- The checkout is untrusted unless the workflow sets `load-project`. Nothing in it decides which
-  program runs, and by default the CLI runs in safe mode, so a pull request's own settings, hooks and
-  MCP servers never run on the runner.
+- The checkout stays untrusted: the CLI runs in safe mode, so a pull request's own settings, hooks
+  and MCP servers never run on the runner. A `load-project` request fails before installation because
+  live workspace trust requires a person's terminal decision; the Action cannot grant it unattended.
 - The `api-key` input is forwarded only as `ANTHROPIC_API_KEY` in the child process environment —
   it is not otherwise stored, logged, or transformed.
 - A failed invocation fails the Actions step rather than silently succeeding, and says which step
