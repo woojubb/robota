@@ -32,9 +32,32 @@ describe('CLI daemon proof owner lifetime', () => {
     await timedOut.promise;
     expect(dispose).not.toHaveBeenCalled();
     const close = vi.fn();
-    late.resolve({ close } as unknown as IOwnerRuntimeLinkClient);
+    late.resolve({ close, closed: Promise.resolve() } as unknown as IOwnerRuntimeLinkClient);
     await expect(disposed).rejects.toThrow(/timed out/i);
     expect(close).toHaveBeenCalledOnce();
+    expect(dispose).toHaveBeenCalledOnce();
+  });
+
+  it('holds the handover until the late link reports actual closure', async () => {
+    const late = deferred<IOwnerRuntimeLinkClient>();
+    const closed = deferred<void>();
+    const timedOut = deferred<void>();
+    opener.open.mockImplementationOnce(({ signal }: { signal: AbortSignal }) => {
+      signal.addEventListener('abort', () => timedOut.resolve(), { once: true });
+      return late.promise;
+    });
+    const dispose = vi.fn();
+    const handover = { dispose } as unknown as IOwnerHandover;
+    const attempt = proveWorkspaceDaemon({ root: '/fixture', workspace: '/fixture', candidates: [row], handover, timeoutMs: 20 });
+    const disposed = attempt.finally(dispose);
+    void disposed.catch(() => {});
+    await timedOut.promise;
+    const close = vi.fn();
+    late.resolve({ close, closed: closed.promise } as unknown as IOwnerRuntimeLinkClient);
+    await vi.waitFor(() => expect(close).toHaveBeenCalledOnce());
+    expect(dispose).not.toHaveBeenCalled();
+    closed.resolve();
+    await expect(disposed).rejects.toThrow(/timed out/i);
     expect(dispose).toHaveBeenCalledOnce();
   });
 
@@ -48,7 +71,7 @@ describe('CLI daemon proof owner lifetime', () => {
     const handover = {} as IOwnerHandover;
     const attempt = proveWorkspaceDaemon({ root: '/fixture', workspace: '/fixture', candidates: [row], handover, timeoutMs: 20 });
     await timedOut.promise;
-    late.resolve({ close: () => { throw new Error('close failed'); } } as unknown as IOwnerRuntimeLinkClient);
+    late.resolve({ close: () => { throw new Error('close failed'); }, closed: Promise.resolve() } as unknown as IOwnerRuntimeLinkClient);
     await expect(attempt).rejects.toThrow(/cleanup/i);
     await expect(proveWorkspaceDaemon({ root: '/fixture', workspace: '/fixture', candidates: [row], handover })).rejects.toThrow(/cleanup/i);
   });

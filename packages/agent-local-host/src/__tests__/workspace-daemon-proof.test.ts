@@ -10,7 +10,7 @@ function deferred<T>() {
 
 const row = { id: 'runtime', generation: 'generation', liveness: 'alive', control: 'available', activity: 'idle' } as const;
 const status = { status: 'running', daemon: true, cwd: '/workspace' } as const;
-const link = () => ({ control: vi.fn(async (): Promise<Readonly<Record<string, unknown>>> => status), close: vi.fn() });
+const link = () => ({ control: vi.fn(async (): Promise<Readonly<Record<string, unknown>>> => status), close: vi.fn(), closed: Promise.resolve() });
 
 function proveWorkspaceDaemon(options: Parameters<ReturnType<typeof createWorkspaceDaemonProver>['start']>[0] & Parameters<typeof createWorkspaceDaemonProver>[0]) {
   const { open, ...input } = options;
@@ -186,6 +186,74 @@ describe('authenticated workspace daemon proof', () => {
     await expect(attempt.settled).rejects.toThrow(/cleanup/i);
     expect(late.close).toHaveBeenCalledOnce();
     expect(() => prover.start({ workspace: '/workspace', candidates: [row] })).toThrow(/cleanup/i);
+  });
+
+  it('keeps the owner lease until the opened link reports actual closure', async () => {
+    const closed = deferred<void>();
+    const first = link();
+    first.closed = closed.promise;
+    const prover = createWorkspaceDaemonProver({ open: async () => first });
+    const attempt = prover.start({ workspace: '/workspace', candidates: [row] });
+    await vi.waitFor(() => expect(first.close).toHaveBeenCalledOnce());
+    let settled = false;
+    void attempt.settled.then(() => { settled = true; });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    expect(() => prover.start({ workspace: '/workspace', candidates: [row] })).toThrow(/busy/i);
+    closed.resolve();
+    await expect(attempt.result).resolves.toMatchObject({ id: row.id });
+    await expect(attempt.settled).resolves.toBeUndefined();
+  });
+
+  it('signals a failed late close while holding the owner until the link actually closes', async () => {
+    const aborter = new AbortController();
+    const pending = deferred<ReturnType<typeof link>>();
+    const closed = deferred<void>();
+    const prover = createWorkspaceDaemonProver({ open: () => pending.promise });
+    const attempt = prover.start({ workspace: '/workspace', candidates: [row], signal: aborter.signal });
+    aborter.abort();
+    await expect(attempt.result).rejects.toThrow(/cancelled/i);
+    const late = link();
+    late.closed = closed.promise;
+    late.close.mockImplementation(() => { throw new Error('close failed'); });
+    pending.resolve(late);
+    await expect(attempt.failure).resolves.toMatchObject({ message: expect.stringMatching(/cleanup/i) });
+    let settled = false;
+    void attempt.settled.then(() => { settled = true; }, () => { settled = true; });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    expect(() => prover.start({ workspace: '/workspace', candidates: [row] })).toThrow(/cleanup/i);
+    closed.resolve();
+    await expect(attempt.settled).rejects.toThrow(/cleanup/i);
+  });
+
+  it('faults and holds the lease when closure confirmation is unavailable', async () => {
+    const first = link();
+    Object.assign(first, { closed: undefined });
+    const prover = createWorkspaceDaemonProver({ open: async () => first });
+    const attempt = prover.start({ workspace: '/workspace', candidates: [row], timeoutMs: 20 });
+    await expect(attempt.failure).resolves.toMatchObject({ message: expect.stringMatching(/cleanup/i) });
+    await expect(attempt.result).rejects.toThrow(/cleanup/i);
+    let settled = false;
+    void attempt.settled.then(() => { settled = true; }, () => { settled = true; });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    expect(first.close).toHaveBeenCalledOnce();
+    expect(() => prover.start({ workspace: '/workspace', candidates: [row] })).toThrow(/cleanup/i);
+  });
+
+  it('faults and holds the lease when closure confirmation rejects', async () => {
+    const first = link();
+    first.closed = Promise.reject(new Error('closure unavailable'));
+    const prover = createWorkspaceDaemonProver({ open: async () => first });
+    const attempt = prover.start({ workspace: '/workspace', candidates: [row], timeoutMs: 20 });
+    await expect(attempt.failure).resolves.toMatchObject({ message: expect.stringMatching(/cleanup/i) });
+    await expect(attempt.result).rejects.toThrow(/cleanup/i);
+    let settled = false;
+    void attempt.settled.then(() => { settled = true; }, () => { settled = true; });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    expect(first.close).toHaveBeenCalledOnce();
   });
 
 });

@@ -26,6 +26,9 @@ export async function proveWorkspaceDaemon(options: {
   if (held.root !== options.root) throw new Error('The owner handover belongs to another daemon proof root.');
   const attempt = held.prover.start({ workspace: options.workspace, candidates: options.candidates,
     ...(options.timeoutMs === undefined ? {} : { timeoutMs: options.timeoutMs }) });
+  void attempt.failure.then((error) => {
+    process.stderr.write(`${error.message} Waiting for owner link shutdown.\n`);
+  }).catch(() => {});
   try { return await attempt.result; }
   finally { await attempt.settled; }
 }

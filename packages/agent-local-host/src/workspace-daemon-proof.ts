@@ -8,6 +8,7 @@ export interface IWorkspaceDaemonCandidate {
 }
 
 export interface IWorkspaceDaemonProofLink {
+  readonly closed: Promise<void>;
   control(request: { readonly command: 'status'; readonly fields: Readonly<Record<string, string>> }): Promise<Readonly<Record<string, unknown>>>;
   close(): void;
 }
@@ -21,6 +22,8 @@ export interface IProvenWorkspaceDaemon extends IWorkspaceDaemonCandidate {
 
 export interface IWorkspaceDaemonProofAttempt {
   readonly result: Promise<IProvenWorkspaceDaemon | undefined>;
+  /** Resolves immediately if cleanup fails, even if link termination is still pending. */
+  readonly failure: Promise<Error>;
   /** The owner handover must remain alive until this resolves; rejection permanently faults the prover. */
   readonly settled: Promise<void>;
 }
@@ -40,15 +43,23 @@ export function createWorkspaceDaemonProver(options: { readonly open: TOpenProof
       if (busy) throw new Error('Secure daemon proof is busy.');
       busy = true;
       const openingTasks: Promise<void>[] = [];
-      const cleanupFailed = (): void => { fault ??= new Error('Secure daemon proof cleanup failed.'); };
-      const result = scanWorkspaceDaemon({ ...input, open: options.open }, openingTasks, cleanupFailed, () => fault);
+      const closingTasks: Promise<void>[] = [];
+      let report!: (error: Error) => void;
+      const failure = new Promise<Error>((resolve) => { report = resolve; });
+      const cleanupFailed = (): void => {
+        if (fault) return;
+        fault = new Error('Secure daemon proof cleanup failed.');
+        report(fault);
+      };
+      const result = scanWorkspaceDaemon({ ...input, open: options.open }, openingTasks, closingTasks, cleanupFailed, () => fault);
       const settled = result.then(() => {}, () => {}).then(async () => {
         await Promise.all(openingTasks);
+        await Promise.all(closingTasks);
         if (fault) throw fault;
         busy = false;
       });
       void settled.catch(() => {});
-      return { result, settled };
+      return { result, settled, failure };
     },
   };
 }
@@ -57,6 +68,7 @@ export function createWorkspaceDaemonProver(options: { readonly open: TOpenProof
 async function scanWorkspaceDaemon(
   options: TProofInput & { readonly open: TOpenProofLink },
   openingTasks: Promise<void>[],
+  closingTasks: Promise<void>[],
   cleanupFailed: () => void,
   cleanupError: () => Error | undefined,
 ): Promise<IProvenWorkspaceDaemon | undefined> {
@@ -102,6 +114,7 @@ async function scanWorkspaceDaemon(
       try {
         let claimed = false;
         let unclaimed: IWorkspaceDaemonProofLink | undefined;
+        let confirmation: Promise<void> | undefined;
         let discarded = false;
         const discard = (): void => {
           if (claimed || discarded || !unclaimed) return;
@@ -111,6 +124,17 @@ async function scanWorkspaceDaemon(
         const pending = options.open({ id: row.id, generation: row.generation }, controller.signal);
         openingTasks.push(pending.then((late) => {
           unclaimed = late;
+          try {
+            if (!late.closed || typeof late.closed.then !== 'function') throw new Error('Missing closure confirmation.');
+            confirmation = Promise.resolve(late.closed).catch(() => {
+              cleanupFailed();
+              return new Promise<void>(() => {});
+            });
+          } catch {
+            cleanupFailed();
+            confirmation = new Promise<void>(() => {});
+          }
+          closingTasks.push(confirmation);
           if (controller.signal.aborted) discard();
         }, () => {}));
         let link: IWorkspaceDaemonProofLink;
@@ -141,6 +165,8 @@ async function scanWorkspaceDaemon(
           close();
         }
         if (closeFailed) throw cleanupError();
+        if (!confirmation) throw new Error('The owner link has no closure confirmation.');
+        await wait(confirmation);
       } catch {
         if (cleanupError()) throw cleanupError();
         if (controller.signal.aborted) throw abortError();
