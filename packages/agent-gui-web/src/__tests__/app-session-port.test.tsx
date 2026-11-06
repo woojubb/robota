@@ -178,4 +178,22 @@ describe('session-only desktop host', () => {
     expect(screen.getByRole('alert').textContent).toContain('Current runtime failed');
   });
 
+  it('requires a fresh trust decision when returning to a previously used host', async () => {
+    let checks = 0;
+    const makeClient = vi.fn(() => ({ connect: () => {}, disconnect: () => {}, send: () => {} }));
+    const hostA: IGuiHost = {
+      kind: 'desktop', getEndpoint: vi.fn(async () => null), signalReady: () => {},
+      onState: () => () => {}, onOpenSettings: () => () => {}, makeSessionClient: makeClient,
+      trustQuestion: () => ++checks === 1 ? Promise.resolve(null) : new Promise(() => {}),
+    };
+    const hostB: IGuiHost = { ...hostA, trustQuestion: () => new Promise(() => {}) };
+    const view = render(<App host={hostA} product={testProduct} />);
+    await waitFor(() => expect(makeClient).toHaveBeenCalledTimes(1));
+    view.rerender(<App host={hostB} product={testProduct} />);
+    view.rerender(<App host={hostA} product={testProduct} />);
+    expect(checks).toBe(2);
+    expect(makeClient).toHaveBeenCalledTimes(1);
+    expect(hostA.getEndpoint).not.toHaveBeenCalled();
+  });
+
 });

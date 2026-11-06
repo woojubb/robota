@@ -10,7 +10,7 @@ import {
   type IWsSessionState,
   type TMakeSessionClient,
 } from '@robota-sdk/agent-ui-web/client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { IGuiHost, IGuiTrustQuestion, TGuiTrustChoice } from './gui-host.js';
 
@@ -223,39 +223,41 @@ export function App({ host, product }: { host: IGuiHost; product: IWebProductIde
 }
 
 function AppContent({ host }: { host: IGuiHost }): React.ReactElement {
-  const [endpoint, setEndpoint] = useState<{ host: IGuiHost; url: string } | null>(null);
-  const [portHost, setPortHost] = useState<IGuiHost | null>(null);
+  // A host object can be selected again; each selection must pass its own trust check.
+  const generation = useMemo(() => ({}), [host]);
+  const [endpoint, setEndpoint] = useState<{ generation: object; url: string } | null>(null);
+  const [portGeneration, setPortGeneration] = useState<object | null>(null);
   // `detail` is what the sidecar said before it stopped — the reason, and often the fix.
-  const [fatal, setFatal] = useState<{ host: IGuiHost; detail?: string } | null>(null);
+  const [fatal, setFatal] = useState<{ generation: object; detail?: string } | null>(null);
   // Asked before the endpoint: in a folder not trusted yet the host starts nothing until the answer.
-  const [trust, setTrust] = useState<{ host: IGuiHost; question: IGuiTrustQuestion } | null>(null);
+  const [trust, setTrust] = useState<{ generation: object; question: IGuiTrustQuestion } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const unsubscribe = host.onState((state, detail) => {
-      if (!cancelled && state === 'fatal') setFatal(detail ? { host, detail } : { host });
+      if (!cancelled && state === 'fatal') setFatal(detail ? { generation, detail } : { generation });
     });
     void (async () => {
       const question = (await host.trustQuestion?.()) ?? null;
       if (cancelled) return;
       if (question) {
-        setTrust({ host, question });
+        setTrust({ generation, question });
         return;
       }
       if (host.makeSessionClient) {
-        setPortHost(host);
+        setPortGeneration(generation);
         return;
       }
       const endpoint = await host.getEndpoint();
-      if (!cancelled && endpoint) setEndpoint({ host, url: endpoint });
+      if (!cancelled && endpoint) setEndpoint({ generation, url: endpoint });
     })();
     return () => {
       cancelled = true;
       unsubscribe();
     };
-  }, [host]);
+  }, [host, generation]);
 
-  if (fatal?.host === host) {
+  if (fatal?.generation === generation) {
     return (
       <div role="alert" className="flex h-full flex-col">
         <CenteredChrome tone="fatal">
@@ -264,13 +266,13 @@ function AppContent({ host }: { host: IGuiHost }): React.ReactElement {
       </div>
     );
   }
-  if (trust?.host === host && host.answerTrust) {
+  if (trust?.generation === generation && host.answerTrust) {
     return <TrustQuestion question={trust.question} answer={host.answerTrust} />;
   }
-  if (portHost === host && host.makeSessionClient) {
+  if (portGeneration === generation && host.makeSessionClient) {
     return <PortSessionView makeClient={host.makeSessionClient} host={host} />;
   }
-  if (endpoint?.host !== host) {
+  if (endpoint?.generation !== generation) {
     return <CenteredChrome tone="muted">Starting the agent…</CenteredChrome>;
   }
   // A lost connection (issue #3280 §5) is shown by `SessionSurface` itself, above the conversation —
