@@ -43,21 +43,28 @@ Continuing, resuming, forking and naming saved sessions from the command line (`
 
 Trust decides whether Robota reads a project's own configuration. In an untrusted repository Robota
 runs **Restricted**: project settings, hooks, plugins, skills, agent definitions, provider overrides
-and MCP servers from the project are not loaded. Trust is recorded per Git repository in
-`<user-state>/workspace-trust.json`.
+and MCP servers from the project are not loaded. A local trust manager holds approval for the exact
+folder while it runs. Saved trust history does not restore approval after the manager or computer
+restarts; approve the folder once again then. Reopening the CLI or desktop app while the manager is
+still running needs no new approval.
 
 ```bash
 __PRODUCT_CLI_NAME__ trust              # show the state, and what trust would load
-__PRODUCT_CLI_NAME__ trust --yes        # grant trust without a prompt
+__PRODUCT_CLI_NAME__ trust --yes        # request trust and confirm at the terminal
 __PRODUCT_CLI_NAME__ trust revoke --yes # withdraw it
 ```
 
-`grant` and `revoke` need `--yes` when no terminal is attached. Starting a new interactive session
+Grant always requires confirmation at a terminal, including with `--yes`; a headless script cannot
+grant trust. `revoke` needs `--yes` when no terminal is attached. Starting a new interactive session
 in an untrusted repository asks `Trust this folder? [y/N]` first; answering no starts Restricted.
+
+Robota refuses a folder that replaces the one it approved, even at the same path. Another program
+running under your account can talk directly to the trust manager and create a new approval without
+your confirmation. Workspace trust does not protect against that direct local client.
 
 | State                  | Meaning                                                                                                |
 | ---------------------- | ------------------------------------------------------------------------------------------------------ |
-| `trusted`              | Trust was granted for this repository.                                                                 |
+| `trusted`              | The live manager holds approval for this exact folder.                                                |
 | `untrusted`            | Trust was never granted.                                                                               |
 | `revoked`              | Trust was granted, then revoked.                                                                       |
 | `stale/replaced`       | The grant changed while Robota ran, or the repository at this path was moved or replaced. Grant again. |

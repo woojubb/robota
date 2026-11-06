@@ -286,7 +286,7 @@ If you leave out `model`, the session asks the provider for `claude-opus-4-5`.
 # Interactive TUI
 __PRODUCT_CLI_NAME__
 
-# One-shot (print mode; in a Git repository, trust it first with `__PRODUCT_CLI_NAME__ trust --yes`)
+# One-shot (print mode; in a Git repository, approve trust at a terminal first or use --safe-mode)
 __PRODUCT_CLI_NAME__ -p "List all TODO comments in this project"
 
 # With model override
