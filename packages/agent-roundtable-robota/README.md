@@ -1,5 +1,8 @@
 # @robota-sdk/agent-roundtable-robota
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Runs an agent `Session` or a plain `ConversationAgent` as an `@robota-sdk/agent-roundtable` participant,
 and an agent as its selector. `agent-roundtable` stays free of both runtimes; this is the only
 package that imports `@robota-sdk/agent-core` and `@robota-sdk/agent-session` to bridge them in.

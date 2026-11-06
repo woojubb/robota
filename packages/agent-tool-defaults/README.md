@@ -1,5 +1,8 @@
 # @robota-sdk/agent-tool-defaults
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 The Robota SDK's built-in default tool set. `createDefaultTools()` builds the tools an agent session
 gets when its composition root supplies no tool list of its own, using the tool factories from
 `@robota-sdk/agent-tools` and `@robota-sdk/agent-tools/node`. It implements no tool itself. File tools that run on the host are

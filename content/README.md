@@ -22,7 +22,7 @@ built from the same libraries.
 [![License: AGPL-3.0 OR Commercial](https://img.shields.io/badge/license-AGPL--3.0%20OR%20Commercial-blue)](../LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org/)
 
-> **Beta** — public packages are in beta. APIs may still change before a stable release. [Report issues](__PROJECT_REPOSITORY_URL__/issues).
+> APIs may change between releases. [Report issues](__PROJECT_REPOSITORY_URL__/issues).
 
 ## Where to start
 

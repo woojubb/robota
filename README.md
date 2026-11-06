@@ -160,7 +160,7 @@ set `PRODUCT_VERSION` to its tag, e.g. `curl -fsSL … | PRODUCT_VERSION=v<versi
 unsigned — macOS and Windows may warn.
 
 
-> **Beta**: Robota is currently `3.0.0-beta`. APIs may change before the stable 3.0.0 release. See
+> APIs may change. See
 > [CHANGELOG.md](./CHANGELOG.md) for upgrade notes.
 
 > **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use

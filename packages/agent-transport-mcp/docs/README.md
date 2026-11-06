@@ -1,5 +1,8 @@
 # @robota-sdk/agent-transport-mcp
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 The MCP server transport for the Robota SDK. It serves one running agent session as a Model Context
 Protocol server — its runtime tools under their canonical names, plus a prompt-submission tool — over
 three carriers:

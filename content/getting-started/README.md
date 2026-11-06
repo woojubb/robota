@@ -10,7 +10,7 @@ this guide covers current capabilities. Use the SDK to build an agent or the `__
 as a coding assistant. This page takes you from installation to a first agent, a session with
 built-in tools, and the CLI.
 
-> **Beta** — public packages are in beta. APIs may still change before a stable release. [Report issues](__PROJECT_REPOSITORY_URL__/issues).
+> APIs may change between releases. [Report issues](__PROJECT_REPOSITORY_URL__/issues).
 
 ## Which path is right for you?
 

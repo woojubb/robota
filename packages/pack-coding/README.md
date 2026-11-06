@@ -1,5 +1,8 @@
 # @robota-sdk/pack-coding
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Robota's coding capability as a single
 [`ICapabilityPack`](../agent-capability-pack/README.md): the built-in coding tools, the coding command
 modules, and the coding subagents in one unit that `assembleProduct` can add to any product. The

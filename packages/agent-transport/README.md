@@ -1,5 +1,8 @@
 # @robota-sdk/agent-transport
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 The shared protocol layer under every agent runtime transport. It defines the transport-neutral wire messages
 (`TClientMessage` / `TServerMessage`), the session bridge that turns those messages into calls on a live
 session, and the delivery helpers a carrier needs (backpressure, resumable delivery, channel framing,

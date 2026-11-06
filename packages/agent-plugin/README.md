@@ -1,5 +1,8 @@
 # @robota-sdk/agent-plugin
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Ready-made plugins for the Robota SDK: conversation history, error handling, execution analytics,
 limits, logging, performance metrics, usage tracking and webhooks. Each plugin extends
 `AbstractPlugin` from `@robota-sdk/agent-core` and receives the agent's lifecycle hooks (before and

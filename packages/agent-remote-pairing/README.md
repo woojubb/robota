@@ -1,5 +1,8 @@
 # @robota-sdk/agent-remote-pairing
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Pairing and DTLS-fingerprint channel binding for Robota's peer-to-peer remote control, plus the identity
 primitives that let one user's devices recognise each other. A host uses it to prove that a connecting
 peer holds a single-use pairing secret, and binds that proof to the actual DTLS channel each side

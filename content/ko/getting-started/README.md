@@ -14,7 +14,7 @@ this guide covers current capabilities. Use the SDK to build an agent or the `__
 as a coding assistant. This page takes you from installation to a first agent, a session with
 built-in tools, and the CLI.
 
-> **베타** — 공개 패키지는 베타 버전입니다. 정식 릴리스 전에 API가 바뀔 수 있습니다.
+> API는 새 버전에서 바뀔 수 있습니다.
 > [이슈 보고](__PROJECT_REPOSITORY_URL__/issues).
 
 ## 어떤 경로가 적합한가요?

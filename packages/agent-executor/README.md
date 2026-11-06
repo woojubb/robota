@@ -1,5 +1,8 @@
 # @robota-sdk/agent-executor
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Runtime building blocks for long-running agent runtime work: a background task manager with a lifecycle
 state machine, queueing, cancellation, watchdogs, events and log pages; runners for shell processes,
 scheduled tasks and tool invocations; a subagent manager built on the same layer, with optional Git

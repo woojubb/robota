@@ -22,7 +22,7 @@ built from the same libraries.
 [![License: AGPL-3.0 OR Commercial](https://img.shields.io/badge/license-AGPL--3.0%20OR%20Commercial-blue)](../../LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org/)
 
-> **베타** — 패키지는 `3.0.0-beta` 버전으로 배포됩니다. 정식 릴리스 전에 API가 바뀔 수 있습니다.
+> API는 새 버전에서 바뀔 수 있습니다.
 > [이슈 보고](__PROJECT_REPOSITORY_URL__/issues).
 
 ## 어디서 시작할까요

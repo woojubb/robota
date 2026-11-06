@@ -1,5 +1,8 @@
 # @robota-sdk/agent-session
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Session lifecycle for the Robota SDK. A `Session` wraps a `ConversationAgent` agent from
 `@robota-sdk/agent-core` and adds permission-gated tool execution, lifecycle hooks, context-window
 tracking, conversation compaction, session logs and optional persistence.
