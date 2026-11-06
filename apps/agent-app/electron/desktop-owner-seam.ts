@@ -21,11 +21,13 @@ interface IOwnerLink {
 
 interface IOwner {
   readonly link: IOwnerLink;
+  /** Authenticated by the trusted provider's complete candidate selection. */
+  readonly selected: { readonly runtimeId: string; readonly generation: string };
   release(): void;
 }
 
 interface IOptions {
-  readonly expected: { readonly runtimeId: string; readonly generation: string; readonly workspace: string; readonly restricted: boolean };
+  readonly expected: { readonly workspace: string; readonly restricted: boolean };
   readonly requestSecret: (signal: AbortSignal) => Promise<TDesktopSecret | undefined>;
   /** Must authenticate the link before returning it; a discovery record alone is insufficient. */
   readonly openOwner: (secret: TDesktopSecret, signal: AbortSignal) => Promise<IOwner>;
@@ -48,6 +50,7 @@ const ABORTED = Symbol('aborted');
 export function createDesktopOwnerCoordinator(options: IOptions): {
   open(request: { readonly signal: AbortSignal; readonly isCurrent: () => boolean }): Promise<TResult>;
 } {
+  const { workspace, restricted } = options.expected;
   let occupied = false;
   let faulted = false;
   return {
@@ -160,7 +163,9 @@ export function createDesktopOwnerCoordinator(options: IOptions): {
         owner = selected;
         openingOwner = false;
         const link = owner.link;
-        if (link.standing !== 'owner' || link.binding.runtimeId !== options.expected.runtimeId || link.binding.generation !== options.expected.generation || !link.custody.certified) {
+        const { runtimeId, generation } = owner.selected;
+        if (typeof runtimeId !== 'string' || !runtimeId || typeof generation !== 'string' || !generation ||
+            link.standing !== 'owner' || link.binding.runtimeId !== runtimeId || link.binding.generation !== generation || !link.custody.certified) {
           await finish(false); return { kind: 'refused' };
         }
         const drain = (): void => {
@@ -208,13 +213,13 @@ export function createDesktopOwnerCoordinator(options: IOptions): {
         if (!current()) { await finish(false); return { kind: 'cancelled' }; }
         const status = await wait(link.control({ command: 'status', fields: {} }), REQUEST_TIMEOUT_MS);
         if (status === ABORTED) { await finish(false); return cancellation(); }
-        if (status.status !== 'running' || status.daemon !== true || status.cwd !== options.expected.workspace ||
+        if (status.status !== 'running' || status.daemon !== true || status.cwd !== workspace ||
             (status.restricted !== undefined && status.restricted !== true) ||
-            (status.restricted === true) !== options.expected.restricted) {
+            (status.restricted === true) !== restricted) {
           await finish(false); return { kind: 'refused' };
         }
         if (!current() || !certified || !link.custody.certified || link.standing !== 'owner' ||
-            link.binding.runtimeId !== options.expected.runtimeId || link.binding.generation !== options.expected.generation) {
+            link.binding.runtimeId !== runtimeId || link.binding.generation !== generation) {
           await finish(false); return { kind: 'cancelled' };
         }
         grantAttempted = true;

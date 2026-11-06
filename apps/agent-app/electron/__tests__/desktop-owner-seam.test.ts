@@ -40,7 +40,8 @@ function setup() {
     lock: vi.fn(async () => {}),
   };
   const release = vi.fn();
-  const openOwner = vi.fn(async () => ({ link, release }));
+  const selected = { runtimeId: 'runtime-a', generation: 'generation-a' };
+  const openOwner = vi.fn(async () => ({ link, release, selected }));
   const requestSecret = vi.fn(async () => ({ type: 'passphrase' as const, value: 'synthetic' }));
   const observed: TServerMessage[] = [];
   const relayDispose = vi.fn();
@@ -48,12 +49,13 @@ function setup() {
     channel.onMessage((message) => observed.push(message));
     return { dispose: relayDispose };
   });
+  const expected = { workspace: '/synthetic/workspace', restricted: false };
   const coordinator = createDesktopOwnerCoordinator({
-    expected: { runtimeId: 'runtime-a', generation: 'generation-a', workspace: '/synthetic/workspace', restricted: false },
+    expected,
     requestSecret, openOwner, openRelay,
   });
   const controller = new AbortController();
-  return { coordinator, controller, link, session, release, openOwner, requestSecret, openRelay, relayDispose,
+  return { coordinator, controller, link, session, release, selected, expected, openOwner, requestSecret, openRelay, relayDispose,
     observed, receive: (message: TServerMessage) => receive?.(message),
     custody: (value: { certified: boolean; unlocked: boolean }) => custody?.(value),
     closeLink: () => closed.resolve() };
@@ -77,6 +79,18 @@ describe('main-only desktop owner session boundary', () => {
     expect(s.release).toHaveBeenCalledOnce();
   });
 
+  it('accepts the binding authenticated by the provider after the secret is requested', async () => {
+    const s = setup();
+    s.openOwner.mockImplementationOnce(async () => {
+      expect(s.requestSecret).toHaveBeenCalledOnce();
+      s.link.binding = { runtimeId: 'runtime-selected', generation: 'generation-selected' };
+      return { link: s.link, release: s.release, selected: { ...s.link.binding } };
+    });
+    const result = await s.coordinator.open({ signal: s.controller.signal, isCurrent: () => true });
+    expect(result.kind).toBe('open');
+    if (result.kind === 'open') await result.close();
+  });
+
   it.each(['binding', 'workspace', 'mode', 'daemon'] as const)('refuses a wrong %s before granting', async (kind) => {
     const s = setup();
     if (kind === 'binding') s.link.binding.generation = 'different';
@@ -91,15 +105,53 @@ describe('main-only desktop owner session boundary', () => {
     expect(s.release).toHaveBeenCalledOnce();
   });
 
+  it('refuses a binding that changes while authenticated status is pending', async () => {
+    const s = setup();
+    const status = deferred<{ status: string; daemon: boolean; cwd: string }>();
+    s.link.control.mockReturnValueOnce(status.promise);
+    const pending = s.coordinator.open({ signal: s.controller.signal, isCurrent: () => true });
+    await vi.waitFor(() => expect(s.link.control).toHaveBeenCalledOnce());
+    s.selected.generation = 'changed';
+    s.link.binding.generation = 'changed';
+    status.resolve({ status: 'running', daemon: true, cwd: '/synthetic/workspace' });
+    expect((await pending).kind).toBe('cancelled');
+    expect(s.link.unlock).not.toHaveBeenCalled();
+    expect(s.link.close).toHaveBeenCalledOnce();
+    expect(s.release).toHaveBeenCalledOnce();
+  });
+
+  it('does not admit a changed workspace supplied while status is pending', async () => {
+    const s = setup();
+    const status = deferred<{ status: string; daemon: boolean; cwd: string }>();
+    s.link.control.mockReturnValueOnce(status.promise);
+    const pending = s.coordinator.open({ signal: s.controller.signal, isCurrent: () => true });
+    await vi.waitFor(() => expect(s.link.control).toHaveBeenCalledOnce());
+    s.expected.workspace = '/different';
+    status.resolve({ status: 'running', daemon: true, cwd: '/different' });
+    expect((await pending).kind).toBe('refused');
+    expect(s.link.unlock).not.toHaveBeenCalled();
+    expect(s.release).toHaveBeenCalledOnce();
+  });
+
+  it('refuses an empty selected binding before runtime status', async () => {
+    const s = setup();
+    s.selected.generation = '';
+    s.link.binding.generation = '';
+    expect((await s.coordinator.open({ signal: s.controller.signal, isCurrent: () => true })).kind).toBe('refused');
+    expect(s.link.control).not.toHaveBeenCalled();
+    expect(s.link.unlock).not.toHaveBeenCalled();
+    expect(s.release).toHaveBeenCalledOnce();
+  });
+
   it('closes a late owner result after cancellation without granting it', async () => {
     const s = setup();
-    const late = deferred<{ link: typeof s.link; release: typeof s.release }>();
+    const late = deferred<{ link: typeof s.link; release: typeof s.release; selected: typeof s.selected }>();
     s.openOwner.mockReturnValueOnce(late.promise);
     const result = s.coordinator.open({ signal: s.controller.signal, isCurrent: () => true });
     await vi.waitFor(() => expect(s.openOwner).toHaveBeenCalledOnce());
     s.controller.abort();
     expect((await result).kind).toBe('cancelled');
-    late.resolve({ link: s.link, release: s.release });
+    late.resolve({ link: s.link, release: s.release, selected: s.selected });
     await vi.waitFor(() => expect(s.link.close).toHaveBeenCalledOnce());
     expect(s.release).toHaveBeenCalledOnce();
     expect(s.link.unlock).not.toHaveBeenCalled();
@@ -149,7 +201,7 @@ describe('main-only desktop owner session boundary', () => {
     const s = setup();
     s.openOwner.mockImplementationOnce(() => {
       s.controller.abort();
-      return Promise.resolve({ link: s.link, release: s.release });
+      return Promise.resolve({ link: s.link, release: s.release, selected: s.selected });
     });
     expect((await s.coordinator.open({ signal: s.controller.signal, isCurrent: () => true })).kind).toBe('cancelled');
     await vi.waitFor(() => expect(s.link.close).toHaveBeenCalledOnce());
@@ -158,7 +210,7 @@ describe('main-only desktop owner session boundary', () => {
 
   it('keeps the coordinator occupied until a cancelled opening releases its late owner', async () => {
     const s = setup();
-    const late = deferred<{ link: typeof s.link; release: typeof s.release }>();
+    const late = deferred<{ link: typeof s.link; release: typeof s.release; selected: typeof s.selected }>();
     s.openOwner.mockReturnValueOnce(late.promise);
     const first = s.coordinator.open({ signal: s.controller.signal, isCurrent: () => true });
     await vi.waitFor(() => expect(s.openOwner).toHaveBeenCalledOnce());
@@ -166,7 +218,7 @@ describe('main-only desktop owner session boundary', () => {
     expect((await first).kind).toBe('cancelled');
     const next = new AbortController();
     expect((await s.coordinator.open({ signal: next.signal, isCurrent: () => true })).kind).toBe('busy');
-    late.resolve({ link: s.link, release: s.release });
+    late.resolve({ link: s.link, release: s.release, selected: s.selected });
     await vi.waitFor(() => expect(s.release).toHaveBeenCalledOnce());
   });
 
@@ -222,14 +274,14 @@ describe('main-only desktop owner session boundary', () => {
 
   it('releases the handover and remains unavailable if closing a late owner throws', async () => {
     const s = setup();
-    const late = deferred<{ link: typeof s.link; release: typeof s.release }>();
+    const late = deferred<{ link: typeof s.link; release: typeof s.release; selected: typeof s.selected }>();
     s.openOwner.mockReturnValueOnce(late.promise);
     const first = s.coordinator.open({ signal: s.controller.signal, isCurrent: () => true });
     await vi.waitFor(() => expect(s.openOwner).toHaveBeenCalledOnce());
     s.controller.abort();
     expect((await first).kind).toBe('cancelled');
     s.link.close.mockImplementationOnce(() => { throw new Error('close failed'); });
-    late.resolve({ link: s.link, release: s.release });
+    late.resolve({ link: s.link, release: s.release, selected: s.selected });
     await vi.waitFor(() => expect(s.release).toHaveBeenCalledOnce());
     const next = new AbortController();
     expect((await s.coordinator.open({ signal: next.signal, isCurrent: () => true })).kind).toBe('busy');
@@ -296,9 +348,9 @@ describe('main-only desktop owner session boundary', () => {
           control() { controller.abort(); return Promise.reject(new Error('synthetic')); },
         };
         const owner = createDesktopOwnerCoordinator({
-          expected: { runtimeId: 'r', generation: 'g', workspace: '/fixture', restricted: false },
+          expected: { workspace: '/fixture', restricted: false },
           requestSecret: async () => ({ type: 'passphrase', value: 'synthetic' }),
-          openOwner: async () => ({ link, release() {} }), openRelay: () => ({ dispose() {} }),
+          openOwner: async () => ({ link, selected: { runtimeId: 'r', generation: 'g' }, release() {} }), openRelay: () => ({ dispose() {} }),
         });
         if ((await owner.open({ signal: controller.signal, isCurrent: () => true })).kind !== 'cancelled') process.exitCode = 4;
         await new Promise((resolve) => setImmediate(resolve));
@@ -317,7 +369,7 @@ describe('main-only desktop owner session boundary', () => {
     try {
       const s = setup();
       const started = deferred<void>();
-      const late = deferred<{ link: typeof s.link; release: typeof s.release }>();
+      const late = deferred<{ link: typeof s.link; release: typeof s.release; selected: typeof s.selected }>();
       s.openOwner.mockImplementationOnce(() => { started.resolve(); return late.promise; });
       const pending = s.coordinator.open({ signal: s.controller.signal, isCurrent: () => true });
       await started.promise;
@@ -325,7 +377,7 @@ describe('main-only desktop owner session boundary', () => {
       expect((await pending).kind).toBe('timed-out');
       const next = new AbortController();
       expect((await s.coordinator.open({ signal: next.signal, isCurrent: () => true })).kind).toBe('busy');
-      late.resolve({ link: s.link, release: s.release });
+      late.resolve({ link: s.link, release: s.release, selected: s.selected });
       await Promise.resolve();
       await Promise.resolve();
       expect(s.link.close).toHaveBeenCalledOnce();

@@ -49,11 +49,11 @@ app.whenReady().then(async () => {
   };
   const controller = new AbortController();
   const coordinator = ownerModule.createDesktopOwnerCoordinator({
-    expected: { runtimeId: 'runtime-fixture', generation: 'generation-fixture', workspace: '/synthetic/workspace', restricted: false },
+    expected: { workspace: '/synthetic/workspace', restricted: false },
     requestSecret: (signal) => secretModule.openSecretWindow(parent, signal),
     openOwner: async (secret) => {
       if (secret.type !== 'passphrase' || secret.value !== 'synthetic-test-value') throw new Error('Unexpected fixture input.');
-      return { link, release: () => { disposed++; } };
+      return { link, selected: { runtimeId: 'runtime-fixture', generation: 'generation-fixture' }, release: () => { disposed++; } };
     },
     openRelay: (session, signal, isCurrent) => relayModule.openDesktopSessionRelay({
       sender: parent.webContents,

@@ -41,11 +41,11 @@ app.whenReady().then(async () => {
   };
   const admission = admissionModule.registerDesktopSessionAdmission({
     sender: parent.webContents, ipc: ipcMain, isCurrent: () => true,
-    expected: { runtimeId: 'fixture', generation: 'generation', workspace: '/synthetic/workspace', restricted: false },
+    expected: { workspace: '/synthetic/workspace', restricted: false },
     requestSecret: (signal) => { prompts++; return secretModule.openSecretWindow(parent, signal); },
     openOwner: async (secret) => {
       if (secret.type !== 'passphrase' || secret.value !== 'synthetic-test-value') throw new Error('Unexpected fixture input.');
-      return { link, release: () => { released++; resolveReleased(); } };
+      return { link, selected: { runtimeId: 'fixture', generation: 'generation' }, release: () => { released++; resolveReleased(); } };
     },
     createChannel: () => new MessageChannelMain(), onUnconfirmed: () => { unconfirmed++; },
   });
@@ -68,7 +68,7 @@ app.whenReady().then(async () => {
       await probe.loadFile(process.env.FIXTURE_CHILD_HTML);
       const denied = admissionModule.registerDesktopSessionAdmission({
         sender: probe.webContents, ipc: ipcMain, isCurrent: () => true,
-        expected: { runtimeId: 'fixture', generation: 'generation', workspace: '/synthetic/workspace', restricted: false },
+        expected: { workspace: '/synthetic/workspace', restricted: false },
         requestSecret: async () => { throw new Error('Foreign window prompted.'); },
         openOwner: async () => { throw new Error('Foreign window opened owner.'); },
         createChannel: () => new MessageChannelMain(), onUnconfirmed: () => { unconfirmed++; },

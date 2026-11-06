@@ -31,11 +31,11 @@ function setup(beforeRegistration?: (ipc: EventEmitter, sender: EventEmitter) =>
   };
   const release = vi.fn();
   const requestSecret = vi.fn(async () => ({ type: 'passphrase' as const, value: 'synthetic' }));
-  const openOwner = vi.fn(async () => ({ link, release }));
+  const openOwner = vi.fn(async () => ({ link, release, selected: { runtimeId: 'r', generation: 'g' } }));
   const onUnconfirmed = vi.fn();
   const admission = registerDesktopSessionAdmission({
     sender: sender as unknown as WebContents, ipc: ipc as unknown as IpcMain, isCurrent: () => true,
-    expected: { runtimeId: 'r', generation: 'g', workspace: '/fixture', restricted: false },
+    expected: { workspace: '/fixture', restricted: false },
     requestSecret, openOwner, onUnconfirmed, createChannel: () => ({ port1: {}, port2: {} }) as unknown as MessageChannelMain,
   });
   const event = { sender, senderFrame: frame, ports: [] };
