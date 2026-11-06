@@ -2,6 +2,8 @@
 import { contextBridge, ipcRenderer } from 'electron';
 
 const PORT_CHANNEL = 'desktop-session:port';
+const REQUEST_CHANNEL = 'desktop-session:request';
+const REQUEST_READY_CHANNEL = 'desktop-session:request-ready';
 const MAX_FRAME_BYTES = 4 * 1024 * 1024;
 const MAX_OUTSTANDING = 32;
 let port: MessagePort | undefined;
@@ -63,6 +65,7 @@ function signalReady(): void {
 }
 
 if (process.isMainFrame) {
+  ipcRenderer.on(REQUEST_READY_CHANNEL, () => { if (!ended) ipcRenderer.send(REQUEST_CHANNEL); });
   ipcRenderer.on(PORT_CHANNEL, (event) => {
     if (ended || port || event.ports.length !== 1) {
       for (const received of event.ports) received.close();
@@ -151,4 +154,5 @@ if (process.isMainFrame) {
     },
     close,
   });
+  ipcRenderer.send(REQUEST_CHANNEL);
 }

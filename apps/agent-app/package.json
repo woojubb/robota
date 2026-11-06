@@ -23,7 +23,8 @@
     "lint": "eslint . --max-warnings 0",
     "test:e2e:remote": "node e2e/remote-runtime-e2e.mjs",
     "test:e2e:packaged-keyring": "node e2e/packaged-keyring-e2e.mjs",
-    "test:e2e:owner-session": "pnpm build:electron && node e2e/desktop-owner-session-e2e.mjs"
+    "test:e2e:owner-session": "pnpm build:electron && node e2e/desktop-owner-session-e2e.mjs",
+    "test:e2e:session-admission": "pnpm build:electron && node e2e/desktop-session-admission-e2e.mjs"
   },
   "devDependencies": {
     "@electron/asar": "^3.4.1",
