@@ -1663,6 +1663,7 @@ export class InteractiveSession
   }
 
   override async cancelBackgroundTask(taskId: string, reason?: string): Promise<void> {
+    if (this.execCtrl.shuttingDown) throw new Error('The session is shutting down.');
     const task = this.getBackgroundTaskManager()?.get(taskId);
     if (task?.metadata?.['sessionLoopSelfPaced'] === true) {
       const loopId = task.metadata['sessionLoopId'];

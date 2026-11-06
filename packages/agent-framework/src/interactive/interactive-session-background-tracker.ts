@@ -124,6 +124,9 @@ export class SessionBackgroundTaskTracker {
     });
     try {
       this.assertNoRestoreEvent();
+      if (this.restoringBackground && manager.list().length > 0) {
+        throw new Error('Cannot restore background tasks: the manager already owns a task.');
+      }
       this.reArmRestoredSchedules(manager, restore);
       this.assertNoRestoreEvent();
     } catch (error) {
@@ -221,11 +224,27 @@ export class SessionBackgroundTaskTracker {
     try {
       restore.commit();
       this.assertNoRestoreEvent();
+      if (manager.list().length > 0) {
+        throw new Error('Cannot restore background tasks: the manager already owns a task.');
+      }
       if (batch.activate() !== 'active')
         throw new Error('Prepared schedule activation was aborted.');
       this.assertNoRestoreEvent();
+      const active = manager.list();
+      const expected = new Set(schedules.map((task) => task.id));
+      if (active.length !== expected.size || active.some((task) => !expected.has(task.id))) {
+        throw new Error('Unexpected background task during restore.');
+      }
       for (const task of schedules) {
         if (task.metadata?.['sessionLoop'] === true) this.onSessionLoopRearmed?.(task);
+      }
+      this.assertNoRestoreEvent();
+      const afterSetup = manager.list();
+      if (
+        afterSetup.length !== expected.size ||
+        afterSetup.some((task) => !expected.has(task.id))
+      ) {
+        throw new Error('Unexpected background task during restore.');
       }
     } catch (error) {
       batch.abort();

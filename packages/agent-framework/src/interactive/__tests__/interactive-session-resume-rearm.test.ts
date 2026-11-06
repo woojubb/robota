@@ -522,6 +522,47 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
 });
 
 describe('restored task reservation capability', () => {
+  it('refuses a manager that admits another task while subscribing', async () => {
+    const { runner } = createFakeScheduledRunner();
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    const subscribe = manager.subscribe.bind(manager);
+    Object.defineProperty(manager, 'subscribe', {
+      value: (listener: Parameters<typeof subscribe>[0]) => {
+        void manager.spawn({
+          kind: 'scheduled',
+          cronExpression: '0 0 * * *',
+          label: 'other',
+          mode: 'background',
+          parentSessionId: 'another-session',
+          depth: 1,
+          cwd: process.cwd(),
+          agentInstruction: 'wake',
+        });
+        return subscribe(listener);
+      },
+    });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const saved = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+    const store = createStore(saved);
+    expect(
+      () =>
+        new InteractiveSession({
+          host: testHost,
+          cwd: process.cwd(),
+          session: sessionStub,
+          sessionStore: store as never,
+          resumeSessionId: 'session_resumed',
+        }),
+    ).toThrow(/already owns.*task/i);
+    expect(store.save).not.toHaveBeenCalled();
+    expect(store.load('session_resumed')).toMatchObject({ status: 'valid', record: saved });
+    expect(manager.list()).toHaveLength(1);
+    await manager.shutdown();
+  });
+
   it('refuses a manager that emits during subscription before writing any record', () => {
     const { runner } = createFakeScheduledRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });
@@ -664,6 +705,52 @@ describe('restored task reservation capability', () => {
     const resumed = setupWithRecord(outcome.record as Record<string, unknown>);
     expect(resumed.started).toEqual([]);
     await resumed.session.shutdown();
+  });
+
+  it('refuses an explicit cancellation while normal shutdown preserves the schedule', async () => {
+    const { runner } = createFakeScheduledRunner();
+    const original = runner.prepareRestore;
+    if (!original) throw new Error('expected prepared runner');
+    let releaseCancel: (() => void) | undefined;
+    let signalCancel: (() => void) | undefined;
+    const cancelStarted = new Promise<void>((resolve) => {
+      signalCancel = resolve;
+    });
+    runner.prepareRestore = (task, options) => {
+      const prepared = original(task, options);
+      return {
+        ...prepared,
+        handle: {
+          ...prepared.handle,
+          cancel: () =>
+            new Promise<void>((resolve) => {
+              releaseCancel = resolve;
+              signalCancel?.();
+            }),
+        },
+      };
+    };
+    const { session, store } = setupWithRecord(
+      sleepingScheduledRecord('2999-01-01T00:00:00.000Z'),
+      false,
+      runner,
+    );
+    const shutdown = session.shutdown();
+    await cancelStarted;
+    try {
+      await expect(session.cancelBackgroundTask('sched_old', 'stop')).rejects.toThrow(
+        /shutting down/i,
+      );
+    } finally {
+      releaseCancel?.();
+      await shutdown;
+    }
+    expect(store.load('session_resumed')).toMatchObject({
+      status: 'valid',
+      record: {
+        backgroundTasks: [expect.objectContaining({ id: 'sched_old', status: 'sleeping' })],
+      },
+    });
   });
 
   it('does not start a restored schedule when the store reports an unknown commit', () => {
