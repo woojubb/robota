@@ -1,6 +1,6 @@
 import { useProductIdentity } from '../product-identity.js';
 import { ArrowUp, Paperclip, Square, Target, X } from 'lucide-react';
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState } from 'react';
 
 import { commandMenuFor } from '../hooks/command-menu.js';
 import type { ICommandMenuItem } from '../hooks/command-menu.js';
@@ -202,6 +202,20 @@ const ComposerInstance = forwardRef<
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   useImperativeHandle(ref, () => ({ focus: () => textareaRef.current?.focus() }), []);
   const sessionId = status?.sessionId;
+  const workspacePath = status?.workspace?.path;
+  const pickerGeneration = useRef(0);
+  const [fileInputEpoch, setFileInputEpoch] = useState(0);
+  const browserPickerOpen = useRef(false);
+  useLayoutEffect(() => {
+    pickerGeneration.current += 1;
+    browserPickerOpen.current = false;
+    return () => { pickerGeneration.current += 1; };
+  }, [sessionId, workspacePath]);
+  const invalidatePickers = (): void => {
+    pickerGeneration.current += 1;
+    browserPickerOpen.current = false;
+    setFileInputEpoch((epoch) => epoch + 1);
+  };
   const sessionIdRef = useRef(sessionId);
   // Whether a REAL session id has ever been seen. A switch goes A -> null -> B — `session_switched`
   // clears `sessionStatus` before `get-status` answers (`useSessionClient.ts`) — so `sessionId` turns
@@ -284,18 +298,17 @@ const ComposerInstance = forwardRef<
     if (!connected) return;
     const text = draft.trim();
     if (!text && attachments.length === 0) return;
+    invalidatePickers();
     onSubmit(buildPromptWithAttachments(text, attachments));
     setDraft('');
     setAttachments([]);
     setAttachmentNotice(null);
   };
-  const workspacePath = status?.workspace?.path;
-  const totalAttachedBytes = attachments.reduce((sum, a) => sum + a.size, 0);
   /** Evaluate every dropped/picked file in order, so a mixed batch attaches what it can. */
   const addCandidates = (candidates: readonly ICandidateFile[]): void => {
     if (candidates.length === 0) return;
-    let total = totalAttachedBytes;
-    let count = attachments.length;
+    let total = stateRef.current.attachments.reduce((sum, attachment) => sum + attachment.size, 0);
+    let count = stateRef.current.attachments.length;
     const added: IDraftAttachment[] = [];
     let notice: string | null = null;
     for (const candidate of candidates) {
@@ -321,32 +334,37 @@ const ComposerInstance = forwardRef<
     absolutePath: getPathForFile ? getPathForFile(file) || undefined : undefined,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
-  // A picker may settle after its originating session was replaced or unmounted.
-  const pickerMounted = useRef(false);
   useEffect(() => {
-    pickerMounted.current = true;
-    return () => { pickerMounted.current = false; };
-  }, []);
+    const input = fileInputRef.current;
+    if (!input) return;
+    const cancel = (): void => { browserPickerOpen.current = false; };
+    input.addEventListener('cancel', cancel);
+    return () => { input.removeEventListener('cancel', cancel); };
+  }, [sessionId, workspacePath, fileInputEpoch]);
   const handleAttachClick = (): void => {
     if (!connected) return;
     if (pickFiles) {
+      const generation = pickerGeneration.current;
       pickFiles()
         .then((picked) => {
-          if (!pickerMounted.current) return;
+          if (generation !== pickerGeneration.current) return;
           addCandidates(picked.map((f) => ({ name: f.name, size: f.size, absolutePath: f.path })));
         })
         // The host's dialog IPC can reject (e.g. the window closed mid-pick) — say so rather than
         // leaving an unhandled rejection and a button that silently did nothing (rule 5: never fail
         // silently).
         .catch(() => {
-          if (!pickerMounted.current) return;
+          if (generation !== pickerGeneration.current) return;
           setAttachmentNotice('Could not open the file picker. Try again.');
         });
       return;
     }
+    if (browserPickerOpen.current) return;
+    browserPickerOpen.current = true;
     fileInputRef.current?.click();
   };
   const handleFileInputChange = (event: React.ChangeEvent<HTMLInputElement>): void => {
+    browserPickerOpen.current = false;
     const files = Array.from(event.target.files ?? []);
     event.target.value = ''; // allow picking the same (rejected) file again after fixing it
     addCandidates(files.map(toCandidateFromFile));
@@ -379,6 +397,7 @@ const ComposerInstance = forwardRef<
   /** Choosing a command from the menu, by mouse or by keyboard (`acceptMenu` below). */
   const chooseMenuItem = (item: ICommandMenuItem): void => {
     if (isImmediateScreenCommand(item)) {
+      invalidatePickers();
       setDraft('');
       onCommand(item.name);
       return;
@@ -555,6 +574,7 @@ const ComposerInstance = forwardRef<
         )}
         <input
           ref={fileInputRef}
+          key={JSON.stringify([sessionId ?? null, workspacePath ?? null, fileInputEpoch])}
           type="file"
           multiple
           onChange={handleFileInputChange}
