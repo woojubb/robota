@@ -92,10 +92,16 @@ export class SessionSlot<
    * may still be on it. Listeners registered on this slot move to `next`, then this slot's listeners
    * — and no one else's — receive `session_switched`.
    */
-  moveTo(next: TSession): void {
+  moveTo(next: TSession, beforeNotify?: () => void, onNotifyError?: (error: unknown) => void): void {
     const moved = this.swap(next);
     if (moved === undefined) return;
-    this.emitSwitched(moved.sessionId);
+    try {
+      beforeNotify?.();
+    } catch (error) {
+      this.swap(moved.previous);
+      throw error;
+    }
+    this.emitSwitched(moved.sessionId, onNotifyError);
   }
 
   /**
@@ -126,9 +132,14 @@ export class SessionSlot<
     return { previous, sessionId };
   }
 
-  private emitSwitched(sessionId: string): void {
+  private emitSwitched(sessionId: string, onError?: (error: unknown) => void): void {
     for (const handler of [...(this.listeners.get('session_switched') ?? [])]) {
-      (handler as IInteractiveSessionEvents['session_switched'])({ sessionId });
+      try {
+        (handler as IInteractiveSessionEvents['session_switched'])({ sessionId });
+      } catch (error) {
+        if (onError === undefined) throw error;
+        onError(error);
+      }
     }
   }
 

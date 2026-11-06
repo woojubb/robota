@@ -19,7 +19,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { KeyHolder } from '../../secure/key-holder.js';
 import { fixtureKeyring } from '../../secure/__tests__/helpers.js';
-import { createKeyringFileStore } from '../../secure/keyring-store.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { buildCommandSetup } from '../../startup/command-setup.js';
 import { keyCustodyChannelOf, productKeyCustody } from '../key-custody.js';
 import { createProductCapabilityPacks, packCommandModuleNames } from '../product-profile.js';

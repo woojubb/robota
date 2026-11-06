@@ -6,8 +6,11 @@ import {
   SessionSurface,
   rememberSessionForRestore,
   useWsSession,
+  useSessionClient,
+  type IWsSessionState,
+  type TMakeSessionClient,
 } from '@robota-sdk/agent-ui-web/client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import type { IGuiHost, IGuiTrustQuestion, TGuiTrustChoice } from './gui-host.js';
 
@@ -23,9 +26,18 @@ import type { IGuiHost, IGuiTrustQuestion, TGuiTrustChoice } from './gui-host.js
  * the host-specific `onReconnect` action: present only when the host can restart the runtime (desktop),
  * and remembering the session to switch back to once the restart's reload reconnects.
  */
-function SessionView({ url, host }: { url: string; host: IGuiHost }): React.ReactElement {
-  const { storage } = useProductIdentity();
+function WsSessionView({ url, host }: { url: string; host: IGuiHost }): React.ReactElement {
   const state = useWsSession(url);
+  return <SessionView state={state} host={host} />;
+}
+
+function PortSessionView({ makeClient, host }: { makeClient: TMakeSessionClient; host: IGuiHost }): React.ReactElement {
+  const state = useSessionClient(makeClient);
+  return <SessionView state={{ ...state, connectionLost: state.status === 'disconnected' || state.status === 'error' }} host={host} />;
+}
+
+function SessionView({ state, host }: { state: IWsSessionState; host: IGuiHost }): React.ReactElement {
+  const { storage } = useProductIdentity();
   useEffect(() => {
     if (state.status === 'connected') host.signalReady();
   }, [state.status, host]);
@@ -211,34 +223,41 @@ export function App({ host, product }: { host: IGuiHost; product: IWebProductIde
 }
 
 function AppContent({ host }: { host: IGuiHost }): React.ReactElement {
-  const [url, setUrl] = useState<string | null>(null);
+  // A host object can be selected again; each selection must pass its own trust check.
+  const generation = useMemo(() => ({}), [host]);
+  const [endpoint, setEndpoint] = useState<{ generation: object; url: string } | null>(null);
+  const [portGeneration, setPortGeneration] = useState<object | null>(null);
   // `detail` is what the sidecar said before it stopped — the reason, and often the fix.
-  const [fatal, setFatal] = useState<{ detail?: string } | null>(null);
+  const [fatal, setFatal] = useState<{ generation: object; detail?: string } | null>(null);
   // Asked before the endpoint: in a folder not trusted yet the host starts nothing until the answer.
-  const [trust, setTrust] = useState<IGuiTrustQuestion | null>(null);
+  const [trust, setTrust] = useState<{ generation: object; question: IGuiTrustQuestion } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const unsubscribe = host.onState((state, detail) => {
-      if (state === 'fatal') setFatal(detail ? { detail } : {});
+      if (!cancelled && state === 'fatal') setFatal(detail ? { generation, detail } : { generation });
     });
     void (async () => {
       const question = (await host.trustQuestion?.()) ?? null;
       if (cancelled) return;
       if (question) {
-        setTrust(question);
+        setTrust({ generation, question });
+        return;
+      }
+      if (host.makeSessionClient) {
+        setPortGeneration(generation);
         return;
       }
       const endpoint = await host.getEndpoint();
-      if (!cancelled) setUrl(endpoint);
+      if (!cancelled && endpoint) setEndpoint({ generation, url: endpoint });
     })();
     return () => {
       cancelled = true;
       unsubscribe();
     };
-  }, [host]);
+  }, [host, generation]);
 
-  if (fatal) {
+  if (fatal?.generation === generation) {
     return (
       <div role="alert" className="flex h-full flex-col">
         <CenteredChrome tone="fatal">
@@ -247,13 +266,16 @@ function AppContent({ host }: { host: IGuiHost }): React.ReactElement {
       </div>
     );
   }
-  if (trust && host.answerTrust) {
-    return <TrustQuestion question={trust} answer={host.answerTrust} />;
+  if (trust?.generation === generation && host.answerTrust) {
+    return <TrustQuestion question={trust.question} answer={host.answerTrust} />;
   }
-  if (!url) {
+  if (portGeneration === generation && host.makeSessionClient) {
+    return <PortSessionView makeClient={host.makeSessionClient} host={host} />;
+  }
+  if (endpoint?.generation !== generation) {
     return <CenteredChrome tone="muted">Starting the agent…</CenteredChrome>;
   }
   // A lost connection (issue #3280 §5) is shown by `SessionSurface` itself, above the conversation —
   // never a full-screen replacement — so it is not a branch here.
-  return <SessionView url={url} host={host} />;
+  return <WsSessionView url={endpoint.url} host={host} />;
 }

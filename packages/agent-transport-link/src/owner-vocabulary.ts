@@ -12,6 +12,7 @@
  */
 import { Buffer } from 'node:buffer';
 
+import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface-session';
 import type { ITrustRoot } from '@robota-sdk/agent-keyring';
 
 import type {
@@ -20,7 +21,6 @@ import type {
   TGrantOutcome,
   TOwnerControlResult,
   TOwnerControlValue,
-  TOwnerSessionQuestion,
   TRequestedLockReason,
 } from './link-ports.js';
 
@@ -29,11 +29,14 @@ export type TOwnerRequest =
   | { readonly op: 'install-trust-root'; readonly requestId: string; readonly root: ITrustRoot }
   | { readonly op: 'lock'; readonly requestId: string; readonly reason: TRequestedLockReason }
   | { readonly op: 'question'; readonly requestId: string; readonly sessionId: string }
+  | { readonly op: 'cancel-question'; readonly requestId: string }
   | {
       readonly op: 'open-accepted';
       readonly requestId: string;
+      readonly bindingId: string;
       readonly sessionId: string;
       readonly acceptedDigest: string;
+      readonly questionId: string;
     }
   | { readonly op: 'control'; readonly requestId: string; readonly request: IOwnerControlRequest };
 
@@ -181,10 +184,11 @@ function questionFrom(value: unknown): TOwnerSessionQuestion | undefined {
   const kind = typeof value === 'object' && value !== null ? (value as TRecord)['kind'] : undefined;
   if (kind === 'open') return exactly(value, ['kind']) ? { kind: 'open' } : undefined;
   if (kind === 'accept') {
-    const record = exactly(value, ['kind', 'digest', 'notice', 'question']);
+    const record = exactly(value, ['kind', 'digest', 'questionId', 'notice', 'question']);
     if (
       record === undefined ||
       !matches(record['digest'], DIGEST_PATTERN) ||
+      !matches(record['questionId'], SESSION_ID_PATTERN) ||
       !isText(record['notice'], MAX_TEXT_LENGTH) ||
       !isText(record['question'], MAX_TEXT_LENGTH)
     ) {
@@ -193,6 +197,7 @@ function questionFrom(value: unknown): TOwnerSessionQuestion | undefined {
     return {
       kind: 'accept',
       digest: record['digest'],
+      questionId: record['questionId'],
       notice: record['notice'],
       question: record['question'],
     };
@@ -251,20 +256,30 @@ export function decodeOwnerRequest(bytes: Uint8Array): TOwnerRequest | undefined
       }
       return { op, requestId: record['requestId'], sessionId: record['sessionId'] };
     }
+    case 'cancel-question': {
+      const record = exactly(value, ['op', 'requestId']);
+      return matches(record?.['requestId'], REQUEST_ID_PATTERN)
+        ? { op, requestId: record['requestId'] }
+        : undefined;
+    }
     case 'open-accepted': {
-      const record = exactly(value, ['op', 'requestId', 'sessionId', 'acceptedDigest']);
+      const record = exactly(value, ['op', 'requestId', 'bindingId', 'sessionId', 'acceptedDigest', 'questionId']);
       if (
         !matches(record?.['requestId'], REQUEST_ID_PATTERN) ||
+        !matches(record['bindingId'], SESSION_ID_PATTERN) ||
         !matches(record['sessionId'], SESSION_ID_PATTERN) ||
         !matches(record['acceptedDigest'], DIGEST_PATTERN)
+        || !matches(record['questionId'], SESSION_ID_PATTERN)
       ) {
         return undefined;
       }
       return {
         op,
         requestId: record['requestId'],
+        bindingId: record['bindingId'],
         sessionId: record['sessionId'],
         acceptedDigest: record['acceptedDigest'],
+        questionId: record['questionId'],
       };
     }
     case 'control': {

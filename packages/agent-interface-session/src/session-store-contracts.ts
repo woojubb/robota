@@ -223,6 +223,8 @@ export interface ISessionClaim {
   readonly outcome: TSessionLoadOutcome;
   /** Ends this claim, and only this one: idempotent, and a late release never ends a later claim. */
   release(): void;
+  /** Ends an abandoned claim and drops its held plaintext, when the store retains a held copy. */
+  discard?(): void;
 }
 
 /**
@@ -249,6 +251,8 @@ export interface ISessionStoreScan {
 
 /** Persistence port for resumable interactive sessions. */
 export interface IInteractiveSessionStore {
+  /** Every claim can discard its retained plaintext when an owner decision is withdrawn. */
+  readonly supportsClaimDiscard?: true;
   save(session: IInteractiveSessionRecord, options?: ISessionSaveOptions): void;
   load(id: string, options?: ISessionLoadOptions): TSessionLoadOutcome;
   /**

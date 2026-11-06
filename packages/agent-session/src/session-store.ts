@@ -136,6 +136,7 @@ export interface INodeSessionStoreOptions extends ISessionStoreOptions {
  * authority-backed adapter over the same neutral port.
  */
 export class NodeSessionStore implements IInteractiveSessionStore {
+  readonly supportsClaimDiscard = true as const;
   private readonly baseDir: string;
   private readonly ownedRoot: string | undefined;
   /** How records are stored, and what this instance claims, wrote or holds. */

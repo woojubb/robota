@@ -38,6 +38,7 @@ import {
   createProductUserSessionStore,
 } from '../product/session-stores.js';
 import { createProductUserSettingsSources } from '../product/user-settings.js';
+import { workspaceGitEnvironment } from '../product/workspace-git-environment.js';
 import { optionArgv } from '../utils/option-argv.js';
 
 export interface ICreateCliWorkspaceCompositionOptions {
@@ -137,6 +138,7 @@ export async function resolveInitialCliWorkspaceProjectAccess(
   return createNodeWorkspaceTrustService(
     runtime.layout.userPaths.workspaceTrust,
     runtime.layout.projectStateDirectories,
+    workspaceGitEnvironment(runtime),
   ).inspect(cwd);
 }
 

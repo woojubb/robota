@@ -46,8 +46,8 @@ import type { IArtifactSealer } from '@robota-sdk/agent-core';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 const keyringFiles = vi.hoisted(() => ({ opened: 0 }));
-vi.mock('../../secure/keyring-store.js', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../secure/keyring-store.js')>();
+vi.mock('@robota-sdk/agent-local-host', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@robota-sdk/agent-local-host')>();
   return {
     ...actual,
     createKeyringFileStore: (...args: Parameters<typeof actual.createKeyringFileStore>) => {

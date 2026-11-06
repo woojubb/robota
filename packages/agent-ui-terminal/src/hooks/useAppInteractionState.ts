@@ -9,6 +9,7 @@ import type { IAppSubmissionState } from './useAppSubmissionState.js';
 import type { ITuiChannelState } from './useTuiChannel.js';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IOwnerSessionDirectory } from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 interface IOptions {
@@ -16,6 +17,8 @@ interface IOptions {
   readonly state: ITuiChannelState;
   readonly shell: IAppScreenState;
   readonly sessionStore: IInteractiveSessionStore | undefined;
+  readonly ownerSessions?: IOwnerSessionDirectory | undefined;
+  readonly onOwnerInvalidated?: ((listener: () => void) => () => void) | undefined;
   readonly onSessionSwitch: TSessionSwitch;
   readonly pluginAdapter: ICommandPluginAdapter | undefined;
   readonly transportRegistry: ITransportRegistryView | undefined;
@@ -75,6 +78,8 @@ export function useAppInteractionState(options: IOptions): IAppInteractionState 
     transportVisible: screens.showTransportTUI,
     setTransportVisible: screens.setShowTransportTUI,
     sessionStore: options.sessionStore,
+    ownerSessions: options.ownerSessions,
+    onOwnerInvalidated: options.onOwnerInvalidated,
     hostSessions: options.state.hostSessions,
     hostLockedSessionCount: options.state.hostLockedSessionCount,
     sessionPickerVisible: screens.showSessionPicker,

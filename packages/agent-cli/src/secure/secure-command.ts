@@ -10,9 +10,8 @@
  * What this can check is a terminal, not a person: a program that allocates a pseudo-terminal of its
  * own and types into it is outside this guard.
  *
- * There is no `unlock` or `lock` here by design. Unlocked keys live in the memory of the process that
- * uses them, so a short-lived command could only unlock to throw the keys away; `verify` unlocks to
- * prove the passphrase and the stored sealing key, and then locks.
+ * There is no `unlock` here: unlocked keys live in the process that uses them. `lock` asks each
+ * reachable secure runtime to discard its keys and needs no secret.
  *
  * This command never turns secure mode on for sessions; creating a keyring is all `setup` does.
  * `migrate` and `compact` (`secure-migrate.ts`) run only once secure mode is on, and until then
@@ -29,8 +28,9 @@ import {
 import { SecretInputCancelled } from '../devices/secret-terminal.js';
 import { productSecureMode } from '../product/session-sealing.js';
 import { userPaths } from '../product/user-paths.js';
+import { listSupervisedSessions, lockSupervisedSession, resolveSupervisedDirectory } from '../session-inventory/supervised-session-control.js';
 import { KeyHolder, SealingKeyMismatchError } from './key-holder.js';
-import { KeyringStoreError, createKeyringFileStore, type IKeyringStore } from './keyring-store.js';
+import { KeyringStoreError, createKeyringFileStore, type IKeyringStore } from '@robota-sdk/agent-local-host';
 import {
   EXIT_FAILED,
   EXIT_OK,
@@ -72,6 +72,7 @@ export interface ISecureCommandOptions extends ISecureMigrateOptions {
 type TSecureAction =
   | { readonly action: 'setup' }
   | { readonly action: 'status' }
+  | { readonly action: 'lock' }
   | { readonly action: 'verify'; readonly credential: TCredentialKind }
   | { readonly action: 'change-passphrase'; readonly credential: TCredentialKind }
   | { readonly action: 'migrate'; readonly dryRun: boolean }
@@ -80,6 +81,7 @@ type TSecureAction =
 export const SECURE_USAGE = (cliName: string): string =>
   `Usage: ${cliName} secure setup\n` +
   `       ${cliName} secure status\n` +
+  `       ${cliName} secure lock\n` +
   `       ${cliName} secure verify [--recovery]\n` +
   `       ${cliName} secure change-passphrase [--recovery]\n` +
   'A passphrase or recovery key is typed at the terminal when asked; it is never an argument.\n';
@@ -87,7 +89,7 @@ export const SECURE_USAGE = (cliName: string): string =>
 /** The action the arguments name, or `undefined` for anything else; what was typed is never echoed. */
 function parseSecureArgs(args: readonly string[]): TSecureAction | undefined {
   const [action, ...flags] = args;
-  if (action === 'setup' || action === 'status') return flags.length === 0 ? { action } : undefined;
+  if (action === 'setup' || action === 'status' || action === 'lock') return flags.length === 0 ? { action } : undefined;
   if (action === 'verify' || action === 'change-passphrase') {
     if (flags.length > 1 || (flags.length === 1 && flags[0] !== '--recovery')) return undefined;
     return { action, credential: flags.length === 1 ? 'recoveryKey' : 'passphrase' };
@@ -109,6 +111,7 @@ type TSecureActionName = TSecureAction['action'];
 const CANCELLED: Readonly<Record<TSecureActionName, string>> = {
   setup: 'Cancelled. No keyring was created.',
   status: 'Cancelled.',
+  lock: 'Cancelled.',
   verify: 'Cancelled.',
   'change-passphrase': 'Cancelled. The passphrase was not changed.',
   migrate: 'Cancelled. Nothing was changed.',
@@ -403,6 +406,25 @@ export async function runSecureCommand(
     });
   try {
     if (parsed.action === 'status') return runStatus(store, options);
+    if (parsed.action === 'lock') {
+      const root = resolveSupervisedDirectory(options.productRuntime);
+      const rows = await listSupervisedSessions(root, undefined, { includeGeneration: true });
+      const targets = rows.filter((row): row is typeof row & { readonly generation: string } =>
+        row.liveness === 'alive' && row.control === 'available' && row.generation !== undefined);
+      const results = await Promise.allSettled(targets.map((row) => lockSupervisedSession(row.id, root, row.generation)));
+      const failed = results.filter((result) => result.status === 'rejected').length +
+        rows.filter((row) => row.liveness !== 'dead' && row.control === 'unavailable').length;
+      if (failed > 0) {
+        options.stderr(`Could not confirm locking ${failed} runtime(s).\n`);
+        return EXIT_FAILED;
+      }
+      if (targets.length > 0) {
+        options.stderr(`Lock requested from ${targets.length} runtime(s), but this command cannot verify runtime identity or lock state.\n`);
+        return EXIT_FAILED;
+      }
+      options.stdout('No live registered runtimes found.\n');
+      return EXIT_OK;
+    }
 
     // Everything below asks for a secret, which is typed at an interactive terminal or not at all.
     const needsTerminal = `${cliName} secure ${parsed.action} needs an interactive terminal: run it in a terminal window, where you type the secret yourself.\n`;

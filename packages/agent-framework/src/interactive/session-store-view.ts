@@ -13,6 +13,7 @@ type TStoreMember = keyof IInteractiveSessionStore;
 
 /** Every member of the port, once. */
 const STORE_MEMBERS = {
+  supportsClaimDiscard: true,
   save: true,
   load: true,
   list: true,

@@ -97,6 +97,7 @@ export async function createInteractiveSession(
   const cwd = options.cwd;
   const { config, context, projectInfo, contributionSources, hookSources } =
     await loadInteractiveProjectContext(options);
+  options.resumeAdmissionSignal?.throwIfAborted();
 
   let mergedConfig: IResolvedConfig = options.language
     ? { ...config, language: options.language }
@@ -144,9 +145,11 @@ export async function createInteractiveSession(
   }
 
   const sandboxRestored = await restoreInteractiveSandboxSnapshot(options);
+  options.resumeAdmissionSignal?.throwIfAborted();
   if (!sandboxRestored) {
     await applyInteractiveWorkspaceManifest(options, cwd);
   }
+  options.resumeAdmissionSignal?.throwIfAborted();
 
   const sessionId =
     options.resumeSessionId && !options.forkSession ? options.resumeSessionId : undefined;
@@ -252,6 +255,7 @@ export async function initializeInteractiveSessionAsync(
     options.userSettingsSources,
     options.environment,
   );
+  options.resumeAdmissionSignal?.throwIfAborted();
   const { config, hookSources } = loadedConfig;
   const autoCompactThresholdSource =
     config.autoCompactThreshold === undefined ? 'default' : 'settings';
@@ -262,6 +266,9 @@ export async function initializeInteractiveSessionAsync(
     host: options.host,
     cwd: options.cwd,
     provider: options.provider,
+    ...(options.resumeAdmissionSignal !== undefined
+      ? { resumeAdmissionSignal: options.resumeAdmissionSignal }
+      : {}),
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     ...(options.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: options.projectSettingsPaths }
@@ -358,6 +365,11 @@ export async function initializeInteractiveSessionAsync(
         }
       : {}),
   });
+
+  if (options.resumeAdmissionSignal?.aborted === true) {
+    void created.session.shutdown({ reason: 'other' }).catch(() => undefined);
+    options.resumeAdmissionSignal.throwIfAborted();
+  }
 
   applyForkedSystemPrompt(created.session, {
     // A `/cd` target keeps the recorded prompt like a fork does (issue #3081).

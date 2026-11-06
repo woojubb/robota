@@ -11,6 +11,8 @@
  */
 import type { Duplex } from 'node:stream';
 
+import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface-session';
+
 import {
   KeyringError,
   LINK_CHALLENGE_MAX_BYTES,
@@ -39,11 +41,11 @@ import {
   type IRuntimeCustodyState,
   type TGrantOutcome,
   type TOwnerControlResult,
-  type TOwnerSessionQuestion,
   type TRequestedLockReason,
 } from './link-ports.js';
 import {
   MAX_REQUESTS_IN_FLIGHT,
+  MAX_PENDING_CLIENT_BYTES,
   OWNER_FRAME_MAX_BYTES,
   SEALED_FRAME_MAX_BYTES,
   SESSION_FRAME_MAX_BYTES,
@@ -61,6 +63,8 @@ export const DEFAULT_OPEN_TIMEOUT_MS = 10_000;
 
 export interface IOpenRuntimeLinkOptions {
   readonly timeoutMs?: number;
+  /** Require this authenticated runtime start before sending the client proof. */
+  readonly expectedBinding?: ILinkBinding;
 }
 
 /** The session protocol over the link: what an attach client or a desktop relay sends and hears. */
@@ -86,7 +90,8 @@ export interface IRuntimeLinkClient {
   installTrustRoot(root: ITrustRoot): Promise<void>;
   lock(reason: TRequestedLockReason): Promise<void>;
   question(sessionId: string): Promise<TOwnerSessionQuestion>;
-  openAccepted(sessionId: string, acceptedDigest: string): Promise<void>;
+  cancelQuestion(): Promise<void>;
+  openAccepted(bindingId: string, sessionId: string, acceptedDigest: string, questionId: string): Promise<void>;
   control(request: IOwnerControlRequest): Promise<TOwnerControlResult>;
   readonly session: ILinkSessionChannel;
   /** Settles once the link has closed, for whatever reason. */
@@ -200,9 +205,13 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
     return (reply as Extract<TRuntimeMessage, { op: 'question' }>).question;
   }
 
-  async openAccepted(sessionId: string, acceptedDigest: string): Promise<void> {
+  async cancelQuestion(): Promise<void> {
+    await this.#request((requestId) => ({ op: 'cancel-question', requestId }), 'done');
+  }
+
+  async openAccepted(bindingId: string, sessionId: string, acceptedDigest: string, questionId: string): Promise<void> {
     await this.#request(
-      (requestId) => ({ op: 'open-accepted', requestId, sessionId, acceptedDigest }),
+      (requestId) => ({ op: 'open-accepted', requestId, bindingId, sessionId, acceptedDigest, questionId }),
       'done',
     );
   }
@@ -317,7 +326,21 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
   }
 
   #write(sealed: Uint8Array): void {
-    this.#stream.write(encodeLinkFrame(sealed));
+    const framed = encodeLinkFrame(sealed);
+    if (
+      this.#stream.destroyed ||
+      !this.#stream.writable ||
+      this.#stream.writableLength + framed.length > MAX_PENDING_CLIENT_BYTES
+    ) {
+      this.#stream.destroy();
+      throw new OwnerLinkClosedError();
+    }
+    try {
+      this.#stream.write(framed);
+    } catch (error) {
+      this.#stream.destroy();
+      throw error;
+    }
   }
 }
 
@@ -363,7 +386,7 @@ function openRuntimeLink(
         }
         if (link === undefined) {
           try {
-            const answered = initiator.answer(frame);
+            const answered = initiator.answer(frame, options.expectedBinding);
             link = answered.link;
             stream.write(encodeLinkFrame(answered.proof));
           } catch (error) {

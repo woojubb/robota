@@ -21,7 +21,8 @@ import {
   createSessionMessageHandler,
 } from '@robota-sdk/agent-transport';
 
-import type { IControlChannel } from './windows-control-pipe.js';
+import type { IControlChannel } from '@robota-sdk/agent-local-host';
+import type { IServeOwnerBinding } from '../modes/serve-session-directory.js';
 import type { ISessionBinder } from '@robota-sdk/agent-interface-session';
 import type {
   ICapabilityApprovalRequest,
@@ -77,7 +78,9 @@ export interface ISupervisedAttachCarrier {
  * alone. With a plain session, the terminal is on that session and listing is not available.
  */
 export type TSupervisedAttachTarget =
-  | { readonly binder: ISessionBinder<IProtocolSession> }
+  | { readonly binder: ISessionBinder<IProtocolSession> & {
+      bindOwner?(role: 'drive' | 'observe'): IServeOwnerBinding<IProtocolSession>;
+    } }
   | { readonly session: IProtocolSession };
 
 export function createSupervisedAttachCarrier(target: TSupervisedAttachTarget): ISupervisedAttachCarrier {

@@ -63,10 +63,17 @@ async function withControl(prefix: string, run: (context: IControlContext) => Pr
   const onStop = vi.fn();
   const onRename = vi.fn();
   const setPr = vi.fn();
-  const control = await startSupervisedControl(
-    ID, onStop, root, () => 'idle', undefined, undefined, () => 'Name', onRename,
-    { get: () => parseSupervisedPr(PR), set: setPr },
-  );
+  const control = await startSupervisedControl({
+    id: ID,
+    onStop,
+    root,
+    observe: {
+      activity: () => 'idle',
+      name: () => 'Name',
+    },
+    rename: onRename,
+    pr: { get: () => parseSupervisedPr(PR), set: setPr },
+  });
   try {
     await run({ root, onStop, onRename, setPr });
   } finally {
@@ -108,10 +115,16 @@ describe('supervised registration generation', () => {
     const onStop = vi.fn();
     const onRename = vi.fn();
     const setPr = vi.fn();
-    const start = (): ReturnType<typeof startSupervisedControl> => startSupervisedControl(
-      ID, onStop, root, () => 'idle', undefined, undefined, undefined, onRename,
-      { get: () => undefined, set: setPr },
-    );
+    const start = (): ReturnType<typeof startSupervisedControl> => startSupervisedControl({
+      id: ID,
+      onStop,
+      root,
+      observe: {
+        activity: () => 'idle',
+      },
+      rename: onRename,
+      pr: { get: () => undefined, set: setPr },
+    });
     let control = await start();
     try {
       const [before] = await listSupervisedSessions(root, undefined, { includeGeneration: true });

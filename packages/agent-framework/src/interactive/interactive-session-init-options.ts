@@ -57,6 +57,8 @@ import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools
 /** Standard construction: cwd + provider. Config/context loaded internally. */
 
 export interface IInitOptions {
+  /** Revokes an owner-approved restore before initialization effects continue. */
+  resumeAdmissionSignal?: AbortSignal;
   /** The platform the session runs on, carried from the construction options. */
   host: IFrameworkHost;
   /** Additive response style applied to the composed system prompt. */

@@ -276,6 +276,7 @@ export class SessionClaims {
     fresh: boolean,
     marker: IProcessMarkerHandle | undefined,
     read: () => TSessionLoadOutcome,
+    discardRead?: () => void,
   ): ISessionClaim {
     const state: IClaimState = { marker };
     const end = (): void => {
@@ -298,6 +299,15 @@ export class SessionClaims {
         if (released) return;
         released = true;
         end();
+      },
+      discard: (): void => {
+        if (released) return;
+        released = true;
+        try {
+          if (this.#live.get(id) === state) discardRead?.();
+        } finally {
+          end();
+        }
       },
     });
     state.handle = handle;

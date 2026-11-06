@@ -166,12 +166,16 @@ Commands:
   {{cli}} daemon start [--json] [--restricted-workspace]
                                   Start this workspace's daemon, or reuse the running one; --json
                                   prints {"id","url"} for the client that connects to it
+                                  In secure mode, an owner at the terminal unlocks to start or reuse it;
+                                  a supervising client may instead supply --spawner-fd <fd>. No URL is printed.
   {{cli}} daemon status [--json]    Show whether this workspace's daemon is running
   {{cli}} daemon stop               Stop this workspace's daemon
-  {{cli}} daemon unlock             Remove a daemon start lock left by a start that is gone
+  {{cli}} daemon clear-start-lock             Remove a daemon start lock left by a start that is gone
   {{cli}} secure setup              Create the keyring that secure conversations are sealed to; shows the
                                   recovery key once (your terminal only; the passphrase is typed, never an argument)
   {{cli}} secure status             Show the keyring file, its slots and its sealing key fingerprint (no unlock)
+  {{cli}} secure lock               Ask all live runtimes to discard keys without a prompt; reports unconfirmed requests
+                                  (requests return unverified: open replies cannot prove identity or lock state)
   {{cli}} secure verify [--recovery]
                                   Unlock with the passphrase (or recovery key) and check the stored sealing
                                   key against it; if it had been swapped: exit 2 once repaired, 4 if not

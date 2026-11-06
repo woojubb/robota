@@ -84,6 +84,22 @@ describe('a spawner link', () => {
 });
 
 describe('an owner link', () => {
+  it('refuses a different selected runtime or generation before producing proof', () => {
+    for (const expected of [
+      { ...KAT_BINDING, runtimeId: 'another-runtime' },
+      { ...KAT_BINDING, generation: 'another-generation' },
+    ]) {
+      const initiator = createLinkInitiator({ mode: 'owner', handover: owner });
+      const responder = createLinkResponder(certifiedRuntime(owner, KAT_BINDING), KAT_BINDING);
+      const challenge = responder.challenge(initiator.hello());
+      expect(refusalOf(() => initiator.answer(challenge, expected))).toBe('binding-mismatch');
+    }
+    const initiator = createLinkInitiator({ mode: 'owner', handover: owner });
+    const responder = createLinkResponder(certifiedRuntime(owner, KAT_BINDING), KAT_BINDING);
+    const { proof } = initiator.answer(responder.challenge(initiator.hello()), KAT_BINDING);
+    expect(responder.accept(proof).standing).toBe('owner');
+  });
+
   it('admits the owner of a certified runtime with owner standing', () => {
     const identity = certifiedRuntime(owner, KAT_BINDING);
     const { initiatorLink, link, standing } = ownerLink(identity);

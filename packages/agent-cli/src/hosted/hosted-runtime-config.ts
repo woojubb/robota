@@ -24,6 +24,13 @@ export function assertLocalWorkerPosture(environment: TConfigEnvironment): void 
   }
 }
 
+/** Forwarded local runtimes cannot bypass hosted admission or alter its posture. */
+export function assertLocalForwardingPosture(environment: TConfigEnvironment): void {
+  if (readHostedRuntimeConfig(environment) !== undefined) {
+    throw hostedAdmissionError('forwarded local runtime is unavailable in hosted posture');
+  }
+}
+
 export function record(value: unknown, name: string): Record<string, unknown> {
   if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     throw hostedAdmissionError(`${name} must be an object`);

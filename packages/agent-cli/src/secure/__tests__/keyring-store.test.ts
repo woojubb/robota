@@ -25,7 +25,7 @@ import {
   createKeyringFileStore,
   type IKeyringStore,
   type IMachineIdentity,
-} from '../keyring-store.js';
+} from '@robota-sdk/agent-local-host';
 import { FIXTURE_PASSPHRASE, OTHER_PASSPHRASE, fixtureKeyring } from './helpers.js';
 
 const PERMISSIVE_UMASK = 0o022;
