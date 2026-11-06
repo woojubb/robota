@@ -141,13 +141,17 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       throw new BackgroundTaskError('validation', 'Background task manager is shutting down');
     const owner = this.reservationOwners.get(reservation);
     const runner = this.runners.get('scheduled');
-    if (!owner || !runner || runner.kind !== 'scheduled' || !runner.prepareRestore) {
+    if (!owner || !runner || runner.kind !== 'scheduled') {
       throw new BackgroundTaskError(
         'validation',
         'A reservation and a prepared schedule runner are required.',
       );
     }
-    if (!isBuiltInScheduledRestoreRunner(runner)) {
+    const prepare = runner.prepareRestore;
+    if (!prepare) {
+      throw new BackgroundTaskError('validation', 'A prepared schedule runner is required.');
+    }
+    if (!isBuiltInScheduledRestoreRunner(runner, prepare)) {
       throw new BackgroundTaskError(
         'validation',
         'Restoring schedules requires a built-in scheduled runner.',
@@ -220,7 +224,8 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
           textDeltas: 0,
           repeatedDeltaCount: 0,
         };
-        const candidate: unknown = runner.prepareRestore(
+        const candidate: unknown = prepare.call(
+          runner,
           {
             taskId: state.id,
             request,
@@ -763,12 +768,15 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
 const builtInPrepareRestoredSchedules = BackgroundTaskManager.prototype.prepareRestoredSchedules;
 
 /** Whether restore uses this package's manager and its original activation protocol. */
-export function isBuiltInRestoreManager(manager: IBackgroundTaskManager): boolean {
+export function isBuiltInRestoreManager(
+  manager: IBackgroundTaskManager,
+  prepare: IBackgroundTaskManager['prepareRestoredSchedules'] = manager.prepareRestoredSchedules,
+): boolean {
   return (
     manager instanceof BackgroundTaskManager &&
     builtInManagers.has(manager) &&
     Object.getPrototypeOf(manager) === BackgroundTaskManager.prototype &&
-    manager.prepareRestoredSchedules === builtInPrepareRestoredSchedules
+    prepare === builtInPrepareRestoredSchedules
   );
 }
 

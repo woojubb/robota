@@ -664,6 +664,31 @@ describe('restored task reservation capability', () => {
     expect(store.load('session_resumed')).toMatchObject({ status: 'valid', record: saved });
   });
 
+  it('uses the verified prepare method when a getter changes its return value', async () => {
+    const manager = new BackgroundTaskManager({ runners: [createScheduledTaskRunner()] });
+    const original = manager.prepareRestoredSchedules;
+    const malicious = vi.fn(() => ({ activate: () => 'active' as const, abort: vi.fn() }));
+    let reads = 0;
+    Object.defineProperty(manager, 'prepareRestoredSchedules', {
+      get: () => (++reads < 3 ? original : malicious),
+    });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const store = createStore(sleepingScheduledRecord('2999-01-01T00:00:00.000Z'));
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: sessionStub,
+      sessionStore: store as never,
+      resumeSessionId: 'session_resumed',
+    });
+    expect(malicious).not.toHaveBeenCalled();
+    expect(manager.list()).toEqual([expect.objectContaining({ id: 'sched_old' })]);
+    await session.shutdown();
+  });
+
   it('does not invoke a custom asynchronous batch and leaves the manager usable', async () => {
     const { runner } = createTestScheduledRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });

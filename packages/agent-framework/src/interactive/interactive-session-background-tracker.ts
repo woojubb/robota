@@ -220,15 +220,16 @@ export class SessionBackgroundTaskTracker {
       });
     }
     if (schedules.length === 0) return;
-    if (!isBuiltInRestoreManager(manager)) {
+    const prepare = manager.prepareRestoredSchedules;
+    if (!isBuiltInRestoreManager(manager, prepare)) {
       throw new Error('Restoring schedules requires the built-in background task manager.');
     }
-    if (!restore?.canCommit() || !manager.prepareRestoredSchedules || !this.taskIdReservation) {
+    if (!restore?.canCommit() || !prepare || !this.taskIdReservation) {
       throw new Error(
         'Restoring schedules requires an atomic store and a prepared schedule manager.',
       );
     }
-    const candidate: unknown = manager.prepareRestoredSchedules(schedules, this.taskIdReservation);
+    const candidate: unknown = prepare.call(manager, schedules, this.taskIdReservation);
     if (!isPreparedSchedules(candidate)) {
       void Promise.resolve(candidate)
         .then((late: unknown) => {

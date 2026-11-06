@@ -9,6 +9,9 @@ export function registerBuiltInScheduledRunner<T extends IBackgroundTaskRunner<'
   return runner;
 }
 
-export function isBuiltInScheduledRestoreRunner(runner: IBackgroundTaskRunner): boolean {
-  return preparedRunners.has(runner) && preparedRunners.get(runner) === runner.prepareRestore;
+export function isBuiltInScheduledRestoreRunner(
+  runner: IBackgroundTaskRunner,
+  prepare: IBackgroundTaskRunner['prepareRestore'],
+): boolean {
+  return preparedRunners.has(runner) && preparedRunners.get(runner) === prepare;
 }

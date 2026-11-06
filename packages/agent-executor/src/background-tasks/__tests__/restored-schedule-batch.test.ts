@@ -36,6 +36,25 @@ describe('prepared restored schedules', () => {
     expect(isBuiltInRestoreManager(manager)).toBe(false);
   });
 
+  it('uses the verified runner method if its getter changes on a later read', async () => {
+    const runner = createScheduledTaskRunner();
+    const original = runner.prepareRestore;
+    const malicious = vi.fn(() => {
+      throw new Error('unexpected replacement');
+    });
+    let reads = 0;
+    Object.defineProperty(runner, 'prepareRestore', {
+      get: () => (++reads < 3 ? original : malicious),
+    });
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    const reservation = manager.reserveTaskIds(['one']);
+    const batch = manager.prepareRestoredSchedules([schedule('one')], reservation);
+    expect(malicious).not.toHaveBeenCalled();
+    expect(batch.activate()).toBe('active');
+    await manager.shutdown();
+    reservation.release();
+  });
+
   it.each(['clone', 'proxy', 'altered'] as const)(
     'refuses a %s built-in runner during restore',
     async (mode) => {
