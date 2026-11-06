@@ -1,3 +1,5 @@
+import { parse } from 'node:path';
+
 import { authorityError } from './contracts.js';
 import { validateRelativeSegments, validateRootDirectory } from './input-validation.js';
 import { WindowsNativeAuthority, type IWindowsIdentity } from './windows-native-authority.js';
@@ -44,6 +46,31 @@ function assertNamedChain(
   }
 }
 
+/** Pin every ancestor from a local drive root, refusing unsupported path forms and reparse points. */
+function openNamedRoot(
+  native: WindowsNativeAuthority,
+  root: string,
+  handles: TNativeHandle[],
+): TNativeHandle {
+  const volume = parse(root).root;
+  // Extended-device and UNC roots are not yet proven by this walk and remain fail closed.
+  if (!/^[A-Za-z]:\\$/.test(volume)) throw authorityError('UNSUPPORTED_BACKEND', 'open-root');
+  let parent = native.openRoot(volume);
+  handles.push(parent);
+  const segments = root
+    .slice(volume.length)
+    .split('\\')
+    .filter((segment) => segment.length !== 0);
+  for (let index = 0; index < segments.length; index += 1) {
+    const handle = native.openRelative(parent, segments[index], false, index, true);
+    if (handle === undefined)
+      throw authorityError('ROOT_CHANGED', 'open-root', { segmentIndex: index });
+    handles.push(handle);
+    parent = handle;
+  }
+  return parent;
+}
+
 function listDirectory(
   rootDirectory: string,
   relativeSegments: readonly string[],
@@ -56,9 +83,9 @@ function listDirectory(
   const native = new WindowsNativeAuthority();
   const handles: TNativeHandle[] = [];
   try {
-    // Blocking delete-sharing prevents a named-root replacement while its identity is being checked.
-    const rootHandle = native.openRoot(root, true);
-    handles.push(rootHandle);
+    // Retain no-delete handles from the volume through the trusted root, so an ancestor cannot
+    // redirect the name between the identity checks and the handle-relative enumeration.
+    const rootHandle = openNamedRoot(native, root, handles);
     const identities: IWindowsIdentity[] = [native.queryIdentity(rootHandle, 'inspect-root')];
     let parent = rootHandle;
     for (let index = 0; index < relativeSegments.length; index += 1) {

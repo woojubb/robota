@@ -123,9 +123,10 @@ export class WindowsNativeAuthority {
     segment: string,
     final: boolean,
     segmentIndex: number,
+    preventDelete = false,
   ): TNativeHandle | undefined {
     return this.completeRelativeOpen(
-      this.issueRelativeOpen(parentHandle, segment, final, false),
+      this.issueRelativeOpen(parentHandle, segment, final, false, false, preventDelete),
       final,
       segmentIndex,
     );
@@ -350,6 +351,7 @@ export class WindowsNativeAuthority {
     final: boolean,
     replaceable: boolean,
     identityOnly = false,
+    preventDelete = false,
   ): { handle: TNativeHandle; status: number } {
     assertWindowsSegmentLength(segment);
     const unicodeName = koffi.alloc(this.api.unicodeStringType, 1);
@@ -373,8 +375,8 @@ export class WindowsNativeAuthority {
       // Deny write sharing for that handle so existing and new writers cannot race the read.
       const shareAccess =
         final && !identityOnly
-          ? FILE_SHARE_READ | FILE_SHARE_DELETE
-          : FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+          ? FILE_SHARE_READ | (preventDelete ? 0 : FILE_SHARE_DELETE)
+          : FILE_SHARE_READ | FILE_SHARE_WRITE | (preventDelete ? 0 : FILE_SHARE_DELETE);
       const dataAccess = !final
         ? FILE_LIST_DIRECTORY
         : identityOnly

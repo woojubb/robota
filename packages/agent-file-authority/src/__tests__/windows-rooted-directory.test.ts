@@ -125,6 +125,28 @@ describe.runIf(process.platform === 'win32')('Windows rooted directory listing',
     expect(() => renameSync(root, join(base, 'moved'))).not.toThrow();
   });
 
+  it('keeps every ancestor of the trusted root from being redirected', () => {
+    const base = temporaryRoot();
+    const ancestor = join(base, 'ancestor');
+    const root = join(ancestor, 'root');
+    mkdirSync(join(root, 'child'), { recursive: true });
+    let blocked = false;
+    listWindowsRootedDirectoryForTest(root, ['child'], {
+      afterDirectoryOpened: () => {
+        try {
+          renameSync(ancestor, join(base, 'moved'));
+        } catch {
+          blocked = true;
+        }
+      },
+    });
+    expect(blocked).toBe(true);
+  });
+
+  it('fails closed for unverified UNC roots', () => {
+    expect(() => listWindowsRootedDirectory('\\\\server\\share\\workspace', [])).toThrow();
+  });
+
   it('keeps the trusted root name from being replaced while it is open', () => {
     const base = temporaryRoot();
     const root = join(base, 'root');
