@@ -83,7 +83,8 @@
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-file-authority": "workspace:*",
     "@robota-sdk/agent-interface-execution": "workspace:*",
-    "@robota-sdk/agent-interface-session": "workspace:*"
+    "@robota-sdk/agent-interface-session": "workspace:*",
+    "koffi": "3.3.1"
   },
   "devDependencies": {
     "eslint": "^8.57.1",

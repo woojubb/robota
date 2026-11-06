@@ -23,6 +23,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
+import { createProcessMarkers } from '@robota-sdk/agent-core/node';
+import { createProcessOperationLock } from '../process-operation-lock.js';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { SESSION_RECORD_ENVELOPE_VERSION } from '../session-record-codec/index.js';
@@ -280,6 +282,27 @@ describe('migrateNodeSessionStore', () => {
       expect(statSync(backup).nlink).toBe(2);
     },
   );
+
+  it('keeps a forced release from crossing a migration replacement', () => {
+    const dir = directory();
+    const id = 'migrating_one';
+    new NodeSessionStore(dir, { sealing: 'plain' }).save(record(id));
+    const claims = join(dir, 'claims');
+    const breaker = createProcessMarkers(claims, {
+      operationLock: createProcessOperationLock(claims),
+      lockWaitMs: 0,
+    });
+    let forced: string | undefined;
+    const result = migrateNodeSessionStore(dir, {
+      sealer: createTestArtifactSealer(),
+      apply: true,
+      beforeCommit: () => {
+        forced = breaker.remove(id, { force: true }).status;
+      },
+    });
+    expect(forced).toBe('busy');
+    expect(result.sealed).toBe(1);
+  });
 
   it('writes and flushes every sealed record beside its file before it puts any in place', () => {
     const dir = directory();

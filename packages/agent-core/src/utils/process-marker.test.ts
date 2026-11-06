@@ -16,6 +16,7 @@ import {
   readdirSync,
   realpathSync,
   rmSync,
+  rmdirSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -67,10 +68,25 @@ function identity(pid: number): IProcessIdentity {
 /** The pids that run in the simulated world; every one with the start time its identity records. */
 const running = new Set<number>();
 
+/** A test-only interprocess guard for the marker's short operations. */
+const operationLock = {
+  tryAcquire(name: string) {
+    const path = join(root, `${name}.testguard`);
+    try {
+      mkdirSync(path);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'EEXIST') return undefined;
+      throw error;
+    }
+    return { release: () => rmdirSync(path) };
+  },
+};
+
 /** A simulated process: its own identity and memory, seeing the shared `running` set. */
 function processAt(pid: number, extra: Partial<IProcessMarkersOptions> = {}): IProcessMarkers {
   running.add(pid);
   return createProcessMarkers(root, {
+    operationLock,
     current: identity(pid),
     isProcessAlive: (other) => running.has(other),
     readStartTime: (other) => (running.has(other) ? `started-${other}` : undefined),
@@ -138,6 +154,7 @@ describe('publishing a marker', () => {
     const windows = (pid: number): IProcessMarkers => {
       running.add(pid);
       return createProcessMarkers(root, {
+        operationLock,
         current: { pid, hostname: 'host-a' },
         isProcessAlive: (other) => running.has(other),
         readStartTime: () => undefined,
@@ -280,6 +297,25 @@ describe('races between breakers, a live claimer and a lease end', () => {
   const holding = (handles: readonly (IProcessMarkerHandle | undefined)[]): number =>
     handles.filter((handle) => handle?.holds() === true).length;
 
+  it('does not take a break guard from a live process merely because it is old', () => {
+    const writer = processAt(5000);
+    handleOf(writer.acquire('sess_slow'));
+    let now = Date.now();
+    const second = processAt(6100, { now: () => now });
+    let concurrent: unknown;
+    const first = processAt(6000, {
+      now: () => now,
+      steps: {
+        judged: () => {
+          now += 11_000;
+          concurrent = second.remove('sess_slow', { force: true });
+        },
+      },
+    });
+    expect(first.remove('sess_slow', { force: true })).toMatchObject({ status: 'removed' });
+    expect(concurrent).toMatchObject({ status: 'busy' });
+  });
+
   it('while one breaker holds the lock, the other breaker, the claimer and the lease end are refused', () => {
     // A lent marker whose child took it over and then died.
     const lender = processAt(5000);
@@ -328,26 +364,24 @@ describe('races between breakers, a live claimer and a lease end', () => {
     expect(holding([claimed])).toBe(1);
   });
 
-  it('a breaker whose lock went stale under it loses to the one that broke the lock', () => {
+  it('does not let another breaker take a lock while its owner is still in the operation', () => {
     leaveProcessMarker(root, 'sess_a', identity(7000));
     let clock = 1_000_000_000_000;
-    let late: IProcessMarkerHandle | undefined;
+    let late: TProcessMarkerAcquireResult | undefined;
     const breaker2 = processAt(6100, { now: () => clock + 11_000 });
     const breaker1 = processAt(6000, {
       now: () => clock,
       steps: {
         judged: () => {
-          // The first breaker stalls past the stale age; the second takes the lock and the marker.
           clock = Date.now();
-          if (late === undefined) late = handleOf(breaker2.acquire('sess_a'));
+          late = breaker2.acquire('sess_a');
         },
       },
     });
-
     const result = breaker1.acquire('sess_a');
-
-    expect(result).toMatchObject({ status: 'held', holder: { owner: { pid: 6100 } } });
-    expect(holding([late])).toBe(1);
+    expect(late).toMatchObject({ status: 'held' });
+    expect(result.status).toBe('acquired');
+    if (result.status === 'acquired') result.handle.release();
   });
 
   it('a lease end during the take-over is refused, and a later one ends the child it went to', () => {
@@ -374,6 +408,7 @@ describe('races between breakers, a live claimer and a lease end', () => {
     const writer = handleOf(processAt(5000).acquire('sess_a'));
     // A breaker whose probes say the writer's pid is gone (as a reused pid on Windows would).
     const breaker = createProcessMarkers(root, {
+      operationLock,
       current: identity(6000),
       isProcessAlive: (pid) => pid === 6000,
       readStartTime: () => undefined,
@@ -413,7 +448,10 @@ describe('markers held by real processes, with the default probes', () => {
   ): Promise<{ child: ChildProcess; result: TProcessMarkerAcquireResult }> {
     const script = [
       `import { createProcessMarkers } from ${JSON.stringify(moduleUrl)};`,
-      `const result = createProcessMarkers(process.argv[1]).acquire(${JSON.stringify(name)});`,
+      `import { mkdirSync, rmdirSync } from 'node:fs';`,
+      `import { join } from 'node:path';`,
+      `const operationLock = { tryAcquire(name) { const path = join(process.argv[1], name + '.testguard'); try { mkdirSync(path); } catch (e) { if (e.code === 'EEXIST') return; throw e; } return { release() { rmdirSync(path); } }; } };`,
+      `const result = createProcessMarkers(process.argv[1], { operationLock }).acquire(${JSON.stringify(name)});`,
       "process.stdout.write(JSON.stringify(result.status === 'acquired' ? { status: 'acquired' } : result) + '\\n');",
       "if (result.status === 'acquired') setInterval(() => {}, 1000); else process.exit(0);",
     ].join('\n');
@@ -437,7 +475,7 @@ describe('markers held by real processes, with the default probes', () => {
   }
 
   it('refuses a second process while this one holds the marker', async () => {
-    const handle = handleOf(createProcessMarkers(root).acquire('sess_real'));
+    const handle = handleOf(createProcessMarkers(root, { operationLock }).acquire('sess_real'));
     try {
       const { result } = await acquireIn('sess_real');
       expect(result).toMatchObject({ status: 'held', holder: { owner: { pid: process.pid } } });

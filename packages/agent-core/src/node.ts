@@ -61,7 +61,6 @@ export type {
   TProcessMarkerMemory,
 } from './utils/process-marker.js';
 export {
-  PROCESS_MARKER_BREAK_LOCK_STALE_MS,
   PROCESS_MARKER_SUFFIX,
   ProcessMarkerError,
   createProcessMarkerMemory,

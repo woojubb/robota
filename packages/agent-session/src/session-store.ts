@@ -11,6 +11,8 @@
  * lends are kept in `claims/` beside the records, so every process over these files sees them.
  */
 
+import { createProcessOperationLock } from './process-operation-lock.js';
+
 import {
   closeSync,
   existsSync,
@@ -159,7 +161,9 @@ export class NodeSessionStore implements IInteractiveSessionStore {
           writeOwnerOnlyFile(this.filePath(id), stored);
         },
       },
-      createProcessMarkers(join(resolve(baseDir), SESSION_CLAIMS_DIRECTORY)),
+      createProcessMarkers(join(resolve(baseDir), SESSION_CLAIMS_DIRECTORY), {
+        operationLock: createProcessOperationLock(join(resolve(baseDir), SESSION_CLAIMS_DIRECTORY)),
+      }),
       options.releaseCommand === undefined ? {} : { releaseCommand: options.releaseCommand },
     );
     this.baseDir = baseDir;
