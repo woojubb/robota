@@ -129,9 +129,12 @@ export function selectScope({
     const affected = workspaces(cwd, selectors);
     if (!affected.length || [...changed].some((dir) => !affected.some((p) => p.dir === dir)))
       return full('incomplete selection');
+    // The unconditional script tests load the CLI's product fixture through this package's dist export.
+    const scriptFixture = all.find((p) => p.name === '@robota-sdk/product-config');
+    if (!scriptFixture) return full('missing script fixture package');
     const dependencies = workspaces(
       cwd,
-      affected.flatMap((p) => ['--filter', `{${p.dir}}...`]),
+      [...affected, scriptFixture].flatMap((p) => ['--filter', `{${p.dir}}...`]),
     );
     if (affected.some((p) => !p.dir.startsWith('examples/') && p.dir !== 'apps/docs'))
       release = true;
