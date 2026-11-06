@@ -1,5 +1,9 @@
 # Session Management
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 `InteractiveSession` is the event-driven session every Robota surface is built on. It keeps the
 conversation, runs the built-in tools under a permission mode, tracks the context window, and can save
 and resume itself through a session store.

@@ -1,5 +1,9 @@
 # Robota — An adaptable foundation for AI agents
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 **Our agents develop and advance our agents.** We are building toward agents that can carry their
 own development forward on a dependable, adaptable foundation. [VISION.md](./VISION.md) defines
 this direction; reliable autonomous self-evolution remains an ambition to build and demonstrate.
@@ -14,9 +18,9 @@ assembled from the same neutral building blocks you can embed in your own applic
 
 ## Quick start: embed an agent
 
-Install `agent-core` and a provider package to run an agent. Published packages require Node.js
-22.12 or later. This example uses Anthropic and requires an `ANTHROPIC_API_KEY` environment
-variable. See the [providers guide](./content/guide/providers.md) for other providers and local
+Install `agent-core` and a provider package to run an agent. This Node.js example requires
+Node.js 22.12 or later and an `ANTHROPIC_API_KEY` environment variable. Packages declare that
+minimum for Node installations; runtime requirements depend on the entry and host. See the [providers guide](./content/guide/providers.md) for other providers and local
 model servers.
 
 ```bash
@@ -156,7 +160,7 @@ set `PRODUCT_VERSION` to its tag, e.g. `curl -fsSL … | PRODUCT_VERSION=v<versi
 unsigned — macOS and Windows may warn.
 
 
-> **Beta**: Robota is currently `3.0.0-beta`. APIs may change before the stable 3.0.0 release. See
+> APIs may change. See
 > [CHANGELOG.md](./CHANGELOG.md) for upgrade notes.
 
 > **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use

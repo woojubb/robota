@@ -1,5 +1,9 @@
 # 5-Minute Quick Start
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Two ways to use the same agent foundation: the CLI, or the SDK in your own code.
 
 ## Prerequisites

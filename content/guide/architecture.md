@@ -1,5 +1,9 @@
 # Architecture
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Robota is a collection of TypeScript packages, not one framework you adopt whole. Each package owns
 one concern, and packages are stacked in layers so that a package only ever depends on the layers
 beneath it. This page explains what the layers are, why they are separate, and how a request moves

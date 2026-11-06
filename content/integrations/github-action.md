@@ -1,5 +1,9 @@
 # Running Robota in GitHub Actions
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 To use Robota in a GitHub Actions workflow today, install the CLI in a step and run it in
 print mode (`__PRODUCT_CLI_NAME__ -p`): it answers one prompt, writes the answer to stdout, and exits. The repository
 also contains a packaged GitHub Action, but it is not released yet — see

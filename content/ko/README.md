@@ -22,7 +22,7 @@ built from the same libraries.
 [![License: AGPL-3.0 OR Commercial](https://img.shields.io/badge/license-AGPL--3.0%20OR%20Commercial-blue)](../../LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org/)
 
-> **베타** — 패키지는 `3.0.0-beta` 버전으로 배포됩니다. 정식 릴리스 전에 API가 바뀔 수 있습니다.
+> API는 새 버전에서 바뀔 수 있습니다.
 > [이슈 보고](__PROJECT_REPOSITORY_URL__/issues).
 
 ## 어디서 시작할까요
@@ -42,7 +42,9 @@ built from the same libraries.
 
 ## 설치
 
-배포된 패키지는 Node.js 22.12 이상이 필요합니다.
+아래 Node.js 예제와 npm CLI에는 Node.js 22.12 이상이 필요합니다. 배포 패키지는 Node 환경에서
+이 버전 이상을 요구합니다. 현재 소스에서는 플랫폼 중립 진입점과 Node 어댑터가 나뉘어 있습니다.
+설치한 버전에서 제공하는 진입점을 확인하세요.
 
 ```bash
 # 에이전트: 코어 엔진과 프로바이더 패키지 하나

@@ -1,5 +1,8 @@
 # @robota-sdk/agent-command
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 The slash-command (`/cmd`) implementations for agents, as command modules you register with an
 `agent-framework` runtime. The configured CLI builds its command set from this package; your own agent can
 take the whole default set, a filtered subset, or individual modules.

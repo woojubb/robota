@@ -4,13 +4,17 @@ description: __PRODUCT_DISPLAY_NAME__ CLI와 SDK의 설치, 프로바이더 설�
 
 # 시작하기
 
+> **버전 안내:** 이 페이지의 플랫폼 지원, 진입점과 호스트 API는 3.1.0 출시를 기준으로 합니다.
+> npm에 출시된 뒤 3.1.0 이상을 설치하고 제공되는 진입점을 확인하세요. 3.0.7에는
+> `@robota-sdk/agent-framework/node`가 없습니다.
+
 Robota provides composable TypeScript libraries and agent interfaces on the same foundation.
 Our direction is [our agents developing and advancing our agents](__PROJECT_REPOSITORY_URL__/blob/develop/VISION.md);
 this guide covers current capabilities. Use the SDK to build an agent or the `__PRODUCT_CLI_NAME__` CLI
 as a coding assistant. This page takes you from installation to a first agent, a session with
 built-in tools, and the CLI.
 
-> **베타** — 패키지는 `3.0.0-beta` 버전으로 배포됩니다. 정식 릴리스 전에 API가 바뀔 수 있습니다.
+> API는 새 버전에서 바뀔 수 있습니다.
 > [이슈 보고](__PROJECT_REPOSITORY_URL__/issues).
 
 ## 어떤 경로가 적합한가요?
@@ -48,7 +52,9 @@ Ollama나 llama.cpp는 [Local LLM Setup](../../guide/local-llm.md)(영어)을 �
 ## 사전 요구사항
 
 - **Node.js 22.12 이상** — Robota CLI와 배포되는 모든 `@robota-sdk/*` 패키지가 `node >=22.12.0`을
-  선언합니다. `node --version`으로 확인하세요.
+  Node 설치에 필요한 버전으로 선언합니다. 아래 npm CLI와 Node 예제에도 Node가 필요합니다.
+  `node --version`으로 확인하세요. 현재 소스에서는 플랫폼 중립 진입점과 Node 어댑터가 나뉘어 있습니다.
+  설치한 버전에서 어떤 진입점을 제공하는지 확인하세요.
 - **API 키**: Anthropic, OpenAI, Gemini, DeepSeek, Qwen 중 하나 — _또는_ LM Studio, Ollama 같은 로컬 모델
   서버(키 불필요).
 - **macOS, Linux 또는 Windows.** 셸 명령용 OS 샌드박스는 macOS, Linux, WSL2에서 사용할 수 있고, 네이티브
@@ -292,7 +298,7 @@ __PRODUCT_CLI_NAME__ --model claude-opus-4-6
 **[iTerm2](https://iterm2.com/)** 같은 다른 터미널을 쓰거나 print 모드(`__PRODUCT_CLI_NAME__ -p`)를 사용하세요. CLI는
 Terminal.app에서 시작하면 경고를 표시합니다.
 
-**Node.js 버전**: Robota는 Node.js 22.12 이상이 필요합니다. `node --version`으로 확인하세요.
+**Node.js 버전**: npm CLI와 Node 예제를 실행하려면 Node.js 22.12 이상이 필요합니다. `node --version`으로 확인하세요.
 [Volta](https://volta.sh/)나 [nvm](https://github.com/nvm-sh/nvm)으로 버전을 관리할 수 있습니다.
 
 **API 키를 찾을 수 없음**: 환경 변수로 키를 설정(`export ANTHROPIC_API_KEY=...`)하거나

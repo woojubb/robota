@@ -22,8 +22,7 @@ built from the same libraries.
 [![License: AGPL-3.0 OR Commercial](https://img.shields.io/badge/license-AGPL--3.0%20OR%20Commercial-blue)](../LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org/)
 
-> **Beta** — the packages are published as `3.0.0-beta` versions. APIs may still change before a
-> stable release. [Report issues](__PROJECT_REPOSITORY_URL__/issues).
+> APIs may change between releases. [Report issues](__PROJECT_REPOSITORY_URL__/issues).
 
 ## Where to start
 
@@ -40,7 +39,9 @@ built from the same libraries.
 
 ## Install
 
-Published packages need Node.js 22.12 or later.
+These Node.js examples and the npm CLI need Node.js 22.12 or later. Published packages declare this
+minimum for Node installations. Neutral entries and Node adapters are separate in the current
+source; check your installed version for its available exports.
 
 ```bash
 # An agent: the core engine and one provider package
