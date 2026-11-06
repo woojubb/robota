@@ -145,13 +145,13 @@ const FILE_ID_BYTES = 16;
 const FILE_NAME_CHARS = 256;
 
 function defineWindowsTypes(): IWindowsTypes {
-  const handleType = koffi.pointer('ConversationAgentStableFileHandle', koffi.opaque());
-  const unicodeStringType = koffi.struct('ConversationAgentUnicodeString', {
+  const handleType = koffi.pointer(koffi.opaque());
+  const unicodeStringType = koffi.struct({
     Length: 'uint16_t',
     MaximumLength: 'uint16_t',
     Buffer: koffi.pointer('char16_t'),
   });
-  const objectAttributesType = koffi.struct('ConversationAgentObjectAttributes', {
+  const objectAttributesType = koffi.struct({
     Length: 'uint32_t',
     RootDirectory: handleType,
     ObjectName: koffi.pointer(unicodeStringType),
@@ -163,32 +163,32 @@ function defineWindowsTypes(): IWindowsTypes {
     handleType,
     unicodeStringType,
     objectAttributesType,
-    ioStatusBlockType: koffi.struct('ConversationAgentIoStatusBlock', {
+    ioStatusBlockType: koffi.struct({
       Status: 'intptr_t',
       Information: 'uintptr_t',
     }),
-    attributeTagInfoType: koffi.struct('ConversationAgentFileAttributeTagInfo', {
+    attributeTagInfoType: koffi.struct({
       FileAttributes: 'uint32_t',
       ReparseTag: 'uint32_t',
     }),
-    fileIdInfoType: koffi.struct('ConversationAgentFileIdInfo', {
+    fileIdInfoType: koffi.struct({
       VolumeSerialNumber: 'uint64_t',
       FileId: koffi.array('uint8_t', FILE_ID_BYTES, 'Typed'),
     }),
-    standardInfoType: koffi.struct('ConversationAgentFileStandardInfo', {
+    standardInfoType: koffi.struct({
       AllocationSize: 'int64_t',
       EndOfFile: 'int64_t',
       NumberOfLinks: 'uint32_t',
       DeletePending: 'uint8_t',
       Directory: 'uint8_t',
     }),
-    renameInfoType: koffi.struct('ConversationAgentFileRenameInfo', {
+    renameInfoType: koffi.struct({
       ReplaceIfExists: 'uint8_t',
       RootDirectory: handleType,
       FileNameLength: 'uint32_t',
       FileName: koffi.array('uint16_t', FILE_NAME_CHARS, 'Typed'),
     }),
-    dispositionInfoType: koffi.struct('ConversationAgentFileDispositionInfo', {
+    dispositionInfoType: koffi.struct({
       DeleteFile: 'uint8_t',
     }),
   };

@@ -53,19 +53,40 @@ describe.runIf(process.platform === 'win32')('Windows rooted directory listing',
     mkdirSync(join(outside, 'child'));
     writeFileSync(join(root, 'parent', 'child', 'inside.txt'), 'inside');
     writeFileSync(join(outside, 'child', 'outside.txt'), 'outside');
-    const result = listWindowsRootedDirectoryForTest(root, ['parent', 'child'], {
-      afterDirectoryOpened: (index) => {
-        if (index !== 0) return;
-        renameSync(join(root, 'parent'), join(root, 'saved'));
-        symlinkSync(outside, join(root, 'parent'), 'junction');
-      },
-      afterDirectoryEnumerated: () => {
-        renameSync(join(root, 'parent'), join(root, 'displaced-junction'));
-        renameSync(join(root, 'saved'), join(root, 'parent'));
-      },
-    });
-    expect(result).toContainEqual({ name: 'inside.txt', kind: 'file' });
-    expect(result.map((entry) => entry.name)).not.toContain('outside.txt');
+    let restoreBlocked = false;
+    let result: readonly { readonly name: string; readonly kind: string }[] | undefined;
+    try {
+      result = listWindowsRootedDirectoryForTest(root, ['parent', 'child'], {
+        afterDirectoryOpened: (index) => {
+          if (index !== 0) return;
+          renameSync(join(root, 'parent'), join(root, 'saved'));
+          symlinkSync(outside, join(root, 'parent'), 'junction');
+        },
+        afterDirectoryEnumerated: () => {
+          renameSync(join(root, 'parent'), join(root, 'displaced-junction'));
+          try {
+            renameSync(join(root, 'saved'), join(root, 'parent'));
+          } catch (error) {
+            if (
+              !(error instanceof Error) ||
+              !('code' in error) ||
+              !['EPERM', 'EBUSY'].includes(String(error.code))
+            )
+              throw error;
+            restoreBlocked = true;
+          }
+        },
+      });
+    } catch (error) {
+      if (!restoreBlocked) throw error;
+      expect(error).toMatchObject({ code: 'FILE_CHANGED' });
+    }
+    if (restoreBlocked) {
+      expect(result).toBeUndefined();
+    } else {
+      expect(result).toContainEqual({ name: 'inside.txt', kind: 'file' });
+      expect(result?.map((entry) => entry.name)).not.toContain('outside.txt');
+    }
   });
 
   it('refuses a target directory replaced after it was enumerated', () => {
