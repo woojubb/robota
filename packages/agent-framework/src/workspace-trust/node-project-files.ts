@@ -73,6 +73,15 @@ export function createNodeWorkspaceProjectFiles(): IWorkspaceProjectFiles {
         return entries;
       } catch (error) {
         if (error instanceof WorkspaceAuthorityRequiredError) throw error;
+        if (
+          error instanceof StableFileAuthorityError &&
+          error.context.hostCode === 'UNSUPPORTED_ROOT_FORM'
+        ) {
+          throw new WorkspaceAuthorityRequiredError(
+            'Stable project directory listing does not support Windows network, UNC, or device paths.',
+            error,
+          );
+        }
         throw new WorkspaceAuthorityRequiredError(
           'The project directory could not be enumerated from a stable handle.',
           error instanceof Error ? error : undefined,

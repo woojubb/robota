@@ -60,7 +60,7 @@ describe.runIf(process.platform === 'win32')('Windows rooted directory listing',
         symlinkSync(outside, join(root, 'parent'), 'junction');
       },
       afterDirectoryEnumerated: () => {
-        rmSync(join(root, 'parent'));
+        renameSync(join(root, 'parent'), join(root, 'displaced-junction'));
         renameSync(join(root, 'saved'), join(root, 'parent'));
       },
     });
@@ -141,6 +141,16 @@ describe.runIf(process.platform === 'win32')('Windows rooted directory listing',
       },
     });
     expect(blocked).toBe(true);
+  });
+
+  it.each([0, 4])('fails closed for unknown or network drive type %s', (driveType) => {
+    const root = temporaryRoot();
+    const spy = vi.spyOn(WindowsNativeAuthority.prototype, 'driveType').mockReturnValue(driveType);
+    try {
+      expect(() => listWindowsRootedDirectory(root, [])).toThrow();
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('fails closed for unverified UNC roots', () => {

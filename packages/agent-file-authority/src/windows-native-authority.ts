@@ -324,6 +324,10 @@ export class WindowsNativeAuthority {
     return readWindowsFile(this.api, handle, maxBytes, hooks);
   }
 
+  driveType(root: string): number {
+    return this.api.getDriveType(root);
+  }
+
   readDirectory(handle: TNativeHandle) {
     return readWindowsDirectory(this.api, handle);
   }

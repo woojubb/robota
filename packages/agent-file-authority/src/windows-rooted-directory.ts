@@ -54,7 +54,14 @@ function openNamedRoot(
 ): TNativeHandle {
   const volume = parse(root).root;
   // Extended-device and UNC roots are not yet proven by this walk and remain fail closed.
-  if (!/^[A-Za-z]:\\$/.test(volume)) throw authorityError('UNSUPPORTED_BACKEND', 'open-root');
+  if (!/^[A-Za-z]:\\$/.test(volume)) {
+    throw authorityError('UNSUPPORTED_BACKEND', 'open-root', { hostCode: 'UNSUPPORTED_ROOT_FORM' });
+  }
+  // A drive letter can denote a network share; unknown and remote drive types remain unverified.
+  const driveType = native.driveType(volume);
+  if (![2, 3, 5, 6].includes(driveType)) {
+    throw authorityError('UNSUPPORTED_BACKEND', 'open-root', { hostCode: 'UNSUPPORTED_ROOT_FORM' });
+  }
   let parent = native.openRoot(volume);
   handles.push(parent);
   const segments = root
