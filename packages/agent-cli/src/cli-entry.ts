@@ -11,8 +11,10 @@ import type { IStartCliOptions } from './startup/cli-options-types.js';
 /** Launch a host entry with binary diagnostics, crash policy, startup errors and worker dispatch. */
 export async function startCliEntry(options: IStartCliOptions = {}): Promise<void> {
   try {
-    const brokerArgIndex = process.argv[1] === '--internal-root-broker' ? 1 : 2;
-    if (process.argv[brokerArgIndex] === '--internal-root-broker' &&
+    // Compiled Bun adds platform-specific leading argv entries. Our internal launch always puts
+    // the marker and its three arguments last, regardless of how the executable names itself.
+    const brokerArgIndex = process.argv.length - 4;
+    if (brokerArgIndex >= 1 && process.argv[brokerArgIndex] === '--internal-root-broker' &&
         process.argv[brokerArgIndex + 1] !== undefined) {
       await startListener(SECURE_SURFACES['control-socket'], resolveCliRuntimeContext(options), () =>
         startWorkspaceRootBroker(

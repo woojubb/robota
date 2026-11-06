@@ -32,7 +32,7 @@ import type { ISubagentWorkerEntry } from '@robota-sdk/agent-subagent-runner';
  * argument parsing, so a missed prefix costs one stray argv element rather than a dead worker
  * (handshake succeeded 3/3 when an embedded-looking entry arg was passed deliberately).
  */
-export function isEmbeddedEntry(entry: string): boolean {
+function isEmbeddedEntry(entry: string): boolean {
   return entry.startsWith('/$bunfs/') || /^[A-Za-z]:\\~BUN\\/.test(entry);
 }
 

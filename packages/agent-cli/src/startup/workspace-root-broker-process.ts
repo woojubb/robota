@@ -5,7 +5,6 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { requestWorkspaceRootBroker } from './workspace-root-broker.js';
-import { isEmbeddedEntry } from '../subagents/self-fork-worker-entry.js';
 
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
@@ -60,10 +59,9 @@ export async function ensureWorkspaceRootBroker(runtime: ICliRuntimeContext): Pr
   const sourceBin = fileURLToPath(new URL('../bin.ts', import.meta.url));
   const loaderUrl = new URL('../../node_modules/tsx/dist/loader.mjs', import.meta.url);
   const source = existsSync(sourceBin) && existsSync(loaderUrl);
-  // Bun's compiled executable reports a readable virtual argv[1] under $bunfs or ~BUN.
-  // Passing that entry back to the executable makes it an argument instead of restarting its main.
-  const compiledBun = process.versions.bun !== undefined &&
-    isEmbeddedEntry(process.argv[1] ?? '');
+  // The CLI runs under Bun only as a compiled executable. Re-enter its embedded main directly;
+  // forwarding Bun's platform-specific virtual entry as a script would turn it into an argument.
+  const compiledBun = process.versions.bun !== undefined;
   const script = source
     ? ['--import', loaderUrl.href, '--conditions=source', sourceBin]
     : !compiledBun && process.argv[1] !== undefined && existsSync(process.argv[1]) &&
