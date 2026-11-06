@@ -391,11 +391,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     const [binaryPath] = process.argv.slice(2);
     if (!binaryPath) throw new Error('Usage: e2e-regex-worker.mjs <agent-executable>');
-    process.stdout.write(`${await runRegexWorkerE2e(binaryPath)}\n`);
+    process.stdout.write(`${await runRegexWorkerE2e(binaryPath)}\n`, () => process.exit(0));
   } catch (error) {
     process.stderr.write(
       `regex-worker e2e: ${error instanceof Error ? error.message : String(error)}\n`,
+      () => process.exit(1),
     );
-    process.exitCode = 1;
   }
 }
