@@ -533,8 +533,16 @@ class FileProcessMarkers implements IProcessMarkers {
         ...(this.#options.linkFile === undefined ? {} : { linkFile: this.#options.linkFile }),
         beforeCommit: () => {
           // The link keeps this inode, so what is published is known before anyone can see it.
-          const stat = lstatSync(temporaryPath, { bigint: true });
-          placed = { dev: stat.dev, ino: stat.ino };
+          const descriptor = openSync(
+            temporaryPath,
+            constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0),
+          );
+          try {
+            const stat = fstatSync(descriptor, { bigint: true });
+            placed = { dev: stat.dev, ino: stat.ino };
+          } finally {
+            closeSync(descriptor);
+          }
           if (!lock) this.#options.steps?.publishing?.(name);
         },
       });
