@@ -35,7 +35,7 @@ import {
   type IRuntimeCustodyState,
   type IRuntimeLinkPorts,
 } from '../index.js';
-import { MAX_REQUESTS_IN_FLIGHT } from '../link-bounds.js';
+import { MAX_PENDING_CLIENT_BYTES, MAX_REQUESTS_IN_FLIGHT } from '../link-bounds.js';
 import {
   decodeRuntimeMessage,
   encodeOwnerRequest,
@@ -58,6 +58,52 @@ import {
 let owner: IOwnerHandover;
 let sealingPublicKey: Uint8Array;
 const servers: IListening[] = [];
+
+/** A real connected stream whose outgoing write can be held without consuming any bytes. */
+class PausableWriteDuplex extends Duplex {
+  blocked = false;
+  #held: { chunk: Buffer; callback: (error?: Error | null) => void } | undefined;
+  readonly #socket: Socket;
+
+  constructor(socket: Socket) {
+    super({ highWaterMark: 1024 });
+    this.#socket = socket;
+    socket.on('data', (chunk: Buffer) => {
+      if (!this.push(chunk)) socket.pause();
+    });
+    socket.on('end', () => this.push(null));
+    socket.on('error', (error) => this.destroy(error));
+    socket.on('close', () => this.destroy());
+  }
+
+  override _read(): void {
+    this.#socket.resume();
+  }
+
+  override _write(
+    chunk: Buffer,
+    _encoding: BufferEncoding,
+    callback: (error?: Error | null) => void,
+  ): void {
+    if (this.blocked) {
+      this.#held = { chunk, callback };
+      return;
+    }
+    this.#socket.write(chunk, callback);
+  }
+
+  release(): void {
+    this.blocked = false;
+    const held = this.#held;
+    this.#held = undefined;
+    if (held) this.#socket.write(held.chunk, held.callback);
+  }
+
+  override _destroy(error: Error | null, callback: (error: Error | null) => void): void {
+    this.#socket.destroy();
+    callback(error);
+  }
+}
 
 beforeAll(async () => {
   ({ owner, sealingPublicKey } = await keyrings());
@@ -118,6 +164,71 @@ async function startCertifiedRuntime(
 }
 
 describe('a spawner link', () => {
+  it('bounds queued writes, closes an overloaded link and leaves a different link usable', async () => {
+    const { spawnerKey, instancePublicKey, runtime, port } = await startRuntime();
+    const stream = new PausableWriteDuplex(await connect(port));
+    const client = await openSpawnerLink(stream, spawnerKey, instancePublicKey);
+    await client.installTrustRoot(owner.certify(client.instancePublicKey, client.binding));
+    const other = await openOwnerLink(await connect(port), owner);
+    const pending = client.question('gated').then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    await until(() => runtime.record.gates.length === 1);
+    stream.blocked = true;
+    let sent = 0;
+    let refusal: unknown;
+    let peakQueued = 0;
+    try {
+      for (; sent < 100; sent++) {
+        try {
+          client.session.send({ type: 'submit', prompt: 'x'.repeat(65_536) });
+          peakQueued = Math.max(peakQueued, stream.writableLength);
+        } catch (error) {
+          refusal = error;
+          break;
+        }
+      }
+      expect(refusal).toBeInstanceOf(OwnerLinkClosedError);
+      expect(sent).toBeGreaterThan(0);
+      expect(sent).toBeLessThan(100);
+      expect(peakQueued).toBeGreaterThan(0);
+      expect(peakQueued).toBeLessThanOrEqual(MAX_PENDING_CLIENT_BYTES);
+      await client.closed;
+      expect(await pending).toBeInstanceOf(OwnerLinkClosedError);
+      other.session.send({ type: 'get-messages' });
+      await until(() =>
+        runtime.record.sessionData.some((entry) => JSON.parse(entry).type === 'get-messages'),
+      );
+    } finally {
+      client.close();
+      other.close();
+      runtime.record.gates.forEach((resolve) => resolve());
+    }
+  });
+
+  it('continues in message order when a temporarily stalled stream drains', async () => {
+    const { spawnerKey, instancePublicKey, runtime, port } = await startRuntime();
+    const stream = new PausableWriteDuplex(await connect(port));
+    const client = await openSpawnerLink(stream, spawnerKey, instancePublicKey);
+    try {
+      stream.blocked = true;
+      client.session.send({ type: 'submit', prompt: 'first '.repeat(256) });
+      expect(stream.writableNeedDrain).toBe(true);
+      const drained = once(stream, 'drain');
+      stream.release();
+      await drained;
+      client.session.send({ type: 'submit', prompt: 'second' });
+      await until(() => runtime.record.sessionData.length === 2);
+      expect(runtime.record.sessionData.map((data) => JSON.parse(data).prompt)).toEqual([
+        'first '.repeat(256),
+        'second',
+      ]);
+    } finally {
+      client.close();
+    }
+  });
+
   it('admits the spawner, which learns the binding and certifies the runtime', async () => {
     const { identity, spawnerKey, instancePublicKey, runtime, port } = await startRuntime();
     const client = await openSpawnerLink(await connect(port), spawnerKey, instancePublicKey);
@@ -556,7 +667,13 @@ async function outcomeOf(opening: Promise<unknown>, withinMs = 2_000): Promise<u
     timer = setTimeout(() => resolve('never settled'), withinMs);
   });
   try {
-    return await Promise.race([opening.then(() => 'opened', (error: unknown) => error), never]);
+    return await Promise.race([
+      opening.then(
+        () => 'opened',
+        (error: unknown) => error,
+      ),
+      never,
+    ]);
   } finally {
     clearTimeout(timer);
   }

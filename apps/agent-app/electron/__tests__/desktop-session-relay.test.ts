@@ -1,4 +1,5 @@
 import { EventEmitter } from 'node:events';
+import { Writable } from 'node:stream';
 import { describe, expect, it, vi } from 'vitest';
 
 import { openDesktopSessionRelay } from '../desktop-session-relay.js';
@@ -159,11 +160,53 @@ describe('desktop session relay', () => {
     expect(s.send).not.toHaveBeenCalled();
   });
 
+  it('does not acknowledge a frame refused by the downstream session', () => {
+    const s = setup();
+    const session = {
+      ...s.options.session,
+      send: () => {
+        throw new Error('link is full');
+      },
+    };
+    openDesktopSessionRelay({ ...s.options, session });
+    s.port.receive({ kind: 'frame', seq: 1, frame: '{"type":"get-messages"}' });
+    expect(s.port.sent).toHaveLength(0);
+    expect(s.port.close).toHaveBeenCalledOnce();
+  });
+
+  it('does not forward after owner revocation while a downstream write remains stalled', () => {
+    const s = setup();
+    let release: (() => void) | undefined;
+    const writable = new Writable({
+      write(_chunk, _encoding, callback) {
+        release = callback;
+      },
+    });
+    const session = {
+      ...s.options.session,
+      send: (message: unknown) => {
+        writable.write(JSON.stringify(message));
+      },
+    };
+    openDesktopSessionRelay({ ...s.options, session });
+    s.port.receive({ kind: 'frame', seq: 1, frame: '{"type":"get-messages"}' });
+    expect(writable.writableLength).toBeGreaterThan(0);
+    s.controller.abort();
+    const sentBeforeRelease = s.port.sent.length;
+    s.port.receive({ kind: 'frame', seq: 2, frame: '{"type":"get-messages"}' });
+    release?.();
+    expect(s.port.sent).toHaveLength(sentBeforeRelease);
+    expect(s.port.close).toHaveBeenCalledOnce();
+    writable.destroy();
+  });
+
   it('closes the port even when the session unsubscribe fails', () => {
     const s = setup();
     const session = {
       ...s.options.session,
-      onMessage: () => () => { throw new Error('synthetic unsubscribe failure'); },
+      onMessage: () => () => {
+        throw new Error('synthetic unsubscribe failure');
+      },
     };
     openDesktopSessionRelay({ ...s.options, session });
     expect(() => s.controller.abort()).not.toThrow();

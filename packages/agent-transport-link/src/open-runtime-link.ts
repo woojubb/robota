@@ -44,6 +44,7 @@ import {
 } from './link-ports.js';
 import {
   MAX_REQUESTS_IN_FLIGHT,
+  MAX_PENDING_CLIENT_BYTES,
   OWNER_FRAME_MAX_BYTES,
   SEALED_FRAME_MAX_BYTES,
   SESSION_FRAME_MAX_BYTES,
@@ -317,7 +318,21 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
   }
 
   #write(sealed: Uint8Array): void {
-    this.#stream.write(encodeLinkFrame(sealed));
+    const framed = encodeLinkFrame(sealed);
+    if (
+      this.#stream.destroyed ||
+      !this.#stream.writable ||
+      this.#stream.writableLength + framed.length > MAX_PENDING_CLIENT_BYTES
+    ) {
+      this.#stream.destroy();
+      throw new OwnerLinkClosedError();
+    }
+    try {
+      this.#stream.write(framed);
+    } catch (error) {
+      this.#stream.destroy();
+      throw error;
+    }
   }
 }
 
