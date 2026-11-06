@@ -61,7 +61,7 @@ function commandFailure(label, result) {
 }
 
 /** Stop only the broker at this fixture's unique product-state endpoint. */
-async function stopFixtureBroker(env) {
+export async function stopFixtureBroker(env) {
   const namespace = createHash('sha256').update(env.PRODUCT_USER_STATE_DIR).digest('hex').slice(0, 24);
   const endpoint = process.platform === 'win32'
     ? `\\\\.\\pipe\\robota-root-${namespace}`

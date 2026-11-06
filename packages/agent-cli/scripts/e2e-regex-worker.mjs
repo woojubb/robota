@@ -26,7 +26,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { basename, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { approveOnTerminal, resolveNativeFixtureWorkspace } from './e2e-native-file-authority.mjs';
+import { approveOnTerminal, resolveNativeFixtureWorkspace, stopFixtureBroker } from './e2e-native-file-authority.mjs';
 import { fixtureProcessEnvironment } from './product-fixture-environment.mjs';
 
 /** Appears in a child's command line only through the regex worker bootstrap (`boundedRegexReplace`). */
@@ -382,6 +382,7 @@ export async function runRegexWorkerE2e(binaryPath, options = {}) {
     );
   } finally {
     await leftoverWorkers(binary).catch(() => undefined);
+    await stopFixtureBroker(env);
     rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
   }
 }
