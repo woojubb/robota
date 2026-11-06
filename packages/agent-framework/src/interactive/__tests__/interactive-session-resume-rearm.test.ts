@@ -692,6 +692,44 @@ describe('restored task reservation capability', () => {
     expect(store.load('session_resumed')).toMatchObject({ status: 'valid', record: saved });
   });
 
+  it('aborts a prepared batch returned asynchronously so the manager remains usable', async () => {
+    const { runner } = createFakeScheduledRunner();
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    const prepare = manager.prepareRestoredSchedules.bind(manager);
+    Object.defineProperty(manager, 'prepareRestoredSchedules', {
+      value: (...args: Parameters<typeof prepare>) => Promise.resolve(prepare(...args)),
+    });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const store = createStore(sleepingScheduledRecord('2999-01-01T00:00:00.000Z'));
+    expect(
+      () =>
+        new InteractiveSession({
+          host: testHost,
+          cwd: process.cwd(),
+          session: sessionStub,
+          sessionStore: store as never,
+          resumeSessionId: 'session_resumed',
+        }),
+    ).toThrow(/prepared.*synchronous/i);
+    await Promise.resolve();
+    expect(store.save).not.toHaveBeenCalled();
+    const task = await manager.spawn({
+      kind: 'scheduled',
+      cronExpression: '* * * * *',
+      agentInstruction: 'wake',
+      label: 'other',
+      mode: 'background',
+      parentSessionId: 'other',
+      depth: 0,
+      cwd: process.cwd(),
+    });
+    expect(task.label).toBe('other');
+    await manager.shutdown();
+  });
+
   it('retains a sleeping schedule across a normal shutdown and another resume', async () => {
     const first = setupWithRecord(sleepingScheduledRecord('2999-01-01T00:00:00.000Z'));
     await first.session.shutdown();
@@ -992,6 +1030,35 @@ describe('restored task reservation capability', () => {
     ).toThrow(/synchronously/i);
     expect(started).toHaveLength(0);
     expect(store.save).not.toHaveBeenCalled();
+  });
+
+  it('releases a reservation returned asynchronously after refusing the restore', async () => {
+    const { runner } = createFakeScheduledRunner();
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    const reserve = manager.reserveTaskIds.bind(manager);
+    Object.defineProperty(manager, 'reserveTaskIds', {
+      value: (ids: string[]) => Promise.resolve(reserve(ids)),
+    });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const store = createStore(sleepingScheduledRecord('2999-01-01T00:00:00.000Z'));
+    expect(
+      () =>
+        new InteractiveSession({
+          host: testHost,
+          cwd: process.cwd(),
+          session: sessionStub,
+          sessionStore: store as never,
+          resumeSessionId: 'session_resumed',
+        }),
+    ).toThrow(/synchronously/i);
+    await Promise.resolve();
+    expect(store.save).not.toHaveBeenCalled();
+    const reservation = reserve(['sched_old']);
+    reservation.release();
+    await manager.shutdown();
   });
 
   it('keeps accepting a custom manager without reservation when no tasks are restored', async () => {

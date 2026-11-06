@@ -104,7 +104,11 @@ export class SessionBackgroundTaskTracker {
       const reservation: unknown = manager.reserveTaskIds(this.restoredTaskIds);
       if (!isTaskIdReservation(reservation)) {
         // The capability violation is already reported below; do not leave an async rejection unhandled.
-        void Promise.resolve(reservation).catch(() => undefined);
+        void Promise.resolve(reservation)
+          .then((late: unknown) => {
+            if (isTaskIdReservation(late)) late.release();
+          })
+          .catch(() => undefined);
         throw new Error('Background task ID reservation must complete synchronously.');
       }
       this.taskIdReservation = reservation;
@@ -222,7 +226,11 @@ export class SessionBackgroundTaskTracker {
     }
     const candidate: unknown = manager.prepareRestoredSchedules(schedules, this.taskIdReservation);
     if (!isPreparedSchedules(candidate)) {
-      void Promise.resolve(candidate).catch(() => undefined);
+      void Promise.resolve(candidate)
+        .then((late: unknown) => {
+          if (isPreparedSchedules(late)) late.abort();
+        })
+        .catch(() => undefined);
       throw new Error('Prepared schedule batch must complete synchronously.');
     }
     const batch = candidate;
@@ -553,6 +561,7 @@ function isTaskIdReservation(value: unknown): value is IBackgroundTaskIdReservat
   return (
     typeof value === 'object' &&
     value !== null &&
+    !('then' in value && typeof value.then === 'function') &&
     'release' in value &&
     typeof value.release === 'function'
   );
