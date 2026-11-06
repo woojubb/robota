@@ -120,6 +120,67 @@ describe('main-only desktop owner session boundary', () => {
     expect(s.release).toHaveBeenCalledOnce();
   });
 
+  it.each(['binding', 'standing', 'certification'] as const)('locks and refuses if %s changes during unlock', async (field) => {
+    const s = setup();
+    const grant = deferred<'verified'>();
+    s.link.unlock.mockReturnValueOnce(grant.promise);
+    const pending = s.coordinator.open({ signal: s.controller.signal, isCurrent: () => true });
+    await vi.waitFor(() => expect(s.link.unlock).toHaveBeenCalledOnce());
+    if (field === 'binding') s.link.binding.generation = 'changed';
+    if (field === 'standing') Object.assign(s.link, { standing: 'spawner' });
+    if (field === 'certification') s.link.custody.certified = false;
+    grant.resolve('verified');
+    expect((await pending).kind).toBe('cancelled');
+    expect(s.openRelay).not.toHaveBeenCalled();
+    expect(s.link.lock).toHaveBeenCalledOnce();
+    expect(s.link.close).toHaveBeenCalledOnce();
+    expect(s.release).toHaveBeenCalledOnce();
+  });
+
+  it.each(['binding', 'standing', 'certification'] as const)('locks and refuses if %s changes during attach', async (field) => {
+    const s = setup();
+    const attached = deferred<Readonly<Record<string, unknown>>>();
+    s.link.control.mockImplementation(async (request) => request.command === 'status'
+      ? { status: 'running', daemon: true, cwd: '/synthetic/workspace' }
+      : attached.promise);
+    const pending = s.coordinator.open({ signal: s.controller.signal, isCurrent: () => true });
+    await vi.waitFor(() => expect(s.link.control).toHaveBeenCalledTimes(2));
+    if (field === 'binding') s.link.binding.generation = 'changed';
+    if (field === 'standing') Object.assign(s.link, { standing: 'spawner' });
+    if (field === 'certification') s.link.custody.certified = false;
+    attached.resolve({ status: 'attached', driverId: 'driver-a' });
+    expect((await pending).kind).toBe('cancelled');
+    expect(s.openRelay).not.toHaveBeenCalled();
+    expect(s.link.lock).toHaveBeenCalledOnce();
+    expect(s.release).toHaveBeenCalledOnce();
+  });
+
+  it.each(['binding', 'standing', 'certification'] as const)('revokes an open session after %s changes', async (field) => {
+    const s = setup();
+    expect((await s.coordinator.open({ signal: s.controller.signal, isCurrent: () => true })).kind).toBe('open');
+    if (field === 'binding') s.link.binding.generation = 'changed';
+    if (field === 'standing') Object.assign(s.link, { standing: 'spawner' });
+    if (field === 'certification') s.link.custody.certified = false;
+    s.openRelay.mock.calls[0][0].send({ type: 'get-messages' });
+    s.receive({ type: 'error', message: 'must-not-arrive' });
+    await vi.waitFor(() => expect(s.release).toHaveBeenCalledOnce());
+    expect(s.session.send).not.toHaveBeenCalled();
+    expect(s.observed).toEqual([]);
+    expect(s.link.lock).toHaveBeenCalledOnce();
+    expect(s.link.close).toHaveBeenCalledOnce();
+    expect(s.relayDispose).toHaveBeenCalledOnce();
+  });
+
+  it('revokes an open session before delivering a frame after its binding changes', async () => {
+    const s = setup();
+    expect((await s.coordinator.open({ signal: s.controller.signal, isCurrent: () => true })).kind).toBe('open');
+    s.link.binding.generation = 'changed';
+    s.receive({ type: 'error', message: 'must-not-arrive' });
+    await vi.waitFor(() => expect(s.release).toHaveBeenCalledOnce());
+    expect(s.observed).toEqual([]);
+    expect(s.link.lock).toHaveBeenCalledOnce();
+  });
+
   it('does not admit a changed workspace supplied while status is pending', async () => {
     const s = setup();
     const status = deferred<{ status: string; daemon: boolean; cwd: string }>();

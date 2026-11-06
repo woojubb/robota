@@ -228,21 +228,36 @@ export function createDesktopOwnerCoordinator(options: IOptions): {
         const grant = await wait(grantPromise, REQUEST_TIMEOUT_MS);
         if (grant === ABORTED) { const uncertain = await finish(false); return uncertain ? { kind: 'lock-unconfirmed' } : cancellation(); }
         if (grant !== 'verified') { const uncertain = await finish(false); return { kind: uncertain ? 'lock-unconfirmed' : 'refused' }; }
+        if (!certified || !link.custody.certified || link.standing !== 'owner' ||
+            link.binding.runtimeId !== runtimeId || link.binding.generation !== generation) {
+          const uncertain = await finish(false); return { kind: uncertain ? 'lock-unconfirmed' : 'cancelled' };
+        }
         const attached = await wait(link.control({ command: 'attach', fields: { mode: 'drive' } }), REQUEST_TIMEOUT_MS);
         if (attached === ABORTED) { const uncertain = await finish(false); return uncertain ? { kind: 'lock-unconfirmed' } : cancellation(); }
         if (attached.status !== 'attached' || typeof attached.driverId !== 'string' || !attached.driverId) {
           const uncertain = await finish(false); return { kind: uncertain ? 'lock-unconfirmed' : 'refused' };
         }
+        if (!certified || !link.custody.certified || link.standing !== 'owner' ||
+            link.binding.runtimeId !== runtimeId || link.binding.generation !== generation) {
+          const uncertain = await finish(false); return { kind: uncertain ? 'lock-unconfirmed' : 'cancelled' };
+        }
+        const sessionCurrent = (): boolean => {
+          if (current() && !ended && certified && link.custody.certified && link.standing === 'owner' &&
+              link.binding.runtimeId === runtimeId && link.binding.generation === generation) return true;
+          abort();
+          return false;
+        };
         const session: ISessionChannel = {
-          send: (message) => { if (current() && !ended) link.session.send(message); },
+          send: (message) => { if (sessionCurrent()) link.session.send(message); },
           onMessage: (listener) => {
             if (ended || listeners.size) throw new Error('The desktop session is unavailable.');
-            listeners.add(listener);
+            const guarded = (message: TServerMessage): void => { if (sessionCurrent()) listener(message); };
+            listeners.add(guarded);
             drain();
-            return () => { listeners.delete(listener); };
+            return () => { listeners.delete(guarded); };
           },
         };
-        relay = options.openRelay(session, lifetime.signal, current);
+        relay = options.openRelay(session, lifetime.signal, sessionCurrent);
         if (!current() || ended) { const uncertain = await finish(false); return uncertain ? { kind: 'lock-unconfirmed' } : cancellation(); }
         opened = true;
         return { kind: 'open', close: async () => { if (await finish(false)) throw new Error('The runtime lock could not be confirmed.'); } };
