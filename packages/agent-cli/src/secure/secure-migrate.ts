@@ -63,7 +63,7 @@ import { createStoreMigrationSteps, type IStoreMigrationStepOptions } from './mi
 import { unlockAtTerminal } from './secure-conversations.js';
 
 import type { ISecretTerminalSession } from '../devices/secret-terminal.js';
-import type { IKeyringStore } from './keyring-store.js';
+import type { IKeyringStore } from '@robota-sdk/agent-local-host';
 import type {
   IMigratedSessions,
   IUnmarkedSessions,

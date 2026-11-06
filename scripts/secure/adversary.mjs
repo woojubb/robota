@@ -16,7 +16,7 @@ import { LINK_REQUEST_LINE, completeSpawnerPair, openOwnerLink, openSpawnerLink 
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../packages/agent-cli/src/__tests__/helpers/product-runtime.ts';
 import { connectSupervisedDaemon, listSupervisedSessions, openSupervisedAttachSocket, resolveSupervisedDirectory } from '../../packages/agent-cli/src/session-inventory/supervised-session-control.ts';
 import { windowsControlPipePath } from '../../packages/agent-cli/src/session-inventory/windows-control-pipe.ts';
-import { createKeyringFileStore } from '../../packages/agent-cli/src/secure/keyring-store.ts';
+import { createKeyringFileStore } from '../../packages/agent-local-host/src/index.ts';
 import { readProcessStartTime } from '../../packages/agent-core/src/node.ts';
 import { createMemoryKeyringStore } from '../../packages/agent-cli/src/secure/__tests__/helpers.ts';
 import { KeyHolder } from '../../packages/agent-cli/src/secure/key-holder.ts';

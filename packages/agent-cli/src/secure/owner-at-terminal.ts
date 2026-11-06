@@ -6,12 +6,12 @@ import {
 } from '@robota-sdk/agent-keyring';
 
 import { SecretInputCancelled } from '../devices/secret-terminal.js';
-import { KeyringStoreError } from './keyring-store.js';
+import { KeyringStoreError } from '@robota-sdk/agent-local-host';
 import { retryableRefusal, UNLOCK_ATTEMPTS, type TCredentialKind } from './secure-conversations.js';
 import { fingerprintOf } from './sealing-key-warning.js';
 
 import type { ISecretTerminalSession } from '../devices/secret-terminal.js';
-import type { IKeyringStore } from './keyring-store.js';
+import type { IKeyringStore } from '@robota-sdk/agent-local-host';
 
 export interface IOwnerAtTerminalOptions {
   readonly store: IKeyringStore;

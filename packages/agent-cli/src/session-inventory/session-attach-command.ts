@@ -10,7 +10,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 import { confirmAttachOnTerminal, type IAttachConfirmation } from './attach-confirmation.js';
 import { productSecureMode } from '../product/session-sealing.js';
-import { createKeyringFileStore } from '../secure/keyring-store.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
 import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { openSecureAttach } from './secure-attach-client.js';

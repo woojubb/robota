@@ -12,7 +12,7 @@ import { realpathSync } from 'node:fs';
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
 
 import { productSecureMode } from '../product/session-sealing.js';
-import { createKeyringFileStore } from '../secure/keyring-store.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
 import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { confirmAttachOnTerminal, type IAttachConfirmation } from './attach-confirmation.js';

@@ -33,7 +33,7 @@ import {
   type TOwnerControlResult,
 } from '@robota-sdk/agent-transport-link';
 
-import { KeyringStoreError } from './keyring-store.js';
+import { KeyringStoreError } from '@robota-sdk/agent-local-host';
 import { LinkSession } from './link-session.js';
 import { isOwnerControlAct } from './owner-input.js';
 import { MAX_ATTACHED_SURFACES } from '../session-inventory/supervised-attach.js';

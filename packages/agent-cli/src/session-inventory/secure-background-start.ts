@@ -1,4 +1,4 @@
-import { createKeyringFileStore } from '../secure/keyring-store.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
 import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { launchCertifiedRuntime } from './certified-runtime-launch.js';

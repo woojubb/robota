@@ -27,7 +27,7 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
-import { createKeyringFileStore } from '../keyring-store.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { SECURE_USAGE, runSecureCommand, type ISecureCommandOptions } from '../secure-command.js';
 import {
   FIXTURE_PASSPHRASE,

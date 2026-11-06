@@ -10,7 +10,7 @@
 import { holdChildSpawns } from '@robota-sdk/agent-core/node';
 
 import { optionArgv } from '../utils/option-argv.js';
-import { createKeyringFileStore } from '../secure/keyring-store.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { KeyHolder } from '../secure/key-holder.js';
 import { productSecureMode, useProductKeyHolder } from '../product/session-sealing.js';
 import { userPaths } from '../product/user-paths.js';

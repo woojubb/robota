@@ -30,7 +30,7 @@ import { productSecureMode } from '../product/session-sealing.js';
 import { userPaths } from '../product/user-paths.js';
 import { listSupervisedSessions, lockSupervisedSession, resolveSupervisedDirectory } from '../session-inventory/supervised-session-control.js';
 import { KeyHolder, SealingKeyMismatchError } from './key-holder.js';
-import { KeyringStoreError, createKeyringFileStore, type IKeyringStore } from './keyring-store.js';
+import { KeyringStoreError, createKeyringFileStore, type IKeyringStore } from '@robota-sdk/agent-local-host';
 import {
   EXIT_FAILED,
   EXIT_OK,

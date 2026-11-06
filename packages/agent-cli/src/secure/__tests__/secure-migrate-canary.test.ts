@@ -53,7 +53,7 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
 import { KeyHolder } from '../key-holder.js';
-import { createKeyringFileStore } from '../keyring-store.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { runSecureCommand } from '../secure-command.js';
 import { createMigrationSteps } from '../secure-migrate.js';
 import { FIXTURE_PASSPHRASE, fixtureKeyring, scriptedSecureTerminal } from './helpers.js';

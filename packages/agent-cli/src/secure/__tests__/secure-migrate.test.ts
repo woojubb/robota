@@ -48,7 +48,7 @@ import { compactProductPromptHistory } from '../../product/session-stores.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
 import { KeyHolder } from '../key-holder.js';
-import { createKeyringFileStore } from '../keyring-store.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import {
   SECURE_MODE_OFF,
   SECURE_USAGE,
