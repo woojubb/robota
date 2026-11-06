@@ -64,6 +64,10 @@ class FileChangedError extends Error {
 export function replaceStagedFiles(
   collect: (stage: TStageReplacement) => void,
   beforeCommit?: () => void,
+  aroundCommit: (path: string, commit: () => void) => boolean = (_path, commit) => {
+    commit();
+    return true;
+  },
 ): IStagedReplacements {
   const staged: { path: string; file: IStagedOwnerOnlyFile; digest: string }[] = [];
   const changed: string[] = [];
@@ -74,14 +78,17 @@ export function replaceStagedFiles(
     });
     for (const { path, file, digest } of staged) {
       try {
-        file.commit(() => {
-          beforeCommit?.();
-          const now = readRegularFile(path);
-          if (now === undefined || now.links > 1 || digestOf(now.bytes) !== digest) {
-            throw new FileChangedError();
-          }
-        });
-        replaced += 1;
+        const committed = aroundCommit(path, () =>
+          file.commit(() => {
+            beforeCommit?.();
+            const now = readRegularFile(path);
+            if (now === undefined || now.links > 1 || digestOf(now.bytes) !== digest) {
+              throw new FileChangedError();
+            }
+          }),
+        );
+        if (committed) replaced += 1;
+        else changed.push(path);
       } catch (error) {
         if (!(error instanceof FileChangedError)) throw error;
         changed.push(path);

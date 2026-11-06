@@ -188,7 +188,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   program of the user can seal a record that opens. Accepted bytes become the owner's only once the
   session restored from them and never through a copy, so a refused resume or a fork leaves the
   record as it was, and what an unverified record says of itself never decides what a run resumes.
-  The claim fences every save of the id and ends however the session ends, so a session its host
+  The claim fences every save of the id and ends however the session ends; the marker check and
+  record mutation share an operation lock with cooperating forced releases, so a session its host
   stopped waiting for cannot overwrite the next one, and no surface opens a second session on an id
   that has a writer, in this process or another: a served pool tells its client to try again only for
   a session of its own that is still closing, and names whoever holds the id otherwise, a fork's

@@ -454,9 +454,9 @@ prefix is product-neutral and does not disclose the host product's name.
   files: a claim holds the id's writer marker in a directory beside the records, so a second opener
   anywhere is refused and told which process holds it, and every other write of the id — a save
   without a claim, a delete, an adoption, a tag at unlock — holds the marker for that write. A claim
-  fences every save made under it once it is released or its marker is no longer its own, so a
-  session that outlived its claim, or lost its marker to a break, cannot overwrite the one that took
-  the id next; a read made only to copy a session takes no marker, so a session another process runs
+  fences every save made under it once it is released or its marker is no longer its own; a shared
+  operation lock keeps the marker check and record mutation indivisible with respect to cooperating
+  forced releases, so a session that lost its marker cannot overwrite the one that took the id next; a read made only to copy a session takes no marker, so a session another process runs
   can still be copied. The marker is a coordination device and never a trust anchor: any program of
   the same user can plant or remove one, so a planted marker denies service until it is released. In a
   store that seals a claimed id is also answered only from the owner's content, so a file something

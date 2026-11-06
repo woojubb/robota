@@ -21,6 +21,7 @@ import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-sess
 
 const io = vi.hoisted(() => ({
   failNextBodyRead: false,
+  recordDescriptor: undefined as number | undefined,
 }));
 
 vi.mock('fs', async (importOriginal) => {
@@ -29,8 +30,14 @@ vi.mock('fs', async (importOriginal) => {
     ...actual,
     readSync: (...args: Parameters<typeof actual.readSync>) => {
       // The first read of a guard is the magic; the one after it is the body.
-      const [, , , length] = args as unknown as [number, Uint8Array, number, number];
-      if (io.failNextBodyRead && typeof length === 'number' && length > 4) {
+      const [descriptor, , , length] = args as unknown as [number, Uint8Array, number, number];
+      if (io.failNextBodyRead && length === 4) io.recordDescriptor = descriptor;
+      if (
+        io.failNextBodyRead &&
+        descriptor === io.recordDescriptor &&
+        typeof length === 'number' &&
+        length > 4
+      ) {
         io.failNextBodyRead = false;
         throw Object.assign(new Error('EIO: i/o error, read'), { code: 'EIO' });
       }
@@ -48,6 +55,7 @@ vi.mock('fs', async (importOriginal) => {
 
 afterEach(() => {
   io.failNextBodyRead = false;
+  io.recordDescriptor = undefined;
 });
 
 function newStoreDir(): string {
