@@ -114,6 +114,16 @@ describe('desktop session relay', () => {
     expect(s2.port.close).toHaveBeenCalledOnce();
   });
 
+  it('accepts more output after the renderer acknowledges a frame', () => {
+    const s = setup();
+    openDesktopSessionRelay(s.options);
+    for (let index = 0; index < 32; index++) s.deliver({ type: 'error', message: `${index}` });
+    s.port.receive({ kind: 'ack', seq: 1 });
+    s.deliver({ type: 'error', message: 'next' });
+    expect(s.port.sent).toHaveLength(33);
+    expect(s.port.close).not.toHaveBeenCalled();
+  });
+
   it('closes when UTF-8 bytes exceed the frame bound', () => {
     const s = setup();
     openDesktopSessionRelay(s.options);
