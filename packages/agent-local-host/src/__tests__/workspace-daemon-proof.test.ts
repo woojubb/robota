@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { proveWorkspaceDaemon } from '../workspace-daemon-proof.js';
+import { createWorkspaceDaemonProver } from '../workspace-daemon-proof.js';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -11,6 +11,11 @@ function deferred<T>() {
 const row = { id: 'runtime', generation: 'generation', liveness: 'alive', control: 'available', activity: 'idle' } as const;
 const status = { status: 'running', daemon: true, cwd: '/workspace' } as const;
 const link = () => ({ control: vi.fn(async (): Promise<Readonly<Record<string, unknown>>> => status), close: vi.fn() });
+
+function proveWorkspaceDaemon(options: Parameters<ReturnType<typeof createWorkspaceDaemonProver>['start']>[0] & Parameters<typeof createWorkspaceDaemonProver>[0]) {
+  const { open, ...input } = options;
+  return createWorkspaceDaemonProver({ open }).start(input).result;
+}
 
 describe('authenticated workspace daemon proof', () => {
   it('continues past a match and fails closed on an unproven later candidate', async () => {
@@ -57,7 +62,7 @@ describe('authenticated workspace daemon proof', () => {
     const first = link();
     first.close.mockImplementation(() => { throw new Error('close failed'); });
     await expect(proveWorkspaceDaemon({ workspace: '/workspace', open: async () => first,
-      candidates: [row] })).rejects.toThrow(/unproven/i);
+      candidates: [row] })).rejects.toThrow(/cleanup/i);
   });
 
   it('cancels an opener that ignores abort and closes its late link', async () => {
@@ -106,4 +111,81 @@ describe('authenticated workspace daemon proof', () => {
     expect(first.close).toHaveBeenCalledOnce();
     pending.resolve(status);
   });
+  it('keeps the lease occupied until a cancelled late link is closed', async () => {
+    const aborter = new AbortController();
+    const pending = deferred<ReturnType<typeof link>>();
+    const open = vi.fn(() => pending.promise);
+    const prover = createWorkspaceDaemonProver({ open });
+    const attempt = prover.start({ workspace: '/workspace', candidates: [row], signal: aborter.signal });
+    await vi.waitFor(() => expect(open).toHaveBeenCalledOnce());
+    aborter.abort();
+    await expect(attempt.result).rejects.toThrow(/cancelled/i);
+    expect(() => prover.start({ workspace: '/workspace', candidates: [row] })).toThrow(/busy/i);
+    const late = link();
+    pending.resolve(late);
+    await expect(attempt.settled).resolves.toBeUndefined();
+    expect(late.close).toHaveBeenCalledOnce();
+    const next = prover.start({ workspace: '/workspace', candidates: [] });
+    await expect(next.result).resolves.toBeUndefined();
+    await next.settled;
+  });
+
+  it('faults the lease when a late link cannot close', async () => {
+    const aborter = new AbortController();
+    const pending = deferred<ReturnType<typeof link>>();
+    const open = vi.fn(() => pending.promise);
+    const prover = createWorkspaceDaemonProver({ open });
+    const attempt = prover.start({ workspace: '/workspace', candidates: [row], signal: aborter.signal });
+    await vi.waitFor(() => expect(open).toHaveBeenCalledOnce());
+    aborter.abort();
+    await expect(attempt.result).rejects.toThrow(/cancelled/i);
+    const late = link();
+    late.close.mockImplementation(() => { throw new Error('close failed'); });
+    pending.resolve(late);
+    await expect(attempt.settled).rejects.toThrow(/cleanup/i);
+    expect(late.close).toHaveBeenCalledOnce();
+    expect(() => prover.start({ workspace: '/workspace', candidates: [row] })).toThrow(/cleanup/i);
+  });
+
+  it('reports a current link close failure instead of cancellation', async () => {
+    const aborter = new AbortController();
+    const pending = deferred<typeof status>();
+    const first = link();
+    first.control.mockReturnValueOnce(pending.promise);
+    first.close.mockImplementation(() => { throw new Error('close failed'); });
+    const prover = createWorkspaceDaemonProver({ open: async () => first });
+    const attempt = prover.start({ workspace: '/workspace', candidates: [row], signal: aborter.signal });
+    await vi.waitFor(() => expect(first.control).toHaveBeenCalledOnce());
+    aborter.abort();
+    await expect(attempt.result).rejects.toThrow(/cleanup/i);
+    await expect(attempt.settled).rejects.toThrow(/cleanup/i);
+    expect(first.close).toHaveBeenCalledOnce();
+    expect(() => prover.start({ workspace: '/workspace', candidates: [row] })).toThrow(/cleanup/i);
+    pending.resolve(status);
+  });
+
+  it('faults after a normal close failure and refuses another attempt', async () => {
+    const first = link();
+    first.close.mockImplementation(() => { throw new Error('close failed'); });
+    const prover = createWorkspaceDaemonProver({ open: async () => first });
+    const attempt = prover.start({ workspace: '/workspace', candidates: [row] });
+    await expect(attempt.result).rejects.toThrow(/cleanup/i);
+    await expect(attempt.settled).rejects.toThrow(/cleanup/i);
+    expect(() => prover.start({ workspace: '/workspace', candidates: [row] })).toThrow(/cleanup/i);
+  });
+
+  it('reports a late close failure after the proof deadline', async () => {
+    const pending = deferred<ReturnType<typeof link>>();
+    const prover = createWorkspaceDaemonProver({ open: () => pending.promise });
+    const attempt = prover.start({ workspace: '/workspace', candidates: [row], timeoutMs: 20 });
+    await expect(attempt.result).rejects.toThrow(/timed out/i);
+    expect(() => prover.start({ workspace: '/workspace', candidates: [row] })).toThrow(/busy/i);
+    const late = link();
+    late.close.mockImplementation(() => { throw new Error('close failed'); });
+    pending.resolve(late);
+    await expect(attempt.settled).rejects.toThrow(/cleanup/i);
+    expect(late.close).toHaveBeenCalledOnce();
+    expect(() => prover.start({ workspace: '/workspace', candidates: [row] })).toThrow(/cleanup/i);
+  });
+
 });

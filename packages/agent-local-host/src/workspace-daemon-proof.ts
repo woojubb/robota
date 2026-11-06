@@ -19,17 +19,47 @@ export interface IProvenWorkspaceDaemon extends IWorkspaceDaemonCandidate {
   readonly restricted?: true;
 }
 
-/**
- * Prove every live candidate before returning one. The opener must authenticate its selected binding;
- * public registration data and this scan alone do not authenticate a runtime.
- */
-export async function proveWorkspaceDaemon(options: {
-  readonly workspace: string;
-  readonly candidates: readonly IWorkspaceDaemonCandidate[];
-  readonly open: (selected: { readonly id: string; readonly generation: string }, signal: AbortSignal) => Promise<IWorkspaceDaemonProofLink>;
-  readonly signal?: AbortSignal;
-  readonly timeoutMs?: number;
-}): Promise<IProvenWorkspaceDaemon | undefined> {
+export interface IWorkspaceDaemonProofAttempt {
+  readonly result: Promise<IProvenWorkspaceDaemon | undefined>;
+  /** The owner handover must remain alive until this resolves; rejection permanently faults the prover. */
+  readonly settled: Promise<void>;
+}
+
+type TOpenProofLink = (selected: { readonly id: string; readonly generation: string }, signal: AbortSignal) => Promise<IWorkspaceDaemonProofLink>;
+type TProofInput = { readonly workspace: string; readonly candidates: readonly IWorkspaceDaemonCandidate[]; readonly signal?: AbortSignal; readonly timeoutMs?: number };
+
+/** Own one authenticated handover: do not reuse it until the attempt's settlement resolves. */
+export function createWorkspaceDaemonProver(options: { readonly open: TOpenProofLink }): {
+  start(input: TProofInput): IWorkspaceDaemonProofAttempt;
+} {
+  let busy = false;
+  let fault: Error | undefined;
+  return {
+    start(input): IWorkspaceDaemonProofAttempt {
+      if (fault) throw new Error('Secure daemon proof cleanup previously failed.');
+      if (busy) throw new Error('Secure daemon proof is busy.');
+      busy = true;
+      const openingTasks: Promise<void>[] = [];
+      const cleanupFailed = (): void => { fault ??= new Error('Secure daemon proof cleanup failed.'); };
+      const result = scanWorkspaceDaemon({ ...input, open: options.open }, openingTasks, cleanupFailed, () => fault);
+      const settled = result.then(() => {}, () => {}).then(async () => {
+        await Promise.all(openingTasks);
+        if (fault) throw fault;
+        busy = false;
+      });
+      void settled.catch(() => {});
+      return { result, settled };
+    },
+  };
+}
+
+/** The opener must authenticate the selected binding before returning a link. */
+async function scanWorkspaceDaemon(
+  options: TProofInput & { readonly open: TOpenProofLink },
+  openingTasks: Promise<void>[],
+  cleanupFailed: () => void,
+  cleanupError: () => Error | undefined,
+): Promise<IProvenWorkspaceDaemon | undefined> {
   const { workspace, signal } = options;
   const candidates = options.candidates.map(({ id, generation, liveness, control, activity }) =>
     ({ id, generation, liveness, control, activity }));
@@ -76,13 +106,13 @@ export async function proveWorkspaceDaemon(options: {
         const discard = (): void => {
           if (claimed || discarded || !unclaimed) return;
           discarded = true;
-          try { unclaimed.close(); } catch { /* No returned proof can use this link. */ }
+          try { unclaimed.close(); } catch { cleanupFailed(); }
         };
         const pending = options.open({ id: row.id, generation: row.generation }, controller.signal);
-        void pending.then((late) => {
+        openingTasks.push(pending.then((late) => {
           unclaimed = late;
           if (controller.signal.aborted) discard();
-        }, () => {});
+        }, () => {}));
         let link: IWorkspaceDaemonProofLink;
         try { link = await wait(pending); } catch (error) { discard(); throw error; }
         claimed = true;
@@ -91,7 +121,7 @@ export async function proveWorkspaceDaemon(options: {
         const close = (): void => {
           if (closed) return;
           closed = true;
-          try { link.close(); } catch { closeFailed = true; }
+          try { link.close(); } catch { closeFailed = true; cleanupFailed(); }
         };
         controller.signal.addEventListener('abort', close, { once: true });
         try {
@@ -110,8 +140,9 @@ export async function proveWorkspaceDaemon(options: {
           controller.signal.removeEventListener('abort', close);
           close();
         }
-        if (closeFailed && !controller.signal.aborted) throw new Error('The owner link could not be closed.');
+        if (closeFailed) throw cleanupError();
       } catch {
+        if (cleanupError()) throw cleanupError();
         if (controller.signal.aborted) throw abortError();
         throw new Error('An unproven runtime registration prevents secure daemon discovery.');
       }
