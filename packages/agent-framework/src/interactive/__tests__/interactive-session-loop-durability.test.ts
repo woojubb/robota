@@ -6,11 +6,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
 import { InteractiveSession } from '../interactive-session.js';
 
-import type {
-  IBackgroundTaskHandle,
-  IBackgroundTaskRunner,
-  IBackgroundTaskStart,
-} from '@robota-sdk/agent-executor';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { SessionExecutionController } from '../interactive-session-execution-controller.js';
 import { createSessionStub } from './helpers/session-stub.js';
@@ -49,20 +44,11 @@ function setup(
   disableSessionLoops = false,
   run?: ReturnType<typeof vi.fn>,
 ) {
-  const cancel = vi.fn().mockResolvedValue(undefined);
-  const runner: IBackgroundTaskRunner<'scheduled'> = {
-    kind: 'scheduled',
-    start(task: IBackgroundTaskStart<'scheduled'>): IBackgroundTaskHandle<'scheduled'> {
-      task.emit?.({ type: 'background_task_sleeping', nextFireAt: '2999-01-01T00:00:00.000Z' });
-      return {
-        taskId: task.taskId,
-        result: new Promise<never>(() => {}),
-        cancel,
-        pause: vi.fn().mockResolvedValue(undefined),
-      };
-    },
-  };
-  const manager = new BackgroundTaskManager({ runners: [runner], maxConcurrent });
+  const manager = new BackgroundTaskManager({
+    runners: [createScheduledTaskRunner()],
+    maxConcurrent,
+  });
+  const cancel = vi.spyOn(manager, 'cancel');
   const session = createSessionStub({
     getSessionId: () => 'loop_durable',
     getEventService: () => ({ subscribe: vi.fn(), unsubscribe: vi.fn() }),

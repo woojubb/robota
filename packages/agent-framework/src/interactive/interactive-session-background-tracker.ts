@@ -117,7 +117,12 @@ export class SessionBackgroundTaskTracker {
       throw new Error('A claimed session requires the built-in background task manager.');
     }
     if (builtInManager) {
-      this.managerSessionRelease = builtInManager.attachSession(this, restore?.ownsRecord === true);
+      this.managerSessionRelease = builtInManager.attachSession(
+        this,
+        restore?.ownsRecord === true,
+        session.getSessionId(),
+        restore?.ownsRecord ? { canRun: restore.canRun, onLoss: restore.onLoss } : undefined,
+      );
       this.boundManager = builtInManager;
     }
     if (this.restoredTaskIds.length > 0) {

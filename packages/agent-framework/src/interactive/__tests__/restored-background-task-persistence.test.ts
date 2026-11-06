@@ -53,6 +53,48 @@ function completedFork(cwd: string): IAgentBackgroundTaskState {
 }
 
 describe('restored background tasks', () => {
+  it('refuses a newly submitted task before it starts if the writer marker has already changed', async () => {
+    const cwd = directory();
+    const dir = directory();
+    const store = new NodeSessionStore(dir, { sealing: 'plain' });
+    store.save(record(PARENT, cwd, 'owner message', { backgroundTasks: [completedFork(cwd)] }), {
+      provenance: 'owner',
+    });
+    const runtime = createAgentRuntime({
+      host: createTestFrameworkHost(),
+      cwd,
+      provider: createScriptedProvider([]).provider,
+      sessionStore: store,
+      backgroundTaskRunners: [createScheduledTaskRunner()],
+    });
+    const session = runtime.createSession({ resumeSessionId: PARENT });
+    await session.whenInitialized();
+    const manager = (
+      session as unknown as { getBackgroundTaskManager(): IBackgroundTaskManager }
+    ).getBackgroundTaskManager();
+    for (const entry of readdirSync(join(dir, 'claims')))
+      rmSync(join(dir, 'claims', entry), { recursive: true, force: true });
+    const next = new NodeSessionStore(dir, { sealing: 'plain' }).claim(PARENT);
+    try {
+      await expect(
+        manager.spawn({
+          kind: 'scheduled',
+          cronExpression: '* * * * * *',
+          agentInstruction: 'wake',
+          label: 'new',
+          mode: 'background',
+          parentSessionId: PARENT,
+          depth: 0,
+          cwd,
+        }),
+      ).rejects.toThrow(/claim.*lost/i);
+      expect(manager.list()).toEqual([]);
+    } finally {
+      next.release();
+      session.releaseSessionClaim();
+      await session.shutdown().catch(() => undefined);
+    }
+  });
   it.each([
     { initial: 'scheduled', loss: 'release' },
     { initial: 'scheduled', loss: 'marker replacement' },

@@ -25,11 +25,15 @@ import {
   type TObserverFailureReporter,
 } from './observer-delivery.js';
 import { nextScheduledFireOnOrAfter } from './runners/scheduled-fire-time.js';
-import { isBuiltInScheduledRestoreRunner } from './runners/scheduled-restore-trust.js';
+import {
+  isBuiltInScheduledRestoreRunner,
+  isBuiltInScheduledStart,
+} from './runners/scheduled-restore-trust.js';
 import { isTerminalBackgroundTaskStatus } from './state-machine.js';
 import {
   BackgroundTaskError,
   type IBackgroundTaskInput,
+  type IBackgroundTaskHandle,
   type IBackgroundTaskListFilter,
   type IBackgroundTaskLogCursor,
   type IBackgroundTaskLogPage,
@@ -41,6 +45,7 @@ import {
   type TBackgroundTaskRequest,
   type IBackgroundTaskResult,
   type IBackgroundTaskRunner,
+  type IBackgroundTaskStart,
   type IBackgroundTaskState,
   type IScheduledBackgroundTaskRequest,
   type IScheduleEditPatch,
@@ -76,6 +81,8 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   private readonly revokedOwners = new Set<string>();
   private readonly attachedSessions = new Set<object>();
   private exclusiveSession?: object;
+  private exclusiveSessionId?: string;
+  private exclusiveOwnership?: { canRun(): boolean; onLoss(): void };
   private preparingRestore = false;
   private readonly allocatedTaskIds = new Set<string>();
   private readonly queue: string[] = [];
@@ -112,7 +119,18 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   }
 
   /** Bind a claimed framework session exclusively until its lifecycle releases the binding. */
-  attachSession(owner: object, exclusive: boolean): () => void {
+  attachSession(
+    owner: object,
+    exclusive: boolean,
+    sessionId?: string,
+    ownership?: { canRun(): boolean; onLoss(): void },
+  ): () => void {
+    if (exclusive && !sessionId?.trim()) {
+      throw new BackgroundTaskError(
+        'validation',
+        'An exclusive manager binding requires a session ID.',
+      );
+    }
     if (
       (this.exclusiveSession && this.exclusiveSession !== owner) ||
       (exclusive && [...this.attachedSessions].some((session) => session !== owner))
@@ -125,13 +143,21 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     if (this.attachedSessions.has(owner))
       throw new BackgroundTaskError('validation', 'The session is already attached.');
     this.attachedSessions.add(owner);
-    if (exclusive) this.exclusiveSession = owner;
+    if (exclusive) {
+      this.exclusiveSession = owner;
+      this.exclusiveSessionId = sessionId;
+      this.exclusiveOwnership = ownership;
+    }
     let released = false;
     return () => {
       if (released) return;
       released = true;
       this.attachedSessions.delete(owner);
-      if (this.exclusiveSession === owner) this.exclusiveSession = undefined;
+      if (this.exclusiveSession === owner) {
+        this.exclusiveSession = undefined;
+        this.exclusiveSessionId = undefined;
+        this.exclusiveOwnership = undefined;
+      }
     };
   }
 
@@ -417,6 +443,23 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     if (this.revokedOwners.has(request.parentSessionId)) {
       throw new BackgroundTaskError('validation', 'Session writer claim was lost.');
     }
+    if (this.exclusiveSessionId && request.parentSessionId !== this.exclusiveSessionId) {
+      throw new BackgroundTaskError(
+        'validation',
+        'The background task manager is exclusively bound to another session.',
+      );
+    }
+    if (!this.checkOwner(request)) {
+      throw new BackgroundTaskError('validation', 'Session writer claim was lost.');
+    }
+    if (request.kind === 'scheduled' && request.parentSessionId === this.exclusiveSessionId) {
+      const runner = this.runners.get('scheduled');
+      if (!runner || !isBuiltInScheduledStart(runner, runner.start))
+        throw new BackgroundTaskError(
+          'validation',
+          'A claimed session requires a built-in scheduled runner.',
+        );
+    }
     validateBackgroundTaskRequest(request, this.runners, this.maxDepth);
     let id: string | undefined;
     for (
@@ -443,7 +486,10 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     // directly rather than queued. `validateBackgroundTaskRequest` above already required the
     // runner to exist, so the lookup here cannot miss.
     const runner = this.runners.get(request.kind);
-    const admittingRunner = runner?.admission === 'already-running' ? runner : undefined;
+    const guardedSchedule =
+      request.kind === 'scheduled' && request.parentSessionId === this.exclusiveSessionId;
+    const admittingRunner =
+      !guardedSchedule && runner?.admission === 'already-running' ? runner : undefined;
     const state = createQueuedBackgroundTaskState(
       id,
       request,
@@ -665,21 +711,67 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     }
   }
 
+  private checkOwner(request: TBackgroundTaskRequest): boolean {
+    if (request.parentSessionId !== this.exclusiveSessionId || !this.exclusiveOwnership)
+      return true;
+    let owned = false;
+    try {
+      owned = this.exclusiveOwnership.canRun() === true;
+    } catch {
+      /* An unverifiable claim is not owned. */
+    }
+    if (owned) return true;
+    try {
+      this.exclusiveOwnership.onLoss();
+    } catch {
+      /* Still close this owner's gates below. */
+    }
+    if (!this.revokedOwners.has(request.parentSessionId))
+      this.invalidateRestoredSchedules(request.parentSessionId, () => undefined);
+    return false;
+  }
+
   private startTask(task: ITrackedBackgroundTask): void {
+    if (!this.checkOwner(task.request)) return;
     const runner = this.runners.get(task.request.kind);
     if (!runner) {
       this.failTask(task, createRunnerError(`No runner for task kind: ${task.request.kind}`));
       return;
     }
 
+    let startOverride: ((input: IBackgroundTaskStart) => IBackgroundTaskHandle) | undefined;
+    if (
+      task.request.kind === 'scheduled' &&
+      task.request.parentSessionId === this.exclusiveSessionId
+    ) {
+      if (runner.kind !== 'scheduled') {
+        this.failTask(
+          task,
+          createRunnerError('A claimed session requires a built-in scheduled runner.'),
+        );
+        return;
+      }
+      const start = runner.start;
+      if (!isBuiltInScheduledStart(runner, start)) {
+        this.failTask(
+          task,
+          createRunnerError('A claimed session requires a built-in scheduled runner.'),
+        );
+        return;
+      }
+      startOverride = (input) => start.call(runner, input as IBackgroundTaskStart<'scheduled'>);
+    }
+
     const started = markBackgroundTaskStarted(task, this.now());
     this.acquireSlot(task.state.id);
     this.emit({ type: 'background_task_started', task: started });
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
+    if (!this.checkOwner(task.request)) return;
 
     startBackgroundTaskRunner({
       task,
       runner,
+      ...(startOverride ? { startOverride } : {}),
       now: this.now,
       onEvent: (event) => this.handleRunnerEvent(task, event),
       onStarted: () => this.watchdogs.start(task),
@@ -697,12 +789,14 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
    * reaches it immediately even if it races the caller's next statement.
    */
   private startAdmittedTask(task: ITrackedBackgroundTask, runner: IBackgroundTaskRunner): void {
+    if (!this.checkOwner(task.request)) return;
     const startedAt = this.now();
     task.state.startedAt = startedAt;
     task.state.updatedAt = startedAt;
     task.state.lastActivityAt = startedAt;
     this.emit({ type: 'background_task_started', task: cloneBackgroundTaskState(task.state) });
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
+    if (!this.checkOwner(task.request)) return;
 
     startBackgroundTaskRunner({
       task,

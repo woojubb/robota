@@ -7,7 +7,7 @@
 
 Preserve restored background task identities and prepare scheduled tasks before resuming them. A resumed schedule activates only after a claim-fenced atomic store confirms a complete save; an unknown result stops initialization without assuming which record is present. Paused schedules stay paused, and a normal shutdown retains scheduled tasks for the next resume.
 
-When a claimed session has a background manager, it requires an exclusively bound built-in manager. Scheduled wakes require a verifiable writer claim. Restoring schedules also requires the built-in scheduled runner and a store that supplies the restore transaction. Custom managers remain available to unpersisted sessions, and custom scheduled runners remain available for new tasks, but their saved schedules cannot be resumed. A manager must reserve restored IDs before a session with stored tasks can resume; an already-used manager is refused for a restore.
+When a claimed session has a background manager, it requires an exclusively bound built-in manager. Scheduled tasks in a claimed session require the built-in scheduled runner and a verifiable writer claim. Restoring schedules also requires a store that supplies the restore transaction. Custom managers and scheduled runners remain available to unpersisted sessions, but their saved schedules cannot be resumed. A manager must reserve restored IDs before a session with stored tasks can resume; an already-used manager is refused for a restore.
 
 This protects restore and restart boundaries; it does not promise exactly-once effects from arbitrary external commands.
 

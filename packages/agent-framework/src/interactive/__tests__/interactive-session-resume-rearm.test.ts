@@ -503,22 +503,28 @@ describe('restored task reservation capability', () => {
       await first.shutdown();
     },
   );
-  it('refuses a manager that admits another task while subscribing', async () => {
+  it('refuses a different session task while subscribing the claimed manager', async () => {
     const { runner } = createTestScheduledRunner();
     const manager = new BackgroundTaskManager({ runners: [runner] });
     const subscribe = manager.subscribe.bind(manager);
+    let foreign: Promise<unknown> | undefined;
     Object.defineProperty(manager, 'subscribe', {
       value: (listener: Parameters<typeof subscribe>[0]) => {
-        void manager.spawn({
-          kind: 'scheduled',
-          cronExpression: '0 0 * * *',
-          label: 'other',
-          mode: 'background',
-          parentSessionId: 'another-session',
-          depth: 1,
-          cwd: process.cwd(),
-          agentInstruction: 'wake',
-        });
+        foreign = manager
+          .spawn({
+            kind: 'scheduled',
+            cronExpression: '0 0 * * *',
+            label: 'other',
+            mode: 'background',
+            parentSessionId: 'another-session',
+            depth: 1,
+            cwd: process.cwd(),
+            agentInstruction: 'wake',
+          })
+          .then(
+            () => undefined,
+            (error: unknown) => error,
+          );
         return subscribe(listener);
       },
     });
@@ -528,20 +534,16 @@ describe('restored task reservation capability', () => {
     } as unknown as IAgentToolDeps);
     const saved = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
     const store = createStore(saved);
-    expect(
-      () =>
-        new InteractiveSession({
-          host: testHost,
-          cwd: process.cwd(),
-          session: sessionStub,
-          sessionStore: store as never,
-          resumeSessionId: 'session_resumed',
-        }),
-    ).toThrow(/already owns.*task/i);
-    expect(store.save).not.toHaveBeenCalled();
-    expect(store.load('session_resumed')).toMatchObject({ status: 'valid', record: saved });
-    expect(manager.list()).toHaveLength(1);
-    await manager.shutdown();
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: sessionStub,
+      sessionStore: store as never,
+      resumeSessionId: 'session_resumed',
+    });
+    expect(await foreign).toMatchObject({ message: expect.stringMatching(/exclusive/i) });
+    expect(manager.list()).toEqual([expect.objectContaining({ id: 'sched_old' })]);
+    await session.shutdown();
   });
 
   it('refuses a manager that emits during subscription before writing any record', () => {
@@ -646,7 +648,7 @@ describe('restored task reservation capability', () => {
       expect(store.hasWriter('session_resumed')).toBe(false);
       expect(store.load('session_resumed')).toMatchObject({ status: 'valid', record: saved });
       if (missing === 'store') {
-        const release = manager.attachSession({}, true);
+        const release = manager.attachSession({}, true, 'session_resumed');
         release();
       }
     },
