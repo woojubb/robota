@@ -24,7 +24,7 @@ import { join } from 'node:path';
 
 import { createTestArtifactSealer } from '@robota-sdk/agent-core/testing';
 import { createProcessMarkers } from '@robota-sdk/agent-core/node';
-import { createProcessOperationLock } from '../process-operation-lock.js';
+import { createProcessOperationLock } from '@robota-sdk/agent-node-lock';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { SESSION_RECORD_ENVELOPE_VERSION } from '../session-record-codec/index.js';
