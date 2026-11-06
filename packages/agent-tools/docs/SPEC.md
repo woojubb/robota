@@ -18,10 +18,9 @@ write, edit, glob, grep, web-fetch, ask-user-question) used by the agent CLI.
   sandbox adapters are structural adapters an application opts into.
 - Does not own CLI manifest file parsing — YAML/JSON parsing belongs to the CLI composition layer
   and must converge into this package's workspace manifest contract.
-- Owns no host default. The main entry is platform-neutral: what touches a host (processes, the file
-  system, the network egress policy, the OS sandbox) is on `./node`, and a neutral entry takes a
-  host's pieces by injection. The main entry also re-exports the Node tool names the published
-  workflow library imports there, so it is marked Node-only.
+- Owns no host default. The main entry is platform-neutral: it runs in a browser, a Web Worker, Node,
+  Deno and Bun. What touches a host (processes, the file system, the network egress policy, the OS
+  sandbox) is on `./node`, and a neutral entry takes a host's pieces by injection.
 
 ## Contract
 

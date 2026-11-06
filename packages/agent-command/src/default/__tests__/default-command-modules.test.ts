@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { afterAll, describe, expect, it, onTestFinished } from 'vitest';
 
+import { NodeFileSystemAsync } from '@robota-sdk/agent-framework/node';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
@@ -133,6 +134,27 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     const withProbes = doctorOf({ doctorInputs: fixture.inputs, doctorDeps: fixture.deps });
     const report = await withProbes!.execute(createTestCommandHost(), '');
     expect(report.message).not.toMatch(/unavailable on this host/);
+  });
+
+  it('runs /user-local only through the file system the host supplies, and lists it either way', async () => {
+    const userLocalOf = (options: Partial<Parameters<typeof createDefaultCommandModules>[0]>) =>
+      createDefaultCommandModules({ ...baseOptions, ...options })
+        .modules.flatMap((module) => module.systemCommands ?? [])
+        .find((command) => command.name === 'user-local');
+    const repository = mkdtempSync(join(tmpdir(), 'agent-test-user-local-repo-'));
+    onTestFinished(() => rmSync(repository, { recursive: true, force: true }));
+    const host = createTestCommandHost({ overrides: { getCwd: () => repository } });
+
+    const withoutFiles = userLocalOf({});
+    expect(withoutFiles).toBeDefined();
+    expect(await withoutFiles!.execute(host, 'storage list')).toMatchObject({
+      success: false,
+      message: expect.stringMatching(/unavailable on this host/),
+    });
+    const withFiles = userLocalOf({ userLocalFileSystem: new NodeFileSystemAsync() });
+    const listed = await withFiles!.execute(host, 'storage list');
+    expect(listed.success).toBe(true);
+    expect(listed.message).not.toMatch(/unavailable on this host/);
   });
 
   it('TC-01: enabledCommandModules whitelist keeps exactly the listed module names', () => {

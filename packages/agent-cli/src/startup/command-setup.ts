@@ -9,6 +9,7 @@ import {
   resolveProviderSettingsWriteTarget,
 } from '@robota-sdk/agent-framework';
 import {
+  NodeFileSystemAsync,
   createGitProcess,
   deleteSettings,
   loadOrgPolicy,
@@ -300,6 +301,7 @@ export function buildCommandSetup(
   const { modules: baseCommandModules } = createDefaultCommandModules({
     cwd,
     userLocalStorageRoot: userLocalStorageRoot(productRuntime),
+    userLocalFileSystem: new NodeFileSystemAsync(),
     providerDefinitions,
     providerSettingsAdapter,
     providerConnectionHost,

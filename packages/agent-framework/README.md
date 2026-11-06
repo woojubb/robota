@@ -3,9 +3,11 @@
 The assembly layer of the Robota SDK. It composes `@robota-sdk/agent-core`,
 `@robota-sdk/agent-session`, `@robota-sdk/agent-tools` and `@robota-sdk/agent-executor` into one
 provider-neutral SDK for building agents: sessions with tools, permissions, hooks, streaming, context
-loading, commands, subagents and persistence. The platform it runs on is passed in as `host`: a Node
-process passes `createNodeFrameworkHost` from `@robota-sdk/agent-framework/node`, with the default tool
-set from `@robota-sdk/agent-tool-defaults`; a host that lends nothing is `{}`.
+loading, commands, subagents and persistence. The main entry is platform-neutral: it runs in a
+browser, a Web Worker, Node, Deno and Bun and never reaches the file system or the process. The
+platform it runs on is passed in as `host`: a Node process passes `createNodeFrameworkHost` from
+`@robota-sdk/agent-framework/node`, with the default tool set from `@robota-sdk/agent-tool-defaults`;
+a host that lends nothing is `{}`.
 
 It has three main entry points:
 
@@ -28,7 +30,8 @@ For walkthroughs, see the [SDK guide](../../content/guide/sdk.md) and
 npm install @robota-sdk/agent-framework @robota-sdk/agent-tool-defaults @robota-sdk/agent-provider-anthropic
 ```
 
-Requires Node.js 22.12 or later. `InteractiveSession` and `createQuery` work with any provider
+Requires Node.js 22.12 or later for the `@robota-sdk/agent-framework/node` and
+`@robota-sdk/agent-framework/testing` entries. `InteractiveSession` and `createQuery` work with any provider
 package given a `model`; without one they use the settings files, or Anthropic's default model.
 
 ## Quick start
@@ -408,17 +411,17 @@ that supports snapshots, `shutdown()` stores the sandbox snapshot ID, and resumi
 
 ## More capabilities
 
-| Capability                  | Exports                                                                                               |
-| --------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Model fallback              | `FallbackProvider`, `resolveModelFallbackChain`, `applyModelFallback`                                 |
-| Advisor (second-model tool) | `AdvisorController`, `createAdvisorTool`                                                              |
+| Capability                  | Exports                                                                                                                 |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Model fallback              | `FallbackProvider`, `resolveModelFallbackChain`, `applyModelFallback`                                                   |
+| Advisor (second-model tool) | `AdvisorController`, `createAdvisorTool`                                                                                |
 | Edit checkpoints and rewind | `IEditCheckpointStore`, `wrapEditCheckpointTools`; `/node`: `EditCheckpointStore`, `createDirectoryEditCheckpointState` |
-| Reversible execution        | `evaluateReversibleToolSafety`, `wrapReversibleExecutionTools` (session option `reversibleExecution`) |
-| Project and user memory     | `ProjectMemoryStore`, `WorkspaceMemoryStore`, `SemanticMemoryStore`, `listUserLocalMemoryItems`       |
-| Evals                       | `defineEval`, `runEval`, `createSessionRunFn`, matchers such as `exactMatch` and `usedTool`           |
-| Bundle plugins              | `BundlePluginLoader`, `BundlePluginInstaller`, `MarketplaceClient`                                    |
-| Settings                    | `inspectSettingsLayers`, `createWorkspaceProjectSettingsStore`, `applyAppearanceSettings`             |
-| Self-hosting verification   | `planSelfHostingVerification`, `transitionSelfHostingLoop`                                            |
+| Reversible execution        | `evaluateReversibleToolSafety`, `wrapReversibleExecutionTools` (session option `reversibleExecution`)                   |
+| Project and user memory     | `ProjectMemoryStore`, `WorkspaceMemoryStore`, `SemanticMemoryStore`, `listUserLocalMemoryItems`                         |
+| Evals                       | `defineEval`, `runEval`, `createSessionRunFn`, matchers such as `exactMatch` and `usedTool`                             |
+| Bundle plugins              | `BundlePluginLoader`, `BundlePluginInstaller`, `MarketplaceClient`                                                      |
+| Settings                    | `inspectSettingsLayers`, `createWorkspaceProjectSettingsStore`, `applyAppearanceSettings`                               |
+| Self-hosting verification   | `planSelfHostingVerification`, `transitionSelfHostingLoop`                                                              |
 
 The plugin classes (`BundlePluginLoader`, `BundlePluginInstaller`, `MarketplaceClient`,
 `NodeHostPluginSettingsStore`) and the user-local memory and storage functions take the file system
