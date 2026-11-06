@@ -1,4 +1,6 @@
-import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, utimesSync } from 'node:fs';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -33,7 +35,16 @@ it('recovers an abandoned marker without waiting for an old dead owner', async (
     const { keyring } = await fixtureKeyring();
     mkdirSync(secureDir);
     const marker = `${path}.lock`;
-    writeFileSync(marker, JSON.stringify({ token: 'dead-owner', pid: 123456789, host: 'another-machine', monotonicMs: 0 }));
+    const program = `const fs = require('node:fs'); fs.writeFileSync(process.argv[1], JSON.stringify({ token: 'dead-owner', pid: process.pid, host: 'another-machine', monotonicMs: 0 })); process.stdout.write('ready'); setInterval(() => {}, 1000);`;
+    const child = spawn(process.execPath, ['-e', program, marker], { cwd: root, env: { PATH: process.env.PATH ?? '', HOME: root, ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}) }, stdio: ['ignore', 'pipe', 'pipe'] });
+    const exited = once(child, 'close', { signal: AbortSignal.timeout(10_000) });
+    try {
+      await once(child.stdout, 'data', { signal: AbortSignal.timeout(10_000) });
+      child.kill('SIGKILL');
+      await exited;
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+    }
     const old = new Date(Date.now() - 120_000);
     utimesSync(marker, old, old);
     const store = createKeyringFileStore({ root, path, lockWaitMs: 0 });
