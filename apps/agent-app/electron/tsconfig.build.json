@@ -11,7 +11,8 @@
     "secret-preload.ts",
     "desktop-session-relay.ts",
     "session-preload.ts",
-    "desktop-keyring-store.ts"
+    "desktop-keyring-store.ts",
+    "desktop-owner-seam.ts"
   ],
   "exclude": [
     "../node_modules",

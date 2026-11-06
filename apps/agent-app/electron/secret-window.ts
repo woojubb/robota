@@ -9,7 +9,7 @@ export type TDesktopSecret =
 
 const SUBMIT = 'desktop-secret:submit';
 const CANCEL = 'desktop-secret:cancel';
-let promptOpen = false;
+let activePrompt: object | undefined;
 
 function readSecret(value: unknown): TDesktopSecret | undefined {
   if (typeof value !== 'object' || value === null || !('type' in value) || !('value' in value)) {
@@ -28,9 +28,10 @@ function readSecret(value: unknown): TDesktopSecret | undefined {
 /** Open one isolated, product-owned credential prompt. Closing it is a cancellation. */
 export async function openSecretWindow(parent: BrowserWindow, signal?: AbortSignal): Promise<TDesktopSecret | undefined> {
   if (signal?.aborted) return undefined;
-  if (promptOpen) throw new Error('A secret window is already open.');
+  if (activePrompt) throw new Error('A secret window is already open.');
   if (parent.isDestroyed()) throw new Error('The parent window is closed.');
-  promptOpen = true;
+  const reservation = {};
+  activePrompt = reservation;
   return new Promise((resolve, reject) => {
     let window: BrowserWindow | undefined;
     let settled = false;
@@ -39,7 +40,7 @@ export async function openSecretWindow(parent: BrowserWindow, signal?: AbortSign
       ipcMain.removeListener(CANCEL, onCancel);
       parent.removeListener('closed', onParentClosed);
       signal?.removeEventListener('abort', onAbort);
-      promptOpen = false;
+      if (activePrompt === reservation) activePrompt = undefined;
     };
     const finish = (secret: TDesktopSecret | undefined): void => {
       if (settled) return;
@@ -80,6 +81,7 @@ export async function openSecretWindow(parent: BrowserWindow, signal?: AbortSign
         },
       });
       const prompt = window;
+      if (prompt.isDestroyed() || signal?.aborted || parent.isDestroyed()) { finish(undefined); return; }
       prompt.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
       prompt.webContents.on('will-navigate', (event) => event.preventDefault());
       prompt.webContents.on('will-redirect', (event) => event.preventDefault());
@@ -87,8 +89,11 @@ export async function openSecretWindow(parent: BrowserWindow, signal?: AbortSign
       prompt.once('closed', () => finish(undefined));
       parent.once('closed', onParentClosed);
       signal?.addEventListener('abort', onAbort, { once: true });
+      if (prompt.isDestroyed() || signal?.aborted || parent.isDestroyed()) { finish(undefined); return; }
       ipcMain.on(SUBMIT, onSubmit);
+      if (settled) { cleanup(); return; }
       ipcMain.on(CANCEL, onCancel);
+      if (settled) { cleanup(); return; }
       void prompt.loadFile(join(__dirname, 'secret', 'index.html')).catch((error: unknown) => {
         if (settled) return;
         settled = true;

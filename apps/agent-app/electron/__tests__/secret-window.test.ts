@@ -18,6 +18,8 @@ interface ITestWindow extends EventEmitter {
 const mocks = vi.hoisted(() => ({
   windows: [] as ITestWindow[],
   listeners: new Map<string, Set<TListener>>(),
+  onCreate: undefined as ((window: ITestWindow) => void) | undefined,
+  onSubscribe: undefined as ((channel: string) => void) | undefined,
 }));
 vi.mock('electron', async () => {
   const { EventEmitter: Emitter } = await import('node:events');
@@ -32,6 +34,7 @@ vi.mock('electron', async () => {
     constructor(readonly options: Record<string, unknown>) {
       super();
       mocks.windows.push(this);
+      mocks.onCreate?.(this);
     }
     isDestroyed(): boolean { return this.destroyed; }
     destroy(): void {
@@ -44,6 +47,7 @@ vi.mock('electron', async () => {
     BrowserWindow: Window,
     ipcMain: {
       on: (channel: string, listener: TListener) => {
+        mocks.onSubscribe?.(channel);
         const listeners = mocks.listeners.get(channel) ?? new Set<TListener>();
         listeners.add(listener);
         mocks.listeners.set(channel, listeners);
@@ -72,6 +76,8 @@ const parent = Object.assign(new EventEmitter(), { isDestroyed: () => false }) a
 beforeEach(() => {
   mocks.windows.length = 0;
   mocks.listeners.clear();
+  mocks.onCreate = undefined;
+  mocks.onSubscribe = undefined;
 });
 
 describe('desktop owner secret window', () => {
@@ -148,4 +154,87 @@ describe('desktop owner secret window', () => {
     await expect(openSecretWindow(parent, controller.signal)).resolves.toBeUndefined();
     expect(mocks.windows.length).toBe(count);
   });
+  it('closes the prompt if cancellation happens while the window is being created', async () => {
+    const controller = new AbortController();
+    mocks.onCreate = () => controller.abort();
+    const result = openSecretWindow(parent, controller.signal);
+    const window = activeWindow();
+    const outcome = await Promise.race([
+      result.then(() => 'cancelled'),
+      new Promise<string>((resolve) => setTimeout(() => resolve('pending'), 25)),
+    ]);
+    if (!window.isDestroyed()) window.destroy();
+    await result;
+    expect(outcome).toBe('cancelled');
+    expect(window.loadFile).not.toHaveBeenCalled();
+    expect([...mocks.listeners.values()].every((listeners) => listeners.size === 0)).toBe(true);
+  });
+
+  it('closes the prompt if its parent closes while the window is being created', async () => {
+    let closed = false;
+    const otherParent = Object.assign(new EventEmitter(), { isDestroyed: () => closed }) as BrowserWindow;
+    mocks.onCreate = () => { closed = true; otherParent.emit('closed'); };
+    const result = openSecretWindow(otherParent);
+    const window = activeWindow();
+    const outcome = await Promise.race([
+      result.then(() => 'cancelled'),
+      new Promise<string>((resolve) => setTimeout(() => resolve('pending'), 25)),
+    ]);
+    if (!window.isDestroyed()) window.destroy();
+    await result;
+    expect(outcome).toBe('cancelled');
+    expect(window.loadFile).not.toHaveBeenCalled();
+    expect([...mocks.listeners.values()].every((listeners) => listeners.size === 0)).toBe(true);
+  });
+
+  it.each(['desktop-secret:submit', 'desktop-secret:cancel'])('removes listeners if cancellation happens while registering %s', async (channel) => {
+    const controller = new AbortController();
+    mocks.onSubscribe = (name) => { if (name === channel) controller.abort(); };
+    const result = openSecretWindow(parent, controller.signal);
+    const window = activeWindow();
+    await expect(result).resolves.toBeUndefined();
+    expect(window.isDestroyed()).toBe(true);
+    expect(window.loadFile).not.toHaveBeenCalled();
+    expect([...mocks.listeners.values()].every((listeners) => listeners.size === 0)).toBe(true);
+  });
+
+  it('cancels if the prompt closes before its close listener is registered', async () => {
+    mocks.onCreate = (window) => window.destroy();
+    const result = openSecretWindow(parent);
+    const window = activeWindow();
+    const outcome = await Promise.race([
+      result.then(() => 'cancelled'),
+      new Promise<string>((resolve) => setTimeout(() => resolve('pending'), 25)),
+    ]);
+    if (outcome === 'pending') parent.emit('closed');
+    await result;
+    expect(outcome).toBe('cancelled');
+    expect(window.loadFile).not.toHaveBeenCalled();
+    expect([...mocks.listeners.values()].every((listeners) => listeners.size === 0)).toBe(true);
+  });
+
+  it('does not release a newer prompt when cancellation reenters during listener registration', async () => {
+    const controller = new AbortController();
+    let second: ReturnType<typeof openSecretWindow> | undefined;
+    mocks.onSubscribe = (channel) => {
+      if (channel !== 'desktop-secret:submit') return;
+      mocks.onSubscribe = undefined;
+      controller.signal.addEventListener('abort', () => { second = openSecretWindow(parent); }, { once: true });
+      controller.abort();
+    };
+    const first = openSecretWindow(parent, controller.signal);
+    expect(mocks.windows).toHaveLength(2);
+    const secondWindow = mocks.windows[1];
+    if (!second || !secondWindow) throw new Error('Expected the second prompt.');
+    const third = openSecretWindow(parent).then(() => false, () => true);
+    const thirdWindow = mocks.windows[2];
+    thirdWindow?.destroy();
+    const rejected = await third;
+    send('desktop-secret:cancel', secondWindow.webContents, secondWindow.webContents.mainFrame);
+    await first;
+    await second;
+    expect(rejected).toBe(true);
+    expect(mocks.windows).toHaveLength(2);
+  });
+
 });
