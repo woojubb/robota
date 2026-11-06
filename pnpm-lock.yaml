@@ -183,6 +183,9 @@ importers:
 
   apps/agent-app:
     dependencies:
+      '@robota-sdk/agent-transport':
+        specifier: workspace:*
+        version: link:../../packages/agent-transport
       '@robota-sdk/product-config':
         specifier: workspace:*
         version: link:../../packages/product-config

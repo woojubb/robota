@@ -17,6 +17,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "xvfb-run -a node e2e/run-e2e.mjs",
     "test:e2e:secret": "pnpm build:electron && node e2e/secret-window-e2e.mjs",
+    "test:e2e:session-channel": "pnpm build:electron && node e2e/session-channel-e2e.mjs",
     "test:e2e:bundled": "node e2e/bundled-runtime-e2e.mjs",
     "test:e2e:packaged": "node e2e/packaged-app-e2e.mjs",
     "lint": "eslint . --max-warnings 0",
@@ -32,6 +33,7 @@
     "vitest": "^3.2.6"
   },
   "dependencies": {
+    "@robota-sdk/agent-transport": "workspace:*",
     "@robota-sdk/product-config": "workspace:*",
     "ws": "^8.21.1"
   },
