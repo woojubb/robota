@@ -28,6 +28,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createProcessMarkerMemory, createProcessMarkers } from './process-marker.js';
+import { readProcessOwnerRecordFile } from './process-owner-record.js';
 import { leaveProcessMarker } from '../testing/process-marker-fixture.js';
 
 import type { IProcessMarkersOptions } from './process-marker.js';
@@ -112,6 +113,22 @@ const recordAt = (name: string): Record<string, unknown> =>
   JSON.parse(readFileSync(markerPath(name), 'utf8')) as Record<string, unknown>;
 
 describe('publishing a marker', () => {
+  it('distinguishes a new publication by the same process from the marker it replaced', () => {
+    const first = processAt(5000);
+    const oldHandle = handleOf(first.acquire('sess_a'));
+    const oldBytes = readFileSync(markerPath('sess_a'));
+    expect(first.remove('sess_a', { force: true }).status).toBe('removed');
+
+    const next = processAt(5000);
+    const newHandle = handleOf(next.acquire('sess_a'));
+    expect(readFileSync(markerPath('sess_a'))).not.toEqual(oldBytes);
+    expect(readProcessOwnerRecordFile(markerPath('sess_a'))).toEqual(identity(5000));
+    expect(oldHandle.holds()).toBe(false);
+    oldHandle.release();
+    expect(newHandle.holds()).toBe(true);
+    newHandle.release();
+  });
+
   it('publishes an owner-only record naming this process in an owner-only directory', () => {
     const handle = handleOf(processAt(5000).acquire('sess_a'));
 

@@ -391,7 +391,10 @@ class FileProcessMarkers implements IProcessMarkers {
   /** The record this process publishes, with `leaseDigest` when lent. */
   #recordText(leaseDigest: string | undefined): string {
     const fields = processOwnerRecordFields(this.#options.current ?? readCurrentProcessIdentity());
-    return JSON.stringify(leaseDigest === undefined ? fields : { ...fields, leaseDigest });
+    const generation = randomBytes(16).toString('hex');
+    return JSON.stringify(
+      leaseDigest === undefined ? { ...fields, generation } : { ...fields, generation, leaseDigest },
+    );
   }
 
   /** Who holds `file` at `path`: this process when it remembers publishing exactly it, else by its record. */
