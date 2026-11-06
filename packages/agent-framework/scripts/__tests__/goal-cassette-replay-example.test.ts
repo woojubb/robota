@@ -10,7 +10,7 @@ it('runs the public SDK replay example without changing the committed cassette',
   const before = readFileSync(GOAL_CASSETTE_PATH);
   const output = execFileSync(process.execPath, [
     '--import',
-    fileURLToPath(new URL('../../node_modules/tsx/dist/loader.mjs', import.meta.url)),
+    new URL('../../node_modules/tsx/dist/loader.mjs', import.meta.url).href,
     '--conditions=source',
     'examples/verify-goal-cassette-replay.mts',
   ], {
