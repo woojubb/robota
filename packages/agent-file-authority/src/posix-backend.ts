@@ -219,6 +219,22 @@ export class PosixStableFileHostBackend implements IStableFileHostBackend {
     }
   }
 
+  assertSameRoot(other: IStableFileHostBackend): void {
+    if (!(other instanceof PosixStableFileHostBackend)) {
+      throw authorityError('UNSUPPORTED_BACKEND', 'compare-roots');
+    }
+    const left = this.rootDescriptor;
+    const right = other.rootDescriptor;
+    if (left === undefined || right === undefined) {
+      throw authorityError('AUTHORITY_CLOSED', 'compare-roots');
+    }
+    this.assertRootIdentity(left);
+    other.assertRootIdentity(right);
+    if (!sameObject(this.rootIdentity, other.rootIdentity)) {
+      throw authorityError('ROOT_CHANGED', 'compare-roots');
+    }
+  }
+
   assertNamedRoot(rootDirectory: string): void {
     if (this.rootDescriptor === undefined) throw authorityError('AUTHORITY_CLOSED', 'inspect-root');
     this.assertRootIdentity(this.rootDescriptor);

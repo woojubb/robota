@@ -7,6 +7,8 @@ export interface IFileAuthorityTestHooks {
 }
 
 export interface IStableFileHostBackend {
+  /** Compare two still-open root objects without exposing their native identities. */
+  assertSameRoot(other: IStableFileHostBackend): void;
   /** Refuse if the supplied name no longer names this retained directory object. */
   assertNamedRoot?(rootDirectory: string): void;
   readBytes(
