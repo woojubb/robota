@@ -7,7 +7,8 @@ Owns the **product-assembly kernel**: the `IProductProfile` declarative product 
 `assembleProduct`. `assembleProduct(profile)` is a **pure, deterministic, IO-free fold** over
 `IProductProfile` data with **zero product-specific branching** — the composition mechanism a
 third party imports to build their own product on the published runtime. Product identity comes from
-the host's profile.
+the host's profile. The package is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and
+Bun, and has no Node adapter.
 
 ## The pure-fold property
 

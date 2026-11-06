@@ -25,7 +25,7 @@ describe('workspace trust entry surfaces', () => {
     expect(Object.keys(MainEntry)).not.toContain(name);
   });
 
-  /** The names the bundled `@robota-sdk/workflows` 0.0.3 imports from the main entry. */
+  /** The names the bundled `@robota-sdk/workflows` imports from the main entry. */
   const bundledWorkflowsNames = [
     'WorkspaceAuthorityRequiredError',
     'assertWorkspaceProjectAuthority',

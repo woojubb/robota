@@ -12,7 +12,9 @@ presets and styles, and the registries that resolve them.
 npm install @robota-sdk/agent-preset @robota-sdk/agent-framework
 ```
 
-Requires Node.js 22.12 or later.
+The main entry is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun and reads no
+file. The one reader of the file system, `loadExternalPresetsFromDir`, is on `@robota-sdk/agent-preset/node`,
+which requires Node.js 22.12 or later.
 
 ## Presets
 

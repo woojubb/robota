@@ -16,12 +16,9 @@ The tool contract itself (`FunctionTool`, `ToolRegistry`, `AbstractTool`, `ITool
 | `@robota-sdk/agent-tools`      | `createFunctionTool`, `createZodFunctionTool`, `createAskUserQuestionTool`, `createToolSearchTool`, the sandbox ports, `E2BSandboxClient`, `InMemorySandboxClient`, `applyWorkspaceManifest`, retrieval and computer use |
 | `@robota-sdk/agent-tools/node` | The shell, file, search and web-fetch tools, the OS sandbox (`OsSandboxClient`, `detectOsSandbox`) and `createNodeWorkspaceHostFiles`                                                                                    |
 
-The main entry takes a host's pieces by injection and has no host default: absent a port, the
-capability is absent. Until the next `@robota-sdk/workflows` release is pinned, the main entry also
-re-exports the eleven Node tool names that the published `@robota-sdk/workflows` 0.0.3 imports from
-it (`createShellTool`, `createBashTool`, `createReadTool`, `ReadByteLimitError`,
-`ReadCancelledError`, `createWriteTool`, `createEditTool`, `createGlobTool`, `createGrepTool`,
-`GrepIsolationError`, `webFetchTool`), so the main entry needs Node today. Import them from
+The main entry is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun and never
+reaches the file system, a process or the network egress policy. It takes a host's pieces by injection
+and has no host default: absent a port, the capability is absent. What needs a Node host is on
 `@robota-sdk/agent-tools/node`.
 
 ## Installation
@@ -30,8 +27,8 @@ it (`createShellTool`, `createBashTool`, `createReadTool`, `ReadByteLimitError`,
 npm install @robota-sdk/agent-tools @robota-sdk/agent-core
 ```
 
-`@robota-sdk/agent-core` is a peer dependency. The `@robota-sdk/agent-tools/node` entry requires
-Node.js 22.12 or later.
+`@robota-sdk/agent-core` is a peer dependency. Requires Node.js 22.12 or later for the
+`@robota-sdk/agent-tools/node` entry.
 
 ## Quick Start
 

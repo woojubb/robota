@@ -11,6 +11,9 @@ capabilities, autonomy). This package produces option data only; it performs no 
 It also owns the provider-neutral output-style catalog: built-in style definitions, Markdown style
 file parsing, and an instance-scoped registry with built-in-beats-external precedence.
 
+Its main entry is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun. The one
+host read, listing a directory of preset files, is on the `./node` subpath.
+
 ## Boundaries
 
 - Does **not** assemble sessions, synthesize system prompts, apply permission modes, or select

@@ -7,7 +7,9 @@
 into a single, provider-neutral SDK surface. `InteractiveSession` is the primary entry point,
 preserving observed tool outcomes across live and restored presentation without replaying effects; a
 `createQuery({ host, cwd, provider })` factory covers single-shot prompt use; `createAgentRuntime()` composes a
-headless/multi-session runtime.
+headless/multi-session runtime. Its main entry is platform-neutral: it runs in a browser, a Web Worker,
+Node, Deno and Bun, and what only a Node host can provide is on the `./node` subpath (`./testing` is
+Node-only too).
 
 This package owns config loading, context loading (AGENTS.md/CLAUDE.md discovery), command
 infrastructure (contracts, registry, sources, common APIs consumed by command modules), permission
