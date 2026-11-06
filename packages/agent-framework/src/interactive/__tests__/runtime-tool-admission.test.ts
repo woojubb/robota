@@ -37,4 +37,24 @@ describe('canonical runtime tool admission', () => {
     expect(releaseWake).toHaveBeenCalledExactlyOnceWith('wa');
     expect(queue.cancel('a')).toBe(false);
   });
+
+  it('fails all queued turns and releases wake ids when ownership is lost', () => {
+    const refuse = vi.fn();
+    const fail = vi.fn();
+    const releaseWake = vi.fn();
+    const queue = new PendingInputQueue({ refuse, fail, releaseWake });
+    queue.enqueue({
+      turnId: 'wake',
+      input: 'wake',
+      options: { driverId: 'a', wakeTaskId: 'task' },
+    });
+    queue.enqueue({ turnId: 'human', input: 'human', options: { driverId: 'b' } });
+    const error = new Error('Session writer claim was lost.');
+    queue.failAll(error);
+    expect(queue.contents).toEqual([]);
+    expect(fail).toHaveBeenCalledWith('wake', error);
+    expect(fail).toHaveBeenCalledWith('human', error);
+    expect(refuse).not.toHaveBeenCalled();
+    expect(releaseWake).toHaveBeenCalledExactlyOnceWith('task');
+  });
 });

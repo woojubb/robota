@@ -58,6 +58,8 @@ export interface IBackgroundTrackerState {
 export class SessionBackgroundTaskTracker {
   private backgroundTasks: IBackgroundTaskState[] = [];
   private restoredTaskIds: string[] = [];
+  private restoredScheduleIds = new Set<string>();
+  private restoreOwnershipLost = false;
   private taskIdReservation?: IBackgroundTaskIdReservation;
   private restoredTerminalTasks: IBackgroundTaskState[] = [];
   private preparedSchedules: IBackgroundTaskState<'scheduled'>[] = [];
@@ -92,7 +94,10 @@ export class SessionBackgroundTaskTracker {
     private readonly reportObserverFailure?: IFrameworkHost['reportObserverFailure'],
   ) {}
 
-  subscribe(session: Session, restore?: { canCommit(): boolean; commit(): void }): void {
+  subscribe(
+    session: Session,
+    restore?: { canCommit(): boolean; commit(): void; onLoss(): void },
+  ): void {
     if (this.backgroundTaskUnsubscribe) return;
     const manager =
       retrieveSessionBackgroundTaskManager(session) ??
@@ -121,6 +126,21 @@ export class SessionBackgroundTaskTracker {
         this.unexpectedRestoreEvent = true;
         return;
       }
+      if (
+        event.type === 'background_task_waking' &&
+        this.requiresWriterForWake(event.taskId, session.getSessionId())
+      ) {
+        let owned = false;
+        try {
+          owned = restore?.canCommit() === true;
+        } catch {
+          /* An unverifiable claim is not owned. */
+        }
+        if (!owned) {
+          restore?.onLoss();
+          return;
+        }
+      }
       this.recordTaskEvent(event);
       this.emitTaskEvent(event);
       // FLOW-002: a wake carrying an instruction re-enters the agent loop with a non-user turn.
@@ -133,7 +153,7 @@ export class SessionBackgroundTaskTracker {
       if (this.restoringBackground && manager.list().length > 0) {
         throw new Error('Cannot restore background tasks: the manager already owns a task.');
       }
-      this.reArmRestoredSchedules(manager, restore);
+      this.reArmRestoredSchedules(manager, session.getSessionId(), restore);
       this.assertNoRestoreEvent();
     } catch (error) {
       this.backgroundTaskUnsubscribe();
@@ -150,7 +170,8 @@ export class SessionBackgroundTaskTracker {
    */
   private reArmRestoredSchedules(
     manager: IBackgroundTaskManager,
-    restore?: { canCommit(): boolean; commit(): void },
+    sessionId: string,
+    restore?: { canCommit(): boolean; commit(): void; onLoss(): void },
   ): void {
     if (this.restoredTaskIds.length === 0) return;
     const nowMs = Date.now();
@@ -220,6 +241,9 @@ export class SessionBackgroundTaskTracker {
       });
     }
     if (schedules.length === 0) return;
+    if (schedules.some((task) => task.parentSessionId !== sessionId)) {
+      throw new Error('Restored schedules must belong to this session.');
+    }
     const prepare = manager.prepareRestoredSchedules;
     if (!isBuiltInRestoreManager(manager, prepare)) {
       throw new Error('Restoring schedules requires the built-in background task manager.');
@@ -229,7 +253,11 @@ export class SessionBackgroundTaskTracker {
         'Restoring schedules requires an atomic store and a prepared schedule manager.',
       );
     }
-    const candidate: unknown = prepare.call(manager, schedules, this.taskIdReservation);
+    this.restoredScheduleIds = new Set(schedules.map((task) => task.id));
+    const candidate: unknown = prepare.call(manager, schedules, this.taskIdReservation, {
+      canRun: restore.canCommit,
+      onLoss: restore.onLoss,
+    });
     if (!isPreparedSchedules(candidate)) {
       void Promise.resolve(candidate)
         .then((late: unknown) => {
@@ -418,6 +446,33 @@ export class SessionBackgroundTaskTracker {
     return this.restoredTerminalTasks.some((task) => task.id === taskId);
   }
 
+  hasRestoredSchedules(): boolean {
+    return this.restoredScheduleIds.size > 0;
+  }
+
+  requiresWriterForWake(taskId: string, sessionId: string): boolean {
+    if (!this.hasRestoredSchedules()) return false;
+    const task = this.getManager()?.get(taskId);
+    return task?.kind === 'scheduled' && task.parentSessionId === sessionId;
+  }
+
+  invalidateRestoredSchedules(sessionId: string, beforeReport: () => void): string[] {
+    if (this.restoredScheduleIds.size === 0) {
+      beforeReport();
+      return [];
+    }
+    this.restoreOwnershipLost = true;
+    const manager = this.getManager();
+    if (manager && isBuiltInRestoreManager(manager)) {
+      for (const task of manager.list()) {
+        if (task.kind === 'scheduled' && task.parentSessionId === sessionId)
+          this.restoredScheduleIds.add(task.id);
+      }
+      manager.invalidateRestoredSchedules(sessionId, beforeReport);
+    } else beforeReport();
+    return [...this.restoredScheduleIds];
+  }
+
   private assertTaskWritable(taskId: string): void {
     if (this.isRestoredTerminalTask(taskId))
       throw new Error('Restored terminal background tasks are read-only.');
@@ -528,7 +583,7 @@ export class SessionBackgroundTaskTracker {
     this.backgroundTasks = this.getTaskSnapshots();
     this.backgroundTaskEvents.push(event);
     this.recordCompletedTaskUsage(event);
-    this.persistSession();
+    if (!this.restoreOwnershipLost) this.persistSession();
     this.onChanged('background_task', getTaskEventEntryId(event));
   }
 

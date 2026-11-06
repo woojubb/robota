@@ -5,7 +5,7 @@ import {
   normalizeBackgroundTaskError,
   type ITrackedBackgroundTask,
 } from './background-task-manager-helpers.js';
-import { transitionBackgroundTaskStatus } from './state-machine.js';
+import { isTerminalBackgroundTaskStatus, transitionBackgroundTaskStatus } from './state-machine.js';
 import { BackgroundTaskError } from './types.js';
 
 import type {
@@ -197,6 +197,15 @@ export function startBackgroundTaskRunner(options: IStartBackgroundTaskRunnerOpt
       request: options.task.request,
       emit: options.onEvent,
     } as never);
+    if (isTerminalBackgroundTaskStatus(options.task.state.status)) {
+      void handle.result.catch(() => undefined);
+      try {
+        void handle.cancel('Task ended during runner startup').catch(() => undefined);
+      } catch {
+        /* Best-effort cancellation. */
+      }
+      return;
+    }
     const updated = attachBackgroundTaskHandleMetadata(options.task, handle, options.now);
     if (updated) options.onUpdated(updated);
     options.onStarted();

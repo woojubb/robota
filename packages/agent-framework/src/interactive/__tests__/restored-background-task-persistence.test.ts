@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -19,6 +19,8 @@ import {
 } from './helpers/sealed-session-fixtures.js';
 
 import type { IAgentBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
+import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
+import type { SessionExecutionController } from '../interactive-session-execution-controller.js';
 
 const PARENT = 'parent';
 const CANARY = 'SENSITIVE-FORK-RESULT-8194';
@@ -51,6 +53,297 @@ function completedFork(cwd: string): IAgentBackgroundTaskState {
 }
 
 describe('restored background tasks', () => {
+  it.each(['release', 'marker replacement'] as const)(
+    'closes a newly created schedule after %s',
+    async (loss) => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const cwd = directory();
+      const dir = directory();
+      const store = new NodeSessionStore(dir, { sealing: 'plain' });
+      const restored = {
+        id: 'scheduled_1',
+        kind: 'scheduled' as const,
+        label: 'old',
+        status: 'sleeping' as const,
+        mode: 'background' as const,
+        parentSessionId: PARENT,
+        depth: 1,
+        cwd,
+        updatedAt,
+        unread: false,
+        nextFireAt: '2999-01-01T00:00:00.000Z',
+        schedule: { cronExpression: '0 0 * * *', agentInstruction: 'old wake' },
+      };
+      store.save(record(PARENT, cwd, 'owner message', { backgroundTasks: [restored] }), {
+        provenance: 'owner',
+      });
+      const runtime = createAgentRuntime({
+        host: createTestFrameworkHost(),
+        cwd,
+        provider: createScriptedProvider([]).provider,
+        sessionStore: store,
+        backgroundTaskRunners: [createScheduledTaskRunner()],
+      });
+      const session = runtime.createSession({ resumeSessionId: PARENT });
+      await session.whenInitialized();
+      const manager = (
+        session as unknown as { getBackgroundTaskManager(): IBackgroundTaskManager }
+      ).getBackgroundTaskManager();
+      const added = await manager.spawn({
+        kind: 'scheduled',
+        cronExpression: '* * * * * *',
+        agentInstruction: 'new wake',
+        label: 'new',
+        mode: 'background',
+        parentSessionId: PARENT,
+        depth: 1,
+        cwd,
+      });
+      const events: string[] = [];
+      session.on('background_task_event', (event) => events.push(event.type));
+      if (loss === 'release') session.releaseSessionClaim();
+      else
+        for (const entry of readdirSync(join(dir, 'claims')))
+          rmSync(join(dir, 'claims', entry), { recursive: true, force: true });
+      const next = new NodeSessionStore(dir, { sealing: 'plain' }).claim(PARENT);
+      try {
+        await vi.advanceTimersByTimeAsync(2100);
+        expect(events).not.toContain('background_task_waking');
+        expect(manager.get(added.id)).toMatchObject({ status: 'failed' });
+      } finally {
+        next.release();
+        session.releaseSessionClaim();
+        await session.shutdown().catch(() => undefined);
+      }
+    },
+  );
+  it.runIf(process.platform !== 'win32')(
+    'attempts to stop an in-flight restored child when the claim is explicitly released',
+    async () => {
+      const realSetTimeout = setTimeout;
+      const wait = (ms: number) => new Promise<void>((resolve) => realSetTimeout(resolve, ms));
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const cwd = directory();
+      const scriptPath = join(cwd, 'child.cjs');
+      const started = join(cwd, 'started');
+      const finished = join(cwd, 'finished');
+      writeFileSync(
+        scriptPath,
+        `const fs = require('node:fs'); fs.writeFileSync(${JSON.stringify(started)}, 'started'); setTimeout(() => fs.writeFileSync(${JSON.stringify(finished)}, 'finished'), 800);`,
+      );
+      const store = new NodeSessionStore(directory(), { sealing: 'plain' });
+      const task = {
+        id: 'scheduled_1',
+        kind: 'scheduled' as const,
+        label: 'Shell',
+        status: 'sleeping' as const,
+        mode: 'background' as const,
+        parentSessionId: PARENT,
+        depth: 1,
+        cwd,
+        updatedAt,
+        unread: false,
+        nextFireAt: '2026-01-01T00:00:01.000Z',
+        schedule: {
+          cronExpression: '* * * * * *',
+          command: `${JSON.stringify(process.execPath)} ${JSON.stringify(scriptPath)}`,
+        },
+      };
+      store.save(record(PARENT, cwd, 'owner message', { backgroundTasks: [task] }), {
+        provenance: 'owner',
+      });
+      const runtime = createAgentRuntime({
+        host: createTestFrameworkHost(),
+        cwd,
+        provider: createScriptedProvider([]).provider,
+        sessionStore: store,
+        backgroundTaskRunners: [createScheduledTaskRunner()],
+      });
+      const session = runtime.createSession({ resumeSessionId: PARENT });
+      try {
+        await session.whenInitialized();
+        await vi.advanceTimersByTimeAsync(1000);
+        for (let count = 0; count < 100 && !existsSync(started); count += 1) await wait(20);
+        expect(existsSync(started)).toBe(true);
+        session.releaseSessionClaim();
+        await wait(1000);
+        expect(existsSync(finished)).toBe(false);
+        expect(session.getBackgroundTask(task.id)).toMatchObject({ status: 'failed' });
+      } finally {
+        session.releaseSessionClaim();
+        await session.shutdown().catch(() => undefined);
+      }
+    },
+    10_000,
+  );
+  it('closes restored timers before explicitly releasing the writer claim', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    const cwd = directory();
+    const store = new NodeSessionStore(directory(), { sealing: 'plain' });
+    const task = {
+      id: 'scheduled_1',
+      kind: 'scheduled' as const,
+      label: 'Wake',
+      status: 'sleeping' as const,
+      mode: 'background' as const,
+      parentSessionId: PARENT,
+      depth: 1,
+      cwd,
+      updatedAt,
+      unread: false,
+      nextFireAt: '2026-01-01T00:00:01.000Z',
+      schedule: { cronExpression: '* * * * * *', agentInstruction: 'do not run' },
+    };
+    store.save(record(PARENT, cwd, 'owner message', { backgroundTasks: [task] }), {
+      provenance: 'owner',
+    });
+    const runtime = createAgentRuntime({
+      host: createTestFrameworkHost(),
+      cwd,
+      provider: createScriptedProvider([]).provider,
+      sessionStore: store,
+      backgroundTaskRunners: [createScheduledTaskRunner()],
+    });
+    const session = runtime.createSession({ resumeSessionId: PARENT });
+    await session.whenInitialized();
+    const events: string[] = [];
+    session.on('background_task_event', (event) => events.push(event.type));
+    session.releaseSessionClaim();
+    const next = store.claim(PARENT);
+    try {
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(events).not.toContain('background_task_waking');
+      expect(session.getBackgroundTask(task.id)).toMatchObject({ status: 'failed' });
+      expect(store.load(PARENT)).toMatchObject({
+        status: 'valid',
+        record: { backgroundTasks: [expect.objectContaining({ id: task.id, status: 'sleeping' })] },
+      });
+    } finally {
+      next.release();
+      await session.shutdown().catch(() => undefined);
+    }
+  });
+
+  it('does not execute a queued restored wake after its writer marker is replaced', async () => {
+    const cwd = directory();
+    const dir = directory();
+    const store = new NodeSessionStore(dir, { sealing: 'plain' });
+    const task = {
+      id: 'scheduled_1',
+      kind: 'scheduled' as const,
+      label: 'Wake',
+      status: 'sleeping' as const,
+      mode: 'background' as const,
+      parentSessionId: PARENT,
+      depth: 1,
+      cwd,
+      updatedAt,
+      unread: false,
+      nextFireAt: '2999-01-01T00:00:00.000Z',
+      schedule: { cronExpression: '0 0 * * *', agentInstruction: 'do not run' },
+    };
+    store.save(record(PARENT, cwd, 'owner message', { backgroundTasks: [task] }), {
+      provenance: 'owner',
+    });
+    const scripted = createScriptedProvider([{ text: 'should not execute' }]);
+    const runtime = createAgentRuntime({
+      host: createTestFrameworkHost(),
+      cwd,
+      provider: scripted.provider,
+      sessionStore: store,
+      backgroundTaskRunners: [createScheduledTaskRunner()],
+    });
+    const session = runtime.createSession({ resumeSessionId: PARENT });
+    await session.whenInitialized();
+    const ctrl = (session as unknown as { execCtrl: SessionExecutionController }).execCtrl;
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const resume = (
+      session as unknown as {
+        resumeQueuedTurn: Parameters<SessionExecutionController['executeForegroundCommand']>[1];
+      }
+    ).resumeQueuedTurn.bind(session);
+    const foreground = ctrl.executeForegroundCommand(async () => {
+      await held;
+      return { success: true, message: 'done' };
+    }, resume);
+    expect(session.requestWakeup('queued wake', task.id)).toBe(true);
+    await Promise.resolve();
+    expect(ctrl.pending.contents).toHaveLength(1);
+    const claims = join(dir, 'claims');
+    for (const entry of readdirSync(claims))
+      rmSync(join(claims, entry), { recursive: true, force: true });
+    const next = new NodeSessionStore(dir, { sealing: 'plain' }).claim(PARENT);
+    try {
+      release();
+      await foreground;
+      for (let index = 0; index < 5; index += 1) await Promise.resolve();
+      expect(scripted.requests).toHaveLength(0);
+      expect(ctrl.pending.contents).toHaveLength(0);
+      expect(session.getBackgroundTask(task.id)).toMatchObject({ status: 'failed' });
+    } finally {
+      next.release();
+      session.releaseSessionClaim();
+      await session.shutdown().catch(() => undefined);
+    }
+  });
+  it('stops a restored wake after another writer takes the marker', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+    const cwd = directory();
+    const dir = directory();
+    const store = new NodeSessionStore(dir, { sealing: 'plain' });
+    const task = {
+      id: 'scheduled_1',
+      kind: 'scheduled' as const,
+      label: 'Wake',
+      status: 'sleeping' as const,
+      mode: 'background' as const,
+      parentSessionId: PARENT,
+      depth: 1,
+      cwd,
+      updatedAt,
+      unread: false,
+      nextFireAt: '2026-01-01T00:00:01.000Z',
+      schedule: { cronExpression: '* * * * * *', agentInstruction: 'do not run' },
+    };
+    store.save(record(PARENT, cwd, 'owner message', { backgroundTasks: [task] }), {
+      provenance: 'owner',
+    });
+    const runtime = createAgentRuntime({
+      host: createTestFrameworkHost(),
+      cwd,
+      provider: createScriptedProvider([]).provider,
+      sessionStore: store,
+      backgroundTaskRunners: [createScheduledTaskRunner()],
+    });
+    const session = runtime.createSession({ resumeSessionId: PARENT });
+    await session.whenInitialized();
+    const events: string[] = [];
+    session.on('background_task_event', (event) => events.push(event.type));
+    const claims = join(dir, 'claims');
+    for (const entry of readdirSync(claims))
+      rmSync(join(claims, entry), { recursive: true, force: true });
+    const second = new NodeSessionStore(dir, { sealing: 'plain' }).claim(PARENT);
+    try {
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(events).not.toContain('background_task_waking');
+      expect(session.getBackgroundTask(task.id)).toMatchObject({ status: 'failed' });
+      expect(store.load(PARENT)).toMatchObject({
+        status: 'valid',
+        record: { backgroundTasks: [expect.objectContaining({ id: task.id, status: 'sleeping' })] },
+      });
+    } finally {
+      second.release();
+      session.releaseSessionClaim();
+      await session.shutdown().catch(() => undefined);
+    }
+  });
   it('does not activate a schedule when its writer marker is replaced during commit', async () => {
     vi.useFakeTimers();
     const cwd = directory();

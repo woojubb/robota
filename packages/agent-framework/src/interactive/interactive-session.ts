@@ -243,6 +243,7 @@ export class InteractiveSession
     resumeQueuedTurn: (entry) => this.resumeQueuedTurn(entry),
   });
   private shutdownPromise: Promise<void> | null = null;
+  private restoredOwnershipLost = false;
   private externalEventIngress?: ExternalEventIngress;
   private readonly peerTurnRate = new PeerTurnRateLimiter();
   private readonly sandboxClient?: ISandboxClient;
@@ -685,6 +686,7 @@ export class InteractiveSession
         !this.execCtrl.shuttingDown &&
         this.recordClaim?.holdsWriter(session.getSessionId()) === true,
       commit: () => this.persistCurrentSession(true, undefined, undefined, true),
+      onLoss: () => this.loseRestoredOwnership(),
     });
   }
 
@@ -1140,6 +1142,7 @@ export class InteractiveSession
   }
 
   private async executeAcceptedTurn(entry: IQueuedInput): Promise<void> {
+    if (!this.admitRestoredWake(entry)) return;
     try {
       this.getSessionOrThrow().assertInputAllowed();
     } catch (error) {
@@ -1229,6 +1232,7 @@ export class InteractiveSession
       const memory = await this.injectedMemoryStore.loadStartupMemory();
       this.rebuildLivePrompt({ memoryMd: memory.content });
     }
+    if (!this.admitRestoredWake(entry)) return;
     await this.execCtrl.executePrompt(
       input,
       displayInput,
@@ -1833,7 +1837,44 @@ export class InteractiveSession
    * persists nothing.
    */
   releaseSessionClaim(): void {
-    this.recordClaim?.end();
+    this.loseRestoredOwnership();
+  }
+
+  private loseRestoredOwnership(): void {
+    if (this.restoredOwnershipLost) return;
+    this.restoredOwnershipLost = true;
+    const ids = this.bgTracker.invalidateRestoredSchedules(this.sessionId, () => {
+      if (this.bgTracker.hasRestoredSchedules()) this.recordClaim?.loseWriter();
+      else this.recordClaim?.end();
+    });
+    for (const id of ids) {
+      this.stoppedWakeTaskIds.add(id);
+      this.execCtrl.wakeTaskIds.delete(id);
+    }
+    if (ids.length > 0) this.execCtrl.failPendingQueue(new Error('Session writer claim was lost.'));
+    if (ids.length > 0 && this.execCtrl.executing) {
+      this.promptRegistry.drain();
+      this.session?.abort();
+    }
+    this.clearSessionLoopExpiryTimers();
+    if (ids.length > 0)
+      this.reportBackgroundError(new Error('Session writer claim was lost.'), 'session-claim');
+  }
+
+  private admitRestoredWake(entry: IQueuedInput): boolean {
+    const id = entry.options.wakeTaskId;
+    if (this.restoredOwnershipLost && this.bgTracker.hasRestoredSchedules()) {
+      this.execCtrl.turns.fail(entry.turnId, new Error('Session writer claim was lost.'));
+      if (id) this.execCtrl.wakeTaskIds.delete(id);
+      return false;
+    }
+    if (!id || !this.bgTracker.requiresWriterForWake(id, this.sessionId)) return true;
+    if (!this.restoredOwnershipLost && this.recordClaim?.holdsWriter(this.sessionId) === true)
+      return true;
+    this.loseRestoredOwnership();
+    this.execCtrl.turns.fail(entry.turnId, new Error('Session writer claim was lost.'));
+    this.execCtrl.wakeTaskIds.delete(id);
+    return false;
   }
 
   get isInitialized(): boolean {

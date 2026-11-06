@@ -52,6 +52,7 @@ interface IScheduledTaskState {
   /** CORE-023: the in-flight fired child, tracked so cancel can kill it instead of orphaning it. */
   currentChild?: ChildProcess;
   onChildIdle?: () => void;
+  checkOwnership?: () => boolean;
 }
 
 export function createScheduledTaskRunner(
@@ -94,7 +95,11 @@ function startScheduledTask(
   request: IScheduledBackgroundTaskRequest,
   emit: (event: TBackgroundTaskRunnerEvent) => void,
   options: IScheduledTaskRunnerOptions,
-  restore?: { readonly paused: boolean },
+  restore?: {
+    readonly paused: boolean;
+    readonly canRun?: () => boolean;
+    readonly onClaimLoss?: () => void;
+  },
 ): IPreparedBackgroundTaskHandle<'scheduled'> {
   // Fail closed synchronously before registering a schedule whose explicit executable is unsupported.
   if (request.command !== undefined) {
@@ -131,6 +136,7 @@ function startScheduledTask(
       pending += 1n;
       return;
     }
+    if (state.checkOwnership && !state.checkOwnership()) return;
     if (state.currentChild) return;
     runOneFire(state);
   };
@@ -217,8 +223,28 @@ function startScheduledTask(
     } catch {
       // The closed gate prevents further work even if timer cleanup fails.
     }
+    if (state.currentChild)
+      void killProcessTree(state.currentChild, { processGroup: SPAWN_DETACHED }).catch(
+        () => undefined,
+      );
     rejectResult(error);
   };
+  if (restore?.canRun) {
+    state.checkOwnership = () => {
+      try {
+        if (restore.canRun?.() === true) return true;
+      } catch {
+        // An unverifiable claim is not an active claim.
+      }
+      failPreparedTask(new Error('Session writer claim was lost.'));
+      try {
+        restore.onClaimLoss?.();
+      } catch {
+        /* The gate is already closed. */
+      }
+      return false;
+    };
+  }
   const drain = (): void => {
     if (state.cancelled || state.paused || pending === 0n) return;
     if (state.currentChild) {
@@ -266,6 +292,7 @@ function startScheduledTask(
 
 function runOneFire(state: IScheduledTaskState): void {
   if (state.cancelled || state.paused) return;
+  if (state.checkOwnership && !state.checkOwnership()) return;
   state.fired = true;
 
   // FLOW-001: carry the agent-wake instruction (if any) so an upper layer can wake the agent loop.
@@ -275,6 +302,7 @@ function runOneFire(state: IScheduledTaskState): void {
       : { type: 'background_task_waking' },
   );
   if (state.cancelled || state.paused) return;
+  if (state.checkOwnership && !state.checkOwnership()) return;
 
   // An agent-wake-only schedule (no shell command) just fires the wake and re-sleeps.
   const command = state.request.command;

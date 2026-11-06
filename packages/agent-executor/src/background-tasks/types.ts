@@ -156,7 +156,11 @@ interface IKindedBackgroundTaskRunner<K extends TBackgroundTaskKind> {
   /** Prepare without emitting or executing; only runners honoring the prepared-handle contract may offer this. */
   prepareRestore?(
     task: IBackgroundTaskStart<K>,
-    options: { readonly paused: boolean },
+    options: {
+      readonly paused: boolean;
+      readonly canRun?: () => boolean;
+      readonly onClaimLoss?: () => void;
+    },
   ): IPreparedBackgroundTaskHandle<K>;
   /**
    * MCP-004 §S1: how the manager admits a spawned task of this runner's kind. `'queued'` (the
@@ -216,6 +220,7 @@ export interface IBackgroundTaskManager {
   prepareRestoredSchedules?(
     tasks: readonly IBackgroundTaskState<'scheduled'>[],
     reservation: IBackgroundTaskIdReservation,
+    ownership?: { canRun(): boolean; onLoss(): void },
   ): IPreparedRestoredSchedules;
   /** Available on the built-in manager; custom manager ports may omit it. */
   nextScheduledFireOnOrAfter?(cronExpression: string, firstAllowedAt: Date): Date | null;

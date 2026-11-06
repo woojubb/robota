@@ -165,6 +165,24 @@ export class SessionRecordClaim {
     }
   }
 
+  /** Fence all later saves before releasing a writer whose ownership is no longer reliable. */
+  loseWriter(): void {
+    if (this.#ended) return;
+    this.#ended = true;
+    this.#stopWaitingForUnlock();
+    try {
+      this.#source?.release();
+    } catch {
+      /* The claim is already fenced in this session. */
+    }
+    this.#source = undefined;
+    try {
+      this.#claim?.release();
+    } catch {
+      /* A stale marker must not permit another save here. */
+    }
+  }
+
   /**
    * Claims `id` and returns the outcome the session restores from, gated: a record a store that seals
    * calls unverified is refused unless it is the accepted bytes, and the claim let go. A `copy` keeps

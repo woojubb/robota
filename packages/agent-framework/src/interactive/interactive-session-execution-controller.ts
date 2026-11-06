@@ -68,11 +68,7 @@ import type {
   IProviderCallTraceEntry,
   IToolBodyTraceEntry,
 } from '@robota-sdk/agent-interface-analytics';
-import type {
-  IPeerTurnContext,
-  TDriverId,
-  TTurnSource,
-} from '@robota-sdk/agent-interface-session';
+import type { IPeerTurnContext, TDriverId, TTurnSource } from '@robota-sdk/agent-interface-session';
 import type { ICompactEvent, IToolAppViewRef } from '@robota-sdk/agent-interface-session';
 
 export type { TTurnSource };
@@ -112,6 +108,7 @@ export class SessionExecutionController {
   /** REMOTE-014 E5: co-drive input queue (same-driver coalesces to the tail, cross-driver appends). */
   readonly pending = new PendingInputQueue({
     refuse: (turnId, reason) => this.turns.refuse(turnId, reason),
+    fail: (turnId, error) => this.turns.fail(turnId, error),
     releaseWake: (wakeTaskId) => this.wakeTaskIds.delete(wakeTaskId),
   });
   /**
@@ -174,6 +171,10 @@ export class SessionExecutionController {
 
   removePendingWake(wakeTaskId: string): boolean {
     return this.pending.removeWake(wakeTaskId);
+  }
+
+  failPendingQueue(error: Error): void {
+    this.pending.failAll(error);
   }
 
   clearStreaming(): void {

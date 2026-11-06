@@ -100,6 +100,61 @@ function restoredWake(events: TBackgroundTaskRunnerEvent[]): IBackgroundTaskStar
 }
 
 describe('createScheduledTaskRunner', () => {
+  it('closes the timer and reports claim loss if ownership verification throws', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const events: TBackgroundTaskRunnerEvent[] = [];
+      const onClaimLoss = vi.fn();
+      const prepared = createScheduledTaskRunner().prepareRestore!(restoredWake(events), {
+        paused: false,
+        canRun: () => {
+          throw new Error('cannot verify');
+        },
+        onClaimLoss,
+      });
+      const result = expect(prepared.handle.result).rejects.toThrow(/claim.*lost/i);
+      expect(prepared.activate()).toBe('active');
+      await vi.advanceTimersByTimeAsync(2000);
+      await result;
+      expect(events.filter((event) => event.type === 'background_task_waking')).toHaveLength(0);
+      expect(onClaimLoss).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('rechecks ownership after wake observers and before a shell command starts', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      let owned = true;
+      const onClaimLoss = vi.fn();
+      const events: TBackgroundTaskRunnerEvent[] = [];
+      const wake = restoredWake(events);
+      wake.request.command = nodeCommand('process.exit(42)');
+      wake.request.env = { [NODE_BINARY_ENV]: process.execPath };
+      wake.emit = (event) => {
+        events.push(event);
+        if (event.type === 'background_task_waking') owned = false;
+      };
+      const prepared = createScheduledTaskRunner().prepareRestore!(wake, {
+        paused: false,
+        canRun: () => owned,
+        onClaimLoss,
+      });
+      const result = expect(prepared.handle.result).rejects.toThrow(/claim.*lost/i);
+      expect(prepared.activate()).toBe('active');
+      await vi.advanceTimersByTimeAsync(1000);
+      await result;
+      expect(onClaimLoss).toHaveBeenCalledTimes(1);
+      expect(events.filter((event) => event.type === 'background_task_waking')).toHaveLength(1);
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it('refuses activation when the prepared handle was cancelled', async () => {
     const prepared = createScheduledTaskRunner().prepareRestore!(restoredWake([]), {
       paused: false,

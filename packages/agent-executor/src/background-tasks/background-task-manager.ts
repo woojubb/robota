@@ -72,6 +72,8 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   private readonly reservedTaskIds = new Map<string, symbol>();
   private readonly reservationOwners = new WeakMap<IBackgroundTaskIdReservation, symbol>();
   private readonly preparedRestores = new Set<IPreparedRestoredSchedules>();
+  private readonly preparedRestoreOwners = new WeakMap<IPreparedRestoredSchedules, string>();
+  private readonly revokedOwners = new Set<string>();
   private preparingRestore = false;
   private readonly allocatedTaskIds = new Set<string>();
   private readonly queue: string[] = [];
@@ -135,6 +137,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   prepareRestoredSchedules(
     states: readonly IBackgroundTaskState<'scheduled'>[],
     reservation: IBackgroundTaskIdReservation,
+    ownership?: { canRun(): boolean; onLoss(): void },
   ): IPreparedRestoredSchedules {
     this.assertNoRestoreInProgress();
     if (this.shuttingDown)
@@ -163,6 +166,8 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       states.some(
         (state) =>
           state.kind !== 'scheduled' ||
+          state.parentSessionId !== states[0]?.parentSessionId ||
+          this.revokedOwners.has(state.parentSessionId) ||
           this.reservedTaskIds.get(state.id) !== owner ||
           this.tasks.has(state.id) ||
           (state.status !== 'sleeping' && state.status !== 'paused') ||
@@ -233,7 +238,10 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
               if (phase === 'active') this.handleRunnerEvent(task, event);
             },
           },
-          { paused: state.status === 'paused' },
+          {
+            paused: state.status === 'paused',
+            ...(ownership ? { canRun: ownership.canRun, onClaimLoss: ownership.onLoss } : {}),
+          },
         );
         if (!isPreparedScheduledHandle(candidate)) {
           void Promise.resolve(candidate)
@@ -343,13 +351,45 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       },
     };
     this.preparedRestores.add(batch);
+    if (states[0]) this.preparedRestoreOwners.set(batch, states[0].parentSessionId);
     return batch;
+  }
+
+  /** Close restored gates before reporting lost ownership; never persist a successful completion. */
+  invalidateRestoredSchedules(sessionId: string, beforeReport: () => void): void {
+    this.revokedOwners.add(sessionId);
+    for (const batch of this.preparedRestores) {
+      if (this.preparedRestoreOwners.get(batch) === sessionId) batch.abort();
+    }
+    const tasks = [...this.tasks.values()].filter(
+      (task) =>
+        task.state.parentSessionId === sessionId &&
+        !isTerminalBackgroundTaskStatus(task.state.status),
+    );
+    for (const task of tasks) {
+      this.removeFromQueue(task.state.id);
+    }
+    for (const task of tasks) {
+      try {
+        void task.handle?.cancel().catch(() => undefined);
+      } catch {
+        // Continue closing the other gates when a custom runner cannot cancel.
+      }
+    }
+    try {
+      beforeReport();
+    } finally {
+      for (const task of tasks) this.failTask(task, new Error('Session writer claim was lost.'));
+    }
   }
 
   async spawn(request: TBackgroundTaskRequest): Promise<IBackgroundTaskState> {
     this.assertNoRestoreInProgress();
     if (this.shuttingDown) {
       throw new BackgroundTaskError('validation', 'Background task manager is shutting down');
+    }
+    if (this.revokedOwners.has(request.parentSessionId)) {
+      throw new BackgroundTaskError('validation', 'Session writer claim was lost.');
     }
     validateBackgroundTaskRequest(request, this.runners, this.maxDepth);
     let id: string | undefined;
@@ -609,6 +649,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     const started = markBackgroundTaskStarted(task, this.now());
     this.acquireSlot(task.state.id);
     this.emit({ type: 'background_task_started', task: started });
+    if (isTerminalBackgroundTaskStatus(task.state.status)) return;
 
     startBackgroundTaskRunner({
       task,
@@ -635,6 +676,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     task.state.updatedAt = startedAt;
     task.state.lastActivityAt = startedAt;
     this.emit({ type: 'background_task_started', task: cloneBackgroundTaskState(task.state) });
+    if (isTerminalBackgroundTaskStatus(task.state.status)) return;
 
     startBackgroundTaskRunner({
       task,
@@ -771,7 +813,7 @@ const builtInPrepareRestoredSchedules = BackgroundTaskManager.prototype.prepareR
 export function isBuiltInRestoreManager(
   manager: IBackgroundTaskManager,
   prepare: IBackgroundTaskManager['prepareRestoredSchedules'] = manager.prepareRestoredSchedules,
-): boolean {
+): manager is BackgroundTaskManager {
   return (
     manager instanceof BackgroundTaskManager &&
     builtInManagers.has(manager) &&

@@ -25,6 +25,87 @@ function schedule(
 }
 
 describe('prepared restored schedules', () => {
+  it('does not start a runner when an observer revokes the claim at task admission', async () => {
+    const start = vi.fn(({ taskId }: { taskId: string }) => ({
+      taskId,
+      cancel: () => Promise.resolve(),
+      result: new Promise<never>(() => {}),
+    }));
+    const manager = new BackgroundTaskManager({ runners: [{ kind: 'process', start }] });
+    manager.subscribe((event) => {
+      if (event.type === 'background_task_started')
+        manager.invalidateRestoredSchedules('session_1', () => undefined);
+    });
+    const task = await manager.spawn({
+      kind: 'process',
+      command: 'echo ignored',
+      label: 'x',
+      mode: 'background',
+      parentSessionId: 'session_1',
+      depth: 0,
+      cwd: process.cwd(),
+    });
+    expect(manager.get(task.id)).toMatchObject({ status: 'failed' });
+    expect(start).not.toHaveBeenCalled();
+    await manager.shutdown();
+  });
+  it('cancels a handle returned after reentrant ownership loss', async () => {
+    let manager: BackgroundTaskManager;
+    const cancel = vi.fn(() => Promise.resolve());
+    const runner = {
+      kind: 'process' as const,
+      start: ({ taskId }: { taskId: string }) => {
+        manager.invalidateRestoredSchedules('session_1', () => undefined);
+        return { taskId, cancel, result: new Promise<never>(() => {}) };
+      },
+    };
+    manager = new BackgroundTaskManager({ runners: [runner] });
+    const task = await manager.spawn({
+      kind: 'process',
+      command: 'echo ignored',
+      label: 'x',
+      mode: 'background',
+      parentSessionId: 'session_1',
+      depth: 0,
+      cwd: process.cwd(),
+    });
+    expect(manager.get(task.id)).toMatchObject({ status: 'failed' });
+    expect(cancel).toHaveBeenCalledTimes(1);
+    await manager.shutdown();
+  });
+  it("fences only the lost session and leaves another session's work running", async () => {
+    const manager = new BackgroundTaskManager({ runners: [createScheduledTaskRunner()] });
+    const reservation = manager.reserveTaskIds(['one']);
+    const batch = manager.prepareRestoredSchedules([schedule('one')], reservation);
+    expect(batch.activate()).toBe('active');
+    const other = await manager.spawn({
+      kind: 'scheduled',
+      cronExpression: '* * * * * *',
+      agentInstruction: 'other',
+      label: 'other',
+      mode: 'background',
+      parentSessionId: 'session_2',
+      depth: 0,
+      cwd: process.cwd(),
+    });
+    manager.invalidateRestoredSchedules('session_1', () => undefined);
+    expect(manager.get('one')).toMatchObject({ status: 'failed' });
+    expect(manager.get(other.id)).toMatchObject({ status: 'sleeping' });
+    await expect(
+      manager.spawn({
+        kind: 'scheduled',
+        cronExpression: '* * * * * *',
+        agentInstruction: 'lost',
+        label: 'lost',
+        mode: 'background',
+        parentSessionId: 'session_1',
+        depth: 0,
+        cwd: process.cwd(),
+      }),
+    ).rejects.toThrow(/claim.*lost/i);
+    await manager.shutdown();
+    reservation.release();
+  });
   it('recognizes only the original built-in manager, not a clone, proxy, or altered implementation', () => {
     const manager = new BackgroundTaskManager({ runners: [createScheduledTaskRunner()] });
     expect(isBuiltInRestoreManager(manager)).toBe(true);
