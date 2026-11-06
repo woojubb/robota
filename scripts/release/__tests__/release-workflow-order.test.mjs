@@ -506,3 +506,20 @@ it.each([
     expect(selected).toBe(expected);
   },
 );
+
+it('prepares a pending version only for PR product validation', () => {
+  const steps = native.jobs['build-bun'].steps;
+  const preparation = requiredStepIndex(steps, 'Prepare pending version for PR product validation');
+  const product = requiredStepIndex(steps, 'Generate selected product workspace');
+  expect(preparation).toBeLessThan(product);
+  expect(steps[preparation].run).toContain('--prepare-pr-version');
+  for (const [event, expected] of [
+    ['pull_request', true],
+    ['push', false],
+    ['workflow_dispatch', false],
+  ]) {
+    const github = context();
+    github.event_name = event;
+    expect(evaluate(steps[preparation].if, github)).toBe(expected);
+  }
+});

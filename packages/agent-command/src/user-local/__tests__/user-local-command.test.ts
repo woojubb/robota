@@ -1,11 +1,13 @@
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { NodeFileSystemAsync } from '@robota-sdk/agent-framework/node';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { executeUserLocalCommand, executeUserLocalDirectCommand } from '../user-local-command.js';
 import { createUserLocalCommandModule } from '../user-local-command-module.js';
 
 const tempRoots: string[] = [];
+const fsAsync = new NodeFileSystemAsync();
 
 async function createTempRoot(name: string): Promise<string> {
   const root = await fs.mkdtemp(path.join(tmpdir(), name));
@@ -21,9 +23,40 @@ afterEach(async () => {
 });
 
 describe('user-local command', () => {
+  it('answers that it is unavailable when the host supplies no file system', async () => {
+    const workspace = await createTempRoot('agent-test-user-local-no-files-');
+    const storageRoot = path.join(workspace, 'state');
+
+    const direct = await executeUserLocalDirectCommand({
+      cwd: workspace,
+      storageRoot,
+      argv: ['memory', 'set', 'view-preference', 'last-panel', 'background'],
+    });
+    expect(direct).toMatchObject({ success: false });
+    expect(direct.message).toMatch(/unavailable on this host/);
+
+    const slash = createUserLocalCommandModule(storageRoot).systemCommands?.[0];
+    expect(slash).toBeDefined();
+    for (const args of ['storage list', 'memory list', 'memory set view-preference k v']) {
+      const result = await slash!.execute({ getCwd: () => workspace } as never, args);
+      expect(result).toMatchObject({ success: false });
+      expect(result.message).toMatch(/unavailable on this host/);
+    }
+    // Listed, even though it cannot run: the command's own answer is what tells the user why.
+    expect(
+      createUserLocalCommandModule(storageRoot).commandSources?.[0]?.getCommands(),
+    ).toHaveLength(1);
+    // Nothing was written through any other file system.
+    await expect(fs.stat(storageRoot)).rejects.toMatchObject({ code: 'ENOENT' });
+  });
+
   it('does not advertise a specific product from the neutral command entry', async () => {
-    const module = createUserLocalCommandModule(await createTempRoot('agent-test-selected-storage-'));
-    expect(module.commandSources?.[0]?.getCommands()[0]?.description).not.toMatch(/ConversationAgent/i);
+    const module = createUserLocalCommandModule(
+      await createTempRoot('agent-test-selected-storage-'),
+    );
+    expect(module.commandSources?.[0]?.getCommands()[0]?.description).not.toMatch(
+      /ConversationAgent/i,
+    );
   });
 
   it('fails closed when a direct caller omits the storage root', async () => {
@@ -33,6 +66,7 @@ describe('user-local command', () => {
 
     const result = await executeUserLocalDirectCommand({
       cwd: repo,
+      fsAsync,
       argv: ['storage', 'list'],
     } as never);
     expect(result).toMatchObject({ success: false });
@@ -50,11 +84,12 @@ describe('user-local command', () => {
       { getCwd: () => repo } as never,
       'storage list --format=json',
       selectedRoot,
+      fsAsync,
     );
     expect(directResult.success).toBe(true);
     expect(JSON.parse(directResult.message)).toMatchObject({ root: selectedRoot });
 
-    const slashCommand = createUserLocalCommandModule(selectedRoot).systemCommands?.[0];
+    const slashCommand = createUserLocalCommandModule(selectedRoot, fsAsync).systemCommands?.[0];
     expect(slashCommand).toBeDefined();
     const result = await slashCommand!.execute(
       { getCwd: () => repo } as never,
@@ -74,6 +109,7 @@ describe('user-local command', () => {
 
     const result = await executeUserLocalDirectCommand({
       cwd: repo,
+      fsAsync,
       storageRoot: path.join(home, '.fixture-state'),
       argv: ['storage', 'list'],
       format: 'json',
@@ -106,6 +142,7 @@ describe('user-local command', () => {
 
     const setResult = await executeUserLocalDirectCommand({
       cwd: repo,
+      fsAsync,
       storageRoot: path.join(home, '.fixture-state'),
       argv: ['memory', 'set', 'view-preference', 'last-panel', 'background'],
       summary: 'Open the background panel',
@@ -116,6 +153,7 @@ describe('user-local command', () => {
 
     const listResult = await executeUserLocalDirectCommand({
       cwd: repo,
+      fsAsync,
       storageRoot: path.join(home, '.fixture-state'),
       argv: ['memory', 'list'],
       format: 'json',
@@ -133,6 +171,7 @@ describe('user-local command', () => {
 
     const inspectResult = await executeUserLocalDirectCommand({
       cwd: repo,
+      fsAsync,
       storageRoot: path.join(home, '.fixture-state'),
       argv: ['memory', 'inspect', 'view-preference', 'last-panel'],
       format: 'json',
@@ -147,6 +186,7 @@ describe('user-local command', () => {
 
     const disableResult = await executeUserLocalDirectCommand({
       cwd: repo,
+      fsAsync,
       storageRoot: path.join(home, '.fixture-state'),
       argv: ['memory', 'disable', 'view-preference', 'last-panel'],
     });
@@ -154,6 +194,7 @@ describe('user-local command', () => {
 
     const disabledInspectResult = await executeUserLocalDirectCommand({
       cwd: repo,
+      fsAsync,
       storageRoot: path.join(home, '.fixture-state'),
       argv: ['memory', 'inspect', 'view-preference', 'last-panel'],
       format: 'json',
@@ -163,6 +204,7 @@ describe('user-local command', () => {
 
     const deleteResult = await executeUserLocalDirectCommand({
       cwd: repo,
+      fsAsync,
       storageRoot: path.join(home, '.fixture-state'),
       argv: ['memory', 'delete', 'view-preference', 'last-panel'],
     });
@@ -170,6 +212,7 @@ describe('user-local command', () => {
 
     const missingResult = await executeUserLocalDirectCommand({
       cwd: repo,
+      fsAsync,
       storageRoot: path.join(home, '.fixture-state'),
       argv: ['memory', 'inspect', 'view-preference', 'last-panel'],
       format: 'json',

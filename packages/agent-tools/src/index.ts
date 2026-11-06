@@ -1,8 +1,8 @@
 // @robota-sdk/agent-tools
 //
-// Everything on this entry is platform-neutral (ARCHITECTURE.md "Runtime platforms") except the one
-// block at the end. What touches a host — the shell, file, search and web-fetch tools, the OS sandbox
-// and the host reads of a workspace manifest — is on `@robota-sdk/agent-tools/node`.
+// Everything on this entry is platform-neutral (ARCHITECTURE.md "Runtime platforms"). What touches a
+// host — the shell, file, search and web-fetch tools, the OS sandbox and the host reads of a
+// workspace manifest — is on `@robota-sdk/agent-tools/node`.
 
 // Tool result type
 export type { IToolInvocationResult } from './types/tool-result';
@@ -132,21 +132,3 @@ export type {
   ISandboxBuiltinToolOptions,
 } from './builtins/tool-options';
 export type { IEditorFileAccess, IEditorFileOptions } from './builtins/editor-files';
-
-// Node-only, and here only because the published @robota-sdk/workflows 0.0.3, which agent-cli
-// bundles, imports exactly these names from this entry. They leave when the next workflows release
-// moves to `@robota-sdk/agent-tools/node` and is pinned; only then does this entry lose
-// `"browser": null`. Nothing in this repository imports them from here.
-export {
-  GrepIsolationError,
-  ReadByteLimitError,
-  ReadCancelledError,
-  createBashTool,
-  createEditTool,
-  createGlobTool,
-  createGrepTool,
-  createReadTool,
-  createShellTool,
-  createWriteTool,
-  webFetchTool,
-} from './node.js';

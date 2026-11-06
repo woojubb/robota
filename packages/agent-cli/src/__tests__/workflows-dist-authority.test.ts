@@ -8,7 +8,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 /**
  * The CLI mints a workspace authority through `@robota-sdk/agent-framework/node`; the bundled
- * `@robota-sdk/workflows` 0.0.3 (published, not rebuilt here) imports only the framework's main
+ * `@robota-sdk/workflows` (the published release, not rebuilt here) imports only the framework's main
  * entry and calls `assertWorkspaceProjectAuthority`, `getWorkspaceProjectReader`,
  * `getWorkspaceProjectIdentity` and `assertWorkspaceProjectMutationForAuthority` on it. The two
  * entries must therefore be one module instance in the built output, in ESM and in CJS. This runs
@@ -23,7 +23,7 @@ const FIXTURE = join(
   'workflows-dist-authority.mjs',
 );
 const FRAMEWORK_DIST = fileURLToPath(
-  new URL('../../../agent-framework/dist/node/', import.meta.url),
+  new URL('../../../agent-framework/dist/', import.meta.url),
 );
 const built = ['index.js', 'index.cjs', 'node.js', 'node.cjs'].every((name) =>
   existsSync(join(FRAMEWORK_DIST, name)),

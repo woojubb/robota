@@ -5,6 +5,8 @@ The **product-assembly kernel** for the Robota SDK.
 `assembleProduct(profile)` is a **pure, deterministic, IO-free fold** over an `IProductProfile` — the
 composition mechanism a third party imports to build their OWN product on Robota's published runtime.
 Product identity and its runtime settings are supplied by the host; an external repo can define its own profile.
+The package is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun, and has no Node
+adapter, so it has no `./node` subpath.
 
 ## Installation
 

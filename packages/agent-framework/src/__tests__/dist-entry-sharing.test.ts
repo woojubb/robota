@@ -25,7 +25,7 @@ import { afterEach, describe, expect, it } from 'vitest';
  * Build-dependent, like the other tests that load a package's own `dist`: it is skipped where the
  * package was not built, and CI builds first.
  */
-const DIST = fileURLToPath(new URL('../../dist/node/', import.meta.url));
+const DIST = fileURLToPath(new URL('../../dist/', import.meta.url));
 const FORMATS = {
   esm: { main: 'index.js', node: 'node.js' },
   cjs: { main: 'index.cjs', node: 'node.cjs' },

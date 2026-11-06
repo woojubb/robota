@@ -6,7 +6,9 @@
  * - `/doctor` reports through the Node probes and repairs through the Node writers (`doctorDeps`),
  * - `/keybindings` opens its file in the editor through the terminal handoff (`keybindingsEditor`),
  * - `/git` reads a real repository (`gitProcess`), both from the default set and from the coding pack
- *   that supplies it in the product.
+ *   that supplies it in the product,
+ * - `/user-local` and the `user-local` subcommand read and write the user's storage root through the
+ *   Node file system (`userLocalFileSystem`, `fsAsync`).
  */
 import { execFileSync } from 'node:child_process';
 import {
@@ -27,7 +29,9 @@ import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { createProductCapabilityPacks } from '../product/product-profile.js';
+import { userLocalStorageRoot } from '../product/user-paths.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
+import { runUserLocalDirectCommandIfRequested } from '../user-local-direct-command.js';
 import { createTestProductRuntime } from './helpers/product-runtime.js';
 
 import type { ISystemCommand } from '@robota-sdk/agent-framework';
@@ -140,6 +144,43 @@ describe('buildCommandSetup gives the commands their host ports', () => {
       expect(readFileSync(EDITOR_MARKER, 'utf8')).toBe(KEYBINDINGS_FILE);
     },
   );
+
+  it('/user-local writes and lists the user storage through the Node file system', async () => {
+    const userLocal = command('user-local');
+    const host = createTestCommandHost({ overrides: { getCwd: () => REPOSITORY } });
+
+    const stored = await userLocal.execute(
+      host,
+      'memory set view-preference last-panel background --summary Panel --source user-input',
+    );
+    expect(stored).toMatchObject({ success: true });
+    expect(stored.message).not.toMatch(/unavailable on this host/);
+
+    const listed = await userLocal.execute(host, 'memory list --format=json');
+    expect(listed.success).toBe(true);
+    expect(JSON.parse(listed.message).items).toEqual([
+      expect.objectContaining({ category: 'view-preference', key: 'last-panel' }),
+    ]);
+    expect(existsSync(userLocalStorageRoot(runtime))).toBe(true);
+  });
+
+  it('the `user-local` subcommand reads the same storage through the Node file system', async () => {
+    const lines: string[] = [];
+    const terminal = { writeLine: (line: string) => lines.push(line) };
+
+    const ran = await runUserLocalDirectCommandIfRequested(
+      {
+        positional: ['user-local', 'storage', 'list'],
+        format: 'json',
+      } as unknown as IParsedCliArgs,
+      REPOSITORY,
+      terminal as never,
+      runtime,
+    );
+
+    expect(ran).toBe(true);
+    expect(JSON.parse(lines.join('\n'))).toMatchObject({ root: userLocalStorageRoot(runtime) });
+  });
 
   it('/git reads a real repository', async () => {
     const result = await command('git').execute(
