@@ -9,6 +9,8 @@ import { requestWorkspaceRootBroker } from './workspace-root-broker.js';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
 const START_MS = 5_000;
+// Only source CLI startup loads TypeScript in a separate process.
+const SOURCE_START_MS = 15_000;
 
 function brokerDirectory(runtime: ICliRuntimeContext, create = false): string {
   if (process.platform === 'win32') {
@@ -79,7 +81,10 @@ export async function ensureWorkspaceRootBroker(runtime: ICliRuntimeContext): Pr
   let outcome: 'ready' | 'exit';
   try {
     outcome = await new Promise<'ready' | 'exit'>((settle, reject) => {
-      const timer = setTimeout(() => reject(new Error('The workspace broker did not start.')), START_MS);
+      const timer = setTimeout(
+        () => reject(new Error('The workspace broker did not start.')),
+        source ? SOURCE_START_MS : START_MS,
+      );
       const finish = (value: 'ready' | 'exit') => { clearTimeout(timer); settle(value); };
       child.once('message', (message) => finish(message === 'ready' ? 'ready' : 'exit'));
       child.once('exit', () => finish('exit'));

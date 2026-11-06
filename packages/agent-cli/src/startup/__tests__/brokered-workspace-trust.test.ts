@@ -81,7 +81,7 @@ describe.skipIf(process.platform === 'win32')('brokered CLI workspace trust', ()
     expect(() => reader.readText('approved.txt', 'broker test')).toThrow();
     first.close();
     second.close();
-  });
+  }, 40_000);
 });
 
 describe.skipIf(process.platform !== 'win32')('brokered Windows CLI workspace trust', () => {

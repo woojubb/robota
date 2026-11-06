@@ -15,7 +15,7 @@ export async function startTestBroker(endpoint: string, lockDirectory: string, h
   child.stderr?.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
   try {
     await new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error(`Broker startup timed out: ${stderr}`)), 10_000);
+      const timer = setTimeout(() => reject(new Error(`Broker startup timed out: ${stderr}`)), 15_000);
       const finish = (error?: Error) => {
         clearTimeout(timer);
         if (error) reject(error);
