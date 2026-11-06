@@ -334,7 +334,8 @@ export class InteractiveSession
     const host = requireFrameworkHost(options.host, 'InteractiveSession');
     this.frameworkHost = host;
     // The session's own environment snapshot wins; without one the host's environment answers.
-    this.providerEnvironment = ('environment' in options ? options.environment : undefined) ?? host.env;
+    this.providerEnvironment =
+      ('environment' in options ? options.environment : undefined) ?? host.env;
     if ('pluginDirectories' in options && options.pluginDirectories !== undefined) {
       requireSessionPluginFiles(host.files?.sync);
     }
@@ -639,13 +640,15 @@ export class InteractiveSession
         );
 
       if (this.initialized) {
-        this.bgTracker.subscribe(this.session!);
+        this.subscribeBackgroundTasks(this.session!);
         this.resumeSelfPacedLoops();
       }
       if (this.initialized) this.persistCurrentSession();
       this.resumeGoalIfActive();
     } catch (error) {
       this.recordClaim?.end();
+      this.bgTracker.releaseTaskIdReservation();
+      this.clearSessionLoopExpiryTimers();
       throw error;
     }
   }
@@ -672,6 +675,15 @@ export class InteractiveSession
     this.autoCompactThresholdSource = 'session';
     this.initialized = true;
     return true;
+  }
+
+  private subscribeBackgroundTasks(session: Session): void {
+    this.bgTracker.subscribe(session, {
+      canCommit:
+        typeof this.sessionStore?.saveRestoreTransaction === 'function' &&
+        this.recordClaim?.holds(session.getSessionId()) === true,
+      commit: () => this.persistCurrentSession(true, undefined, undefined, true),
+    });
   }
 
   private restoreSessionRecordIfNeeded(options: TInteractiveSessionOptions): void {
@@ -713,12 +725,15 @@ export class InteractiveSession
       skillActivationEvents: restored.skillActivationEvents,
     });
     if (restored.sessionName) this.sessionName = restored.sessionName;
-    this.bgTracker.restoreState({
-      tasks: restored.backgroundTasks,
-      taskEvents: restored.backgroundTaskEvents,
-      groups: restored.backgroundJobGroups,
-      groupEvents: restored.backgroundJobGroupEvents,
-    });
+    this.bgTracker.restoreState(
+      {
+        tasks: restored.backgroundTasks,
+        taskEvents: restored.backgroundTaskEvents,
+        groups: restored.backgroundJobGroups,
+        groupEvents: restored.backgroundJobGroupEvents,
+      },
+      !copy,
+    );
     this.pendingRestoreMessages = restored.pendingRestoreMessages;
     this.pendingRestoreConversation = restored.pendingRestoreConversation;
     // CLI-1994: a fork is a copy, prompt included; the deferred path applies it after assembly.
@@ -854,7 +869,16 @@ export class InteractiveSession
       this.announceWorkspaceMove(options.workspaceMovedFrom, result.agentsFileEntries);
     }
     this.initialized = true;
-    this.bgTracker.subscribe(this.session);
+    try {
+      this.subscribeBackgroundTasks(this.session);
+    } catch (error) {
+      this.initialized = false;
+      this.session = null;
+      this.bgTracker.releaseTaskIdReservation();
+      this.clearSessionLoopExpiryTimers();
+      await result.session.shutdown({ reason: 'other' }).catch(() => undefined);
+      throw error;
+    }
     this.resumeSelfPacedLoops();
     this.persistCurrentSession();
     this.emit('context_update', this.getContextState());
@@ -1300,6 +1324,11 @@ export class InteractiveSession
       );
     });
     return true;
+  }
+
+  private clearSessionLoopExpiryTimers(): void {
+    for (const timer of this.sessionLoopExpiryTimers.values()) clearTimeout(timer);
+    this.sessionLoopExpiryTimers.clear();
   }
 
   private armSessionLoopExpiry(task: IBackgroundTaskState, retryDelayMs?: number): void {
@@ -1759,8 +1788,7 @@ export class InteractiveSession
     if (this.shutdownPromise) return this.shutdownPromise;
     this.execCtrl.shuttingDown = true;
     this.externalEventIngress?.closeAll();
-    for (const timer of this.sessionLoopExpiryTimers.values()) clearTimeout(timer);
-    this.sessionLoopExpiryTimers.clear();
+    this.clearSessionLoopExpiryTimers();
     this.shutdownPromise = (async () => {
       try {
         await this.ensureInitialized();
@@ -1769,10 +1797,12 @@ export class InteractiveSession
         session?.abort();
         const moduleShutdownErrors = await this.skillRouter.shutdownModules();
         await this.runtimeTools.drain();
+        const preservedSchedules =
+          this.sessionStore !== undefined && this.bgTracker.preserveSchedulesForShutdown();
         await this.getBackgroundTaskManager()?.shutdown(options.message ?? 'Session shutdown');
         this.bgTracker.dispose();
         await this.captureSandboxSnapshot();
-        this.persistCurrentSession();
+        this.persistCurrentSession(preservedSchedules);
         // That was the last save of the record, so the claim ends now — a refusal still standing is
         // saved as a copy and said while listeners still hear it.
         this.recordClaim?.end();
@@ -1787,6 +1817,7 @@ export class InteractiveSession
         }
       } finally {
         this.recordClaim?.end();
+        this.bgTracker.releaseTaskIdReservation();
       }
     })();
     return this.shutdownPromise;
@@ -2147,6 +2178,7 @@ export class InteractiveSession
     strict = false,
     acceptedLoopId?: string,
     loopStateOverride?: readonly ISessionLoopState[],
+    restoreTransaction = false,
   ): void {
     if (!this.sessionStore || !this.session) {
       if (strict) throw new Error('A session store is required for a resumable loop.');
@@ -2176,6 +2208,7 @@ export class InteractiveSession
       strict,
       state.sessionLoops,
       this.reportRefusedSave,
+      restoreTransaction,
     );
   }
 

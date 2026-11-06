@@ -34,6 +34,8 @@ export {
   type IBackgroundTaskLogCursor,
   type IBackgroundTaskLogPage,
   type IBackgroundTaskManager,
+  type IBackgroundTaskIdReservation,
+  type IPreparedRestoredSchedules,
   type IBackgroundTaskManagerOptions,
   type TBackgroundTaskRequest,
   type IBackgroundTaskResult,

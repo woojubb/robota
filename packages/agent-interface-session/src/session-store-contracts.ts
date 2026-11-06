@@ -248,8 +248,22 @@ export interface ISessionStoreScan {
 }
 
 /** Persistence port for resumable interactive sessions. */
+export type TSessionRestoreCommitOutcome =
+  { readonly status: 'committed' } | { readonly status: 'unknown'; readonly error: unknown };
+
 export interface IInteractiveSessionStore {
   save(session: IInteractiveSessionRecord, options?: ISessionSaveOptions): void;
+  /**
+   * Optional claimed restore commit: a successful return means the complete candidate was saved.
+   * An unknown outcome means either the prior record or the complete candidate may be present;
+   * neither may be overwritten by an assumed rollback. This operation must be synchronous,
+   * claim-fenced and atomic with respect to the visible record. Stores without this guarantee
+   * must omit it.
+   */
+  saveRestoreTransaction?(
+    session: IInteractiveSessionRecord,
+    options?: ISessionSaveOptions,
+  ): TSessionRestoreCommitOutcome;
   load(id: string, options?: ISessionLoadOptions): TSessionLoadOutcome;
   /**
    * Every session this store can describe. A sealed session whose keys are locked is not an entry

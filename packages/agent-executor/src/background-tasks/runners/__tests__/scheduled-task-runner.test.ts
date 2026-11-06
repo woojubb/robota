@@ -1,3 +1,7 @@
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 import { nextScheduledFireOnOrAfter } from '../scheduled-fire-time.js';
 import { createScheduledTaskRunner } from '../scheduled-task-runner.js';
@@ -78,7 +82,150 @@ function makeScheduledTask(
   };
 }
 
+function restoredWake(events: TBackgroundTaskRunnerEvent[]): IBackgroundTaskStart<'scheduled'> {
+  return {
+    taskId: 'restore_1',
+    request: {
+      kind: 'scheduled',
+      cronExpression: '* * * * * *',
+      agentInstruction: 'wake',
+      label: 'wake',
+      mode: 'background',
+      parentSessionId: 'session_1',
+      depth: 0,
+      cwd: process.cwd(),
+    },
+    emit: (event) => events.push(event),
+  };
+}
+
 describe('createScheduledTaskRunner', () => {
+  it(
+    'runs held shell wakes without overlapping or losing a child process',
+    async () => {
+      const directory = mkdtempSync(join(tmpdir(), 'prepared-schedule-'));
+      const log = join(directory, 'fires.log');
+      let handle: IBackgroundTaskHandle<'scheduled'> | undefined;
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+        const script =
+          "const fs=require('fs');fs.appendFileSync(process.env.LOG,'start\\n');setTimeout(()=>fs.appendFileSync(process.env.LOG,'end\\n'),150)";
+        const task = makeScheduledTask('* * * * * *', nodeCommand(script));
+        task.request.env = { ...task.request.env, LOG: log };
+        const prepared = createScheduledTaskRunner().prepareRestore!(task, { paused: false });
+        handle = prepared.handle;
+        await vi.advanceTimersByTimeAsync(3000);
+        vi.useRealTimers();
+        prepared.activate();
+        const deadline = Date.now() + 8000;
+        let lines: string[] = [];
+        while (Date.now() < deadline) {
+          await new Promise((resolve) => setTimeout(resolve, 25));
+          try {
+            lines = readFileSync(log, 'utf8').trim().split('\n');
+          } catch {
+            /* Child has not written yet. */
+          }
+          if (lines.length >= 6) break;
+        }
+        expect(lines).toEqual(['start', 'end', 'start', 'end', 'start', 'end']);
+      } finally {
+        vi.useRealTimers();
+        await handle?.cancel();
+        rmSync(directory, { recursive: true, force: true });
+      }
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it('holds every wake until a prepared restore is activated, then delivers it asynchronously', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const events: TBackgroundTaskRunnerEvent[] = [];
+      const runner = createScheduledTaskRunner();
+      const prepared = runner.prepareRestore!(restoredWake(events), { paused: false });
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(events).toEqual([]);
+      prepared.activate();
+      expect(events).toEqual([]);
+      for (let index = 0; index < 3; index += 1) await Promise.resolve();
+      expect(events.filter((event) => event.type === 'background_task_waking')).toHaveLength(3);
+      await prepared.handle.cancel();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('retains held wakes while paused and delivers them after resume', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const events: TBackgroundTaskRunnerEvent[] = [];
+      const task = restoredWake(events);
+      let handle: IBackgroundTaskHandle<'scheduled'> | undefined;
+      task.emit = (event) => {
+        events.push(event);
+        if (
+          event.type === 'background_task_waking' &&
+          events.filter((item) => item.type === 'background_task_waking').length === 1
+        ) {
+          void handle?.pause?.();
+        }
+      };
+      const prepared = createScheduledTaskRunner().prepareRestore!(task, { paused: false });
+      handle = prepared.handle;
+      await vi.advanceTimersByTimeAsync(3000);
+      prepared.activate();
+      for (let index = 0; index < 4; index += 1) await Promise.resolve();
+      expect(events.filter((event) => event.type === 'background_task_waking')).toHaveLength(1);
+      await handle.resume?.();
+      for (let index = 0; index < 4; index += 1) await Promise.resolve();
+      expect(events.filter((event) => event.type === 'background_task_waking')).toHaveLength(3);
+      await handle.cancel();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('keeps a restored paused schedule paused before and after activation', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const events: TBackgroundTaskRunnerEvent[] = [];
+      const prepared = createScheduledTaskRunner().prepareRestore!(restoredWake(events), {
+        paused: true,
+      });
+      await vi.advanceTimersByTimeAsync(3000);
+      prepared.activate();
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(events).toEqual([]);
+      await prepared.handle.cancel();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not deliver held or later wakes after an aborted restore', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const events: TBackgroundTaskRunnerEvent[] = [];
+      const prepared = createScheduledTaskRunner().prepareRestore!(restoredWake(events), {
+        paused: false,
+      });
+      await vi.advanceTimersByTimeAsync(3000);
+      prepared.abort();
+      prepared.activate();
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(events).toEqual([]);
+      await expect(prepared.handle.result).resolves.toMatchObject({ taskId: 'restore_1' });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('has kind "scheduled"', () => {
     const runner = createScheduledTaskRunner();
     expect(runner.kind).toBe('scheduled');

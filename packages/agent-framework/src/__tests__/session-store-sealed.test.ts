@@ -22,7 +22,7 @@ import { join } from 'node:path';
 
 import { createTestArtifactSealer, openTestWriteGrant } from '@robota-sdk/agent-core/testing';
 import { SealedSessionUnreadableError, loadSessionForUpdate } from '@robota-sdk/agent-session';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { WorkspaceSessionLogSink } from '../interactive/workspace-session-io.js';
 import { createProjectSessionStore } from '../interactive/node-session-stores.js';
@@ -102,6 +102,38 @@ async function storeWith(sealer: TSealer | undefined) {
 }
 
 describe.runIf(linux)('the project store with a sealer', () => {
+  it.each(['before', 'after'] as const)(
+    'reports unknown restore commit when project replacement fails %s writing',
+    async (failure) => {
+      const { sessions, logs } = await storage();
+      const store = createProjectSessionStore(sessions, logs, {
+        sealing: { sealer: createTestArtifactSealer() },
+      });
+      store.save(record('sess_a', 'first'), { provenance: 'owner' });
+      const claim = store.claim('sess_a');
+      const original = sessions.replaceBytes.bind(sessions);
+      const prototype = Object.getPrototypeOf(sessions) as typeof sessions;
+      const replacement = vi
+        .spyOn(prototype, 'replaceBytes')
+        .mockImplementation((name, bytes, purpose) => {
+          if (failure === 'after') original(name, bytes, purpose);
+          throw new Error('injected replacement failure');
+        });
+      try {
+        expect(store.saveRestoreTransaction?.(record('sess_a', 'second'), { claim })).toMatchObject(
+          { status: 'unknown' },
+        );
+        expect(store.load('sess_a')).toMatchObject({
+          status: 'valid',
+          record: record('sess_a', failure === 'before' ? 'first' : 'second'),
+        });
+      } finally {
+        replacement.mockRestore();
+        claim.release();
+      }
+    },
+  );
+
   it('writes a framed, opaque, owner-only file and reads the record back', async () => {
     const store = await storeWith(createTestArtifactSealer());
     store.save(record('sess_a'));

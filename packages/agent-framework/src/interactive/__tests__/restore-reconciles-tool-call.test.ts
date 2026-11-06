@@ -4,11 +4,15 @@
  * `interactive-session-background-tasks.test.ts`'s "marks restored running background tasks as stale".
  */
 
+import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
 import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createSessionStub as createSharedSessionStub } from './helpers/session-stub.js';
+import { storeAgentToolDeps } from '../../tools/agent-tool.js';
 import { InteractiveSession } from '../interactive-session.js';
+
+import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 const testHost = createTestFrameworkHost();
@@ -33,6 +37,9 @@ function createSessionStoreStub() {
 describe('MCP-004 TC-08: restore reconciliation for a tool-invocation task', () => {
   it('marks a restored running tool-invocation task as stale — failed, stale_worker, one synthetic event', () => {
     const sessionStub = createSharedSessionStub({ getSessionId: () => 'session_parent' });
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: new BackgroundTaskManager({ runners: [] }),
+    } as unknown as IAgentToolDeps);
     const sessionStore = createSessionStoreStub();
     sessionStore.save({
       id: 'session_stale_tool_call',

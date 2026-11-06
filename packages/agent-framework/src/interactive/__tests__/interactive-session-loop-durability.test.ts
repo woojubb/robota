@@ -119,7 +119,9 @@ describe('session-loop creation durability', () => {
         fallbackUsed: true,
       }),
     );
-    expect(context.manager.list().filter((task) => task.metadata?.['sessionLoopSelfPaced'])).toHaveLength(1);
+    expect(
+      context.manager.list().filter((task) => task.metadata?.['sessionLoopSelfPaced']),
+    ).toHaveLength(1);
   });
 
   it('keeps two pending loops separate and stopping one does not remove the other', async () => {
@@ -131,43 +133,49 @@ describe('session-loop creation durability', () => {
       await vi.waitFor(() => expect(held.controller.pendingCount()).toBe(2));
       await interactive.stopSelfPacedLoop(first.loopId);
       expect(held.controller.pendingCount()).toBe(1);
-      expect(interactive.listSelfPacedLoops().find((loop) => loop.loopId === second.loopId)?.phase)
-        .toBe('pending');
+      expect(
+        interactive.listSelfPacedLoops().find((loop) => loop.loopId === second.loopId)?.phase,
+      ).toBe('pending');
     } finally {
       held.controller.clearPendingQueue();
       held.release();
     }
   });
 
-  it('reads a pending self-paced loop\'s own detail page instead of throwing "Unknown background '
-    + 'task" (#3288 §1)', async () => {
-    const { interactive } = setup(() => undefined);
-    const held = holdForeground(interactive);
-    try {
-      const created = await interactive.createSelfPacedLoop('check the build');
-      const entry = interactive
-        .listExecutionWorkspaceEntries()
-        .find((candidate) => candidate.sourceId === created.loopId);
-      expect(entry).toBeDefined();
-      // The real dispatcher (`readWorkspaceDetail`, wired through `InteractiveSession`), not a
-      // component-level mock of the detail read: a `pending` self-paced loop has no
-      // `IBackgroundTaskState` of its own, so this used to throw "Unknown background task".
-      const detail = await interactive.readExecutionWorkspaceDetail(entry!.id);
-      expect(detail.entryId).toBe(entry!.id);
-      expect(detail.records.map((record) => record.text)).toEqual([
-        'check the build',
-        'Phase: pending',
-        'Iteration 0',
-      ]);
-    } finally {
-      held.controller.clearPendingQueue();
-      held.release();
-    }
-  });
+  it(
+    'reads a pending self-paced loop\'s own detail page instead of throwing "Unknown background ' +
+      'task" (#3288 §1)',
+    async () => {
+      const { interactive } = setup(() => undefined);
+      const held = holdForeground(interactive);
+      try {
+        const created = await interactive.createSelfPacedLoop('check the build');
+        const entry = interactive
+          .listExecutionWorkspaceEntries()
+          .find((candidate) => candidate.sourceId === created.loopId);
+        expect(entry).toBeDefined();
+        // The real dispatcher (`readWorkspaceDetail`, wired through `InteractiveSession`), not a
+        // component-level mock of the detail read: a `pending` self-paced loop has no
+        // `IBackgroundTaskState` of its own, so this used to throw "Unknown background task".
+        const detail = await interactive.readExecutionWorkspaceDetail(entry!.id);
+        expect(detail.entryId).toBe(entry!.id);
+        expect(detail.records.map((record) => record.text)).toEqual([
+          'check the build',
+          'Phase: pending',
+          'Iteration 0',
+        ]);
+      } finally {
+        held.controller.clearPendingQueue();
+        held.release();
+      }
+    },
+  );
 
   it('does not arm a successor when a running loop is stopped', async () => {
     let release!: () => void;
-    const held = new Promise<void>((resolve) => { release = resolve; });
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     const run = vi.fn().mockImplementation(() => held.then(() => 'done'));
     const { interactive, manager } = setup(() => undefined, undefined, false, run);
     const created = await interactive.createSelfPacedLoop('check');
@@ -175,14 +183,18 @@ describe('session-loop creation durability', () => {
     await interactive.stopSelfPacedLoop(created.loopId);
     release();
     await vi.waitFor(() => expect(interactive.listSelfPacedLoops()[0]?.phase).toBe('stopped'));
-    expect(manager.list().filter((task) => task.metadata?.['sessionLoopSelfPaced'])).toHaveLength(0);
+    expect(manager.list().filter((task) => task.metadata?.['sessionLoopSelfPaced'])).toHaveLength(
+      0,
+    );
   });
 
   it('does not announce another check when stopped during timer spawn', async () => {
     const { interactive, manager } = setup(() => undefined);
     const spawn = manager.spawn.bind(manager);
     let releaseSpawn!: () => void;
-    const heldSpawn = new Promise<void>((resolve) => { releaseSpawn = resolve; });
+    const heldSpawn = new Promise<void>((resolve) => {
+      releaseSpawn = resolve;
+    });
     const spawning = vi.spyOn(manager, 'spawn').mockImplementation(async (...args) => {
       await heldSpawn;
       return spawn(...args);
@@ -191,14 +203,18 @@ describe('session-loop creation durability', () => {
     await vi.waitFor(() => expect(spawning).toHaveBeenCalledOnce());
     await interactive.stopSelfPacedLoop(created.loopId);
     releaseSpawn();
-    await vi.waitFor(() => expect(JSON.stringify(interactive.getFullHistory())).toContain('Loop stopped by user'));
+    await vi.waitFor(() =>
+      expect(JSON.stringify(interactive.getFullHistory())).toContain('Loop stopped by user'),
+    );
     expect(JSON.stringify(interactive.getFullHistory())).not.toContain('next check in');
   });
 
   it('treats cancellation of its one-shot timer as a durable loop stop', async () => {
     const { interactive, manager } = setup(() => undefined);
     await interactive.createSelfPacedLoop('check');
-    await vi.waitFor(() => expect(manager.list().some((task) => task.metadata?.['sessionLoopSelfPaced'])).toBe(true));
+    await vi.waitFor(() =>
+      expect(manager.list().some((task) => task.metadata?.['sessionLoopSelfPaced'])).toBe(true),
+    );
     const timer = manager.list().find((task) => task.metadata?.['sessionLoopSelfPaced'])!;
     await interactive.cancelBackgroundTask(timer.id, 'Cancelled in the task panel');
     expect(interactive.listSelfPacedLoops()[0]?.phase).toBe('stopped');
@@ -208,27 +224,43 @@ describe('session-loop creation durability', () => {
     const { interactive, store, manager } = setup(() => undefined);
     await interactive.createSelfPacedLoop('check');
     await vi.waitFor(() => expect(interactive.listSelfPacedLoops()[0]?.phase).toBe('waiting'));
-    const oldTimerCount = manager.list().filter((task) => task.metadata?.['sessionLoopSelfPaced']).length;
+    const oldTimerCount = manager
+      .list()
+      .filter((task) => task.metadata?.['sessionLoopSelfPaced']).length;
+    const resumedManager = new BackgroundTaskManager({ runners: [] });
+    const resumedSession = createSessionStub({ getSessionId: () => 'loop_durable' } as never);
+    storeAgentToolDeps(resumedSession, {
+      backgroundTaskManager: resumedManager,
+    } as unknown as IAgentToolDeps);
     const resumed = new InteractiveSession({
       host: testHost,
-      session: interactive.getSession(),
+      session: resumedSession,
       sessionStore: store as never,
       resumeSessionId: 'loop_durable',
       cwd: '/workspace',
       disableSessionLoops: true,
     });
     expect(resumed.listSelfPacedLoops()[0]?.phase).toBe('waiting');
-    expect(manager.list().filter((task) => task.metadata?.['sessionLoopSelfPaced'])).toHaveLength(oldTimerCount);
+    expect(manager.list().filter((task) => task.metadata?.['sessionLoopSelfPaced'])).toHaveLength(
+      oldTimerCount,
+    );
+    expect(resumedManager.list()).toHaveLength(0);
   });
 
   it('stops visibly when the next one-shot timer cannot acquire a scheduler slot', async () => {
     const { interactive, manager } = setup(() => undefined, 0);
     await interactive.createSelfPacedLoop('check');
-    await vi.waitFor(() => expect(interactive.listSelfPacedLoops()[0]).toMatchObject({
-      phase: 'stopped', terminalReason: 'Could not arm the next timer',
-    }));
-    expect(manager.list().filter((task) => task.metadata?.['sessionLoopSelfPaced'] && task.status === 'sleeping'))
-      .toHaveLength(0);
+    await vi.waitFor(() =>
+      expect(interactive.listSelfPacedLoops()[0]).toMatchObject({
+        phase: 'stopped',
+        terminalReason: 'Could not arm the next timer',
+      }),
+    );
+    expect(
+      manager
+        .list()
+        .filter((task) => task.metadata?.['sessionLoopSelfPaced'] && task.status === 'sleeping'),
+    ).toHaveLength(0);
   });
 
   it('never emits completion when the final durable loop transition fails', async () => {
@@ -249,13 +281,21 @@ describe('session-loop creation durability', () => {
     const now = Date.now();
     records.set('loop_durable', {
       ...records.get('loop_durable')!,
-      sessionLoops: [{
-        loopId: 'loop_restored', instruction: 'check', phase: 'waiting',
-        createdAt: new Date(now).toISOString(),
-        expiresAt: new Date(now + 7 * 24 * 60 * 60_000).toISOString(),
-        nextAllowedAt: new Date(now + 60_000).toISOString(),
-        revision: 1, generation: 1, delaySeconds: 60, reason: 'check later', fallbackUsed: false,
-      }] as never,
+      sessionLoops: [
+        {
+          loopId: 'loop_restored',
+          instruction: 'check',
+          phase: 'waiting',
+          createdAt: new Date(now).toISOString(),
+          expiresAt: new Date(now + 7 * 24 * 60 * 60_000).toISOString(),
+          nextAllowedAt: new Date(now + 60_000).toISOString(),
+          revision: 1,
+          generation: 1,
+          delaySeconds: 60,
+          reason: 'check later',
+          fallbackUsed: false,
+        },
+      ] as never,
     });
     const resumed = new InteractiveSession({
       host: testHost,
@@ -264,9 +304,12 @@ describe('session-loop creation durability', () => {
       resumeSessionId: 'loop_durable',
       cwd: '/workspace',
     });
-    await vi.waitFor(() => expect(resumed.listSelfPacedLoops()[0]).toMatchObject({
-      phase: 'stopped', terminalReason: 'Could not restore timer',
-    }));
+    await vi.waitFor(() =>
+      expect(resumed.listSelfPacedLoops()[0]).toMatchObject({
+        phase: 'stopped',
+        terminalReason: 'Could not restore timer',
+      }),
+    );
   });
 
   it('settles a loop whose wake cannot enter the full queue without disturbing other entries', async () => {
@@ -284,8 +327,9 @@ describe('session-loop creation durability', () => {
       }
       const created = await interactive.createSelfPacedLoop('check');
       await vi.waitFor(() =>
-        expect(interactive.listSelfPacedLoops().find((loop) => loop.loopId === created.loopId))
-          .toMatchObject({ phase: 'stopped', terminalReason: 'Self-paced loop turn was dropped' }),
+        expect(
+          interactive.listSelfPacedLoops().find((loop) => loop.loopId === created.loopId),
+        ).toMatchObject({ phase: 'stopped', terminalReason: 'Self-paced loop turn was dropped' }),
       );
       expect(held.controller.pendingCount()).toBe(32);
     } finally {
@@ -317,7 +361,8 @@ describe('session-loop creation durability', () => {
     const { interactive, manager } = setup((record) => {
       if (record.sessionLoops?.length) throw new Error('disk full');
     });
-    const controller = (interactive as unknown as { execCtrl: SessionExecutionController }).execCtrl;
+    const controller = (interactive as unknown as { execCtrl: SessionExecutionController })
+      .execCtrl;
     await expect(interactive.createSelfPacedLoop('check the build')).rejects.toThrow('disk full');
     expect(controller.pendingCount()).toBe(0);
     expect(manager.list()).toHaveLength(0);

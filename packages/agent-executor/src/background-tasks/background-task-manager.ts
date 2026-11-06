@@ -33,11 +33,15 @@ import {
   type IBackgroundTaskLogCursor,
   type IBackgroundTaskLogPage,
   type IBackgroundTaskManager,
+  type IBackgroundTaskIdReservation,
+  type IPreparedBackgroundTaskHandle,
+  type IPreparedRestoredSchedules,
   type IBackgroundTaskManagerOptions,
   type TBackgroundTaskRequest,
   type IBackgroundTaskResult,
   type IBackgroundTaskRunner,
   type IBackgroundTaskState,
+  type IScheduledBackgroundTaskRequest,
   type IScheduleEditPatch,
   type TBackgroundTaskIdFactory,
   type TBackgroundTaskEvent,
@@ -63,6 +67,11 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   private readonly eventSink?: TBackgroundTaskEventListener;
   private readonly onObserverFailure: TObserverFailureReporter<TBackgroundTaskEvent>;
   private readonly tasks = new Map<string, ITrackedBackgroundTask>();
+  private readonly reservedTaskIds = new Map<string, symbol>();
+  private readonly reservationOwners = new WeakMap<IBackgroundTaskIdReservation, symbol>();
+  private readonly preparedRestores = new Set<IPreparedRestoredSchedules>();
+  private preparingRestore = false;
+  private readonly allocatedTaskIds = new Set<string>();
   private readonly queue: string[] = [];
   /**
    * CORE-024: task ids currently holding a concurrency slot. Keyed by id (not a count) so
@@ -95,12 +104,222 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
       });
   }
 
+  reserveTaskIds(taskIds: readonly string[]): IBackgroundTaskIdReservation {
+    this.assertNoRestoreInProgress();
+    const unique = new Set(taskIds);
+    if (unique.size !== taskIds.length)
+      throw new BackgroundTaskError('validation', 'Duplicate restored background task IDs.');
+    if (taskIds.some((id) => this.allocatedTaskIds.has(id) || this.reservedTaskIds.has(id)))
+      throw new BackgroundTaskError(
+        'validation',
+        'A restored background task ID is already in use.',
+      );
+    const owner = Symbol('background-task-reservation');
+    const ownedIds = [...taskIds];
+    for (const id of ownedIds) this.reservedTaskIds.set(id, owner);
+    const reservation: IBackgroundTaskIdReservation = {
+      release: () => {
+        for (const id of ownedIds) {
+          if (this.reservedTaskIds.get(id) === owner) this.reservedTaskIds.delete(id);
+        }
+        this.reservationOwners.delete(reservation);
+      },
+    };
+    this.reservationOwners.set(reservation, owner);
+    return reservation;
+  }
+
+  prepareRestoredSchedules(
+    states: readonly IBackgroundTaskState<'scheduled'>[],
+    reservation: IBackgroundTaskIdReservation,
+  ): IPreparedRestoredSchedules {
+    this.assertNoRestoreInProgress();
+    if (this.shuttingDown)
+      throw new BackgroundTaskError('validation', 'Background task manager is shutting down');
+    const owner = this.reservationOwners.get(reservation);
+    const runner = this.runners.get('scheduled');
+    if (!owner || !runner || runner.kind !== 'scheduled' || !runner.prepareRestore) {
+      throw new BackgroundTaskError(
+        'validation',
+        'A reservation and a prepared schedule runner are required.',
+      );
+    }
+    const ids = new Set(states.map((state) => state.id));
+    if (
+      ids.size !== states.length ||
+      states.some(
+        (state) =>
+          state.kind !== 'scheduled' ||
+          this.reservedTaskIds.get(state.id) !== owner ||
+          this.tasks.has(state.id) ||
+          (state.status !== 'sleeping' && state.status !== 'paused') ||
+          !state.schedule,
+      )
+    ) {
+      throw new BackgroundTaskError('validation', 'Invalid or unowned restored schedules.');
+    }
+    const prepared: Array<{
+      task: ITrackedBackgroundTask;
+      handle: IPreparedBackgroundTaskHandle<'scheduled'>;
+    }> = [];
+    let phase: 'prepared' | 'active' | 'aborted' = 'prepared';
+    const abortPrepared = (): void => {
+      if (phase === 'aborted') return;
+      phase = 'aborted';
+      for (const entry of prepared) {
+        try {
+          entry.handle.abort();
+        } catch {
+          /* The runner gate stays closed even if cleanup fails. */
+        }
+      }
+    };
+    this.preparingRestore = true;
+    try {
+      for (const state of states) {
+        const schedule = state.schedule;
+        if (!schedule)
+          throw new BackgroundTaskError('validation', 'A restored schedule is missing.');
+        const request: IScheduledBackgroundTaskRequest = {
+          kind: 'scheduled',
+          cronExpression: schedule.cronExpression,
+          label: state.label,
+          mode: state.mode,
+          parentSessionId: state.parentSessionId,
+          depth: state.depth,
+          cwd: state.cwd,
+          ...(state.metadata !== undefined ? { metadata: { ...state.metadata } } : {}),
+          ...(schedule.agentInstruction !== undefined
+            ? { agentInstruction: schedule.agentInstruction }
+            : {}),
+          ...(schedule.command !== undefined ? { command: schedule.command } : {}),
+          ...(schedule.shell !== undefined ? { shell: schedule.shell } : {}),
+          ...(schedule.env !== undefined ? { env: { ...schedule.env } } : {}),
+        };
+        validateBackgroundTaskRequest(request, this.runners, this.maxDepth);
+        const deferred = createDeferred();
+        void deferred.promise.catch(() => undefined);
+        const task: ITrackedBackgroundTask = {
+          state: cloneBackgroundTaskState(state),
+          request,
+          completion: deferred.promise,
+          resolve: deferred.resolve,
+          reject: deferred.reject,
+          recentText: '',
+          outputBytes: 0,
+          textDeltas: 0,
+          repeatedDeltaCount: 0,
+        };
+        const handle = runner.prepareRestore(
+          {
+            taskId: state.id,
+            request,
+            emit: (event) => {
+              if (phase === 'active') this.handleRunnerEvent(task, event);
+            },
+          },
+          { paused: state.status === 'paused' },
+        );
+        prepared.push({ task, handle });
+        if (this.shuttingDown)
+          throw new BackgroundTaskError('validation', 'Background task manager is shutting down');
+        if (this.reservationOwners.get(reservation) !== owner) {
+          throw new BackgroundTaskError(
+            'validation',
+            'The restored task reservation was released.',
+          );
+        }
+        if (handle.handle.taskId !== state.id) {
+          throw new BackgroundTaskError(
+            'validation',
+            'Prepared task identity does not match the restored record.',
+          );
+        }
+        void handle.handle.result.catch(() => undefined);
+      }
+    } catch (error) {
+      abortPrepared();
+      throw error;
+    } finally {
+      this.preparingRestore = false;
+    }
+    const batch: IPreparedRestoredSchedules = {
+      activate: () => {
+        if (phase === 'active') return 'active';
+        if (
+          phase === 'aborted' ||
+          this.shuttingDown ||
+          this.reservationOwners.get(reservation) !== owner
+        ) {
+          abortPrepared();
+          this.preparedRestores.delete(batch);
+          return 'aborted';
+        }
+        for (const { task, handle } of prepared) {
+          task.handle = handle.handle;
+          this.tasks.set(task.state.id, task);
+          this.allocatedTaskIds.add(task.state.id);
+        }
+        try {
+          for (const { handle } of prepared) handle.activate();
+        } catch {
+          abortPrepared();
+          for (const { task } of prepared) this.tasks.delete(task.state.id);
+          this.preparedRestores.delete(batch);
+          return 'aborted';
+        }
+        phase = 'active';
+        for (const { task, handle } of prepared) {
+          void handle.handle.result.then(
+            (result) => {
+              if (phase === 'active') this.completeTask(task, result);
+            },
+            (error: unknown) => {
+              if (phase === 'active')
+                this.failTask(task, error instanceof Error ? error : String(error));
+            },
+          );
+        }
+        this.preparedRestores.delete(batch);
+        return 'active';
+      },
+      abort: () => {
+        if (phase === 'aborted') return;
+        abortPrepared();
+        for (const { task } of prepared) {
+          if (this.tasks.get(task.state.id) === task) this.tasks.delete(task.state.id);
+        }
+        this.preparedRestores.delete(batch);
+      },
+    };
+    this.preparedRestores.add(batch);
+    return batch;
+  }
+
   async spawn(request: TBackgroundTaskRequest): Promise<IBackgroundTaskState> {
+    this.assertNoRestoreInProgress();
     if (this.shuttingDown) {
       throw new BackgroundTaskError('validation', 'Background task manager is shutting down');
     }
     validateBackgroundTaskRequest(request, this.runners, this.maxDepth);
-    const id = this.idFactory(request);
+    let id: string | undefined;
+    for (
+      let attempt = 0;
+      attempt <= this.reservedTaskIds.size + this.allocatedTaskIds.size;
+      attempt += 1
+    ) {
+      const candidate = this.idFactory(request);
+      if (!this.reservedTaskIds.has(candidate) && !this.allocatedTaskIds.has(candidate)) {
+        id = candidate;
+        break;
+      }
+    }
+    if (id === undefined)
+      throw new BackgroundTaskError(
+        'validation',
+        'Could not allocate a unique background task ID.',
+      );
+    this.allocatedTaskIds.add(id);
     const deferred = createDeferred();
     void deferred.promise.catch(() => undefined);
     // MCP-004 §S1: a runner may declare `admission: 'already-running'` — its work already runs
@@ -167,6 +386,11 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   }
 
   async cancel(taskId: string, reason?: string): Promise<void> {
+    this.assertNoRestoreInProgress();
+    await this.cancelOwnedTask(taskId, reason);
+  }
+
+  private async cancelOwnedTask(taskId: string, reason?: string): Promise<void> {
     const task = this.requireTask(taskId);
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
 
@@ -182,6 +406,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   }
 
   async close(taskId: string): Promise<void> {
+    this.assertNoRestoreInProgress();
     const task = this.requireTask(taskId);
     if (!isTerminalBackgroundTaskStatus(task.state.status)) {
       throw createRunnerError(`Cannot close active background task: ${taskId}`);
@@ -193,6 +418,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   // SELFHOST-012: non-destructive pause of a scheduled task — croner `.pause()`, not the irreversible `.stop()`
   // that `cancel` uses. A paused schedule holds no concurrency slot (like `sleeping`).
   async pauseScheduledTask(taskId: string): Promise<void> {
+    this.assertNoRestoreInProgress();
     const task = this.requireScheduledTask(taskId);
     if (task.state.status === 'paused') return; // idempotent
     const handle = task.handle;
@@ -207,6 +433,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   }
 
   async resumeScheduledTask(taskId: string): Promise<void> {
+    this.assertNoRestoreInProgress();
     const task = this.requireScheduledTask(taskId);
     if (task.state.status !== 'paused') return; // only a paused schedule resumes; otherwise no-op
     const handle = task.handle;
@@ -220,6 +447,7 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
   }
 
   async editScheduledTask(taskId: string, patch: IScheduleEditPatch): Promise<void> {
+    this.assertNoRestoreInProgress();
     const task = this.requireScheduledTask(taskId);
     const handle = task.handle;
     if (!handle?.editSchedule) {
@@ -257,18 +485,26 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     return task;
   }
 
+  private assertNoRestoreInProgress(): void {
+    if (this.preparingRestore || this.preparedRestores.size > 0) {
+      throw new BackgroundTaskError('validation', 'A background task restore is in progress.');
+    }
+  }
+
   shutdown(reason = 'Background task manager shutdown'): Promise<void> {
     if (this.shutdownPromise) return this.shutdownPromise;
     this.shuttingDown = true;
+    for (const prepared of this.preparedRestores) prepared.abort();
     this.shutdownPromise = Promise.all(
       [...this.tasks.values()]
         .filter((task) => !isTerminalBackgroundTaskStatus(task.state.status))
-        .map((task) => this.cancel(task.state.id, reason)),
+        .map((task) => this.cancelOwnedTask(task.state.id, reason)),
     ).then(() => undefined);
     return this.shutdownPromise;
   }
 
   async send(taskId: string, input: IBackgroundTaskInput): Promise<void> {
+    this.assertNoRestoreInProgress();
     const task = this.requireTask(taskId);
     if (!task.handle?.send) {
       throw createRunnerError(`Background task runner does not support input: ${taskId}`);

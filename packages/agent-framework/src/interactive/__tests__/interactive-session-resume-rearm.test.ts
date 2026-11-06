@@ -55,6 +55,45 @@ function createFakeScheduledRunner(): IFakeScheduled {
   const started: string[] = [];
   const runner: IBackgroundTaskRunner<'scheduled'> = {
     kind: 'scheduled',
+    prepareRestore(task, options) {
+      let aborted = false;
+      let active = false;
+      let paused = options.paused;
+      const emit = task.emit ?? (() => undefined);
+      const handle: IBackgroundTaskHandle<'scheduled'> = {
+        taskId: task.taskId,
+        result: new Promise<never>(() => {}),
+        cancel: () => {
+          aborted = true;
+          return Promise.resolve();
+        },
+        pause: () => {
+          paused = true;
+          return Promise.resolve();
+        },
+        resume: () => {
+          paused = false;
+          emit({ type: 'background_task_sleeping', nextFireAt: '2999-01-01T00:00:00.000Z' });
+          return Promise.resolve();
+        },
+        editSchedule: () => Promise.resolve(),
+      };
+      return {
+        handle,
+        activate: () => {
+          if (aborted || active) return;
+          active = true;
+          started.push(task.taskId);
+          void Promise.resolve().then(() => {
+            if (!aborted && !paused)
+              emit({ type: 'background_task_sleeping', nextFireAt: '2999-01-01T00:00:00.000Z' });
+          });
+        },
+        abort: () => {
+          aborted = true;
+        },
+      };
+    },
     start(task: IBackgroundTaskStart<'scheduled'>): IBackgroundTaskHandle<'scheduled'> {
       started.push(task.taskId);
       const emit = task.emit ?? (() => undefined);
@@ -153,12 +192,17 @@ function sleepingScheduledRecord(nextFireAt: string): Record<string, unknown> {
 
 function createStore(record: Record<string, unknown>) {
   const map = new Map<string, unknown>([['session_resumed', record]]);
+  const save = vi.fn((r: { id: string }) => map.set(r.id, r));
   return withHoldReadClaim({
     load: vi.fn((id: string) => {
       const record = map.get(id);
       return record === undefined ? { status: 'missing' } : { status: 'valid', record };
     }),
-    save: vi.fn((r: { id: string }) => map.set(r.id, r)),
+    save,
+    saveRestoreTransaction: vi.fn((r: { id: string }) => {
+      save(r);
+      return { status: 'committed' as const };
+    }),
     list: vi.fn(() =>
       [...map.entries()].map(([id, record]) => ({ id, outcome: { status: 'valid', record } })),
     ),
@@ -290,7 +334,7 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
     }
   });
 
-  it('retains a loop identity marker when a restored schedule receives a new runtime id', () => {
+  it('retains a loop identity marker and task id when a schedule is restored', () => {
     const record = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
     const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
     const firstAllowedAt = new Date(Date.now() + 60_000).toISOString();
@@ -302,7 +346,7 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
     };
     const { manager, session } = setupWithRecord(record);
     const rearmed = manager.list().find((task) => task.kind === 'scheduled');
-    expect(rearmed?.id).not.toBe('sched_old');
+    expect(rearmed?.id).toBe('sched_old');
     expect(rearmed?.metadata?.['sessionLoop']).toBe(true);
     expect(rearmed?.metadata?.['sessionLoopId']).toBe('loop_stable');
     expect(rearmed?.metadata?.['sessionLoopFirstAllowedAt']).toBe(firstAllowedAt);
@@ -475,4 +519,436 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
     expect(scheduled.some((t) => t.status === 'paused')).toBe(true);
     expect(scheduled.some((t) => t.status === 'failed')).toBe(false);
   });
+});
+
+describe('restored task reservation capability', () => {
+  it('refuses a manager that emits during subscription before writing any record', () => {
+    const { runner } = createFakeScheduledRunner();
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    const subscribe = manager.subscribe.bind(manager);
+    Object.defineProperty(manager, 'subscribe', {
+      value: (listener: Parameters<typeof subscribe>[0]) => {
+        listener({ type: 'background_task_waking', taskId: 'foreign', instruction: 'wake' });
+        return subscribe(listener);
+      },
+    });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const saved = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+    const store = createStore(saved);
+    expect(
+      () =>
+        new InteractiveSession({
+          host: testHost,
+          cwd: process.cwd(),
+          session: sessionStub,
+          sessionStore: store as never,
+          resumeSessionId: 'session_resumed',
+        }),
+    ).toThrow(/event.*restore/i);
+    expect(store.save).not.toHaveBeenCalled();
+    expect(store.load('session_resumed')).toMatchObject({ status: 'valid', record: saved });
+    expect(store.hasWriter('session_resumed')).toBe(false);
+  });
+
+  it('refuses a restored session when the manager already owns an unrelated task', async () => {
+    const { runner } = createFakeScheduledRunner();
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    const other = await manager.spawn({
+      kind: 'scheduled',
+      cronExpression: '0 0 * * *',
+      label: 'other',
+      mode: 'background',
+      parentSessionId: 'another-session',
+      depth: 1,
+      cwd: process.cwd(),
+      agentInstruction: 'wake',
+    });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const saved = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+    const store = createStore(saved);
+    expect(
+      () =>
+        new InteractiveSession({
+          host: testHost,
+          cwd: process.cwd(),
+          session: sessionStub,
+          sessionStore: store as never,
+          resumeSessionId: 'session_resumed',
+        }),
+    ).toThrow(/already owns.*task/i);
+    expect(manager.get(other.id)).toMatchObject({
+      id: other.id,
+      parentSessionId: 'another-session',
+    });
+    expect(store.save).not.toHaveBeenCalled();
+    expect(store.load('session_resumed')).toMatchObject({ status: 'valid', record: saved });
+    await manager.shutdown();
+  });
+
+  it.each(['store', 'manager'] as const)(
+    'refuses a restored schedule before any write when the %s lacks the transaction capability',
+    (missing) => {
+      const { runner, started } = createFakeScheduledRunner();
+      const manager = new BackgroundTaskManager({ runners: [runner] });
+      const sessionStub = createSessionStub();
+      storeAgentToolDeps(sessionStub, {
+        backgroundTaskManager: manager,
+      } as unknown as IAgentToolDeps);
+      const saved = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+      const store = createStore(saved);
+      if (missing === 'store')
+        Object.defineProperty(store, 'saveRestoreTransaction', { value: undefined });
+      else Object.defineProperty(manager, 'prepareRestoredSchedules', { value: undefined });
+      expect(
+        () =>
+          new InteractiveSession({
+            host: testHost,
+            cwd: process.cwd(),
+            session: sessionStub,
+            sessionStore: store as never,
+            resumeSessionId: 'session_resumed',
+          }),
+      ).toThrow(/atomic store and a prepared schedule manager/i);
+      expect(started).toEqual([]);
+      expect(store.save).not.toHaveBeenCalled();
+      expect(store.hasWriter('session_resumed')).toBe(false);
+      expect(store.load('session_resumed')).toMatchObject({ status: 'valid', record: saved });
+    },
+  );
+
+  it('retains a sleeping schedule across a normal shutdown and another resume', async () => {
+    const first = setupWithRecord(sleepingScheduledRecord('2999-01-01T00:00:00.000Z'));
+    await first.session.shutdown();
+    const outcome = first.store.load('session_resumed');
+    expect(outcome).toMatchObject({
+      status: 'valid',
+      record: {
+        backgroundTasks: [expect.objectContaining({ id: 'sched_old', status: 'sleeping' })],
+      },
+    });
+    if (outcome.status !== 'valid') throw new Error('session record unavailable');
+    const second = setupWithRecord(outcome.record as Record<string, unknown>);
+    expect(second.started).toEqual(['sched_old']);
+    await second.session.shutdown();
+  });
+
+  it('preserves a paused schedule across shutdown without firing it', async () => {
+    const { session, store } = setupWithRecord(pausedScheduledRecord());
+    await session.shutdown();
+    expect(store.load('session_resumed')).toMatchObject({
+      status: 'valid',
+      record: {
+        backgroundTasks: [expect.objectContaining({ id: 'sched_paused', status: 'paused' })],
+      },
+    });
+  });
+
+  it('does not restore a schedule that was explicitly cancelled before shutdown', async () => {
+    const { session, store } = setupWithRecord(sleepingScheduledRecord('2999-01-01T00:00:00.000Z'));
+    await session.cancelBackgroundTask('sched_old', 'stopped by owner');
+    await session.shutdown();
+    const outcome = store.load('session_resumed');
+    expect(outcome).toMatchObject({
+      status: 'valid',
+      record: {
+        backgroundTasks: [expect.objectContaining({ id: 'sched_old', status: 'cancelled' })],
+      },
+    });
+    if (outcome.status !== 'valid') throw new Error('session record unavailable');
+    const resumed = setupWithRecord(outcome.record as Record<string, unknown>);
+    expect(resumed.started).toEqual([]);
+    await resumed.session.shutdown();
+  });
+
+  it('does not start a restored schedule when the store reports an unknown commit', () => {
+    const { runner, started } = createFakeScheduledRunner();
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const saved = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+    const store = createStore(saved);
+    Object.defineProperty(store, 'saveRestoreTransaction', {
+      value: () => ({ status: 'unknown', error: new Error('commit uncertain') }),
+    });
+    expect(
+      () =>
+        new InteractiveSession({
+          host: testHost,
+          cwd: process.cwd(),
+          session: sessionStub,
+          sessionStore: store as never,
+          resumeSessionId: 'session_resumed',
+        }),
+    ).toThrow(/unknown/i);
+    expect(started).toEqual([]);
+    expect(store.hasWriter('session_resumed')).toBe(false);
+    expect(store.load('session_resumed')).toMatchObject({ status: 'valid', record: saved });
+  });
+
+  it('does not activate a schedule when a complete candidate was saved before an unknown outcome', () => {
+    const { runner, started } = createFakeScheduledRunner();
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const store = createStore(sleepingScheduledRecord('2999-01-01T00:00:00.000Z'));
+    Object.defineProperty(store, 'saveRestoreTransaction', {
+      value: (candidate: { id: string }) => {
+        store.save(candidate);
+        return { status: 'unknown', error: new Error('post-write failure') };
+      },
+    });
+    expect(
+      () =>
+        new InteractiveSession({
+          host: testHost,
+          cwd: process.cwd(),
+          session: sessionStub,
+          sessionStore: store as never,
+          resumeSessionId: 'session_resumed',
+        }),
+    ).toThrow(/unknown/i);
+    expect(started).toEqual([]);
+    expect(manager.list()).toEqual([]);
+    expect(store.hasWriter('session_resumed')).toBe(false);
+    expect(store.load('session_resumed')).toMatchObject({
+      status: 'valid',
+      record: {
+        backgroundTasks: [expect.objectContaining({ id: 'sched_old', status: 'sleeping' })],
+      },
+    });
+  });
+
+  it('holds reentrant timer ticks until a successful restore commit', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-01-01T00:00:00.000Z'));
+      const manager = new BackgroundTaskManager({ runners: [createScheduledTaskRunner()] });
+      const seen: string[] = [];
+      manager.subscribe((event) => seen.push(event.type));
+      const sessionStub = createSessionStub();
+      storeAgentToolDeps(sessionStub, {
+        backgroundTaskManager: manager,
+      } as unknown as IAgentToolDeps);
+      const saved = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+      const tasks = saved['backgroundTasks'] as Array<Record<string, unknown>>;
+      tasks[0]!['schedule'] = { cronExpression: '* * * * * *', agentInstruction: 'wake' };
+      const store = createStore(saved);
+      Object.defineProperty(store, 'saveRestoreTransaction', {
+        value: (candidate: { id: string }) => {
+          vi.advanceTimersByTime(2000);
+          expect(seen).toEqual([]);
+          store.save(candidate);
+          return { status: 'committed' };
+        },
+      });
+      const session = new InteractiveSession({
+        host: testHost,
+        cwd: process.cwd(),
+        session: sessionStub,
+        sessionStore: store as never,
+        resumeSessionId: 'session_resumed',
+      });
+      expect(seen).toEqual([]);
+      for (let index = 0; index < 3; index += 1) await Promise.resolve();
+      expect(seen.filter((event) => event === 'background_task_waking')).toHaveLength(2);
+      await session.shutdown();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('closes the restored batch and expiry timers when post-commit setup fails', () => {
+    vi.useFakeTimers();
+    const timer = globalThis.setTimeout;
+    let calls = 0;
+    const spy = vi.spyOn(globalThis, 'setTimeout').mockImplementation((...args) => {
+      calls += 1;
+      if (calls === 2) throw new Error('expiry timer unavailable');
+      return timer(...args);
+    });
+    try {
+      const { runner } = createFakeScheduledRunner();
+      const manager = new BackgroundTaskManager({ runners: [runner] });
+      const sessionStub = createSessionStub();
+      storeAgentToolDeps(sessionStub, {
+        backgroundTaskManager: manager,
+      } as unknown as IAgentToolDeps);
+      const saved = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+      const tasks = saved['backgroundTasks'] as Array<Record<string, unknown>>;
+      tasks[0]!['metadata'] = {
+        sessionLoop: true,
+        sessionLoopExpiresAt: new Date(Date.now() + 60_000).toISOString(),
+      };
+      tasks.push({ ...tasks[0]!, id: 'sched_other', label: 'other' });
+      const store = createStore(saved);
+      expect(
+        () =>
+          new InteractiveSession({
+            host: testHost,
+            cwd: process.cwd(),
+            session: sessionStub,
+            sessionStore: store as never,
+            resumeSessionId: 'session_resumed',
+          }),
+      ).toThrow(/expiry timer unavailable/i);
+      expect(manager.list()).toEqual([]);
+      expect(vi.getTimerCount()).toBe(0);
+      expect(store.load('session_resumed')).toMatchObject({
+        status: 'valid',
+        record: {
+          backgroundTasks: [
+            expect.objectContaining({ id: 'sched_old', status: 'sleeping' }),
+            expect.objectContaining({ id: 'sched_other', status: 'sleeping' }),
+          ],
+        },
+      });
+    } finally {
+      spy.mockRestore();
+      vi.useRealTimers();
+    }
+  });
+
+  it('releases restored ID ownership after session shutdown', async () => {
+    const record = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+    const tasks = record['backgroundTasks'] as Array<Record<string, unknown>>;
+    tasks[0]!['status'] = 'completed';
+    const { session, manager } = setupWithRecord(record);
+    await session.shutdown();
+    expect(() => manager.reserveTaskIds(['sched_old'])).not.toThrow();
+  });
+
+  it('refuses to resume tasks when a custom manager cannot reserve their IDs, without saving', () => {
+    const { runner } = createFakeScheduledRunner();
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    Object.defineProperty(manager, 'reserveTaskIds', { value: undefined });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const saved = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+    const store = createStore(saved);
+    expect(
+      () =>
+        new InteractiveSession({
+          host: testHost,
+          cwd: process.cwd(),
+          session: sessionStub,
+          sessionStore: store as never,
+          resumeSessionId: 'session_resumed',
+        }),
+    ).toThrow(/reserv/i);
+    expect(store.save).not.toHaveBeenCalled();
+    expect(store.hasWriter('session_resumed')).toBe(false);
+    expect(store.load('session_resumed')).toMatchObject({ status: 'valid', record: saved });
+  });
+
+  it('refuses asynchronous custom reservation before rearming or saving', () => {
+    const { runner, started } = createFakeScheduledRunner();
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    Object.defineProperty(manager, 'reserveTaskIds', {
+      value: () => Promise.reject(new Error('late reservation failure')),
+    });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const saved = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+    const store = createStore(saved);
+    expect(
+      () =>
+        new InteractiveSession({
+          host: testHost,
+          cwd: process.cwd(),
+          session: sessionStub,
+          sessionStore: store as never,
+          resumeSessionId: 'session_resumed',
+        }),
+    ).toThrow(/synchronously/i);
+    expect(started).toHaveLength(0);
+    expect(store.save).not.toHaveBeenCalled();
+  });
+
+  it('keeps accepting a custom manager without reservation when no tasks are restored', async () => {
+    const manager = new BackgroundTaskManager({ runners: [] });
+    Object.defineProperty(manager, 'reserveTaskIds', { value: undefined });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const saved = { ...sleepingScheduledRecord('2999-01-01T00:00:00.000Z'), backgroundTasks: [] };
+    const store = createStore(saved);
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: sessionStub,
+      sessionStore: store as never,
+      resumeSessionId: 'session_resumed',
+    });
+    await expect(session.whenInitialized()).resolves.toBeUndefined();
+    await session.shutdown();
+  });
+
+  it('refuses duplicate restored task IDs rather than overwriting either record', () => {
+    const { runner } = createFakeScheduledRunner();
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    const sessionStub = createSessionStub();
+    storeAgentToolDeps(sessionStub, {
+      backgroundTaskManager: manager,
+    } as unknown as IAgentToolDeps);
+    const saved = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+    const tasks = saved['backgroundTasks'] as Array<Record<string, unknown>>;
+    tasks.push({ ...tasks[0]!, label: 'other task' });
+    const store = createStore(saved);
+    expect(
+      () =>
+        new InteractiveSession({
+          host: testHost,
+          cwd: process.cwd(),
+          session: sessionStub,
+          sessionStore: store as never,
+          resumeSessionId: 'session_resumed',
+        }),
+    ).toThrow(/duplicate/i);
+    expect(store.save).not.toHaveBeenCalled();
+    expect(store.hasWriter('session_resumed')).toBe(false);
+    expect(store.load('session_resumed')).toMatchObject({ status: 'valid', record: saved });
+  });
+});
+
+it('restores the original schedule ID even if the manager factory repeats that ID', async () => {
+  const { runner, started } = createFakeScheduledRunner();
+  const manager = new BackgroundTaskManager({ runners: [runner], idFactory: () => 'sched_old' });
+  const sessionStub = createSessionStub();
+  storeAgentToolDeps(sessionStub, { backgroundTaskManager: manager } as unknown as IAgentToolDeps);
+  const saved = sleepingScheduledRecord('2999-01-01T00:00:00.000Z');
+  const store = createStore(saved);
+  const session = new InteractiveSession({
+    host: testHost,
+    cwd: process.cwd(),
+    session: sessionStub,
+    sessionStore: store as never,
+    resumeSessionId: 'session_resumed',
+  });
+  try {
+    await Promise.resolve();
+    expect(started).toEqual(['sched_old']);
+    expect(store.load('session_resumed')).toMatchObject({
+      status: 'valid',
+      record: {
+        backgroundTasks: [expect.objectContaining({ id: 'sched_old', status: 'sleeping' })],
+      },
+    });
+  } finally {
+    await session.shutdown();
+  }
 });

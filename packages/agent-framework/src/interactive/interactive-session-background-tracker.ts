@@ -4,7 +4,10 @@
  * integration without owning the session or store directly.
  */
 
-import { nextScheduledFireOnOrAfter } from '@robota-sdk/agent-executor';
+import {
+  isTerminalBackgroundTaskStatus,
+  nextScheduledFireOnOrAfter,
+} from '@robota-sdk/agent-executor';
 
 import { createSourceUsageSummaryEntry } from './interactive-session-execution.js';
 import { isReArmableScheduledTask, restoredScheduleDisposition } from './schedule-rearm.js';
@@ -29,7 +32,10 @@ import type {
 } from '../background-tasks/index.js';
 import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
+import type {
+  IBackgroundTaskIdReservation,
+  IBackgroundTaskManager,
+} from '@robota-sdk/agent-executor';
 import type {
   IBackgroundTaskInput,
   IBackgroundTaskListFilter,
@@ -49,6 +55,13 @@ export interface IBackgroundTrackerState {
 
 export class SessionBackgroundTaskTracker {
   private backgroundTasks: IBackgroundTaskState[] = [];
+  private restoredTaskIds: string[] = [];
+  private taskIdReservation?: IBackgroundTaskIdReservation;
+  private restoredTerminalTasks: IBackgroundTaskState[] = [];
+  private preparedSchedules: IBackgroundTaskState<'scheduled'>[] = [];
+  private shutdownSchedules = new Map<string, IBackgroundTaskState<'scheduled'>>();
+  private restoringBackground = false;
+  private unexpectedRestoreEvent = false;
   /** Restored loops held by the host switch, or terminally expired before re-arm. */
   private heldSessionLoops: IBackgroundTaskState[] = [];
   private backgroundTaskEvents: TBackgroundTaskEvent[] = [];
@@ -77,13 +90,31 @@ export class SessionBackgroundTaskTracker {
     private readonly reportObserverFailure?: IFrameworkHost['reportObserverFailure'],
   ) {}
 
-  subscribe(session: Session): void {
+  subscribe(session: Session, restore?: { readonly canCommit: boolean; commit(): void }): void {
     if (this.backgroundTaskUnsubscribe) return;
     const manager =
       retrieveSessionBackgroundTaskManager(session) ??
       retrieveAgentToolDeps(session)?.backgroundTaskManager;
+    if (this.restoredTaskIds.length > 0) {
+      if (!manager?.reserveTaskIds)
+        throw new Error('Restoring background tasks requires a manager that can reserve task IDs.');
+      if (manager.list().length > 0)
+        throw new Error('Cannot restore background tasks: the manager already owns a task.');
+      const reservation: unknown = manager.reserveTaskIds(this.restoredTaskIds);
+      if (!isTaskIdReservation(reservation)) {
+        // The capability violation is already reported below; do not leave an async rejection unhandled.
+        void Promise.resolve(reservation).catch(() => undefined);
+        throw new Error('Background task ID reservation must complete synchronously.');
+      }
+      this.taskIdReservation = reservation;
+    }
     if (!manager) return;
+    this.restoringBackground = this.restoredTaskIds.length > 0;
     this.backgroundTaskUnsubscribe = manager.subscribe((event) => {
+      if (this.restoringBackground) {
+        this.unexpectedRestoreEvent = true;
+        return;
+      }
       this.recordTaskEvent(event);
       this.emitTaskEvent(event);
       // FLOW-002: a wake carrying an instruction re-enters the agent loop with a non-user turn.
@@ -91,14 +122,28 @@ export class SessionBackgroundTaskTracker {
         this.onWake?.(event.instruction, event.taskId);
       }
     });
-    this.reArmRestoredSchedules(manager);
+    try {
+      this.assertNoRestoreEvent();
+      this.reArmRestoredSchedules(manager, restore);
+      this.assertNoRestoreEvent();
+    } catch (error) {
+      this.backgroundTaskUnsubscribe();
+      this.backgroundTaskUnsubscribe = null;
+      throw error;
+    } finally {
+      this.restoringBackground = false;
+    }
   }
 
   /**
    * FLOW-003: re-spawn restored sleeping scheduled wakes so they fire again after a resume,
    * and surface a one-time note for any whose fire time elapsed while the CLI was closed.
    */
-  private reArmRestoredSchedules(manager: IBackgroundTaskManager): void {
+  private reArmRestoredSchedules(
+    manager: IBackgroundTaskManager,
+    restore?: { readonly canCommit: boolean; commit(): void },
+  ): void {
+    if (this.restoredTaskIds.length === 0) return;
     const nowMs = Date.now();
     // Classify every held task before spawning any timer. A runner may synchronously emit a
     // sleeping event and persist its snapshot while this method is still iterating.
@@ -116,6 +161,7 @@ export class SessionBackgroundTaskTracker {
       );
       this.appendSystemNote?.(`Session loop "${task.label}" ${blocked}; it was not re-armed.`);
     }
+    const schedules: IBackgroundTaskState<'scheduled'>[] = [];
     for (const { task, disposition } of restoredTasks) {
       // SELFHOST-012: re-arm both `sleeping` and `paused` scheduled tasks (shared predicate — must agree with
       // the restore reconciliation). A paused one is re-spawned then immediately paused again so a restart keeps
@@ -147,53 +193,45 @@ export class SessionBackgroundTaskTracker {
           `Missed scheduled wake "${task.label}" (was due ${new Date(missedFireAt).toISOString()} while the session was closed); re-arming.`,
         );
       }
-      const wasPaused = disposition === 'rearm-paused';
-      const spawned = manager.spawn({
-        kind: 'scheduled',
-        cronExpression: task.schedule.cronExpression,
-        label: task.label,
-        mode: task.mode,
-        parentSessionId: task.parentSessionId,
-        depth: task.depth,
-        cwd: task.cwd,
+      const expiry = sessionLoopExpiry(task);
+      schedules.push({
+        ...task,
         ...(task.metadata
           ? {
               metadata: {
                 ...task.metadata,
                 ...(task.metadata['sessionLoop'] === true &&
-                task.metadata['sessionLoopExpiresAt'] === undefined
-                  ? { sessionLoopExpiresAt: new Date(sessionLoopExpiry(task)!).toISOString() }
+                task.metadata['sessionLoopExpiresAt'] === undefined &&
+                expiry !== undefined
+                  ? { sessionLoopExpiresAt: new Date(expiry).toISOString() }
                   : {}),
               },
             }
           : {}),
-        ...(task.schedule.agentInstruction !== undefined
-          ? { agentInstruction: task.schedule.agentInstruction }
-          : {}),
-        ...(task.schedule.command !== undefined ? { command: task.schedule.command } : {}),
-        ...(task.schedule.shell !== undefined ? { shell: task.schedule.shell } : {}),
-        ...(task.schedule.env !== undefined ? { env: { ...task.schedule.env } } : {}),
       });
-      const ready = spawned.then((state) => {
-        if (state.metadata?.['sessionLoop'] === true) this.onSessionLoopRearmed?.(state);
-        return state;
-      });
-      if (wasPaused) {
-        // Re-arm-then-pause: keep the restored schedule paused across restart. A pause failure is surfaced as a
-        // system note rather than silently swallowed (a paused schedule that resumed firing would be a surprise).
-        const label = task.label;
-        void ready
-          .then((state) => manager.pauseScheduledTask(state.id))
-          .catch((error) => {
-            this.appendSystemNote?.(
-              `Could not keep schedule "${label}" paused after restart: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-            );
-          });
-      } else {
-        void ready;
+    }
+    if (schedules.length === 0) return;
+    if (!restore?.canCommit || !manager.prepareRestoredSchedules || !this.taskIdReservation) {
+      throw new Error(
+        'Restoring schedules requires an atomic store and a prepared schedule manager.',
+      );
+    }
+    const batch = manager.prepareRestoredSchedules(schedules, this.taskIdReservation);
+    this.preparedSchedules = schedules;
+    try {
+      restore.commit();
+      this.assertNoRestoreEvent();
+      if (batch.activate() !== 'active')
+        throw new Error('Prepared schedule activation was aborted.');
+      this.assertNoRestoreEvent();
+      for (const task of schedules) {
+        if (task.metadata?.['sessionLoop'] === true) this.onSessionLoopRearmed?.(task);
       }
+    } catch (error) {
+      batch.abort();
+      throw error;
+    } finally {
+      this.preparedSchedules = [];
     }
   }
 
@@ -206,7 +244,28 @@ export class SessionBackgroundTaskTracker {
     this.backgroundJobOrchestrator = null;
   }
 
-  restoreState(state: IBackgroundTrackerState): void {
+  releaseTaskIdReservation(): void {
+    this.taskIdReservation?.release();
+    this.taskIdReservation = undefined;
+  }
+
+  preserveSchedulesForShutdown(): boolean {
+    const manager = this.getManager();
+    if (!manager) return false;
+    for (const task of manager.list()) {
+      if (isReArmableScheduledTask(task)) this.shutdownSchedules.set(task.id, task);
+    }
+    return this.shutdownSchedules.size > 0;
+  }
+
+  restoreState(state: IBackgroundTrackerState, preserveTerminalTasks = true): void {
+    const ids = state.tasks.map((task) => task.id);
+    if (preserveTerminalTasks && new Set(ids).size !== ids.length)
+      throw new Error('Duplicate restored background task IDs.');
+    this.restoredTaskIds = preserveTerminalTasks ? ids : [];
+    this.restoredTerminalTasks = preserveTerminalTasks
+      ? state.tasks.filter((task) => isTerminalBackgroundTaskStatus(task.status))
+      : [];
     this.backgroundTasks = state.tasks;
     this.heldSessionLoops = [];
     this.backgroundTaskEvents = state.taskEvents;
@@ -215,12 +274,42 @@ export class SessionBackgroundTaskTracker {
   }
 
   getState(): IBackgroundTrackerState {
+    if (this.restoringBackground) {
+      const tasks = new Map(this.backgroundTasks.map((task) => [task.id, task]));
+      for (const task of [...this.heldSessionLoops, ...this.preparedSchedules])
+        tasks.set(task.id, task);
+      return {
+        tasks: [...tasks.values()],
+        taskEvents: this.backgroundTaskEvents,
+        groups: this.backgroundJobGroups,
+        groupEvents: this.backgroundJobGroupEvents,
+      };
+    }
+    const tasks = this.getTaskSnapshots().map(
+      (task) => this.shutdownSchedules.get(task.id) ?? task,
+    );
+    const manager = this.getManager();
+    if (manager && this.restoredTerminalTasks.some((task) => manager.get(task.id) !== undefined)) {
+      throw new Error('A restored background task ID is already in use.');
+    }
+    const ids = new Set(tasks.map((task) => task.id));
     return {
-      tasks: this.getTaskSnapshots(),
+      tasks: [
+        ...tasks,
+        ...[
+          ...this.restoredTerminalTasks,
+          ...this.preparedSchedules,
+          ...this.shutdownSchedules.values(),
+        ].filter((task) => !ids.has(task.id)),
+      ],
       taskEvents: this.backgroundTaskEvents,
       groups: this.getGroupSnapshots(),
       groupEvents: this.backgroundJobGroupEvents,
     };
+  }
+
+  private assertNoRestoreEvent(): void {
+    if (this.unexpectedRestoreEvent) throw new Error('Unexpected background event during restore.');
   }
 
   getManagerOrThrow(): IBackgroundTaskManager {
@@ -406,6 +495,15 @@ export class SessionBackgroundTaskTracker {
     this.persistSession();
     this.onChanged('background_group', createBackgroundGroupExecutionEntryId(event.group.id));
   }
+}
+
+function isTaskIdReservation(value: unknown): value is IBackgroundTaskIdReservation {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'release' in value &&
+    typeof value.release === 'function'
+  );
 }
 
 function getTaskEventEntryId(event: TBackgroundTaskEvent): string | undefined {

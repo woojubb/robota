@@ -9,6 +9,7 @@ import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { decorateSessionStore } from '../session-store-view.js';
+import { SessionRecordClaim } from '../session-record-claim.js';
 import { isSessionAuthorshipRefusedError } from '../session-authorship-gate.js';
 import {
   authorshipOf,
@@ -31,6 +32,43 @@ const FORGED_TEXT = 'CANARY-3e-view-forged-2c77';
 afterEach(cleanUpSealedSessionFixtures);
 
 describe('a store view built with the shared decorator', () => {
+  it('does not forward restore commits around an overridden save policy', () => {
+    const store = new NodeSessionStore(directory(), { sealing: 'plain' });
+    const guarded = decorateSessionStore(store, {
+      save: () => {
+        throw new Error('denied');
+      },
+    });
+    expect(guarded.saveRestoreTransaction).toBeUndefined();
+  });
+
+  it('uses the live owner claim for a restore transaction and refuses after release', () => {
+    const cwd = directory();
+    const store = new NodeSessionStore(directory(), { sealing: 'plain' });
+    store.save(record('sess_a', cwd, 'first'));
+    const owner = SessionRecordClaim.over(store, undefined, {
+      snapshot: () => undefined,
+      retrySave: () => undefined,
+      report: () => undefined,
+    });
+    if (!owner) throw new Error('expected claim');
+    owner.readForRestore('sess_a', false);
+    expect(owner.store.saveRestoreTransaction?.(record('sess_a', cwd, 'second'))).toEqual({
+      status: 'committed',
+    });
+    expect(() => owner.store.saveRestoreTransaction?.(record('other', cwd, 'not allowed'))).toThrow(
+      /claim/i,
+    );
+    owner.end();
+    expect(() =>
+      owner.store.saveRestoreTransaction?.(record('sess_a', cwd, 'after release')),
+    ).toThrow(/claim/i);
+    expect(store.load('sess_a')).toMatchObject({
+      status: 'valid',
+      record: record('sess_a', cwd, 'second'),
+    });
+  });
+
   it('still gates a resume: an unverified record is refused, an accepted one is raised', async () => {
     const cwd = directory();
     const dir = directory();

@@ -62,6 +62,47 @@ function record(id: string, text: string): IInteractiveSessionRecord {
 }
 
 describe('a user-store session write that fails part-way', () => {
+  it('requires a live claim for a restore commit and fences a released claim', () => {
+    const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'session-restore-commit-')));
+    const store = new NodeSessionStore(dir, { sealing: 'plain' });
+    store.save(record('sess_a', 'first'));
+    expect(() => store.saveRestoreTransaction(record('sess_a', 'without claim'))).toThrow(/claim/i);
+    const claim = store.claim('sess_a');
+    expect(store.saveRestoreTransaction(record('sess_a', 'second'), { claim })).toEqual({
+      status: 'committed',
+    });
+    claim.release();
+    expect(store.saveRestoreTransaction(record('sess_a', 'after release'), { claim }).status).toBe(
+      'unknown',
+    );
+    expect(store.load('sess_a')).toMatchObject({
+      status: 'valid',
+      record: record('sess_a', 'second'),
+    });
+  });
+
+  it.each(['before', 'after'] as const)(
+    'reports an unknown restore commit after a write failure %s replacement',
+    (failure) => {
+      const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'session-restore-commit-')));
+      const store = new NodeSessionStore(dir, { sealing: 'plain' });
+      store.save(record('sess_a', 'first'));
+      const claim = store.claim('sess_a');
+      try {
+        if (failure === 'before') io.failBeforeNextWrite = true;
+        else io.failAfterNextWrite = true;
+        const outcome = store.saveRestoreTransaction(record('sess_a', 'second'), { claim });
+        expect(outcome.status).toBe('unknown');
+        expect(store.load('sess_a')).toMatchObject({
+          status: 'valid',
+          record: record('sess_a', failure === 'before' ? 'first' : 'second'),
+        });
+      } finally {
+        claim.release();
+      }
+    },
+  );
+
   it('counts a record that reached the path before the write failed as its own', () => {
     const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'session-partial-')));
     const sealer = createTestArtifactSealer();
