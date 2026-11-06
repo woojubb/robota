@@ -1173,6 +1173,9 @@ importers:
       '@robota-sdk/agent-executor':
         specifier: workspace:*
         version: link:../agent-executor
+      '@robota-sdk/agent-file-authority':
+        specifier: workspace:*
+        version: link:../agent-file-authority
       '@robota-sdk/agent-framework':
         specifier: workspace:*
         version: link:../agent-framework
