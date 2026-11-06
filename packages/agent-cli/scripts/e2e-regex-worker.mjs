@@ -26,7 +26,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { basename, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { resolveNativeFixtureWorkspace } from './e2e-native-file-authority.mjs';
+import { approveOnTerminal, resolveNativeFixtureWorkspace } from './e2e-native-file-authority.mjs';
 import { fixtureProcessEnvironment } from './product-fixture-environment.mjs';
 
 /** Appears in a child's command line only through the regex worker bootstrap (`boundedRegexReplace`). */
@@ -295,7 +295,7 @@ export async function runRegexWorkerE2e(binaryPath, options = {}) {
     workspace = resolveNativeFixtureWorkspace(workspace, env);
     context.workspace = workspace;
 
-    const trust = cli(['trust', '--yes']);
+    const trust = await approveOnTerminal(binary, ['trust', '--yes'], workspace, env);
     if (trust.status !== 0 || !/Workspace trust: trusted/u.test(trust.stdout ?? '')) {
       throw failure(
         'trust --yes failed.',

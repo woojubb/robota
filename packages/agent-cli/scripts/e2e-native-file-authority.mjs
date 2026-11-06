@@ -22,7 +22,7 @@ function run(command, arguments_, cwd, env) {
 }
 
 /** The fixture answers the real terminal question; the product has no headless grant route. */
-function approveOnTerminal(command, arguments_, cwd, env) {
+export function approveOnTerminal(command, arguments_, cwd, env) {
   const require = createRequire(import.meta.url);
   const pty = require('@homebridge/node-pty-prebuilt-multiarch');
   return new Promise((resolve, reject) => {
