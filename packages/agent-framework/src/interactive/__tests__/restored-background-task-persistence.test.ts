@@ -182,7 +182,7 @@ describe('restored background tasks', () => {
           ...prepared,
           activate: () => {
             activated += 1;
-            prepared.activate();
+            return prepared.activate();
           },
         };
       },

@@ -169,12 +169,20 @@ function startScheduledTask(
     },
     // SELFHOST-012: non-destructive pause — croner `.pause()` keeps the job re-armable (unlike `.stop()`).
     pause: (): Promise<void> => {
+      if (!active || state.cancelled)
+        return Promise.reject(
+          new BackgroundTaskError('validation', 'Prepared schedule is not active.'),
+        );
       state.paused = true;
       state.job.pause();
       return Promise.resolve();
     },
     // SELFHOST-012: resume the same job and re-announce the next fire time.
     resume: (): Promise<void> => {
+      if (!active || state.cancelled)
+        return Promise.reject(
+          new BackgroundTaskError('validation', 'Prepared schedule is not active.'),
+        );
       state.paused = false;
       state.job.resume();
       emitSleeping(state);
@@ -184,6 +192,10 @@ function startScheduledTask(
     // SELFHOST-012: re-arm in place — rebuild the Cron from the patched expression while keeping this task's
     // identity (same taskId + handle). Instruction/command changes are picked up by the fire closure.
     editSchedule: (patch: IScheduleEditPatch): Promise<void> => {
+      if (!active || state.cancelled)
+        return Promise.reject(
+          new BackgroundTaskError('validation', 'Prepared schedule is not active.'),
+        );
       state.request = { ...state.request, ...patch };
       if (patch.cronExpression !== undefined) {
         state.job.stop();
@@ -224,7 +236,8 @@ function startScheduledTask(
   return {
     handle,
     activate: () => {
-      if (active || state.cancelled) return;
+      if (state.cancelled) return 'aborted';
+      if (active) return 'active';
       state.job.options.protect = true;
       active = true;
       void Promise.resolve().then(() => {
@@ -236,6 +249,7 @@ function startScheduledTask(
           failPreparedTask(error);
         }
       });
+      return 'active';
     },
     abort: () => {
       if (state.cancelled) return;

@@ -81,13 +81,15 @@ function createFakeScheduledRunner(): IFakeScheduled {
       return {
         handle,
         activate: () => {
-          if (aborted || active) return;
+          if (aborted) return 'aborted';
+          if (active) return 'active';
           active = true;
           started.push(task.taskId);
           void Promise.resolve().then(() => {
             if (!aborted && !paused)
               emit({ type: 'background_task_sleeping', nextFireAt: '2999-01-01T00:00:00.000Z' });
           });
+          return 'active';
         },
         abort: () => {
           aborted = true;

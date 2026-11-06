@@ -100,6 +100,23 @@ function restoredWake(events: TBackgroundTaskRunnerEvent[]): IBackgroundTaskStar
 }
 
 describe('createScheduledTaskRunner', () => {
+  it('refuses lifecycle changes until a prepared schedule is activated', async () => {
+    const events: TBackgroundTaskRunnerEvent[] = [];
+    const prepared = createScheduledTaskRunner().prepareRestore!(restoredWake(events), {
+      paused: true,
+    });
+    try {
+      await expect(prepared.handle.pause?.()).rejects.toThrow(/not active/i);
+      await expect(prepared.handle.resume?.()).rejects.toThrow(/not active/i);
+      await expect(prepared.handle.editSchedule?.({ cronExpression: '0 0 * * *' })).rejects.toThrow(
+        /not active/i,
+      );
+      expect(events).toEqual([]);
+    } finally {
+      prepared.abort();
+    }
+  });
+
   it(
     'runs held shell wakes without overlapping or losing a child process',
     async () => {

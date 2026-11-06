@@ -261,7 +261,9 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
           this.allocatedTaskIds.add(task.state.id);
         }
         try {
-          for (const { handle } of prepared) handle.activate();
+          for (const { handle } of prepared) {
+            if (handle.activate() !== 'active') throw new Error('Prepared schedule was aborted.');
+          }
         } catch {
           abortPrepared();
           for (const { task } of prepared) this.tasks.delete(task.state.id);

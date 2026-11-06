@@ -135,7 +135,7 @@ export type IBackgroundTaskHandle<K extends TBackgroundTaskKind = TBackgroundTas
 export interface IPreparedBackgroundTaskHandle<K extends TBackgroundTaskKind> {
   readonly handle: IBackgroundTaskHandle<K>;
   /** Opens the gate synchronously; observable work is deferred until after this call. */
-  activate(): void;
+  activate(): 'active' | 'aborted';
   /** Closes the gate before cleanup, even when cleanup throws. */
   abort(): void;
 }

@@ -25,6 +25,29 @@ function schedule(
 }
 
 describe('prepared restored schedules', () => {
+  it('refuses to activate a batch whose prepared handle was already cancelled', async () => {
+    const base = createScheduledTaskRunner();
+    let cancelPrepared: (() => Promise<void>) | undefined;
+    const runner = {
+      ...base,
+      prepareRestore: (...args: Parameters<NonNullable<typeof base.prepareRestore>>) => {
+        const prepare = base.prepareRestore;
+        if (!prepare) throw new Error('expected prepared runner');
+        const prepared = prepare(...args);
+        cancelPrepared = prepared.handle.cancel;
+        return prepared;
+      },
+    };
+    const manager = new BackgroundTaskManager({ runners: [runner] });
+    const reservation = manager.reserveTaskIds(['one']);
+    const batch = manager.prepareRestoredSchedules([schedule('one')], reservation);
+    await cancelPrepared?.();
+    expect(batch.activate()).toBe('aborted');
+    expect(manager.list()).toEqual([]);
+    await manager.shutdown();
+    reservation.release();
+  });
+
   it('refuses unrelated task admission until a prepared transaction is finished', async () => {
     const manager = new BackgroundTaskManager({ runners: [createScheduledTaskRunner()] });
     const reservation = manager.reserveTaskIds(['one']);
