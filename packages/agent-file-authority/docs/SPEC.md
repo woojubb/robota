@@ -3,7 +3,7 @@
 ## Scope
 
 This package owns domain-free file access through opaque read and write authorities rooted at one
-directory identity, including root-relative directory enumeration on Windows. It gives Node.js callers
+directory identity, including root-relative directory enumeration on supported Windows drive roots. It gives Node.js callers
 non-retargetable, component-by-component no-follow behavior on supported Linux, macOS, and Windows
 hosts without exposing native handles.
 

@@ -19,17 +19,24 @@ const CHUNK_BYTES = 1_048_576;
 const ZERO_SIZE = BigInt('0');
 
 function bytesToHex(value: Uint8Array | number[] | undefined): string {
-  if (value instanceof Uint8Array) return Buffer.from(value).toString('hex');
-  if (Array.isArray(value)) return Buffer.from(value).toString('hex');
+  if (
+    (value instanceof Uint8Array || Array.isArray(value)) &&
+    value.length === 16 &&
+    Array.from(value).every((byte) => Number.isInteger(byte) && byte >= 0 && byte <= 255) &&
+    Array.from(value).some((byte) => byte !== 0) &&
+    Array.from(value).some((byte) => byte !== 255)
+  ) {
+    return Buffer.from(value).toString('hex');
+  }
   throw authorityError('UNSUPPORTED_BACKEND', 'decode-file-identity');
 }
 
-export function windowsLastErrorCode(api: IWindowsApi): string {
+export function windowsLastErrorCode(api: Pick<IWindowsApi, 'getLastError'>): string {
   return `WIN32_${api.getLastError()}`;
 }
 
 export function queryWindowsIdentity(
-  api: IWindowsApi,
+  api: Pick<IWindowsApi, 'fileIdInfoType' | 'getFileIdInfo' | 'getLastError'>,
   handle: TNativeHandle,
   operation: string,
 ): IWindowsIdentity {
@@ -39,10 +46,15 @@ export function queryWindowsIdentity(
       hostCode: windowsLastErrorCode(api),
     });
   }
-  return {
-    volume: BigInt(info.VolumeSerialNumber ?? ZERO_SIZE),
-    fileId: bytesToHex(info.FileId),
-  };
+  const volume = info.VolumeSerialNumber;
+  if (
+    volume === undefined ||
+    (typeof volume === 'number' && (!Number.isSafeInteger(volume) || volume < 0)) ||
+    (typeof volume === 'bigint' && volume < 0n)
+  ) {
+    throw authorityError('UNSUPPORTED_BACKEND', operation);
+  }
+  return { volume: BigInt(volume), fileId: bytesToHex(info.FileId) };
 }
 
 export function readWindowsFile(

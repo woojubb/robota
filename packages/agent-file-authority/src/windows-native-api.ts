@@ -123,6 +123,7 @@ export interface IWindowsApi {
     informationBytes: number,
   ) => boolean;
   readonly getLastError: () => number;
+  readonly getDriveType: (root: string) => number;
   readonly ntCreateFile: TNtCreateFile;
   readonly ntSetInformationFile: TNtSetInformationFile;
   readonly ntClose: (handle: TNativeHandle) => number;
@@ -210,6 +211,7 @@ function bindKernel32(
   | 'flushFileBuffers'
   | 'setFileInformation'
   | 'getLastError'
+  | 'getDriveType'
 > {
   return {
     createFileW: library.func('CreateFileW', types.handleType, [
@@ -255,6 +257,7 @@ function bindKernel32(
       'uint32_t',
     ]),
     getLastError: library.func('GetLastError', 'uint32_t', []),
+    getDriveType: library.func('GetDriveTypeW', 'uint32_t', [koffi.pointer('char16_t')]),
   };
 }
 
