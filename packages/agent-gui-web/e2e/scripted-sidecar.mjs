@@ -19,8 +19,8 @@
  * it was run in (recorded as `workspace`), or starts itself detached as a new one, and prints the `{id,url}`
  * line. `PRODUCT_E2E_DAEMON_FAIL=1` makes it refuse the way
  * an untrusted workspace does, as does the file `$PRODUCT_E2E_DAEMON_FAIL_FILE` once it exists (so a start
- * the app asks for later can fail while the first succeeded). With `$PRODUCT_E2E_TRUST_FILE` set it also
- * plays `trust status --json` (askable until the file says `trusted`) and `trust --yes` (writes it), and a
+ * the app asks for later can fail while the first succeeded). With `$PRODUCT_E2E_TRUST_FILE` set it
+ * delegates trust to the real CLI and broker while its file records expected test transitions, and a
  * `daemon start --json --restricted-workspace` records that choice in the daemon state.
  *
  * A prompt containing "show app view" (#3558) finishes a turn whose tool call carries an MCP app view
@@ -36,10 +36,10 @@
  * composer's return all work over the real wire, without a real provider or settings file.
  */
 
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import { EventEmitter } from 'node:events';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { connect, createServer } from 'node:net';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -150,12 +150,11 @@ async function daemonStart(restricted) {
 }
 
 /**
- * `trust status --json` / `trust --yes`, when the test gives the folder's trust a file to live in:
+ * `trust status --json`, when the test gives the folder's trust a file to live in:
  * `$PRODUCT_E2E_TRUST_FILE` for one shared file, or `$PRODUCT_E2E_TRUST_DIR` for one file per folder (the
  * folder the CLI is run in), as the real CLI's grants are.
  */
-function trust(command) {
-  const candidate = '00000000-0000-4000-8000-000000000001';
+async function trust(command) {
   const trustDir = process.env.PRODUCT_E2E_TRUST_DIR;
   const trustFile = trustDir
     ? join(trustDir, createHash('sha256').update(process.cwd()).digest('hex'))
@@ -164,33 +163,49 @@ function trust(command) {
     process.stderr.write(line('scripted-sidecar: PRODUCT_E2E_TRUST_FILE or PRODUCT_E2E_TRUST_DIR required for trust'));
     process.exit(1);
   }
-  if (command === `trust --yes --desktop-approved-candidate ${candidate}`) {
-    writeFileSync(trustFile, 'trusted');
-    process.stdout.write(line('Workspace trust: trusted'));
+  const pendingFile = `${trustFile}.pending`;
+  const cli = fileURLToPath(new URL('../../agent-cli/bin/agent.cjs', import.meta.url));
+  const realCli = (args) => {
+    const result = spawnSync(process.execPath, [cli, ...args], {
+      cwd: process.cwd(), env: process.env, encoding: 'utf8', timeout: 20_000,
+    });
+    if (result.status !== 0) throw new Error(`Real trust CLI failed: ${result.stderr || result.stdout}`);
+    return result.stdout.trim();
+  };
+  if (command.startsWith('trust release --candidate ')) {
+    realCli(command.split(' '));
+    rmSync(pendingFile, { force: true });
     process.exit(0);
   }
-  if (command === `trust release --candidate ${candidate}`) process.exit(0);
   // A slow trust read, so a test can act while the app is waiting on it.
   const delayMs = Number(process.env.PRODUCT_E2E_TRUST_STATUS_DELAY_MS ?? 0);
   if (delayMs > 0) Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, delayMs);
-  const trusted = existsSync(trustFile) && readFileSync(trustFile, 'utf8') === 'trusted';
-  const workspace = process.cwd();
+  const status = () => JSON.parse(realCli(['trust', 'status', '--json']));
+  let current = status();
+  if (current.state === 'trusted') {
+    if (existsSync(pendingFile)) {
+      writeFileSync(trustFile, 'trusted');
+      rmSync(pendingFile, { force: true });
+    } else if (!existsSync(trustFile)) {
+      realCli(['trust', 'revoke', '--yes']);
+      current = status();
+    }
+  }
+  if (current.askable === true && typeof current.candidate === 'string') {
+    writeFileSync(pendingFile, current.candidate);
+  }
   process.stdout.write(
     line(
       JSON.stringify(
-        trusted
+        current.state === 'trusted'
           ? {
-              state: 'trusted',
-              workspace,
+              ...current,
               askable: false,
               loads: [],
               providerEnvRefs: ['CUSTOM_PROVIDER_KEY', 'PROVIDER_DESTINATION_URL', 'HTTPS_PROXY'],
             }
           : {
-              state: 'untrusted',
-              workspace,
-              askable: true,
-              candidate,
+              ...current,
               loads: ['  [file] AGENTS.md — Agent instructions'],
             },
       ),
@@ -203,8 +218,7 @@ const argv = process.argv.slice(2);
 const command = argv.join(' ');
 if (command === 'daemon start --json') await daemonStart(false);
 if (command === 'daemon start --json --restricted-workspace') await daemonStart(true);
-if (command === 'trust status --json' || command.startsWith('trust --yes --desktop-approved-candidate ') ||
-    command.startsWith('trust release --candidate ')) trust(command);
+if (command === 'trust status --json' || command.startsWith('trust release --candidate ')) await trust(command);
 
 const token = process.env.PRODUCT_WS_TOKEN;
 const port = Number.parseInt(process.env.PRODUCT_WS_PORT ?? '0', 10);

@@ -325,11 +325,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     if (!binaryPath) {
       throw new Error('Usage: e2e-native-file-authority.mjs [--node] <agent-executable>');
     }
-    process.stdout.write(`${await runNativeFileAuthorityE2e(binaryPath, { node: nodeMode })}\n`);
+    process.stdout.write(`${await runNativeFileAuthorityE2e(binaryPath, { node: nodeMode })}\n`, () => process.exit(0));
   } catch (error) {
     process.stderr.write(
       `native-file-authority e2e: ${error instanceof Error ? error.message : String(error)}\n`,
+      () => process.exit(1),
     );
-    process.exitCode = 1;
   }
 }

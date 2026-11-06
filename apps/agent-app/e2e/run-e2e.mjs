@@ -16,7 +16,8 @@
  */
 
 import { createHash } from 'node:crypto';
-import { chmodSync, existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -25,6 +26,13 @@ import electronPath from 'electron';
 import { _electron as electron } from 'playwright';
 
 import { buildProductTestEnvironment, readDesktopTestIdentity } from './product-fixture.mjs';
+import { resolveProductConfig } from '../../../packages/product-config/dist/index.js';
+import { createCliRuntimeContext } from '../../../packages/agent-cli/src/product/runtime-context.ts';
+import { workspaceRootBrokerEndpoint } from '../../../packages/agent-cli/src/startup/workspace-root-broker-process.ts';
+import {
+  requestWorkspaceRootBroker,
+  startWorkspaceRootBroker,
+} from '../../../packages/agent-cli/src/startup/workspace-root-broker.ts';
 
 
 /** One line of output (scripts write to the streams directly). */
@@ -49,6 +57,16 @@ const home = join(stateDir, 'home');
 const productFixture = buildProductTestEnvironment(
   join(stateDir, 'product'),
   readDesktopTestIdentity(dirname(mainJs)),
+);
+const trustRuntime = createCliRuntimeContext(
+  resolveProductConfig({ environment: productFixture.environment }), productFixture.environment,
+);
+const brokerEndpoint = workspaceRootBrokerEndpoint(trustRuntime);
+const brokerDirectory = process.platform === 'win32'
+  ? join(trustRuntime.layout.userRoot, 'root-broker') : dirname(brokerEndpoint);
+mkdirSync(brokerDirectory, { recursive: true, mode: 0o700 });
+const trustBroker = await startWorkspaceRootBroker(
+  brokerEndpoint, brokerDirectory, trustRuntime.layout.userPaths.workspaceTrust,
 );
 const inheritedRuntimeEnvironment = Object.fromEntries(
   ['PATH', 'DISPLAY', 'WAYLAND_DISPLAY', 'XAUTHORITY', 'XDG_RUNTIME_DIR', 'DBUS_SESSION_BUS_ADDRESS', 'SystemRoot', 'APPDATA', 'TMPDIR', 'TEMP', 'LANG']
@@ -275,9 +293,37 @@ try {
       !isAlive(pid) && !existsSync(statePath),
     );
   } catch (err) {
-    check(`trust-answer check threw: ${err?.message ?? err}`, false);
+    const screen = await askedTrust.windows()[0]?.locator('body').innerText().catch(() => 'unavailable');
+    check(`trust-answer check threw: ${err?.message ?? err}; screen=${screen?.slice(0, 500)}`, false);
   } finally {
     await closeApplication(askedTrust);
+  }
+
+  // The CLI prepares the repository root even when the desktop opens one of its subdirectories.
+  // The answer must approve the root shown in the question, not the selected child path.
+  stopRecordedDaemon();
+  const nestedRoot = realpathSync(mkdtempSync(join(tmpdir(), 'agent-app-e2e-nested-root-')));
+  const nestedFolder = join(nestedRoot, 'subdir');
+  const nestedTrustFile = join(stateDir, 'trust-nested');
+  mkdirSync(nestedFolder);
+  execFileSync('git', ['init', '--quiet', nestedRoot]);
+  const nested = await launch({ PRODUCT_E2E_TRUST_FILE: nestedTrustFile }, { cwd: nestedFolder });
+  try {
+    const page = await nested.firstWindow();
+    const question = page.getByRole('dialog', { name: 'Do you trust this folder?' });
+    await question.waitFor({ timeout: 20_000 });
+    check('nested folder: the question names the repository root',
+      (await question.textContent())?.includes(nestedRoot) === true);
+    await question.getByRole('button', { name: 'Trust folder' }).click();
+    await connected(page);
+    check('nested folder: its displayed root is granted and its daemon starts',
+      existsSync(nestedTrustFile) && readDaemon()?.workspace === nestedFolder && readDaemon()?.restricted === false);
+  } catch (err) {
+    const screen = await nested.windows()[0]?.locator('body').innerText().catch(() => 'unavailable');
+    check(`nested-folder trust check threw: ${err?.message ?? err}; screen=${screen?.slice(0, 500)}`, false);
+  } finally {
+    await closeApplication(nested);
+    rmSync(nestedRoot, { recursive: true, force: true });
   }
 
   // #3282 §4d: the composer's attach button through the REAL Electron bridge — preload -> IPC ->
@@ -372,6 +418,13 @@ try {
   const [folderA, folderB, folderC, folderD] = ['a', 'b', 'c', 'd'].map((name) =>
     realpathSync(mkdtempSync(join(tmpdir(), `agent-app-e2e-folder-${name}-`))),
   );
+  for (const folder of [folderA, folderB, folderC, folderD]) execFileSync('git', ['init', '--quiet', folder]);
+  const preapproved = await requestWorkspaceRootBroker(brokerEndpoint, { op: 'prepare', root: folderB });
+  if (preapproved.status !== 'prepared') throw new Error('Could not prepare the preapproved test folder.');
+  const granted = await requestWorkspaceRootBroker(brokerEndpoint, {
+    op: 'approve', candidate: preapproved.candidate, root: folderB,
+  });
+  if (granted.status !== 'trusted') throw new Error('Could not preapprove the test folder.');
   writeFileSync(trustFor(folderB), 'trusted');
   const startedPids = [];
   const switching = await launch(
@@ -477,6 +530,7 @@ try {
 } finally {
   const pid = readDaemonPid();
   if (isAlive(pid)) process.kill(pid, 'SIGTERM');
+  await trustBroker.close();
   rmSync(stateDir, { recursive: true, force: true });
 }
 

@@ -59,13 +59,17 @@ export async function ensureWorkspaceRootBroker(runtime: ICliRuntimeContext): Pr
   const sourceBin = fileURLToPath(new URL('../bin.ts', import.meta.url));
   const loaderUrl = new URL('../../node_modules/tsx/dist/loader.mjs', import.meta.url);
   const source = existsSync(sourceBin) && existsSync(loaderUrl);
+  // Bun's compiled executable reports a readable virtual argv[1] under $bunfs. Passing that
+  // virtual entry back to the executable makes it an argument instead of restarting its main.
+  const compiledBun = process.versions.bun !== undefined &&
+    /[\\/]\$bunfs[\\/]/u.test(process.argv[1] ?? '');
   const script = source
     ? ['--import', loaderUrl.href, '--conditions=source', sourceBin]
-    : process.argv[1] !== undefined && existsSync(process.argv[1]) &&
+    : !compiledBun && process.argv[1] !== undefined && existsSync(process.argv[1]) &&
         resolve(process.argv[1]) !== resolve(process.execPath)
       ? [process.argv[1]] : [];
   const child = spawn(process.execPath, [
-    ...(source ? [] : process.execArgv), ...script,
+    ...(source || compiledBun ? [] : process.execArgv), ...script,
     '--internal-root-broker', endpoint, brokerDirectory(runtime),
     runtime.layout.userPaths.workspaceTrust,
   ], { detached: true, stdio: ['ignore', 'ignore', 'ignore', 'ipc'] });
