@@ -1,9 +1,13 @@
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
+import { once } from 'node:events';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
+import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
 
 import {
   assertWindowsPrivatePath,
@@ -104,5 +108,38 @@ describe('Windows daemon security', () => {
         rmSync(root, { recursive: true, force: true });
       }
     },
+  );
+});
+
+describe('Windows session operation guard', () => {
+  it.runIf(process.platform === 'win32')(
+    'excludes another process and recovers after the holder is killed',
+    async () => {
+      const root = mkdtempSync(join(tmpdir(), 'test-session-guard-'));
+      const moduleUrl = pathToFileURL(
+        createRequire(import.meta.url).resolve('@robota-sdk/agent-session/node'),
+      ).href;
+      const script = `import { createProcessOperationLock } from ${JSON.stringify(moduleUrl)}; const lock = createProcessOperationLock(process.argv[1]).tryAcquire('session_a'); if (!lock) process.exit(2); process.send('ready'); setInterval(() => {}, 1000);`;
+      const child = spawn(process.execPath, ['--input-type=module', '-e', script, root], {
+        stdio: ['ignore', 'ignore', 'pipe', 'ipc'],
+      });
+      try {
+        expect((await once(child, 'message', { signal: AbortSignal.timeout(10_000) }))[0]).toBe(
+          'ready',
+        );
+        const lock = createProcessOperationLock(root);
+        expect(lock.tryAcquire('session_a')).toBeUndefined();
+        const exited = once(child, 'exit', { signal: AbortSignal.timeout(5_000) });
+        child.kill('SIGKILL');
+        await exited;
+        const recovered = lock.tryAcquire('session_a');
+        expect(recovered).toBeDefined();
+        recovered?.release();
+      } finally {
+        if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+        rmSync(root, { recursive: true, force: true });
+      }
+    },
+    20_000,
   );
 });
