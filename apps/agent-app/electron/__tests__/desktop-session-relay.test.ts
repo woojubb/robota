@@ -149,6 +149,17 @@ describe('desktop session relay', () => {
     expect(s.send).not.toHaveBeenCalled();
   });
 
+  it('closes the port even when the session unsubscribe fails', () => {
+    const s = setup();
+    const session = {
+      ...s.options.session,
+      onMessage: () => () => { throw new Error('synthetic unsubscribe failure'); },
+    };
+    openDesktopSessionRelay({ ...s.options, session });
+    expect(() => s.controller.abort()).not.toThrow();
+    expect(s.port.close).toHaveBeenCalledOnce();
+  });
+
   it('revokes on navigation and refuses malformed and replayed frames', () => {
     const s = setup();
     openDesktopSessionRelay(s.options);

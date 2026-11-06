@@ -64,9 +64,17 @@ export function openDesktopSessionRelay(options: IRelayOptions): { dispose: () =
     signal.removeEventListener('abort', dispose);
     port1.removeListener('message', onMessage);
     port1.removeListener('close', dispose);
-    releaseSession?.();
+    try {
+      releaseSession?.();
+    } catch {
+      // A failed listener cleanup must not leave the renderer's port open.
+    }
     pending.clear();
-    port1.close();
+    try {
+      port1.close();
+    } catch {
+      // The port may already be destroyed during renderer teardown.
+    }
   }
 
   function validGeneration(): boolean {
