@@ -74,7 +74,10 @@ import type {
   TSessionEndReason,
 } from '@robota-sdk/agent-core';
 import type { ICommand } from '@robota-sdk/agent-interface-command';
-import type { IExecutionDetailPage } from '@robota-sdk/agent-interface-execution';
+import type {
+  IExecutionDetailCursor,
+  IExecutionDetailPage,
+} from '@robota-sdk/agent-interface-execution';
 import type {
   IAskRequestEvent,
   IInteractiveSessionEvents,
@@ -213,7 +216,10 @@ export class WireTuiChannel implements ITuiAppChannelPort {
   /** Detail pages asked for and not yet answered, by request id. */
   private readonly pendingDetails = new Map<
     string,
-    { readonly resolve: (page: IExecutionDetailPage) => void; readonly reject: (error: Error) => void }
+    {
+      readonly resolve: (page: IExecutionDetailPage) => void;
+      readonly reject: (error: Error) => void;
+    }
   >();
   private detailSequence = 0;
   /** Esc's loop stops waiting for the host's outcome, by request id. */
@@ -232,7 +238,8 @@ export class WireTuiChannel implements ITuiAppChannelPort {
    * that names its request (or, from an older host, a protocol error that names none). A refusal
    * never settles a command.
    */
-  private pendingSessionChange: { readonly requestId: string; readonly settle: () => void } | undefined;
+  private pendingSessionChange:
+    { readonly requestId: string; readonly settle: () => void } | undefined;
   private sessionChangeSequence = 0;
   /** Bumped on a session switch: a question from a session no longer shown is never answered. */
   private promptGeneration = 0;
@@ -464,12 +471,22 @@ export class WireTuiChannel implements ITuiAppChannelPort {
   }
 
   /** A page of what a workspace entry recorded, read from the host. An observer may read it too. */
-  async readExecutionWorkspaceDetail(entryId: string): Promise<IExecutionDetailPage> {
+  async readExecutionWorkspaceDetail(
+    entryId: string,
+    cursor?: IExecutionDetailCursor,
+  ): Promise<IExecutionDetailPage> {
     this.detailSequence += 1;
     const requestId = `wire-tui-detail-${this.detailSequence}`;
     return new Promise<IExecutionDetailPage>((resolve, reject) => {
       this.pendingDetails.set(requestId, { resolve, reject });
-      if (!this.send({ type: 'read-execution-detail', requestId, entryId })) {
+      if (
+        !this.send({
+          type: 'read-execution-detail',
+          requestId,
+          entryId,
+          ...(cursor === undefined ? {} : { cursor }),
+        })
+      ) {
         this.rejectDetail(requestId, 'Could not reach the session.');
       }
     });
@@ -486,7 +503,8 @@ export class WireTuiChannel implements ITuiAppChannelPort {
         this.settleTaskSend(taskId);
       }
     });
-    if (failure !== undefined) this.notice(`Could not send to background task ${taskId}: ${failure}`);
+    if (failure !== undefined)
+      this.notice(`Could not send to background task ${taskId}: ${failure}`);
   }
 
   resolveUserAction(request: IActionRequest, response: TActionResponse): void {
@@ -668,7 +686,10 @@ export class WireTuiChannel implements ITuiAppChannelPort {
         return;
       case 'session_change_failed':
         // Only the client that asked is told. It answers the switch, never a command.
-        if (frame.requestId === undefined || frame.requestId === this.pendingSessionChange?.requestId) {
+        if (
+          frame.requestId === undefined ||
+          frame.requestId === this.pendingSessionChange?.requestId
+        ) {
           this.settleSessionChange();
         }
         this.notice(frame.message);

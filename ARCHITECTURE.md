@@ -133,6 +133,7 @@ configuration or network endpoint. In particular, a provider SDK may refuse clie
 - **Browser (DOM)**: `agent-ui-web`, `agent-transport-webrtc-web`, `agent-gui-web` — free of Node
   like the neutral packages, and they also need a DOM.
 - **Node host**: `agent-cli`, `agent-ui-terminal`, `agent-process`, `agent-file-authority`,
+  `agent-local-host`, `agent-node-lock`,
   `agent-organization-host`, `agent-tool-defaults`, `pack-coding`, `agent-subagent-runner`,
   `agent-transport-ws`, `agent-transport-mcp`, `agent-transport-acp`, `agent-transport-webrtc`,
   `agent-transport-link`, `agent-provider-replay`, `agent-keyring` — they exist to drive a Node host

@@ -1,5 +1,6 @@
 import { isTerminalBackgroundTaskStatus } from '@robota-sdk/agent-executor';
 
+import { attachKind } from './execution-workspace-attach.js';
 import {
   groupHeadline,
   groupState,
@@ -62,7 +63,7 @@ export function createExecutionWorkspaceSnapshot(
       // (non-loop) cancelled or completed task is unaffected: it stays listed and queryable.
       .filter((task) => !isLingeringTerminalLoopTask(task))
       .map((task) =>
-        createBackgroundTaskEntry(task, taskGroupIds.get(task.id), input.sessionHasWriter),
+        createBackgroundTaskEntry(task, taskGroupIds.get(task.id)),
       ),
     ...sortSelfPacedLoops(input.selfPacedLoops ?? [])
       // Only `pending`/`running` need a projection of their own: `waiting` already has one (the
@@ -106,7 +107,6 @@ function createMainThreadEntry(input: ICreateMainThreadEntryInput): IExecutionWo
 function createBackgroundTaskEntry(
   state: IBackgroundTaskState,
   groupId: string | undefined,
-  sessionHasWriter: (sessionId: string) => boolean,
 ): IExecutionWorkspaceEntry {
   return {
     id: createBackgroundTaskExecutionEntryId(state.id),
@@ -130,7 +130,7 @@ function createBackgroundTaskEntry(
     attention: createTaskAttention(state),
     visibility: createTaskVisibility(state),
     updatedAt: state.lastActivityAt ?? state.updatedAt,
-    controls: createTaskControls(state, sessionHasWriter),
+    controls: createTaskControls(state),
     // CLI-1994: the forked session record an `attach` control switches the view onto.
     ...(state.kind === 'agent' && state.resumeSessionId !== undefined
       ? { resumeSessionId: state.resumeSessionId }
@@ -284,23 +284,20 @@ function createTaskGroupIdMap(groups: readonly IBackgroundJobGroupState[]): Map<
   return new Map(groups.flatMap((group) => group.taskIds.map((taskId) => [taskId, group.id])));
 }
 
-function createTaskControls(
-  state: IBackgroundTaskState,
-  sessionHasWriter: (sessionId: string) => boolean,
-): readonly TExecutionControl[] {
+function createTaskControls(state: IBackgroundTaskState): readonly TExecutionControl[] {
   const controls: TExecutionControl[] = ['select'];
   if (isTerminalBackgroundTaskStatus(state.status)) controls.push('close');
   else controls.push('cancel');
   if (state.kind === 'agent' && state.status === 'running') controls.push('send');
   if (state.logPath || state.transcriptPath) controls.push('read_log');
-  // CLI-1994: a task that resumed a forked record can be ATTACHED to — offered whenever the request
-  // carried the id, unless the record has a writer in this process (the job running it here, or a
-  // child it was handed to), which `resolveExecutionAttach` refuses on the same fact; a terminal task
-  // or a missing record is refused at attach time, with the reason.
+  // CLI-1994: a fork's task can be ATTACHED to — followed while it runs, continued once it ended. The
+  // offer reads the same table the attach decision does (`attachKind`) and nothing about the record's
+  // writer: a lease ends without an event, so an offer that depended on it would go stale exactly when
+  // the job ends. A missing record or a writer that has not let go is refused at attach time, with the
+  // reason.
   if (
     state.kind === 'agent' &&
-    state.resumeSessionId !== undefined &&
-    !sessionHasWriter(state.resumeSessionId)
+    attachKind({ resumeSessionId: state.resumeSessionId, status: state.status }) !== 'none'
   ) {
     controls.push('attach');
   }

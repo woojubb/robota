@@ -55,6 +55,9 @@ owner.session.send({ type: 'submit', prompt: 'hello' });
 Opening rejects with the keyring's `LinkRefusedError` when the runtime is not the one it must be
 (`reason` says which check failed, for example `certificate-mismatch` for a runtime another keyring
 certified), and with `OwnerLinkClosedError` when the runtime closes the link.
+Sending a session message also throws `OwnerLinkClosedError` and closes the link when the outgoing
+stream cannot accept another frame within its bounded buffer. A successful send accepts the frame
+for delivery; it does not mean the runtime has processed the message.
 
 ## API
 

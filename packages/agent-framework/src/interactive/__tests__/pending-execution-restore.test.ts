@@ -1,6 +1,6 @@
 import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
-import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
+import { createScheduledTaskRunner } from '@robota-sdk/agent-executor/node';
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type {
@@ -251,20 +251,7 @@ describe('restored autonomous and queued input admission', () => {
         },
       ],
     });
-    const started = vi.fn();
-    const runner: IBackgroundTaskRunner<'scheduled'> = {
-      kind: 'scheduled',
-      start(task) {
-        started();
-        task.emit?.({ type: 'background_task_waking', instruction: 'inspect' });
-        return {
-          taskId: task.taskId,
-          result: new Promise<never>(() => {}),
-          cancel: async () => undefined,
-        };
-      },
-    };
-    const manager = new BackgroundTaskManager({ runners: [runner] });
+    const manager = new BackgroundTaskManager({ runners: [createScheduledTaskRunner()] });
     const real = lower(f.cwd);
     storeAgentToolDeps(real.session, {
       backgroundTaskManager: manager,
@@ -279,7 +266,9 @@ describe('restored autonomous and queued input admission', () => {
       resolveDefaultLoopPrompt: resolver,
     });
     closers.push(() => interactive.shutdown());
-    await vi.waitFor(() => expect(started).toHaveBeenCalledOnce());
+    expect(interactive.listSchedules()).toEqual([
+      expect.objectContaining({ id: 'restored-schedule' }),
+    ]);
     expect(real.requests).toHaveLength(0);
     expect(resolver).not.toHaveBeenCalled();
     expect(interactive.listSelfPacedLoops()).toEqual([loop]);

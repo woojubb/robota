@@ -11,6 +11,9 @@ import type { TConfigEnvironment } from '@robota-sdk/product-config';
 import type { IProductConfig } from '@robota-sdk/product-config';
 import type { IProductCliArtifact } from './product/artifact.js';
 
+export { desktopConversationMode, openDesktopSecureOwner } from './desktop-secure-host.js';
+export type { IDesktopSecureOwnerOptions, TDesktopSecureSecret } from './desktop-secure-host.js';
+
 export interface IDesktopCliResult {
   readonly exitCode: number | null;
   readonly stdout: string;
@@ -55,6 +58,43 @@ export async function approveDesktopTrustCandidate(
   return (await requestWorkspaceRootBroker(endpoint, {
     op: 'approve', candidate, root: question.folder,
   })).status === 'trusted';
+}
+
+const desktopBroker = (config: IProductConfig, environment: TConfigEnvironment) =>
+  workspaceRootBrokerEndpoint(createCliRuntimeContext(config, environment));
+
+export async function prepareDesktopRestrictedRoot(
+  config: IProductConfig, environment: TConfigEnvironment, root: string,
+): Promise<string | undefined> {
+  const response = await requestWorkspaceRootBroker(desktopBroker(config, environment), { op: 'prepare', root });
+  return response.status === 'prepared' ? response.candidate : undefined;
+}
+
+/** Promote the root shown to the person into a live Restricted choice without granting project reads. */
+export async function retainDesktopRestrictedRoot(
+  config: IProductConfig, environment: TConfigEnvironment, root: string, candidate: string,
+): Promise<string | undefined> {
+  const response = await requestWorkspaceRootBroker(desktopBroker(config, environment), {
+    op: 'retainRestricted', root, candidate,
+  });
+  return response.status === 'restricted-held' ? response.hold : undefined;
+}
+
+export async function assertDesktopRestrictedRoot(
+  config: IProductConfig, environment: TConfigEnvironment, root: string, hold: string,
+): Promise<string> {
+  const response = await requestWorkspaceRootBroker(desktopBroker(config, environment), {
+    op: 'assertRestricted', root, hold,
+  });
+  if (response.status !== 'restricted-root') throw new Error('The Restricted folder changed after approval.');
+  return response.tag;
+}
+
+export async function releaseDesktopRestrictedRoot(
+  config: IProductConfig, environment: TConfigEnvironment, hold: string,
+): Promise<void> {
+  const response = await requestWorkspaceRootBroker(desktopBroker(config, environment), { op: 'releaseRestricted', hold });
+  if (response.status !== 'released') throw new Error('The Restricted folder hold could not be released.');
 }
 
 const OS_VARIABLES = [

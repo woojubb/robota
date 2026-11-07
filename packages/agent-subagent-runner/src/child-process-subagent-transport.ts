@@ -120,6 +120,10 @@ export function handleWorkerMessage(
     case 'record_saved':
       // The parent's own follower of the job's record saves reads these (`followForkRecordSaves`).
       break;
+    case 'send_accepted':
+    case 'send_refused':
+      // The answers to a follow-up prompt belong to the handle's `send` (`createSendChannel`).
+      break;
     default:
       rejectOnce(new BackgroundTaskError('runner', 'Unhandled subagent worker message'));
   }

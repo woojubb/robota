@@ -9,6 +9,7 @@
 import type { IBackgroundJobGroupState } from './background-group-contracts.js';
 import type {
   IBackgroundTaskLogCursor,
+  IBackgroundTaskLogUnreadable,
   IBackgroundTaskState,
   TBackgroundTaskKind,
   TBackgroundTaskStatus,
@@ -159,6 +160,11 @@ export interface IExecutionDetailPage {
   readonly cursor?: IExecutionDetailCursor;
   readonly nextCursor?: IExecutionDetailCursor;
   readonly records: readonly IExecutionDetailRecord[];
+  /**
+   * Records of this page that could not be shown as content (sealed, and why), present only when
+   * there are any, so a surface can say why a page is short and what to do about it.
+   */
+  readonly unreadable?: IBackgroundTaskLogUnreadable;
 }
 
 export interface ICreateMainThreadEntryInput {
@@ -198,12 +204,6 @@ export interface ICreateExecutionWorkspaceSnapshotInput {
   readonly selfPacedLoops?: readonly IExecutionSelfPacedLoopSummary[];
   readonly selectedEntryId?: string;
   readonly filter?: IExecutionWorkspaceFilter;
-  /**
-   * Whether session `sessionId`'s record may have a writer now, in this process or another — the
-   * session store's own answer (`IInteractiveSessionStore.hasWriter`). A fork whose record has one is not
-   * offered `attach`, which would open the record as a second writer; attaching asks the same fact.
-   */
-  readonly sessionHasWriter: (sessionId: string) => boolean;
 }
 
 export interface IExecutionWorkspaceEntryRef {
@@ -225,4 +225,5 @@ export interface ICreateLineDetailPageInput {
   readonly cursor?: IBackgroundTaskLogCursor;
   readonly nextCursor?: IBackgroundTaskLogCursor;
   readonly kind?: TExecutionDetailRecordKind;
+  readonly unreadable?: IBackgroundTaskLogUnreadable;
 }

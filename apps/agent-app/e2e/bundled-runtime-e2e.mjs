@@ -13,6 +13,7 @@ import { promisify } from 'node:util';
 import { buildBundledRuntimeChildEnv } from './child-env.mjs';
 import { buildProductTestEnvironment, readDesktopTestIdentity } from './product-fixture.mjs';
 import { buildDaemonStartSpawn, parseDaemonStartOutput } from '../dist/electron/sidecar.js';
+import { stopFixtureBroker } from '../../../packages/agent-cli/scripts/e2e-native-file-authority.mjs';
 
 const appDirectory = pjoin(dirname(fileURLToPath(import.meta.url)), '..');
 const identity = readDesktopTestIdentity(pjoin(appDirectory, 'dist', 'electron'));
@@ -230,9 +231,24 @@ try {
   console.error('Packaged runtime check failed:', error);
   throw error;
 } finally {
-  if (child && child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+  if (child && child.exitCode === null && child.signalCode === null) {
+    await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Bundled runtime did not exit after SIGKILL.')), 5_000);
+      child.once('exit', () => { clearTimeout(timer); resolve(); });
+      if (!child.kill('SIGKILL')) {
+        clearTimeout(timer);
+        reject(new Error('Bundled runtime could not be killed.'));
+      }
+    });
+  }
+  await stopFixtureBroker(productFixture.environment);
   for (const fixture of [binCwd, home, runtime]) {
-    await rm(fixture, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 });
+    const timer = setTimeout(() => {
+      console.error(`Fixture cleanup timed out: ${fixture}`);
+      process.exit(1);
+    }, 15_000);
+    try { await rm(fixture, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }); }
+    finally { clearTimeout(timer); }
   }
 }
 

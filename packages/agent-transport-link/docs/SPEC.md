@@ -17,14 +17,14 @@ endpoint reads the request line stay with the runtime that serves the link.
 - One request line in the control endpoint's request shape opens a link, so the endpoint routes it
   like any other command. The line names no runtime and no start: the binding is proven inside the
   handshake, never taken from the request.
-- A runtime admits a spawner only with the spawner-key proof and an owner only with the attach-key
-  proof, and closes the stream on any failure without saying why. A client sends only the request
-  line and its hello before it has checked the runtime, and a link is open only once the runtime has
-  announced its custody, which it does only after admitting the proof.
+- A runtime admits a spawner only with the proof established over their inherited channel and an owner
+  only with the attach-key proof; it closes the channel before a child can inherit it. The stream closes
+  on proof failure without saying why, and the client discloses no proof before verifying the runtime.
 - An admitted link reports its standing, and the runtime's desk decides what that standing may do;
   the carrier never grants a request by itself.
 - Every frame is bounded by what may come next before any of it is read, and every owner message
-  decodes strictly on both ends. Anything else ends the link before a port sees it.
+  decodes strictly on both ends. Anything else ends the link before a port sees it; a client also
+  ends its link when its outgoing stream cannot accept another frame within bounded memory.
 - Wire shapes stop in this package: runtimes and clients deal only in domain values (trust roots,
   read keys, custody states, session questions, control commands).
 - A read grant reaches the runtime only as read keys handed to its desk, and the keys of a grant the
@@ -36,8 +36,9 @@ endpoint reads the request line stay with the runtime that serves the link.
 
 - The session protocol crosses unchanged: a session frame carries one serialized `agent-transport`
   message, and the client decodes it with that package's decoders.
-- When a link ends, for any reason, its frame keys are wiped and every request still waiting is
-  rejected.
+- When a link ends, its queued answers may finish within a bounded grace while further traffic is
+  refused; its frame keys are wiped and unanswered requests are rejected. This lets certification
+  be acknowledged without retaining the spawner's authority.
 
 ## Non-goals
 

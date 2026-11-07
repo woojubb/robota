@@ -42,6 +42,8 @@ export interface ITerminalClientCommandOptions {
   readonly shellExecutable?: string;
   /** Product-owned prefix for `/editor`'s temporary directory; absent → the command's default. */
   readonly editorTemporaryDirectoryPrefix?: string;
+  /** Refusal returned before any editor process or temporary file is created. */
+  readonly editorUnavailableMessage?: string;
   /** Absent → `/keybindings` answers where key bindings live, as the in-process command does. */
   readonly keybindingsFile?: IKeybindingsFilePort;
   /** Absent → `/theme` answers where themes live, as the in-process command does. */
@@ -70,6 +72,7 @@ export function createTerminalClientCommands(
   const {
     shellExecutable,
     editorTemporaryDirectoryPrefix,
+    editorUnavailableMessage,
     keybindingsFile,
     themeCatalogue,
     enabledCommandModules,
@@ -83,8 +86,11 @@ export function createTerminalClientCommands(
       (host, args) => executeShellCommand(host, args, shellExecutable),
     ],
     [
-      createEditorCommandModule(editorTemporaryDirectoryPrefix),
-      (host, args) => executeEditorCommand(host, args, editorTemporaryDirectoryPrefix),
+      createEditorCommandModule(editorTemporaryDirectoryPrefix, editorUnavailableMessage),
+      (host, args) =>
+        editorUnavailableMessage === undefined
+          ? executeEditorCommand(host, args, editorTemporaryDirectoryPrefix)
+          : { message: editorUnavailableMessage, success: false },
     ],
     [
       createKeybindingsCommandModule(keybindingsFile, openFileInEditor),

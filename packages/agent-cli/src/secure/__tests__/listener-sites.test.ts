@@ -16,7 +16,7 @@ import type { TListenerSurface } from '../secure-surfaces.js';
 /** Every product file that can open a listener, and the rows its listeners belong to. */
 const LISTENER_SITES: Readonly<Record<string, readonly TListenerSurface[]>> = {
   'packages/agent-cli/src/session-inventory/supervised-session-control.ts': ['control-socket'],
-  'packages/agent-cli/src/session-inventory/windows-control-pipe.ts': ['control-socket'],
+  'packages/agent-local-host/src/windows-control-pipe.ts': ['control-socket'],
   'packages/agent-cli/src/startup/workspace-root-broker.ts': ['control-socket'],
   'packages/agent-transport-ws/src/ws-transport-configurable.ts': ['websocket-transport'],
   'packages/agent-cli/src/modes/serve-http-host.ts': ['serve-http'],

@@ -34,6 +34,8 @@ export interface IMigrationContext {
 /** Lines for the plan or the summary, unindented. */
 export interface IMigrationStepReport {
   readonly lines: readonly string[];
+  /** Whether the planned run could finish without manual cleanup; omitted by injected test steps. */
+  readonly complete?: boolean;
 }
 
 export interface IMigrationStepOutcome extends IMigrationStepReport {

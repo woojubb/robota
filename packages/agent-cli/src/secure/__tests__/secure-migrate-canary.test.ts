@@ -5,8 +5,8 @@
  * `/editor` buffer and a gone process's scratch; on Linux also a trusted project's records, replay
  * log, edit checkpoints and pending memory candidates. After one migration, answered yes, the string
  * is nowhere under the state root, the project's state directory or the temporary directory, except
- * in what the migration lists and leaves (the SDK's spill directories), and everything it sealed
- * still opens through the store that reads it. Secure mode is turned on through the predicate's own
+ * in the SDK's listed spill directories. Those unattributed directories keep activation incomplete;
+ * everything migrated still opens through the store that reads it. Secure mode is selected through the predicate's own
  * seam, and the keyring is the test fixture's.
  */
 import { execFileSync } from 'node:child_process';
@@ -56,9 +56,9 @@ import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
 import { KeyHolder } from '../key-holder.js';
-import { createKeyringFileStore } from '../keyring-store.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { runSecureCommand } from '../secure-command.js';
-import { createMigrationSteps } from '../secure-migrate.js';
+import { EXIT_INCOMPLETE, createMigrationSteps } from '../secure-migrate.js';
 import { FIXTURE_PASSPHRASE, fixtureKeyring, scriptedSecureTerminal } from './helpers.js';
 
 import type { ICliRuntimeContext } from '../../product/runtime-context.js';
@@ -335,8 +335,8 @@ describe.skipIf(process.platform === 'win32')('secure migrate, end to end', () =
     });
 
     const printed = out.join('');
-    expect(code, printed).toBe(0);
-    expect(printed).toContain('test-product secure migrate: done');
+    expect(code, printed).toBe(EXIT_INCOMPLETE);
+    expect(printed).toContain('test-product secure migrate: incomplete');
     expect(printed).not.toContain(CANARY);
     const sdkSpill = join(temporary, 'agent-tool-results-XyZ987', 'result.json');
     expect(withCanary()).toEqual([sdkSpill]);

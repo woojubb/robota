@@ -140,6 +140,30 @@ describe('parseCliArgs', () => {
     ).toThrow();
   });
 
+  it('accepts the spawner pair flag only from a supervised launch, as a bare flag, and not with a token', () => {
+    const id = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
+    expect(
+      parseCliArgs(['--serve', '--supervised-session-id', id, '--supervised-spawner-pair'])
+        .supervisedSpawnerPair,
+    ).toBe(true);
+    expect(parseCliArgs(['--serve', '--supervised-session-id', id]).supervisedSpawnerPair).toBeUndefined();
+    expect(() => parseCliArgs(['--serve', '--supervised-spawner-pair'])).toThrow(
+      /--supervised-spawner-pair is set only by a supervised launch/,
+    );
+    expect(() =>
+      parseCliArgs([
+        '--serve',
+        '--supervised-session-id',
+        id,
+        '--supervised-spawner-pair',
+        '--supervised-transport-token-fd',
+      ]),
+    ).toThrow(/exclusive/);
+    expect(() =>
+      parseCliArgs(['--serve', '--supervised-session-id', id, '--supervised-spawner-pair=4']),
+    ).toThrow();
+  });
+
   it('accepts the supervised grant handoff flag only from a supervised launch', () => {
     const id = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
     expect(

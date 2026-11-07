@@ -65,6 +65,7 @@ function createCapturedRunner(onStart?: (job: ISubagentJobStart) => void): ICapt
             metadata: { existing: 'value' },
           }),
           cancel: () => Promise.resolve(),
+          send: () => Promise.resolve(),
         };
       },
     },
@@ -166,6 +167,7 @@ describe('WorktreeSubagentRunner', () => {
           taskId: job.taskId,
           result: Promise.reject(new Error('worker failed')),
           cancel: () => Promise.resolve(),
+          send: () => Promise.resolve(),
         };
       },
     };
@@ -205,6 +207,7 @@ describe('WorktreeSubagentRunner', () => {
           taskId: job.taskId,
           result: deferred.promise,
           cancel: () => Promise.resolve(),
+          send: () => Promise.resolve(),
         };
       },
     };
@@ -235,6 +238,7 @@ describe('WorktreeSubagentRunner', () => {
           taskId: job.taskId,
           result: new Promise<ISubagentJobResult>(() => undefined),
           cancel: () => Promise.resolve(),
+          send: () => Promise.resolve(),
         };
       },
     };
@@ -341,6 +345,7 @@ describe('WorktreeSubagentRunner keeps the transcript of the handle it wraps', (
           transcriptSealed: true,
           result: Promise.resolve({ taskId: job.taskId, output: 'done' }),
           cancel: () => Promise.resolve(),
+          send: () => Promise.resolve(),
           readLog: async (cursor) => {
             pages.push(cursor);
             return { taskId: job.taskId, lines: ['a record'] };
@@ -365,7 +370,7 @@ describe('WorktreeSubagentRunner keeps the transcript of the handle it wraps', (
     expect(pages).toEqual([{ offset: 3 }]);
   });
 
-  it('adds none of them when the wrapped handle has none', () => {
+  it('adds none of the optional ones when the wrapped handle has none', () => {
     const runner = new WorktreeSubagentRunner({
       runner: createCapturedRunner().runner,
       worktreeAdapter: createAdapter(true),
@@ -374,7 +379,30 @@ describe('WorktreeSubagentRunner keeps the transcript of the handle it wraps', (
 
     const handle = runner.start(createJob('worktree'));
 
-    expect(Object.keys(handle).sort()).toEqual(['cancel', 'result', 'taskId']);
+    expect(Object.keys(handle).sort()).toEqual(['cancel', 'result', 'send', 'taskId']);
+  });
+
+  it('hands a follow-up prompt to the job it wraps, as it was sent', async () => {
+    const sent: string[] = [];
+    const runner = new WorktreeSubagentRunner({
+      runner: {
+        start: (job: ISubagentJobStart): ISubagentJobHandle => ({
+          taskId: job.taskId,
+          result: Promise.resolve({ taskId: job.taskId, output: 'done' }),
+          cancel: () => Promise.resolve(),
+          send: (prompt) => {
+            sent.push(prompt);
+            return Promise.resolve();
+          },
+        }),
+      },
+      worktreeAdapter: createAdapter(true),
+      hookTypeExecutors: [],
+    });
+
+    await runner.start(createJob('worktree')).send('and another thing');
+
+    expect(sent).toEqual(['and another thing']);
   });
 });
 

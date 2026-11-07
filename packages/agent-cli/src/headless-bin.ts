@@ -17,6 +17,7 @@ import { createProductSubagentComposition } from './product/subagent-composition
 import { parseCliArgs } from './utils/cli-args.js';
 import { optionArgv } from './utils/option-argv.js';
 import { assertLocalWorkerPosture } from './hosted/hosted-runtime-config.js';
+import { assertProductConversationLaunch } from './product/session-sealing.js';
 
 // Same first step as the CLI executable: this executable is its own entry, and so is its worker child.
 hardenProductProcess();
@@ -25,6 +26,7 @@ if (isSubagentWorkerModeArgv(optionArgv(process.argv))) {
   // The served parent's child re-executes process.execPath; this private route must survive bundling.
   try {
     const runtime = resolveCliRuntimeContext({});
+    assertProductConversationLaunch(runtime, process.argv);
     installProductProcessEnvironment(runtime);
     installProductChildSessions(runtime);
     installCliDiagnostics(runtime.config.identity.cliName);
@@ -37,6 +39,7 @@ if (isSubagentWorkerModeArgv(optionArgv(process.argv))) {
 } else {
   try {
     const productRuntime = resolveCliRuntimeContext({});
+    assertProductConversationLaunch(productRuntime, process.argv);
     installProductProcessEnvironment(productRuntime);
     installProductChildSessions(productRuntime);
     installCliDiagnostics(productRuntime.config.identity.cliName);

@@ -205,6 +205,7 @@ describe('SELFHOST-001 P1 — sequential orchestration', () => {
           taskId: job.taskId,
           result: Promise.resolve<ISubagentJobResult>({ taskId: job.taskId, output }),
           cancel: async () => {},
+          send: async () => {},
         };
       },
     };

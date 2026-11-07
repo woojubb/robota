@@ -221,8 +221,12 @@ export interface ISessionLease {
 export interface ISessionClaim {
   /** What the claim's read concluded; the session restores from this and reads nothing before it. */
   readonly outcome: TSessionLoadOutcome;
+  /** Whether this exact claim still owns its writer marker; absent when the store cannot verify it. */
+  holdsWriter?(): boolean;
   /** Ends this claim, and only this one: idempotent, and a late release never ends a later claim. */
   release(): void;
+  /** Ends an abandoned claim and drops its held plaintext, when the store retains a held copy. */
+  discard?(): void;
 }
 
 /**
@@ -248,8 +252,24 @@ export interface ISessionStoreScan {
 }
 
 /** Persistence port for resumable interactive sessions. */
+export type TSessionRestoreCommitOutcome =
+  { readonly status: 'committed' } | { readonly status: 'unknown'; readonly error: unknown };
+
 export interface IInteractiveSessionStore {
+  /** Every claim can discard its retained plaintext when an owner decision is withdrawn. */
+  readonly supportsClaimDiscard?: true;
   save(session: IInteractiveSessionRecord, options?: ISessionSaveOptions): void;
+  /**
+   * Optional claimed restore commit: a successful return means the complete candidate was saved.
+   * An unknown outcome means either the prior record or the complete candidate may be present;
+   * neither may be overwritten by an assumed rollback. This operation must be synchronous,
+   * claim-fenced and atomic with respect to the visible record. Stores without this guarantee
+   * must omit it.
+   */
+  saveRestoreTransaction?(
+    session: IInteractiveSessionRecord,
+    options?: ISessionSaveOptions,
+  ): TSessionRestoreCommitOutcome;
   load(id: string, options?: ISessionLoadOptions): TSessionLoadOutcome;
   /**
    * Every session this store can describe. A sealed session whose keys are locked is not an entry

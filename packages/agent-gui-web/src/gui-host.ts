@@ -8,6 +8,9 @@
  */
 
 import { readInjectedWsUrl, resolveWsUrl } from './ws-url.js';
+import { createDesktopSessionClient, type IDesktopSessionBridge } from '@robota-sdk/agent-ui-web/client';
+
+import type { TMakeSessionClient } from '@robota-sdk/agent-ui-web/client';
 
 /** The runtime's state as the desktop host reports it. A browser host has no process to report. */
 export type TGuiHostState = 'starting' | 'ready' | 'fatal';
@@ -35,7 +38,7 @@ export interface IPickedFile {
 
 /** What the Electron preload exposes as `window.agentGui` (apps/agent-app/electron/preload.ts). */
 export interface IDesktopBridge {
-  readonly runtimeMode?: 'local' | 'remote';
+  readonly runtimeMode?: 'local' | 'remote' | 'secure';
   getEndpoint(): Promise<string | null>;
   signalReady(): void;
   onState(listener: (state: TGuiHostState, detail?: string) => void): () => void;
@@ -52,6 +55,9 @@ export interface IDesktopBridge {
 
 export interface IGuiHost {
   readonly kind: 'desktop' | 'browser';
+  readonly secureMode?: boolean;
+  /** A host-injected session transport; each invocation must acquire a fresh admitted channel. */
+  readonly makeSessionClient?: TMakeSessionClient;
   /** The runtime's WebSocket URL, token included. */
   getEndpoint(): Promise<string | null>;
   /** The session is live. */
@@ -99,6 +105,7 @@ export interface IGuiHost {
 
 export interface IGuiHostEnvironment {
   readonly bridge: IDesktopBridge | undefined;
+  readonly desktopSession?: IDesktopSessionBridge;
   readonly document: Pick<Document, 'querySelector'>;
   readonly location: Pick<Location, 'search' | 'host'>;
 }
@@ -117,9 +124,13 @@ function browserEndpoint(environment: IGuiHostEnvironment): string {
 export function resolveGuiHost(environment: IGuiHostEnvironment): IGuiHost {
   const { bridge } = environment;
   if (bridge) {
+    const secure = bridge.runtimeMode === 'secure';
+    if (secure && !environment.desktopSession) throw new Error('Secure desktop session bridge is missing.');
     return {
       kind: 'desktop',
-      getEndpoint: () => bridge.getEndpoint(),
+      secureMode: secure,
+      makeSessionClient: secure ? (callbacks) => createDesktopSessionClient(environment.desktopSession!, callbacks) : undefined,
+      getEndpoint: () => secure ? Promise.resolve(null) : bridge.getEndpoint(),
       signalReady: () => bridge.signalReady(),
       onState: (listener) => bridge.onState(listener),
       restartRuntime: () => bridge.restartRuntime(),
@@ -133,7 +144,7 @@ export function resolveGuiHost(environment: IGuiHostEnvironment): IGuiHost {
       // Best-effort, like `shell.openExternal` elsewhere in the main process — the person already
       // sees the memory content in the panel; a failed open is not worth a blocking error surface.
       openMemoryInEditor:
-        bridge.runtimeMode === 'remote'
+        bridge.runtimeMode === 'remote' || secure
           ? undefined
           : (path) => {
               void bridge.openPath(path);

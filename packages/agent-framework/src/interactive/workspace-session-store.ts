@@ -45,6 +45,7 @@ import type {
   ISessionSaveOptions,
   ISessionStoreScan,
   TSessionLoadOutcome,
+  TSessionRestoreCommitOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type { ISessionStoreOptions, TStoredSessionFile } from '@robota-sdk/agent-session/node';
 
@@ -138,6 +139,7 @@ export function projectSessionClaimsDirectory(sessions: IWorkspaceProjectStateSt
 
 /** Project session record adapter backed only by runtime-minted state facets. */
 export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
+  readonly supportsClaimDiscard = true as const;
   private readonly sessions: IWorkspaceProjectStateStorage;
   private readonly logs: IWorkspaceProjectStateStorage;
   /** How this store keeps what it writes; its replay logs are read with the same sealing. */
@@ -222,6 +224,20 @@ export class WorkspaceProjectSessionStore implements IInteractiveSessionStore {
     // sealed to the session's id by a store that seals, and tagged when it can vouch that the content
     // is the owner's and the keys are unlocked.
     this.records.save(session, options);
+  }
+
+  saveRestoreTransaction(
+    session: IInteractiveSessionRecord,
+    options?: ISessionSaveOptions,
+  ): TSessionRestoreCommitOutcome {
+    if (!options?.claim)
+      throw new TypeError('A live session claim is required for restore commit.');
+    try {
+      this.save(session, options);
+      return { status: 'committed' };
+    } catch (error) {
+      return { status: 'unknown', error };
+    }
   }
 
   /**

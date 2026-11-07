@@ -9,14 +9,21 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  */
 
 import { realpathSync } from 'node:fs';
+import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
 
+import { productSecureMode } from '../product/session-sealing.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
+import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
+import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { confirmAttachOnTerminal, type IAttachConfirmation } from './attach-confirmation.js';
 import { findWorkspaceDaemon } from './daemon-command.js';
+import { proveWorkspaceDaemon } from './prove-workspace-daemon.js';
 import { runConfirmedAttach, type TAttachedAppRender } from './session-attach-command.js';
-import { resolveSupervisedDirectory } from './supervised-session-control.js';
+import { openSecureAttach } from './secure-attach-client.js';
+import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-process.js';
+import { listSupervisedSessions, resolveSupervisedDirectory } from './supervised-session-control.js';
 
 import type { openSupervisedAttach } from './supervised-attach-client.js';
-import type { listSupervisedSessions } from './supervised-session-control.js';
 
 export const DAEMON_ATTACH_FLAG = '--attach';
 
@@ -32,9 +39,10 @@ export const DAEMON_ATTACH_HELP = (cliName: string): string =>
   "see, and its sessions to list, start and switch. The daemon's session is shaped by the daemon, so\n" +
   'no option that shapes a session is taken; to change one, restart the daemon.\n' +
   '\n' +
-  'It asks for confirmation on this terminal first and needs an interactive terminal, so only the user\n' +
-  'can run it; a script or an agent should suggest the command instead, or connect to the URL that\n' +
-  `\`${cliName} daemon start --json\` prints. Detach with /exit or Ctrl-C: the daemon keeps running. Exits 0\n` +
+  'It needs an interactive terminal and asks for confirmation there; in secure mode the owner unlocks\n' +
+  'with a passphrase instead, so only the user can run it; a script or an agent should suggest the command instead.\n' +
+  `In plain mode a client may instead use the URL from \`${cliName} daemon start --json\`. Detach with /exit\n` +
+  'or Ctrl-C: the daemon keeps running. Exits 0\n' +
   'after detaching, 1 when it could not attach.\n';
 
 export interface IDaemonAttachCommandOptions {
@@ -48,6 +56,7 @@ export interface IDaemonAttachCommandOptions {
   readonly render?: TAttachedAppRender;
   readonly confirm?: (question: IAttachConfirmation) => Promise<boolean>;
   readonly open?: typeof openSupervisedAttach;
+  readonly openSecureOwner?: () => Promise<IOwnerHandover | undefined>;
 }
 
 /** `the CLI --attach …`: the flag given to the CLI itself, not to a subcommand. */
@@ -110,16 +119,15 @@ export async function runDaemonAttachCommand(
   let daemon: Awaited<ReturnType<typeof findWorkspaceDaemon>>;
   try {
     workspace = realpathSync(options.cwd);
-    daemon = await findWorkspaceDaemon(workspace, {
-      root,
-      ...(options.list !== undefined ? { list: options.list } : {}),
+    daemon = productSecureMode(options.productRuntime) ? undefined : await findWorkspaceDaemon(workspace, {
+      root, ...(options.list !== undefined ? { list: options.list } : {}),
     });
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : 'Unable to find the daemon.'}\n`);
     return 1;
   }
   // Before the terminal check: a script learns the step it can take itself.
-  if (daemon === undefined) {
+  if (daemon === undefined && !productSecureMode(options.productRuntime)) {
     process.stderr.write(`No daemon is running in ${workspace}. Start one with: ${cliName} daemon start\n`);
     return 1;
   }
@@ -130,6 +138,44 @@ export async function runDaemonAttachCommand(
     );
     return 1;
   }
+  if (productSecureMode(options.productRuntime)) {
+    const product = options.productRuntime;
+    let owner: IOwnerHandover | undefined;
+    try {
+      owner = await (options.openSecureOwner ?? (() => openOwnerAtTerminal({
+        store: createKeyringFileStore({ path: product.layout.userPaths.keyring, root: product.layout.userRoot }),
+        terminal: openSecureTerminal(), purpose: 'attach to the secure daemon',
+        report: (message) => process.stderr.write(`${message}\n`),
+      })))();
+      if (owner === undefined) {
+        process.stderr.write('Attach cancelled: secure mode needs an unlock.\n');
+        return 1;
+      }
+      const handover = owner;
+      const rows = await (options.list ?? listSupervisedSessions)(root, undefined, {
+        includeGeneration: true,
+      });
+      const selected = await proveWorkspaceDaemon({ root, workspace, candidates: rows, handover });
+      if (selected === undefined) throw new Error('No reported daemon could be proved by this owner.');
+      const { id, generation } = selected;
+      return await runConfirmedAttach({
+        id, mode: 'drive', generation, root,
+        open: async (selectedId, mode, selectedRoot, selectedGeneration) => {
+          if (selectedGeneration === undefined) throw new Error('Secure attach needs a runtime generation.');
+          return openSecureAttach({ id: selectedId, mode, root: selectedRoot, generation: selectedGeneration, handover,
+            workspace, brokerEndpoint: await ensureWorkspaceRootBroker(product),
+            onMismatch: () => process.stderr.write('Warning: the runtime keyring sealing key differs from the unlocked key. Run secure verify to investigate.\n') });
+        },
+        render: (open) => render({ ...open, mode: 'drive', sessionLabel: id, screenReaderFlag: parsed.screenReader }),
+        messages: { detached: `Detached from daemon ${id}. It keeps running; stop it with ${cliName} daemon stop.`,
+          closed: 'The daemon closed the connection (it stopped, or cut this terminal off).' },
+      });
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : 'Unable to attach.'}\n`);
+      return 1;
+    } finally { owner?.dispose(); }
+  }
+  if (daemon === undefined) throw new Error('No daemon is available.');
   const { id, name, generation } = daemon;
   const question: IAttachConfirmation = { id, ...(name !== undefined ? { name } : {}), mode: 'drive' };
   if (!(await (options.confirm ?? confirmAttachOnTerminal)(question))) {

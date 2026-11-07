@@ -86,6 +86,36 @@ describe('resolveGuiHost', () => {
     expect(host.restartRuntime).toBeDefined();
   });
 
+  it('routes secure desktop sessions only through the admitted port', async () => {
+    const endpoint = vi.fn(async () => 'ws://127.0.0.1:1?token=forbidden');
+    const openPath = vi.fn(async () => ({}));
+    const bridge = {
+      runtimeMode: 'secure', getEndpoint: endpoint, openPath,
+      signalReady: () => {}, onState: () => () => {}, restartRuntime: async () => {},
+      trustQuestion: async () => null, answerTrust: async () => ({}),
+      pickFiles: async () => [], getPathForFile: () => '', onOpenSettings: () => () => {},
+    } satisfies IDesktopBridge;
+    const session = {
+      subscribe: vi.fn(() => () => {}), send: vi.fn(() => true), close: vi.fn(),
+    };
+    const host = resolveGuiHost({ ...page(), bridge, desktopSession: session });
+    expect(host.secureMode).toBe(true);
+    expect(host.makeSessionClient).toBeDefined();
+    await expect(host.getEndpoint()).resolves.toBeNull();
+    expect(endpoint).not.toHaveBeenCalled();
+    expect(host.openMemoryInEditor).toBeUndefined();
+    expect(openPath).not.toHaveBeenCalled();
+    const client = host.makeSessionClient!({ onMessage: () => {}, onStatusChange: () => {} });
+    client.connect();
+    expect(session.subscribe).toHaveBeenCalledOnce();
+    client.disconnect();
+  });
+
+  it('refuses a secure desktop window without its admitted session bridge', () => {
+    const bridge = { runtimeMode: 'secure' } as IDesktopBridge;
+    expect(() => resolveGuiHost({ ...page(), bridge })).toThrow('Secure desktop session bridge is missing.');
+  });
+
   it('in a browser, prefers the address the CLI injected into the page', async () => {
     const host = resolveGuiHost(
       page({ meta: 'ws://127.0.0.1:4321?token=a', search: '?ws=ws%3A%2F%2Fother' }),

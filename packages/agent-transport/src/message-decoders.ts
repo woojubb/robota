@@ -240,7 +240,12 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
   'get-agent-definitions': { requestId: isNonEmptyString },
   'list-sessions': { requestId: isNonEmptyString },
   'new-session': { requestId: isOptional(isNonEmptyString) },
-  'switch-session': { sessionId: isNonEmptyString, requestId: isOptional(isNonEmptyString) },
+  'switch-session': {
+    sessionId: isNonEmptyString,
+    requestId: isOptional(isNonEmptyString),
+    acceptedDigest: (value) => value === undefined,
+    digest: (value) => value === undefined,
+  },
   'rename-session': {
     sessionId: isNonEmptyString,
     name: isNonEmptyString,

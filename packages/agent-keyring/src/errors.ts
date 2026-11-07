@@ -68,6 +68,7 @@ export class KeyringError extends Error {
  * - `certificate-mismatch` — the certificate is not the attach key's signature over this instance
  *   and binding: made by another keyring, or for another runtime or start.
  * - `instance-mismatch` — the runtime answered with an instance key other than its exchange's.
+ * - `binding-mismatch` — the authenticated runtime is not the selected runtime start.
  * - `bad-runtime-proof` — the runtime's proof of the transcript did not verify.
  * - `bad-proof` — the initiator's proof of the transcript did not verify.
  */
@@ -79,6 +80,7 @@ export type TLinkRefusalReason =
   | 'already-certified'
   | 'certificate-mismatch'
   | 'instance-mismatch'
+  | 'binding-mismatch'
   | 'bad-runtime-proof'
   | 'bad-proof';
 
@@ -90,6 +92,7 @@ const LINK_REFUSAL_MESSAGES: Readonly<Record<TLinkRefusalReason, string>> = {
   'already-certified': 'The runtime already holds a trust root.',
   'certificate-mismatch': 'The certificate does not certify this runtime for this owner.',
   'instance-mismatch': 'The runtime answered with another instance key.',
+  'binding-mismatch': 'The runtime binding differs from the selected runtime start.',
   'bad-runtime-proof': 'The runtime did not prove the transcript.',
   'bad-proof': 'The initiator did not prove the transcript.',
 };

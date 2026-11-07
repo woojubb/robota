@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { createSupervisedAttachConnection, MAX_EARLY_FRAMES } from '../supervised-attach-client.js';
 
 describe('attach client framing', () => {
-  it('hands frames that arrived before the first subscriber to it, in order', () => {
+  it('hands frames that arrived before the first subscriber to it, in order', async () => {
     const socket = new PassThrough();
     socket.setEncoding('utf8');
     const connection = createSupervisedAttachConnection(
@@ -15,7 +15,7 @@ describe('attach client framing', () => {
     const seen: string[] = [];
     connection.subscribe((message) => seen.push(message.type));
     expect(seen).toEqual(['executing', 'pending']);
-    connection.detach();
+    await connection.detach();
   });
 
   it('closes a connection that floods frames before anyone reads them', () => {

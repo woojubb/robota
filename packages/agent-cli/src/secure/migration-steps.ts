@@ -259,15 +259,17 @@ function describeCheckpoints(
 }
 
 /**
- * Whether a converter left nothing for a rerun: nothing changed under it, no catch-up failed,
- * nothing was refused (a refused file keeps what it holds), and no temp file of a crashed write was
- * left in place because a process that could not be checked may still be writing it.
+ * Whether a converter left no unconverted or uncertain conversation state for a rerun.
  */
 function finished(
   result: {
     readonly changed: readonly string[];
     readonly refused: readonly string[];
     readonly held?: readonly string[];
+    readonly unopenable?: readonly string[];
+    readonly unsafeNames?: readonly string[];
+    readonly overCap?: readonly string[];
+    readonly keptPlain?: readonly unknown[];
     readonly catchUpFailed?: readonly unknown[];
     readonly staleTemporaries: number;
   },
@@ -277,6 +279,10 @@ function finished(
     result.changed.length === 0 &&
     result.refused.length === 0 &&
     (result.held?.length ?? 0) === 0 &&
+    (result.unopenable?.length ?? 0) === 0 &&
+    (result.unsafeNames?.length ?? 0) === 0 &&
+    (result.overCap?.length ?? 0) === 0 &&
+    (result.keptPlain?.length ?? 0) === 0 &&
     (result.catchUpFailed?.length ?? 0) === 0 &&
     (mayDelete || result.staleTemporaries === 0)
   );
@@ -294,14 +300,13 @@ function sessionRecordsStep(): IMigrationStep {
     `Session records (${runtime.layout.userPaths.sessions})`;
   return {
     title: 'the session records',
-    plan: async (context) => ({
-      lines: describeRecords(
-        label(context.productRuntime),
-        await convert(context, false),
-        'plan',
-        context.mayDeleteLeftovers,
-      ),
-    }),
+    plan: async (context) => {
+      const result = await convert(context, false);
+      return {
+        lines: describeRecords(label(context.productRuntime), result, 'plan', context.mayDeleteLeftovers),
+        complete: finished(result, context.mayDeleteLeftovers),
+      };
+    },
     run: async (context) => {
       const result = await convert(context, true);
       const sessions = context.productRuntime.layout.userPaths.sessions;
@@ -334,14 +339,13 @@ function subagentTranscriptsStep(): IMigrationStep {
     `Subagent transcripts (${runtime.config.storage.logRoot})`;
   return {
     title: 'the subagent transcripts',
-    plan: async (context) => ({
-      lines: describeLogs(
-        label(context.productRuntime),
-        await convert(context, false),
-        'plan',
-        context.mayDeleteLeftovers,
-      ),
-    }),
+    plan: async (context) => {
+      const result = await convert(context, false);
+      return {
+        lines: describeLogs(label(context.productRuntime), result, 'plan', context.mayDeleteLeftovers),
+        complete: finished(result, context.mayDeleteLeftovers),
+      };
+    },
     run: async (context) => {
       const result = await convert(context, true);
       return {
@@ -486,6 +490,7 @@ function projectsStep(options: IStoreMigrationStepOptions): IMigrationStep {
       for (const listed of roots.listed) {
         lines.push(`Project ${listed.root}: left as it is — ${listedReason(runtime, listed)}.`);
       }
+      if (roots.listed.length > 0) complete = false;
       if (roots.trusted.length === 0 && roots.listed.length === 0) {
         lines.push('Projects: none of the recorded projects holds conversation state.');
       }
@@ -499,7 +504,7 @@ function projectsStep(options: IStoreMigrationStepOptions): IMigrationStep {
     });
   return {
     title: 'the project state',
-    plan: async (context) => ({ lines: (await survey(context, false)).lines }),
+    plan: async (context) => survey(context, false),
     run: (context) => survey(context, true),
   };
 }
@@ -546,13 +551,19 @@ function leftoversStep(options: IStoreMigrationStepOptions): IMigrationStep {
       lines: describeLeftovers(leftovers, apply ? 'done' : 'plan', context.mayDeleteLeftovers),
       // Found and not removed because a process that could not be checked may still use them.
       leftInPlace:
-        !context.mayDeleteLeftovers &&
-        leftovers.handoffFiles + leftovers.editorDirectories + leftovers.deadProcessDirectories > 0,
+        (!context.mayDeleteLeftovers &&
+          leftovers.handoffFiles + leftovers.editorDirectories + leftovers.deadProcessDirectories > 0) ||
+        leftovers.recentEditorDirectories > 0 ||
+        leftovers.sdkSpillDirectories.length > 0 ||
+        leftovers.refused.length > 0,
     };
   };
   return {
     title: 'the leftover files',
-    plan: (context) => ({ lines: survey(context, false).lines }),
+    plan: (context) => {
+      const { lines, leftInPlace } = survey(context, false);
+      return { lines, complete: !leftInPlace };
+    },
     run: async (context) => {
       context.recheckPresence();
       const { lines, leftInPlace } = survey(context, true);

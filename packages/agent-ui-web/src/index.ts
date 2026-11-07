@@ -29,6 +29,8 @@ export { rememberSessionForRestore } from './hooks/use-session-directory.js';
 
 // ── WS session client (loopback / localhost) ────────────────
 export { createWsSessionClient } from './client/ws-session-client.js';
+export { createDesktopSessionClient } from './client/desktop-session-client.js';
+export type { IDesktopSessionBridge } from './client/desktop-session-client.js';
 export type { IWsSessionClientCallbacks, TConnectionStatus } from './client/ws-session-client.js';
 export { resolveClientRuntimeHost } from './client/runtime-host.js';
 export type {

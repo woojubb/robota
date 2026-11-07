@@ -65,7 +65,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        product: ${{ fromJSON(github.event_name == 'pull_request' && '["cedar","amber"]' || '["configured"]') }}
+        product: ${{ fromJSON(github.event_name == 'pull_request' && '["cedar"]' || '["configured"]') }}
         target: ${{ fromJSON(github.event_name == 'pull_request' && '["darwin-arm64"]' || '["linux-x64","linux-arm64","darwin-x64","darwin-arm64","windows-x64"]') }}
         # Pull requests also run one Windows leg: Windows native code otherwise first meets a real host at release.
         include: ${{ fromJSON(github.event_name == 'pull_request' && '[{"target":"darwin-arm64","runner":"macos-26"},{"product":"cedar","target":"windows-x64","runner":"windows-2025"}]' || '[{"target":"linux-x64","runner":"ubuntu-24.04"},{"target":"linux-arm64","runner":"ubuntu-24.04-arm"},{"target":"darwin-x64","runner":"macos-26-intel"},{"target":"darwin-arm64","runner":"macos-26"},{"target":"windows-x64","runner":"windows-2025"}]') }}
@@ -222,6 +222,12 @@ jobs:
         run: |
           pnpm --filter './packages/agent-file-authority' exec vitest run --no-file-parallelism --reporter verbose
           pnpm --filter './packages/agent-file-authority' qualify:native
+          pnpm --filter './packages/agent-transport-link' exec vitest run --no-file-parallelism --reporter verbose src/__tests__/spawner-pair-process.test.ts
+          pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/startup/__tests__/secure-runtime-spawn-guard.test.ts src/startup/__tests__/spawn-recorder.test.ts src/startup/__tests__/secure-runtime-process.test.ts
+          if [ "$RUNNER_OS" != Windows ]; then
+            pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/secure-runtime-launch.test.ts src/session-inventory/__tests__/forwarded-hosted-posture.test.ts src/session-inventory/__tests__/owner-link-client.test.ts src/session-inventory/__tests__/certified-runtime-launch.test.ts src/session-inventory/__tests__/secure-attach-client.test.ts src/session-inventory/__tests__/secure-background-start.test.ts
+          fi
+          pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/forwarded-stderr-redaction.test.ts src/startup/__tests__/forwarded-environment.test.ts src/secure/__tests__/secure-lock-command.test.ts
           qualifier="$RUNNER_TEMP/native-qualification${{ runner.os == 'Windows' && '.exe' || '' }}"
           pnpm --filter './packages/agent-file-authority' qualify:bun:build -- "$qualifier"
           "$qualifier"

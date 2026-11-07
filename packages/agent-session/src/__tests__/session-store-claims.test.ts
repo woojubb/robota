@@ -360,6 +360,23 @@ describe('a write-only child’s pinned record', () => {
 });
 
 describe('adopting a record', () => {
+  it('drops only the live abandoned claim\'s held record, never a later claim\'s', () => {
+    const dir = newStoreDir();
+    const sealer = createTestArtifactSealer();
+    forge(dir, 'sess_a', sealer, CANARY);
+    const store = storeOf(dir, sealer);
+    const first = claimOf(store, 'sess_a');
+    first.release();
+    const second = claimOf(store, 'sess_a');
+    first.discard?.();
+    sealer.lock();
+    expect(store.loadHeld?.('sess_a')).toMatchObject({ status: 'valid' });
+    second.discard?.();
+    expect(store.loadHeld?.('sess_a')).toBeUndefined();
+    second.discard?.();
+    second.release();
+  });
+
   it('raises bytes this store holds, tags them in place and clears the taint', () => {
     const dir = newStoreDir();
     const sealer = createTestArtifactSealer();

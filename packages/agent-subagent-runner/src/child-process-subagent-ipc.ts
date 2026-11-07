@@ -5,7 +5,7 @@ import {
   type ISubagentWorkerParentContextDto,
 } from './subagent-worker-start-dto.js';
 
-import type { ISandboxProjection, TParentSandboxSettings } from './worker-composition.js';
+import type { ISandboxProjection, TParentSandboxSettings, TResumeStoreReference } from './worker-composition.js';
 import type { ISessionUsageTotals, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import type { IConnectionEnvironmentCheck } from '@robota-sdk/agent-executor';
 import type { IResolvedConfig } from '@robota-sdk/agent-framework';
@@ -113,6 +113,8 @@ export interface ISubagentWorkerStartPayload {
    * has one writer while the child runs. Not the conversation; it rides only beside the id it resumes.
    */
   resumeLease?: string;
+  /** The product must independently verify a project reference before opening its store. */
+  resumeStore?: TResumeStoreReference;
 }
 
 /** The most token characters a held record may take on the wire; a larger one fails the job before spawning. */
@@ -123,9 +125,17 @@ export interface ISubagentWorkerStartMessage {
   payload: ISubagentWorkerStartPayload;
 }
 
+/**
+ * A follow-up prompt for the job: the child runs it as the job's next turn, after the turn in flight,
+ * and answers `sendId` with {@link ISubagentWorkerSendAcceptedMessage} or
+ * {@link ISubagentWorkerSendRefusedMessage}, so the parent never reports a prompt as taken that the
+ * child dropped.
+ */
 export interface ISubagentWorkerSendMessage {
   type: 'send';
   prompt: string;
+  /** The parent's own number for this send, echoed in the answer. */
+  sendId: number;
 }
 
 export interface ISubagentWorkerCancelMessage {
@@ -253,6 +263,18 @@ export interface ISubagentWorkerRecordSavedMessage {
   sha256: string;
 }
 
+/** The child queued the prompt of send `sendId`; it will run, and the job ends only after it. */
+export interface ISubagentWorkerSendAcceptedMessage {
+  type: 'send_accepted';
+  sendId: number;
+}
+
+/** The child has begun to finish and runs no more turns: the prompt of send `sendId` was not taken. */
+export interface ISubagentWorkerSendRefusedMessage {
+  type: 'send_refused';
+  sendId: number;
+}
+
 export type TSubagentWorkerChildMessage =
   | ISubagentWorkerReadyMessage
   | ISubagentWorkerTextDeltaMessage
@@ -262,7 +284,9 @@ export type TSubagentWorkerChildMessage =
   | ISubagentWorkerResultMessage
   | ISubagentWorkerErrorMessage
   | ISubagentWorkerCancelledMessage
-  | ISubagentWorkerRecordSavedMessage;
+  | ISubagentWorkerRecordSavedMessage
+  | ISubagentWorkerSendAcceptedMessage
+  | ISubagentWorkerSendRefusedMessage;
 
 function isRecord(value: TSubagentWorkerWireValue): value is TSubagentWorkerWireRecord {
   return typeof value === 'object' && value !== null;
@@ -361,6 +385,22 @@ function hasValidSealingFields(value: TSubagentWorkerWireRecord): boolean {
   return isRecord(value.request) && hasRequestString(value.request, 'resumeSessionId');
 }
 
+function hasValidResumeStore(value: TSubagentWorkerWireRecord): boolean {
+  if (value.resumeStore === undefined) return true;
+  if (!isRecord(value.request) || !hasRequestString(value.request, 'resumeSessionId')) return false;
+  const store = value.resumeStore;
+  if (!isRecord(store)) return false;
+  if (store.scope === 'user') return Object.keys(store).length === 1;
+  return (
+    store.scope === 'project' &&
+    Object.keys(store).length === 3 &&
+    typeof store.repositoryKey === 'string' &&
+    store.repositoryKey.length > 0 &&
+    typeof store.worktreeRoot === 'string' &&
+    store.worktreeRoot.length > 0
+  );
+}
+
 function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWorkerStartPayload {
   if (!isRecord(value)) return false;
   if (!hasPayloadString(value, 'taskId')) return false;
@@ -397,6 +437,7 @@ function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWork
     return false;
   }
   if (!hasValidSealingFields(value)) return false;
+  if (!hasValidResumeStore(value)) return false;
   return isConnectionCheck(value.connectionCheck);
 }
 
@@ -408,7 +449,7 @@ export function isSubagentWorkerParentMessage(
     case 'start':
       return isStartPayload(value.payload);
     case 'send':
-      return hasString(value, 'prompt');
+      return hasString(value, 'prompt') && isSendId(value.sendId);
     case 'cancel':
       return value.reason === undefined || typeof value.reason === 'string';
     case 'sandbox_settings':
@@ -420,6 +461,11 @@ export function isSubagentWorkerParentMessage(
     default:
       return false;
   }
+}
+
+/** A send's number: the parent counts from 1. */
+function isSendId(value: TSubagentWorkerWireValue): boolean {
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0;
 }
 
 const SHA256_HEX = /^[0-9a-f]{64}$/;
@@ -473,6 +519,9 @@ export function isSubagentWorkerChildMessage(
       return value.reason === undefined || typeof value.reason === 'string';
     case 'record_saved':
       return isRecordSavedMessage(value);
+    case 'send_accepted':
+    case 'send_refused':
+      return isSendId(value.sendId);
     default:
       return false;
   }

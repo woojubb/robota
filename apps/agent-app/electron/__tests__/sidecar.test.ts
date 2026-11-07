@@ -17,6 +17,7 @@ import {
   parseDaemonStartOutput,
   parseRecentFolders,
   parseTrustStatusOutput,
+  parseTrustWorkspaceRoot,
   parseTrustedProviderEnvironmentReferences,
   RECENT_FOLDER_LIMIT,
   rememberRecentFolder,
@@ -136,6 +137,14 @@ describe('parseTrustStatusOutput (#3268)', () => {
     expect(isTrustChoice('yes')).toBe(false);
     expect(isTrustChoice(undefined)).toBe(false);
   });
+});
+
+it('keeps the resolved root for Restricted when a Git trust store is unavailable', () => {
+  expect(parseTrustWorkspaceRoot(JSON.stringify({ state: 'store-unavailable', askable: false,
+    workspace: '/work/repo' }))).toBe('/work/repo');
+  expect(parseTrustWorkspaceRoot(JSON.stringify({ state: 'identity-unavailable', askable: false,
+    workspace: '/work/plain' }))).toBe('/work/plain');
+  expect(parseTrustWorkspaceRoot('')).toBeUndefined();
 });
 
 describe('parseTrustedProviderEnvironmentReferences', () => {

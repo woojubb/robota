@@ -1,8 +1,9 @@
 /**
- * `the product secure migrate [--dry-run]` and `secure compact` (#3679): put what this state root kept
- * in plaintext before secure mode under the keyring's key, and compact the prompt history.
+ * `the product secure enable | migrate [--dry-run] | compact` (#3679): seal the legacy
+ * conversation stores, activate their dedicated archive, and compact the prompt history.
  *
- * Both run only once secure mode is on, at a terminal, as a person's own commands: neither is a slash
+ * Migrate and compact run only once secure mode is on; enable runs from plain or preparing mode.
+ * All run at a terminal, as a person's own commands: none is a slash
  * command or a skill a model could run, neither is reachable through a transport, and a program the
  * model starts through its shell has no terminal to unlock at. Both unlock first: sealing needs only
  * the public key, but before an unlock that key is whatever the same-user-writable keyring file
@@ -46,6 +47,8 @@ import {
   inspectProductPromptHistory,
 } from '../product/session-stores.js';
 import { userPaths } from '../product/user-paths.js';
+import { readProductConversationMode, writeProductConversationMode } from './conversation-mode-state.js';
+import { importSealedProjectArchives, importSealedUserArchive } from './secure-archive-import.js';
 import { KeyHolder, SealingKeyMismatchError } from './key-holder.js';
 import {
   EXIT_FAILED,
@@ -63,7 +66,7 @@ import { createStoreMigrationSteps, type IStoreMigrationStepOptions } from './mi
 import { unlockAtTerminal } from './secure-conversations.js';
 
 import type { ISecretTerminalSession } from '../devices/secret-terminal.js';
-import type { IKeyringStore } from './keyring-store.js';
+import type { IKeyringStore } from '@robota-sdk/agent-local-host';
 import type {
   IMigratedSessions,
   IUnmarkedSessions,
@@ -222,19 +225,21 @@ function describeCompaction(
   }
   return {
     lines,
-    complete: result.plainLinesAfter === 0 && result.catchUpFailed === undefined,
+    complete: result.carriedOver === 0 && result.plainLinesAfter === 0 && result.catchUpFailed === undefined,
   };
 }
 
 /** Compacts the prompt history: what `secure compact` does alone and the first thing a migration does. */
 const promptHistoryStep: IMigrationStep = {
   title: 'the prompt history',
-  plan: (context) => ({
-    lines: describeInspection(
-      inspectProductPromptHistory(context.productRuntime, context.holder),
-      userPaths(context.productRuntime).history,
-    ),
-  }),
+  plan: (context) => {
+    const inspection = inspectProductPromptHistory(context.productRuntime, context.holder);
+    return {
+      lines: describeInspection(inspection, userPaths(context.productRuntime).history),
+      complete: inspection.status === 'missing' ||
+        (inspection.status === 'present' && inspection.unreadableLines === 0),
+    };
+  },
   run: async (context) => {
     const path = userPaths(context.productRuntime).history;
     const result = await compactProductPromptHistory(context.productRuntime, context.holder, {
@@ -273,9 +278,10 @@ function renderPlan(
   reports: readonly IMigrationStepReport[],
   others: readonly IPresenceEntry[],
   dryRun: boolean,
+  action: 'migrate' | 'enable' = 'migrate',
 ): string {
   const runtime = options.productRuntime;
-  const lines = [`${runtime.vocabulary.cliName} secure migrate${dryRun ? ' --dry-run' : ''}: plan`];
+  const lines = [`${runtime.vocabulary.cliName} secure ${action}${dryRun ? ' --dry-run' : ''}: plan`];
   for (const report of reports) lines.push(...report.lines.map((line) => `  ${line}`));
   const alive = others.filter((entry) => entry.liveness === 'alive');
   const unknown = others.filter((entry) => entry.liveness === 'unknown');
@@ -302,12 +308,13 @@ function renderSummary(
   options: ISecureMigrateOptions,
   results: readonly string[],
   ending: 'done' | 'incomplete' | 'failed',
+  action: 'migrate' | 'enable' = 'migrate',
 ): string {
   const cliName = options.productRuntime.vocabulary.cliName;
-  const lines = [`${cliName} secure migrate: ${ending}`, ...results.map((line) => `  ${line}`)];
+  const lines = [`${cliName} secure ${action}: ${ending}`, ...results.map((line) => `  ${line}`)];
   if (ending === 'incomplete') {
     lines.push(
-      `Something changed while it ran, a step stopped early, something above must be moved aside first, or plaintext was left because a process that could not be checked may still use it (run it again once those processes are gone); then run \`${cliName} secure migrate\` again to finish.`,
+      `Something changed while it ran, a step stopped early, something above must be moved aside first, or plaintext was left because a process that could not be checked may still use it (run it again once those processes are gone); then run \`${cliName} secure ${action}\` again to finish.`,
     );
   }
   lines.push(...caveat(options.platform ?? process.platform));
@@ -411,12 +418,14 @@ async function dryRun(
   );
   if (reports === EXIT_FAILED) return EXIT_FAILED;
   options.stdout(renderPlan(options, reports, others, true));
+  const incomplete = reports.some((report) => report.complete === false);
   options.stdout(
-    repaired
+    `${incomplete ? 'Migration would remain incomplete. ' : ''}` +
+    (repaired
       ? 'Dry run: nothing else was changed; unlocking repaired the keyring file, as the warning says.\n'
-      : 'Dry run: nothing was changed.\n',
+      : 'Dry run: nothing was changed.\n'),
   );
-  return EXIT_OK;
+  return incomplete ? EXIT_INCOMPLETE : EXIT_OK;
 }
 
 /** The sessions one step sealed from plaintext, and the step's title, which names them when they cannot be marked. */
@@ -620,9 +629,17 @@ async function migrateUnder(
   holder: KeyHolder,
   steps: readonly IMigrationStep[],
   options: ISecureMigrateOptions,
+  activation?: {
+    readonly beforeRun: () => void;
+    readonly afterRun: (context: IMigrationContext) => Promise<void>;
+  },
 ): Promise<number> {
   const runtime = options.productRuntime;
   const found = marker.others();
+  if (activation !== undefined && found.length > 0) {
+    options.stderr('Secure conversations cannot be enabled while another product process or migration is active or uncertain. Close every current-version process and try again.\n');
+    return EXIT_FAILED;
+  }
   if (refuseOthers(found, options, 'this')) return EXIT_FAILED;
   // What is left are processes that cannot be checked, accepted only by typing `proceed`; anything
   // else that appears stops the run.
@@ -643,7 +660,7 @@ async function migrateUnder(
     planSteps(steps, context),
   );
   if (reports === EXIT_FAILED) return EXIT_FAILED;
-  options.stdout(renderPlan(options, reports, found, false));
+  options.stdout(renderPlan(options, reports, found, false, activation === undefined ? 'migrate' : 'enable'));
   const needsProceed = found.length > 0;
   const answer = await orFailed(options, 'The answer could not be read', async () =>
     (
@@ -657,11 +674,82 @@ async function migrateUnder(
     options.stderr(CANCELLED);
     return EXIT_FAILED;
   }
+  activation?.beforeRun();
   const { results, ending, migrated } = await runSteps(steps, context);
+  if (activation !== undefined) {
+    await offerMigratedSessions(migrated, ending, context, options);
+    if (ending === 'done') {
+      try {
+        await activation.afterRun(context);
+      } catch (error) {
+        options.stdout(renderSummary(options, results, 'incomplete', 'enable'));
+        options.stderr(`Secure conversation activation remains in preparation (${error instanceof Error ? error.message : 'unknown error'}). Run secure enable again after resolving it.\n`);
+        return EXIT_INCOMPLETE;
+      }
+      options.stdout('Secure conversations are on. New conversations use the sealed archive.\n');
+    } else {
+      options.stdout(renderSummary(options, results, ending, 'enable'));
+    }
+    return ending === 'done' ? EXIT_OK : ending === 'failed' ? EXIT_FAILED : EXIT_INCOMPLETE;
+  }
   options.stdout(renderSummary(options, results, ending));
   await offerMigratedSessions(migrated, ending, context, options);
   if (ending === 'failed') return EXIT_FAILED;
   return ending === 'incomplete' ? EXIT_INCOMPLETE : EXIT_OK;
+}
+
+/** Explicit opt-in: an interrupted preparation is resumed under the same migration barrier. */
+export async function runSecureEnable(
+  store: IKeyringStore,
+  terminalSession: ISecretTerminalSession,
+  options: ISecureMigrateOptions,
+): Promise<number> {
+  const runtime = options.productRuntime;
+  if (process.platform !== 'darwin' && process.platform !== 'linux') {
+    options.stderr('Secure conversations require a supported workspace-root adapter on this platform.\n');
+    return EXIT_FAILED;
+  }
+  if (runtime.conversationMode === 'secure') {
+    options.stdout('Secure conversations are already on.\n');
+    return EXIT_OK;
+  }
+  const holder = new KeyHolder({ store, policy: { idleMs: 0 } });
+  let marker: IProductMigrationMarker | undefined;
+  try {
+    const unlocked = await unlockForWriting(store, terminalSession, holder, options);
+    if (typeof unlocked === 'number') return unlocked;
+    marker = markerOrRefusal(options, 'secure migrate');
+    if (marker === undefined) return withRepair(EXIT_FAILED, unlocked.repaired);
+    const code = await migrateUnder(
+      marker,
+      holder,
+      options.migrationSteps ?? MIGRATION_STEPS,
+      options,
+      {
+        beforeRun: () => {
+          if (runtime.conversationMode === 'plain') {
+            writeProductConversationMode(runtime.layout.userRoot, 'plain', 'preparing');
+          } else if (readProductConversationMode(runtime.layout.userRoot) !== 'preparing') {
+            throw new Error('The secure conversation mode changed during preparation.');
+          }
+        },
+        afterRun: async (context) => {
+          const finalPlan = await planSteps(options.migrationSteps ?? MIGRATION_STEPS, context);
+          if (finalPlan.some((report) => report.complete === false)) {
+            throw new Error('Some legacy conversation data still could not be verified as sealed.');
+          }
+          await importSealedUserArchive(runtime, holder, context.recheckPresence);
+          await importSealedProjectArchives(runtime, holder, context.recheckPresence);
+          context.recheckPresence();
+          writeProductConversationMode(runtime.layout.userRoot, 'preparing', 'secure');
+        },
+      },
+    );
+    return withRepair(code, unlocked.repaired);
+  } finally {
+    marker?.release();
+    holder.lock('explicit');
+  }
 }
 
 /** Writes the marker of a migration or a compaction, or says on stderr why it could not be written. */

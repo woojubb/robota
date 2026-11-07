@@ -47,7 +47,10 @@ import type {
   TActionResponse as TUserActionResponse,
 } from '@robota-sdk/agent-core';
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
-import type { IExecutionDetailPage } from '@robota-sdk/agent-interface-execution';
+import type {
+  IExecutionDetailCursor,
+  IExecutionDetailPage,
+} from '@robota-sdk/agent-interface-execution';
 import type { ICommandInfo, TPermissionResultValue } from '@robota-sdk/agent-interface-session';
 
 const SESSION_INIT_POLL_MS = 200;
@@ -331,7 +334,8 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
 
   /** Esc on an idle prompt: the session decides which waiting loop, if any, stops. */
   async stopWaitingSelfPacedLoop(): Promise<void> {
-    const outcome = await this.interactiveSession.stopWaitingSelfPacedLoop(WAITING_LOOP_STOP_REASON);
+    const outcome =
+      await this.interactiveSession.stopWaitingSelfPacedLoop(WAITING_LOOP_STOP_REASON);
     const notice = waitingLoopStopNotice(outcome);
     if (notice !== undefined) this.addEntry(messageToHistoryEntry(createSystemMessage(notice)));
   }
@@ -344,8 +348,11 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
     this.stateManager.selectExecutionWorkspaceEntry(entryId);
   }
 
-  async readExecutionWorkspaceDetail(entryId: string): Promise<IExecutionDetailPage> {
-    return this.interactiveSession.readExecutionWorkspaceDetail(entryId);
+  async readExecutionWorkspaceDetail(
+    entryId: string,
+    cursor?: IExecutionDetailCursor,
+  ): Promise<IExecutionDetailPage> {
+    return this.interactiveSession.readExecutionWorkspaceDetail(entryId, cursor);
   }
 
   async sendAgentJob(taskId: string, input: string): Promise<void> {

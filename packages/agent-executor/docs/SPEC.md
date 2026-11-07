@@ -62,7 +62,7 @@ A subagent spawn request carries an optional `resumeSessionId` — the persisted
 passes through it, onto the queued task's state, so a surface can distinguish a fork's task from
 an ordinary one and offer an "attach" control. Resolving the id into a conversation is the
 runner's job. A fork is a **copy** of a conversation under its own record — the parent's record is
-neither read nor written by the job — and attaching to it is a **view switch, not a merge**.
+neither read nor written by the job — and following or continuing it never merges the conversations.
 
 ## Tool-invocation runner: adopts, does not start
 
@@ -148,11 +148,9 @@ because a cron task spends nearly all its life sleeping between fires; holding a
 permanently starve the concurrency budget. Slot accounting is idempotent and keyed by task id, so a
 release for a task that already released is a no-op, and releasing a slot drains the queue.
 
-The scheduled runner uses croner's own overlap protection, which skips a fire while the previous
-one is still running — so a hung fire would otherwise starve every subsequent fire. Each fire is
-therefore bounded by its own per-fire timeout (the request's timeout when set); a fire that exceeds
-it is killed as a process-group and the schedule returns to sleeping so the next fire can run. This
-fire watchdog is independent of the manager-level agent watchdogs above.
+Scheduled shell fires do not overlap, so a hung fire would otherwise starve every subsequent fire.
+A configured per-fire timeout terminates an overlong fire and lets the schedule continue; that
+watchdog is independent of the manager-level agent watchdogs above.
 
 ## Worktree runner contract
 

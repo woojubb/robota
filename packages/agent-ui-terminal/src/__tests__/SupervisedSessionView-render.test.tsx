@@ -38,6 +38,40 @@ describe('production supervised view renderer', () => {
     expect(await ended).toEqual({ kind: 'attach', id: 'x', generation: 'g', mode: 'observe', groupByDirectory: true });
   });
 
+  it('returns a deferred start after unmounting the terminal view', async () => {
+    vi.mocked(render).mockClear();
+    let exitView: () => void = () => undefined;
+    const unmount = vi.fn();
+    vi.mocked(render).mockImplementationOnce(() => ({
+      waitUntilExit: () => new Promise<void>((resolve) => { exitView = resolve; }), unmount,
+    }) as never);
+    const ended = renderSupervisedSessionView({ loadRows: async () => [], screenReader: false, deferStart: true, onStart: async () => 'id' });
+    const wrapper = vi.mocked(render).mock.calls[0]?.[0] as React.ReactElement<{
+      children: React.ReactElement<{ onDeferredStart?: (choice?: 'restricted') => void }>;
+    }>;
+    wrapper.props.children.props.onDeferredStart?.('restricted');
+    exitView();
+    expect(await ended).toEqual({ kind: 'start', choice: 'restricted' });
+    expect(unmount).toHaveBeenCalledOnce();
+  });
+
+  it('returns a deferred PR lookup after unmounting the terminal view', async () => {
+    vi.mocked(render).mockClear();
+    let exitView: () => void = () => undefined;
+    const unmount = vi.fn();
+    vi.mocked(render).mockImplementationOnce(() => ({
+      waitUntilExit: () => new Promise<void>((resolve) => { exitView = resolve; }), unmount,
+    }) as never);
+    const ended = renderSupervisedSessionView({ loadRows: async () => [], screenReader: false, deferPr: true, onOpenPr: async () => {} });
+    const wrapper = vi.mocked(render).mock.calls[0]?.[0] as React.ReactElement<{
+      children: React.ReactElement<{ onDeferredPr?: (id: string, generation: string) => void }>;
+    }>;
+    wrapper.props.children.props.onDeferredPr?.('id', 'generation');
+    exitView();
+    expect(await ended).toEqual({ kind: 'open-pr', id: 'id', generation: 'generation' });
+    expect(unmount).toHaveBeenCalledOnce();
+  });
+
   it('prints the screen-reader line only when asked to announce', async () => {
     const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     try {

@@ -16,7 +16,7 @@ import {
 } from '@robota-sdk/agent-framework';
 import { createNodeWorkspaceIdentityResolver } from '@robota-sdk/agent-framework/node';
 
-import { ensureWorkspaceRootBroker, workspaceRootBrokerEndpoint } from './workspace-root-broker-process.js';
+import { ensureWorkspaceRootBroker } from './workspace-root-broker-process.js';
 import { requestWorkspaceRootBroker, type TWorkspaceRootBrokerResponse } from './workspace-root-broker.js';
 import { SyncWorkspaceRootBrokerClient } from './workspace-root-broker-sync.js';
 
@@ -215,14 +215,13 @@ export class BrokeredWorkspaceTrustService {
   }
 
   static async create(runtime: ICliRuntimeContext): Promise<BrokeredWorkspaceTrustService> {
-    return new BrokeredWorkspaceTrustService(runtime, workspaceRootBrokerEndpoint(runtime));
+    return new BrokeredWorkspaceTrustService(runtime, await ensureWorkspaceRootBroker(runtime));
   }
 
   inspect(cwd: string): Promise<TWorkspaceProjectAccess> { return this.#inner.inspect(cwd); }
 
   async prepare(cwd: string): Promise<string> {
     const identity = createNodeWorkspaceIdentityResolver().resolve(cwd);
-    await ensureWorkspaceRootBroker(this.#runtime);
     const response = await requestWorkspaceRootBroker(this.#endpoint, {
       op: 'prepare', root: identity.worktreeRoot,
     });

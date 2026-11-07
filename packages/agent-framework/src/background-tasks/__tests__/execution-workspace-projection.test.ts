@@ -143,7 +143,6 @@ function createGroup(overrides: Partial<IBackgroundJobGroupState> = {}): IBackgr
 describe('execution workspace projection', () => {
   it('projects main thread, groups, and background tasks into selectable entries', () => {
     const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread: {
         sessionId: 'session_parent',
@@ -186,7 +185,6 @@ describe('execution workspace projection', () => {
 
   it('marks clean completed tasks as collapsed while keeping them queryable', () => {
     const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread: {
         sessionId: 'session_parent',
@@ -216,7 +214,6 @@ describe('execution workspace projection', () => {
 
   it('adds send control to running agent tasks but not process tasks', () => {
     const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread: {
         sessionId: 'session_parent',
@@ -243,7 +240,6 @@ describe('execution workspace projection', () => {
   it('orders background tasks by startedAt, not by lastActivityAt', () => {
     const build = (lastActivity: { a: string; b: string; c: string }) =>
       createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
         sessionId: 'session_parent',
         mainThread: {
           sessionId: 'session_parent',
@@ -304,7 +300,6 @@ describe('SCREEN-1992 normalized state, headline and next fire (TC-03)', () => {
   };
   const entryFor = (task: IBackgroundTaskState) =>
     createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread,
       groups: [],
@@ -336,7 +331,6 @@ describe('SCREEN-1992 normalized state, headline and next fire (TC-03)', () => {
       },
     ) =>
       createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
         sessionId: 'session_parent',
         mainThread: { ...mainThread, ...input },
         groups: [],
@@ -420,7 +414,6 @@ describe('SCREEN-1992 normalized state, headline and next fire (TC-03)', () => {
   it('maps a group by the same table', () => {
     const groupEntry = (group: IBackgroundJobGroupState) =>
       createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
         sessionId: 'session_parent',
         mainThread,
         groups: [group],
@@ -458,7 +451,6 @@ describe('SCREEN-1992 headline is one bounded line', () => {
   it('collapses newlines and cuts a long result exactly like the preview, so the two compare equal', () => {
     const output = `[stdout] line one\n[stdout] ${'x'.repeat(200)}\n[system] done`;
     const entry = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread,
       groups: [],
@@ -476,7 +468,6 @@ describe('SCREEN-1992 headline is one bounded line', () => {
 
   it('falls back to the task count when no group result carries a summary', () => {
     const entry = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread,
       groups: [
@@ -524,7 +515,6 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
 
   it('carries the stable loop id on a fixed-cadence loop task, from its persisted metadata', () => {
     const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread: idleMainThread,
       groups: [],
@@ -544,7 +534,6 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
 
   it('falls back to the runtime task id when a loop predates stable ids', () => {
     const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread: idleMainThread,
       groups: [],
@@ -564,7 +553,6 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
 
   it('never puts loopId on an ordinary (non-loop) task', () => {
     const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread: idleMainThread,
       groups: [],
@@ -576,7 +564,6 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
 
   it('drops a cancelled loop task from the snapshot, unlike an ordinary cancelled task', () => {
     const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread: idleMainThread,
       groups: [],
@@ -602,7 +589,6 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
     // iteration. Without also filtering `completed`, this fired timer's row would sit beside the
     // live loop's own `pending`/`running` projection forever, duplicating "Loop: …" on every wake.
     const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread: idleMainThread,
       groups: [],
@@ -631,7 +617,6 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
 
   it('leaves an ordinary (non-loop) completed task listed, unlike a completed loop timer', () => {
     const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread: idleMainThread,
       groups: [],
@@ -642,7 +627,6 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
 
   it('projects a running self-paced loop with no background-task representation of its own', () => {
     const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread: idleMainThread,
       groups: [],
@@ -670,7 +654,6 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
 
   it('projects a pending self-paced loop (claimed, about to run)', () => {
     const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread: idleMainThread,
       groups: [],
@@ -692,7 +675,6 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
     'never projects a self-paced loop entry for phase %s (waiting already has its timer task; stopped/expired must not linger)',
     (phase) => {
       const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
         sessionId: 'session_parent',
         mainThread: idleMainThread,
         groups: [],
@@ -712,7 +694,6 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
 
   it('carries deniedToolCalls from a completed agent task result, when present', () => {
     const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread: idleMainThread,
       groups: [],
@@ -743,7 +724,6 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
 
   it('leaves deniedToolCalls absent when the result carries none, or is a clean zero', () => {
     const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread: idleMainThread,
       groups: [],
@@ -775,7 +755,6 @@ describe('#3288 §1 — loop visibility and stop routing', () => {
 
   it('omitting selfPacedLoops entirely keeps every pre-existing caller working', () => {
     const snapshot = createExecutionWorkspaceSnapshot({
-      sessionHasWriter: () => false,
       sessionId: 'session_parent',
       mainThread: idleMainThread,
       groups: [],

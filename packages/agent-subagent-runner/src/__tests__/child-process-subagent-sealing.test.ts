@@ -570,6 +570,7 @@ describe('a sealing parent’s fork job', () => {
         worktreeAdapter: NO_WORKTREES,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
         logSealing: { sealer },
+        resumeStore: { scope: 'project', repositoryKey: 'fixture-repo', worktreeRoot: cwd },
       });
       const manager = new SubagentManager({ runner });
       const events: TBackgroundTaskEvent[] = [];
@@ -581,6 +582,10 @@ describe('a sealing parent’s fork job', () => {
       });
       const result = await manager.wait(state.id);
       const payload = JSON.parse(readFileSync(payloadPath, 'utf8')) as Record<string, unknown>;
+
+      expect(payload.resumeStore).toEqual({
+        scope: 'project', repositoryKey: 'fixture-repo', worktreeRoot: cwd,
+      });
 
       const held = payload.resumeHeld as string;
       expect(Buffer.from(held.split('.')[3] as string, 'base64url').toString('utf8')).toContain(

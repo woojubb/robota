@@ -11,7 +11,7 @@
  * lends are kept in `claims/` beside the records, so every process over these files sees them.
  */
 
-import { createProcessOperationLock } from './process-operation-lock.js';
+import { createProcessOperationLock } from '@robota-sdk/agent-node-lock';
 
 import {
   closeSync,
@@ -52,6 +52,7 @@ import type {
   ISessionSaveOptions,
   ISessionStoreScan,
   TSessionLoadOutcome,
+  TSessionRestoreCommitOutcome,
 } from '@robota-sdk/agent-interface-session';
 
 function errnoCode(error: unknown): unknown {
@@ -136,6 +137,7 @@ export interface INodeSessionStoreOptions extends ISessionStoreOptions {
  * authority-backed adapter over the same neutral port.
  */
 export class NodeSessionStore implements IInteractiveSessionStore {
+  readonly supportsClaimDiscard = true as const;
   private readonly baseDir: string;
   private readonly ownedRoot: string | undefined;
   /** How records are stored, and what this instance claims, wrote or holds. */
@@ -265,6 +267,20 @@ export class NodeSessionStore implements IInteractiveSessionStore {
     // A store that seals writes the same envelope sealed to this session's id, tagged when it can
     // vouch that the content is the owner's and the keys are unlocked.
     this.records.save(session, options);
+  }
+
+  saveRestoreTransaction(
+    session: IInteractiveSessionRecord,
+    options?: ISessionSaveOptions,
+  ): TSessionRestoreCommitOutcome {
+    if (!options?.claim)
+      throw new TypeError('A live session claim is required for restore commit.');
+    try {
+      this.save(session, options);
+      return { status: 'committed' };
+    } catch (error) {
+      return { status: 'unknown', error };
+    }
   }
 
   /**

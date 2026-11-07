@@ -4,9 +4,16 @@ export {
 } from './background-job-orchestrator.js';
 export { createExecutionWorkspaceSnapshot } from './execution-workspace-projection.js';
 // CLI-1994: the `attach` control's decision, owned beside the projection that offers it.
-export { resolveExecutionAttach } from './execution-workspace-attach.js';
+export {
+  attachKind,
+  liveBackgroundJobCount,
+  resolveExecutionAttach,
+} from './execution-workspace-attach.js';
 export type {
-  IResolveExecutionAttachInput,
+  IHostAttachFacts,
+  IStoreAttachFacts,
+  TExecutionAttachFacts,
+  TExecutionAttachKind,
   TExecutionAttachOutcome,
 } from './execution-workspace-attach.js';
 export { createLineDetailPage, createMainThreadDetailPage } from './execution-workspace-detail.js';

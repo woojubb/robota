@@ -9,6 +9,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  */
 import { productProviderDefinitions } from '../product/provider-definitions.js';
 import { createTerminalClientCommands } from '@robota-sdk/agent-command/node';
+import { SECURE_EDITOR_UNAVAILABLE } from '../product/product-profile.js';
 import { applyAppearanceSettings } from '@robota-sdk/agent-framework';
 import { createNodeHostSettingsStore } from '@robota-sdk/agent-framework/node';
 
@@ -114,6 +115,9 @@ export function createAttachedAppRender(
           shellExecutable: resolveProductShellExecutable(context.productRuntime.environment),
           editorTemporaryDirectoryPrefix:
             context.productRuntime.vocabulary.editorTemporaryDirectoryPrefix,
+          ...(context.productRuntime.conversationMode === 'secure'
+            ? { editorUnavailableMessage: SECURE_EDITOR_UNAVAILABLE }
+            : {}),
           keybindingsFile: keybindingsSource,
           themeCatalogue: theme.cataloguePort,
           ...(enabledCommandModules !== undefined ? { enabledCommandModules } : {}),

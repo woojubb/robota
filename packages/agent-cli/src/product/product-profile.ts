@@ -22,6 +22,9 @@ import type { ICodingPackOptions } from '@robota-sdk/pack-coding';
  */
 type TCapabilityPack = NonNullable<IProductProfile['packs']>[number];
 
+export const SECURE_EDITOR_UNAVAILABLE =
+  'External /editor is unavailable in secure conversations because it writes the draft to a plaintext file. Compose the message in the terminal instead.';
+
 /**
  * The capability packs `the product` composes. Removing one genuinely removes its capability from the product —
  * its command modules, its subagents AND (since ARCH-006) its tools, because the profile hands the packs
@@ -30,11 +33,17 @@ type TCapabilityPack = NonNullable<IProductProfile['packs']>[number];
  * A FACTORY over the session context, not a constant: `pack-coding`'s file tools are scoped to the `cwd`
  * they are built with, and a context-free pack would carry a disarmed working-directory path guard.
  */
-export function createProductCapabilityPacks(context: ICodingPackOptions, runtime: ICliRuntimeContext): readonly TCapabilityPack[] {
+export function createProductCapabilityPacks(
+  context: ICodingPackOptions,
+  runtime: ICliRuntimeContext,
+): readonly TCapabilityPack[] {
   return [
     createCodingPack({
       ...context,
       editorTemporaryDirectoryPrefix: runtime.vocabulary.editorTemporaryDirectoryPrefix,
+      ...(runtime.conversationMode === 'secure'
+        ? { editorUnavailableMessage: SECURE_EDITOR_UNAVAILABLE }
+        : {}),
       httpUserAgent: runtime.config.identity.cliName,
     }),
   ];
@@ -94,11 +103,13 @@ export function createSelectedProductProfile(input: IProductProfileInput): IProd
     providerDefinitions: input.providerDefinitions,
     promptFileReferenceTag: input.productRuntime.config.identity.promptFileReferenceTag,
     modelCommandToolPrefix: input.productRuntime.config.identity.modelCommandToolPrefix,
-    subagentHookEnvironmentNames: { agentId: `${input.productRuntime.config.identity.envPrefix}AGENT_ID`, agentType: `${input.productRuntime.config.identity.envPrefix}AGENT_TYPE` },
+    subagentHookEnvironmentNames: {
+      agentId: `${input.productRuntime.config.identity.envPrefix}AGENT_ID`,
+      agentType: `${input.productRuntime.config.identity.envPrefix}AGENT_TYPE`,
+    },
     observerFailureWarningCode: `${input.productRuntime.config.identity.envPrefix}BACKGROUND_OBSERVER_FAILURE`,
     providerErrorGuidance: {
-      authentication:
-        `Run /provider edit <profile> to add or correct its API key. Use /provider to find the profile, or check ${input.productRuntime.layout.userPaths.settings}.`,
+      authentication: `Run /provider edit <profile> to add or correct its API key. Use /provider to find the profile, or check ${input.productRuntime.layout.userPaths.settings}.`,
       forbidden: 'Run `/provider` to switch accounts.',
       rateLimit: 'Consider switching to a different model with `/provider`.',
       network: `Verify your provider URL in ${input.productRuntime.layout.userPaths.settings}.`,

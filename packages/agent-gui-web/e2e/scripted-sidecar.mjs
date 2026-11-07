@@ -285,6 +285,12 @@ function backgroundTaskEntry() {
     state: 'working',
   };
 }
+function forkEntry() {
+  return {
+    ...backgroundTaskEntry(), id: 'task:e2e-fork', sourceId: 'e2e-fork',
+    title: 'Followed fork', resumeSessionId: 'fork-session', controls: ['select', 'cancel', 'attach', 'send'],
+  };
+}
 function loopEntry() {
   return {
     id: 'task:loop-e2e-1',
@@ -305,11 +311,13 @@ function loopEntry() {
     loopId: 'loop-e2e-1',
   };
 }
+const forkLiveRecord = () => ({ id: 'f1', kind: 'message', text: ['Fork live output', ...Array.from({ length: 80 }, (_, index) => `Live line ${index + 1}`)].join('\n') });
 const executionDetailRecords = {
   'task:e2e-task-1': [
     { id: 'r1', kind: 'message', text: 'Reviewing packages/auth/login.ts' },
     { id: 'r2', kind: 'tool_activity', text: 'Read login.ts' },
   ],
+  'task:e2e-fork': [forkLiveRecord()],
   'task:loop-e2e-1': [{ id: 'l1', kind: 'message', text: 'check the deploy' }],
 };
 
@@ -441,7 +449,10 @@ class ScriptedSession extends EventEmitter {
       snapshot: this.getExecutionWorkspaceSnapshot(),
     });
   }
-  readExecutionWorkspaceDetail(entryId) {
+  readExecutionWorkspaceDetail(entryId, cursor) {
+    if (entryId === 'task:e2e-fork' && cursor !== undefined) {
+      return Promise.resolve({ entryId, cursor, records: [{ id: 'history', kind: 'message', text: 'Earlier fork output' }] });
+    }
     const records = executionDetailRecords[entryId];
     if (!records) return Promise.reject(new Error(`Unknown execution entry: ${entryId}`));
     return Promise.resolve({ entryId, records });
@@ -522,7 +533,8 @@ class ScriptedSession extends EventEmitter {
     // #3288 §1: populate the Agents panel's two fixture entries (a background task and a loop) —
     // only on this explicit trigger, so every other scenario's session keeps none, ever.
     if (lower.includes('show background work')) {
-      this.#executionWorkspaceEntries = [backgroundTaskEntry(), loopEntry()];
+      this.#executionWorkspaceEntries = [backgroundTaskEntry(), loopEntry(), forkEntry()];
+      executionDetailRecords['task:e2e-fork'] = [forkLiveRecord()];
       this.#emitExecutionWorkspaceUpdated();
       await tick();
       this.emit('thinking', true);
@@ -964,6 +976,11 @@ class ScriptedSession extends EventEmitter {
   // even for a loop's own disposable wake timer, which this fixture never separately models).
   // #3282 §4 part b-3: also the Agents panel's schedule Delete — a schedule IS a background task,
   // and cancelling one is permanent, exactly like the real `BackgroundTaskManager.cancel()`.
+  async sendBackgroundTask(taskId, input) {
+    if (taskId !== 'e2e-fork') throw new Error(`Unknown background task: ${taskId}`);
+    executionDetailRecords['task:e2e-fork'].push({ id: `f${executionDetailRecords['task:e2e-fork'].length + 1}`, kind: 'message', text: `Fork received: ${input.prompt}` });
+    this.#emitExecutionWorkspaceUpdated();
+  }
   async cancelBackgroundTask(taskId) {
     const entry = this.#executionWorkspaceEntries.find((candidate) => candidate.sourceId === taskId);
     if (entry) {

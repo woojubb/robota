@@ -6,11 +6,11 @@ import { EDITOR_COMMAND_DESCRIPTION, executeEditorCommand } from './editor-comma
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
 import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
 
-export function createEditorCommandEntry(): ICommand {
+export function createEditorCommandEntry(unavailableMessage?: string): ICommand {
   return {
     name: 'editor',
     displayName: 'Editor',
-    description: EDITOR_COMMAND_DESCRIPTION,
+    description: unavailableMessage ?? EDITOR_COMMAND_DESCRIPTION,
     source: 'editor',
     // User-only: opens the user's terminal editor; UI-only.
     modelInvocable: false,
@@ -20,8 +20,11 @@ export function createEditorCommandEntry(): ICommand {
   };
 }
 
-function createEditorSystemCommand(temporaryDirectoryPrefix?: string): ISystemCommand {
-  const entry = createEditorCommandEntry();
+function createEditorSystemCommand(
+  temporaryDirectoryPrefix?: string,
+  unavailableMessage?: string,
+): ISystemCommand {
+  const entry = createEditorCommandEntry(unavailableMessage);
   return {
     name: entry.name,
     displayName: entry.displayName,
@@ -32,22 +35,30 @@ function createEditorSystemCommand(temporaryDirectoryPrefix?: string): ISystemCo
     runner: entry.runner,
     surfaces: entry.surfaces,
     lifecycle: 'inline',
-    execute: (context, args) => executeEditorCommand(context, args, temporaryDirectoryPrefix),
+    execute: (context, args) =>
+      unavailableMessage === undefined
+        ? executeEditorCommand(context, args, temporaryDirectoryPrefix)
+        : { message: unavailableMessage, success: false },
   };
 }
 
 export class EditorCommandSource implements ICommandSource {
   readonly name = 'editor';
 
+  constructor(private readonly unavailableMessage?: string) {}
+
   getCommands(): ICommand[] {
-    return [createEditorCommandEntry()];
+    return [createEditorCommandEntry(this.unavailableMessage)];
   }
 }
 
-export function createEditorCommandModule(temporaryDirectoryPrefix?: string): ICommandModule {
+export function createEditorCommandModule(
+  temporaryDirectoryPrefix?: string,
+  unavailableMessage?: string,
+): ICommandModule {
   return {
     name: 'agent-command-editor',
-    commandSources: [new EditorCommandSource()],
-    systemCommands: [createEditorSystemCommand(temporaryDirectoryPrefix)],
+    commandSources: [new EditorCommandSource(unavailableMessage)],
+    systemCommands: [createEditorSystemCommand(temporaryDirectoryPrefix, unavailableMessage)],
   };
 }

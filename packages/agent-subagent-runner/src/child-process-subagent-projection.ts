@@ -31,7 +31,7 @@ import { projectParentContext } from './parent-context-projection.js';
 import { encodeAgentDefinition, encodeParentContext } from './subagent-worker-start-dto.js';
 
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
-import type { ISandboxProjection, TParentSandboxSettings } from './worker-composition.js';
+import type { ISandboxProjection, TParentSandboxSettings, TResumeStoreReference } from './worker-composition.js';
 import type {
   IProviderDefinition,
   IProviderDefinitionConfig,
@@ -97,6 +97,7 @@ export interface IStartPayloadOptions {
   readonly resumeHeld?: string;
   /** A fork job's lease nonce, from the parent store's `lend`. */
   readonly resumeLease?: string;
+  readonly resumeStore?: TResumeStoreReference;
 }
 
 /** What a sealing parent's fork job hands its child beside the grant; nothing otherwise. */
@@ -364,6 +365,18 @@ export function projectStartPayload(
     ...(options.writeGrant !== undefined ? { writeGrant: options.writeGrant } : {}),
     ...(options.resumeHeld !== undefined ? { resumeHeld: options.resumeHeld } : {}),
     ...(options.resumeLease !== undefined ? { resumeLease: options.resumeLease } : {}),
+    ...(job.request.resumeSessionId !== undefined && options.resumeStore !== undefined
+      ? {
+          resumeStore:
+            options.resumeStore.scope === 'user'
+              ? { scope: 'user' as const }
+              : {
+                  scope: 'project' as const,
+                  repositoryKey: options.resumeStore.repositoryKey,
+                  worktreeRoot: options.resumeStore.worktreeRoot,
+                },
+        }
+      : {}),
   };
   return projectSandbox(deps).then((sandbox) => ({ ...base, ...sandbox }));
 }

@@ -41,10 +41,16 @@ async function withControl(
 ): Promise<void> {
   const scratch = mkdtempSync(join(tmpdir(), 'rs-dmn-'));
   const root = join(scratch, 'supervised');
-  const control = await startSupervisedControl(
-    ID, () => undefined, root, () => 'idle', () => '/work/project', undefined, undefined, undefined,
-    undefined, undefined, undefined, daemon,
-  );
+  const control = await startSupervisedControl({
+    id: ID,
+    onStop: () => undefined,
+    root,
+    observe: {
+      activity: () => 'idle',
+      cwd: () => '/work/project',
+    },
+    daemon,
+  });
   try {
     await run(root);
   } finally {

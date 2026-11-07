@@ -143,6 +143,8 @@ process.on('message', (message) => {
   }
 
   if (message.type === 'send') {
+    // The real worker answers a follow-up before it runs it; this stand-in answers and ends.
+    process.send?.({ type: 'send_accepted', sendId: message.sendId });
     process.send?.({ type: 'result', output: `sent:${message.prompt}` });
     setTimeout(() => process.exit(0), 0);
     return;

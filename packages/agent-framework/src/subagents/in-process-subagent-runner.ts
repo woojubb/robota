@@ -1,7 +1,7 @@
 import type { IToolAppView, TUniversalMessagePart } from '@robota-sdk/agent-core';
 import type { IPathProtectionPolicy } from '@robota-sdk/agent-core';
 import { sumHistoryUsage } from '@robota-sdk/agent-core';
-import { subagentExecutionRoot } from '@robota-sdk/agent-executor';
+import { BackgroundTaskError, subagentExecutionRoot } from '@robota-sdk/agent-executor';
 
 import { advisorToolLineLabel } from '../advisor/advisor-tool.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
@@ -11,6 +11,8 @@ import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { restoreSessionRecordIntoSession } from '../interactive/interactive-session-restore.js';
 import { assertClaimedOutcomeAccepted } from '../interactive/session-authorship-gate.js';
 import { decorateSessionStore } from '../interactive/session-store-view.js';
+import { InProcessJobLog } from './in-process-job-log.js';
+import { runJobTurns } from './in-process-job-turns.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { ISubagentOptions } from '../assembly/create-subagent-session.js';
@@ -267,6 +269,16 @@ function claimRequestedRecord(
   };
 }
 
+/** What reading the log of a job that ended says: the session is gone, and where the conversation is. */
+function endedJobLogError(job: ISubagentJobStart, resumeSessionId: string | undefined): Error {
+  return new BackgroundTaskError(
+    'runner',
+    resumeSessionId === undefined
+      ? `The job ${job.taskId} has ended and keeps no log in this process.`
+      : `The job ${job.taskId} has ended; its conversation is saved with the forked session ${resumeSessionId}.`,
+  );
+}
+
 function emitToolExecutionEvent(
   job: ISubagentJobStart,
   event: TSubagentToolExecutionEvent,
@@ -347,6 +359,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
     resumed: IResumedRecord,
   ): ISubagentJobHandle {
     const resumeSessionId = job.request.resumeSessionId;
+    const log = new InProcessJobLog();
     const session = createSubagentSession({
       host: deps.host,
       pathProtection: deps.pathProtection,
@@ -387,6 +400,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
         job.emit?.({ type: 'background_task_text_delta', delta });
         deps.onTextDelta?.(delta);
       },
+      onCompact: () => log.ignore(session.getHistory()),
       onToolExecution: (event) => {
         emitToolExecutionEvent(job, event, deps.tools);
         deps.onToolExecution?.(event);
@@ -394,10 +408,25 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
     });
     resumeRequestedRecord(job, session, resumed);
 
+    // The inherited history and future compaction summaries are not part of the job's own log.
+    log.ignore(session.getHistory());
+    const turns = runJobTurns(
+      {
+        run: async (prompt) => {
+          log.startTurn(prompt);
+          try {
+            return await session.run(prompt);
+          } finally {
+            log.capture(session.getHistory());
+          }
+        },
+      },
+      job.request.prompt,
+      job.taskId,
+    );
     return {
       taskId: job.taskId,
-      result: session
-        .run(job.request.prompt)
+      result: turns.result
         .then((output) => {
           // ANALYTICS-001 (Phase 2): capture the subagent's total token usage so the parent log can
           // attribute it to this agent as a source. Best-effort — never let usage capture fail the run.
@@ -405,10 +434,21 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
           return { taskId: job.taskId, output, ...(usage ? { usage } : {}) };
         })
         // The job's run is the whole of what it saves; its claim ends with it, however it ends.
-        .finally(() => resumed.release()),
+        .finally(() => {
+          log.clear();
+          resumed.release();
+        }),
       cancel: () => {
+        turns.end();
+        log.clear();
         session.abort();
         return Promise.resolve();
+      },
+      send: (prompt) => turns.send(prompt),
+      readLog: (cursor) => {
+        if (turns.ended) return Promise.reject(endedJobLogError(job, resumeSessionId));
+        log.capture(session.getHistory());
+        return Promise.resolve(log.page(job.taskId, cursor));
       },
     };
   }

@@ -1,5 +1,17 @@
 # @robota-sdk/agent-transport-ws
 
+## 3.2.0
+### Patch Changes
+
+- Updated dependencies [e5ce7d6]
+- Updated dependencies [ffaf7d5]
+- Updated dependencies [ad5e9fb]
+  - @robota-sdk/agent-interface-session@3.2.0
+  - @robota-sdk/agent-core@3.2.0
+  - @robota-sdk/agent-transport@3.2.0
+  - @robota-sdk/agent-interface-transport@3.2.0
+  - @robota-sdk/agent-interface-analytics@3.2.0
+
 ## 3.1.2
 ### Patch Changes
 

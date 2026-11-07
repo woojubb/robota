@@ -249,9 +249,9 @@ describe('CLI-1994 — the product composition can resume a forked record', () =
     expect(createProductSubagentComposition(createTestProductRuntime()).openSessionStore).toBeTypeOf('function');
   });
 
-  it('opens a store for the PARENT cwd, since a worktree-isolated child holds no records', () => {
+  it('opens a store for the PARENT cwd, since a worktree-isolated child holds no records', async () => {
     const composition = createProductSubagentComposition(createTestProductRuntime());
-    const store = composition.openSessionStore?.({ cwd: CWD });
+    const store = await composition.openSessionStore?.({ cwd: CWD });
     // The port the resume path calls, present and callable — not merely a truthy object.
     expect(store).toBeDefined();
     expect(store?.load).toBeTypeOf('function');

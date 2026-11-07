@@ -36,13 +36,12 @@ export interface IWorkspaceSnapshotDeps {
   sessionId: string;
   execCtrl: Pick<SessionExecutionController, 'executing' | 'pendingPrompt' | 'streamingText'>;
   histTracker: Pick<SessionHistoryTracker, 'getHistory'>;
-  bgTracker: Pick<SessionBackgroundTaskTracker, 'getTaskSnapshots' | 'getGroupSnapshots'>;
+  bgTracker: Pick<SessionBackgroundTaskTracker, 'getTaskSnapshots' | 'getGroupSnapshots'> &
+    Partial<Pick<SessionBackgroundTaskTracker, 'isRestoredTerminalTask'>>;
   /** SCREEN-1992: the parked permission/ask the main thread waits on, when the session has one. */
   pendingRequest?: () => IExecutionPendingRequest | undefined;
   /** #3288 §1: this session's self-paced loops, for the `pending`/`running` ones' own entries. */
   selfPacedLoops?: () => readonly IExecutionSelfPacedLoopSummary[];
-  /** Whether a session's record may have a writer now, here or in another process (its store's `hasWriter`). */
-  sessionHasWriter: (sessionId: string) => boolean;
 }
 
 export function buildExecutionWorkspaceSnapshot(
@@ -52,7 +51,7 @@ export function buildExecutionWorkspaceSnapshot(
   const { sessionId, execCtrl, histTracker, bgTracker } = deps;
   const history = histTracker.getHistory();
   const pendingRequest = deps.pendingRequest?.();
-  return createExecutionWorkspaceSnapshot({
+  const snapshot = createExecutionWorkspaceSnapshot({
     sessionId,
     mainThread: {
       sessionId,
@@ -71,8 +70,16 @@ export function buildExecutionWorkspaceSnapshot(
     selfPacedLoops: deps.selfPacedLoops?.(),
     selectedEntryId: options.selectedEntryId,
     filter: options.filter,
-    sessionHasWriter: deps.sessionHasWriter,
   });
+  return {
+    ...snapshot,
+    entries: snapshot.entries.map((entry) => {
+      const ref = parseExecutionWorkspaceEntryId(entry.id);
+      return ref?.kind === 'background_task' && bgTracker.isRestoredTerminalTask?.(ref.sourceId)
+        ? { ...entry, controls: ['select'] }
+        : entry;
+    }),
+  };
 }
 
 /**

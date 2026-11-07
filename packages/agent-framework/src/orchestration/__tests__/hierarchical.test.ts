@@ -133,6 +133,7 @@ describe('SELFHOST-001 P3 — hierarchical orchestration', () => {
           taskId: job.taskId,
           result: Promise.resolve<ISubagentJobResult>({ taskId: job.taskId, output }),
           cancel: async () => {},
+          send: async () => {},
         };
       },
     };

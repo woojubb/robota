@@ -3,7 +3,7 @@ import {
   installProductProcessEnvironment,
 } from './product/process-environment.js';
 import { resolveCliRuntimeContext } from './startup/product-bootstrap.js';
-import { readHostedRuntimeConfig } from './hosted/hosted-runtime-config.js';
+import { assertLocalForwardingPosture, readHostedRuntimeConfig } from './hosted/hosted-runtime-config.js';
 import { runHostedRuntime } from './hosted/hosted-runtime-startup.js';
 import { SECURE_SURFACES, startListener } from './secure/secure-surfaces.js';
 
@@ -91,6 +91,11 @@ import {
   readSupervisedTransportToken,
   SUPERVISED_TRANSPORT_TOKEN_FLAG,
 } from './session-inventory/supervised-transport-token.js';
+import {
+  answerSpawnerPairOrExit,
+  startSecureRuntimeOrExit,
+  type ISecureServeRuntime,
+} from './startup/secure-runtime-startup.js';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from './telemetry/live-trace-otlp.js';
 import { takeProductTelemetryEnvironment } from './telemetry/live-telemetry-env.js';
 import { resolveLiveTelemetrySurface } from './telemetry/live-resource.js';
@@ -133,6 +138,10 @@ import {
   canAskServeOpenTrustQuestion,
 } from './startup/headless-serve-trust-prompt.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
+import { isEarlyForwardedDaemon, runEarlyForwardedDaemon, validateForwardedEnvironment } from './startup/early-forwarded-daemon.js';
+import { forwardedEnvironmentRequested, receiveForwardedEnvironment } from './startup/forwarded-environment.js';
+import { createCliRuntimeContext } from './product/runtime-context.js';
+import { assertProductConversationLaunch, copyProductSecureMode, productSecureMode } from './product/session-sealing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { tuiInitialInputProps } from './startup/tui-initial-input.js';
@@ -225,9 +234,38 @@ export async function startCliCore(
   // First, before anything can start a process: until it is read and closed, the token's pipe is an
   // open descriptor of this process, and whether a process started here gets it is then up to how
   // that process is started. Held by the transport from here on, never written into the environment.
+  // The spawner pair of a secure runtime comes first of all, for the same reason and more: it is the
+  // one channel only this process and its spawner hold, and it is closed before anything can start.
+  const spawnerIdentity = answerSpawnerPairOrExit(process.argv);
   const supervisedTransportToken = readHandedOverTransportTokenOrExit();
-  const productRuntime = resolveCliRuntimeContext(initialOptions);
-  installProductProcessEnvironment(productRuntime);
+  const initialRuntime = resolveCliRuntimeContext(initialOptions);
+  assertProductConversationLaunch(initialRuntime, process.argv);
+  let productRuntime = initialRuntime;
+  let reportedCredentialNames: readonly string[] | undefined;
+  const hasForwardedEnvironment = forwardedEnvironmentRequested(process.argv);
+  const earlyForwardedDaemon = isEarlyForwardedDaemon(process.argv);
+  if (hasForwardedEnvironment || earlyForwardedDaemon) assertLocalForwardingPosture(initialRuntime.environment);
+  if (earlyForwardedDaemon && productSecureMode(initialRuntime)) installProductChildSessions(initialRuntime);
+  if (hasForwardedEnvironment) {
+    if (spawnerIdentity === undefined || !productSecureMode(initialRuntime)) {
+      throw new Error('A forwarded environment requires a secure runtime and its spawner pair.');
+    }
+    const forwarded = await receiveForwardedEnvironment(process.argv);
+    installProductChildSessions(initialRuntime);
+    await validateForwardedEnvironment(initialRuntime, process.cwd(), optionArgv(process.argv).includes('--restricted-workspace'), forwarded.environment, forwarded.availableCredentialNames);
+    reportedCredentialNames = forwarded.availableCredentialNames;
+    productRuntime = createCliRuntimeContext(initialRuntime.config, { ...initialRuntime.environment, ...forwarded.environment }, initialRuntime.artifact, initialRuntime.conversationMode);
+    copyProductSecureMode(initialRuntime, productRuntime);
+  }
+  if (earlyForwardedDaemon) {
+    await runEarlyForwardedDaemon(productRuntime, process.argv);
+    return;
+  }
+  // The pair and the secure mode of this state root must agree, before the process listens on anything.
+  const secureRuntime = startSecureRuntimeOrExit(productRuntime, process.argv, spawnerIdentity);
+  // Forwarded provider references remain in the private runtime snapshot, not the ambient env
+  // inherited by the trust probe or any other process started before settings are composed.
+  installProductProcessEnvironment(hasForwardedEnvironment ? initialRuntime : productRuntime);
   installProductChildSessions(productRuntime);
   // Hosted admission precedes launch handlers, project contributions, provider creation and all modes.
   if (readHostedRuntimeConfig(productRuntime.environment) !== undefined) {
@@ -277,6 +315,8 @@ export async function startCliCore(
       parsedProtocolArgs,
       telemetryEnvironment,
       supervisedTransportToken,
+      secureRuntime,
+      reportedCredentialNames,
     );
   } finally {
     protocolOutput?.restore();
@@ -293,6 +333,8 @@ async function runCliCore(
   preParsedArgs?: IParsedCliArgs,
   telemetryEnvironment: Readonly<Record<string, string>> = {},
   supervisedTransportToken?: string,
+  secureRuntime?: ISecureServeRuntime,
+  reportedCredentialNames?: readonly string[],
 ): Promise<void> {
   const productRuntime = resolveCliRuntimeContext(options);
   const cwd = process.cwd();
@@ -670,6 +712,7 @@ async function runCliCore(
       identityChanged: () => void deviceMesh.identityChanged(),
     },
     keyCustody?.commands,
+    reportedCredentialNames,
   );
   // A process that died without running its exit handlers leaves its scratch directories behind.
   sweepStaleEphemeralState(productRuntime);
@@ -875,6 +918,7 @@ async function runCliCore(
   const backgroundTaskRunnerInput = createBackgroundTaskRunners(shellExecutable);
   const subagentRunnerFactoryInput = createProductSubagentRunnerFactory({
     productRuntime,
+    workspace: workspaceComposition,
     packContext,
     providerConfig: { ...providerSettings, model: modelId },
     providerDefinitions,
@@ -1242,6 +1286,7 @@ async function runCliCore(
       productRuntime,
       host,
       cwd,
+      ...(secureRuntime !== undefined ? { secureRuntime } : {}),
       ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
       args,
       provider,

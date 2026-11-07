@@ -181,6 +181,7 @@ describe('SELFHOST-001 P2 — parallel orchestration', () => {
             output: `out:${job.request.prompt}`,
           }),
           cancel: async () => {},
+          send: async () => {},
         };
       },
     };

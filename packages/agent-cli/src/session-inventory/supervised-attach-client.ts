@@ -7,8 +7,9 @@ import { decodeFrame, decodeServerMessage } from '@robota-sdk/agent-transport';
 
 import { openSupervisedAttachSocket } from './supervised-session-control.js';
 
-import type { IControlChannel } from './windows-control-pipe.js';
+import type { IControlChannel } from '@robota-sdk/agent-local-host';
 import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport';
+import type { IOwnerSessionDirectory } from '@robota-sdk/agent-interface-session';
 
 /**
  * Largest single frame accepted from the session. A conversation snapshot is one frame, so this is
@@ -24,12 +25,17 @@ export const MAX_EARLY_FRAMES = 1024;
 
 export interface ISupervisedAttachConnection {
   readonly driverId: string;
+  /** A secure owner's decisions are separate from the session protocol. */
+  readonly ownerSessions?: {
+    readonly directory: IOwnerSessionDirectory;
+    onInvalidate(listener: () => void): () => void;
+  };
   send(message: TClientMessage): void;
   /** Frames that arrived before the first subscriber are delivered to it, in order. */
   subscribe(listener: (message: TServerMessage) => void): () => void;
   onClose(listener: () => void): () => void;
-  /** Leave the session. Nothing is sent to it: the session keeps running and its turn continues. */
-  detach(): void;
+  /** Leave the session; secure connections also wait for the runtime to lock. */
+  detach(): void | Promise<void>;
 }
 
 export async function openSupervisedAttach(

@@ -20,10 +20,7 @@ import type {
   IExecutionWorkspaceEntry,
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
-import type {
-  ISessionListingEntry,
-  IToolState,
-} from '@robota-sdk/agent-interface-session';
+import type { ISessionListingEntry, IToolState } from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 export interface IAppViewModel {
@@ -74,6 +71,8 @@ export interface IAppBackgroundViewModel {
   readonly select: (entryId: string) => void;
   readonly closeSwitcher: () => void;
   readonly attachToFork: (entry: IExecutionWorkspaceEntry) => void;
+  readonly continueQuestion?:
+    { readonly message: string; readonly answer: (yes: boolean) => void } | undefined;
 }
 
 export interface IAppPluginViewModel {
@@ -90,6 +89,7 @@ export interface IAppTransportViewModel {
 }
 
 export interface IAppSessionPickerViewModel {
+  readonly pickerKey?: number;
   readonly visible: boolean;
   readonly sessions: readonly ISessionListingEntry[];
   readonly select: (sessionId: string) => void;

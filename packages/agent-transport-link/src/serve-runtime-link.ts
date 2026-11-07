@@ -50,16 +50,34 @@ import {
 /** A runtime gives up on a handshake that has not finished by then. */
 export const DEFAULT_HANDSHAKE_TIMEOUT_MS = 10_000;
 
+/**
+ * How long a client has to take what is still queued for it once its runtime ended the link. Long
+ * enough for a client that reads at all; a client that does not read is cut so it cannot hold the
+ * socket (and the memory behind it) open by never taking its last frames.
+ */
+export const DEFAULT_CLOSE_FLUSH_TIMEOUT_MS = 5_000;
+
 /** An admitted link, as the runtime holds it. */
 export interface IAdmittedRuntimeLink {
   /** How the client was admitted: `spawner` by the spawner key, `owner` by the attach key. */
   readonly standing: TLinkMode;
   readonly binding: ILinkBinding;
+  /** Whether the link has ended or the runtime has ended it (what is still queued is being delivered). */
   readonly closed: boolean;
   /** Sends one serialized session-protocol message; throws `RangeError` for one over the frame bound. */
   sendSession(data: string): void;
   /** Tells the client its runtime's custody state changed. */
   notifyCustody(state: IRuntimeCustodyState): void;
+  /**
+   * Bytes this link has accepted and its client has not yet taken, so the runtime can cut a client
+   * that stopped reading as it would one on the plain attach socket. Zero once the link is gone.
+   */
+  pendingBytes(): number;
+  /**
+   * Ends the link after what is queued has been written, so an answer sent just before (the
+   * `done` of a certification, say) is not lost; nothing more is sent or read, and a client that
+   * does not take its queue within the flush grace is cut. Idempotent.
+   */
   close(): void;
 }
 
@@ -77,6 +95,7 @@ export interface IRuntimeLinkDeps {
   /** The bytes after the request line that arrived with it. */
   readonly rest?: Uint8Array;
   readonly handshakeTimeoutMs?: number;
+  readonly closeFlushTimeoutMs?: number;
   /**
    * Called once the handshake admitted the client; the ports it returns serve that link. The opening
    * custody notice is always the first frame the client sees: whatever `admit` sends through the link
@@ -123,9 +142,13 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
    */
   let held: Array<() => void> | undefined;
 
+  /** The runtime ended the link and the stream is writing out its queue: nothing more goes either way. */
+  let closing = false;
+  let flushTimer: ReturnType<typeof setTimeout> | undefined;
+
   const sendSealed = (kind: 'session' | 'owner', bytes: Uint8Array): void => {
     const write = (): void => {
-      if (link === undefined || link.closed || stream.destroyed) return;
+      if (link === undefined || link.closed || stream.destroyed || closing) return;
       stream.write(encodeLinkFrame(link.seal(kind, bytes)));
     };
     if (held !== undefined) held.push(write);
@@ -133,7 +156,7 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
   };
 
   const sendOwner = (message: TRuntimeMessage): void => {
-    if (link === undefined || link.closed || stream.destroyed) return;
+    if (link === undefined || link.closed || stream.destroyed || closing) return;
     sendSealed('owner', encodeRuntimeMessage(message));
   };
 
@@ -182,9 +205,14 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
           requestId,
           question: await linked.sessions.question(request.sessionId),
         }));
+      case 'cancel-question':
+        return reply(requestId, async () => {
+          await linked.sessions.cancelQuestion();
+          return { op: 'done', requestId };
+        });
       case 'open-accepted':
         return reply(requestId, async () => {
-          await linked.sessions.openAccepted(request.sessionId, request.acceptedDigest);
+          await linked.sessions.openAccepted(request.bindingId, request.sessionId, request.acceptedDigest, request.questionId);
           return { op: 'done', requestId };
         });
       case 'control':
@@ -237,20 +265,31 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
     },
     binding: deps.binding,
     get closed(): boolean {
-      return link === undefined || link.closed || stream.destroyed;
+      return link === undefined || link.closed || stream.destroyed || closing;
     },
     sendSession(data: string): void {
       const bytes = textEncoder.encode(data);
       if (bytes.length > SESSION_FRAME_MAX_BYTES)
         throw new RangeError('A session message over the frame bound.');
-      if (link === undefined || link.closed || stream.destroyed) return;
+      if (link === undefined || link.closed || stream.destroyed || closing) return;
       sendSealed('session', bytes);
     },
     notifyCustody(state: IRuntimeCustodyState): void {
       sendOwner({ op: 'custody', state: { unlocked: state.unlocked, certified: state.certified } });
     },
+    pendingBytes(): number {
+      return stream.destroyed ? 0 : stream.writableLength;
+    },
     close(): void {
-      stream.destroy();
+      if (closing || stream.destroyed) return;
+      closing = true;
+      // `end` flushes the queue; the stream is destroyed once it has, or once the grace is over.
+      flushTimer = setTimeout(
+        () => stream.destroy(),
+        deps.closeFlushTimeoutMs ?? DEFAULT_CLOSE_FLUSH_TIMEOUT_MS,
+      );
+      flushTimer.unref?.();
+      stream.end(() => stream.destroy());
     },
   };
 
@@ -263,6 +302,8 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
           ? LINK_PROOF_MAX_BYTES
           : SEALED_FRAME_MAX_BYTES,
     onFrame: (frame) => {
+      // Ended by the runtime: the client's last words are not heard.
+      if (closing) return;
       try {
         if (step === 'hello') {
           stream.write(encodeLinkFrame(responder.challenge(frame)));
@@ -290,6 +331,7 @@ export function serveRuntimeLink(stream: Duplex, deps: IRuntimeLinkDeps): void {
     },
     onEnd: () => {
       clearTimeout(timer);
+      if (flushTimer !== undefined) clearTimeout(flushTimer);
       link?.close();
       if (ports !== undefined) {
         try {

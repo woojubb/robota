@@ -425,7 +425,7 @@ describe('ACP mode', () => {
 
     await expect(served.load('planted-1')).resolves.toEqual({
       loaded: false,
-      message: new SessionAuthorshipRefusedError('planted-1', 'unverified').message,
+      message: `${new SessionAuthorshipRefusedError('planted-1', 'unverified').message} Review it in an interactive terminal with test-product --resume planted-1.`,
     });
     expect(mock.built).toHaveLength(1);
     await expect(served.load('mine-1')).resolves.toEqual({ loaded: true });

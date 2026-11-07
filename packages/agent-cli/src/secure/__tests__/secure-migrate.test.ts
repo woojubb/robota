@@ -1,7 +1,7 @@
 /**
  * `secure migrate [--dry-run]` and `secure compact` (#3679), driven as a person at a terminal would:
  * a scripted secret terminal for the passphrase and a scripted answer to the plan. Secure mode is
- * turned on through the predicate's own seam, since the persistent switch does not exist yet; real
+ * turned on through the predicate's own seam for legacy migration tests; real
  * child processes stand in for the other product processes a migration must see.
  */
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
@@ -47,11 +47,12 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
+import { resolveCliRuntimeContext } from '../../startup/product-bootstrap.js';
 import { compactProductPromptHistory } from '../../product/session-stores.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
 import { KeyHolder } from '../key-holder.js';
-import { createKeyringFileStore } from '../keyring-store.js';
+import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import {
   SECURE_MODE_OFF,
   SECURE_USAGE,
@@ -102,6 +103,7 @@ let broker: Awaited<ReturnType<typeof startTestBroker>> | undefined;
 
 beforeEach(() => {
   home = realpathSync(mkdtempSync(join(tmpdir(), 'secure-migrate-')));
+  mkdirSync(join(home, 'shared-tmp'));
   runtime = createTestProductRuntime('test-product', { HOME: home });
   overrideProductSecureMode(runtime, true);
   log = [];
@@ -212,13 +214,13 @@ function seedHistory(): string[] {
 }
 
 /** The history read back by a newly unlocked process, and how many data keys that cost. */
-async function readBack(): Promise<{ texts: string[]; keyOpenings: number }> {
+async function readBack(path = historyPath()): Promise<{ texts: string[]; keyOpenings: number }> {
   const holder = new KeyHolder({ store: fileStore(), policy: { idleMs: 0 } });
   await holder.unlock({ type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
   const sealer = new KeyHolderArtifactSealer(holder);
   keyOpenings.mockClear();
   const texts: string[] = [];
-  const file = new NodePromptHistoryFile(historyPath(), { sealing: { sealer } });
+  const file = new NodePromptHistoryFile(path, { sealing: { sealer } });
   for await (const block of file.read({ signal: new AbortController().signal })) {
     expect(block.skippedLines).toBe(0);
     texts.push(...block.entries.map((item) => item.text));
@@ -385,6 +387,52 @@ describe('secure migrate and secure compact while secure mode is off', () => {
 });
 
 describe.skipIf(posixOnly)('secure migrate', () => {
+  it('keeps activation incomplete while an unattributed SDK spill can contain plaintext', async () => {
+    await installFixtureKeyring();
+    const spill = join(home, 'shared-tmp', 'agent-tool-results-XyZ987');
+    mkdirSync(spill);
+    writeFileSync(join(spill, 'result.json'), CANARY);
+
+    const { code } = await secure(['enable'], 'y', undefined, { interactive: false });
+
+    expect(code, out()).toBe(EXIT_INCOMPLETE);
+    expect(resolveCliRuntimeContext({
+      productConfig: runtime.config,
+      environment: runtime.environment,
+    }).conversationMode).toBe('preparing');
+    expect(out()).toContain(spill);
+    expect(readFileSync(join(spill, 'result.json'), 'utf8')).toBe(CANARY);
+  });
+
+  it('enables by importing sealed history and merges a later plain interval without duplicate prompts', async () => {
+    await installFixtureKeyring();
+    const texts = seedHistory();
+    const archive = join(runtime.layout.userRoot, 'secure-v1', 'history.jsonl');
+
+    const first = await secure(['enable'], 'y', undefined, { interactive: false });
+    expect(first.code).toBe(0);
+    expect(resolveCliRuntimeContext({
+      productConfig: runtime.config,
+      environment: runtime.environment,
+    }).conversationMode).toBe('secure');
+    expect((await readBack(archive)).texts).toEqual(texts);
+    expect(readFileSync(historyPath(), 'utf8')).not.toContain(CANARY);
+    expect(readFileSync(archive, 'utf8')).not.toContain(CANARY);
+
+    const selected = resolveCliRuntimeContext({
+      productConfig: runtime.config,
+      environment: runtime.environment,
+    });
+    expect((await secure(['disable'], 'yes', undefined, { productRuntime: selected })).code).toBe(0);
+    new NodePromptHistoryFile(historyPath(), { sealing: 'plain' }).append(entry(6));
+
+    const second = await secure(['enable'], 'y', undefined, { interactive: false });
+    expect(second.code).toBe(0);
+    expect((await readBack(archive)).texts).toEqual([...texts, entry(6).text]);
+    expect(readFileSync(historyPath(), 'utf8')).not.toContain(CANARY);
+    expect(readFileSync(archive, 'utf8')).not.toContain(CANARY);
+  });
+
   it('unlocks, prints the plan and the caveat on stdout, asks, and seals the history under one key', async () => {
     await installFixtureKeyring();
     const texts = seedHistory();
@@ -428,7 +476,7 @@ describe.skipIf(posixOnly)('secure migrate', () => {
     expect(existsSync(presence())).toBe(false);
   });
 
-  it('warns as verify does before anything else, and exits 2, when the stored sealing key was swapped', async () => {
+  it('warns and remains incomplete when a swapped sealing key made stored history unreadable', async () => {
     const keyring = await fixtureKeyring();
     const stranger = await createKeyring({ passphrase: OTHER_PASSPHRASE });
     stranger.unlocked.lock();
@@ -437,13 +485,14 @@ describe.skipIf(posixOnly)('secure migrate', () => {
 
     const { code } = await secure(['migrate'], 'y');
 
-    expect(code).toBe(2);
+    expect(code, `${out()}\n${err()}`).toBe(4);
     expect(log[0]?.[0]).toBe('err');
     expect(log[0]?.[1]).toMatch(
       /^WARNING: the sealing public key in the keyring file was changed/u,
     );
     expect(err()).toContain(fingerprint(getSealingPublicKey(stranger.keyring)));
-    expect(out()).toContain('test-product secure migrate: done');
+    expect(out()).toContain('test-product secure migrate: incomplete');
+    expect(out()).toContain('3 that do not open here');
     expect(readFileSync(historyPath(), 'utf8')).not.toContain(CANARY);
   });
 
@@ -492,9 +541,25 @@ describe.skipIf(posixOnly)('secure migrate', () => {
 
     const { code } = await secure(['migrate', '--dry-run']);
 
-    expect(code, out() + err()).toBe(0);
+    expect(code, out() + err()).toBe(process.platform === 'linux' ? 0 : EXIT_INCOMPLETE);
     expect(tree()).toEqual(before);
     expect(statSync(runtime.layout.userPaths.workspaceTrust).mode & 0o777).toBe(0o644);
+  });
+
+  it('--dry-run reports incomplete without writing when a plain record cannot be converted', async () => {
+    await installFixtureKeyring();
+    const sessions = runtime.layout.userPaths.sessions;
+    mkdirSync(sessions, { recursive: true });
+    const unsafe = join(sessions, 'not an id.json');
+    writeFileSync(unsafe, CANARY);
+    const before = tree();
+
+    const { code } = await secure(['migrate', '--dry-run']);
+
+    expect(code, out()).toBe(EXIT_INCOMPLETE);
+    expect(out()).toContain(`Left as they are, since their names are not session ids: ${unsafe}.`);
+    expect(out()).toContain('Migration would remain incomplete. Dry run: nothing was changed.');
+    expect(tree()).toEqual(before);
   });
 
   it('--dry-run says the unlock repaired a swapped sealing key, the one write it made', async () => {
@@ -506,7 +571,8 @@ describe.skipIf(posixOnly)('secure migrate', () => {
 
     const { code } = await secure(['migrate', '--dry-run']);
 
-    expect(code).toBe(2);
+    expect(code).toBe(4);
+    expect(out()).toContain('Migration would remain incomplete.');
     expect(out()).not.toContain('Dry run: nothing was changed.');
     expect(out()).toContain(
       'Dry run: nothing else was changed; unlocking repaired the keyring file, as the warning says.',
@@ -714,6 +780,49 @@ describe.skipIf(posixOnly)('secure migrate', () => {
     expect(summary.split('Move each aside, or remove its other name, yourself; then run this again.')).toHaveLength(3);
     expect(readFileSync(otherName, 'utf8')).toContain('user_linked');
     expect(readFileSync(target, 'utf8')).toContain(CANARY);
+  });
+
+  it('does not call a run complete while a record with an unsafe name remains plain', async () => {
+    await installFixtureKeyring();
+    const sessions = runtime.layout.userPaths.sessions;
+    mkdirSync(sessions, { recursive: true });
+    const unsafe = join(sessions, 'not an id.json');
+    writeFileSync(unsafe, `{"note":"${CANARY}"}`);
+
+    const { code } = await secure(['migrate'], 'y');
+
+    expect(code, out()).toBe(EXIT_INCOMPLETE);
+    expect(out()).toContain(`Left as they are, since their names are not session ids: ${unsafe}.`);
+    expect(readFileSync(unsafe, 'utf8')).toContain(CANARY);
+  });
+
+  it('does not call a run complete while a recorded project cannot be migrated on this host', async () => {
+    await installFixtureKeyring();
+    const project = await trustedProject();
+
+    const { code } = await secure(['migrate'], 'y', undefined, {
+      migrationSteps: createMigrationSteps({
+        platform: 'darwin',
+        temporaryDirectory: join(home, 'shared-tmp'),
+      }),
+    });
+
+    expect(code, out()).toBe(EXIT_INCOMPLETE);
+    expect(out()).toContain(`Project ${project}: left as it is`);
+    expect(readFileSync(join(project, runtime.layout.projectStateDirectories.sessions, 'project_one.json'), 'utf8')).toContain(CANARY);
+  });
+
+  it('does not call a run complete while a recent editor buffer remains plain', async () => {
+    await installFixtureKeyring();
+    const editor = join(home, 'shared-tmp', 'test-product-editor-AbC123');
+    mkdirSync(editor, { recursive: true });
+    writeFileSync(join(editor, 'buffer.md'), CANARY);
+
+    const { code } = await secure(['migrate'], 'y');
+
+    expect(code, out()).toBe(EXIT_INCOMPLETE);
+    expect(out()).toContain('used within the last day left for a later run');
+    expect(readFileSync(join(editor, 'buffer.md'), 'utf8')).toBe(CANARY);
   });
 
   it.skipIf(process.platform !== 'linux')(
@@ -1050,6 +1159,24 @@ describe.skipIf(posixOnly)('secure compact', () => {
 
     expect(code).toBe(EXIT_INCOMPLETE);
     expect(out()).toMatch(/1 plain line reached it meanwhile/u);
+  });
+
+  it('exits 5 when history keeps a line whose contents cannot be verified', async () => {
+    await installFixtureKeyring();
+    compactions.mockResolvedValueOnce({
+      status: 'compacted',
+      entries: 1,
+      fromPlain: 0,
+      caughtUp: 0,
+      carriedOver: 1,
+      droppedTail: false,
+      plainLinesAfter: 0,
+    });
+
+    const { code } = await secure(['compact']);
+
+    expect(code).toBe(EXIT_INCOMPLETE);
+    expect(out()).toContain('1 line that do not open here kept as they are.');
   });
 
   it('says the history was removed, and puts nothing back, when it is deleted while being compacted', async () => {
