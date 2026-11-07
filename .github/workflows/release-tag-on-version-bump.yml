@@ -80,7 +80,7 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - if: steps.resolve.outputs.bumped == 'true' || github.event.inputs.dry_run == 'true'
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
       - name: Generate selected product workspace
         if: steps.resolve.outputs.bumped == 'true' || github.event.inputs.dry_run == 'true'
         id: product

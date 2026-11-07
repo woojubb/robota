@@ -68,7 +68,7 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
       - name: Generate selected product workspace
         shell: bash
         run: |
