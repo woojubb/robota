@@ -113,6 +113,11 @@ export async function resolveStartupWorkspaceProjectAccess(
     readonly safeMode?: boolean;
   } = {},
 ): Promise<TWorkspaceProjectAccess> {
+  // Information-only invocations never need a durable broker or project admission.
+  if (argv.length === 3 &&
+      (argv[2] === '--help' || argv[2] === '-h' || argv[2] === '--version')) {
+    return createRestrictedWorkspaceProjectAccess('untrusted', cwd);
+  }
   // Safe mode loads nothing from the project, so it starts Restricted whatever the trust store says.
   const flags = optionArgv(argv);
   if (
