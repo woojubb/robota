@@ -126,7 +126,7 @@ jobs:
 
       - name: Install dependencies
         timeout-minutes: 10
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
 
       - name: Prepare pending version for PR product validation
         if: github.event_name == 'pull_request'
