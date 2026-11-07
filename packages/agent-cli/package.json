@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-cli",
-  "version": "3.1.1",
+  "version": "3.2.1",
   "description": "robota — a coding-capable terminal agent built from the same foundation as the Robota SDK",
   "type": "module",
   "bin": {
@@ -189,7 +189,7 @@
     "@robota-sdk/agent-ui-terminal": "workspace:*",
     "@robota-sdk/pack-coding": "workspace:*",
     "@robota-sdk/product-config": "workspace:*",
-    "@robota-sdk/workflows": "0.0.4",
+    "@robota-sdk/workflows": "0.0.5",
     "@types/marked": "^6.0.0",
     "@types/qrcode": "^1.5.5",
     "@types/ws": "^8.18.1",

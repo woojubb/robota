@@ -1,5 +1,41 @@
 # @robota-sdk/agent-transport-link
 
+## 3.2.1
+### Patch Changes
+
+  - @robota-sdk/agent-interface-session@3.2.1
+  - @robota-sdk/agent-keyring@3.2.1
+  - @robota-sdk/agent-transport@3.2.1
+
+## 3.2.0
+### Minor Changes
+
+- ffaf7d5: Add the runtime half of owner-link admission. Secure mode remains dormant until the product enables it.
+
+  The transport provides the spawner-pair exchange and bounded delivery of queued link frames. The CLI
+  uses the exchanged runtime identity to admit owner links, receives read grants without a passphrase,
+  locks keys when access ends, and refuses unsecured listener and control paths. The child-session spawn
+  paths can be held while a handed-over descriptor is consumed, and the runtime uses that hold during the
+  exchange.
+- 021a1ab: Bound pending client writes and close an overloaded owner link rather than allowing its outbound
+  stream to grow without limit.
+- ad5e9fb: Allow a verified owner driving an attached terminal to review an unverified stored session. Bind each decision to the attached surface and the exact claimed bytes, and discard it when the owner cancels or the link or keys are lost.
+
+### Patch Changes
+
+- Updated dependencies [e5ce7d6]
+- Updated dependencies [ffaf7d5]
+- Updated dependencies [ad5e9fb]
+  - @robota-sdk/agent-interface-session@3.2.0
+  - @robota-sdk/agent-keyring@3.2.0
+  - @robota-sdk/agent-transport@3.2.0
+
+## 3.1.2
+### Patch Changes
+
+  - @robota-sdk/agent-keyring@3.1.2
+  - @robota-sdk/agent-transport@3.1.2
+
 ## 3.1.1
 ### Patch Changes
 

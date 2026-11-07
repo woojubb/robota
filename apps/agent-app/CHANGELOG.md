@@ -1,5 +1,34 @@
 # @robota-sdk/agent-app
 
+## 3.0.12
+### Patch Changes
+
+  - @robota-sdk/agent-local-host@3.0.3
+  - @robota-sdk/agent-cli@3.2.1
+  - @robota-sdk/agent-transport@3.2.1
+  - @robota-sdk/product-config@3.2.1
+
+## 3.0.11
+### Patch Changes
+
+- Updated dependencies [0ea29ac]
+- Updated dependencies [12ab3f5]
+- Updated dependencies [ffaf7d5]
+- Updated dependencies [9da9c6c]
+- Updated dependencies [ad5e9fb]
+- Updated dependencies [2a28af7]
+  - @robota-sdk/agent-cli@3.2.0
+  - @robota-sdk/agent-transport@3.2.0
+  - @robota-sdk/agent-local-host@3.0.2
+  - @robota-sdk/product-config@3.2.0
+
+## 3.0.10
+### Patch Changes
+
+- Updated dependencies [871fbef]
+  - @robota-sdk/agent-cli@3.1.2
+  - @robota-sdk/product-config@3.1.2
+
 ## 3.0.9
 ### Patch Changes
 

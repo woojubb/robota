@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport-http",
-  "version": "3.1.1",
+  "version": "3.2.1",
   "description": "HTTP (Hono) transport for the Robota SDK",
   "type": "module",
   "main": "dist/index.js",
