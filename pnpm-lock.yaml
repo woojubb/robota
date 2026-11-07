@@ -585,19 +585,19 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/agent-core
       '@robota-sdk/agent-framework':
-        specifier: ^3.1.0
+        specifier: ^3.1.1
         version: link:../../../packages/agent-framework
       '@robota-sdk/agent-mcp':
         specifier: workspace:*
         version: link:../../../packages/agent-mcp
       '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.1.0
+        specifier: ^3.1.1
         version: link:../../../packages/agent-provider-anthropic
       '@robota-sdk/agent-provider-replay':
         specifier: workspace:*
         version: link:../../../packages/agent-provider-replay
       '@robota-sdk/agent-tool-defaults':
-        specifier: ^3.1.0
+        specifier: ^3.1.1
         version: link:../../../packages/agent-tool-defaults
     devDependencies:
       '@types/node':
