@@ -16,7 +16,7 @@ import {
 } from '@robota-sdk/agent-framework';
 import { createNodeWorkspaceIdentityResolver } from '@robota-sdk/agent-framework/node';
 
-import { ensureWorkspaceRootBroker, workspaceRootBrokerEndpoint } from './workspace-root-broker-process.js';
+import { ensureWorkspaceRootBroker } from './workspace-root-broker-process.js';
 import { requestWorkspaceRootBroker, type TWorkspaceRootBrokerResponse } from './workspace-root-broker.js';
 import { SyncWorkspaceRootBrokerClient } from './workspace-root-broker-sync.js';
 
