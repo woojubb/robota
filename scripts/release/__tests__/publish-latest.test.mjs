@@ -84,7 +84,6 @@ function makeFixture({ failure = '', trusted = false } = {}) {
   );
   for (const relative of [
     'scripts/harness/check-publish-safety.mjs',
-    'scripts/harness/check-sdk-public-surface.mjs',
     'scripts/publish/verify-tarballs.mjs',
   ])
     writeFileSync(path.join(directory, relative), '\n');

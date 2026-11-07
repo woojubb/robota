@@ -6,10 +6,7 @@
 // LAYER 2 — the highest in this family. It composes `agent-interface-session`, which composes the
 // three layer-0 owners. Nothing names a type from here.
 //
-// Each name is exported from the module that DECLARES it, not through the sub-barrel that re-exports
-// it. Two reasons: `sdk-public-surface` requires explicit named exports so an owner boundary is
-// auditable, and `interface-runtime` resolves a re-export one hop to classify what it found —
-// a discriminator reached through an intermediate module is reported as a mechanism it cannot see.
+// Export each name from its declaring module so interface-runtime can classify it directly.
 
 // ── peer-message-contracts ──
 export type {

@@ -277,7 +277,13 @@ async function main() {
       'run',
       'typecheck',
     );
-    run('lint');
+    const lintDirs = plan.full ? ['packages', 'apps'] : plan.checks.filter((dir) =>
+      dir.startsWith('packages/') || dir.startsWith('apps/'));
+    if (lintDirs.length)
+      run('exec', 'eslint', ...lintDirs, '--ext', '.ts,.tsx', '--cache', '--no-error-on-unmatched-pattern');
+    run('lint:language');
+    run('lint:platform');
+    run('harness:browser-proof');
     run('deps:check');
     if (plan.docs) run('--filter', './apps/docs', 'build');
   } else if (/^tests-cli-[1-4]$/.test(kind)) {

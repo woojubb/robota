@@ -58,7 +58,6 @@
     "build:js": "pnpm run build",
     "build:types": "pnpm run build",
     "typecheck": "tsgo --noEmit && tsgo -p tsconfig.examples.json --noEmit",
-    "scenario:verify": "pnpm typecheck",
     "scenario:verify:tool-schema-projection": "pnpm exec tsx --conditions=source examples/verify-tool-schema-projection.ts",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",

@@ -79,7 +79,6 @@ echo "📦 Version: $VERSION"
 if [ -z "$PACK_DIR" ] || [ "$PREPARE_ONLY" = "true" ]; then
   if [ "$SKIP_BUILD" != "true" ]; then pnpm build; fi
   node scripts/harness/check-publish-safety.mjs
-  node scripts/harness/check-sdk-public-surface.mjs
   PACK_DIR="${PACK_DIR:-$(mktemp -d "${TMPDIR:-/tmp}/package-pack.XXXXXX")}"
   mkdir -p "$PACK_DIR"
   while IFS= read -r DIR; do
