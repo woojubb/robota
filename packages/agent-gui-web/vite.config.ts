@@ -84,11 +84,11 @@ export default defineConfig(({ command }) => {
   return {
     define: { __PRODUCT_PUBLIC_CONFIG__: JSON.stringify(product) },
     base: './',
-    // The dev server reads workspace packages from their TypeScript source (`source` export condition), so
+    // The dev server reads product packages from their TypeScript source (`product-source` export condition), so
     // `pnpm gui:dev` hot-reloads edits to them too and needs no build; `vite build` keeps using their `dist`.
     resolve: {
       conditions:
-        command === 'serve' ? ['source', ...defaultClientConditions] : [...defaultClientConditions],
+        command === 'serve' ? ['product-source', ...defaultClientConditions] : [...defaultClientConditions],
     },
     plugins: [
       {

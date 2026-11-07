@@ -43,7 +43,7 @@ function run(
     const argv = [
       '--import',
       join(root, 'node_modules/tsx/dist/loader.mjs'),
-      '--conditions=source',
+      '--conditions=product-source',
       entry === 'headless'
         ? join(root, 'packages/agent-cli/src/headless-bin.ts')
         : entry === 'complete' ? completeEntry : embeddedEntry,

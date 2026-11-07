@@ -219,7 +219,7 @@ agent-core                             ← Foundation: ConversationAgent engine,
 
 ## Packages
 
-Every package below is published on npm under `@robota-sdk/`, and all of them share one version.
+Every package below is published on npm under `@robota-sdk/` and has its own version.
 The [packages index](https://docs.robota.io/en/packages/) on the docs site covers each one.
 
 **Start here (embedding):**

@@ -65,7 +65,7 @@ export async function ensureWorkspaceRootBroker(runtime: ICliRuntimeContext): Pr
   // forwarding Bun's platform-specific virtual entry as a script would turn it into an argument.
   const compiledBun = process.versions.bun !== undefined;
   const script = source
-    ? ['--import', loaderUrl.href, '--conditions=source', sourceBin]
+    ? ['--import', loaderUrl.href, '--conditions=product-source', sourceBin]
     : !compiledBun && process.argv[1] !== undefined && existsSync(process.argv[1]) &&
         resolve(process.argv[1]) !== resolve(process.execPath)
       ? [process.argv[1]] : [];

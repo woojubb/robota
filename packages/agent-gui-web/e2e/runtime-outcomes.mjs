@@ -12,8 +12,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { summarizeRuntimeTiming } from './runtime-timing.mjs';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
-import { createNodeHostSessionStore } from '../../agent-framework/src/node.ts';
-import { createNodeWorkspaceTrustService } from '../../agent-framework/src/node.ts';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
+import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
 import {
   createTestBinaryEnvironment,
   createTestProductRuntime,
@@ -527,7 +527,7 @@ try {
       [
         '--import',
         tsxLoader,
-        '--conditions=source',
+        '--conditions=product-source',
         host,
         '--serve',
         '--permission-mode',

@@ -15,7 +15,7 @@ it('redacts forwarded reference values from a failing child startup message', as
   try {
     const fixture = fileURLToPath(new URL('../../testing/forwarded-stderr-launch.ts', import.meta.url));
     const tsx = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
-    const child = spawn(process.execPath, ['--import', tsx, '--conditions=source', fixture], { cwd: root, env: createTestBinaryEnvironment(root), stdio: ['ignore', 'ignore', 'pipe', 'ipc', 'pipe'] });
+    const child = spawn(process.execPath, ['--import', tsx, '--conditions=product-source', fixture], { cwd: root, env: createTestBinaryEnvironment(root), stdio: ['ignore', 'ignore', 'pipe', 'ipc', 'pipe'] });
     const [message] = await once(child, 'message');
     expect(message).toHaveProperty('error', expect.stringContaining('startup failure'));
     expect(JSON.stringify(message)).not.toContain('synthetic-sensitive-reference-value');

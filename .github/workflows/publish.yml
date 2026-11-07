@@ -1,6 +1,7 @@
 name: Publish to npm
+run-name: ${{ inputs.component == 'sdk' && 'Publish SDK to npm' || 'Publish CLI to npm' }}
 
-# Publishes every public @robota-sdk package at the release version through npm trusted publishing (OIDC):
+# Publishes one package at its release version through npm trusted publishing (OIDC):
 # no npm token is stored anywhere; each run gets a short-lived, run-scoped credential and provenance is
 # attached automatically. npm accepts it only for this workflow file running in the `npm-publish`
 # environment, which requires the owner's approval and allows `main` only. A package's first publish
@@ -12,12 +13,22 @@ on:
         description: 'Existing release tag whose commit must exactly equal the protected main commit being published.'
         required: true
         type: string
+      component:
+        description: 'Publish either the SDK or the CLI.'
+        required: true
+        type: choice
+        options: [cli, sdk]
+        default: cli
+      package:
+        description: 'SDK package directory without the scope, for example agent-core. Leave blank for CLI.'
+        required: false
+        type: string
 
 permissions:
   contents: read
 
 concurrency:
-  group: npm-publish
+  group: npm-publish-${{ inputs.component }}-${{ inputs.package || 'agent-cli' }}
   cancel-in-progress: false
 
 jobs:
@@ -28,6 +39,8 @@ jobs:
     timeout-minutes: 8
     env:
       PRODUCT_BUILD_ENV: ${{ vars.PRODUCT_BUILD_ENV }}
+      RELEASE_COMPONENT: ${{ inputs.component }}
+      RELEASE_PACKAGE: ${{ inputs.package }}
     outputs:
       release_tag: ${{ steps.release.outputs.tag }}
       artifact_id: ${{ steps.pack.outputs.artifact-id }}
@@ -87,14 +100,21 @@ jobs:
         run: |
           set -euo pipefail
           node - <<'NODE'
-          const manifest = require('./packages/agent-cli/package.json');
-          const expectedTag = `${process.env.PROJECT_RELEASE_TAG_PREFIX ?? ''}${manifest.version}`;
+          const component = process.env.RELEASE_COMPONENT;
+          if (!['cli', 'sdk'].includes(component)) throw new Error('Unknown release component');
+          const name = component === 'cli' ? 'agent-cli' : process.env.RELEASE_PACKAGE;
+          if (!/^[a-z0-9][a-z0-9._-]*$/.test(name ?? '') ||
+              (component === 'sdk' && name === 'agent-cli') ||
+              (component === 'cli' && process.env.RELEASE_PACKAGE)) throw new Error('Invalid package selection');
+          const manifest = require(`./packages/${name}/package.json`);
+          if (/^(sdk|app)-/.test(process.env.PROJECT_RELEASE_TAG_PREFIX ?? '')) throw new Error('sdk- and app- are reserved for independent tags');
+          const expectedTag = `${component === 'sdk' ? `sdk-${name}-` : ''}${process.env.PROJECT_RELEASE_TAG_PREFIX ?? ''}${manifest.version}`;
           if (!process.env.PROJECT_RELEASE_TAG_PREFIX || process.env.TAG !== expectedTag) {
-            throw new Error(`release tag must equal configured prefix plus CLI version (${expectedTag})`);
+            throw new Error(`release tag must match the selected component version (${expectedTag})`);
           }
           if (!/^@[a-z0-9][a-z0-9._-]*$/.test(process.env.PRODUCT_PACKAGE_SCOPE ?? '') ||
-              manifest.name !== `${process.env.PRODUCT_PACKAGE_SCOPE}/agent-cli`) {
-            throw new Error('generated CLI package does not match the configured package scope');
+              manifest.name !== `${process.env.PRODUCT_PACKAGE_SCOPE}/${name}` || manifest.private === true) {
+            throw new Error('selected public package does not match the configured package scope');
           }
           if (!/^https:\/\//.test(process.env.PROJECT_NPM_REGISTRY_URL ?? '')) {
             throw new Error('publication requires a configured HTTPS npm registry');
@@ -106,12 +126,19 @@ jobs:
       - name: Prepare the configured product packages once
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
         run: |
-          pnpm install --frozen-lockfile
+          if [ "$RELEASE_COMPONENT" = cli ]; then
+            RELEASE_PACKAGE=agent-cli
+          fi
+          export RELEASE_PACKAGE
+          pnpm install --frozen-lockfile --filter robota-monorepo --filter "{packages/$RELEASE_PACKAGE}..."
+          RELEASE_VERSION=$(node -p "require('./packages/' + process.env.RELEASE_PACKAGE + '/package.json').version")
+          export RELEASE_VERSION RELEASE_PACKAGE
           bash scripts/publish/publish-packages.sh --prepare-only --pack-dir "$RUNNER_TEMP/npm-release/tarballs"
           node --input-type=module <<'NODE'
           import { writeFileSync } from 'node:fs';
           const keys = ['PRODUCT_PACKAGE_SCOPE', 'PROJECT_REPOSITORY_URL', 'PROJECT_NPM_REGISTRY_URL',
-            'PROJECT_PACKAGE_ACCESS', 'PRODUCT_CONFIG_SHA256', 'RELEASE_TAG', 'RELEASE_SOURCE_COMMIT'];
+            'PROJECT_PACKAGE_ACCESS', 'PRODUCT_CONFIG_SHA256', 'RELEASE_TAG', 'RELEASE_SOURCE_COMMIT',
+            'RELEASE_COMPONENT', 'RELEASE_PACKAGE', 'RELEASE_VERSION'];
           writeFileSync(process.env.RUNNER_TEMP + '/npm-release/publication.json',
             JSON.stringify(Object.fromEntries(keys.map(key => [key, process.env[key] ?? '']))));
           NODE
@@ -152,12 +179,15 @@ jobs:
       - name: Restore the exact prepared publication
         env:
           TAG: ${{ github.event.inputs.tag }}
+          COMPONENT: ${{ inputs.component }}
+          PACKAGE: ${{ inputs.package }}
         run: |
           test "$(git ls-remote origin refs/heads/main | cut -f1)" = "$GITHUB_SHA"
           node --input-type=module <<'NODE'
           import { appendFileSync, readFileSync } from 'node:fs';
           const data = JSON.parse(readFileSync(process.env.RUNNER_TEMP + '/npm-release/publication.json'));
-          if (data.RELEASE_SOURCE_COMMIT !== process.env.GITHUB_SHA || data.RELEASE_TAG !== process.env.TAG)
+          const name = process.env.COMPONENT === 'cli' ? 'agent-cli' : process.env.PACKAGE;
+          if (data.RELEASE_SOURCE_COMMIT !== process.env.GITHUB_SHA || data.RELEASE_TAG !== process.env.TAG || data.RELEASE_COMPONENT !== process.env.COMPONENT || data.RELEASE_PACKAGE !== name)
             throw new Error('Prepared publication does not match this release.');
           for (const [key, value] of Object.entries(data)) {
             if (!/^[A-Z][A-Z0-9_]*$/.test(key) || /[\r\n]/.test(value)) throw new Error('Invalid publication environment.');
@@ -172,7 +202,7 @@ jobs:
       - name: Preserve the tag-bound registry integrity manifest
         uses: actions/upload-artifact@v7
         with:
-          name: npm-release-${{ github.event.inputs.tag }}
+          name: ${{ inputs.component == 'sdk' && 'sdk-release-' || 'npm-release-' }}${{ github.event.inputs.tag }}
           overwrite: true
           path: |
             ${{ runner.temp }}/npm-release-integrity.json
@@ -197,7 +227,7 @@ jobs:
       - name: Restore the attested release receipt
         uses: actions/download-artifact@v7
         with:
-          name: npm-release-${{ needs.publish.outputs.release_tag }}
+          name: ${{ inputs.component == 'sdk' && 'sdk-release-' || 'npm-release-' }}${{ needs.publish.outputs.release_tag }}
           path: ${{ runner.temp }}/release-receipt
       - name: Preserve the attested receipt with the release
         shell: bash
@@ -205,6 +235,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.publish.outputs.release_tag }}
+          COMPONENT: ${{ inputs.component }}
         run: |
           set -euo pipefail
           GH_VERSION=$(gh --version | head -1 | awk '{print $3}') node - <<'NODE'
@@ -216,9 +247,11 @@ jobs:
           NODE
           manifest="$RUNNER_TEMP/release-receipt/npm-release-integrity.json"
           lock="$RUNNER_TEMP/release-receipt/npm-release-package-lock.json"
+          notes='Package integrity receipt; native and desktop assets follow their verified workflows.'
+          if [ "$COMPONENT" = sdk ]; then notes='SDK package integrity receipt.'; fi
           if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release create "$RELEASE_TAG" --title "$RELEASE_TAG" \
-              --notes 'Package integrity receipt; native and desktop assets follow their verified workflows.' ||
+              --notes "$notes" ||
               gh release view "$RELEASE_TAG" >/dev/null
           fi
           names=$(gh release view "$RELEASE_TAG" --json assets --jq '.assets[].name')

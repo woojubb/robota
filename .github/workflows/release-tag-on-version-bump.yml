@@ -107,6 +107,10 @@ jobs:
             echo "::error::PROJECT_RELEASE_TAG_PREFIX must be configured for release tagging."
             exit 1
           fi
+          if [[ "$TAG_PREFIX" == sdk-* || "$TAG_PREFIX" == app-* ]]; then
+            echo "::error::The sdk- and app- prefixes are reserved for independent releases."
+            exit 1
+          fi
           echo "tag=$TAG_PREFIX$CUR" >> "$GITHUB_OUTPUT"
 
       # An unset RELEASE_DEPLOY_KEY makes actions/checkout fall back to HTTPS + GITHUB_TOKEN, and the push

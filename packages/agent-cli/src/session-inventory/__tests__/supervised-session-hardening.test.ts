@@ -33,7 +33,7 @@ describe('supervised runtime inspector hardening', () => {
         id = await launchSupervisedSession(process.cwd(), {
           productRuntime: createTestProductRuntime(),
           entrypoint: fixture,
-          execArgs: ['--import', 'tsx', '--conditions=source'],
+          execArgs: ['--import', 'tsx', '--conditions=product-source'],
           env: { PRODUCT_TEST_SUPERVISED_ROOT: root },
           onSpawn: (spawned) => { child = spawned; },
         });

@@ -155,7 +155,7 @@ async function runChain(
   const transport = new StdioClientTransport({
     command: tsx,
     args: [
-      '--conditions=source',
+      '--conditions=product-source',
       host,
       '--allowed-tools',
       'probe__echo,Read',

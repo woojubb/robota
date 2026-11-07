@@ -14,9 +14,9 @@
   "dependencies": {
     "@robota-sdk/agent-framework": "^3.2.1",
     "@robota-sdk/agent-provider-anthropic": "^3.2.1",
-    "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-mcp": "workspace:*",
-    "@robota-sdk/agent-provider-replay": "workspace:*",
+    "@robota-sdk/agent-core": "workspace:^",
+    "@robota-sdk/agent-mcp": "workspace:^",
+    "@robota-sdk/agent-provider-replay": "workspace:^",
     "@robota-sdk/agent-tool-defaults": "^3.2.1"
   },
   "devDependencies": {

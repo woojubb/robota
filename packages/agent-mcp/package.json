@@ -64,7 +64,7 @@
     "@modelcontextprotocol/node": "^2.1.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@modelcontextprotocol/server": "^2.3.0",
-    "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-core": "workspace:^",
     "@types/node": "^20.10.0",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",

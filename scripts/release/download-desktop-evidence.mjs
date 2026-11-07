@@ -3,7 +3,8 @@ import { basename } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
 const [nativeFile, desktopFile, directory] = process.argv.slice(2);
-const records = [nativeFile, desktopFile].map((file) => JSON.parse(readFileSync(file, 'utf8')));
+const files = nativeFile === '--desktop-only' ? [desktopFile] : [nativeFile, desktopFile];
+const records = files.map((file) => JSON.parse(readFileSync(file, 'utf8')));
 const names = records.flatMap((record) => record.assets.map(({ name }) => name));
 if (
   names.length !== new Set(names).size ||

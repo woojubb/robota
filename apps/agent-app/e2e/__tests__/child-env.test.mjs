@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { embeddedProductIdentity, resolveProductConfig } from '../../../../packages/product-config/src/index.ts';
+import { embeddedProductIdentity, resolveProductConfig } from '@robota-sdk/product-config';
 import { productEnvironment as syntheticEnvironment } from '../../../../packages/product-config/src/__tests__/product-environment.ts';
 
 import { buildBundledRuntimeChildEnv } from '../child-env.mjs';

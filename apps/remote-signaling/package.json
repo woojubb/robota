@@ -37,9 +37,9 @@
     "ws": "^8.21.1"
   },
   "devDependencies": {
-    "@robota-sdk/agent-interface-session": "workspace:*",
-    "@robota-sdk/agent-remote-pairing": "workspace:*",
-    "@robota-sdk/agent-transport-webrtc": "workspace:*",
+    "@robota-sdk/agent-interface-session": "workspace:^",
+    "@robota-sdk/agent-remote-pairing": "workspace:^",
+    "@robota-sdk/agent-transport-webrtc": "workspace:^",
     "@types/node": "^22.19.21",
     "@types/ws": "^8.18.1",
     "node-datachannel": "^0.33.4",

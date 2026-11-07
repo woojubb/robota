@@ -33,7 +33,7 @@ it.runIf(process.platform === 'linux' && existsSync('/usr/bin/perl'))(
     const parent = spawn('/usr/bin/perl', [
       '-e',
       '$|=1; my $pid=fork(); die "fork" unless defined $pid; if (!$pid) { exec @ARGV or die "exec"; } print "PID:$pid\\n"; $SIG{TERM}=sub { kill 9,$pid; waitpid($pid,0); exit 0; }; while (1) { sleep 1; }',
-      process.execPath, '--import', loader, '--conditions=source', '--input-type=module', '-e', worker,
+      process.execPath, '--import', loader, '--conditions=product-source', '--input-type=module', '-e', worker,
     ], {
       env: { PATH: process.env.PATH, HOME: scratch, ZOMBIE_TEST_ROOT: root, ZOMBIE_TEST_ID: ID },
       stdio: ['pipe', 'pipe', 'pipe'],

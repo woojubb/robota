@@ -45,15 +45,16 @@ const FULL_PLAN_DOCUMENT = 'ARCHITECTURE.md';
 const NATIVE_WORKSPACES = new Set([
   'apps/agent-app',
   'packages/agent-cli',
-  'packages/agent-file-authority',
-  'packages/agent-keyring',
-  'packages/agent-transport-link',
 ]);
-const WINDOWS_WORKSPACES = new Set([...NATIVE_WORKSPACES,
-  ...['agent-executor', 'agent-local-host', 'agent-node-lock', 'agent-process', 'agent-tools',
-    'agent-ui-terminal'].map((name) => `packages/${name}`)]);
+const SDK_WINDOWS_WORKSPACES = new Set(['agent-executor', 'agent-file-authority', 'agent-keyring',
+  'agent-node-lock', 'agent-process', 'agent-tools', 'agent-transport-link',
+  'agent-ui-terminal'].map((name) => `packages/${name}`));
+const WINDOWS_WORKSPACES = new Set([...NATIVE_WORKSPACES, ...SDK_WINDOWS_WORKSPACES, 'packages/agent-local-host']);
+const PRODUCT_WORKSPACES = new Set(['agent-cli', 'agent-gui-web', 'agent-local-host',
+  'agent-organization-host', 'agent-provider-replay'].map((name) => `packages/${name}`));
 const needsNative = (plan) => plan.full || plan.checks.some((dir) => NATIVE_WORKSPACES.has(dir));
 const needsWindows = (plan) => plan.full || plan.windows === true;
+const needsSdkWindows = (plan) => plan.full || (needsWindows(plan) && (plan.windowsChecks?.length ?? 0) > 0);
 
 export function isDeveloperDocument(file) {
   if (file === FULL_PLAN_DOCUMENT) return false;
@@ -62,17 +63,47 @@ export function isDeveloperDocument(file) {
     /^(?:packages|examples)\/[^/]+\/(?:README\.md|CHANGELOG\.md|docs\/.*\.md)$/.test(file);
 }
 
+function withoutImporters(lock, changed) {
+  let importers = false;
+  let skip = false;
+  return lock.split('\n').filter((line) => {
+    if (/^\S/u.test(line)) {
+      importers = line === 'importers:';
+      skip = false;
+    } else if (importers && /^  \S/u.test(line)) {
+      const match = /^  (?:'([^']+)'|"([^"]+)"|([^:]+)):$/u.exec(line);
+      if (!match) throw new Error('Unexpected lockfile importer');
+      skip = changed.has(match[1] ?? match[2] ?? match[3]);
+    }
+    return !skip;
+  }).join('\n').trimEnd();
+}
+
+function onlyLinkedWorkspaceRangesChanged(previous, current) {
+  const normalize = (manifest) => {
+    const copy = structuredClone(manifest);
+    delete copy.version;
+    for (const section of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies'])
+      for (const [name, range] of Object.entries(copy[section] ?? {}))
+        if (range === 'workspace:*' || range === 'workspace:^') copy[section][name] = 'workspace:linked';
+    return JSON.stringify(copy);
+  };
+  return normalize(previous) === normalize(current);
+}
+
 export function selectScope({
   cwd = process.cwd(),
   event,
   base,
 }) {
   const all = workspaces(cwd);
+  let windowsChecks = [];
   const full = (reason) => ({
     full: true,
     developerDocs: false,
     reason,
     checks: all.map((p) => p.dir),
+    windowsChecks,
     build: all.filter((p) => p.dir.startsWith('packages/') && p.scripts?.build).map((p) => p.dir),
     docs: true,
   });
@@ -93,14 +124,33 @@ export function selectScope({
       cwd,
       true,
     ).split('\0');
+    const sdkManifestNeedsWindows = (project, status) => {
+      if (status !== 'M') return true;
+      try {
+        const previous = JSON.parse(git(cwd, 'show', `${comparison}:${project.dir}/package.json`));
+        const { dir, ...current } = project;
+        return !onlyLinkedWorkspaceRangesChanged(previous, current);
+      } catch { return true; }
+    };
+    windowsChecks = all.filter((p) => p.dir.startsWith('packages/') && !PRODUCT_WORKSPACES.has(p.dir) &&
+      changes.some((file, index) => {
+        if (index % 2 !== 1 || !file.startsWith(`${p.dir}/`) || isDeveloperDocument(file)) return false;
+        return file !== `${p.dir}/package.json` || sdkManifestNeedsWindows(p, changes[index - 1]);
+      })).map((p) => p.dir);
     const changed = new Set();
+    const manifests = new Set();
     const changedFiles = [];
+    let lockChanged = false;
     let docs = false;
     let developerDocs = false;
     let windows = false;
     for (let index = 0; index < changes.length - 1; index += 2) {
       const status = changes[index];
       const file = changes[index + 1];
+      if (file === 'pnpm-lock.yaml' && status === 'M') {
+        lockChanged = true;
+        continue;
+      }
       if (file === FULL_PLAN_DOCUMENT) return full('runtime-platform lists: ARCHITECTURE.md');
       if (isDeveloperDocument(file)) {
         developerDocs = true;
@@ -113,20 +163,23 @@ export function selectScope({
       const project = all.find((p) => file.startsWith(`${p.dir}/`));
       if (!project) return full(`unmapped input: ${file}`);
       windows ||= WINDOWS_WORKSPACES.has(project.dir) || /(?:windows|win32)/i.test(file);
+      if (file === `${project.dir}/package.json` && project.dir.startsWith('packages/') &&
+          !PRODUCT_WORKSPACES.has(project.dir) && sdkManifestNeedsWindows(project, status)) windows = true;
       changedFiles.push(`:(literal)${file}`);
       if (file === `${project.dir}/package.json`) {
-        // The eval example adds a test script; dependency/identity changes need the old graph too.
-        if (status !== 'M' || !project.dir.startsWith('examples/') || !project.private)
-          return full(`workspace manifest: ${file}`);
+        if (status !== 'M') return full(`workspace manifest: ${file}`);
         const previous = JSON.parse(git(cwd, 'show', `${comparison}:${file}`));
-        const omitScripts = ({ scripts, ...manifest }) => manifest;
-        const { dir, ...manifest } = project;
-        if (JSON.stringify(omitScripts(previous)) !== JSON.stringify(omitScripts(manifest)))
-          return full(`workspace contract: ${file}`);
+        if (previous.name !== project.name)
+          return full(`workspace identity: ${file}`);
+        manifests.add(project.dir);
       }
       changed.add(project.dir);
       if (project.dir === 'apps/docs' || /^packages\/.*\/docs\//.test(file)) docs = true;
     }
+    if (lockChanged && (!manifests.size ||
+        withoutImporters(git(cwd, 'show', `${comparison}:pnpm-lock.yaml`), manifests) !==
+        withoutImporters(readFileSync(path.join(cwd, 'pnpm-lock.yaml'), 'utf8'), manifests)))
+      return full('shared lockfile resolution changed');
     if (!windows && changedFiles.length) {
       const scan = spawnSync('git', ['grep', '-iqIE',
         '(^|[^[:alnum:]_])(windows|win32|powershell)([^[:alnum:]_]|$)|process[.]platform|os[.]platform',
@@ -160,6 +213,7 @@ export function selectScope({
       developerDocs: false,
       reason: 'affected workspaces and docs consumer',
       checks: affected.map((p) => p.dir),
+      windowsChecks,
       windows,
       build: dependencies
         .filter((p) => p.dir.startsWith('packages/') && p.scripts?.build)
@@ -193,6 +247,9 @@ export function assertNativeGate(needs) {
   const expected = needsNative(plan) ? 'success' : 'skipped';
   if (needs['build-bun']?.result !== expected)
     throw new Error(`Native builds: expected ${expected}, received ${needs['build-bun']?.result}`);
+  const sdkExpected = needsSdkWindows(plan) && !needsNative(plan) ? 'success' : 'skipped';
+  if (needs['sdk-windows']?.result !== sdkExpected)
+    throw new Error(`Windows SDK checks: expected ${sdkExpected}, received ${needs['sdk-windows']?.result}`);
 }
 
 function assertSkippedPlan(plan) {
@@ -233,7 +290,7 @@ async function main() {
     } catch { /* Keep develop validation until the schedule is available on main. */ }
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `plan=${JSON.stringify(plan)}\nnative=${needsNative(plan)}\nwindows=${needsWindows(plan)}\nfollowup=${followup}\ndeveloper_docs=${plan.developerDocs}\nreuse_main=${plan.reuseMain === true}\n`,
+      `plan=${JSON.stringify(plan)}\nnative=${needsNative(plan)}\nwindows=${needsWindows(plan)}\nsdk_windows=${needsSdkWindows(plan)}\nfollowup=${followup}\ndeveloper_docs=${plan.developerDocs}\nreuse_main=${plan.reuseMain === true}\n`,
     );
     console.log(JSON.stringify(plan, null, 2));
     return;

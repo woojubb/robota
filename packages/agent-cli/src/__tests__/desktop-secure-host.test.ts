@@ -49,7 +49,7 @@ it.each([
   const fixture = fileURLToPath(new URL('../testing/secure-runtime-entry.ts', import.meta.url));
   const launchCommand = {
     executable: process.execPath,
-    args: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source', fixture],
+    args: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=product-source', fixture],
   };
   const options = {
     config: runtime.config,

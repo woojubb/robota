@@ -10,8 +10,8 @@ import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
-import { createNodeHostSessionStore } from '../../agent-framework/src/node.ts';
-import { createNodeWorkspaceTrustService } from '../../agent-framework/src/node.ts';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
+import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../agent-cli/src/__tests__/helpers/product-runtime.ts';
 import { respond, wireReceipts } from '../../agent-cli/src/__tests__/helpers/provider-wire-fixture.ts';
 import { createInitialCliWorkspaceComposition } from '../../agent-cli/src/startup/workspace-project-composition.ts';
@@ -198,7 +198,7 @@ try {
   const launch = async (resumeId) => {
     round = 0; restored = Boolean(resumeId);
     const reservation = createServer(); const wsPort = await listen(reservation); await close(reservation);
-    child = spawn(process.execPath, ['--import', loader, '--conditions=source', join(cliRoot, 'src/__tests__/e2e/fixtures/mcp-bidirectional-host.ts'), '--serve', ...(contribution === 'standalone' ? ['--restricted-workspace'] : []), '--permission-mode', 'default', '--allowed-tools', `Read,${toolName},${readerName}`, '--max-turns', '45', ...(resumeId ? ['--resume', resumeId] : [])], {
+    child = spawn(process.execPath, ['--import', loader, '--conditions=product-source', join(cliRoot, 'src/__tests__/e2e/fixtures/mcp-bidirectional-host.ts'), '--serve', ...(contribution === 'standalone' ? ['--restricted-workspace'] : []), '--permission-mode', 'default', '--allowed-tools', `Read,${toolName},${readerName}`, '--max-turns', '45', ...(resumeId ? ['--resume', resumeId] : [])], {
       cwd: root, env: createTestBinaryEnvironment(home, { TMPDIR: spillParent, PRODUCT_WS_TOKEN: token, PRODUCT_WS_PORT: String(wsPort), PRODUCT_FIXTURE_MCP_SERVER_ID: sourceId }), stdio: ['ignore', 'pipe', 'pipe'],
     });
     child.stdout.on('data', (chunk) => { diagnostics += String(chunk); }); child.stderr.on('data', (chunk) => { diagnostics += String(chunk); });

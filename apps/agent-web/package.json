@@ -19,10 +19,10 @@
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:^",
-    "@robota-sdk/agent-remote-pairing": "workspace:*",
-    "@robota-sdk/agent-transport-webrtc-web": "workspace:*",
+    "@robota-sdk/agent-remote-pairing": "workspace:^",
+    "@robota-sdk/agent-transport-webrtc-web": "workspace:^",
     "@robota-sdk/agent-ui-web": "workspace:^",
-    "@robota-sdk/product-config": "workspace:*",
+    "@robota-sdk/product-config": "workspace:^",
     "next": "^15.5.28",
     "react": "19.2.8",
     "react-dom": "19.2.8"

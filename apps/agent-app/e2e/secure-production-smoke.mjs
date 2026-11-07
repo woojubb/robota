@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import electronPath from 'electron';
 import { _electron as electron } from 'playwright';
 
-import { resolveProductConfig } from '../../../packages/product-config/dist/index.js';
+import { resolveProductConfig } from '@robota-sdk/product-config';
 import { createCliRuntimeContext } from '../../../packages/agent-cli/src/product/runtime-context.ts';
 import { openDesktopSecureOwner } from '../../../packages/agent-cli/src/desktop-secure-host.ts';
 import { writeProductConversationMode } from '../../../packages/agent-cli/src/secure/conversation-mode-state.ts';
@@ -18,7 +18,7 @@ import { requestWorkspaceRootBroker } from '../../../packages/agent-cli/src/star
 import { startTestBroker } from '../../../packages/agent-cli/src/__tests__/helpers/test-workspace-root-broker.ts';
 import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from '../../../packages/agent-cli/src/session-inventory/supervised-session-control.ts';
 import { serializeKeyring } from '@robota-sdk/agent-keyring';
-import { NodeSessionStore } from '../../../packages/agent-session/src/node.ts';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { KeyHolder } from '../../../packages/agent-cli/src/secure/key-holder.ts';
 import { KeyHolderArtifactSealer, WriteOnlyArtifactSealer } from '../../../packages/agent-cli/src/secure/artifact-sealer.ts';
 import { createMemoryKeyringStore } from '../../../packages/agent-cli/src/secure/__tests__/helpers.ts';
@@ -71,7 +71,7 @@ try {
   const normalEntry = join(repository, 'packages/agent-cli/src/bin.ts');
   const tsx = createRequire(import.meta.url).resolve('tsx');
   const sidecar = join(root, 'source-sidecar');
-  writeFileSync(sidecar, `#!/bin/sh\ncase "$1" in\n  trust) exec ${quote(process.execPath)} --disable-sigusr1 --import ${quote(pathToFileURL(tsx).href)} --conditions=source ${quote(normalEntry)} "$@" ;;\nesac\nexec ${quote(process.execPath)} --disable-sigusr1 --import ${quote(pathToFileURL(tsx).href)} --conditions=source ${quote(entry)} "$@"\n`, { mode: 0o700 });
+  writeFileSync(sidecar, `#!/bin/sh\ncase "$1" in\n  trust) exec ${quote(process.execPath)} --disable-sigusr1 --import ${quote(pathToFileURL(tsx).href)} --conditions=product-source ${quote(normalEntry)} "$@" ;;\nesac\nexec ${quote(process.execPath)} --disable-sigusr1 --import ${quote(pathToFileURL(tsx).href)} --conditions=product-source ${quote(entry)} "$@"\n`, { mode: 0o700 });
   chmodSync(sidecar, 0o700);
   const trustStatus = JSON.parse(execFileSync(sidecar, ['trust', 'status', '--json'], {
     cwd: workspace,

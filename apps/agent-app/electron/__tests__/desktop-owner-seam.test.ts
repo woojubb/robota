@@ -442,7 +442,7 @@ describe('main-only desktop owner session boundary', () => {
       `;
       const env = { PATH: process.env.PATH ?? '', HOME: root, USERPROFILE: root, PRODUCT_USER_STATE_DIR: root,
         ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}) };
-      const child = spawnSync(process.execPath, ['--import', tsx, '--conditions=source', '--input-type=module', '-e', program],
+      const child = spawnSync(process.execPath, ['--import', tsx, '--conditions=product-source', '--input-type=module', '-e', program],
         { cwd: root, env, encoding: 'utf8', timeout: 10_000 });
       expect(child.error).toBeUndefined();
       expect(child.status, child.stderr).toBe(0);

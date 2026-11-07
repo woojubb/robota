@@ -11,17 +11,19 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { LINK_HELLO_BYTES, createKeyring, createLinkInitiator, createLinkResponder, createRuntimeIdentity, openOwnerHandover, startSpawnerExchange } from '../../packages/agent-keyring/src/index.ts';
-import { LINK_REQUEST_LINE, completeSpawnerPair, openOwnerLink, openSpawnerLink } from '../../packages/agent-transport-link/src/index.ts';
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../packages/agent-cli/src/__tests__/helpers/product-runtime.ts';
+import { resolveSdk } from '../../packages/agent-cli/src/__tests__/helpers/sdk-url.ts';
 import { connectSupervisedDaemon, listSupervisedSessions, openSupervisedAttachSocket, resolveSupervisedDirectory } from '../../packages/agent-cli/src/session-inventory/supervised-session-control.ts';
 import { windowsControlPipePath } from '../../packages/agent-local-host/src/windows-control-pipe.ts';
 import { createKeyringFileStore } from '../../packages/agent-local-host/src/index.ts';
-import { readProcessStartTime } from '../../packages/agent-core/src/node.ts';
 import { createMemoryKeyringStore } from '../../packages/agent-cli/src/secure/__tests__/helpers.ts';
 import { KeyHolder } from '../../packages/agent-cli/src/secure/key-holder.ts';
 import { KeyHolderArtifactSealer } from '../../packages/agent-cli/src/secure/artifact-sealer.ts';
-import { NodeSessionStore } from '../../packages/agent-session/src/node.ts';
+
+const { LINK_HELLO_BYTES, createKeyring, createLinkInitiator, createLinkResponder, createRuntimeIdentity, openOwnerHandover, startSpawnerExchange } = await import(resolveSdk('@robota-sdk/agent-keyring'));
+const { LINK_REQUEST_LINE, completeSpawnerPair, openOwnerLink, openSpawnerLink } = await import(resolveSdk('@robota-sdk/agent-transport-link'));
+const { readProcessStartTime } = await import(resolveSdk('@robota-sdk/agent-core/node'));
+const { NodeSessionStore } = await import(resolveSdk('@robota-sdk/agent-session/node'));
 
 const repo = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const cli = join(repo, 'packages/agent-cli');
@@ -53,7 +55,7 @@ writeFileSync(runtime.layout.userPaths.settings, JSON.stringify({
 const id = randomUUID();
 const entry = join(cli, plain ? 'src/testing/plain-runtime-entry.ts' : 'src/testing/secure-runtime-entry.ts');
 const mode = plain ? ['--daemon', '--supervised-transport-token-fd'] : ['--supervised-spawner-pair'];
-const child = spawn(process.execPath, ['--import', loader, '--conditions=source', entry, '--serve', '--safe-mode', '--supervised-session-id', id, ...mode], {
+const child = spawn(process.execPath, ['--import', loader, '--conditions=product-source', entry, '--serve', '--safe-mode', '--supervised-session-id', id, ...mode], {
   cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'],
 });
 let secondChild;
@@ -254,7 +256,7 @@ try {
     }
   } finally { strangerOwner.dispose(); }
   const secondId = randomUUID();
-  secondChild = spawn(process.execPath, ['--import', loader, '--conditions=source', entry, '--serve', '--safe-mode', '--supervised-session-id', secondId, '--supervised-spawner-pair'], {
+  secondChild = spawn(process.execPath, ['--import', loader, '--conditions=product-source', entry, '--serve', '--safe-mode', '--supervised-session-id', secondId, '--supervised-spawner-pair'], {
     cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'],
   });
   let secondStderr = '';
@@ -284,7 +286,7 @@ try {
     secondKey.spawnerKey.wipe();
   }
   const grantId = randomUUID();
-  grantChild = spawn(process.execPath, ['--import', loader, '--conditions=source', entry, '--serve', '--safe-mode', '--supervised-session-id', grantId, '--supervised-spawner-pair', '--supervised-external-event-grants', '--external-event-port', '34567'], {
+  grantChild = spawn(process.execPath, ['--import', loader, '--conditions=product-source', entry, '--serve', '--safe-mode', '--supervised-session-id', grantId, '--supervised-spawner-pair', '--supervised-external-event-grants', '--external-event-port', '34567'], {
     cwd: root, env, stdio: ['ignore', 'pipe', 'pipe', 'ipc', 'pipe'],
   });
   let grantStderr = '';

@@ -1,4 +1,4 @@
-import { createDesktopSessionClient } from '../../../../packages/agent-ui-web/src/client/desktop-session-client.js';
+import { createDesktopSessionClient } from '@robota-sdk/agent-ui-web';
 
 window.fixtureMessages = [];
 window.fixtureStatus = 'waiting';

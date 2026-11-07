@@ -20,6 +20,7 @@ function fixture({
   requireOpenAssessment = false,
   rejectCliNotarization = false,
   requireCliAssessment = false,
+  mode = 'all',
 } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'macos-gate-test-'));
   scratch.push(root);
@@ -29,7 +30,7 @@ function fixture({
   mkdirSync(downloads);
   const script = '#!/bin/sh\nprintf "3.0.0-beta.test\\n"\n';
   const digest = createHash('sha256').update(script).digest('hex');
-  const names = [`${artifactPrefix}-darwin-arm64`, `${artifactPrefix}-darwin-x64`, 'RuntimeApp.dmg'];
+  const names = mode === 'desktop' ? ['RuntimeApp.dmg'] : [`${artifactPrefix}-darwin-arm64`, `${artifactPrefix}-darwin-x64`, 'RuntimeApp.dmg'];
   for (const name of names) writeFileSync(join(downloads, name), script, { mode: 0o755 });
   writeFileSync(
     join(downloads, 'SHA256SUMS.txt'),
@@ -55,7 +56,7 @@ function fixture({
   };
   for (const [name, content] of Object.entries(mocks))
     writeFileSync(join(commands, name), `#!/bin/sh\n${content}\n`, { mode: 0o755 });
-  return spawnSync('bash', [gate, 'test-tag', downloads], {
+  return spawnSync('bash', [gate, 'test-tag', downloads, mode], {
     encoding: 'utf8',
     env: {
       ...process.env,
@@ -70,6 +71,14 @@ it('fails a published DMG with no valid stapled ticket even when signature and G
   const result = fixture({ rejectStaple: true });
   expect(result.stdout).toMatch(/BLOCKING\s+FAIL xcrun stapler validate/);
   expect(result.status).toBe(1);
+});
+
+it('verifies an independent desktop release without requiring standalone CLI binaries', () => {
+  const result = fixture({ mode: 'desktop' });
+  expect(result.status, result.stdout).toBe(0);
+  expect(result.stdout).toContain('Desktop installer: RuntimeApp.dmg');
+  expect(result.stdout).not.toContain('CLI binary:');
+  expect(fixture({ mode: 'desktop', rejectStaple: true }).status).toBe(1);
 });
 
 it('assesses a DMG as a disk image being opened rather than a package installer', () => {

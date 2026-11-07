@@ -88,8 +88,8 @@ describe('resolveSelfForkWorkerEntry', () => {
 
   it('preserves an existing TypeScript loader rather than adding a second one', () => {
     // Under `tsx entry.ts` the parent already carries absolute loader flags; forwarding them keeps
-    // conditions like `--conditions=source` intact.
-    const loaded = ['--import', 'file:///abs/tsx/dist/loader.mjs', '--conditions=source'];
+    // conditions like `--conditions=product-source` intact.
+    const loaded = ['--import', 'file:///abs/tsx/dist/loader.mjs', '--conditions=product-source'];
     withEntry('/repo/packages/agent-cli/src/bin.ts', loaded);
 
     expect(resolveSelfForkWorkerEntry()).toEqual({

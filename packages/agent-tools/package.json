@@ -51,8 +51,8 @@
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
   "dependencies": {
-    "@robota-sdk/agent-file-authority": "workspace:*",
-    "@robota-sdk/agent-process": "workspace:*",
+    "@robota-sdk/agent-file-authority": "workspace:^",
+    "@robota-sdk/agent-process": "workspace:^",
     "fast-glob": "^3.3.3",
     "p-limit": "^7.3.0",
     "zod": "^4.6.7"
@@ -61,7 +61,7 @@
     "@robota-sdk/agent-core": "workspace:^"
   },
   "devDependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
+    "@robota-sdk/agent-core": "workspace:^",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",

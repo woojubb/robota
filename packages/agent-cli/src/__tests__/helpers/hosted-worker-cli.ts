@@ -77,7 +77,7 @@ void startCliEntry({ environment: process.env });
       artifact,
       `
 import { spawn } from 'node:child_process';
-const child = spawn(process.execPath, ['--import', ${JSON.stringify(join(root, 'node_modules/tsx/dist/loader.mjs'))}, '--import', ${JSON.stringify(probe)}, '--conditions=source', ${JSON.stringify(workerCliHost)}, ...process.argv.slice(2)], { stdio: 'inherit' });
+const child = spawn(process.execPath, ['--import', ${JSON.stringify(join(root, 'node_modules/tsx/dist/loader.mjs'))}, '--import', ${JSON.stringify(probe)}, '--conditions=product-source', ${JSON.stringify(workerCliHost)}, ...process.argv.slice(2)], { stdio: 'inherit' });
 child.once('error', error => { process.stderr.write(error.message); process.exitCode = 1; });
 child.once('exit', code => { process.exitCode = code ?? 1; });
 `,
@@ -268,7 +268,7 @@ startCli({ environment: process.env }).catch(error => { process.stderr.write(err
             [
               '--import',
               join(root, 'node_modules/tsx/dist/loader.mjs'),
-              '--conditions=source',
+              '--conditions=product-source',
               entry,
               ...args,
             ],
