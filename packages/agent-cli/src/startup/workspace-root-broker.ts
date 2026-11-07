@@ -19,7 +19,7 @@ import {
   createNodeWorkspaceTrustStore,
 } from '@robota-sdk/agent-framework/node';
 import { createProcessOperationLock } from '@robota-sdk/agent-session/node';
-import { WindowsControlPipeServer, type IControlChannel } from '../session-inventory/windows-control-pipe.js';
+import { WindowsControlPipeServer, type IControlChannel } from '@robota-sdk/agent-local-host';
 
 import type { IWorkspaceIdentity, IWorkspaceIdentityResolver } from '@robota-sdk/agent-framework';
 
