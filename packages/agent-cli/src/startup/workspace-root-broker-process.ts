@@ -56,7 +56,7 @@ async function isReady(endpoint: string): Promise<boolean> {
 /** Start a detached broker once; a normal CLI or desktop sidecar exit leaves it serving leases. */
 export async function ensureWorkspaceRootBroker(runtime: ICliRuntimeContext): Promise<string> {
   const endpoint = workspaceRootBrokerEndpoint(runtime);
-  brokerDirectory(runtime, true);
+  const directory = brokerDirectory(runtime, true);
   if (await isReady(endpoint)) return endpoint;
   const sourceBin = fileURLToPath(new URL('../bin.ts', import.meta.url));
   const loaderUrl = new URL('../../node_modules/tsx/dist/loader.mjs', import.meta.url);
@@ -71,9 +71,9 @@ export async function ensureWorkspaceRootBroker(runtime: ICliRuntimeContext): Pr
       ? [process.argv[1]] : [];
   const child = spawn(process.execPath, [
     ...(source || compiledBun ? [] : process.execArgv), ...script,
-    '--internal-root-broker', endpoint, brokerDirectory(runtime),
+    '--internal-root-broker', endpoint, directory,
     runtime.layout.userPaths.workspaceTrust,
-  ], { detached: true, stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
+  ], { cwd: directory, detached: true, stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
   let startupError = '';
   child.stderr?.on('data', (chunk: Buffer) => {
     startupError = `${startupError}${chunk.toString('utf8')}`.slice(0, 2_048);
