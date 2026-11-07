@@ -1,5 +1,10 @@
 # @robota-sdk/agent-file-authority
 
+## 3.1.1
+### Patch Changes
+
+- 7e55f21: Use Darwin's 64-bit inode `fstatfs` and `readdir` entry points on Intel so supported local APFS roots pass stable-root checks and directory listing. Accept the broker's exact substituted-root refusal in native CLI verification.
+
 ## 3.1.0
 ### Minor Changes
 
