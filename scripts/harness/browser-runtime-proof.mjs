@@ -1,27 +1,11 @@
 #!/usr/bin/env node
 
 /**
- * The dynamic half of the "Runtime platforms" rule in ARCHITECTURE.md.
- *
- * `check-platform-neutral.mjs` proves by reading source that a platform-neutral entry reaches no Node
- * built-in and no Node global. This proves it by running: each neutral subpath of each package on the
- * Platform-neutral list is bundled the way a browser build bundles it (`platform: 'browser'`, ESM,
- * workspace packages from their `source`), and the bundle is evaluated in a realm that has only
- * web-standard globals (`browser-proof/web-globals.mjs`) — no `process`, `require`, `Buffer`,
- * `global`, `setImmediate` or `__dirname`. A reference to one fails with its name and the source line,
- * which a scan cannot see in a third-party dependency that reads `process.env` at call time.
- *
- * Every neutral subpath is bundled and loaded in the restricted realm. Package behavior is tested
- * by the packages that own it; this proof checks the browser entry boundary.
- *
- * A bundle that imports a Node built-in (or another package's Node-only subpath) fails, except a
- * dynamic import inside a third-party module, which the static check also allows: it is a runtime
- * detection that does not run here. Such an import resolves to a module that throws, as a browser
- * build's stub would.
+ * Load neutral workspace exports in a browser-like realm to complement the static platform check.
  *
  *   node scripts/harness/browser-runtime-proof.mjs [--root <workspace>] [--out <dir>]
  *
- * `--out` keeps the bundles (and their source maps) in <dir>, for loading them in a real browser.
+ * `--out` retains bundles and source maps for a real browser.
  */
 
 import { spawn } from 'node:child_process';
@@ -56,14 +40,8 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const PROOF_DIR = path.join(here, 'browser-proof');
 const REALM = path.join(PROOF_DIR, 'realm.mjs');
 
-/**
- * An entry should load immediately; this catches an accidental asynchronous hang.
- */
+/** Bound both entry loads and the whole realm run. */
 const JOB_TIMEOUT_MS = 10_000;
-/**
- * The whole realm run, which takes under a second here (about 0.8 s for the whole proof, bundling
- * included). A bundle that never returns, or loops, is killed at this many times that.
- */
 const REALM_TIMEOUT_MS = 30_000;
 
 const thirdPartyName = (file) =>

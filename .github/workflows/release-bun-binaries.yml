@@ -38,6 +38,7 @@ jobs:
     outputs:
       plan: ${{ steps.scope.outputs.plan }}
       native: ${{ steps.scope.outputs.native }}
+      windows: ${{ steps.scope.outputs.windows }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -70,8 +71,7 @@ jobs:
       matrix:
         product: ${{ fromJSON(github.event_name == 'pull_request' && '["cedar"]' || '["configured"]') }}
         target: ${{ fromJSON(github.event_name == 'pull_request' && '["darwin-arm64"]' || '["linux-x64","linux-arm64","darwin-x64","darwin-arm64","windows-x64"]') }}
-        # Pull requests also run one Windows leg: Windows native code otherwise first meets a real host at release.
-        include: ${{ fromJSON(github.event_name == 'pull_request' && '[{"target":"darwin-arm64","runner":"macos-26"},{"product":"cedar","target":"windows-x64","runner":"windows-2025"}]' || '[{"target":"linux-x64","runner":"ubuntu-24.04"},{"target":"linux-arm64","runner":"ubuntu-24.04-arm"},{"target":"darwin-x64","runner":"macos-26-intel"},{"target":"darwin-arm64","runner":"macos-26"},{"target":"windows-x64","runner":"windows-2025"}]') }}
+        include: ${{ fromJSON(github.event_name == 'pull_request' && (needs.scope.outputs.windows == 'false' && '[{"target":"darwin-arm64","runner":"macos-26"}]' || '[{"target":"darwin-arm64","runner":"macos-26"},{"product":"cedar","target":"windows-x64","runner":"windows-2025"}]') || '[{"target":"linux-x64","runner":"ubuntu-24.04"},{"target":"linux-arm64","runner":"ubuntu-24.04-arm"},{"target":"darwin-x64","runner":"macos-26-intel"},{"target":"darwin-arm64","runner":"macos-26"},{"target":"windows-x64","runner":"windows-2025"}]') }}
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v7
