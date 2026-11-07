@@ -16,7 +16,6 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
 - Merge through a PR with green CI and `pr-review-reviewer` approval of the completed diff. Resolve MUST/SHOULD;
   re-review affected fixes, not approved work without new evidence. Then merge; never push to `develop` or `main` directly.
 - After merging a PR, delete its local and remote head branches without asking (never `develop` or `main`); ask only when a concrete reason to retain the branch needs the owner's decision.
-- A behavior change ships with a test that failed before the change.
 - A product slash command or skill that is added or changed carries a description written for the model (what it
   does, when to use it, what it returns) and a deliberate, tested choice of model invocation: what the model should
   run on its own is model-invocable and described so it is picked at the right moment. Trust, credential and
@@ -25,7 +24,7 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
 
 ## Checks
 
-Run focused checks for changed behavior while implementing. Let final PR CI run the applicable build, typecheck, lint, test and dependency checks once; do not repeat the whole suite locally without a concrete risk that CI does not cover. For CLI runtime changes, personally run the actual source CLI with disposable HOME/product state, submit a normal prompt and a slash command, and verify session initialization and completed responses; record the exact commit, invocations, provider mode and results in the issue/PR. Help/version output alone does not establish a working session.
+Use final PR CI as the integration check. Run a local check only for a concrete risk it cannot cover. For CLI runtime changes, personally run the actual source CLI with disposable HOME/product state, submit a normal prompt and a slash command, and verify session initialization and completed responses; record the exact commit, invocations, provider mode and results in the issue/PR. Help/version output alone does not establish a working session.
 
 ## Non-obvious facts
 
