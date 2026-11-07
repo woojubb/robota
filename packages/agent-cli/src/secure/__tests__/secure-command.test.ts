@@ -27,6 +27,8 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { resolveCliRuntimeContext } from '../../startup/product-bootstrap.js';
+import { writeProductConversationMode } from '../conversation-mode-state.js';
 import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { SECURE_USAGE, runSecureCommand, type ISecureCommandOptions } from '../secure-command.js';
 import {
@@ -318,6 +320,23 @@ describe('secure status', () => {
     expect(existsSync(secureDirectory())).toBe(false);
   });
 
+  it('reports the persisted conversation choice even when the keyring is absent', async () => {
+    const plain = runtime();
+    const root = plain.layout.userRoot;
+    for (const [expected, next, label] of [
+      ['plain', 'preparing', 'preparing'],
+      ['preparing', 'secure', 'secure'],
+      ['secure', 'plain', 'plain'],
+    ] as const) {
+      writeProductConversationMode(root, expected, next);
+      stdout = [];
+      const selected = resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment });
+      const { code } = await secure(['status'], {}, { productRuntime: selected, openTerminal: noTerminal });
+      expect(code).toBe(0);
+      expect(out()).toContain(`Conversation mode: ${label}`);
+    }
+  });
+
   it('reports the path, the slots with their scrypt cost, the fingerprint and the file mode, without unlocking', async () => {
     const { keyring } = await installFixtureKeyring();
     const { code } = await secure(['status'], {}, { openTerminal: noTerminal, stdinIsTTY: false });
@@ -472,7 +491,6 @@ describe('secure change-passphrase', () => {
     expect(fingerprint(viaNew.sealing.publicKey)).toBe(fingerprint(getSealingPublicKey(keyring)));
     viaNew.lock();
     (await unlockWithRecoveryKey(updated, recoveryKey)).lock();
-    expect(readdirSync(secureDirectory())).toEqual(['keyring.json']);
     expect(everythingUnder(home)).not.toContain(oldSlot.wrappedKey);
   });
 

@@ -173,20 +173,21 @@ function describeSlots(keyring: IKeyring): string {
 
 function runStatus(store: IKeyringStore, options: ISecureCommandOptions): number {
   const cliName = options.productRuntime.vocabulary.cliName;
+  const modeLine = `Conversation mode: ${options.productRuntime.conversationMode}\n`;
   const before = store.inspect();
   if (!before.exists) {
     options.stdout(
-      `No keyring exists at ${store.path}.\nRun \`${cliName} secure setup\` to create one.\n`,
+      `${modeLine}No keyring exists at ${store.path}.\nRun \`${cliName} secure setup\` to create one.\n`,
     );
     return EXIT_OK;
   }
   const loaded = store.load();
   if (loaded.status === 'missing') {
-    options.stdout(`No keyring exists at ${store.path}.\n`);
+    options.stdout(`${modeLine}No keyring exists at ${store.path}.\n`);
     return EXIT_OK;
   }
   const after = store.inspect();
-  const lines = [`Keyring: ${store.path}`];
+  const lines = [modeLine.trimEnd(), `Keyring: ${store.path}`];
   if (after.mode !== undefined) {
     const tightened =
       before.mode !== undefined && before.mode !== after.mode && (after.mode & 0o077) === 0
