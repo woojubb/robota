@@ -108,6 +108,9 @@ importers:
       '@typescript-eslint/parser':
         specifier: ^7.0.0
         version: 7.18.0(eslint@8.57.1)(typescript@6.0.3)
+      '@typescript/native-preview':
+        specifier: 7.0.0-dev.20260707.2
+        version: 7.0.0-dev.20260707.2
       '@vitest/coverage-v8':
         specifier: ^3.2.6
         version: 3.2.6(vitest@3.2.6)
@@ -463,7 +466,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1019,7 +1022,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1041,7 +1044,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1328,7 +1331,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       tsx:
         specifier: ^4.23.1
         version: 4.23.1
@@ -1368,7 +1371,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1411,7 +1414,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1445,7 +1448,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1467,7 +1470,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
@@ -1540,7 +1543,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       tsx:
         specifier: ^4.23.1
         version: 4.23.1
@@ -1616,7 +1619,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
@@ -1632,7 +1635,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
@@ -1648,7 +1651,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
@@ -1673,7 +1676,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
@@ -1692,7 +1695,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
@@ -1708,7 +1711,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1723,7 +1726,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1741,7 +1744,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
@@ -1806,7 +1809,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1843,7 +1846,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1865,7 +1868,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1890,7 +1893,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1909,7 +1912,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1927,7 +1930,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1958,7 +1961,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -1983,7 +1986,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2005,7 +2008,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2030,7 +2033,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2058,7 +2061,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2083,7 +2086,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2108,7 +2111,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2127,7 +2130,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2139,7 +2142,7 @@ importers:
     devDependencies:
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
@@ -2161,7 +2164,7 @@ importers:
         version: link:../agent-tool-defaults
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
@@ -2192,7 +2195,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2217,7 +2220,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2251,7 +2254,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2282,7 +2285,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2307,7 +2310,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
@@ -2338,7 +2341,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2378,7 +2381,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       tsx:
         specifier: ^4.23.1
         version: 4.23.1
@@ -2418,7 +2421,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2446,7 +2449,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2474,7 +2477,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
@@ -2505,7 +2508,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2554,7 +2557,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2591,7 +2594,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2628,7 +2631,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       tsx:
         specifier: ^4.23.1
         version: 4.23.1
@@ -2704,7 +2707,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       tsx:
         specifier: ^4.23.1
         version: 4.23.1
@@ -2768,7 +2771,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2799,7 +2802,7 @@ importers:
         version: 5.0.10
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       typescript:
         specifier: ^6.0.3
         version: 6.0.3
@@ -2811,7 +2814,7 @@ importers:
     devDependencies:
       tsdown:
         specifier: ^0.22.14
-        version: 0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
+        version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
         version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
@@ -10018,6 +10021,83 @@ packages:
     dependencies:
       '@typescript-eslint/types': 7.18.0
       eslint-visitor-keys: 3.4.3
+    dev: true
+
+  /@typescript/native-preview-darwin-arm64@7.0.0-dev.20260707.2:
+    resolution: {integrity: sha512-wny2pgKjGbiZtnOIHVa3tXC1UfDqxNEFzyPGmiqybedG8hipG2Nfp0l5UxbaKCjkLacUpH/W5bP2hBOMVhCOzg==}
+    engines: {node: '>=16.20.0'}
+    cpu: [arm64]
+    os: [darwin]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /@typescript/native-preview-darwin-x64@7.0.0-dev.20260707.2:
+    resolution: {integrity: sha512-Afc7M5zOwo+GpfcYwz5Z8HMB2tPVsui7nNIqEuuFB73MPdVqNn/Wmpe4tP4MRri0AtJnJknoHBaTJ/VDAp/Jhw==}
+    engines: {node: '>=16.20.0'}
+    cpu: [x64]
+    os: [darwin]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /@typescript/native-preview-linux-arm64@7.0.0-dev.20260707.2:
+    resolution: {integrity: sha512-iITBa2WjjTI5N9t5l7Z4KoOSI+2zBlhbvFzsD/f8qX8QoKjz/Y4DPyBDgezYi8nkqjjksbgSOJ3/ykzhwrB9cg==}
+    engines: {node: '>=16.20.0'}
+    cpu: [arm64]
+    os: [linux]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /@typescript/native-preview-linux-arm@7.0.0-dev.20260707.2:
+    resolution: {integrity: sha512-hJm/UOqZTr9FHmR7uNm8VGX4oKtfWk0Jem0zPeJFNC8ckGUfSBueyiEYMZB+XmRc1aG4x1E46y3CplP4CLHvGQ==}
+    engines: {node: '>=16.20.0'}
+    cpu: [arm]
+    os: [linux]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /@typescript/native-preview-linux-x64@7.0.0-dev.20260707.2:
+    resolution: {integrity: sha512-du0dzi6y97Po5vDNdPJTyyijHCpaS22JLRnKZEJXBDaO9gCIymOv/5QQokFRuOlQm0bWl3i9PF4OVdGP6uAOQA==}
+    engines: {node: '>=16.20.0'}
+    cpu: [x64]
+    os: [linux]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /@typescript/native-preview-win32-arm64@7.0.0-dev.20260707.2:
+    resolution: {integrity: sha512-SsAwfhyHJ1akgBc+99z4+hwdbHsdWaKB8EwCNIMA6JfSLMeUjffrYvxu+vfMyxVtOVOz7RrRXRoiDiu4a2sCtg==}
+    engines: {node: '>=16.20.0'}
+    cpu: [arm64]
+    os: [win32]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /@typescript/native-preview-win32-x64@7.0.0-dev.20260707.2:
+    resolution: {integrity: sha512-DL4u27stv0fo71sVhOzHSwE+YMZsbBijVI+kg5dLDLilSH79WFTJ8RSQ46vJrCMt+Gjlv/JOZP1PuLJDfioYeQ==}
+    engines: {node: '>=16.20.0'}
+    cpu: [x64]
+    os: [win32]
+    requiresBuild: true
+    dev: true
+    optional: true
+
+  /@typescript/native-preview@7.0.0-dev.20260707.2:
+    resolution: {integrity: sha512-oUGp+Rep/hqMhPunyinsALUwSlzHINSxitifPiSaeqoKOKD2OlR9NE3TaPqwsl4NlGslsOSUXI1JotWQzpYCPg==}
+    engines: {node: '>=16.20.0'}
+    hasBin: true
+    optionalDependencies:
+      '@typescript/native-preview-darwin-arm64': 7.0.0-dev.20260707.2
+      '@typescript/native-preview-darwin-x64': 7.0.0-dev.20260707.2
+      '@typescript/native-preview-linux-arm': 7.0.0-dev.20260707.2
+      '@typescript/native-preview-linux-arm64': 7.0.0-dev.20260707.2
+      '@typescript/native-preview-linux-x64': 7.0.0-dev.20260707.2
+      '@typescript/native-preview-win32-arm64': 7.0.0-dev.20260707.2
+      '@typescript/native-preview-win32-x64': 7.0.0-dev.20260707.2
     dev: true
 
   /@ungap/structured-clone@1.3.1:
@@ -19588,7 +19668,7 @@ packages:
     resolution: {integrity: sha512-NS3levdsRIUOmiJ8FZWCP7LG3QpJyrs/TE0Zpf1yvZu8cAJJ6QMW92H1c7kWpdIHo8RvmLxN/o2JXTKHp74lUA==}
     dev: false
 
-  /rolldown-plugin-dts@0.27.14(rolldown@1.2.0)(typescript@6.0.3):
+  /rolldown-plugin-dts@0.27.14(@typescript/native-preview@7.0.0-dev.20260707.2)(rolldown@1.2.0)(typescript@6.0.3):
     resolution: {integrity: sha512-ZvuDDwoIpRK9RPxDXratCpklFO9QZZWndf/sd0VBFb4LEj0jj07UcHK9OCh7V4XiFz2Z89ziyBC2K6tJiDjrbw==}
     engines: {node: ^22.18.0 || >=24.11.0}
     peerDependencies:
@@ -19607,6 +19687,7 @@ packages:
       vue-tsc:
         optional: true
     dependencies:
+      '@typescript/native-preview': 7.0.0-dev.20260707.2
       dts-resolver: 3.0.0
       get-tsconfig: 5.0.0-beta.5
       obug: 2.1.4
@@ -21033,7 +21114,7 @@ packages:
       strip-bom: 3.0.0
     dev: true
 
-  /tsdown@0.22.14(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1):
+  /tsdown@0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1):
     resolution: {integrity: sha512-ule7Y+fsAN2iZbLDoo7C4KYljFJNJJ+fLshyn+9gozeTspVersWHxwdGB+Dm2hzA38s6muFnUTl0jK3vJm9ifQ==}
     engines: {node: ^22.18.0 || >=24.11.0}
     hasBin: true
@@ -21077,7 +21158,7 @@ packages:
       picomatch: 4.0.5
       publint: 0.3.24
       rolldown: 1.2.0
-      rolldown-plugin-dts: 0.27.14(rolldown@1.2.0)(typescript@6.0.3)
+      rolldown-plugin-dts: 0.27.14(@typescript/native-preview@7.0.0-dev.20260707.2)(rolldown@1.2.0)(typescript@6.0.3)
       tinyexec: 1.2.4
       tinyglobby: 0.2.17
       tree-kill: 1.2.2

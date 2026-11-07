@@ -262,10 +262,10 @@ async function main() {
     run('lint');
     run('deps:check');
     if (plan.docs) run('--filter', './apps/docs', 'build');
-  } else if (kind === 'tests-cli-1' || kind === 'tests-cli-2') {
+  } else if (/^tests-cli-[1-4]$/.test(kind)) {
     if (plan.checks.includes('packages/agent-cli'))
       run('--filter', './packages/agent-cli', 'exec', 'vitest', 'run', '--passWithNoTests',
-        `--shard=${kind === 'tests-cli-1' ? '1/2' : '2/2'}`);
+        `--shard=${kind.at(-1)}/4`);
   } else if (/^tests-rest-[123]$/.test(kind)) {
     const shard = Number(kind.at(-1)) - 1;
     const remaining = plan.checks.filter((dir) => dir !== 'packages/agent-cli')
