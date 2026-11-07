@@ -1,5 +1,21 @@
 # @robota-sdk/agent-ui-web
 
+## 3.2.0
+### Minor Changes
+
+- 0ea29ac: Add an opt-in secure conversation path for the desktop shell. A native owner credential opens a certified runtime, and the renderer receives a session-only port without a daemon URL or owner capability. Secure drafts remain in memory, and the desktop relocks on reload or exit. The CLI exposes the persisted mode transition and an explicit supervised child command for this host.
+
+### Patch Changes
+
+- Updated dependencies [e5ce7d6]
+- Updated dependencies [12ab3f5]
+- Updated dependencies [ad5e9fb]
+  - @robota-sdk/agent-interface-session@3.2.0
+  - @robota-sdk/agent-interface-execution@3.2.0
+  - @robota-sdk/agent-transport@3.2.0
+  - @robota-sdk/agent-interface-command@3.2.0
+  - @robota-sdk/agent-interface-transport@3.2.0
+
 ## 3.1.2
 ### Patch Changes
 

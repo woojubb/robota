@@ -1,5 +1,7 @@
 # @robota-sdk/agent-remote-pairing
 
+## 3.2.0
+
 ## 3.1.2
 
 ## 3.1.1
