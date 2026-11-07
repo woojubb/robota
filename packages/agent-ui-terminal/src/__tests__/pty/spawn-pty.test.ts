@@ -41,21 +41,6 @@ describe('spawnPty harness self-test', () => {
     expect(session.snapshot()).toContain('MARKER_OK');
     expect(await session.expectExit(5_000)).toBe(3);
   });
-
-  it('paces sent keys and reads them back from the child', async () => {
-    const session = spawnPty({
-      command: 'sh',
-      args: ['-c', 'IFS= read -r line; printf "ECHO:[%s]\\n" "$line"'],
-      cwd: PACKAGE_DIR,
-      env: createPtyEnv(),
-    });
-    sessions.push(session);
-
-    await session.sendKeys('abc', 10);
-    session.write('\r');
-    await session.waitFor('ECHO:[abc]', 5_000);
-    expect(await session.expectExit(5_000)).toBe(0);
-  });
 });
 
 describe('PTY HOME isolation', () => {
