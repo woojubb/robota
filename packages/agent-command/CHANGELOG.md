@@ -1,5 +1,15 @@
 # @robota-sdk/agent-command
 
+## 3.1.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.1.2
+  - @robota-sdk/agent-framework@3.1.2
+  - @robota-sdk/agent-interface-command@3.1.2
+  - @robota-sdk/agent-interface-execution@3.1.2
+  - @robota-sdk/agent-interface-session@3.1.2
+  - @robota-sdk/agent-preset@3.1.2
+
 ## 3.1.1
 ### Patch Changes
 
