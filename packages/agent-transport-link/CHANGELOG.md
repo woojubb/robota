@@ -1,5 +1,11 @@
 # @robota-sdk/agent-transport-link
 
+## 3.1.1
+### Patch Changes
+
+  - @robota-sdk/agent-keyring@3.1.1
+  - @robota-sdk/agent-transport@3.1.1
+
 ## 3.1.0
 ### Minor Changes
 

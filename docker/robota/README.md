@@ -95,7 +95,7 @@ server's, so verify on the Linux host you deploy to.
 ## Settings and state
 
 `HOME` is `/home/node` and the CLI's user state (`PRODUCT_USER_STATE_DIR`) is `/home/node/.robota`,
-a volume. Mount a named volume there to keep provider profiles and trust grants between runs. A bind
+a volume. Mount a named volume there to keep provider profiles between runs. A bind
 mount must be writable by uid 1000.
 
 On every start, the entrypoint copies the image's default settings to
@@ -134,25 +134,24 @@ the workspace as able to carry it.
 Without a desktop keychain, credentials the CLI stores itself fall back to its owner-only file
 store under the state volume.
 
-## Trust
+## Workspace mode
 
-The image never trusts a workspace on its own. Headless runs (`-p`, `--goal`) in an untrusted
-workspace fail closed:
+The image never trusts a workspace on its own. A headless run in an untrusted workspace without
+`--restricted-workspace` fails closed:
 
 ```text
 Workspace trust is required before headless startup (state: untrusted).
 ```
 
-State trust explicitly in the deployment, in the workspace, before the run:
+For unattended batch and server deployments, select restricted mode on each invocation:
 
 ```sh
-robota trust --yes
+robota --restricted-workspace -p "Fix the failing test" --output-format json
 ```
 
-The grant is recorded in the state volume for that workspace root, so a later container with the
-same volume and the same workspace path is trusted too. In batch mode, run `trust --yes` right
-after cloning, in the same container, as `compose.yaml` does. `--restricted-workspace` runs without
-the project's settings, hooks, plugins, skills and MCP servers instead of trusting it.
+Restricted mode leaves the repository's settings, hooks, plugins, skills and MCP servers inactive.
+User-owned skills remain available. Trust requires an actual user approval and is not established
+by a headless `trust --yes` command or carried across container restarts by the state volume.
 
 ## Workspace
 
@@ -191,8 +190,7 @@ docker run --rm $SECURITY -v robota-state:/home/node/.robota \
     set -e
     git clone --depth 1 https://example.com/org/repo.git /workspace/repo
     cd /workspace/repo
-    robota trust --yes
-    robota -p "Fix the failing test" --output-format json'
+    robota --restricted-workspace -p "Fix the failing test" --output-format json'
 ```
 
 Arguments starting with `-` run `robota` directly (`docker run … robota:3.0.0-beta.90 -p "…"`);
@@ -245,7 +243,7 @@ curl -N -H "Authorization: Bearer $(cat http-token)" -H 'content-type: applicati
 ## Smoke test
 
 `smoke/smoke.sh <image> [apparmor-profile]` runs the image against `smoke/provider-fixture.mjs`, a
-loopback OpenAI-compatible endpoint, on an internal Docker network. It checks that trust, `doctor`,
+loopback OpenAI-compatible endpoint, on an internal Docker network. It checks restricted mode, `doctor`,
 a normal prompt and `/help` complete, that a Bash command the fixture requests runs confined (own
 PID namespace, no `/run/secrets`, no network, writes only in the workspace), that startup refuses
 without `systempaths=unconfined` and with Docker's defaults, that an untrusted workspace fails
