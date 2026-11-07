@@ -93,7 +93,7 @@ try {
   check('--help prints usage', (help.stdout ?? '').includes(`Usage: ${selectedFixtureIdentity().identity.cliName}`));
 
   try {
-    console.log(runNativeFileAuthorityE2e(standalone));
+    console.log(await runNativeFileAuthorityE2e(standalone));
     // Linux: the project-store replay round-trips and a swapped-in symlink parent is refused.
     // Everywhere else: the user-store fallback round-trips and nothing project-relative is written.
     check('native session-store fixture round-trips and stays within its platform contract', true);

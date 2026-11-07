@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
-import { runWorkspaceTrustCommand } from '../../startup/workspace-trust-command.js';
+import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
 
 vi.mock('../supervised-session-launch.js', () => ({ launchSupervisedSession: vi.fn() }));
@@ -25,7 +25,7 @@ describe('supervised session start reports a real telemetry refusal', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     try {
-      expect(await runWorkspaceTrustCommand(['--yes'], cwd, createTestProductRuntime())).toBe(0);
+      expect(await approveTestWorkspace(cwd, createTestProductRuntime())).toBe(0);
       // Enabled with an OTLP trace export, but missing the required explicit protocol setting:
       // `createConfiguredNodeOtlpLiveTelemetryPort` (and the new parent-side validator) refuse this.
       const invalidTelemetry = Object.freeze({

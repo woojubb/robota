@@ -26,7 +26,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { basename, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { resolveNativeFixtureWorkspace } from './e2e-native-file-authority.mjs';
+import { approveOnTerminal, resolveNativeFixtureWorkspace, stopFixtureBroker } from './e2e-native-file-authority.mjs';
 import { fixtureProcessEnvironment } from './product-fixture-environment.mjs';
 
 /** Appears in a child's command line only through the regex worker bootstrap (`boundedRegexReplace`). */
@@ -295,7 +295,7 @@ export async function runRegexWorkerE2e(binaryPath, options = {}) {
     workspace = resolveNativeFixtureWorkspace(workspace, env);
     context.workspace = workspace;
 
-    const trust = cli(['trust', '--yes']);
+    const trust = await approveOnTerminal(binary, ['trust', '--yes'], workspace, env);
     if (trust.status !== 0 || !/Workspace trust: trusted/u.test(trust.stdout ?? '')) {
       throw failure(
         'trust --yes failed.',
@@ -382,6 +382,7 @@ export async function runRegexWorkerE2e(binaryPath, options = {}) {
     );
   } finally {
     await leftoverWorkers(binary).catch(() => undefined);
+    await stopFixtureBroker(env);
     rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 250 });
   }
 }
@@ -390,11 +391,11 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     const [binaryPath] = process.argv.slice(2);
     if (!binaryPath) throw new Error('Usage: e2e-regex-worker.mjs <agent-executable>');
-    process.stdout.write(`${await runRegexWorkerE2e(binaryPath)}\n`);
+    process.stdout.write(`${await runRegexWorkerE2e(binaryPath)}\n`, () => process.exit(0));
   } catch (error) {
     process.stderr.write(
       `regex-worker e2e: ${error instanceof Error ? error.message : String(error)}\n`,
+      () => process.exit(1),
     );
-    process.exitCode = 1;
   }
 }

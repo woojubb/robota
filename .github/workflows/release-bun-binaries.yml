@@ -9,7 +9,7 @@ on:
     tags:
       - '**'
   pull_request:
-    branches: [develop, main]
+    branches: [develop]
   workflow_dispatch:
     inputs:
       product_env:

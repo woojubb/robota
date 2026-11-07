@@ -269,16 +269,15 @@ async function main() {
     run('lint');
     run('deps:check');
     if (plan.docs) run('--filter', './apps/docs', 'build');
-  } else if (kind === 'tests') {
-    run(
-      '-r',
-      ...filters(plan.checks),
-      '--no-sort',
-      '--workspace-concurrency=2',
-      '--if-present',
-      'run',
-      'test',
-    );
+  } else if (kind === 'tests-cli-1' || kind === 'tests-cli-2') {
+    if (plan.checks.includes('packages/agent-cli'))
+      run('--filter', './packages/agent-cli', 'exec', 'vitest', 'run', '--passWithNoTests',
+        `--shard=${kind === 'tests-cli-1' ? '1/2' : '2/2'}`);
+  } else if (kind === 'tests-rest') {
+    const remaining = plan.checks.filter((dir) => dir !== 'packages/agent-cli');
+    if (remaining.length)
+      run('-r', ...filters(remaining), '--no-sort', '--workspace-concurrency=2',
+        '--if-present', 'run', 'test');
     run('test:scripts');
   } else throw new Error(`Unknown CI job: ${kind}`);
 }

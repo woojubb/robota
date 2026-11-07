@@ -1,5 +1,172 @@
 # @robota-sdk/agent-executor
 
+## 3.1.0
+### Minor Changes
+
+- bc8de21: Subagent transcripts and fork jobs work with sealed conversation stores.
+
+  What breaks, and what to do:
+
+  - `createChildProcessSubagentRunnerFactory` and `ChildProcessSubagentRunner` require `logSealing`:
+    how the children keep their logs, `{ sealer }` or `'plain'`. A host that seals passes its sealer
+    and implements `bindWriteGrant(grant)` in its worker composition; any other host passes `'plain'`.
+  - `createSubagentLogger(parentSessionId, agentId, baseLogsDir, { sealing }, fs?)` requires `sealing`
+    as its fourth argument, ahead of the optional file system; pass `'plain'` for a plain log.
+  - `TSubagentWorkerParentMessage` gains `{ type: 'sealing_key'; grant }`, which
+    `isSubagentWorkerParentMessage` accepts: a worker of your own handles it by binding the new grant,
+    or stops when it cannot seal to it.
+
+  What is new:
+
+  - A fork job's log is now read from the file the child writes. The child names its log after the
+    session it runs (the forked record, else the task) and the parent read `<taskId>.jsonl`, so
+    `/agent read` on a fork job showed "No log lines", and with worktree isolation (the default for
+    `/fork`) the read was not offered at all. `resolveSubagentLogSessionId`,
+    `resolveSubagentTranscriptPath` and `readSubagentTranscriptPage(path, { sealing })`
+    (`@robota-sdk/agent-framework`) are the one rule both sides use.
+  - In a sealed log a page's offset counts stored records, so it names the same record whether or not
+    the keys are locked. `IBackgroundTaskLogPage` gains an optional `unreadable` count of records the
+    page could not show (`locked`, `noKeys`, `doesNotOpen`); a run of locked records shows as one fixed
+    line, and `/agent read` and `/background read` say whether an unlock would read them.
+  - `IInteractiveSessionStore.save` takes optional `{ handoff }`, and the store port gains optional
+    `exportHeld(id, { keep })` and `importHeld(id, token)`, implemented by `NodeSessionStore` and
+    `WorkspaceProjectSessionStore`: a record written for a fork job is kept apart from the sessions a
+    sealing store runs and handed to the job once. A fork job restores from a read made the way a
+    writer reads, so an in-process fork job restores the fork `/fork` just wrote while the keys are
+    locked. A sealed record a write-only store cannot open loads as
+    `{ status: 'locked', reason: 'no-keys' }`.
+  - `@robota-sdk/agent-subagent-runner`: with a sealer, the start payload carries the write grant (no
+    secret) the sealer issues when the payload is sent and, for a fork job, the parent's held record as
+    `resumeHeld` (at most 32 MiB; the job is refused before anything is made for it when none can be
+    handed over, naming "unlock" only when locked keys are why). A child already sent its payload gets
+    a newer grant as a `sealing_key` message, and one that cannot follow it stops. `bindWriteGrant`
+    must return a sealer whose `writeGrant()` equals the grant, or the job fails. `ISubagentRunner`
+    gains optional `preflight(job)`, which refuses what `start` would and changes nothing; the worktree
+    runner calls it before it prepares a worktree. A job whose start payload cannot be built or sent
+    after its child was spawned now cancels the child before it rejects.
+  - Job handles may say `transcriptSealed`, and the manager projects it into the task state beside
+    `transcriptPath` (`IBackgroundTaskState`, `ISubagentJobState`), where the session record codec
+    accepts it. A job-group result gets `transcriptSealed` too. SubagentStart/Stop hooks get
+    `transcript_sealed: true` beside the transcript path, and `summarizeBackgroundJobGroup` points at
+    `/agent read <taskId>` instead of the path, also for a group restored in a later session.
+- a2d36ea: Session assembly, the runtime and the query read what the host lends instead of reaching for Node. A capability the host leaves out is absent, and `{}` is a valid host.
+
+  - `@robota-sdk/agent-framework`: the home directory, workspace path resolver and path canonicalizer a `Session` receives come from `host.homeDirectory`, `host.createWorkspacePathResolver` and `host.canonicalizePath`; one the host omits is not passed, and the session treats it as agent-session documents. The hook executors come from `host.createHookExecutors` (given the shell a product chose for command hooks): a host that lends none seeds none, and a config that declares a command or HTTP hook is refused at assembly, naming the host member. A subagent given no executor list gets the host's; when the host lends none, `createSubagentSession` refuses a declared hook at construction, as its parent does, instead of letting a hook on an advisory event run nothing. The default tool tier comes from `host.createDefaultTools`: a host that lends none has no default tier, `defaultTools` still replaces it, and the framework's runtime code no longer imports `@robota-sdk/agent-tool-defaults` at all (the dynamic import is gone). `createQuery({ host: {}, ... })` therefore has no built-in tools; pass `createNodeFrameworkHost({ createDefaultTools })` for the tools the CLI has. The background task runners of `createAgentRuntime` default to `host.createBackgroundTaskRunners()`, else none, and a task kind with no runner is refused by the manager. A failed lifecycle observer goes to `host.reportObserverFailure`, else the executor's own `console.warn` line. The auto-mode classifier lists git remotes through `host.readGitRemotes`; a host that lends none trusts no remote. A trusted `projectAccess` on `createQuery` or `createAgentRuntime` needs `host.canonicalizePath`; without it they throw `WorkspaceAuthorityRequiredError`. `createSession` no longer imports `node:crypto`. `BackgroundJobOrchestrator` takes `reportObserverFailure` in its options. `createSubagentLogger`, `migrateSubagentTranscripts`, `readSubagentTranscriptPage`, `resolveSubagentLogDir`, `resolveSubagentLogSessionId`, `resolveSubagentTranscriptPath` and their types move from the main entry to `@robota-sdk/agent-framework/node`.
+  - `@robota-sdk/agent-executor`: exports `reportObserverFailureAsConsoleWarning`, the line a manager writes when no reporter is given, for an owner that delivers to observers itself.
+  - `@robota-sdk/agent-subagent-runner`, `@robota-sdk/agent-cli`: import the subagent transcript functions from `@robota-sdk/agent-framework/node`.
+- 8069d0e: Make the plugin and executor packages platform-neutral.
+
+  - `@robota-sdk/agent-core` exports `sha256Hex` (string or bytes), `hmacSha256Hex`, `randomHex` and `constantTimeEqual`, built on `jssha` and `crypto.getRandomValues`, so neutral packages need no `node:crypto`.
+  - `@robota-sdk/agent-plugin`: the `file` strategies of `ConversationHistoryPlugin`, `LoggingPlugin` and `UsagePlugin` write through a `fileStore` option (the new `IPluginTextFileStore` port) and throw a `ConfigurationError` at construction without one; `FileHistoryStorage`, `FileUsageStorage` and `FileLogStorage` take the store as a constructor argument. `NodePluginTextFileStore` is the Node implementation, and `NodeSystemMetricsCollector` moved from the main entry, both on the new `@robota-sdk/agent-plugin/node`. `PerformancePlugin` reads system metrics only through a `metricsCollector` option: memory and CPU monitoring default to on when one is given and off otherwise, and turning monitoring on without one throws a `ConfigurationError` at construction.
+  - `@robota-sdk/agent-executor`: `createDefaultBackgroundTaskRunners`, `createManagedShellProcessRunner`, `createScheduledTaskRunner`, `resolveBackgroundTaskShellCommand` and their option types moved to `@robota-sdk/agent-executor/node`; `nextScheduledFireOnOrAfter` stays on the main entry. `reportObserverFailureAsWarning` is replaced by `reportObserverFailureAsProcessWarning` on `/node`; the default observer-failure reporter of `BackgroundTaskManager` now writes a `console.warn` line prefixed with the same code (on Node it still reaches stderr), so a host that wants the process warning passes `onObserverFailure` (`SubagentManager` forwards the new option of that name).
+  - `@robota-sdk/agent-executor`: the environment resolver argument of `resolveProfileApiKey`, `createProviderFromProfile` and `createProviderFromExactProfile` is required (pass `processEnvResolver` from `@robota-sdk/agent-core/node`), and `hookTypeExecutors` is a required option of `createWorktreeSubagentRunner` and `WorktreeSubagentRunner`, which no longer default to the command and HTTP hook executors.
+- b56b5a9: Ship one build per package. The platform-neutral entries moved from `dist/node` to `dist`, and the second
+  `dist/browser` build of `@robota-sdk/agent-core`, `@robota-sdk/agent-transport`,
+  `@robota-sdk/agent-ui-web` and `@robota-sdk/agent-transport-webrtc-web` is gone: a neutral entry runs
+  unchanged in every runtime, so a subpath's `exports` map `import` and `require` to the same files and no
+  longer a `node` or `browser` condition (a Node-only subpath keeps `"browser": null`). Import specifiers
+  and the code behind them are unchanged; only a deep import of `dist/node/*` or `dist/browser/*` breaks.
+  `@robota-sdk/agent-transport/client` also ships a CommonJS build now.
+
+### Patch Changes
+
+- 51ad6a4: Children in their own session for secure mode (issue #3679). Nothing turns secure mode on yet, so
+  spawning in every product process is unchanged except for the pull-request opener below.
+
+  `@robota-sdk/agent-core/node` adds the child-session policy: `enableOwnChildSessions()` (one-way,
+  process-wide, nothing on Windows), `withChildSession(options)`, `execFileInChildSession(...)`,
+  `endWithProcess(child)` and `signalChildGroup(child, signal)`, with `resetChildSessionsForTesting()`
+  in `@robota-sdk/agent-core/testing`. While the policy is off each returns or runs exactly what the
+  caller did before. While on, a child leads its own session and process group, may not inherit a
+  terminal descriptor, and its group is killed when the process ends. Command hooks, the identity
+  readers, stdio MCP servers, git, the sandbox, background tasks and the CLI's own children use it; the
+  terminal handover (`/editor`, `/keybindings`, `/shell`, the workspace-move re-exec) does not.
+
+  Breaking: `removeProcessScopedDirectoriesNow()` is renamed `runProcessEndNow()`, since it now also
+  ends the groups of children in their own session. What to do: call `runProcessEndNow()` where a
+  crash handler called the old name.
+
+  Plain-mode changes in `@robota-sdk/agent-cli`: the session view opens a pull request with the
+  product's own browser opener instead of the `open` package, which is no longer a dependency. macOS
+  still runs `open <url>`; Linux runs the `xdg-open` found on `PATH`; Windows runs
+  `rundll32 url.dll,FileProtocolHandler <url>` rather than PowerShell's `Start`; and only an https
+  link opens. That opener, which sign-in also uses, is now started detached and let go: it settles once
+  the opener has started rather than when it exits (it no longer fails after 15 seconds when
+  `xdg-open` stays in the foreground), and it is never ended with the process. What to do: nothing.
+- Updated dependencies [bc8de21]
+- Updated dependencies [51ad6a4]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [82663df]
+- Updated dependencies [bc8de21]
+- Updated dependencies [04c3233]
+- Updated dependencies [9bc13f9]
+- Updated dependencies [0a677e9]
+- Updated dependencies [5b46d43]
+- Updated dependencies [fab48ad]
+- Updated dependencies [ea0e424]
+- Updated dependencies [0fec62f]
+- Updated dependencies [b7b6cd0]
+- Updated dependencies [8069d0e]
+- Updated dependencies [f5e3057]
+- Updated dependencies [d8cb04f]
+- Updated dependencies [437ca9e]
+- Updated dependencies [44e9640]
+- Updated dependencies [b56b5a9]
+- Updated dependencies [1c19435]
+  - @robota-sdk/agent-core@3.1.0
+  - @robota-sdk/agent-interface-execution@3.1.0
+  - @robota-sdk/agent-interface-transport@3.1.0
+  - @robota-sdk/agent-process@3.1.0
+
+## 3.0.7
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.7
+  - @robota-sdk/agent-interface-execution@3.0.7
+  - @robota-sdk/agent-interface-transport@3.0.7
+  - @robota-sdk/agent-process@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.6
+  - @robota-sdk/agent-interface-execution@3.0.6
+  - @robota-sdk/agent-interface-transport@3.0.6
+  - @robota-sdk/agent-process@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+  - @robota-sdk/agent-interface-execution@3.0.5
+  - @robota-sdk/agent-interface-transport@3.0.5
+  - @robota-sdk/agent-process@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.4
+  - @robota-sdk/agent-interface-execution@3.0.4
+  - @robota-sdk/agent-interface-transport@3.0.4
+  - @robota-sdk/agent-process@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.3
+  - @robota-sdk/agent-interface-execution@3.0.3
+  - @robota-sdk/agent-interface-transport@3.0.3
+  - @robota-sdk/agent-process@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+  - @robota-sdk/agent-interface-execution@3.0.2
+  - @robota-sdk/agent-interface-transport@3.0.2
+  - @robota-sdk/agent-process@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

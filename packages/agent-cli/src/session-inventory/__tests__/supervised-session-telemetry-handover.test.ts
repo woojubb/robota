@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
-import { runWorkspaceTrustCommand } from '../../startup/workspace-trust-command.js';
+import { approveTestWorkspace, stopTestWorkspaceBroker } from '../../__tests__/helpers/approve-test-workspace.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
 import { runSessionViewCommand } from '../session-view-command.js';
 
@@ -45,7 +45,7 @@ describe('supervised session telemetry handover', () => {
       return 0;
     });
     try {
-      expect(await runWorkspaceTrustCommand(['--yes'], cwd, createTestProductRuntime())).toBe(0);
+      expect(await approveTestWorkspace(cwd, createTestProductRuntime())).toBe(0);
       const options = { productRuntime: createTestProductRuntime(),
         providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
       };
@@ -61,6 +61,7 @@ describe('supervised session telemetry handover', () => {
       expect(vi.mocked(launchSupervisedSession).mock.calls[1]?.[1]?.name).toBe('Morning');
       expect(process.env['PRODUCT_TELEMETRY_OTLP_HEADERS']).toBeUndefined();
     } finally {
+      await stopTestWorkspaceBroker(createTestProductRuntime());
       if (previousHome === undefined) delete process.env['HOME'];
       else process.env['HOME'] = previousHome;
       delete process.env['RS_HANDOVER_MARKER'];

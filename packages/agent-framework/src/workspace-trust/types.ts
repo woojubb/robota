@@ -31,6 +31,8 @@ export interface IWorkspaceIdentity {
 
 export interface IWorkspaceIdentityResolver {
   resolve(cwd: string): IWorkspaceIdentity;
+  /** A native host may bind an operation's already-open root to its live approval. */
+  assertOpenedRootDescriptor?(descriptor: number): void;
 }
 
 export interface IWorkspaceTrustStoreSnapshot {

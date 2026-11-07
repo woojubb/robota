@@ -24,10 +24,7 @@ import { realpath, stat } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 
 import { endWithProcess, signalChildGroup, withChildSession } from '@robota-sdk/agent-core/node';
-import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
 import {
-  createNodeWorkspaceIdentityResolver,
-  createNodeWorkspaceProjectFiles,
   createNodeWorkspaceTrustStore,
   supportsWorkspaceProjectMutation,
 } from '@robota-sdk/agent-framework/node';
@@ -37,6 +34,7 @@ import {
 } from '@robota-sdk/agent-session/node';
 
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
+import { BrokeredWorkspaceTrustService } from '../startup/brokered-workspace-trust.js';
 import type { IArtifactSealer } from '@robota-sdk/agent-core';
 import type {
   IWorkspaceProjectAuthority,
@@ -256,12 +254,7 @@ export async function discoverProjectRoots(
   const store = createNodeWorkspaceTrustStore(runtime.layout.userPaths.workspaceTrust, {
     tightenOnRead: false,
   });
-  const service = new WorkspaceTrustService({
-    identityResolver: createNodeWorkspaceIdentityResolver(),
-    store,
-    projectFiles: createNodeWorkspaceProjectFiles(),
-    projectStateDirectories: runtime.layout.projectStateDirectories,
-  });
+  const service = await BrokeredWorkspaceTrustService.create(runtime);
   const projectDirectory = runtime.layout.projectDirectory;
   const trusted: ITrustedProjectRoot[] = [];
   const listed: IListedProjectRoot[] = [];

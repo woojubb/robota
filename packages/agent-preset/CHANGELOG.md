@@ -1,5 +1,96 @@
 # @robota-sdk/agent-preset
 
+## 3.1.0
+### Minor Changes
+
+- a2d36ea: Move what touches a host out of the main entries of `@robota-sdk/agent-command` and `@robota-sdk/agent-preset` into new Node-only `./node` subpaths (`"browser": null`), so neither main entry names a Node module of its own. Both stay Node-only until the packages they import go neutral.
+
+  - `@robota-sdk/agent-command/node` (new) holds `/shell` and `/editor` (`createShellCommandModule`, `createEditorCommandModule` and their sources, entries, `execute*`, `resolveShell`, `resolveEditor` and `spawnInherited`), `createTerminalClientCommands` (an attached terminal runs `/shell` and `/editor` itself), `createNodeDoctorDeps` and `resolveCommandOnPath`, and the new `openFileInEditor`. Import these from `/node`.
+  - `createDefaultCommandModules` no longer builds `/shell` and `/editor`, and its `editorTemporaryDirectoryPrefix` option is gone: a Node product adds the two modules beside the default set, as `@robota-sdk/pack-coding` already does. The CLI's command list is unchanged.
+  - `/doctor` takes its probes and writers by injection. `createDoctorCommandModule(inputs, deps, display)` has no default for `deps` (pass `createNodeDoctorDeps` from `/node`), `IDoctorDeps` gains `ensureOwnerOnlyDirectory` and `writeSettings` for the confirmed repairs and a required `files: IFileSystem` that the plugin and skill probes read installed extensions through, and `createDefaultCommandModules` takes `doctorDeps`. Absent, `/doctor` is still listed and answers that it is unavailable on this host; nothing is probed or written.
+  - `/git` runs through an injected process. `createGitCommandModule({ port })` has no default `createGitProcess()` any more and `createDefaultCommandModules` takes `gitProcess`; absent, `/git` is still listed and answers that it is unavailable on this host, and no process starts. `@robota-sdk/agent-command` no longer re-exports `createGitProcess`, `gitEnvironment`, `ICreateGitProcessOptions`, `IGitProcessPort`, `IGitProcessRunOptions`, `TGitProcessFailureReason` or `TGitProcessOutcome`: import `createGitProcess`, `gitEnvironment` and `ICreateGitProcessOptions` from `@robota-sdk/agent-framework/node`, and the port and outcome types (`IGitProcessPort`, `IGitProcessRunOptions`, `TGitProcessFailureReason`, `TGitProcessOutcome`) from `@robota-sdk/agent-framework`, which owns them. `@robota-sdk/agent-cli` and `@robota-sdk/pack-coding` pass `createGitProcess()`.
+  - `/keybindings` opens its file through an injected `TOpenFileInEditor`: `createKeybindingsCommandModule(file, openInEditor)` and the new `keybindingsEditor` option of `createDefaultCommandModules` (pass `openFileInEditor` from `/node`). Absent, `/keybindings` answers that the editor is unavailable here and creates no file.
+  - `/provider` and `/model` read a `$ENV:` credential reference from the host's `env` snapshot only. Absent, the reference reads as unset (the setup says so and asks again); the live process environment is no longer consulted by the command itself.
+  - `/loop` takes its ids and per-loop offset from `randomId` and `sha256Hex` in `@robota-sdk/agent-core`; both read exactly as before.
+  - The `/doctor` check ids (`settings.<scope>.<family>`) read a project-relative path a Windows host joined with `\` as they read one joined with `/`.
+  - `@robota-sdk/agent-preset/node` (new) holds `loadExternalPresetsFromDir`. The main entry gains `loadExternalPresetsFromFiles` (`IExternalPresetFile` list of `{ fileName, read }`), which has the same per-file error rules over files a host hands it; only `*.json` names are read. Output-style file ids are read from the file name without `node:path`.
+  - `@robota-sdk/agent-cli` passes `createNodeDoctorDeps` and `openFileInEditor`, and reads the preset directory and runs the attached terminal's commands through the `/node` entries, so every command behaves as before. `@robota-sdk/pack-coding` and `@robota-sdk/agent-ui-terminal` (tests) import `/shell` and `/editor` from `@robota-sdk/agent-command/node`; `@robota-sdk/agent-ui-web` only has a test comment updated.
+- ee7f7ef: Make the main entries of `@robota-sdk/agent-tools`, `@robota-sdk/agent-framework`, `@robota-sdk/agent-command`, `@robota-sdk/agent-preset` and `@robota-sdk/agent-product` platform-neutral. They run unchanged in a browser, a Web Worker, Node, Deno and Bun, and no longer map `"browser": null` on `.`. Every package is now in exactly one of ARCHITECTURE.md's three platform lists; the "Not yet neutral" list is gone.
+
+  - `@robota-sdk/agent-tools` no longer re-exports `GrepIsolationError`, `ReadByteLimitError`, `ReadCancelledError`, `createBashTool`, `createEditTool`, `createGlobTool`, `createGrepTool`, `createReadTool`, `createShellTool`, `createWriteTool` and `webFetchTool` from its main entry. They are on `@robota-sdk/agent-tools/node` only, which is where `@robota-sdk/workflows` 0.0.4 imports them.
+  - The five packages build once into `dist` (not `dist/node`) and their `exports` map `import` and `require` only. A Node-only subpath keeps `"browser": null`: `./node` on `agent-tools`, `agent-framework`, `agent-command` and `agent-preset`, and `./testing` on `agent-framework`. Specifiers and the code behind them are unchanged; only a deep import of `dist/node/*` breaks.
+  - `/user-local` and `executeUserLocalDirectCommand` read and write their storage root through an injected file system, as `/doctor` does through `doctorDeps`: `createUserLocalCommandModule(storageRoot, fsAsync)`, the `userLocalFileSystem` option of `createDefaultCommandModules` and the `fsAsync` option of `executeUserLocalDirectCommand`. They no longer import `NodeFileSystemAsync` themselves, and absent a file system the command is listed and answers that it is unavailable on this host; nothing is read or written.
+  - `@robota-sdk/agent-cli` passes `new NodeFileSystemAsync()` from `@robota-sdk/agent-framework/node` for both, so `/user-local` and `agent user-local` behave as before.
+
+### Patch Changes
+
+- Updated dependencies [51ad6a4]
+- Updated dependencies [d46727b]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [82663df]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [830d3d2]
+- Updated dependencies [0a677e9]
+- Updated dependencies [a8c9e25]
+- Updated dependencies [fab48ad]
+- Updated dependencies [ee7f7ef]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [7ce5e73]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [0fec62f]
+- Updated dependencies [be32d9b]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [42d595e]
+- Updated dependencies [0a677e9]
+- Updated dependencies [44e9640]
+- Updated dependencies [4e4c92a]
+- Updated dependencies [6ba10ef]
+  - @robota-sdk/agent-framework@3.1.0
+
+## 3.0.7
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-framework@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+  - @robota-sdk/agent-framework@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-framework@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-framework@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-framework@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-framework@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport-link",
-  "version": "3.0.1",
+  "version": "3.1.0",
   "description": "Owner-link carrier for the Robota SDK: the owner link handshake, sealed frames and the owner vocabulary over a local byte stream",
   "type": "module",
   "main": "dist/node/index.js",

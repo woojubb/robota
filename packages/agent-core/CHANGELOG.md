@@ -1,5 +1,233 @@
 # @robota-sdk/agent-core
 
+## 3.1.0
+### Minor Changes
+
+- bc8de21: `@robota-sdk/agent-core` adds the sealer port that secure conversation seals artifacts through:
+  `IArtifactSealer` (with `IArtifactContext`, `TArtifactKind`, an optional `writeGrant()` that hands
+  sealing to another process without a secret, and optional `tagAuthorship()`/`verifyAuthorship()` for
+  a tag only unlocked keys make — the one proof of who wrote an artifact, since anything sealed to the
+  public key opens — with `onUnlock()` to tag what was written while locked), `TArtifactSealing`
+  (`{ sealer } | 'plain'`, how every store states its sealing), `ArtifactLockedError` and
+  `ArtifactCorruptError` with their guards, the sealed framing checks (`isSealedArtifactBytes`,
+  `isSealedArtifactLine`, ...), and `createTestArtifactSealer` and `openTestWriteGrant` in
+  `@robota-sdk/agent-core/testing`.
+  `@robota-sdk/agent-core/node` adds the process identity readers (`readCurrentProcessIdentity`,
+  `readBootId`, `readPidNamespace`, `readProcessStartTime`), and `writeOwnerOnlyFile` now also writes
+  bytes and takes `durable`, `createOnly`, `beforeCommit`, `temporaryPath` and `linkFile`; a failure
+  after the new content is in place throws `OwnerOnlyWriteUnconfirmedError`. `ensureOwnerOnlyDirectory`
+  takes `durable` (flush the parent of every directory it creates) and `syncDirectory`.
+
+  What to do: nothing.
+- 51ad6a4: Children in their own session for secure mode (issue #3679). Nothing turns secure mode on yet, so
+  spawning in every product process is unchanged except for the pull-request opener below.
+
+  `@robota-sdk/agent-core/node` adds the child-session policy: `enableOwnChildSessions()` (one-way,
+  process-wide, nothing on Windows), `withChildSession(options)`, `execFileInChildSession(...)`,
+  `endWithProcess(child)` and `signalChildGroup(child, signal)`, with `resetChildSessionsForTesting()`
+  in `@robota-sdk/agent-core/testing`. While the policy is off each returns or runs exactly what the
+  caller did before. While on, a child leads its own session and process group, may not inherit a
+  terminal descriptor, and its group is killed when the process ends. Command hooks, the identity
+  readers, stdio MCP servers, git, the sandbox, background tasks and the CLI's own children use it; the
+  terminal handover (`/editor`, `/keybindings`, `/shell`, the workspace-move re-exec) does not.
+
+  Breaking: `removeProcessScopedDirectoriesNow()` is renamed `runProcessEndNow()`, since it now also
+  ends the groups of children in their own session. What to do: call `runProcessEndNow()` where a
+  crash handler called the old name.
+
+  Plain-mode changes in `@robota-sdk/agent-cli`: the session view opens a pull request with the
+  product's own browser opener instead of the `open` package, which is no longer a dependency. macOS
+  still runs `open <url>`; Linux runs the `xdg-open` found on `PATH`; Windows runs
+  `rundll32 url.dll,FileProtocolHandler <url>` rather than PowerShell's `Start`; and only an https
+  link opens. That opener, which sign-in also uses, is now started detached and let go: it settles once
+  the opener has started rather than when it exits (it no longer fails after 15 seconds when
+  `xdg-open` stays in the foreground), and it is never ended with the process. What to do: nothing.
+- bc8de21: Every CLI process that builds a conversation store (session records, prompt history, tool-result
+  spill, edit checkpoints) now records that it is running: an owner-only directory under `presence/` in
+  its state root holding its pid, start time and how it was started, removed when it ends, including on
+  a hangup, interrupt or termination. A subagent worker does the same when it binds the grant its
+  parent sends. The next start removes one a killed process left once its pid has ended. A command that
+  builds no store creates none, and a presence that cannot be created is reported once on stderr while
+  the session goes on. A tool that lists the state root may see `presence/` while a process runs.
+
+  `secure migrate [--dry-run]` and `secure compact` are reserved for secure mode, which cannot be turned
+  on yet: until it can, both refuse with a fixed message and write nothing, and neither is listed in the
+  usage. Neither is a slash command, a skill or anything a transport can reach.
+
+  `@robota-sdk/agent-session` adds `compactPromptHistoryFile(path, { sealer })`, which rewrites the
+  prompt history with every entry sealed, one per line, replaces the file by rename and catches up what
+  terminals appended meanwhile, and `inspectPromptHistoryFile(path, { sealer })`.
+  `@robota-sdk/agent-core/node` adds `inspectProcessScopedDirectories(parent, prefix)`,
+  `ownerOnThisMachine(owner, current)` and `stageOwnerOnlyFile(path, content)`, and
+  `createProcessScopedDirectory` takes `readStartTime` and `durable`.
+
+  What to do: nothing.
+- 82663df: One session has one writer across processes. Every claim of a session id now holds the id's writer
+  marker in a `claims/` directory beside the records, so a second opener of a session another process
+  has open is refused with `has_writer`, naming that process — `-r`, `-c`, the resume picker, ACP
+  `session/load`, the served and desktop pool, a served switch, rename and delete. This is a break: a
+  session that two processes could open at once before is now refused in the second one.
+
+  `@robota-sdk/agent-core` adds exclusive process markers: the neutral `IProcessMarkers` port with its
+  result types, and `createProcessMarkers` on `./node`. A marker is published by hard-linking a flushed
+  temp file, moved or removed only under its break lock, and re-verified by its handle before each
+  write. The owner record and its liveness rule are now one exported classifier,
+  `classifyProcessOwner`, shared with process-scoped directories.
+
+  `@robota-sdk/agent-interface-session` and `@robota-sdk/agent-session`: `StoredSessionRecords` takes
+  the marker port, and a store without one does not exist. `claim(id, { lease })` takes over a lent
+  marker and `claim(id, { copy: true })` reads a record to copy it without one. `lend(id)` is new: it
+  lends a record to another process for as long as that process runs and returns `{ nonce, end() }`.
+  Every write of an id holds its marker, and a save whose marker another process broke is refused as
+  `released`, never written. `hasWriter` now sees other store instances and processes. Removed, since
+  `lend` replaces them: `ISessionAuthorship.exportEnded`, the store's export bookkeeping
+  (`hasUnclaimedWriter`), the `exported` claim refusal and the `exported` adopt result.
+  `TSessionClaimRefusal` is `has_writer | released`, `TSessionAdoptResult` has `has_writer` in place of
+  `exported`, and `has_writer` is a session change and delete refusal code. A store may name its release
+  command for a refusal (`releaseCommand`). A refusal of a record lent to a subagent names the
+  subagent's process once it took the marker over, and says a subagent this process started holds it
+  before (`holder.lent`); `SessionClaimedError.closing` is true only for a session of this process that
+  has not let its claim go, which is the one refusal a caller may wait out (`still_closing`).
+
+  `@robota-sdk/agent-subagent-runner`: the parent lends a fork job's record before it spawns the child,
+  in either mode; the lease nonce rides on the start payload (`resumeLease`); the child claims its
+  record under the lease, saves under that claim and releases it on every exit; the parent ends the
+  lease once the child has exited and disconnected, then countersigns under its own marker. A running
+  child-process fork therefore has one writer, and attaching to it is refused until the job ends.
+
+  `@robota-sdk/agent-cli` adds `session release <id> [--force]`, the user's own command for a marker a
+  crashed or planted process left: on its own it removes only a marker whose process has ended, and
+  `--force` removes one whose process may still run only at a terminal and after a y/N. `secure migrate`
+  leaves a session open in another process as it is and names it.
+
+  A terminal start whose resumed session another process holds now ends with the store's refusal, as print
+  mode does, instead of Ink's error screen; `@robota-sdk/agent-framework` exports `claimRefusalMessage`
+  for it, and `claimChangeRefusal` / `claimDeleteRefusal`, which turn a store's claim refusal into the
+  client's: `still_closing` for a switch or rename (and `running` for a delete) when a session of this
+  process is still closing, `has_writer` in the store's words otherwise. Served rename and delete now
+  let the store's write refuse in those words. `@robota-sdk/agent-ui-terminal`: picking a session another process or a subagent holds in the
+  resume picker leaves the person on their session, with the store's words as a notice, instead of
+  stopping it and blocking the UI on a retry of the same refusal.
+- bc8de21: Subagent transcripts and fork jobs work with sealed conversation stores.
+
+  What breaks, and what to do:
+
+  - `createChildProcessSubagentRunnerFactory` and `ChildProcessSubagentRunner` require `logSealing`:
+    how the children keep their logs, `{ sealer }` or `'plain'`. A host that seals passes its sealer
+    and implements `bindWriteGrant(grant)` in its worker composition; any other host passes `'plain'`.
+  - `createSubagentLogger(parentSessionId, agentId, baseLogsDir, { sealing }, fs?)` requires `sealing`
+    as its fourth argument, ahead of the optional file system; pass `'plain'` for a plain log.
+  - `TSubagentWorkerParentMessage` gains `{ type: 'sealing_key'; grant }`, which
+    `isSubagentWorkerParentMessage` accepts: a worker of your own handles it by binding the new grant,
+    or stops when it cannot seal to it.
+
+  What is new:
+
+  - A fork job's log is now read from the file the child writes. The child names its log after the
+    session it runs (the forked record, else the task) and the parent read `<taskId>.jsonl`, so
+    `/agent read` on a fork job showed "No log lines", and with worktree isolation (the default for
+    `/fork`) the read was not offered at all. `resolveSubagentLogSessionId`,
+    `resolveSubagentTranscriptPath` and `readSubagentTranscriptPage(path, { sealing })`
+    (`@robota-sdk/agent-framework`) are the one rule both sides use.
+  - In a sealed log a page's offset counts stored records, so it names the same record whether or not
+    the keys are locked. `IBackgroundTaskLogPage` gains an optional `unreadable` count of records the
+    page could not show (`locked`, `noKeys`, `doesNotOpen`); a run of locked records shows as one fixed
+    line, and `/agent read` and `/background read` say whether an unlock would read them.
+  - `IInteractiveSessionStore.save` takes optional `{ handoff }`, and the store port gains optional
+    `exportHeld(id, { keep })` and `importHeld(id, token)`, implemented by `NodeSessionStore` and
+    `WorkspaceProjectSessionStore`: a record written for a fork job is kept apart from the sessions a
+    sealing store runs and handed to the job once. A fork job restores from a read made the way a
+    writer reads, so an in-process fork job restores the fork `/fork` just wrote while the keys are
+    locked. A sealed record a write-only store cannot open loads as
+    `{ status: 'locked', reason: 'no-keys' }`.
+  - `@robota-sdk/agent-subagent-runner`: with a sealer, the start payload carries the write grant (no
+    secret) the sealer issues when the payload is sent and, for a fork job, the parent's held record as
+    `resumeHeld` (at most 32 MiB; the job is refused before anything is made for it when none can be
+    handed over, naming "unlock" only when locked keys are why). A child already sent its payload gets
+    a newer grant as a `sealing_key` message, and one that cannot follow it stops. `bindWriteGrant`
+    must return a sealer whose `writeGrant()` equals the grant, or the job fails. `ISubagentRunner`
+    gains optional `preflight(job)`, which refuses what `start` would and changes nothing; the worktree
+    runner calls it before it prepares a worktree. A job whose start payload cannot be built or sent
+    after its child was spawned now cancels the child before it rejects.
+  - Job handles may say `transcriptSealed`, and the manager projects it into the task state beside
+    `transcriptPath` (`IBackgroundTaskState`, `ISubagentJobState`), where the session record codec
+    accepts it. A job-group result gets `transcriptSealed` too. SubagentStart/Stop hooks get
+    `transcript_sealed: true` beside the transcript path, and `summarizeBackgroundJobGroup` points at
+    `/agent read <taskId>` instead of the path, also for a group restored in a later session.
+- 04c3233: The universal parameter-schema subset gains size bounds: `minLength`, `maxLength`, `minItems`, `maxItems`, `minProperties` and `maxProperties`. They are enforced by `validateAgainstJsonSchema` and by `FunctionTool` (at the root too), persisted and reloaded in session records, and kept by MCP schema narrowing, so a server such as Exa no longer prints an unenforceable-schema diagnostic for them. A bound that is not a non-negative integer is dropped and reported. Per provider: OpenAI strict mode keeps `minItems`/`maxItems` and leaves the others off the wire with a Schema note, Gemini carries all six, standard JSON Schema surfaces carry them unchanged, and Anthropic's `output_config.format` omits them along with `minimum`/`maximum`, which it answers with a 400. `ISchemaClosureOptions` gains `omitKeywords`.
+- 9bc13f9: Stop sending OpenAI and Gemini the schemas they refuse. Projection now declares `items` on a bare array for both vendors and `properties` on a bare object for OpenAI, on the wire only; local validation keeps the declared schema. Gemini also receives a null type as `nullable` instead of an empty schema, only the `required` names that `properties` declares, and no empty `parameters` or `properties`. Strict OpenAI no longer receives `default` or a schema-valued `additionalProperties`. Dropping `additionalProperties: true` no longer adds a false "constraint not shown" note to a tool's description, and a tool with a cyclic or extremely deep schema is dropped from its request alone rather than failing it.
+
+  Breaking: `hashToolSchema` is removed from `@robota-sdk/agent-core`. Its only use was to tell quarantine log lines apart, and the line itself now does that without walking the refused schema.
+- 5b46d43: Add model-native web search to the OpenAI provider (hosted `web_search` on OpenAI's own Responses API) and the Gemini provider (Google Search grounding), enabled with the profile option `nativeWebTools.webSearch`. The CLI's default applies to OpenAI and leaves OpenAI-compatible endpoints alone. Gemini searches only when its profile asks, because Google's terms attach conditions to showing and storing grounded results that a terminal cannot meet.
+
+  Breaking: `IProviderDefinition.nativeWebTools` is now a function of the profile being built and the environment the host passes, since the answer can depend on where a profile connects. The OpenAI definition no longer reads `builtInWebTools`, and it reads `nativeWebTools` strictly. New in `agent-core`: `readNativeWebSearchOption`, and `PROVIDER_CONTINUATION_METADATA_KEY`, opaque text a provider needs back on a later request, which the committed assistant message keeps. Gemini uses it to return signed function calls and server-side tool steps.
+- fab48ad: The CLI keeps spilled tool results and the `/editor` buffer in owner-only, per-process directories of its state root instead of the shared operating-system temporary directory. They are removed when the run ends, including on a hangup, interrupt or termination, and the next start removes those a killed run left behind.
+
+  `NodeToolResultSpillStore` and `createNodeToolResultSpillStore` take a `parentDirectory`: an existing owner-only directory the host owns, used as it is. A store there records its owner, is removed when the process ends without `shutdown()`, and can be cleaned up after a kill with the new `sweepStaleToolResultSpillDirectories(parent)`. The process-scoped directory helpers behind this are exported from `@robota-sdk/agent-core/node`.
+- ea0e424: Make `agent-core`'s main entry platform-neutral and declare every package's runtime platform.
+
+  - `@robota-sdk/agent-core` no longer reaches Node from its main entry. `runHooks` runs only the executors it is given (pass `new CommandExecutor()` and `new HttpExecutor()` from `@robota-sdk/agent-core/node`); `resolveEnvReference`, `hasUsableSecretReference`, `normalizeProviderConfig`, `resolveMediaProviderConfig`, `createImageProviderFromDefinition` and `createVideoProviderFromDefinition` take a required resolver; `processEnvResolver`, `resolvePlatformShell`, `UnsupportedShellError`, `IPlatformShell`, `IPlatformShellResolutionRequest` and `TShellKind` moved to `@robota-sdk/agent-core/node`.
+  - Every export subpath that needs a Node host now maps `"browser": null`, so a browser bundler refuses it by name instead of failing on a Node built-in. `@robota-sdk/agent-tools` no longer ships a separate browser build: its main entry is Node-only until it becomes platform-neutral. ARCHITECTURE.md "Runtime platforms" lists which packages are platform-neutral, browser-only, or Node-only.
+- 0fec62f: Add the lexical and byte helpers the platform-neutral framework needs, so a neutral package reaches for no `node:path`, `node:crypto`, `node:util` or `Buffer`.
+
+  - `dirnamePath`, `basenamePath` (with Node's suffix quirk), `relativePath`, `relativeSegments`, `separatorOf` and `isRootedPath` join `resolvePath`, `joinPath` and `isAbsolutePath`. The platform is read from the path text. `relativePath` throws on a path that is not absolute, where `relativeSegments` answers `undefined`, as it does for a target on another root (two shares of one Windows server are two roots).
+  - `utf8Decode` decodes UTF-8 and keeps a leading byte-order mark, as `Buffer.toString('utf8')` does; `base64UrlDecode` reads text the way `Buffer.from(text, 'base64url')` does; `isJsonEqual` answers as `isDeepStrictEqual` does for JSON-shaped values.
+  - `IFileSystem` and `IFileSystemAsync` take a `TFileEncoding` (`'utf8' | 'utf-8'`) instead of Node's global `BufferEncoding`.
+- b7b6cd0: Make the MCP client platform-neutral.
+
+  - `@robota-sdk/agent-core` exports `sha1Hex` (string or bytes), beside `sha256Hex`, for a digest that names something and must stay equal to the one an earlier run wrote.
+  - `@robota-sdk/agent-mcp`: the main entry no longer reaches a Node built-in, a Node global or `@robota-sdk/agent-core/node`, and the package moves to the platform-neutral list. `createStdioAdapter` (with `IMCPAdmittedStdioEndpoint`, `IMCPStdioAdapterOptions`, `IMCPStdioAuthority`, `IMCPStdioExecutable` and `IMCPStdioInput`), `createFileOAuthCredentialStore`, `createFileOAuthRefreshLock` (with `IFileOAuthRefreshLockOptions`) and `startOAuthCallbackServer` moved to the new `@robota-sdk/agent-mcp/node`. `MCPStdioError`, `MCPTransportEgressRefusedError` and `isExecutionEnvironmentName` stay on the main entry, so the session and the supervisor still classify a stdio or egress failure on every platform.
+  - `@robota-sdk/agent-mcp`: `IMCPHttpTransportDeps` is `{ egress }`, required, instead of `{ policy?, lookup?, fetch? }`; `createStreamableHttpAdapter(deps)` and `admitHttpEndpoint(endpoint, deps)` no longer default it, `IMCPAdmittedHttpEndpoint.egress` is required, and `constructStreamableHttpTransport(admitted)` takes no second argument. `IMCPHttpEgress` judges a destination and opens the carrier every request of an admitted endpoint is sent through. `createNodeHttpEgress({ policy, lookup, fetch })` on `/node` is the egress of before — resolved-address policy, pinned connection, owner/test `fetch`. A browser host passes `{ egress: createWebFetchEgress() }` (web `fetch`, any `http:` or `https:` URL, nothing resolved or classified). A call without an egress does not compile, and one that omits it anyway is refused at admission with `egress-unavailable` before anything is sent.
+  - `@robota-sdk/agent-mcp`: cancelling a tool call over Streamable HTTP still withdraws that call's own request on a legacy connection, as before; it is now done by JSON-RPC id and needs nothing from the host. A call's `traceparent` is its own per-request header, and its cancellation repeats it. A refused redirect is reported as one where a browser's `fetch` hides it as an `opaqueredirect` with status 0; it was retried as a transient failure.
+  - `@robota-sdk/agent-mcp`: `IMCPOAuthNetwork` is a port (`get` and `post` returning a bounded response or a refusal) instead of `{ policy, lookup, fetch }`; `createNodeOAuthNetwork` on `/node` is the egress-policy implementation. `runMCPOAuthLogin` takes the loopback listener as an optional `callbackListener` (`IMCPOAuthCallbackListener`; `loopbackOAuthCallbackListener` on `/node`); without one a sign-in that needs it fails with `callback-unavailable`. The sign-in `state` is 32 random bytes in hex (it was base64url).
+  - `@robota-sdk/agent-mcp`: a `headersHelper.command` is judged absolute by its own text (`C:\tool.exe` is absolute on any host) instead of by the host's `path`. Activation identity, definition fingerprints, security identities, truncated tool names and skill manifest digests keep the bytes they had.
+  - `@robota-sdk/agent-cli` composes the Node pieces itself: its MCP composition, OAuth host and login command build the Node egress, OAuth network, credential files and loopback listener from the same options as before, so HTTP servers keep the pinned connection, the private-address refusal and trace propagation.
+- 8069d0e: Make the plugin and executor packages platform-neutral.
+
+  - `@robota-sdk/agent-core` exports `sha256Hex` (string or bytes), `hmacSha256Hex`, `randomHex` and `constantTimeEqual`, built on `jssha` and `crypto.getRandomValues`, so neutral packages need no `node:crypto`.
+  - `@robota-sdk/agent-plugin`: the `file` strategies of `ConversationHistoryPlugin`, `LoggingPlugin` and `UsagePlugin` write through a `fileStore` option (the new `IPluginTextFileStore` port) and throw a `ConfigurationError` at construction without one; `FileHistoryStorage`, `FileUsageStorage` and `FileLogStorage` take the store as a constructor argument. `NodePluginTextFileStore` is the Node implementation, and `NodeSystemMetricsCollector` moved from the main entry, both on the new `@robota-sdk/agent-plugin/node`. `PerformancePlugin` reads system metrics only through a `metricsCollector` option: memory and CPU monitoring default to on when one is given and off otherwise, and turning monitoring on without one throws a `ConfigurationError` at construction.
+  - `@robota-sdk/agent-executor`: `createDefaultBackgroundTaskRunners`, `createManagedShellProcessRunner`, `createScheduledTaskRunner`, `resolveBackgroundTaskShellCommand` and their option types moved to `@robota-sdk/agent-executor/node`; `nextScheduledFireOnOrAfter` stays on the main entry. `reportObserverFailureAsWarning` is replaced by `reportObserverFailureAsProcessWarning` on `/node`; the default observer-failure reporter of `BackgroundTaskManager` now writes a `console.warn` line prefixed with the same code (on Node it still reaches stderr), so a host that wants the process warning passes `onObserverFailure` (`SubagentManager` forwards the new option of that name).
+  - `@robota-sdk/agent-executor`: the environment resolver argument of `resolveProfileApiKey`, `createProviderFromProfile` and `createProviderFromExactProfile` is required (pass `processEnvResolver` from `@robota-sdk/agent-core/node`), and `hookTypeExecutors` is a required option of `createWorktreeSubagentRunner` and `WorktreeSubagentRunner`, which no longer default to the command and HTTP hook executors.
+- f5e3057: Make the provider packages platform-neutral.
+
+  - The Anthropic, OpenAI, OpenAI-compatible, Gemini and built-in provider packages no longer reach Node: message ids come from the new `randomId()` in `@robota-sdk/agent-core` (the platform's `crypto.randomUUID`, with a `getRandomValues` fallback outside a secure context) instead of `node:crypto`.
+  - `FilePayloadLogger` moved from `@robota-sdk/agent-provider-openai/loggers` to `@robota-sdk/agent-provider-openai/node`; `/loggers` keeps the platform-neutral `ConsolePayloadLogger`.
+  - `GeminiProvider.canPropagateTraceContext()` reads a base-URL override from the client the SDK built instead of the environment, so it matches where the client sends: a `GOOGLE_VERTEX_BASE_URL` outside Vertex mode, which the SDK ignores, no longer suppresses trace context.
+- d8cb04f: Make the session package platform-neutral.
+
+  - `@robota-sdk/agent-core` exports `isAbsolutePath`, `resolvePath` and `joinPath` — lexical path helpers that read the platform from the path text (a drive letter or `\\` is a Windows path, anything else POSIX) and never touch the process directory — and `utf8ByteLength`.
+  - `@robota-sdk/agent-session`: `NodeSessionStore`, `NodeSessionLogSink`, `NodeSessionLogSource`, `NodeExternalPayloadSource`, `NodeToolResultSpillStore` (with `ToolResultSpillError`, `sweepStaleToolResultSpillDirectories` and its option and code types) and `NodePromptHistoryFile` (with `DEFAULT_PROMPT_HISTORY_BLOCK_BYTES` and `parsePromptHistoryLine`) moved to the new `@robota-sdk/agent-session/node`, which also exports `createNodeWorkspacePathResolver` and `registerProcessExitFlush`. The main entry no longer reaches a Node built-in, a Node global or `@robota-sdk/agent-file-authority`; the sealed-store and migration exports (`StoredSessionRecords`, `StoredLines`, `StoredPayloads`, `sessionSealingOf`, `assertSessionSealing`, the `seal*` converters, `migrateNodeSessionStore`, `migrateSessionLogDirectory`, `compactPromptHistoryFile` and their companions) are on `./node` too. `ISessionLogSink`, `ISessionLogSource`, the external-payload ports, `createSessionLogExternalPayloadReference`, `loadSessionForUpdate` and the sealed-session and claim refusals stay on the main entry.
+  - `@robota-sdk/agent-session`: `hookTypeExecutors` is a required option of `Session`, `PermissionEnforcer` and `CompactionOrchestrator`; a missing list throws at construction instead of defaulting to the command and HTTP executors (pass `[new CommandExecutor(), new HttpExecutor()]` from `@robota-sdk/agent-core/node`, or `[]` to run no hook handler).
+  - `@robota-sdk/agent-session`: three host pieces became options with no Node default. `homeDirectory` is no longer read from the operating system — absent, the home directory is unknown, so `~` and any home-relative target not provably inside it (`~/..`) are refused, and a path inside it is not expanded. `resolveInWorkspace` replaces the built-in symlink-following resolver — absent, a shell command with a path operand is not judged read-only. `canonicalizePath` replaces `realpathSync` in snapshot, journal and approval checks — absent, directories are compared as written. `FileSessionLogger` takes `registerExitFlush` instead of listening on `process`; it registers once per distinct function.
+  - `@robota-sdk/agent-session`: the execution root accepts a Windows drive or UNC root on any host and rejects a drive-less rooted path (`\work`) on a Windows host, where it was accepted before; a payload reference's `relativePath` is always written with `/` (readers accept either separator).
+  - `@robota-sdk/agent-roundtable-robota`: `SessionHostOptions` requires `hookTypeExecutors`, as it extends the session options.
+  - `@robota-sdk/agent-framework` passes the Node home directory, workspace resolver, `realpathSync` and exit registrar, and the command and HTTP executors, wherever it builds a session, so the CLI behaves as before.
+- 44e9640: Serialize cooperating session record mutations and marker transitions with a crash-released per-session operation lock. Marker construction now requires a host lock, and hosts must stop older writers before sharing their session directory with the new version. Forced release does not stop a running writer or its children.
+- b56b5a9: Ship one build per package. The platform-neutral entries moved from `dist/node` to `dist`, and the second
+  `dist/browser` build of `@robota-sdk/agent-core`, `@robota-sdk/agent-transport`,
+  `@robota-sdk/agent-ui-web` and `@robota-sdk/agent-transport-webrtc-web` is gone: a neutral entry runs
+  unchanged in every runtime, so a subpath's `exports` map `import` and `require` to the same files and no
+  longer a `node` or `browser` condition (a Node-only subpath keeps `"browser": null`). Import specifiers
+  and the code behind them are unchanged; only a deep import of `dist/node/*` or `dist/browser/*` breaks.
+  `@robota-sdk/agent-transport/client` also ships a CommonJS build now.
+
+### Patch Changes
+
+- 0a677e9: Make model-native web search a provider construction option. Sessions no longer switch it on (`IAIProvider.configureNativeWebTools` is removed); an Anthropic profile enables it with `options.nativeWebTools.webSearch`, and a provider definition declares the hosted web tools it supports in `nativeWebTools`. The CLI turns native web search on by default for every definition that declares it, unless the profile sets `nativeWebTools` itself.
+- 1c19435: Give every process marker publication a fresh generation so a session writer cannot mistake a later marker from the same process for its own when the filesystem reuses an inode. Existing marker records remain readable. All writers sharing a session directory must use the cooperating operation-lock protocol.
+
+## 3.0.7
+
+## 3.0.6
+
+## 3.0.5
+
+## 3.0.4
+
+## 3.0.3
+
+## 3.0.2
+
 ## 3.0.1
 
 ## 3.0.0

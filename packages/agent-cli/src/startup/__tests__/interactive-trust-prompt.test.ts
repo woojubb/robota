@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { askToTrustWorkspace, startsNewTuiSession, trustQuestionFor } from '../interactive-trust-prompt.js';
 import { resolveInitialCliWorkspaceProjectAccess } from '../workspace-project-composition.js';
 import { runWorkspaceTrustCommand } from '../workspace-trust-command.js';
+import { approveTestWorkspace, stopTestWorkspaceBroker } from '../../__tests__/helpers/approve-test-workspace.js';
 
 // #3282 §3: `inspectPreTrustProjectPaths` reports every path as `unavailable` unless run on Linux (see
 // its own doc comment), which makes the filtering `trustQuestionFor` does deterministic to assert only
@@ -28,9 +29,9 @@ vi.mock('@robota-sdk/agent-framework/node', async (importOriginal) => {
   return { ...actual, inspectPreTrustProjectPaths };
 });
 
-const cleanup: Array<() => void> = [];
-afterEach(() => {
-  for (const undo of cleanup.splice(0)) undo();
+const cleanup: Array<() => void | Promise<void>> = [];
+afterEach(async () => {
+  for (const undo of cleanup.splice(0).reverse()) await undo();
   vi.unstubAllEnvs();
 });
 
@@ -43,6 +44,7 @@ function untrustedRepository(): string {
   mkdirSync(home);
   execFileSync('git', ['init', '--quiet', repo]);
   vi.stubEnv('HOME', home);
+  cleanup.push(() => stopTestWorkspaceBroker(createTestProductRuntime('test-product', { HOME: home })));
   return repo;
 }
 
@@ -261,7 +263,7 @@ describe('test-product trust status --json', () => {
         providers: { user: { type: 'openai', model: 'fixture-model', apiKey: '$ENV:SYNTHETIC_USER_KEY' } },
       }));
       stdout.mockClear();
-      expect(await runWorkspaceTrustCommand(['--yes'], repo, runtime)).toBe(0);
+      expect(await approveTestWorkspace(repo, runtime)).toBe(0);
       stdout.mockClear();
       expect(await runWorkspaceTrustCommand(['status', '--json'], repo, runtime, undefined, definitions)).toBe(0);
       const output = stdout.mock.calls.map(([text]) => String(text)).join('');
@@ -304,7 +306,7 @@ describe('test-product trust status --json', () => {
       }
 
       stdout.mockClear();
-      expect(await runWorkspaceTrustCommand(['--yes'], repo, createTestProductRuntime('test-product', { HOME: process.env['HOME'] }))).toBe(0);
+      expect(await approveTestWorkspace(repo, createTestProductRuntime('test-product', { HOME: process.env['HOME'] }))).toBe(0);
       stdout.mockClear();
       await runWorkspaceTrustCommand(['status', '--json'], repo, createTestProductRuntime('test-product', { HOME: process.env['HOME'] }));
       expect(JSON.parse(stdout.mock.calls.map(([text]) => String(text)).join(''))).toMatchObject({

@@ -211,6 +211,22 @@ export function parseTrustStatusOutput(stdout: string): ITrustQuestion | undefin
   };
 }
 
+/** The native main process retains the prepared root token; the renderer receives only the question. */
+export function parseTrustCandidate(stdout: string): string | undefined {
+  const lines = stdout.split(/\r?\n/u).filter((line) => line.trim() !== '');
+  if (lines.length !== 1) return undefined;
+  try {
+    const value: unknown = JSON.parse(lines[0]!);
+    if (typeof value !== 'object' || value === null || !('candidate' in value)) return undefined;
+    const token = value.candidate;
+    return typeof token === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(token)
+      ? token : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** Environment variable names the trusted CLI identified for provider/transport use; values are never serialized. */
 export function parseTrustedProviderEnvironmentReferences(stdout: string): readonly string[] | undefined {
   const lines = stdout.split(/\r?\n/).filter((line) => line.trim() !== '');

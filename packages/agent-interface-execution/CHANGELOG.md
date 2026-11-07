@@ -1,5 +1,142 @@
 # @robota-sdk/agent-interface-execution
 
+## 3.1.0
+### Minor Changes
+
+- bc8de21: Subagent transcripts and fork jobs work with sealed conversation stores.
+
+  What breaks, and what to do:
+
+  - `createChildProcessSubagentRunnerFactory` and `ChildProcessSubagentRunner` require `logSealing`:
+    how the children keep their logs, `{ sealer }` or `'plain'`. A host that seals passes its sealer
+    and implements `bindWriteGrant(grant)` in its worker composition; any other host passes `'plain'`.
+  - `createSubagentLogger(parentSessionId, agentId, baseLogsDir, { sealing }, fs?)` requires `sealing`
+    as its fourth argument, ahead of the optional file system; pass `'plain'` for a plain log.
+  - `TSubagentWorkerParentMessage` gains `{ type: 'sealing_key'; grant }`, which
+    `isSubagentWorkerParentMessage` accepts: a worker of your own handles it by binding the new grant,
+    or stops when it cannot seal to it.
+
+  What is new:
+
+  - A fork job's log is now read from the file the child writes. The child names its log after the
+    session it runs (the forked record, else the task) and the parent read `<taskId>.jsonl`, so
+    `/agent read` on a fork job showed "No log lines", and with worktree isolation (the default for
+    `/fork`) the read was not offered at all. `resolveSubagentLogSessionId`,
+    `resolveSubagentTranscriptPath` and `readSubagentTranscriptPage(path, { sealing })`
+    (`@robota-sdk/agent-framework`) are the one rule both sides use.
+  - In a sealed log a page's offset counts stored records, so it names the same record whether or not
+    the keys are locked. `IBackgroundTaskLogPage` gains an optional `unreadable` count of records the
+    page could not show (`locked`, `noKeys`, `doesNotOpen`); a run of locked records shows as one fixed
+    line, and `/agent read` and `/background read` say whether an unlock would read them.
+  - `IInteractiveSessionStore.save` takes optional `{ handoff }`, and the store port gains optional
+    `exportHeld(id, { keep })` and `importHeld(id, token)`, implemented by `NodeSessionStore` and
+    `WorkspaceProjectSessionStore`: a record written for a fork job is kept apart from the sessions a
+    sealing store runs and handed to the job once. A fork job restores from a read made the way a
+    writer reads, so an in-process fork job restores the fork `/fork` just wrote while the keys are
+    locked. A sealed record a write-only store cannot open loads as
+    `{ status: 'locked', reason: 'no-keys' }`.
+  - `@robota-sdk/agent-subagent-runner`: with a sealer, the start payload carries the write grant (no
+    secret) the sealer issues when the payload is sent and, for a fork job, the parent's held record as
+    `resumeHeld` (at most 32 MiB; the job is refused before anything is made for it when none can be
+    handed over, naming "unlock" only when locked keys are why). A child already sent its payload gets
+    a newer grant as a `sealing_key` message, and one that cannot follow it stops. `bindWriteGrant`
+    must return a sealer whose `writeGrant()` equals the grant, or the job fails. `ISubagentRunner`
+    gains optional `preflight(job)`, which refuses what `start` would and changes nothing; the worktree
+    runner calls it before it prepares a worktree. A job whose start payload cannot be built or sent
+    after its child was spawned now cancels the child before it rejects.
+  - Job handles may say `transcriptSealed`, and the manager projects it into the task state beside
+    `transcriptPath` (`IBackgroundTaskState`, `ISubagentJobState`), where the session record codec
+    accepts it. A job-group result gets `transcriptSealed` too. SubagentStart/Stop hooks get
+    `transcript_sealed: true` beside the transcript path, and `summarizeBackgroundJobGroup` points at
+    `/agent read <taskId>` instead of the path, also for a group restored in a later session.
+- b56b5a9: Ship one build per package. The platform-neutral entries moved from `dist/node` to `dist`, and the second
+  `dist/browser` build of `@robota-sdk/agent-core`, `@robota-sdk/agent-transport`,
+  `@robota-sdk/agent-ui-web` and `@robota-sdk/agent-transport-webrtc-web` is gone: a neutral entry runs
+  unchanged in every runtime, so a subpath's `exports` map `import` and `require` to the same files and no
+  longer a `node` or `browser` condition (a Node-only subpath keeps `"browser": null`). Import specifiers
+  and the code behind them are unchanged; only a deep import of `dist/node/*` or `dist/browser/*` breaks.
+  `@robota-sdk/agent-transport/client` also ships a CommonJS build now.
+
+### Patch Changes
+
+- eabce48: Every `InteractiveSession` claims its record and restores only from the claim's read.
+
+  - Breaking: a session store that offers no `claim` is refused when the session is built, and so is
+    one given to the in-process subagent runner. `restoreSessionRecordIntoSession` takes the read to
+    restore from (a claim's, or a write-only child's of its handed record) and refuses an unverified
+    one; it no longer reads the store itself.
+  - A record a store that seals calls unverified is refused (`SessionAuthorshipRefusedError`,
+    `isSessionAuthorshipRefusedError`: fixed text, nothing the record says) unless the new
+    `acceptedDigest` option names exactly its bytes. Those bytes are raised to the owner's only once the
+    session has restored from them, and never by `--fork-session`, whose new record is the owner's.
+    `checkRestoredRecord` judges the record the session actually restores.
+  - Every save of the session's id carries the claim, and every way the session ends releases it —
+    `releaseSessionClaim()` for a host that stops waiting on a shutdown. A pool asked for an id
+    something here still holds refuses with the new change-refusal code `still_closing`
+    (`SESSION_STILL_CLOSING_MESSAGE`, or the store's words for a record a subagent may still save:
+    `claimedSessionMessage`).
+  - Attach to a fork is no longer offered, and is refused with the reason, while a job in this process
+    runs the fork or a child it was handed to may still save it: attaching opens the record as a second
+    session, a second writer. Breaking: `ICreateExecutionWorkspaceSnapshotInput.sessionHasWriter` and
+    `IResolveExecutionAttachInput.hasWriter` are required, and both read the store's `hasWriter`.
+  - When something the session cannot verify changes its record on disk, the session stops saving that
+    id and starting work on its own, saves its whole state once under a new id as the owner's, and
+    says which. A save only the locked keys refused is tried again at the unlock, and a session that
+    ends while either refusal stands, or whose copy could not be written, writes that copy as it ends.
+
+  What to do: give a session store of your own `claim`; handle `still_closing` where you switch on
+  `TSessionChangeRefusalCode`.
+- Updated dependencies [bc8de21]
+- Updated dependencies [51ad6a4]
+- Updated dependencies [bc8de21]
+- Updated dependencies [82663df]
+- Updated dependencies [bc8de21]
+- Updated dependencies [04c3233]
+- Updated dependencies [9bc13f9]
+- Updated dependencies [0a677e9]
+- Updated dependencies [5b46d43]
+- Updated dependencies [fab48ad]
+- Updated dependencies [ea0e424]
+- Updated dependencies [0fec62f]
+- Updated dependencies [b7b6cd0]
+- Updated dependencies [8069d0e]
+- Updated dependencies [f5e3057]
+- Updated dependencies [d8cb04f]
+- Updated dependencies [44e9640]
+- Updated dependencies [b56b5a9]
+- Updated dependencies [1c19435]
+  - @robota-sdk/agent-core@3.1.0
+
+## 3.0.7
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

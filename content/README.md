@@ -119,7 +119,7 @@ __PRODUCT_CLI_NAME__ -p "Explain this project"    # print mode: answer once, the
 
 On first run, the CLI asks for a provider and an API key, or offers a local model. In a Git repository
 you have not trusted yet, the terminal UI asks whether to trust it before loading anything from the
-project, and print mode refuses to start until you run `__PRODUCT_CLI_NAME__ trust --yes`. In a trusted workspace the
+project, and print mode refuses to start until you run `__PRODUCT_CLI_NAME__ trust --yes` and confirm it at a terminal. In a trusted workspace the
 CLI reads the project's `AGENTS.md` and the Claude Code conventions: `CLAUDE.md`,
 `.claude/settings.json`, `.claude/agents/`, `.claude/skills/` and `.claude/commands/`. The [CLI reference](./guide/cli.md) covers
 flags, slash commands and permission modes. How the CLI compares with other coding assistants:

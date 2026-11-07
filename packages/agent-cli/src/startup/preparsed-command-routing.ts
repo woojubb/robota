@@ -70,7 +70,7 @@ import {
 } from './workspace-trust-admission.js';
 import {
   canAskToTrust,
-  grantWorkspaceTrust,
+  prepareWorkspaceTrustApproval,
   trustQuestionFor,
 } from './interactive-trust-prompt.js';
 
@@ -403,24 +403,34 @@ export async function runPreparsedCliCommand(
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'view') {
     const renderAttached = await attachedAppRender();
+    const approvals = new Map<string, Awaited<ReturnType<typeof prepareWorkspaceTrustApproval>>>();
     process.exitCode = await runSessionViewCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
       productRuntime,
       launchCwd: cwd,
       render: renderSessionView,
       ...(renderAttached === undefined ? {} : { renderAttached }),
-      startTrustQuestion: async (targetCwd) =>
-        trustQuestionFor(
-          await resolveInitialCliWorkspaceProjectAccess(targetCwd, { productRuntime }),
-          targetCwd,
-          productRuntime,
-        ),
+      startTrustQuestion: async (targetCwd) => {
+        const access = await resolveInitialCliWorkspaceProjectAccess(targetCwd, { productRuntime });
+        if (canAskToTrust(access)) {
+          const previous = approvals.get(targetCwd);
+          if (previous !== undefined) await previous.release();
+          approvals.set(targetCwd, await prepareWorkspaceTrustApproval(targetCwd, productRuntime));
+        }
+        return trustQuestionFor(access, targetCwd, productRuntime);
+      },
       start: async (targetCwd, choice) => {
         let access = await resolveInitialCliWorkspaceProjectAccess(targetCwd, { productRuntime });
         // A person in the view answered for a folder not trusted yet: trust it, or run it Restricted.
         // A Restricted answer holds even if the folder became trusted meanwhile; it never widens.
         const restricted = choice === 'restricted';
-        if (choice === 'trust' && canAskToTrust(access))
-          access = await grantWorkspaceTrust(targetCwd, productRuntime);
+        const approval = approvals.get(targetCwd);
+        approvals.delete(targetCwd);
+        if (choice === 'trust' && canAskToTrust(access)) {
+          if (approval === undefined) throw new Error('The workspace approval expired.');
+          access = await approval.grant();
+        } else if (approval !== undefined) {
+          await approval.release();
+        }
         if (requiresHeadlessWorkspaceTrust(access) && !(restricted && canAskToTrust(access))) {
           throw new Error(
             formatHeadlessWorkspaceTrustError(

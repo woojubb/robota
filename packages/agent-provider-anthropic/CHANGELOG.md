@@ -1,5 +1,81 @@
 # @robota-sdk/agent-provider-anthropic
 
+## 3.1.0
+### Minor Changes
+
+- 04c3233: The universal parameter-schema subset gains size bounds: `minLength`, `maxLength`, `minItems`, `maxItems`, `minProperties` and `maxProperties`. They are enforced by `validateAgainstJsonSchema` and by `FunctionTool` (at the root too), persisted and reloaded in session records, and kept by MCP schema narrowing, so a server such as Exa no longer prints an unenforceable-schema diagnostic for them. A bound that is not a non-negative integer is dropped and reported. Per provider: OpenAI strict mode keeps `minItems`/`maxItems` and leaves the others off the wire with a Schema note, Gemini carries all six, standard JSON Schema surfaces carry them unchanged, and Anthropic's `output_config.format` omits them along with `minimum`/`maximum`, which it answers with a 400. `ISchemaClosureOptions` gains `omitKeywords`.
+- 5b46d43: Add model-native web search to the OpenAI provider (hosted `web_search` on OpenAI's own Responses API) and the Gemini provider (Google Search grounding), enabled with the profile option `nativeWebTools.webSearch`. The CLI's default applies to OpenAI and leaves OpenAI-compatible endpoints alone. Gemini searches only when its profile asks, because Google's terms attach conditions to showing and storing grounded results that a terminal cannot meet.
+
+  Breaking: `IProviderDefinition.nativeWebTools` is now a function of the profile being built and the environment the host passes, since the answer can depend on where a profile connects. The OpenAI definition no longer reads `builtInWebTools`, and it reads `nativeWebTools` strictly. New in `agent-core`: `readNativeWebSearchOption`, and `PROVIDER_CONTINUATION_METADATA_KEY`, opaque text a provider needs back on a later request, which the committed assistant message keeps. Gemini uses it to return signed function calls and server-side tool steps.
+- f5e3057: Make the provider packages platform-neutral.
+
+  - The Anthropic, OpenAI, OpenAI-compatible, Gemini and built-in provider packages no longer reach Node: message ids come from the new `randomId()` in `@robota-sdk/agent-core` (the platform's `crypto.randomUUID`, with a `getRandomValues` fallback outside a secure context) instead of `node:crypto`.
+  - `FilePayloadLogger` moved from `@robota-sdk/agent-provider-openai/loggers` to `@robota-sdk/agent-provider-openai/node`; `/loggers` keeps the platform-neutral `ConsolePayloadLogger`.
+  - `GeminiProvider.canPropagateTraceContext()` reads a base-URL override from the client the SDK built instead of the environment, so it matches where the client sends: a `GOOGLE_VERTEX_BASE_URL` outside Vertex mode, which the SDK ignores, no longer suppresses trace context.
+- b56b5a9: Ship one build per package. The platform-neutral entries moved from `dist/node` to `dist`, and the second
+  `dist/browser` build of `@robota-sdk/agent-core`, `@robota-sdk/agent-transport`,
+  `@robota-sdk/agent-ui-web` and `@robota-sdk/agent-transport-webrtc-web` is gone: a neutral entry runs
+  unchanged in every runtime, so a subpath's `exports` map `import` and `require` to the same files and no
+  longer a `node` or `browser` condition (a Node-only subpath keeps `"browser": null`). Import specifiers
+  and the code behind them are unchanged; only a deep import of `dist/node/*` or `dist/browser/*` breaks.
+  `@robota-sdk/agent-transport/client` also ships a CommonJS build now.
+
+### Patch Changes
+
+- 191027d: Show the web sources an Anthropic reply cites: `chat()` now ends such a reply with a `[Sources]` list, one per address. Titles and addresses from web pages, in this list and in `[Web Search Results]`, can no longer carry control characters or markdown links, and only `http(s)` addresses are listed.
+- 803b0b0: Show the completed search query from streamed Anthropic server-tool input.
+- 0a677e9: Make model-native web search a provider construction option. Sessions no longer switch it on (`IAIProvider.configureNativeWebTools` is removed); an Anthropic profile enables it with `options.nativeWebTools.webSearch`, and a provider definition declares the hosted web tools it supports in `nativeWebTools`. The CLI turns native web search on by default for every definition that declares it, unless the profile sets `nativeWebTools` itself.
+- Updated dependencies [bc8de21]
+- Updated dependencies [51ad6a4]
+- Updated dependencies [bc8de21]
+- Updated dependencies [82663df]
+- Updated dependencies [bc8de21]
+- Updated dependencies [04c3233]
+- Updated dependencies [9bc13f9]
+- Updated dependencies [0a677e9]
+- Updated dependencies [5b46d43]
+- Updated dependencies [fab48ad]
+- Updated dependencies [ea0e424]
+- Updated dependencies [0fec62f]
+- Updated dependencies [b7b6cd0]
+- Updated dependencies [8069d0e]
+- Updated dependencies [f5e3057]
+- Updated dependencies [d8cb04f]
+- Updated dependencies [44e9640]
+- Updated dependencies [b56b5a9]
+- Updated dependencies [1c19435]
+  - @robota-sdk/agent-core@3.1.0
+
+## 3.0.7
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

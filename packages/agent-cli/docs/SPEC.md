@@ -595,8 +595,13 @@ here because the reasoning differs between them:
 
 ### Workspace trust and project access
 
-The CLI resolves one host-owned `TWorkspaceProjectAccess`/`WorkspaceTrustService` decision before
-composition. Absence is deterministically **Restricted**: only user contribution/settings sources and
+The CLI resolves one host-owned `TWorkspaceProjectAccess` decision through a live broker before
+composition; a saved grant is history, never a renewed approval. In normal CLI and desktop flows, the
+broker retains the exact folder object approved through the user prompt, and all project file
+operations compare their opened root with it; its same-user IPC cannot authenticate a person, so a
+direct local client can create a new approval. CLI
+and desktop restarts reattach without another approval, while a broker or OS restart requires one new
+approval per root. Absence is deterministically **Restricted**: only user contribution/settings sources and
 the user session store are available, no project memory, and `cwd` alone cannot mint any project
 capability. **Trusted** composition derives project sources plus named state facets from the exact
 runtime-accepted authority, and is refused when the real CLI working directory is outside the
@@ -615,8 +620,8 @@ where someone is: it asks the same trust/Restricted/quit question there instead 
 interactive start asks the person before the project is composed and continues Restricted when they
 decline, because a Restricted session no one mentioned hides why the project's own configuration is
 missing.
-All trust diagnostics expose only state and canonical display path — credentials and
-project-controlled content are never printed.
+Trust diagnostics and approval requests never print credentials or project-controlled content; a
+prepared approval token is retained only until the person answers or the request expires.
 
 ### `--no-session-persistence`
 

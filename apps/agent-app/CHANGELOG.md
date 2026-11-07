@@ -1,5 +1,77 @@
 # @robota-sdk/agent-app
 
+## 3.0.8
+### Patch Changes
+
+- Updated dependencies [51ad6a4]
+- Updated dependencies [b160a57]
+- Updated dependencies [bc8de21]
+- Updated dependencies [d46727b]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [22ad89c]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [82663df]
+- Updated dependencies [ea6fb89]
+- Updated dependencies [bc8de21]
+- Updated dependencies [0a677e9]
+- Updated dependencies [830d3d2]
+- Updated dependencies [0a677e9]
+- Updated dependencies [a8c9e25]
+- Updated dependencies [5b46d43]
+- Updated dependencies [fab48ad]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [ee7f7ef]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [7ce5e73]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [be32d9b]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [b7b6cd0]
+- Updated dependencies [42d595e]
+- Updated dependencies [437ca9e]
+- Updated dependencies [12cf199]
+- Updated dependencies [44e9640]
+- Updated dependencies [779781c]
+  - @robota-sdk/agent-cli@3.1.0
+  - @robota-sdk/product-config@3.1.0
+
+## 3.0.7
+### Patch Changes
+
+  - @robota-sdk/product-config@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+  - @robota-sdk/product-config@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/product-config@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/product-config@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/product-config@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/product-config@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

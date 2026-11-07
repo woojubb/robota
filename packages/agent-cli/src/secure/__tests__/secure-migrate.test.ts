@@ -23,7 +23,7 @@ import {
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import {
   inspectProcessScopedDirectories,
@@ -44,6 +44,9 @@ import { NodePromptHistoryFile, NodeSessionStore } from '@robota-sdk/agent-sessi
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
+import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
+import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
 import { compactProductPromptHistory } from '../../product/session-stores.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
@@ -95,6 +98,7 @@ let home: string;
 let runtime: ICliRuntimeContext;
 let log: Array<readonly ['out' | 'err', string]>;
 const children: ChildProcess[] = [];
+let broker: Awaited<ReturnType<typeof startTestBroker>> | undefined;
 
 beforeEach(() => {
   home = realpathSync(mkdtempSync(join(tmpdir(), 'secure-migrate-')));
@@ -103,11 +107,15 @@ beforeEach(() => {
   log = [];
 });
 
-afterEach(() => {
+afterEach(async () => {
   vi.restoreAllMocks();
   keyOpenings.mockClear();
   compactions.mockClear();
   for (const child of children.splice(0)) child.kill('SIGKILL');
+  await broker?.close();
+  broker = undefined;
+  if (process.platform !== 'win32')
+    rmSync(dirname(workspaceRootBrokerEndpoint(runtime)), { recursive: true, force: true });
   rmSync(home, { recursive: true, force: true });
 });
 
@@ -268,6 +276,12 @@ async function trustedProject(): Promise<string> {
     runtime.layout.userPaths.workspaceTrust,
     runtime.layout.projectStateDirectories,
   ).grant(root);
+  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  const brokerDirectory = process.platform === 'win32'
+    ? join(runtime.layout.userRoot, 'root-broker') : dirname(endpoint);
+  mkdirSync(brokerDirectory, { recursive: true, mode: 0o700 });
+  broker = await startTestBroker(endpoint, brokerDirectory, runtime.layout.userPaths.workspaceTrust);
+  if (await approveTestWorkspace(root, runtime) !== 0) throw new Error('live project approval failed');
   return root;
 }
 

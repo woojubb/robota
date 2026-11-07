@@ -2,8 +2,10 @@ import {
   authorityError,
   StableFileAuthorityError,
   type INamedStableRootedFileWriter,
+  type IStableRootedFileReader,
 } from './contracts.js';
 import { createHostBackend } from './host-factory.js';
+import { assertStableReaderMatchesBackend } from './stable-rooted-file-reader.js';
 import { validateRelativeSegments, validateRootDirectory } from './input-validation.js';
 
 import type { IFileAuthorityTestHooks, IStableFileHostBackend } from './host-backend.js';
@@ -23,6 +25,12 @@ class StableRootedFileWriter implements INamedStableRootedFileWriter {
     const backend = createHostBackend(validateRootDirectory(rootDirectory));
     this.backend = backend;
     finalizer.register(this, backend, this.finalizerToken);
+  }
+
+  assertSameReader(approved: IStableRootedFileReader): void {
+    const backend = this.backend;
+    if (backend === undefined) throw authorityError('AUTHORITY_CLOSED', 'compare-roots');
+    assertStableReaderMatchesBackend(approved, backend);
   }
 
   assertNamedRoot(): void {
@@ -87,6 +95,17 @@ class StableRootedFileWriter implements INamedStableRootedFileWriter {
 /** Create a stable, opaque write authority rooted at the currently opened directory identity. */
 export function createStableRootedFileWriter(rootDirectory: string): INamedStableRootedFileWriter {
   return new StableRootedFileWriter(rootDirectory, {});
+}
+
+/** Refuse unless a held writer and an approved reader retain the same root object. */
+export function assertSameStableRootedWriter(
+  approved: IStableRootedFileReader,
+  operation: INamedStableRootedFileWriter,
+): void {
+  if (!(operation instanceof StableRootedFileWriter)) {
+    throw authorityError('INVALID_PATH', 'compare-roots');
+  }
+  operation.assertSameReader(approved);
 }
 
 /** Internal-only deterministic seams used by native replacement tests. */
