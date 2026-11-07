@@ -1,5 +1,8 @@
 import { createGitCommandModule } from '@robota-sdk/agent-command';
-import { createEditorCommandModule, createShellCommandModule } from '@robota-sdk/agent-command/node';
+import {
+  createEditorCommandModule,
+  createShellCommandModule,
+} from '@robota-sdk/agent-command/node';
 import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
 import { createGitProcess } from '@robota-sdk/agent-framework/node';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
@@ -29,6 +32,8 @@ export interface ICodingPackOptions {
   httpUserAgent?: string;
   /** Product-owned prefix for the interactive editor's temporary directory. */
   editorTemporaryDirectoryPrefix?: string;
+  /** Keep the command visible but refuse a host editor that would persist a sensitive draft. */
+  editorUnavailableMessage?: string;
   /**
    * Working-directory root the host file tools (`Read`/`Write`/`Edit`) are restricted to. Required: see
    * the interface note above. Pass the same value the session is assembled with.
@@ -87,7 +92,7 @@ export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
     id: 'coding',
     title: 'Coding',
     description:
-      "Built-in coding capability: file/shell tools, /shell + /editor + /git commands, and the coding subagents.",
+      'Built-in coding capability: file/shell tools, /shell + /editor + /git commands, and the coding subagents.',
     // ARCH-035: the always-present default set, consumed from its owner rather than rebuilt here.
     //
     // This list used to be hand-maintained, identical to `createDefaultTools()`'s always-present
@@ -102,7 +107,10 @@ export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
     tools: createDefaultTools(toolOptions),
     commandModules: [
       createShellCommandModule(options.shellExecutable),
-      createEditorCommandModule(options.editorTemporaryDirectoryPrefix),
+      createEditorCommandModule(
+        options.editorTemporaryDirectoryPrefix,
+        options.editorUnavailableMessage,
+      ),
       createGitCommandModule({ port: createGitProcess() }),
     ],
     subagents: BUILT_IN_AGENTS,
