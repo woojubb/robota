@@ -196,7 +196,7 @@ describe.runIf(process.platform !== 'win32')(
   'provider credentials and the commands the runtime runs',
   () => {
     it('authenticates with the referenced credential but withholds it from a Bash command', async () => {
-      const { probe, skillProbe, authorizations, runtimeProbe, bashRuntimeProbe } =
+      const { probe, skillProbe, authorizations, providerTest, runtimeProbe, bashRuntimeProbe } =
         await runScenario({});
       expect(authorizations.length).toBeGreaterThanOrEqual(2);
       for (const authorization of authorizations) expect(authorization).toBe(`Bearer ${KEY}`);
@@ -204,10 +204,6 @@ describe.runIf(process.platform !== 'win32')(
       expect(skillProbe).toBe('absent');
       expect(bashRuntimeProbe).toEqual({ withheld: true, identity: 'robota', unrelated: 'kept' });
       expect(runtimeProbe).toEqual({ withheld: true, identity: 'robota', unrelated: 'kept' });
-    }, 150_000);
-
-    it('still lets the provider commands see the credential it withholds from commands', async () => {
-      const { providerTest } = await runScenario({});
       expect(providerTest).toMatch(/^Provider "openai" test (passed|failed: (?!.*missing))/);
       expect(providerTest).not.toContain('missing apiKey');
     }, 150_000);
