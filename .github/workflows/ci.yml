@@ -17,7 +17,6 @@ jobs:
     timeout-minutes: 5
     outputs:
       plan: ${{ steps.scope.outputs.plan }}
-      release: ${{ steps.scope.outputs.release }}
       developer_docs: ${{ steps.scope.outputs.developer_docs }}
       reuse_main: ${{ steps.scope.outputs.reuse_main }}
     steps:

@@ -42,6 +42,14 @@ export function workspaces(cwd, selectors = []) {
 }
 
 const FULL_PLAN_DOCUMENT = 'ARCHITECTURE.md';
+const NATIVE_WORKSPACES = new Set([
+  'apps/agent-app',
+  'packages/agent-cli',
+  'packages/agent-file-authority',
+  'packages/agent-keyring',
+  'packages/agent-transport-link',
+]);
+const needsNative = (plan) => plan.full || plan.checks.some((dir) => NATIVE_WORKSPACES.has(dir));
 
 /** A developer document: a change to it alone needs no workspace check. */
 export function isDeveloperDocument(file) {
@@ -64,7 +72,6 @@ export function selectScope({
     checks: all.map((p) => p.dir),
     build: all.filter((p) => p.dir.startsWith('packages/') && p.scripts?.build).map((p) => p.dir),
     docs: true,
-    release: true,
   });
   if (event !== 'pull_request') return full('push or manual dispatch');
   try {
@@ -74,7 +81,7 @@ export function selectScope({
           git(cwd, 'merge-base', base, main) === base &&
           git(cwd, 'rev-parse', 'HEAD^{tree}') === git(cwd, 'rev-parse', `${main}^{tree}`))
         return { full: false, developerDocs: false, reuseMain: true,
-          reason: 'fast-forward backmerge of reviewed main', checks: [], build: [], docs: false, release: false };
+          reason: 'fast-forward backmerge of reviewed main', checks: [], build: [], docs: false };
     }
     const comparison = git(cwd, 'merge-base', base, 'HEAD');
     const changes = command(
@@ -85,7 +92,6 @@ export function selectScope({
     ).split('\0');
     const changed = new Set();
     let docs = false;
-    let release = false;
     let developerDocs = false;
     for (let index = 0; index < changes.length - 1; index += 2) {
       const status = changes[index];
@@ -113,7 +119,6 @@ export function selectScope({
       }
       changed.add(project.dir);
       if (project.dir === 'apps/docs' || /^packages\/.*\/docs\//.test(file)) docs = true;
-      if (!project.dir.startsWith('examples/') || !project.private) release = true;
     }
     if (docs) {
       if (!all.some((p) => p.dir === 'apps/docs')) return full('missing docs consumer');
@@ -127,7 +132,6 @@ export function selectScope({
         checks: [],
         build: [],
         docs: false,
-        release: false,
       };
     const selectors = [...changed].flatMap((dir) => ['--filter', `...{${dir}}`]);
     const affected = workspaces(cwd, selectors);
@@ -137,8 +141,6 @@ export function selectScope({
       cwd,
       affected.flatMap((p) => ['--filter', `{${p.dir}}...`]),
     );
-    if (affected.some((p) => !p.dir.startsWith('examples/') && p.dir !== 'apps/docs'))
-      release = true;
     return {
       full: false,
       developerDocs: false,
@@ -148,7 +150,6 @@ export function selectScope({
         .filter((p) => p.dir.startsWith('packages/') && p.scripts?.build)
         .map((p) => p.dir),
       docs,
-      release,
     };
   } catch (error) {
     return full(`scope fallback: ${error.message}`);
@@ -158,7 +159,7 @@ export function selectScope({
 export function assertGate(needs) {
   if (needs.scope?.result !== 'success') throw new Error('Scope selection did not succeed.');
   const plan = JSON.parse(needs.scope.outputs.plan);
-  if (typeof plan.release !== 'boolean') throw new Error('Invalid scope plan.');
+  if (typeof plan.full !== 'boolean' || !Array.isArray(plan.checks)) throw new Error('Invalid scope plan.');
   assertDeveloperDocs(plan);
   assertReuseMain(plan);
   for (const job of ['workspace-build', 'static-checks', 'tests']) {
@@ -172,10 +173,11 @@ export function assertGate(needs) {
 export function assertNativeGate(needs) {
   if (needs.scope?.result !== 'success') throw new Error('Native scope selection did not succeed.');
   const plan = JSON.parse(needs.scope.outputs.plan);
-  if (typeof plan.developerDocs !== 'boolean') throw new Error('Invalid native scope plan.');
+  if (typeof plan.developerDocs !== 'boolean' || typeof plan.full !== 'boolean' || !Array.isArray(plan.checks))
+    throw new Error('Invalid native scope plan.');
   assertDeveloperDocs(plan);
   assertReuseMain(plan);
-  const expected = plan.developerDocs || plan.reuseMain ? 'skipped' : 'success';
+  const expected = needsNative(plan) ? 'success' : 'skipped';
   if (needs['build-bun']?.result !== expected)
     throw new Error(`Native builds: expected ${expected}, received ${needs['build-bun']?.result}`);
 }
@@ -186,7 +188,6 @@ function assertDeveloperDocs(plan) {
     plan.developerDocs !== true ||
     plan.full !== false ||
     plan.docs !== false ||
-    plan.release !== false ||
     !Array.isArray(plan.checks) ||
     plan.checks.length ||
     !Array.isArray(plan.build) ||
@@ -198,7 +199,7 @@ function assertDeveloperDocs(plan) {
 function assertReuseMain(plan) {
   if (plan.reuseMain !== true) return;
   if (plan.full !== false || plan.developerDocs !== false || plan.docs !== false ||
-      plan.release !== false || plan.checks?.length || plan.build?.length)
+      plan.checks?.length || plan.build?.length)
     throw new Error('Invalid reviewed-main reuse selection.');
 }
 
@@ -226,13 +227,13 @@ async function main() {
     });
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `plan=${JSON.stringify(plan)}\nrelease=${plan.release}\ndeveloper_docs=${plan.developerDocs}\nreuse_main=${plan.reuseMain === true}\n`,
+      `plan=${JSON.stringify(plan)}\nnative=${needsNative(plan)}\ndeveloper_docs=${plan.developerDocs}\nreuse_main=${plan.reuseMain === true}\n`,
     );
     console.log(JSON.stringify(plan, null, 2));
     if (process.env.GITHUB_STEP_SUMMARY)
       appendFileSync(
         process.env.GITHUB_STEP_SUMMARY,
-        `Scope: ${plan.reason}\n\nChecks: ${plan.checks.join(', ')}\n\nBuild: ${plan.build.join(', ')}\n\nDocs: ${plan.docs}; release: ${plan.release}\n`,
+        `Scope: ${plan.reason}\n\nChecks: ${plan.checks.join(', ')}\n\nBuild: ${plan.build.join(', ')}\n\nDocs: ${plan.docs}; native: ${needsNative(plan)}\n`,
       );
     return;
   }
