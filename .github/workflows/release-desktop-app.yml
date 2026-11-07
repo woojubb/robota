@@ -140,14 +140,14 @@ jobs:
             exit 1
           fi
 
-      - name: Verify Windows native control transport
-        working-directory: ${{ env.PRODUCT_WORKSPACE }}
-        if: runner.os == 'Windows'
-        run: pnpm install --frozen-lockfile && pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/windows-security.test.ts src/session-inventory/__tests__/windows-control-pipe.test.ts
-
       - name: Build workspace
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
         run: pnpm install --frozen-lockfile && pnpm build
+
+      - name: Verify Windows native control transport
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
+        if: runner.os == 'Windows'
+        run: pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/windows-security.test.ts src/session-inventory/__tests__/windows-control-pipe.test.ts
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
