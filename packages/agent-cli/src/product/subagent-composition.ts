@@ -494,7 +494,7 @@ export function createProductSubagentRunnerFactory(options: {
         providerDefinitions: options.providerDefinitions,
         ...(options.workspace === undefined ? {} : { workspace: options.workspace }),
         ...(options.persistTranscripts
-          ? { logsDir: options.productRuntime.config.storage.logRoot }
+          ? { logsDir: options.productRuntime.layout.subagentLogsRoot }
           : {}),
         workerEntry: resolveSelfForkWorkerEntry(),
         worktreeAdapter: createProductWorktreeAdapter(options.productRuntime),

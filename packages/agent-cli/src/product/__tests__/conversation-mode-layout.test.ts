@@ -1,0 +1,76 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterEach, describe, expect, it } from 'vitest';
+
+import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { productSecureMode } from '../session-sealing.js';
+import { createProductUserSessionStore } from '../session-stores.js';
+import { resolveCliRuntimeContext } from '../../startup/product-bootstrap.js';
+
+const homes: string[] = [];
+function home(): string {
+  const path = mkdtempSync(join(tmpdir(), 'conversation-mode-layout-'));
+  homes.push(path);
+  return path;
+}
+
+afterEach(() => {
+  for (const path of homes.splice(0)) rmSync(path, { recursive: true, force: true });
+});
+
+function modeFile(root: string, mode: 'on' | 'off' | 'preparing'): void {
+  const directory = join(root, 'secure');
+  mkdirSync(directory, { recursive: true, mode: 0o700 });
+  writeFileSync(join(directory, 'mode.json'), JSON.stringify({ schemaVersion: 1, mode }), {
+    mode: 0o600,
+  });
+}
+
+describe('conversation mode storage layout', () => {
+  it('keeps the ordinary paths and plaintext mode when no choice has been made', () => {
+    const userHome = home();
+    const runtime = createTestProductRuntime('test-product', { HOME: userHome });
+    expect(runtime.layout.userPaths.sessions).toBe(join(userHome, '.test-product', 'sessions'));
+    expect(productSecureMode(runtime)).toBe(false);
+  });
+
+  it('selects versioned conversation artifacts while retaining base configuration and owner paths', () => {
+    const userHome = home();
+    const plain = createTestProductRuntime('test-product', { HOME: userHome });
+    modeFile(plain.layout.userRoot, 'on');
+    const secure = resolveCliRuntimeContext({
+      productConfig: plain.config,
+      environment: plain.environment,
+    });
+    expect(productSecureMode(secure)).toBe(true);
+    expect(secure.config.storage.userRoot).toBe(plain.config.storage.userRoot);
+    expect(secure.environment.PRODUCT_USER_STATE_DIR).toBe(plain.environment.PRODUCT_USER_STATE_DIR);
+    expect(secure.layout.userPaths.keyring).toBe(plain.layout.userPaths.keyring);
+    expect(secure.layout.userPaths.settings).toBe(plain.layout.userPaths.settings);
+    expect(secure.layout.userPaths.presence).toBe(plain.layout.userPaths.presence);
+    expect(secure.layout.userPaths.sessions).toBe(join(plain.layout.userRoot, 'secure-v1', 'sessions'));
+    expect(secure.layout.userPaths.history).toBe(join(plain.layout.userRoot, 'secure-v1', 'history.jsonl'));
+    expect(secure.layout.userPaths.spill).toBe(join(plain.layout.userRoot, 'secure-v1', 'spill'));
+    expect(secure.layout.userPaths.ephemeralCheckpoints).toBe(join(plain.layout.userRoot, 'secure-v1', 'ephemeral-checkpoints'));
+    expect(secure.layout.projectStateDirectories.sessions).toBe(join(plain.layout.projectDirectory, 'secure-v1', 'sessions'));
+    expect(secure.layout.projectStateDirectories['session-logs']).toBe(join(plain.layout.projectDirectory, 'secure-v1', 'logs'));
+    expect(secure.layout.projectStateDirectories.checkpoints).toBe(join(plain.layout.projectDirectory, 'secure-v1', 'checkpoints'));
+    expect(secure.layout.projectStateDirectories.memory).toBe(plain.layout.projectStateDirectories.memory);
+    expect(() => createProductUserSessionStore(secure)).toThrow(/sealing|key holder/i);
+  });
+
+  it('keeps an incomplete choice resumable and refuses orphaned secure artifacts', () => {
+    const userHome = home();
+    const plain = createTestProductRuntime('test-product', { HOME: userHome });
+    modeFile(plain.layout.userRoot, 'preparing');
+    const preparing = resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment });
+    expect(preparing.conversationMode).toBe('preparing');
+    expect(productSecureMode(preparing)).toBe(false);
+    expect(() => createProductUserSessionStore(preparing)).toThrow(/preparation/i);
+    rmSync(join(plain.layout.userRoot, 'secure', 'mode.json'));
+    mkdirSync(join(plain.layout.userRoot, 'secure-v1'));
+    expect(() => resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment })).toThrow(/secure.*mode|mode.*secure/i);
+  });
+});

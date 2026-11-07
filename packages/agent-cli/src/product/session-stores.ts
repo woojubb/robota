@@ -79,9 +79,10 @@ export function productSessionReleaseCommand(
 export function createProductUserSessionStore(
   runtime: ICliRuntimeContext,
 ): IInteractiveSessionStore {
+  const sealing = resolveProductSessionSealing(runtime);
   enterProductStores(runtime);
   return createUserSessionStore(runtime.layout.userPaths.sessions, {
-    sealing: resolveProductSessionSealing(runtime),
+    sealing,
     releaseCommand: productSessionReleaseCommand(runtime),
   });
 }
@@ -91,12 +92,13 @@ export function createProductProjectSessionStore(
   authority: ITrustedWorkspaceProjectAccess['authority'],
   runtime: ICliRuntimeContext,
 ): IInteractiveSessionStore {
+  const sealing = resolveProductSessionSealing(runtime);
   enterProductStores(runtime);
   return createProjectSessionStore(
     getWorkspaceProjectStateStorage(authority, 'sessions'),
     getWorkspaceProjectStateStorage(authority, 'session-logs'),
     {
-      sealing: resolveProductSessionSealing(runtime),
+      sealing,
       releaseCommand: productSessionReleaseCommand(runtime),
     },
   );
@@ -172,9 +174,10 @@ export function adoptMigratedSessionRecords(
 export function createProductPromptHistoryFile(
   runtime: ICliRuntimeContext,
 ): IPromptHistoryWriter & IPromptHistorySource {
+  const sealing = resolveProductSessionSealing(runtime);
   enterProductStores(runtime);
   return createUserPromptHistoryFile(userPaths(runtime).history, {
-    sealing: resolveProductSessionSealing(runtime),
+    sealing,
   });
 }
 
@@ -186,10 +189,11 @@ export function createProductToolResultSpillStore(
   runtime: ICliRuntimeContext,
   options: { readonly onCleanupFailure?: (reason: 'cleanup-failed') => void } = {},
 ): IHostToolResultSpillStore {
+  const sealing = resolveProductTransientSealing(runtime);
   enterProductStores(runtime);
   return createNodeToolResultSpillStore({
     parentDirectory: prepareSpillParentDirectory(runtime),
-    sealing: resolveProductTransientSealing(runtime),
+    sealing,
     ...(options.onCleanupFailure === undefined
       ? {}
       : { onCleanupFailure: options.onCleanupFailure }),
@@ -209,6 +213,9 @@ export function createProductEditCheckpointStoreFactory(
   runtime: ICliRuntimeContext,
   options: { readonly ephemeral: boolean },
 ): () => IEditCheckpointStore {
+  const sealing = options.ephemeral
+    ? resolveProductTransientSealing(runtime)
+    : resolveProductSessionSealing(runtime);
   enterProductStores(runtime);
   const ephemeralState = options.ephemeral ? ephemeralCheckpointState(runtime) : undefined;
   return () => {
@@ -223,9 +230,9 @@ export function createProductEditCheckpointStoreFactory(
       // `stateStorage`), sealed as its record is. An ephemeral run's directory was made for this
       // process alone, so it never held a plain checkpoint and one found there was planted.
       ...(ephemeralState === undefined
-        ? { sealing: resolveProductSessionSealing(runtime) }
+        ? { sealing }
         : {
-            sealing: resolveProductTransientSealing(runtime),
+            sealing,
             stateStorage: ephemeralState(),
             sealedOnly: true,
           }),

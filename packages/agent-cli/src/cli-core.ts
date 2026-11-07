@@ -141,7 +141,7 @@ import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { isEarlyForwardedDaemon, runEarlyForwardedDaemon, validateForwardedEnvironment } from './startup/early-forwarded-daemon.js';
 import { forwardedEnvironmentRequested, receiveForwardedEnvironment } from './startup/forwarded-environment.js';
 import { createCliRuntimeContext } from './product/runtime-context.js';
-import { copyProductSecureMode, productSecureMode } from './product/session-sealing.js';
+import { assertProductConversationLaunch, copyProductSecureMode, productSecureMode } from './product/session-sealing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { tuiInitialInputProps } from './startup/tui-initial-input.js';
@@ -239,6 +239,7 @@ export async function startCliCore(
   const spawnerIdentity = answerSpawnerPairOrExit(process.argv);
   const supervisedTransportToken = readHandedOverTransportTokenOrExit();
   const initialRuntime = resolveCliRuntimeContext(initialOptions);
+  assertProductConversationLaunch(initialRuntime, process.argv);
   let productRuntime = initialRuntime;
   let reportedCredentialNames: readonly string[] | undefined;
   const hasForwardedEnvironment = forwardedEnvironmentRequested(process.argv);
@@ -253,7 +254,7 @@ export async function startCliCore(
     installProductChildSessions(initialRuntime);
     await validateForwardedEnvironment(initialRuntime, process.cwd(), optionArgv(process.argv).includes('--restricted-workspace'), forwarded.environment, forwarded.availableCredentialNames);
     reportedCredentialNames = forwarded.availableCredentialNames;
-    productRuntime = createCliRuntimeContext(initialRuntime.config, { ...initialRuntime.environment, ...forwarded.environment }, initialRuntime.artifact);
+    productRuntime = createCliRuntimeContext(initialRuntime.config, { ...initialRuntime.environment, ...forwarded.environment }, initialRuntime.artifact, initialRuntime.conversationMode);
     copyProductSecureMode(initialRuntime, productRuntime);
   }
   if (earlyForwardedDaemon) {

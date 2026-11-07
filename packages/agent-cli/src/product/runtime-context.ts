@@ -13,6 +13,7 @@ import type {
 import type { IProductConfig, TConfigEnvironment } from '@robota-sdk/product-config';
 import type { IIdentityContext } from '@robota-sdk/agent-remote-pairing';
 import type { IProductCliRuntimeArtifact } from './artifact.js';
+import type { TProductConversationMode } from '../secure/conversation-mode-state.js';
 
 export interface ICliProductLayout {
   readonly userRoot: string;
@@ -52,6 +53,7 @@ export interface ICliProductLayout {
   readonly taskContext: { readonly enabled: true; readonly dir: string };
   readonly baselinePermissionAllow: readonly string[];
   readonly projectWorktreesDirectory: string;
+  readonly subagentLogsRoot: string;
   readonly userQuarantineDirectory: string;
   readonly pathProtection: IPathProtectionPolicy;
   /**
@@ -72,6 +74,7 @@ export interface ICliProductVocabulary extends ICommandProductVocabulary {
 export interface ICliRuntimeContext {
   readonly config: IProductConfig;
   readonly environment: TConfigEnvironment;
+  readonly conversationMode: TProductConversationMode;
   readonly userHome?: string;
   readonly layout: ICliProductLayout;
   readonly vocabulary: ICliProductVocabulary;
@@ -92,12 +95,16 @@ export function createCliRuntimeContext(
   config: IProductConfig,
   environment: TConfigEnvironment = {},
   artifact?: IProductCliRuntimeArtifact,
+  conversationMode: TProductConversationMode = 'plain',
 ): ICliRuntimeContext {
   for (const root of [config.storage.userRoot, config.storage.cacheRoot, config.storage.logRoot]) {
     if (!isAbsolute(root)) throw new Error('CLI product state, cache and log roots must be resolved absolute paths.');
   }
   const directory = config.storage.projectDirectory;
   const userRoot = config.storage.userRoot;
+  const secureArtifacts = conversationMode === 'secure';
+  const conversationRoot = secureArtifacts ? join(userRoot, 'secure-v1') : userRoot;
+  const projectConversations = secureArtifacts ? join(directory, 'secure-v1') : directory;
   const doctor: IDoctorDisplayVocabulary = {
     title: `${config.identity.cliName} doctor`,
     productName: config.identity.displayName,
@@ -110,24 +117,24 @@ export function createCliRuntimeContext(
     projectDirectory: directory,
     userPaths: {
       settings: join(userRoot, 'settings.json'),
-      sessions: join(userRoot, 'sessions'),
+      sessions: join(conversationRoot, 'sessions'),
       onboarded: join(userRoot, 'onboarded'),
-      history: join(userRoot, 'history.jsonl'),
+      history: join(conversationRoot, 'history.jsonl'),
       workspaceTrust: join(userRoot, 'workspace-trust.json'),
       orgPolicy: join(userRoot, 'org-policy.json'),
       mcpApprovals: join(userRoot, 'mcp-approvals.json'),
       secure: join(userRoot, 'secure'),
       keyring: join(userRoot, 'secure', 'keyring.json'),
-      spill: join(userRoot, 'spill'),
-      editor: join(userRoot, 'editor'),
-      ephemeralCheckpoints: join(userRoot, 'ephemeral-checkpoints'),
+      spill: join(conversationRoot, 'spill'),
+      editor: join(conversationRoot, 'editor'),
+      ephemeralCheckpoints: join(conversationRoot, 'ephemeral-checkpoints'),
       presence: join(userRoot, 'presence'),
     },
     projectStateDirectories: {
-      sessions: join(directory, 'sessions'),
-      'session-logs': join(directory, 'logs'),
+      sessions: join(projectConversations, 'sessions'),
+      'session-logs': join(projectConversations, 'logs'),
       memory: join(directory, 'memory'),
-      checkpoints: join(directory, 'checkpoints'),
+      checkpoints: join(projectConversations, 'checkpoints'),
     },
     projectSettingsPaths: [
       { scope: 'project', relativePath: join(directory, 'settings.json') },
@@ -152,6 +159,7 @@ export function createCliRuntimeContext(
       `Glob(${root}/**)`,
     ]),
     projectWorktreesDirectory,
+    subagentLogsRoot: secureArtifacts ? join(config.storage.logRoot, 'secure-v1') : config.storage.logRoot,
     userQuarantineDirectory: join(userRoot, 'sandbox-quarantine'),
     pathProtection: {
       protectedDirectoryNames: [directory],
@@ -164,11 +172,13 @@ export function createCliRuntimeContext(
       'mcp-credentials',
       'remote-host-identity.json',
       'secure',
+      'secure-v1',
     ].map((entry) => join(userRoot, entry)),
   };
   return freeze({
     config,
     environment: { ...environment },
+    conversationMode,
     ...((environment.HOME ?? environment.USERPROFILE) !== undefined
       ? { userHome: environment.HOME ?? environment.USERPROFILE }
       : {}),
