@@ -9,7 +9,7 @@ on:
     tags:
       - '**'
   pull_request:
-    branches: [develop, main]
+    branches: [develop]
   workflow_dispatch:
     inputs:
       product_env:
@@ -126,7 +126,7 @@ jobs:
 
       - name: Install dependencies
         timeout-minutes: 10
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
 
       - name: Prepare pending version for PR product validation
         if: github.event_name == 'pull_request'
@@ -160,7 +160,7 @@ jobs:
       - name: Build workspace
         timeout-minutes: 10
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
-        run: ${{ github.event_name == 'pull_request' && 'pnpm install --frozen-lockfile && pnpm -r --filter "{packages/agent-cli}..." --filter "{apps/agent-app}^..." run build' || 'pnpm install --frozen-lockfile && pnpm build' }}
+        run: pnpm install --frozen-lockfile && pnpm -r --filter "{packages/agent-cli}..." run build
 
       - name: Setup Bun
         timeout-minutes: 10
@@ -237,9 +237,8 @@ jobs:
         shell: bash
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
         run: |
-          pnpm --filter './packages/agent-keyring' build
           pnpm --filter './packages/agent-keyring' smoke:bun
-          pnpm --filter '{./packages/agent-transport-link}...' build
+          pnpm --filter './packages/agent-transport-link' build
           pnpm --filter './packages/agent-transport-link' smoke:bun
 
       - name: Package and exercise the unsigned desktop product

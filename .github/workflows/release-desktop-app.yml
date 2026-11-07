@@ -105,7 +105,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
 
       - name: Apply release packaging and verification tooling
         shell: bash
@@ -140,14 +140,14 @@ jobs:
             exit 1
           fi
 
+      - name: Build workspace
+        working-directory: ${{ env.PRODUCT_WORKSPACE }}
+        run: pnpm install --frozen-lockfile && pnpm -r --filter "{apps/agent-app}^..." run build
+
       - name: Verify Windows native control transport
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
         if: runner.os == 'Windows'
-        run: pnpm install --frozen-lockfile && pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/windows-security.test.ts src/session-inventory/__tests__/windows-control-pipe.test.ts
-
-      - name: Build workspace
-        working-directory: ${{ env.PRODUCT_WORKSPACE }}
-        run: pnpm install --frozen-lockfile && pnpm build
+        run: pnpm --filter './packages/agent-cli' exec vitest run --no-file-parallelism --reporter verbose src/session-inventory/__tests__/windows-security.test.ts src/session-inventory/__tests__/windows-control-pipe.test.ts
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -346,7 +346,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
       - name: Generate selected product workspace
         id: product
         shell: bash
@@ -403,7 +403,7 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
-      - run: pnpm install --frozen-lockfile
+      - run: pnpm install --ignore-workspace --frozen-lockfile --lockfile-dir .
       - name: Generate selected product workspace
         id: product
         shell: bash

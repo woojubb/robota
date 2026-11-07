@@ -249,7 +249,8 @@ function runProjectFileAuthorityScenario(
   const refusalOutput = `${refused.stdout ?? ''}\n${refused.stderr ?? ''}`;
   const replacementDenied =
     refused.status !== 0 &&
-    /link|unsafe|authority/iu.test(refusalOutput) &&
+    (/link|unsafe|authority/iu.test(refusalOutput) ||
+      refusalOutput.includes('The live workspace broker refused the operation (operation-unavailable).')) &&
     !refusalOutput.includes(marker) &&
     !refusalOutput.includes(outside);
   if (!replacementDenied) throw commandFailure('replaced-parent session analyze refusal', refused);

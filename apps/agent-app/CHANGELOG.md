@@ -1,5 +1,12 @@
 # @robota-sdk/agent-app
 
+## 3.0.9
+### Patch Changes
+
+- Updated dependencies [7e55f21]
+  - @robota-sdk/agent-cli@3.1.1
+  - @robota-sdk/product-config@3.1.1
+
 ## 3.0.8
 ### Patch Changes
 
