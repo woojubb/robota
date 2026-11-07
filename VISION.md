@@ -30,4 +30,4 @@ remain neutral, with task and product choices composed at their proper boundarie
 
 This is an ambition to build toward, not a claim that reliable autonomous self-evolution is already
 achieved. Current capabilities and guarantees belong in their technical documentation. Operational
-developer guidance belongs in [AGENTS.md](AGENTS.md) and [HARNESS.md](HARNESS.md).
+developer guidance belongs in [AGENTS.md](AGENTS.md).

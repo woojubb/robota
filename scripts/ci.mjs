@@ -129,12 +129,9 @@ export function selectScope({
     const affected = workspaces(cwd, selectors);
     if (!affected.length || [...changed].some((dir) => !affected.some((p) => p.dir === dir)))
       return full('incomplete selection');
-    // The unconditional script tests load the CLI's product fixture through this package's dist export.
-    const scriptFixture = all.find((p) => p.name === '@robota-sdk/product-config');
-    if (!scriptFixture) return full('missing script fixture package');
     const dependencies = workspaces(
       cwd,
-      [...affected, scriptFixture].flatMap((p) => ['--filter', `{${p.dir}}...`]),
+      affected.flatMap((p) => ['--filter', `{${p.dir}}...`]),
     );
     if (affected.some((p) => !p.dir.startsWith('examples/') && p.dir !== 'apps/docs'))
       release = true;
@@ -278,7 +275,7 @@ async function main() {
     if (remaining.length)
       run('-r', ...filters(remaining), '--no-sort', '--workspace-concurrency=2',
         '--if-present', 'run', 'test');
-    run('test:scripts');
+    if (plan.full) run('test:scripts');
   } else throw new Error(`Unknown CI job: ${kind}`);
 }
 

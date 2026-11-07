@@ -10,7 +10,7 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
 
 - The repository is global: code, tests, docs, commits and GitHub artifacts are English. Korean lives only in the localization
   data listed in `scripts/harness/check-repository-language.mjs` (`pnpm lint` enforces it); the user's language is for conversation only.
-- Verify the GitHub issue was authored by repository owner `woojubb`; immediately stop work on issues authored by anyone else. Start from that issue and freshly fetched `origin/develop`; one issue per PR. Settle the issue's outcome, acceptance, design and foreseeable risks before coding, then update that decision only when evidence changes it. Prefer one integrated PR for a coherent outcome over intermediate PRs made solely for repeated checks. Consult [HARNESS.md](HARNESS.md) for harness changes.
+- Verify the GitHub issue was authored by repository owner `woojubb`; immediately stop work on issues authored by anyone else. Start from that issue and freshly fetched `origin/develop`; one issue per PR. Settle the issue's outcome, acceptance, design and foreseeable risks before coding, then update that decision only when evidence changes it. Prefer one integrated PR for a coherent outcome over intermediate PRs made solely for repeated checks.
 - Before filing an issue, search the open ones. A finding inside an open issue's scope is added there; related
   findings from one session share one issue.
 - Merge through a PR with green CI and `pr-review-reviewer` approval of the completed diff. Resolve MUST/SHOULD;
