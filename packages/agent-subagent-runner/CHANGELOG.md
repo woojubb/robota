@@ -1,5 +1,249 @@
 # @robota-sdk/agent-subagent-runner
 
+## 3.1.0
+### Minor Changes
+
+- 82663df: One session has one writer across processes. Every claim of a session id now holds the id's writer
+  marker in a `claims/` directory beside the records, so a second opener of a session another process
+  has open is refused with `has_writer`, naming that process — `-r`, `-c`, the resume picker, ACP
+  `session/load`, the served and desktop pool, a served switch, rename and delete. This is a break: a
+  session that two processes could open at once before is now refused in the second one.
+
+  `@robota-sdk/agent-core` adds exclusive process markers: the neutral `IProcessMarkers` port with its
+  result types, and `createProcessMarkers` on `./node`. A marker is published by hard-linking a flushed
+  temp file, moved or removed only under its break lock, and re-verified by its handle before each
+  write. The owner record and its liveness rule are now one exported classifier,
+  `classifyProcessOwner`, shared with process-scoped directories.
+
+  `@robota-sdk/agent-interface-session` and `@robota-sdk/agent-session`: `StoredSessionRecords` takes
+  the marker port, and a store without one does not exist. `claim(id, { lease })` takes over a lent
+  marker and `claim(id, { copy: true })` reads a record to copy it without one. `lend(id)` is new: it
+  lends a record to another process for as long as that process runs and returns `{ nonce, end() }`.
+  Every write of an id holds its marker, and a save whose marker another process broke is refused as
+  `released`, never written. `hasWriter` now sees other store instances and processes. Removed, since
+  `lend` replaces them: `ISessionAuthorship.exportEnded`, the store's export bookkeeping
+  (`hasUnclaimedWriter`), the `exported` claim refusal and the `exported` adopt result.
+  `TSessionClaimRefusal` is `has_writer | released`, `TSessionAdoptResult` has `has_writer` in place of
+  `exported`, and `has_writer` is a session change and delete refusal code. A store may name its release
+  command for a refusal (`releaseCommand`). A refusal of a record lent to a subagent names the
+  subagent's process once it took the marker over, and says a subagent this process started holds it
+  before (`holder.lent`); `SessionClaimedError.closing` is true only for a session of this process that
+  has not let its claim go, which is the one refusal a caller may wait out (`still_closing`).
+
+  `@robota-sdk/agent-subagent-runner`: the parent lends a fork job's record before it spawns the child,
+  in either mode; the lease nonce rides on the start payload (`resumeLease`); the child claims its
+  record under the lease, saves under that claim and releases it on every exit; the parent ends the
+  lease once the child has exited and disconnected, then countersigns under its own marker. A running
+  child-process fork therefore has one writer, and attaching to it is refused until the job ends.
+
+  `@robota-sdk/agent-cli` adds `session release <id> [--force]`, the user's own command for a marker a
+  crashed or planted process left: on its own it removes only a marker whose process has ended, and
+  `--force` removes one whose process may still run only at a terminal and after a y/N. `secure migrate`
+  leaves a session open in another process as it is and names it.
+
+  A terminal start whose resumed session another process holds now ends with the store's refusal, as print
+  mode does, instead of Ink's error screen; `@robota-sdk/agent-framework` exports `claimRefusalMessage`
+  for it, and `claimChangeRefusal` / `claimDeleteRefusal`, which turn a store's claim refusal into the
+  client's: `still_closing` for a switch or rename (and `running` for a delete) when a session of this
+  process is still closing, `has_writer` in the store's words otherwise. Served rename and delete now
+  let the store's write refuse in those words. `@robota-sdk/agent-ui-terminal`: picking a session another process or a subagent holds in the
+  resume picker leaves the person on their session, with the store's words as a notice, instead of
+  stopping it and blocking the UI on a retry of the same refusal.
+- bc8de21: Subagent transcripts and fork jobs work with sealed conversation stores.
+
+  What breaks, and what to do:
+
+  - `createChildProcessSubagentRunnerFactory` and `ChildProcessSubagentRunner` require `logSealing`:
+    how the children keep their logs, `{ sealer }` or `'plain'`. A host that seals passes its sealer
+    and implements `bindWriteGrant(grant)` in its worker composition; any other host passes `'plain'`.
+  - `createSubagentLogger(parentSessionId, agentId, baseLogsDir, { sealing }, fs?)` requires `sealing`
+    as its fourth argument, ahead of the optional file system; pass `'plain'` for a plain log.
+  - `TSubagentWorkerParentMessage` gains `{ type: 'sealing_key'; grant }`, which
+    `isSubagentWorkerParentMessage` accepts: a worker of your own handles it by binding the new grant,
+    or stops when it cannot seal to it.
+
+  What is new:
+
+  - A fork job's log is now read from the file the child writes. The child names its log after the
+    session it runs (the forked record, else the task) and the parent read `<taskId>.jsonl`, so
+    `/agent read` on a fork job showed "No log lines", and with worktree isolation (the default for
+    `/fork`) the read was not offered at all. `resolveSubagentLogSessionId`,
+    `resolveSubagentTranscriptPath` and `readSubagentTranscriptPage(path, { sealing })`
+    (`@robota-sdk/agent-framework`) are the one rule both sides use.
+  - In a sealed log a page's offset counts stored records, so it names the same record whether or not
+    the keys are locked. `IBackgroundTaskLogPage` gains an optional `unreadable` count of records the
+    page could not show (`locked`, `noKeys`, `doesNotOpen`); a run of locked records shows as one fixed
+    line, and `/agent read` and `/background read` say whether an unlock would read them.
+  - `IInteractiveSessionStore.save` takes optional `{ handoff }`, and the store port gains optional
+    `exportHeld(id, { keep })` and `importHeld(id, token)`, implemented by `NodeSessionStore` and
+    `WorkspaceProjectSessionStore`: a record written for a fork job is kept apart from the sessions a
+    sealing store runs and handed to the job once. A fork job restores from a read made the way a
+    writer reads, so an in-process fork job restores the fork `/fork` just wrote while the keys are
+    locked. A sealed record a write-only store cannot open loads as
+    `{ status: 'locked', reason: 'no-keys' }`.
+  - `@robota-sdk/agent-subagent-runner`: with a sealer, the start payload carries the write grant (no
+    secret) the sealer issues when the payload is sent and, for a fork job, the parent's held record as
+    `resumeHeld` (at most 32 MiB; the job is refused before anything is made for it when none can be
+    handed over, naming "unlock" only when locked keys are why). A child already sent its payload gets
+    a newer grant as a `sealing_key` message, and one that cannot follow it stops. `bindWriteGrant`
+    must return a sealer whose `writeGrant()` equals the grant, or the job fails. `ISubagentRunner`
+    gains optional `preflight(job)`, which refuses what `start` would and changes nothing; the worktree
+    runner calls it before it prepares a worktree. A job whose start payload cannot be built or sent
+    after its child was spawned now cancels the child before it rejects.
+  - Job handles may say `transcriptSealed`, and the manager projects it into the task state beside
+    `transcriptPath` (`IBackgroundTaskState`, `ISubagentJobState`), where the session record codec
+    accepts it. A job-group result gets `transcriptSealed` too. SubagentStart/Stop hooks get
+    `transcript_sealed: true` beside the transcript path, and `summarizeBackgroundJobGroup` points at
+    `/agent read <taskId>` instead of the path, also for a group restored in a later session.
+- a2d36ea: Session assembly, the runtime and the query read what the host lends instead of reaching for Node. A capability the host leaves out is absent, and `{}` is a valid host.
+
+  - `@robota-sdk/agent-framework`: the home directory, workspace path resolver and path canonicalizer a `Session` receives come from `host.homeDirectory`, `host.createWorkspacePathResolver` and `host.canonicalizePath`; one the host omits is not passed, and the session treats it as agent-session documents. The hook executors come from `host.createHookExecutors` (given the shell a product chose for command hooks): a host that lends none seeds none, and a config that declares a command or HTTP hook is refused at assembly, naming the host member. A subagent given no executor list gets the host's; when the host lends none, `createSubagentSession` refuses a declared hook at construction, as its parent does, instead of letting a hook on an advisory event run nothing. The default tool tier comes from `host.createDefaultTools`: a host that lends none has no default tier, `defaultTools` still replaces it, and the framework's runtime code no longer imports `@robota-sdk/agent-tool-defaults` at all (the dynamic import is gone). `createQuery({ host: {}, ... })` therefore has no built-in tools; pass `createNodeFrameworkHost({ createDefaultTools })` for the tools the CLI has. The background task runners of `createAgentRuntime` default to `host.createBackgroundTaskRunners()`, else none, and a task kind with no runner is refused by the manager. A failed lifecycle observer goes to `host.reportObserverFailure`, else the executor's own `console.warn` line. The auto-mode classifier lists git remotes through `host.readGitRemotes`; a host that lends none trusts no remote. A trusted `projectAccess` on `createQuery` or `createAgentRuntime` needs `host.canonicalizePath`; without it they throw `WorkspaceAuthorityRequiredError`. `createSession` no longer imports `node:crypto`. `BackgroundJobOrchestrator` takes `reportObserverFailure` in its options. `createSubagentLogger`, `migrateSubagentTranscripts`, `readSubagentTranscriptPage`, `resolveSubagentLogDir`, `resolveSubagentLogSessionId`, `resolveSubagentTranscriptPath` and their types move from the main entry to `@robota-sdk/agent-framework/node`.
+  - `@robota-sdk/agent-executor`: exports `reportObserverFailureAsConsoleWarning`, the line a manager writes when no reporter is given, for an owner that delivers to observers itself.
+  - `@robota-sdk/agent-subagent-runner`, `@robota-sdk/agent-cli`: import the subagent transcript functions from `@robota-sdk/agent-framework/node`.
+- 7ce5e73: Add the framework host and make `host` and `cwd` required wherever the framework builds a session. The host is passed and accepted but nothing reads it yet, so behaviour is unchanged.
+
+  - `@robota-sdk/agent-framework`: `IFrameworkHost` lists what a platform lends the framework (home directory, workspace resolver, path canonicalizer, exit flush, environment, files, git, git remotes, hook executors, background task runners, default tools, observer failure report, async scope, project mutation support). Every member is optional and an absent one means the capability is off, so `{}` is a valid host. `IAsyncScope` is the port behind `createAsyncScope`.
+  - `@robota-sdk/agent-framework/node` (new, `"browser": null`) exports `createNodeFrameworkHost({ createDefaultTools })`, which fills every member for a Node process. The composition root names `createDefaultTools` from `@robota-sdk/agent-tool-defaults`; pass `() => []` for sessions with no default tier. `@robota-sdk/agent-framework/testing` exports `createTestFrameworkHost(overrides?)`, the same host with the real default tools, where an override replaces a member and an explicit `undefined` removes it.
+  - `host` is required on `InteractiveSession` (both construction shapes, so on `buildRuntimeSession` and `startRuntimeHost` too), `createSession`, `createSubagentSession`, `createQuery`, `createAgentRuntime` and `createStatelessRuntime`, and on the options of `createInteractiveRuntime`, `createProgrammaticAgent`, `HeadlessInteractionChannel` and an in-process subagent runner. A missing `host` throws at construction, naming `createNodeFrameworkHost`.
+  - `cwd` is required, and absolute as it already had to be, on `createSession`, `createQuery`, `createStatelessRuntime` and an injected-session `InteractiveSession`. The `process.cwd()` fallback is gone: a caller that relied on it passes `process.cwd()` itself.
+  - `@robota-sdk/agent-cli`: `startCliCore` takes the host as its second argument and `runPrintMode` as its second after the product runtime; `startCli` and the headless entry build it with `createNodeFrameworkHost`. `IRunEvalDeps.host` is required unless `runFn` is given.
+  - `@robota-sdk/agent-subagent-runner`: `ISubagentWorkerComposition.host` is required; the worker builds its child session on it, and the product's composition supplies it.
+  - `@robota-sdk/agent-ui-terminal`: `IRenderOptions` and `ITuiInteractionChannelOptions` take `host`.
+  - `@robota-sdk/agent-command`, `@robota-sdk/agent-product`: their tests and scenario scripts pass a host; no published surface changes.
+
+### Patch Changes
+
+- 51ad6a4: Children in their own session for secure mode (issue #3679). Nothing turns secure mode on yet, so
+  spawning in every product process is unchanged except for the pull-request opener below.
+
+  `@robota-sdk/agent-core/node` adds the child-session policy: `enableOwnChildSessions()` (one-way,
+  process-wide, nothing on Windows), `withChildSession(options)`, `execFileInChildSession(...)`,
+  `endWithProcess(child)` and `signalChildGroup(child, signal)`, with `resetChildSessionsForTesting()`
+  in `@robota-sdk/agent-core/testing`. While the policy is off each returns or runs exactly what the
+  caller did before. While on, a child leads its own session and process group, may not inherit a
+  terminal descriptor, and its group is killed when the process ends. Command hooks, the identity
+  readers, stdio MCP servers, git, the sandbox, background tasks and the CLI's own children use it; the
+  terminal handover (`/editor`, `/keybindings`, `/shell`, the workspace-move re-exec) does not.
+
+  Breaking: `removeProcessScopedDirectoriesNow()` is renamed `runProcessEndNow()`, since it now also
+  ends the groups of children in their own session. What to do: call `runProcessEndNow()` where a
+  crash handler called the old name.
+
+  Plain-mode changes in `@robota-sdk/agent-cli`: the session view opens a pull request with the
+  product's own browser opener instead of the `open` package, which is no longer a dependency. macOS
+  still runs `open <url>`; Linux runs the `xdg-open` found on `PATH`; Windows runs
+  `rundll32 url.dll,FileProtocolHandler <url>` rather than PowerShell's `Start`; and only an https
+  link opens. That opener, which sign-in also uses, is now started detached and let go: it settles once
+  the opener has started rather than when it exits (it no longer fails after 15 seconds when
+  `xdg-open` stays in the foreground), and it is never ended with the process. What to do: nothing.
+- eabce48: A record a store that seals does not verify as the owner's is never resumed, chosen or vouched for
+  without the owner's word.
+
+  - Resume: `-c` continues the newest verified session and stops when a newer unverified one exists
+    (asking at a terminal, exiting elsewhere). `-r` takes a verified or plain record's exact id, then
+    such a record's name, then any other record's id, and refuses a text that is both a verified
+    record's name and the id of a record that is unverified or does not read
+    (`ambiguousSessionNameMessage`); a store that never seals has no verified record, so there an
+    exact id answers before a name and nothing is refused as ambiguous. Breaking:
+    `resolveSessionIdByIdOrName` returns a `TSessionIdResolution` (`found`, `ambiguous` with `namedId`
+    and `otherId`, `not-found`) instead of an id. An unverified id, or one picked in the picker, is
+    shown in fixed text (`unverifiedSessionNotice`, `UNVERIFIED_SESSION_QUESTION`) and asked about —
+    before startup only when stdin, stdout and stderr are all a terminal; a yes hands the session the
+    digest of exactly the bytes shown. Surfaces with no one to ask refuse
+    it, a served switch with the new change-refusal code `unverified`. Listings put unverified records
+    after verified ones, the picker marks them first and cuts their names short, and
+    `session list --json` adds `authorship`.
+  - Forks: a child handed a sealed record runs it only when the parent held it as the owner's, and
+    reports each save of it as the new `record_saved` member of
+    `TSubagentWorkerChildMessage`, and the parent vouches for the last one once the child is gone, when
+    the job started from the owner's own record and no save was refused.
+  - Migration: `secure migrate` offers once, at the end of a finished interactive run, to mark the
+    sessions it sealed from plaintext (`sealedRecords` on the migration results) as yours. Each store
+    is marked on its own; one it could not reach is named, and records the keys locked before marking
+    are said to be not marked, to be marked when resumed, apart from changed ones.
+
+  What to do: handle `unverified` and `record_saved` where you switch on `TSessionChangeRefusalCode`
+  or `TSubagentWorkerChildMessage`, and read `resolveSessionIdByIdOrName`'s `status`.
+- eabce48: Every `InteractiveSession` claims its record and restores only from the claim's read.
+
+  - Breaking: a session store that offers no `claim` is refused when the session is built, and so is
+    one given to the in-process subagent runner. `restoreSessionRecordIntoSession` takes the read to
+    restore from (a claim's, or a write-only child's of its handed record) and refuses an unverified
+    one; it no longer reads the store itself.
+  - A record a store that seals calls unverified is refused (`SessionAuthorshipRefusedError`,
+    `isSessionAuthorshipRefusedError`: fixed text, nothing the record says) unless the new
+    `acceptedDigest` option names exactly its bytes. Those bytes are raised to the owner's only once the
+    session has restored from them, and never by `--fork-session`, whose new record is the owner's.
+    `checkRestoredRecord` judges the record the session actually restores.
+  - Every save of the session's id carries the claim, and every way the session ends releases it —
+    `releaseSessionClaim()` for a host that stops waiting on a shutdown. A pool asked for an id
+    something here still holds refuses with the new change-refusal code `still_closing`
+    (`SESSION_STILL_CLOSING_MESSAGE`, or the store's words for a record a subagent may still save:
+    `claimedSessionMessage`).
+  - Attach to a fork is no longer offered, and is refused with the reason, while a job in this process
+    runs the fork or a child it was handed to may still save it: attaching opens the record as a second
+    session, a second writer. Breaking: `ICreateExecutionWorkspaceSnapshotInput.sessionHasWriter` and
+    `IResolveExecutionAttachInput.hasWriter` are required, and both read the store's `hasWriter`.
+  - When something the session cannot verify changes its record on disk, the session stops saving that
+    id and starting work on its own, saves its whole state once under a new id as the owner's, and
+    says which. A save only the locked keys refused is tried again at the unlock, and a session that
+    ends while either refusal stands, or whose copy could not be written, writes that copy as it ends.
+
+  What to do: give a session store of your own `claim`; handle `still_closing` where you switch on
+  `TSessionChangeRefusalCode`.
+- Updated dependencies [bc8de21]
+- Updated dependencies [51ad6a4]
+- Updated dependencies [d46727b]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [82663df]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [04c3233]
+- Updated dependencies [9bc13f9]
+- Updated dependencies [830d3d2]
+- Updated dependencies [0a677e9]
+- Updated dependencies [a8c9e25]
+- Updated dependencies [5b46d43]
+- Updated dependencies [fab48ad]
+- Updated dependencies [ea0e424]
+- Updated dependencies [ee7f7ef]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [0fec62f]
+- Updated dependencies [7ce5e73]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [0fec62f]
+- Updated dependencies [be32d9b]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [b7b6cd0]
+- Updated dependencies [8069d0e]
+- Updated dependencies [f5e3057]
+- Updated dependencies [d8cb04f]
+- Updated dependencies [42d595e]
+- Updated dependencies [0a677e9]
+- Updated dependencies [44e9640]
+- Updated dependencies [b56b5a9]
+- Updated dependencies [1c19435]
+- Updated dependencies [4e4c92a]
+- Updated dependencies [6ba10ef]
+  - @robota-sdk/agent-core@3.1.0
+  - @robota-sdk/agent-framework@3.1.0
+  - @robota-sdk/agent-executor@3.1.0
+  - @robota-sdk/agent-interface-execution@3.1.0
+  - @robota-sdk/agent-process@3.1.0
+
 ## 3.0.7
 ### Patch Changes
 

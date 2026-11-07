@@ -1,5 +1,45 @@
 # @robota-sdk/agent-tool-defaults
 
+## 3.1.0
+### Minor Changes
+
+- 42d595e: Split `@robota-sdk/agent-tools` into a platform-neutral main entry and a Node-only `@robota-sdk/agent-tools/node`.
+
+  - `@robota-sdk/agent-tools/node` (new, `"browser": null`) holds what touches a host: `createShellTool`, `createBashTool`, `createReadTool`, `ReadByteLimitError`, `ReadCancelledError`, `createWriteTool`, `createEditTool`, `createGlobTool`, `createGrepTool`, `GrepIsolationError`, `webFetchTool`, `createWebFetchTool`, `DEFAULT_OS_SANDBOX_SETTINGS`, `detectOsSandbox`, `OsSandboxClient`, `bubblewrapArguments`, `protectedWorkspaceEntries`, `seatbeltProfile`, their option and status types, and the new `createNodeWorkspaceHostFiles`. `fast-glob`, `@robota-sdk/agent-process` and `@robota-sdk/agent-file-authority` are reached only from it. Import these from `/node`.
+  - The main entry keeps `createFunctionTool`, `createZodFunctionTool`, `createAskUserQuestionTool`, `createToolSearchTool`, `matchDeferredTools`, the sandbox ports, `E2BSandboxClient`, `InMemorySandboxClient`, `applyWorkspaceManifest`, retrieval and computer use, and the option types of the built-in tools. Its source reaches no Node built-in or Node global: `AskUserQuestion` ids come from `randomId`, `E2BSandboxClient` decodes a binary file read with `TextDecoder` (a leading byte-order mark is kept, as before), and `PageComputerDriver` encodes screenshots with `btoa`.
+  - `applyWorkspaceManifest` no longer reads the host itself. The `hostRoot` option is replaced by `hostFiles` (`IWorkspaceHostFiles`: `resolve`, which turns a `src` into a host path, `readText`, `readDirectory`). Absent, a manifest that names a `localFile` or `localDir` entry is refused before any entry is applied, with an error naming `hostFiles`; a manifest with no local entry still applies. `createNodeWorkspaceHostFiles(root)` from `/node` is the Node implementation, and `agent-framework` passes it with the session's working directory.
+  - Temporary: the main entry still re-exports the eleven Node names that the published `@robota-sdk/workflows` 0.0.3 (bundled by `agent-cli`) imports from it, and keeps `"browser": null`. They leave with the next workflows release, and the main entry becomes platform-neutral then.
+  - `agent-tool-defaults`, `agent-framework` and `agent-cli` import the Node tools and the OS sandbox from `@robota-sdk/agent-tools/node`.
+
+### Patch Changes
+
+- 0a677e9: Remove the built-in `WebSearch` tool, its `IWebSearchProvider` port and the Brave adapter (`webSearchTool`, `createWebSearchTool`, `createBraveSearchProvider`). Web search now comes from model-native provider search and from MCP servers. `createDefaultTools` holds only tools that need no external service or adapter: its `retrievalAdapter` and `computerDriver` options are gone, as is the framework's `retrievalAdapter` session option; a composition root that has such an adapter builds `createRetrievalTool` / `createComputerTool` itself.
+- Updated dependencies [bc8de21]
+- Updated dependencies [51ad6a4]
+- Updated dependencies [bc8de21]
+- Updated dependencies [82663df]
+- Updated dependencies [bc8de21]
+- Updated dependencies [04c3233]
+- Updated dependencies [9bc13f9]
+- Updated dependencies [45c11a2]
+- Updated dependencies [0a677e9]
+- Updated dependencies [5b46d43]
+- Updated dependencies [fab48ad]
+- Updated dependencies [ea0e424]
+- Updated dependencies [ee7f7ef]
+- Updated dependencies [0fec62f]
+- Updated dependencies [b7b6cd0]
+- Updated dependencies [8069d0e]
+- Updated dependencies [f5e3057]
+- Updated dependencies [d8cb04f]
+- Updated dependencies [42d595e]
+- Updated dependencies [0a677e9]
+- Updated dependencies [44e9640]
+- Updated dependencies [b56b5a9]
+- Updated dependencies [1c19435]
+  - @robota-sdk/agent-core@3.1.0
+  - @robota-sdk/agent-tools@3.1.0
+
 ## 3.0.7
 ### Patch Changes
 

@@ -1,5 +1,11 @@
 # @robota-sdk/agent-organization-host
 
+## 3.0.8
+### Patch Changes
+
+- Updated dependencies [b56b5a9]
+  - @robota-sdk/agent-organization@3.1.0
+
 ## 3.0.7
 ### Patch Changes
 
