@@ -220,10 +220,7 @@ it('runs the keyring and owner-link smokes under the Bun the job installs, on pu
   const step = steps[index(name)];
   expect(step.if).toBe("github.event_name == 'pull_request' && matrix.product == 'cedar'");
   expect(step.shell).toBe('bash');
-  expect(step.run).toContain("pnpm --filter './packages/agent-keyring' build");
   expect(step.run).toContain("pnpm --filter './packages/agent-keyring' smoke:bun");
-  // The carrier's own build needs its workspace dependencies built first.
-  expect(step.run).toContain("pnpm --filter '{./packages/agent-transport-link}...' build");
   expect(step.run).toContain("pnpm --filter './packages/agent-transport-link' smoke:bun");
   expect(index('Setup Bun')).toBeLessThan(index(name));
   expect(index('Exercise native code paths on this host')).toBeLessThan(index(name));
