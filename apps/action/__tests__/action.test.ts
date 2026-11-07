@@ -18,7 +18,6 @@ interface IRun {
 interface IFakes {
   reply?: string;
   installFailure?: Error;
-  trustFailure?: Error;
   cliFailure?: Error;
 }
 
@@ -38,7 +37,7 @@ function act(env: NodeJS.ProcessEnv, fakes: IFakes = {}) {
     },
     run: (entry, args, childEnv, input) => {
       runs.push({ entry, args, env: childEnv, input });
-      const failure = args[0] === 'trust' ? fakes.trustFailure : fakes.cliFailure;
+      const failure = fakes.cliFailure;
       if (failure) throw failure;
       return fakes.reply ?? 'the reply';
     },
@@ -129,14 +128,14 @@ describe('runAction', () => {
     expect(logs).toContain('cli-version must be a version or dist-tag');
   });
 
-  it('trusts the checkout first, and drops --safe-mode, when load-project is true', () => {
-    const { code, runs } = act({ ACTION_TASK: 'go', ACTION_LOAD_PROJECT: 'true' });
+  it('refuses unattended project loading before installing or running a CLI', () => {
+    const { code, installs, runs, outputs, logs } = act({ ACTION_TASK: 'go', ACTION_LOAD_PROJECT: 'true' });
 
-    expect(code).toBe(0);
-    expect(runs.map((run) => [run.args, run.input])).toEqual([
-      [['trust', '--yes'], undefined],
-      [['--output-format', 'text', '-p'], 'go'],
-    ]);
+    expect(code).toBe(1);
+    expect(installs).toEqual([]);
+    expect(runs).toEqual([]);
+    expect(outputs).toBe('');
+    expect(logs).toContain('load-project cannot run in CI because workspace trust requires a person at a terminal');
   });
 
   it('never puts the task in argv, so no word of it can be read as an option or a subcommand', () => {
@@ -212,19 +211,6 @@ describe('runAction', () => {
 
     expect(logs).toContain('The selected CLI failed: it was stopped by SIGTERM');
     expect(logs).not.toContain('secret task');
-  });
-
-  it('says that trusting the checkout failed, and why', () => {
-    const { code, runs, logs } = act(
-      { ACTION_TASK: 'go', ACTION_LOAD_PROJECT: 'true' },
-      { trustFailure: exitFailure(1, 'Workspace trust: identity-unavailable\nWorkspace: /w') },
-    );
-
-    expect(code).toBe(1);
-    expect(runs).toHaveLength(1);
-    expect(logs).toContain(
-      'Trusting the checkout failed: it exited with code 1: Workspace trust: identity-unavailable Workspace: /w',
-    );
   });
 
   it('says that installing the CLI failed', () => {

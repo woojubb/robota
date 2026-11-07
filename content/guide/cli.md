@@ -160,10 +160,9 @@ In the terminal UI the same feature is `/goal <objective>`, with `/goal status` 
 ### CI and scripts
 
 For unattended runs, pick a permission mode that does not need a person, send the prompt on stdin,
-and use JSON output. A fresh checkout is untrusted, and `__PRODUCT_CLI_NAME__ -p` exits with an error there until
-you either have a person approve it at a terminal with `__PRODUCT_CLI_NAME__ trust --yes` (the project's instruction files,
-skills, plugins, hooks and MCP servers then load, so only do this for code you trust) or run with `--safe-mode` (all of those
-stay off and the folder stays Restricted):
+and use JSON output. A fresh checkout is untrusted. Workspace trust requires confirmation at a
+terminal, so an unattended job cannot grant it. Run with `--safe-mode`: project instruction files,
+skills, plugins, hooks and MCP servers stay off and the folder stays Restricted.
 
 ```yaml
 # .github/workflows/ai-review.yml
