@@ -96,7 +96,7 @@ export interface ISpawnAgentJobInput {
 export async function spawnAgentJobFromSession(
   session: Session,
   input: ISpawnAgentJobInput,
-  cwd: string | undefined,
+  cwd: string,
   invocationSource: TCommandInvocationSource,
   subagentSpawnCommandName: string | undefined,
 ): Promise<ISubagentJobState> {
@@ -115,7 +115,7 @@ export async function spawnAgentJobFromSession(
     parentSessionId: sessionId,
     mode: input.mode,
     depth: (deps.subagentDepth ?? 0) + 1,
-    cwd: deps.cwd ?? cwd ?? process.cwd(),
+    cwd: deps.cwd ?? cwd,
     prompt: input.prompt,
     model: input.model ?? definition.model,
     ...(effort !== undefined ? { effort } : {}),

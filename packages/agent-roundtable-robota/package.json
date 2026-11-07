@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-roundtable-robota",
-  "version": "3.0.7",
+  "version": "3.1.0",
   "description": "Run Robota Session and Robota agents as agent-roundtable participants and selectors",
   "type": "module",
   "main": "dist/index.js",
@@ -19,6 +19,7 @@
     },
     "./session": {
       "source": "./src/session.ts",
+      "browser": null,
       "import": {
         "types": "./dist/session.d.ts",
         "default": "./dist/session.js"
@@ -46,8 +47,8 @@
     "@robota-sdk/agent-roundtable": "workspace:*"
   },
   "peerDependencies": {
-    "@robota-sdk/agent-core": "workspace:*",
-    "@robota-sdk/agent-session": "workspace:*"
+    "@robota-sdk/agent-core": "workspace:^",
+    "@robota-sdk/agent-session": "workspace:^"
   },
   "peerDependenciesMeta": {
     "@robota-sdk/agent-session": {

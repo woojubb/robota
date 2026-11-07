@@ -10,6 +10,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { createNodeWorkspaceProjectFiles } from './node-project-files.js';
 import { mintWorkspaceProjectAuthority } from './workspace-authority.js';
 import { prepareWorkflowJsonMutation } from './project-mutation.js';
 
@@ -32,6 +33,7 @@ function fixture() {
     identity,
     { resolve: () => identity },
     () => live,
+    createNodeWorkspaceProjectFiles(),
   );
   return {
     container,

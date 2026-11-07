@@ -46,7 +46,9 @@ export function formatPersonalUsageReport(report: IPersonalUsageReport): string 
           (activity) => `${activity.kind}:${activity.label}  ${activity.count} calls`,
         )),
     '',
-    `Coverage: legacy ${report.coverage.legacyObservations}, corrupt ${report.coverage.corruptSessions}, unsupported ${report.coverage.unsupportedSessions}, duplicates ${report.coverage.duplicateObservations}`,
+    `Coverage: legacy ${report.coverage.legacyObservations}, corrupt ${report.coverage.corruptSessions}, unsupported ${report.coverage.unsupportedSessions}, ${
+      (report.coverage.lockedSessions ?? 0) > 0 ? `locked ${report.coverage.lockedSessions}, ` : ''
+    }duplicates ${report.coverage.duplicateObservations}`,
     'Local estimates from recorded sessions; costs are not an invoice.',
   ].join('\n');
 }

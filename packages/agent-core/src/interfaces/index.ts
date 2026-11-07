@@ -106,6 +106,7 @@ export type {
 export {
   assertProviderNativeWebToolsAvailable,
   createDefaultProviderCapabilities,
+  readNativeWebSearchOption,
 } from './provider-capabilities';
 export { getProviderCapabilities } from './provider';
 
@@ -292,7 +293,29 @@ export type { ISpinner, ITerminalOutput } from './terminal-output';
 
 export type { ISession } from './session';
 
-export type { IDirent, IStats, IFileSystem, IFileSystemAsync } from './file-system';
+export type { IDirent, IStats, IFileSystem, IFileSystemAsync, TFileEncoding } from './file-system';
 export type { ICredentialKey, ICredentialStore } from './credential-store';
+export type {
+  IArtifactContext,
+  IArtifactSealer,
+  TArtifactKind,
+  TArtifactSealing,
+} from './artifact-sealer';
+export { ARTIFACT_KEY_REUSE } from './artifact-sealer';
+export type {
+  IProcessIdentity,
+  IProcessMarkerAcquireOptions,
+  IProcessMarkerHandle,
+  IProcessMarkerHolder,
+  IProcessMarkerOperationLock,
+  IProcessMarkerRemoveOptions,
+  IProcessMarkers,
+  TProcessMarkerAcquireResult,
+  TProcessMarkerGuardResult,
+  TProcessMarkerRemoveResult,
+  TProcessMarkerState,
+  TProcessMarkerTakeOverResult,
+  TProcessOwnerLiveness,
+} from './process-marker';
 // Issue #2056: the structured-output shape a session forwards into the agent config.
 export type { IResponseFormatConfig } from './response-format';

@@ -3,6 +3,7 @@ import { inspectUserLocalStorage } from '@robota-sdk/agent-framework';
 import { USER_LOCAL_COMMAND_USAGE } from './user-local-command-constants.js';
 import { executeMemoryCommand } from './user-local-memory-command.js';
 
+import type { IFileSystemAsync } from '@robota-sdk/agent-core';
 import type { ICommandHostWorkspace } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 export {
@@ -13,9 +14,21 @@ export {
 
 type TUserLocalOutputFormat = 'text' | 'json';
 
+/**
+ * What `/user-local` answers on a host that supplied no file system: the storage root is a
+ * directory it could neither list nor write, so there is nothing to inspect or change.
+ */
+const USER_LOCAL_UNAVAILABLE_MESSAGE =
+  '/user-local is unavailable on this host: it supplies no file system.';
+
 export interface IUserLocalDirectCommandOptions {
   readonly cwd: string;
   readonly storageRoot: string;
+  /**
+   * The files the command reads and writes through; a Node host passes `NodeFileSystemAsync` from
+   * `@robota-sdk/agent-framework/node`. Absent, the command answers that it is unavailable.
+   */
+  readonly fsAsync?: IFileSystemAsync;
   readonly argv: readonly string[];
   readonly format?: string;
   readonly summary?: string;
@@ -125,6 +138,7 @@ function formatStorageInspectionText(
 async function executeStorageCommand(
   cwd: string,
   storageRoot: string,
+  fsAsync: IFileSystemAsync,
   parsed: IParsedUserLocalCommand,
 ): Promise<ICommandResult> {
   if ((parsed.action ?? 'list') !== 'list') {
@@ -134,7 +148,11 @@ async function executeStorageCommand(
     };
   }
 
-  const inspection = await inspectUserLocalStorage({ activeRepositoryRoot: cwd, storageRoot });
+  const inspection = await inspectUserLocalStorage({
+    activeRepositoryRoot: cwd,
+    storageRoot,
+    fsAsync,
+  });
   return {
     message:
       parsed.format === 'json'
@@ -152,13 +170,17 @@ async function executeStorageCommand(
 async function executeParsedUserLocalCommand(
   cwd: string,
   storageRoot: string,
+  fsAsync: IFileSystemAsync | undefined,
   parsed: IParsedUserLocalCommand,
 ): Promise<ICommandResult> {
+  if (fsAsync === undefined) {
+    return { message: USER_LOCAL_UNAVAILABLE_MESSAGE, success: false };
+  }
   if (parsed.target === 'storage') {
-    return executeStorageCommand(cwd, storageRoot, parsed);
+    return executeStorageCommand(cwd, storageRoot, fsAsync, parsed);
   }
   if (parsed.target === 'memory') {
-    return executeMemoryCommand(cwd, storageRoot, parsed);
+    return executeMemoryCommand(cwd, storageRoot, fsAsync, parsed);
   }
   return {
     message: USER_LOCAL_COMMAND_USAGE,
@@ -180,6 +202,7 @@ export async function executeUserLocalDirectCommand(
     return await executeParsedUserLocalCommand(
       options.cwd,
       options.storageRoot,
+      options.fsAsync,
       parseUserLocalArgs(options.argv, {
         format: options.format,
         summary: options.summary,
@@ -198,11 +221,13 @@ export async function executeUserLocalCommand(
   context: ICommandHostWorkspace,
   rawArgs: string,
   storageRoot: string,
+  fsAsync?: IFileSystemAsync,
 ): Promise<ICommandResult> {
   try {
     return await executeParsedUserLocalCommand(
       context.getCwd(),
       storageRoot,
+      fsAsync,
       parseUserLocalArgs(splitRawArgs(rawArgs)),
     );
   } catch (error) {

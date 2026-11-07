@@ -15,6 +15,7 @@ export function buildTuiSessionOptions(
   opts: ITuiInteractionChannelOptions,
 ): TInteractiveSessionOptions {
   return {
+    host: opts.host,
     cwd: opts.cwd,
     ...(opts.livePromptTrace ? { livePromptTrace: opts.livePromptTrace } : {}),
     provider: opts.provider,
@@ -85,6 +86,7 @@ export function buildTuiSessionOptions(
     disableSessionLoops: opts.disableSessionLoops,
     resolveDefaultLoopPrompt: opts.resolveDefaultLoopPrompt,
     resumeSessionId: opts.resumeSessionId,
+    ...(opts.acceptedDigest !== undefined ? { acceptedDigest: opts.acceptedDigest } : {}),
     forkSession: opts.forkSession,
     ...(opts.workspaceMovedFrom !== undefined
       ? { workspaceMovedFrom: opts.workspaceMovedFrom }

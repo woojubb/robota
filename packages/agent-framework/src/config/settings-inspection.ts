@@ -96,7 +96,7 @@ function jsonOffset(error: Error): number | undefined {
 }
 
 function errnoCode(error: Error): string | undefined {
-  const code = (error as NodeJS.ErrnoException).code;
+  const code = (error as { readonly code?: unknown }).code;
   return typeof code === 'string' ? code : undefined;
 }
 

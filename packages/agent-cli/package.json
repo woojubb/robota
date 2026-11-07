@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-cli",
-  "version": "3.0.7",
+  "version": "3.1.0",
   "description": "robota — a coding-capable terminal agent built from the same foundation as the Robota SDK",
   "type": "module",
   "bin": {
@@ -11,6 +11,7 @@
   "exports": {
     ".": {
       "source": "./src/index.ts",
+      "browser": null,
       "node": {
         "import": {
           "types": "./dist/node/index.d.ts",
@@ -26,6 +27,7 @@
     },
     "./host": {
       "source": "./src/product-host.ts",
+      "browser": null,
       "import": {
         "types": "./dist/node/host.d.ts",
         "default": "./dist/node/host.js"
@@ -33,12 +35,14 @@
     },
     "./desktop-host": {
       "source": "./src/desktop-host.ts",
+      "browser": null,
       "import": {
         "types": "./dist/node/desktop-host.d.ts",
         "default": "./dist/node/desktop-host.js"
       }
     },
     "./native-build": {
+      "browser": null,
       "import": {
         "types": "./scripts/native-build.d.mts",
         "default": "./scripts/native-build.mjs"
@@ -122,7 +126,6 @@
     "marked-terminal": "^7.3.0",
     "multicast-dns": "^7.2.5",
     "nostr-tools": "^2.25.2",
-    "open": "^11.0.0",
     "openai": "^6.0.0",
     "p-limit": "^7.3.0",
     "qrcode": "^1.5.4",
@@ -150,6 +153,7 @@
     "@robota-sdk/agent-command": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-executor": "workspace:*",
+    "@robota-sdk/agent-file-authority": "workspace:*",
     "@robota-sdk/agent-framework": "workspace:*",
     "@robota-sdk/agent-gui-web": "workspace:*",
     "@robota-sdk/agent-interface-analytics": "workspace:*",
@@ -157,6 +161,7 @@
     "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-interface-session-mobility": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
+    "@robota-sdk/agent-keyring": "workspace:*",
     "@robota-sdk/agent-mcp": "workspace:*",
     "@robota-sdk/agent-organization-host": "workspace:*",
     "@robota-sdk/agent-preset": "workspace:*",
@@ -182,7 +187,7 @@
     "@robota-sdk/agent-ui-terminal": "workspace:*",
     "@robota-sdk/pack-coding": "workspace:*",
     "@robota-sdk/product-config": "workspace:*",
-    "@robota-sdk/workflows": "0.0.1",
+    "@robota-sdk/workflows": "0.0.4",
     "@types/marked": "^6.0.0",
     "@types/qrcode": "^1.5.5",
     "@types/ws": "^8.18.1",

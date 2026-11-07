@@ -33,6 +33,7 @@ describe('Session provider fallback', () => {
       validateConfig: () => true,
     };
     const session = new Session({
+      hookTypeExecutors: [],
       cwd: process.cwd(),
       tools: [],
       provider,

@@ -20,6 +20,10 @@ import { createHostBundlePluginLoader } from '../host-bundle-plugin-loader.js';
 
 import type { IBundlePluginManifest } from '../bundle-plugin-types.js';
 
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
+
+const nodeFs = new NodeFileSystem();
+
 const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-host-plugin-loader-')));
 
 function writeJson(path: string, data: unknown): void {
@@ -61,7 +65,7 @@ describe('createHostBundlePluginLoader (PLG-021 / issue #2025)', () => {
     createPlugin(pluginsDir, 'market', 'suspicious-plugin');
     writeJson(settingsPath, { enabledPlugins: { 'suspicious-plugin@market': false } });
 
-    const plugins = await createHostBundlePluginLoader({ pluginsDir, settingsPath }).loadAll();
+    const plugins = await createHostBundlePluginLoader({ fs: nodeFs, pluginsDir, settingsPath }).loadAll();
 
     expect(plugins).toHaveLength(0);
   });
@@ -69,7 +73,7 @@ describe('createHostBundlePluginLoader (PLG-021 / issue #2025)', () => {
   it('requires a host enablement source instead of reading the process home', () => {
     createPlugin(pluginsDir, 'market', 'unconfigured-plugin');
 
-    expect(() => createHostBundlePluginLoader({ pluginsDir })).toThrow(
+    expect(() => createHostBundlePluginLoader({ fs: nodeFs, pluginsDir })).toThrow(
       'Plugin enablement requires settingsPath or enabledPlugins',
     );
   });
@@ -78,7 +82,7 @@ describe('createHostBundlePluginLoader (PLG-021 / issue #2025)', () => {
     createPlugin(pluginsDir, 'market', 'wanted-plugin');
     writeJson(settingsPath, { enabledPlugins: { 'wanted-plugin@market': true } });
 
-    const plugins = await createHostBundlePluginLoader({ pluginsDir, settingsPath }).loadAll();
+    const plugins = await createHostBundlePluginLoader({ fs: nodeFs, pluginsDir, settingsPath }).loadAll();
 
     expect(plugins).toHaveLength(1);
     expect(plugins[0].manifest.name).toBe('wanted-plugin');
@@ -89,12 +93,13 @@ describe('createHostBundlePluginLoader (PLG-021 / issue #2025)', () => {
 
     writeJson(settingsPath, { enabledPlugins: { 'toggled-plugin@market': false } });
     const whileDisabled = await createHostBundlePluginLoader({
+    fs: nodeFs,
       pluginsDir,
       settingsPath,
     }).loadAll();
 
     writeJson(settingsPath, { enabledPlugins: { 'toggled-plugin@market': true } });
-    const whileEnabled = await createHostBundlePluginLoader({ pluginsDir, settingsPath }).loadAll();
+    const whileEnabled = await createHostBundlePluginLoader({ fs: nodeFs, pluginsDir, settingsPath }).loadAll();
 
     expect(whileDisabled).toHaveLength(0);
     expect(whileEnabled.map((p) => p.manifest.name)).toEqual(['toggled-plugin']);
@@ -104,9 +109,9 @@ describe('createHostBundlePluginLoader (PLG-021 / issue #2025)', () => {
     createPlugin(pluginsDir, 'market', 'later-disabled');
     writeJson(settingsPath, { enabledPlugins: {} });
 
-    const before = await createHostBundlePluginLoader({ pluginsDir, settingsPath }).loadAll();
+    const before = await createHostBundlePluginLoader({ fs: nodeFs, pluginsDir, settingsPath }).loadAll();
     writeJson(settingsPath, { enabledPlugins: { 'later-disabled@market': false } });
-    const after = await createHostBundlePluginLoader({ pluginsDir, settingsPath }).loadAll();
+    const after = await createHostBundlePluginLoader({ fs: nodeFs, pluginsDir, settingsPath }).loadAll();
 
     expect(before).toHaveLength(1);
     expect(after).toHaveLength(0);
@@ -115,7 +120,7 @@ describe('createHostBundlePluginLoader (PLG-021 / issue #2025)', () => {
   it('an absent settings file leaves plugins enabled, which is the documented default', async () => {
     createPlugin(pluginsDir, 'market', 'untouched-plugin');
 
-    const plugins = await createHostBundlePluginLoader({ pluginsDir, settingsPath }).loadAll();
+    const plugins = await createHostBundlePluginLoader({ fs: nodeFs, pluginsDir, settingsPath }).loadAll();
 
     expect(plugins).toHaveLength(1);
   });
@@ -127,6 +132,7 @@ describe('createHostBundlePluginLoader (PLG-021 / issue #2025)', () => {
     writeJson(settingsPath, { enabledPlugins: { 'caller-disabled@market': true } });
 
     const plugins = await createHostBundlePluginLoader({
+    fs: nodeFs,
       pluginsDir,
       settingsPath,
       enabledPlugins: { 'caller-disabled@market': false },
@@ -165,7 +171,7 @@ describe('a cached loader goes stale where a per-call one does not (PLG-021)', (
   });
 
   it('a loader built once keeps loading a plugin disabled after it was built', async () => {
-    const cached = createHostBundlePluginLoader({ pluginsDir, settingsPath });
+    const cached = createHostBundlePluginLoader({ fs: nodeFs, pluginsDir, settingsPath });
     expect(await cached.loadAll()).toHaveLength(1);
 
     writeJson(settingsPath, { enabledPlugins: { 'disabled-later@market': false } });
@@ -177,7 +183,7 @@ describe('a cached loader goes stale where a per-call one does not (PLG-021)', (
 
   it('a loader built per call does not', async () => {
     const build = (): ReturnType<typeof createHostBundlePluginLoader> =>
-      createHostBundlePluginLoader({ pluginsDir, settingsPath });
+      createHostBundlePluginLoader({ fs: nodeFs, pluginsDir, settingsPath });
 
     expect(await build().loadAll()).toHaveLength(1);
 

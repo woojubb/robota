@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
 
 import { TransportRegistry } from '../transport-registry.js';
+import { createFileTransportSettingsRepository } from '../transport-settings-repository.js';
 import { bindTransportAdapter } from '../bind-transport-adapter.js';
 
 import type {
@@ -27,11 +28,11 @@ function registryOverTempSettings(): TransportRegistry {
   const file = path.join(dir, 'settings.json');
   writeFileSync(file, '{}');
   tempDirs.push(dir);
-  return new TransportRegistry(file);
+  return new TransportRegistry(createFileTransportSettingsRepository(file));
 }
 
 function registryAtSettings(file: string): TransportRegistry {
-  return new TransportRegistry(file);
+  return new TransportRegistry(createFileTransportSettingsRepository(file));
 }
 
 function register(

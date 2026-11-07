@@ -11,21 +11,25 @@ import { join } from 'node:path';
 
 import { createRewindCommandModule } from '@robota-sdk/agent-command';
 import {
-  EditCheckpointStore,
+  IEditCheckpointStore,
   WorkspaceTrustService,
   buildRuntimeSession,
-  createNodeHostSessionStore,
 } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runPrintMode } from '../print-mode.js';
 import { buildPooledSessionOptions, buildServeSessionOptions } from '../serve-mode.js';
 import { createCliWorkspaceComposition } from '../../startup/workspace-project-composition.js';
 import { productProjectStateDirectories } from '../../product/project-state-directories.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IServeModeOptions } from '../serve-mode.js';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IWorkspaceIdentity, InteractiveSession } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 const PRODUCT_PROJECT_STATE_DIRECTORIES = productProjectStateDirectories(createTestProductRuntime());
 
 
@@ -60,6 +64,7 @@ async function trustedAccess(root: string) {
     grantedAt: '2026-09-27T00:00:00.000Z',
   };
   return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     projectStateDirectories: PRODUCT_PROJECT_STATE_DIRECTORIES,
     store: {
@@ -111,7 +116,7 @@ function editingProvider(): IAIProvider {
 }
 
 function serveOptions(cwd: string, overrides: Partial<IServeModeOptions> = {}): IServeModeOptions {
-  return {productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
+  return { host: testHost,productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
     cwd,
     args: {
       permissionMode: 'acceptEdits',
@@ -142,26 +147,26 @@ async function runTurn(session: InteractiveSession, prompt: string): Promise<voi
 
 describe('the served session options', () => {
   it("give the served session a store from the workspace's factory", () => {
-    const store = {} as EditCheckpointStore;
+    const store = {} as IEditCheckpointStore;
     const options = buildServeSessionOptions(
       serveOptions('/work', { createEditCheckpointStore: () => store }),
-    ) as { editCheckpointStore?: EditCheckpointStore };
+    ) as { editCheckpointStore?: IEditCheckpointStore };
 
     expect(options.editCheckpointStore).toBe(store);
   });
 
   it('give a session no store where the workspace has no factory', () => {
     const options = buildServeSessionOptions(serveOptions('/work')) as {
-      editCheckpointStore?: EditCheckpointStore;
+      editCheckpointStore?: IEditCheckpointStore;
     };
 
     expect(options.editCheckpointStore).toBeUndefined();
   });
 
   it('give every pooled session a store of its own, since pooled sessions run turns at once', () => {
-    const createEditCheckpointStore = vi.fn(() => ({}) as EditCheckpointStore);
+    const createEditCheckpointStore = vi.fn(() => ({}) as IEditCheckpointStore);
     const opts = serveOptions('/work', { createEditCheckpointStore });
-    const primary = buildServeSessionOptions(opts) as { editCheckpointStore?: EditCheckpointStore };
+    const primary = buildServeSessionOptions(opts) as { editCheckpointStore?: IEditCheckpointStore };
 
     const first = buildPooledSessionOptions(primary as never, opts, 'stored') as typeof primary;
     const second = buildPooledSessionOptions(primary as never, opts, undefined) as typeof primary;
@@ -193,7 +198,7 @@ describe('a session built with the CLI options for a trusted workspace', () => {
     const store = createStore();
     vi.spyOn(store, 'beginTurn').mockImplementation(async (input) => {
       prompts.push(input.prompt);
-      return {} as Awaited<ReturnType<EditCheckpointStore['beginTurn']>>;
+      return {} as Awaited<ReturnType<IEditCheckpointStore['beginTurn']>>;
     });
     vi.spyOn(store, 'captureFile').mockImplementation(async (path) => {
       captured.push(path);
@@ -228,7 +233,7 @@ describe('a session built with the CLI options for a trusted workspace', () => {
     if (store === undefined) throw new Error('expected a checkpoint store');
     const captured: string[] = [];
     vi.spyOn(store, 'beginTurn').mockResolvedValue(
-      {} as Awaited<ReturnType<EditCheckpointStore['beginTurn']>>,
+      {} as Awaited<ReturnType<IEditCheckpointStore['beginTurn']>>,
     );
     vi.spyOn(store, 'captureFile').mockImplementation(async (path) => {
       captured.push(path);
@@ -264,7 +269,7 @@ describe('a session built with the CLI options for a trusted workspace', () => {
       {},
     ];
     params[30] = store;
-    params.unshift(createTestProductRuntime());
+    params.unshift(createTestProductRuntime(), testHost);
 
     await expect(run(...params)).rejects.toThrow('exit 0');
 
@@ -277,7 +282,7 @@ describe('a session built with the CLI options for a trusted workspace', () => {
     // the session instead of asking it for its id (which failed every `-c` run with a store).
     const cwd = tempRoot('test-product-rewind-resume-');
     const filePath = join(cwd, 'example.txt');
-    const sessionStore = createNodeHostSessionStore(tempRoot('test-product-rewind-resume-sessions-'));
+    const sessionStore = createNodeHostSessionStore(tempRoot('test-product-rewind-resume-sessions-'), { sealing: 'plain' });
     const pointer = { branchId: 'main', checkpointId: 'turn-0001' };
     const composition = createCliWorkspaceComposition({productRuntime: createTestProductRuntime('test-product', { HOME: tempRoot('test-product-rewind-resume-user-') }),
       cwd,
@@ -287,10 +292,10 @@ describe('a session built with the CLI options for a trusted workspace', () => {
     });
     const createStore = composition.createEditCheckpointStore;
     if (createStore === undefined) throw new Error('expected a checkpoint store factory');
-    const stub = (): EditCheckpointStore => {
+    const stub = (): IEditCheckpointStore => {
       const store = createStore();
       vi.spyOn(store, 'beginTurn').mockResolvedValue(
-        {} as Awaited<ReturnType<EditCheckpointStore['beginTurn']>>,
+        {} as Awaited<ReturnType<IEditCheckpointStore['beginTurn']>>,
       );
       vi.spyOn(store, 'captureFile').mockResolvedValue(undefined);
       vi.spyOn(store, 'finalizeTurn').mockResolvedValue(undefined);

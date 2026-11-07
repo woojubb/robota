@@ -1,4 +1,4 @@
-import { dirname } from 'node:path';
+import { dirnamePath } from '@robota-sdk/agent-core';
 
 import type { TInstalledPluginsRegistry } from './installed-plugin-types.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
@@ -40,7 +40,7 @@ export function writeInstalledPluginsRegistry(
   registry: TInstalledPluginsRegistry,
   fs: IFileSystem,
 ): void {
-  const dir = dirname(registryPath);
+  const dir = dirnamePath(registryPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2), 'utf-8');
 }

@@ -22,11 +22,10 @@ export function convertToolsToGeminiFormat(tools: IToolSchema[]): FunctionDeclar
   return tools.map((tool) => ({
     name: tool.name,
     description: tool.description,
-    parameters: {
-      type: Type.OBJECT,
-      properties: convertParameterProperties(tool.parameters.properties),
-      required: tool.parameters.required,
-    },
+    // The member is optional, and the API has answered `should be non-empty for OBJECT type`.
+    ...(Object.keys(tool.parameters.properties ?? {}).length > 0 && {
+      parameters: convertParameterSchema(tool.parameters),
+    }),
   }));
 }
 
@@ -58,7 +57,44 @@ function convertParameterProperties(
   return convertedProperties;
 }
 
+function admitsOnlyNull(schema: IParameterSchema): boolean {
+  return schema.type === 'null' || schema.anyOf?.every(admitsOnlyNull) === true;
+}
+
+/**
+ * A union's null branch, as Gemini's `nullable`. The backend has no null type, and an untyped `{}`
+ * branch is what it reads as a missing field. One remaining branch stands for the union when nothing
+ * but annotations sits beside it, which is also how `@google/genai` converts JSON Schema; a
+ * constraint beside `anyOf` applies together with the branch, so overwriting the branch's own would
+ * show the model a shape local validation refuses.
+ */
+function convertNullableUnion(schema: IParameterSchema, branches: IParameterSchema[]): Schema {
+  const { anyOf: _anyOf, ...members } = schema;
+  const nothingButAnnotations = Object.keys(members).every(
+    (key) => key === 'description' || key === 'default',
+  );
+  const nonNull =
+    branches.length === 1 && nothingButAnnotations
+      ? { ...branches[0], ...members }
+      : { ...members, anyOf: branches };
+  return { ...convertParameterSchema(nonNull), nullable: true };
+}
+
+/** Only `null` is valid here, and Gemini needs a type to put `nullable` on. */
+function convertOnlyNull(schema: IParameterSchema): Schema {
+  return {
+    type: Type.STRING,
+    nullable: true,
+    ...(schema.description && { description: schema.description }),
+  };
+}
+
 function convertParameterSchema(schema: IParameterSchema): Schema {
+  if (admitsOnlyNull(schema)) return convertOnlyNull(schema);
+  const branches = schema.anyOf?.filter((branch) => !admitsOnlyNull(branch));
+  if (branches !== undefined && branches.length !== schema.anyOf?.length) {
+    return convertNullableUnion(schema, branches);
+  }
   const convertedSchema: Schema = {};
   const schemaType = schema.type ? convertSchemaKind(schema.type) : undefined;
   if (schemaType) {
@@ -73,7 +109,8 @@ function convertParameterSchema(schema: IParameterSchema): Schema {
   if (schema.items) {
     convertedSchema.items = convertParameterSchema(schema.items);
   }
-  if (schema.properties) {
+  // An empty map is the shape the API answers with `should be non-empty for OBJECT type`.
+  if (schema.properties && Object.keys(schema.properties).length > 0) {
     convertedSchema.properties = convertParameterProperties(schema.properties);
   }
   // CORE-039: this mapper rebuilds every node from a fixed key list, so a subset member it does not
@@ -81,7 +118,11 @@ function convertParameterSchema(schema: IParameterSchema): Schema {
   // Gemini's own Schema carries — omitting them told the model every nested field was optional and
   // erased union branches entirely.
   if (schema.required) {
-    convertedSchema.required = schema.required;
+    // A name `properties` does not declare is answered with `property is not defined`.
+    const declared = schema.required.filter((name) =>
+      Object.prototype.hasOwnProperty.call(schema.properties ?? {}, name),
+    );
+    if (declared.length > 0) convertedSchema.required = declared;
   }
   if (schema.anyOf) {
     convertedSchema.anyOf = schema.anyOf.map(convertParameterSchema);
@@ -91,6 +132,25 @@ function convertParameterSchema(schema: IParameterSchema): Schema {
   }
   if (typeof schema.maximum === 'number') {
     convertedSchema.maximum = schema.maximum;
+  }
+  // Gemini types its counts as strings: int64 in proto3 JSON.
+  if (typeof schema.minLength === 'number') {
+    convertedSchema.minLength = String(schema.minLength);
+  }
+  if (typeof schema.maxLength === 'number') {
+    convertedSchema.maxLength = String(schema.maxLength);
+  }
+  if (typeof schema.minItems === 'number') {
+    convertedSchema.minItems = String(schema.minItems);
+  }
+  if (typeof schema.maxItems === 'number') {
+    convertedSchema.maxItems = String(schema.maxItems);
+  }
+  if (typeof schema.minProperties === 'number') {
+    convertedSchema.minProperties = String(schema.minProperties);
+  }
+  if (typeof schema.maxProperties === 'number') {
+    convertedSchema.maxProperties = String(schema.maxProperties);
   }
   if (schema.pattern) {
     convertedSchema.pattern = schema.pattern;

@@ -302,12 +302,16 @@ export function probeExtensions(
   try {
     plugins = loadHostBundlePluginInspectionFromScopes(inputs.pluginsDirs, {
       settingsPath: inputs.userSettingsPath,
+      fs: deps.files,
     });
   } catch (error) {
     // Unreadable plugin settings load no plugin in a session. The doctor says so, and still
     // inspects every installed plugin so its other problems are not hidden behind this one.
     settingsProblem = error instanceof Error ? error.message : String(error);
-    plugins = loadHostBundlePluginInspectionFromScopes(inputs.pluginsDirs, { enabledPlugins: {} });
+    plugins = loadHostBundlePluginInspectionFromScopes(inputs.pluginsDirs, {
+      enabledPlugins: {},
+      fs: deps.files,
+    });
   }
   const pluginSummary = pluginChecks(plugins).map((check) =>
     settingsProblem !== undefined && check.id === 'plugins'

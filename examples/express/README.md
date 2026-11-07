@@ -50,7 +50,7 @@ via `additionalTools`, and forwards streamed text through `onTextDelta` as SSE e
 
 ```
 POST /api/chat { message }
-  └─ createQuery({ provider, additionalTools, allowedTools, deniedTools, onTextDelta })
+  └─ createQuery({ host, cwd, provider, additionalTools, allowedTools, deniedTools, onTextDelta })
        └─ query(message)
             ├─ onTextDelta(delta) → data: { type: "text_delta", text }
             └─ settled             → data: { type: "done" } or { type: "error", message }
@@ -65,6 +65,8 @@ anyone who can reach `/api/chat` writes the prompt:
 
 ```ts
 const query = createQuery({
+  host,
+  cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey }),
   additionalTools: [calculatorTool, currentTimeTool],
   allowedTools: ['calculate', 'get_current_time'],
@@ -82,6 +84,8 @@ replace `AnthropicProvider` and pass the new provider to `createQuery`:
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const query = createQuery({
+  host,
+  cwd: process.cwd(),
   provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
   model: 'gpt-4o',
   additionalTools: [calculatorTool, currentTimeTool],

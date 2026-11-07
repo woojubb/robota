@@ -39,6 +39,7 @@ function makeTerminal(): ITerminalOutput {
 
 function makeEnforcer(overrides: Partial<IPermissionEnforcerOptions> = {}): PermissionEnforcer {
   return new PermissionEnforcer({
+    hookTypeExecutors: [],
     sessionId: 'test-session',
     cwd: ROOT,
     getPermissionMode: () => 'default',
@@ -67,6 +68,28 @@ describe('canonicaliseToolArguments', () => {
     expect(canonicaliseToolArguments('Read', { filePath: '../up.ts' }, ROOT)).toEqual({
       filePath: '/work/up.ts',
     });
+  });
+
+  it('resolves against a Windows root with that platform’s separator, on any host', () => {
+    expect(canonicaliseToolArguments('Read', { filePath: 'src\\x.ts' }, 'C:\\work')).toEqual({
+      filePath: 'C:\\work\\src\\x.ts',
+    });
+    expect(
+      canonicaliseToolArguments('Read', { filePath: '../up.ts' }, 'C:\\work\\project'),
+    ).toEqual({
+      filePath: 'C:\\work\\up.ts',
+    });
+    const absolute = { filePath: 'D:\\elsewhere\\x.ts' };
+    expect(canonicaliseToolArguments('Read', absolute, 'C:\\work')).toBe(absolute);
+  });
+
+  it('resolves a drive-relative path on the workspace drive and leaves another drive’s as written', () => {
+    expect(canonicaliseToolArguments('Read', { filePath: 'C:x.ts' }, 'C:\\work')).toEqual({
+      filePath: 'C:\\work\\x.ts',
+    });
+    // `D:x` means drive D's current directory, which no text can tell: the gate judges it as written.
+    const otherDrive = { filePath: 'D:x.ts' };
+    expect(canonicaliseToolArguments('Read', otherDrive, 'C:\\work')).toBe(otherDrive);
   });
 
   it('leaves an absolute path, a non-path kind and an unprofiled tool untouched', () => {

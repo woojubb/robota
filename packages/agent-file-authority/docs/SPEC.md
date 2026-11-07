@@ -3,8 +3,9 @@
 ## Scope
 
 This package owns domain-free file access through opaque read and write authorities rooted at one
-directory identity. It gives Node.js callers the same non-retargetable, component-by-component
-no-follow behavior on supported Linux, macOS, and Windows hosts without exposing native handles.
+directory identity, including root-relative directory enumeration on supported Windows drive roots. It gives Node.js callers
+non-retargetable, component-by-component no-follow behavior on supported Linux, macOS, and Windows
+hosts without exposing native handles.
 
 The package is published with no `@robota-sdk` dependency. Koffi is the pinned transport for
 calling the host primitives; Koffi does not define the public contract and cannot introduce a
@@ -14,7 +15,7 @@ pathname fallback.
 
 | Rule                  | Detail                                                                                                                       |
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| Narrow operations     | The read authority returns bounded regular-file bytes; the write authority atomically replaces UTF-8 regular files.         |
+| Narrow operations     | The read authority returns bounded regular-file bytes and rooted directory observations; the write authority atomically replaces UTF-8 regular files.         |
 | Root-relative only    | Callers provide validated single path segments. Absolute paths, separators, `.` and `..` are rejected.                       |
 | Opaque authority      | Descriptors, Windows handles, Koffi objects, canonical roots, and ambient-path escape hatches are never exported.            |
 | Domain-free           | Session, workspace, payload, agent, and CLI policy remain with callers.                                                      |
@@ -29,7 +30,7 @@ package manifest rather than restated here.
 - The POSIX adapter resolves components from retained directory descriptors and commits replacement relative to the retained parent, so an ambient pathname cannot retarget the operation.
 - The Windows adapter resolves through `NtCreateFile` with `OBJECT_ATTRIBUTES.RootDirectory`, surfaces reparse points, and commits a temporary handle relative to the retained parent through `NtSetInformationFile`, because Win32 `SetFileInformationByHandle` rejects a bare name beside a `RootDirectory` and accepts only a full path. The writer re-opens the committed name with attribute-only access to compare identities, since its own temporary handle is still open for writing. A Windows `HANDLE` is never passed to Node as a numeric file descriptor.
 - The final file handle denies write sharing for the bounded read, so an existing writer prevents the open and a new writer cannot change file bytes mid-read. Parent directory handles retain write sharing so unrelated namespace updates are not blocked.
-- The authority stays bound to the identity it originally opened even if that pathname is later renamed or replaced elsewhere in the namespace, and it re-checks root/file identity around each operation; a detected mutation fails the read rather than returning bytes from an indeterminate state.
+- The authority stays bound to the directory object it originally opened even if its pathname is renamed or replaced; a retained reader can establish that another live reader, writer, or POSIX mutation descriptor holds the same root object without exposing native identities, so a restored pathname cannot make a different opened root count as the approved one. A detected root or file mutation fails the operation rather than returning indeterminate bytes.
 - Per-read handles close in `finally`; `close()` and the disposal path close the root idempotently.
 - No public extension points exist. Host adapters and internal test hooks are private and non-exported; adding a backend or operation is a contract change requiring specification review.
 

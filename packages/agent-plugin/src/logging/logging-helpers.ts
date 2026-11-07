@@ -14,6 +14,7 @@ import {
   SilentLogStorage,
 } from './storages/index';
 
+import type { IPluginTextFileStore } from '../storage/text-file-store';
 import type { ILoggingPluginOptions, ILogStorage, TLogLevel, ILogEntry } from './types';
 
 /** Validate LoggingPlugin constructor options. @internal */
@@ -40,6 +41,14 @@ export function validateLoggingOptions(options: ILoggingPluginOptions): void {
     throw new ConfigurationError('File path is required for file logging strategy');
   }
 
+  if (options.strategy === 'file' && !options.fileStore) {
+    throw new ConfigurationError(
+      'A `fileStore` is required for the file logging strategy — agent-plugin is ' +
+        'platform-neutral and owns no file system; inject an IPluginTextFileStore ' +
+        '(NodePluginTextFileStore from @robota-sdk/agent-plugin/node).',
+    );
+  }
+
   if (options.strategy === 'remote' && !options.remoteEndpoint) {
     throw new ConfigurationError('Remote endpoint is required for remote logging strategy');
   }
@@ -64,12 +73,16 @@ export function createLoggingStorage(
   remoteEndpoint: string,
   flushInterval: number,
   formatter?: ILoggingPluginOptions['formatter'],
+  fileStore?: IPluginTextFileStore,
 ): ILogStorage {
   switch (strategy) {
     case 'console':
       return new ConsoleLogStorage(formatter);
     case 'file':
-      return new FileLogStorage(filePath, formatter);
+      if (!fileStore) {
+        throw new ConfigurationError('A `fileStore` is required for the file logging strategy.');
+      }
+      return new FileLogStorage(filePath, fileStore, formatter);
     case 'remote':
       return new RemoteLogStorage(remoteEndpoint, { timeout: flushInterval });
     case 'silent':

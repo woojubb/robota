@@ -18,16 +18,20 @@ import {
 import {
   buildCatalog,
   createDiscoveredTool,
-  createStdioAdapter,
   MCPActivationAdmissionService,
   MCPDefinitionRegistry,
   openMcpSession,
   type IMCPSession,
 } from '@robota-sdk/agent-mcp';
+import { createStdioAdapter } from '@robota-sdk/agent-mcp/node';
 import { ReplayProvider } from '@robota-sdk/agent-provider-replay';
 
 import { summarizeTrials, type IOutcomeTrial } from './outcome-report.js';
 import { assertStaleState, type IStateObservation } from './outcome-state.js';
+import { NodeFileSystem, createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+
+const host = createNodeFrameworkHost({ createDefaultTools });
 
 class ObservedReplayProvider extends ReplayProvider {
   readonly requests: TUniversalMessage[][] = [];
@@ -58,6 +62,7 @@ try {
   const loaded = createHostBundlePluginLoader({
     pluginsDir,
     enabledPlugins: { 'state-fixture@fixture': true },
+    fs: new NodeFileSystem(),
   }).loadPluginsSync();
   const plugin = loaded[0];
   if (loaded.length !== 1 || !plugin?.mcpConfig)
@@ -193,20 +198,12 @@ try {
         ],
       });
       const start = performance.now();
-      const result = await createSessionRunFn(createAgentRuntime({ cwd: root, provider }), {
+      const result = await createSessionRunFn(createAgentRuntime({ host, cwd: root, provider }), {
         bare: true,
         permissionMode: 'acceptEdits',
         additionalTools: tools,
         allowedTools: [observe.canonicalName, change.canonicalName],
-        deniedTools: [
-          'Bash',
-          'Shell',
-          'Write',
-          'Edit',
-          'WebFetch',
-          'WebSearch',
-          'BackgroundProcess',
-        ],
+        deniedTools: ['Bash', 'Shell', 'Write', 'Edit', 'WebFetch', 'BackgroundProcess'],
       })('Observe the setting, turn it on, and verify the new state.');
       const pairedIds = (provider.requests.at(-1) ?? [])
         .filter((message) => message.role === 'tool')

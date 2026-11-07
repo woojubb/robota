@@ -10,8 +10,6 @@
  * back if it never reached the advisor.
  */
 
-import { randomUUID } from 'node:crypto';
-
 import {
   calculateModelCost,
   confirmAction,
@@ -19,6 +17,7 @@ import {
   createUserMessage,
   getModelContextWindow,
   isConfirmed,
+  randomId,
   readTokenUsageFromMessage,
 } from '@robota-sdk/agent-core';
 
@@ -493,7 +492,7 @@ export class AdvisorController {
     // usage reports price it on that model; the summary counts it in the session totals.
     record([
       createUsageObservationEntry({
-        turnId: `advisor_${randomUUID()}`,
+        turnId: `advisor_${randomId()}`,
         outcome: 'success',
         providerId: target.provider.name,
         modelId: model,

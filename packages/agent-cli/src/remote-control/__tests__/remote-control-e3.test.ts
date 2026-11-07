@@ -9,6 +9,7 @@ import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transpo
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import type { IHostReconnectConfig, ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
 import { TransportRegistry } from '@robota-sdk/agent-framework';
+import { createFileTransportSettingsRepository } from '@robota-sdk/agent-framework/node';
 import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -21,6 +22,8 @@ import type { IRemoteControlControllerDeps } from '../remote-control-controller.
 import { createRemoteControlTransportHost } from '../transport-host-adapter.js';
 import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
 import type { ITrustedDeviceRecord, ITrustedDeviceStore } from '../trusted-device-store.js';
+
+const e3Runtime = createTestRuntimeContext('/tmp/remote-control-e3-test');
 
 /**
  * The REAL registry, not `{ register: () => {} }`.
@@ -35,7 +38,12 @@ import type { ITrustedDeviceRecord, ITrustedDeviceStore } from '../trusted-devic
  */
 function realRegistry(): TransportRegistry {
   return new TransportRegistry(
-    join(realpathSync(mkdtempSync(join(tmpdir(), 'agent-fixture-rc-registry-'))), 'settings.json'),
+    createFileTransportSettingsRepository(
+      join(
+        realpathSync(mkdtempSync(join(tmpdir(), 'agent-fixture-rc-registry-'))),
+        'settings.json',
+      ),
+    ),
   );
 }
 
@@ -75,8 +83,8 @@ function build(
 } {
   const captured: ReturnType<typeof build>['captured'] = {};
   const controller = new RemoteControlController({
-    productRuntime: createTestRuntimeContext('/tmp/remote-control-e3-test'),
-    host: createRemoteControlTransportHost(realRegistry()),
+    productRuntime: e3Runtime,
+    host: createRemoteControlTransportHost(realRegistry(), e3Runtime),
     readRelayUrl: () => 'ws://127.0.0.1:9999',
     readClientUrl: () => 'https://remote.example/',
     getSession: () => stubSession(),
@@ -233,8 +241,8 @@ describe('RemoteControlController E3 wiring (REMOTE-012)', () => {
   it('with no store configured, listDevices is empty and reconnect config is absent', async () => {
     const captured: { reconnect?: IHostReconnectConfig } = {};
     const controller = new RemoteControlController({
-      productRuntime: createTestRuntimeContext('/tmp/remote-control-e3-test'),
-      host: createRemoteControlTransportHost(realRegistry()),
+      productRuntime: e3Runtime,
+      host: createRemoteControlTransportHost(realRegistry(), e3Runtime),
       readRelayUrl: () => 'ws://127.0.0.1:9999',
       readClientUrl: () => 'https://remote.example/',
       getSession: () => stubSession(),

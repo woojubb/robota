@@ -26,6 +26,10 @@ import {
 } from '../testing/contribution-source-fixture.js';
 import { substituteVariables, preprocessShellCommands } from '../utils/skill-prompt.js';
 
+import { NodeFileSystem } from '../adapters/node-file-system.js';
+
+const nodeFs = new NodeFileSystem();
+
 const testShellExec = (cmd: string) =>
   execSync(cmd, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd();
 
@@ -555,7 +559,7 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
     createFile(join(pluginDir, 'hooks', 'hooks.json'), JSON.stringify(hooksConfig, null, 2));
 
     // Load via BundlePluginLoader
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -602,7 +606,7 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
       ['---', 'description: Format code', '---', '# Format', 'Run formatter.'].join('\n'),
     );
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     // Wire loaded plugins into PluginCommandSource
@@ -639,7 +643,7 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
     // Directory without manifest
     mkdirSync(join(pluginsDir, 'cache', 'market', 'no-manifest', '1.0.0'), { recursive: true });
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -664,7 +668,7 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
 
     const loader = new BundlePluginLoader(pluginsDir, {
       'disabled-plugin@market': false,
-    });
+    }, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);
@@ -697,7 +701,7 @@ describe('Filesystem smoke: BundlePlugin loading', () => {
     };
     createFile(join(pluginDir, '.mcp.json'), JSON.stringify(mcpConfig, null, 2));
 
-    const loader = new BundlePluginLoader(pluginsDir);
+    const loader = new BundlePluginLoader(pluginsDir, undefined, nodeFs);
     const plugins = await loader.loadAll();
 
     expect(plugins).toHaveLength(1);

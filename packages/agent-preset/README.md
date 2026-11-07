@@ -1,5 +1,8 @@
 # @robota-sdk/agent-preset
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Presets and output styles for the Robota SDK. A preset is a named bundle of
 `@robota-sdk/agent-framework` session option overrides: persona, model and effort, permission
 posture, command-module selection, execution capabilities and autonomy. An output style is a named
@@ -12,7 +15,9 @@ presets and styles, and the registries that resolve them.
 npm install @robota-sdk/agent-preset @robota-sdk/agent-framework
 ```
 
-Requires Node.js 22.12 or later.
+The main entry is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun and reads no
+file. The one reader of the file system, `loadExternalPresetsFromDir`, is on `@robota-sdk/agent-preset/node`,
+which requires Node.js 22.12 or later.
 
 ## Presets
 
@@ -54,22 +59,37 @@ combined rather than replaced. When no layer sets `permissionMode`, it comes fro
 
 ### External presets
 
-External presets are JSON files in a directory your product chooses:
+External presets are JSON files your product chooses. The main entry reads no file: you hand it the
+candidate files, and a failed read is that file's error, not a crash.
 
 ```typescript
-import { createPresetRegistry, loadExternalPresetsFromDir } from '@robota-sdk/agent-preset';
+import { createPresetRegistry, loadExternalPresetsFromFiles } from '@robota-sdk/agent-preset';
 
-const { presets, loaded, errors } = loadExternalPresetsFromDir('/path/to/my-app/presets');
+const { presets, loaded, errors } = loadExternalPresetsFromFiles([
+  {
+    fileName: 'terse.json',
+    read: () => '{ "id": "terse", "title": "Terse", "description": "Short." }',
+  },
+]);
 for (const { file, error } of errors) console.warn(`${file}: ${error}`);
 
 const registry = createPresetRegistry(presets);
 console.log(loaded);
 ```
 
-Each file is checked with `validateExternalPreset`. A malformed file, an ID that collides with a
-built-in, or a duplicate ID is reported in `errors` and skipped; the rest still load. A missing
-directory yields no presets. `partitionExternalPresets` applies the same collision rules to presets
-you already have in memory.
+On Node, `loadExternalPresetsFromDir` from `@robota-sdk/agent-preset/node` lists a directory and does
+the same:
+
+```typescript
+import { loadExternalPresetsFromDir } from '@robota-sdk/agent-preset/node';
+
+const { presets } = loadExternalPresetsFromDir('/path/to/my-app/presets');
+```
+
+Each file is checked with `validateExternalPreset`. Only `*.json` names are read. A malformed or
+unreadable file, an ID that collides with a built-in, or a duplicate ID is reported in `errors` and
+skipped; the rest still load. A missing directory yields no presets.
+`partitionExternalPresets` applies the same collision rules to presets you already have in memory.
 
 ## Output styles
 
@@ -102,6 +122,12 @@ console.log(styles.listOutputStyles().map((style) => style.id));
 const terse = styles.getOutputStyle('terse');
 console.log(terse?.instructions);
 ```
+
+## `@robota-sdk/agent-preset/node`
+
+| Export                       | What it does                                                             |
+| ---------------------------- | ------------------------------------------------------------------------ |
+| `loadExternalPresetsFromDir` | Lists a directory on the host's file system and loads its `*.json` files |
 
 ## Where it sits
 

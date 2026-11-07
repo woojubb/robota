@@ -176,10 +176,13 @@ function resolveAgentDefinition(
 }
 
 function createSubagentManager(deps: IAgentToolDeps): ISubagentManager {
+  const report = deps.host.reportObserverFailure;
   return (
     deps.subagentManager ??
     new SubagentManager({
       runner: createInProcessSubagentRunner(deps),
+      // A host that lends no reporter leaves the executor's own line.
+      ...(report !== undefined ? { onObserverFailure: (failure) => report(failure) } : {}),
     })
   );
 }

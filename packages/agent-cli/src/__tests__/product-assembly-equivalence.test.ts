@@ -25,7 +25,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
+import { BUILT_IN_AGENTS, SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
@@ -45,10 +45,13 @@ import {
 import { productDefaultAgentName } from '../product/preset-defaults.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
 import { resolveShellPreset } from '../startup/preset-selection.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { ICommandModule } from '@robota-sdk/agent-framework';
 import type { IPreset } from '@robota-sdk/agent-preset';
+
+const testHost = createTestFrameworkHost();
 const PRODUCT_DEFAULT_AGENT_NAME = productDefaultAgentName(createTestProductRuntime());
 
 
@@ -140,7 +143,6 @@ const BASELINE_DEFAULT_TOOL_NAMES = [
   'Glob',
   'Grep',
   'WebFetch',
-  'WebSearch',
   'AskUserQuestion',
 ];
 
@@ -248,7 +250,7 @@ function assembleProductFixture(
 describe('ARCH-005 S2 — the assembled test-product runtime matches the pre-change baseline', () => {
   it('supplies test-product Agent provider recovery guidance through the product profile', () => {
     const { product } = assembleProductFixture();
-    const options = product.buildRuntimeOptions({ session: { session: {} as never } });
+    const options = product.buildRuntimeOptions({ session: { host: testHost, cwd: process.cwd(), session: {} as never } });
 
     expect(options.providerErrorGuidance?.authentication).toContain('/provider');
     expect(options.providerErrorGuidance?.authentication).toContain(join(EQUIVALENCE_CWD, '.test-product', 'settings.json'));
@@ -386,6 +388,7 @@ describe('ARCH-005 S2 — the assembled test-product runtime matches the pre-cha
 
     const options = product.buildRuntimeOptions({
       session: {
+        host: testHost,
         cwd: EQUIVALENCE_CWD,
         provider: createScriptedProvider([{ text: 'ok' }]).provider,
       },
@@ -405,6 +408,25 @@ describe('ARCH-005 S2 — the assembled test-product runtime matches the pre-cha
       BASELINE_DEFAULT_TOOL_NAMES,
     );
     expect(PRODUCT_DEFAULT_AGENT_NAME).toBe(BASELINE_DEFAULT_AGENT_NAME);
+  });
+
+  it('offers the model no command or tool that reaches the keyring, a passphrase or secure mode', () => {
+    // Key custody is a credential action: the person types the passphrase at a terminal and the model
+    // may only suggest it. There is no `/secure` command in this assembly, and nothing the model is
+    // offered (a command, a subcommand of one, or a default tool) names or describes the keyring.
+    const { commandModules } = assembleProductFixture();
+    const commands = commandModules.flatMap((module) => [...(module.systemCommands ?? [])]);
+    const keyCustody = /\bsecure\b|keyring|passphrase|recovery[- ]?key|\bunlock\b/i;
+
+    expect(commands.map((command) => command.name).filter((name) => keyCustody.test(name))).toEqual([]);
+    const offered = new SystemCommandExecutor(commands).listModelInvocableCommands();
+    expect(offered.length).toBeGreaterThan(0);
+    expect(offered.filter((descriptor) => keyCustody.test(JSON.stringify(descriptor)))).toEqual([]);
+    expect(
+      createDefaultTools({ cwd: EQUIVALENCE_CWD })
+        .map((tool) => tool.getName())
+        .filter((name) => keyCustody.test(name)),
+    ).toEqual([]);
   });
 
   it('resolves presets identically (built-ins reachable through the instance registry)', () => {

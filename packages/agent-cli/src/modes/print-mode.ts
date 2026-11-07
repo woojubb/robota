@@ -7,8 +7,9 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type {
-  EditCheckpointStore,
+  IEditCheckpointStore,
   IAgentDefinition,
+  IFrameworkHost,
   ICreateSessionOptions,
   ICommandHostAdapters,
   ICommandModule,
@@ -16,12 +17,12 @@ import type {
   IProviderErrorGuidance,
   ILivePromptTracePort,
   IProjectSettingsPath,
-  INodeHostSettingsSource,
+  IHostSettingsSource,
   IContributionSource,
   ISkillRootDescriptor,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
-import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
+import type { createProjectSessionStore } from '@robota-sdk/agent-framework/node';
 import { HeadlessInteractionChannel } from '@robota-sdk/agent-framework';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
@@ -67,6 +68,7 @@ export type IPrintModePresetOptions = Partial<IPresetSurfaceOptions>;
 
 export async function runPrintMode(
   productRuntime: ICliRuntimeContext,
+  host: IFrameworkHost,
   cwd: string,
   args: IParsedCliArgs,
   provider: IAIProvider,
@@ -89,7 +91,7 @@ export async function runPrintMode(
   agentDefinitionRoots?: readonly string[],
   pluginDirectories?: { readonly user?: string; readonly project?: string },
   projectSettingsPaths?: readonly IProjectSettingsPath[],
-  userSettingsSources?: readonly INodeHostSettingsSource[],
+  userSettingsSources?: readonly IHostSettingsSource[],
   contributionSources?: readonly IContributionSource[],
   skillRoots?: readonly ISkillRootDescriptor[],
   taskContext?: { readonly enabled?: boolean; readonly dir?: string },
@@ -100,7 +102,7 @@ export async function runPrintMode(
   commandHookShell?: string,
   livePromptTrace?: ILivePromptTracePort,
   /** A print run checkpoints its edits like any session, so resuming it can rewind them. */
-  editCheckpointStore?: EditCheckpointStore,
+  editCheckpointStore?: IEditCheckpointStore,
   resolveProviderCredential?: TProviderCredentialResolver,
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
@@ -136,6 +138,7 @@ export async function runPrintMode(
   };
 
   const channel = new HeadlessInteractionChannel({
+    host,
     cwd,
     ...(livePromptTrace ? { livePromptTrace } : {}),
     provider,
@@ -156,6 +159,7 @@ export async function runPrintMode(
     ...(contributionSources !== undefined ? { contributionSources } : {}),
     ...(skillRoots !== undefined ? { skillRoots } : {}),
     ...(taskContext !== undefined ? { taskContext } : {}),
+    output: { stdout: process.stdout, stderr: process.stderr },
     outputFormat: args.outputFormat ?? 'text',
     // CLI-076: forward the resolved model so `--model` takes effect (an invalid model then surfaces the
     // provider's error and a non-zero exit, instead of a silent substitution succeeding with exit 0).

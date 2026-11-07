@@ -41,6 +41,8 @@ export interface IWorkspaceSnapshotDeps {
   pendingRequest?: () => IExecutionPendingRequest | undefined;
   /** #3288 §1: this session's self-paced loops, for the `pending`/`running` ones' own entries. */
   selfPacedLoops?: () => readonly IExecutionSelfPacedLoopSummary[];
+  /** Whether a session's record may have a writer now, here or in another process (its store's `hasWriter`). */
+  sessionHasWriter: (sessionId: string) => boolean;
 }
 
 export function buildExecutionWorkspaceSnapshot(
@@ -69,6 +71,7 @@ export function buildExecutionWorkspaceSnapshot(
     selfPacedLoops: deps.selfPacedLoops?.(),
     selectedEntryId: options.selectedEntryId,
     filter: options.filter,
+    sessionHasWriter: deps.sessionHasWriter,
   });
 }
 
@@ -129,7 +132,10 @@ export async function readWorkspaceDetail(
  * than this iteration's (not-yet-decided) one. Absent on a loop's very first iteration, when no
  * decision has been committed yet.
  */
-function createSelfPacedLoopDetailPage(entryId: string, loop: ISessionLoopState): IExecutionDetailPage {
+function createSelfPacedLoopDetailPage(
+  entryId: string,
+  loop: ISessionLoopState,
+): IExecutionDetailPage {
   const firstLine = loop.instruction.split('\n')[0]!.trim() || loop.instruction;
   const records: IExecutionDetailRecord[] = [
     { id: `${entryId}:instruction`, kind: 'message', text: firstLine },
@@ -137,8 +143,7 @@ function createSelfPacedLoopDetailPage(entryId: string, loop: ISessionLoopState)
       id: `${entryId}:status`,
       kind: 'progress',
       text:
-        `Phase: ${loop.phase}` +
-        (loop.nextAllowedAt ? ` — next wake ${loop.nextAllowedAt}` : ''),
+        `Phase: ${loop.phase}` + (loop.nextAllowedAt ? ` — next wake ${loop.nextAllowedAt}` : ''),
     },
     { id: `${entryId}:iterations`, kind: 'progress', text: `Iteration ${loop.generation}` },
   ];

@@ -4,7 +4,7 @@
  * the loader hands over what it already parsed, so a pre-session doctor and the session itself
  * describe the same document.
  */
-import { join } from 'node:path';
+import { joinPath } from '@robota-sdk/agent-core';
 
 import { HooksSchema } from '../config/config-types.js';
 import { FrontmatterDecodeError } from '../frontmatter/frontmatter-error.js';
@@ -99,7 +99,7 @@ export function inspectHooks(
   if (result.success) return;
   out.push({
     pluginId,
-    hooksPath: join(pluginDir, 'hooks', 'hooks.json'),
+    hooksPath: joinPath(pluginDir, 'hooks', 'hooks.json'),
     issues: result.error.issues.map((issue) => ({
       path: issue.path.map(String).join('.'),
       code: issue.code,
@@ -120,7 +120,7 @@ export function inspectMcpConfig(
   sourcePaths?: Readonly<Record<string, string>>,
 ): void {
   if (mcpConfig === undefined) return;
-  const mcpPath = join(pluginDir, '.mcp.json');
+  const mcpPath = joinPath(pluginDir, '.mcp.json');
   if (!isObjectValue(mcpConfig)) {
     sink.mcpFaults.push({ pluginId, mcpPath, reason: 'not-an-object' });
     return;

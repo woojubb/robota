@@ -25,11 +25,11 @@ export { MCPSessionError } from './session-protocol.js';
 
 import { hasAppsCapability } from '../catalog/app-view.js';
 import { MCPAuthenticationError } from './authentication.js';
-import { MCPTransportEgressRefusedError } from './pinned-http-fetch.js';
+import { MCPTransportEgressRefusedError } from './http-egress.js';
 import { discoverAll } from './discovery.js';
 import { createElicitationHandler, MCPElicitationCalls } from './elicitation.js';
-import { MCPStdioError } from './stdio-transport.js';
-import { callTraceRegistryOf, runInCallTraceScope } from './trace-propagation.js';
+import { MCPStdioError } from './stdio-error.js';
+import { outboundTraceHeaders } from './trace-propagation.js';
 import { MCPDiscoveryError } from '../catalog/types.js';
 
 import type { IMCPDiscovery, IMCPServerIdentity } from '../catalog/types.js';
@@ -243,7 +243,6 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
     hasAppsCapability(serverCapabilities?.extensions) &&
     declaredCapabilities.resources !== undefined;
 
-  const callTraces = callTraceRegistryOf(options.transport);
   const listeners = new Set<TMCPListChangedListener>();
   registerListChangedHandlers(client, listeners);
   /**
@@ -320,12 +319,20 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
       callOptions?: IMCPToolCallOptions,
     ): Promise<IMCPToolCallResult> {
       const outputSchema = outputSchemas.get(name);
+      // The call's own request carries them, and no other: they are this call's per-request headers.
+      const traceHeaders =
+        callOptions?.outboundTraceContext === undefined
+          ? undefined
+          : outboundTraceHeaders(options.transport, callOptions.outboundTraceContext);
       const call = () =>
         client.callTool(
           { name, arguments: args },
           {
             timeout: callOptions?.timeoutMs,
             signal: callOptions?.signal,
+            ...(traceHeaders === undefined || Object.keys(traceHeaders).length === 0
+              ? {}
+              : { headers: traceHeaders }),
             ...(outputSchema === undefined
               ? {}
               : {
@@ -337,24 +344,14 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
                 }),
           },
         );
-      const outboundTraceContext = callOptions?.outboundTraceContext;
-      const traceScope =
-        callTraces !== undefined
-          ? {
-              requestAbortController: new AbortController(),
-              ...(outboundTraceContext ? { outbound: outboundTraceContext } : {}),
-            }
-          : undefined;
       const leave = calls.enter({ ask: callOptions?.ask, signal: callOptions?.signal });
       try {
-        const raw = traceScope ? await runInCallTraceScope(traceScope, call) : await call();
-        return toToolCallResult(raw);
+        return toToolCallResult(await call());
       } catch (error) {
         if (sensitiveTransport(options.transport)) return maskStdioFailure(error, callOptions?.signal);
         throw error;
       } finally {
         leave();
-        if (traceScope) callTraces?.release(traceScope);
       }
     },
     async readResource(

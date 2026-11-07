@@ -19,6 +19,7 @@ import { createServer } from 'node:http';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IncomingMessage, Server, ServerResponse } from 'node:http';
 
@@ -27,7 +28,7 @@ process.env['HOME'] = tempHome;
 
 const { createScriptedProvider } = await import('@robota-sdk/agent-core/testing');
 const { InteractiveSession } = await import('@robota-sdk/agent-framework');
-const { createDefaultBackgroundTaskRunners } = await import('@robota-sdk/agent-executor');
+const { createDefaultBackgroundTaskRunners } = await import('@robota-sdk/agent-executor/node');
 const {
   createStreamableHttpAdapter,
   MCPConnectionSupervisor,
@@ -35,8 +36,11 @@ const {
   buildCatalog,
   createDiscoveredTool,
 } = await import('@robota-sdk/agent-mcp');
+const { createNodeHttpEgress } = await import('@robota-sdk/agent-mcp/node');
 
 import type { IMCPCatalogToolEntry } from '@robota-sdk/agent-mcp';
+
+const testHost = createTestFrameworkHost();
 
 function assertCondition(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -212,10 +216,12 @@ async function run(): Promise<void> {
   const workspaceDir = mkdtempSync(join(tmpdir(), 'verify-mcp-background-cwd-'));
 
   try {
-    const adapter = createStreamableHttpAdapter({
-      lookup: async () => ['127.0.0.1'],
-      policy: { allowedHosts: ['127.0.0.1'] },
-    });
+    const adapter = createStreamableHttpAdapter(
+      { egress: createNodeHttpEgress({
+        lookup: async () => ['127.0.0.1'],
+        policy: { allowedHosts: ['127.0.0.1'] },
+      }) },
+    );
     const admission = await adapter.admit({ url: mock.url });
     if (!admission.ok) {
       throw new Error(`adapter refused the mock endpoint: ${admission.message}`);
@@ -266,6 +272,7 @@ async function run(): Promise<void> {
       ]);
 
       const session = new InteractiveSession({
+        host: testHost,
         cwd: workspaceDir,
         provider: scripted.provider,
         bare: true,

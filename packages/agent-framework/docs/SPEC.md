@@ -6,8 +6,10 @@
 `agent-session`, `agent-tools`, `agent-executor`, and the `agent-interface-transport` type contracts
 into a single, provider-neutral SDK surface. `InteractiveSession` is the primary entry point,
 preserving observed tool outcomes across live and restored presentation without replaying effects; a
-`createQuery({ provider })` factory covers single-shot prompt use; `createAgentRuntime()` composes a
-headless/multi-session runtime.
+`createQuery({ host, cwd, provider })` factory covers single-shot prompt use; `createAgentRuntime()` composes a
+headless/multi-session runtime. Its main entry is platform-neutral: it runs in a browser, a Web Worker,
+Node, Deno and Bun, and what only a Node host can provide is on the `./node` subpath (`./testing` is
+Node-only too).
 
 This package owns config loading, context loading (AGENTS.md/CLAUDE.md discovery), command
 infrastructure (contracts, registry, sources, common APIs consumed by command modules), permission
@@ -37,15 +39,31 @@ React/Ink UI.
   content and application state are reachable only through a `TWorkspaceProjectAccess` decision and
   facets minted from its opaque authority; omission is an explicit Restricted decision, not a silent
   fallback to path-based access. Restricted construction instantiates no project reader, store, or
-  writer. Trusted access is accepted only when the real working directory is the trusted root or a
+  writer. The file operations behind those facets are the host's: the trust service takes them as
+  `projectFiles` and binds them to each authority it mints, behind the brand's module-level maps, so
+  nothing but an authority the service issued reaches them, and a host that has none builds no service
+  and runs Restricted. The brand and its maps live in one module that `.` and `./node` share. Trusted access is accepted only when the real working directory is the trusted root or a
   descendant of it — `cwd` and the access decision are independent inputs, so this boundary check keeps the pair
   fail-closed. Once accepted, the pair is one value fixed for the session's life and handed by
   reference, never copied field by field, so no lazy operation can hold a different answer from the
   session; a move to another directory is a new session, not a mutation of this one.
-- **No concrete settings-file I/O for hosts.** Host adapters (`NodeHost*`) exist for callers that
-  deliberately own a host path, but never satisfy an authority parameter, and command modules must
-  not assemble settings/project paths themselves — they go through host adapters or command-facing
-  common APIs.
+- **Settings layers and stores never open a path; plugin enablement does.** A settings layer is read
+  through `IHostSettingsSource.read()` and a document is written through `ISettingsDocumentStore`, so
+  neither opens a settings file. Plugin enablement is the one consumer that works on the file itself:
+  it takes the user source's `path` and reads and writes it through an `IFileSystem`
+  (`NodeHostPluginSettingsStore`), so a user source with no `path` enables no plugins. Host adapters
+  (`NodeHost*`) exist for callers that deliberately own a host path, but never satisfy an authority
+  parameter, and command modules must not assemble settings/project paths themselves — they go
+  through host adapters or command-facing common APIs.
+- **The platform and the working directory are passed in, never assumed.** A session, subagent,
+  runtime or query takes a required `host` (`IFrameworkHost`, what the platform lends) and a required
+  absolute `cwd`. Neither has a default, because a default would be whichever process the framework
+  happens to run in. Every host member is optional and an absent one means that capability is off, so
+  `{}` is a valid host, except that a trusted project decision is compared on real paths and a host
+  that cannot resolve them refuses it; a Node composition root builds one with
+  `createNodeFrameworkHost` from the `./node` subpath. A missing `host` throws at construction instead of reading as a host that lends
+  nothing, because an untyped caller would otherwise get sessions without a capability and no
+  explanation.
 - **Every user- and project-scoped location is host-supplied, and the framework never infers or falls
   back to one.** Storage roots, project settings and state directories, user settings sources,
   plugin/skill/agent-definition roots, permission baselines, and task-context directories are all
@@ -56,6 +74,27 @@ React/Ink UI.
   target, and when that guarded write is unavailable, a project-wide permission approval is never
   silently downgraded to a session-only grant. A later deny rule always takes precedence over a
   host-supplied permission baseline, even across a live preset change.
+- **Edit checkpoint state may live outside the project, and is sealed or plain as its store is
+  told.** A store keeps its manifests and pre-images in the trusted project's checkpoint directory
+  unless the host supplies a location of its own, for a run that must leave nothing in the project;
+  the sealing decision is the store's own and is required, never implied by the location. A session
+  asks its checkpoints of `IEditCheckpointStore` and its stored sessions of `IInteractiveSessionStore`;
+  the stores that keep them in files, and seal and migrate them through `@robota-sdk/agent-session/node`,
+  are on the `./node` subpath, and a host with no files brings its own. Only where
+  the state is kept moves: restoring still writes the project's files back through the project
+  mutation capability, so a restore can touch nothing it could not before. Sealed state is never
+  trusted for what it says: a file opens only at the place it was written, and a manifest counts
+  only where it agrees with that place. A plain manifest counts only below every sealed one, since a
+  store that seals writes none: that stops one being appended above the sealed ones, but nothing in
+  the state anchors trust, so it cannot stop a program of the same user replacing sealed manifests
+  with plain ones. Making a checkpoint or resuming a branch never depends on opening one, so a store
+  that cannot open its checkpoints neither overwrites nor mislists them, and a checkpoint that
+  cannot be read is reported, never fatal to the others. A sealed manifest is replaced whole, since
+  a torn one could not be told from a damaged one, and a restore is all or nothing, since a partial
+  restore cannot be told from a finished one. A branch head a rollback through the first checkpoint
+  cleared on purpose is recorded in the session record as a pointer with no checkpoint, so a resumed
+  session starts its next turn on a fresh root line instead of continuing the line that was rolled
+  back.
 - **Organization policy is host-located and fail-closed.** The policy loader reads only the path
   selected by its host. An absent or empty path is an error; a missing file at a valid path means no
   deployed policy. A present but unreadable or malformed file raises a typed error rather than
@@ -125,12 +164,43 @@ These are behaviors a caller cannot infer from a type signature alone.
   turn holds with room kept for the prompt and response; redaction is the host's.
 - **Session persistence is explicit, never implicit.** `InteractiveSession`/`createAgentRuntime`
   never construct a project session store from a bare `cwd`. A host wanting persistence supplies an
-  explicit store (optionally composed from same-authority `sessions`/`session-logs` state facets); an
-  omitted per-session store inherits the runtime store, an explicit store replaces it, and an
-  explicit `undefined` disables persistence for that one session — all three are distinguishable
-  states, not collapsed into "no store". Saved recovery discovery and conversation history share
-  one Session-owned snapshot, restored before runnable initialization; strict persistence must
-  acknowledge synchronously or refuse the transition.
+  explicit store (optionally composed from same-authority `sessions`/`session-logs` state facets,
+  built with its sealing decision, which is required); an omitted per-session store inherits the
+  runtime store, an explicit store replaces it, and an explicit `undefined` disables persistence for
+  that one session — all three are distinguishable states, not collapsed into "no store". Saved
+  recovery discovery and conversation history share one Session-owned snapshot, restored before
+  runnable initialization; strict persistence must acknowledge synchronously or refuse the
+  transition. A sealed session whose keys are locked is present, so the project store never rebuilds
+  it from its replay log as it would an absent one, a listing leaves it out while a count says how
+  many are there, and a surface says why it does not open — telling to unlock only when locked keys
+  are why — rather than reporting the session as not found. The project store reads its replay logs
+  with the sealing it keeps its records with, and a log it cannot read is reported the way an
+  unreadable record is — locked, corrupt or unsupported, never missing and never a failed listing —
+  except to the writer of a session that has logged but not yet saved, who is told it is `missing`:
+  its save writes the snapshot beside the log and destroys nothing. A log carries no authorship, so
+  a session rebuilt from one is never the owner's, and in a store that seals an id a session here
+  runs is never rebuilt from one. A resume — a fork's source included, whose read takes no writer marker
+  so a session another process runs can still be copied — restores only from the read of the claim
+  its session holds on the id for as long as it runs, and only a record it may run or a
+  session never saved: a locked, corrupt or unsupported record is refused, because a session started
+  empty under its id would replace it on the first save after an unlock, and a record a store that
+  seals calls unverified is refused unless it is exactly the bytes the owner accepted, because any
+  program of the user can seal a record that opens. Accepted bytes become the owner's only once the
+  session restored from them and never through a copy, so a refused resume or a fork leaves the
+  record as it was, and what an unverified record says of itself never decides what a run resumes.
+  The claim fences every save of the id and ends however the session ends; the marker check and
+  record mutation share an operation lock with cooperating forced releases, so a session its host
+  stopped waiting for cannot overwrite the next one, and no surface opens a second session on an id
+  that has a writer, in this process or another: a served pool tells its client to try again only for
+  a session of its own that is still closing, and names whoever holds the id otherwise, a fork's
+  subagent included. A save the store refuses is reported once for each reason, in
+  the store's own words, until a save goes through. A session whose file something unverifiable
+  changed stops saving the id and acting on its own and saves its state once as a new record it
+  names, since merging the file would launder it and overwriting it could destroy newer work; a
+  refusal only the locked keys stand behind is decided at the unlock, and a session that ends while
+  either refusal stands saves that copy as it ends and reports a copy it could not write. A project
+  session record is replaced whole and flushed, so a write that fails part-way leaves the previous
+  record; a replay log rebuilds only the session it names.
 - **Fork vs. resume is exactly one bit of difference.** Resume reuses the source session id; fork
   generates a fresh id while still restoring the same messages and the parent's assembled system
   prompt verbatim — a fork inherits the parent's full assembled prompt (including any active output
@@ -147,6 +217,14 @@ These are behaviors a caller cannot infer from a type signature alone.
   runs only for the operator's own command, never for a connected surface or the model, whichever
   command asked. UI-only intents (opening a picker, a settings screen) are fire-and-forget: with no
   surface listening they are a defined no-op, and that never affects the host-action half.
+- **A command never reads another command's source.** Where the host tracks async context, every
+  command sees the source, driver and locality it was started with, however many run at once, and a
+  forked skill's resources are readable only from inside that fork. A host that does not (a browser)
+  stays strictly nested, because one slot read after an await by two overlapping commands would hand
+  each the other's scope: it admits one user or remote command at a time and refuses a second in plain
+  words; it admits a model command only when no user or remote command runs, or when that command has
+  started its own turn, whose model commands all carry the same scope and cannot overwrite each other;
+  and it refuses a forked skill before it starts, naming the missing `createAsyncScope`.
 - **Local peer status is display-only.** Host-observed activity, independently verified process
   liveness and the verified workspace relation never grant authority over the peer or identify a persisted session record, and a passive
   observer can never keep a request alive after its last answering surface leaves.
@@ -198,11 +276,13 @@ These are behaviors a caller cannot infer from a type signature alone.
 - **Status changes are pushed.** A status change made through any client reaches every client on
   the session. Context usage is not part of that: it moves every turn and
   is reported on its own, so counting it would push a status after every turn with nothing changed.
-- **Hook executor registration is replace-vs-extend, and the built-ins are seeded first.** The core
-  hook runner resolves `executors ?? createDefaultExecutors()` — an _undefined-only_ fallback, so
-  supplying any executor array at all replaces the built-in `command`/`http` executors rather than
-  extending them; only an actually-omitted array reactivates the defaults. Because the last executor
-  registered for a given hook type wins, the framework's built-ins are seeded _before_ SDK-specific
+- **Hook executor registration is replace-vs-extend, and the built-ins are seeded first.** The session
+  resolves an omitted executor list to the executors the host builds (`host.createHookExecutors`;
+  on Node, `command` and `http`) — an _undefined-only_ fallback, so supplying any executor array at
+  all replaces the built-ins rather than extending them; only an actually-omitted array reactivates
+  them. A host that lends no builder seeds none: the session has no executor of its own, and a
+  declared hook only the host's executors run is refused at assembly. Because the last executor
+  registered for a given hook type wins, the host's built-ins are seeded _before_ SDK-specific
   ones, so a caller-supplied executor of the same type still overrides the built-in — seeding them
   last would make the built-ins unoverridable, and merging instead would remove a sandboxed caller's
   ability to exclude one. The general principle: restriction must be asked for explicitly; extension
@@ -223,7 +303,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   supplies its own, so a project file cannot redirect a user's key to a different endpoint.
 - **Provider resolution order is fixed and total.** An explicit settings profile always wins; failing
   that, env-default synthesis picks the first provider definition (in definition order) whose default
-  API key references an environment variable that is set and non-empty, and which also has a default
+  API key references an environment variable that is set and non-empty in the environment the host
+  passes (with none, nothing is set and synthesis finds nothing), and which also has a default
   model; failing
   that, provider resolution throws a typed configuration error. An existing-but-corrupt settings file
   is never treated as a missing one — it fails fast with a typed parse error naming the file and the
@@ -244,11 +325,11 @@ These are behaviors a caller cannot infer from a type signature alone.
   explicit prompt keeps that intent across resume, and the host resolves the current default before
   each iteration; a missing or invalid resolver fails visibly rather than running a stale iteration.
 - **Tool composition is asymmetric on purpose: replace and append are not interchangeable.**
-  `defaultTools` replaces the framework's default tool tier outright; `additionalTools` only appends
+  `defaultTools` replaces the host's default tool tier outright; `additionalTools` only appends
   and, on a name collision with an already-assembled tool, the earlier entry silently wins and the
   contributed one is dropped rather than displacing it. That asymmetry is deliberate: the default tier
-  is constructed _with_ session context (the working-directory guard, sandbox client, retrieval
-  adapter), and an externally-constructed contribution carries none of it, so letting a name collision
+  is constructed _with_ session context (the working-directory guard, sandbox client), and an
+  externally-constructed contribution carries none of it, so letting a name collision
   swap one in would silently disable a security guarantee. A consumer that wants its own tools to
   fully own the surface passes an empty `defaultTools` and supplies everything through
   `additionalTools` instead — replacement stays fully expressible, just never as a side effect of a
@@ -403,6 +484,6 @@ Third parties extend the SDK through a small set of seams rather than subclassin
 (attaching a session to HTTP/WebSocket/MCP/etc.), hook executor injection (subject to the seeding and
 replace-vs-extend rules above), `ISandboxClient` (routing built-in tool I/O through a sandbox), a
 subagent runner factory (swapping the default in-process runner for a process- or worktree-backed
-one), and the `guardrails`/`retrievalAdapter` ports read by session assembly but implemented by
-nobody in this package. Each of these is deliberately a narrow, typed seam rather than an escape hatch
+one), and the `guardrails` port read by session assembly but implemented by nobody in this
+package. Each of these is deliberately a narrow, typed seam rather than an escape hatch
 into internal state, so a third party cannot reach further than the contract it was given.

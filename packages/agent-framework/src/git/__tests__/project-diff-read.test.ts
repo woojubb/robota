@@ -12,7 +12,8 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { NodeFileSystemAsync } from '../../adapters/node-file-system.js';
-import { createGitProcess } from '../git-process.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+import { createGitProcess } from '../node-git-process.js';
 import {
   MAX_PROJECT_DIFF_LINES,
   parseUnifiedDiffLines,
@@ -20,6 +21,8 @@ import {
 } from '../project-diff-read.js';
 
 import type { IGitProcessPort } from '../git-process.js';
+
+const hostFiles = createTestFrameworkHost().files!;
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -105,7 +108,7 @@ describe('readProjectGitDiff', () => {
   it('says a plain, non-repository sentence for a folder with no .git', async () => {
     const env = hermeticEnv();
     const folder = tempDir('project-diff-plain-');
-    const result = await readProjectGitDiff(port(env), folder, 'a.txt');
+    const result = await readProjectGitDiff(port(env), folder, 'a.txt', hostFiles);
     expect(result).toMatchObject({ ok: false, code: 'not_a_repository' });
   });
 
@@ -119,7 +122,7 @@ describe('readProjectGitDiff', () => {
         return port(env).run(args, options);
       },
     };
-    const result = await readProjectGitDiff(spyPort, repo, '../outside.txt');
+    const result = await readProjectGitDiff(spyPort, repo, '../outside.txt', hostFiles);
     expect(result).toMatchObject({ ok: false, code: 'outside_workspace' });
     expect(called).toBe(false);
   });
@@ -132,7 +135,7 @@ describe('readProjectGitDiff', () => {
     git(repo, env, 'commit', '-q', '-m', 'chore: base');
     writeFileSync(join(repo, 'a.txt'), 'line1\nCHANGED\nline3\n');
 
-    const result = await readProjectGitDiff(port(env), repo, 'a.txt');
+    const result = await readProjectGitDiff(port(env), repo, 'a.txt', hostFiles);
     if (!result.ok) throw new Error(`expected ok, got ${JSON.stringify(result)}`);
     expect(result.diffLines.some((l) => l.type === 'remove' && l.text === 'line2')).toBe(true);
     expect(result.diffLines.some((l) => l.type === 'add' && l.text === 'CHANGED')).toBe(true);
@@ -145,7 +148,7 @@ describe('readProjectGitDiff', () => {
     git(repo, env, 'commit', '-q', '-m', 'chore: empty', '--allow-empty');
     writeFileSync(join(repo, 'new.txt'), 'alpha\nbeta\n');
 
-    const result = await readProjectGitDiff(port(env), repo, 'new.txt');
+    const result = await readProjectGitDiff(port(env), repo, 'new.txt', hostFiles);
     if (!result.ok) throw new Error(`expected ok, got ${JSON.stringify(result)}`);
     expect(result.diffLines).toEqual([
       { type: 'hunk', text: '@@ -0,0 +1,2 @@', lineNumber: 1 },
@@ -162,7 +165,7 @@ describe('readProjectGitDiff', () => {
     writeFileSync(join(repo, 'big.log'), 'x'.repeat(1024 * 1024 + 1));
 
     const spyFs = new ReadSpyFileSystem();
-    const result = await readProjectGitDiff(port(env), repo, 'big.log', spyFs);
+    const result = await readProjectGitDiff(port(env), repo, 'big.log', { ...hostFiles, async: spyFs });
     if (!result.ok) throw new Error(`expected ok, got ${JSON.stringify(result)}`);
     expect(result.diffLines).toEqual([
       { type: 'hunk', text: 'This file is too large to show here.', lineNumber: 1 },
@@ -176,7 +179,7 @@ describe('readProjectGitDiff', () => {
     git(repo, env, 'commit', '-q', '-m', 'chore: empty', '--allow-empty');
     writeFileSync(join(repo, 'image.bin'), Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x00, 0x01, 0x02]));
 
-    const result = await readProjectGitDiff(port(env), repo, 'image.bin');
+    const result = await readProjectGitDiff(port(env), repo, 'image.bin', hostFiles);
     if (!result.ok) throw new Error(`expected ok, got ${JSON.stringify(result)}`);
     expect(result.diffLines).toEqual([{ type: 'hunk', text: 'Binary file', lineNumber: 1 }]);
   });
@@ -188,7 +191,7 @@ describe('readProjectGitDiff', () => {
     const longLine = 'x'.repeat(5000);
     writeFileSync(join(repo, 'minified.js'), longLine);
 
-    const result = await readProjectGitDiff(port(env), repo, 'minified.js');
+    const result = await readProjectGitDiff(port(env), repo, 'minified.js', hostFiles);
     if (!result.ok) throw new Error(`expected ok, got ${JSON.stringify(result)}`);
     const added = result.diffLines.find((l) => l.type === 'add');
     expect(added?.text.length).toBeLessThan(5000);
@@ -201,7 +204,7 @@ describe('readProjectGitDiff', () => {
     writeFileSync(join(repo, 'a.txt'), 'line1\nline2\n');
     git(repo, env, 'add', '--', 'a.txt');
 
-    const result = await readProjectGitDiff(port(env), repo, 'a.txt');
+    const result = await readProjectGitDiff(port(env), repo, 'a.txt', hostFiles);
     if (!result.ok) throw new Error(`expected ok, got ${JSON.stringify(result)}`);
     expect(result.diffLines.filter((l) => l.type === 'add')).toHaveLength(2);
   });
@@ -216,7 +219,7 @@ describe('readProjectGitDiff', () => {
     const changed = baseLines.map((l) => `${l}x`);
     writeFileSync(join(repo, 'big.txt'), `${changed.join('\n')}\n`);
 
-    const result = await readProjectGitDiff(port(env), repo, 'big.txt');
+    const result = await readProjectGitDiff(port(env), repo, 'big.txt', hostFiles);
     if (!result.ok) throw new Error(`expected ok, got ${JSON.stringify(result)}`);
     expect(result.truncated).toBe(true);
     expect(result.diffLines).toHaveLength(MAX_PROJECT_DIFF_LINES + 1);

@@ -15,6 +15,7 @@ const NOT_IN_GLOBAL_HELP = new Set([
   'moved-from',
   'supervised-session-id',
   'supervised-external-event-grants',
+  'supervised-transport-token-fd',
   'daemon',
   'external-event-allow',
   // `the product session list --format` is listed with that command; `--summary` and `--source` belong
@@ -120,6 +121,7 @@ describe('test-product <subcommand> --help', () => {
       ['acp'],
       ['daemon'],
       ['eval'],
+      ['secure'],
     ])(
       'test-product %s --help prints help and exits 0 instead of running the command',
       async (...subcommand: string[]) => {
@@ -166,6 +168,22 @@ describe('the help router hands --help to commands with their own help', () => {
     );
 
     expect(stdout.mock.calls.flat().join('')).toContain(expected);
+  });
+
+  it('lists the secure commands, with their one flag, and prints only their entries for secure --help', () => {
+    const runtime = createTestProductRuntime();
+    const secure = subcommandHelpFor(['secure', '--help'], runtime);
+    for (const entry of [
+      'test-product secure setup',
+      'test-product secure status',
+      'test-product secure verify [--recovery]',
+      'test-product secure change-passphrase [--recovery]',
+    ]) {
+      expect(secure).toContain(entry);
+      expect(printHelp(runtime)).toContain(entry);
+    }
+    expect(secure).not.toContain('test-product daemon');
+    expect(isSubcommandName('secure')).toBe(true);
   });
 
   it('lists every option daemon start and eval accept in their entries', () => {

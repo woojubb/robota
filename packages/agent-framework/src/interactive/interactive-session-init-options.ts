@@ -16,7 +16,7 @@ import type {
  */
 
 import type { ICommand } from '../command-api/types.js';
-import type { IInteractiveSessionStore } from './session-persistence.js';
+import type { IInteractiveSessionStore } from './session-store-types.js';
 import type { TInteractivePermissionHandler } from './types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IPeerReplyPort } from '../tools/peer-reply-tool.js';
@@ -32,9 +32,9 @@ import type {
 } from '../commands/index.js';
 import type { IHookDefinitionSource } from '../config/config-merge.js';
 import type { IResolvedConfig } from '../config/config-types.js';
-import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
-import type { IProjectSettingsPath } from '../config/settings-source.js';
+import type { IHostSettingsSource, IProjectSettingsPath } from '../config/settings-source.js';
 import type { IContributionSource } from '../contributions/index.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IMemoryStore } from '../memory/types.js';
@@ -52,12 +52,13 @@ import type {
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 import type { ISessionLogSink } from '@robota-sdk/agent-session';
-import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
 import type { ISandboxClient, IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
 /** Standard construction: cwd + provider. Config/context loaded internally. */
 
 export interface IInitOptions {
+  /** The platform the session runs on, carried from the construction options. */
+  host: IFrameworkHost;
   /** Additive response style applied to the composed system prompt. */
   outputStyle?: IOutputStylePrompt;
   cwd: string;
@@ -67,7 +68,7 @@ export interface IInitOptions {
   baselinePermissionAllow?: readonly string[];
   /** Host-selected default task-context directory; resolved settings may override or disable it. */
   taskContext?: IResolvedConfig['taskContext'];
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   environment?: Readonly<Record<string, string | undefined>>;
   resolveProviderCredential?: TProviderCredentialResolver;
   contributionSources?: readonly IContributionSource[];
@@ -210,8 +211,6 @@ export interface IInitOptions {
   defaultTools?: readonly IToolWithEventService[];
   /** SELFHOST-005 guardrail REGISTRY (name → function). ARCH-013 S3; see create-session-projection. */
   guardrails?: Record<string, TGuardrail>;
-  /** SELFHOST-003 retrieval adapter gating `CodebaseRetrieval`. ARCH-013 S3; same seam as above. */
-  retrievalAdapter?: IRetrievalAdapter;
   /** Request structured output from the provider for this session (issue #2056: incl. `json_schema`). */
   responseFormat?: TSessionResponseFormat;
 }

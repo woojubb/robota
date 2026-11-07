@@ -4,7 +4,11 @@ import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Sandbox } from 'e2b/dist/index.mjs';
-import { createTestProductEnvironment } from '../../__tests__/helpers/product-runtime.js';
+import {
+  cleanupTestProductRuntimes,
+  createTestProductEnvironment,
+  createTestProductRuntime,
+} from '../../__tests__/helpers/product-runtime.js';
 import { hostedFixture } from './hosted-fixture.js';
 import { admitHostedRuntime } from '../hosted-runtime-admission.js';
 import { createE2BHostedRuntimeExecutorFactory } from '../e2b-hosted-executor.js';
@@ -14,7 +18,10 @@ import {
   verifyHostedWorkerAccess,
 } from '../hosted-worker-execution-config.js';
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  cleanupTestProductRuntimes();
+});
 
 async function fixture() {
   const signed = await hostedFixture();
@@ -237,7 +244,7 @@ describe('installed hosted worker CLI composition', () => {
     const argv = [...process.argv];
     try {
       process.argv.splice(2, process.argv.length, '--help');
-      await expect(runHostedRuntime({ toolExecutionPolicy: () => ({}) }, f.environment, 'cedar'))
+      await expect(runHostedRuntime({ toolExecutionPolicy: () => ({}) }, createTestProductRuntime('cedar', f.environment)))
         .rejects.toThrow(/scheduling.*worker/u);
       expect(f.sandbox.commands.run).not.toHaveBeenCalled();
       expect(f.kill).not.toHaveBeenCalled();
@@ -252,7 +259,7 @@ describe('installed hosted worker CLI composition', () => {
     const argv = [...process.argv];
     try {
       process.argv.splice(2, process.argv.length, '--help');
-      await runHostedRuntime({}, f.environment, 'cedar');
+      await runHostedRuntime({}, createTestProductRuntime('cedar', f.environment));
       expect(f.sandbox.commands.run).toHaveBeenCalledWith(
         expect.stringContaining("'/opt/agent/cli.mjs' '--help'"),
         expect.objectContaining({ background: true, stdin: true, cwd: '/workspace' }),

@@ -1,13 +1,18 @@
 /**
- * Leaf type module for {@link ISettingsDocumentStore}.
+ * Leaf type module for {@link ISettingsDocumentStore} and the document it holds.
  *
- * Split out of `settings-store.ts` so `node-host-settings-store.ts` can depend on this type
- * without importing back from `settings-store.ts` (which imports
- * `createNodeHostSettingsStore` from `node-host-settings-store.ts`) — that previously created an
- * import cycle between the two.
+ * Split out of `settings-store.ts` so a file that only needs these types does not import the store
+ * module (which imports the workspace project reader) — that previously created an import cycle
+ * between the two.
  */
-import type { TSettingsData } from './settings-io.js';
-import type { TSettingsSource, THostSettingsScope, TProjectSettingsScope } from './settings-source.js';
+import type {
+  TSettingsSource,
+  THostSettingsScope,
+  TProjectSettingsScope,
+} from './settings-source.js';
+import type { TUniversalValue } from '@robota-sdk/agent-core';
+
+export type TSettingsData = Record<string, TUniversalValue>;
 
 export interface ISettingsDocumentStore {
   readonly kind: 'host' | 'project';

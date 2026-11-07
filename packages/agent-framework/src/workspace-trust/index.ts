@@ -1,3 +1,6 @@
+// The platform-neutral workspace trust surface. What touches a Node file system or process (the
+// stable file operations, the git identity resolver, the persistent trust store, the pre-trust
+// metadata walk) is exported from `../node.ts`.
 export {
   assertWorkspaceProjectAuthority,
   getWorkspaceProjectIdentity,
@@ -17,23 +20,12 @@ export {
   createWorkspaceProjectMutation,
   prepareWorkflowJsonMutation,
 } from './project-mutation.js';
-export { supportsWorkspaceProjectMutation } from './project-relative-writer.js';
 export { assertWorkspaceProjectReader } from './project-reader.js';
-export { inspectPreTrustProjectPaths } from './pretrust-contribution-inspector.js';
-export type {
-  IPreTrustProjectPathInspection,
-  TPreTrustProjectPathKind,
-} from './pretrust-contribution-inspector.js';
 export { WorkspaceAuthorityRequiredError } from './workspace-authority-required-error.js';
 export {
   WorkspaceTrustService,
   createRestrictedWorkspaceProjectAccess,
 } from './workspace-trust-service.js';
-export {
-  createNodeWorkspaceIdentityResolver,
-  createNodeWorkspaceTrustService,
-  createNodeWorkspaceTrustStore,
-} from './node-host-workspace-trust.js';
 
 export type {
   IRestrictedWorkspaceProjectAccess,
@@ -44,9 +36,12 @@ export type {
   IWorkspaceIdentity,
   IWorkspaceIdentityResolver,
   IWorkspaceProjectAuthority,
+  IWorkspaceProjectFiles,
+  IWorkspaceProjectMutationBoundary,
   IWorkspaceProjectReader,
   IWorkspaceProjectSettingsWriter,
   IWorkspaceProjectMutation,
+  IWorkspaceProjectStableWriter,
   IWorkspaceProjectStateStorage,
   IWorkspaceTrustGrant,
   IWorkspaceTrustStore,

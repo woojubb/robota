@@ -19,6 +19,7 @@ import {
   type IWindowsIdentity,
 } from './windows-native-read.js';
 import { classifyNtOpenFailure, ntStatusHostCode } from './windows-native-status.js';
+import { readWindowsDirectory } from './windows-native-directory.js';
 
 import type { IFileAuthorityTestHooks } from './host-backend.js';
 
@@ -57,6 +58,7 @@ const FILE_DISPOSITION_INFO_CLASS = 4;
 const HANDLE_WIDTH_BITS = 64;
 const INVALID_HANDLE_VALUE = BigInt('-1');
 const MAX_FILE_NAME_CODE_UNITS = 255;
+const FILESYSTEM_NAME_CHARS = 64;
 
 function assertWindowsSegmentLength(segment: string): void {
   if (segment.length === 0 || segment.length > MAX_FILE_NAME_CODE_UNITS) {
@@ -80,11 +82,11 @@ export class WindowsNativeAuthority {
     }
   }
 
-  openRoot(rootDirectory: string): TNativeHandle {
+  openRoot(rootDirectory: string, preventDelete = false): TNativeHandle {
     const handle = this.api.createFileW(
       rootDirectory,
       GENERIC_READ,
-      FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+      FILE_SHARE_READ | FILE_SHARE_WRITE | (preventDelete ? 0 : FILE_SHARE_DELETE),
       null,
       OPEN_EXISTING,
       FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT,
@@ -102,14 +104,29 @@ export class WindowsNativeAuthority {
     }
   }
 
+  assertSupportedLocalRoot(handle: TNativeHandle): void {
+    const filesystem = new Uint16Array(FILESYSTEM_NAME_CHARS);
+    if (!this.api.getVolumeFilesystemName(handle, filesystem)) {
+      throw authorityError('UNSUPPORTED_BACKEND', 'compare-roots', {
+        hostCode: this.lastErrorCode(),
+      });
+    }
+    const terminator = filesystem.indexOf(0);
+    const name = String.fromCharCode(...filesystem.subarray(0, terminator)).toUpperCase();
+    if (terminator <= 0 || (name !== 'NTFS' && name !== 'REFS')) {
+      throw authorityError('UNSUPPORTED_BACKEND', 'compare-roots');
+    }
+  }
+
   openRelative(
     parentHandle: TNativeHandle,
     segment: string,
     final: boolean,
     segmentIndex: number,
+    preventDelete = false,
   ): TNativeHandle | undefined {
     return this.completeRelativeOpen(
-      this.issueRelativeOpen(parentHandle, segment, final, false),
+      this.issueRelativeOpen(parentHandle, segment, final, false, false, preventDelete),
       final,
       segmentIndex,
     );
@@ -192,12 +209,7 @@ export class WindowsNativeAuthority {
     segment: string,
     segmentIndex: number,
   ): TNativeHandle {
-    const { handle, status } = this.issueRelativeCreate(
-      parentHandle,
-      segment,
-      true,
-      FILE_OPEN_IF,
-    );
+    const { handle, status } = this.issueRelativeCreate(parentHandle, segment, true, FILE_OPEN_IF);
     if (status < 0 || isInvalidHandle(handle)) {
       if (!isInvalidHandle(handle)) this.close(handle);
       const failure = classifyNtOpenFailure(status);
@@ -312,6 +324,14 @@ export class WindowsNativeAuthority {
     return readWindowsFile(this.api, handle, maxBytes, hooks);
   }
 
+  driveType(root: string): number {
+    return this.api.getDriveType(root);
+  }
+
+  readDirectory(handle: TNativeHandle) {
+    return readWindowsDirectory(this.api, handle);
+  }
+
   queryIdentity(handle: TNativeHandle, operation: string): IWindowsIdentity {
     return queryWindowsIdentity(this.api, handle, operation);
   }
@@ -335,6 +355,7 @@ export class WindowsNativeAuthority {
     final: boolean,
     replaceable: boolean,
     identityOnly = false,
+    preventDelete = false,
   ): { handle: TNativeHandle; status: number } {
     assertWindowsSegmentLength(segment);
     const unicodeName = koffi.alloc(this.api.unicodeStringType, 1);
@@ -358,8 +379,8 @@ export class WindowsNativeAuthority {
       // Deny write sharing for that handle so existing and new writers cannot race the read.
       const shareAccess =
         final && !identityOnly
-          ? FILE_SHARE_READ | FILE_SHARE_DELETE
-          : FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE;
+          ? FILE_SHARE_READ | (preventDelete ? 0 : FILE_SHARE_DELETE)
+          : FILE_SHARE_READ | FILE_SHARE_WRITE | (preventDelete ? 0 : FILE_SHARE_DELETE);
       const dataAccess = !final
         ? FILE_LIST_DIRECTORY
         : identityOnly

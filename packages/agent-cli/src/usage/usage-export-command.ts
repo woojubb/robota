@@ -1,5 +1,4 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
 import {
   createOtlpPromptEvents,
   createOtlpPromptRootTraces,
@@ -7,7 +6,7 @@ import {
 } from '@robota-sdk/agent-session-analytics';
 
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
-import { userPaths } from '../product/user-paths.js';
+import { createProductUserSessionStore } from '../product/session-stores.js';
 import { readVersion, runtimeVersion } from '../startup/version.js';
 import { enumerateUsageSnapshot } from './usage-command.js';
 
@@ -182,6 +181,16 @@ export async function executeUsageExportCommand(
       'Stored sessions include unreadable or unsupported records; no incomplete snapshot was sent.',
     );
   }
+  if (snapshot.lockedSessionCount > snapshot.noKeysSessionCount) {
+    return invalid(
+      'Stored sessions include sealed records that are locked; unlock to include them. No incomplete snapshot was sent.',
+    );
+  }
+  if (snapshot.noKeysSessionCount > 0) {
+    return invalid(
+      'Stored sessions include sealed records this process has no keys for. No incomplete snapshot was sent.',
+    );
+  }
   if (snapshot.records.length === 0) return invalid('No readable sessions to export.');
 
   const version = dependencies.version ?? readVersion();
@@ -252,7 +261,7 @@ export async function runUsageExportCommand(
 ): Promise<number> {
   const result = await executeUsageExportCommand(argv, {
     serviceName: runtime.config.identity.telemetryServiceName,
-    userSessionStore: createUserSessionStore(userPaths(runtime).sessions),
+    userSessionStore: createProductUserSessionStore(runtime),
     ...(projectSessionStore ? { projectSessionStore } : {}),
     version: runtimeVersion(runtime),
   });

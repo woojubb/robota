@@ -205,10 +205,14 @@ export interface IBranchEvent {
  * `goal`) so a branch survives `--resume`. Pure data. The branch TREE persists in the agent-framework
  * checkpoint manifest; a resume whose pointer references a `branchId`/`checkpointId` absent from that
  * manifest store must degrade gracefully (fall back to the linear HEAD), not crash.
+ *
+ * `checkpointId` is `null` when the head was cleared on purpose — a rollback through the session's
+ * first checkpoint — so the next turn starts a fresh root line; without a pointer at all a resumed
+ * session continues from its latest checkpoint.
  */
 export interface IActiveBranchPointer {
   branchId: string;
-  checkpointId: string;
+  checkpointId: string | null;
 }
 
 /** Events emitted by InteractiveSession. */

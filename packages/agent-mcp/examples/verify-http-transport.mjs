@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { isAbsolute } from 'node:path';
 import { createInterface } from 'node:readline';
-import { createStreamableHttpAdapter, openMcpSession } from '../dist/node/index.js';
+import { createStreamableHttpAdapter, openMcpSession } from '../dist/index.js';
+import { createNodeHttpEgress } from '../dist/node.js';
 
 // Keep socket accounting in a separate Node process: Bun's HTTP server shim does not
 // expose the same socket close events. The client under test still runs in Node/Bun.
@@ -90,10 +91,10 @@ let session;
 try {
   const ready = await receive(0);
   const endpoint = new URL(`http://pinned-mcp-fixture.invalid:${ready.port}/mcp`);
-  const adapter = createStreamableHttpAdapter({
+  const adapter = createStreamableHttpAdapter({ egress: createNodeHttpEgress({
     policy: { allowedHosts: [endpoint.hostname] },
     lookup: async () => { lookups += 1; return ['127.0.0.1']; },
-  });
+  }) });
   const admission = await adapter.admit({ url: endpoint.href });
   assert(admission.ok);
   session = await openMcpSession({ serverId: 'fixture', transport: adapter.construct(admission.admitted), timeouts: { startupMs: 2000, perCallMs: 2000 } });

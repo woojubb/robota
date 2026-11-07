@@ -105,6 +105,8 @@ interface IBaseBackgroundTaskHandle {
   readonly pid?: number;
   readonly logPath?: string;
   readonly transcriptPath?: string;
+  /** The transcript is sealed (see `ISubagentJobHandle.transcriptSealed`); the manager projects it into task state. */
+  readonly transcriptSealed?: true;
   cancel(reason?: string): Promise<void>;
   send?(input: IBackgroundTaskInput): Promise<void>;
   readLog?(cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;
@@ -207,11 +209,13 @@ export interface IBackgroundTaskManagerOptions {
   idFactory?: TBackgroundTaskIdFactory;
   eventSink?: TBackgroundTaskEventListener;
   /**
-   * ARCH-053: receives every observer (eventSink/listener) failure. Defaults to a process warning;
-   * never invoked from inside the failing observer's own delivery, never allowed to be silent.
+   * ARCH-053: receives every observer (eventSink/listener) failure. Defaults to a `console.warn`
+   * line; a Node host passes `reportObserverFailureAsProcessWarning` from
+   * `@robota-sdk/agent-executor/node` to surface it as a process warning. Never invoked from inside the failing observer's own
+   * delivery, never allowed to be silent.
    */
   onObserverFailure?: TObserverFailureReporter<TBackgroundTaskEvent>;
-  /** Host-selected process-warning identity used when no custom reporter is supplied. */
+  /** Host-selected warning identity used when no custom reporter is supplied. */
   observerFailureWarningCode?: string;
   agentIdleTimeoutMs?: number;
   agentMaxRuntimeMs?: number;

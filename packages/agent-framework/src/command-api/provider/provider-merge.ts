@@ -1,8 +1,10 @@
 import { normalizeProviderConfig } from '@robota-sdk/agent-core';
 
+import { resolveProviderEnvironment } from './provider-environment.js';
 import { SettingsParseError } from '../../config/settings-parse-error.js';
 import { readSettingsSourceText } from '../../config/settings-source.js';
 
+import type { TProviderEnvironment } from './provider-environment.js';
 import type { IProviderProfileSettings, TProviderSettingsDocument } from './provider-settings.js';
 import type { TSettingsSource } from '../../config/settings-source.js';
 import type {
@@ -111,9 +113,9 @@ export function resolveActiveProvider(
   settings: TProviderSettingsDocument,
   providerOverride: string | undefined,
   providerDefinitions: readonly IProviderDefinition[],
-  environment?: Readonly<Record<string, string | undefined>>,
+  environment?: TProviderEnvironment,
 ): IProviderDefinitionConfig | undefined {
-  const resolve = environment === undefined ? undefined : (name: string) => environment[name];
+  const resolve = resolveProviderEnvironment(environment);
   const activeProvider = providerOverride ?? settings.currentProvider;
   if (activeProvider !== undefined) {
     const profile = settings.providers?.[activeProvider];

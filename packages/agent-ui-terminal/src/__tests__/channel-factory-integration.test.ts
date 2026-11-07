@@ -11,16 +11,19 @@ import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { toChannelOptions, type IRenderOptions } from '../render.js';
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 const RESTORE_DEADLINE_MS = 10_000;
 const POLL_MS = 50;
@@ -82,13 +85,14 @@ describe('channel factory restores persisted context (CLI-B11 TC-02)', () => {
   });
 
   it('createChannel(sessionId) over a real FileSessionStore yields usedTokens > 0', async () => {
-    const store = createNodeHostSessionStore(join(cwd, 'state', 'sessions'));
+    const store = createNodeHostSessionStore(join(cwd, 'state', 'sessions'), { sealing: 'plain' });
     const sessionId = 'b11-restore-session';
     persistConversation(store, sessionId, cwd);
 
     // Exactly the render.tsx factory: toChannelOptions(options, resumeSessionId).
     const scripted = createScriptedProvider([{ text: 'unused in this test' }]);
     const options: IRenderOptions = {
+      host: testHost,
       cwd,
       provider: scripted.provider,
       sessionStore: store,
@@ -118,11 +122,12 @@ describe('channel factory restores persisted context (CLI-B11 TC-02)', () => {
   });
 
   it('a channel created WITHOUT resumeSessionId starts with an empty context (control)', async () => {
-    const store = createNodeHostSessionStore(join(cwd, 'state', 'sessions'));
+    const store = createNodeHostSessionStore(join(cwd, 'state', 'sessions'), { sealing: 'plain' });
     persistConversation(store, 'b11-other-session', cwd);
 
     const scripted = createScriptedProvider([{ text: 'unused' }]);
     const options: IRenderOptions = {
+      host: testHost,
       cwd,
       provider: scripted.provider,
       sessionStore: store,

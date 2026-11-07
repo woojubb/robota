@@ -13,8 +13,10 @@
  *   workspace package's installed dependencies and each subpath is required in its own Node process.
  *   attw and publint only read the files, so a CommonJS entry that reaches an ESM module with a
  *   top-level await (ERR_REQUIRE_ASYNC_MODULE) or a chunk left out of the tarball passes them;
- * - no browser entry (a `dist/browser/` file named in `exports`) reaches a `node:` builtin through its
- *   static imports. Dynamically imported chunks are Node-only paths loaded on demand and are allowed;
+ * - no file shipped for a platform-neutral subpath (one whose `exports` entry does not map
+ *   `"browser": null`, ARCHITECTURE.md "Runtime platforms") reaches a Node built-in through a static
+ *   import, a dynamic `import()` or a `require()`, bare or `node:`-prefixed. The source check in
+ *   `pnpm lint` proves the source graph; this proves what the build actually shipped;
  * - `./package.json` is exported (a strict `exports` map otherwise hides it from
  *   `require('<package>/package.json')`), and the package's README.md (npm's package page) and
  *   CHANGELOG.md ship with it.
@@ -23,6 +25,7 @@
  */
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
+import { builtinModules } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -127,26 +130,37 @@ function requireProblems(tarball, manifest) {
 const read = (tarball, file) =>
   execFileSync('tar', ['-xzOf', tarball, `package/${file}`], { encoding: 'utf8' });
 
-function browserBuiltinProblems(tarball, manifest, files) {
-  const entries = declaredPaths({ exports: manifest.exports }).filter((file) =>
-    /^dist\/browser\/.+\.m?js$/u.test(file),
-  );
+const BUILTIN_SPECIFIERS = new Set(builtinModules.flatMap((name) => [name, `node:${name}`]));
+const isBuiltin = (specifier) => specifier.startsWith('node:') || BUILTIN_SPECIFIERS.has(specifier);
+const SPECIFIER = /(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)["']([^"']+)["']/gu;
+
+export function neutralShippedProblems(tarball, manifest, files) {
+  const { exports } = manifest;
+  const subpaths =
+    exports &&
+    typeof exports === 'object' &&
+    Object.keys(exports).some((key) => key.startsWith('.'))
+      ? Object.values(exports)
+      : [exports];
+  const entries = subpaths
+    .filter((target) => !(target && typeof target === 'object' && target.browser === null))
+    .flatMap((target) => declaredPaths({ exports: target }))
+    .filter((file) => /^dist\/.+\.[cm]?js$/u.test(file));
   const problems = [];
-  for (const entry of entries) {
+  for (const entry of new Set(entries)) {
     const seen = new Set();
     const queue = [entry];
     while (queue.length) {
       const file = queue.pop();
       if (seen.has(file) || !files.has(file)) continue;
       seen.add(file);
-      const code = read(tarball, file);
-      const builtins = [...code.matchAll(/(?:from\s*|import\s*)["'](node:[^"']+)["']/gu)].map(
-        (match) => match[1],
-      );
+      const specifiers = [...read(tarball, file).matchAll(SPECIFIER)].map((match) => match[1]);
+      const builtins = specifiers.filter(isBuiltin);
       if (builtins.length)
         problems.push(`${entry} reaches ${[...new Set(builtins)].join(', ')} via ${file}`);
-      for (const match of code.matchAll(/(?:from\s*|import\s*)["'](\.\.?\/[^"']+)["']/gu))
-        queue.push(path.posix.normalize(path.posix.join(path.posix.dirname(file), match[1])));
+      for (const specifier of specifiers)
+        if (specifier.startsWith('.'))
+          queue.push(path.posix.normalize(path.posix.join(path.posix.dirname(file), specifier)));
     }
   }
   return problems;
@@ -188,7 +202,7 @@ export function verifyTarball(tarball) {
     ...runTool('publint', tarball),
     ...runTool('attw', tarball, esmOnly.length ? ['--exclude-entrypoints', ...esmOnly] : []),
   );
-  problems.push(...browserBuiltinProblems(tarball, manifest, files));
+  problems.push(...neutralShippedProblems(tarball, manifest, files));
   if (!NODE_FLOOR || manifest.engines?.node !== NODE_FLOOR)
     problems.push(`declares engines.node ${manifest.engines?.node ?? '(none)'}, not ${NODE_FLOOR}`);
   problems.push(...requireProblems(tarball, manifest));

@@ -12,8 +12,15 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { HeadlessInteractionChannel } from '../HeadlessInteractionChannel.js';
+import { createTestFrameworkHost } from '../../../testing/framework-host.js';
 
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import type { IHeadlessOutput } from '../headless-runner.js';
+
+/** The streams a Node composition root hands the headless channel. */
+const processOutput: IHeadlessOutput = { stdout: process.stdout, stderr: process.stderr };
+
+const testHost = createTestFrameworkHost();
 
 /** A sandbox that confines every command and lets each one run without a prompt. */
 const autoApprovingSandbox: ISandboxClient = {
@@ -58,11 +65,13 @@ async function runBashInPrintMode(sandboxClient?: ISandboxClient): Promise<strin
     },
   );
   const channel = new HeadlessInteractionChannel({
+    host: testHost,
     cwd,
     provider: createScriptedProvider([
       { toolCalls: [{ name: 'Bash', args: { command: 'npm test' } }] },
       { text: 'finished' },
     ]).provider,
+    output: processOutput,
     outputFormat: 'text',
     shellExec: () => '',
     bare: true,

@@ -4,9 +4,9 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createStdioAdapter } from '../client/stdio.js';
-import { MCPStdioTransport } from '../client/stdio-transport.js';
-import { MCPStdioError } from '../client/stdio-transport.js';
+import { createStdioAdapter } from '../node/stdio.js';
+import { MCPStdioTransport } from '../node/stdio-transport.js';
+import { MCPStdioError } from '../client/stdio-error.js';
 import { openMcpSession } from '../client/session.js';
 import { MCPConnectionSupervisor } from '../supervisor/connection.js';
 import { classifyMcpFailure } from '../supervisor/connection.js';

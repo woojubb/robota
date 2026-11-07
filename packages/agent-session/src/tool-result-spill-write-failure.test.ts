@@ -2,15 +2,31 @@ import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { PROCESS_OWNER_RECORD_NAME } from '@robota-sdk/agent-core/node';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const flags = vi.hoisted(() => ({ failCleanup: false }));
+const flags = vi.hoisted(() => ({ failCleanup: false, resultDescriptors: new Set<number>() }));
 
 vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
   return {
     ...actual,
-    writeFileSync: (fd: number, content: string) => {
+    openSync: (...args: Parameters<typeof actual.openSync>) => {
+      const fd = actual.openSync(...args);
+      if (String(args[0]).endsWith('.partial')) flags.resultDescriptors.add(fd);
+      return fd;
+    },
+    // Only the result write (to its `.partial` file) runs out of space; the owner record the
+    // directory is created with is written through another descriptor and succeeds.
+    writeFileSync: (
+      target: Parameters<typeof actual.writeFileSync>[0],
+      content: string,
+      ...rest: unknown[]
+    ) => {
+      if (typeof target !== 'number' || !flags.resultDescriptors.delete(target)) {
+        return actual.writeFileSync(target, content, ...(rest as [never]));
+      }
+      const fd = target;
       actual.writeFileSync(fd, content.slice(0, 12), 'utf8');
       const error = new Error('ENOSPC: private-payload-body') as NodeJS.ErrnoException;
       error.code = 'ENOSPC';
@@ -39,7 +55,7 @@ describe('spill write failure', () => {
   it('reports disk exhaustion without publishing a partial result or secret diagnostics', async () => {
     const root = mkdtempSync(join(tmpdir(), 'agent-spill-failure-'));
     parents.push(root);
-    const store = new NodeToolResultSpillStore({ parentDirectory: root });
+    const store = new NodeToolResultSpillStore({ sealing: 'plain', parentDirectory: root });
     const secret = 'private-payload-body';
     let caught: unknown;
     try {
@@ -50,14 +66,14 @@ describe('spill write failure', () => {
     expect(caught).toMatchObject({ code: 'write-failed' });
     expect(String(caught)).not.toContain(secret);
     const directory = join(root, readdirSync(root)[0]!);
-    expect(readdirSync(directory)).toEqual([]);
+    expect(readdirSync(directory).filter((name) => name !== PROCESS_OWNER_RECORD_NAME)).toEqual([]);
     await store.shutdown();
   });
 
   it('distinguishes cleanup failure when a partial write cannot be removed', async () => {
     const root = mkdtempSync(join(tmpdir(), 'agent-spill-failure-'));
     parents.push(root);
-    const store = new NodeToolResultSpillStore({ parentDirectory: root });
+    const store = new NodeToolResultSpillStore({ sealing: 'plain', parentDirectory: root });
     flags.failCleanup = true;
     await expect(store.write('private-payload-body')).rejects.toMatchObject({
       code: 'cleanup-failed',

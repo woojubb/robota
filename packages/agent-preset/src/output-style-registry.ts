@@ -1,5 +1,3 @@
-import { basename, extname } from 'node:path';
-
 import { builtInOutputStyles } from './output-styles.js';
 
 import type {
@@ -74,8 +72,19 @@ function parseFrontmatter(
   };
 }
 
+/**
+ * The file's name without its final extension. Either separator ends a directory part, since a host
+ * that joined the name to a directory may have used either; a name that is only an extension
+ * (`.md`) keeps it, as `path.basename` does.
+ */
+function fileStem(fileName: string): string {
+  const name = fileName.slice(Math.max(fileName.lastIndexOf('/'), fileName.lastIndexOf('\\')) + 1);
+  const dot = name.lastIndexOf('.');
+  return dot > 0 ? name.slice(0, dot) : name;
+}
+
 function fileId(fileName: string): string {
-  const id = basename(fileName, extname(fileName)).trim();
+  const id = fileStem(fileName).trim();
   if (!/^[a-z0-9][a-z0-9-]*$/i.test(id)) {
     throw new Error(`id: expected the Markdown filename stem to be a slug, received "${id}"`);
   }
@@ -91,7 +100,7 @@ export function parseOutputStyleFile(
   }
   const id = fileId(file.fileName);
   const parsed = parseFrontmatter(file.fileName, file.content);
-  const name = parsed.values.name?.trim() || basename(file.fileName, '.md');
+  const name = parsed.values.name?.trim() || fileStem(file.fileName);
   const description = parsed.values.description?.trim() || `Custom output style: ${name}`;
   const keepCodingInstructions =
     parsed.values['keep-coding-instructions'] === undefined

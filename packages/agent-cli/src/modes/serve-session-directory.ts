@@ -10,11 +10,17 @@
  */
 
 import {
+  SessionAuthorshipRefusedError,
   SessionChangeRefusal,
   SessionDeleteRefusal,
+  claimChangeRefusal,
+  claimDeleteRefusal,
   isSessionBusy,
   listResumableSessionSummaries,
+  listResumableSessions,
   listUnreadableSessionsForWorkspace,
+  lockedSessionMessage,
+  lockedSessionReason,
   persistSessionRename,
   resolveReusableEmptySessionId,
 } from '@robota-sdk/agent-framework';
@@ -68,8 +74,25 @@ export interface IServeSessionPool<TSession, TSlot extends { readonly current: T
   bind(role: TSessionBindingRole): IServeSessionPoolBinding<TSession, TSlot>;
   acquire(sessionId?: string): Promise<IServeSessionLease<TSession>>;
   /** `session` is the live instance itself — the directory reads it to tell "busy" from "idle". */
-  listLive(): readonly { readonly sessionId: string; readonly clients: number; readonly session: TSession }[];
+  listLive(): readonly {
+    readonly sessionId: string;
+    readonly clients: number;
+    readonly session: TSession;
+  }[];
+  /**
+   * Closes the live session `sessionId` nobody is on and nothing runs in, resolving once it let its
+   * record go, so the record can be deleted; `false` when it cannot be closed now.
+   */
+  retire(sessionId: string): Promise<boolean>;
 }
+
+/**
+ * What a client is told when it deletes the session the runtime started with: the pool never closes
+ * it, so waiting for it to close would wait for nothing.
+ */
+const PRIMARY_SESSION_DELETE_MESSAGE =
+  'This is the session this runtime started with. It stays open until the runtime stops; delete it ' +
+  'after that.';
 
 /** What the served runtime lends the directory once its host has started. */
 export interface IServeSessionDirectoryHost<
@@ -115,10 +138,9 @@ export function createServeSessionDirectory<
     current: TSession,
   ): ISessionListing => {
     const live = new Map(target.pool.listLive().map((row) => [row.sessionId, row.clients]));
-    const sessions: ISessionListingEntry[] = listResumableSessionSummaries(
-      target.store,
-      target.cwd,
-    ).map((summary) => {
+    const resumable = listResumableSessions(target.store, target.cwd);
+    const unopened = resumable.locked + resumable.noKeys;
+    const sessions: ISessionListingEntry[] = resumable.sessions.map((summary) => {
       const clients = live.get(summary.id);
       return { ...summary, live: clients !== undefined, clients: clients ?? 0 };
     });
@@ -131,11 +153,17 @@ export function createServeSessionDirectory<
       unreadableSessionIds: listUnreadableSessionsForWorkspace(target.store, target.cwd).map(
         (entry) => entry.id,
       ),
+      // Every sealed session this host cannot open, so that a client never shows "no sessions" while
+      // some are only sealed. Neither its workspace nor why it does not open (keys locked, or none
+      // here) can be told, so this is the store's whole count, and the reason stays in this process.
+      ...(unopened > 0 ? { lockedSessionCount: unopened } : {}),
     };
   };
 
   /** This binding's own session id, or `undefined` while it has not named itself yet. */
-  const currentSessionIdOf = (binding: IServeSessionPoolBinding<TSession, TSlot>): string | undefined => {
+  const currentSessionIdOf = (
+    binding: IServeSessionPoolBinding<TSession, TSlot>,
+  ): string | undefined => {
     try {
       return binding.slot.current.getSession().getSessionId();
     } catch {
@@ -204,7 +232,10 @@ export function createServeSessionDirectory<
         throw new SessionChangeRefusal('stopping', STOPPING_MESSAGE);
       }
       if (changing) {
-        throw new SessionChangeRefusal('in_progress', 'Another session change is already under way.');
+        throw new SessionChangeRefusal(
+          'in_progress',
+          'Another session change is already under way.',
+        );
       }
       const refusal = refusalToLeave();
       if (refusal !== undefined) throw refusal;
@@ -229,19 +260,40 @@ export function createServeSessionDirectory<
       listSessions: () => listFor(target, binding.slot.current),
       async switchSession(sessionId) {
         if (sessionId === binding.slot.current.getSession().getSessionId()) return;
-        if (listUnreadableSessionsForWorkspace(target.store, target.cwd).some((entry) => entry.id === sessionId)) {
+        if (
+          listUnreadableSessionsForWorkspace(target.store, target.cwd).some(
+            (entry) => entry.id === sessionId,
+          )
+        ) {
           throw new SessionChangeRefusal(
             'unreadable',
             `Session ${sessionId} was saved in a form this version cannot read.`,
           );
         }
-        const known = listResumableSessionSummaries(target.store, target.cwd).some(
-          (summary) => summary.id === sessionId,
+        // A sealed session this process cannot open is not in the listing, so it would read as unknown.
+        const lockedReason = lockedSessionReason(target.store, sessionId);
+        if (lockedReason !== undefined) {
+          throw new SessionChangeRefusal(
+            'unreadable',
+            lockedSessionMessage(sessionId, lockedReason),
+          );
+        }
+        const summary = listResumableSessionSummaries(target.store, target.cwd).find(
+          (candidate) => candidate.id === sessionId,
         );
-        if (!known) {
+        if (summary === undefined) {
           throw new SessionChangeRefusal(
             'unknown_session',
             `No session ${sessionId} in this workspace.`,
+          );
+        }
+        // A record nobody vouched for is not started from disk: no client can say yet that it is the
+        // owner's. A session the pool already runs is the one its claim holds, and stays reachable.
+        const live = target.pool.listLive().some((row) => row.sessionId === sessionId);
+        if (!live && summary.authorship === 'unverified') {
+          throw new SessionChangeRefusal(
+            'unverified',
+            new SessionAuthorshipRefusedError(sessionId, 'unverified').message,
           );
         }
         await changeTo(sessionId);
@@ -261,6 +313,11 @@ export function createServeSessionDirectory<
           (summary) => summary.id === sessionId,
         );
         if (!known) {
+          // A sealed session this process cannot open is not in the listing, so it would read as unknown.
+          const lockedReason = lockedSessionReason(target.store, sessionId);
+          if (lockedReason !== undefined) {
+            throw new Error(lockedSessionMessage(sessionId, lockedReason));
+          }
           throw new Error(`No session ${sessionId} in this workspace.`);
         }
         // A live session keeps its own name in memory and writes it back on every persist (a turn,
@@ -275,7 +332,13 @@ export function createServeSessionDirectory<
               'time it saves. Switch to it to rename it, or wait for it to close.',
           );
         }
-        persistSessionRename(target.store, sessionId, name);
+        try {
+          persistSessionRename(target.store, sessionId, name);
+        } catch (error) {
+          // A writer this pool does not run — another process, a subagent the record is lent to, or a
+          // session of this process still closing — refuses the write itself, in words that name it.
+          throw claimChangeRefusal(error) ?? error;
+        }
       },
       async deleteSession(sessionId) {
         if (target.isStopping?.() === true) {
@@ -285,6 +348,12 @@ export function createServeSessionDirectory<
           (summary) => summary.id === sessionId,
         );
         if (!known) {
+          // A sealed session this process cannot open is not in the listing, and its workspace
+          // cannot be told either, so it is refused by name rather than deleted or called unknown.
+          const lockedReason = lockedSessionReason(target.store, sessionId);
+          if (lockedReason !== undefined) {
+            throw new SessionDeleteRefusal('failed', lockedSessionMessage(sessionId, lockedReason));
+          }
           throw new SessionDeleteRefusal(
             'unknown_session',
             `No session ${sessionId} in this workspace.`,
@@ -310,15 +379,34 @@ export function createServeSessionDirectory<
             );
           }
         }
+        // Refused before this binding is moved: nothing here lets the primary's record go.
+        if (liveEntry?.session === target.primary) {
+          throw new SessionDeleteRefusal('running', PRIMARY_SESSION_DELETE_MESSAGE);
+        }
         if (isCurrent) {
           // Switch this binding away before the record it is on disappears: to another session of
           // this workspace when one exists, newest first, or a fresh one when this was the only one.
+          // A record nobody vouched for is never landed in unasked.
           const nextExisting = listResumableSessionSummaries(target.store, target.cwd).find(
-            (summary) => summary.id !== sessionId,
+            (summary) => summary.id !== sessionId && summary.authorship !== 'unverified',
           )?.id;
           await changeTo(nextExisting);
         }
-        target.store.delete(sessionId);
+        // The pool's own session of that id lets the record go first; one it cannot close now has a
+        // client or work again, and anything else that writes the record is another writer, which
+        // refuses the delete itself in words that name it.
+        if (!(await target.pool.retire(sessionId))) {
+          throw new SessionDeleteRefusal(
+            'running',
+            'This session is still open in this runtime, with a client or work in progress; wait ' +
+              'for it to close, then delete it.',
+          );
+        }
+        try {
+          target.store.delete(sessionId);
+        } catch (error) {
+          throw claimDeleteRefusal(error) ?? error;
+        }
       },
     };
 

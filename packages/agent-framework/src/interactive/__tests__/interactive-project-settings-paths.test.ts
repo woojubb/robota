@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { loadInteractiveProjectConfig } from '../interactive-session-project-context.js';
-import { createNodeHostSettingsSource } from '../../config/settings-source.js';
+import { createNodeHostSettingsSource } from '../../config/node-host-settings-source.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/index.js';
 
@@ -19,7 +19,8 @@ function tempDirectory(): string {
 
 afterEach(() => {
   vi.unstubAllEnvs();
-  for (const directory of directories.splice(0)) rmSync(directory, { recursive: true, force: true });
+  for (const directory of directories.splice(0))
+    rmSync(directory, { recursive: true, force: true });
 });
 
 describe('interactive project settings paths', () => {
@@ -41,9 +42,12 @@ describe('interactive project settings paths', () => {
     writeFileSync(customPath, '{"language":"ja"}');
     vi.stubEnv('HOME', home);
 
-    const result = await loadInteractiveProjectConfig(undefined, undefined, [], [
-      createNodeHostSettingsSource('user', customPath),
-    ]);
+    const result = await loadInteractiveProjectConfig(
+      undefined,
+      undefined,
+      [],
+      [createNodeHostSettingsSource('user', customPath)],
+    );
     expect(result.config.language).toBe('ja');
   });
 

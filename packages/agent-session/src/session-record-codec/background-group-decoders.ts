@@ -16,6 +16,7 @@ import {
   decodeString,
   decodeStringArray,
   decodeTimestampString,
+  decodeTrue,
 } from './scalars.js';
 
 import type { TDecodeIssues } from './decode-outcome.js';
@@ -56,6 +57,7 @@ function decodeJobResultEnvelope(
     'status',
     'summary',
     'outputRef',
+    'transcriptSealed',
     'error',
     'startedAt',
     'completedAt',
@@ -76,6 +78,11 @@ function decodeJobResultEnvelope(
       decodeOptional(raw[key], atKey(path, key), issues, decodeTimestampString),
     );
   }
+  setOptional(
+    envelope,
+    'transcriptSealed',
+    decodeOptional(raw['transcriptSealed'], atKey(path, 'transcriptSealed'), issues, decodeTrue),
+  );
   setOptional(
     envelope,
     'error',

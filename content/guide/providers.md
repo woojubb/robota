@@ -40,6 +40,16 @@ OpenRouter), Azure, vLLM, Ollama, LM Studio. Model slugs pass through verbatim, 
 
 ---
 
+## Browser hosts
+
+A platform-neutral provider entry does not guarantee that every client configuration works in a
+browser. The OpenAI and Anthropic SDK clients created by Robota from an `apiKey` reject browser
+page use by default. Both providers also accept an injected `client` or `executor`; the host must
+choose a suitable way to reach the service and protect credentials. A server-side proxy can keep
+provider credentials on the server. Endpoint CORS and authentication still apply. The
+OpenRouter browser connection below authorizes the Node-hosted CLI or App; it does not run the
+provider client in the browser.
+
 ## Connect OpenRouter in the CLI or App
 
 Choose **OpenRouter** during setup, or run `/provider add openrouter` in a session. Select **Browser**
@@ -91,14 +101,20 @@ const provider = new AnthropicProvider({
 
 ### Configuration options
 
-| Option         | Type        | Required                       | Description                                                    |
-| -------------- | ----------- | ------------------------------ | -------------------------------------------------------------- |
-| `apiKey`       | `string`    | Yes (unless `client` provided) | Anthropic API key                                              |
-| `client`       | `Anthropic` | No                             | Pre-built Anthropic SDK client                                 |
-| `baseURL`      | `string`    | No                             | Any Anthropic-Messages-API-compatible endpoint (proxy/gateway) |
-| `timeout`      | `number`    | No                             | Request timeout in milliseconds                                |
-| `defaultModel` | `string`    | No                             | Model used when a request names none                           |
-| `executor`     | `IExecutor` | No                             | Remote or local executor override                              |
+| Option           | Type        | Required                       | Description                                                                 |
+| ---------------- | ----------- | ------------------------------ | --------------------------------------------------------------------------- |
+| `apiKey`         | `string`    | Yes (unless `client` provided) | Anthropic API key                                                           |
+| `client`         | `Anthropic` | No                             | Pre-built Anthropic SDK client                                              |
+| `baseURL`        | `string`    | No                             | Any Anthropic-Messages-API-compatible endpoint (proxy/gateway)              |
+| `timeout`        | `number`    | No                             | Request timeout in milliseconds                                             |
+| `defaultModel`   | `string`    | No                             | Model used when a request names none                                        |
+| `executor`       | `IExecutor` | No                             | Remote or local executor override                                           |
+| `enableWebTools` | `boolean`   | No                             | Attach Anthropic's server-side `web_search` tool to requests (default: off) |
+
+A provider profile sets the same thing with `"options": { "nativeWebTools": { "webSearch": true } }`;
+the CLI turns it on by default for an Anthropic or OpenAI profile that does not set
+`nativeWebTools`, wherever that provider can run it. A Gemini profile has to ask for it, because
+Google's terms attach conditions to showing and storing grounded results.
 
 ### With a pre-built client
 
@@ -142,26 +158,26 @@ const provider = new OpenAIProvider({
 
 ### Configuration options
 
-| Option                      | Type                                       | Required                       | Description                                                                                          |
-| --------------------------- | ------------------------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------- |
-| `apiKey`                    | `string`                                   | Yes (unless `client` provided) | OpenAI API key                                                                                       |
-| `client`                    | `OpenAI`                                   | No                             | Pre-built OpenAI SDK client                                                                          |
-| `organization`              | `string`                                   | No                             | OpenAI organization ID                                                                               |
-| `baseURL`                   | `string`                                   | No                             | Any OpenAI-compatible endpoint — gateways, Azure, vLLM, local                                        |
-| `defaultModel`              | `string`                                   | No                             | Model used when a request names none                                                                 |
-| `timeout`                   | `number`                                   | No                             | Request timeout in milliseconds                                                                      |
-| `apiSurface`                | `'responses' \| 'chat-completions'`        | No                             | API surface (default: `responses` for OpenAI, `chat-completions` when `baseURL` is set)              |
-| `responseFormat`            | `'text' \| 'json_object' \| 'json_schema'` | No                             | Response format                                                                                      |
-| `jsonSchema`                | `IOpenAIJsonSchemaDefinition`              | No                             | Schema for `responseFormat: 'json_schema'`                                                           |
-| `reasoning`                 | `IOpenAIResponsesReasoningOptions`         | No                             | Reasoning `effort` and `summary` for reasoning models (Responses API)                                |
-| `store`                     | `boolean`                                  | No                             | Whether OpenAI stores Responses API results                                                          |
-| `includeEncryptedReasoning` | `boolean`                                  | No                             | Include encrypted reasoning items for stateless continuation                                         |
-| `strictTools`               | `boolean`                                  | No                             | Strict function-parameter validation (rewrites tool schemas for strict mode)                         |
-| `nativeWebTools`            | `IOpenAINativeWebToolsOptions`             | No                             | OpenAI's hosted `webSearch` / `webFetch` tools (not available on custom endpoints)                   |
-| `includeStreamUsage`        | `boolean`                                  | No                             | Request token usage on streaming turns (default `true`; turn off for endpoints that reject it)       |
-| `payloadLogger`             | `IPayloadLogger`                           | No                             | Receives a summary of each Chat Completions request (loggers in `.../agent-provider-openai/loggers`) |
-| `executor`                  | `IExecutor`                                | No                             | Remote or local executor override                                                                    |
-| `logger`                    | `ILogger`                                  | No                             | Internal logger (default: silent)                                                                    |
+| Option                      | Type                                       | Required                       | Description                                                                                                                                                                  |
+| --------------------------- | ------------------------------------------ | ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apiKey`                    | `string`                                   | Yes (unless `client` provided) | OpenAI API key                                                                                                                                                               |
+| `client`                    | `OpenAI`                                   | No                             | Pre-built OpenAI SDK client                                                                                                                                                  |
+| `organization`              | `string`                                   | No                             | OpenAI organization ID                                                                                                                                                       |
+| `baseURL`                   | `string`                                   | No                             | Any OpenAI-compatible endpoint — gateways, Azure, vLLM, local                                                                                                                |
+| `defaultModel`              | `string`                                   | No                             | Model used when a request names none                                                                                                                                         |
+| `timeout`                   | `number`                                   | No                             | Request timeout in milliseconds                                                                                                                                              |
+| `apiSurface`                | `'responses' \| 'chat-completions'`        | No                             | API surface (default: `responses` for OpenAI, `chat-completions` when `baseURL` is set)                                                                                      |
+| `responseFormat`            | `'text' \| 'json_object' \| 'json_schema'` | No                             | Response format                                                                                                                                                              |
+| `jsonSchema`                | `IOpenAIJsonSchemaDefinition`              | No                             | Schema for `responseFormat: 'json_schema'`                                                                                                                                   |
+| `reasoning`                 | `IOpenAIResponsesReasoningOptions`         | No                             | Reasoning `effort` and `summary` for reasoning models (Responses API)                                                                                                        |
+| `store`                     | `boolean`                                  | No                             | Whether OpenAI stores Responses API results                                                                                                                                  |
+| `includeEncryptedReasoning` | `boolean`                                  | No                             | Include encrypted reasoning items for stateless continuation                                                                                                                 |
+| `strictTools`               | `boolean`                                  | No                             | Strict function-parameter validation (rewrites tool schemas for strict mode)                                                                                                 |
+| `nativeWebTools`            | `IOpenAINativeWebToolsOptions`             | No                             | Hosted `webSearch` on OpenAI's own Responses API; `true` throws on a custom endpoint or Chat Completions                                                                     |
+| `includeStreamUsage`        | `boolean`                                  | No                             | Request token usage on streaming turns (default `true`; turn off for endpoints that reject it)                                                                               |
+| `payloadLogger`             | `IPayloadLogger`                           | No                             | Receives a summary of each Chat Completions request (`ConsolePayloadLogger` in `.../agent-provider-openai/loggers`, `FilePayloadLogger` in `.../agent-provider-openai/node`) |
+| `executor`                  | `IExecutor`                                | No                             | Remote or local executor override                                                                                                                                            |
+| `logger`                    | `ILogger`                                  | No                             | Internal logger (default: silent)                                                                                                                                            |
 
 ### Through an AI gateway
 
@@ -231,19 +247,20 @@ const provider = new GeminiProvider({
 
 ### Configuration options
 
-| Option                      | Type                                 | Required | Description                                                     |
-| --------------------------- | ------------------------------------ | -------- | --------------------------------------------------------------- |
-| `apiKey`                    | `string`                             | Yes      | Google AI API key                                               |
-| `defaultModel`              | `string`                             | No       | Model used when a request names none                            |
-| `responseMimeType`          | `'text/plain' \| 'application/json'` | No       | Response format                                                 |
-| `responseSchema`            | object                               | No       | Schema for JSON output                                          |
-| `responseJsonSchema`        | object                               | No       | JSON Schema for structured output (instead of `responseSchema`) |
-| `thinkingConfig`            | `IGeminiThinkingConfig`              | No       | Thinking mode settings                                          |
-| `safetySettings`            | `IGeminiSafetySetting[]`             | No       | Per-category safety thresholds                                  |
-| `toolConfig`                | object                               | No       | Function-calling config passed to Gemini                        |
-| `defaultResponseModalities` | `Array<'TEXT' \| 'IMAGE'>`           | No       | Default response modalities, e.g. text and image                |
-| `imageCapableModels`        | `string[]`                           | No       | Models allowed to return images; others are refused             |
-| `executor`                  | `IExecutor`                          | No       | Remote or local executor override                               |
+| Option                      | Type                                 | Required | Description                                                                              |
+| --------------------------- | ------------------------------------ | -------- | ---------------------------------------------------------------------------------------- |
+| `apiKey`                    | `string`                             | Yes      | Google AI API key                                                                        |
+| `defaultModel`              | `string`                             | No       | Model used when a request names none                                                     |
+| `enableWebTools`            | `boolean`                            | No       | Attach Google Search grounding (default: off); a profile sets `nativeWebTools.webSearch` |
+| `responseMimeType`          | `'text/plain' \| 'application/json'` | No       | Response format                                                                          |
+| `responseSchema`            | object                               | No       | Schema for JSON output                                                                   |
+| `responseJsonSchema`        | object                               | No       | JSON Schema for structured output (instead of `responseSchema`)                          |
+| `thinkingConfig`            | `IGeminiThinkingConfig`              | No       | Thinking mode settings                                                                   |
+| `safetySettings`            | `IGeminiSafetySetting[]`             | No       | Per-category safety thresholds                                                           |
+| `toolConfig`                | object                               | No       | Function-calling config passed to Gemini                                                 |
+| `defaultResponseModalities` | `Array<'TEXT' \| 'IMAGE'>`           | No       | Default response modalities, e.g. text and image                                         |
+| `imageCapableModels`        | `string[]`                           | No       | Models allowed to return images; others are refused                                      |
+| `executor`                  | `IExecutor`                          | No       | Remote or local executor override                                                        |
 
 ### Thinking mode
 

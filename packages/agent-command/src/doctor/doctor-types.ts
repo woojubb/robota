@@ -7,10 +7,11 @@
  * run (see {@link TDoctorNotProbed}); an UNEXPECTED inability to probe is `warn` with its reason,
  * never `not-probed` — the third state `enforcement-architecture.md` says must never read as a pass.
  */
-import type { IProviderDefinition } from '@robota-sdk/agent-core';
+import type { IFileSystem, IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
   IContributionSource,
   ISkillRootDescriptor,
+  TSettingsData,
   TSettingsSource,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
@@ -75,7 +76,7 @@ export interface IDoctorInputs {
     readonly providerResolution?: string;
     readonly projectTrust?: string;
   };
-  /** Environment map (test seam; default `process.env`). */
+  /** The environment the credential and `PATH` checks read: the host's own snapshot. */
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly contributionSources: readonly IContributionSource[];
   readonly skillRoots: readonly ISkillRootDescriptor[];
@@ -98,12 +99,28 @@ export interface IDoctorPathFacts {
   readonly mode?: number;
 }
 
-/** Every side effect the runner needs, with Node defaults in `doctor-node-deps.ts`. */
+/**
+ * Every side effect the runner and a repair need. The package has no host default: a Node host passes
+ * `createNodeDoctorDeps` from `@robota-sdk/agent-command/node`, and a host that cannot supply these
+ * passes none, so `/doctor` says it is unavailable there.
+ */
 export interface IDoctorDeps {
   readonly probeEndpoint: (host: string, port: number) => Promise<IDoctorEndpointProbeResult>;
   readonly inspectPath: (path: string) => IDoctorPathFacts;
   /** `true` when a bare command name resolves on `PATH`, or a path-form command exists. */
   readonly resolveCommand: (command: string) => boolean;
-  /** The platform's owner-only guarantee, from `@robota-sdk/agent-core/node`. */
+  /** The platform's owner-only guarantee for the stores the host keeps. */
   readonly ownerOnlyGuarantee: () => 'posix-mode' | 'windows-acl';
+  /** The files the plugin, skill and hook probes read installed extensions through. */
+  readonly files: IFileSystem;
+  /**
+   * Create `directory` and every directory between `options.withinRoot` and it as owner-only
+   * directories. The `storage.user` repair is the only caller.
+   */
+  readonly ensureOwnerOnlyDirectory: (
+    directory: string,
+    options: { readonly withinRoot: string },
+  ) => void;
+  /** Write the settings document at `path`. The `settings.user.*` repair, which writes `{}`, is the only caller. */
+  readonly writeSettings: (path: string, settings: TSettingsData) => void;
 }

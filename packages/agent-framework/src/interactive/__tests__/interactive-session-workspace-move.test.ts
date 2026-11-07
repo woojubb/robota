@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import '../../tools/tool-permission-profiles.js';
 import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/index.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 import { withUniqueSessionName } from '../interactive-session-fork-record.js';
 import {
   buildWorkspaceMoveNotice,
@@ -44,7 +45,7 @@ function input(overrides: Partial<IPrepareWorkspaceMoveInput> = {}): IPrepareWor
       getFullHistory: () => [],
     },
     sessionName: 'work',
-    homeDirectory: root,
+    host: createTestFrameworkHost({ homeDirectory: root }),
     ...overrides,
   };
 }
@@ -75,6 +76,31 @@ describe('prepareWorkspaceMove', () => {
     [{ requestedPath: '  ' }, /Usage/],
   ])('refuses %o', (overrides, message) => {
     expect(() => prepareWorkspaceMove(input(overrides))).toThrow(message);
+  });
+
+  it.each([
+    [['files'], 'no file access (`files`).'],
+    [['canonicalizePath'], 'no path resolution (`canonicalizePath`).'],
+    [['files', 'canonicalizePath'], 'no file access (`files`) and no path resolution (`canonicalizePath`).'],
+  ] as const)(
+    'refuses to move on a host that lacks %j, and names exactly what it lacks',
+    (lacking, said) => {
+      const without = Object.fromEntries(lacking.map((member) => [member, undefined]));
+      const host = createTestFrameworkHost({ homeDirectory: root, ...without });
+      expect(() => prepareWorkspaceMove(input({ host }))).toThrow(
+        `Moving to another directory needs file access and path resolution, and this host supplies ${said}`,
+      );
+    },
+  );
+
+  it('refuses `~` on a host with no home directory, and still moves by a full path', () => {
+    const noHome = createTestFrameworkHost({ homeDirectory: undefined });
+    for (const requestedPath of ['~', '~/b']) {
+      expect(() => prepareWorkspaceMove(input({ requestedPath, host: noHome })), requestedPath).toThrow(
+        /home directory/,
+      );
+    }
+    expect(prepareWorkspaceMove(input({ requestedPath: to, host: noHome })).targetCwd).toBe(to);
   });
 
   it('refuses a target a Cd deny rule names', () => {

@@ -21,6 +21,7 @@ import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import { createCodingPack } from '@robota-sdk/pack-coding';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 
 import {
   ACME_PROVIDER_SETTINGS,
@@ -40,6 +41,9 @@ const codingPack = createCodingPack({ cwd: process.cwd() });
 import { asStandardOptions } from './surface-notes.js';
 
 import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
+
+/** The platform the proof's sessions run on: this Node process, with the framework's default tools. */
+const host = createNodeFrameworkHost({ createDefaultTools });
 
 export async function runModeC(): Promise<void> {
   mode("MODE C — our preset by id + the consumer's own capability pack");
@@ -87,7 +91,7 @@ export async function runModeC(): Promise<void> {
     product.subagents.map((subagent) => subagent.name),
     ['general-purpose', 'Explore', 'Plan', 'acme-triager'],
   );
-  checkEqual("tools: the ten coding tools plus the consumer's", product.tools.length, 11);
+  checkEqual("tools: the nine coding tools plus the consumer's", product.tools.length, 10);
   check(
     'the consumer tool is in the merged set',
     product.tools.some((tool) => tool.getName() === 'AcmeTicketLookup'),
@@ -161,7 +165,7 @@ export async function runModeC(): Promise<void> {
   section('C4 — the TOOL axis, exercised through buildRuntimeOptions (the honest path)');
   const options = asStandardOptions(
     product.buildRuntimeOptions({
-      session: { cwd: process.cwd(), provider: product.provider!, bare: true },
+      session: { host, cwd: process.cwd(), provider: product.provider!, bare: true },
     }),
   );
   check(
@@ -211,26 +215,12 @@ export async function runModeC(): Promise<void> {
     'Glob',
     'Grep',
     'WebFetch',
-    'WebSearch',
     'AskUserQuestion',
   ];
   checkEqual(
     'ARCH-035: the leaf ships exactly the always-present set, read from the published tarball',
     frameworkDefaultToolNames,
     ALWAYS_PRESENT,
-  );
-
-  // The adapter gating is the part that made this a SUPERSET rather than a duplicate of the pack's
-  // list, and it is why deleting the tier outright was rejected: `retrievalAdapter` would have been
-  // left declared, threaded, and reaching nothing.
-  const withRetrieval = createDefaultTools({
-    cwd: process.cwd(),
-    retrievalAdapter: { retrieve: async () => ({ symbols: [], totalTokens: 0 }) },
-  }).map((tool) => tool.getName());
-  checkEqual(
-    'ARCH-035: supplying a retrievalAdapter adds exactly CodebaseRetrieval and nothing else',
-    withRetrieval.filter((name) => !ALWAYS_PRESENT.includes(name)),
-    ['CodebaseRetrieval'],
   );
 
   checkEqual(
@@ -259,6 +249,7 @@ export async function runModeC(): Promise<void> {
   // the framework contributes NO tool of its own — so the profile's packs own the whole tool surface.
   const packOwnedSession = product.buildRuntime({
     session: {
+      host,
       cwd: process.cwd(),
       provider: product.provider!,
       bare: true,
@@ -272,6 +263,7 @@ export async function runModeC(): Promise<void> {
   const packOwnedOptions = asStandardOptions(
     product.buildRuntimeOptions({
       session: {
+        host,
         cwd: process.cwd(),
         provider: product.provider!,
         bare: true,

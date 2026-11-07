@@ -4,13 +4,16 @@ import { describe, expect, it } from 'vitest';
 import { createProductUserSettingsSources } from '../../product/user-settings.js';
 import { productPermissionBaseline } from '../../product/permission-baseline.js';
 import { buildServeSessionOptions } from '../serve-mode.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 const PRODUCT_PERMISSION_BASELINE = productPermissionBaseline(createTestProductRuntime());
 
 
 describe('served session user settings sources', () => {
   it('forwards the CLI-selected sources into the runtime session', () => {
     const sources = createProductUserSettingsSources(createTestProductRuntime('test-product', { HOME: '/test-home' }));
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},
@@ -25,7 +28,7 @@ describe('served session user settings sources', () => {
   });
 
   it('keeps safe mode in the runtime session (issue #3082)', () => {
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},

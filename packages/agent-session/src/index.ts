@@ -55,10 +55,7 @@ export type { TScrubbableValue } from './scrub-sensitive.js';
 
 // Session logging
 export { FileSessionLogger, SilentSessionLogger } from './session-logger.js';
-export {
-  createSessionLogExternalPayloadReference,
-  NodeSessionLogSink,
-} from './session-log-sinks.js';
+export { createSessionLogExternalPayloadReference } from './session-log-sinks.js';
 export type { IExternalPayloadSink, ISessionLogSink } from './session-log-sinks.js';
 export {
   SESSION_LOG_EVENT,
@@ -83,20 +80,7 @@ export type {
   TSessionLogData,
   TSessionLogValue,
 } from './session-logger.js';
-export { NodeExternalPayloadSource, NodeSessionLogSource } from './session-log-sources.js';
-export {
-  NodeToolResultSpillStore,
-  ToolResultSpillError,
-  type INodeToolResultSpillStoreOptions,
-  type TToolResultSpillErrorCode,
-} from './tool-result-spill-store.js';
-export {
-  DEFAULT_PROMPT_HISTORY_BLOCK_BYTES,
-  NodePromptHistoryFile,
-  parsePromptHistoryLine,
-} from './prompt-history-file.js';
-export type { INodePromptHistoryFileOptions } from './prompt-history-file.js';
-export type { IExternalPayloadSource, ISessionLogSource } from './session-log-sources.js';
+export type { IExternalPayloadSource, ISessionLogSource } from './external-payload-source-types.js';
 export {
   resolveSessionLogExternalPayloads,
   SessionLogPayloadResolutionError,
@@ -119,9 +103,17 @@ export type {
   ISessionReplayValidationResult,
 } from './session-log-replay.js';
 
-// Session persistence
+// Session persistence — the file-backed store is `NodeSessionStore` in `@robota-sdk/agent-session/node`.
 export { assertSafeSessionId, isSafeSessionId } from './session-id.js';
-export { NodeSessionStore } from './session-store.js';
+export { loadSessionForUpdate } from './load-session-for-update.js';
+export {
+  SealedSessionUnreadableError,
+  isSealedSessionUnreadableError,
+} from './sealed-session-refusal.js';
+export type { TSealedSessionRefusal } from './sealed-session-refusal.js';
+// Claims: the ids a session in this process runs, answered only from content the owner wrote.
+export { SessionClaimedError, isSessionClaimedError } from './session-claims.js';
+export type { ISessionWriterHolder, TSessionClaimRefusal } from './session-claims.js';
 export type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,

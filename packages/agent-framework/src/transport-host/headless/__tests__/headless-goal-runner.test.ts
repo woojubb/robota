@@ -14,6 +14,9 @@ import type {
   IInteractiveSession,
 } from '@robota-sdk/agent-interface-session';
 
+/** The streams a Node composition root hands the headless runner; tests spy on them. */
+const processOutput = { stdout: process.stdout, stderr: process.stderr };
+
 type TListener = (...args: unknown[]) => void;
 
 function goalState(overrides: Partial<IGoalState> = {}): IGoalState {
@@ -83,7 +86,11 @@ describe('headless runGoal', () => {
         goal: goalState({ stopReason: 'satisfied' }),
       } as IGoalEvent);
     });
-    const code = await createHeadlessRunner({ session, outputFormat: 'text' }).runGoal('do it');
+    const code = await createHeadlessRunner({
+      session,
+      output: processOutput,
+      outputFormat: 'text',
+    }).runGoal('do it');
     expect(code).toBe(0);
     expect(stdoutChunks).toContain('did step 1\n');
     expect(stdoutChunks.join('')).toContain('Goal satisfied');
@@ -96,7 +103,11 @@ describe('headless runGoal', () => {
         goal: goalState({ status: 'stopped', stopReason: 'max-iterations' }),
       } as IGoalEvent);
     });
-    const code = await createHeadlessRunner({ session, outputFormat: 'text' }).runGoal('do it');
+    const code = await createHeadlessRunner({
+      session,
+      output: processOutput,
+      outputFormat: 'text',
+    }).runGoal('do it');
     expect(code).toBe(GOAL_NOT_SATISFIED_EXIT_CODE);
   });
 
@@ -104,7 +115,11 @@ describe('headless runGoal', () => {
     const session = createFakeSession((emit) => {
       emit('error', new Error('provider exploded'));
     });
-    const code = await createHeadlessRunner({ session, outputFormat: 'text' }).runGoal('do it');
+    const code = await createHeadlessRunner({
+      session,
+      output: processOutput,
+      outputFormat: 'text',
+    }).runGoal('do it');
     expect(code).toBe(1);
   });
 });

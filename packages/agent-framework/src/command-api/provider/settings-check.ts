@@ -1,5 +1,3 @@
-import { existsSync, readFileSync } from 'node:fs';
-
 import {
   findProviderDefinition,
   getProviderCredentialRequirement,
@@ -11,28 +9,31 @@ import {
   type TProviderCredentialReference,
 } from '@robota-sdk/agent-core';
 
+import { resolveProviderEnvironment } from './provider-environment.js';
+
+import type { TProviderEnvironment } from './provider-environment.js';
 import type { TProviderSettingsDocument } from './provider-settings.js';
 
 export type TSettingsCheck = 'missing' | 'valid' | 'corrupt' | 'incomplete';
 
 /**
- * `environment` is the map `$ENV:` references resolve against — the host's startup snapshot, since
- * the live process environment may have dropped credentials it holds for itself.
+ * `environment` is what `$ENV:` references resolve against — the host's startup snapshot, since the
+ * live process environment may have dropped credentials it holds for itself. Absent, every reference
+ * reads as unset, so a document whose credential is an environment reference is `incomplete`.
  */
 export function checkSettingsDocument(
   settings: TProviderSettingsDocument,
   providerDefinitions: readonly IProviderDefinition[] = [],
-  environment?: Readonly<Record<string, string | undefined>>,
+  environment?: TProviderEnvironment,
 ): TSettingsCheck {
-  const resolve: TEnvResolver | undefined =
-    environment === undefined ? undefined : (name) => environment[name];
+  const resolve: TEnvResolver = resolveProviderEnvironment(environment);
   return hasUsableProviderConfig(settings, providerDefinitions, resolve) ? 'valid' : 'incomplete';
 }
 
 function hasUsableProviderConfig(
   settings: TProviderSettingsDocument,
   providerDefinitions: readonly IProviderDefinition[],
-  resolve: TEnvResolver | undefined,
+  resolve: TEnvResolver,
 ): boolean {
   if (typeof settings.currentProvider === 'string') {
     const profile = settings.providers?.[settings.currentProvider];
@@ -51,7 +52,7 @@ function isUsableProviderProfile(
   type: string | undefined,
   profile: { apiKey?: string; apiKeyRef?: TProviderCredentialReference } | undefined,
   providerDefinitions: readonly IProviderDefinition[],
-  resolve: TEnvResolver | undefined,
+  resolve: TEnvResolver,
 ): boolean {
   if (!profile) return false;
   if (!type) return hasUsableSecretReference(profile.apiKey, resolve);
@@ -72,7 +73,7 @@ function hasUsableRequiredProviderCredential(
   profile: { apiKey?: string },
   definition: IProviderDefinition,
   requirement: IProviderCredentialRequirement,
-  resolve: TEnvResolver | undefined,
+  resolve: TEnvResolver,
 ): boolean {
   return requirement.anyOf.some((field) =>
     hasUsableSecretReference(resolveProviderCredentialValue(field, profile, definition), resolve),
@@ -85,21 +86,4 @@ function resolveProviderCredentialValue(
   definition: IProviderDefinition,
 ): string | undefined {
   return profile[field] ?? definition.defaults?.[field];
-}
-
-/** Explicit host-filesystem settings probe. This does not establish project trust. */
-export function checkNodeHostSettingsFile(
-  filePath: string,
-  providerDefinitions: readonly IProviderDefinition[] = [],
-): TSettingsCheck {
-  if (!existsSync(filePath)) return 'missing';
-  try {
-    const raw = readFileSync(filePath, 'utf8').trim();
-    if (raw.length === 0) return 'incomplete';
-    const parsed = JSON.parse(raw) as TProviderSettingsDocument;
-    return checkSettingsDocument(parsed, providerDefinitions);
-  } catch {
-    // allow-fallback: corrupt settings file is a valid terminal state ('corrupt')
-    return 'corrupt';
-  }
 }

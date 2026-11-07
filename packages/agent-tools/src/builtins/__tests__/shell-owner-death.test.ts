@@ -27,7 +27,7 @@ describe.runIf(isPosix)('foreground shell owner death', () => {
       const childFile = join(dir, 'child.pid');
       const marker = join(dir, 'marker');
       const command = `echo $$ > '${groupFile}'; printf 'once\\n' >> '${marker}'; sleep 60 & echo $! > '${childFile}'; wait`;
-      const source = `import { createShellTool } from './dist/node/index.js'; await createShellTool({ cwd: ${JSON.stringify(dir)} }).execute({ command: ${JSON.stringify(command)} });`;
+      const source = `import { createShellTool } from './dist/node.js'; await createShellTool({ cwd: ${JSON.stringify(dir)} }).execute({ command: ${JSON.stringify(command)} });`;
       const owner = spawn(process.execPath, ['--input-type=module', '-e', source], {
         cwd: ROOT, detached: true, stdio: 'ignore',
       });

@@ -6,14 +6,10 @@ import type { TUniversalMessagePart } from '@robota-sdk/agent-core';
  * updating state passed in by reference. No class dependency.
  */
 
-import { randomUUID } from 'node:crypto';
-import { relative, resolve } from 'node:path';
-
-import { isPathInside } from '@robota-sdk/agent-core/node';
-
-import { NodeFileSystem } from '../adapters/node-file-system.js';
+import { isAbsolutePath, randomId, relativePath, resolvePath } from '@robota-sdk/agent-core';
 
 import type { IDiffLine, IToolState } from './types.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { TToolArgs } from '@robota-sdk/agent-core';
@@ -41,13 +37,14 @@ const MAX_DIFF_LINES = 500;
  * outside `cwd` (or an ambiguous resolve, e.g. across drives) is shown unchanged, absolute.
  */
 export function toWorkspaceRelativeDisplayPath(cwd: string, filePath: string): string {
-  const absolute = resolve(cwd, filePath);
-  const relativePath = relative(cwd, absolute);
+  const absolute = resolvePath(cwd, filePath);
+  // A path with no absolute form (a drive-relative `D:x` under another drive's cwd) has no
+  // workspace-relative form either: it is shown unchanged.
+  if (!isAbsolutePath(cwd) || !isAbsolutePath(absolute)) return filePath;
+  const relative = relativePath(cwd, absolute);
   const withinWorkspace =
-    relativePath.length > 0 &&
-    !relativePath.startsWith('..') &&
-    resolve(cwd, relativePath) === absolute;
-  return withinWorkspace ? relativePath : filePath;
+    relative.length > 0 && !relative.startsWith('..') && resolvePath(cwd, relative) === absolute;
+  return withinWorkspace ? relative : filePath;
 }
 
 /** Extract a short display string from the first tool argument. */
@@ -143,8 +140,12 @@ function resolveEditStartLine(
  * inside the workspace but POINTING outside it through, exactly the defect that SSOT exists to close.
  * A model-supplied Edit path is exactly the untrusted input that check is for.
  */
-function isSafeToReadForDiff(cwd: string | undefined, resolvedFilePath: string): boolean {
-  return cwd !== undefined && isPathInside(cwd, resolvedFilePath);
+function isSafeToReadForDiff(
+  cwd: string | undefined,
+  resolvedFilePath: string,
+  files: IFrameworkHost['files'],
+): boolean {
+  return cwd !== undefined && files !== undefined && files.isPathInside(cwd, resolvedFilePath);
 }
 
 /**
@@ -159,13 +160,13 @@ function isSafeToReadForDiff(cwd: string | undefined, resolvedFilePath: string):
  * (ARCH-010 fail-closed).
  */
 function resolveFilePathForDiffRead(cwd: string | undefined, filePath: string): string {
-  return cwd === undefined ? filePath : resolve(cwd, filePath);
+  return cwd === undefined ? filePath : resolvePath(cwd, filePath);
 }
 
 function buildEditDiffState(
   event: { toolArgs?: TToolArgs; toolResultData?: string },
   cwd: string | undefined,
-  fs: IFileSystem,
+  files: IFrameworkHost['files'],
 ): Pick<IToolState, 'diffFile' | 'diffLines'> {
   const filePath = getStringArg(event.toolArgs, 'file_path', 'filePath');
   const oldString = getStringArg(event.toolArgs, 'old_string', 'oldString');
@@ -173,7 +174,7 @@ function buildEditDiffState(
   if (!filePath || oldString === null || newString === null || oldString === newString) return {};
 
   const resolvedFilePath = resolveFilePathForDiffRead(cwd, filePath);
-  const readableFs = isSafeToReadForDiff(cwd, resolvedFilePath) ? fs : undefined;
+  const readableFs = isSafeToReadForDiff(cwd, resolvedFilePath, files) ? files?.sync : undefined;
   const startLine = resolveEditStartLine(
     event.toolResultData,
     resolvedFilePath,
@@ -229,9 +230,10 @@ function buildWriteDiffState(
 export function buildDiffState(
   event: { toolName: string; toolArgs?: TToolArgs; toolResultData?: string },
   cwd?: string,
-  fs: IFileSystem = new NodeFileSystem(),
+  /** The host's file access. Absent, an Edit diff carries no context lines from the file. */
+  files?: IFrameworkHost['files'],
 ): Pick<IToolState, 'diffFile' | 'diffLines'> {
-  if (event.toolName === 'Edit') return buildEditDiffState(event, cwd, fs);
+  if (event.toolName === 'Edit') return buildEditDiffState(event, cwd, files);
   if (event.toolName === 'Write') return buildWriteDiffState(event, cwd);
   return {};
 }
@@ -346,7 +348,7 @@ export function pushToolSummaryToHistory(state: IStreamingState): void {
     .join('\n');
 
   state.history.push({
-    id: randomUUID(),
+    id: randomId(),
     timestamp: new Date(),
     category: 'event',
     type: 'tool-summary',
@@ -416,7 +418,7 @@ export function applyToolStart(
   state.activeTools.push(toolState);
 
   state.history.push({
-    id: randomUUID(),
+    id: randomId(),
     timestamp: new Date(),
     category: 'event',
     type: 'tool-start',
@@ -440,6 +442,8 @@ export function applyToolEnd(
   event: IToolEndEvent,
   /** #3288: the session's cwd, threaded to `buildDiffState` for a workspace-relative `diffFile`. */
   cwd?: string,
+  /** The host's file access, threaded to `buildDiffState` for an Edit diff's context lines. */
+  files?: IFrameworkHost['files'],
 ): IToolState | null {
   const result: IToolState['result'] = event.denied
     ? 'denied'
@@ -459,7 +463,7 @@ export function applyToolEnd(
 
   const finished: IToolState = {
     ...state.activeTools[idx]!,
-    ...buildDiffState(event, cwd),
+    ...buildDiffState(event, cwd, files),
     isRunning: false,
     result,
     toolResultData: event.toolResultData,
@@ -472,7 +476,7 @@ export function applyToolEnd(
   // The full history is persisted and forked; the view reference is live-only, so the entry keeps
   // the call's outcome and leaves the reference with the live `tool_end` state.
   state.history.push({
-    id: randomUUID(),
+    id: randomId(),
     timestamp: new Date(),
     category: 'event',
     type: 'tool-end',

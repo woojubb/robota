@@ -1,3 +1,4 @@
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
@@ -14,10 +15,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FunctionTool, clearRegisteredToolProfiles } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import type { TExecutionJournalRecord } from '@robota-sdk/agent-core';
-import { Session, NodeSessionStore } from '@robota-sdk/agent-session';
+import { Session } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 import { InteractiveSession } from '../interactive-session.js';
 import { persistSession } from '../interactive-session-persistence.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 class TestInteractive extends InteractiveSession {
   ready() {
@@ -47,6 +52,7 @@ function lower(cwd: string, store?: NodeSessionStore) {
   ]);
   const effect = vi.fn(async () => 'effect');
   const session = new Session({
+    hookTypeExecutors: [],
     cwd,
     sessionId: 'saved_owner',
     systemMessage: 'Fixture',
@@ -81,7 +87,7 @@ function lower(cwd: string, store?: NodeSessionStore) {
 }
 async function parked() {
   const cwd = directory();
-  const store = new NodeSessionStore(directory());
+  const store = new NodeSessionStore(directory(), { sealing: 'plain' });
   const source = lower(cwd, store);
   const records: TExecutionJournalRecord[] = [];
   const journal = {
@@ -104,6 +110,7 @@ describe('pending conversation framework boundaries', () => {
       const provider = createScriptedProvider([{ text: 'must not run' }]);
       const real = mode === 'injected' ? lower(f.cwd).session : undefined;
       const interactive = new TestInteractive({
+        host: testHost,
         cwd: f.cwd,
         sessionStore: f.store,
         resumeSessionId: 'saved_owner',
@@ -145,6 +152,7 @@ describe('pending conversation framework boundaries', () => {
     const real = lower(f.cwd).session;
     const save = vi.spyOn(f.store, 'save');
     const interactive = new TestInteractive({
+      host: testHost,
       cwd: f.cwd,
       session: real,
       sessionStore: f.store,
@@ -160,9 +168,12 @@ describe('pending conversation framework boundaries', () => {
       code: 'EXECUTION_RECOVERY_REQUIRED',
     });
     expect(save).toHaveBeenCalledTimes(writes);
+    // The live session holds its record; once it lets go, a copy of it may be attempted.
+    interactive.releaseSessionClaim();
     expect(
       () =>
         new TestInteractive({
+          host: testHost,
           cwd: f.cwd,
           sessionStore: f.store,
           resumeSessionId: 'saved_owner',
@@ -180,12 +191,12 @@ describe('pending conversation framework boundaries', () => {
     const asyncSave = vi.fn(async (_record: IInteractiveSessionRecord) => {
       throw new Error('late custom store failure');
     });
-    const store = {
+    const store = withHoldReadClaim({
       load: () => ({ status: 'missing' as const }),
       save: asyncSave,
       list: () => [],
       delete: () => undefined,
-    };
+    });
     expect(() =>
       persistSession(
         store,
@@ -260,6 +271,7 @@ describe('restored autonomous and queued input admission', () => {
     } as unknown as IAgentToolDeps);
     const resolver = vi.fn(() => 'default prompt');
     const interactive = new TestInteractive({
+      host: testHost,
       cwd: f.cwd,
       session: real.session,
       sessionStore: f.store,
@@ -279,7 +291,7 @@ describe('restored autonomous and queued input admission', () => {
     const loaded = f.store.load('saved_owner');
     if (loaded.status !== 'valid') throw new Error('Expected record');
     const real = lower(f.cwd);
-    const interactive = new TestInteractive({ cwd: f.cwd, session: real.session });
+    const interactive = new TestInteractive({ host: testHost, cwd: f.cwd, session: real.session });
     closers.push(() => interactive.shutdown());
     const controller = Reflect.get(interactive, 'execCtrl') as SessionExecutionController;
     const resumeQueued = Reflect.get(interactive, 'resumeQueuedTurn') as (
@@ -316,6 +328,7 @@ describe('restored autonomous and queued input admission', () => {
     f.store.save(ordinary);
     const real = lower(f.cwd);
     const interactive = new TestInteractive({
+      host: testHost,
       cwd: f.cwd,
       session: real.session,
       sessionStore: f.store,

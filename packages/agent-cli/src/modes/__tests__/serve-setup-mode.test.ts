@@ -13,18 +13,27 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createProviderCommandModule } from '@robota-sdk/agent-command';
-import { InteractiveSession, createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
+import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 
 import { buildServeSessionOptions } from '../serve-mode.js';
 import { createSetupPlaceholderProvider } from '../../startup/setup-placeholder-provider.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
-import type { IProviderCommandSettingsAdapter, TProviderSettingsDocument } from '@robota-sdk/agent-framework';
+import type {
+  IProviderCommandSettingsAdapter,
+  TProviderSettingsDocument,
+} from '@robota-sdk/agent-framework';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 import type { TActionResponse } from '@robota-sdk/agent-core';
 
+const testHost = createTestFrameworkHost();
+
 describe('#3282 §3 — a served runtime starts in setup mode with no provider', () => {
   it('buildServeSessionOptions forwards setupRequired', () => {
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({
+      host: testHost,
+      productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},
@@ -35,7 +44,9 @@ describe('#3282 §3 — a served runtime starts in setup mode with no provider',
   });
 
   it('omits the key entirely when setup is not required, rather than setting it false', () => {
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({
+      host: testHost,
+      productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},
@@ -62,7 +73,8 @@ describe('#3282 §3 — a served runtime starts in setup mode with no provider',
           type: 'acme',
           displayName: 'Acme',
           defaults: { model: 'acme-default-model' },
-          createProvider: (config) => ({ name: 'acme', model: config.model }) as unknown as IAIProvider,
+          createProvider: (config) =>
+            ({ name: 'acme', model: config.model }) as unknown as IAIProvider,
         },
       ];
 
@@ -92,7 +104,9 @@ describe('#3282 §3 — a served runtime starts in setup mode with no provider',
       // Built exactly the way `runServeMode` builds a served session's options in setup mode: the
       // placeholder provider, `setupRequired: true`, and a `/provider` command module sharing the
       // same settings file this session reads its provider from.
-      const sessionOptions = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+      const sessionOptions = buildServeSessionOptions({
+        host: testHost,
+        productRuntime: createTestProductRuntime(),
         cwd: dir,
         args: { noSessionPersistence: true } as never,
         preset: {},
@@ -100,7 +114,10 @@ describe('#3282 §3 — a served runtime starts in setup mode with no provider',
         providerDefinitions: definitions,
         setupRequired: true,
         commandModules: [
-          createProviderCommandModule({ providerDefinitions: definitions, settings: settingsAdapter }),
+          createProviderCommandModule({
+            providerDefinitions: definitions,
+            settings: settingsAdapter,
+          }),
         ],
         commandHostAdapters: {},
         backgroundTaskRunners: [],

@@ -15,9 +15,9 @@
  * ## What this module decides
  *
  * The TYPES only. An interface package is inert by rule — no runtime dependency edges, no classes —
- * and the minting and comparison need `node:crypto`, so they live in `@robota-sdk/agent-transport/node`
- * beside the transports that call them. The shape of the decision is declared here because it is a
- * contract; the machinery that produces it is not.
+ * so the minting and comparison live in `@robota-sdk/agent-transport` beside the transports that
+ * call them. The shape of the decision is declared here because it is a contract; the machinery that
+ * produces it is not.
  *
  * `resolveAdmission` answers "what credential does this transport require?" the same way for every
  * caller, and the answer is SECURE BY DEFAULT: an explicit token wins; otherwise one is minted. A

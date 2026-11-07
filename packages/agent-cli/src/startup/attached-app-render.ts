@@ -7,9 +7,10 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * that shapes a session is resolved: the process running it owns it. The terminal's own commands
  * run here too, as the plain TUI runs them.
  */
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
-import { createTerminalClientCommands } from '@robota-sdk/agent-command';
+import { productProviderDefinitions } from '../product/provider-definitions.js';
+import { createTerminalClientCommands } from '@robota-sdk/agent-command/node';
 import { applyAppearanceSettings } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsStore } from '@robota-sdk/agent-framework/node';
 
 import { reloadPluginCommandSource } from '../plugins/default-plugin-command-source-loader.js';
 import { resolveProductShellExecutable } from '../product/shell.js';
@@ -93,9 +94,15 @@ export function createAttachedAppRender(
       version: runtimeVersion(context.productRuntime),
       cliAdapter: createProductTuiCliAdapter(presentation.createDefaultTuiCliAdapter, {
         productRuntime: context.productRuntime,
-        providerDefinitions: context.providerDefinitions ?? createDefaultProviderDefinitions(),
+        providerDefinitions: context.providerDefinitions ?? productProviderDefinitions(),
         reloadPluginCommandSource: (registry) =>
-          reloadPluginCommandSource(registry, context.productRuntime, cwd, projectAccess, context.safeMode !== true),
+          reloadPluginCommandSource(
+            registry,
+            context.productRuntime,
+            cwd,
+            projectAccess,
+            context.safeMode !== true,
+          ),
       }),
       ...fields,
       keybindingsSource,
@@ -105,14 +112,18 @@ export function createAttachedAppRender(
       clientCommands: {
         commands: createTerminalClientCommands({
           shellExecutable: resolveProductShellExecutable(context.productRuntime.environment),
-          editorTemporaryDirectoryPrefix: context.productRuntime.vocabulary.editorTemporaryDirectoryPrefix,
+          editorTemporaryDirectoryPrefix:
+            context.productRuntime.vocabulary.editorTemporaryDirectoryPrefix,
           keybindingsFile: keybindingsSource,
           themeCatalogue: theme.cataloguePort,
           ...(enabledCommandModules !== undefined ? { enabledCommandModules } : {}),
           ...(disabledCommandModules !== undefined ? { disabledCommandModules } : {}),
         }),
         writeAppearanceSettings: (patch) => {
-          applyAppearanceSettings(productUserSettingsPath(context.productRuntime), patch);
+          applyAppearanceSettings(
+            createNodeHostSettingsStore('user', productUserSettingsPath(context.productRuntime)),
+            patch,
+          );
         },
       },
       themeRegistry: theme.registry,

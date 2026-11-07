@@ -19,3 +19,15 @@ export interface IPendingPermissionRequest {
   requester?: TPermissionRequester;
   resolve: (result: TPermissionResult) => void;
 }
+
+/** What a session switch carries beyond the session's id. */
+export interface ISessionSwitchOptions {
+  /**
+   * The SHA-256 of the stored record bytes the person accepted as theirs. Over a store that seals, the
+   * session that opens the record resumes it only if it is the owner's or exactly these bytes.
+   */
+  readonly acceptedDigest?: string;
+}
+
+/** The surface's session-switch path: the resume picker and a fork attach both take it. */
+export type TSessionSwitch = (sessionId: string, options?: ISessionSwitchOptions) => Promise<void>;

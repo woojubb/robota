@@ -13,7 +13,10 @@
  * so they exercise the full init → submit → listContextReferences flow.
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 // --- Module-level mocks (must appear before any imports) ---
 
@@ -139,15 +142,19 @@ function createMockProvider() {
 
 // --- Tests ---
 
-describe('InteractiveSession — system context file regression', () => {
+describe('InteractiveSession — system context file regression', { timeout: 60_000 }, () => {
+  let InteractiveSession: typeof import('../interactive-session.js').InteractiveSession;
+  beforeAll(async () => {
+    ({ InteractiveSession } = await import('../interactive-session.js'));
+  }, 60_000);
+
   beforeEach(() => {
     mockLoadContext.mockClear();
   });
 
   it('AGENTS.md and CLAUDE.md appear as system refs in listContextReferences after first prompt', async () => {
-    const { InteractiveSession } = await import('../interactive-session.js');
-
     const session = new InteractiveSession({
+      host: testHost,
       cwd: '/workspace',
       provider: createMockProvider(),
     });
@@ -168,9 +175,8 @@ describe('InteractiveSession — system context file regression', () => {
   it('regression: no duplicate entries after submitting a prompt', async () => {
     // This is the exact bug: after one prompt, AGENTS.md appeared twice —
     // once as [system, active] and once as [manual, active].
-    const { InteractiveSession } = await import('../interactive-session.js');
-
     const session = new InteractiveSession({
+      host: testHost,
       cwd: '/workspace',
       provider: createMockProvider(),
     });
@@ -195,9 +201,8 @@ describe('InteractiveSession — system context file regression', () => {
   });
 
   it('regression: no duplicates after multiple prompt submissions', async () => {
-    const { InteractiveSession } = await import('../interactive-session.js');
-
     const session = new InteractiveSession({
+      host: testHost,
       cwd: '/workspace',
       provider: createMockProvider(),
     });

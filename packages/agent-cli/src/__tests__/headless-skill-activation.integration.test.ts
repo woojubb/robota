@@ -2,11 +2,8 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import {
-  InteractiveSession,
-  WorkspaceTrustService,
-  createNodeHostContributionSource,
-} from '@robota-sdk/agent-framework';
+import { InteractiveSession, WorkspaceTrustService } from '@robota-sdk/agent-framework';
+import { createNodeHostContributionSource } from '@robota-sdk/agent-framework/node';
 import { createSkillsCommandModule } from '@robota-sdk/agent-command';
 import type {
   IWorkspaceIdentity,
@@ -14,6 +11,10 @@ import type {
   TInteractiveSessionOptions,
 } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '@robota-sdk/agent-framework';
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 type TStandardSessionOptions = Extract<
   TInteractiveSessionOptions,
@@ -60,6 +61,7 @@ async function createTrustedProjectAccess(cwd: string) {
     revoke: () => Promise.resolve({ state: 'revoked', generation: 2 }),
   };
   return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     store,
   }).inspect(root);
@@ -121,9 +123,7 @@ function createSkillToolCallingProvider(): IObservedProvider {
       if (chatCallCount === 1) {
         firstPromptContent = messages.map((message) => message.content).join('\n');
         firstCallToolNames = options?.tools?.map((tool) => tool.name) ?? [];
-        const skillsToolSchema = options?.tools?.find(
-          (tool) => tool.name === 'command_skills',
-        );
+        const skillsToolSchema = options?.tools?.find((tool) => tool.name === 'command_skills');
         firstCallSkillsToolArgsDescription =
           skillsToolSchema?.parameters.properties['args']?.description;
         return assistantMessage(null, [
@@ -294,6 +294,7 @@ describe('headless transport skill activation integration', () => {
     );
     const observed = createSkillToolCallingProvider();
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: observed.provider,
       projectAccess: await createTrustedProjectAccess(cwd),
@@ -313,6 +314,7 @@ describe('headless transport skill activation integration', () => {
 
     try {
       const transport = createHeadlessTransport({
+        output: { stdout: process.stdout, stderr: process.stderr },
         outputFormat: 'json',
         prompt: 'Use repository writing rules for docs/architecture.md',
       });
@@ -371,6 +373,7 @@ describe('headless transport skill activation integration', () => {
     );
     const observed = createPromptObservingProvider('Headless slash skill activated');
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: observed.provider,
       projectAccess: await createTrustedProjectAccess(cwd),
@@ -390,6 +393,7 @@ describe('headless transport skill activation integration', () => {
 
     try {
       const transport = createHeadlessTransport({
+        output: { stdout: process.stdout, stderr: process.stderr },
         outputFormat: 'json',
         prompt: '/audit src/index.ts',
       });
@@ -431,6 +435,7 @@ describe('headless transport skill activation integration', () => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-headless-unknown-tool-')));
     const observed = createUnknownToolCallingProvider();
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: observed.provider,
       config: createConfig(),
@@ -441,6 +446,7 @@ describe('headless transport skill activation integration', () => {
 
     try {
       const transport = createHeadlessTransport({
+        output: { stdout: process.stdout, stderr: process.stderr },
         outputFormat: 'json',
         prompt: 'Spawn agents in parallel',
       });

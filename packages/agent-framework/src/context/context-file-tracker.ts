@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { sha256Hex } from '@robota-sdk/agent-core';
 
 import { assertWorkspaceProjectReader } from '../workspace-trust/index.js';
 
@@ -16,7 +16,7 @@ export interface IContextFileEntry {
 
 /** Compute a SHA-256 hex digest of the given string content. */
 export function computeContentHash(content: string): string {
-  return createHash('sha256').update(content, 'utf-8').digest('hex');
+  return sha256Hex(content);
 }
 
 /** Read a project-relative file through an authorized reader and return its content hash. */

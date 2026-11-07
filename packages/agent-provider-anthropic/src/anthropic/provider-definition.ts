@@ -1,4 +1,8 @@
-import { type IProviderDefinition, type IProviderModelCatalogEntry } from '@robota-sdk/agent-core';
+import {
+  type IProviderDefinition,
+  type IProviderModelCatalogEntry,
+  readNativeWebSearchOption,
+} from '@robota-sdk/agent-core';
 
 import { CLAUDE_MODELS } from './claude-models.js';
 import {
@@ -34,6 +38,7 @@ export function createAnthropicProviderDefinition(): IProviderDefinition {
     displayName: 'Anthropic',
     description: 'Claude series — strong at coding tasks. API key required.',
     category: 'cloud-paid',
+    nativeWebTools: () => ['webSearch'],
     // Interim provider-level cost (ARCH-PROVIDER-003), migrated from the former llm-text-anthropic node.
     costPerTokenUsd: 0.003,
     defaults: {
@@ -71,6 +76,7 @@ export function createAnthropicProviderDefinition(): IProviderDefinition {
         apiKey: requireAnthropicApiKey(config.apiKey),
         ...(config.baseURL !== undefined && { baseURL: config.baseURL }),
         ...(config.timeout !== undefined && { timeout: config.timeout }),
+        ...(readNativeWebSearchOption('anthropic', config.options) && { enableWebTools: true }),
         defaultModel: config.model,
       }),
   };

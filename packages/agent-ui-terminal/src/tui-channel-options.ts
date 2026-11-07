@@ -11,15 +11,16 @@ import type {
   IAutomaticMemoryConfig,
   IBackgroundTaskRunner,
   ICommandHostAdapters,
+  IFrameworkHost,
   IOutputStylePrompt,
   IOrgPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
-  INodeHostSettingsSource,
+  IHostSettingsSource,
   ICommandModule,
   ICreateSessionOptions,
   ILivePromptTracePort,
-  EditCheckpointStore,
+  IEditCheckpointStore,
   TInteractiveSessionOptions,
   IMemoryStore,
   IPromptHistoryOptions,
@@ -48,6 +49,8 @@ import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transpo
  * interactive surface at all, and a surface nobody can find is a surface people forget.
  */
 export interface ITuiInteractionChannelOptions {
+  /** The platform the TUI's sessions run on; `{}` is a host with nothing to lend. */
+  host: IFrameworkHost;
   livePromptTrace?: ILivePromptTracePort;
   /**
    * Provider definitions, forwarded to the session so `/provider switch` can construct the provider
@@ -79,14 +82,14 @@ export interface ITuiInteractionChannelOptions {
   taskContext?: { readonly enabled?: boolean; readonly dir?: string };
   contributionSources?: ICreateSessionOptions['contributionSources'];
   skillRoots?: ICreateSessionOptions['skillRoots'];
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   environment?: Readonly<Record<string, string | undefined>>;
   resolveProviderCredential?: import('@robota-sdk/agent-core').TProviderCredentialResolver;
   /**
    * Explicit authority- and permission-backed edit checkpoint capability for this channel's one
    * session. Never shared with another channel's session: a store holds one turn in progress.
    */
-  editCheckpointStore?: EditCheckpointStore;
+  editCheckpointStore?: IEditCheckpointStore;
   /** The host's way to build each external-event grant's verifier; absent, no grant opens. */
   externalEventVerifierFactory?: TInteractiveSessionOptions['externalEventVerifierFactory'];
   /** The run's grant history, shared by every session this TUI binds (#3189). */
@@ -112,6 +115,11 @@ export interface ITuiInteractionChannelOptions {
   disableSessionLoops?: boolean;
   resolveDefaultLoopPrompt?: () => string;
   resumeSessionId?: string;
+  /**
+   * The SHA-256 of the stored record bytes the person accepted as theirs for `resumeSessionId`.
+   * Projected into the session only when set; a channel without one accepts nothing unverified.
+   */
+  acceptedDigest?: string;
   forkSession?: boolean;
   /** Issue #3081: this channel's session is the target of a `/cd` from this directory. */
   workspaceMovedFrom?: string;

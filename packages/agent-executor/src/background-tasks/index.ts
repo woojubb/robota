@@ -1,19 +1,9 @@
 export { BackgroundTaskManager } from './background-task-manager.js';
 export {
-  createDefaultBackgroundTaskRunners,
-  createManagedShellProcessRunner,
-  createScheduledTaskRunner,
   nextScheduledFireOnOrAfter,
   createToolInvocationBackgroundTaskRunner,
-  resolveBackgroundTaskShellCommand,
 } from './runners/index.js';
-export type {
-  IBackgroundTaskShellCommand,
-  IBackgroundTaskShellResolutionOptions,
-  IManagedShellProcessRunnerOptions,
-  IResolvedBackgroundTaskShellCommand,
-  IScheduledTaskRunnerOptions,
-} from './runners/index.js';
+export type { IScheduledFireTimeOptions } from './runners/index.js';
 export {
   getBackgroundTaskTransitions,
   isTerminalBackgroundTaskStatus,
@@ -30,7 +20,7 @@ export type { TBackgroundTaskTransitionEvent } from './state-machine.js';
 export {
   deliverToObservers,
   OBSERVER_FAILURE_WARNING_CODE,
-  reportObserverFailureAsWarning,
+  reportObserverFailureAsConsoleWarning,
 } from './observer-delivery.js';
 export type { IObserverFailure, TObserverFailureReporter } from './observer-delivery.js';
 export {

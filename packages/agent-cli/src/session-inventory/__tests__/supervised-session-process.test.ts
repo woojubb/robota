@@ -93,7 +93,7 @@ describe('detached supervised runtime', () => {
     }
   }, 60_000);
 
-  it('runs as a daemon that hands its owner the URL with the token its environment carried', async () => {
+  it('runs as a daemon that hands its owner the URL with the token piped to it, never its environment', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-daemon-'));
     const root = join(scratch, 'supervised');
     const token = 'd'.repeat(64);
@@ -103,17 +103,25 @@ describe('detached supervised runtime', () => {
       id = await launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
         execArgs: ['--import', 'tsx', '--conditions=source'],
-        env: { PRODUCT_TEST_SUPERVISED_ROOT: root, PRODUCT_WS_TOKEN: token },
+        // The launching CLI may itself hold a token under either name: neither reaches the daemon.
+        env: {
+          PRODUCT_TEST_SUPERVISED_ROOT: root,
+          PRODUCT_WS_TOKEN: 'e'.repeat(64),
+          TEST_PRODUCT_WS_TOKEN: 'f'.repeat(64),
+        },
+        transportToken: token,
         daemon: true,
         onSpawn: (spawned) => { child = spawned; },
       });
       expect(child?.spawnargs).toContain('--daemon');
+      expect(child?.spawnargs).toContain('--supervised-transport-token-fd');
       expect(child?.spawnargs.join(' ')).not.toContain(token);
       expect(await listSupervisedSessions(root, undefined, { includeDaemon: true })).toEqual([{
         id, liveness: 'alive', control: 'available',
         activity: expect.stringMatching(/^(unknown|idle)$/), daemon: true,
       }]);
-      expect(await connectSupervisedDaemon(id, root)).toBe(`ws://127.0.0.1:9?token=${token}`);
+      // The URL carries the piped token, and the daemon's own environment holds no token name.
+      expect(await connectSupervisedDaemon(id, root)).toBe(`ws://127.0.0.1:9?token=${token}&env=`);
       await stopSupervisedSession(id, root);
     } finally {
       if (id) {
@@ -131,7 +139,8 @@ describe('detached supervised runtime', () => {
       await expect(launchSupervisedSession(process.cwd(), { productRuntime: createTestProductRuntime(),
         entrypoint: fixture,
         execArgs: ['--import', 'tsx', '--conditions=source'],
-        env: { PRODUCT_TEST_SUPERVISED_ROOT: root, PRODUCT_WS_TOKEN: 'd'.repeat(64), PRODUCT_TEST_NO_WS_URL: '1' },
+        env: { PRODUCT_TEST_SUPERVISED_ROOT: root, PRODUCT_TEST_NO_WS_URL: '1' },
+        transportToken: 'd'.repeat(64),
         daemon: true,
         onSpawn: (spawned) => { child = spawned; },
       })).rejects.toThrow('The daemon has no WebSocket endpoint; enable the ws transport.');

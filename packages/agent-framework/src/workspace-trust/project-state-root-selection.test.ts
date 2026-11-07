@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { createNodeWorkspaceProjectFiles } from './node-project-files.js';
 import { WorkspaceTrustService } from './workspace-trust-service.js';
 import { getWorkspaceProjectStateStorage } from './project-state-storage.js';
 import { validateWorkspaceSessionReplayLog } from '../interactive/workspace-session-replay-validation.js';
@@ -31,6 +32,7 @@ function service(projectStateDirectories?: TWorkspaceProjectStateDirectories) {
   return {
     root,
     trust: new WorkspaceTrustService({
+      projectFiles: createNodeWorkspaceProjectFiles(),
       identityResolver: { resolve: () => identity },
       store: {
         inspect: async () => ({ state: 'trusted', generation: 1 }),
@@ -65,9 +67,9 @@ describe('host-selected project state directories', () => {
       expect(storage.projectRelativePath('probe.txt')).toBe(join(relativeRoot, 'probe.txt'));
       expect(storage.readText('probe.txt', 'test host-selected state read')).toBe(namespace);
     }
-    expect(validateWorkspaceSessionReplayLog(access, 'session_1').logFile).toBe(
-      join(directories['session-logs'], 'session_1.jsonl'),
-    );
+    expect(
+      validateWorkspaceSessionReplayLog(access, 'session_1', { sealing: 'plain' }).logFile,
+    ).toBe(join(directories['session-logs'], 'session_1.jsonl'));
   });
 
   it('refuses state access when the host did not select namespace directories', async () => {
@@ -118,7 +120,11 @@ describe('host-selected project state directories', () => {
         status: 'approved',
         purpose: 'test checkpoint capture exclusion',
       });
-      const store = new EditCheckpointStore({ authority: access.authority, mutation });
+      const store = new EditCheckpointStore({
+        sealing: 'plain',
+        authority: access.authority,
+        mutation,
+      });
 
       await store.beginTurn({ sessionId: 'session_1', prompt: 'test' });
       await store.captureFile(target);

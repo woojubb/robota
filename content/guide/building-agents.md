@@ -1,5 +1,9 @@
 # Building Agents
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 This guide covers building agents directly with `@robota-sdk/agent-core`, the foundation package.
 `agent-core` gives you the `Robota` agent class: a conversation with one or more AI providers, tool
 calling, plugins, and structured output. It reads no files and loads no project configuration.
@@ -109,18 +113,24 @@ A few provider-specific notes:
   request asks for the model's full output limit (64K tokens for Sonnet 4.6, 128K for Opus 4.6). The
   provider always uses Anthropic's streaming API, even without a text callback, so long requests
   are not cut off by the SDK's timeout for non-streaming calls. It can also use Anthropic's hosted
-  web search (`web_search_20250305`) when native web tools are requested; its `onServerToolUse`
-  callback fires when a search runs.
+  web search (`web_search_20250305`) when you build it with `enableWebTools: true` (a profile sets
+  `"options": { "nativeWebTools": { "webSearch": true } }`); its `onServerToolUse` callback fires
+  when a search runs. Nothing turns this on for you: whoever builds the provider decides.
+- **OpenAI** can use its hosted `web_search` tool on its own Responses API when you build it with
+  `nativeWebTools: { webSearch: true }` (a profile sets the same under `options`).
 - **Gemini** sends the system prompt as `systemInstruction` and accepts `responseSchema` or
-  `responseJsonSchema`, `safetySettings` and `thinkingConfig` options.
+  `responseJsonSchema`, `safetySettings` and `thinkingConfig` options. It can use Google Search
+  grounding when you build it with `enableWebTools: true` (a profile sets
+  `"options": { "nativeWebTools": { "webSearch": true } }`). On Gemini 3 and later search works next to
+  function calling; on Gemini 2 a request with function tools goes without it.
 - **Gemma** filters Gemma's reasoning markers and turns tool calls written as text into real tool
   calls.
 - **Qwen** can enable its own hosted web search and extraction with `builtInWebTools`.
 - Hosted tools like these run at the vendor, separately from Robota's local tools, and never pass
   through Robota's permission checks. Set `withholdHostedTools: true` on a run to leave them out.
 - OpenAI-compatible local endpoints such as LM Studio support ordinary function calling. They are
-  not treated as having hosted web search, so give the agent Robota's `WebSearch`/`WebFetch` tools
-  when it needs the web.
+  not treated as having hosted web search, so give the agent Robota's `WebFetch` tool and a web
+  search MCP server (`__PRODUCT_CLI_NAME__ mcp add exa`) when it needs the web.
 
 ### Several providers in one agent
 
@@ -220,9 +230,11 @@ const response = await agent.run('What time is it in Seoul, and is it warm there
 
 ### Built-in tools
 
-`@robota-sdk/agent-tools` also ships the tools the `__PRODUCT_CLI_NAME__` CLI gives its agent. File and shell tools
-are factories that take the directory they may work in — `createReadTool({ cwd })` — because a file
-tool with no root would have no boundary.
+`@robota-sdk/agent-tools` also ships the tools the `__PRODUCT_CLI_NAME__` CLI gives its agent. The shell, file,
+search and `WebFetch` tools need a Node host, so they are on `@robota-sdk/agent-tools/node`; the
+main entry holds the function-tool factories, `AskUserQuestion` and the sandbox ports and clients.
+File and shell tools are factories that take the directory they may work in —
+`createReadTool({ cwd })` — because a file tool with no root would have no boundary.
 
 | Factory or instance   | Tool name         | What it does                                                      |
 | --------------------- | ----------------- | ----------------------------------------------------------------- |
@@ -234,8 +246,7 @@ tool with no root would have no boundary.
 | `createGlobTool`      | `Glob`            | Finds files by glob pattern                                       |
 | `createGrepTool`      | `Grep`            | Searches file contents with a regular expression                  |
 | `webFetchTool`        | `WebFetch`        | Fetches a URL and returns its text                                |
-| `webSearchTool`       | `WebSearch`       | Web search through the Brave Search API (`BRAVE_API_KEY`)         |
-| `askUserQuestionTool` | `AskUserQuestion` | Asks the user a question and waits for the answer                 |
+| `askUserQuestionTool` | `AskUserQuestion` | Asks the user a question and waits for the answer (main entry)    |
 
 `createDefaultTools({ cwd })` from `@robota-sdk/agent-tool-defaults` returns this whole set at once.
 When you give these tools to a bare `Robota`, no permission prompts run — the agent can use them

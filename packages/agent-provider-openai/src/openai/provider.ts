@@ -1,5 +1,4 @@
-import { randomUUID } from 'node:crypto';
-import { AbstractAIProvider } from '@robota-sdk/agent-core';
+import { AbstractAIProvider, randomId } from '@robota-sdk/agent-core';
 import { createModelEffortOutcome } from '@robota-sdk/agent-core';
 import { PERMISSIVE_TOOL_SCHEMA_PROFILE, STRICT_TOOL_SCHEMA_PROFILE } from '@robota-sdk/agent-core';
 import { resolveModelEffort } from '@robota-sdk/agent-core';
@@ -16,6 +15,7 @@ import { OPENAI_MODEL_EFFORT_TABLE } from './model-effort-table';
 import { assertParallelToolCallsExecutor, parseParallelToolCalls } from './parallel-tool-policy';
 import { OpenAIResponseParser } from './parsers/response-parser';
 import { chatStreamWithOpenAIResponsesApi, chatWithOpenAIResponsesApi } from './responses-chat';
+import { modelOffersWebSearch } from './responses-web-search';
 
 import type { IPayloadLogger } from './interfaces/payload-logger';
 import type { IOpenAIProviderOptions, TOpenAIApiSurface, TOpenAIExtraBody } from './types';
@@ -25,6 +25,7 @@ import type {
   IAssistantMessage,
   IProviderCapabilities,
   IProviderModelEffortTable,
+  IProviderNativeWebToolCapability,
   IToolSchemaProjectionProfile,
   TTextDeltaCallback,
 } from '@robota-sdk/agent-core';
@@ -48,6 +49,10 @@ export class OpenAIProvider extends AbstractAIProvider {
   private readonly extraBody: TOpenAIExtraBody | undefined;
   private readonly payloadLogger: IPayloadLogger | undefined;
   private readonly responseParser: OpenAIResponseParser;
+  // A reply's items belong to the account that made them and OpenAI keeps them for a limited time,
+  // so only the instance that recorded them sends them back, which also leaves out a process that
+  // restarted.
+  private readonly replayOwner = randomId();
 
   /**
    * Optional callback for text deltas during streaming.
@@ -65,7 +70,7 @@ export class OpenAIProvider extends AbstractAIProvider {
     this.extraBody = parseExtraBody(options.extraBody);
     assertExtraBodyExecutor(this.extraBody, options.executor !== undefined);
     this.apiSurface = resolveApiSurface(options);
-    validateOpenAIProviderNativeWebTools(this.apiSurface, options.nativeWebTools);
+    validateOpenAIProviderNativeWebTools(this.apiSurface, options);
 
     if (options.executor) {
       this.executor = options.executor;
@@ -126,6 +131,7 @@ export class OpenAIProvider extends AbstractAIProvider {
         extraBody: this.extraBody,
         onTextDelta: this.onTextDelta,
         requestHeaders: this.traceRequestHeaders(resolvedOptions),
+        replayOwner: this.replayOwner,
       });
       this.publishModelEffortOutcome(resolvedOptions);
       return response;
@@ -199,6 +205,7 @@ export class OpenAIProvider extends AbstractAIProvider {
         extraBody: this.extraBody,
         onTextDelta: this.onTextDelta,
         requestHeaders: this.traceRequestHeaders(resolvedOptions),
+        replayOwner: this.replayOwner,
       });
       this.publishModelEffortOutcome(resolvedOptions);
       return;
@@ -251,7 +258,7 @@ export class OpenAIProvider extends AbstractAIProvider {
       ...(this.canPropagateTraceContext()
         ? traceHeadersFor(this.effectiveBaseUrl(), options?.outboundTraceContext)
         : {}),
-      ...(this.options.durableOperations === true ? { 'Idempotency-Key': randomUUID() } : {}),
+      ...(this.options.durableOperations === true ? { 'Idempotency-Key': randomId() } : {}),
     };
   }
 
@@ -272,13 +279,20 @@ export class OpenAIProvider extends AbstractAIProvider {
   }
 
   /**
-   * MCP-005: strict mode's supported subset is documented; non-strict accepts standard JSON Schema.
-   * Both the Responses and Chat Completions surfaces honor `strictTools` identically (§ Profiles).
+   * MCP-005: strict mode's supported subset is documented; non-strict accepts standard JSON Schema
+   * except that the API answers `array schema missing items` and `object schema missing properties`
+   * in either mode. Both the Responses and Chat Completions surfaces honor `strictTools` identically
+   * (§ Profiles).
    */
   protected override projectionProfile(): IToolSchemaProjectionProfile | undefined {
     return this.options.strictTools
       ? { ...STRICT_TOOL_SCHEMA_PROFILE, providerName: 'openai' }
-      : { ...PERMISSIVE_TOOL_SCHEMA_PROFILE, providerName: 'openai' };
+      : {
+          ...PERMISSIVE_TOOL_SCHEMA_PROFILE,
+          providerName: 'openai',
+          arraysDeclareItems: true,
+          objectsDeclareProperties: true,
+        };
   }
 
   /**
@@ -345,17 +359,15 @@ export class OpenAIProvider extends AbstractAIProvider {
     return {
       functionCalling: { supported: true },
       nativeWebTools: {
-        webSearch: {
-          supported: false,
-          enabled: false,
-          source,
-          reason: getOpenAIUnsupportedNativeWebReason(this.apiSurface, 'search'),
-        },
+        webSearch: describeWebSearch(this.apiSurface, this.options, source),
         webFetch: {
           supported: false,
           enabled: false,
           source,
-          reason: getOpenAIUnsupportedNativeWebReason(this.apiSurface, 'fetch'),
+          reason:
+            this.apiSurface === 'chat-completions'
+              ? getOpenAIChatCompletionsNativeWebReason('fetch')
+              : 'OpenAI provider exposes hosted web search only.',
         },
       },
     };
@@ -394,24 +406,68 @@ function resolveApiSurface(options: IOpenAIProviderOptions): TOpenAIApiSurface {
   return options.baseURL ? 'chat-completions' : 'responses';
 }
 
-function getOpenAIUnsupportedNativeWebReason(
+function getOpenAIChatCompletionsNativeWebReason(toolKind: 'search' | 'fetch'): string {
+  return `OpenAI-compatible Chat Completions endpoints support declared function tools, not provider-native web ${toolKind}.`;
+}
+
+/**
+ * Hosted web search runs only on OpenAI's own Responses API, so it is offered on the vendor endpoint
+ * with that surface and nowhere else.
+ */
+function describeWebSearch(
   apiSurface: TOpenAIApiSurface,
-  toolKind: 'search' | 'fetch',
-): string {
+  options: IOpenAIProviderOptions,
+  source: string,
+): IProviderNativeWebToolCapability {
   if (apiSurface === 'chat-completions') {
-    return `OpenAI-compatible Chat Completions endpoints support declared function tools, not provider-native web ${toolKind}.`;
+    return {
+      supported: false,
+      enabled: false,
+      source,
+      reason: getOpenAIChatCompletionsNativeWebReason('search'),
+    };
   }
-  return `OpenAI Responses native web ${toolKind} is not wired in this provider version.`;
+  if (options.baseURL !== undefined) {
+    return {
+      supported: false,
+      enabled: false,
+      source,
+      reason: "Hosted web search runs only on OpenAI's own endpoint, not a custom baseURL.",
+    };
+  }
+  if (options.nativeWebTools?.webSearch !== true) {
+    return {
+      supported: true,
+      enabled: false,
+      source,
+      reason: 'Set the provider profile option nativeWebTools.webSearch to true.',
+    };
+  }
+  const model = options.defaultModel;
+  if (model !== undefined && !modelOffersWebSearch(model)) {
+    return {
+      supported: true,
+      enabled: false,
+      source,
+      reason: `Model ${model} does not offer web search; requests go without it.`,
+    };
+  }
+  return { supported: true, enabled: true, source };
 }
 
 function validateOpenAIProviderNativeWebTools(
   apiSurface: TOpenAIApiSurface,
-  nativeWebTools: IOpenAIProviderOptions['nativeWebTools'],
+  options: IOpenAIProviderOptions,
 ): void {
-  if (nativeWebTools?.webSearch !== true && nativeWebTools?.webFetch !== true) {
-    return;
+  if (options.nativeWebTools?.webFetch === true) {
+    throw new Error('Provider openai does not support native web fetch.');
   }
-  throw new Error(
-    `Provider openai native web search/fetch is not supported for apiSurface ${apiSurface} in this provider version.`,
-  );
+  if (
+    options.nativeWebTools?.webSearch === true &&
+    (apiSurface !== 'responses' || options.baseURL !== undefined)
+  ) {
+    throw new Error(
+      `Provider openai hosted web search runs only on OpenAI's own Responses API, not on apiSurface ${apiSurface}${options.baseURL !== undefined ? ' with a custom baseURL' : ''}.`,
+    );
+  }
 }

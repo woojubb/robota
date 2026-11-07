@@ -62,15 +62,12 @@ describe('public desktop CLI attachment', () => {
       artifact,
       environment: { HOME: home, OPENAI_API_KEY: 'provider-value', UNLISTED_SECRET: 'do-not-forward' },
       chooseTrust: async () => 'trust',
+      approveTrust: async () => { trusted = true; return true; },
       execute: async (args, env) => {
         calls.push({ args, env });
-        if (args[0] === 'trust' && args[1] === '--yes') {
-          trusted = true;
-          return { exitCode: 0, stdout: '', stderr: '' };
-        }
         if (args[0] === 'trust') return { exitCode: 0, stdout: trusted
           ? '{"state":"trusted","askable":false,"providerEnvRefs":["OPENAI_API_KEY"]}'
-          : '{"askable":true,"workspace":"/work","loads":[]}', stderr: '' };
+          : '{"askable":true,"workspace":"/work","loads":[],"candidate":"prepared"}', stderr: '' };
         return { exitCode: 0, stdout: '{"id":"daemon","url":"ws://127.0.0.1:4103/?token=secret"}', stderr: '' };
       },
     });
@@ -98,14 +95,14 @@ describe('public desktop CLI attachment', () => {
 
   it('does not admit references after a grant unless renewal is freshly trusted', async () => {
     const calls: { args: readonly string[]; env: Readonly<Record<string, string>> }[] = [];
-    const revoked = '{"state":"revoked","askable":true,"workspace":"/work","loads":[],"providerEnvRefs":["SYNTHETIC_SECRET"]}';
+    const revoked = '{"state":"revoked","askable":true,"workspace":"/work","loads":[],"candidate":"prepared","providerEnvRefs":["SYNTHETIC_SECRET"]}';
     const controller = createDesktopCliController({
       artifact,
       environment: { HOME: home, SYNTHETIC_SECRET: 'unforwarded' },
       chooseTrust: async () => 'trust',
+      approveTrust: async () => true,
       execute: async (args, env) => {
         calls.push({ args, env });
-        if (args[1] === '--yes') return { exitCode: 0, stdout: '', stderr: '' };
         if (args[0] === 'trust') return { exitCode: 0, stdout: revoked, stderr: '' };
         return { exitCode: 0, stdout: '{"id":"daemon","url":"ws://127.0.0.1:4104/?token=secret"}', stderr: '' };
       },
@@ -126,13 +123,13 @@ describe('public desktop CLI attachment', () => {
       artifact,
       environment: { HOME: home, SYNTHETIC_SECRET: 'unforwarded' },
       chooseTrust: async () => 'trust',
+      approveTrust: async () => true,
       execute: async (args) => {
         calls.push([...args]);
-        if (args[1] === '--yes') return { exitCode: 0, stdout: '', stderr: '' };
         if (args[0] === 'trust') {
           statusCount += 1;
           return statusCount === 1
-            ? { exitCode: 0, stdout: '{"state":"untrusted","askable":true,"workspace":"/work","loads":[]}', stderr: '' }
+            ? { exitCode: 0, stdout: '{"state":"untrusted","askable":true,"workspace":"/work","loads":[],"candidate":"prepared"}', stderr: '' }
             : { ...renewed, stderr: '' };
         }
         return { exitCode: 0, stdout: '{"id":"daemon","url":"ws://127.0.0.1:4105/?token=secret"}', stderr: '' };

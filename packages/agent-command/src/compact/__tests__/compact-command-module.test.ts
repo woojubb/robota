@@ -5,8 +5,10 @@ import { createCompactCommandModule } from '../compact-command-module.js';
 import type { ICommandHostContextWindow } from '@robota-sdk/agent-framework';
 import {
   createTestCommandHost,
-  createTestSessionRuntime,
+  createTestSessionRuntime, createTestFrameworkHost,
 } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 type TContextWindowState = ReturnType<ICommandHostContextWindow['getContextState']>;
 type TPermissionMode = ReturnType<ICommandSessionRuntime['getPermissionMode']>;
@@ -151,6 +153,8 @@ describe('createCompactCommandModule', () => {
         }),
     );
     const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: {
         ...runtime,
         compact,

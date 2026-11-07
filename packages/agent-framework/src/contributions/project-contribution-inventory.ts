@@ -1,4 +1,4 @@
-import { isAbsolute, join, sep } from 'node:path';
+import { isRootedPath, joinPath } from '@robota-sdk/agent-core';
 
 import { AGENTS_FILENAME, CLAUDE_FILENAME } from '../context/context-loader.js';
 import { PROJECT_DETECTOR_PATHS } from '../context/project-detector.js';
@@ -14,13 +14,13 @@ export interface IProjectContributionPath {
 }
 
 function ancestorDirectories(cwdRelative: string): readonly string[] {
-  if (isAbsolute(cwdRelative)) throw new Error('Project inventory requires a relative cwd.');
+  if (isRootedPath(cwdRelative)) throw new Error('Project inventory requires a relative cwd.');
   if (cwdRelative === '') return [''];
-  const segments = cwdRelative.split(sep);
+  const segments = cwdRelative.split(/[\\/]/);
   if (segments.some((segment) => segment === '' || segment === '.' || segment === '..')) {
     throw new Error('Project inventory cwd must stay inside the project root.');
   }
-  return ['', ...segments.map((_, index) => join(...segments.slice(0, index + 1)))];
+  return ['', ...segments.map((_, index) => joinPath(...segments.slice(0, index + 1)))];
 }
 
 function instructionPaths(cwdRelative: string): readonly IProjectContributionPath[] {
@@ -28,13 +28,13 @@ function instructionPaths(cwdRelative: string): readonly IProjectContributionPat
     {
       id: `instructions:${directory}:${AGENTS_FILENAME}`,
       label: 'Agent instructions',
-      relativePath: join(directory, AGENTS_FILENAME),
+      relativePath: joinPath(directory, AGENTS_FILENAME),
       expectedKind: 'file' as const,
     },
     {
       id: `instructions:${directory}:${CLAUDE_FILENAME}`,
       label: 'Project notes',
-      relativePath: join(directory, CLAUDE_FILENAME),
+      relativePath: joinPath(directory, CLAUDE_FILENAME),
       expectedKind: 'file' as const,
     },
   ]);

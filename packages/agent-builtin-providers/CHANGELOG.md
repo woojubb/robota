@@ -1,5 +1,51 @@
 # @robota-sdk/agent-builtin-providers
 
+## 3.1.0
+### Minor Changes
+
+- f5e3057: Make the provider packages platform-neutral.
+
+  - The Anthropic, OpenAI, OpenAI-compatible, Gemini and built-in provider packages no longer reach Node: message ids come from the new `randomId()` in `@robota-sdk/agent-core` (the platform's `crypto.randomUUID`, with a `getRandomValues` fallback outside a secure context) instead of `node:crypto`.
+  - `FilePayloadLogger` moved from `@robota-sdk/agent-provider-openai/loggers` to `@robota-sdk/agent-provider-openai/node`; `/loggers` keeps the platform-neutral `ConsolePayloadLogger`.
+  - `GeminiProvider.canPropagateTraceContext()` reads a base-URL override from the client the SDK built instead of the environment, so it matches where the client sends: a `GOOGLE_VERTEX_BASE_URL` outside Vertex mode, which the SDK ignores, no longer suppresses trace context.
+- b56b5a9: Ship one build per package. The platform-neutral entries moved from `dist/node` to `dist`, and the second
+  `dist/browser` build of `@robota-sdk/agent-core`, `@robota-sdk/agent-transport`,
+  `@robota-sdk/agent-ui-web` and `@robota-sdk/agent-transport-webrtc-web` is gone: a neutral entry runs
+  unchanged in every runtime, so a subpath's `exports` map `import` and `require` to the same files and no
+  longer a `node` or `browser` condition (a Node-only subpath keeps `"browser": null`). Import specifiers
+  and the code behind them are unchanged; only a deep import of `dist/node/*` or `dist/browser/*` breaks.
+  `@robota-sdk/agent-transport/client` also ships a CommonJS build now.
+
+### Patch Changes
+
+- Updated dependencies [bc8de21]
+- Updated dependencies [51ad6a4]
+- Updated dependencies [bc8de21]
+- Updated dependencies [82663df]
+- Updated dependencies [bc8de21]
+- Updated dependencies [04c3233]
+- Updated dependencies [9bc13f9]
+- Updated dependencies [191027d]
+- Updated dependencies [803b0b0]
+- Updated dependencies [0a677e9]
+- Updated dependencies [5b46d43]
+- Updated dependencies [fab48ad]
+- Updated dependencies [ea0e424]
+- Updated dependencies [0fec62f]
+- Updated dependencies [b7b6cd0]
+- Updated dependencies [8069d0e]
+- Updated dependencies [f5e3057]
+- Updated dependencies [d8cb04f]
+- Updated dependencies [44e9640]
+- Updated dependencies [b56b5a9]
+- Updated dependencies [1c19435]
+  - @robota-sdk/agent-core@3.1.0
+  - @robota-sdk/agent-provider-gemini@3.1.0
+  - @robota-sdk/agent-provider-anthropic@3.1.0
+  - @robota-sdk/agent-provider-openai@3.1.0
+  - @robota-sdk/agent-provider-openai-compatible@3.1.0
+  - @robota-sdk/agent-provider-bytedance@3.1.0
+
 ## 3.0.7
 ### Patch Changes
 

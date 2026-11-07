@@ -1,4 +1,8 @@
 // @robota-sdk/agent-tools
+//
+// Everything on this entry is platform-neutral (ARCHITECTURE.md "Runtime platforms"). What touches a
+// host — the shell, file, search and web-fetch tools, the OS sandbox and the host reads of a
+// workspace manifest — is on `@robota-sdk/agent-tools/node`.
 
 // Tool result type
 export type { IToolInvocationResult } from './types/tool-result';
@@ -10,6 +14,8 @@ export type {
   ISandboxRunOptions,
   ISandboxRunResult,
   ISandboxToolOptions,
+  IWorkspaceHostDirectoryEntry,
+  IWorkspaceHostFiles,
   IWorkspaceManifest,
   IWorkspaceManifestAppliedEntry,
   IWorkspaceManifestApplyOptions,
@@ -31,26 +37,12 @@ export type {
   TSandboxFilesystem,
   TExecutionContainment,
   ICommandInvocation,
-  IDetectOsSandboxOptions,
-  IOsSandboxAvailability,
-  IOsSandboxClientOptions,
-  IOsSandboxSettings,
-  IOsSandboxStatus,
-  TOsSandboxBackend,
-  IBubblewrapInput,
-  IOsSandboxPolicy,
 } from './sandbox/index';
 export {
   applyWorkspaceManifest,
   validateWorkspaceManifestPath,
   describeExecutionContainment,
   routesFilesThroughSandbox,
-  DEFAULT_OS_SANDBOX_SETTINGS,
-  detectOsSandbox,
-  OsSandboxClient,
-  bubblewrapArguments,
-  protectedWorkspaceEntries,
-  seatbeltProfile,
 } from './sandbox/index';
 
 // SELFHOST-003: codebase retrieval (port + types + neutral repo-map ranking adapter; tool added below)
@@ -123,26 +115,7 @@ export type {
   IFunctionToolResult,
 } from './implementations/function-tool/types';
 
-// Built-in CLI tools
-export { createShellTool, createBashTool } from './builtins/shell-tool';
-export type { IShellToolOptions } from './builtins/shell-tool';
-export { createReadTool, ReadByteLimitError, ReadCancelledError } from './builtins/read-tool';
-export { createWriteTool } from './builtins/write-tool';
-export { createEditTool } from './builtins/edit-tool';
-export { createGlobTool } from './builtins/glob-tool';
-export { createGrepTool, GrepIsolationError } from './builtins/grep-tool';
-export type { IGrepToolOptions } from './builtins/grep-tool';
-export { webFetchTool, createWebFetchTool } from './builtins/web-fetch-tool';
-export type { IWebFetchToolOptions } from './builtins/web-fetch-tool';
-export { webSearchTool, createWebSearchTool } from './builtins/web-search-tool';
-export type { IWebSearchToolOptions } from './builtins/web-search-tool';
-export { createBraveSearchProvider } from './builtins/brave-search-provider';
-export type {
-  IWebSearchProvider,
-  IWebSearchQuery,
-  IWebSearchResultItem,
-  IWebSearchToolProviderOptions,
-} from './builtins/web-search-provider';
+// Built-in tools that need no host: the model asks the user, and searches the deferred tool catalog.
 export { askUserQuestionTool, createAskUserQuestionTool } from './builtins/ask-user-question-tool';
 // CLI-1990: the resident tool that loads deferred schemas on demand, and its pure match/rank half.
 export {

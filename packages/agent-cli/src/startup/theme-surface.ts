@@ -9,7 +9,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * Assembled here rather than inline in `cli.ts` because that file sits at its `file-size` floor and
  * because a composition belongs beside its siblings in `startup/`, not in the shell that calls it.
  */
-import { readSettings } from '@robota-sdk/agent-framework';
+import { readSettings } from '@robota-sdk/agent-framework/node';
 import { productUserSettingsPath } from '../product/user-settings.js';
 import {
   createThemeCataloguePort,
@@ -97,7 +97,11 @@ export function createThemeSurface(options: IThemeSurfaceOptions): IThemeSurface
     // applies an `appearance-settings-patch`, so a captured value would make `/theme list` report
     // the change the user just made as not having happened.
     readAppearance: () =>
-      resolveAppearanceRenderFields(readSettings(productUserSettingsPath(options.productRuntime)), undefined, {}).appearance,
+      resolveAppearanceRenderFields(
+        readSettings(productUserSettingsPath(options.productRuntime)),
+        undefined,
+        {},
+      ).appearance,
     ...(resolved.reducedMotionOverride === undefined
       ? {}
       : {

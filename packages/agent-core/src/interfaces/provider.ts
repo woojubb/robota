@@ -319,11 +319,6 @@ export interface IAIProvider {
   resolveModelRoute?(model: string, executionId?: string): IModelRef;
 
   /**
-   * Optional generic hook for enabling provider-native hosted web behavior.
-   */
-  configureNativeWebTools?(request: IProviderNativeWebToolRequest): IProviderCapabilities;
-
-  /**
    * Validate provider configuration
    * @returns true if configuration is valid
    */

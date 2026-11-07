@@ -2,7 +2,7 @@
  * The WebRTC settings under `transports.webrtc.options` in the user settings: the signaling relay,
  * ICE servers and the like, shared by remote control and device enrollment.
  */
-import { readSettings } from '@robota-sdk/agent-framework';
+import { readSettings } from '@robota-sdk/agent-framework/node';
 
 import { productUserSettingsPath } from '../product/user-settings.js';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
@@ -20,7 +20,10 @@ export function readWebrtcRawOption(productRuntime: ICliRuntimeContext, key: str
 }
 
 /** A non-empty string under `transports.webrtc.options.<key>`, or undefined. */
-export function readWebrtcOption(productRuntime: ICliRuntimeContext, key: string): string | undefined {
+export function readWebrtcOption(
+  productRuntime: ICliRuntimeContext,
+  key: string,
+): string | undefined {
   const value = readWebrtcRawOption(productRuntime, key);
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }

@@ -1,38 +1,32 @@
 {
   "name": "@robota-sdk/agent-tools",
-  "version": "3.0.7",
+  "version": "3.1.0",
   "description": "Zod-validated function tools, built-in tool factories and sandbox ports for the Robota SDK",
   "type": "module",
-  "main": "dist/node/index.js",
-  "types": "dist/node/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "source": "./src/index.ts",
-      "browser": {
-        "import": {
-          "types": "./dist/browser/browser.d.ts",
-          "default": "./dist/browser/browser.js"
-        }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
       },
-      "node": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./node": {
+      "source": "./src/node.ts",
+      "browser": null,
+      "import": {
+        "types": "./dist/node.d.ts",
+        "default": "./dist/node.js"
       },
-      "default": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "require": {
+        "types": "./dist/node.d.cts",
+        "default": "./dist/node.cjs"
       }
     },
     "./package.json": "./package.json"
@@ -64,7 +58,7 @@
     "zod": "^4.6.7"
   },
   "peerDependencies": {
-    "@robota-sdk/agent-core": "workspace:*"
+    "@robota-sdk/agent-core": "workspace:^"
   },
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:*",

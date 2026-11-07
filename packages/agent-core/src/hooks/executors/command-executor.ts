@@ -17,6 +17,7 @@
 import { spawn } from 'node:child_process';
 
 import { createBoundedOutput, type IBoundedOutput } from '../../utils/bounded-output.js';
+import { endWithProcess, signalChildGroup, withChildSession } from '../../utils/child-session.js';
 import { resolvePlatformShell } from '../../utils/platform-shell.js';
 import { subprocessTraceEnvironment } from '../../utils/trace-context.js';
 
@@ -110,16 +111,26 @@ export class CommandExecutor implements IHookTypeExecutor {
     return new Promise<THookOutcome>((resolve) => {
       let settled = false;
       const shell = resolvePlatformShell({ executable: this.shellExecutable });
-      const child = spawn(shell.command, shell.commandArgs(definition.command), {
-        cwd: input.cwd,
-        env: subprocessTraceEnvironment(process.env, traceEnv, input.env),
-      });
+      // A hook is a configured program: in secure mode it gets its own session, so it cannot reach the
+      // owner's terminal, and its group ends with this process.
+      const child = endWithProcess(
+        spawn(
+          shell.command,
+          shell.commandArgs(definition.command),
+          withChildSession({
+            cwd: input.cwd,
+            env: subprocessTraceEnvironment(process.env, traceEnv, input.env),
+          }),
+        ),
+      );
       const { stdoutOutput, stderrOutput } = wireChildIo(child, inputJson);
 
       const timer = setTimeout(() => {
         if (!settled) {
           settled = true;
-          child.kill('SIGTERM');
+          // In its own session the hook leads a group; ending only the shell would leave what it
+          // started with nothing to end it.
+          signalChildGroup(child, 'SIGTERM');
           resolve({
             outcome: 'error',
             source: 'command',

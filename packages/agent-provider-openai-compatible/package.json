@@ -1,58 +1,34 @@
 {
   "name": "@robota-sdk/agent-provider-openai-compatible",
-  "version": "3.0.7",
+  "version": "3.1.0",
   "description": "OpenAI-compatible providers (DeepSeek, Qwen, Gemma) for Robota SDK",
   "type": "module",
   "publishConfig": {
     "access": "public"
   },
-  "main": "dist/node/index.js",
-  "types": "dist/node/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "source": "./src/index.ts",
-      "node": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
       },
-      "default": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
       }
     },
     "./shared": {
       "source": "./src/shared.ts",
-      "node": {
-        "import": {
-          "types": "./dist/node/shared/index.d.ts",
-          "default": "./dist/node/shared/index.js"
-        },
-        "require": {
-          "types": "./dist/node/shared/index.d.cts",
-          "default": "./dist/node/shared/index.cjs"
-        }
+      "import": {
+        "types": "./dist/shared/index.d.ts",
+        "default": "./dist/shared/index.js"
       },
-      "default": {
-        "import": {
-          "types": "./dist/node/shared/index.d.ts",
-          "default": "./dist/node/shared/index.js"
-        },
-        "require": {
-          "types": "./dist/node/shared/index.d.cts",
-          "default": "./dist/node/shared/index.cjs"
-        }
+      "require": {
+        "types": "./dist/shared/index.d.cts",
+        "default": "./dist/shared/index.cjs"
       }
     },
     "./package.json": "./package.json"

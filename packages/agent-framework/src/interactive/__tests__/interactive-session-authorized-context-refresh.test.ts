@@ -7,6 +7,9 @@ import { describe, expect, it } from 'vitest';
 
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const TEST_CONFIG = {
   defaultTrustLevel: 'moderate' as const,
@@ -23,6 +26,7 @@ describe('InteractiveSession authorized context refresh', () => {
     await writeFile(agentsPath, '# Initial rules\n', 'utf8');
     const scripted = createScriptedProvider([{ text: 'first' }, { text: 'second' }]);
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: scripted.provider,
       projectAccess: await createTrustedProjectAccessFixture(cwd),

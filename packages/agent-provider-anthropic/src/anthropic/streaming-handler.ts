@@ -1,6 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
-import { formatWebSearchResults } from './message-converter';
+import { formatCitedSources, formatWebSearchResults } from './message-converter';
 import { awaitWithProviderRequestId } from './provider-request-id';
 
 import type Anthropic from '@anthropic-ai/sdk';
@@ -58,9 +58,11 @@ export async function streamAndAssemble(
     type: 'function';
     function: { name: string; arguments: string };
   }> = [];
-  let currentToolId = '';
-  let currentToolName = '';
-  let currentToolJson = '';
+  let currentTool:
+    | { kind: 'client'; id: string; name: string; json: string }
+    | { kind: 'server'; name: string; json: string }
+    | undefined;
+  const citations: Anthropic.Messages.TextCitation[] = [];
   let usage = { input_tokens: 0, output_tokens: 0 };
   let sawUsageStart = false;
   let sawUsageEnd = false;
@@ -87,23 +89,11 @@ export async function streamAndAssemble(
 
         case 'content_block_start':
           if (event.content_block.type === 'tool_use') {
-            currentToolId = event.content_block.id;
-            currentToolName = event.content_block.name;
-            currentToolJson = '';
-          } else if (event.content_block.type === 'server_tool_use') {
-            const serverBlock = event.content_block as {
-              name?: string;
-              input?: { query?: string };
+            currentTool = {
+              kind: 'client', id: event.content_block.id, name: event.content_block.name, json: '',
             };
-            const query = serverBlock.input?.query ?? '';
-            const toolLabel = query
-              ? `\n🔍 Searching: "${query}"\n`
-              : `\n🔍 [${serverBlock.name ?? 'server_tool'}]\n`;
-            textParts.push(toolLabel);
-            onTextDelta(toolLabel);
-            if (onServerToolUse) {
-              onServerToolUse(serverBlock.name ?? 'server_tool', { query });
-            }
+          } else if (event.content_block.type === 'server_tool_use') {
+            currentTool = { kind: 'server', name: event.content_block.name, json: '' };
           } else if (event.content_block.type === 'web_search_tool_result') {
             const resultBlock = event.content_block as Anthropic.Messages.WebSearchToolResultBlock;
             const formatted = formatWebSearchResults(resultBlock);
@@ -118,25 +108,30 @@ export async function streamAndAssemble(
           if (event.delta.type === 'text_delta') {
             textParts.push(event.delta.text);
             onTextDelta(event.delta.text);
+          } else if (event.delta.type === 'citations_delta') {
+            citations.push(event.delta.citation);
           } else if (event.delta.type === 'input_json_delta') {
-            currentToolJson += event.delta.partial_json;
+            if (currentTool) currentTool.json += event.delta.partial_json;
           }
           break;
 
         case 'content_block_stop':
-          if (currentToolId) {
+          if (currentTool?.kind === 'client') {
             toolCalls.push({
-              id: currentToolId,
-              type: 'function' as const,
-              function: {
-                name: currentToolName,
-                arguments: currentToolJson || '{}',
-              },
+              id: currentTool.id,
+              type: 'function',
+              function: { name: currentTool.name, arguments: currentTool.json || '{}' },
             });
-            currentToolId = '';
-            currentToolName = '';
-            currentToolJson = '';
+          } else if (currentTool?.kind === 'server') {
+            const query = serverToolQuery(currentTool.json);
+            const toolLabel = query
+              ? `\n🔍 Searching: "${query}"\n`
+              : `\n🔍 [${currentTool.name}]\n`;
+            textParts.push(toolLabel);
+            onTextDelta(toolLabel);
+            onServerToolUse?.(currentTool.name, { query });
           }
+          currentTool = undefined;
           break;
 
         case 'message_delta':
@@ -160,10 +155,16 @@ export async function streamAndAssemble(
     return buildPartialResult(textParts, toolCalls, usage, model, providerRequestId);
   }
 
+  const citedSources = formatCitedSources(citations);
+  if (citedSources) {
+    textParts.push(`\n\n${citedSources}`);
+    onTextDelta(`\n\n${citedSources}`);
+  }
+
   const textContent = textParts.join('') || '';
 
   const result: TUniversalMessage = {
-    id: randomUUID(),
+    id: randomId(),
     role: 'assistant',
     content: textContent,
     state: 'complete' as const,
@@ -187,6 +188,19 @@ export async function streamAndAssemble(
   return result;
 }
 
+function serverToolQuery(json: string): string {
+  if (!json) return '';
+  try {
+    const value: unknown = JSON.parse(json);
+    if (typeof value === 'object' && value !== null && 'query' in value && typeof value.query === 'string') {
+      return value.query;
+    }
+  } catch {
+    // An incomplete or malformed server input still has a readable bare marker.
+  }
+  return '';
+}
+
 function buildPartialResult(
   textParts: string[],
   toolCalls: Array<{
@@ -200,7 +214,7 @@ function buildPartialResult(
 ): TUniversalMessage {
   const partialText = textParts.join('') || '';
   const partialResult: TUniversalMessage = {
-    id: randomUUID(),
+    id: randomId(),
     role: 'assistant',
     content: partialText,
     state: 'complete' as const,
@@ -243,7 +257,7 @@ export function* toUniversalStreamChunks(
 ): Generator<TUniversalMessage> {
   if (chunk.type === 'content_block_delta' && chunk.delta.type === 'text_delta') {
     yield {
-      id: randomUUID(),
+      id: randomId(),
       role: 'assistant',
       content: chunk.delta.text,
       state: 'complete' as const,

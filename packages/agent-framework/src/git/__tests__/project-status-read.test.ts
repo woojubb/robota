@@ -11,7 +11,7 @@ import { execFileSync } from 'node:child_process';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { createGitProcess } from '../git-process.js';
+import { createGitProcess } from '../node-git-process.js';
 import { MAX_STATUS_FILES, readProjectGitStatus } from '../project-status-read.js';
 
 import type { IGitProcessPort } from '../git-process.js';

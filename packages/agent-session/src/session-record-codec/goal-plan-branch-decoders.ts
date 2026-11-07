@@ -5,7 +5,7 @@
  * The branch pointer is pure data by design — it names a `branchId`/`checkpointId` that live in a
  * separate manifest store, and a pointer into a manifest that no longer holds them is a RESUME
  * concern, not a decode one. This decoder therefore validates the pointer's shape and says nothing
- * about whether it resolves.
+ * about whether it resolves. A `null` `checkpointId` is a head cleared on purpose.
  */
 
 import { atKey, setOptional } from './decode-outcome.js';
@@ -193,7 +193,11 @@ export function decodeActiveBranchPointer(
   const raw = decodeDeclaredObject(value, path, issues, ['branchId', 'checkpointId']);
   if (raw === undefined) return undefined;
   const branchId = decodeString(raw['branchId'], atKey(path, 'branchId'), issues);
-  const checkpointId = decodeString(raw['checkpointId'], atKey(path, 'checkpointId'), issues);
+  // `null` is a head cleared on purpose (a rollback through the first checkpoint), not an absence.
+  const checkpointId =
+    raw['checkpointId'] === null
+      ? null
+      : decodeString(raw['checkpointId'], atKey(path, 'checkpointId'), issues);
   if (branchId === undefined || checkpointId === undefined) return undefined;
   return { branchId, checkpointId };
 }

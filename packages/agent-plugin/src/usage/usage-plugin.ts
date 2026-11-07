@@ -263,7 +263,7 @@ export class UsagePlugin extends AbstractPlugin<IUsagePluginOptions, IUsagePlugi
       case 'memory':
         return new MemoryUsageStorage(this.pluginOptions.maxEntries);
       case 'file':
-        return new FileUsageStorage(this.pluginOptions.filePath);
+        return new FileUsageStorage(this.pluginOptions.filePath, this.pluginOptions.fileStore!);
       case 'remote':
         return new RemoteUsageStorage(
           this.pluginOptions.remoteEndpoint!,

@@ -7,6 +7,7 @@ import { startMockMcpServer } from './mock-mcp-server.js';
 
 import type { IMockMcpServer } from './mock-mcp-server.js';
 import type { IMCPSession } from '../client/session.js';
+import { createNodeHttpEgress } from '../node/http-egress.js';
 
 /** The retired sender-string event protocol a server may still declare and send. */
 const RETIRED_CAPABILITY = 'com.fixture-state.external-event';
@@ -15,7 +16,7 @@ const RETIRED_METHOD = 'notifications/com.fixture-state/external-event';
 async function openSession(server: IMockMcpServer): Promise<IMCPSession> {
   const admission = await admitHttpEndpoint(
     { url: server.url },
-    { policy: { allowedHosts: ['127.0.0.1'] } },
+    { egress: createNodeHttpEgress({ policy: { allowedHosts: ['127.0.0.1'] } }) },
   );
   if (!admission.ok) throw new Error('test MCP endpoint admission failed');
   return openMcpSession({

@@ -5,10 +5,10 @@ import { join } from 'node:path';
 
 import {
   loadSessionLogEntries,
-  NodeSessionLogSource,
   replaySessionLogEntries,
   SessionLogPayloadResolutionError,
 } from '@robota-sdk/agent-session';
+import { NodeSessionLogSource } from '@robota-sdk/agent-session/node';
 
 const sessionId = 'stable-replay-example';
 const fixtureRoot = mkdtempSync(join(tmpdir(), 'agent-stable-replay-'));
@@ -48,7 +48,7 @@ try {
     })}\n`,
   );
 
-  const source = new NodeSessionLogSource(logFile);
+  const source = new NodeSessionLogSource(logFile, { sealing: 'plain' });
   const replay = replaySessionLogEntries(loadSessionLogEntries(source));
   replayPreserved = replay.messages[0]?.content === 'replay-preserved';
   if (!replayPreserved) throw new Error('The external payload was not replayed byte-exactly.');

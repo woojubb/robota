@@ -1,6 +1,6 @@
 /**
- * #3189: the commands that belong to the terminal the user sits at — the ones the default assembly
- * marks `runner: 'client'`. A terminal attached to a workspace daemon runs these in its own process,
+ * #3189: the commands that belong to the terminal the user sits at — the ones a product's assembly
+ * marks `runner: 'client'`. They start the terminal's own processes, so they are on the Node entry. A terminal attached to a workspace daemon runs these in its own process,
  * on its own terminal and working directory, and sends nothing to the daemon.
  *
  * Each one is the in-process command's own execute function, so an attached terminal answers exactly
@@ -10,6 +10,7 @@ import { selectCommandModules } from '@robota-sdk/agent-framework';
 
 import { createEditorCommandModule } from '../editor/editor-command-module.js';
 import { executeEditorCommand } from '../editor/editor-command.js';
+import { openFileInEditor } from '../editor/open-in-editor.js';
 import {
   createKeybindingsCommandModule,
   executeKeybindingsCommand,
@@ -86,8 +87,8 @@ export function createTerminalClientCommands(
       (host, args) => executeEditorCommand(host, args, editorTemporaryDirectoryPrefix),
     ],
     [
-      createKeybindingsCommandModule(keybindingsFile),
-      (host) => executeKeybindingsCommand(keybindingsFile, host),
+      createKeybindingsCommandModule(keybindingsFile, openFileInEditor),
+      (host) => executeKeybindingsCommand(keybindingsFile, host, openFileInEditor),
     ],
     [
       createThemeCommandModule(themeCatalogue),

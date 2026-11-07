@@ -160,6 +160,38 @@ describe('SessionSidebar rows have a clean accessible name and a description (#3
   });
 });
 
+/**
+ * #3679 — a sealed session the host cannot open has no readable record, so the host leaves it out of
+ * the listing and says how many it left out; the list says so too, instead of reading as "gone".
+ * Whether the host's keys are locked or it has none does not cross the wire, so the line never sends
+ * anyone to unlock.
+ */
+describe('SessionSidebar — sealed sessions the listing leaves out', () => {
+  const listingWith = (lockedSessionCount?: number): TSessionListing => ({
+    currentSessionId: 'a',
+    sessions: [row('a', 'plain')],
+    unreadableSessionIds: [],
+    ...(lockedSessionCount === undefined ? {} : { lockedSessionCount }),
+  });
+
+  it.each([
+    [1, '1 saved session is sealed and not listed here.'],
+    [3, '3 saved sessions are sealed and not listed here.'],
+  ])('says so, once, for a count of %i, and never to unlock', (count, line) => {
+    renderSidebar(listingWith(count));
+    expect(screen.getAllByText(line)).toHaveLength(1);
+    expect(screen.queryByText(/unlock/i)).toBeNull();
+  });
+
+  it('says nothing when the host counts none or sends no count', () => {
+    renderSidebar(listingWith(0));
+    expect(screen.queryByText(/sealed and/)).toBeNull();
+    cleanup();
+    renderSidebar(listingWith());
+    expect(screen.queryByText(/sealed and/)).toBeNull();
+  });
+});
+
 describe('#3282 §4a — the sidebar footer opens Settings', () => {
   afterEach(cleanup);
 

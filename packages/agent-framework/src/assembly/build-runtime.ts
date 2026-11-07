@@ -20,7 +20,7 @@ import type { ICreateSessionOptions } from './create-session-types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IAgentToolDeps } from '../tools/agent-tool.js';
 import type { IAIProvider, IToolWithEventService, IHookTypeExecutor } from '@robota-sdk/agent-core';
-import type { IBackgroundTaskManager } from '@robota-sdk/agent-executor';
+import type { IBackgroundTaskManager, TObserverFailureReporter } from '@robota-sdk/agent-executor';
 import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
 import type { ISessionLogger } from '@robota-sdk/agent-session';
 
@@ -28,6 +28,19 @@ export interface IAgentRuntimeResult {
   agentToolDeps: IAgentToolDeps | undefined;
   agentDefinitions: IAgentDefinition[];
   backgroundTaskManager: IBackgroundTaskManager;
+}
+
+/**
+ * The reporter a lifecycle-observer failure goes to: the host's, given the warning code the product
+ * chose. A host that lends none leaves the executor's own line (a `console.warn` carrying the code).
+ */
+function observerFailureReporter(
+  options: Pick<ICreateSessionOptions, 'host' | 'observerFailureWarningCode'>,
+): { onObserverFailure?: TObserverFailureReporter<TBackgroundTaskEvent> } {
+  const report = options.host.reportObserverFailure;
+  return report === undefined
+    ? {}
+    : { onObserverFailure: (failure) => report(failure, options.observerFailureWarningCode) };
 }
 
 export function buildAgentRuntime(
@@ -61,6 +74,7 @@ export function buildAgentRuntime(
     );
     agentDefinitions = agentLoader.loadAll();
     agentToolDeps = {
+      host: options.host,
       pathProtection: options.pathProtection,
       config: options.config,
       context: options.context,
@@ -95,6 +109,7 @@ export function buildAgentRuntime(
       runner: (options.subagentRunnerFactory ?? createInProcessSubagentRunner)(agentToolDeps),
       backgroundTaskRunners: options.backgroundTaskRunners,
       observerFailureWarningCode: options.observerFailureWarningCode,
+      ...observerFailureReporter(options),
     });
     agentToolDeps.subagentManager = subagentManager;
     backgroundTaskManager = subagentManager.getBackgroundTaskManager();
@@ -103,6 +118,7 @@ export function buildAgentRuntime(
     backgroundTaskManager = new BackgroundTaskManager({
       runners: options.backgroundTaskRunners ?? [],
       observerFailureWarningCode: options.observerFailureWarningCode,
+      ...observerFailureReporter(options),
     });
   }
 

@@ -8,6 +8,9 @@ import { createHeadlessRunner } from '../headless-runner.js';
 import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
 import type { IModelEffortResolution } from '../../../effort/effort-resolution.js';
 
+/** The streams a Node composition root hands the headless runner; tests spy on them. */
+const processOutput = { stdout: process.stdout, stderr: process.stderr };
+
 const HIGH_EFFORT_RESOLUTION: IModelEffortResolution = {
   requested: 'high',
   effective: 'high',
@@ -69,7 +72,7 @@ describe('createHeadlessRunner (text format)', () => {
 
   it('writes response + newline to stdout and returns exit code 0 on complete', async () => {
     const session = createMockSession('complete', 'Hello, world!');
-    const runner = createHeadlessRunner({ session, outputFormat: 'text' });
+    const runner = createHeadlessRunner({ session, output: processOutput, outputFormat: 'text' });
 
     const exitCode = await runner.run('test prompt');
 
@@ -79,7 +82,7 @@ describe('createHeadlessRunner (text format)', () => {
 
   it('writes partial response on interrupted and returns exit code 0', async () => {
     const session = createMockSession('interrupted', 'partial output');
-    const runner = createHeadlessRunner({ session, outputFormat: 'text' });
+    const runner = createHeadlessRunner({ session, output: processOutput, outputFormat: 'text' });
 
     const exitCode = await runner.run('test prompt');
 
@@ -89,7 +92,7 @@ describe('createHeadlessRunner (text format)', () => {
 
   it('does not write to stdout on interrupted with empty response', async () => {
     const session = createMockSession('interrupted', '');
-    const runner = createHeadlessRunner({ session, outputFormat: 'text' });
+    const runner = createHeadlessRunner({ session, output: processOutput, outputFormat: 'text' });
 
     const exitCode = await runner.run('test prompt');
 
@@ -99,7 +102,7 @@ describe('createHeadlessRunner (text format)', () => {
 
   it('returns exit code 1 on error', async () => {
     const session = createMockSession('error');
-    const runner = createHeadlessRunner({ session, outputFormat: 'text' });
+    const runner = createHeadlessRunner({ session, output: processOutput, outputFormat: 'text' });
 
     const exitCode = await runner.run('test prompt');
 
@@ -113,7 +116,7 @@ describe('createHeadlessRunner (text format)', () => {
     (session.executeCommand as ReturnType<typeof vi.fn>).mockRejectedValue(
       new Error('command boom'),
     );
-    const runner = createHeadlessRunner({ session, outputFormat: 'text' });
+    const runner = createHeadlessRunner({ session, output: processOutput, outputFormat: 'text' });
 
     // Would hang (test timeout) without the RUNTIME-36 `.catch` → onError → resolve(1).
     const exitCode = await runner.run('/failing-command');
@@ -129,7 +132,7 @@ describe('createHeadlessRunner (text format)', () => {
     }) as never);
     try {
       const session = createMockSession('error');
-      const runner = createHeadlessRunner({ session, outputFormat: 'text' });
+      const runner = createHeadlessRunner({ session, output: processOutput, outputFormat: 'text' });
 
       const exitCode = await runner.run('test prompt');
 
@@ -142,7 +145,7 @@ describe('createHeadlessRunner (text format)', () => {
 
   it('passes the prompt to session.submit', async () => {
     const session = createMockSession('complete', 'ok');
-    const runner = createHeadlessRunner({ session, outputFormat: 'text' });
+    const runner = createHeadlessRunner({ session, output: processOutput, outputFormat: 'text' });
 
     await runner.run('my prompt');
 
@@ -158,7 +161,7 @@ describe('createHeadlessRunner (text format)', () => {
         data: { agentId: 'agent_1' },
       }),
     });
-    const runner = createHeadlessRunner({ session, outputFormat: 'text' });
+    const runner = createHeadlessRunner({ session, output: processOutput, outputFormat: 'text' });
 
     const exitCode = await runner.run('/agent run Plan --background "draft architecture"');
 
@@ -198,7 +201,7 @@ describe('createHeadlessRunner (text format)', () => {
       }),
       getSession: vi.fn(() => ({ getSessionId: () => 'test-session-id' })),
     });
-    const runner = createHeadlessRunner({ session, outputFormat: 'text' });
+    const runner = createHeadlessRunner({ session, output: processOutput, outputFormat: 'text' });
 
     const exitCode = await runner.run('/audit src/index.ts');
 
@@ -222,7 +225,7 @@ describe('createHeadlessRunner (json format)', () => {
 
   it('json format outputs { type, result, session_id, subtype: success }', async () => {
     const session = createMockSession('complete', 'JSON response');
-    const runner = createHeadlessRunner({ session, outputFormat: 'json' });
+    const runner = createHeadlessRunner({ session, output: processOutput, outputFormat: 'json' });
 
     const exitCode = await runner.run('test prompt');
 
@@ -242,6 +245,7 @@ describe('createHeadlessRunner (json format)', () => {
     const session = createMockSession('complete', 'JSON response');
     const runner = createHeadlessRunner({
       session,
+      output: processOutput,
       outputFormat: 'json',
       effortResolution: HIGH_EFFORT_RESOLUTION,
     });
@@ -256,7 +260,7 @@ describe('createHeadlessRunner (json format)', () => {
 
   it('json format outputs subtype error on failure', async () => {
     const session = createMockSession('error');
-    const runner = createHeadlessRunner({ session, outputFormat: 'json' });
+    const runner = createHeadlessRunner({ session, output: processOutput, outputFormat: 'json' });
 
     const exitCode = await runner.run('test prompt');
 
@@ -275,7 +279,7 @@ describe('createHeadlessRunner (json format)', () => {
 
   it('json format outputs subtype success with partial response on interrupted', async () => {
     const session = createMockSession('interrupted', 'partial');
-    const runner = createHeadlessRunner({ session, outputFormat: 'json' });
+    const runner = createHeadlessRunner({ session, output: processOutput, outputFormat: 'json' });
 
     const exitCode = await runner.run('test prompt');
 
@@ -298,7 +302,7 @@ describe('createHeadlessRunner (json format)', () => {
       success: true,
       data: { effort: { requested: 'low', effective: 'low' } },
     });
-    const runner = createHeadlessRunner({ session, outputFormat: 'json' });
+    const runner = createHeadlessRunner({ session, output: processOutput, outputFormat: 'json' });
 
     const exitCode = await runner.run('/effort low');
 
@@ -342,7 +346,11 @@ describe('createHeadlessRunner (stream-json format)', () => {
       getSession: vi.fn(() => ({ getSessionId: () => 'stream-session' })),
     });
 
-    const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });
+    const runner = createHeadlessRunner({
+      session,
+      output: processOutput,
+      outputFormat: 'stream-json',
+    });
     const exitCode = await runner.run('test prompt');
 
     expect(exitCode).toBe(0);
@@ -407,7 +415,11 @@ describe('createHeadlessRunner (stream-json format)', () => {
       getSession: vi.fn(() => ({ getSessionId: () => 'stream-session' })),
     });
 
-    const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });
+    const runner = createHeadlessRunner({
+      session,
+      output: processOutput,
+      outputFormat: 'stream-json',
+    });
     const exitCode = await runner.run('test prompt');
 
     expect(exitCode).toBe(1);
@@ -464,7 +476,11 @@ describe('createHeadlessRunner (stream-json format)', () => {
       getSession: vi.fn(() => ({ getSessionId: () => 'stream-session' })),
     });
 
-    const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });
+    const runner = createHeadlessRunner({
+      session,
+      output: processOutput,
+      outputFormat: 'stream-json',
+    });
     const exitCode = await runner.run('/agent run Plan --background "draft architecture"');
 
     expect(exitCode).toBe(0);
@@ -534,7 +550,11 @@ describe('createHeadlessRunner (stream-json format)', () => {
       getSession: vi.fn(() => ({ getSessionId: () => 'stream-session' })),
     });
 
-    const runner = createHeadlessRunner({ session, outputFormat: 'stream-json' });
+    const runner = createHeadlessRunner({
+      session,
+      output: processOutput,
+      outputFormat: 'stream-json',
+    });
     const exitCode = await runner.run('/agent wait group_1');
 
     expect(exitCode).toBe(0);

@@ -1,37 +1,23 @@
+import { builtinModules } from 'node:module';
+
 import { defineConfig } from 'tsdown';
 
-const outExtensions = ({ format }: { format: string }) => ({
-  js: format === 'cjs' ? '.cjs' : '.js',
-  dts: format === 'cjs' ? '.d.cts' : '.d.ts',
-});
-
-const shared = {
+// One build serves every runtime: the neutral entry runs unchanged in a browser, a Worker, Node, Deno and
+// Bun. `node` and `testing` are Node-only subpaths that share its chunks, so one class has one identity
+// whichever entry a consumer imports it from.
+export default defineConfig({
+  entry: { index: 'src/index.ts', node: 'src/node.ts', 'testing/index': 'src/testing/index.ts' },
+  format: { esm: {}, cjs: {} },
+  outDir: 'dist',
+  platform: 'neutral',
+  clean: true,
   sourcemap: false,
   treeshake: true,
   minify: true,
   dts: true,
-  outExtensions,
-  deps: { neverBundle: [/^@robota-sdk\/.*/] },
-};
-
-export default defineConfig([
-  {
-    ...shared,
-    // Node build also emits the test-only ./testing subpath (TEST-003 scripted-provider SSOT).
-    // `node.ts` is the Node-only surface the browser build must not reach (CORE-028).
-    entry: { index: 'src/index.ts', node: 'src/node.ts', 'testing/index': 'src/testing/index.ts' },
-    format: { esm: {}, cjs: {} },
-    outDir: 'dist/node',
-    platform: 'node',
-    clean: true,
-  },
-  {
-    ...shared,
-    // Browser build excludes test-only fixtures.
-    entry: ['src/index.ts'],
-    format: ['esm'],
-    outDir: 'dist/browser',
-    platform: 'browser',
-    define: { 'process.env.NODE_ENV': '"production"' },
-  },
-]);
+  outExtensions: ({ format }) => ({
+    js: format === 'cjs' ? '.cjs' : '.js',
+    dts: format === 'cjs' ? '.d.cts' : '.d.ts',
+  }),
+  deps: { neverBundle: [/^@robota-sdk\/.*/, /^node:/, ...builtinModules] },
+});

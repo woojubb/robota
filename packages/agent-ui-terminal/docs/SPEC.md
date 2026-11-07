@@ -92,10 +92,12 @@ contract is authoritative for how the TUI releases resources on session switch a
   subsystem can never block process exit because session shutdown is time-bounded.
 - On session switch, nothing of the old session reaches what shows the new one: a channel that owns
   its session is fully stopped before the new one becomes active, and on stop failure stays selected
-  with input disabled until a retry succeeds, rather than silently creating a second live channel; a
-  channel attached to a host asks the host to switch and, when the host does, drops the old
-  session's questions unanswered, re-reads everything it shows and prints the new transcript from
-  its start.
+  with input disabled until a retry succeeds, rather than silently creating a second live channel. A
+  session another writer holds is refused in the store's words before the old one stops, so the
+  person stays on it; a writer that took the id since sends them back to the session they were on,
+  never to a retry of the refused id. A channel attached to a host asks the host to switch and, when
+  the host does, drops the old session's questions unanswered, re-reads everything it shows and
+  prints the new transcript from its start.
 - The permission queue and the user-action queue are both drained on abort, cancel, and shutdown:
   every queued or in-flight action resolves (as cancelled or denied) rather than dangling — an
   unresolved permission promise would hang the tool that is waiting on it, and a queue drain that
@@ -175,8 +177,24 @@ session writes; this package only reads it and is inert when no history source i
 proceeds newest-first in blocks so the first results are visible before the whole file is read;
 within a scope, an older entry identical to a newer one is dropped so only the most recent
 occurrence remains. Exactly one load runs per open, and inserting, executing, or cancelling the
-search all abort it rather than let it run to completion unobserved. The composer's draft is never
-mutated while the overlay is open, so cancelling restores it byte-identically.
+search all abort it rather than let it run to completion unobserved. Sealed prompts the load could
+not open are counted as it goes and named with the search, so they never read as a shorter
+history; it says to unlock only when the keys are locked, not when this process has none, and names
+`/unlock` where this terminal has it, as the resume picker's locked notice does. The
+composer's draft is never mutated while the overlay is open, so cancelling restores it
+byte-identically.
+
+### Reads that need the keys
+
+A read the person starts from this terminal on a record sealed while the keys are locked asks the
+host's key custody port to unlock for it, with a request this package's action modules mint from the
+person's key press. Two checks keep that request theirs: `deps:check` refuses an import of the mint,
+or of its record of what it made, from any other module, and the port's holder accepts only a request
+that record holds, so one built any other way — a cast of the same shape included — asks nothing. The
+prompt is asked only for an action the framework would honour, and without a
+port (secure mode off) nothing is asked and nothing reads differently. While the terminal is handed
+over to another program, the composer's stdin proxy forwards nothing: what is typed then belongs to
+whoever has the terminal, including a passphrase the console prompt reads through the same stream.
 
 ### IME cursor positioning
 

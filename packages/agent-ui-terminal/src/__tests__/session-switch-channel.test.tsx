@@ -10,10 +10,14 @@
  * channel in its useState initializer and replaces it on every switch.
  */
 
-import { mkdtempSync, rmSync } from 'node:fs';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { readCurrentProcessIdentity, readProcessStartTime } from '@robota-sdk/agent-core/node';
+import { leaveProcessMarker } from '@robota-sdk/agent-core/testing';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { render } from 'ink-testing-library';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -166,7 +170,7 @@ function createFakeChannel(createdFor: string | undefined): IFakeChannel & ITuiA
 }
 
 function createFakeStore(records: IInteractiveSessionRecord[]): IInteractiveSessionStore {
-  return {
+  const store: Omit<IInteractiveSessionStore, 'claim' | 'lend' | 'hasWriter'> = {
     save: () => undefined,
     load: (id) => {
       const record = records.find((r) => r.id === id);
@@ -175,6 +179,7 @@ function createFakeStore(records: IInteractiveSessionRecord[]): IInteractiveSess
     list: () => records.map((record) => ({ id: record.id, outcome: { status: 'valid', record } })),
     delete: () => undefined,
   };
+  return withHoldReadClaim(store);
 }
 
 function sessionRecord(
@@ -466,5 +471,167 @@ describe('App session-switch channel ownership (CLI-B11)', () => {
     expect(channelC.start).toHaveBeenCalled();
     expect(channelC.stop).not.toHaveBeenCalled();
     expect(createChannel).toHaveBeenCalledTimes(4);
+  });
+});
+
+/**
+ * #3679: the store refuses to claim the session the person picked, because a process or a subagent
+ * holds it. The refusal comes from the new channel's own claim, which the in-process switch makes after
+ * it has stopped the old one, so a held id is asked about first and the person stays where they are.
+ */
+describe('picking a session the store will not claim (#3679)', () => {
+  const HELD_ID = 'session_aaaaaaaa-held';
+  const FREE_ID = 'session_bbbbbbbb-free';
+  const CURRENT_ID = 'session_cccccccc-current';
+  const DOWN = '\x1b[B';
+
+  let directory: string;
+  let store: IInteractiveSessionStore;
+  let created: (IFakeChannel & ITuiAppChannelPort)[];
+  let createChannel: ReturnType<typeof vi.fn>;
+  /** Runs inside the factory just before the claim of the picked session, as a writer arriving late would. */
+  let beforeClaim: (() => void) | undefined;
+
+  /** A live process other than this one: the one that started this test worker. */
+  function liveOther() {
+    const { startTime: _ignored, ...here } = readCurrentProcessIdentity();
+    const startTime = readProcessStartTime(process.ppid);
+    return { ...here, pid: process.ppid, ...(startTime === undefined ? {} : { startTime }) };
+  }
+
+  const holdBy = (id: string): void => {
+    leaveProcessMarker(join(directory, 'claims'), id, liveOther());
+  };
+
+  function stored(id: string, updatedAt: string): IInteractiveSessionRecord {
+    return {
+      id,
+      cwd: directory,
+      createdAt: updatedAt,
+      updatedAt,
+      messages: [
+        {
+          id: `${id}-m`,
+          role: 'assistant',
+          content: `reply in ${id}`,
+          state: 'complete',
+          timestamp: new Date(updatedAt),
+        },
+      ],
+    } as IInteractiveSessionRecord;
+  }
+
+  beforeEach(() => {
+    directory = realpathSync(mkdtempSync(join(tmpdir(), 'agent-pick-held-')));
+    store = createNodeHostSessionStore(directory, { sealing: 'plain' });
+    // The held session is the newest, so it is the first row of the picker.
+    store.save(stored(FREE_ID, '2026-06-13T00:00:00.000Z'));
+    store.save(stored(HELD_ID, '2026-06-13T01:00:00.000Z'));
+    store.save(stored(CURRENT_ID, '2026-06-12T00:00:00.000Z'));
+    created = [];
+    beforeClaim = undefined;
+    createChannel = vi.fn((resumeSessionId?: string) => {
+      if (resumeSessionId === HELD_ID) {
+        beforeClaim?.();
+        // What the new channel's session does while it is built: claim the record it resumes.
+        store.claim(HELD_ID);
+        throw new Error('the claim was granted, which this test arranges not to happen');
+      }
+      const fake = createFakeChannel(resumeSessionId);
+      // The session the person is on reports its own id, as a started session does.
+      fake.getRuntimeStatusSnapshot = (permissionMode) => ({
+        permissionMode,
+        sessionId: resumeSessionId ?? CURRENT_ID,
+      });
+      created.push(fake);
+      return fake;
+    });
+  });
+
+  afterEach(() => {
+    rmSync(directory, { recursive: true, force: true });
+  });
+
+  function renderPicker() {
+    return render(
+      <App
+        cwd={directory}
+        createChannel={createChannel}
+        sessionStore={store}
+        showSessionPickerOnStart
+        cliAdapter={createCliAdapter(join(directory, 'settings.json'))}
+      />,
+    );
+  }
+
+  /** What was written into a channel's transcript, as one string. */
+  const saidIn = (channel: IFakeChannel): string => JSON.stringify(channel.stateManager.history);
+
+  it('leaves the person on their session with the store’s words, not a blocked UI', async () => {
+    const { stdin, lastFrame } = renderPicker();
+    await waitForSessionPicker(lastFrame);
+    holdBy(HELD_ID);
+
+    stdin.write('\r'); // the newest row: the held session
+    await waitForFrame(
+      () => saidIn(created[0]!),
+      (said) => said.includes(`pid ${process.ppid}`),
+    );
+
+    // Nothing was stopped or built over the held id, and the notice is the store's.
+    expect(created[0]!.stop).not.toHaveBeenCalled();
+    expect(createChannel).toHaveBeenCalledTimes(1);
+    expect(saidIn(created[0]!)).toContain(`Session ${HELD_ID} is open in another process`);
+    expect(lastFrame()).not.toContain('Session switch failed');
+    expect(lastFrame()).not.toContain('Press Enter to retry');
+
+    // The UI is not blocked: the person picks the other session from the same terminal.
+    created[0]!.emitSessionEvent('ui_intent', {
+      intent: { type: 'show-session-picker' },
+      requesterDriverId: 'owner',
+    });
+    await waitForSessionPicker(lastFrame);
+    stdin.write(DOWN);
+    await tick();
+    stdin.write('\r');
+    await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 2);
+    expect(createChannel).toHaveBeenNthCalledWith(2, FREE_ID);
+    expect(created[0]!.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it('still reopens the session the person is on when they pick it again, though its own claim holds the id', async () => {
+    const running = store.claim(CURRENT_ID);
+    const { stdin, lastFrame } = renderPicker();
+    await waitForSessionPicker(lastFrame);
+
+    stdin.write(DOWN);
+    await tick();
+    stdin.write(DOWN);
+    await tick();
+    stdin.write('\r'); // the oldest row: the session the person is on
+    await waitForFrame(lastFrame, () => createChannel.mock.calls.length === 2);
+
+    expect(createChannel).toHaveBeenNthCalledWith(2, CURRENT_ID);
+    expect(created[0]!.stop).toHaveBeenCalledTimes(1);
+    running.release();
+  });
+
+  it('returns to the session the person was on when the claim is lost after it ended, and does not try the same id again', async () => {
+    const { stdin, lastFrame } = renderPicker();
+    await waitForSessionPicker(lastFrame);
+    // The id was free when it was asked about, and a writer took it before the new session claimed it.
+    beforeClaim = () => holdBy(HELD_ID);
+
+    stdin.write('\r');
+    await waitForFrame(lastFrame, () => created.length === 2);
+
+    // The previous session is open again, under its own id, with the store's words in its transcript.
+    expect(created[0]!.stop).toHaveBeenCalledTimes(1);
+    expect(createChannel).toHaveBeenCalledTimes(3);
+    expect(createChannel).toHaveBeenNthCalledWith(2, HELD_ID);
+    expect(createChannel).toHaveBeenNthCalledWith(3, CURRENT_ID);
+    expect(saidIn(created[1]!)).toContain(`pid ${process.ppid}`);
+    expect(lastFrame()).not.toContain('Session switch failed');
+    expect(lastFrame()).not.toContain('Press Enter to retry');
   });
 });

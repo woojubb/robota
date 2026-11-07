@@ -1,9 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { runHooks } from '../hook-runner.js';
 import { CommandExecutor } from '../executors/command-executor.js';
+import { HttpExecutor } from '../executors/http-executor.js';
 import type { THooksConfig, IHookInput, IHookTypeExecutor, THookDefinition } from '../types.js';
 
 describe('Hook flow integration', () => {
+  const nodeExecutors = [new CommandExecutor(), new HttpExecutor()];
   const baseInput: IHookInput = {
     session_id: 'integration-test',
     cwd: process.cwd(),
@@ -21,7 +23,7 @@ describe('Hook flow integration', () => {
       ],
     };
 
-    const result = await runHooks(config, 'PreToolUse', baseInput);
+    const result = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
 
     expect(result.blocked).toBe(false);
   });
@@ -36,7 +38,7 @@ describe('Hook flow integration', () => {
       ],
     };
 
-    const result = await runHooks(config, 'PreToolUse', baseInput);
+    const result = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
 
     expect(result.blocked).toBe(true);
     expect(result.reason).toContain('denied');
@@ -62,7 +64,7 @@ describe('Hook flow integration', () => {
       ],
     };
 
-    const result = await runHooks(config, 'PreToolUse', baseInput);
+    const result = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
 
     expect(result.blocked).toBe(false);
     expect(mockFetch).toHaveBeenCalledTimes(1);
@@ -106,7 +108,7 @@ describe('Hook flow integration', () => {
       ],
     };
 
-    const preResult = await runHooks(config, 'PreToolUse', baseInput);
+    const preResult = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
     expect(preResult.blocked).toBe(false);
 
     const sessionInput: IHookInput = {
@@ -114,7 +116,7 @@ describe('Hook flow integration', () => {
       cwd: process.cwd(),
       hook_event_name: 'SessionStart',
     };
-    const sessionResult = await runHooks(config, 'SessionStart', sessionInput);
+    const sessionResult = await runHooks(config, 'SessionStart', sessionInput, nodeExecutors);
     expect(sessionResult.blocked).toBe(false);
   });
 
@@ -129,12 +131,12 @@ describe('Hook flow integration', () => {
     };
 
     // Should match Bash
-    const bashResult = await runHooks(config, 'PreToolUse', baseInput);
+    const bashResult = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
     expect(bashResult.blocked).toBe(false);
 
     // Should not match Write
     const writeInput: IHookInput = { ...baseInput, tool_name: 'Write' };
-    const writeResult = await runHooks(config, 'PreToolUse', writeInput);
+    const writeResult = await runHooks(config, 'PreToolUse', writeInput, nodeExecutors);
     expect(writeResult.blocked).toBe(false);
   });
 
@@ -196,7 +198,7 @@ describe('Hook flow integration', () => {
   });
 
   it('should return not blocked when config is undefined', async () => {
-    const result = await runHooks(undefined, 'PreToolUse', baseInput);
+    const result = await runHooks(undefined, 'PreToolUse', baseInput, nodeExecutors);
     expect(result.blocked).toBe(false);
   });
 
@@ -211,7 +213,7 @@ describe('Hook flow integration', () => {
     };
 
     // PreToolUse has no hooks in this config
-    const result = await runHooks(config, 'PreToolUse', baseInput);
+    const result = await runHooks(config, 'PreToolUse', baseInput, nodeExecutors);
     expect(result.blocked).toBe(false);
   });
 

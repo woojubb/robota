@@ -16,8 +16,16 @@ and register it directly.
   assistant message for a function-call chunk or a usage-only terminal chunk. When `chat()` uses its
   streaming assembly path (`onTextDelta` set), it returns one complete assistant message assembled from
   all stream chunks.
-- Requests containing `nativeWebTools` are validated by both `chat()` and `chatStream()`. Gemini does
-  not advertise native web tools, so such a request fails explicitly instead of being silently ignored.
+- Requests containing `nativeWebTools` are validated by both `chat()` and `chatStream()`, so a request
+  that requires a hosted tool this provider is not running fails explicitly instead of being silently
+  ignored. Google Search is a construction choice and rides only on requests that can carry it: a model
+  that cannot search next to function tools keeps the function tools, because an agent's work needs them.
+- **Model parts return as they came.** A reply's signed function calls and server-side tool steps reach
+  the next request verbatim through the provider continuation, because Gemini refuses a signed call
+  without its signature and expects those steps echoed. The steps go wherever the model can run them,
+  whatever that request's tools, because a reply with its context cut can be refused. They stay out in
+  Vertex mode, where the SDK refuses them, and on a model that cannot combine tools. If the parts no longer say what the
+  message says, the message wins and they are rebuilt from it.
 - **Model effort.** A verified model selection sends Gemini's `thinkingConfig.thinkingLevel` control,
   preserves unrelated `thinkingConfig` fields, and rejects a conflicting static `thinkingLevel` or
   `thinkingBudget`. `auto` reports the documented default while omitting a control; unknown models and
@@ -25,7 +33,9 @@ and register it directly.
 - **Tool schema projection.** `GeminiProvider.projectionProfile()` strips foreign JSON-Schema keywords
   and `additionalProperties` before tool schemas reach Gemini's request builder, because Gemini's
   `Schema` type is a fixed OpenAPI-3.0 subset, not standard JSON Schema — a member the builder doesn't
-  understand must not fail silently downstream. A tool that projection rejects is omitted from that
+  understand must not fail silently downstream. The builder then avoids what that subset refuses
+  although JSON Schema allows it: a null type, which becomes `nullable`, a `required` name with no
+  property, and an empty `parameters` or nested `properties`. A tool that projection rejects is omitted from that
   request alone and reported once per cache identity vian agent-core's `ToolSchemaProjection` logger.
 
 ## Non-goals

@@ -3,11 +3,11 @@
  * tools, and provider.
  */
 
-import { randomUUID } from 'node:crypto';
-
-import { applyPresetToolLists } from '@robota-sdk/agent-core';
+import { applyPresetToolLists, randomId } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
+import { hostSessionPorts } from './host-session-ports.js';
+import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { sandboxApprovalFor } from './sandbox-approval.js';
 import { sessionAdvisorAccess } from '../advisor/advisor-tool.js';
 import { createModelPermissionClassifier } from './model-permission-classifier.js';
@@ -61,12 +61,6 @@ function hasModelInvocableCommandDescriptor(
 }
 
 /**
- * Create a fully-configured Session instance.
- *
- * Assembles provider, tools, and system prompt, then passes them
- * to Session as pre-constructed dependencies.
- */
-/**
  * SELFHOST-005: ensure a guardrail hook definition exists when guardrails are registered, so the
  * `GuardrailExecutor` actually fires. Appends a `PreToolUse` guardrail group (matcher '' = all tools)
  * unless a guardrail hook is already declared anywhere in the config (idempotent — no double-run).
@@ -87,28 +81,28 @@ function resolveGuardrailHooks(
 }
 
 /**
- * ARCH-035 made this async. The default tool tier now lives in `@robota-sdk/agent-tool-defaults` and is
- * reached by dynamic import, which is what keeps a static edge to a composition leaf out of this
- * package — see `assembleSessionTools`. The propagation stops one hop up: the only in-repo caller is
- * `createInteractiveSession`, already async.
+ * Create a fully-configured Session instance.
  *
- * `IAgentRuntime.createSession` is NOT affected and must stay synchronous. It does not call this
- * function — it constructs `InteractiveSession` directly and the assembly happens later inside
- * `initializeInteractiveSessionAsync`. That indirection is load-bearing rather than incidental:
- * propagating async through it would break every consumer that builds a session without supplying
- * `defaultTools`, which is the zero-config contract this whole extraction exists to preserve.
+ * Returns a promise so a failed assembly rejects instead of throwing, whatever step it failed in: a
+ * caller builds a session at the end of an async chain and handles one failure shape. Nothing inside
+ * awaits.
+ *
+ * `IAgentRuntime.createSession` is a different function and stays synchronous: it constructs
+ * `InteractiveSession` directly, and this assembly runs later inside
+ * `initializeInteractiveSessionAsync`.
  */
 export async function createSession(
   options: ICreateSessionOptions,
   hookSources: readonly IHookDefinitionSource[] = [],
 ): Promise<ICreateSessionResult> {
+  requireFrameworkHost(options.host, 'createSession');
   if (!options.provider) {
     throw new Error(
       'provider is required. SDK is provider-neutral — consumer must create and pass a provider instance.',
     );
   }
   const provider = options.provider;
-  const cwd = options.cwd ?? process.cwd();
+  const { cwd } = options;
   const sessionId = options.sessionId ?? createSessionId();
   const skillCommandSource = new SkillCommandSource(
     options.contributionSources ?? [],
@@ -138,7 +132,7 @@ export async function createSession(
     : [];
 
   let assembledSession: Session | undefined;
-  const { tools, wrapAdded } = await assembleSessionTools(options, cwd, () =>
+  const { tools, wrapAdded } = assembleSessionTools(options, cwd, () =>
     assembledSession === undefined
       ? undefined
       : sessionAdvisorAccess(assembledSession, options.onUsageRecorded),
@@ -278,6 +272,7 @@ export async function createSession(
           permissionClassifier: createModelPermissionClassifier(provider, {
             cwd,
             model: options.model ?? options.config.provider.model,
+            readGitRemotes: options.host.readGitRemotes,
           }),
         }),
     // CMD-005: model-invoked tools solicit structured answers through this port.
@@ -296,6 +291,7 @@ export async function createSession(
     sessionLogger: options.sessionLogger,
     transcriptPath: options.transcriptPath,
     hookTypeExecutors,
+    ...hostSessionPorts(options.host, cwd),
     agentName: options.agentName,
     ...(options.activePresetId !== undefined ? { activePresetId: options.activePresetId } : {}),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
@@ -315,5 +311,5 @@ export async function createSession(
  * `session_<uuid>` form is written here once rather than a second time beside it.
  */
 export function createSessionId(): string {
-  return `session_${randomUUID()}`;
+  return `session_${randomId()}`;
 }

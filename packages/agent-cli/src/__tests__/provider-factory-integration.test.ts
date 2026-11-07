@@ -2,12 +2,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { mkdirSync, readFileSync, rmSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { processEnvResolver } from '@robota-sdk/agent-core/node';
 import { createProviderFromProfile } from '@robota-sdk/agent-executor';
 import {
-  createNodeHostSettingsSource,
   createProviderFromSettings as createProviderFromSettingsSources,
   readProviderSettings as readProviderSettingsFromSources,
 } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import {
   AnthropicProvider,
   createAnthropicProviderDefinition,
@@ -446,6 +447,7 @@ describe('provider-factory', () => {
 
     createProviderFromSettings(cwd, undefined, {
       providerDefinitions: DEFAULT_PROVIDER_DEFINITIONS,
+      env: process.env,
     });
 
     expect(AnthropicProvider).toHaveBeenCalledWith({
@@ -465,6 +467,7 @@ describe('provider-factory', () => {
       },
       undefined,
       DEFAULT_PROVIDER_DEFINITIONS,
+      processEnvResolver,
     );
 
     expect(OpenAIProvider).toHaveBeenCalledWith({
@@ -486,6 +489,7 @@ describe('provider-factory', () => {
       },
       undefined,
       DEFAULT_PROVIDER_DEFINITIONS,
+      processEnvResolver,
     );
 
     expect(GemmaProvider).toHaveBeenCalledWith({

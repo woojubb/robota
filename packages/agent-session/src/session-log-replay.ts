@@ -4,7 +4,10 @@ import { resolveSessionLogExternalPayloads } from './external-payload-resolver.j
 import { decodeSessionLogEntries, SessionLogDecodeError } from './session-log-codec/index.js';
 
 import type { ISessionLogPayloadResolutionOptions } from './external-payload-resolver.js';
-import type { IExternalPayloadSource, ISessionLogSource } from './session-log-sources.js';
+import type {
+  IExternalPayloadSource,
+  ISessionLogSource,
+} from './external-payload-source-types.js';
 import type { IHistoryEntry, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { ISessionLogEntry } from './session-log-entry-types.js';
 

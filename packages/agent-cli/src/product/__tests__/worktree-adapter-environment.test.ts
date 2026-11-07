@@ -1,9 +1,17 @@
 import { execFileSync } from 'node:child_process';
-import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { withholdProviderCredentials } from '../command-environment.js';
@@ -54,13 +62,22 @@ describe('the isolated-subagent worktree adapter', () => {
       const settingsPath = join(root, 'user-settings.json');
       writeFileSync(
         settingsPath,
-        JSON.stringify({ providers: { main: { type: 'openai', model: 'm', apiKey: `$ENV:${SECRET}` } } }),
+        JSON.stringify({
+          providers: { main: { type: 'openai', model: 'm', apiKey: `$ENV:${SECRET}` } },
+        }),
       );
       // The runtime withholds the provider's credential from its commands, as startup does.
-      withholdProviderCredentials([createNodeHostSettingsSource('user', settingsPath)], definitions, {
+      withholdProviderCredentials(
+        [createNodeHostSettingsSource('user', settingsPath)],
+        definitions,
+        {
+          [SECRET]: 'snapshot-key',
+        },
+      );
+      const runtime = createTestProductRuntime('test-product', {
         [SECRET]: 'snapshot-key',
+        PATH: process.env['PATH'],
       });
-      const runtime = createTestProductRuntime('test-product', { [SECRET]: 'snapshot-key', PATH: process.env['PATH'] });
       const { repo, probe } = repositoryWithProbeHook(root);
 
       createProductWorktreeAdapter(runtime).prepare({ taskId: 'agent_1', cwd: repo });

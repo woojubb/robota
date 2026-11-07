@@ -314,4 +314,59 @@ describe('the full App attached to a host over the wire', () => {
     expect(frame).not.toContain('Waiting for response');
     expect(frame).toContain('Type a message');
   });
+
+  describe('when the host leaves sealed sessions out of its listing', () => {
+    const HOST_SESSION = {
+      id: 'host-other-session',
+      name: 'Host session',
+      cwd: '/work',
+      updatedAt: '2026-09-26T10:00:00.000Z',
+      messageCount: 4,
+      preview: 'kept by the daemon',
+    };
+
+    function listing(
+      sessions: readonly (typeof HOST_SESSION)[],
+      lockedSessionCount?: number,
+    ): (requestId: string) => TServerMessage {
+      return (requestId) => ({
+        type: 'sessions',
+        requestId,
+        listing: {
+          currentSessionId: 'host-current',
+          sessions: [...sessions],
+          unreadableSessionIds: [],
+          ...(lockedSessionCount === undefined ? {} : { lockedSessionCount }),
+        },
+      });
+    }
+
+    // The host counts sealed sessions it cannot open whether its keys are locked or it has none, and
+    // which it is does not cross the wire, so nothing here can say an unlock would open them.
+    it("says the host's sealed sessions are not listed when its picker would read as empty", async () => {
+      const frame = await resumeAgainst(listing([], 3), '3 saved sessions are sealed and not');
+      // The notice wraps at the terminal's width.
+      expect(frame.replace(/\s+/g, ' ')).toContain(
+        'No saved sessions to resume in this workspace. 3 saved sessions are sealed and not listed here.',
+      );
+      expect(frame).not.toMatch(/unlock/i);
+      expect(frame).not.toContain('Select a session to resume');
+    });
+
+    it('says it beside the sessions the host did list, in the singular for one', async () => {
+      const frame = await resumeAgainst(
+        listing([HOST_SESSION], 1),
+        '1 saved session is sealed and not listed here.',
+      );
+      expect(frame).not.toMatch(/unlock/i);
+      expect(frame).toContain('Select a session to resume');
+      expect(frame).toContain('Host session');
+    });
+
+    it('says nothing about sealed sessions when the host counts none or sends no count', async () => {
+      const none = await resumeAgainst(listing([], 0), 'No saved sessions to resume');
+      const absent = await resumeAgainst(listing([], undefined), 'No saved sessions to resume');
+      for (const frame of [none, absent]) expect(frame).not.toContain('sealed');
+    });
+  });
 });

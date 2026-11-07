@@ -1,5 +1,9 @@
 # Architecture
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Robota is a collection of TypeScript packages, not one framework you adopt whole. Each package owns
 one concern, and packages are stacked in layers so that a package only ever depends on the layers
 beneath it. This page explains what the layers are, why they are separate, and how a request moves
@@ -72,8 +76,9 @@ hook execution, context-window accounting, model metadata, and the typed error c
 
 It has no dependency on any other Robota package. Everything else registers with it through its
 abstract contracts, so it can be used alone and nothing can form a dependency cycle through it.
-Node-only helpers are on a separate `@robota-sdk/agent-core/node` entry point so that the main entry
-also works in a browser.
+Its main entry is platform-neutral — it runs in a browser, a Web Worker, Node, Deno and Bun — and
+everything that needs a Node host is on the separate `@robota-sdk/agent-core/node` entry point, which
+a Node application passes in (hook executors, the process environment).
 
 ### Contracts — `agent-interface-*`
 
@@ -104,6 +109,7 @@ transport accept a session without depending on `agent-framework`.
 | `agent-mcp`                             | Model Context Protocol client: server definitions, activation, OAuth sign-in          |
 | `agent-plugin`                          | Eight ready-made plugins (logging, usage, limits, webhooks, and more)                 |
 | `agent-process`, `agent-file-authority` | Small helpers: process-tree termination, bounded root-relative file reads             |
+| `agent-keyring`                         | Key custody and public-key sealing for secure conversations (`node:crypto` only)      |
 | `agent-session-analytics`               | Session-log timing and usage analysis, reports and OTLP export                        |
 | `agent-telemetry-otel`                  | OpenTelemetry spans and metrics for agent runs and traces, GenAI or `agent.*` names   |
 | `agent-remote-pairing`                  | Pairing and channel binding for peer-to-peer connections (no Robota dependencies)     |
@@ -118,7 +124,8 @@ the layers above it.
 `agent-session` wraps a `Robota` instance in a `Session`: tool calls pass through permission checks
 and hooks, context usage is tracked, the conversation is compacted when it grows too large, and
 records can be persisted through a store port. It receives its provider and tools already built;
-it never constructs them.
+it never constructs them. Its main entry is platform-neutral; the file-backed store and log sink are
+on `@robota-sdk/agent-session/node`.
 
 `agent-executor` provides background-task lifecycles (queueing, cancellation, snapshots) and the
 subagent job ports.
@@ -166,6 +173,7 @@ never drags in these defaults.
 | `agent-transport-mcp`    | Exposes a session as an MCP server (stdio and Streamable HTTP)  |
 | `agent-transport-acp`    | Serves a session to an editor as an ACP agent over stdio        |
 | `agent-transport-webrtc` | Peer-to-peer WebRTC data channels (remote control, device mesh) |
+| `agent-transport-link`   | Owner link to a local runtime, admitted by proof                |
 
 A transport is a thin adapter: it turns protocol messages into session calls (submit, abort,
 commands, permission answers) and sends session events back. Transports implement

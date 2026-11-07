@@ -1,55 +1,32 @@
 {
   "name": "@robota-sdk/agent-remote-pairing",
-  "version": "3.0.7",
+  "version": "3.1.0",
   "description": "Isomorphic pairing and DTLS-fingerprint channel binding for Robota peer-to-peer connections",
   "type": "module",
-  "main": "dist/node/index.js",
-  "types": "dist/node/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "source": "./src/index.ts",
-      "node": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
       },
-      "default": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
       }
     },
     "./local": {
       "source": "./src/local/index.ts",
-      "node": {
-        "import": {
-          "types": "./dist/node/local/index.d.ts",
-          "default": "./dist/node/local/index.js"
-        },
-        "require": {
-          "types": "./dist/node/local/index.d.cts",
-          "default": "./dist/node/local/index.cjs"
-        }
+      "browser": null,
+      "import": {
+        "types": "./dist/local/index.d.ts",
+        "default": "./dist/local/index.js"
       },
-      "default": {
-        "import": {
-          "types": "./dist/node/local/index.d.ts",
-          "default": "./dist/node/local/index.js"
-        },
-        "require": {
-          "types": "./dist/node/local/index.d.cts",
-          "default": "./dist/node/local/index.cjs"
-        }
+      "require": {
+        "types": "./dist/local/index.d.cts",
+        "default": "./dist/local/index.cjs"
       }
     },
     "./package.json": "./package.json"

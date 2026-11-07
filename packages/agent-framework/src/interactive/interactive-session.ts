@@ -1,11 +1,16 @@
 import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-session';
 import type { ICommandProductVocabulary } from '../command-api/host-context-types.js';
-import { randomUUID } from 'node:crypto';
-import { basename } from 'node:path';
-
-import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import {
+  basenamePath,
+  createSystemMessage,
+  messageToHistoryEntry,
+  randomId,
+  utf8ByteLength,
+} from '@robota-sdk/agent-core';
 import { isTurnNotRunError, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { loadSessionForUpdate } from '@robota-sdk/agent-session';
 
+import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import { InteractiveSessionBase } from './interactive-session-base.js';
 import { SessionExecutionController } from './interactive-session-execution-controller.js';
@@ -22,7 +27,7 @@ import {
   resolveUiIntentRequester,
 } from './interactive-session-host-actions.js';
 import { initializeInteractiveSessionAsync } from './interactive-session-init.js';
-import { persistSession } from './interactive-session-persistence.js';
+import { createRefusedSaveReporter, persistSession } from './interactive-session-persistence.js';
 import { createPromptHistoryRecorder } from './interactive-session-prompt-history.js';
 import { createProjectPermissionPersistence } from './project-permission-persistence.js';
 import { resolveUserSettingsProviderSwitchAsync } from './interactive-session-provider-switch.js';
@@ -31,10 +36,11 @@ import { buildModelListSnapshot } from '../command-api/provider/provider-model-c
 import { FallbackProvider } from '../routing/fallback-provider.js';
 import { applyModelFallback } from '../routing/model-fallback-chain.js';
 import { persistSessionRename } from './interactive-session-rename.js';
-import { loadSessionRecord } from './interactive-session-restore.js';
+import { loadSessionRecord, resumeRefusal } from './interactive-session-restore.js';
+import { SessionRecordClaim } from './session-record-claim.js';
 import { InteractiveSessionRuntimeTools } from './interactive-session-runtime-tools.js';
 import { SessionSkillRouter } from './interactive-session-skill-router.js';
-import { loadSessionPluginSkills } from './session-plugin-skills.js';
+import { loadSessionPluginSkills, requireSessionPluginFiles } from './session-plugin-skills.js';
 import { SessionTerminalHandoffGate } from './interactive-session-terminal-handoff.js';
 import { SessionTurnMemory } from './interactive-session-turn-memory.js';
 import { ExternalEventIngress } from './external-event-ingress.js';
@@ -69,7 +75,7 @@ import { isLoopStopVerb } from './session-loop-stop-verb.js';
 import { SessionStatusPush, STATUS_CHANGING_EVENTS } from './session-status-push.js';
 import { stopWaitingSelfPacedLoop } from './session-waiting-loop.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
-import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
+import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-format.js';
 import { GoalController, buildGoalContinuationPrompt, isGoalCancelVerb } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
 import { PlanController } from '../plan/index.js';
@@ -80,8 +86,9 @@ import {
   WorkspaceAuthorityRequiredError,
   createRestrictedWorkspaceProjectAccess,
 } from '../workspace-trust/index.js';
-import { createGitProcess, readProjectGitDiff, readProjectGitStatus } from '../git/index.js';
+import { readProjectGitDiff, readProjectGitStatus } from '../git/index.js';
 
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IInteractiveSession } from './i-interactive-session.js';
 import type {
   IExternalEventSource,
@@ -94,7 +101,11 @@ import type {
   TInteractiveSessionOptions,
   IInteractiveSessionStandardOptions,
 } from './interactive-session-options.js';
-import type { IInteractiveSessionStore } from './session-persistence.js';
+import type { IInteractiveSessionStore, TSessionLoadOutcome } from './session-store-types.js';
+import type {
+  ISaveRefusalReporter,
+  ISessionStateForSave,
+} from './interactive-session-persistence.js';
 import type {
   TInteractiveEventName,
   IInteractiveSessionEvents,
@@ -104,6 +115,7 @@ import type { TLivePromptOverrides } from '../assembly/create-session-runtime.js
 import type { ICommandHostContext } from '../command-api/index.js';
 import type { IFallbackProviderOptions } from '../routing/fallback-provider.js';
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
+import type { TProviderEnvironment } from '../command-api/provider/provider-environment.js';
 import type {
   IAgentJobHostContext,
   ICommandResult,
@@ -114,7 +126,7 @@ import type {
   TCommandSurfaceLocality,
 } from '../commands/index.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
-import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
+import type { IHostSettingsSource } from '../config/settings-source.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IGoalStartOptions } from '../goal/index.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
@@ -250,7 +262,7 @@ export class InteractiveSession
   private projectNotesFileEntries: IContextFileEntry[] = [];
   private rebuildSystemMessage: ICreatedInteractiveSession['rebuildSystemMessage'] | null = null;
   private providerDefinitions: readonly IProviderDefinition[] = [];
-  private readonly providerEnvironment?: Readonly<Record<string, string | undefined>>;
+  private readonly providerEnvironment?: TProviderEnvironment;
   private readonly resolveProviderCredential?: IInteractiveSessionStandardOptions['resolveProviderCredential'];
   private activeOutputStyleId = 'default';
   private orgPolicy: IOrgPolicy | null = null;
@@ -261,6 +273,8 @@ export class InteractiveSession
     entries: readonly string[];
     options: Readonly<IFallbackProviderOptions>;
   };
+  /** The platform this session runs on; see `IFrameworkHost`. */
+  private readonly frameworkHost: IFrameworkHost;
   protected readonly bgTracker: SessionBackgroundTaskTracker;
   protected readonly histTracker: SessionHistoryTracker;
   protected readonly skillRouter: SessionSkillRouter;
@@ -292,25 +306,66 @@ export class InteractiveSession
   private readonly providerErrorGuidance?: IProviderErrorGuidance;
   private readonly promptFileReferenceTag?: string;
   private readonly resolveDefaultLoopPrompt?: () => string;
-  private readonly userSettingsSources: readonly INodeHostSettingsSource[];
+  private readonly userSettingsSources: readonly IHostSettingsSource[];
   private readonly statusPush: SessionStatusPush;
+  /** A refused save is said once, through the out-of-turn error path, unless the claim says it. */
+  private readonly refusedSaves = createRefusedSaveReporter((error) =>
+    this.reportBackgroundError(error, 'persistence'),
+  );
+  /** Every refused and accepted save reaches the claim first, which decides what the session may still do. */
+  private readonly reportRefusedSave: ISaveRefusalReporter = {
+    refused: (error) => {
+      if (this.recordClaim?.refused(error) !== true) this.refusedSaves.refused(error);
+    },
+    saved: (sessionId) => {
+      this.recordClaim?.saved(sessionId);
+      this.refusedSaves.saved(sessionId);
+    },
+  };
+  /**
+   * The claim on the record this session runs (`undefined` for a session that persists nothing): every
+   * save of its id carries it, it says whether the session may still save and act on its own, and it
+   * ends on every way out of the session.
+   */
+  private readonly recordClaim?: SessionRecordClaim;
 
   constructor(options: TInteractiveSessionOptions) {
     super();
-    this.providerEnvironment = 'environment' in options ? options.environment : undefined;
+    const host = requireFrameworkHost(options.host, 'InteractiveSession');
+    this.frameworkHost = host;
+    // The session's own environment snapshot wins; without one the host's environment answers.
+    this.providerEnvironment = ('environment' in options ? options.environment : undefined) ?? host.env;
+    if ('pluginDirectories' in options && options.pluginDirectories !== undefined) {
+      requireSessionPluginFiles(host.files?.sync);
+    }
     this.resolveProviderCredential =
       'resolveProviderCredential' in options ? options.resolveProviderCredential : undefined;
     this.commandProductVocabulary =
       options.commandProductVocabulary === undefined
         ? undefined
         : Object.freeze({ ...options.commandProductVocabulary });
-    this.sessionStore = options.sessionStore;
+    this.recordClaim = SessionRecordClaim.over(options.sessionStore, options.acceptedDigest, {
+      snapshot: () =>
+        this.session === null
+          ? undefined
+          : {
+              session: this.session,
+              state: this.stateForSave(false, undefined, this.selfPacedLoops.list()),
+            },
+      // The checkpoint the refused turn could not make, when no turn runs; a running turn's own save.
+      retrySave: () => {
+        if (this.execCtrl.executing) this.persistCurrentSession();
+        else this.session?.checkpoint();
+      },
+      report: (error) => this.reportBackgroundError(error, 'persistence'),
+    });
+    this.sessionStore = this.recordClaim?.store;
     this.selfPacedLoops = new DurableSessionLoopStore([], {
       persist: (candidate) => this.persistCurrentSession(true, undefined, candidate),
       readCommitted: () => {
         const id = this.session?.getSessionId();
         if (!id || !this.sessionStore) return undefined;
-        const outcome = this.sessionStore.load(id);
+        const outcome = loadSessionForUpdate(this.sessionStore, id);
         return outcome.status === 'valid'
           ? (outcome.record.sessionLoops ?? [])
           : outcome.status === 'missing'
@@ -359,6 +414,7 @@ export class InteractiveSession
       // #3288: so an Edit/Write permission request can attach the same server-built diff preview
       // `tool_end` gets, and a Shell request can note its cwd only when it differs from this one.
       getCwd: () => this.getCwd(),
+      files: options.host.files,
       backstopMs: PROMPT_BACKSTOP_MS,
     });
     this.askHandler = (request, options) => this.promptRegistry.requestAsk(request, options);
@@ -394,6 +450,7 @@ export class InteractiveSession
       this.sessionLoopsDisabled,
       (task) => this.armSessionLoopExpiry(task),
       options.observerFailureWarningCode,
+      options.host.reportObserverFailure,
     );
 
     this.histTracker = new SessionHistoryTracker(
@@ -405,6 +462,7 @@ export class InteractiveSession
       (event) => this.emit('memory_event', event),
       initCheckpointStore,
       (event) => this.emit('branch_event', event),
+      options.host.supportsProjectMutation,
     );
 
     const commandModules = [...('commandModules' in options ? (options.commandModules ?? []) : [])];
@@ -423,6 +481,7 @@ export class InteractiveSession
         ...('bare' in options ? { bare: options.bare } : {}),
         ...('projectAccess' in options ? { projectAccess: options.projectAccess } : {}),
         ...('pluginDirectories' in options ? { pluginDirectories: options.pluginDirectories } : {}),
+        fs: host.files?.sync,
         ...('userSettingsSources' in options
           ? { userSettingsSources: options.userSettingsSources }
           : {}),
@@ -453,6 +512,7 @@ export class InteractiveSession
         ),
       (execute) =>
         this.execCtrl.executeForegroundCommand(execute, (entry) => this.resumeQueuedTurn(entry)),
+      options.host.createAsyncScope,
       shellExec,
       remoteCommandPolicy,
       this.pluginSkills,
@@ -481,6 +541,7 @@ export class InteractiveSession
       getSession: () => this.session!,
       getSessionOrThrow: () => this.getSessionOrThrow(),
       getCwd: () => this.getCwd(),
+      files: options.host.files,
       getProjectAccess: () => this.workspace.projectAccess,
       modelCommandToolNames,
       getContextState: () => this.getContextState(),
@@ -563,23 +624,30 @@ export class InteractiveSession
       });
     }
 
-    const hasInjectedSession = this.configureInjectedSession(options);
-    this.restoreSessionRecordIfNeeded(options);
-    this.startAsyncInitializationIfNeeded(options, hasInjectedSession);
-    // The baseline is the initialized session's status, so the first push is a real change.
-    if (this.initialized) this.statusPush.prime();
-    else
-      void this.initPromise?.then(
-        () => this.statusPush.prime(),
-        () => undefined,
-      );
+    // A claim taken from here on is let go if the session never comes to exist.
+    try {
+      const hasInjectedSession = this.configureInjectedSession(options);
+      this.restoreSessionRecordIfNeeded(options);
+      if (hasInjectedSession) this.recordClaim?.claimSession(this.session!.getSessionId());
+      this.startAsyncInitializationIfNeeded(options, hasInjectedSession);
+      // The baseline is the initialized session's status, so the first push is a real change.
+      if (this.initialized) this.statusPush.prime();
+      else
+        void this.initPromise?.then(
+          () => this.statusPush.prime(),
+          () => undefined,
+        );
 
-    if (this.initialized) {
-      this.bgTracker.subscribe(this.session!);
-      this.resumeSelfPacedLoops();
+      if (this.initialized) {
+        this.bgTracker.subscribe(this.session!);
+        this.resumeSelfPacedLoops();
+      }
+      if (this.initialized) this.persistCurrentSession();
+      this.resumeGoalIfActive();
+    } catch (error) {
+      this.recordClaim?.end();
+      throw error;
     }
-    if (this.initialized) this.persistCurrentSession();
-    this.resumeGoalIfActive();
   }
 
   protected getPendingRequest(): IExecutionPendingRequest | undefined {
@@ -588,6 +656,14 @@ export class InteractiveSession
 
   getProjectAccess(): TWorkspaceProjectAccess {
     return this.workspace.projectAccess;
+  }
+
+  protected sessionRecordHasWriter(sessionId: string): boolean {
+    return this.sessionStore?.hasWriter(sessionId) ?? false;
+  }
+
+  protected getSessionReplayValidator(): IFrameworkHost['validateSessionReplayLog'] {
+    return this.frameworkHost.validateSessionReplayLog;
   }
 
   private configureInjectedSession(options: TInteractiveSessionOptions): boolean {
@@ -599,16 +675,36 @@ export class InteractiveSession
   }
 
   private restoreSessionRecordIfNeeded(options: TInteractiveSessionOptions): void {
-    if (!options.resumeSessionId || !this.sessionStore) return;
-    if (
+    if (!options.resumeSessionId || !this.recordClaim) return;
+    const copy =
       this.startedAsFork ||
-      ('workspaceMovedFrom' in options && options.workspaceMovedFrom !== undefined)
-    ) {
-      const source = this.sessionStore.load(options.resumeSessionId);
-      if (source.status === 'valid' && source.record.pendingExecution)
-        throw new Error('Resolve the pending execution before copying its conversation');
+      ('workspaceMovedFrom' in options && options.workspaceMovedFrom !== undefined);
+    // The claim's own read is the one the session restores from — gated there, so nothing can swap
+    // the file between a check and the restore. A copy claims its source only for that read. Accepted
+    // bytes are raised to the owner's only once the restore went ahead.
+    const outcome = this.recordClaim.readForRestore(options.resumeSessionId, this.startedAsFork);
+    try {
+      if (outcome.status === 'valid') options.checkRestoredRecord?.(outcome.record);
+      this.restoreFromOutcome(options.resumeSessionId, outcome, copy);
+      this.recordClaim.restored();
+    } finally {
+      if (this.startedAsFork) this.recordClaim.copied();
     }
-    const restored = loadSessionRecord(this.sessionStore, options.resumeSessionId, this.session);
+  }
+
+  private restoreFromOutcome(
+    resumeSessionId: string,
+    outcome: TSessionLoadOutcome,
+    copy: boolean,
+  ): void {
+    if (!this.sessionStore) return;
+    // A record that is there and unreadable here (locked above all) is refused, never resumed empty
+    // under its id: after an unlock the first save would replace the conversation with the empty one.
+    const refusal = resumeRefusal(resumeSessionId, outcome, true);
+    if (refusal !== undefined) throw refusal;
+    if (copy && outcome.status === 'valid' && outcome.record.pendingExecution)
+      throw new Error('Resolve the pending execution before copying its conversation');
+    const restored = loadSessionRecord(this.sessionStore, resumeSessionId, this.session, outcome);
     this.histTracker.restoreState({
       history: restored.history,
       memoryEvents: restored.memoryEvents,
@@ -654,12 +750,17 @@ export class InteractiveSession
     this.initPromise = this.initializeAsync(stdOpts);
     this.initPromise.catch((error: unknown) => {
       this.initFailure = error instanceof Error ? error : new Error(String(error));
+      // A session that never came to exist holds nothing: its claim ends with the build.
+      this.recordClaim?.end();
     });
   }
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
     const canPersistProjectPermission =
-      createProjectPermissionPersistence(options.projectAccess, options.projectSettingsPaths) !==
-      undefined;
+      createProjectPermissionPersistence(
+        options.projectAccess,
+        options.projectSettingsPaths,
+        options.host,
+      ) !== undefined;
     const result = await initializeInteractiveSessionAsync(options, {
       sandboxSnapshotId: this.sandboxSnapshotId,
       resumeSessionId: this.resumeSessionId,
@@ -730,6 +831,14 @@ export class InteractiveSession
         },
       },
     });
+    // A new session claims its id before its first save; a resumed one already holds it.
+    try {
+      this.recordClaim?.claimSession(result.session.getSessionId());
+    } catch (error) {
+      // allow-fallback: the session is abandoned before it is used; its own shutdown is best-effort.
+      void result.session.shutdown({ reason: 'other' }).catch(() => undefined);
+      throw error;
+    }
     this.session = result.session;
     this.agentsFileEntries = result.agentsFileEntries;
     this.projectNotesFileEntries = result.projectNotesFileEntries;
@@ -802,7 +911,14 @@ export class InteractiveSession
    * `not-a-repository` result is the panel's one plain sentence, never a thrown error.
    */
   async readProjectStatus(): Promise<TProjectStatusRead> {
-    const result = await readProjectGitStatus(createGitProcess(), this.getCwd());
+    const runner = this.frameworkHost.git;
+    if (runner === undefined) {
+      return {
+        kind: 'failed',
+        message: 'This host cannot run git, so project changes are not available.',
+      };
+    }
+    const result = await readProjectGitStatus(runner, this.getCwd());
     if (!result.ok) return { kind: 'failed', message: result.message };
     if (!result.repository) return { kind: 'not-a-repository' };
     return {
@@ -820,7 +936,22 @@ export class InteractiveSession
    * or filesystem call.
    */
   async readProjectDiff(path: string): Promise<TProjectDiffRead> {
-    const result = await readProjectGitDiff(createGitProcess(), this.getCwd(), path);
+    const { git: runner, files } = this.frameworkHost;
+    if (runner === undefined) {
+      return {
+        kind: 'failed',
+        message: 'This host cannot run git, so file diffs are not available.',
+      };
+    }
+    // The containment decision needs the host's symlink-aware check; without one the path cannot be
+    // proven inside the workspace, so no external call is made for it.
+    if (files === undefined) {
+      return {
+        kind: 'failed',
+        message: 'This host cannot read files, so file diffs are not available.',
+      };
+    }
+    const result = await readProjectGitDiff(runner, this.getCwd(), path, files);
     if (result.ok)
       return { kind: 'diff', diffLines: result.diffLines, truncated: result.truncated };
     if (result.code === 'not_a_repository') return { kind: 'not-a-repository' };
@@ -966,7 +1097,7 @@ export class InteractiveSession
       onAccepted,
       execCtrl: this.execCtrl,
       ensureInitialized: () => this.ensureInitialized(),
-      assertInputAllowed: () => this.getSessionOrThrow().assertInputAllowed(),
+      assertInputAllowed: () => this.admitInput(),
       executeAcceptedTurn: (entry) => this.executeAcceptedTurn(entry),
       emitDropped: (driverId, maxDepth) =>
         this.emit(
@@ -1020,7 +1151,7 @@ export class InteractiveSession
         if (!this.resolveDefaultLoopPrompt)
           throw new Error('Default loop prompt resolver is unavailable.');
         const resolved = this.resolveDefaultLoopPrompt().trim();
-        if (!resolved || Buffer.byteLength(resolved, 'utf8') > 4_096) {
+        if (!resolved || utf8ByteLength(resolved) > 4_096) {
           throw new Error('Default loop prompt must contain 1–4096 UTF-8 bytes.');
         }
         input = resolved;
@@ -1109,7 +1240,10 @@ export class InteractiveSession
    * how a consumer tells it apart from a typed prompt; it does not change what the turn may do.
    */
   requestWakeup(instruction: string, sourceTaskId: string, displayInput?: string): boolean {
-    if (this.execCtrl.shuttingDown) return false;
+    // Every turn a goal, a loop or a schedule starts on its own comes through here.
+    if (this.execCtrl.shuttingDown || this.recordClaim?.canStartAutonomousWork() === false) {
+      return false;
+    }
     try {
       this.getSessionOrThrow().assertInputAllowed();
     } catch (error) {
@@ -1253,6 +1387,7 @@ export class InteractiveSession
     options: { useDefaultPrompt?: boolean } = {},
   ): Promise<ISessionLoopState> {
     await this.ensureInitialized();
+    this.assertAutonomyAllowed();
     this.getSessionOrThrow().assertInputAllowed();
     if (this.sessionLoopsDisabled) throw new Error('Session loops are disabled by the host.');
     if (!this.sessionStore) throw new Error('A session store is required for a resumable loop.');
@@ -1270,12 +1405,7 @@ export class InteractiveSession
     if (fixedCount + dynamicCount >= 3) {
       throw new Error('At most 3 active loops are allowed. Stop one before creating another.');
     }
-    const state = createSelfPacedLoopState(
-      `loop_${randomUUID()}`,
-      instruction,
-      Date.now(),
-      options,
-    );
+    const state = createSelfPacedLoopState(`loop_${randomId()}`, instruction, Date.now(), options);
     this.selfPacedLoops.commit(state);
     this.submitSelfPacedIteration(state);
     return state;
@@ -1464,6 +1594,7 @@ export class InteractiveSession
   }
 
   private submitSelfPacedIteration(state: ISessionLoopState): void {
+    if (this.recordClaim?.canStartAutonomousWork() === false) return;
     const wakeId = this.selfPacedWakeId(state);
     if (this.execCtrl.wakeTaskIds.has(wakeId)) return;
     this.execCtrl.wakeTaskIds.add(wakeId);
@@ -1562,6 +1693,7 @@ export class InteractiveSession
     sessionLoopExpiresAt?: string;
   }): Promise<IBackgroundTaskState> {
     await this.ensureInitialized();
+    this.assertAutonomyAllowed();
     if (!input.sessionLoop) return super.spawnScheduledWake(input);
     this.getSessionOrThrow().assertInputAllowed();
     if (this.sessionLoopsDisabled) throw new Error('Session loops are disabled by the host.');
@@ -1630,27 +1762,44 @@ export class InteractiveSession
     for (const timer of this.sessionLoopExpiryTimers.values()) clearTimeout(timer);
     this.sessionLoopExpiryTimers.clear();
     this.shutdownPromise = (async () => {
-      await this.ensureInitialized();
-      this.execCtrl.clearPendingQueue();
-      const session = this.session;
-      session?.abort();
-      const moduleShutdownErrors = await this.skillRouter.shutdownModules();
-      await this.runtimeTools.drain();
-      await this.getBackgroundTaskManager()?.shutdown(options.message ?? 'Session shutdown');
-      this.bgTracker.dispose();
-      await this.captureSandboxSnapshot();
-      this.persistCurrentSession();
-      await session?.shutdown({ reason: options.reason ?? 'other' });
-      // REMOTE-007 D3: drain before dropping listeners so any prompt still parked at shutdown settles
-      // fail-closed (the awaiting checkPermission/tool unblocks) rather than hanging on a cleared emitter.
-      this.promptRegistry.drain();
-      this.execCtrl.appViews.clear();
-      this.listeners.clear();
-      if (moduleShutdownErrors.length > 0) {
-        throw new AggregateError(moduleShutdownErrors, 'Command module shutdown failed');
+      try {
+        await this.ensureInitialized();
+        this.execCtrl.clearPendingQueue();
+        const session = this.session;
+        session?.abort();
+        const moduleShutdownErrors = await this.skillRouter.shutdownModules();
+        await this.runtimeTools.drain();
+        await this.getBackgroundTaskManager()?.shutdown(options.message ?? 'Session shutdown');
+        this.bgTracker.dispose();
+        await this.captureSandboxSnapshot();
+        this.persistCurrentSession();
+        // That was the last save of the record, so the claim ends now — a refusal still standing is
+        // saved as a copy and said while listeners still hear it.
+        this.recordClaim?.end();
+        await session?.shutdown({ reason: options.reason ?? 'other' });
+        // REMOTE-007 D3: drain before dropping listeners so any prompt still parked at shutdown settles
+        // fail-closed (the awaiting checkPermission/tool unblocks) rather than hanging on a cleared emitter.
+        this.promptRegistry.drain();
+        this.execCtrl.appViews.clear();
+        this.listeners.clear();
+        if (moduleShutdownErrors.length > 0) {
+          throw new AggregateError(moduleShutdownErrors, 'Command module shutdown failed');
+        }
+      } finally {
+        this.recordClaim?.end();
       }
     })();
     return this.shutdownPromise;
+  }
+
+  /**
+   * Ends this session's claim on its record now, whatever its shutdown is still doing: a host that
+   * gave up waiting for the shutdown (a bound that timed out) calls this, so the session that claims
+   * the id next is not overwritten by a late save of this one. Idempotent; a no-op for a session that
+   * persists nothing.
+   */
+  releaseSessionClaim(): void {
+    this.recordClaim?.end();
   }
 
   get isInitialized(): boolean {
@@ -1837,6 +1986,7 @@ export class InteractiveSession
       liveBackgroundTasks: liveTasks.length,
       permissionMode: session.getPermissionMode(),
       rules: session.getPermissionRules(),
+      host: this.frameworkHost,
       source: {
         getHistory: () => session.getHistory(),
         getSystemMessage: () => session.getSystemMessage(),
@@ -1848,7 +1998,7 @@ export class InteractiveSession
     });
     const named = request.record.name
       ? request
-      : { ...request, record: { ...request.record, name: basename(request.targetCwd) } };
+      : { ...request, record: { ...request.record, name: basenamePath(request.targetCwd) } };
     this.persistCurrentSession();
     this.workspaceMovePending = true;
     try {
@@ -1889,7 +2039,7 @@ export class InteractiveSession
     let workspace: { name: string; path: string } | undefined;
     try {
       const cwd = this.getCwd();
-      workspace = { name: basename(cwd), path: cwd };
+      workspace = { name: basenamePath(cwd), path: cwd };
     } catch {
       // allow-fallback: a session with no cwd set yet reports no workspace, not a thrown status read.
       workspace = undefined;
@@ -1939,6 +2089,8 @@ export class InteractiveSession
   }
 
   setName(name: string): void {
+    const refusal = this.session && this.recordClaim?.noLongerSaved(this.session.getSessionId());
+    if (refusal) throw refusal;
     if (this.sessionStore && this.session) {
       let id: string;
       try {
@@ -2000,15 +2152,51 @@ export class InteractiveSession
       if (strict) throw new Error('A session store is required for a resumable loop.');
       return;
     }
-    const bgState = this.bgTracker.getState();
-    const histState = this.histTracker.getState();
+    // A session that gave up its claim, or stopped saving its id, writes nothing more under it.
+    const refusal = this.recordClaim?.noLongerSaved(this.session.getSessionId());
+    if (refusal !== undefined) {
+      if (strict) throw refusal;
+      return;
+    }
+    const state = this.stateForSave(strict, acceptedLoopId, loopStateOverride);
     persistSession(
       this.sessionStore,
       this.session,
-      this.sessionName,
-      this.workspace.cwd,
-      histState.history,
-      {
+      state.sessionName,
+      state.cwd,
+      state.history,
+      state.backgroundState,
+      state.memoryState,
+      state.skillActivationState,
+      state.contextReferenceState,
+      { snapshotId: state.sandboxSnapshotId },
+      state.goalState,
+      state.planState,
+      state.activeBranchState,
+      strict,
+      state.sessionLoops,
+      this.reportRefusedSave,
+    );
+  }
+
+  /** Everything of this session's own state a save of its record carries. */
+  private stateForSave(
+    strict: boolean,
+    acceptedLoopId?: string,
+    loopStateOverride?: readonly ISessionLoopState[],
+  ): ISessionStateForSave {
+    const bgState = this.bgTracker.getState();
+    const histState = this.histTracker.getState();
+    const goalState = this.goalController.getState();
+    const planState = this.planController.getState();
+    // SELFHOST-007: persist the active branch pointer so a branch survives --resume.
+    const activeBranchState = this.histTracker.getActiveBranchPointer();
+    const sessionLoops = loopStateOverride ?? this.selfPacedLoops.snapshotForOrdinarySave();
+    return {
+      ...(this.sessionName !== undefined ? { sessionName: this.sessionName } : {}),
+      cwd: this.workspace.cwd,
+      history: histState.history,
+      backgroundState: {
         tasks: bgState.tasks
           .filter((task) => {
             const loopId = task.metadata?.['sessionLoopId'];
@@ -2025,17 +2213,40 @@ export class InteractiveSession
         groups: bgState.groups,
         groupEvents: bgState.groupEvents,
       },
-      { events: histState.memoryEvents, usedReferences: histState.usedMemoryReferences },
-      { events: histState.skillActivationEvents },
-      { references: histState.contextReferences },
-      { snapshotId: this.sandboxSnapshotId },
-      this.goalController.getState() ?? undefined,
-      this.planController.getState() ?? undefined,
-      // SELFHOST-007: persist the active branch pointer so a branch survives --resume.
-      this.histTracker.getActiveBranchPointer(),
-      strict,
-      loopStateOverride ?? this.selfPacedLoops.snapshotForOrdinarySave(),
+      memoryState: {
+        events: histState.memoryEvents,
+        usedReferences: histState.usedMemoryReferences,
+      },
+      skillActivationState: { events: histState.skillActivationEvents },
+      contextReferenceState: { references: histState.contextReferences },
+      ...(this.sandboxSnapshotId !== undefined
+        ? { sandboxSnapshotId: this.sandboxSnapshotId }
+        : {}),
+      ...(goalState !== null ? { goalState } : {}),
+      ...(planState !== null ? { planState } : {}),
+      ...(activeBranchState !== undefined ? { activeBranchState } : {}),
+      ...(sessionLoops !== undefined ? { sessionLoops } : {}),
+    };
+  }
+
+  /**
+   * Whether a new turn may start. One that cannot be recorded is refused, and a save the locked keys
+   * refused is tried first (a turn in progress records itself; one queued behind it is admitted as
+   * before) — see `SessionRecordClaim.admitTurn`.
+   */
+  private admitInput(): void {
+    const session = this.getSessionOrThrow();
+    this.recordClaim?.admitTurn(
+      session.getSessionId(),
+      this.execCtrl.executing ? undefined : () => session.checkpoint(),
     );
+    session.assertInputAllowed();
+  }
+
+  /** Refuses new autonomous work (a goal, a loop, a schedule) once this session no longer saves its id. */
+  private assertAutonomyAllowed(): void {
+    const refusal = this.recordClaim?.noLongerSaved(this.getSessionOrThrow().getSessionId());
+    if (refusal !== undefined) throw refusal;
   }
 
   /**
@@ -2045,6 +2256,7 @@ export class InteractiveSession
    */
   async setGoal(objective: string, options: IGoalStartOptions = {}): Promise<IGoalState> {
     await this.ensureInitialized();
+    this.assertAutonomyAllowed();
     const { goal, prompt } = this.goalController.start(objective, options);
     this.emit('goal_event', { type: 'goal_started', goal });
     this.persistCurrentSession();

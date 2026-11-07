@@ -2,6 +2,8 @@
  * How this side takes a session pushed to it, whichever carrier brought it: the grant is checked
  * against the sender's device certificate as this side holds it, the operator here is asked through
  * the connection's authority, and the session is kept aside, verified and saved — never started.
+ * Kept aside in memory alone when this side's session stores seal, decided by the product's one
+ * sealing decision at each arrival.
  */
 
 import {
@@ -13,10 +15,15 @@ import {
   type TRecordPersister,
 } from '@robota-sdk/agent-interface-session-mobility';
 
+import { resolveProductSessionSealing } from '../product/session-sealing.js';
 import { createHandoffConsent } from './handoff-consent.js';
 import { checkHandoffGrant } from './handoff-grant.js';
 import { receiveHandoff, type TReceiveHandoffOutcome } from './handoff-receive.js';
 
+import type {
+  IInteractiveSessionRecord,
+  IInteractiveSessionStore,
+} from '@robota-sdk/agent-interface-session';
 import type { IDeviceCertificate } from '@robota-sdk/agent-remote-pairing';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
@@ -108,6 +115,7 @@ export function createHandoffReceiver(
         consent,
         composition: receiving.composition,
         root: receiving.root,
+        payloadInMemory: resolveProductSessionSealing(receiving.productRuntime) !== 'plain',
         resolveCredential: receiving.resolveCredential,
         persist: receiving.persist,
         committed,
@@ -118,4 +126,17 @@ export function createHandoffReceiver(
       stopWatching();
     }
   };
+}
+
+/**
+ * Saves a session a peer pushed here, under this side's `cwd`, as a record never this owner's: a
+ * store that seals does not tag it, whatever it already holds for the id, so its first resume asks.
+ */
+export function saveReceivedSession(
+  store: IInteractiveSessionStore,
+  record: IInteractiveSessionRecord,
+  cwd: string,
+): true {
+  store.save({ ...record, cwd }, { provenance: 'unverified' });
+  return true;
 }

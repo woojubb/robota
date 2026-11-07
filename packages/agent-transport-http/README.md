@@ -11,9 +11,10 @@ app rather than a listening server: you mount it in your own Hono application or
 npm install @robota-sdk/agent-transport-http
 ```
 
-Requires Node.js 22.12 or later. To serve or mount the routes yourself, also add `hono` to your
-application. `@robota-sdk/agent-transport` is only needed if you import its admission helpers
-directly (see below).
+The package reaches no Node built-in or Node global, so it runs wherever Hono does; on Node it needs
+22.12 or later. To serve or mount the routes yourself, also add `hono` to your application.
+`@robota-sdk/agent-transport` is only needed if you import its admission helpers directly (see
+below).
 
 ## Usage
 
@@ -47,7 +48,7 @@ required, and a token together with `open: true` is rejected.
 through `sessionFactory`, which receives the Hono request context, so one app can serve several
 sessions (for example, looked up from a request header). Here `admission` is required. A token minted
 inside `createAgentRoutes` could never be read back, so pass one you know: your own, or the result of
-`resolveAdmission()` from `@robota-sdk/agent-transport/node`.
+`resolveAdmission()` from `@robota-sdk/agent-transport`.
 
 ```typescript
 import { createAgentRoutes } from '@robota-sdk/agent-transport-http';

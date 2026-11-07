@@ -22,8 +22,11 @@ import { createProgrammaticAgent } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createBinaryAgentDriver } from '../../testing/binary-agent-driver.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IAgentDriver } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 const ANSWER = 'CROSS_FIDELITY_OK';
 const FIXTURE = join(dirname(fileURLToPath(import.meta.url)), 'fixtures', 'cross-fidelity.jsonl');
@@ -72,7 +75,7 @@ describe('IAgentDriver cross-fidelity (INFRA-020 TC-04)', () => {
   it('the same scenario observes the recorded reply via the programmatic AND binary drivers', async () => {
     // In-process implementer.
     const scripted = createScriptedProvider([{ text: ANSWER }]);
-    const programmatic = createProgrammaticAgent({ provider: scripted.provider, cwd: progCwd });
+    const programmatic = createProgrammaticAgent({ host: testHost, provider: scripted.provider, cwd: progCwd });
     const programmaticReply = await runScenario(programmatic);
 
     // Built-binary implementer (deterministic via --session-log).

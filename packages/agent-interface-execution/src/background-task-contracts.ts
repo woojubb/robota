@@ -301,6 +301,12 @@ interface IBaseBackgroundTaskState<K extends TBackgroundTaskKind> {
   error?: IBackgroundTaskError;
   logPath?: string;
   transcriptPath?: string;
+  /**
+   * The transcript at `transcriptPath` is sealed: its bytes are ciphertext to any reader without the
+   * keys, so the path reaches no content and a reader goes through the task's log read instead (the
+   * `/agent read` command). Set from the runner's handle when the task starts; absent for a plain one.
+   */
+  transcriptSealed?: true;
   timeoutReason?: TBackgroundTaskTimeoutReason;
   metadata?: Record<string, TBackgroundPrimitive>;
 }
@@ -373,7 +379,22 @@ export interface IBackgroundTaskLogPage {
   taskId: string;
   cursor?: IBackgroundTaskLogCursor;
   nextCursor?: IBackgroundTaskLogCursor;
+  /** Display lines; a record this process cannot show is a fixed placeholder line, never content. */
   lines: string[];
+  /**
+   * Records on this page that could not be shown as content, present only when there are any.
+   * `locked`: sealed and the keys are locked, so an unlock shows them. `noKeys`: sealed and this
+   * process holds no keys at all, so no unlock here shows them. `doesNotOpen`: damaged, sealed with
+   * other keys, or sealed by a newer build.
+   */
+  unreadable?: IBackgroundTaskLogUnreadable;
+}
+
+/** How many records of a log page could not be shown as content, by why. */
+export interface IBackgroundTaskLogUnreadable {
+  locked: number;
+  noKeys: number;
+  doesNotOpen: number;
 }
 
 export interface IBackgroundTaskListFilter {

@@ -6,6 +6,9 @@ import { join } from 'node:path';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
 import { createAgentRuntime, createSessionRunFn, runEval } from '../src/index.js';
+import { createTestFrameworkHost } from '../src/testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 // Consumer-owned repository and verifier: no filesystem I/O occurs in a metric.
 const broken = 'export const add = (a, b) => a - b;\n';
@@ -44,12 +47,12 @@ try {
               { text: 'Done' },
             ],
       );
-      const runtime = createAgentRuntime({ cwd, provider: script.provider });
+      const runtime = createAgentRuntime({ host: testHost, cwd, provider: script.provider });
       const run = createSessionRunFn(runtime, {
         permissionMode: 'acceptEdits',
         bare: true,
         allowedTools: ['Write'],
-        deniedTools: ['Bash', 'Shell', 'WebFetch', 'WebSearch', 'BackgroundProcess'],
+        deniedTools: ['Bash', 'Shell', 'WebFetch', 'BackgroundProcess'],
       });
       const start = performance.now();
       const result = await run('Fix add(2, 3) so it returns 5 in math.mjs.');

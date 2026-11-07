@@ -17,6 +17,23 @@ import type { ISessionListingEntry } from '@robota-sdk/agent-interface-session';
 const SESSION_PREVIEW_DISPLAY_LENGTH = 60;
 
 /**
+ * Fixed text at the head of a record nothing shows the owner wrote. The name and preview on its row
+ * are the record's own word, so the picker says so first, in words that are not, and cuts the name
+ * short so nothing the record says can push the marker off its row.
+ */
+const UNVERIFIED_MARKER = 'unverified';
+const UNVERIFIED_NAME_DISPLAY_LENGTH = 32;
+
+/** What a row calls its session: a record's own name, cut short when nothing vouches for it. */
+function rowName(session: ISessionListingEntry): string {
+  const name = session.name ?? shortSessionId(session.id);
+  if (session.authorship !== 'unverified' || name.length <= UNVERIFIED_NAME_DISPLAY_LENGTH) {
+    return name;
+  }
+  return `${name.slice(0, UNVERIFIED_NAME_DISPLAY_LENGTH)}...`;
+}
+
+/**
  * `● live · 2 clients` on a host that keeps sessions live: the session runs there now, and that many
  * clients are on it. Null for a stored session, and for a host that says neither.
  */
@@ -57,7 +74,13 @@ export default function SessionPicker({
           return (
             <Text>
               {isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
-              <Text bold>{session.name ?? shortSessionId(session.id)}</Text>
+              {session.authorship === 'unverified' ? (
+                <>
+                  <Text dimColor>{UNVERIFIED_MARKER}</Text>
+                  {'  '}
+                </>
+              ) : null}
+              <Text bold>{rowName(session)}</Text>
               {'  '}
               <Text dimColor>
                 {new Date(session.updatedAt).toLocaleString(undefined, {

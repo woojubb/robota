@@ -3,7 +3,11 @@ import { createServer } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
+
+const host = createNodeFrameworkHost({ createDefaultTools });
 
 // Anyone who can reach this server talks to the agent, so its sessions have none of the built-in tools
 // that run commands, read or change files, reach the network or send files. Give it your own tools
@@ -18,7 +22,6 @@ const DENIED_TOOLS = [
   'Glob',
   'Grep',
   'WebFetch',
-  'WebSearch',
   'peer_send_file',
 ];
 
@@ -31,6 +34,7 @@ if (!apiKey) {
 const PORT = Number(process.env.PORT ?? '8080');
 
 const runtime = createAgentRuntime({
+  host,
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey }),
 });

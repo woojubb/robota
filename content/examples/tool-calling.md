@@ -1,5 +1,9 @@
 # Tool Calling
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Give an agent functions it can call. `createZodFunctionTool()` turns a Zod schema and a handler into a
 tool: the schema is sent to the model, and the arguments the model sends back are validated against it
 before your handler runs.
@@ -106,7 +110,7 @@ import {
   createReadTool,
   createGlobTool,
   createGrepTool,
-} from '@robota-sdk/agent-tools';
+} from '@robota-sdk/agent-tools/node';
 
 declare const provider: IAIProvider;
 
@@ -127,7 +131,8 @@ const agent = new ConversationAgent({
 const response = await agent.run('Find all TODO comments in the project');
 ```
 
-A `Robota` agent has no permission prompts: it runs the tools it is given. For permission modes and
+These tools need a Node host, so they are imported from `@robota-sdk/agent-tools/node`. A `Robota`
+agent has no permission prompts: it runs the tools it is given. For permission modes and
 approval prompts, use an [`InteractiveSession`](./session-management.md), which also assembles the
 built-in tool set for you.
 
@@ -140,14 +145,13 @@ example uses the E2B adapter; install the `e2b` package in your application.
 
 ```typescript
 import { ConversationAgent, type IAIProvider } from '@robota-sdk/agent-core';
+import { E2BSandboxClient, applyWorkspaceManifest } from '@robota-sdk/agent-tools';
 import {
-  E2BSandboxClient,
-  applyWorkspaceManifest,
   createBashTool,
   createEditTool,
   createReadTool,
   createWriteTool,
-} from '@robota-sdk/agent-tools';
+} from '@robota-sdk/agent-tools/node';
 import { Sandbox } from 'e2b';
 
 declare const provider: IAIProvider;

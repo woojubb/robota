@@ -1,5 +1,8 @@
 # @robota-sdk/pack-coding
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Robota's coding capability as a single
 [`ICapabilityPack`](../agent-capability-pack/README.md): the built-in coding tools, the coding command
 modules, and the coding subagents in one unit that `assembleProduct` can add to any product. The
@@ -14,8 +17,10 @@ npm install @robota-sdk/pack-coding
 ## Usage
 
 ```ts
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createCodingPack } from '@robota-sdk/pack-coding';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
 declare const providerDefinitions: readonly IProviderDefinition[];
@@ -30,15 +35,17 @@ const product = assembleProduct({
   packs: [createCodingPack({ cwd })],
 });
 
-const session = product.buildRuntime({ session: { cwd, provider } });
+const host = createNodeFrameworkHost({ createDefaultTools });
+const session = product.buildRuntime({ session: { host, cwd, provider } });
 void session;
 ```
 
 The pack bundles:
 
-- **tools** — `Shell`, `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebFetch`, `WebSearch`,
+- **tools** — `Shell`, `Bash`, `Read`, `Write`, `Edit`, `Glob`, `Grep`, `WebFetch`,
   `AskUserQuestion` (from `@robota-sdk/agent-tool-defaults`' `createDefaultTools`).
-- **commandModules** — `/shell`, `/editor`, and `/git` (from `@robota-sdk/agent-command`).
+- **commandModules** — `/shell`, `/editor` (from `@robota-sdk/agent-command/node`), and `/git` (from
+  `@robota-sdk/agent-command`).
 - **subagents** — `general-purpose`, `Explore`, `Plan` (agent-framework's built-in agents).
 
 `createCodingPack` passes its `cwd` and optional `sandboxClient` straight to the default tool factory,

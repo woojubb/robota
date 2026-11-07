@@ -2,6 +2,7 @@ import {
   authorityError,
   StableFileAuthorityError,
   type IStableRootedFileReader,
+  type IStableRootedDirectoryEntry,
 } from './contracts.js';
 import { createHostBackend } from './host-factory.js';
 import {
@@ -17,6 +18,7 @@ export type { IFileAuthorityTestHooks } from './host-backend.js';
 const finalizer = new FinalizationRegistry<IStableFileHostBackend>((backend) => {
   backend.close();
 });
+const readerBackends = new WeakMap<IStableRootedFileReader, IStableFileHostBackend>();
 
 function validateReadInput(relativeSegments: readonly string[], maxBytes: number): void {
   validateRelativeSegments(relativeSegments);
@@ -33,6 +35,7 @@ class StableRootedFileReader implements IStableRootedFileReader {
   ) {
     const backend = createHostBackend(validateRootDirectory(rootDirectory));
     this.backend = backend;
+    readerBackends.set(this, backend);
     finalizer.register(this, backend, this.finalizerToken);
   }
 
@@ -46,6 +49,24 @@ class StableRootedFileReader implements IStableRootedFileReader {
       if (error instanceof StableFileAuthorityError) throw error;
       throw authorityError('HOST_IO', 'read');
     }
+  }
+
+  listDirectory(relativeSegments: readonly string[]): readonly IStableRootedDirectoryEntry[] {
+    const backend = this.backend;
+    if (backend === undefined) throw authorityError('AUTHORITY_CLOSED', 'list-directory');
+    if (!Array.isArray(relativeSegments)) throw authorityError('INVALID_PATH', 'validate-segments');
+    if (relativeSegments.length > 0) validateRelativeSegments(relativeSegments);
+    return backend.listDirectory(relativeSegments);
+  }
+
+  inspectKind(relativeSegments: readonly string[]): IStableRootedDirectoryEntry['kind'] | undefined {
+    if (this.backend === undefined) throw authorityError('AUTHORITY_CLOSED', 'inspect-kind');
+    if (!Array.isArray(relativeSegments)) throw authorityError('INVALID_PATH', 'validate-segments');
+    if (relativeSegments.length === 0) return 'directory';
+    validateRelativeSegments(relativeSegments);
+    if (this.backend.inspectKind !== undefined) return this.backend.inspectKind(relativeSegments);
+    const entries = this.listDirectory(relativeSegments.slice(0, -1));
+    return entries.find((entry) => entry.name === relativeSegments.at(-1))?.kind;
   }
 
   close(): void {
@@ -69,6 +90,41 @@ class StableRootedFileReader implements IStableRootedFileReader {
 /** Create a stable, opaque read authority rooted at the currently opened directory identity. */
 export function createStableRootedFileReader(rootDirectory: string): IStableRootedFileReader {
   return new StableRootedFileReader(rootDirectory, {});
+}
+
+/** Refuse unless two live opaque readers retain the same directory object. */
+export function assertSameStableRoot(
+  approved: IStableRootedFileReader,
+  operation: IStableRootedFileReader,
+): void {
+  const approvedBackend = readerBackends.get(approved);
+  const operationBackend = readerBackends.get(operation);
+  if (approvedBackend === undefined || operationBackend === undefined) {
+    throw authorityError('INVALID_PATH', 'compare-roots');
+  }
+  approvedBackend.assertSameRoot(operationBackend);
+}
+
+/** Internal bridge for writers that retain their own opaque root backend. */
+export function assertStableReaderMatchesBackend(
+  approved: IStableRootedFileReader,
+  operation: IStableFileHostBackend,
+): void {
+  const backend = readerBackends.get(approved);
+  if (backend === undefined) throw authorityError('INVALID_PATH', 'compare-roots');
+  backend.assertSameRoot(operation);
+}
+
+/** Refuse unless a caller-retained POSIX directory descriptor is the approved live root. */
+export function assertSameStablePosixRootDescriptor(
+  approved: IStableRootedFileReader,
+  descriptor: number,
+): void {
+  const backend = readerBackends.get(approved);
+  if (backend === undefined || backend.assertSamePosixDescriptor === undefined) {
+    throw authorityError('UNSUPPORTED_BACKEND', 'compare-roots');
+  }
+  backend.assertSamePosixDescriptor(descriptor);
 }
 
 /** Internal-only deterministic seams used by native replacement tests. */

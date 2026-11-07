@@ -54,6 +54,12 @@ export const SESSION_CHANGE_REFUSAL_CODES = Object.freeze([
   'unreadable',
   /** The session could not be started. */
   'start_failed',
+  /** A session of that id in this host still holds its record while it closes: trying again works. */
+  'still_closing',
+  /** Another writer holds the record — another process, or a subagent it is lent to; the message names it. */
+  'has_writer',
+  /** The record is not verified as the owner's, and nothing here can ask whether it is. */
+  'unverified',
   /** As many sessions are live as the host allows, and none of them can be closed. */
   'limit',
   /** Anything else; the message says what. */
@@ -98,6 +104,8 @@ export const SESSION_DELETE_REFUSAL_CODES = Object.freeze([
   'live_elsewhere',
   /** The session is running a turn now. */
   'running',
+  /** Another writer holds the record — another process, or a subagent it is lent to; the message names it. */
+  'has_writer',
   /** Anything else; the message says what. */
   'failed',
 ] as const);

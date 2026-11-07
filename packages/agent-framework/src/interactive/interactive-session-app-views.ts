@@ -1,3 +1,5 @@
+import { utf8ByteLength } from '@robota-sdk/agent-core';
+
 import type { IToolAppView } from '@robota-sdk/agent-core';
 
 /** Most views the session keeps for a surface to read. */
@@ -77,7 +79,7 @@ export class ToolAppViewStore {
 
   /** Whether the view was kept. A view that cannot be kept leaves every kept view as it was. */
   put(viewId: string, view: IToolAppView): boolean {
-    const bytes = Buffer.byteLength(JSON.stringify(view), 'utf8');
+    const bytes = utf8ByteLength(JSON.stringify(view));
     if (bytes > this.maxEntryBytes || bytes > this.maxBytes) return false;
     this.delete(viewId);
     this.entries.set(viewId, { view, bytes });

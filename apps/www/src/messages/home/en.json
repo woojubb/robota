@@ -5,7 +5,7 @@
   "lead": "{name} provides a TypeScript SDK for AI agents and a coding CLI built from the same public components. Build agents into your app or use the CLI in your terminal. Configure a model endpoint, tools, permissions, and sessions for your task.",
   "sdkAction": "Build with the SDK",
   "cliAction": "Try the CLI",
-  "heroNote": "Public packages · Node.js 22.12 or later · Model endpoint required",
+  "heroNote": "Public packages · Node.js examples · Model endpoint required",
   "heroVision": "We aim to build agents that can reliably improve the systems they are built on.",
   "jumpLabel": "On this page",
   "jumpLinks": {
@@ -29,7 +29,7 @@
   "copy": "Copy",
   "copied": "Copied",
   "copyFailed": "Copy failed. Select the code to copy it.",
-  "exampleNote": "This example requires a running OpenAI-compatible server and the ID of a model loaded on it. The local port is an example. The 'local' API key is a placeholder for a server without authentication; replace it with your server's credential if needed. A local test of the published packages verified the SDK call and cleanup. The example does not show a real model response.",
+  "exampleNote": "The SDK example targets 3.1.0; install that release after it is published. The 3.0.7 framework package does not export the Node host used here. You also need a running OpenAI-compatible server and the ID of a loaded model. The local port is an example. The 'local' API key is a placeholder for a server without authentication; replace it with your server's credential if needed. The example does not show a real model response.",
   "codeSource": "Inspect the framework source",
   "tasksEyebrow": "Choose a first task",
   "tasksTitle": "Choose how to start.",
@@ -38,7 +38,7 @@
     {
       "title": "Add a query to your app",
       "body": "Install the framework and a provider adapter, then call createQuery from a Node.js script. Use InteractiveSession when your own UI needs a longer conversation.",
-      "needs": "You need Node.js 22.12+, a configured provider endpoint, and a model ID. The example on this page uses a running local OpenAI-compatible server.",
+      "needs": "The example targets SDK 3.1.0, which must be published and installed first. You also need Node.js 22.12+, a configured provider endpoint, and a model ID. This example uses a running local OpenAI-compatible server.",
       "action": "Read the SDK guide"
     },
     {
@@ -98,7 +98,7 @@
     },
     "tools": {
       "title": "Validated tools",
-      "body": "createZodFunctionTool checks model arguments against a zod schema before your function runs. Built-in coding tools cover files, search, shell, web fetch and web search."
+      "body": "createZodFunctionTool checks model arguments against a zod schema before your function runs. Built-in coding tools cover files, search, shell and web fetch."
     },
     "permissions": {
       "title": "Permission modes and rules",
@@ -347,7 +347,7 @@
   "packagesLink": "Browse the package index",
   "installEyebrow": "Install",
   "installTitle": "Choose how to run it.",
-  "installLead": "Published packages need Node.js 22.12 or later. The standalone binary needs nothing else installed.",
+  "installLead": "The npm CLI and Node examples need Node.js 22.12 or later. The standalone binary needs nothing else installed.",
   "installOptions": {
     "npx": {
       "title": "Run without installing",

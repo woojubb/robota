@@ -5,11 +5,15 @@
  * Extracted from Session to separate compaction logic from conversation management.
  */
 
-import { randomUUID } from 'node:crypto';
-
-import { callJournaledProvider, createAbortError, runHooks } from '@robota-sdk/agent-core';
+import {
+  callJournaledProvider,
+  createAbortError,
+  randomId,
+  runHooks,
+} from '@robota-sdk/agent-core';
 
 import { formatConversationEntries } from './conversation-transcript.js';
+import { requireHookTypeExecutors } from './require-hook-type-executors.js';
 
 import type { TCompactTrigger } from './session-types.js';
 import type {
@@ -61,8 +65,8 @@ export interface ICompactionOptions {
    * formatted conversation are appended after it.
    */
   basePrompt?: string;
-  /** Additional hook type executors (e.g. prompt, agent) beyond the core defaults. */
-  hookTypeExecutors?: IHookTypeExecutor[];
+  /** The executors that run hook handlers; required, there is no host default. */
+  hookTypeExecutors: readonly IHookTypeExecutor[];
 }
 
 export class CompactionOrchestrator {
@@ -72,7 +76,7 @@ export class CompactionOrchestrator {
   private readonly hooks?: Record<string, unknown>;
   private readonly compactInstructions?: string;
   private readonly basePrompt?: string;
-  private readonly hookTypeExecutors?: IHookTypeExecutor[];
+  private readonly hookTypeExecutors: readonly IHookTypeExecutor[];
 
   constructor(options: ICompactionOptions) {
     this.sessionId = options.sessionId;
@@ -81,7 +85,10 @@ export class CompactionOrchestrator {
     this.hooks = options.hooks;
     this.compactInstructions = options.compactInstructions;
     this.basePrompt = options.basePrompt;
-    this.hookTypeExecutors = options.hookTypeExecutors;
+    this.hookTypeExecutors = requireHookTypeExecutors(
+      options.hookTypeExecutors,
+      'CompactionOrchestrator',
+    );
   }
 
   setModel(model: string): void {
@@ -146,8 +153,8 @@ export class CompactionOrchestrator {
     const compactPrompt = this.buildCompactionPrompt(history, instructions);
 
     // Call provider to generate summary
-    const callId = randomUUID();
-    const executionId = randomUUID();
+    const callId = randomId();
+    const executionId = randomId();
     let route = provider.resolveModelRoute?.(this.model, executionId) ?? {
       provider: provider.name,
       model: this.model,
@@ -163,7 +170,7 @@ export class CompactionOrchestrator {
       },
       [
         {
-          id: randomUUID(),
+          id: randomId(),
           role: 'user',
           content: compactPrompt,
           state: 'complete' as const,

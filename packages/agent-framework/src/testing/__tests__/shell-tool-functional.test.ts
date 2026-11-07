@@ -7,7 +7,7 @@
  * branches (POSIX sh/bash, Windows cmd/PowerShell) are unit-tested in agent-core's platform-shell
  * tests, which can mock the platform a functional run on a single host cannot.
  */
-import { resolvePlatformShell } from '@robota-sdk/agent-core';
+import { resolvePlatformShell } from '@robota-sdk/agent-core/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';

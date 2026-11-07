@@ -1,4 +1,4 @@
-import { readPackageVersion } from '@robota-sdk/agent-framework';
+import { readPackageVersion } from '@robota-sdk/agent-framework/node';
 import { readFileSync } from 'node:fs';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
@@ -12,10 +12,14 @@ declare const __AGENT_VERSION__: string | undefined;
 declare const __AGENT_SOURCE_VERSION__: string | undefined;
 declare const __AGENT_BUILD_METADATA__: string | null | undefined;
 
-function sourceArtifactMetadata(): { sourceVersion?: string; buildMetadata?: string | null } | undefined {
+function sourceArtifactMetadata():
+  { sourceVersion?: string; buildMetadata?: string | null } | undefined {
   try {
-    return JSON.parse(readFileSync(new URL('../../../../.product/artifact-metadata.json', import.meta.url), 'utf8')) as {
-      sourceVersion?: string; buildMetadata?: string | null;
+    return JSON.parse(
+      readFileSync(new URL('../../../../.product/artifact-metadata.json', import.meta.url), 'utf8'),
+    ) as {
+      sourceVersion?: string;
+      buildMetadata?: string | null;
     };
   } catch {
     return undefined;
@@ -34,12 +38,12 @@ export const readVersion = (): string =>
 export const readSourceVersion = (): string =>
   typeof __AGENT_SOURCE_VERSION__ !== 'undefined' && __AGENT_SOURCE_VERSION__
     ? __AGENT_SOURCE_VERSION__
-    : sourceArtifactMetadata()?.sourceVersion ?? readPackageVersion(import.meta.url);
+    : (sourceArtifactMetadata()?.sourceVersion ?? readPackageVersion(import.meta.url));
 
 export const readBuildMetadata = (): string | null =>
   typeof __AGENT_BUILD_METADATA__ !== 'undefined'
-    ? __AGENT_BUILD_METADATA__ ?? null
-    : sourceArtifactMetadata()?.buildMetadata ?? null;
+    ? (__AGENT_BUILD_METADATA__ ?? null)
+    : (sourceArtifactMetadata()?.buildMetadata ?? null);
 
 /** The entry's artifact metadata wins over the SDK package's own build constants. */
 export const runtimeVersion = (runtime: ICliRuntimeContext): string =>
@@ -48,7 +52,7 @@ export const runtimeVersion = (runtime: ICliRuntimeContext): string =>
 export const runtimeSourceVersion = (runtime: ICliRuntimeContext): string =>
   runtime.artifact === undefined
     ? readSourceVersion()
-    : runtime.artifact.sourceVersion ?? runtime.artifact.version;
+    : (runtime.artifact.sourceVersion ?? runtime.artifact.version);
 
 export const runtimeBuildMetadata = (runtime: ICliRuntimeContext): string | null =>
-  runtime.artifact === undefined ? readBuildMetadata() : runtime.artifact.buildMetadata ?? null;
+  runtime.artifact === undefined ? readBuildMetadata() : (runtime.artifact.buildMetadata ?? null);

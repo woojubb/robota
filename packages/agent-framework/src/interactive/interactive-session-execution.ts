@@ -4,12 +4,11 @@
  * Contains abort detection, tool-summary extraction, and prompt preparation utilities.
  */
 
-import { randomUUID } from 'node:crypto';
-
 import {
   collectAssistantUsageMetadata,
   calculateModelCost,
   isAbortFailure,
+  randomId,
   SPAN_EVENTS,
   PROVIDER_CALL_EVENTS,
   PROVIDER_FALLBACK_EVENTS,
@@ -125,7 +124,7 @@ export function buildInterruptedResult(
 
 export function createUsageSummaryEntry(usage: IUsageSnapshot): IHistoryEntry<IUsageSnapshot> {
   return {
-    id: `usage_${randomUUID()}`,
+    id: `usage_${randomId()}`,
     timestamp: new Date(),
     category: 'event',
     type: 'usage-summary',
@@ -168,7 +167,7 @@ export function createSourceUsageSummaryEntry(
  */
 export function createSpanEntry(event: ISpanCompletionEventData): IHistoryEntry<ISpanEntry> {
   return {
-    id: `span_${randomUUID()}`,
+    id: `span_${randomId()}`,
     timestamp: new Date(),
     category: 'event',
     type: 'span',

@@ -1,4 +1,3 @@
-import { realpathSync } from 'node:fs';
 import { ExecutionRecoveryError } from '@robota-sdk/agent-core';
 import type {
   IExecutionJournal,
@@ -10,6 +9,8 @@ interface ISessionJournalOwner {
   sessionId: string;
   cwd: string;
   peerTurn: boolean;
+  /** The host's canonical spelling of a directory; the scope a recovery is checked against. */
+  canonicalizePath: (path: string) => string;
 }
 
 /** Stamp runtime authority separately from display-only message attribution. */
@@ -17,7 +18,7 @@ export function sessionExecutionJournal(
   journal: IExecutionJournal,
   owner: ISessionJournalOwner,
 ): IExecutionJournal {
-  const cwd = realpathSync(owner.cwd);
+  const cwd = owner.canonicalizePath(owner.cwd);
   return {
     append: async (record) => {
       if (
@@ -47,9 +48,10 @@ export function sessionRecoveryJournal(
   sessionId: string,
   cwd: string,
   beginTurn: (peerTurn: boolean) => void,
+  canonicalizePath: (path: string) => string,
 ): IRecoverableExecutionJournal {
   let writer: IExecutionJournal | undefined;
-  const scope = realpathSync(cwd);
+  const scope = canonicalizePath(cwd);
   return {
     read: async (executionId) => {
       const records = structuredClone(await journal.read(executionId));
@@ -82,7 +84,7 @@ export function sessionRecoveryJournal(
           'EXECUTION_RECOVERY_INVALID',
           'No Session owner checkpoint exists',
         );
-      writer = sessionExecutionJournal(journal, { sessionId, cwd, peerTurn });
+      writer = sessionExecutionJournal(journal, { sessionId, cwd, peerTurn, canonicalizePath });
       beginTurn(peerTurn);
       return records;
     },

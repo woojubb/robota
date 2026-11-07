@@ -16,7 +16,7 @@ export const featureCatalog = [
   {
     group: 'safety',
     items: [
-      { id: 'tools', guide: 'guide/building-agents', tags: ['createZodFunctionTool', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'WebFetch', 'WebSearch'] },
+      { id: 'tools', guide: 'guide/building-agents', tags: ['createZodFunctionTool', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'Bash', 'WebFetch'] },
       { id: 'permissions', guide: 'guide/permissions-and-hooks', tags: ['plan', 'default', 'acceptEdits', 'auto', 'bypassPermissions'] },
       { id: 'hooks', guide: 'guide/permissions-and-hooks', tags: ['PreToolUse', 'PostToolUse', 'SessionStart', 'UserPromptSubmit'] },
       { id: 'sandbox', guide: 'guide/permissions-and-hooks', tags: ['bubblewrap', 'Seatbelt', '/sandbox'] },
@@ -94,13 +94,13 @@ export const packageGroups = [
   },
   {
     id: 'assembly',
-    packages: ['agent-framework', 'agent-session', 'agent-executor', 'agent-subagent-runner', 'agent-tool-defaults', 'agent-builtin-providers', 'agent-mcp', 'agent-plugin', 'agent-session-analytics', 'agent-telemetry-otel', 'agent-process', 'agent-file-authority'],
+    packages: ['agent-framework', 'agent-session', 'agent-executor', 'agent-subagent-runner', 'agent-tool-defaults', 'agent-builtin-providers', 'agent-mcp', 'agent-plugin', 'agent-session-analytics', 'agent-telemetry-otel', 'agent-process', 'agent-file-authority', 'agent-keyring'],
   },
   { id: 'multiAgent', packages: ['agent-roundtable', 'agent-roundtable-robota'] },
   { id: 'composition', packages: ['agent-product', 'agent-capability-pack', 'pack-coding', 'agent-command', 'agent-preset'] },
   {
     id: 'transports',
-    packages: ['agent-transport', 'agent-transport-ws', 'agent-transport-http', 'agent-transport-mcp', 'agent-transport-acp', 'agent-transport-webrtc', 'agent-remote-pairing', 'agent-ui-terminal'],
+    packages: ['agent-transport', 'agent-transport-ws', 'agent-transport-http', 'agent-transport-mcp', 'agent-transport-acp', 'agent-transport-webrtc', 'agent-transport-link', 'agent-remote-pairing', 'agent-ui-terminal'],
   },
   {
     id: 'contracts',

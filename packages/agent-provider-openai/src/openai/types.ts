@@ -194,11 +194,10 @@ export interface IOpenAIProviderOptions {
   readonly extraBody?: TOpenAIExtraBody;
 
   /**
-   * Provider-native hosted web tool request from provider profile options.
-   *
-   * OpenAI-compatible Chat Completions endpoints do not support this ConversationAgent
-   * native web contract. The provider rejects unsupported configurations before
-   * any model request is sent.
+   * Hosted web search on OpenAI's own Responses API: `{ webSearch: true }` adds a `web_search` tool
+   * to each request that may use tools, and OpenAI runs the searches. Any other surface (Chat
+   * Completions, or a custom `baseURL`) rejects it at construction, before a request is sent.
+   * OpenAI offers no separate hosted web fetch here, so `webFetch: true` is rejected too.
    */
   nativeWebTools?: IOpenAINativeWebToolsOptions;
 
@@ -213,14 +212,14 @@ export interface IOpenAIProviderOptions {
    * response content. Not called on the Responses API surface.
    *
    * Use different implementations based on your environment:
-   * - FilePayloadLogger: Node.js file-based logging
-   * - ConsolePayloadLogger: Browser console-based logging
+   * - FilePayloadLogger (`@robota-sdk/agent-provider-openai/node`): Node.js file-based logging
+   * - ConsolePayloadLogger (`@robota-sdk/agent-provider-openai/loggers`): console logging on any runtime
    * - Custom: Implement IPayloadLogger interface
    *
    * @example
    * ```typescript
    * // Node.js
-   * import { FilePayloadLogger } from '@robota-sdk/agent-provider-openai/loggers';
+   * import { FilePayloadLogger } from '@robota-sdk/agent-provider-openai/node';
    * const provider = new OpenAIProvider({
    *   client: openaiClient,
    *   payloadLogger: new FilePayloadLogger({ logDir: './logs/openai' })

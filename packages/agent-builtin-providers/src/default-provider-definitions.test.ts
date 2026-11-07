@@ -38,6 +38,50 @@ describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
     expect(costByType.qwen).toBe(0.0002);
   });
 
+  it('declares native web search exactly where a profile can switch it on', () => {
+    // A host reads `nativeWebTools` to decide where it may set the profile option; a declaration the
+    // provider does not honour, or an honoured option it does not declare, would let them drift.
+    // Gemini is the deliberate exception: its option works, but only a host can meet Google's terms.
+    for (const definition of createDefaultProviderDefinitions()) {
+      const profiles = [
+        {
+          ...(definition.defaults?.baseURL !== undefined && {
+            baseURL: definition.defaults.baseURL,
+          }),
+        },
+        { baseURL: 'http://localhost:1234/v1' },
+        { options: { apiSurface: 'chat-completions' } },
+      ];
+      for (const profile of profiles) {
+        const build = () =>
+          definition.createProvider({
+            name: definition.type,
+            model: definition.defaults?.model ?? 'test-model',
+            apiKey: 'test-key',
+            ...profile,
+            options: { ...profile.options, nativeWebTools: { webSearch: true } },
+          });
+        const label = `${definition.type} ${JSON.stringify(profile)}`;
+        if (definition.nativeWebTools?.(profile, {}).includes('webSearch') === true) {
+          expect(build().getCapabilities?.().nativeWebTools.webSearch.enabled, label).toBe(true);
+        } else {
+          let enabled = false;
+          try {
+            enabled = build().getCapabilities?.().nativeWebTools.webSearch.enabled === true;
+          } catch {
+            enabled = false;
+          }
+          expect(enabled, label).toBe(definition.type === 'gemini');
+        }
+      }
+    }
+    expect(
+      createDefaultProviderDefinitions()
+        .filter((d) => d.nativeWebTools?.({}, {}).includes('webSearch') === true)
+        .map((d) => d.type),
+    ).toEqual(['anthropic', 'openai']);
+  });
+
   it('declares, for every built-in provider, the environment its client reads to pick a destination', () => {
     // A child process builds the provider from the parent's configuration; only a declared variable
     // is compared before the parent's credential is handed over. An undeclared one is a gap.

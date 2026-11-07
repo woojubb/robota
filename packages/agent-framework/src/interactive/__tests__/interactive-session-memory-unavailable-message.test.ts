@@ -6,6 +6,9 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * #3289 §3 — "Project memory is unavailable without a workspace project authority." named an
@@ -23,7 +26,7 @@ afterEach(() => rmSync(workspace, { recursive: true, force: true }));
 describe('a session with no injected memory store', () => {
   it('says plainly that project memory is not available for this folder', () => {
     const scripted = createScriptedProvider([]);
-    const session = new InteractiveSession({ cwd: workspace, provider: scripted.provider, bare: true });
+    const session = new InteractiveSession({ host: testHost, cwd: workspace, provider: scripted.provider, bare: true });
 
     expect(() => session.getMemoryStore()).toThrow("Project memory isn't available for this folder.");
     expect(() => session.getMemoryStore()).not.toThrow(/workspace project authority/);

@@ -1,3 +1,4 @@
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { mkdirSync, mkdtempSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -8,6 +9,7 @@ import { storeAgentToolDeps } from '../../tools/agent-tool.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { IResolvedConfig } from '../../config/config-types.js';
@@ -15,9 +17,11 @@ import type { ILoadedContext } from '../../context/context-loader.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
-} from '../session-persistence.js';
+} from '../session-store-types.js';
 import type { IToolWithEventService, IAIProvider } from '@robota-sdk/agent-core';
 import type { ITerminalOutput } from '@robota-sdk/agent-session';
+
+const testHost = createTestFrameworkHost();
 
 const mocks = vi.hoisted(() => ({
   createSubagentSession: vi.fn(),
@@ -132,6 +136,7 @@ describe('InteractiveSession skill activation common API', () => {
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({
+      host: testHost,
       session: parentSession as never,
       cwd,
       ...skillHostOptions(cwd),
@@ -180,6 +185,7 @@ describe('InteractiveSession skill activation common API', () => {
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({
+      host: testHost,
       session: parentSession as never,
       cwd,
       ...skillHostOptions(cwd),
@@ -213,6 +219,7 @@ describe('InteractiveSession skill activation common API', () => {
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({
+      host: testHost,
       session: parentSession as never,
       cwd,
       ...skillHostOptions(cwd),
@@ -241,7 +248,11 @@ describe('InteractiveSession skill activation common API', () => {
 
   it('returns null for unknown named user skills', async () => {
     const parentSession = makeParentSession();
-    const session = new InteractiveSession({ session: parentSession as never });
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
+      session: parentSession as never,
+    });
 
     const result = await session.executeSkillCommandByName('missing', '', {
       invocationSource: 'user',
@@ -256,7 +267,11 @@ describe('InteractiveSession skill activation common API', () => {
     const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-natural-language-skill-')));
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
-    const session = new InteractiveSession({ session: parentSession as never, cwd });
+    const session = new InteractiveSession({
+      host: testHost,
+      session: parentSession as never,
+      cwd,
+    });
 
     await session.submit('Use the audit skill to inspect src/index.ts.');
 
@@ -271,7 +286,11 @@ describe('InteractiveSession skill activation common API', () => {
     const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-prompt-only-skill-')));
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
-    const session = new InteractiveSession({ session: parentSession as never, cwd });
+    const session = new InteractiveSession({
+      host: testHost,
+      session: parentSession as never,
+      cwd,
+    });
 
     await session.submit('The audit skill exists in this repository.');
 
@@ -285,15 +304,16 @@ describe('InteractiveSession skill activation common API', () => {
     createTempSkill(cwd);
     const parentSession = makeParentSession(cwd);
     let savedRecord: IInteractiveSessionRecord | undefined;
-    const sessionStore: IInteractiveSessionStore = {
-      save: (record) => {
+    const sessionStore = withHoldReadClaim({
+      save: (record: IInteractiveSessionRecord) => {
         savedRecord = record;
       },
       load: () => ({ status: 'missing' }) as const,
       list: () => [],
       delete: vi.fn(),
-    };
+    });
     const session = new InteractiveSession({
+      host: testHost,
       session: parentSession as never,
       cwd,
       ...skillHostOptions(cwd),
@@ -322,6 +342,7 @@ describe('InteractiveSession skill activation common API', () => {
     ]);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({
+      host: testHost,
       session: parentSession as never,
       cwd,
       ...skillHostOptions(cwd),
@@ -336,6 +357,7 @@ describe('InteractiveSession skill activation common API', () => {
     };
 
     storeAgentToolDeps(parentSession, {
+      host: testHost,
       config: makeConfig(),
       context: makeContext(),
       tools: [makeTool('Read'), makeTool('Write'), makeTool('Agent')],
@@ -421,6 +443,7 @@ describe('a fork skill run as a command with a cancel signal', () => {
     createTempSkill(cwd, 'audit', ['context: fork']);
     const parentSession = makeParentSession(cwd);
     const session = new InteractiveSession({
+      host: testHost,
       session: parentSession as never,
       cwd,
       ...skillHostOptions(cwd),
@@ -428,6 +451,7 @@ describe('a fork skill run as a command with a cancel signal', () => {
       commandModules: [skillsModule as never],
     });
     storeAgentToolDeps(parentSession, {
+      host: testHost,
       config: makeConfig(),
       context: makeContext(),
       tools: [makeTool('Read')],

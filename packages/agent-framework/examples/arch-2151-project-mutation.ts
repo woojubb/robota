@@ -18,6 +18,7 @@ import {
   createWorkspaceProjectSettingsWriter,
   getWorkspaceProjectStateStorage,
 } from '../src/index.js';
+import { createNodeWorkspaceProjectFiles } from '../src/node.js';
 
 import type {
   IWorkspaceIdentity,
@@ -83,6 +84,7 @@ async function main(): Promise<void> {
   const service = new WorkspaceTrustService({
     identityResolver: resolver,
     store: new MemoryTrustStore(),
+    projectFiles: createNodeWorkspaceProjectFiles(),
     projectStateDirectories: {
       sessions: join('.fixture-state', 'sessions'),
       'session-logs': join('.fixture-state', 'logs'),

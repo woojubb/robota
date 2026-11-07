@@ -79,6 +79,7 @@ export {
   assertProviderNativeWebToolsAvailable,
   createDefaultProviderCapabilities,
   getProviderCapabilities,
+  readNativeWebSearchOption,
 } from './interfaces';
 
 export { isImageGenerationProvider, isVideoGenerationProvider } from './interfaces/media-provider';
@@ -114,6 +115,7 @@ export type {
 
 // Message type guards and utilities
 export {
+  PROVIDER_CONTINUATION_METADATA_KEY,
   isUserMessage,
   isAssistantMessage,
   isSystemMessage,
@@ -161,7 +163,24 @@ export {
   resolveEnvReference,
   hasUsableSecretReference,
 } from './utils/env-ref.js';
-export { createRecordEnvResolver, processEnvResolver } from './utils/env-resolver.js';
+export { createRecordEnvResolver } from './utils/env-resolver.js';
+export { randomId } from './utils/random-id.js';
+export { utf8ByteLength } from './utils/utf8-byte-length.js';
+export { utf8Decode } from './utils/utf8-decode.js';
+export { base64UrlDecode } from './utils/base64-url.js';
+export { isJsonEqual } from './utils/json-equal.js';
+export {
+  basenamePath,
+  dirnamePath,
+  isAbsolutePath,
+  isRootedPath,
+  joinPath,
+  relativePath,
+  relativeSegments,
+  resolvePath,
+  separatorOf,
+} from './utils/portable-path.js';
+export { constantTimeEqual, hmacSha256Hex, randomHex, sha1Hex, sha256Hex } from './utils/digest.js';
 export { createBoundedOutput } from './utils/bounded-output.js';
 export { shellArgumentForDisplay } from './utils/shell-argument.js';
 export type {

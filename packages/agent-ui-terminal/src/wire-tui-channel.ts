@@ -191,6 +191,8 @@ export class WireTuiChannel implements ITuiAppChannelPort {
   /** How many prompts wait in the host's queue, the one `pendingPrompt` shows first among them. */
   private pendingCount = 0;
   private hostSessions: readonly ISessionListingEntry[] | undefined;
+  /** The sealed sessions the host's listing left out, from the same listing as `hostSessions`. */
+  private hostLockedSessionCount = 0;
   private sessionListSequence = 0;
   /** Only the answer to the latest listing is shown: an earlier one may predate a switch. */
   private sessionListRequestId: string | undefined;
@@ -292,6 +294,8 @@ export class WireTuiChannel implements ITuiAppChannelPort {
         },
         // Leaving never ends the host's session: it is shared, and it keeps running without us.
         shutdownSession: async () => undefined,
+        // The host's session holds its own claim, in the host's process.
+        releaseSessionClaim: () => undefined,
       },
       0,
     );
@@ -342,7 +346,9 @@ export class WireTuiChannel implements ITuiAppChannelPort {
       permissionRequest: this.permissions.current,
       pendingUserAction: this.userActions.current,
       contextState: manager.contextState,
-      ...(this.hostSessions !== undefined ? { hostSessions: this.hostSessions } : {}),
+      ...(this.hostSessions !== undefined
+        ? { hostSessions: this.hostSessions, hostLockedSessionCount: this.hostLockedSessionCount }
+        : {}),
       transcriptGeneration: this.transcriptGeneration,
       ...(this.readOnly ? { readOnly: true } : {}),
       attached: true,
@@ -644,6 +650,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
       case 'sessions':
         if (frame.requestId !== this.sessionListRequestId) return;
         this.hostSessions = frame.listing.sessions;
+        this.hostLockedSessionCount = frame.listing.lockedSessionCount ?? 0;
         this.notify();
         this.openPendingPicker();
         return;

@@ -10,8 +10,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import InputArea from '../InputArea.js';
 import { ScreenReaderProvider } from '../screen-reader-context.js';
+import { TuiCliAdapterProvider } from '../tui-cli-adapter-context.js';
 
 import type { IInputAreaHistorySearch } from '../hooks/useInputAreaHistorySearch.js';
+import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import type {
   IPromptHistoryBlock,
   IPromptHistoryEntry,
@@ -80,6 +82,8 @@ function renderWith(
   options: {
     readonly screenReader?: boolean;
     readonly onOpenChange?: (open: boolean) => void;
+    /** The terminal holds the keys to unlock (secure mode): `/unlock` exists. */
+    readonly keyCustody?: boolean;
   } = {},
 ): ReturnType<typeof render> & { readonly onSubmit: ReturnType<typeof vi.fn> } {
   const onSubmit = vi.fn();
@@ -89,10 +93,20 @@ function renderWith(
     project: '/here',
     onOpenChange: options.onOpenChange,
   };
-  const rendered = render(
+  const tree = (
     <ScreenReaderProvider enabled={options.screenReader === true}>
       <InputArea onSubmit={onSubmit} isDisabled={false} historySearch={historySearch} />
-    </ScreenReaderProvider>,
+    </ScreenReaderProvider>
+  );
+  const adapter = {
+    keyCustody: { ensureReadable: async () => 'readable' },
+  } as unknown as ITuiCliAdapter;
+  const rendered = render(
+    options.keyCustody === true ? (
+      <TuiCliAdapterProvider value={adapter}>{tree}</TuiCliAdapterProvider>
+    ) : (
+      tree
+    ),
   );
   return { ...rendered, onSubmit };
 }
@@ -324,6 +338,116 @@ describe('SCREEN-1993 TC-04: the history-search overlay', () => {
     stdin.write('2');
     await until(() => (lastFrame() ?? '').includes('query: 2'));
     expect(lastFrame()).toContain('no match');
+    unmount();
+  });
+});
+
+describe('#3679: sealed prompts the overlay cannot open', () => {
+  it('says how many are locked as blocks land, newest first, and that an unlock searches them', async () => {
+    const gate = gatedSource([
+      {
+        entries: [entry('newest readable prompt')],
+        skippedLines: 0,
+        unreadable: { locked: 2, noKeys: 0 },
+      },
+      { entries: [entry('older readable prompt')], skippedLines: 1 },
+      { entries: [], skippedLines: 0, unreadable: { locked: 1, noKeys: 0 } },
+    ]);
+    const { stdin, lastFrame, unmount } = renderWith(gate.source);
+    await tick();
+    stdin.write(CTRL_R);
+    gate.release();
+    await until(() => (lastFrame() ?? '').includes('newest readable prompt'));
+    expect(lastFrame()).toContain('2 prompts are sealed and locked; unlock to search them.');
+    expect(lastFrame()).not.toContain('older readable prompt');
+
+    gate.release();
+    await until(() => (lastFrame() ?? '').includes('older readable prompt'));
+    expect(lastFrame()).toContain('1 unreadable line skipped');
+    gate.release();
+    await until(() => (lastFrame() ?? '').includes('3 prompts are sealed and locked'));
+    await until(() => !(lastFrame() ?? '').includes('loading…'));
+    expect(lastFrame()).toContain('3 prompts are sealed and locked; unlock to search them.');
+    unmount();
+  });
+
+  it('names /unlock for locked prompts where this terminal holds the keys to unlock', async () => {
+    const source: IPromptHistorySource = {
+      async *read() {
+        yield {
+          entries: [entry('a readable prompt')],
+          skippedLines: 0,
+          unreadable: { locked: 2, noKeys: 0 },
+        };
+      },
+    };
+    const { stdin, lastFrame, unmount } = renderWith(source, { keyCustody: true });
+    await tick();
+    stdin.write(CTRL_R);
+    await until(() => (lastFrame() ?? '').includes('2 prompts are sealed and locked'));
+    expect(lastFrame()).toContain('2 prompts are sealed and locked; run `/unlock` to search them.');
+    unmount();
+  });
+
+  it('never says unlock for prompts no key in this process opens', async () => {
+    const source: IPromptHistorySource = {
+      async *read() {
+        yield {
+          entries: [entry('a readable prompt')],
+          skippedLines: 0,
+          unreadable: { locked: 0, noKeys: 1 },
+        };
+        yield { entries: [], skippedLines: 0, unreadable: { locked: 1, noKeys: 3 } };
+      },
+    };
+    const { stdin, lastFrame, unmount } = renderWith(source);
+    await tick();
+    stdin.write(CTRL_R);
+    await until(() =>
+      (lastFrame() ?? '').includes('4 prompts are sealed; this process has no keys to open them.'),
+    );
+    expect(lastFrame()).toContain('1 prompt is sealed and locked; unlock to search it.');
+    unmount();
+
+    const single: IPromptHistorySource = {
+      async *read() {
+        yield { entries: [], skippedLines: 0, unreadable: { locked: 0, noKeys: 1 } };
+      },
+    };
+    const second = renderWith(single);
+    await tick();
+    second.stdin.write(CTRL_R);
+    await until(() =>
+      (second.lastFrame() ?? '').includes(
+        '1 prompt is sealed; this process has no keys to open it.',
+      ),
+    );
+    expect(second.lastFrame()).not.toMatch(/unlock/i);
+    second.unmount();
+  });
+
+  it('starts every open from nothing, so counts never carry over from a cancelled read', async () => {
+    let opens = 0;
+    const source: IPromptHistorySource = {
+      async *read() {
+        opens += 1;
+        yield {
+          entries: [entry(`prompt from open ${opens}`)],
+          skippedLines: 0,
+          unreadable: { locked: 5, noKeys: 0 },
+        };
+      },
+    };
+    const { stdin, lastFrame, unmount } = renderWith(source);
+    await tick();
+    stdin.write(CTRL_R);
+    await until(() => (lastFrame() ?? '').includes('prompt from open 1'));
+    stdin.write(ESCAPE);
+    await until(() => !(lastFrame() ?? '').includes('(reverse-i-search)'));
+    stdin.write(CTRL_R);
+    await until(() => (lastFrame() ?? '').includes('prompt from open 2'));
+    expect(lastFrame()).toContain('5 prompts are sealed and locked');
+    expect(lastFrame()).not.toContain('prompt from open 1');
     unmount();
   });
 });

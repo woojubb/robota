@@ -9,9 +9,8 @@
  *   resulting screenshot so the model re-perceives (gated `approve`/`deny` like `Shell`).
  *
  * The typed action union stays WHOLE in the driver contract (`./types.ts`); this file only maps the
- * tool-boundary argument onto it. With no driver the tools report unavailability — they are added to the
- * default set ONLY when a driver is present (adapter-gated; there is NO host fallback — see
- * `createDefaultTools`).
+ * tool-boundary argument onto it. With no driver the tools report unavailability. There is NO host
+ * fallback: the composition root that owns a driver builds these tools itself.
  */
 
 import { z } from 'zod';
@@ -208,8 +207,8 @@ export function createComputerActTool(options: IComputerToolOptions = {}): Funct
 
 /**
  * Create BOTH computer-use tools — `ComputerView` (perceive) and `Computer` (act) — over one injected
- * driver. Mirrors `create*Tool(options)`; returns the pair so the assembly layer can spread them into the
- * default set adapter-gated (see `createDefaultTools`).
+ * driver. Mirrors `create*Tool(options)`; returns the pair so the composition root that owns the driver
+ * can add both.
  */
 export function createComputerTool(options: IComputerToolOptions = {}): FunctionTool[] {
   return [createComputerViewTool(options), createComputerActTool(options)];

@@ -1,32 +1,32 @@
 {
   "name": "@robota-sdk/agent-session",
-  "version": "3.0.7",
+  "version": "3.1.0",
   "description": "Session for the Robota SDK: permission-gated tool execution, hooks, context tracking, compaction and persistence",
   "type": "module",
-  "main": "dist/node/index.js",
-  "types": "dist/node/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "source": "./src/index.ts",
-      "node": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
       },
-      "default": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    },
+    "./node": {
+      "source": "./src/node.ts",
+      "browser": null,
+      "import": {
+        "types": "./dist/node.d.ts",
+        "default": "./dist/node.js"
+      },
+      "require": {
+        "types": "./dist/node.d.cts",
+        "default": "./dist/node.cjs"
       }
     },
     "./package.json": "./package.json"
@@ -83,7 +83,8 @@
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-file-authority": "workspace:*",
     "@robota-sdk/agent-interface-execution": "workspace:*",
-    "@robota-sdk/agent-interface-session": "workspace:*"
+    "@robota-sdk/agent-interface-session": "workspace:*",
+    "koffi": "3.3.1"
   },
   "devDependencies": {
     "eslint": "^8.57.1",

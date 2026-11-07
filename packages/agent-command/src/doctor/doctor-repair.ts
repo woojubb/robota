@@ -4,16 +4,15 @@
  * Two entries, both existing idempotent writers, both gated on the state being re-read IMMEDIATELY
  * before the write (the report a user read a minute ago is not the state on disk now):
  * - the host's own user settings file (id `settings.user.<family>`) exists but holds nothing
- *   (`empty`); rewriting it as `{}` through `writeSettings` loses no content and changes neither
+ *   (`empty`); rewriting it as `{}` through the host's settings writer loses no content and changes neither
  *   onboarding (`isFirstRun` keys on a separate marker) nor provider setup (which keys on document
  *   content).
  * - `storage.user` — the host's user store root or its sessions directory is missing or not
- *   owner-only; `ensureOwnerOnlyDirectory` creates and tightens both.
+ *   owner-only; the host's owner-only directory writer creates and tightens both.
  * Anything else — an unknown id, a state that is not the repairable one, an already-clean check —
  * is refused with no write.
  */
-import { ensureOwnerOnlyDirectory } from '@robota-sdk/agent-core/node';
-import { inspectSettingsLayers, writeSettings } from '@robota-sdk/agent-framework';
+import { inspectSettingsLayers } from '@robota-sdk/agent-framework';
 
 import {
   isRepairableSettingsLayer,
@@ -66,7 +65,7 @@ function planSettingsRepair(id: string, inputs: IDoctorInputs): TDoctorRepairPla
     plan: {
       id,
       description: 'rewrite the empty user settings file as {}',
-      path: layer.source.path,
+      path: inputs.userSettingsPath,
     },
   };
 }
@@ -128,9 +127,9 @@ export async function applyDoctorRepair(
     return { applied: false, reason: `${current.reason} (state changed before the write)` };
   if (current.plan.id === STORAGE_REPAIR_ID) {
     const { root, sessions } = inputs.userStorage;
-    ensureOwnerOnlyDirectory(sessions, { withinRoot: root });
+    deps.ensureOwnerOnlyDirectory(sessions, { withinRoot: root });
   } else {
-    writeSettings(current.plan.path, {});
+    deps.writeSettings(current.plan.path, {});
   }
   return { applied: true, plan: current.plan };
 }

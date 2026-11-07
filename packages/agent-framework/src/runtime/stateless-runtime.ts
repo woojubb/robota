@@ -9,20 +9,34 @@
  * loading and plugin discovery). Override per-session if needed.
  */
 
+import { requireFrameworkHost } from '../host/require-framework-host.js';
 import { createAgentRuntime } from './session-runtime.js';
 
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { IAgentRuntime } from './session-runtime.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 export interface IStatelessRuntimeConfig {
+  /** The platform the runtime's sessions run on; `{}` is a host with nothing to lend. See `IFrameworkHost`. */
+  host: IFrameworkHost;
   provider: IAIProvider;
-  /** Working directory. Defaults to process.cwd(). Not used for file I/O in stateless mode. */
-  cwd?: string;
+  /** The absolute working directory. Not used for file I/O in stateless mode. */
+  cwd: string;
 }
 
 export function createStatelessRuntime(config: IStatelessRuntimeConfig): IAgentRuntime {
+  requireFrameworkHost(config.host, 'createStatelessRuntime');
+  // The runtime hands this to every session it creates, which refuses a missing root only when one
+  // is created; say so here, where the caller can still see which call omitted it.
+  if (typeof config.cwd !== 'string' || config.cwd.length === 0) {
+    throw new Error(
+      'createStatelessRuntime requires `cwd`: the absolute path its sessions run in. Pass ' +
+        '`process.cwd()` explicitly if that is genuinely what you mean.',
+    );
+  }
   const runtime = createAgentRuntime({
-    cwd: config.cwd ?? process.cwd(),
+    host: config.host,
+    cwd: config.cwd,
     provider: config.provider,
     sessionStore: undefined,
     commandHostAdapters: {

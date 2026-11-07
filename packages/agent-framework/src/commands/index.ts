@@ -68,10 +68,7 @@ export {
   probeProviderProfile,
   testProviderProfileCommand,
 } from '../command-api/provider/provider-command-probe.js';
-export {
-  checkSettingsDocument,
-  checkNodeHostSettingsFile,
-} from '../command-api/provider/settings-check.js';
+export { checkSettingsDocument } from '../command-api/provider/settings-check.js';
 export type { TSettingsCheck } from '../command-api/provider/settings-check.js';
 export {
   applyProviderConfiguration,
@@ -91,6 +88,8 @@ export {
   resolveActiveProvider,
 } from '../command-api/provider/provider-merge.js';
 export type { IReadProviderSettingsOptions } from '../command-api/provider/provider-factory.js';
+export { resolveProviderEnvironment } from '../command-api/provider/provider-environment.js';
+export type { TProviderEnvironment } from '../command-api/provider/provider-environment.js';
 export {
   createProviderFromSettings,
   ProviderConfigError,
@@ -289,6 +288,7 @@ export {
   buildRewindCommandSubcommands,
   inspectCommandEditCheckpoint,
   listCommandEditCheckpoints,
+  readCommandEditCheckpointListing,
   restoreCommandEditCheckpoint,
   rollbackCommandEditCheckpoint,
   forkCommandEditCheckpoint,

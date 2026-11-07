@@ -6,13 +6,18 @@
  * If a feature works, these tests pass. If a feature breaks, these fail.
  */
 
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { describe, it, expect, vi } from 'vitest';
 
 import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
+import type { TInteractiveSessionOptions } from '../interactive-session.js';
 import type { IExecutionResult, IToolState } from '../types.js';
 import type { IUsageObservation } from '@robota-sdk/agent-interface-analytics';
+
+const testHost = createTestFrameworkHost();
 
 function recordedObservation(session: InteractiveSession): IUsageObservation {
   const entries = session.getFullHistory().filter((entry) => entry.type === 'usage-observation');
@@ -118,6 +123,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('user submits a prompt → user message + assistant message appear in history', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession({ runResult: 'Hello back!' }) as never,
       cwd: '/tmp',
     });
@@ -182,7 +188,11 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       });
       return 'private response';
     });
-    const session = new InteractiveSession({ session: mockSession as never, cwd: '/tmp' });
+    const session = new InteractiveSession({
+      host: testHost,
+      session: mockSession as never,
+      cwd: '/tmp',
+    });
 
     await session.submit('private prompt');
 
@@ -266,6 +276,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
     const enqueue = vi.fn();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
       livePromptTrace: { enqueue },
@@ -316,6 +327,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
     const enqueue = vi.fn();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
       livePromptTrace: { enqueue },
@@ -363,6 +375,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
     const enqueue = vi.fn();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
       livePromptTrace: { enqueue },
@@ -415,6 +428,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
     const enqueue = vi.fn();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
       livePromptTrace: { enqueue },
@@ -444,6 +458,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       throw new Error('private diagnostic');
     });
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
       livePromptTrace: { enqueue, onFailure },
@@ -462,6 +477,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     const mockSession = createMockSession({ runResult: 'response' });
     const enqueue = vi.fn();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
       livePromptTrace: { enqueue },
@@ -509,7 +525,11 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       }
       return 'private response';
     });
-    const session = new InteractiveSession({ session: mockSession as never, cwd: '/tmp' });
+    const session = new InteractiveSession({
+      host: testHost,
+      session: mockSession as never,
+      cwd: '/tmp',
+    });
     await session.submit('private prompt');
 
     const root = recordedObservation(session);
@@ -542,6 +562,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -563,6 +584,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -596,6 +618,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -647,6 +670,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -693,6 +717,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('non-abort errors produce error system message', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession({ runError: new Error('API rate limit exceeded') }) as never,
       cwd: '/tmp',
     });
@@ -730,6 +755,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     mockSession.run.mockImplementationOnce(controllableRun.run);
 
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -779,6 +805,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('ERR-001 G1: reportBackgroundError surfaces an out-of-turn error into history and events', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession() as never,
       cwd: '/tmp',
     });
@@ -812,16 +839,22 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('keeps provider error guidance scoped to each session', () => {
     const first = new InteractiveSession({
+      host: testHost,
       session: createMockSession() as never,
       cwd: '/tmp',
       providerErrorGuidance: { authentication: 'Configure product A.' },
     });
     const second = new InteractiveSession({
+      host: testHost,
       session: createMockSession() as never,
       cwd: '/tmp',
       providerErrorGuidance: { authentication: 'Configure product B.' },
     });
-    const neutral = new InteractiveSession({ session: createMockSession() as never, cwd: '/tmp' });
+    const neutral = new InteractiveSession({
+      host: testHost,
+      session: createMockSession() as never,
+      cwd: '/tmp',
+    });
 
     for (const session of [first, second, neutral]) {
       session.reportBackgroundError(new Error('401 Unauthorized'));
@@ -840,6 +873,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('uses this session’s provider guidance for a failed prompt turn', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession({ runError: new Error('429 rate limit') }) as never,
       cwd: '/tmp',
       providerErrorGuidance: { rateLimit: 'Choose another model in product A.' },
@@ -858,6 +892,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('getActiveTools returns empty array after execution completes', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession() as never,
       cwd: '/tmp',
     });
@@ -875,6 +910,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('thinking transitions: false → true → false on submit', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession({ runResult: 'done' }) as never,
       cwd: '/tmp',
     });
@@ -893,6 +929,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('context_update event fires after completion with current state', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession() as never,
       cwd: '/tmp',
     });
@@ -908,6 +945,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('keeps the prompt root successful when a later context update fails', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession({ runResult: 'completed response' }) as never,
       cwd: '/tmp',
     });
@@ -927,6 +965,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('keeps the first prompt outcome when a later context update aborts', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession({ runResult: 'completed response' }) as never,
       cwd: '/tmp',
     });
@@ -945,9 +984,11 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('injected sessions without cwd emit error on submit', async () => {
     const beginTurn = vi.spyOn(EditCheckpointStore.prototype, 'beginTurn');
+    // `cwd` is a required option; a JavaScript consumer is not type-checked and can still omit it.
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession() as never,
-    });
+    } as unknown as TInteractiveSessionOptions);
 
     let errorMsg: string | undefined;
     session.on('error', (err) => {
@@ -967,6 +1008,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('multiple prompts accumulate in message history', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession({ runResult: 'response' }) as never,
       cwd: '/tmp',
     });
@@ -990,6 +1032,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('off() stops receiving events', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession() as never,
       cwd: '/tmp',
     });
@@ -1018,6 +1061,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('submit passes rawInput to session.run() for hook matching', async () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -1033,6 +1077,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('submit without rawInput passes undefined as second arg', async () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -1046,6 +1091,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('displayInput overrides user message (skill prompt not shown as You:)', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession() as never,
       cwd: '/tmp',
     });
@@ -1060,6 +1106,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('without displayInput, user message shows the actual input', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession() as never,
       cwd: '/tmp',
     });
@@ -1087,6 +1134,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -1107,6 +1155,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   it('activeTools not cleared when execution ends (cleared on next start)', async () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -1149,6 +1198,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -1197,6 +1247,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -1232,14 +1283,15 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   // ── Scenario: SessionStore auto-persist ────────────────────────
 
   it('auto-persists session to SessionStore after submit', async () => {
-    const mockSessionStore = {
+    const mockSessionStore = withHoldReadClaim({
       save: vi.fn(),
       load: vi.fn().mockReturnValue({ status: 'missing' }),
       list: vi.fn().mockReturnValue([]),
       delete: vi.fn(),
-    };
+    });
 
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession({ runResult: 'hello' }) as never,
       cwd: '/tmp',
       sessionStore: mockSessionStore,
@@ -1285,7 +1337,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       },
     ];
 
-    const mockSessionStore = {
+    const mockSessionStore = withHoldReadClaim({
       save: vi.fn(),
       load: vi.fn().mockReturnValue({
         status: 'valid',
@@ -1315,10 +1367,11 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       }),
       list: vi.fn().mockReturnValue([]),
       delete: vi.fn(),
-    };
+    });
 
     const mockSession = createMockSession();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
       sessionStore: mockSessionStore,
@@ -1329,8 +1382,8 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     const history = session.getFullHistory();
     expect(history).toHaveLength(2);
 
-    // SessionStore.load should have been called with the resume ID
-    expect(mockSessionStore.load).toHaveBeenCalledWith('prev-session');
+    // SessionStore.load should have been called with the resume ID, holding it: a resume saves it next
+    expect(mockSessionStore.load).toHaveBeenCalledWith('prev-session', { hold: true });
 
     // Messages should have been injected into Session's ConversationAgent for AI context
     expect(mockSession.injectRawMessage).toHaveBeenCalledTimes(2);
@@ -1346,6 +1399,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('getName returns session name', () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession() as never,
       cwd: '/tmp',
       sessionName: 'my-session',
@@ -1354,7 +1408,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   });
 
   it('setName updates name and persists', () => {
-    const mockSessionStore = {
+    const mockSessionStore = withHoldReadClaim({
       save: vi.fn(),
       load: vi.fn().mockReturnValue({
         status: 'valid',
@@ -1368,10 +1422,11 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       }),
       list: vi.fn().mockReturnValue([]),
       delete: vi.fn(),
-    };
+    });
 
     const mockSession = createMockSession();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
       sessionStore: mockSessionStore,
@@ -1383,7 +1438,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
   });
 
   it('keeps the live name unchanged when a persisted rename is refused', () => {
-    const mockSessionStore = {
+    const mockSessionStore = withHoldReadClaim({
       save: vi.fn(() => {
         throw new Error('storage refused');
       }),
@@ -1399,8 +1454,9 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       }),
       list: vi.fn().mockReturnValue([]),
       delete: vi.fn(),
-    };
+    });
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession() as never,
       cwd: '/tmp',
       sessionName: 'before',
@@ -1423,6 +1479,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     };
 
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession() as never,
       cwd: '/tmp',
     } as never);
@@ -1433,6 +1490,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('no tool summary when no tools were executed', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession({ runResult: 'simple answer' }) as never,
       cwd: '/tmp',
     } as never);
@@ -1450,14 +1508,15 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   describe('Session persistence and restore — round-trip', () => {
     it('persisted history matches InteractiveSession.getFullHistory() exactly', async () => {
-      const mockSessionStore = {
+      const mockSessionStore = withHoldReadClaim({
         save: vi.fn(),
         load: vi.fn().mockReturnValue({ status: 'missing' }),
         list: vi.fn().mockReturnValue([]),
         delete: vi.fn(),
-      };
+      });
 
       const session = new InteractiveSession({
+        host: testHost,
         session: createMockSession({ runResult: 'answer' }) as never,
         cwd: '/tmp',
         sessionStore: mockSessionStore,
@@ -1473,14 +1532,15 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     it('persists system prompt and tool schemas for session restore diagnostics', async () => {
-      const mockSessionStore = {
+      const mockSessionStore = withHoldReadClaim({
         save: vi.fn(),
         load: vi.fn().mockReturnValue({ status: 'missing' }),
         list: vi.fn().mockReturnValue([]),
         delete: vi.fn(),
-      };
+      });
 
       const session = new InteractiveSession({
+        host: testHost,
         session: createMockSession({ runResult: 'answer' }) as never,
         cwd: '/tmp',
         sessionStore: mockSessionStore,
@@ -1499,14 +1559,15 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     it('multiple submits accumulate in persisted history', async () => {
-      const mockSessionStore = {
+      const mockSessionStore = withHoldReadClaim({
         save: vi.fn(),
         load: vi.fn().mockReturnValue({ status: 'missing' }),
         list: vi.fn().mockReturnValue([]),
         delete: vi.fn(),
-      };
+      });
 
       const session = new InteractiveSession({
+        host: testHost,
         session: createMockSession({ runResult: 'response' }) as never,
         cwd: '/tmp',
         sessionStore: mockSessionStore,
@@ -1555,7 +1616,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
         },
       ];
 
-      const mockSessionStore = {
+      const mockSessionStore = withHoldReadClaim({
         save: vi.fn(),
         load: vi.fn().mockReturnValue({
           status: 'valid',
@@ -1585,9 +1646,10 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
         }),
         list: vi.fn().mockReturnValue([]),
         delete: vi.fn(),
-      };
+      });
 
       const session = new InteractiveSession({
+        host: testHost,
         session: createMockSession({ runResult: 'new answer' }) as never,
         cwd: '/tmp',
         sessionStore: mockSessionStore,
@@ -1624,6 +1686,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
 
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     } as never);

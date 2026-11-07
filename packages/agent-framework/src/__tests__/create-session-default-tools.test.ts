@@ -19,9 +19,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { createTestFrameworkHost } from '../testing/framework-host.js';
 
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 const sessionCtorCalls: Array<Record<string, unknown>> = [];
 
@@ -96,6 +99,8 @@ async function assembleToolNames(
   // session is not constructed until that resolves. Without this await the ctor-call spy below reads
   // an empty array and every case here reports "no tools" as if the tier had vanished.
   await createSession({
+    host: testHost,
+    cwd: process.cwd(),
     config: baseConfig(),
     context: { agentsMd: '', projectNotesMd: '' },
     terminal: MOCK_TERMINAL,

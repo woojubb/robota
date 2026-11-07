@@ -6,9 +6,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  */
 import { createInterface } from 'node:readline/promises';
 
-import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework';
-
-import { userPaths } from '../product/user-paths.js';
+import { BrokeredWorkspaceTrustService } from './brokered-workspace-trust.js';
 import { formatProjectContributionPreview } from './project-contribution-preview.js';
 
 import { subcommandWord, type IParsedCliArgs } from '../utils/cli-args.js';
@@ -99,11 +97,25 @@ export function trustQuestionFor(
 }
 
 /** Record the grant a person just gave, in the user's trust store. */
-export function grantWorkspaceTrust(cwd: string, runtime: ICliRuntimeContext): Promise<TWorkspaceProjectAccess> {
-  return createNodeWorkspaceTrustService(
-    userPaths(runtime).workspaceTrust,
-    runtime.layout.projectStateDirectories,
-  ).grant(cwd);
+export async function prepareWorkspaceTrustApproval(
+  cwd: string,
+  runtime: ICliRuntimeContext,
+): Promise<{ candidate: string; grant(): Promise<TWorkspaceProjectAccess>; release(): Promise<void> }> {
+  const service = await BrokeredWorkspaceTrustService.create(runtime);
+  const candidate = await service.prepare(cwd);
+  return {
+    candidate,
+    grant: () => service.grant(cwd, candidate),
+    release: () => service.release(candidate),
+  };
+}
+
+export async function grantWorkspaceTrust(
+  cwd: string,
+  runtime: ICliRuntimeContext,
+  candidate: string,
+): Promise<TWorkspaceProjectAccess> {
+  return (await BrokeredWorkspaceTrustService.create(runtime)).grant(cwd, candidate);
 }
 
 /** The access this run starts with: the decision made, or a grant the person just gave. */
@@ -115,6 +127,15 @@ export async function askToTrustWorkspace(
   if (!options.interactive || options.accessFixed) return access;
   if (!canAskToTrust(access)) return access;
   const write = options.write ?? ((text: string) => void process.stdout.write(text));
+  let approval: Awaited<ReturnType<typeof prepareWorkspaceTrustApproval>> | undefined;
+  if (options.grant === undefined) {
+    try {
+      approval = await prepareWorkspaceTrustApproval(cwd, options.productRuntime);
+    } catch (error) {
+      write(`Could not prepare workspace trust (${error instanceof Error ? error.message : String(error)}). Starting Restricted.\n`);
+      return access;
+    }
+  }
   write(
     [
       `This folder is not trusted: ${access.displayPath ?? cwd}`,
@@ -123,14 +144,22 @@ export async function askToTrustWorkspace(
       formatProjectContributionPreview(access.identity, cwd, options.productRuntime),
     ].join('\n'),
   );
-  const confirmed = await (options.confirm ?? confirmOnTerminal)('Trust this folder? [y/N] ');
+  let confirmed: boolean;
+  try {
+    confirmed = await (options.confirm ?? confirmOnTerminal)('Trust this folder? [y/N] ');
+  } catch (error) {
+    if (approval !== undefined) await approval.release().catch(() => undefined);
+    throw error;
+  }
   if (!confirmed) {
+    if (approval !== undefined) await approval.release().catch(() => undefined);
     write(`Starting Restricted. Trust it later with: ${options.productRuntime.config.identity.cliName} trust --yes\n`);
     return access;
   }
   try {
-    return await (options.grant ?? ((path) => grantWorkspaceTrust(path, options.productRuntime)))(cwd);
+    return await (options.grant ?? (() => approval!.grant()))(cwd);
   } catch (error) {
+    if (approval !== undefined) await approval.release().catch(() => undefined);
     // The person said yes and it did not take: say so and start as a no would, not crash the start.
     write(
       `Could not record trust (${error instanceof Error ? error.message : String(error)}). ` +

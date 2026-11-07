@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import * as pty from '@homebridge/node-pty-prebuilt-multiarch';
 import { expect, it } from 'vitest';
 import { createBuiltInBinaryEnvironment } from '../helpers/product-runtime.js';
+import { approveTestWorkspaceCommand } from '../helpers/approve-test-workspace.js';
 
 it.each(['19.2.7', '19.3.1'])(
   'starts an installed interactive CLI alongside a web UI using React %s',
@@ -98,11 +99,8 @@ it.each(['19.2.7', '19.3.1'])(
         throw new Error('fixture server did not start');
       const cli = join(consumer, 'node_modules/@robota-sdk/agent-cli/bin/agent.cjs');
       execFileSync('git', ['init', '--quiet'], { cwd: workspace, env });
-      execFileSync(process.execPath, [cli, 'trust', '--yes'], {
-        cwd: workspace,
-        env,
-        timeout: 20_000,
-      });
+      const trust = await approveTestWorkspaceCommand(process.execPath, workspace, env, [cli]);
+      expect(trust.status, trust.stdout).toBe(0);
       execFileSync(
         process.execPath,
         [

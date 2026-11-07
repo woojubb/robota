@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 
+import { endWithProcess, withChildSession } from '@robota-sdk/agent-core/node';
 import { killProcessTree } from '@robota-sdk/agent-process';
 import { Cron, type CronOptions } from 'croner';
 
@@ -23,6 +24,7 @@ import {
   type IScheduleEditPatch,
   type TBackgroundTaskRunnerEvent,
 } from '../types.js';
+import { nextScheduledFireOnOrAfter } from './scheduled-fire-time.js';
 import { resolveBackgroundTaskShellCommand } from './shell-command-resolution.js';
 
 const DEFAULT_OUTPUT_LIMIT_BYTES = 30_000;
@@ -30,23 +32,6 @@ const DEFAULT_OUTPUT_LIMIT_BYTES = 30_000;
 export interface IScheduledTaskRunnerOptions {
   timezone?: string;
   shellExecutable?: string;
-}
-
-/** Resolve an eligible slot with the same Croner semantics as the scheduled runner. */
-export function nextScheduledFireOnOrAfter(
-  cronExpression: string,
-  firstAllowedAt: Date,
-  options: IScheduledTaskRunnerOptions = {},
-): Date | null {
-  const job = new Cron(cronExpression, {
-    paused: true,
-    ...(options.timezone !== undefined ? { timezone: options.timezone } : {}),
-  });
-  try {
-    return job.nextRun(new Date(firstAllowedAt.getTime() - 1));
-  } finally {
-    job.stop();
-  }
 }
 
 interface IScheduledTaskState {
@@ -207,12 +192,20 @@ function runOneFire(state: IScheduledTaskState): void {
     { ...state.request, command },
     { executable: state.shellExecutable },
   );
-  const child = spawn(shell.executable, shell.args, {
-    cwd: state.request.cwd,
-    env: { ...process.env, ...(state.request.env ?? {}) },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: SPAWN_DETACHED,
-  });
+  // As a background process task: its own session on POSIX, and in secure mode it ends with this
+  // process.
+  const child = endWithProcess(
+    spawn(
+      shell.executable,
+      shell.args,
+      withChildSession({
+        cwd: state.request.cwd,
+        env: { ...process.env, ...(state.request.env ?? {}) },
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: SPAWN_DETACHED,
+      }),
+    ),
+  );
   state.currentChild = child;
 
   // CORE-024 (RUNTIME-18): croner `protect: true` skips a fire while the previous one still runs,

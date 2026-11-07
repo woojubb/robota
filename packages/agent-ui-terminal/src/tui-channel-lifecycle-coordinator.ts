@@ -10,6 +10,11 @@ export interface ITuiChannelLifecycleOperations {
   stop(): Promise<void>;
   beginShutdown(): void;
   shutdownSession(request: ITuiChannelShutdownRequest): Promise<void>;
+  /**
+   * Ends the session's claim on its record now, whatever its shutdown is still doing; a channel whose
+   * session is not its own has none to end.
+   */
+  releaseSessionClaim(): void;
 }
 
 /** Marks a startup failure whose rollback also failed, so retrying cannot duplicate live resources. */
@@ -145,5 +150,8 @@ export class TuiChannelLifecycleCoordinator {
       timeout,
     ]);
     if (timer) clearTimeout(timer);
+    // The channel is done with the session whichever side won, so its claim on its record ends here:
+    // a shutdown still wedged after the bound cannot overwrite the session that claims the id next.
+    this.operations.releaseSessionClaim();
   }
 }

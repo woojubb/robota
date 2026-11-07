@@ -7,7 +7,7 @@
  * decides WHERE and WHEN the bytes are written.
  */
 
-import { createHash } from 'node:crypto';
+import { sha256Hex, utf8ByteLength } from '@robota-sdk/agent-core';
 
 import { isSensitiveKey } from './scrub-sensitive.js';
 
@@ -18,10 +18,15 @@ import type {
   TSessionLogValue,
 } from './session-log-reference-types.js';
 
+/** What decides a log line's content; where and when it is written is the logger's business. */
+export type TLogNormalizationOptions = Required<
+  Pick<IFileSessionLoggerOptions, 'externalPayloadThresholdBytes' | 'redactedValue'>
+>;
+
 export function normalizeLogData(
   sessionId: string,
   data: TSessionLogData,
-  options: Required<IFileSessionLoggerOptions>,
+  options: TLogNormalizationOptions,
   externalPayloadSink: IExternalPayloadSink | undefined,
 ): TSessionLogData {
   const normalized: TSessionLogData = {};
@@ -35,7 +40,7 @@ function normalizeLogValue(
   sessionId: string,
   key: string,
   value: TSessionLogValue,
-  options: Required<IFileSessionLoggerOptions>,
+  options: TLogNormalizationOptions,
   externalPayloadSink: IExternalPayloadSink | undefined,
 ): TSessionLogValue {
   if (isSensitiveKey(key)) {
@@ -81,19 +86,19 @@ function normalizeLogValue(
 function maybeExternalizePayload(
   sessionId: string,
   value: TSessionLogValue,
-  options: Required<IFileSessionLoggerOptions>,
+  options: TLogNormalizationOptions,
   externalPayloadSink: IExternalPayloadSink | undefined,
 ): TSessionLogValue {
   const serialized = JSON.stringify(value);
   if (serialized === undefined) {
     return value;
   }
-  const byteLength = Buffer.byteLength(serialized);
+  const byteLength = utf8ByteLength(serialized);
   if (byteLength <= options.externalPayloadThresholdBytes || externalPayloadSink === undefined) {
     return value;
   }
 
-  const sha256 = createHash('sha256').update(serialized).digest('hex');
+  const sha256 = sha256Hex(serialized);
   return externalPayloadSink.writeJson(sessionId, sha256, serialized);
 }
 

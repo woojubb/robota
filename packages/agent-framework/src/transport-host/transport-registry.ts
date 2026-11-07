@@ -2,7 +2,6 @@
 
 import { configurationError, startupError } from './transport-registry-errors.js';
 import { TransportRunGeneration } from './transport-run-generation.js';
-import { createFileTransportSettingsRepository } from './transport-settings-repository.js';
 import { TransportSettingsView } from './transport-settings-view.js';
 
 import type { IDestroyResult, TUniversalValue } from '@robota-sdk/agent-core';
@@ -48,14 +47,20 @@ export class TransportRegistry {
     { readonly transportName: string; readonly cause: unknown } | undefined;
 
   /**
-   * TRANS-010 (issue #2480): settings storage is an injected repository. A string is accepted as the
-   * path of a settings file and wrapped in the file repository, so the existing shell and tests keep
-   * their call shape.
+   * TRANS-010 (issue #2480): settings storage is an injected repository. The registry has no file
+   * default: a Node host passes `createFileTransportSettingsRepository(path)` from
+   * `@robota-sdk/agent-framework/node`, any other host a repository over its own storage.
    */
-  constructor(settings: string | ITransportSettingsRepository) {
-    this.settings = new TransportSettingsView(
-      typeof settings === 'string' ? createFileTransportSettingsRepository(settings) : settings,
-    );
+  constructor(settings: ITransportSettingsRepository) {
+    if (typeof settings?.readAll !== 'function' || typeof settings.write !== 'function') {
+      throw new TypeError(
+        'TransportRegistry requires an ITransportSettingsRepository. On Node pass ' +
+          'createFileTransportSettingsRepository(path) from @robota-sdk/agent-framework/node; ' +
+          'otherwise pass a repository over your own storage, or ' +
+          'createMemoryTransportSettingsRepository().',
+      );
+    }
+    this.settings = new TransportSettingsView(settings);
   }
 
   /** The lifecycle/shape agreement every entry must satisfy, on the way in and on a replace. */

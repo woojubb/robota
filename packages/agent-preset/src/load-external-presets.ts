@@ -1,6 +1,3 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { validateExternalPreset } from './preset-validation.js';
 import { partitionExternalPresets } from './resolve-preset.js';
 
@@ -20,32 +17,38 @@ export interface IExternalPresetLoadResult {
   errors: readonly { file: string; error: string }[];
 }
 
-/**
- * Load and validate every `*.json` external preset from `dir`.
- *
- * A missing directory yields an empty result (no error). Each file is JSON-parsed and validated;
- * a parse or validation failure is recorded as a per-file error and skipped — the remaining files
- * still load. The surviving presets go through {@link partitionExternalPresets}, whose rejections
- * (built-in id collision or duplicate id) are folded into `errors` against their file.
- *
- * Loading REGISTERS NOTHING. The result is a value the caller owns.
- */
-export function loadExternalPresetsFromDir(dir: string): IExternalPresetLoadResult {
-  if (!existsSync(dir)) {
-    return { presets: [], loaded: [], errors: [] };
-  }
+/** One candidate preset file, however the host found it: a directory entry, an upload, a fixture. */
+export interface IExternalPresetFile {
+  /** The file's name, as it is reported in an error (`reviewer.json`). Only `*.json` names are read. */
+  readonly fileName: string;
+  /** The file's text. A throw is that file's error, so a host reads lazily and a failed read is not fatal. */
+  readonly read: () => string;
+}
 
+/**
+ * Load and validate every `*.json` external preset among `files`.
+ *
+ * A name that does not end in `.json` is skipped without an error. Each file is read, JSON-parsed and
+ * validated; a read, parse or validation failure is recorded as a per-file error and skipped — the
+ * remaining files still load. The surviving presets go through {@link partitionExternalPresets}, whose
+ * rejections (built-in id collision or duplicate id) are folded into `errors` against their file.
+ *
+ * Loading REGISTERS NOTHING. The result is a value the caller owns. The package reads no file itself:
+ * `loadExternalPresetsFromDir` in `@robota-sdk/agent-preset/node` lists a directory on a Node host.
+ */
+export function loadExternalPresetsFromFiles(
+  files: readonly IExternalPresetFile[],
+): IExternalPresetLoadResult {
   const errors: { file: string; error: string }[] = [];
   const validPresets: IPreset[] = [];
   // Track which file each validated preset id came from so registry rejections map back to a file.
   const fileById = new Map<string, string>();
 
-  const jsonFiles = readdirSync(dir).filter((name) => name.endsWith('.json'));
-  for (const name of jsonFiles) {
-    const filePath = join(dir, name);
+  for (const file of files.filter(({ fileName }) => fileName.endsWith('.json'))) {
+    const name = file.fileName;
     let parsed: unknown;
     try {
-      parsed = JSON.parse(readFileSync(filePath, 'utf8'));
+      parsed = JSON.parse(file.read());
     } catch (error) {
       // allow-fallback: a malformed file is reported per-file and skipped, not silently swallowed
       errors.push({ file: name, error: error instanceof Error ? error.message : String(error) });

@@ -4,13 +4,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
-  EditCheckpointStore,
   WorkspaceTrustService,
   createRestrictedWorkspaceProjectAccess,
   createWorkspaceProjectSettingsWriter,
   getWorkspaceProjectStateStorage,
   listResumableSessionSummaries,
 } from '@robota-sdk/agent-framework';
+import { EditCheckpointStore } from '@robota-sdk/agent-framework/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createCliWorkspaceComposition } from '../workspace-project-composition.js';
@@ -19,6 +19,7 @@ import { listProjectContributionPaths } from '../project-contribution-preview.js
 import { productSkillRoots } from '../../product/skill-roots.js';
 import { SkillCommandSource } from '@robota-sdk/agent-framework';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IWorkspaceIdentity, IWorkspaceTrustStoreSnapshot } from '@robota-sdk/agent-framework';
 const PRODUCT_PROJECT_STATE_DIRECTORIES = productProjectStateDirectories(createTestProductRuntime());
 const PRODUCT_SKILL_ROOTS = productSkillRoots(createTestProductRuntime());
@@ -47,6 +48,7 @@ async function trustedAccess(
     grantedAt: '2026-08-22T00:00:00.000Z',
   };
   return new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     projectStateDirectories,
     store: {
@@ -242,7 +244,15 @@ describe('CLI workspace project composition', () => {
         expect(composition.projectAccess.status).toBe('trusted');
         expect(composition.memoryStore).toBeUndefined();
         expect(readdirSync(cwd)).toEqual([]);
-        expect(existsSync(join(userHome, '.test-product'))).toBe(false);
+        // Building the session store marks this process present, which is all the state root gets.
+        const presence = join(userHome, '.test-product', 'presence');
+        expect(readdirSync(join(userHome, '.test-product'))).toEqual(['presence']);
+        expect(readdirSync(presence)).toEqual([expect.stringMatching(/^process-\d+-[A-Za-z0-9]{6}$/u)]);
+        expect(readdirSync(join(presence, readdirSync(presence)[0] as string)).sort()).toEqual([
+          '.owner.json',
+          'mode',
+        ]);
+        expect(existsSync(join(userHome, '.test-product', 'memory'))).toBe(false);
       },
     );
 

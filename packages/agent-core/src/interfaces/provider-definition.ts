@@ -1,4 +1,5 @@
 import type { IAIProvider } from './provider';
+import type { IProviderNativeWebToolRequest } from './provider-capabilities';
 import type { TUniversalValue } from './types';
 
 /** A serializable name of a host-held credential, never the credential itself. */
@@ -150,6 +151,19 @@ export interface IProviderDefinition {
   category?: TProviderCategory;
   /** Available credential acquisition methods; concrete authorization belongs to the host. */
   connectionMethods?: readonly ('api-key' | 'browser')[];
+  /**
+   * The provider-hosted web tools a host may turn on by default through `options.nativeWebTools`,
+   * answered for the profile being built and the environment its client reads, because they can
+   * depend on where that profile connects. The host passes that environment: a platform-neutral
+   * provider cannot read it for itself. Declaring a tool is the definition's judgment that a host may
+   * switch it on without the profile asking. A tool left out, or an absent function, is no such
+   * judgment: asking for it explicitly fails, is ignored, or is the caller's own choice, and the
+   * provider's capabilities report whether it is on.
+   */
+  nativeWebTools?: (
+    profile: Pick<IProviderDefinitionConfig, 'baseURL' | 'options'>,
+    environment: Readonly<Record<string, string | undefined>>,
+  ) => readonly (keyof IProviderNativeWebToolRequest)[];
   defaults?: IProviderProfileDefaults;
   /**
    * Optional enforced model allowlist (ARCH-PROVIDER-003). Distinct from {@link modelCatalog}: the catalog

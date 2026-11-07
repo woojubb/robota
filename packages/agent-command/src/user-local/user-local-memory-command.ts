@@ -8,6 +8,7 @@ import {
 
 import { USER_LOCAL_COMMAND_USAGE } from './user-local-command-constants.js';
 
+import type { IFileSystemAsync } from '@robota-sdk/agent-core';
 import type { TUserLocalMemoryCategory } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
@@ -40,9 +41,10 @@ function parseMemoryCategory(value: string | undefined): TUserLocalMemoryCategor
 async function executeMemoryListCommand(
   activeRepositoryRoot: string,
   storageRoot: string,
+  fsAsync: IFileSystemAsync,
   parsed: IUserLocalMemoryCommandArgs,
 ): Promise<ICommandResult> {
-  const list = await listUserLocalMemoryItems({ activeRepositoryRoot, storageRoot });
+  const list = await listUserLocalMemoryItems({ activeRepositoryRoot, storageRoot, fsAsync });
   return {
     message:
       parsed.format === 'json' ? JSON.stringify(list, null, 2) : formatMemoryListText(list.items),
@@ -54,12 +56,14 @@ async function executeMemoryListCommand(
 async function executeMemorySetCommand(
   activeRepositoryRoot: string,
   storageRoot: string,
+  fsAsync: IFileSystemAsync,
   parsed: IUserLocalMemoryCommandArgs,
 ): Promise<ICommandResult> {
   const [category, key, value] = parsed.positional;
   const item = await setUserLocalMemoryItem({
     activeRepositoryRoot,
     storageRoot,
+    fsAsync,
     category: parseMemoryCategory(category),
     key: key ?? '',
     value: value ?? '',
@@ -76,12 +80,14 @@ async function executeMemorySetCommand(
 async function executeMemoryInspectCommand(
   activeRepositoryRoot: string,
   storageRoot: string,
+  fsAsync: IFileSystemAsync,
   parsed: IUserLocalMemoryCommandArgs,
 ): Promise<ICommandResult> {
   const [category, key] = parsed.positional;
   const item = await inspectUserLocalMemoryItem({
     activeRepositoryRoot,
     storageRoot,
+    fsAsync,
     category: parseMemoryCategory(category),
     key: key ?? '',
   });
@@ -98,12 +104,14 @@ async function executeMemoryInspectCommand(
 async function executeMemoryDisableCommand(
   activeRepositoryRoot: string,
   storageRoot: string,
+  fsAsync: IFileSystemAsync,
   parsed: IUserLocalMemoryCommandArgs,
 ): Promise<ICommandResult> {
   const [category, key] = parsed.positional;
   const item = await disableUserLocalMemoryItem({
     activeRepositoryRoot,
     storageRoot,
+    fsAsync,
     category: parseMemoryCategory(category),
     key: key ?? '',
   });
@@ -117,12 +125,14 @@ async function executeMemoryDisableCommand(
 async function executeMemoryDeleteCommand(
   activeRepositoryRoot: string,
   storageRoot: string,
+  fsAsync: IFileSystemAsync,
   parsed: IUserLocalMemoryCommandArgs,
 ): Promise<ICommandResult> {
   const [category, key] = parsed.positional;
   const result = await deleteUserLocalMemoryItem({
     activeRepositoryRoot,
     storageRoot,
+    fsAsync,
     category: parseMemoryCategory(category),
     key: key ?? '',
   });
@@ -136,22 +146,23 @@ async function executeMemoryDeleteCommand(
 export async function executeMemoryCommand(
   cwd: string,
   storageRoot: string,
+  fsAsync: IFileSystemAsync,
   parsed: IUserLocalMemoryCommandArgs,
 ): Promise<ICommandResult> {
   if ((parsed.action ?? 'list') === 'list') {
-    return executeMemoryListCommand(cwd, storageRoot, parsed);
+    return executeMemoryListCommand(cwd, storageRoot, fsAsync, parsed);
   }
   if (parsed.action === 'set') {
-    return executeMemorySetCommand(cwd, storageRoot, parsed);
+    return executeMemorySetCommand(cwd, storageRoot, fsAsync, parsed);
   }
   if (parsed.action === 'inspect') {
-    return executeMemoryInspectCommand(cwd, storageRoot, parsed);
+    return executeMemoryInspectCommand(cwd, storageRoot, fsAsync, parsed);
   }
   if (parsed.action === 'disable') {
-    return executeMemoryDisableCommand(cwd, storageRoot, parsed);
+    return executeMemoryDisableCommand(cwd, storageRoot, fsAsync, parsed);
   }
   if (parsed.action === 'delete') {
-    return executeMemoryDeleteCommand(cwd, storageRoot, parsed);
+    return executeMemoryDeleteCommand(cwd, storageRoot, fsAsync, parsed);
   }
   return {
     message: USER_LOCAL_COMMAND_USAGE,

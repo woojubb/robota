@@ -5,11 +5,14 @@ import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { createReplayProviderFromSource } from '@robota-sdk/agent-provider-replay';
-import { NodeSessionLogSource } from '@robota-sdk/agent-session';
+import { NodeSessionLogSource } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { InteractiveSession } from '../../index.js';
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
+import { createTestFrameworkHost } from '../framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const LARGE_RESPONSE = `ARCH_014_LARGE:${'x'.repeat(40 * 1024)}`;
 const SENTINEL_RESPONSE = 'ARCH_014_SENTINEL';
@@ -43,10 +46,11 @@ describe('session-log external-payload replay (framework functional)', () => {
       expect(existsSync(join(source.logsDir(), reference!.relativePath))).toBe(true);
 
       const replayProvider = createReplayProviderFromSource(
-        new NodeSessionLogSource(source.transcriptPath()),
+        new NodeSessionLogSource(source.transcriptPath(), { sealing: 'plain' }),
       );
       replayWorkspace = realpathSync(mkdtempSync(join(tmpdir(), 'agent-replay-functional-')));
       replaySession = new InteractiveSession({
+        host: testHost,
         cwd: replayWorkspace,
         provider: replayProvider,
         bare: true,
@@ -82,6 +86,7 @@ describe('versioned session-log replay (framework functional)', () => {
       const root = realpathSync(mkdtempSync(join(tmpdir(), 'agent-log-codec-functional-')));
       const lines: string[] = [];
       const recorded = new InteractiveSession({
+        host: testHost,
         cwd: root,
         provider: createScriptedProvider([{ text: 'CODEC_ROUNDTRIP_OK' }]).provider,
         bare: true,
@@ -94,6 +99,7 @@ describe('versioned session-log replay (framework functional)', () => {
         const raw = lines.join('');
         const provider = createReplayProviderFromSource({ readText: () => raw });
         replayed = new InteractiveSession({
+          host: testHost,
           cwd: root,
           provider,
           bare: true,

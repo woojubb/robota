@@ -4,12 +4,11 @@ import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
-import {
-  createAgentRuntime,
-  createNodeHostSessionStore,
-  runEval,
-  type InteractiveSession,
-} from '../src/index.js';
+import { createAgentRuntime, runEval, type InteractiveSession } from '../src/index.js';
+import { createNodeHostSessionStore } from '../src/node.js';
+import { createTestFrameworkHost } from '../src/testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const root = mkdtempSync(join(tmpdir(), 'agent-cancel-outcome-'));
 const oldHome = process.env.HOME;
@@ -23,7 +22,7 @@ try {
   process.env.PRODUCT_USER_STATE_DIR = join(root, 'state');
   const file = join(root, 'checkpoint.txt');
   writeFileSync(file, 'pending');
-  const store = createNodeHostSessionStore(join(root, 'sessions'));
+  const store = createNodeHostSessionStore(join(root, 'sessions'), { sealing: 'plain' });
   let notifyStarted!: () => void;
   const started = new Promise<void>((resolve) => {
     notifyStarted = resolve;
@@ -45,7 +44,12 @@ try {
       });
     },
   };
-  first = createAgentRuntime({ cwd: root, provider, sessionStore: store }).createSession({
+  first = createAgentRuntime({
+    host: testHost,
+    cwd: root,
+    provider,
+    sessionStore: store,
+  }).createSession({
     bare: true,
     permissionMode: 'acceptEdits',
     allowedTools: ['Write'],
@@ -75,6 +79,7 @@ try {
     { text: 'Done' },
   ]);
   resumed = createAgentRuntime({
+    host: testHost,
     cwd: root,
     provider: continuation.provider,
     sessionStore: store,

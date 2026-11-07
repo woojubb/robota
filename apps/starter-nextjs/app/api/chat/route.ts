@@ -2,6 +2,10 @@ import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+
+const host = createNodeFrameworkHost({ createDefaultTools });
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -16,6 +20,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   }
 
   const runtime = createAgentRuntime({
+    host,
     cwd: process.cwd(),
     provider: new AnthropicProvider({ apiKey }),
   });
@@ -36,7 +41,6 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       'Glob',
       'Grep',
       'WebFetch',
-      'WebSearch',
       'peer_send_file',
     ],
   });

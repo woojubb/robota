@@ -16,6 +16,9 @@ import {
   hasUsableSecretReference,
 } from '@robota-sdk/agent-core';
 
+import { resolveProviderEnvironment } from './provider-environment.js';
+
+import type { TProviderEnvironment } from './provider-environment.js';
 import type { IProviderProfileSettings } from './provider-settings.js';
 import type { IProviderDefinition, TProviderCredentialField } from '@robota-sdk/agent-core';
 import type {
@@ -56,13 +59,13 @@ function credentialValue(
 function connectionState(
   profile: IProviderProfileSettings,
   definition: IProviderDefinition | undefined,
-  environment: Readonly<Record<string, string | undefined>> | undefined,
+  environment: TProviderEnvironment | undefined,
 ): string | undefined {
   // A stored reference is resolved by the host, not diagnosed as an absent manually entered key.
   if (profile.apiKeyRef !== undefined) return undefined;
   const requirement = getProviderCredentialRequirement(definition);
   if (requirement === undefined) return undefined;
-  const resolve = environment === undefined ? undefined : (name: string) => environment[name];
+  const resolve = resolveProviderEnvironment(environment);
   const hasCredential = requirement.anyOf.some((field) =>
     hasUsableSecretReference(credentialValue(profile, definition, field), resolve),
   );
@@ -81,8 +84,8 @@ export function buildProviderProfilesSnapshot(
   currentProfileName: string | undefined,
   providerDefinitions: readonly IProviderDefinition[],
   allowedProviders?: readonly string[],
-  /** The map `$ENV:` references resolve against (the host's startup snapshot). */
-  environment?: Readonly<Record<string, string | undefined>>,
+  /** What `$ENV:` references resolve against (the host's startup snapshot); absent, every reference reads as unset. */
+  environment?: TProviderEnvironment,
 ): ISettingsProvidersSection {
   const all = providers ?? {};
   const profiles: ISettingsProviderProfile[] = [];

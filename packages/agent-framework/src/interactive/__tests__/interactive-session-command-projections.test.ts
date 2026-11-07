@@ -4,6 +4,9 @@ import { toCommandListEntry } from '../interactive-session-command-projections.j
 import { SessionSkillRouter } from '../interactive-session-skill-router.js';
 import { stubSubmit } from './helpers/session-stub.js';
 import { createTestCommandHost } from '../../testing/command-host-double.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 import type { ICommandModule, ISystemCommand } from '../../commands/index.js';
 
@@ -96,6 +99,7 @@ describe('SessionSkillRouter.listCommands: the runner a system command declares 
       async () => '',
       async () => ({}) as never,
       (execute) => execute(),
+      testHost.createAsyncScope,
     );
   }
 

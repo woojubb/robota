@@ -4,10 +4,8 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import {
-  createNodeHostContributionSource,
-  createWorkspaceProjectContributionSource,
-} from '../index.js';
+import { createWorkspaceProjectContributionSource } from '../index.js';
+import { createNodeHostContributionSource } from '../node-host-contribution-source.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectReader } from '../../workspace-trust/index.js';
 

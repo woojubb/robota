@@ -42,7 +42,12 @@
 
 import {
   chmodSync,
+  closeSync,
+  fsyncSync,
+  linkSync,
+  lstatSync,
   mkdirSync,
+  openSync,
   renameSync,
   rmSync,
   statSync,
@@ -107,6 +112,33 @@ export interface IEnsureOwnerOnlyOptions extends IOwnerOnlyIo {
    * would eventually chmod someone's home directory.
    */
   readonly withinRoot?: string;
+  /**
+   * Flush the parent of every directory this call creates, so the new entries survive a crash: a
+   * flushed file in a directory whose own entry was never flushed is gone with it. Off by default;
+   * a key store, which has no other copy, turns it on.
+   */
+  readonly durable?: boolean;
+  /** Seam for the flush of `durable`; see {@link IOwnerOnlyDurability.syncDirectory}. */
+  readonly syncDirectory?: (directory: string) => void;
+}
+
+/** `directory` and each ancestor of it that does not exist yet, outermost first. */
+function missingDirectories(directory: string): string[] {
+  const missing: string[] = [];
+  let current = directory;
+  for (;;) {
+    try {
+      lstatSync(current);
+      break;
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') break;
+    }
+    missing.unshift(current);
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return missing;
 }
 
 /** Every directory from `root` down to `target`, outermost first. `root` must be an ancestor. */
@@ -155,7 +187,11 @@ export function ensureOwnerOnlyDirectory(
     });
   const setMode =
     options.setMode ?? ((target: string, mode: number): void => chmodSync(target, mode));
+  const missing = options.durable === true ? missingDirectories(directory) : [];
   makeDirectory(directory, OWNER_ONLY_DIRECTORY_MODE);
+  // The directories just created, outermost first: each one's entry lives in its parent, which is
+  // flushed once the whole chain exists.
+  for (const created of missing) (options.syncDirectory ?? syncDirectoryOnDisk)(dirname(created));
   // Every directory the caller declared it owns, not only the leaf. `mkdir` set the mode on what it
   // CREATED; a root an older version left at 0755 was created by nobody here and would keep it.
   const owned =
@@ -169,16 +205,136 @@ export function ensureOwnerOnlyDirectory(
 }
 
 /**
- * Replace `filePath` atomically with content only its owner can read.
+ * Seams for the durable write, injected for the same reason as {@link IOwnerOnlyIo}: a flush that
+ * fails, or that runs in the wrong order, is a crash-time property no test can observe on a healthy
+ * disk, so the order is asserted through these instead.
+ */
+export interface IOwnerOnlyDurability {
+  /** Flush one open file's data and metadata to the device. */
+  readonly syncFile?: (fileDescriptor: number) => void;
+  /** Flush a directory's entries, so a rename inside it survives a crash. */
+  readonly syncDirectory?: (directory: string) => void;
+}
+
+export interface IWriteOwnerOnlyFileOptions extends IOwnerOnlyDurability {
+  /**
+   * Flush the temp file before it is renamed over the target and the directory after, so a crash
+   * leaves the old content or the new, never a renamed-but-empty file. Off by default: a plain
+   * record is rewritten on the next save, whereas a key store has no other copy.
+   */
+  readonly durable?: boolean;
+  /**
+   * Only create: the temp file is linked into place, which fails with `EEXIST` if anything is at
+   * the path by then, so two creators cannot both see "absent" and the second replace the first.
+   */
+  readonly createOnly?: boolean;
+  /**
+   * Runs once the temp file is complete, flushed and checked, immediately before it is put in place.
+   * A throw leaves the target exactly as it was and removes the temp file, so a caller that guards a
+   * write with a lock can check the lock is still its own as late as possible.
+   */
+  readonly beforeCommit?: () => void;
+  /**
+   * Where the temp file goes, beside the target; `<path>.<pid>.tmp` when omitted. A caller that
+   * sweeps leftovers can give it a name that says whose it is.
+   */
+  readonly temporaryPath?: string;
+  /** Seam for the hard link of `createOnly`, so a filesystem without hard links is reachable from a test. */
+  readonly linkFile?: (existingPath: string, newPath: string) => void;
+}
+
+/**
+ * The new content was put in place (renamed or linked) and a step after that failed — the directory
+ * flush, or removing the temp name. The file holds the new content but its durability is not
+ * confirmed; reporting this as a failed write would tell the caller the old content is still there.
+ */
+export class OwnerOnlyWriteUnconfirmedError extends Error {
+  constructor(cause: unknown) {
+    super('The new content is in place, but a step after putting it there failed.', { cause });
+    this.name = 'OwnerOnlyWriteUnconfirmedError';
+  }
+}
+
+/** `fsync` on a directory is POSIX; Windows cannot open one, and a few filesystems refuse the call. */
+function syncDirectoryOnDisk(directory: string): void {
+  if (process.platform === 'win32') return;
+  const descriptor = openSync(directory, 'r');
+  try {
+    fsyncSync(descriptor);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    // allow-fallback: EINVAL/ENOTSUP mean the filesystem has no directory flush to offer.
+    if (code !== 'EINVAL' && code !== 'ENOTSUP') throw error;
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
+/**
+ * Replace `filePath` atomically with content only its owner can read. `content` is written as given:
+ * text as UTF-8, bytes unchanged, so a sealed artifact goes through the same path as a plain record.
  *
  * The temp file carries the mode from the moment it is created — writing it at the umask's default
  * and tightening afterwards leaves a window in which the full content is world-readable on disk, and
  * `rename` preserves whatever mode the temp file had. The `chmod` after the write is for the case
  * where the temp path already existed at a wider mode.
+ *
+ * With `durable`, the temp file is flushed before the rename and the directory after it. Node
+ * exposes `fsync(2)` only: on macOS that does not force the drive to empty its own write cache
+ * (`F_FULLFSYNC`), so a power cut there can still lose the newest save.
+ *
+ * The mode is asserted on the temp file, before it is put in place; the rename or link keeps that
+ * inode and its mode, so nothing about the mode is left to check afterwards. A failure before that
+ * point leaves the target as it was; one after it is an {@link OwnerOnlyWriteUnconfirmedError}.
  */
-export function writeOwnerOnlyFile(filePath: string, content: string): void {
-  ensureOwnerOnlyDirectory(dirname(filePath));
-  const temporaryPath = `${filePath}.${process.pid}.tmp`;
+export function writeOwnerOnlyFile(
+  filePath: string,
+  content: string | Uint8Array,
+  options: IWriteOwnerOnlyFileOptions = {},
+): void {
+  ensureOwnerOnlyDirectory(
+    dirname(filePath),
+    options.durable === true ? { durable: true, syncDirectory: options.syncDirectory } : {},
+  );
+  const temporaryPath = options.temporaryPath ?? `${filePath}.${process.pid}.tmp`;
+  writeOwnerOnlyTemporary(
+    temporaryPath,
+    content,
+    options.durable === true ? (options.syncFile ?? fsyncSync) : undefined,
+  );
+  try {
+    options.beforeCommit?.();
+    if (options.createOnly === true) (options.linkFile ?? linkSync)(temporaryPath, filePath);
+    else renameSync(temporaryPath, filePath);
+  } catch (error) {
+    removeTemporary(temporaryPath);
+    throw error;
+  }
+  try {
+    if (options.createOnly === true) unlinkSync(temporaryPath);
+    if (options.durable === true) (options.syncDirectory ?? syncDirectoryOnDisk)(dirname(filePath));
+  } catch (error) {
+    throw new OwnerOnlyWriteUnconfirmedError(error);
+  }
+}
+
+function removeTemporary(temporaryPath: string): void {
+  try {
+    unlinkSync(temporaryPath);
+  } catch {
+    // allow-fallback: the temp file may already be gone; the original error is the one to report.
+  }
+}
+
+/**
+ * Writes `content` to a temp file this call creates owner-only, flushed with `syncFile` when given,
+ * and asserts its mode. A failure after the temp file was created removes it.
+ */
+function writeOwnerOnlyTemporary(
+  temporaryPath: string,
+  content: string | Uint8Array,
+  syncFile: ((fileDescriptor: number) => void) | undefined,
+): void {
   // A stale temp file is REMOVED rather than reused. It can only come from a process that died
   // mid-write, its contents are meaningless, and — the part that matters here — `writeFileSync` does
   // not apply `mode` to a file that already exists, so reusing one at 0666 would put the whole
@@ -194,23 +350,77 @@ export function writeOwnerOnlyFile(filePath: string, content: string): void {
   // leaves a window in which the full record is readable, and a `chmod` here would make the mode
   // above redundant — so a mutation that removed it would change nothing and the window would be
   // untested. The assertion below is what proves the mode actually took.
-  writeFileSync(temporaryPath, content, {
-    encoding: 'utf8',
-    mode: OWNER_ONLY_FILE_MODE,
-    flag: 'wx',
-  });
+  const descriptor = openSync(temporaryPath, 'wx', OWNER_ONLY_FILE_MODE);
   try {
-    assertOwnerOnly(temporaryPath, 'file');
-    renameSync(temporaryPath, filePath);
-  } catch (error) {
     try {
-      unlinkSync(temporaryPath);
-    } catch {
-      // allow-fallback: the temp file may already be gone; the original error is the one to report.
+      writeFileSync(descriptor, content, 'utf8');
+      syncFile?.(descriptor);
+    } finally {
+      closeSync(descriptor);
     }
+    assertOwnerOnly(temporaryPath, 'file');
+  } catch (error) {
+    removeTemporary(temporaryPath);
     throw error;
   }
-  assertOwnerOnly(filePath, 'file');
+}
+
+/** A complete, flushed owner-only temp file beside its target, which {@link IStagedOwnerOnlyFile.commit} puts in place. */
+export interface IStagedOwnerOnlyFile {
+  readonly temporaryPath: string;
+  /**
+   * Runs `beforeCommit`, renames the temp file over the target and flushes the directory. A throw
+   * before the rename removes the temp file and leaves the target as it was; a failure after it is an
+   * {@link OwnerOnlyWriteUnconfirmedError}.
+   */
+  commit(beforeCommit?: () => void): void;
+  /** Removes the temp file if it was not put in place. Idempotent. */
+  discard(): void;
+}
+
+/**
+ * The first half of a durable {@link writeOwnerOnlyFile}: the content in an owner-only temp file
+ * beside `filePath`, flushed, with the target untouched until `commit`. A caller replacing many files
+ * stages every one before it renames any, so that no rename is published ahead of content it has not
+ * yet flushed — on macOS, where the flush does not empty the drive's own cache, that ordering is most
+ * of what a power cut leaves intact.
+ */
+export function stageOwnerOnlyFile(
+  filePath: string,
+  content: string | Uint8Array,
+  options: IOwnerOnlyDurability & { readonly temporaryPath?: string } = {},
+): IStagedOwnerOnlyFile {
+  ensureOwnerOnlyDirectory(dirname(filePath), {
+    durable: true,
+    syncDirectory: options.syncDirectory,
+  });
+  const temporaryPath = options.temporaryPath ?? `${filePath}.${process.pid}.tmp`;
+  writeOwnerOnlyTemporary(temporaryPath, content, options.syncFile ?? fsyncSync);
+  let settled = false;
+  return {
+    temporaryPath,
+    commit: (beforeCommit) => {
+      if (settled) throw new Error('A staged owner-only file is committed or discarded only once.');
+      settled = true;
+      try {
+        beforeCommit?.();
+        renameSync(temporaryPath, filePath);
+      } catch (error) {
+        removeTemporary(temporaryPath);
+        throw error;
+      }
+      try {
+        (options.syncDirectory ?? syncDirectoryOnDisk)(dirname(filePath));
+      } catch (error) {
+        throw new OwnerOnlyWriteUnconfirmedError(error);
+      }
+    },
+    discard: () => {
+      if (settled) return;
+      settled = true;
+      removeTemporary(temporaryPath);
+    },
+  };
 }
 
 /**

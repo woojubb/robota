@@ -20,3 +20,23 @@ export type {
 // exercises the same shapes agent-core's own projector tests do.
 export { loadToolSchemaProjectionFixtures } from './tool-schema-projection-fixtures.js';
 export type { IToolSchemaProjectionFixtures } from './tool-schema-projection-fixtures.js';
+
+// An in-memory IArtifactSealer for the tests of packages that write sealed artifacts, so they need no keyring.
+export { createTestArtifactSealer, openTestWriteGrant } from './artifact-sealer-double.js';
+export type {
+  IArtifactSealerDouble,
+  IArtifactSealerDoubleOptions,
+} from './artifact-sealer-double.js';
+
+// Process-scoped directories as another run left them, owner record included, for host sweep tests.
+export {
+  goneProcessOwner,
+  leaveProcessScopedDirectory,
+} from './process-scoped-directory-fixture.js';
+
+// Process markers as another process left them, for tests of a store or a command that meets one.
+export { leaveProcessMarker } from './process-marker-fixture.js';
+
+// The child-session policy only ever turns on in a product process; a test that turned it on turns it
+// back off, so the next test starts as a plain process does.
+export { resetChildSessionPolicy as resetChildSessionsForTesting } from '../utils/child-session.js';

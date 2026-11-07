@@ -8,11 +8,11 @@ import { createOpenRouterProviderDefinition } from '@robota-sdk/agent-builtin-pr
 import { createProviderCommandModule } from '@robota-sdk/agent-command';
 import { createProviderFromConfig } from '@robota-sdk/agent-core';
 import {
-  createNodeHostSettingsSource,
   createInProcessSubagentRunner,
   InteractiveSession,
   readProviderSettings,
 } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -20,8 +20,10 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 import { createProductSubagentRunnerFactory } from '../../product/subagent-composition.js';
 import { PrintTerminal } from '../../print-terminal.js';
 import { createOpenRouterConnectionHost } from '../../startup/openrouter-connection-host.js';
+import { acquireOpenRouterKey } from '../../startup/openrouter-oauth.js';
 import { createSetupPlaceholderProvider } from '../../startup/setup-placeholder-provider.js';
 import { buildServeSessionOptions } from '../serve-mode.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type {
   IAIProvider,
@@ -36,6 +38,8 @@ import type {
 } from '@robota-sdk/agent-framework';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
+const testHost = createTestFrameworkHost();
+
 type TAskFrame = Extract<TServerMessage, { type: 'ask_request' }>;
 
 const ENDPOINT = 'https://openrouter.ai/api/v1';
@@ -44,7 +48,10 @@ const BROWSER_KEY = 'synthetic-app-browser-issued-key';
 const MANUAL_KEY = 'synthetic-app-manually-entered-key';
 const AUTHORIZATION_CODE = 'synthetic-app-authorization-code';
 const OLD_KEY = 'synthetic-app-existing-key';
-const OLD_REFERENCE = { service: 'synthetic.app.provider.openrouter', account: 'existing-app-connection' };
+const OLD_REFERENCE = {
+  service: 'synthetic.app.provider.openrouter',
+  account: 'existing-app-connection',
+};
 const storeKey = (reference: ICredentialKey): string => JSON.stringify(reference);
 
 function visit(url: URL): Promise<number> {
@@ -136,6 +143,7 @@ async function fixture(
     store,
     fetch: network,
     openBrowser,
+    acquireKey: acquireOpenRouterKey,
   });
   const definition = createOpenRouterProviderDefinition();
   const sources = [createNodeHostSettingsSource('user', settingsPath)];
@@ -181,6 +189,7 @@ async function fixture(
   const requestRestart = vi.fn();
   const session = new InteractiveSession({
     ...buildServeSessionOptions({
+      host: testHost,
       productRuntime: createTestProductRuntime('test-product', { HOME: home }),
       cwd: directory,
       args: { noSessionPersistence: true },
@@ -358,6 +367,7 @@ describe('OpenRouter connection through the App session protocol', () => {
             providerDefinitions: [restarted.bootstrap.definition],
             reproduction: { callerSuppliedDefinitions: false, replayProvider: false },
             notice: () => {},
+            persistTranscripts: true,
           });
           expect(runnerFactory).toBe(createInProcessSubagentRunner);
           const chat = vi.spyOn(restarted.bootstrap.provider, 'chat').mockResolvedValue({
@@ -368,6 +378,7 @@ describe('OpenRouter connection through the App session protocol', () => {
             state: 'complete',
           });
           const runner = runnerFactory({
+            host: testHost,
             config: {
               defaultTrustLevel: 'moderate',
               provider: config,

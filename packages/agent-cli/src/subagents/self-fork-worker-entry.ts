@@ -46,15 +46,31 @@ function resolveSourceExecArgv(entry: string): readonly string[] | undefined {
   return [...process.execArgv, '--import', 'tsx'];
 }
 
+const DISABLE_INSPECTOR_SIGNAL = '--disable-sigusr1';
+
+/**
+ * #3679: Node opens an inspector on SIGUSR1, and any same-user process can send that signal and then
+ * attach to the debugger to read or drive the copy — a daemon outlives its window, a worker holds the
+ * session's credential. The entry a copy re-enters closes this too, but only once it runs; the flag
+ * closes it from the copy's first instruction. It is a Node flag (added 22.14/23.7), so it is added
+ * only when this Node accepts it, never under Bun, where SIGUSR1 opens no Node inspector, and once.
+ */
+export function withInspectorSignalDisabled(execArgv: readonly string[]): readonly string[] {
+  if (process.versions.bun !== undefined) return execArgv;
+  if (!process.allowedNodeEnvironmentFlags.has(DISABLE_INSPECTOR_SIGNAL)) return execArgv;
+  if (execArgv.includes(DISABLE_INSPECTOR_SIGNAL)) return execArgv;
+  return [DISABLE_INSPECTOR_SIGNAL, ...execArgv];
+}
+
 export function resolveSelfForkWorkerEntry(): ISubagentWorkerEntry {
   const entry = process.argv[1];
   if (entry === undefined || isEmbeddedEntry(entry)) {
     return { execPath: process.execPath, args: [] };
   }
-  const execArgv = resolveSourceExecArgv(entry);
+  const execArgv = withInspectorSignalDisabled(resolveSourceExecArgv(entry) ?? []);
   return {
     execPath: process.execPath,
     args: [entry],
-    ...(execArgv ? { execArgv } : {}),
+    ...(execArgv.length > 0 ? { execArgv } : {}),
   };
 }

@@ -13,7 +13,13 @@
  * agent-framework session-store facades). agent-cli stays a thin shell.
  */
 
-import { isSafeSessionId } from '@robota-sdk/agent-framework';
+import {
+  isSafeSessionId,
+  lockedSessionMessage,
+  lockedSessionReason,
+  lockedSessionsNotice,
+  scanSessionStore,
+} from '@robota-sdk/agent-framework';
 import {
   aggregateReports,
   analyzeSession,
@@ -56,23 +62,31 @@ function parseSessionAnalyzeArgs(argv: string[]): ISessionAnalyzeArgs {
 /**
  * Load session records from the user store (`the configured user root/sessions`) and the project store
  * (`cwd/the configured project directory/sessions` + replay logs), de-duped by id (project wins on collision) and sorted by
- * id ascending — session ids are timestamp-prefixed, so lexical order is chronological.
+ * id ascending — session ids are timestamp-prefixed, so lexical order is chronological. With them,
+ * how many sealed sessions the stores left out because their keys are locked, from the same scan.
  */
 function loadSessionRecords(
   userSessionStore: IInteractiveSessionStore,
   projectSessionStore: IInteractiveSessionStore | undefined,
-): TSessionAnalysisInput[] {
+): {
+  readonly records: TSessionAnalysisInput[];
+  readonly locked: number;
+  readonly noKeys: number;
+} {
   // TRANS-007: analysis needs readable records, so unreadable entries are skipped HERE rather than
   // by the store — the store now reports them, and each consumer decides what it can do with one.
   // An analyzer has nothing to analyse in a record it cannot decode.
   const byId = new Map<string, TSessionAnalysisInput>();
-  for (const entry of userSessionStore.list()) {
+  const user = scanSessionStore(userSessionStore);
+  const project = scanSessionStore(projectSessionStore);
+  for (const entry of [...user.entries, ...project.entries]) {
     if (entry.outcome.status === 'valid') byId.set(entry.id, entry.outcome.record);
   }
-  for (const entry of projectSessionStore?.list() ?? []) {
-    if (entry.outcome.status === 'valid') byId.set(entry.id, entry.outcome.record);
-  }
-  return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id));
+  return {
+    records: [...byId.values()].sort((a, b) => a.id.localeCompare(b.id)),
+    locked: user.locked + project.locked,
+    noKeys: (user.noKeys ?? 0) + (project.noKeys ?? 0),
+  };
 }
 
 function loadExactSessionRecord(
@@ -94,23 +108,48 @@ export async function runSessionAnalyze(
   userSessionStore: IInteractiveSessionStore = (() => { throw new Error('Session analysis requires an explicit user store.'); })(),
 ): Promise<void> {
   const args = parseSessionAnalyzeArgs(argv);
-  let records: TSessionAnalysisInput[] | undefined;
-  const enumerateRecords = (): TSessionAnalysisInput[] =>
-    (records ??= loadSessionRecords(userSessionStore, projectSessionStore));
+  let enumerated: ReturnType<typeof loadSessionRecords> | undefined;
+  const enumerate = (): ReturnType<typeof loadSessionRecords> =>
+    (enumerated ??= loadSessionRecords(userSessionStore, projectSessionStore));
   const requireConfiguredRecords = (): TSessionAnalysisInput[] => {
-    const configured = enumerateRecords();
-    if (configured.length === 0) {
+    const { records, locked, noKeys } = enumerate();
+    if (records.length === 0) {
+      const notice = lockedSessionsNotice(locked, noKeys);
       process.stderr.write(
-        'No session files found in configured user or authorized project session stores.\n',
+        'No session files found in configured user or authorized project session stores.' +
+          (notice !== undefined ? ` ${notice}` : '') +
+          '\n',
       );
       process.exit(1);
     }
-    return configured;
+    return records;
+  };
+  // An analysis chosen from the listing — the latest, the last N, a substring — says how many sealed
+  // sessions it could not consider, since one of them may be the session that was meant.
+  const noteSkipped = (): void => {
+    const notice =
+      enumerated === undefined
+        ? undefined
+        : lockedSessionsNotice(enumerated.locked, enumerated.noKeys);
+    if (notice !== undefined) process.stderr.write(`Skipped: ${notice}\n`);
   };
   const exact =
     args.sessionId === undefined
       ? undefined
       : loadExactSessionRecord(args.sessionId, userSessionStore, projectSessionStore);
+
+  // A session that is there but sealed out of reach is not "not found", and must not fall through to
+  // the prefix search, which only sees readable records.
+  const lockedReason =
+    args.sessionId === undefined || exact !== undefined
+      ? undefined
+      : [userSessionStore, projectSessionStore]
+          .map((store) => lockedSessionReason(store, args.sessionId!))
+          .find((reason) => reason !== undefined);
+  if (args.sessionId !== undefined && lockedReason !== undefined) {
+    process.stderr.write(`${lockedSessionMessage(args.sessionId, lockedReason)}\n`);
+    process.exit(1);
+  }
 
   if (args.usage) {
     const target =
@@ -118,6 +157,7 @@ export async function runSessionAnalyze(
         ? (exact ??
           requireConfiguredRecords().find((record) => record.id.includes(args.sessionId!)))
         : requireConfiguredRecords().at(-1);
+    noteSkipped();
     if (!target) {
       process.stderr.write(`Session not found${args.sessionId ? `: ${args.sessionId}` : ''}\n`);
       process.exit(1);
@@ -129,6 +169,7 @@ export async function runSessionAnalyze(
   if (args.sessionId !== undefined) {
     const matched =
       exact ?? requireConfiguredRecords().find((record) => record.id.includes(args.sessionId!));
+    noteSkipped();
     if (!matched) {
       process.stderr.write(`Session not found: ${args.sessionId}\n`);
       process.exit(1);
@@ -138,6 +179,7 @@ export async function runSessionAnalyze(
   }
 
   const allRecords = requireConfiguredRecords();
+  noteSkipped();
 
   if (args.last !== undefined) {
     const reports = allRecords.slice(-args.last).map((record) => analyzeSession(record));

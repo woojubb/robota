@@ -45,6 +45,13 @@ export interface IAnthropicProviderOptions {
   defaultModel?: string;
 
   /**
+   * Attach Anthropic's server-side `web_search` tool to every request that may use tools (default:
+   * off). The API runs the tool itself, so nothing is registered locally. A provider definition sets
+   * it from the profile option `nativeWebTools.webSearch`.
+   */
+  enableWebTools?: boolean;
+
+  /**
    * API base URL (default: Anthropic's official endpoint).
    * Point this at any Anthropic-Messages-API-compatible endpoint — e.g. a
    * proxy/gateway that speaks the Messages protocol. For OpenAI-protocol

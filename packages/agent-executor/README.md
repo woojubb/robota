@@ -1,5 +1,8 @@
 # @robota-sdk/agent-executor
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Runtime building blocks for long-running agent runtime work: a background task manager with a lifecycle
 state machine, queueing, cancellation, watchdogs, events and log pages; runners for shell processes,
 scheduled tasks and tool invocations; a subagent manager built on the same layer, with optional Git
@@ -7,7 +10,9 @@ worktree isolation; and helpers that build a provider from a serializable profil
 
 It provides services and ports that higher packages assemble. It does not create sessions, tools or
 prompts, does not read configuration files, and does not create Git worktrees itself (a worktree
-adapter you supply does). Its own runners are the only place it spawns child processes.
+adapter you supply does). Its own runners are the only place it spawns child processes, and they
+live on `@robota-sdk/agent-executor/node`: the main entry is platform-neutral and runs in a browser,
+a Web Worker, Node, Deno and Bun.
 `@robota-sdk/agent-framework` builds its subagents and background jobs on this package; the task
 and result types come from `@robota-sdk/agent-interface-execution`.
 
@@ -24,10 +29,8 @@ Requires Node.js 22.12 or later.
 Run a shell command as a background task and wait for it:
 
 ```typescript
-import {
-  BackgroundTaskManager,
-  createDefaultBackgroundTaskRunners,
-} from '@robota-sdk/agent-executor';
+import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
+import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor/node';
 
 const manager = new BackgroundTaskManager({ runners: createDefaultBackgroundTaskRunners() });
 const unsubscribe = manager.subscribe((event) => console.log(event.type));
@@ -56,29 +59,36 @@ Task results and states are discriminated by `kind`: `exitCode` and `signalCode`
 
 ## Main exports
 
-| Area               | Exports                                                                                                                                                                          |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Background tasks   | `BackgroundTaskManager` (`spawn`, `wait`, `list`, `get`, `cancel`, `close`, `send`, `readLog`, `subscribe`, `shutdown`, scheduled-task pause/resume/edit), `BackgroundTaskError` |
-| Runners            | `createDefaultBackgroundTaskRunners`, `createManagedShellProcessRunner`, `createScheduledTaskRunner`, `createToolInvocationBackgroundTaskRunner`, `IBackgroundTaskRunner`        |
-| Shell resolution   | `resolveBackgroundTaskShellCommand`: the executable and arguments for `sh`/`bash`, PowerShell/`pwsh` or `cmd`; an unknown explicit shell is refused before spawning              |
-| State machine      | `transitionBackgroundTaskStatus`, `isTerminalBackgroundTaskStatus`, `getBackgroundTaskTransitions`                                                                               |
-| Logs and observers | `createBackgroundTaskLogPage`, `createLimitedOutputCapture`, `deliverToObservers`                                                                                                |
-| Subagents          | `SubagentManager` (spawn, wait, send, cancel agent jobs through an `ISubagentRunner`), `createWorktreeSubagentRunner`, `subagentExecutionRoot`                                   |
-| Providers          | `createProviderFromProfile`, `createProviderFromExactProfile`, `resolveProfileApiKey`                                                                                            |
-| Connection checks  | `verifyConnectionEnvironment`, `findConnectionEnvironmentDivergence`, `sealConnectionEnvironment`, `connectionEnvironmentNames`, `TRANSPORT_ENVIRONMENT`                         |
+| Area                       | Exports                                                                                                                                                                          |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Background tasks           | `BackgroundTaskManager` (`spawn`, `wait`, `list`, `get`, `cancel`, `close`, `send`, `readLog`, `subscribe`, `shutdown`, scheduled-task pause/resume/edit), `BackgroundTaskError` |
+| Runners                    | `createToolInvocationBackgroundTaskRunner`, `nextScheduledFireOnOrAfter`, `IBackgroundTaskRunner`                                                                                |
+| Node host (`/node`)        | `createDefaultBackgroundTaskRunners`, `createManagedShellProcessRunner`, `createScheduledTaskRunner`, `reportObserverFailureAsProcessWarning`                                    |
+| Shell resolution (`/node`) | `resolveBackgroundTaskShellCommand`: the executable and arguments for `sh`/`bash`, PowerShell/`pwsh` or `cmd`; an unknown explicit shell is refused before spawning              |
+| State machine              | `transitionBackgroundTaskStatus`, `isTerminalBackgroundTaskStatus`, `getBackgroundTaskTransitions`                                                                               |
+| Logs and observers         | `createBackgroundTaskLogPage`, `createLimitedOutputCapture`, `deliverToObservers`, `reportObserverFailureAsConsoleWarning`                                                       |
+| Subagents                  | `SubagentManager` (spawn, wait, send, cancel agent jobs through an `ISubagentRunner`), `createWorktreeSubagentRunner`, `subagentExecutionRoot`                                   |
+| Providers                  | `createProviderFromProfile`, `createProviderFromExactProfile`, `resolveProfileApiKey`                                                                                            |
+| Connection checks          | `verifyConnectionEnvironment`, `findConnectionEnvironmentDivergence`, `sealConnectionEnvironment`, `connectionEnvironmentNames`, `TRANSPORT_ENVIRONMENT`                         |
 
 - **Subagents.** `SubagentManager` runs `agent` tasks through a runner you supply (for example the
   child-process runner in `@robota-sdk/agent-subagent-runner`). Wrapping that runner with
   `createWorktreeSubagentRunner` gives a job requested with `isolation: 'worktree'` its own Git
   worktree, prepared and removed by your `ISubagentWorktreeAdapter`; the `WorktreeCreate` and
-  `WorktreeRemove` hooks fire around it.
+  `WorktreeRemove` hooks fire around it, through the `hookTypeExecutors` you pass.
+- **Observer failures.** A throwing lifecycle observer never unwinds the manager; the failure goes
+  to `onObserverFailure`, which defaults to a `console.warn` line carrying the warning code
+  (`reportObserverFailureAsConsoleWarning`, for an owner that delivers to observers itself). A Node
+  host passes `reportObserverFailureAsProcessWarning` to surface it as a process warning instead.
 - **Logs.** Task handles may report `logPath` and `transcriptPath`. The manager copies them into the
   task state, so a session record can store references while high-frequency output stays in
   append-only JSONL logs.
-- **Providers across processes.** `createProviderFromExactProfile` builds a provider from a profile
-  another process resolved, exactly as given, and refuses a credential reference that resolves to
-  nothing. `sealConnectionEnvironment` records a keyed digest of the variables that decide where a
-  provider connects (base URL, proxy and TLS settings, the credential variable), and
+- **Providers across processes.** The profile helpers take the environment resolver as a required
+  argument (`processEnvResolver` from `@robota-sdk/agent-core/node` on Node).
+  `createProviderFromExactProfile` builds a provider from a profile another process resolved,
+  exactly as given, and refuses a credential reference that resolves to nothing.
+  `sealConnectionEnvironment` records a keyed digest of the variables that decide where a provider
+  connects (base URL, proxy and TLS settings, the credential variable), and
   `verifyConnectionEnvironment` checks another process's environment against it, so a hand-off to a
   process that would connect somewhere else can be refused; `findConnectionEnvironmentDivergence`
   names the variables that differ.

@@ -1,4 +1,3 @@
-import { realpathSync } from 'node:fs';
 import { decodeInteractiveSessionRecord } from './session-record-codec/index.js';
 import { assertSynchronousCheckpoint } from './synchronous-checkpoint.js';
 import type { ISessionConversationSnapshot } from '@robota-sdk/agent-interface-session';
@@ -24,6 +23,7 @@ import {
   fireSessionEndHook,
   fireSessionStartHook,
 } from './session-lifecycle.js';
+import { requireHookTypeExecutors } from './require-hook-type-executors.js';
 import { executeResume, type TSessionResumeOptions } from './session-resume.js';
 import { sessionExecutionJournal, sessionRecoveryJournal } from './session-execution-journal.js';
 import { executeRun } from './session-run.js';
@@ -118,7 +118,8 @@ export class Session extends SessionBase {
   private readonly sessionStore?: IInteractiveSessionStore;
   private readonly checkpointHistoryCallback?: () => void;
   private readonly hooks?: Record<string, unknown>;
-  private readonly hookTypeExecutors?: IHookTypeExecutor[];
+  private readonly hookTypeExecutors: readonly IHookTypeExecutor[];
+  private readonly canonicalizePath: (path: string) => string;
   private readonly onTextDeltaCallback?: (delta: string) => void;
   private readonly onThinkingDeltaCallback?: (delta: string) => void;
   private readonly onContextUpdateCallback?: (state: IContextWindowState) => void;
@@ -172,7 +173,8 @@ export class Session extends SessionBase {
     this.wrapAddedTools = options.wrapAddedTools;
     this.sessionLogger = options.sessionLogger;
     this.hooks = options.hooks;
-    this.hookTypeExecutors = options.hookTypeExecutors;
+    this.hookTypeExecutors = requireHookTypeExecutors(options.hookTypeExecutors, 'Session');
+    this.canonicalizePath = options.canonicalizePath ?? ((path) => path);
     this.onTextDeltaCallback = options.onTextDelta;
     this.onThinkingDeltaCallback = options.onThinkingDelta;
     this.onContextUpdateCallback = options.onContextUpdate;
@@ -291,6 +293,7 @@ export class Session extends SessionBase {
               sessionId: this.sessionId,
               cwd: this.cwd,
               peerTurn: options.peerTurn === true,
+              canonicalizePath: this.canonicalizePath,
             }),
           }
         : options;
@@ -356,6 +359,7 @@ export class Session extends SessionBase {
         this.sessionId,
         this.cwd,
         (peerTurn) => this.permissionEnforcer.beginTurn(peerTurn, checkpointedApprovals),
+        this.canonicalizePath,
       );
       const response = await executeResume(this.buildRunContext(true), {
         ...options,
@@ -444,7 +448,7 @@ export class Session extends SessionBase {
   getConversationSnapshot(): ISessionConversationSnapshot {
     return structuredClone({
       id: this.sessionId,
-      cwd: realpathSync(this.cwd),
+      cwd: this.canonicalizePath(this.cwd),
       messages: this.agent.getHistory(),
       ...(this.pendingExecution ? { pendingExecution: this.pendingExecution } : {}),
     });
@@ -457,7 +461,10 @@ export class Session extends SessionBase {
       this.agent.getHistory().some((message) => message.role !== 'system')
     )
       throw new Error('Conversation restore requires a pristine idle Session');
-    if (snapshot.id !== this.sessionId || realpathSync(snapshot.cwd) !== realpathSync(this.cwd))
+    if (
+      snapshot.id !== this.sessionId ||
+      this.canonicalizePath(snapshot.cwd) !== this.canonicalizePath(this.cwd)
+    )
       throw new ExecutionRecoveryError(
         'EXECUTION_RECOVERY_CONFLICT',
         'Conversation owner or workspace differs',
@@ -685,7 +692,6 @@ export class Session extends SessionBase {
   ): void {
     this.assertInputAllowed();
     this.agent.swapDefaultProvider(newProvider, model, options);
-    newProvider.configureNativeWebTools?.({ webSearch: true });
     if ('onServerToolUse' in newProvider) {
       (
         newProvider as { onServerToolUse?: (name: string, input: Record<string, string>) => void }

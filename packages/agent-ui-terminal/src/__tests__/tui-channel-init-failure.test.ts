@@ -24,6 +24,7 @@ vi.mock('@robota-sdk/agent-framework', async (importOriginal) => {
       return { getSessionId: () => 'test-session' };
     }
     async shutdown(): Promise<void> {}
+    releaseSessionClaim(): void {}
   }
 
   // RUNTIME-001: construction flows through buildRuntimeSession (wraps InteractiveSession in agent-framework).
@@ -35,6 +36,9 @@ vi.mock('@robota-sdk/agent-framework', async (importOriginal) => {
 });
 
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 /** The session's working directory: private to this run, never a fixed name under /tmp. */
 const PROJECT_DIR = mkdtempSync(join(tmpdir(), 'agent-test-tui-init-failure-'));
@@ -51,6 +55,7 @@ describe('TuiInteractionChannel init failure surfacing', () => {
 
   it('TC-05: a real init error records a session-init-error entry and sets error state', async () => {
     const channel = new TuiInteractionChannel({
+      host: testHost,
       cwd: PROJECT_DIR,
       provider: {} as IAIProvider,
     });

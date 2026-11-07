@@ -12,7 +12,6 @@ import { createGlobTool } from '../builtins/glob-tool';
 import { createGrepTool } from '../builtins/grep-tool';
 import { createShellTool, createBashTool } from '../builtins/shell-tool';
 import { createWebFetchTool } from '../builtins/web-fetch-tool';
-import { createWebSearchTool } from '../builtins/web-search-tool';
 import { createAskUserQuestionTool } from '../builtins/ask-user-question-tool';
 import { createToolSearchTool } from '../builtins/tool-search-tool';
 import { createZodFunctionTool } from '../implementations/function-tool';
@@ -56,18 +55,6 @@ describe('declared builtin invocation outcomes', () => {
       args: { command: 'printf unused', workingDirectory: join(root, 'missing-directory') },
     },
     { name: 'WebFetch', tool: () => createWebFetchTool(), args: { url: 'not-a-url' } },
-    {
-      name: 'WebSearch',
-      tool: () =>
-        createWebSearchTool({
-          provider: {
-            search: async () => {
-              throw new Error('Search provider refused');
-            },
-          },
-        }),
-      args: { query: 'fixture' },
-    },
   ];
 
   it.each(failures)(

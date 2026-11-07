@@ -47,13 +47,14 @@ it('retains every ordered receipt through repeated compaction independently of a
     agent,
     aiProvider: scripted.provider,
     compactionOrchestrator: new CompactionOrchestrator({
+      hookTypeExecutors: [],
       sessionId: 'receipt-fixture',
       cwd: '/tmp',
       model: 'test-model',
     }),
     contextTracker: new ContextWindowTracker('test-model', 100000),
     hooks: undefined,
-    hookTypeExecutors: undefined,
+    hookTypeExecutors: [],
     onCompactCallback: undefined,
     onCompactEventCallback: undefined,
     trigger: 'manual' as const,
@@ -86,14 +87,14 @@ it('retains every ordered receipt through repeated compaction independently of a
       defaultModel: { provider: scripted.provider.name, model: 'test-model' },
     });
     try {
-      new NodeSessionStore(root).save({
+      new NodeSessionStore(root, { sealing: 'plain' }).save({
         id: 'receipt-fixture',
         cwd: '/tmp',
         createdAt: new Date(0).toISOString(),
         updatedAt: new Date().toISOString(),
         messages: agent.getHistory(),
       });
-      const loaded = new NodeSessionStore(root).load('receipt-fixture');
+      const loaded = new NodeSessionStore(root, { sealing: 'plain' }).load('receipt-fixture');
       expect(loaded.status).toBe('valid');
       if (loaded.status !== 'valid') throw new Error('Persisted receipt history was not valid');
       loaded.record.messages.forEach((message) => restored.injectRawMessage(message));

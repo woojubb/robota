@@ -10,6 +10,7 @@ import {
   createExternalEventHttpHost,
   validateExternalEventEndpoint,
 } from '../external-event-http-host.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type {
@@ -18,6 +19,8 @@ import type {
   TExternalEventAuditRecord,
 } from '@robota-sdk/agent-interface-transport';
 import type { CryptoKey, JWK } from 'jose';
+
+const testHost = createTestFrameworkHost();
 
 const ISSUER = 'https://auth.example.com';
 const PUBLIC = 'https://test-product.example/hooks';
@@ -188,6 +191,7 @@ async function start(
     timestamp: new Date(),
   }));
   const session = new InteractiveSession({
+    host: testHost,
     cwd: process.cwd(),
     provider: {
       name: 'mock',

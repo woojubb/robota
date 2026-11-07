@@ -24,7 +24,7 @@ export const TOOL_SEARCH_TOOL_NAME = 'ToolSearch';
 
 /**
  * `IAgentConfig.toolSearch`. `'auto'` (the default) engages deferral by threshold —
- * `resolveToolSearchMode` — so ten resident tools cost nothing; `'on'` / `'off'` force the answer.
+ * `resolveToolSearchMode` — so the nine resident built-ins cost nothing; `'on'` / `'off'` force the answer.
  */
 export type TToolSearchSetting = 'auto' | 'on' | 'off';
 

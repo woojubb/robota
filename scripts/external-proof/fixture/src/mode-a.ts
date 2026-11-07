@@ -11,6 +11,8 @@ import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import { createCodingPack } from '@robota-sdk/pack-coding';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 import { ACME_PROVIDER_SETTINGS } from './acme.js';
 import { check, checkEqual, checkThrows, mode, note, section } from './harness.js';
@@ -24,6 +26,9 @@ const codingPack = createCodingPack({ cwd: process.cwd() });
 import { asStandardOptions } from './surface-notes.js';
 
 import type { IProductProfile } from '@robota-sdk/agent-product';
+
+/** The platform the proof's sessions run on: this Node process, with the framework's default tools. */
+const host = createNodeFrameworkHost({ createDefaultTools });
 
 export function runModeA(): void {
   mode('MODE A — build a product on the published framework');
@@ -96,20 +101,9 @@ export function runModeA(): void {
     ['agent-command-shell', 'agent-command-editor', 'agent-command-git'],
   );
   checkEqual(
-    'the ten built-in coding tools are present',
+    'the nine built-in coding tools are present',
     product.tools.map((tool) => tool.getName()),
-    [
-      'Shell',
-      'Bash',
-      'Read',
-      'Write',
-      'Edit',
-      'Glob',
-      'Grep',
-      'WebFetch',
-      'WebSearch',
-      'AskUserQuestion',
-    ],
+    ['Shell', 'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep', 'WebFetch', 'AskUserQuestion'],
   );
   checkEqual(
     'the built-in coding subagents are present',
@@ -121,7 +115,7 @@ export function runModeA(): void {
   section('A4 — the assembled materials reach a real runtime session');
   const options = asStandardOptions(
     product.buildRuntimeOptions({
-      session: { cwd: process.cwd(), provider: product.provider!, bare: true },
+      session: { host, cwd: process.cwd(), provider: product.provider!, bare: true },
     }),
   );
   check(
@@ -133,7 +127,7 @@ export function runModeA(): void {
     (options.additionalTools ?? []).length === 10,
   );
   const session = product.buildRuntime({
-    session: { cwd: process.cwd(), provider: product.provider!, bare: true },
+    session: { host, cwd: process.cwd(), provider: product.provider!, bare: true },
   });
   check(
     'buildRuntime returns a live framework InteractiveSession (one shared framework copy)',

@@ -3,10 +3,13 @@
  * (split from interactive-session-init.ts).
  */
 
+import { resolvePath } from '@robota-sdk/agent-core';
 import { applyWorkspaceManifest } from '@robota-sdk/agent-tools';
 
 import type { IInteractiveSessionStandardOptions } from './interactive-session-options.js';
 import type { IInitOptions } from './interactive-session-options.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
+import type { IWorkspaceHostFiles } from '@robota-sdk/agent-tools';
 
 /**
  * The sandbox pair, carried TOGETHER onto the init options.
@@ -39,6 +42,27 @@ export function interactiveSandboxOptions(
   };
 }
 
+/**
+ * A manifest's local entries read the host's files, relative to the session's working directory,
+ * through the file access the host lends. A host that lends none has no files to copy from.
+ */
+function workspaceHostFiles(
+  files: NonNullable<IFrameworkHost['files']>,
+  root: string,
+): IWorkspaceHostFiles {
+  return {
+    resolve: (src) => resolvePath(root, src),
+    readText: (path) => files.async.readFile(path, 'utf8'),
+    readDirectory: async (path) => {
+      const entries = await files.async.readdir(path, { withFileTypes: true });
+      return entries.map((entry) => ({
+        name: entry.name,
+        kind: entry.isDirectory() ? 'directory' : entry.isFile() ? 'file' : 'other',
+      }));
+    },
+  };
+}
+
 export async function applyInteractiveWorkspaceManifest(
   options: IInitOptions,
   cwd: string,
@@ -47,8 +71,21 @@ export async function applyInteractiveWorkspaceManifest(
   if (!options.sandboxClient) {
     throw new Error('workspaceManifest requires sandboxClient.');
   }
+  const files = options.host.files;
+  if (files === undefined) {
+    const local = Object.entries(options.workspaceManifest.entries).find(
+      ([, entry]) => entry.type === 'localFile' || entry.type === 'localDir',
+    );
+    if (local !== undefined) {
+      throw new Error(
+        `workspaceManifest entry "${local[0]}" is a ${local[1].type}, which reads the host's files, ` +
+          'and this host supplies no file access (`host.files`). Use inline `file` entries, or ' +
+          'pass a host that lends files.',
+      );
+    }
+  }
   await applyWorkspaceManifest(options.sandboxClient, options.workspaceManifest, {
-    hostRoot: cwd,
+    ...(files !== undefined ? { hostFiles: workspaceHostFiles(files, cwd) } : {}),
     ...(options.sandboxWorkspaceRoot ? { targetRoot: options.sandboxWorkspaceRoot } : {}),
   });
 }

@@ -26,13 +26,13 @@ A hooks configuration (`THooksConfig`) maps an event name to a list of hook grou
 A hook definition (`THookDefinition`) has one of five types. Each type needs a registered executor
 (`IHookTypeExecutor`):
 
-| Type        | What it does                                                              | Executor                                                                                  |
-| ----------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `command`   | Runs a shell command with the hook input as JSON on stdin                 | `CommandExecutor` (`@robota-sdk/agent-core/node`); a default when no executors are passed |
-| `http`      | POSTs the hook input as JSON to a URL                                     | `HttpExecutor` (`@robota-sdk/agent-core/node`); a default when no executors are passed    |
-| `prompt`    | Asks a model to judge the hook input                                      | `PromptExecutor` (`@robota-sdk/agent-framework`), which needs a provider factory          |
-| `agent`     | Runs a subagent session on the hook input                                 | `AgentExecutor` (`@robota-sdk/agent-framework`), which needs a session factory            |
-| `guardrail` | Runs registered guardrail functions in parallel; the first failure blocks | `GuardrailExecutor` (`@robota-sdk/agent-core`), which needs the guardrails registered     |
+| Type        | What it does                                                              | Executor                                                                              |
+| ----------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `command`   | Runs a shell command with the hook input as JSON on stdin                 | `CommandExecutor` (`@robota-sdk/agent-core/node`)                                     |
+| `http`      | POSTs the hook input as JSON to a URL                                     | `HttpExecutor` (`@robota-sdk/agent-core/node`)                                        |
+| `prompt`    | Asks a model to judge the hook input                                      | `PromptExecutor` (`@robota-sdk/agent-framework`), which needs a provider factory      |
+| `agent`     | Runs a subagent session on the hook input                                 | `AgentExecutor` (`@robota-sdk/agent-framework`), which needs a session factory        |
+| `guardrail` | Runs registered guardrail functions in parallel; the first failure blocks | `GuardrailExecutor` (`@robota-sdk/agent-core`), which needs the guardrails registered |
 
 ## How a hook answers
 
@@ -157,8 +157,11 @@ Notes on specific fields:
 
 - `SubagentStart`/`SubagentStop`: `session_id` is the parent session's ID, `agent_type` is the
   task's agent type (or its label when it has none), and `transcript_path` is set to the subagent's
-  transcript when one exists. A host can also pass the agent ID and type to command hooks under
-  environment variable names it chooses (`subagentHookEnvironmentNames`).
+  transcript when one exists. The transcript may hold sealed content: then `transcript_sealed: true`
+  is set beside the path, its bytes are ciphertext to the hook, and no hook is given the plaintext;
+  `last_assistant_message` carries the subagent's final output either way. A host can also pass the
+  agent ID and type to command hooks under environment variable names it chooses
+  (`subagentHookEnvironmentNames`).
 - `WorktreeCreate`/`WorktreeRemove`: `session_id` is the parent session's ID and `cwd` is the
   repository root.
 - `PreModelCall`/`PostModelCall`: `effort` is the selection for that call (`auto` when none is set);

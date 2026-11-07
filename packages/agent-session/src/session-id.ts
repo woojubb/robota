@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
 /**
  * SEC-006 — session ids are used as PATH SEGMENTS (`<baseDir>/<id>.json`, `<logDir>/<id>.jsonl`,
@@ -20,7 +20,7 @@ const MAX_SESSION_ID_LENGTH = 128;
 
 /** Generate a fresh session id for callers that do not provide one explicitly. */
 export function createSessionId(): string {
-  return `session_${randomUUID()}`;
+  return `session_${randomId()}`;
 }
 
 /**

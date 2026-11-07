@@ -1,10 +1,12 @@
+import { builtinModules } from 'node:module';
+
 import { defineConfig } from 'tsdown';
 
 export default defineConfig({
-  entry: ['src/index.ts'],
+  entry: { index: 'src/index.ts', node: 'src/node.ts' },
   format: { esm: {}, cjs: {} },
-  outDir: 'dist/node',
-  platform: 'node',
+  outDir: 'dist',
+  platform: 'neutral',
   clean: true,
   dts: true,
   sourcemap: false,
@@ -15,6 +17,6 @@ export default defineConfig({
     dts: format === 'cjs' ? '.d.cts' : '.d.ts',
   }),
   deps: {
-    neverBundle: [/^@robota-sdk\/.*/],
+    neverBundle: [/^@robota-sdk\/.*/, /^node:/, ...builtinModules],
   },
 });

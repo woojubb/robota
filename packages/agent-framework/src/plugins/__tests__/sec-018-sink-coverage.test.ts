@@ -12,11 +12,14 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock } from 'vitest';
 
-import { NodeFileSystem } from '../../adapters/node-file-system.js';
 import { MarketplaceClient } from '../marketplace-client.js';
 import { removeInstalledPluginsForMarketplace } from '../marketplace-registry.js';
 
 import type { TExecFn } from '../marketplace-types.js';
+
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
+
+const nodeFs = new NodeFileSystem();
 
 /**
  * SEC-018 - the two remaining sinks, each driven rather than assumed.
@@ -53,7 +56,7 @@ describe('SEC-018 - the marketplace-wide cleanup refuses a path outside the plug
       'evil@market': { marketplace: 'market', installPath: victim },
     });
 
-    removeInstalledPluginsForMarketplace(pluginsDir, 'market');
+    removeInstalledPluginsForMarketplace(pluginsDir, 'market', nodeFs);
 
     expect(existsSync(join(victim, 'keep.txt')), 'a path outside the cache was deleted').toBe(true);
     const registry = JSON.parse(
@@ -74,7 +77,7 @@ describe('SEC-018 - the marketplace-wide cleanup refuses a path outside the plug
       'evil@market': { marketplace: 'market', installPath: sibling },
     });
 
-    removeInstalledPluginsForMarketplace(pluginsDir, 'market');
+    removeInstalledPluginsForMarketplace(pluginsDir, 'market', nodeFs);
 
     expect(existsSync(join(sibling, 'keep.txt')), 'a sibling marketplace was deleted').toBe(true);
   });
@@ -108,7 +111,7 @@ describe('SEC-018 - the marketplace-wide cleanup refuses a path outside the plug
       'plug@market': { marketplace: 'market', installPath: legit },
     });
 
-    removeInstalledPluginsForMarketplace(pluginsDir, 'market');
+    removeInstalledPluginsForMarketplace(pluginsDir, 'market', nodeFs);
 
     expect(existsSync(legit), 'the guard refused a legitimate removal').toBe(false);
   });
@@ -125,7 +128,7 @@ describe('SEC-018 - a marketplace manifest name cannot select a destination outs
     pluginsDir = join(base, 'plugins');
     mkdirSync(pluginsDir, { recursive: true });
     mockExec = vi.fn().mockReturnValue('');
-    client = new MarketplaceClient({ pluginsDir, exec: mockExec as unknown as TExecFn });
+    client = new MarketplaceClient({ pluginsDir, exec: mockExec as unknown as TExecFn, fs: nodeFs });
   });
 
   afterEach(() => rmSync(base, { recursive: true, force: true }));
@@ -174,7 +177,7 @@ describe('SEC-018 - known_marketplaces.json installLocation is a hint, not a fac
     pluginsDir = join(base, 'plugins');
     mkdirSync(pluginsDir, { recursive: true });
     mockExec = vi.fn().mockReturnValue('');
-    client = new MarketplaceClient({ pluginsDir, exec: mockExec as unknown as TExecFn });
+    client = new MarketplaceClient({ pluginsDir, exec: mockExec as unknown as TExecFn, fs: nodeFs });
   });
 
   afterEach(() => rmSync(base, { recursive: true, force: true }));

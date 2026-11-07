@@ -46,6 +46,7 @@ import {
 } from '@robota-sdk/agent-framework';
 import type { IServeSessionDirectory } from './serve-session-directory.js';
 import { startServeHttpHost, type IServeHttpHost } from './serve-http-host.js';
+import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 import type { IServeHttpOptions } from '../utils/serve-http-args.js';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
@@ -72,24 +73,25 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type {
-  EditCheckpointStore,
+  IEditCheckpointStore,
   IAgentDefinition,
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
   ICommandProcessAdapter,
+  IFrameworkHost,
   IRemoteCommandPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
-  INodeHostSettingsSource,
+  IHostSettingsSource,
   IContributionSource,
   ISkillRootDescriptor,
   IToolCallHandoffPolicy,
   TInteractiveSessionOptions,
   TWorkspaceProjectAccess,
   ILivePromptTracePort,
-  createProjectSessionStore,
 } from '@robota-sdk/agent-framework';
+import type { createProjectSessionStore } from '@robota-sdk/agent-framework/node';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { ITransportLifecycleRegistryView } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession, ISessionLoopState } from '@robota-sdk/agent-interface-session';
@@ -102,6 +104,8 @@ export type IServeModePresetOptions = Partial<IPresetSurfaceOptions>;
 
 export interface IServeModeOptions {
   productRuntime: ICliRuntimeContext;
+  /** The platform the served sessions run on. */
+  host: IFrameworkHost;
   cwd: string;
   livePromptTrace?: ILivePromptTracePort;
   /** Explicit host-owned control root for isolated embedded runtimes and tests. */
@@ -134,9 +138,9 @@ export interface IServeModeOptions {
    * Builds a session's edit checkpoint store. Called once per session, the pool's included: a store
    * holds its session's turn in progress, and pooled sessions run turns at the same time.
    */
-  createEditCheckpointStore?: () => EditCheckpointStore;
+  createEditCheckpointStore?: () => IEditCheckpointStore;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
   taskContext?: { readonly enabled?: boolean; readonly dir?: string };
@@ -226,6 +230,7 @@ export interface IServeModeOptions {
 export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveSessionOptions {
   const { args, preset } = opts;
   return {
+    host: opts.host,
     cwd: opts.cwd,
     ...(opts.livePromptTrace ? { livePromptTrace: opts.livePromptTrace } : {}),
     provider: opts.provider,
@@ -361,6 +366,8 @@ export function buildPooledSessionOptions(
     resumeSessionId,
     forkSession: undefined,
     sessionName: undefined,
+    // What the owner accepted at launch was one record's bytes; a pooled session is another record.
+    acceptedDigest: undefined,
   };
 }
 
@@ -522,22 +529,23 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     // instead of leaving a runtime its HTTP clients cannot reach.
     let httpEndpoint: IServeHttpHost | undefined;
     if (opts.http !== undefined) {
+      const http = opts.http;
       try {
-        httpEndpoint = await startServeHttpHost({
-          port: opts.http.port,
-          ...(opts.http.remote !== undefined
-            ? { remote: opts.http.remote }
-            : { token: opts.http.token }),
-          session: () => host.session.current,
-          onStreamFailure: (error) => {
-            process.stderr.write(`HTTP API stream failed: ${error.message}\n`);
-          },
-          onRefusal: (record) => {
-            process.stderr.write(
-              `HTTP API refused: ${record.refusal} (${record.remote}${record.throttled ? ', throttled' : ''})\n`,
-            );
-          },
-        });
+        httpEndpoint = await startListener(SECURE_SURFACES['serve-http'], opts.productRuntime, () =>
+          startServeHttpHost({
+            port: http.port,
+            ...(http.remote !== undefined ? { remote: http.remote } : { token: http.token }),
+            session: () => host.session.current,
+            onStreamFailure: (error) => {
+              process.stderr.write(`HTTP API stream failed: ${error.message}\n`);
+            },
+            onRefusal: (record) => {
+              process.stderr.write(
+                `HTTP API refused: ${record.refusal} (${record.remote}${record.throttled ? ', throttled' : ''})\n`,
+              );
+            },
+          }),
+        );
       } catch (error) {
         await host.shutdown('HTTP API could not be served').catch(() => undefined);
         await pool?.shutdownAll('HTTP API could not be served')?.catch(() => undefined);
@@ -569,7 +577,9 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         const wsUrl = opts.getMonitorWsUrl?.();
         const webRoot = resolveProductWebRoot(opts.productRuntime);
         if (wsUrl && webRoot) {
-          monitorUi = await startMonitorUiServer(webRoot, wsUrl, opts.productRuntime);
+          monitorUi = await startListener(SECURE_SURFACES['serve-monitor'], opts.productRuntime, () =>
+            startMonitorUiServer(webRoot, wsUrl, opts.productRuntime),
+          );
           process.stdout.write(servedAtMessage(monitorUi.url, opts.productRuntime));
           process.stdout.write(`Monitor access code: ${monitorUi.accessCode}\n`);
           openInBrowser(monitorUi.url);
@@ -688,7 +698,9 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
                 : {}),
               audit,
             });
-            await endpoint.start();
+            await startListener(SECURE_SURFACES['external-events'], opts.productRuntime, () =>
+              endpoint.start(),
+            );
             eventEndpoint = endpoint;
           } catch {
             throw new ExternalEventEndpointError();
@@ -701,57 +713,60 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
             revoke: (grantId) => grantHost.adapter.revoke(grantId),
           };
         }
-        supervisedControl = await startSupervisedControl(
-          args.supervisedSessionId,
-          () => requestSettle('supervised session stopped'),
-          opts.supervisedRoot ?? resolveSupervisedDirectory(opts.productRuntime),
-          // Activity and the next loop cover every live session, so a session no client is on that
-          // still works keeps the runtime from reading idle.
-          () => (settling ? undefined : poolActivity(liveSessions())),
-          () => (settling ? undefined : supervisedCwd),
-          () =>
-            settling || sessionOptions.disableSessionLoops
-              ? undefined
-              : nextWaitingLoopAt(
-                  liveSessions().flatMap((session) => session.listSelfPacedLoops()),
-                  Date.now(),
-                ),
-          () => (settling ? undefined : host.session.current.getName()),
-          (name) => {
-            if (settling) throw new Error('Supervised runtime is stopping.');
-            host.session.current.setName(name);
-          },
-          {
-            get: () => (settling ? undefined : linkedPr),
-            set: (value) => {
+        const supervisedSessionId = args.supervisedSessionId;
+        supervisedControl = await startListener(SECURE_SURFACES['control-socket'], opts.productRuntime, () =>
+          startSupervisedControl(
+            supervisedSessionId,
+            () => requestSettle('supervised session stopped'),
+            opts.supervisedRoot ?? resolveSupervisedDirectory(opts.productRuntime),
+            // Activity and the next loop cover every live session, so a session no client is on that
+            // still works keeps the runtime from reading idle.
+            () => (settling ? undefined : poolActivity(liveSessions())),
+            () => (settling ? undefined : supervisedCwd),
+            () =>
+              settling || sessionOptions.disableSessionLoops
+                ? undefined
+                : nextWaitingLoopAt(
+                    liveSessions().flatMap((session) => session.listSelfPacedLoops()),
+                    Date.now(),
+                  ),
+            () => (settling ? undefined : host.session.current.getName()),
+            (name) => {
               if (settling) throw new Error('Supervised runtime is stopping.');
-              linkedPr = value;
+              host.session.current.setName(name);
             },
-          },
-          grantHost === undefined
-            ? undefined
-            : {
-                list: () => grantHost.adapter.list(),
-                revoke: (grantId) => {
-                  if (settling) throw new Error('Supervised runtime is stopping.');
-                  return grantHost.adapter.revoke(grantId);
-                },
+            {
+              get: () => (settling ? undefined : linkedPr),
+              set: (value) => {
+                if (settling) throw new Error('Supervised runtime is stopping.');
+                linkedPr = value;
               },
-          // A terminal on this host may attach over the guarded control socket. It never becomes an
-          // operator approver: this process has no terminal, so mesh admissions stay refused. Each
-          // attached terminal binds to the sessions as a WebSocket client does, so a switch it makes
-          // moves that terminal alone.
-          pool !== undefined && sessionDirectory !== undefined
-            ? { binder: sessionDirectory }
-            : { session: host.session },
-          // A daemon hands its owner the URL its transport is served on, token included, so a
-          // client in this workspace can connect to it instead of starting a runtime of its own.
-          args.daemon === true
-            ? {
-                url: () => (settling ? undefined : opts.getMonitorWsUrl?.()),
-                restricted: opts.projectAccess?.status === 'restricted',
-              }
-            : undefined,
+            },
+            grantHost === undefined
+              ? undefined
+              : {
+                  list: () => grantHost.adapter.list(),
+                  revoke: (grantId) => {
+                    if (settling) throw new Error('Supervised runtime is stopping.');
+                    return grantHost.adapter.revoke(grantId);
+                  },
+                },
+            // A terminal on this host may attach over the guarded control socket. It never becomes an
+            // operator approver: this process has no terminal, so mesh admissions stay refused. Each
+            // attached terminal binds to the sessions as a WebSocket client does, so a switch it makes
+            // moves that terminal alone.
+            pool !== undefined && sessionDirectory !== undefined
+              ? { binder: sessionDirectory }
+              : { session: host.session },
+            // A daemon hands its owner the URL its transport is served on, token included, so a
+            // client in this workspace can connect to it instead of starting a runtime of its own.
+            args.daemon === true
+              ? {
+                  url: () => (settling ? undefined : opts.getMonitorWsUrl?.()),
+                  restricted: opts.projectAccess?.status === 'restricted',
+                }
+              : undefined,
+          ),
         );
         if (settling) throw new Error('Supervised runtime stopped before readiness.');
         await acknowledgeSupervisedStartup(

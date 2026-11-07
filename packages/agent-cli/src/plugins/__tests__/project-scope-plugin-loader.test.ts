@@ -20,6 +20,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { reloadPluginCommandSource } from '../default-plugin-command-source-loader.js';
 import { createTrustedWorkspaceProjectAccess } from '../../__tests__/helpers/trusted-workspace-project-access.js';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IWorkspaceTrustStoreSnapshot } from '@robota-sdk/agent-framework';
 
 const MARKET = 'test-market';
@@ -108,6 +109,7 @@ describe('issue #2487: project-scope plugin installs reach the reload path', () 
       grantedAt: '2026-08-22T00:00:00.000Z',
     };
     const service = new WorkspaceTrustService({
+      projectFiles: createNodeWorkspaceProjectFiles(),
       identityResolver: { resolve: () => identity },
       store: {
         inspect: async () => snapshot,

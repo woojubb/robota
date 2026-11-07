@@ -1,16 +1,16 @@
 import { createHash } from 'node:crypto';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'fs';
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-import { NodeSessionStore } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
+import { createProjectSessionStore } from '../interactive/node-session-stores.js';
 import {
-  createProjectSessionStore,
   WorkspaceSessionLogSink,
   WorkspaceSessionLogSource,
-} from '../interactive/session-persistence.js';
+} from '../interactive/workspace-session-io.js';
 import { createTrustedProjectAccessFixture } from '../testing/trusted-project-state-fixture.js';
 import { getWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
 
@@ -68,6 +68,7 @@ async function projectStore(cwd: string): Promise<ReturnType<typeof createProjec
   return createProjectSessionStore(
     getWorkspaceProjectStateStorage(access.authority, 'sessions'),
     getWorkspaceProjectStateStorage(access.authority, 'session-logs'),
+    { sealing: 'plain' },
   );
 }
 
@@ -77,7 +78,7 @@ describe('SessionStore', () => {
 
   beforeEach(() => {
     tmpDir = mkdtempSync(join(tmpdir(), 'agent-session-test-'));
-    store = new NodeSessionStore(tmpDir);
+    store = new NodeSessionStore(tmpDir, { sealing: 'plain' });
   });
 
   afterEach(() => {
@@ -126,6 +127,7 @@ describe('SessionStore', () => {
           createProjectSessionStore(
             getWorkspaceProjectStateStorage(leftAccess.authority, 'sessions'),
             getWorkspaceProjectStateStorage(rightAccess.authority, 'session-logs'),
+            { sealing: 'plain' },
           ),
         ).toThrow(/same workspace authority/);
       } finally {
@@ -193,7 +195,7 @@ describe('SessionStore', () => {
         const access = await createTrustedProjectAccessFixture(cwd);
         if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
         const logStorage = getWorkspaceProjectStateStorage(access.authority, 'session-logs');
-        const sink = new WorkspaceSessionLogSink(logStorage);
+        const sink = new WorkspaceSessionLogSink(logStorage, { sealing: 'plain' });
         sink.append(
           'log-only-session',
           [
@@ -284,7 +286,7 @@ describe('SessionStore', () => {
 
         try {
           const sessionStorage = getWorkspaceProjectStateStorage(access.authority, 'sessions');
-          const store = createProjectSessionStore(sessionStorage, logStorage);
+          const store = createProjectSessionStore(sessionStorage, logStorage, { sealing: 'plain' });
           const loaded = loadedRecordOrMissing(store, 'log-only-session');
 
           expect(loaded?.cwd).toBe(cwd);
@@ -299,6 +301,56 @@ describe('SessionStore', () => {
     );
   });
 
+  describe('project replay log of another session', () => {
+    it('reads a log copied under another id as corrupt, not as that session (any platform)', async () => {
+      const cwd = mkdtempSync(join(tmpdir(), 'agent-project-foreign-log-'));
+      try {
+        const line = (event: Record<string, unknown>): string =>
+          JSON.stringify({ schemaVersion: 1, sessionId: 'someone-else', ...event });
+        const logs = join(cwd, '.agent', 'logs');
+        // The writer is Linux-only; the log is made by hand so the READ path is covered everywhere.
+        mkdirSync(logs, { recursive: true });
+        writeFileSync(
+          join(logs, 'mine.jsonl'),
+          [
+            line({
+              timestamp: '2026-05-05T00:00:00.000Z',
+              event: 'session_init',
+              cwd,
+              provider: 'scripted',
+              model: 'scripted',
+              systemPrompt: '',
+              systemPromptLength: 0,
+              toolSchemas: [],
+            }),
+            line({
+              timestamp: '2026-05-05T00:00:01.000Z',
+              event: 'history_mutation',
+              mutation: 'append_message',
+              index: 0,
+              message: {
+                id: 'u1',
+                role: 'user',
+                content: 'hello',
+                state: 'complete',
+                timestamp: '2026-05-05T00:00:01.000Z',
+              },
+            }),
+          ].join('\n') + '\n',
+        );
+
+        const outcome = (await projectStore(cwd)).load('mine');
+
+        expect(outcome).toEqual({
+          status: 'corrupt',
+          issues: [{ path: 'sessionId', message: 'the session log belongs to another session id' }],
+        });
+      } finally {
+        rmSync(cwd, { recursive: true, force: true });
+      }
+    });
+  });
+
   describe('project session log degradation', () => {
     // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
     it.runIf(process.platform === 'linux')(
@@ -311,9 +363,11 @@ describe('SessionStore', () => {
           const storage = getWorkspaceProjectStateStorage(access.authority, 'session-logs');
           const serialized = JSON.stringify('larger than one byte');
           const sha256 = createHash('sha256').update(serialized).digest('hex');
-          const sink = new WorkspaceSessionLogSink(storage);
+          const sink = new WorkspaceSessionLogSink(storage, { sealing: 'plain' });
           const reference = sink.writeJson('safe-session', sha256, serialized);
-          const source = new WorkspaceSessionLogSource(storage, 'safe-session');
+          const source = new WorkspaceSessionLogSource(storage, 'safe-session', {
+            sealing: 'plain',
+          });
 
           expect(() => source.readBytes(reference.relativePath, 1)).toThrowError(
             expect.objectContaining({ code: 'MAX_TOTAL_BYTES_EXCEEDED' }),
@@ -334,6 +388,7 @@ describe('SessionStore', () => {
         if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
         const sink = new WorkspaceSessionLogSink(
           getWorkspaceProjectStateStorage(access.authority, 'session-logs'),
+          { sealing: 'plain' },
         );
 
         expect(() => sink.writeJson('safe-session', 'a'.repeat(64), '{"safe":true}')).toThrow(
@@ -354,6 +409,7 @@ describe('SessionStore', () => {
         if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
         const sink = new WorkspaceSessionLogSink(
           getWorkspaceProjectStateStorage(access.authority, 'session-logs'),
+          { sealing: 'plain' },
         );
 
         expect(() => sink.append('safe-session', '{}\n')).not.toThrow();
@@ -389,7 +445,9 @@ describe('SessionStore', () => {
     });
 
     it('returns empty array when base directory does not exist', () => {
-      const nonExistentStore = new NodeSessionStore(join(tmpDir, 'does-not-exist'));
+      const nonExistentStore = new NodeSessionStore(join(tmpDir, 'does-not-exist'), {
+        sealing: 'plain',
+      });
       expect(listedRecords(nonExistentStore)).toEqual([]);
     });
   });
@@ -508,7 +566,7 @@ describe('SessionStore', () => {
   describe('directory creation', () => {
     it('creates the base directory on first save', () => {
       const nestedDir = join(tmpDir, 'nested', 'sessions');
-      const nestedStore = new NodeSessionStore(nestedDir);
+      const nestedStore = new NodeSessionStore(nestedDir, { sealing: 'plain' });
       nestedStore.save(makeRecord({ id: 'first' }));
       const loaded = loadedRecordOrMissing(nestedStore, 'first');
       expect(loaded?.id).toBe('first');

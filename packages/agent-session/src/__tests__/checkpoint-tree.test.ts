@@ -86,6 +86,17 @@ describe('SELFHOST-007 TC-02 — fork preserves the parent line and diverges', (
     expect(tree.ancestors('unknown')).toEqual([]);
   });
 
+  it('ancestors stops where the parent edges loop back, instead of walking the loop forever', () => {
+    // Edges read from damaged or planted manifests can name a node as its own ancestor.
+    const tree = CheckpointTree.fromNodes([
+      { id: 'a', parentId: 'b' },
+      { id: 'b', parentId: 'a' },
+      { id: 'c', parentId: 'c' },
+    ]);
+    expect(tree.ancestors('a')).toEqual(['a', 'b']);
+    expect(tree.ancestors('c')).toEqual(['c']);
+  });
+
   it('fromNodes reconstructs a branched tree from explicit edges (persisted manifest delegation)', () => {
     // a-b-c and a divergent a-d, arriving out of order
     const tree = CheckpointTree.fromNodes(

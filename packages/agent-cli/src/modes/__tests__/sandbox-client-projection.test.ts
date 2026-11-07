@@ -7,8 +7,11 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 import { describe, expect, it } from 'vitest';
 
 import { buildServeSessionOptions } from '../serve-mode.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
+
+const testHost = createTestFrameworkHost();
 
 const sandboxClient = { filesystem: 'shared', autoApproves: () => true } as unknown as ISandboxClient;
 
@@ -24,7 +27,7 @@ function makeArgs(): never {
 
 describe('the serve projection carries the sandbox client', () => {
   it('forwards a supplied sandbox into the session options', () => {
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: makeArgs(),
       preset: {},
@@ -35,7 +38,7 @@ describe('the serve projection carries the sandbox client', () => {
   });
 
   it('carries none when none was supplied', () => {
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: makeArgs(),
       preset: {},

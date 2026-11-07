@@ -12,8 +12,9 @@ provider type, `gemma`, shown in setup as **Ollama / LM Studio / llama.cpp**.
 > **An API key only if your server requires one.** These servers accept requests without a key by
 > default; if you enable server authentication, enter its token as described below. Inference runs on
 > the server you point Robota at, so prompts and code go no further than that server for model calls.
-> Enabled tools can still reach the network on their own: `WebFetch`, `WebSearch` and any
-> [MCP servers](./mcp.md) you connect send their requests wherever they are directed.
+> Enabled tools can still reach the network on their own: `WebFetch` and any
+> [MCP servers](./mcp.md) you connect, including a web search server, send their requests wherever
+> they are directed.
 
 ---
 
@@ -204,7 +205,10 @@ says it supports tool or function calling (for example `qwen2.5-coder` or `llama
 - **Quality varies with size.** Small models handle straightforward tasks; use larger ones for
   complex refactoring.
 - **Offline.** Once the model is downloaded, model calls need no internet connection; tools such as
-  `WebFetch` and `WebSearch` still do.
+  `WebFetch` and a web search MCP server still do.
+- **Web search.** A local model has no search of its own. Add a search MCP server with
+  `__PRODUCT_CLI_NAME__ mcp add exa` or `__PRODUCT_CLI_NAME__ mcp add parallel` (neither needs an API
+  key; your queries go to that service), or answer the question on the first interactive start.
 
 ---
 

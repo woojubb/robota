@@ -81,9 +81,13 @@ OpenAI provider's `baseURL` (see the [providers guide](./content/guide/providers
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const query = createQuery({
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
 });
 const response = await query('List all TypeScript files in src/');
@@ -214,6 +218,7 @@ The [packages index](__PROJECT_DOCS_URL__/en/packages/) on the docs site covers 
 | [`@robota-sdk/agent-telemetry-otel`](https://www.npmjs.com/package/@robota-sdk/agent-telemetry-otel)       | OpenTelemetry spans and GenAI metrics for agent runs and live prompt traces, GenAI or `agent.*` names |
 | [`@robota-sdk/agent-process`](https://www.npmjs.com/package/@robota-sdk/agent-process)                     | Child-process tree termination (`killProcessTree`)                                                    |
 | [`@robota-sdk/agent-file-authority`](https://www.npmjs.com/package/@robota-sdk/agent-file-authority)       | Bounded, root-relative file reads for Node.js                                                         |
+| [`@robota-sdk/agent-keyring`](https://www.npmjs.com/package/@robota-sdk/agent-keyring)                     | Key custody and public-key sealing for secure conversations (`node:crypto` only)                      |
 
 **Multi-agent conversation** — coordinate independent agents and people in a shared conversation:
 
@@ -242,6 +247,7 @@ The [packages index](__PROJECT_DOCS_URL__/en/packages/) on the docs site covers 
 | [`@robota-sdk/agent-transport-mcp`](https://www.npmjs.com/package/@robota-sdk/agent-transport-mcp)       | Serve a session as an MCP server: stdio, loopback HTTP, OAuth-authorized remote HTTP |
 | [`@robota-sdk/agent-transport-acp`](https://www.npmjs.com/package/@robota-sdk/agent-transport-acp)       | Serve a session to an editor as an Agent Client Protocol agent over stdio            |
 | [`@robota-sdk/agent-transport-webrtc`](https://www.npmjs.com/package/@robota-sdk/agent-transport-webrtc) | Peer-to-peer WebRTC transport for remote control and the device mesh                 |
+| [`@robota-sdk/agent-transport-link`](https://www.npmjs.com/package/@robota-sdk/agent-transport-link)     | Owner link to a local runtime: admission by proof, sealed frames, owner vocabulary   |
 | [`@robota-sdk/agent-remote-pairing`](https://www.npmjs.com/package/@robota-sdk/agent-remote-pairing)     | Pairing and DTLS-fingerprint channel binding for peer-to-peer connections            |
 | [`@robota-sdk/agent-ui-terminal`](https://www.npmjs.com/package/@robota-sdk/agent-ui-terminal)           | Terminal UI (React + Ink)                                                            |
 

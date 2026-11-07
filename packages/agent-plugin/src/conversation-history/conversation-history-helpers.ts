@@ -9,6 +9,7 @@ import { ConfigurationError, PluginError, type ILogger } from '@robota-sdk/agent
 
 import { MemoryHistoryStorage, FileHistoryStorage, DatabaseHistoryStorage } from './storages/index';
 
+import type { IPluginTextFileStore } from '../storage/text-file-store';
 import type {
   IConversationHistoryPluginOptions,
   IHistoryStorage,
@@ -33,6 +34,14 @@ export function validateConversationHistoryOptions(
 
   if (options.storage === 'file' && !options.filePath) {
     throw new ConfigurationError('File path is required for file storage strategy');
+  }
+
+  if (options.storage === 'file' && !options.fileStore) {
+    throw new ConfigurationError(
+      'A `fileStore` is required for the file storage strategy — agent-plugin is ' +
+        'platform-neutral and owns no file system; inject an IPluginTextFileStore ' +
+        '(NodePluginTextFileStore from @robota-sdk/agent-plugin/node).',
+    );
   }
 
   if (options.storage === 'database' && !options.databaseDriver) {
@@ -112,12 +121,16 @@ export function createHistoryStorage(
   maxConversations: number,
   filePath: string,
   databaseDriver?: IDatabaseDriver,
+  fileStore?: IPluginTextFileStore,
 ): IHistoryStorage {
   switch (strategy) {
     case 'memory':
       return new MemoryHistoryStorage(maxConversations);
     case 'file':
-      return new FileHistoryStorage(filePath);
+      if (!fileStore) {
+        throw new ConfigurationError('A `fileStore` is required for the file storage strategy.');
+      }
+      return new FileHistoryStorage(filePath, fileStore);
     case 'database':
       if (!databaseDriver) {
         throw new ConfigurationError(

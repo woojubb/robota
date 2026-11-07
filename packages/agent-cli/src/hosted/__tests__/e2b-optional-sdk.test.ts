@@ -111,8 +111,9 @@ describe('optional E2B capability', () => {
       const result = await probe(
         `
         const { runHostedRuntime } = await import(${source('hosted/hosted-runtime-startup.ts')});
+        const { createTestProductRuntime } = await import(${source('__tests__/helpers/product-runtime.ts')});
         process.argv.splice(2, process.argv.length, '-p', 'hello');
-        try { await runHostedRuntime({}, process.env, 'test-product'); process.exitCode = 2; }
+        try { await runHostedRuntime({}, createTestProductRuntime('test-product', process.env)); process.exitCode = 2; }
         catch (error) { console.log(JSON.stringify({ message: error.message })); }
       `,
         {
@@ -136,11 +137,12 @@ describe('optional E2B capability', () => {
       const result = await probe(
         `
         const { runHostedRuntime } = await import(${source('hosted/hosted-runtime-startup.ts')});
+        const { createTestProductRuntime } = await import(${source('__tests__/helpers/product-runtime.ts')});
         process.argv.splice(2, process.argv.length, '-p', 'hello');
         const calls = [];
         await runHostedRuntime({ hostedRuntimeExecutorFactory: async () => ({
           run: async () => { calls.push('run'); }, stop: async () => { calls.push('stop'); }, release: async () => { calls.push('release'); },
-        }) }, process.env, 'test-product');
+        }) }, createTestProductRuntime('test-product', process.env));
         console.log(JSON.stringify(calls));
       `,
         {

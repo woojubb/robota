@@ -5,6 +5,10 @@ description: How Robota SDK surfaces errors and how to handle them reliably in y
 
 # Error Handling
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Robota uses a typed error hierarchy. Errors thrown by the SDK extend `AgentRuntimeError`, which carries a
 `code`, a `category` and a `recoverable` flag, so you can handle kinds of errors instead of matching
 message text. All the classes below are exported from `@robota-sdk/agent-core`.
@@ -100,10 +104,14 @@ A query function returns a promise; a failed turn rejects it.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { AgentRuntimeError, classifyProviderFailure } from '@robota-sdk/agent-core';
 
 const query = createQuery({
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),
 });
 
@@ -133,10 +141,13 @@ prompt is not accepted or its turn fails before it starts running — for exampl
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { classifyProviderFailure } from '@robota-sdk/agent-core';
 
 const session = new InteractiveSession({
+  host: createNodeFrameworkHost({ createDefaultTools }),
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),
 });
@@ -183,10 +194,13 @@ errors — with exponential back-off and jitter, and wait at least as long as a 
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { RateLimitError, classifyProviderFailure } from '@robota-sdk/agent-core';
 import type { TProviderFailureReason } from '@robota-sdk/agent-core';
 
+const host = createNodeFrameworkHost({ createDefaultTools });
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 const RETRYABLE = new Set<TProviderFailureReason>([
@@ -200,7 +214,7 @@ const RETRYABLE = new Set<TProviderFailureReason>([
 async function queryWithRetry(prompt: string, maxAttempts = 5): Promise<string> {
   for (let attempt = 1; ; attempt++) {
     // A fresh query per attempt, so a failed attempt does not stay in the conversation.
-    const query = createQuery({ provider });
+    const query = createQuery({ host, cwd: process.cwd(), provider });
     try {
       return await query(prompt);
     } catch (error) {
@@ -229,14 +243,20 @@ Check that a key is present when your application starts, rather than at the fir
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const apiKey = process.env.ANTHROPIC_API_KEY;
 if (!apiKey) {
   throw new Error('ANTHROPIC_API_KEY is not set.');
 }
 
-const query = createQuery({ provider: new AnthropicProvider({ apiKey }) });
+const query = createQuery({
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  cwd: process.cwd(),
+  provider: new AnthropicProvider({ apiKey }),
+});
 ```
 
 Creating `AnthropicProvider` with no `apiKey`, `client` or `executor` throws a `ConfigurationError`

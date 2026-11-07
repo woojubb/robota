@@ -3,7 +3,8 @@ import { randomUUID } from 'node:crypto';
 import { createHostCredentialStore } from '../credentials/select-credential-store.js';
 import { openInBrowser } from './browser-opener.js';
 import { acquireOpenRouterKey } from './openrouter-oauth.js';
-import { loadOrgPolicy } from '@robota-sdk/agent-framework';
+import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
+import { loadOrgPolicy } from '@robota-sdk/agent-framework/node';
 import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
 
 import type {
@@ -28,7 +29,11 @@ export interface IOpenRouterConnectionHostOptions {
   readonly notify?: (message: string) => void;
   readonly store?: ICredentialStore;
   readonly fetch?: typeof fetch;
-  readonly acquireKey?: typeof acquireOpenRouterKey;
+  /**
+   * The browser sign-in. Required: its loopback callback is a listener, so the caller passes the one
+   * that opens under its surface row; a default here would open it without one.
+   */
+  readonly acquireKey: typeof acquireOpenRouterKey;
   readonly openBrowser?: (url: URL) => Promise<void>;
   readonly requireApiKeyFromEnv?: boolean;
 }
@@ -51,6 +56,9 @@ export function createCliOpenRouterConnectionHost(
     keyLabel: runtime.config.identity.displayName,
     notify: (message) => process.stderr.write(`${message}\n`),
     requireApiKeyFromEnv: orgPolicy?.requireApiKeyFromEnv,
+    // The browser sign-in's loopback callback opens under its surface row.
+    acquireKey: (request) =>
+      startListener(SECURE_SURFACES['oauth-callback'], runtime, () => acquireOpenRouterKey(request)),
   });
 }
 
@@ -115,7 +123,7 @@ export function createOpenRouterConnectionHost(
         controller.signal.throwIfAborted();
         const secret =
           request.method === 'browser'
-            ? await (options.acquireKey ?? acquireOpenRouterKey)({
+            ? await options.acquireKey({
                 openBrowser: options.openBrowser ?? openInBrowser,
                 fetch: network,
                 keyLabel,

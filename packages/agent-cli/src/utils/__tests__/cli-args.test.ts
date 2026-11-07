@@ -123,6 +123,23 @@ describe('parseCliArgs', () => {
     expect(() => parseCliArgs(['--serve', '--daemon'])).toThrow(/--daemon/);
   });
 
+  it('accepts the transport token pipe flag only from a supervised launch, and only as a bare flag', () => {
+    const id = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
+    expect(
+      parseCliArgs(['--serve', '--supervised-session-id', id, '--supervised-transport-token-fd'])
+        .supervisedTransportTokenFd,
+    ).toBe(true);
+    expect(parseCliArgs(['--serve', '--supervised-session-id', id]).supervisedTransportTokenFd)
+      .toBeUndefined();
+    expect(() => parseCliArgs(['--serve', '--supervised-transport-token-fd'])).toThrow(
+      /--supervised-transport-token-fd is set only by a supervised launch/,
+    );
+    // A value would put a token on the command line: the flag takes none.
+    expect(() =>
+      parseCliArgs(['--serve', '--supervised-session-id', id, `--supervised-transport-token-fd=${'a'.repeat(64)}`]),
+    ).toThrow();
+  });
+
   it('accepts the supervised grant handoff flag only from a supervised launch', () => {
     const id = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
     expect(

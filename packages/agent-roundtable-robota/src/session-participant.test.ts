@@ -99,6 +99,7 @@ function hostOptions(
 ): SessionHostOptions {
   return {
     cwd: process.cwd(),
+    hookTypeExecutors: [],
     tools: [],
     provider,
     systemMessage: 'Fixture host',
@@ -427,8 +428,8 @@ describe('sessionParticipant: speak path', () => {
     await lease.release();
   });
 
-  // `createDefaultTools` used to return the SAME `webFetchTool`/`webSearchTool` module
-  // singletons on every call, so two sessionParticipants each built from it — even from two
+  // `createDefaultTools` used to return the SAME `webFetchTool` module
+  // singleton on every call, so two sessionParticipants each built from it — even from two
   // entirely separate `createDefaultTools({cwd})` calls, sharing nothing on purpose — collided in
   // the resource guard the moment both were open at once.
   it('two participants each built from a separate createDefaultTools({cwd}) open together', async () => {

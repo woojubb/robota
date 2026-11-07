@@ -20,7 +20,7 @@ describe('spill-reference collisions', () => {
   it('never removes an earlier committed result when a new random token collides', async () => {
     const root = mkdtempSync(join(tmpdir(), 'agent-spill-collision-'));
     parents.push(root);
-    const store = new NodeToolResultSpillStore({ parentDirectory: root });
+    const store = new NodeToolResultSpillStore({ sealing: 'plain', parentDirectory: root });
     const { reference } = await store.write('first secret');
 
     await expect(store.write('second secret')).rejects.toMatchObject({ code: 'write-failed' });

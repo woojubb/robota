@@ -17,7 +17,9 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --system-prompt <text>     Override the system prompt for this session
   --append-system-prompt <t> Append text to the system prompt
   --language <lang>          Language preference (e.g. ko, en)
-  --no-session-persistence   Disable session persistence for this run
+  --no-session-persistence   Leave no conversation on disk: no session record, prompt history or
+                             subagent transcript is written, and /rewind checkpoints exist only
+                             until the run ends. Memory capture, if enabled, is separate
   --permission-mode <mode>   Permission mode: plan | default | acceptEdits | bypassPermissions | auto
   --external-event-grant <file>
                              TUI only: admit text-only external events whose access token
@@ -158,14 +160,30 @@ Commands:
                                   Link a PR/MR URL to a live supervised session
   {{cli}} session unlink-pr <supervised-id>
                                   Clear a live supervised session PR/MR link
+  {{cli}} session release <session-id> [--force]
+                                  Remove the writer marker a session's ended process left; --force
+                                  removes one whose process may still run (your terminal and a y/N)
   {{cli}} daemon start [--json] [--restricted-workspace]
                                   Start this workspace's daemon, or reuse the running one; --json
                                   prints {"id","url"} for the client that connects to it
   {{cli}} daemon status [--json]    Show whether this workspace's daemon is running
   {{cli}} daemon stop               Stop this workspace's daemon
   {{cli}} daemon unlock             Remove a daemon start lock left by a start that is gone
+  {{cli}} secure setup              Create the keyring that secure conversations are sealed to; shows the
+                                  recovery key once (your terminal only; the passphrase is typed, never an argument)
+  {{cli}} secure status             Show the keyring file, its slots and its sealing key fingerprint (no unlock)
+  {{cli}} secure verify [--recovery]
+                                  Unlock with the passphrase (or recovery key) and check the stored sealing
+                                  key against it; if it had been swapped: exit 2 once repaired, 4 if not
+  {{cli}} secure change-passphrase [--recovery]
+                                  Set a new passphrase, proven by the current one or the recovery key
+                                  (exit 2 or 4 as for verify when a swapped sealing key is found)
   {{cli}} mcp serve [options]       Serve one {{name}} session over stdio, authenticated loopback HTTP,
                                   or OAuth-authorized remote HTTP
+  {{cli}} mcp add <exa|parallel>    Add a keyless web search MCP server to your settings, approved
+  {{cli}} mcp add <name> <https-url>
+                                  Add an HTTP MCP server to your settings, approved; it connects on
+                                  the next start
   {{cli}} mcp login <name> [--client-secret] [--no-browser]
                                   Sign in to a remote MCP server that declares oauth
                                   (--no-browser: print the URL, paste the redirect back)
@@ -242,7 +260,10 @@ export function isSubcommandName(word: string): boolean {
  * Help for `{{cli}} <subcommand> --help` (or `-h`): that subcommand's entries from the command list
  * above, so the two never disagree. Undefined when `args` is not such a request.
  */
-export function subcommandHelpFor(args: readonly string[], runtime: ICliRuntimeContext): string | undefined {
+export function subcommandHelpFor(
+  args: readonly string[],
+  runtime: ICliRuntimeContext,
+): string | undefined {
   const first = args[0];
   if (first === undefined || !(args.includes('--help') || args.includes('-h'))) return undefined;
   if (hasOwnHelp(args)) return undefined;
@@ -251,7 +272,16 @@ export function subcommandHelpFor(args: readonly string[], runtime: ICliRuntimeC
   if (entries.length === 0) return undefined;
   const options =
     subcommand === 'mcp' ? `\n\nOptions for {{cli}} mcp serve:\n${mcpServeOptions()}` : '';
-  return renderHelp(`\nUsage:\n${entries.map((entry) => entry.text).join('\n')}${options}\n\nRun {{cli}} --help for every option and command.\n`, runtime);
+  return renderHelp(
+    `\nUsage:\n${entries.map((entry) => entry.text).join('\n')}${options}\n\nRun {{cli}} --help for every option and command.\n`,
+    runtime,
+  );
 }
 
-function renderHelp(text: string, runtime: ICliRuntimeContext): string { return text.replaceAll('{{cli}}', runtime.vocabulary.cliName).replaceAll('{{name}}', runtime.vocabulary.displayName).replaceAll('{{settings}}', runtime.layout.userPaths.settings).replaceAll('{{projectSettings}}', `${runtime.layout.projectDirectory}/settings.json`); }
+function renderHelp(text: string, runtime: ICliRuntimeContext): string {
+  return text
+    .replaceAll('{{cli}}', runtime.vocabulary.cliName)
+    .replaceAll('{{name}}', runtime.vocabulary.displayName)
+    .replaceAll('{{settings}}', runtime.layout.userPaths.settings)
+    .replaceAll('{{projectSettings}}', `${runtime.layout.projectDirectory}/settings.json`);
+}

@@ -14,9 +14,9 @@ import { UnauthorizedError } from '@modelcontextprotocol/client';
 
 import { catalogIdentityOf, sameCatalogIdentity } from '../catalog/types.js';
 import { MCPAuthenticationError } from '../client/authentication.js';
-import { MCPTransportEgressRefusedError } from '../client/pinned-http-fetch.js';
+import { MCPTransportEgressRefusedError } from '../client/http-egress.js';
 import { MCPSessionError } from '../client/session.js';
-import { MCPStdioError } from '../client/stdio-transport.js';
+import { MCPStdioError } from '../client/stdio-error.js';
 import { MCPStatelessProtocolError } from '../client/stateless-result.js';
 import { MCPSkillError } from '../skills/manifest.js';
 import type { IMCPSkillRequestOptions, IMCPSkillsSession } from '../skills/types.js';

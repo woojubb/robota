@@ -52,6 +52,9 @@ vi.mock('@robota-sdk/agent-core', async () => {
 
 // Use Session directly since createSession just wires config through
 import { Session } from '@robota-sdk/agent-session';
+import { createTestFrameworkHost } from '../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const MOCK_TERMINAL = {
   write: vi.fn(),
@@ -134,6 +137,7 @@ describe('Hook wiring in session', () => {
 
   it('should fire SessionStart hook on session creation', () => {
     new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',
@@ -150,6 +154,7 @@ describe('Hook wiring in session', () => {
 
   it('should fire UserPromptSubmit hook before AI processes input', async () => {
     const session = new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',
@@ -170,6 +175,7 @@ describe('Hook wiring in session', () => {
 
   it('should fire Stop hook after AI response completion', async () => {
     const session = new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',
@@ -190,6 +196,7 @@ describe('Hook wiring in session', () => {
 
   it('should fire SessionEnd hook once during graceful shutdown', async () => {
     const session = new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',
@@ -211,6 +218,7 @@ describe('Hook wiring in session', () => {
 
   it('should fire UserPromptSubmit before Stop in run() lifecycle', async () => {
     const session = new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',
@@ -232,6 +240,7 @@ describe('Hook wiring in session', () => {
 
   it('should pass hook config from session options to core runHooks', () => {
     new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',
@@ -273,6 +282,7 @@ describe('Hook wiring in session', () => {
 
   it('should not fire hooks when no hooks config is provided', async () => {
     const session = new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',
@@ -292,6 +302,7 @@ describe('Hook wiring in session', () => {
 
   it('should include session_id and cwd in all hook inputs', async () => {
     const session = new Session({
+      hookTypeExecutors: [],
       tools: [],
       provider: createMockProvider(),
       systemMessage: 'test',
@@ -321,6 +332,8 @@ describe('Hook wiring via createSession', () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     const session = await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: {
         defaultTrustLevel: 'moderate',
         provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
@@ -350,6 +363,8 @@ describe('Hook wiring via createSession', () => {
     const mockSessionFactory = vi.fn();
 
     await createSession({
+      host: testHost,
+      cwd: process.cwd(),
       config: {
         defaultTrustLevel: 'moderate',
         provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },

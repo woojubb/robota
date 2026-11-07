@@ -1,4 +1,7 @@
 import { nonVisualObservationText } from '@robota-sdk/agent-core';
+
+import { decodeGeminiContinuation } from './reply-record';
+
 import type { Content, Part } from '@google/genai';
 import type {
   IAssistantMessage,
@@ -139,6 +142,10 @@ export function convertToGeminiFormatWithInlineSystem(messages: TUniversalMessag
 }
 
 function convertAssistantMessage(assistantMsg: IAssistantMessage): Content {
+  const modelParts = decodeGeminiContinuation(assistantMsg);
+  if (modelParts !== undefined) {
+    return { role: 'model', parts: modelParts };
+  }
   const parts: Part[] = [];
   const mappedAssistantParts = mapMessagePartsToGeminiParts(assistantMsg);
   for (const mappedPart of mappedAssistantParts) {

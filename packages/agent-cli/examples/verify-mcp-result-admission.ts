@@ -2,8 +2,11 @@
 import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IMCPCatalogToolEntry, IMCPDiscovery } from '@robota-sdk/agent-mcp';
+
+const testHost = createTestFrameworkHost();
 
 const home = mkdtempSync(join(tmpdir(), 'verify-mcp-result-admission-'));
 process.env['HOME'] = home;
@@ -11,7 +14,7 @@ process.env['HOME'] = home;
 const { createScriptedProvider } = await import('@robota-sdk/agent-core/testing');
 const { InteractiveSession } = await import('@robota-sdk/agent-framework');
 const { buildCatalog, createDiscoveredTool } = await import('@robota-sdk/agent-mcp');
-const { createNodeToolResultSpillStore } = await import('@robota-sdk/agent-framework');
+const { createNodeToolResultSpillStore } = await import('@robota-sdk/agent-framework/node');
 
 function requireCondition(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);
@@ -64,7 +67,10 @@ async function run(mode: string): Promise<void> {
         repositoryMaxChars: 500,
         spillStore: {
           write: (content) => {
-            spillStore ??= createNodeToolResultSpillStore({ parentDirectory: home });
+            spillStore ??= createNodeToolResultSpillStore({
+              sealing: 'plain',
+              parentDirectory: home,
+            });
             return spillStore.write(content);
           },
         },
@@ -76,6 +82,7 @@ async function run(mode: string): Promise<void> {
     { text: 'result received' },
   ]);
   const session = new InteractiveSession({
+    host: testHost,
     cwd: home,
     provider: scripted.provider,
     bare: true,

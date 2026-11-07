@@ -5,7 +5,9 @@
  * session instead is refused, and nothing here ever sends one. Before a byte of the session arrives
  * the grant must authorize exactly this transfer to this side over this channel, and then the
  * operator here must say yes. The payload is kept aside, verified against the manifest the grant
- * covers, and saved — nothing runs it. Only then is the source told it may let go.
+ * covers, and saved — nothing runs it. Only then is the source told it may let go. Aside is a file
+ * under the user root, or, for a receiver whose session store seals, memory alone: the payload is
+ * the session in plaintext, and a sealing store must not have a plaintext copy beside it.
  */
 
 import { readFile, unlink } from 'node:fs/promises';
@@ -25,7 +27,11 @@ import {
 import { receiveFileOverChannel } from '@robota-sdk/agent-transport/node';
 import { handoffGrantFrame, judgeHandoffGrant } from '@robota-sdk/agent-transport-webrtc';
 
-import { openQuarantineSink, quarantineTarget } from '../peer-files/quarantine.js';
+import {
+  createMemoryFileSink,
+  openQuarantineSink,
+  quarantineTarget,
+} from '../peer-files/quarantine.js';
 import { describeFileRefusal } from '../peer-files/receiving.js';
 import { handoffChannelFingerprint, newChannelNonce } from './handoff-grant.js';
 import { openHandoffWire, type IHandoffWire, type THandoffWireRefusal } from './handoff-wire.js';
@@ -72,6 +78,11 @@ export interface IReceiveHandoffOptions {
   readonly composition: IHandoffComposition;
   /** the configured user storage root of this side's `HOME`; the payload is kept aside under it until saved. */
   readonly root: string;
+  /**
+   * Keep the payload in memory until it is saved, never in a file under `root`: for a receiver whose
+   * session store seals. Bounded by the file carrier's limit, as a file would be.
+   */
+  readonly payloadInMemory?: boolean;
   readonly resolveCredential: TCredentialResolver;
   readonly persist: TRecordPersister;
   /**
@@ -233,8 +244,9 @@ export async function receiveHandoff(
     destination.receiveManifest(manifest);
     wire.send({ t: 'handoff-accept' });
 
-    kept = await receivePayload(wire, options, manifest);
-    const staged = destination.receivePayload(await readFile(kept, 'utf8'));
+    const payload = await receivePayload(wire, options, manifest);
+    if ('file' in payload) kept = payload.file;
+    const staged = destination.receivePayload(await payloadText(payload));
     if (staged.state !== 'staged') throw fromReport(staged);
     wire.send({ t: 'handoff-staged' });
 
@@ -282,41 +294,66 @@ export async function receiveHandoff(
   }
 }
 
-/** Take the sealed session on the file carrier into the aside directory. Resolves with where it is. */
+/** Where a received payload waits until it is saved: a file in the aside directory, or memory. */
+type TReceivedPayload = { readonly file: string } | { readonly bytes: Buffer };
+
+/**
+ * The payload's text. Bytes held in memory are zero-filled once decoded — best effort: the decoded
+ * text is a string, which cannot be wiped, so this only shortens how long the bytes stay readable.
+ */
+async function payloadText(payload: TReceivedPayload): Promise<string> {
+  if ('file' in payload) return readFile(payload.file, 'utf8');
+  try {
+    return payload.bytes.toString('utf8');
+  } finally {
+    payload.bytes.fill(0);
+  }
+}
+
+/** Take the sealed session on the file carrier into the aside directory, or into memory. */
 async function receivePayload(
   wire: IHandoffWire,
   options: IReceiveHandoffOptions,
   manifest: IHandoffManifest,
-): Promise<string> {
+): Promise<TReceivedPayload> {
   const expectedSha256 = Buffer.from(manifest.integrity.digest, 'base64url').toString('hex');
-  const outcome = await receiveFileOverChannel({
-    channel: wire.fileChannel(),
-    ...(options.maxBytes !== undefined ? { maxBytes: options.maxBytes } : {}),
-    admit: async (offer) => {
-      // The operator already said yes to this manifest; the file must be exactly what it sealed.
-      if (
-        offer.transferId !== manifest.handoffId ||
-        offer.size !== manifest.integrity.byteLength ||
-        offer.sha256 !== expectedSha256
-      ) {
-        return { refused: 'integrity', detail: 'the payload is not the one the manifest sealed' };
-      }
-      const target = await quarantineTarget({
-        root: options.root,
-        senderId: options.senderId,
-        name: `${manifest.handoffId}.json`,
-        area: 'handoff',
-      });
-      if (!('ok' in target)) return target;
-      return { sink: await openQuarantineSink(target) };
-    },
-  });
-  if (!outcome.ok) {
-    // The file carrier already told the source; this side reports it and stops.
-    throw new PayloadRefused(
-      outcome.reason === 'integrity' ? 'integrity-failed' : 'protocol',
-      describeFileRefusal(outcome.reason, outcome.detail),
-    );
+  const memory =
+    options.payloadInMemory === true ? createMemoryFileSink(options.maxBytes) : undefined;
+  try {
+    const outcome = await receiveFileOverChannel({
+      channel: wire.fileChannel(),
+      ...(options.maxBytes !== undefined ? { maxBytes: options.maxBytes } : {}),
+      admit: async (offer) => {
+        // The operator already said yes to this manifest; the file must be exactly what it sealed.
+        if (
+          offer.transferId !== manifest.handoffId ||
+          offer.size !== manifest.integrity.byteLength ||
+          offer.sha256 !== expectedSha256
+        ) {
+          return { refused: 'integrity', detail: 'the payload is not the one the manifest sealed' };
+        }
+        if (memory !== undefined) return { sink: memory };
+        const target = await quarantineTarget({
+          root: options.root,
+          senderId: options.senderId,
+          name: `${manifest.handoffId}.json`,
+          area: 'handoff',
+        });
+        if (!('ok' in target)) return target;
+        return { sink: await openQuarantineSink(target) };
+      },
+    });
+    if (!outcome.ok) {
+      // The file carrier already told the source; this side reports it and stops.
+      throw new PayloadRefused(
+        outcome.reason === 'integrity' ? 'integrity-failed' : 'protocol',
+        describeFileRefusal(outcome.reason, outcome.detail),
+      );
+    }
+    return memory === undefined ? { file: outcome.location } : { bytes: memory.take() };
+  } finally {
+    // The carrier discards a sink only until its commit; one that failed after it — telling the
+    // source it was kept, say — would leave the session in memory. Discarding a taken sink does nothing.
+    await memory?.discard();
   }
-  return outcome.location;
 }

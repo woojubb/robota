@@ -254,6 +254,16 @@ describe('safeguard predicates', () => {
     expect(removesCriticalPath('rm -rf /', {})).toBe(true);
     expect(removesCriticalPath('rm -rf ~', {})).toBe(true);
     expect(removesCriticalPath('rm -rf ..', {})).toBe(false);
+  });
+
+  it('removesCriticalPath with an unknown home refuses whatever is not provably inside it', () => {
+    const climbsOut = ['~/..', '~/../..', '$HOME/..', '${HOME}/a/../..', '~/a/..', '~/../me/x'];
+    for (const target of climbsOut) {
+      expect(removesCriticalPath(`rm -rf ${target}`, {}), target).toBe(true);
+    }
+    for (const target of ['~/build', '~/a/../b', '~/./cache']) {
+      expect(removesCriticalPath(`rm -rf ${target}`, {}), target).toBe(false);
+    }
     expect(removesCriticalPath('echo rm -rf /', {})).toBe(false);
   });
 });

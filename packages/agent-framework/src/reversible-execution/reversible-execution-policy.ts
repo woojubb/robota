@@ -11,7 +11,7 @@ import type {
 
 const FILE_MUTATION_TOOLS = new Set(['Write', 'Edit']);
 const HOST_SHELL_TOOLS = new Set(['Shell', 'Bash', 'BackgroundProcess']);
-const READ_ONLY_TOOLS = new Set(['Read', 'Glob', 'Grep', 'WebFetch', 'WebSearch']);
+const READ_ONLY_TOOLS = new Set(['Read', 'Glob', 'Grep', 'WebFetch']);
 
 export type TReversibleExecutionIsolation = 'none' | 'worktree' | 'provider-sandbox';
 export type TReversibleRollbackLayer = 'none' | 'edit-checkpoint' | 'worktree' | 'provider-sandbox';

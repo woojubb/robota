@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-provider-replay",
-  "version": "3.0.7",
+  "version": "3.0.8",
   "description": "Deterministic AI provider that replays a recorded Robota session log (offline, no model key)",
   "type": "module",
   "main": "dist/node/index.js",
@@ -8,6 +8,7 @@
   "exports": {
     ".": {
       "source": "./src/index.ts",
+      "browser": null,
       "node": {
         "import": {
           "types": "./dist/node/index.d.ts",

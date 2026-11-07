@@ -1,5 +1,9 @@
 # Robota — An adaptable foundation for AI agents
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 **Our agents develop and advance our agents.** We are building toward agents that can carry their
 own development forward on a dependable, adaptable foundation. [VISION.md](./VISION.md) defines
 this direction; reliable autonomous self-evolution remains an ambition to build and demonstrate.
@@ -14,9 +18,9 @@ assembled from the same neutral building blocks you can embed in your own applic
 
 ## Quick start: embed an agent
 
-Install `agent-core` and a provider package to run an agent. Published packages require Node.js
-22.12 or later. This example uses Anthropic and requires an `ANTHROPIC_API_KEY` environment
-variable. See the [providers guide](./content/guide/providers.md) for other providers and local
+Install `agent-core` and a provider package to run an agent. This Node.js example requires
+Node.js 22.12 or later and an `ANTHROPIC_API_KEY` environment variable. Packages declare that
+minimum for Node installations; runtime requirements depend on the entry and host. See the [providers guide](./content/guide/providers.md) for other providers and local
 model servers.
 
 ```bash
@@ -94,7 +98,7 @@ OpenAI provider's `baseURL` (see the [providers guide](./content/guide/providers
 the Anthropic provider:
 
 ```bash
-npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-framework @robota-sdk/agent-tool-defaults @robota-sdk/agent-provider-anthropic
 ```
 
 With `ANTHROPIC_API_KEY` set, save this example as `query.mjs`. It shuts down the session when the
@@ -102,9 +106,13 @@ query finishes:
 
 ```javascript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const query = createQuery({
+	host: createNodeFrameworkHost({ createDefaultTools }),
+	cwd: process.cwd(),
 	provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
 	model: 'claude-sonnet-4-6',
 });
@@ -152,7 +160,7 @@ set `PRODUCT_VERSION` to its tag, e.g. `curl -fsSL … | PRODUCT_VERSION=v<versi
 unsigned — macOS and Windows may warn.
 
 
-> **Beta**: Robota is currently `3.0.0-beta`. APIs may change before the stable 3.0.0 release. See
+> APIs may change. See
 > [CHANGELOG.md](./CHANGELOG.md) for upgrade notes.
 
 > **macOS users**: Korean/CJK IME input may crash macOS Terminal.app. Use
@@ -242,6 +250,7 @@ The [packages index](https://docs.robota.io/en/packages/) on the docs site cover
 | [`@robota-sdk/agent-telemetry-otel`](https://www.npmjs.com/package/@robota-sdk/agent-telemetry-otel)       | OpenTelemetry spans and GenAI metrics for agent runs and live prompt traces, GenAI or `agent.*` names |
 | [`@robota-sdk/agent-process`](https://www.npmjs.com/package/@robota-sdk/agent-process)                     | Child-process tree termination (`killProcessTree`)                                                    |
 | [`@robota-sdk/agent-file-authority`](https://www.npmjs.com/package/@robota-sdk/agent-file-authority)       | Bounded, root-relative file reads for Node.js                                                         |
+| [`@robota-sdk/agent-keyring`](https://www.npmjs.com/package/@robota-sdk/agent-keyring)                     | Key custody and public-key sealing for secure conversations (`node:crypto` only)                      |
 
 **Multi-agent conversation** — coordinate independent agents and people in a shared conversation:
 
@@ -270,6 +279,7 @@ The [packages index](https://docs.robota.io/en/packages/) on the docs site cover
 | [`@robota-sdk/agent-transport-mcp`](https://www.npmjs.com/package/@robota-sdk/agent-transport-mcp)       | Serve a session as an MCP server: stdio, loopback HTTP, OAuth-authorized remote HTTP |
 | [`@robota-sdk/agent-transport-acp`](https://www.npmjs.com/package/@robota-sdk/agent-transport-acp)       | Serve a session to an editor as an Agent Client Protocol agent over stdio            |
 | [`@robota-sdk/agent-transport-webrtc`](https://www.npmjs.com/package/@robota-sdk/agent-transport-webrtc) | Peer-to-peer WebRTC transport for remote control and the device mesh                 |
+| [`@robota-sdk/agent-transport-link`](https://www.npmjs.com/package/@robota-sdk/agent-transport-link)     | Owner link to a local runtime: admission by proof, sealed frames, owner vocabulary   |
 | [`@robota-sdk/agent-remote-pairing`](https://www.npmjs.com/package/@robota-sdk/agent-remote-pairing)     | Pairing and DTLS-fingerprint channel binding for peer-to-peer connections            |
 | [`@robota-sdk/agent-ui-terminal`](https://www.npmjs.com/package/@robota-sdk/agent-ui-terminal)           | Terminal UI (React + Ink)                                                            |
 

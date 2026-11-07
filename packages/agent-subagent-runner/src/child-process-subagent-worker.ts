@@ -1,10 +1,15 @@
 import { sumHistoryUsage } from '@robota-sdk/agent-core';
+import { processEnvResolver } from '@robota-sdk/agent-core/node';
 import {
   createProviderFromExactProfile,
   subagentExecutionRoot,
   verifyConnectionEnvironment,
 } from '@robota-sdk/agent-executor';
-import { createSubagentLogger, createSubagentSession } from '@robota-sdk/agent-framework';
+import { createSubagentSession } from '@robota-sdk/agent-framework';
+import {
+  createSubagentLogger,
+  resolveSubagentLogSessionId,
+} from '@robota-sdk/agent-framework/node';
 
 import {
   isSubagentWorkerParentMessage,
@@ -13,17 +18,24 @@ import {
   type TSubagentWorkerPermissionResult,
   type TSubagentWorkerWireValue,
 } from './child-process-subagent-ipc.js';
-import { openResumeSessionStore, resumeRequestedRecord } from './child-process-subagent-resume.js';
+import { reportRecordSaves } from './child-process-subagent-record-saves.js';
+import {
+  claimRequestedRecord,
+  openResumeSessionStore,
+  resumeRequestedRecord,
+} from './child-process-subagent-resume.js';
 import { restoreAgentDefinition, restoreParentContext } from './subagent-worker-start-dto.js';
 import { restoreProjectedSandbox } from './worker-composition.js';
 import { withholdProviderCredential } from './worker-credential.js';
 
+import type { IRecordSaveReporter } from './child-process-subagent-record-saves.js';
+import type { IClaimedResumeRecord } from './child-process-subagent-resume.js';
 import type {
   ISubagentComposedSandbox,
   ISubagentWorkerComposition,
   TParentSandboxSettings,
 } from './worker-composition.js';
-import type { ITerminalOutput, TToolArgs } from '@robota-sdk/agent-core';
+import type { ITerminalOutput, TArtifactSealing, TToolArgs } from '@robota-sdk/agent-core';
 
 const CANCEL_EXIT_CODE = 130;
 /** DIST-006: worker mode reached without an IPC channel — a misuse, not a run that failed. */
@@ -48,19 +60,60 @@ type TSubagentSessionToolEvent = Parameters<
 let session: ReturnType<typeof createSubagentSession> | null = null;
 let cancelled = false;
 /** Issue #3288 §1: requests awaiting the parent's answer, by the id this child minted for them. */
-const pendingPermissionRequests = new Map<string, (result: TSubagentWorkerPermissionResult) => void>();
+const pendingPermissionRequests = new Map<
+  string,
+  (result: TSubagentWorkerPermissionResult) => void
+>();
 let permissionRequestSequence = 0;
 /** The parent's sandbox settings most recently sent after a change, newer than the start payload's. */
 let latestParentSandboxSettings: TParentSandboxSettings | undefined;
 let composedSandbox: ISubagentComposedSandbox | undefined;
-/** Why a change of the parent's sandbox settings could not be taken; the run then ends with it. */
-let sandboxSettingsFailure: string | undefined;
+/** Why a change the parent sent after `start` could not be taken; the job then ends with it. */
+let parentChangeFailure: string | undefined;
+/** The parent's write grant most recently sent after a change, newer than the start payload's. */
+let latestWriteGrant: string | undefined;
+/** Whether this child bound its parent's grant at start, so a newer one is taken as it comes. */
+let sealingBound = false;
 let running: Promise<void> = Promise.resolve();
+/** A sealing parent handed this child a record: what has been seen of its saves. */
+let recordSaves: IRecordSaveReporter | undefined;
+/** The claim this child holds, under its parent's lease, on the record it resumes. */
+let claimedRecord: IClaimedResumeRecord | undefined;
+
+/**
+ * Ends this child's claim on the record it resumes, removing its writer marker; every way out of the
+ * process runs it, after the session's last save. Idempotent.
+ */
+function releaseClaimedRecord(): void {
+  claimedRecord?.release();
+}
 
 function sendChildMessage(message: TSubagentWorkerChildMessage): void {
   if (process.send) {
     process.send(message);
   }
+}
+
+/**
+ * The job's terminal message with what a parent that handed a record over is told of a refused
+ * one: a result says it beside the answer, and an error says it first, in fixed words, since the
+ * refusal is why the run could not save.
+ */
+function withRecordSaveRefusal(
+  message: TSubagentWorkerChildMessage,
+  payload: ISubagentWorkerStartPayload,
+): TSubagentWorkerChildMessage {
+  if (recordSaves?.refused() !== true) return message;
+  if (message.type === 'result') return { ...message, recordSaveRefused: true };
+  if (message.type !== 'error') return message;
+  return {
+    type: 'error',
+    message:
+      `Session ${payload.request.resumeSessionId ?? payload.taskId} was changed on disk by ` +
+      `something this subagent cannot verify, so its turns from then on were not saved to it. ` +
+      message.message,
+    recordSaveRefused: true,
+  };
 }
 
 /**
@@ -75,6 +128,7 @@ function sendTerminalMessageAndExit(message: TSubagentWorkerChildMessage, exitCo
   const exitOnce = (): void => {
     if (exited) return;
     exited = true;
+    releaseClaimedRecord();
     process.exit(exitCode);
   };
   if (process.send) {
@@ -101,11 +155,61 @@ function readSessionUsage(
   }
 }
 
+/** What a child says when it cannot follow its parent's new key: it stops rather than seal to the old one. */
+const SEALING_KEY_NOT_FOLLOWED =
+  'subagent worker: the parent now seals to another key and this subagent could not seal to it, ' +
+  'so it stopped rather than go on sealing to the key its parent replaced.';
+
+/**
+ * A change the parent sent while this child was being built, and that it could not take, stops the
+ * job before its run starts: the run would otherwise write under what the parent has replaced.
+ */
+function throwIfParentChangeFailed(): void {
+  if (parentChangeFailure !== undefined) throw new Error(parentChangeFailure);
+}
+
+/** Whether `sealing` seals to exactly the key `grant` names: never plain, and its own grant is `grant`. */
+function sealsTo(sealing: TArtifactSealing, grant: string): boolean {
+  return sealing !== 'plain' && sealing.sealer.writeGrant?.() === grant;
+}
+
+/**
+ * How this child seals, as its parent decided: plain when the payload carries no grant, else the
+ * sealing the composition binds from the grant — before anything is built, so every store the
+ * composition opens afterwards seals the same way. A composition that cannot bind one, or binds one
+ * that is plain or seals to another key, fails the job: a child whose parent seals never writes plain
+ * or to a key its parent did not hand it.
+ */
+function bindParentSealing(
+  payload: ISubagentWorkerStartPayload,
+  composition: ISubagentWorkerComposition,
+): TArtifactSealing {
+  if (payload.writeGrant === undefined) return 'plain';
+  if (composition.bindWriteGrant === undefined) {
+    throw new Error(
+      `subagent worker: job ${payload.taskId} must seal what it writes, but this composition ` +
+        'cannot seal. Register ISubagentWorkerComposition.bindWriteGrant at the composition ' +
+        'root. The subagent was not started.',
+    );
+  }
+  const grant = latestWriteGrant ?? payload.writeGrant;
+  const sealing = composition.bindWriteGrant(grant);
+  if (!sealsTo(sealing, grant)) {
+    throw new Error(
+      `subagent worker: job ${payload.taskId} must seal to the key its parent handed it, but this ` +
+        "composition's bindWriteGrant returned a sealing that does not. The subagent was not started.",
+    );
+  }
+  sealingBound = true;
+  return sealing;
+}
+
 async function runInitialPrompt(
   payload: ISubagentWorkerStartPayload,
   composition: ISubagentWorkerComposition,
 ): Promise<void> {
   try {
+    const sealing = bindParentSealing(payload, composition);
     // The parent compared this environment before spawning; repeat it before anything is built, so
     // a change between spawn and start cannot send the parent's credential elsewhere.
     if (!verifyConnectionEnvironment(payload.connectionCheck, process.env)) {
@@ -119,17 +223,37 @@ async function runInitialPrompt(
       payload.sandboxProjection,
       composition.sandboxFactories,
     );
+    throwIfParentChangeFailed();
     // Exactly as the parent resolved it: no defaults from this process's own registry.
     const provider = createProviderFromExactProfile(
       payload.providerProfile,
       payload.request.model,
       composition.providerDefinitions,
+      processEnvResolver,
     );
     withholdProviderCredential(payload.providerProfile, payload.keepProviderCredential === true);
+    // The session id names the log and binds a sealed one, by the rule the parent reads it with.
+    const sessionId = resolveSubagentLogSessionId(payload.request, payload.taskId);
     const sessionLogger = payload.logsDir
-      ? createSubagentLogger(payload.request.parentSessionId, payload.taskId, payload.logsDir)
+      ? createSubagentLogger(payload.request.parentSessionId, payload.taskId, payload.logsDir, {
+          sealing,
+        })
       : undefined;
-    const resumeSessionStore = openResumeSessionStore(payload, composition);
+    const openedStore = openResumeSessionStore(payload, composition);
+    const resumeSessionId = payload.request.resumeSessionId;
+    // The record is this child's to write only under the lease its parent lent it: claimed before
+    // anything reads it, released on every way out of the process.
+    claimedRecord = claimRequestedRecord(payload, openedStore);
+    if (claimedRecord !== undefined) process.once('exit', releaseClaimedRecord);
+    const claimedStore = claimedRecord?.store ?? openedStore;
+    // A sealing parent that handed a record over hears of each save of it, to vouch for it.
+    recordSaves =
+      claimedStore !== undefined &&
+      payload.resumeHeld !== undefined &&
+      resumeSessionId !== undefined
+        ? reportRecordSaves(claimedStore, resumeSessionId, sendChildMessage)
+        : undefined;
+    const resumeSessionStore = recordSaves?.store ?? claimedStore;
     // A sandbox restored from the parent's snapshot, or else one the child composes at its own root.
     // Only a composed sandbox approves commands, from the instance its tools run under; a restored one
     // approves none, so the child asks where the parent might not: stricter, never looser.
@@ -143,6 +267,7 @@ async function runInitialPrompt(
         : undefined;
     const toolSandbox = restoredSandbox ?? composedSandbox?.client;
     session = createSubagentSession({
+      host: composition.host,
       // ARCH-044 (issue #2047): explicit restore from the wire DTOs into the runtime models.
       agentDefinition: restoreAgentDefinition(payload.agentDefinition),
       parentConfig: payload.parentConfig,
@@ -168,7 +293,7 @@ async function runInitialPrompt(
       cwd: subagentExecutionRoot(payload),
       provider,
       terminal: NOOP_TERMINAL,
-      sessionId: payload.request.resumeSessionId ?? payload.taskId,
+      sessionId,
       ...(resumeSessionStore !== undefined ? { sessionStore: resumeSessionStore } : {}),
       ...(sessionLogger ? { sessionLogger } : {}),
       permissionMode: payload.permissionMode,
@@ -201,10 +326,12 @@ async function runInitialPrompt(
       // never learned it was asked.
       permissionHandler: requestParentPermission,
     });
-    resumeRequestedRecord(payload, session, resumeSessionStore);
+    resumeRequestedRecord(payload, session, resumeSessionStore, claimedRecord);
+    recordSaves?.restored();
+    throwIfParentChangeFailed();
     const output = await session.run(payload.request.prompt);
-    if (sandboxSettingsFailure !== undefined) {
-      sendTerminalMessageAndExit({ type: 'error', message: sandboxSettingsFailure }, 0);
+    if (parentChangeFailure !== undefined) {
+      sendTerminalMessageAndExit({ type: 'error', message: parentChangeFailure }, 0);
       return;
     }
     if (cancelled) {
@@ -219,11 +346,14 @@ async function runInitialPrompt(
     const usage = readSessionUsage(session);
     // CORE-024 (RUNTIME-20): exit only after this result (with usage) has flushed over IPC, so the
     // parent settles on the result instead of racing a crash-projection from an early exit.
-    sendTerminalMessageAndExit({ type: 'result', output, ...(usage ? { usage } : {}) }, 0);
+    sendTerminalMessageAndExit(
+      withRecordSaveRefusal({ type: 'result', output, ...(usage ? { usage } : {}) }, payload),
+      0,
+    );
   } catch (error) {
     // allow-fallback: child process must report errors to parent via IPC, not crash silently; exit follows the IPC flush (CORE-024 RUNTIME-20)
-    if (sandboxSettingsFailure !== undefined) {
-      sendTerminalMessageAndExit({ type: 'error', message: sandboxSettingsFailure }, 0);
+    if (parentChangeFailure !== undefined) {
+      sendTerminalMessageAndExit({ type: 'error', message: parentChangeFailure }, 0);
       return;
     }
     if (cancelled) {
@@ -234,7 +364,7 @@ async function runInitialPrompt(
       return;
     }
     const message = error instanceof Error ? error.message : String(error);
-    sendTerminalMessageAndExit({ type: 'error', message }, 0);
+    sendTerminalMessageAndExit(withRecordSaveRefusal({ type: 'error', message }, payload), 0);
   }
 }
 
@@ -300,6 +430,7 @@ async function cancelWorker(reason?: string): Promise<void> {
   session?.abort();
   sendChildMessage({ type: 'cancelled', reason });
   await session?.shutdown({ reason: 'other' }).catch(() => undefined); // allow-fallback: shutdown during cancel — process will exit regardless
+  releaseClaimedRecord();
   setTimeout(() => process.exit(CANCEL_EXIT_CODE), 0);
 }
 
@@ -333,9 +464,31 @@ function followParentSandboxSettings(settings: TParentSandboxSettings): void {
   try {
     composedSandbox?.applyParentSettings?.(settings);
   } catch (error) {
-    sandboxSettingsFailure ??= error instanceof Error ? error.message : String(error);
+    parentChangeFailure ??= error instanceof Error ? error.message : String(error);
     session?.abort();
   }
+}
+
+/**
+ * The key the parent seals to was verified or changed while this child runs: everything it seals
+ * from now on goes to the new grant's key. A grant not bound yet is taken at start; a child its
+ * parent started plain stays plain. One the composition cannot take — it throws, or what it binds
+ * does not seal to the new grant's key — stops the job with fixed text (before its run, when the
+ * child is still being built), since sealing on to a key the parent has replaced is what this
+ * message prevents.
+ */
+function followParentSealingKey(grant: string, composition: ISubagentWorkerComposition): void {
+  latestWriteGrant = grant;
+  if (!sealingBound) return;
+  let followed = false;
+  try {
+    followed = sealsTo(composition.bindWriteGrant?.(grant) ?? 'plain', grant);
+  } catch {
+    // allow-fallback: the composition's own reason is not what the parent is told; the run stops below.
+  }
+  if (followed) return;
+  parentChangeFailure ??= SEALING_KEY_NOT_FOLLOWED;
+  session?.abort();
 }
 
 /**
@@ -378,6 +531,9 @@ export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): 
       case 'sandbox_settings':
         followParentSandboxSettings(message.settings);
         break;
+      case 'sealing_key':
+        followParentSealingKey(message.grant, composition);
+        break;
       case 'permission_response':
         resolvePendingPermissionRequest(message.requestId, message.result);
         break;
@@ -389,7 +545,9 @@ export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): 
   process.on('disconnect', () => {
     cancelled = true;
     session?.abort();
-    void session?.shutdown({ reason: 'other' }).catch(() => undefined); // allow-fallback: cleanup on disconnect — process will exit regardless
+    void (session?.shutdown({ reason: 'other' }) ?? Promise.resolve())
+      .catch(() => undefined) // allow-fallback: cleanup on disconnect — process will exit regardless
+      .then(releaseClaimedRecord);
   });
 
   // ARCH-021: declare what this child composed. This is a VERIFICATION channel — the built-binary

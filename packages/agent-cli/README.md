@@ -80,8 +80,9 @@ the complete hosted capability, including E2B; the resulting binary needs no adj
 Run `robota` inside a Git repository. It first asks whether to trust the folder: only a trusted
 workspace can load the project's own settings, hooks, skills, plugins and MCP servers. Answer no and
 the session starts **Restricted**, with your user settings and the built-in tools only. The first
-time, it then walks you through choosing a provider and filling in its fields (model, base URL, API
-key), and saves the profile to `<configured-user-state-dir>/settings.json`.
+time, it also asks whether to add a web search server (see [Search the web](#search-the-web)), then
+walks you through choosing a provider and filling in its fields (model, base URL, API key), and
+saves the profile to `<configured-user-state-dir>/settings.json`.
 
 ```bash
 cd my-project
@@ -113,9 +114,9 @@ before, and every key can be rebound in `<configured-user-state-dir>/keybindings
 [keybindings guide](../../content/guide/keybindings.md)).
 
 The agent works with file and shell tools (`Read`, `Write`, `Edit`, `Glob`, `Grep`, `Bash`),
-`WebFetch`, `WebSearch` (needs a `BRAVE_API_KEY`) and `AskUserQuestion`, and can hand work to
-subagents and background tasks. Your project's `AGENTS.md` and `CLAUDE.md` are loaded as context
-in a trusted workspace, and `@path` in a prompt attaches a project file.
+`WebFetch` and `AskUserQuestion`, and can hand work to subagents and background tasks. Your
+project's `AGENTS.md` and `CLAUDE.md` are loaded as context in a trusted workspace, and `@path` in a
+prompt attaches a project file.
 
 ```bash
 robota                              # new session
@@ -206,7 +207,7 @@ in any mode: `rm` on the root, home or working directory, and writes into `.git`
 Shell commands can also run inside an OS sandbox (bubblewrap on Linux, Seatbelt on macOS): `/sandbox`
 switches between `auto-allow`, `regular` and `off`, and the `sandbox` settings key configures it.
 A confined command cannot read the credential-bearing files under `<configured-user-state-dir>`
-(`settings.json`, `credentials/`, `mcp-credentials/`, `remote-host-identity.json`).
+(`settings.json`, `credentials/`, `mcp-credentials/`, `remote-host-identity.json`, `secure/`).
 
 Commands the agent runs (tools, hooks, background shells, a skill's `!` commands, MCP header
 helpers) do not inherit the variables your provider profiles use as credentials — `$ENV:` references
@@ -219,11 +220,13 @@ withheld from the next start.
 When something misbehaves, `robota --safe-mode` starts with instruction files, skills, plugins, hooks
 and MCP servers all off.
 
-Workspace trust is granted per Git worktree and kept in `<configured-user-state-dir>/workspace-trust.json`:
+The trust manager holds approval for the exact folder while it runs. Reopening the CLI does not
+require another approval, but restarting the manager or computer does. The
+`<configured-user-state-dir>/workspace-trust.json` file records history and does not restore approval:
 
 ```bash
 robota trust status    # is this workspace trusted, and what would trust load? (--json: one line)
-robota trust --yes     # trust the Git workspace you are in
+robota trust --yes     # request trust for this folder; confirm at the terminal
 robota trust revoke --yes
 ```
 
@@ -264,6 +267,29 @@ when the first is overloaded, `--effort <level>` sets model effort, and `--advis
 lets the model consult a second model. See [Providers](../../content/guide/providers.md) and
 [Local LLM setup](../../content/guide/local-llm.md).
 
+### Search the web
+
+Web search reaches the model in two ways, and you can use both.
+
+- **The model's own search.** Anthropic and OpenAI on its own API search server-side by default,
+  and the vendor bills the searches. Turn it off by setting
+  `"options": { "nativeWebTools": { "webSearch": false } }` on the profile; a profile that sets
+  `nativeWebTools` is used as written. It stays off where the vendor offers no such tool next to
+  this CLI's own tools: an OpenAI profile with a custom `baseURL`, Chat Completions or
+  `OPENAI_BASE_URL`, and an OpenAI model without web search such as `gpt-4.1-nano`. An Anthropic
+  reply that cites the web ends with a `[Sources]` list.
+  Gemini searches only when its profile sets `"webSearch": true`, on Gemini 3 or later: Google's
+  [terms](https://ai.google.dev/gemini-api/terms) attach conditions to showing and storing grounded
+  results, and a terminal cannot show the search suggestions they call for, so read them first.
+- **An MCP server you choose.** Any model can search through one. The first interactive start asks
+  once whether to add Exa (`https://mcp.exa.ai/mcp`) or Parallel (`https://mcp.parallel.ai/mcp`), or
+  to skip. Neither needs an API key, and your search queries go to the service you pick. The choice
+  is saved under `mcpServers` in `<configured-user-state-dir>/settings.json`, approved, and connected
+  in that session. Later, `robota mcp add exa`, `robota mcp add parallel` or
+  `robota mcp add <name> <https-url>` does the same without a prompt; the server connects on the next
+  start, and `/mcp revoke <name>` withdraws it. You can also declare any search server yourself under
+  `mcpServers`, as below.
+
 ### Connect MCP servers, or serve the session over MCP
 
 Declare remote MCP servers under `mcpServers` in a settings file. A declared server is not connected
@@ -271,6 +297,8 @@ until you approve it: `/mcp` shows each server's state, and `/mcp approve <serve
 the running session and keeps the approval in `<configured-user-state-dir>/mcp-approvals.json` for later starts. A
 server that uses OAuth also needs a sign-in — `/mcp login <server>` in a session, or
 `robota mcp login <server>` in a terminal — and connects once you sign in.
+`robota mcp add <name> <https-url>` adds an HTTP server to your user settings and approves it in
+one step.
 
 ```json
 {
@@ -410,6 +438,22 @@ your user settings. `/remote-control enable` pairs a browser to co-drive the cur
 
 See [Devices and remote control](../../content/guide/devices-and-remote.md).
 
+### Create a keyring for secure conversations
+
+```bash
+robota secure setup              # create the keyring; the recovery key is shown once
+robota secure status             # the keyring file, its slots and its key fingerprint (no passphrase)
+robota secure verify             # unlock and check the stored key (--recovery: use the recovery key)
+robota secure change-passphrase  # set a new passphrase (--recovery: reset a forgotten one)
+```
+
+The passphrase and the recovery key are typed at the terminal when asked, never given as an argument
+and never read from the environment or a pipe, so a program without a terminal of its own, such as the
+agent's shell tool, cannot run these for you. Every program running as you can read the keyring file,
+so the passphrase (at least 12 characters, not one short pattern repeated) is what protects it. The
+keyring file is the only copy of your keys, and changing the passphrase does not lock out a copy
+someone already took. Creating a keyring does not by itself change how sessions are saved.
+
 ### Check your setup and usage
 
 ```bash
@@ -437,13 +481,14 @@ Other files the CLI keeps under `<configured-user-state-dir>/`:
 
 | Path                   | Contents                                                                                       |
 | ---------------------- | ---------------------------------------------------------------------------------------------- |
-| `workspace-trust.json` | workspaces you have trusted                                                                    |
+| `workspace-trust.json` | approval history; live grants stay with the trust manager                                     |
 | `sessions/`            | saved sessions (a trusted project may keep them in `<configured-project-state-dir>/sessions/`) |
 | `history.jsonl`        | prompts you typed, for `Ctrl+R` (`"promptHistory": false` turns it off)                        |
 | `keybindings.json`     | key bindings                                                                                   |
 | `themes/`              | your own `/theme` themes                                                                       |
 | `plugins/`             | installed plugins (a project may have its own `<configured-project-state-dir>/plugins/`)       |
 | `mcp-credentials/`     | OAuth tokens for MCP servers, readable by you only                                             |
+| `secure/keyring.json`  | your keyring for secure conversations, protected by your passphrase and recovery key           |
 
 ## Use it from code
 

@@ -23,7 +23,7 @@ import {
   issueDeviceRoster,
 } from '@robota-sdk/agent-remote-pairing';
 import { createInMemoryMeshRelayHub } from '@robota-sdk/agent-transport-webrtc';
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';
@@ -308,7 +308,7 @@ describe('the device mesh, turned on in two HOMEs', () => {
     const { asked, approve } = approver(true);
     const { atLaptop, atDesktop, desktopId, laptopId } = await linked(approve);
     const composition = createHandoffComposition();
-    const store = createUserSessionStore(join(desktop.root, 'sessions'));
+    const store = createUserSessionStore(join(desktop.root, 'sessions'), { sealing: 'plain' });
     const outcomes: string[] = [];
     atDesktop.bind({
       handoff: {

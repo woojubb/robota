@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createStdioAdapter } from '../client/stdio.js';
+import { createStdioAdapter } from '../node/stdio.js';
 import { definitionFingerprint, securityIdentity } from '../definition/identity.js';
 
 import type { IMCPActivationAdmission, IMCPActivationRequest } from '../mcp-activation.js';

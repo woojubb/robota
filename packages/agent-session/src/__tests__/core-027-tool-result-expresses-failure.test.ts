@@ -40,6 +40,7 @@ function makeNoopTerminal(): ITerminalOutput {
 
 function makeEnforcer(overrides: Partial<IPermissionEnforcerOptions> = {}): PermissionEnforcer {
   return new PermissionEnforcer({
+    hookTypeExecutors: [],
     sessionId: 'test-session',
     cwd: '/tmp',
     // `bypassPermissions` so the tool actually RUNS: a crash case must be about the crash, and the

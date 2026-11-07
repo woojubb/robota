@@ -7,6 +7,7 @@ import type {
   IToolPermissionDecisionEntry,
   ILivePromptQueueSummary,
 } from '@robota-sdk/agent-interface-analytics';
+import { utf8ByteLength } from '@robota-sdk/agent-core';
 import { isSafeSessionId } from '@robota-sdk/agent-session';
 
 import type { TSubprocessTraceClass } from '@robota-sdk/agent-core';
@@ -84,7 +85,7 @@ function validInterval(startedAt: unknown, endedAt: unknown): startedAt is strin
 }
 
 function safeLabel(value: unknown): string | undefined {
-  return typeof value === 'string' && Buffer.byteLength(value, 'utf8') <= 128 &&
+  return typeof value === 'string' && utf8ByteLength(value) <= 128 &&
     LABEL.test(value) ? value : undefined;
 }
 

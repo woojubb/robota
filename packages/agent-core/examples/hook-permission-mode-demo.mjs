@@ -13,7 +13,10 @@
  * Usage: node packages/agent-core/examples/hook-permission-mode-demo.mjs
  */
 
-import { runHooks } from '../dist/node/index.js';
+import { runHooks } from '../dist/index.js';
+import { CommandExecutor, HttpExecutor } from '../dist/node.js';
+
+const executors = [new CommandExecutor(), new HttpExecutor()];
 
 const READ_PERMISSION_MODE = `node -e "let d=''; process.stdin.on('data',c=>d+=c); process.stdin.on('end',()=>{ const p=JSON.parse(d); console.log(p.permission_mode ?? 'MISSING'); });"`;
 
@@ -39,14 +42,19 @@ const hooksDefault = {
   ],
 };
 
-const r1 = await runHooks(hooksDefault, 'PreToolUse', {
-  session_id: 'demo',
-  cwd: process.cwd(),
-  hook_event_name: 'PreToolUse',
-  tool_name: 'Bash',
-  tool_input: { command: 'echo hello' },
-  permission_mode: 'default',
-});
+const r1 = await runHooks(
+  hooksDefault,
+  'PreToolUse',
+  {
+    session_id: 'demo',
+    cwd: process.cwd(),
+    hook_event_name: 'PreToolUse',
+    tool_name: 'Bash',
+    tool_input: { command: 'echo hello' },
+    permission_mode: 'default',
+  },
+  executors,
+);
 
 console.log(`  hook stdout: ${JSON.stringify(r1.stdout.trim())}`);
 check('hook receives "default"', r1.stdout.trim() === 'default');
@@ -64,14 +72,19 @@ const hooksBypass = {
   ],
 };
 
-const r2 = await runHooks(hooksBypass, 'PreToolUse', {
-  session_id: 'demo',
-  cwd: process.cwd(),
-  hook_event_name: 'PreToolUse',
-  tool_name: 'Bash',
-  tool_input: { command: 'echo hello' },
-  permission_mode: 'bypassPermissions',
-});
+const r2 = await runHooks(
+  hooksBypass,
+  'PreToolUse',
+  {
+    session_id: 'demo',
+    cwd: process.cwd(),
+    hook_event_name: 'PreToolUse',
+    tool_name: 'Bash',
+    tool_input: { command: 'echo hello' },
+    permission_mode: 'bypassPermissions',
+  },
+  executors,
+);
 
 console.log(`  hook stdout: ${JSON.stringify(r2.stdout.trim())}`);
 check('hook receives "bypassPermissions"', r2.stdout.trim() === 'bypassPermissions');

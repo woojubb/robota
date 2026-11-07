@@ -9,8 +9,11 @@
 import {
   chmodSync,
   existsSync,
+  fstatSync,
   mkdirSync,
   mkdtempSync,
+  readFileSync,
+  readdirSync,
   statSync,
   writeFileSync,
   realpathSync,
@@ -24,8 +27,10 @@ import {
   OWNER_ONLY_DIRECTORY_MODE,
   OWNER_ONLY_FILE_MODE,
   OwnerOnlyModeError,
+  OwnerOnlyWriteUnconfirmedError,
   ensureOwnerOnlyDirectory,
   ownerOnlyGuarantee,
+  stageOwnerOnlyFile,
   tightenExistingFile,
   writeOwnerOnlyFile,
 } from './owner-only-store.js';
@@ -45,6 +50,28 @@ afterEach(() => {
 });
 
 const mode = (path: string): number => statSync(path).mode & 0o7777;
+
+describe('ensureOwnerOnlyDirectory — durable', () => {
+  it('flushes the parent of each directory it created, and nothing when it created none', () => {
+    const flushed: string[] = [];
+    const syncDirectory = (directory: string): void => {
+      flushed.push(directory);
+    };
+
+    ensureOwnerOnlyDirectory(join(root, 'a', 'b'), { durable: true, syncDirectory });
+    expect(flushed).toEqual([root, join(root, 'a')]);
+
+    flushed.length = 0;
+    ensureOwnerOnlyDirectory(join(root, 'a', 'b'), { durable: true, syncDirectory });
+    expect(flushed).toEqual([]);
+  });
+
+  it('flushes nothing unless asked to', () => {
+    ensureOwnerOnlyDirectory(join(root, 'c', 'd'), {
+      syncDirectory: () => expect.unreachable('a non-durable call must not flush'),
+    });
+  });
+});
 
 describe('SEC-020 — ensureOwnerOnlyDirectory', () => {
   it('TC-01: creates a directory only its owner can enter, under a permissive umask', () => {
@@ -118,6 +145,16 @@ describe('SEC-020 — writeOwnerOnlyFile', () => {
     writeFileSync(temp, 'stale');
     chmodSync(temp, 0o666);
     writeOwnerOnlyFile(target, 'fresh');
+    expect(mode(target)).toBe(OWNER_ONLY_FILE_MODE);
+  });
+
+  it('writes bytes exactly as given, at the same mode, so a sealed artifact needs no second path', () => {
+    // Every value 0-255, which is not valid UTF-8: a path that re-encoded the content as text would
+    // change these bytes.
+    const sealed = Uint8Array.from({ length: 256 }, (_, value) => value);
+    const target = join(root, 'store', 'sealed.json');
+    writeOwnerOnlyFile(target, sealed);
+    expect(new Uint8Array(readFileSync(target))).toEqual(sealed);
     expect(mode(target)).toBe(OWNER_ONLY_FILE_MODE);
   });
 });
@@ -247,5 +284,259 @@ describe('SEC-020 — withinRoot tightens the ancestors the caller owns', () => 
     ensureOwnerOnlyDirectory(join(parent, 'leaf'));
     expect(mode(parent)).toBe(0o755);
     expect(mode(join(parent, 'leaf'))).toBe(OWNER_ONLY_DIRECTORY_MODE);
+  });
+});
+
+describe('writeOwnerOnlyFile — durable', () => {
+  it('TC-35: flushes the temp file before the rename and the directory after it', () => {
+    // The order is the whole property: a rename that reaches the disk before the data does leaves a
+    // present-but-empty file after a crash. Each seam looks at the real filesystem at the moment it
+    // is called, so the assertions are about what was on disk then, not about call counts.
+    const target = join(root, 'keys', 'keyring.json');
+    mkdirSync(join(root, 'keys'));
+    writeFileSync(target, 'old', { mode: OWNER_ONLY_FILE_MODE });
+    const seen: string[] = [];
+    writeOwnerOnlyFile(target, 'new-content', {
+      durable: true,
+      syncFile: (descriptor) => {
+        seen.push('file');
+        expect(fstatSync(descriptor).size).toBe('new-content'.length);
+        expect(readFileSync(target, 'utf8')).toBe('old');
+        expect(existsSync(`${target}.${process.pid}.tmp`)).toBe(true);
+      },
+      syncDirectory: (directory) => {
+        seen.push('directory');
+        expect(directory).toBe(join(root, 'keys'));
+        expect(readFileSync(target, 'utf8')).toBe('new-content');
+        expect(existsSync(`${target}.${process.pid}.tmp`)).toBe(false);
+      },
+    });
+    expect(seen).toEqual(['file', 'directory']);
+    expect(mode(target)).toBe(OWNER_ONLY_FILE_MODE);
+  });
+
+  it('flushes the parent of every directory the write created, outermost first, then the leaf', () => {
+    // A flushed file in a directory whose own entry was never flushed is gone with the directory.
+    const target = join(root, 'state', 'secure', 'keyring.json');
+    const flushed: string[] = [];
+
+    writeOwnerOnlyFile(target, 'keys', {
+      durable: true,
+      syncDirectory: (directory) => flushed.push(directory),
+    });
+
+    expect(flushed).toEqual([root, join(root, 'state'), join(root, 'state', 'secure')]);
+  });
+
+  it('flushes only the parent of a directory that was missing, not of one that existed', () => {
+    mkdirSync(join(root, 'state'));
+    const flushed: string[] = [];
+
+    writeOwnerOnlyFile(join(root, 'state', 'secure', 'keyring.json'), 'keys', {
+      durable: true,
+      syncDirectory: (directory) => flushed.push(directory),
+    });
+
+    expect(flushed).toEqual([join(root, 'state'), join(root, 'state', 'secure')]);
+  });
+
+  it('flushes no created directory for a write that creates none', () => {
+    mkdirSync(join(root, 'keys'));
+    const flushed: string[] = [];
+
+    writeOwnerOnlyFile(join(root, 'keys', 'keyring.json'), 'keys', {
+      durable: true,
+      syncDirectory: (directory) => flushed.push(directory),
+    });
+
+    expect(flushed).toEqual([join(root, 'keys')]);
+  });
+
+  it('TC-36: a plain write flushes nothing, so existing callers keep their cost', () => {
+    const target = join(root, 'plain.json');
+    writeOwnerOnlyFile(target, 'x', {
+      syncFile: () => expect.unreachable('a non-durable write must not flush the file'),
+      syncDirectory: () => expect.unreachable('a non-durable write must not flush the directory'),
+    });
+    expect(readFileSync(target, 'utf8')).toBe('x');
+  });
+
+  it('TC-37: a failed flush keeps the old content, removes the temp file and reports the failure', () => {
+    const target = join(root, 'keyring.json');
+    writeFileSync(target, 'old', { mode: OWNER_ONLY_FILE_MODE });
+    expect(() =>
+      writeOwnerOnlyFile(target, 'new', {
+        durable: true,
+        syncFile: () => {
+          throw new Error('disk full');
+        },
+      }),
+    ).toThrow('disk full');
+    expect(readFileSync(target, 'utf8')).toBe('old');
+    expect(readdirSync(root).filter((name) => name.endsWith('.tmp'))).toEqual([]);
+  });
+
+  it('TC-38: flushes the real file and directory on a real filesystem without error', () => {
+    const target = join(root, 'real', 'keyring.json');
+    writeOwnerOnlyFile(target, '{"a":1}', { durable: true });
+    expect(readFileSync(target, 'utf8')).toBe('{"a":1}');
+    expect(mode(target)).toBe(OWNER_ONLY_FILE_MODE);
+  });
+
+  it('TC-39: a failure after the rename is "in place, not confirmed", never "not written"', () => {
+    // The directory flush runs after the new content has replaced the old. Reporting its failure as
+    // a failed write would tell the caller the old content is still there when it is not.
+    const target = join(root, 'keyring.json');
+    writeFileSync(target, 'old', { mode: OWNER_ONLY_FILE_MODE });
+    let thrown: unknown;
+    try {
+      writeOwnerOnlyFile(target, 'new', {
+        durable: true,
+        syncDirectory: () => {
+          throw Object.assign(new Error('I/O error'), { code: 'EIO' });
+        },
+      });
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBeInstanceOf(OwnerOnlyWriteUnconfirmedError);
+    expect(((thrown as Error).cause as NodeJS.ErrnoException).code).toBe('EIO');
+    expect(readFileSync(target, 'utf8')).toBe('new');
+    expect(readdirSync(root).filter((name) => name.endsWith('.tmp'))).toEqual([]);
+  });
+});
+
+describe('writeOwnerOnlyFile — createOnly', () => {
+  it('TC-40: creates the file when nothing is there, owner-only, with no temp file left', () => {
+    const target = join(root, 'secure', 'keyring.json');
+    writeOwnerOnlyFile(target, 'first', { createOnly: true, durable: true });
+    expect(readFileSync(target, 'utf8')).toBe('first');
+    expect(mode(target)).toBe(OWNER_ONLY_FILE_MODE);
+    expect(readdirSync(join(root, 'secure'))).toEqual(['keyring.json']);
+  });
+
+  it('TC-41: refuses with EEXIST when the file appeared first, and leaves it and no temp file', () => {
+    // Check-then-write would let two creators both see "absent" and the second silently replace the
+    // first; the commit itself must be the check.
+    const target = join(root, 'keyring.json');
+    writeFileSync(target, 'theirs', { mode: OWNER_ONLY_FILE_MODE });
+    let thrown: unknown;
+    try {
+      writeOwnerOnlyFile(target, 'mine', { createOnly: true });
+    } catch (error) {
+      thrown = error;
+    }
+    expect((thrown as NodeJS.ErrnoException | undefined)?.code).toBe('EEXIST');
+    expect(readFileSync(target, 'utf8')).toBe('theirs');
+    expect(readdirSync(root).filter((name) => name.endsWith('.tmp'))).toEqual([]);
+  });
+});
+
+describe('writeOwnerOnlyFile — beforeCommit and temporaryPath', () => {
+  it('TC-50: runs the hook with the new content complete in the temp file and the target untouched', () => {
+    const target = join(root, 'keyring.json');
+    writeFileSync(target, 'old', { mode: OWNER_ONLY_FILE_MODE });
+    const temporaryPath = join(root, 'keyring.json.mine.tmp');
+    const seen: string[] = [];
+    writeOwnerOnlyFile(target, 'new', {
+      durable: true,
+      temporaryPath,
+      beforeCommit: () => {
+        seen.push(readFileSync(target, 'utf8'), readFileSync(temporaryPath, 'utf8'));
+      },
+    });
+    expect(seen).toEqual(['old', 'new']);
+    expect(readFileSync(target, 'utf8')).toBe('new');
+    expect(existsSync(temporaryPath)).toBe(false);
+  });
+
+  it('TC-51: a hook that throws leaves the target as it was and no temp file, for replace and create', () => {
+    const target = join(root, 'keyring.json');
+    writeFileSync(target, 'old', { mode: OWNER_ONLY_FILE_MODE });
+    const refuse = (): never => {
+      throw new Error('lost the lock');
+    };
+    expect(() => writeOwnerOnlyFile(target, 'new', { beforeCommit: refuse })).toThrow(
+      'lost the lock',
+    );
+    const created = join(root, 'created.json');
+    expect(() =>
+      writeOwnerOnlyFile(created, 'new', { createOnly: true, beforeCommit: refuse }),
+    ).toThrow('lost the lock');
+    expect(readFileSync(target, 'utf8')).toBe('old');
+    expect(existsSync(created)).toBe(false);
+    expect(readdirSync(root).filter((name) => name.endsWith('.tmp'))).toEqual([]);
+  });
+
+  it('TC-52: links through the seam for createOnly, so a filesystem without hard links is reachable', () => {
+    const target = join(root, 'keyring.json');
+    let thrown: unknown;
+    try {
+      writeOwnerOnlyFile(target, 'new', {
+        createOnly: true,
+        linkFile: () => {
+          throw Object.assign(new Error('EPERM: operation not permitted, link'), { code: 'EPERM' });
+        },
+      });
+    } catch (error) {
+      thrown = error;
+    }
+    expect((thrown as NodeJS.ErrnoException | undefined)?.code).toBe('EPERM');
+    expect(existsSync(target)).toBe(false);
+    expect(readdirSync(root).filter((name) => name.endsWith('.tmp'))).toEqual([]);
+  });
+});
+
+describe('stageOwnerOnlyFile', () => {
+  it('flushes an owner-only temp file and leaves the target as it was until commit', () => {
+    const target = join(root, 'record.json');
+    writeFileSync(target, 'old', { mode: OWNER_ONLY_FILE_MODE });
+    const order: string[] = [];
+
+    const staged = stageOwnerOnlyFile(target, 'new', {
+      syncFile: () => order.push('flush file'),
+      syncDirectory: () => order.push('flush directory'),
+    });
+
+    expect(order).toEqual(['flush file']);
+    expect(readFileSync(target, 'utf8')).toBe('old');
+    expect(readFileSync(staged.temporaryPath, 'utf8')).toBe('new');
+    if (ownerOnlyGuarantee() === 'posix-mode') {
+      expect(mode(staged.temporaryPath)).toBe(OWNER_ONLY_FILE_MODE);
+    }
+    staged.commit(() => order.push('before commit'));
+    expect(order).toEqual(['flush file', 'before commit', 'flush directory']);
+    expect(readFileSync(target, 'utf8')).toBe('new');
+    expect(existsSync(staged.temporaryPath)).toBe(false);
+  });
+
+  it('flushes the parent of a directory it created, before the temp file is staged', () => {
+    const flushed: string[] = [];
+
+    stageOwnerOnlyFile(join(root, 'fresh', 'record.json'), 'new', {
+      syncDirectory: (directory) => flushed.push(directory),
+    }).discard();
+
+    expect(flushed).toEqual([root]);
+  });
+
+  it('removes the temp file when the commit hook throws or the staged file is discarded', () => {
+    const target = join(root, 'record.json');
+    writeFileSync(target, 'old', { mode: OWNER_ONLY_FILE_MODE });
+
+    const refused = stageOwnerOnlyFile(target, 'new');
+    expect(() =>
+      refused.commit(() => {
+        throw new Error('changed meanwhile');
+      }),
+    ).toThrow('changed meanwhile');
+    const discarded = stageOwnerOnlyFile(target, 'newer', {
+      temporaryPath: join(root, 'record.json.other.tmp'),
+    });
+    discarded.discard();
+    discarded.discard();
+
+    expect(readFileSync(target, 'utf8')).toBe('old');
+    expect(readdirSync(root)).toEqual(['record.json']);
   });
 });

@@ -8,6 +8,11 @@ compatibility facade over the generic background task layer; subagent runner por
 isolation decoration; and provider factory helpers that construct provider instances from
 serializable config or profiles.
 
+Its main entry is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun, and
+reaches no Node built-in or global. What spawns processes, resolves a shell, or reports through
+`process` is on the `./node` subpath, and a Node composition root registers it with the neutral
+manager; the package has no host default.
+
 It is a composable material layer: it provides stateful runtime services and ports that higher
 packages assemble with providers, sessions, processes, transports, and UI. It does not itself
 create sessions, tools, prompts, child processes (other than through its own shell/scheduled task
@@ -111,7 +116,8 @@ The manager emits lifecycle/progress events only after the authoritative state t
 already committed, so an observer must never be able to unwind the emitter by throwing. Delivery
 isolates each observer (an optional sink first, then subscribers in registration order); a
 throwing observer does not stop delivery to the rest, and each failure is reported through a
-caller-supplied hook (default: a process warning) rather than propagated. Event payloads are
+caller-supplied hook (default: a `console.warn` line, the one sink every runtime has; a Node host
+injects a process-warning reporter) rather than propagated. Event payloads are
 cloned task snapshots or primitive progress data; consumers may project them into UI rows,
 transport messages, or logs, but must not mutate manager state directly from a listener.
 
@@ -151,7 +157,8 @@ fire watchdog is independent of the manager-level agent watchdogs above.
 ## Worktree runner contract
 
 The worktree subagent runner delegates non-worktree requests unchanged. For a worktree-isolated
-request it must: prepare a worktree through an injected adapter; hand the inner runner the prepared
+request it must: run the inner runner's preflight first, when it has one, so a job the inner runner
+refuses leaves no worktree and fires no hook; prepare a worktree through an injected adapter; hand the inner runner the prepared
 worktree path/branch on the job envelope rather than rewriting the request (the request's working
 directory stays the parent checkout; a single execution-root helper is the sole reader of which
 directory a job actually runs in); remove a clean worktree exactly once, whether preparation
@@ -159,7 +166,8 @@ succeeded and the job completed, failed asynchronously, failed synchronously at 
 cancelled successfully; preserve a dirty worktree instead of removing it, and surface enough
 metadata (path, branch, status, next action) for a caller to act on it; and propagate
 adapter-provided base-revision/parent-status metadata when available without discarding existing
-result metadata.
+result metadata. The hook executors that run the worktree hooks are required options: running a
+hook needs a host, so the composition root supplies them.
 
 The concrete Git worktree adapter itself lives outside this package, in the composition root that
 performs Git operations; this package owns only the adapter port and the pure runner decorator, so
@@ -173,7 +181,8 @@ instances, depending only on core provider definitions so they stay provider-pac
 the direct-key and the key-by-environment-variable-name resolution paths route through an injected
 environment resolver rather than reading `process.env` directly, so tests can inject a fake resolver
 instead of mutating the process environment; this is enforced by a repository-wide scan barring
-direct `process.env` reads in this module.
+direct `process.env` reads in this module. The resolver is a required argument with no default,
+because the neutral package has no host environment of its own.
 
 ## Transparent workflow relationship
 
@@ -195,6 +204,9 @@ concrete I/O and must not add global task registries outside the manager.
 
 Runner handles may expose paths for append-only log/transcript streams; the manager projects those
 into task state immediately after runner start and preserves matching metadata on completion.
+Whether the transcript is sealed is projected with them and persisted in task state, so a task
+restored in a later session still says that its path reaches no content and a reader must go through
+the log read.
 
 Task requests may carry opaque primitive metadata. The runtime clones it into task state and
 preserves it across snapshots, but never interprets caller-specific keys — lifecycle transitions,
@@ -212,5 +224,5 @@ use it for origin projection, grouping, or workspace read models.
 
 This package must not depend on SDK, sessions, tool, concrete-provider, concrete-transport, or CLI
 packages. Its own production dependencies are limited to core hook/provider types, the contract SSOT
-package for background-task/subagent state, a process-tree teardown helper, and a cron-parsing
-library used only by the scheduled task runner.
+package for background-task/subagent state, a process-tree teardown helper used only by the
+`./node` runners, and a cron-parsing library.

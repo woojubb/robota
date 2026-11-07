@@ -23,7 +23,9 @@ bus, or any provider or tool infrastructure — those, and hook dispatch on a re
 - A plugin selecting an unimplemented or misconfigured storage/strategy fails loudly at
   construction with a `ConfigurationError`, rather than silently dropping data. In particular,
   `ConversationHistoryPlugin` configured for database storage without a supplied database driver
-  throws at construction instead of accepting writes it cannot persist.
+  throws at construction instead of accepting writes it cannot persist. The same holds for the
+  `file` strategies without an injected text-file store, and for `PerformancePlugin` with memory,
+  CPU or network monitoring on and no injected metrics collector.
 - `PerformancePlugin`'s monitoring-strategy type includes values with no backing implementation
   yet (only the in-memory backend is implemented); selecting one of those is a forward-looking
   configuration surface, not a currently working backend.
@@ -48,6 +50,11 @@ bus, or any provider or tool infrastructure — those, and hook dispatch on a re
   behind one class, so a consumer configures one plugin rather than wiring components together.
 - **Periodic-task batching.** History and usage plugins flush via a shared periodic-task helper
   from `agent-core` rather than each implementing its own timer loop.
+- **Host access by injection.** The main entry is platform-neutral, so the file strategies write
+  through an injected `IPluginTextFileStore` and performance monitoring reads an injected
+  `ISystemMetricsCollector`; the Node implementations are on `./node`. A default that quietly
+  reached for the file system or `process` would make the package unusable in a browser or Worker
+  and hide that a plugin was persisting data at all.
 - **No cross-submodule imports.** Each plugin's storage backends and helpers are private to its
   own directory, keeping a plugin removable (and its dependencies tree-shakeable) without
   auditing what else might reach into it.

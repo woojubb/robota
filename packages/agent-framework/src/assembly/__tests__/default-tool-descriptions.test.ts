@@ -7,10 +7,13 @@ import {
   buildSessionSystemPrompt,
   formatDeferredToolRoster,
 } from '../create-session-runtime.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICreateSessionOptions } from '../create-session-types.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { ITerminalOutput } from '@robota-sdk/agent-session';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * ARCH-035 SPLIT this file rather than moving it. The tool-assembly cases went to
@@ -26,11 +29,12 @@ import type { ITerminalOutput } from '@robota-sdk/agent-session';
  * cannot be searched for, so the roster is the only thing making the withheld half reachable.
  */
 describe('DEFAULT_TOOL_DESCRIPTIONS', () => {
-  it('describes the web tools as local tools, which is how the prompt presents them', () => {
+  it('describes WebFetch as a local tool, which is how the prompt presents it', () => {
     expect(DEFAULT_TOOL_DESCRIPTIONS).toContain('WebFetch — fetch URL content as text');
-    expect(DEFAULT_TOOL_DESCRIPTIONS).toContain(
-      'WebSearch — search the internet through the configured local tool',
-    );
+  });
+
+  it("describes no web search tool — search is the provider's or an MCP server's, not a local tool", () => {
+    expect(DEFAULT_TOOL_DESCRIPTIONS.some((line) => line.startsWith('WebSearch'))).toBe(false);
   });
 });
 
@@ -46,6 +50,8 @@ const NOOP_TERMINAL: ITerminalOutput = {
 
 function makeOptions(): ICreateSessionOptions {
   return {
+    host: testHost,
+    cwd: process.cwd(),
     config: {
       defaultTrustLevel: 'safe',
       provider: { name: 'test', model: 'test-model', apiKey: undefined },

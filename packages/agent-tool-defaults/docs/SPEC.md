@@ -3,18 +3,18 @@
 ## Purpose
 
 Composition leaf that assembles the SDK's own built-in default tool set — the tools every product
-session gets when its composition root supplies no tool list of its own. Two entries are
-conditional on an adapter the caller supplies (a retrieval adapter and a computer driver); there is
-no host fallback for either, so an absent adapter means an absent tool rather than a silently
-degraded one.
+session gets when its composition root supplies no tool list of its own. It holds only tools that
+need no external service, credential or adapter; a tool that does is built by the composition root
+that owns the adapter, so a default tool never fails for a missing key or silently degrades.
 
 This package composes exactly one lower-layer package (`agent-tools`); it does not bundle
 sibling `agent-tool-*` packages. It is a defaults leaf, meant to be imported only at composition
 roots — not something a mid-layer assembly library owns, publishes, and self-consumes.
 
-The framework package still offers this tier to zero-config consumers, but reaches it only through
-a dynamic import, never statically and never by re-export — a re-export would restore a direct
-dependency this package's extraction was meant to remove.
+The framework package offers this tier to a session only through its host: the composition root
+passes `createDefaultTools` to `createNodeFrameworkHost`, and the session asks `host.createDefaultTools`.
+The framework imports this package nowhere in its runtime code and never re-exports it — a re-export
+would restore a direct dependency this package's extraction was meant to remove.
 
 ## Contract and guarantees
 

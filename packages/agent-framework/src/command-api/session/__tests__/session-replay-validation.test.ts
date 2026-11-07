@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { NodeSessionLogSource, SessionLogDecodeError } from '@robota-sdk/agent-session';
+import { SessionLogDecodeError } from '@robota-sdk/agent-session';
+import { NodeSessionLogSource } from '@robota-sdk/agent-session/node';
 
 import type { ICommandSessionReplayValidationReport } from '../../host-context.js';
 import { createTestCommandHost } from '../../../testing/command-host-double.js';
@@ -37,7 +38,7 @@ function writeLog(
   const logFile = join(logs, `${sessionId}.jsonl`);
   writeFileSync(logFile, lines.join('\n'), 'utf8');
   return {
-    source: new NodeSessionLogSource(logFile),
+    source: new NodeSessionLogSource(logFile, { sealing: 'plain' }),
     reference: join('.agent', 'logs', `${sessionId}.jsonl`),
   };
 }

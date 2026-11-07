@@ -7,6 +7,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import { createConfiguredNodeOtlpLiveTelemetryPort, createNodeOtlpLiveTracePort, resolveNodeOtlpLiveTraceEndpoint } from '../live-trace-otlp.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 const TRACE_ID = '1234567890abcdef1234567890abcdef';
 const ROOT_ID = '1234567890abcdef';
@@ -160,6 +163,7 @@ describe('Node live OTLP trace export', () => {
       expect(port).toBeDefined();
       const history: unknown[] = [];
       const session = new InteractiveSession({
+        host: testHost,
         session: {
           run: vi.fn(async () => 'private response'),
           abort: vi.fn(), assertInputAllowed: vi.fn(), getHistory: () => history,

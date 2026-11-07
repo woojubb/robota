@@ -2,6 +2,7 @@
  * Tests for InteractiveSession — event-driven session wrapper.
  */
 
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { mkdtemp, rm, writeFile, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -11,9 +12,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
 import koreanText from '../../__tests__/__fixtures__/korean-text.json';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { IToolState, IExecutionResult } from '../types.js';
+
+const testHost = createTestFrameworkHost();
 
 // Minimal mock Session that satisfies InteractiveSession's needs
 function createMockSession(options?: {
@@ -89,7 +93,7 @@ function createControllableRun(): {
 // Minimal mock SessionStore
 function createMockSessionStore(records: Record<string, unknown> = {}) {
   const store = new Map<string, unknown>(Object.entries(records));
-  return {
+  return withHoldReadClaim({
     // TRANS-007: the port returns an outcome, so a double that returns a record (or `undefined`)
     // no longer satisfies it. The cast at the call site hid that from the compiler; the tests found
     // it at runtime instead.
@@ -102,7 +106,7 @@ function createMockSessionStore(records: Record<string, unknown> = {}) {
       [...store.entries()].map(([id, record]) => ({ id, outcome: { status: 'valid', record } })),
     ),
     delete: vi.fn((id: string) => store.delete(id)),
-  };
+  });
 }
 
 describe('InteractiveSession', () => {
@@ -110,6 +114,7 @@ describe('InteractiveSession', () => {
     const mockSession = { ...createMockSession(), shutdown: vi.fn().mockResolvedValue(undefined) };
     const stopped = vi.fn().mockResolvedValue(undefined);
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
       commandModules: [
@@ -137,6 +142,7 @@ describe('InteractiveSession', () => {
   it('emits thinking and complete events on submit', async () => {
     const mockSession = createMockSession({ runResult: 'hello world' });
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -159,6 +165,7 @@ describe('InteractiveSession', () => {
 
   it('settles the turn and releases execution when a completion listener throws', async () => {
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession({ runResult: 'done' }) as never,
       cwd: '/tmp',
     });
@@ -178,6 +185,7 @@ describe('InteractiveSession', () => {
   it('adds user message to messages on submit', async () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -197,6 +205,7 @@ describe('InteractiveSession', () => {
       await writeFile(join(cwd, 'AGENTS.md'), '# Rules\nUse repo guidance.\n');
       const mockSession = createMockSession({ runResult: 'done' });
       const session = new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd,
         projectAccess: await createTrustedProjectAccessFixture(cwd),
@@ -240,6 +249,7 @@ describe('InteractiveSession', () => {
       await writeFile(join(cwd, 'notes.md'), 'manual context body\n');
       const mockSession = createMockSession({ runResult: 'done' });
       const session = new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd,
         projectAccess: await createTrustedProjectAccessFixture(cwd),
@@ -271,6 +281,7 @@ describe('InteractiveSession', () => {
     mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -316,6 +327,7 @@ describe('InteractiveSession', () => {
       ],
     };
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession() as never,
       cwd: '/tmp',
       commandModules: [blockingModule],
@@ -340,7 +352,11 @@ describe('InteractiveSession', () => {
   });
 
   it('observes pending input without becoming an answering surface', async () => {
-    const session = new InteractiveSession({ session: createMockSession() as never, cwd: '/tmp' });
+    const session = new InteractiveSession({
+      host: testHost,
+      session: createMockSession() as never,
+      cwd: '/tmp',
+    });
     const registry = (
       session as unknown as {
         promptRegistry: { requestPermission(name: string, args: never): Promise<boolean> };
@@ -380,6 +396,7 @@ describe('InteractiveSession', () => {
       ],
     };
     const session = new InteractiveSession({
+      host: testHost,
       session: createMockSession() as never,
       cwd: '/tmp',
       commandModules: [blockingModule],
@@ -403,6 +420,7 @@ describe('InteractiveSession', () => {
     mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -428,6 +446,7 @@ describe('InteractiveSession', () => {
     mockSession.run.mockImplementation(controllableRun.run);
 
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -459,6 +478,7 @@ describe('InteractiveSession', () => {
     });
 
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -480,6 +500,7 @@ describe('InteractiveSession', () => {
   it('off removes event listener', async () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -501,6 +522,7 @@ describe('InteractiveSession', () => {
   it('getSession returns underlying session', () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -511,6 +533,7 @@ describe('InteractiveSession', () => {
   it('getContextState delegates to session', () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });
@@ -550,6 +573,7 @@ describe('InteractiveSession', () => {
       });
 
       new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/tmp',
         sessionStore: mockStore as never,
@@ -594,6 +618,7 @@ describe('InteractiveSession', () => {
       });
 
       const session = new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/tmp',
         sessionStore: mockStore as never,
@@ -608,6 +633,7 @@ describe('InteractiveSession', () => {
       const mockStore = createMockSessionStore();
 
       const session = new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/tmp',
         sessionStore: mockStore as never,
@@ -650,6 +676,7 @@ describe('InteractiveSession', () => {
       // (because session is unavailable), confirming deferred path is used
       const mockSession = createMockSession();
       new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/tmp',
         sessionStore: mockStore as never,
@@ -679,6 +706,7 @@ describe('InteractiveSession', () => {
       });
 
       const session = new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/tmp',
         sessionStore: mockStore as never,
@@ -746,6 +774,7 @@ describe('InteractiveSession', () => {
       });
 
       new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/tmp',
         sessionStore: mockStore as never,
@@ -797,6 +826,7 @@ describe('InteractiveSession', () => {
       });
 
       new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/tmp',
         sessionStore: mockStore as never,
@@ -850,6 +880,7 @@ describe('InteractiveSession', () => {
       });
 
       const session = new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/tmp',
         sessionStore: mockStore as never,
@@ -878,6 +909,7 @@ describe('InteractiveSession', () => {
       });
 
       const session = new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/tmp',
         sessionStore: mockStore as never,
@@ -981,6 +1013,7 @@ describe('InteractiveSession', () => {
       });
 
       new InteractiveSession({
+        host: testHost,
         session: mockSession as never,
         cwd: '/tmp',
         sessionStore: mockStore as never,
@@ -1014,6 +1047,7 @@ describe('memory_event emission', () => {
   it('TC-03: emits memory_event to subscribed listeners on recordMemoryEvent', () => {
     const mockSession = createMockSession();
     const session = new InteractiveSession({
+      host: testHost,
       session: mockSession as never,
       cwd: '/tmp',
     });

@@ -8,7 +8,9 @@
  * file is constructed, and every append tightens the file before writing with the owner-only mode.
  * Reads walk the file BACKWARDS in fixed blocks so the newest prompts are yielded first and the UI
  * can render them before the rest is read; the file is opened no-follow like every other session
- * file this package reads.
+ * file this package reads. A file built with a sealer appends each entry as one sealed line that
+ * opens on its own (`stored-append-lines.ts`), so no line waits for another and the first block
+ * still renders before the rest is read.
  */
 import { appendFileSync, closeSync, constants, fstatSync, openSync, readSync } from 'node:fs';
 import { dirname } from 'node:path';
@@ -19,6 +21,10 @@ import {
   tightenExistingFile,
 } from '@robota-sdk/agent-core/node';
 
+import { StoredLines, splitStoredLines } from './stored-append-lines.js';
+import { sessionSealingOf } from './stored-session-record.js';
+
+import type { ISessionStoreOptions } from './stored-session-record.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type {
   IPromptHistoryBlock,
@@ -34,7 +40,10 @@ const DEFAULT_BLOCK_KIB = 64;
 export const DEFAULT_PROMPT_HISTORY_BLOCK_BYTES = DEFAULT_BLOCK_KIB * KIB;
 const NEWLINE = 0x0a;
 
-export interface INodePromptHistoryFileOptions {
+/** The owner id the one prompt history of a user state binds its sealed lines to. */
+export const PROMPT_HISTORY_OWNER_ID = 'user';
+
+export interface INodePromptHistoryFileOptions extends ISessionStoreOptions {
   /** An ancestor of the file the host also owns, tightened along with the directory (SEC-020). */
   readonly ownedRoot?: string;
   /** Test seam: the read block size in bytes. */
@@ -66,16 +75,38 @@ export function parsePromptHistoryLine(line: string): IPromptHistoryEntry | unde
   return { at: parsed.at, sessionId: parsed.sessionId, project: parsed.project, text: parsed.text };
 }
 
-function blockOf(lines: readonly string[]): IPromptHistoryBlock {
+/**
+ * One block's physical lines, newest first, as entries. Each line is read on its own, so nothing in
+ * a block waits for another block. Damage and lines a newer build sealed are `skippedLines`; sealed
+ * lines this process cannot open now are `unreadable`, reported only when there are some.
+ */
+function blockOf(lines: readonly string[], stored: StoredLines): IPromptHistoryBlock {
   const entries: IPromptHistoryEntry[] = [];
   let skippedLines = 0;
+  let locked = 0;
+  let noKeys = 0;
   for (const line of lines) {
     if (line.length === 0) continue;
-    const entry = parsePromptHistoryLine(line);
-    if (entry === undefined) skippedLines += 1;
-    else entries.push(entry);
+    const read = stored.decode(line, PROMPT_HISTORY_OWNER_ID);
+    if (read.kind === 'locked') {
+      if (read.reason === 'no-keys') noKeys += 1;
+      else locked += 1;
+      continue;
+    }
+    if (read.kind !== 'lines') {
+      skippedLines += 1;
+      continue;
+    }
+    // A record holds its lines oldest first; the block is newest first.
+    for (let index = read.lines.length - 1; index >= 0; index -= 1) {
+      const entry = parsePromptHistoryLine(read.lines[index] as string);
+      if (entry === undefined) skippedLines += 1;
+      else entries.push(entry);
+    }
   }
-  return { entries, skippedLines };
+  return locked + noKeys === 0
+    ? { entries, skippedLines }
+    : { entries, skippedLines, unreadable: { locked, noKeys } };
 }
 
 function isMissingFile(error: Error): boolean {
@@ -85,16 +116,25 @@ function isMissingFile(error: Error): boolean {
 export class NodePromptHistoryFile implements IPromptHistoryWriter, IPromptHistorySource {
   private readonly blockBytes: number;
   private readonly ownedRoot: string | undefined;
+  private readonly lines: StoredLines;
 
+  /**
+   * @param options `sealing` (required): `{ sealer }` appends each entry as one sealed line and
+   *   opens sealed lines it reads (plain ones still read); `'plain'` appends plain lines and counts
+   *   a sealed line as one no key in this process opens.
+   */
   constructor(
     private readonly path: string,
-    options: INodePromptHistoryFileOptions = {},
+    options: INodePromptHistoryFileOptions,
   ) {
+    this.lines = new StoredLines(sessionSealingOf(options), 'prompt-history-line');
     this.blockBytes = options.blockBytes ?? DEFAULT_PROMPT_HISTORY_BLOCK_BYTES;
     this.ownedRoot = options.ownedRoot;
   }
 
   append(entry: IPromptHistoryEntry): void {
+    // Sealed before the file is touched, so a sealing failure writes nothing at all.
+    const stored = this.lines.encode(`${JSON.stringify(entry)}\n`, PROMPT_HISTORY_OWNER_ID);
     const directory = dirname(this.path);
     ensureOwnerOnlyDirectory(
       directory,
@@ -102,7 +142,7 @@ export class NodePromptHistoryFile implements IPromptHistoryWriter, IPromptHisto
     );
     // SEC-020: `mode` applies only when the file is created; tightening first repairs an older file.
     tightenExistingFile(this.path);
-    appendFileSync(this.path, `${JSON.stringify(entry)}\n`, { mode: OWNER_ONLY_FILE_MODE });
+    appendFileSync(this.path, stored, { mode: OWNER_ONLY_FILE_MODE });
   }
 
   /**
@@ -121,6 +161,8 @@ export class NodePromptHistoryFile implements IPromptHistoryWriter, IPromptHisto
       let position = fstatSync(descriptor).size;
       // The bytes after the last newline seen so far: a line the previous block cut in half.
       let carry = Buffer.alloc(0);
+      // The first block yielded holds the end of the file, and so any append still in progress.
+      let holdsEnd = true;
       while (position > 0 && !options.signal.aborted) {
         const length = Math.min(this.blockBytes, position);
         position -= length;
@@ -137,8 +179,10 @@ export class NodePromptHistoryFile implements IPromptHistoryWriter, IPromptHisto
               ? Buffer.alloc(0)
               : buffer.subarray(firstNewline + 1);
         if (position > 0 && firstNewline === -1) continue;
-        const lines = complete.toString('utf8').split('\n').reverse();
-        yield blockOf(lines);
+        const text = complete.toString('utf8');
+        const lines = (holdsEnd ? splitStoredLines(text) : text.split('\n')).reverse();
+        holdsEnd = false;
+        yield blockOf(lines, this.lines);
       }
     } finally {
       closeSync(descriptor);

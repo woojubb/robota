@@ -1,5 +1,9 @@
 # Embedding agent-framework
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 `@robota-sdk/agent-framework` runs outside the CLI — in HTTP servers, bots, serverless functions and
 batch jobs. This guide shows the pattern for each context. It assumes you know the basics of
 `InteractiveSession` and `createQuery()` from [Using the SDK](./sdk.md).
@@ -14,7 +18,7 @@ server and returns a fixed reply, so this checks the embedding mechanics, not mo
 ```bash
 mkdir robota-first-task && cd robota-first-task
 npm init -y && npm pkg set type=module
-npm install @robota-sdk/agent-framework@3.0.0-beta.93 @robota-sdk/agent-provider-openai-compatible@3.0.0-beta.93
+npm install @robota-sdk/agent-framework @robota-sdk/agent-tool-defaults @robota-sdk/agent-provider-openai-compatible
 ```
 
 Save this as `first-task.mjs`:
@@ -22,7 +26,9 @@ Save this as `first-task.mjs`:
 ```javascript
 import { createServer } from 'node:http';
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { GemmaProvider } from '@robota-sdk/agent-provider-openai-compatible';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const REPLY = 'Hello from the fixture model.';
 
@@ -54,6 +60,8 @@ const server = createServer((req, res) => {
 await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 
 const query = createQuery({
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  cwd: process.cwd(),
   provider: new GemmaProvider({
     apiKey: 'fixture', // the fixture checks no key; use your server's token if it needs one
     baseURL: `http://127.0.0.1:${server.address().port}/v1`,
@@ -101,7 +109,7 @@ use a hosted provider as in the next sections.
 ## Before you deploy: tools and permissions
 
 Every framework session gets the default tools — `Shell`, `Bash`, `Read`, `Write`, `Edit`, `Glob`,
-`Grep`, `WebFetch`, `WebSearch`, `AskUserQuestion` — with file tools confined to `cwd`. On a server,
+`Grep`, `WebFetch`, `AskUserQuestion` — with file tools confined to `cwd`. On a server,
 decide what the model may do before it can do it:
 
 - Keep `permissionMode: 'default'` (the default). Reads and searches proceed; writing files, running
@@ -134,9 +142,13 @@ it the model comes from the settings files, and without one the session asks the
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const query = createQuery({
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),
   onTextDelta: (delta) => process.stdout.write(delta), // optional streaming
 });
@@ -150,9 +162,11 @@ With your own tools, list them in `allowedTools` so they run without asking (or 
 ```typescript
 import { z } from 'zod';
 import { createQuery } from '@robota-sdk/agent-framework';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
+declare const host: IFrameworkHost; // `createNodeFrameworkHost({ createDefaultTools })`, as above
 declare const provider: IAIProvider;
 
 const calculatorTool = createZodFunctionTool(
@@ -163,6 +177,8 @@ const calculatorTool = createZodFunctionTool(
 );
 
 const query = createQuery({
+  host,
+  cwd: process.cwd(),
   provider,
   additionalTools: [calculatorTool],
   allowedTools: ['calculate'],
@@ -186,11 +202,14 @@ modules); `runtime.createSession()` builds an `InteractiveSession` from it with 
 
 ```typescript
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 declare const apiKey: string;
 
 const runtime = createAgentRuntime({
+  host: createNodeFrameworkHost({ createDefaultTools }),
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey }),
 });
@@ -266,15 +285,20 @@ and resume the saved session for each channel with `resumeSessionId`. A session 
 completed turn and again on shutdown.
 
 ```typescript
-import { createAgentRuntime, createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import { createAgentRuntime } from '@robota-sdk/agent-framework';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
+declare const host: IFrameworkHost; // `createNodeFrameworkHost({ createDefaultTools })`, as above
 declare const provider: IAIProvider;
 
 const runtime = createAgentRuntime({
+  host,
   cwd: process.cwd(),
   provider,
-  sessionStore: createNodeHostSessionStore('/var/lib/my-bot/sessions'),
+  // Every store states how it keeps its records: `{ sealing: 'plain' }` writes them as plain JSON.
+  sessionStore: createNodeHostSessionStore('/var/lib/my-bot/sessions', { sealing: 'plain' }),
 });
 
 // Channel or thread id → session id
@@ -374,9 +398,13 @@ Parse the reply defensively either way.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const query = createQuery({
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  cwd: process.cwd(),
   provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
   model: 'gpt-4o',
   responseFormat: { type: 'json_object' },
@@ -424,9 +452,12 @@ carrier with the full session protocol, see `@robota-sdk/agent-transport-ws` and
 ```typescript
 import { WebSocketServer } from 'ws';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const runtime = createAgentRuntime({
+  host: createNodeFrameworkHost({ createDefaultTools }),
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! }),
 });
@@ -470,14 +501,17 @@ Run independent queries in parallel with one query function per item:
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
+const host = createNodeFrameworkHost({ createDefaultTools });
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 async function classifyAll(texts: string[]): Promise<string[]> {
   return Promise.all(
     texts.map((text) =>
-      createQuery({ provider })(
+      createQuery({ host, cwd: process.cwd(), provider })(
         `Classify the sentiment of: "${text}". Reply with one word: positive, negative, or neutral.`,
       ),
     ),

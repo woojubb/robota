@@ -46,6 +46,12 @@ export interface IGeminiProviderOptions {
   defaultModel?: string;
 
   /**
+   * Attach Google Search to requests that can carry it (default: off). A provider profile sets it with
+   * `options.nativeWebTools.webSearch`.
+   */
+  enableWebTools?: boolean;
+
+  /**
    * Response MIME type
    * - 'text/plain': Plain text response (default)
    * - 'application/json': JSON response format

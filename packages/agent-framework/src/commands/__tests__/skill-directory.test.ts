@@ -8,13 +8,23 @@ import { executeSkill } from '../skill-executor.js';
 import { createSkillExecutionPort } from '../skill-execution-port.js';
 import { PluginCommandSource } from '../plugin-source.js';
 import { BundlePluginLoader } from '../../plugins/bundle-plugin-loader.js';
-import { createNodeHostContributionSource } from '../../contributions/node-host-contribution-source.js';
+import {
+  createDefaultUserContributionSources,
+  createNodeHostContributionSource,
+} from '../../contributions/node-host-contribution-source.js';
 import { createContributionSourcesForProjectAccess } from '../../contributions/initial-contribution-sources.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { InteractiveSession } from '../../interactive/interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { ICommandHostContext, ICommandModule } from '../index.js';
+
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
+
+const nodeFs = new NodeFileSystem();
+
+const testHost = createTestFrameworkHost();
 
 /** The routing the product's `/skills <name>` command performs. */
 const skillsModule = {
@@ -82,7 +92,10 @@ describe('${CLAUDE_SKILL_DIR}', () => {
       'See ${CLAUDE_SKILL_DIR}',
     );
     const projectAccess = await createTrustedProjectAccessFixture(project);
-    const sources = createContributionSourcesForProjectAccess(projectAccess, tempRoot());
+    const sources = createContributionSourcesForProjectAccess(
+      projectAccess,
+      createDefaultUserContributionSources(tempRoot()),
+    );
     const port = createSkillExecutionPort(sources, [
       { root: join('.agents', 'skills'), kind: 'skills' },
     ]);
@@ -101,6 +114,7 @@ describe('${CLAUDE_SKILL_DIR}', () => {
     );
     const run = vi.fn().mockResolvedValue('done');
     const session = new InteractiveSession({
+      host: testHost,
       session: {
         getCwd: () => cwd,
         run,
@@ -161,7 +175,7 @@ describe('${CLAUDE_SKILL_DIR}', () => {
     writeFileSync(join(pluginDir, 'commands', 'lint.md'), '---\ndescription: Lint\n---\nLint.');
 
     const commands = new PluginCommandSource(
-      new BundlePluginLoader(pluginsDir).loadPluginsSync(),
+      new BundlePluginLoader(pluginsDir, undefined, nodeFs).loadPluginsSync(),
     ).getCommands();
 
     expect(commands.find((c) => c.name === 'audit')?.skillDirectory).toBe(

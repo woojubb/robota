@@ -30,11 +30,8 @@
 
 import { spawn } from 'node:child_process';
 
-import {
-  createBoundedOutput,
-  resolvePlatformShell,
-  subprocessTraceEnvironment,
-} from '@robota-sdk/agent-core';
+import { createBoundedOutput, subprocessTraceEnvironment } from '@robota-sdk/agent-core';
+import { resolvePlatformShell, withChildSession } from '@robota-sdk/agent-core/node';
 import { killProcessTree } from '@robota-sdk/agent-process';
 import { z } from 'zod';
 
@@ -47,7 +44,8 @@ import { createZodFunctionTool } from '../implementations/function-tool';
 import type { ISandboxBuiltinToolOptions } from './tool-options.js';
 import type { ICommandInvocation, ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
-import type { FunctionTool, IPlatformShell, ISubprocessTraceEnv } from '@robota-sdk/agent-core';
+import type { FunctionTool, ISubprocessTraceEnv } from '@robota-sdk/agent-core';
+import type { IPlatformShell } from '@robota-sdk/agent-core/node';
 
 // CORE-030: defining a tool and telling the permission system what it does arrive together.
 import '../tool-permission-profiles.js';
@@ -195,7 +193,9 @@ async function runShell(
         SPAWN_DETACHED
           ? ['-c', ownerWatchdog(ownerFd), 'shell-owner-watchdog', invocation.command, ...invocation.args]
           : [...invocation.args],
-        {
+        // Already its own session on POSIX in both modes; its watchdog ends the group when this
+        // process dies, so it is not also registered to end with the process.
+        withChildSession({
         cwd: invocation.cwd,
         // A fresh copy carrying this call's trace when the host enabled it; `process.env` itself is
         // never modified, so no other child can inherit the value.
@@ -210,7 +210,7 @@ async function runShell(
           ...(SPAWN_DETACHED ? ['pipe' as const] : []),
         ],
         detached: SPAWN_DETACHED,
-        },
+        }),
       );
     } catch (error) {
       const note = release();

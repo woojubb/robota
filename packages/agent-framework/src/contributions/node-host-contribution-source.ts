@@ -2,6 +2,7 @@ import { realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { assertRootRelative } from './root-relative-path.js';
+import { createNodeWorkspaceProjectFiles } from '../workspace-trust/node-project-files.js';
 import { createWorkspaceProjectReader } from '../workspace-trust/project-reader.js';
 
 import type { IContributionSource } from './contribution-source.js';
@@ -37,7 +38,12 @@ export function createNodeHostContributionSource(root: string): IContributionSou
     const identityResolver: IWorkspaceIdentityResolver = {
       resolve: () => identity,
     };
-    reader = createWorkspaceProjectReader(identity, identityResolver, () => {});
+    reader = createWorkspaceProjectReader(
+      identity,
+      identityResolver,
+      () => {},
+      createNodeWorkspaceProjectFiles(),
+    );
     readerRoot = canonicalRoot;
     return reader;
   }
@@ -57,4 +63,14 @@ export function createNodeHostContributionSource(root: string): IContributionSou
       return join(readerRoot ?? resolvedRoot, relativePath);
     },
   });
+}
+
+/** Default host-owned contribution roots. Project content is intentionally absent. */
+export function createDefaultUserContributionSources(
+  userHome: string,
+): readonly IContributionSource[] {
+  if (typeof userHome !== 'string' || userHome.trim().length === 0) {
+    throw new Error('User contribution root must be provided by the host.');
+  }
+  return [createNodeHostContributionSource(userHome)];
 }

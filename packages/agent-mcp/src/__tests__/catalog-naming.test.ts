@@ -150,3 +150,11 @@ describe('truncation keeps the server prefix (issue #3081)', () => {
     expect(name.startsWith(`${serverId}__`)).toBe(true);
   });
 });
+
+describe('a truncated name', () => {
+  it('stays inside the alphabet vendors accept', () => {
+    const { name, changed } = canonicalName('srv', 'a'.repeat(200));
+    expect(changed).toBe(true);
+    expect(name).toMatch(/^[A-Za-z0-9_-]+$/u);
+  });
+});

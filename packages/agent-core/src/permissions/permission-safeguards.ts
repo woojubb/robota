@@ -115,13 +115,28 @@ function unquoteWord(word: string): string {
 /** `~`, `$HOME` or `${HOME}`, then the rest of the path (possibly empty). */
 const HOME_PREFIX = /^(?:~|\$HOME|\$\{HOME\})(?=\/|$)(.*)$/;
 
+/**
+ * Whether `rest`, read below a home directory whose location is unknown, provably names something
+ * strictly inside it: it ends at least one segment down and never climbs above home on the way.
+ * `~/a/../b` does; `~/a/..` is home itself, and `~/..` or `~/../me/x` leave it for a place that
+ * cannot be judged without knowing where home is.
+ */
+function staysBelowUnknownHome(rest: string): boolean {
+  let depth = 0;
+  for (const segment of pathSegments(rest)) {
+    depth += segment === '..' ? -1 : 1;
+    if (depth < 0) return false;
+  }
+  return depth > 0;
+}
+
 function isCriticalTarget(word: string, context: ICriticalPathContext): boolean {
   const text = unquoteWord(word);
   const home = HOME_PREFIX.exec(text);
   let absolute: string;
   if (home !== null) {
     const rest = home[1] ?? '';
-    if (context.homeDirectory === undefined) return rest.replace(/\/+/g, '') === '';
+    if (context.homeDirectory === undefined) return !staysBelowUnknownHome(rest);
     absolute = normaliseAbsolute(`${context.homeDirectory}/${rest}`);
   } else if (text === '' || text.startsWith('$')) {
     return false;

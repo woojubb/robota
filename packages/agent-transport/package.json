@@ -1,71 +1,43 @@
 {
   "name": "@robota-sdk/agent-transport",
-  "version": "3.0.7",
+  "version": "3.1.0",
   "description": "Carrier-neutral wire protocol, session dispatch and delivery for Robota SDK transports",
   "type": "module",
-  "main": "dist/node/index.js",
-  "types": "dist/node/index.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "source": "./src/index.ts",
-      "node": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
       },
-      "browser": {
-        "import": {
-          "types": "./dist/browser/index.d.ts",
-          "default": "./dist/browser/index.js"
-        }
-      },
-      "default": {
-        "import": {
-          "types": "./dist/node/index.d.ts",
-          "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
-        }
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
       }
     },
     "./client": {
       "source": "./src/client.ts",
-      "browser": "./dist/browser/client.js",
       "import": {
-        "types": "./dist/browser/client.d.ts",
-        "default": "./dist/browser/client.js"
+        "types": "./dist/client.d.ts",
+        "default": "./dist/client.js"
       },
-      "default": "./dist/browser/client.js"
+      "require": {
+        "types": "./dist/client.d.cts",
+        "default": "./dist/client.cjs"
+      }
     },
     "./node": {
       "source": "./src/node/index.ts",
-      "node": {
-        "import": {
-          "types": "./dist/node/node.d.ts",
-          "default": "./dist/node/node.js"
-        },
-        "require": {
-          "types": "./dist/node/node.d.cts",
-          "default": "./dist/node/node.cjs"
-        }
-      },
       "browser": null,
-      "default": {
-        "import": {
-          "types": "./dist/node/node.d.ts",
-          "default": "./dist/node/node.js"
-        },
-        "require": {
-          "types": "./dist/node/node.d.cts",
-          "default": "./dist/node/node.cjs"
-        }
+      "import": {
+        "types": "./dist/node.d.ts",
+        "default": "./dist/node.js"
+      },
+      "require": {
+        "types": "./dist/node.d.cts",
+        "default": "./dist/node.cjs"
       }
     },
     "./package.json": "./package.json"

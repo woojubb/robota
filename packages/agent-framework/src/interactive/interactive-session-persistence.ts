@@ -1,4 +1,10 @@
-import type { IInteractiveSessionRecord, IInteractiveSessionStore } from './session-persistence.js';
+import {
+  SealedSessionUnreadableError,
+  isSealedSessionUnreadableError,
+  loadSessionForUpdate,
+} from '@robota-sdk/agent-session';
+
+import type { IInteractiveSessionRecord, IInteractiveSessionStore } from './session-store-types.js';
 import type {
   IBackgroundJobGroupState,
   TBackgroundJobGroupEvent,
@@ -16,13 +22,59 @@ import type {
   IPlanArtifact,
   IActiveBranchPointer,
   ISessionLoopState,
+  TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
+
+/** Hears of the saves a store refused for a sealed session, and of the saves that went through. */
+export interface ISaveRefusalReporter {
+  refused(error: SealedSessionUnreadableError): void;
+  saved(sessionId: string): void;
+}
+
+/**
+ * Reports a save the store refused because the sealed file there cannot be proven safe to replace —
+ * once per session and reason, since every later turn would be refused for the same one. A save that
+ * goes through ends the episode, so a refusal after it is reported again. What it reports is the
+ * refusal's fixed text, which carries no content.
+ */
+export function createRefusedSaveReporter(
+  report: (error: SealedSessionUnreadableError) => void,
+): ISaveRefusalReporter {
+  const reported = new Map<string, SealedSessionUnreadableError['reason']>();
+  return {
+    refused(error) {
+      if (reported.get(error.sessionId) === error.reason) return;
+      reported.set(error.sessionId, error.reason);
+      report(error);
+    },
+    saved(sessionId) {
+      reported.delete(sessionId);
+    },
+  };
+}
+
+/**
+ * The refusal a `locked` load means for a writer, in the store's own words: keys that are locked, no
+ * keys at all in this process (never "unlock" then — nothing here would open it), or a session this
+ * store holds whose file changed since.
+ */
+function lockedRefusal(
+  sessionId: string,
+  outcome: Extract<TSessionLoadOutcome, { status: 'locked' }>,
+): SealedSessionUnreadableError {
+  return new SealedSessionUnreadableError(sessionId, outcome.reason ?? 'locked');
+}
 
 /**
  * Persist the current session state to the session store.
  * Ordinary turn snapshots are best-effort. Callers that acknowledge durable work can request
  * strict writes so a failed or unreadable store never appears to have accepted that work.
+ *
+ * Best-effort is not silent for a sealed session the store will not replace — a locked record the
+ * store does not hold, or a save it refused: `refusals` hears of it, so the person learns their
+ * turns are not being saved instead of finding out at the next resume, and of the next save that
+ * goes through.
  */
 export function persistSession(
   sessionStore: IInteractiveSessionStore,
@@ -54,6 +106,7 @@ export function persistSession(
   activeBranchState?: IActiveBranchPointer,
   strict = false,
   sessionLoops?: readonly ISessionLoopState[],
+  refusals?: ISaveRefusalReporter,
 ): void {
   try {
     const sessionId = session.getSessionId();
@@ -61,8 +114,9 @@ export function persistSession(
     // failed for any reason OTHER than "no record" must not be treated as "no record" — writing
     // then replaces a file this build merely cannot read with a fresh one, and that file is the
     // only copy.
-    const outcome = sessionStore.load(sessionId);
+    const outcome = loadSessionForUpdate(sessionStore, sessionId);
     if (outcome.status !== 'valid' && outcome.status !== 'missing') {
+      if (outcome.status === 'locked') refusals?.refused(lockedRefusal(sessionId, outcome));
       if (strict) throw new Error(`Session record cannot be updated: ${outcome.status}`);
       return;
     }
@@ -98,15 +152,73 @@ export function persistSession(
       void Promise.resolve(acknowledgment).catch(() => undefined);
       throw new Error('Session store must acknowledge synchronously');
     }
+    refusals?.saved(sessionId);
   } catch (error) {
+    if (isSealedSessionUnreadableError(error)) refusals?.refused(error);
     if (strict) throw error;
     // allow-fallback: persistence is best-effort for interactive execution and must not break a turn
   }
 }
 
+/** Everything of a running session's own state that a save of its record carries. */
+export interface ISessionStateForSave {
+  readonly sessionName?: string;
+  readonly cwd: string;
+  readonly history: IHistoryEntry[];
+  readonly backgroundState?: IBuildInteractiveSessionRecordInput['backgroundState'];
+  readonly memoryState?: IBuildInteractiveSessionRecordInput['memoryState'];
+  readonly skillActivationState?: IBuildInteractiveSessionRecordInput['skillActivationState'];
+  readonly contextReferenceState?: IBuildInteractiveSessionRecordInput['contextReferenceState'];
+  readonly sandboxSnapshotId?: string;
+  readonly goalState?: IGoalState;
+  readonly planState?: IPlanArtifact;
+  readonly activeBranchState?: IActiveBranchPointer;
+  readonly sessionLoops?: readonly ISessionLoopState[];
+}
+
+/**
+ * Writes `state` and the live conversation as a NEW record under `copy.id`, built the way
+ * {@link persistSession} builds one, as an ordinary save of the owner's content: a running session
+ * holds only content its claim's gate let in. Nothing is read first: the copy is all this session's
+ * own state, and it never replaces another record's members.
+ */
+export function saveSessionCopy(
+  sessionStore: IInteractiveSessionStore,
+  session: Session,
+  copy: { readonly id: string; readonly name: string },
+  state: ISessionStateForSave,
+): void {
+  sessionStore.save(
+    buildInteractiveSessionRecord({
+      session,
+      sessionId: copy.id,
+      recordId: copy.id,
+      sessionName: copy.name,
+      cwd: state.cwd,
+      history: state.history,
+      backgroundState: state.backgroundState,
+      memoryState: state.memoryState,
+      skillActivationState: state.skillActivationState,
+      contextReferenceState: state.contextReferenceState,
+      ...(state.sandboxSnapshotId !== undefined
+        ? { sandboxSnapshotId: state.sandboxSnapshotId }
+        : {}),
+      ...(state.goalState !== undefined ? { goalState: state.goalState } : {}),
+      ...(state.planState !== undefined ? { planState: state.planState } : {}),
+      ...(state.activeBranchState !== undefined
+        ? { activeBranchState: state.activeBranchState }
+        : {}),
+      ...(state.sessionLoops !== undefined ? { sessionLoops: state.sessionLoops } : {}),
+    }),
+    { provenance: 'owner' },
+  );
+}
+
 interface IBuildInteractiveSessionRecordInput {
   session: Session;
   sessionId: string;
+  /** The id the record is written under, when it is not the live conversation's own (a copy). */
+  recordId?: string;
   sessionName?: string;
   cwd: string;
   history: IHistoryEntry[];
@@ -139,7 +251,7 @@ function buildInteractiveSessionRecord(
 ): IInteractiveSessionRecord {
   const conversation = input.session.getConversationSnapshot();
   return {
-    id: conversation.id,
+    id: input.recordId ?? conversation.id,
     ...(input.goalState !== undefined ? { goal: input.goalState } : {}),
     ...(input.planState !== undefined ? { plan: input.planState } : {}),
     ...(input.activeBranchState !== undefined ? { activeBranch: input.activeBranchState } : {}),

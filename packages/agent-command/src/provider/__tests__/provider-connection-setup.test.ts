@@ -1,11 +1,11 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
   TProviderCredentialReference,
   IProviderDefinition,
   IUserInteraction,
 } from '@robota-sdk/agent-core';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
-import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import type {
   IProviderConnectionHost,
   TProviderSettingsDocument,
@@ -59,6 +59,9 @@ function fixture(initial: TProviderSettingsDocument = {}) {
 }
 
 describe('service connection setup', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
   it('gives browser key recovery guidance without exposing an unsafe host error', async () => {
     const { options, connect, read } = fixture();
     connect.mockRejectedValueOnce(new Error('unsafe-host-secret-and-response'));
@@ -553,6 +556,45 @@ describe('service connection setup', () => {
     expect(requests[2]?.description).toContain('Set its variable');
     expect(read()).toEqual({});
     expect(result.hostActions).toBeUndefined();
+  });
+
+  it('reads an environment reference as unset when the host supplies no environment, whatever the process holds', async () => {
+    vi.stubEnv('ROUTER_KEY', 'synthetic-process-secret');
+    try {
+      const { options, connect, read } = fixture();
+      const { env: _hostEnvironment, ...withoutEnvironment } = options;
+      const { context, requests } = scriptedContext([
+        { type: 'answer', values: ['api-key'] },
+        { type: 'answer', values: [], text: '$ENV:ROUTER_KEY' },
+        { type: 'cancelled' },
+      ]);
+
+      const result = await executeProviderCommand(context, 'add openrouter', withoutEnvironment);
+
+      expect(connect).not.toHaveBeenCalled();
+      expect(requests[2]?.description).toContain('Set its variable');
+      expect(read()).toEqual({});
+      expect(result.hostActions).toBeUndefined();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('reads an environment reference through a resolver, as a host without a process passes one', async () => {
+    const { options, read } = fixture();
+    const { context } = scriptedContext([
+      { type: 'answer', values: ['api-key'] },
+      { type: 'answer', values: [], text: '$ENV:ROUTER_KEY' },
+      { type: 'answer', values: [], text: '' },
+    ]);
+
+    const result = await executeProviderCommand(context, 'add openrouter', {
+      ...options,
+      env: (name: string) => (name === 'ROUTER_KEY' ? 'synthetic-resolver-secret' : undefined),
+    });
+
+    expect(result.success).toBe(true);
+    expect(read().providers?.openrouter?.apiKey).toBe('$ENV:ROUTER_KEY');
   });
 
   it('keeps connect and reconnect user-only at both command registration boundaries', () => {

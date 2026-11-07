@@ -24,6 +24,10 @@ const PARSE_INTERNAL_FIELDS = new Map<string, string>([
     'disableUpdateCheck',
     'consumed via shouldRunStartupCliUpdateCheck(args) in agent-cli update-check.ts (whole-args pass-through from command-setup.ts)',
   ],
+  [
+    'supervisedTransportTokenFd',
+    'validated inside parseCliArgs (a supervised launch only); startCliCore reads the token from argv before parsing, because the workspace trust check that precedes parsing starts `git`, and no process may start while the token pipe is open',
+  ],
 ]);
 
 function extractParsedArgsFields(): string[] {

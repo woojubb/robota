@@ -23,7 +23,7 @@ function getCommandSemanticRoles(
  * ARCH-013: the product declares `buildRuntimeSession` its one session-construction seam, but the
  * OPTION surface reaching it was mapped by hand inside the initializer, mixed in with config merging
  * and path resolution. A projection that is not separately addressable is one nothing can check, and
- * that is how `guardrails`, `retrievalAdapter` and `effort` came to be declared, consumed, and never
+ * that is how `guardrails` and `effort` came to be declared, consumed, and never
  * set. `scan-option-reachability` measures this function's output against the declared surface.
  *
  * Nothing is decided here: every value is either passed through or read from `deps`.
@@ -56,8 +56,10 @@ export function buildCreateSessionOptions(
   const persistProjectPermission = createProjectPermissionPersistence(
     options.projectAccess,
     options.projectSettingsPaths,
+    options.host,
   );
   return {
+    host: options.host,
     config: mergedConfig,
     cwd,
     context,
@@ -75,7 +77,11 @@ export function buildCreateSessionOptions(
     sessionLogger:
       options.sessionLogSink === undefined
         ? new SilentSessionLogger()
-        : new FileSessionLogger(options.sessionLogSink),
+        : new FileSessionLogger(options.sessionLogSink, {
+            // The host says how its process ends; without it a log loses the buffered tail of an
+            // abnormal exit and nothing else.
+            registerExitFlush: options.host.registerExitFlush,
+          }),
     ...(options.transcriptPath !== undefined ? { transcriptPath: options.transcriptPath } : {}),
     permissionHandler: options.permissionHandler,
     ...(persistProjectPermission === undefined ? {} : { persistProjectPermission }),
@@ -105,14 +111,13 @@ export function buildCreateSessionOptions(
     ...(options.outputStyle !== undefined ? { outputStyle: options.outputStyle } : {}),
     ...(options.persona !== undefined ? { persona: options.persona } : {}),
     ...(options.systemPrompt ? { systemPromptBuilder: () => options.systemPrompt! } : {}),
-    // ARCH-013 stage 3 — the two consumer-supplied extension ports, and the one place they were lost.
+    // ARCH-013 stage 3 — the consumer-supplied guardrail registry, and the one place it was lost.
     //
-    // Both CONSUMING ends already worked: `create-session.ts` installs a `PreToolUse` guardrail hook
-    // whenever the registry is non-empty, and `create-tools.ts` gates `CodebaseRetrieval` on the
-    // adapter. Neither could be SET, because this projection dropped them — so two documented
-    // capabilities (SELFHOST-005, SELFHOST-003) were UNREACHABLE from every public surface rather
-    // than merely unused. The repo ships no implementation of either; they are extension ports, which
-    // is precisely why a broken chain removed the capability instead of leaving it idle.
+    // The CONSUMING end already worked: `create-session.ts` installs a `PreToolUse` guardrail hook
+    // whenever the registry is non-empty. It could not be SET, because this projection dropped it —
+    // so the documented capability (SELFHOST-005) was UNREACHABLE from every public surface rather
+    // than merely unused. The repo ships no implementation of it; it is an extension port, which is
+    // precisely why a broken chain removed the capability instead of leaving it idle.
     //
     // A correction to this item's own analysis, recorded because a plan built on a wrong map is worse
     // than no plan: the task states that `ICreateSessionOptions.guardrails` (a name → function map)
@@ -129,9 +134,6 @@ export function buildCreateSessionOptions(
     // earlier revision of this comment cited that hazard as the reason — the right shape justified by
     // a mechanism that does not reach it, which is a claim to correct rather than keep.
     ...(options.guardrails !== undefined ? { guardrails: options.guardrails } : {}),
-    ...(options.retrievalAdapter !== undefined
-      ? { retrievalAdapter: options.retrievalAdapter }
-      : {}),
     backgroundTaskRunners: options.backgroundTaskRunners,
     ...(options.toolCallHandoff !== undefined ? { toolCallHandoff: options.toolCallHandoff } : {}),
     subagentRunnerFactory: options.subagentRunnerFactory,

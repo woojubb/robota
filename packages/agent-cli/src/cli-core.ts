@@ -1,7 +1,11 @@
-import { installProductProcessEnvironment } from './product/process-environment.js';
+import {
+  installProductChildSessions,
+  installProductProcessEnvironment,
+} from './product/process-environment.js';
 import { resolveCliRuntimeContext } from './startup/product-bootstrap.js';
 import { readHostedRuntimeConfig } from './hosted/hosted-runtime-config.js';
 import { runHostedRuntime } from './hosted/hosted-runtime-startup.js';
+import { SECURE_SURFACES, startListener } from './secure/secure-surfaces.js';
 
 import { PrintTerminal } from './print-terminal.js';
 import { readExternalEventGrantFiles } from './external-events/external-event-grant-file.js';
@@ -17,21 +21,23 @@ import {
   type IExternalEventHttpHost,
 } from './external-events/external-event-http-host.js';
 
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type {
+  IInteractiveSession,
+  IInteractiveSessionStore,
+} from '@robota-sdk/agent-interface-session';
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 import {
-  resolveLatestSessionId,
-  resolveReusableEmptySessionId,
-  resolveSessionIdByIdOrName,
+  lockedSessionMessage,
+  lockedSessionReason,
+  lockedSessionsNotice,
+  scanSessionStore,
   InteractiveSession,
   createExternalEventGrantHistory,
-  createUserSessionStore,
   readMergedProviderSettings,
-  readSettings,
-  writeSettings,
   type IBackgroundTaskRunner,
   type SessionSlot,
 } from '@robota-sdk/agent-framework';
+import { readSettings, writeSettings } from '@robota-sdk/agent-framework/node';
 import { assembleProduct } from '@robota-sdk/agent-product';
 
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
@@ -68,6 +74,8 @@ import { createCliEffortAdapter, resolveCliModelEffort } from './startup/effort-
 import { resolveOutputStyle, selectOutputStyleId } from './startup/output-style-selection.js';
 import { bindAssembledCollaborators } from './product/assembled-collaborators.js';
 import { createSelectedProductProfile } from './product/product-profile.js';
+import { createProductUserSessionStore } from './product/session-stores.js';
+import { declareProductProcessMode } from './product/process-presence.js';
 import {
   buildProductRuntimeOptions,
   loadReplayProvider,
@@ -79,6 +87,10 @@ import { createSettingsReporter } from './product/settings-reporter.js';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createDeviceMeshHost, startDeviceListReissue } from './devices/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
+import {
+  readSupervisedTransportToken,
+  SUPERVISED_TRANSPORT_TOKEN_FLAG,
+} from './session-inventory/supervised-transport-token.js';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from './telemetry/live-trace-otlp.js';
 import { takeProductTelemetryEnvironment } from './telemetry/live-telemetry-env.js';
 import { resolveLiveTelemetrySurface } from './telemetry/live-resource.js';
@@ -89,6 +101,7 @@ import {
   createProductSubagentRunnerFactory,
 } from './product/subagent-composition.js';
 import { createEditorFileSlot } from './product/editor-file-slot.js';
+import { sweepStaleEphemeralState } from './startup/ephemeral-state.js';
 import { reloadPluginCommandSource } from './plugins/default-plugin-command-source-loader.js';
 import { runUserLocalDirectCommandIfRequested } from './user-local-direct-command.js';
 import { runSessionAnalyze } from './session-analyzer/session-analyze-command.js';
@@ -96,8 +109,10 @@ import { runEvalCommand } from './eval/eval-command.js';
 import { runtimeVersion } from './startup/version.js';
 import { runResetConfig } from './startup/reset-config.js';
 import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first-run.js';
+import { offerWebSearchMcpServer } from './startup/first-run-web-search.js';
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 import { buildCommandSetupOrExit } from './startup/command-setup.js';
 import {
   areSessionLoopsDisabled,
@@ -111,6 +126,8 @@ import {
   SAFE_MODE_NOTICE,
 } from './startup/workspace-project-composition.js';
 import { askToTrustWorkspace, startsNewTuiSession } from './startup/interactive-trust-prompt.js';
+import { confirmResumeOnTerminal, resolveStartupResume } from './startup/startup-resume.js';
+import { startupResumeInput, startupResumeRenderOptions } from './startup/startup-resume-wiring.js';
 import {
   askServeOpenTrustQuestion,
   canAskServeOpenTrustQuestion,
@@ -159,6 +176,11 @@ import {
 import { resolveScreenReaderRenderFields } from './startup/screen-reader-enablement.js';
 import { resolveProductShellExecutable } from './product/shell.js';
 import {
+  keyCustodyChannelOf,
+  productKeyCustody,
+  type ILiveKeyCustodyChannel,
+} from './product/key-custody.js';
+import {
   formatHeadlessWorkspaceTrustError,
   formatHeadlessRestrictedNotice,
   requiresHeadlessWorkspaceTrust,
@@ -178,20 +200,38 @@ export interface ICliPresentation {
   setLiveChannel: typeof import('./process-guards.js').setLiveChannel;
 }
 
+/**
+ * A supervised daemon's transport token, which arrives on an inherited pipe, never its environment,
+ * where any program of this user could read it for as long as the process lives. Read from argv,
+ * not the parsed arguments: the workspace trust check runs `git` before the arguments are parsed.
+ */
+function readHandedOverTransportTokenOrExit(): string | undefined {
+  if (!optionArgv(process.argv).includes(SUPERVISED_TRANSPORT_TOKEN_FLAG)) return undefined;
+  try {
+    return readSupervisedTransportToken();
+  } catch (error) {
+    // allow-fallback: a runtime told to expect a token must not start under another — exit is the correct response
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
+}
+
 export async function startCliCore(
   initialOptions: IStartCliOptions,
+  host: IFrameworkHost,
   createBackgroundTaskRunners: (shellExecutable?: string) => IBackgroundTaskRunner[],
   presentation?: ICliPresentation,
 ): Promise<void> {
+  // First, before anything can start a process: until it is read and closed, the token's pipe is an
+  // open descriptor of this process, and whether a process started here gets it is then up to how
+  // that process is started. Held by the transport from here on, never written into the environment.
+  const supervisedTransportToken = readHandedOverTransportTokenOrExit();
   const productRuntime = resolveCliRuntimeContext(initialOptions);
   installProductProcessEnvironment(productRuntime);
+  installProductChildSessions(productRuntime);
   // Hosted admission precedes launch handlers, project contributions, provider creation and all modes.
   if (readHostedRuntimeConfig(productRuntime.environment) !== undefined) {
-    return runHostedRuntime(
-      initialOptions,
-      productRuntime.environment,
-      productRuntime.config.identity.cliName,
-    );
+    return runHostedRuntime(initialOptions, productRuntime);
   }
   const options = { ...initialOptions, productRuntime };
   const telemetryInput = { ...productRuntime.environment };
@@ -229,12 +269,14 @@ export async function startCliCore(
   try {
     await runCliCore(
       options,
+      host,
       createBackgroundTaskRunners,
       presentation,
       initialInput,
       protocolOutput?.protocol,
       parsedProtocolArgs,
       telemetryEnvironment,
+      supervisedTransportToken,
     );
   } finally {
     protocolOutput?.restore();
@@ -243,12 +285,14 @@ export async function startCliCore(
 
 async function runCliCore(
   options: IStartCliOptions,
+  host: IFrameworkHost,
   createBackgroundTaskRunners: (shellExecutable?: string) => IBackgroundTaskRunner[],
   presentation?: ICliPresentation,
   initialInput?: string,
   protocolStdout?: Writable,
   preParsedArgs?: IParsedCliArgs,
   telemetryEnvironment: Readonly<Record<string, string>> = {},
+  supervisedTransportToken?: string,
 ): Promise<void> {
   const productRuntime = resolveCliRuntimeContext(options);
   const cwd = process.cwd();
@@ -272,6 +316,7 @@ async function runCliCore(
       telemetryEnvironment,
       presentation?.renderSupervisedSessionView,
       presentation,
+      host,
     )
   )
     return;
@@ -293,6 +338,19 @@ async function runCliCore(
     askClient: mcpAskClient,
   } = validateMcpServeInvocation(args, productRuntime.config.identity.cliName);
   const { acp } = validateAcpInvocation(args, productRuntime.config.identity.cliName);
+  // The workspace composition may already have built a store, so the presence learns its mode now.
+  declareProductProcessMode(
+    productRuntime,
+    args.printMode || args.goal !== undefined
+      ? 'print'
+      : mcpServe
+        ? 'mcp serve'
+        : acp
+          ? 'acp'
+          : args.serve
+            ? 'serve'
+            : 'interactive',
+  );
   const serveHttp = resolveServeHttpOptions(args, productRuntime.environment);
   // Held by the serve options from here on. Left in the environment, every tool subprocess this
   // runtime starts would inherit the bearer that admits an HTTP client.
@@ -300,7 +358,6 @@ async function runCliCore(
     'PRODUCT_HTTP_TOKEN',
     `${productRuntime.config.identity.envPrefix}HTTP_TOKEN`,
   ]);
-
   if (args.help) {
     process.stdout.write(printHelp(productRuntime));
     return;
@@ -418,6 +475,7 @@ async function runCliCore(
     // needs no preset, packs, transports or session; see `eval-command.ts` for the equivalence boundary.
     const composition = createInitialCliWorkspaceComposition(cwd, startupOptions);
     process.exitCode = await runEvalCommand(process.argv.slice(3), cwd, {
+      host,
       settingsSources: composition.settingsSources,
       projectAccess: composition.projectAccess,
       environment: productRuntime.environment,
@@ -435,7 +493,7 @@ async function runCliCore(
       process.argv.slice(4),
       cwd,
       undefined,
-      createUserSessionStore(productRuntime.layout.userPaths.sessions),
+      createProductUserSessionStore(productRuntime),
     );
     return;
   }
@@ -454,12 +512,14 @@ async function runCliCore(
     throw new Error('Opening the monitor requires an interactive terminal for its access code.');
   }
 
+  // A person at a terminal starting a new TUI session: asked about trust, and about web search.
+  const interactiveStart =
+    startsNewTuiSession(args) && process.stdin.isTTY === true && process.stdout.isTTY === true;
   // Issue #3268: a person starting a TUI session is asked, before the project is composed, rather
   // than left in a Restricted session no one mentioned.
   projectAccess = await askToTrustWorkspace(projectAccess, cwd, {
     productRuntime,
-    interactive:
-      startsNewTuiSession(args) && process.stdin.isTTY === true && process.stdout.isTTY === true,
+    interactive: interactiveStart,
     accessFixed:
       safeMode ||
       optionArgv(process.argv).includes(RESTRICTED_WORKSPACE_FLAG) ||
@@ -503,11 +563,12 @@ async function runCliCore(
     ...(sandboxClient !== undefined ? { sandboxClient, sandboxType: OS_SANDBOX_TYPE } : {}),
     ...(editorFiles !== undefined ? { editorFiles: editorFiles.current } : {}),
   });
+  const tuiSurface = !(args.printMode || args.goal !== undefined || args.serve || mcpServe || acp);
   const tuiSources =
     presentation === undefined
       ? undefined
       : createTuiPresentationSources(presentation, {
-          enabled: !(args.printMode || args.goal !== undefined || args.serve || mcpServe || acp),
+          enabled: tuiSurface,
           cwd,
           productRuntime,
           projectAccess,
@@ -516,6 +577,9 @@ async function runCliCore(
           env: productRuntime.environment,
         });
   const keybindingsSource = tuiSources?.keybindingsSource;
+  // #3679 3f: the local unlock gate is the TUI's alone, and exists only in secure mode.
+  const keyCustody =
+    presentation !== undefined && tuiSurface ? productKeyCustody(productRuntime) : undefined;
   const theme = tuiSources?.theme;
   const mcpStartupMode: TMcpStartupMode =
     args.printMode || args.goal ? 'print' : args.serve || mcpServe || acp ? 'serve' : 'interactive';
@@ -523,31 +587,56 @@ async function runCliCore(
   // answers asks; a server's elicitation there could only be declined.
   const mcpAskSurface = !(args.printMode || args.goal || mcpServe || acp);
   const mcpAppSurface = mcpAppSurfaceFor({ serve: args.serve, mcpServe, acp });
-  const mcp =
-    options.mcpActivationAdapter === undefined && !safeMode
-      ? await composeMcpClientForStartup({
-          productRuntime,
-          settingsSources: createInitialCliWorkspaceComposition(cwd, startupOptions)
-            .settingsSources,
-          projectAccess,
-          cwd,
-          env: productRuntime.environment,
-          mode: mcpStartupMode,
-          askSurface: mcpAskSurface,
-          appSurface: mcpAppSurface,
-          ...(options.mcpStdioAuthorities === undefined
-            ? {}
-            : { stdioAuthorities: options.mcpStdioAuthorities }),
-          approvalStore: resolveMcpApprovalStore(options.mcpApprovalStore, productRuntime),
-          ...(options.mcpHttpTransportDeps === undefined
-            ? {}
-            : { httpTransportDeps: options.mcpHttpTransportDeps }),
-          ...(options.mcpResultAdmissionLimits === undefined
-            ? {}
-            : { resultAdmissionLimits: options.mcpResultAdmissionLimits }),
-          reportDiagnostic: (message) => terminal.writeError(message),
-        })
-      : undefined;
+  const mcpApprovalStore = resolveMcpApprovalStore(options.mcpApprovalStore, productRuntime);
+  // Decided once: the welcome below is shown for the same first start the web search question is.
+  const firstRun = isFirstRun(productRuntime.layout.userPaths.onboarded);
+  const mcpSettingsSources = createInitialCliWorkspaceComposition(
+    cwd,
+    startupOptions,
+  ).settingsSources;
+  const mcpWillCompose = options.mcpActivationAdapter === undefined && !safeMode;
+  // Before the definitions are resolved below, so a server chosen here connects in this session.
+  if (mcpWillCompose) {
+    await offerWebSearchMcpServer({
+      firstRun,
+      interactive: interactiveStart && presentation !== undefined,
+      terminal,
+      productRuntime,
+      settingsSources: mcpSettingsSources,
+      env: productRuntime.environment,
+      approvalStore: mcpApprovalStore,
+    });
+  }
+  const mcp = mcpWillCompose
+    ? await composeMcpClientForStartup({
+        productRuntime,
+        settingsSources: mcpSettingsSources,
+        projectAccess,
+        cwd,
+        // An embedding host that supplied the exact access object owns its trust decision.
+        // Product starts without that object recheck the live broker below.
+        ...(options.projectAccess === projectAccess ? {
+          inspectTrust: async () => projectAccess.status === 'trusted'
+            ? { state: 'trusted' as const, generation: 0 }
+            : { state: projectAccess.trustState, generation: 0 },
+        } : {}),
+        env: productRuntime.environment,
+        mode: mcpStartupMode,
+        askSurface: mcpAskSurface,
+        appSurface: mcpAppSurface,
+        ...(options.mcpStdioAuthorities === undefined
+          ? {}
+          : { stdioAuthorities: options.mcpStdioAuthorities }),
+        approvalStore: mcpApprovalStore,
+        ...(options.mcpHttpTransportDeps === undefined
+          ? {}
+          : { httpTransportDeps: options.mcpHttpTransportDeps }),
+        ...(options.mcpResultAdmissionLimits === undefined
+          ? {}
+          : { resultAdmissionLimits: options.mcpResultAdmissionLimits }),
+        reportDiagnostic: (message) => terminal.writeError(message),
+      })
+    : undefined;
   if (mcp !== undefined) startupOptions.mcpActivationAdapter = mcp.activationAdapter;
   // The device mesh: opened only by an interactive session whose user settings turn it on.
   const deviceMesh = createDeviceMeshHost({
@@ -580,7 +669,10 @@ async function runCliCore(
       status: () => deviceMesh.status(),
       identityChanged: () => void deviceMesh.identityChanged(),
     },
+    keyCustody?.commands,
   );
+  // A process that died without running its exit handlers leaves its scratch directories behind.
+  sweepStaleEphemeralState(productRuntime);
   for (const { file, error } of outputStyleLoadErrors) {
     terminal.writeError(`Skipped output style "${file}": ${error}`);
   }
@@ -640,6 +732,7 @@ async function runCliCore(
     serveSessionDirectory,
     args.daemon === true,
     settingsReporter,
+    supervisedTransportToken,
   );
   // External-event grants (TUI only; the parser refuses them elsewhere): every file is valid, or the
   // TUI does not start. Each session the TUI binds opens them, and a refusal fails that bind.
@@ -662,7 +755,7 @@ async function runCliCore(
   if (tuiExternalEvents !== undefined) {
     const grantsForEndpoint = tuiExternalEvents;
     try {
-      tuiEventEndpoint = createExternalEventHttpHost({
+      const endpoint = createExternalEventHttpHost({
         grants: tuiGrants,
         receive: (grantId, delivery) => grantsForEndpoint.receive(grantId, delivery),
         countRefusal: (grantId, refusal) => grantsForEndpoint.countRefusal(grantId, refusal),
@@ -672,7 +765,8 @@ async function runCliCore(
           : {}),
         audit: createRefusalReporter((line) => terminal.writeLine(line)),
       });
-      await tuiEventEndpoint.start();
+      tuiEventEndpoint = endpoint;
+      await startListener(SECURE_SURFACES['external-events'], productRuntime, () => endpoint.start());
     } catch (error) {
       process.stderr.write(
         `${error instanceof Error ? error.message : 'External event endpoint could not start.'}\n`,
@@ -789,6 +883,7 @@ async function runCliCore(
       replayProvider: args.sessionLog !== undefined,
     },
     notice: (message) => process.stderr.write(`${message}\n`),
+    persistTranscripts: !args.noSessionPersistence,
   });
 
   // ARCH-005 S2: the ONE composition call. Everything product-specific about `the product` is declared as DATA
@@ -869,6 +964,7 @@ async function runCliCore(
     observerFailureWarningCode,
   } = buildProductRuntimeOptions({
     product,
+    host,
     cwd,
     provider,
     selectedCommandModules: selectProductCommandModules(
@@ -930,27 +1026,33 @@ async function runCliCore(
   );
 
   const sessionStore = workspaceComposition.sessionStore;
-  let resumeSessionId: string | undefined;
-  let showSessionPickerOnStart = false;
-
-  if (args.continueMode) {
-    resumeSessionId = resolveLatestSessionId(sessionStore, cwd);
-  } else if (args.resumeId !== undefined) {
-    if (args.resumeId === '') {
-      showSessionPickerOnStart = true;
-    } else {
-      resumeSessionId = resolveSessionIdByIdOrName(sessionStore, args.resumeId);
-      if (resumeSessionId === undefined) {
-        process.stderr.write(`Session not found: ${args.resumeId}\n`);
-        process.exit(1);
-      }
-    }
-  } else if (args.serve && !args.noSessionPersistence) {
-    // #3289 §1: a served/daemon runtime's own launch reuses an existing empty session of this
-    // workspace instead of adding another one — nothing else can be bound to anything yet at
-    // startup, so every empty session found here is free.
-    resumeSessionId = resolveReusableEmptySessionId(sessionStore, cwd);
-  }
+  // Which saved session the run starts in, and — for one not verified as the owner's — what a person
+  // at a terminal says first; a run with no one to ask refuses it (`startup-resume.ts`). A record that
+  // is there and unreadable is refused here, once, with the words the session itself would use,
+  // before any surface starts: the terminal UI builds its session during its first render, where the
+  // same refusal would be thrown, not said.
+  const startupResume = await resolveStartupResume(
+    startupResumeInput({
+      store: sessionStore,
+      cwd,
+      request: args,
+      surface: {
+        printMode: args.printMode,
+        goal: args.goal !== undefined,
+        serve: args.serve,
+        mcpServe,
+        acp,
+        stdinIsTTY: process.stdin.isTTY === true,
+        stdoutIsTTY: process.stdout.isTTY === true,
+        stderrIsTTY: process.stderr.isTTY === true,
+      },
+      confirm: confirmResumeOnTerminal,
+      write: (text) => process.stderr.write(text),
+    }),
+    (idOrName) => resumeTargetNotFoundMessage(sessionStore, idOrName),
+  );
+  if (startupResume.kind === 'exit') process.exit(startupResume.code);
+  const resumeSessionId = startupResume.resumeSessionId;
 
   // SELFHOST-008 P6: one memory switch (default OFF), resolved once and threaded into print/serve/TUI.
   // Precedence there is settings ← flag ← env (env wins). CLI-2004's screen-reader switch below is
@@ -999,6 +1101,7 @@ async function runCliCore(
   if (args.printMode || args.goal) {
     const printRun = runPrintMode(
       productRuntime,
+      host,
       cwd,
       args,
       provider,
@@ -1049,6 +1152,7 @@ async function runCliCore(
     if (protocolStdout === undefined) throw new Error('Protocol stdout was not reserved');
     const sessionOptions = buildServeSessionOptions({
       productRuntime,
+      host,
       cwd,
       ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
       args,
@@ -1136,6 +1240,7 @@ async function runCliCore(
   if (args.serve) {
     const serveRun = runServeMode({
       productRuntime,
+      host,
       cwd,
       ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
       args,
@@ -1215,7 +1320,7 @@ async function runCliCore(
     requestExit: () => commandHostAdapters.process?.requestExit('other'),
     environment: telemetryEnvironment,
   });
-  if (isFirstRun(productRuntime.layout.userPaths.onboarded)) {
+  if (firstRun) {
     printFirstRunWelcome(terminal, productRuntime, screenReader);
     markOnboarded(productRuntime.layout.userPaths.onboarded);
   }
@@ -1232,6 +1337,7 @@ async function runCliCore(
   });
 
   const tuiRun = presentation.renderApp({
+    host,
     productDisplayName: `${productRuntime.config.identity.displayName}`,
     ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
     modelCommandToolPrefix,
@@ -1249,7 +1355,10 @@ async function runCliCore(
     ),
     onChannelReady: createChannelReadyHandler(
       presentation.setLiveChannel,
-      setRemoteControlChannel,
+      (channel: ILiveKeyCustodyChannel) => {
+        setRemoteControlChannel(channel);
+        keyCustody?.setChannel(keyCustodyChannelOf(channel));
+      },
       startPeers,
     ),
     cwd,
@@ -1275,8 +1384,7 @@ async function runCliCore(
       projectAccess: workspaceComposition.projectAccess,
       userHome: productRuntime.userHome ?? productRuntime.layout.userRoot,
     }),
-    resumeSessionId,
-    showSessionPickerOnStart,
+    ...startupResumeRenderOptions(startupResume),
     forkSession: args.forkSession,
     ...(args.movedFrom !== undefined ? { workspaceMovedFrom: args.movedFrom } : {}),
     sessionName: args.sessionName,
@@ -1323,11 +1431,13 @@ async function runCliCore(
       env: productRuntime.environment,
       access: workspaceComposition.projectAccess,
       cwd,
+      persistPromptHistory: !args.noSessionPersistence,
     }),
     cliAdapter: createProductTuiCliAdapter(presentation.createDefaultTuiCliAdapter, {
       productRuntime,
       providerDefinitions,
       reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
+      ...(keyCustody === undefined ? {} : { keyCustody: keyCustody.port }),
     }),
     reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
     keybindingsSource,
@@ -1349,4 +1459,23 @@ async function runCliCore(
     if (mcp !== undefined) await mcp.shutdown();
   }
   process.exit(0);
+}
+
+/**
+ * What `-r <id|name>` says when it matches no readable session. A sealed session whose keys are
+ * locked has no name to match, so it is named by its id when that is what was typed, and otherwise
+ * the locked sessions are counted: one of them may be the one meant, and "not found" would read as
+ * "never saved".
+ */
+function resumeTargetNotFoundMessage(
+  sessionStore: IInteractiveSessionStore | undefined,
+  idOrName: string,
+): string {
+  const reason = lockedSessionReason(sessionStore, idOrName);
+  if (reason !== undefined) return lockedSessionMessage(idOrName, reason);
+  const scan = scanSessionStore(sessionStore);
+  const notice = lockedSessionsNotice(scan.locked, scan.noKeys);
+  return notice === undefined
+    ? `Session not found: ${idOrName}`
+    : `No readable session matches ${idOrName}. ${notice}`;
 }

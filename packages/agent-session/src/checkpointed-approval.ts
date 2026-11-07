@@ -1,4 +1,3 @@
-import { realpathSync } from 'node:fs';
 import { ExecutionRecoveryError } from '@robota-sdk/agent-core';
 import type { IToolContinuation, TToolArgs, TToolParameters } from '@robota-sdk/agent-core';
 
@@ -10,7 +9,14 @@ export function hasCheckpointedApproval(continuation: IToolContinuation | undefi
 
 /** Current policy is checked by the enforcer; this can answer only the exact saved action. */
 export async function checkpointedApproval(
-  context: { sessionId: string; cwd: string; toolName: string; toolArgs: TToolArgs },
+  context: {
+    sessionId: string;
+    cwd: string;
+    toolName: string;
+    toolArgs: TToolArgs;
+    /** The host's canonical spelling of a directory, so a saved approval names the same one. */
+    canonicalizePath: (path: string) => string;
+  },
   continuation: IToolContinuation | undefined,
   requireApproval: boolean,
 ): Promise<boolean | undefined> {
@@ -21,7 +27,7 @@ export async function checkpointedApproval(
       'EXECUTION_RECOVERY_INVALID',
       'Checkpointed approval requires the current journaled action',
     );
-  const cwd = realpathSync(context.cwd);
+  const cwd = context.canonicalizePath(context.cwd);
   for (const { request } of waits) {
     if (
       request.data.version !== 1 ||

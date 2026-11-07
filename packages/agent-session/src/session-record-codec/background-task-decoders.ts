@@ -27,6 +27,7 @@ import {
   decodeOptional,
   decodeString,
   decodeTimestampString,
+  decodeTrue,
 } from './scalars.js';
 
 import type { TDecodeIssues } from './decode-outcome.js';
@@ -62,6 +63,7 @@ type TBaseBackgroundTaskState = Pick<
   | 'error'
   | 'logPath'
   | 'transcriptPath'
+  | 'transcriptSealed'
   | 'timeoutReason'
   | 'metadata'
 >;
@@ -101,6 +103,7 @@ const TASK_STATE_KEYS: readonly string[] = [
   'result',
   'error',
   'timeoutReason',
+  'transcriptSealed',
   'schedule',
   'nextFireAt',
   'metadata',
@@ -175,6 +178,11 @@ export function decodeBackgroundTaskState(
     setOptional(base, key, decodeOptional(raw[key], atKey(path, key), issues, decodeTimestampString));
   }
   setOptional(base, 'pid', decodeOptional(raw['pid'], atKey(path, 'pid'), issues, decodeInteger));
+  setOptional(
+    base,
+    'transcriptSealed',
+    decodeOptional(raw['transcriptSealed'], atKey(path, 'transcriptSealed'), issues, decodeTrue),
+  );
   setOptional(
     base,
     'timeoutReason',

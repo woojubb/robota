@@ -7,7 +7,7 @@
  * land on the same name after sanitisation or truncation (`resolveNameCollisions`).
  */
 
-import { createHash } from 'node:crypto';
+import { sha1Hex } from '@robota-sdk/agent-core';
 
 import { MCP_CANONICAL_NAME_BUDGET } from './types.js';
 
@@ -20,7 +20,7 @@ const INVALID_NAME_CHARS = /[^A-Za-z0-9_-]/g;
 const TRUNCATION_HASH_LENGTH = 8;
 
 /** Joins the head/tail halves of a middle-truncated name, and separates each from the hash. */
-const TRUNCATION_JOINER = '~';
+const TRUNCATION_JOINER = '-';
 
 export interface ICanonicalNameResult {
   readonly name: TMCPCanonicalName;
@@ -35,7 +35,7 @@ function sanitise(part: string): string {
 }
 
 function shortHash(input: string): string {
-  return createHash('sha1').update(input).digest('hex').slice(0, TRUNCATION_HASH_LENGTH);
+  return sha1Hex(input).slice(0, TRUNCATION_HASH_LENGTH);
 }
 
 /**

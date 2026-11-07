@@ -37,6 +37,14 @@ afterEach(() => {
   replaceAll(process.execArgv, originalExecArgv);
 });
 
+/**
+ * #3679: a copy started under a Node that accepts it disables the SIGUSR1 inspector from its first
+ * instruction; on an older Node there is nothing to add.
+ */
+const INSPECTOR_SIGNAL_OFF = process.allowedNodeEnvironmentFlags.has('--disable-sigusr1')
+  ? ['--disable-sigusr1']
+  : [];
+
 describe('resolveSelfForkWorkerEntry', () => {
   it('names the entry file for a bundled Node artifact', () => {
     withEntry('/opt/test-product/dist/node/bin.js');
@@ -44,6 +52,7 @@ describe('resolveSelfForkWorkerEntry', () => {
     expect(resolveSelfForkWorkerEntry()).toEqual({
       execPath: process.execPath,
       args: ['/opt/test-product/dist/node/bin.js'],
+      ...(INSPECTOR_SIGNAL_OFF.length > 0 ? { execArgv: INSPECTOR_SIGNAL_OFF } : {}),
     });
   });
 
@@ -73,7 +82,7 @@ describe('resolveSelfForkWorkerEntry', () => {
     expect(resolveSelfForkWorkerEntry()).toEqual({
       execPath: process.execPath,
       args: ['/repo/packages/agent-cli/src/bin.ts'],
-      execArgv: ['--import', 'tsx'],
+      execArgv: [...INSPECTOR_SIGNAL_OFF, '--import', 'tsx'],
     });
   });
 
@@ -86,13 +95,24 @@ describe('resolveSelfForkWorkerEntry', () => {
     expect(resolveSelfForkWorkerEntry()).toEqual({
       execPath: process.execPath,
       args: ['/repo/packages/agent-cli/src/bin.ts'],
-      execArgv: loaded,
+      execArgv: [...INSPECTOR_SIGNAL_OFF, ...loaded],
     });
   });
 
   it('does not add a loader for a compiled entry', () => {
     withEntry('/opt/test-product/dist/node/bin.js', ['--enable-source-maps']);
 
-    expect(resolveSelfForkWorkerEntry().execArgv).toBeUndefined();
+    expect(resolveSelfForkWorkerEntry().execArgv ?? []).toEqual(INSPECTOR_SIGNAL_OFF);
   });
+
+  it.skipIf(INSPECTOR_SIGNAL_OFF.length === 0)(
+    'disables the inspector signal once when the running process already carries the flag',
+    () => {
+      // A copy started by a copy: the forwarded loader flags already hold it.
+      const loaded = ['--disable-sigusr1', '--import', 'file:///abs/tsx/dist/loader.mjs'];
+      withEntry('/repo/packages/agent-cli/src/bin.ts', loaded);
+
+      expect(resolveSelfForkWorkerEntry().execArgv).toEqual(loaded);
+    },
+  );
 });

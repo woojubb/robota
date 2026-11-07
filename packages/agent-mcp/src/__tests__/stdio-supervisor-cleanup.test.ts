@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { FakeMcpSession, fixtureIdentity, fixtureTimeouts } from './supervisor-test-helpers.js';
-import { MCPStdioError } from '../client/stdio-transport.js';
+import { MCPStdioError } from '../client/stdio-error.js';
 import { MCPConnectionSupervisor } from '../supervisor/connection.js';
 
 import type { IMCPSession } from '../client/session.js';

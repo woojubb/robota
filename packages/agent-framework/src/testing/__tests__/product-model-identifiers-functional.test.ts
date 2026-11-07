@@ -7,6 +7,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { InteractiveSession } from '../../interactive/interactive-session.js';
 import { createTrustedProjectAccessFixture } from '../trusted-project-state-fixture.js';
+import { createTestFrameworkHost } from '../framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 let workspace: string | undefined;
 let session: InteractiveSession | undefined;
@@ -24,6 +27,7 @@ describe('host-selected model identifiers through a real session', () => {
     writeFileSync(join(workspace, 'guide.md'), 'ACME guidance', 'utf8');
     const scripted = createScriptedProvider([{ text: 'ok' }]);
     session = new InteractiveSession({
+      host: testHost,
       cwd: workspace,
       provider: scripted.provider,
       bare: true,

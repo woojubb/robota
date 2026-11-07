@@ -1,7 +1,8 @@
 /**
  * Where files other sessions send are kept: `the configured user root/peer-files/<sender>/<name>`, one directory
  * per sender, owned by this user and closed to everyone else. A session handed over to this one is
- * kept the same way under `the configured user root/handoff/` until it is verified and saved.
+ * kept the same way under `the configured user root/handoff/` until it is verified and saved —
+ * unless this side's session stores seal, when it waits in memory alone and nothing is made here.
  *
  * A received file is inert. It is written without execute permission, it is never opened by anything
  * here once kept, and it reaches the model only if someone later reads it through the session's
@@ -15,6 +16,8 @@ import { createHash, randomUUID } from 'node:crypto';
 import { constants } from 'node:fs';
 import { link, lstat, mkdir, open, unlink, type FileHandle } from 'node:fs/promises';
 import path from 'node:path';
+
+import { DEFAULT_MAX_FILE_BYTES } from '@robota-sdk/agent-transport/node';
 
 import type { IFileSink, TFileAdmission } from '@robota-sdk/agent-transport/node';
 
@@ -193,6 +196,63 @@ export async function openQuarantineSink(
       // allow-fallback: discarding is cleanup after a failure that is already being reported.
       await close().catch(() => undefined);
       await unlink(partial).catch(() => undefined);
+    },
+  };
+}
+
+/**
+ * A sink that keeps the verified content in memory and never writes it anywhere, for a receiver whose
+ * content must not reach a file. `commit` resolves with `memory:`, which names no file; `take` then
+ * hands the content over, once, for the caller to wipe when it is done with it.
+ */
+export interface IMemoryFileSink extends IFileSink {
+  take(): Buffer;
+}
+
+const MEMORY_SINK_LOCATION = 'memory:';
+
+/**
+ * A {@link IMemoryFileSink} holding at most `maxBytes`: the carrier's own limit by default, which
+ * already bounds what an offer may bring, so the bound here only stops a caller feeding it directly.
+ * It copies each chunk, so the carrier may reuse or wipe the buffer it passed. Its copies are
+ * zero-filled when the content is taken or discarded — best effort: it cannot reach copies the
+ * runtime made, or what the caller makes of the content it takes.
+ */
+export function createMemoryFileSink(maxBytes: number = DEFAULT_MAX_FILE_BYTES): IMemoryFileSink {
+  let chunks: Buffer[] = [];
+  let size = 0;
+  let state: 'open' | 'committed' | 'done' = 'open';
+  const drop = (): void => {
+    for (const chunk of chunks) chunk.fill(0);
+    chunks = [];
+    size = 0;
+  };
+  return {
+    write: async (chunk) => {
+      if (state !== 'open') throw new Error('The memory sink is no longer open.');
+      if (size + chunk.byteLength > maxBytes) {
+        throw new Error('The content is larger than the memory sink holds.');
+      }
+      chunks.push(Buffer.from(chunk));
+      size += chunk.byteLength;
+    },
+    commit: async () => {
+      if (state !== 'open') throw new Error('The memory sink is no longer open.');
+      state = 'committed';
+      return MEMORY_SINK_LOCATION;
+    },
+    discard: async () => {
+      state = 'done';
+      drop();
+    },
+    take: () => {
+      if (state !== 'committed') throw new Error('The memory sink holds no committed content.');
+      state = 'done';
+      const content = Buffer.alloc(size);
+      let offset = 0;
+      for (const chunk of chunks) offset += chunk.copy(content, offset);
+      drop();
+      return content;
     },
   };
 }

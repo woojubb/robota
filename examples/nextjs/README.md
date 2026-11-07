@@ -32,7 +32,7 @@ Open http://localhost:3000 — you should see a streaming chat UI.
 ```
 Client (fetch + ReadableStream)
   └─ POST /api/chat { message }
-       └─ createAgentRuntime({ cwd, provider }).createSession({ bare: true, deniedTools })
+       └─ createAgentRuntime({ host, cwd, provider }).createSession({ bare: true, deniedTools })
             └─ session.submit(message)
                  ├─ text_delta            → data: { type: "text_delta", text: "..." }
                  ├─ complete/interrupted  → data: { type: "done" }
@@ -54,6 +54,7 @@ Install the provider package (`npm install @robota-sdk/agent-provider-openai`) a
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const agentRuntime = createAgentRuntime({
+  host,
   cwd: process.cwd(),
   provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
 });

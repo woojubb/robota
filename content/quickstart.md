@@ -1,5 +1,9 @@
 # 5-Minute Quick Start
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 Two ways to use the same agent foundation: the CLI, or the SDK in your own code.
 
 ## Prerequisites
@@ -29,20 +33,27 @@ DAG workflow from your description, saves it under `.workflows/`, and runs it. S
 ## Option B — Use the SDK in your code
 
 ```bash
-npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic
+npm install @robota-sdk/agent-framework @robota-sdk/agent-tool-defaults @robota-sdk/agent-provider-anthropic
 ```
 
 Save this as `agent.mts` and run it with `npx tsx agent.mts`:
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
-// createQuery returns a function that runs one prompt, with the built-in tools, and resolves with
-// the reply. cwd defaults to process.cwd(). permissionMode defaults to 'default': reads and searches
-// run, and with no permissionHandler a call that would ask for approval (an edit, a shell command)
-// is denied. Pass permissionMode: 'bypassPermissions' for unattended runs.
+// The framework runs on the platform you pass as `host`. On Node, createNodeFrameworkHost lends the
+// files, processes and environment, and createDefaultTools is the set of built-in tools. createQuery
+// returns a function that runs one prompt, with the tools the host builds, and resolves with the
+// reply. cwd is the absolute directory the tools work in; it has no default. permissionMode defaults
+// to 'default': reads and searches run, and with no permissionHandler a call that would ask for
+// approval (an edit, a shell command) is denied. Pass permissionMode: 'bypassPermissions' for
+// unattended runs.
 const query = createQuery({
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  cwd: process.cwd(),
   provider: createAnthropicProvider({
     apiKey: process.env.ANTHROPIC_API_KEY,
   }),
@@ -55,17 +66,21 @@ console.log(response);
 Pass `model` to `createQuery` with any provider other than Anthropic: without it the query asks the
 provider for `claude-opus-4-5` unless a settings file names a model. Without a `projectAccess`
 decision it also runs Restricted: the project's `AGENTS.md`, `CLAUDE.md` and settings are not loaded.
-The [SDK guide](./guide/sdk.md) covers both.
+A host that lends no `createDefaultTools` (`host: {}`) gives the query no built-in tools. The
+[SDK guide](./guide/sdk.md) covers all three.
 
 ## Use another provider
 
-`InteractiveSession` takes the provider and the model to use:
+`InteractiveSession` takes the host, the provider and the model to use:
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const session = new InteractiveSession({
+  host: createNodeFrameworkHost({ createDefaultTools }),
   cwd: process.cwd(),
   provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
   model: 'gpt-5.1',
@@ -85,9 +100,12 @@ calling use the same chat-completions protocol:
 
 ```typescript
 import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const session = new InteractiveSession({
+  host: createNodeFrameworkHost({ createDefaultTools }),
   cwd: process.cwd(),
   provider: new OpenAIProvider({
     apiKey: process.env.AI_GATEWAY_API_KEY,

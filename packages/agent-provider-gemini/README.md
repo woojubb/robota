@@ -62,13 +62,35 @@ call selects an effort, a static `thinkingConfig.thinkingLevel` must equal the l
 `thinkingBudget` is rejected; if the selection sends no native effort (`auto`, or a model outside
 the table), either static field is rejected.
 
-Gemini offers no native web search or web fetch through this provider. A request that asks for them
-(`nativeWebTools`) fails with an error instead of being silently ignored.
+`enableWebTools: true` adds Google Search grounding to requests; Google runs the searches and no local
+tool is registered. A profile built through `createGeminiProviderDefinition()` sets it with
+`"options": { "nativeWebTools": { "webSearch": true } }`, read strictly: another key or a non-boolean is
+an error. The definition declares no web search for a host to turn on by default: the conditions in
+Google's terms below are for the host to meet, so a profile has to ask.
+This provider has no hosted web fetch, and a request that requires one fails.
+
+- **Models.** Search can join function tools on Gemini 3 and later, which Google documents as a
+  preview; there the request also sets `includeServerSideToolInvocations` and `VALIDATED` function
+  calling. Gemini 2 searches only on a request without function tools, and so does Vertex mode, where
+  the SDK refuses that flag. A model name without a number (`gemini-flash-latest`) is not assumed to
+  search. `getCapabilities()` says which applies to the provider's default model.
+- **Requests.** Search is left out when `toolChoice` is anything but `auto`, when the call sets
+  `nativeWebTools.webSearch: false`, and for an image or JSON reply.
+- **Results.** The result's `metadata` has `providerBuiltInToolsEnabled`, `geminiWebSearchCalls`,
+  `providerBuiltInToolsUsed`, `geminiWebSearchQueries`, `geminiWebSearchCitations` and
+  `geminiSearchSuggestionsHtml` (the suggestions HTML, for a UI that can show it). The reply text holds
+  no citations of its own. Google's [Gemini API terms](https://ai.google.dev/gemini-api/terms) set
+  conditions on showing and storing grounded results and search suggestions, so read them before you
+  ship this to end users.
+
+The model's signed function calls return on the next request as they came, through
+`metadata.providerContinuation` on the assistant message, and its search steps with them on a model
+that can combine search with function tools. If you keep your own history, keep that key.
 
 ### Endpoint
 
-There is no `baseURL` option: the `@google/genai` client is created from `apiKey` alone. The SDK
-reads its own environment variables to choose where it connects, such as `GOOGLE_GENAI_USE_VERTEXAI`,
+There is no `baseURL` option: the `@google/genai` client is created from `apiKey` alone. On Node the
+SDK reads its own environment variables to choose where it connects, such as `GOOGLE_GENAI_USE_VERTEXAI`,
 `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, `GOOGLE_GEMINI_BASE_URL` and `GOOGLE_VERTEX_BASE_URL`,
 so set those to reach Vertex AI or another endpoint.
 
@@ -80,6 +102,7 @@ so set those to reach Vertex AI or another endpoint.
 | --------------------------- | -------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | `apiKey`                    | `string`                                     | Google AI API key (required).                                                                    |
 | `defaultModel`              | `string`                                     | Model used when a call does not name one.                                                        |
+| `enableWebTools`            | `boolean`                                    | Attach Google Search grounding to requests that can carry it (default: off). See above.          |
 | `responseMimeType`          | `'text/plain' \| 'application/json'`         | Response MIME type.                                                                              |
 | `responseSchema`            | `Record<string, TGeminiProviderOptionValue>` | Response schema for JSON output. Mutually exclusive with `responseJsonSchema`.                   |
 | `responseJsonSchema`        | `Record<string, TGeminiProviderOptionValue>` | JSON Schema for structured output. Mutually exclusive with `responseSchema`.                     |

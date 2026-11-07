@@ -53,6 +53,9 @@ vi.mock('../../agents/built-in-agents.js', () => {
 import { createAgentTool, createAgentToolPromptDescription } from '../agent-tool.js';
 import { createSubagentSession } from '../../assembly/create-subagent-session.js';
 import { getBuiltInAgent } from '../../agents/built-in-agents.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 /** Extract the JSON-parsed data from an IToolResult */
 function parseToolResult(toolResult: IToolResult): Record<string, unknown> {
@@ -103,6 +106,7 @@ function makeContext(overrides?: Partial<ILoadedContext>): ILoadedContext {
 
 function makeDeps(overrides?: Partial<IAgentToolDeps>): IAgentToolDeps {
   return {
+    host: testHost,
     config: makeConfig(),
     context: makeContext(),
     tools: [makeTool('Read')],
@@ -167,6 +171,7 @@ describe('Agent tool', () => {
     const permissionHandler: TPermissionHandler = vi.fn();
 
     const tool = createAgentTool({
+      host: testHost,
       config,
       context,
       tools,
@@ -214,6 +219,7 @@ describe('Agent tool', () => {
     const context = makeContext();
 
     const tool = createAgentTool({
+      host: testHost,
       config,
       context,
       tools,

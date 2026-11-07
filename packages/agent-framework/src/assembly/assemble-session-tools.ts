@@ -33,7 +33,7 @@ import type { IToolWithEventService } from '@robota-sdk/agent-core';
  * So a contributed tool whose name is NEW is additive (the axis stays open), and a contributed tool whose
  * name collides with a framework default is DROPPED rather than listed twice — it does not silently
  * displace the default. That direction is deliberate: the default tier is built with the session context
- * (`cwd` supplies the working-directory path guard, plus the sandbox client and retrieval adapter), and a
+ * (`cwd` supplies the working-directory path guard, plus the sandbox client), and a
  * context-free contribution replacing it would silently weaken those guarantees. Replacement stays fully
  * expressible — through the EXPLICIT `defaultTools` injection seam, never as a side effect of a collision.
  * That mirrors `mergeCapabilityPacks`' own rule: additive merge, never a silent override.
@@ -72,34 +72,28 @@ export interface IAssembledSessionTools {
 }
 
 /** Assemble the session's tool list from the default tier, the contributed tiers, and the wrappers. */
-export async function assembleSessionTools(
+export function assembleSessionTools(
   options: ICreateSessionOptions,
   cwd: string,
   sessionAccess: () => IAdvisorSessionAccess | undefined = () => undefined,
-): Promise<IAssembledSessionTools> {
-  // The default tool tier is INJECTABLE. `options.defaultTools` REPLACES `createDefaultTools()` outright
+): IAssembledSessionTools {
+  // The default tool tier is INJECTABLE. `options.defaultTools` REPLACES the host's tier outright
   // (an empty array suppresses every framework default), mirroring NEUT-003's `builtInAgents` seam for
-  // subagents. Absent ⇒ the framework tier is constructed exactly as before, WITH the session context
-  // (cwd → the working-directory path guard, sandbox client, retrieval adapter) — which is why a name
+  // subagents. Absent ⇒ the tier is whatever the host builds (`host.createDefaultTools`), WITH the
+  // session context (cwd → the working-directory path guard, sandbox client) — which is why a name
   // collision must never silently displace it (see `dedupeToolsByName`).
   //
-  // The tier is reached by DYNAMIC import, never a static one. `@robota-sdk/agent-tool-defaults` is a
-  // composition leaf, and a static `from '…'` edge here is exactly what ARCH-035 removed: it would put
-  // the aggregator back within reach of every package that legitimately depends on this one.
-  // This dynamic import keeps that composition boundary explicit.
-  // The manifest edge stays a hard `dependencies` one: the guarantee comes from the import syntax, and
-  // an optional edge would instead make the README's "built-in tools are assembled" promise throw
-  // under `--omit=optional`, and would keep the leaf out of the external-proof closure entirely.
-  const loadDefaultTools = async (): Promise<IToolWithEventService[]> => {
-    // eslint-disable-next-line no-restricted-syntax -- ARCH-035: entry-point-only defaults leaf; a static edge here restores the route this item closed
-    const { createDefaultTools } = await import('@robota-sdk/agent-tool-defaults');
-    return createDefaultTools({
-      sandboxClient: options.sandboxClient,
+  // The framework names no tool package. A Node composition root passes `createDefaultTools` from
+  // `@robota-sdk/agent-tool-defaults` to `createNodeFrameworkHost`, so the aggregator stays at the
+  // composition root and this package keeps no edge to it. A host that lends none (`{}`, a browser)
+  // has no default tier: the session holds `additionalTools` and its own tools, and nothing else.
+  const defaultTools =
+    options.defaultTools ??
+    options.host.createDefaultTools?.({
       cwd,
-      ...(options.retrievalAdapter ? { retrievalAdapter: options.retrievalAdapter } : {}),
-    });
-  };
-  const defaultTools = options.defaultTools ?? (await loadDefaultTools());
+      ...(options.sandboxClient !== undefined ? { sandboxClient: options.sandboxClient } : {}),
+    }) ??
+    [];
   // Issue #3081: what matters is where FILE writes land, not whether a sandbox exists. A shared-
   // filesystem sandbox confines commands but writes files on the host, so those edits still need
   // checkpoints and are not contained in any provider snapshot.

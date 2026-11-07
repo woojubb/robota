@@ -219,7 +219,7 @@ describe('AnthropicProvider', () => {
   });
 
   describe('capabilities', () => {
-    it('reports server web search support and generic configuration', () => {
+    it('reports server web search support and how it is switched on', () => {
       const provider = new AnthropicProvider({
         client: mockClient as unknown as Anthropic,
       });
@@ -228,13 +228,18 @@ describe('AnthropicProvider', () => {
         supported: true,
         enabled: false,
         source: 'anthropic-messages',
-        reason: 'Call configureNativeWebTools({ webSearch: true }) or set enableWebTools.',
+        reason:
+          'Set the provider profile option nativeWebTools.webSearch to true (constructor option enableWebTools).',
+      });
+      expect(provider.enableWebTools).toBe(false);
+
+      const searching = new AnthropicProvider({
+        client: mockClient as unknown as Anthropic,
+        enableWebTools: true,
       });
 
-      provider.configureNativeWebTools({ webSearch: true });
-
-      expect(provider.enableWebTools).toBe(true);
-      expect(provider.getCapabilities().nativeWebTools).toEqual({
+      expect(searching.enableWebTools).toBe(true);
+      expect(searching.getCapabilities().nativeWebTools).toEqual({
         webSearch: { supported: true, enabled: true, source: 'anthropic-messages' },
         webFetch: {
           supported: false,
@@ -247,8 +252,10 @@ describe('AnthropicProvider', () => {
   });
 
   it('omits configured hosted web search for toolChoice none in direct and streaming requests', async () => {
-    const provider = new AnthropicProvider({ client: mockClient as unknown as Anthropic });
-    provider.configureNativeWebTools({ webSearch: true });
+    const provider = new AnthropicProvider({
+      client: mockClient as unknown as Anthropic,
+      enableWebTools: true,
+    });
     const messages: TUniversalMessage[] = [
       {
         id: 'no-tools-input',
@@ -384,7 +391,13 @@ describe('AnthropicProvider', () => {
       });
 
       const messages: TUniversalMessage[] = [
-        { id: 'msg-1', state: 'complete' as const, role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
       const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
 
@@ -395,7 +408,13 @@ describe('AnthropicProvider', () => {
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(makeTextResponse('ok')));
 
       const messages: TUniversalMessage[] = [
-        { id: 'msg-1', state: 'complete' as const, role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
       const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
 
@@ -568,6 +587,55 @@ describe('AnthropicProvider', () => {
       // The string branch is not an object node, so nothing is forced onto it.
       expect(branches?.[0]?.['additionalProperties']).toBeUndefined();
       expect(sent['additionalProperties']).toBe(false);
+    });
+
+    it('leaves out the bounds output_config.format answers with a 400', async () => {
+      const apiResponse = makeTextResponse('{"title": "ok"}');
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(apiResponse));
+
+      const messages: TUniversalMessage[] = [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Report please',
+          timestamp: new Date(),
+        },
+      ];
+      const schema = {
+        type: 'object',
+        minProperties: 1,
+        maxProperties: 9,
+        properties: {
+          title: { type: 'string', minLength: 1, maxLength: 80, pattern: '^T' },
+          score: { type: 'integer', minimum: 0, maximum: 9 },
+          tags: {
+            type: 'array',
+            items: { type: 'string', maxLength: 8 },
+            minItems: 1,
+            maxItems: 5,
+          },
+        },
+        required: ['title'],
+      };
+      await provider.chat(messages, {
+        model: 'claude-3-opus-20240229',
+        responseFormat: { type: 'json_schema', name: 'report', schema },
+      });
+
+      const params = mockClient.messages.create.mock.calls[0][0] as {
+        output_config: { format: { schema: Record<string, unknown> } };
+      };
+      expect(params.output_config.format.schema).toEqual({
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          title: { type: 'string', pattern: '^T' },
+          score: { type: 'integer' },
+          tags: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['title'],
+      });
     });
 
     it('omits output_config for non-json_schema response formats', async () => {
@@ -1172,16 +1240,26 @@ describe('AnthropicProvider', () => {
       });
 
       const messages: TUniversalMessage[] = [
-        { id: 'msg-1', state: 'complete' as const, role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
 
       const chunks: TUniversalMessage[] = [];
-      for await (const chunk of provider.chatStream(messages, { model: 'claude-3-opus-20240229' })) {
+      for await (const chunk of provider.chatStream(messages, {
+        model: 'claude-3-opus-20240229',
+      })) {
         chunks.push(chunk);
       }
 
       expect(chunks).toHaveLength(2);
-      expect(chunks.every((chunk) => chunk.metadata?.providerRequestId === 'req_stream_1')).toBe(true);
+      expect(chunks.every((chunk) => chunk.metadata?.providerRequestId === 'req_stream_1')).toBe(
+        true,
+      );
     });
 
     it('never fabricates a request ID when the client has no withResponse (older SDK or test double)', async () => {
@@ -1191,11 +1269,19 @@ describe('AnthropicProvider', () => {
       mockClient.messages.create.mockResolvedValue(asyncChunks);
 
       const messages: TUniversalMessage[] = [
-        { id: 'msg-1', state: 'complete' as const, role: 'user', content: 'Hi', timestamp: new Date() },
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Hi',
+          timestamp: new Date(),
+        },
       ];
 
       const chunks: TUniversalMessage[] = [];
-      for await (const chunk of provider.chatStream(messages, { model: 'claude-3-opus-20240229' })) {
+      for await (const chunk of provider.chatStream(messages, {
+        model: 'claude-3-opus-20240229',
+      })) {
         chunks.push(chunk);
       }
 
@@ -1248,7 +1334,10 @@ describe('AnthropicProvider', () => {
         yield { type: 'content_block_delta', delta: { type: 'text_delta', text: 'ok' } };
       })();
       mockClient.messages.create.mockResolvedValue(asyncChunks);
-      provider.configureNativeWebTools({ webSearch: true });
+      const searchingProvider = new AnthropicProvider({
+        client: mockClient as unknown as Anthropic,
+        enableWebTools: true,
+      });
 
       const messages: TUniversalMessage[] = [
         {
@@ -1260,7 +1349,7 @@ describe('AnthropicProvider', () => {
         },
       ];
 
-      for await (const _chunk of provider.chatStream(messages, {
+      for await (const _chunk of searchingProvider.chatStream(messages, {
         model: 'claude-3-opus-20240229',
         nativeWebTools: { webSearch: true },
       })) {
@@ -1281,7 +1370,10 @@ describe('AnthropicProvider', () => {
         yield { type: 'content_block_delta', delta: { type: 'text_delta', text: 'ok' } };
       })();
       mockClient.messages.create.mockResolvedValue(asyncChunks);
-      provider.configureNativeWebTools({ webSearch: true });
+      const searchingProvider = new AnthropicProvider({
+        client: mockClient as unknown as Anthropic,
+        enableWebTools: true,
+      });
 
       const messages: TUniversalMessage[] = [
         {
@@ -1293,7 +1385,7 @@ describe('AnthropicProvider', () => {
         },
       ];
 
-      for await (const _chunk of provider.chatStream(messages, {
+      for await (const _chunk of searchingProvider.chatStream(messages, {
         model: 'claude-3-opus-20240229',
         nativeWebTools: { webSearch: false, webFetch: false },
       })) {
@@ -1499,9 +1591,10 @@ describe('AnthropicProvider', () => {
             content_block: {
               type: 'server_tool_use',
               name: 'web_search',
-              input: { query: 'Next.js latest' },
             },
           },
+          { type: 'content_block_delta', delta: { type: 'input_json_delta', partial_json: '{"query":"Next.js ' } },
+          { type: 'content_block_delta', delta: { type: 'input_json_delta', partial_json: 'latest"}' } },
           { type: 'content_block_stop' },
           {
             type: 'content_block_start',
@@ -1556,6 +1649,8 @@ describe('AnthropicProvider', () => {
       expect(result.content).toContain('Searching: "Next.js latest"');
       expect(result.content).toContain('Next.js 16.2 Released');
       expect(result.content).toContain('Based on search results...');
+      const content = result.content ?? '';
+      expect(content.indexOf('Searching:')).toBeLessThan(content.indexOf('Next.js 16.2 Released'));
 
       // onServerToolUse callback should have fired
       expect(serverToolCalls).toHaveLength(1);
@@ -1564,6 +1659,51 @@ describe('AnthropicProvider', () => {
 
       // onTextDelta should have received search indicator
       expect(textDeltas.some((d) => d.includes('Searching'))).toBe(true);
+    });
+
+    it.each([
+      ['no input', []],
+      ['empty object', ['{}']],
+      ['non-string query', ['{"query":42}']],
+      ['malformed input', ['{"query":']],
+    ])('uses a bare marker and empty query for %s', async (_case, fragments) => {
+      mockClient.messages.create.mockResolvedValue(
+        makeStream([
+          { type: 'content_block_start', content_block: { type: 'server_tool_use', name: 'web_search' } },
+          ...fragments.map((partial_json) => ({ type: 'content_block_delta', delta: { type: 'input_json_delta', partial_json } })),
+          { type: 'content_block_stop' },
+        ]),
+      );
+      const callbacks: Array<{ name: string; query: string }> = [];
+      provider.onServerToolUse = (name, input) => callbacks.push({ name, query: input.query ?? '' });
+      const result = await provider.chat(
+        [{ id: 'msg-1', state: 'complete', role: 'user', content: 'search', timestamp: new Date() }],
+        { model: 'test' },
+      );
+      expect(result.content).toBe('\n🔍 [web_search]\n');
+      expect(textDeltas).toEqual(['\n🔍 [web_search]\n']);
+      expect(callbacks).toEqual([{ name: 'web_search', query: '' }]);
+    });
+
+    it('handles separate server searches without leaking arguments between blocks', async () => {
+      mockClient.messages.create.mockResolvedValue(
+        makeStream([
+          { type: 'content_block_start', content_block: { type: 'server_tool_use', name: 'web_search' } },
+          { type: 'content_block_delta', delta: { type: 'input_json_delta', partial_json: '{"query":"first"}' } },
+          { type: 'content_block_stop' },
+          { type: 'content_block_start', content_block: { type: 'server_tool_use', name: 'web_search' } },
+          { type: 'content_block_delta', delta: { type: 'input_json_delta', partial_json: '{"query":"second"}' } },
+          { type: 'content_block_stop' },
+        ]),
+      );
+      const queries: string[] = [];
+      provider.onServerToolUse = (_name, input) => queries.push(input.query ?? '');
+      const result = await provider.chat(
+        [{ id: 'msg-1', state: 'complete', role: 'user', content: 'search', timestamp: new Date() }],
+        { model: 'test' },
+      );
+      expect(result.content).toBe('\n🔍 Searching: "first"\n\n🔍 Searching: "second"\n');
+      expect(queries).toEqual(['first', 'second']);
     });
 
     it('should parse mixed text + tool_use + server_tool_use', async () => {
@@ -1584,9 +1724,9 @@ describe('AnthropicProvider', () => {
             content_block: {
               type: 'server_tool_use',
               name: 'web_search',
-              input: { query: 'test' },
             },
           },
+          { type: 'content_block_delta', delta: { type: 'input_json_delta', partial_json: '{"query":"test"}' } },
           { type: 'content_block_stop' },
           {
             type: 'content_block_start',

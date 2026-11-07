@@ -6,7 +6,7 @@
  */
 import { executeGitCommit } from './git-commit.js';
 
-import { createGitProcess, executeGitDiff, executeGitStatus } from '@robota-sdk/agent-framework';
+import { executeGitDiff, executeGitStatus } from '@robota-sdk/agent-framework';
 
 import type {
   ICommandHostUserInteraction,
@@ -64,11 +64,18 @@ export function createGitCommandEntry(): ICommand {
 export type TGitCommandContext = Pick<ICommandHostWorkspace, 'getCwd'> &
   ICommandHostUserInteraction;
 
+/**
+ * What `/git` answers on a host that supplied no git process: every verb runs git, so there is
+ * nothing to show, diff or commit with.
+ */
+const GIT_UNAVAILABLE_MESSAGE = '/git is unavailable on this host: it supplies no git process.';
+
 export async function executeGitCommand(
   context: TGitCommandContext,
   args: string,
-  port: IGitProcessPort = createGitProcess(),
+  port: IGitProcessPort | undefined,
 ): Promise<ICommandResult> {
+  if (port === undefined) return { success: false, message: GIT_UNAVAILABLE_MESSAGE };
   const trimmed = args.trim();
   const split = trimmed.search(/\s/);
   const verb = split === -1 ? trimmed : trimmed.slice(0, split);
@@ -99,7 +106,7 @@ export async function executeGitCommand(
   }
 }
 
-function createGitSystemCommand(port: IGitProcessPort): ISystemCommand {
+function createGitSystemCommand(port: IGitProcessPort | undefined): ISystemCommand {
   const entry = createGitCommandEntry();
   return {
     name: entry.name,
@@ -125,7 +132,10 @@ export class GitCommandSource implements ICommandSource {
 }
 
 export interface IGitCommandModuleOptions {
-  /** The process seam; the production `createGitProcess()` by default, injectable for tests. */
+  /**
+   * The process seam. The package has no host default: a Node host passes `createGitProcess()` from
+   * `@robota-sdk/agent-framework/node`. Absent, `/git` is listed and answers that it is unavailable.
+   */
   port?: IGitProcessPort;
 }
 
@@ -133,6 +143,6 @@ export function createGitCommandModule(options: IGitCommandModuleOptions = {}): 
   return {
     name: 'agent-command-git',
     commandSources: [new GitCommandSource()],
-    systemCommands: [createGitSystemCommand(options.port ?? createGitProcess())],
+    systemCommands: [createGitSystemCommand(options.port)],
   };
 }

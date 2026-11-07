@@ -20,12 +20,20 @@ import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import { TransportRegistry } from '@robota-sdk/agent-framework';
 import { createHttpTransport } from '@robota-sdk/agent-transport-http';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
+import {
+  createFileTransportSettingsRepository,
+  createNodeFrameworkHost,
+} from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+
+const host = createNodeFrameworkHost({ createDefaultTools });
 
 // The provider is part of the definition; this demo serves channels and never calls the model, so any key works.
 const apiKey = process.env.ANTHROPIC_API_KEY ?? 'demo-no-model-call';
 
 // 1. ONE agent definition → ONE live session, built once.
 const runtime = createAgentRuntime({
+  host,
   cwd: process.cwd(),
   provider: createAnthropicProvider({ apiKey }),
 });
@@ -33,7 +41,7 @@ const session = runtime.createSession({});
 
 // 2. Bind that ONE session to MANY channels — no gateway, just the registry.
 const settingsPath = path.join(os.tmpdir(), `robota-example-${process.pid}.json`);
-const registry = new TransportRegistry(settingsPath);
+const registry = new TransportRegistry(createFileTransportSettingsRepository(settingsPath));
 registry.register(bindTransportAdapter(new WsTransport({ port: 45678 }), session)); // network channel
 const http = createHttpTransport(); // plain ITransportAdapter → mounted out-of-band on the same session
 

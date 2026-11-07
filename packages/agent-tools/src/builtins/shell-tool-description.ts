@@ -8,7 +8,7 @@
  * root), while `shell-tool.ts` owns process execution. They change for entirely different reasons.
  */
 
-import type { IPlatformShell } from '@robota-sdk/agent-core';
+import type { IPlatformShell } from '@robota-sdk/agent-core/node';
 
 /**
  * Dedicated-tool routing hints, keyed by the sibling tool's registered name. A hint is only

@@ -15,6 +15,9 @@ import type {
 } from '../../memory/types.js';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
 import { loadedRecordOrMissing } from './session-load-helpers.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * SELFHOST-008 P3 — per-turn recall wired into the live turn: query = the turn input, rendered under a
@@ -88,6 +91,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
       truncated: false,
     }));
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider,
       bare: true,
@@ -113,6 +117,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
       truncated: false,
     }));
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider,
       bare: true,
@@ -137,7 +142,13 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
       references: [],
       truncated: false,
     }));
-    const session = new InteractiveSession({ cwd, provider, bare: true, memoryStore: store });
+    const session = new InteractiveSession({
+      host: testHost,
+      cwd,
+      provider,
+      bare: true,
+      memoryStore: store,
+    });
 
     await session.submit('rotate the deploy key');
 
@@ -153,6 +164,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
       throw new Error('semantic backend unavailable');
     });
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider,
       bare: true,
@@ -172,6 +184,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
     const recallSpy = vi.fn(async () => ({ content: '', references: [], truncated: false }));
     const store = createFakeStore(recallSpy);
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider,
       bare: true,
@@ -197,6 +210,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
       truncated: false,
     }));
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider,
       bare: true,
@@ -238,6 +252,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
         : { content: '', references: [], truncated: false };
     });
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider,
       bare: true,
@@ -257,6 +272,7 @@ describe('SELFHOST-008 P3 — per-turn recall wiring', () => {
     const { provider } = createProvider();
     const store = createFakeStore(async () => ({ content: '', references: [], truncated: false }));
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider,
       bare: true,

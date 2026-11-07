@@ -71,7 +71,7 @@ code and no user depends on where a file sits.
 2. `runPreparsedCliCommand()` (`startup/preparsed-command-routing.ts`) handles the subcommands whose
    flags the strict global parser would reject: `doctor` (aliases `checkup`, `diagnose`), `trust`,
    `daemon`, `--attach`, `session list|view|attach|start|stop|rename|events|link-pr|unlink-pr|analyze`,
-   `usage`, `mcp login|logout` and `eval`.
+   `usage`, `mcp add|login|logout` and `eval`.
 3. After `parseCliArgs()`: `--help`, `--version`, `--check-update`, `--reset` and `user-local`.
 4. After the command setup: `routeProjectSetup()` handles `init`, `--configure` and the
    provider-configuration flags, and makes sure a usable provider is configured.

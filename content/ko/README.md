@@ -22,7 +22,7 @@ built from the same libraries.
 [![License: AGPL-3.0 OR Commercial](https://img.shields.io/badge/license-AGPL--3.0%20OR%20Commercial-blue)](../../LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](https://www.typescriptlang.org/)
 
-> **베타** — 패키지는 `3.0.0-beta` 버전으로 배포됩니다. 정식 릴리스 전에 API가 바뀔 수 있습니다.
+> API는 새 버전에서 바뀔 수 있습니다.
 > [이슈 보고](__PROJECT_REPOSITORY_URL__/issues).
 
 ## 어디서 시작할까요
@@ -42,7 +42,9 @@ built from the same libraries.
 
 ## 설치
 
-배포된 패키지는 Node.js 22.12 이상이 필요합니다.
+아래 Node.js 예제와 npm CLI에는 Node.js 22.12 이상이 필요합니다. 배포 패키지는 Node 환경에서
+이 버전 이상을 요구합니다. 현재 소스에서는 플랫폼 중립 진입점과 Node 어댑터가 나뉘어 있습니다.
+설치한 버전에서 제공하는 진입점을 확인하세요.
 
 ```bash
 # 에이전트: 코어 엔진과 프로바이더 패키지 하나
@@ -119,8 +121,8 @@ __PRODUCT_CLI_NAME__ -p "이 프로젝트를 설명해줘"  # print 모드: 한 
 ```
 
 처음 실행하면 CLI가 프로바이더와 API 키를 묻거나 로컬 모델을 제안합니다. 아직 신뢰하지 않은 Git 저장소에서는
-터미널 UI가 프로젝트에서 무엇이든 불러오기 전에 신뢰 여부를 묻고, print 모드는 `__PRODUCT_CLI_NAME__ trust --yes`를 실행할
-때까지 시작하지 않습니다. 신뢰된 워크스페이스에서 CLI는 프로젝트의 `AGENTS.md`와 Claude Code 관례를
+터미널 UI가 프로젝트에서 무엇이든 불러오기 전에 신뢰 여부를 묻고, print 모드는 터미널에서
+`__PRODUCT_CLI_NAME__ trust --yes`를 실행해 직접 승인할 때까지 시작하지 않습니다. 신뢰된 워크스페이스에서 CLI는 프로젝트의 `AGENTS.md`와 Claude Code 관례를
 읽습니다: `CLAUDE.md`, `.claude/settings.json`, `.claude/agents/`, `.claude/skills/`, `.claude/commands/`.
 플래그, 슬래시 커맨드, 권한 모드는 [CLI reference](../guide/cli.md)(영어)에서 다룹니다. 다른 코딩
 어시스턴트와의 비교: [__PROJECT_WEBSITE_HOST__/ko/compare](__PROJECT_WEBSITE_URL__/ko/compare).

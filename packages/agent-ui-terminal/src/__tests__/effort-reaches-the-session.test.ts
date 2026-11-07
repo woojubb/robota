@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildTuiSessionOptions } from '../tui-session-options.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { ITuiInteractionChannelOptions } from '../TuiInteractionChannel.js';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * ARCH-013 — a preset's `effort` is resolved at startup and then dropped.
@@ -20,7 +23,7 @@ import type { ITuiInteractionChannelOptions } from '../TuiInteractionChannel.js'
 function channelOptions(
   overrides: Partial<ITuiInteractionChannelOptions> = {},
 ): ITuiInteractionChannelOptions {
-  return { cwd: '/tmp', ...overrides } as ITuiInteractionChannelOptions;
+  return { host: testHost, cwd: '/tmp', ...overrides } as ITuiInteractionChannelOptions;
 }
 
 describe('the TUI projection carries effort (ARCH-013)', () => {

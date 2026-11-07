@@ -1,5 +1,5 @@
 import { normalizeProviderConfig } from '@robota-sdk/agent-core';
-import { validateProviderProfile } from '@robota-sdk/agent-framework';
+import { resolveProviderEnvironment, validateProviderProfile } from '@robota-sdk/agent-framework';
 
 import type {
   IProviderCommandModuleOptions,
@@ -29,6 +29,9 @@ export async function validateProviderConnection(
           baseURL: profile.baseURL,
         },
         options.providerDefinitions,
+        // A saved connection names a host credential, not an environment variable, so the
+        // normalizer never consults this resolver; it reads the host's snapshot all the same.
+        resolveProviderEnvironment(options.env),
       ),
     );
     if (!resolved.apiKey?.trim()) throw new Error('Host credential unavailable.');

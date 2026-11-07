@@ -6,7 +6,7 @@
  * in `known_marketplaces.json`.
  */
 
-import { join } from 'node:path';
+import { joinPath, utf8Decode } from '@robota-sdk/agent-core';
 
 import { readMarketplaceManifest } from './marketplace-manifest.js';
 import {
@@ -15,8 +15,8 @@ import {
   removeInstalledPluginsForMarketplace,
 } from './marketplace-registry.js';
 import { resolveMarketplaceCloneUrl } from './marketplace-source.js';
+import { requirePluginFileSystem } from './plugin-file-system.js';
 import { assertContainedPath, assertSafePluginSegment } from './plugin-paths.js';
-import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 import type {
   TMarketplaceSource,
@@ -25,6 +25,7 @@ import type {
   IMarketplaceClientOptions,
   IKnownMarketplaceEntry,
   TExecFn,
+  TPluginWarning,
 } from './marketplace-types.js';
 import type { IFileSystem } from '@robota-sdk/agent-core';
 
@@ -34,6 +35,7 @@ export type {
   IMarketplaceManifest,
   IMarketplaceClientOptions,
   TExecFn,
+  TPluginWarning,
 } from './marketplace-types.js';
 export type { IKnownMarketplaceEntry, TKnownMarketplacesRegistry } from './marketplace-types.js';
 
@@ -47,13 +49,15 @@ export class MarketplaceClient {
   private readonly marketplacesDir: string;
   private readonly registryPath: string;
   private readonly fs: IFileSystem;
+  private readonly onWarning: TPluginWarning | undefined;
 
-  constructor(options: IMarketplaceClientOptions & { fs?: IFileSystem }) {
+  constructor(options: IMarketplaceClientOptions) {
     this.pluginsDir = options.pluginsDir;
     this.exec = options.exec;
-    this.marketplacesDir = join(this.pluginsDir, 'marketplaces');
-    this.registryPath = join(this.pluginsDir, 'known_marketplaces.json');
-    this.fs = options.fs ?? new NodeFileSystem();
+    this.marketplacesDir = joinPath(this.pluginsDir, 'marketplaces');
+    this.registryPath = joinPath(this.pluginsDir, 'known_marketplaces.json');
+    this.fs = requirePluginFileSystem(options.fs, 'MarketplaceClient');
+    this.onWarning = options.onWarning;
   }
 
   /**
@@ -68,7 +72,7 @@ export class MarketplaceClient {
   addMarketplace(source: TMarketplaceSource): string {
     // Clone to a temp name first, then read the manifest to get the real name
     const tempName = 'temp-' + Date.now().toString(36);
-    const tempDir = join(this.marketplacesDir, tempName);
+    const tempDir = joinPath(this.marketplacesDir, tempName);
 
     this.fs.mkdirSync(this.marketplacesDir, { recursive: true });
 
@@ -93,7 +97,7 @@ export class MarketplaceClient {
       }
     }
 
-    const manifestPath = join(tempDir, '.claude-plugin', 'marketplace.json');
+    const manifestPath = joinPath(tempDir, '.claude-plugin', 'marketplace.json');
     if (!this.fs.existsSync(manifestPath)) {
       this.fs.rmSync(tempDir, { recursive: true, force: true });
       throw new Error(
@@ -120,7 +124,7 @@ export class MarketplaceClient {
     // SEC-018: `name` comes from a REMOTE marketplace manifest and selects this rename destination.
     // A manifest named `../../escaped-market` placed the marketplace outside its root.
     assertSafePluginSegment(name, 'marketplace name');
-    const finalDir = join(this.marketplacesDir, name);
+    const finalDir = joinPath(this.marketplacesDir, name);
     assertContainedPath(this.marketplacesDir, finalDir, 'install a marketplace', this.fs);
     this.fs.renameSync(tempDir, finalDir);
 
@@ -164,7 +168,7 @@ export class MarketplaceClient {
     const entry = this.requireContainedEntry(name, 'remove a marketplace');
     const registry = readRegistry(this.registryPath, this.fs);
 
-    removeInstalledPluginsForMarketplace(this.pluginsDir, name, this.fs);
+    removeInstalledPluginsForMarketplace(this.pluginsDir, name, this.fs, this.onWarning);
 
     // SEC-018: proven contained above; the registry value is a hint, not a fact.
     if (this.fs.existsSync(entry.installLocation)) {
@@ -230,7 +234,7 @@ export class MarketplaceClient {
       throw new Error(`Marketplace "${marketplaceName}" not found`);
     }
 
-    const manifestPath = join(entry.installLocation, '.claude-plugin', 'marketplace.json');
+    const manifestPath = joinPath(entry.installLocation, '.claude-plugin', 'marketplace.json');
     if (!this.fs.existsSync(manifestPath)) {
       throw new Error(
         `Marketplace "${marketplaceName}" does not contain .claude-plugin/marketplace.json`,
@@ -261,7 +265,7 @@ export class MarketplaceClient {
         timeout: GIT_TIMEOUT_MS,
         stdio: 'pipe',
       });
-      return result.toString().trim().slice(0, 12);
+      return (typeof result === 'string' ? result : utf8Decode(result)).trim().slice(0, 12);
     } catch {
       // allow-fallback: git SHA unavailable returns 'unknown' as version identifier
       return 'unknown';

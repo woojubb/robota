@@ -160,10 +160,9 @@ In the terminal UI the same feature is `/goal <objective>`, with `/goal status` 
 ### CI and scripts
 
 For unattended runs, pick a permission mode that does not need a person, send the prompt on stdin,
-and use JSON output. A fresh checkout is untrusted, and `__PRODUCT_CLI_NAME__ -p` exits with an error there until
-you either trust it with `__PRODUCT_CLI_NAME__ trust --yes` (the project's instruction files, skills, plugins, hooks
-and MCP servers then load, so only do this for code you trust) or run with `--safe-mode` (all of those
-stay off and the folder stays Restricted):
+and use JSON output. A fresh checkout is untrusted. Workspace trust requires confirmation at a
+terminal, so an unattended job cannot grant it. Run with `--safe-mode`: project instruction files,
+skills, plugins, hooks and MCP servers stay off and the folder stays Restricted.
 
 ```yaml
 # .github/workflows/ai-review.yml
@@ -182,10 +181,10 @@ jobs:
         with:
           node-version: '22'
       - run: npm install -g @robota-sdk/agent-cli
-      - run: __PRODUCT_CLI_NAME__ trust --yes
       - name: AI diff review
         run: |
           { echo "Review this diff and list any issues:"; git diff HEAD~1; } | __PRODUCT_CLI_NAME__ -p \
+            --safe-mode \
             --permission-mode plan \
             --no-session-persistence \
             --output-format json | jq -r '.result'
@@ -197,7 +196,7 @@ jobs:
 | ------------------------------------- | ---------------------------------------------------------------------- |
 | `--permission-mode plan`              | Review only: the agent writes nothing and runs only read-only commands |
 | `--permission-mode bypassPermissions` | Let the agent edit and run commands without asking                     |
-| `--no-session-persistence`            | Do not save the session                                                |
+| `--no-session-persistence`            | Leave no conversation on disk (session, history, transcripts)          |
 | `--output-format json`                | One JSON result; check `.subtype` for `success` or `error`             |
 | `--max-turns <n>`                     | Cap the number of agent turns                                          |
 
@@ -210,8 +209,13 @@ __PRODUCT_CLI_NAME__ -c                              # continue the most recent 
 __PRODUCT_CLI_NAME__ -r <id-or-name>                 # resume a session
 __PRODUCT_CLI_NAME__ -c --fork-session               # continue as a new session; the original is untouched
 __PRODUCT_CLI_NAME__ -n "my-task"                    # name the new session
-__PRODUCT_CLI_NAME__ --no-session-persistence        # do not save this run
+__PRODUCT_CLI_NAME__ --no-session-persistence        # leave nothing of this run on disk
 ```
+
+`--no-session-persistence` keeps the conversation off disk. No session record, prompt-history entry or
+subagent transcript is written, and the edit checkpoints that `/rewind` uses live in an owner-only
+folder inside the state folder and are removed when the run ends. Durable memory is a separate setting:
+if you turned it on, it still saves what it captures.
 
 Inside the terminal UI: `/resume` opens the session picker, `/rename <name>` renames the session,
 `/fork [name] [--same-dir]` copies the conversation into a background session and keeps you here, and
@@ -644,7 +648,7 @@ another session or device. All four are user-only. See [Devices, Peers and Remot
 | `-r`, `--resume <id\|name>`                                                                                                                               | Resume a session                                                                                                                                                                                               |
 | `-n`, `--name <name>`                                                                                                                                     | Name the new session                                                                                                                                                                                           |
 | `--fork-session`                                                                                                                                          | With `-c`/`-r`: continue as a new session, leaving the original untouched                                                                                                                                      |
-| `--no-session-persistence`                                                                                                                                | Do not save this run                                                                                                                                                                                           |
+| `--no-session-persistence`                                                                                                                                | Leave no conversation on disk: no session, prompt history or subagent transcript; `/rewind` works only until the run ends                                                                                      |
 | `--permission-mode <mode>`                                                                                                                                | `plan`, `default`, `acceptEdits`, `bypassPermissions` or `auto`                                                                                                                                                |
 | `--dry-run`                                                                                                                                               | Same as `--permission-mode plan`                                                                                                                                                                               |
 | `--allowed-tools <list>`                                                                                                                                  | Tools that run without asking (comma-separated)                                                                                                                                                                |
@@ -700,6 +704,7 @@ another session or device. All four are user-only. See [Devices, Peers and Remot
 | `__PRODUCT_CLI_NAME__ session rename <id> <name>`                                                                | Rename a supervised session                                                                                                                    |
 | `__PRODUCT_CLI_NAME__ session link-pr <id> <https-pr-url>` / `unlink-pr <id>`                                    | Set or clear a supervised session's PR link                                                                                                    |
 | `__PRODUCT_CLI_NAME__ session events list <id> [--json]` / `events revoke <id> <grant-id>`                       | External-event grants of a supervised session                                                                                                  |
+| `__PRODUCT_CLI_NAME__ session release <session-id> [--force]`                                                    | Remove a saved session's writer marker its ended process left; `--force` asks at your terminal first                                           |
 | `__PRODUCT_CLI_NAME__ session analyze [--session <id>\|--last <n>\|--usage]`                                     | Timing and token analysis of saved sessions                                                                                                    |
 | `__PRODUCT_CLI_NAME__ daemon start [--json] [--restricted-workspace]`                                            | Start or reuse this folder's daemon; `--json` prints its id and URL; `--restricted-workspace` starts it Restricted in a folder not trusted yet |
 | `__PRODUCT_CLI_NAME__ daemon status [--json]` / `stop` / `unlock`                                                | Check, stop, or clear a stale start lock                                                                                                       |

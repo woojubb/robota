@@ -31,7 +31,7 @@ function isInside(root: string, path: string): boolean {
   return fromRoot === '' || (!fromRoot.startsWith('..') && !isAbsolute(fromRoot));
 }
 
-export function createWorkspacePathResolver(cwd: string): TResolveInWorkspace {
+export function createNodeWorkspacePathResolver(cwd: string): TResolveInWorkspace {
   return (base, path) => {
     const root = realOrNearest(cwd);
     const real = realOrNearest(resolve(base ?? root, path));

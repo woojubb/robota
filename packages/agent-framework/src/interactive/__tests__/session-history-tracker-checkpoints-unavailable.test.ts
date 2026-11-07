@@ -27,7 +27,12 @@ function tempRoot(): string {
   return root;
 }
 
-function trackerWithoutStore(cwd: string, projectAccess: TWorkspaceProjectAccess) {
+/** `supportsProjectMutation` is what the host said about itself; absent is a host that cannot. */
+function trackerWithoutStore(
+  cwd: string,
+  projectAccess: TWorkspaceProjectAccess,
+  supportsProjectMutation?: boolean,
+) {
   return new SessionHistoryTracker(
     { cwd, projectAccess },
     () => 'session-without-store',
@@ -35,6 +40,9 @@ function trackerWithoutStore(cwd: string, projectAccess: TWorkspaceProjectAccess
     vi.fn(),
     vi.fn(),
     vi.fn(),
+    null,
+    undefined,
+    supportsProjectMutation,
   );
 }
 
@@ -50,26 +58,28 @@ function reasonFor(tracker: SessionHistoryTracker): string | undefined {
 
 describe('a session without an edit checkpoint store', () => {
   it('says the workspace is restricted when that is what stands in the way', () => {
-    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
     const cwd = tempRoot();
     const tracker = trackerWithoutStore(
       cwd,
       createRestrictedWorkspaceProjectAccess('untrusted', cwd),
+      true,
     );
 
     expect(reasonFor(tracker)).toBe('restricted-workspace');
     expect(() => tracker.listEditCheckpoints()).toThrow('need a trusted workspace');
   });
 
-  it.each(['darwin', 'win32'] as const)(
-    'on %s, says the host cannot keep checkpoints, whether or not the workspace is trusted',
-    async (platform) => {
+  it.each([
+    ['says it cannot write project files', false],
+    ['says nothing about project files', undefined],
+  ] as const)(
+    'on a host that %s, says the host cannot keep checkpoints, whether or not the workspace is trusted',
+    async (_label, supportsProjectMutation) => {
       const cwd = tempRoot();
       const trusted = await createTrustedProjectAccessFixture(cwd);
-      vi.spyOn(process, 'platform', 'get').mockReturnValue(platform);
 
       for (const access of [trusted, createRestrictedWorkspaceProjectAccess('untrusted', cwd)]) {
-        const tracker = trackerWithoutStore(cwd, access);
+        const tracker = trackerWithoutStore(cwd, access, supportsProjectMutation);
         expect(reasonFor(tracker)).toBe('host-cannot-write-project');
         // #3289 §3: the message names the user-facing feature ("Rewind"), not the internal
         // write-containment mechanism behind why it is unavailable.
@@ -81,9 +91,8 @@ describe('a session without an edit checkpoint store', () => {
   it('says no store was given when the host could have kept one', async () => {
     const cwd = tempRoot();
     const trusted = await createTrustedProjectAccessFixture(cwd);
-    vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
 
-    expect(reasonFor(trackerWithoutStore(cwd, trusted))).toBe('no-checkpoint-store');
+    expect(reasonFor(trackerWithoutStore(cwd, trusted, true))).toBe('no-checkpoint-store');
   });
 
   it('names itself, and is still a workspace-authority error', () => {

@@ -175,6 +175,7 @@ describe('ARCH-109 — a composition a child cannot rebuild keeps its subagents 
       ],
       reproduction: { callerSuppliedDefinitions: false, replayProvider: false },
       notice: () => {},
+      persistTranscripts: true,
     };
     expect(
       createProductSubagentRunnerFactory({
@@ -218,6 +219,7 @@ describe('ARCH-109 — a composition a child cannot rebuild keeps its subagents 
       ],
       reproduction: { callerSuppliedDefinitions: false, replayProvider: false },
       notice: () => {},
+      persistTranscripts: true,
     });
     expect(runner).not.toBe(createInProcessSubagentRunner);
   });
@@ -242,6 +244,7 @@ describe('ARCH-109 — a composition a child cannot rebuild keeps its subagents 
       ],
       reproduction: { callerSuppliedDefinitions: false, replayProvider: false },
       notice: () => {},
+      persistTranscripts: true,
     });
     expect(runner).toBe(createInProcessSubagentRunner);
   });

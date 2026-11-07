@@ -4,7 +4,11 @@ import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
-import { createAgentRuntime, createNodeHostSessionStore } from '../src/index.js';
+import { createAgentRuntime } from '../src/index.js';
+import { createNodeHostSessionStore } from '../src/node.js';
+import { createTestFrameworkHost } from '../src/testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const RESUME_SESSION_ID = 'fork-record-persistence-example';
 const PROMPT = 'Continue the copied fork record.';
@@ -16,7 +20,7 @@ function assertCondition(condition: boolean, message: string): void {
 
 async function main(): Promise<void> {
   const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-fork-record-')));
-  const sessionStore = createNodeHostSessionStore(join(cwd, 'sessions'));
+  const sessionStore = createNodeHostSessionStore(join(cwd, 'sessions'), { sealing: 'plain' });
   sessionStore.save({
     id: RESUME_SESSION_ID,
     name: 'parent (fork)',
@@ -38,6 +42,7 @@ async function main(): Promise<void> {
   try {
     const scripted = createScriptedProvider([{ text: RESPONSE }]);
     const runtime = createAgentRuntime({
+      host: testHost,
       cwd,
       provider: scripted.provider,
       sessionStore,

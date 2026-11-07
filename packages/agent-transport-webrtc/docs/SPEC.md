@@ -36,7 +36,7 @@ dependency.
   Without a secret the constructor throws unless the caller explicitly opts in with a written reason. Running
   ungated is a decision someone has to make and write down; it used to be what happened when nobody said anything,
   which this construction-time check removes. A secret together with the ungated opt-in is contradictory and also
-  throws. The written-reason requirement is centralized in `@robota-sdk/agent-transport/node` so sibling transports
+  throws. The written-reason requirement is centralized in `@robota-sdk/agent-transport` so sibling transports
   cannot drift apart on what counts as an answer.
 
 - **Owns the local-peer channel GATE, not the local-peer policy.** When local-peer admission is configured, an

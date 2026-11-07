@@ -11,18 +11,34 @@
  * legitimately fail before initialisation and is handled; the STORE outcome may not be swallowed.
  */
 
+import { loadSessionForUpdate } from '@robota-sdk/agent-session';
+
+import { lockedReasonOf, sealedSessionState } from './locked-session-wording.js';
+import { provenanceOfOutcome } from './session-authorship-gate.js';
+
+import type { TLockedSessionReason } from './locked-session-wording.js';
 import type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
 } from '@robota-sdk/agent-interface-session';
 
-/** Thrown when a session exists on disk in a form this build cannot read, so a rename cannot land. */
+/** Thrown when a session exists on disk in a form this process cannot read, so a rename cannot land. */
 export class SessionRenameUnavailableError extends Error {
   readonly sessionId: string;
-  readonly outcome: 'corrupt' | 'unsupported';
+  readonly outcome: 'corrupt' | 'unsupported' | 'locked';
 
-  constructor(sessionId: string, outcome: 'corrupt' | 'unsupported') {
-    super(`session ${sessionId} could not be renamed on disk: the stored record is ${outcome}`);
+  /** `reason`: why a `locked` record does not open here; only locked keys are worded with an unlock. */
+  constructor(
+    sessionId: string,
+    outcome: 'corrupt' | 'unsupported' | 'locked',
+    reason: TLockedSessionReason = 'locked',
+  ) {
+    super(
+      outcome === 'locked'
+        ? `session ${sessionId} could not be renamed on disk: the stored record is ` +
+            `${sealedSessionState(reason)}${reason === 'locked' ? '; unlock to rename it' : ''}`
+        : `session ${sessionId} could not be renamed on disk: the stored record is ${outcome}`,
+    );
     this.name = 'SessionRenameUnavailableError';
     this.sessionId = sessionId;
     this.outcome = outcome;
@@ -33,23 +49,32 @@ export class SessionRenameUnavailableError extends Error {
  * Persist a new name onto the stored record.
  *
  * `missing` is not an error: a session with nothing saved yet is renamed in memory and written by
- * the next persist. `corrupt` and `unsupported` are — the record is there, this build cannot read
- * it, and reporting nothing is what made a rename appear to succeed while changing nothing on disk.
+ * the next persist. `corrupt`, `unsupported` and `locked` are — the record is there, this build or
+ * this process cannot read it, and reporting nothing is what made a rename appear to succeed while
+ * changing nothing on disk. It reads the way every writer does, so a session this process holds is
+ * still renamed after the keys lock.
  */
 export function persistSessionRename(
   sessionStore: IInteractiveSessionStore,
   sessionId: string,
   name: string,
 ): void {
-  const outcome = sessionStore.load(sessionId);
+  const outcome = loadSessionForUpdate(sessionStore, sessionId);
   if (outcome.status === 'missing') return;
   if (outcome.status !== 'valid') {
-    throw new SessionRenameUnavailableError(sessionId, outcome.status);
+    throw new SessionRenameUnavailableError(
+      sessionId,
+      outcome.status,
+      outcome.status === 'locked' ? lockedReasonOf(outcome) : undefined,
+    );
   }
   const record: IInteractiveSessionRecord = {
     ...outcome.record,
     name,
     updatedAt: new Date().toISOString(),
   };
-  sessionStore.save(record);
+  // Whose the record is follows what was read: a rename never makes a record the owner's.
+  const provenance = provenanceOfOutcome(outcome);
+  if (provenance === undefined) sessionStore.save(record);
+  else sessionStore.save(record, { provenance });
 }

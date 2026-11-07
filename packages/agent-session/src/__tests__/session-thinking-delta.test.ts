@@ -11,6 +11,7 @@ afterEach(async () => {
 function fixture(turns: TScriptedTurn[], options: Partial<ISessionOptions> = {}) {
   const scripted = createScriptedProvider(turns);
   const session = new Session({
+    hookTypeExecutors: [],
     cwd: '/tmp',
     systemMessage: 'Fixture',
     model: 'test-model',

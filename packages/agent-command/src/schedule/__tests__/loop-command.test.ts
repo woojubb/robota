@@ -31,6 +31,21 @@ describe('fixed in-session loop', () => {
     );
   });
 
+  it('names each fixed loop `loop_` and a random version-4 UUID, never reusing one', async () => {
+    const spawnScheduledWake = vi.fn().mockResolvedValue({ id: 'timer' });
+    const host = createTestAgentJobHost({ spawnScheduledWake });
+
+    await executeLoopCommand(host, vi.fn(), 'check the build every 5 minutes');
+    await executeLoopCommand(host, vi.fn(), 'check the build every 5 minutes');
+
+    const ids = spawnScheduledWake.mock.calls.map(([request]) => request.sessionLoopId as string);
+    expect(ids).toHaveLength(2);
+    for (const id of ids) {
+      expect(id).toMatch(/^loop_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+    }
+    expect(new Set(ids).size).toBe(2);
+  });
+
   it('routes bare and prompt-only forms to the durable self-paced controller', async () => {
     const createSelfPacedLoop = vi.fn().mockImplementation(async (instruction: string) => ({
       loopId: 'loop_self', instruction, phase: 'pending', expiresAt: '2030-01-01T00:00:00.000Z',

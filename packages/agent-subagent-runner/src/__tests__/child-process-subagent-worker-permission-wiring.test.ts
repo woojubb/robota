@@ -20,8 +20,11 @@ vi.mock('@robota-sdk/agent-framework', async (importOriginal) => {
 
 import { runSubagentWorkerMain } from '../child-process-subagent-worker.js';
 import { sealConnectionEnvironment } from '@robota-sdk/agent-executor';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { ISubagentWorkerComposition } from '../worker-composition.js';
+
+const testHost = createTestFrameworkHost();
 
 // The runtime shape of `@robota-sdk/agent-session`'s `TPermissionHandler`, spelled locally: this
 // package's own SPEC forbids importing that package directly (session lifecycle is reached only
@@ -33,6 +36,7 @@ type TPermissionHandlerLike = (
 ) => Promise<unknown>;
 
 const COMPOSITION: ISubagentWorkerComposition = {
+  host: testHost,
   createTools: () => [],
   providerDefinitions: [
     {
@@ -106,7 +110,8 @@ describe('child-process-subagent-worker: the child session gets a permissionHand
   function realMessageHandler(): (message: unknown) => void {
     const listeners = process.listeners('message') as ((message: unknown) => void)[];
     const handler = listeners.at(-1);
-    if (handler === undefined) throw new Error('runSubagentWorkerMain registered no message listener');
+    if (handler === undefined)
+      throw new Error('runSubagentWorkerMain registered no message listener');
     return handler;
   }
 

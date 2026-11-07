@@ -38,6 +38,7 @@ import {
   isTrustChoice,
   parseDaemonStartOutput,
   parseRecentFolders,
+  parseTrustCandidate,
   parseTrustStatusOutput,
   parseTrustedProviderEnvironmentReferences,
   rememberRecentFolder,
@@ -57,6 +58,19 @@ import {
   loadDesktopProductConfigSelection,
   resolveDesktopIdentity,
 } from './product-config.js';
+import { refusedRemoteDebuggingSwitch, REMOTE_DEBUGGING_REFUSED_EXIT_CODE } from './launch-guard.js';
+
+// Before any window, runtime or credential exists: Chromium opens a remote debugging endpoint only after this script
+// has run, and `app.exit` before the app is ready ends the process on the spot.
+const refusedSwitch = refusedRemoteDebuggingSwitch({
+  isPackaged: app.isPackaged,
+  argv: process.argv,
+  hasSwitch: (name) => app.commandLine.hasSwitch(name),
+});
+if (refusedSwitch !== undefined) {
+  console.error(`[agent-app] refusing to start: --${refusedSwitch} would let another program drive this app.`);
+  app.exit(REMOTE_DEBUGGING_REFUSED_EXIT_CODE);
+}
 
 const productIdentityFile = desktopIdentityPath(__dirname);
 const ambientEnvironment = Object.freeze({ ...process.env });
@@ -216,11 +230,22 @@ async function readTrustQuestion(): Promise<ITrustQuestion | undefined> {
     run.spawned && run.exitCode === 0
       ? (parseTrustedProviderEnvironmentReferences(run.stdout) ?? [])
       : [];
+  pendingTrustCandidate = run.spawned && run.exitCode === 0
+    ? parseTrustCandidate(run.stdout) : undefined;
   return run.spawned && run.exitCode === 0 ? parseTrustStatusOutput(run.stdout) : undefined;
 }
 
 /** Asked and not answered yet: no daemon starts until the person answers (issue #3268). */
 let pendingTrust: ITrustQuestion | undefined;
+let pendingTrustCandidate: string | undefined;
+
+async function releasePendingTrustCandidate(): Promise<void> {
+  const candidate = pendingTrustCandidate;
+  pendingTrustCandidate = undefined;
+  if (candidate !== undefined) {
+    await runCli(productCli(), ['trust', 'release', '--candidate', candidate], cliEnv());
+  }
+}
 
 /**
  * #3354: everything that depends on the open folder — the first start, a folder switch, a reconnect and
@@ -450,6 +475,7 @@ async function openFolder(folder: string): Promise<void> {
       await (win ? dialog.showMessageBox(win, message) : dialog.showMessageBox(message));
       return false;
     }
+    await releasePendingTrustCandidate();
     pendingTrust = undefined;
     restricted = false;
     admittedProviderEnvironmentReferences = [];
@@ -608,6 +634,7 @@ ipcMain.handle(
     const asked = pendingTrust;
     if (asked === undefined || !isTrustChoice(choice)) return {};
     if (choice === 'quit') {
+      await releasePendingTrustCandidate();
       app.quit();
       return {};
     }
@@ -615,17 +642,23 @@ ipcMain.handle(
       // A folder switch, or an earlier answer, since then has replaced that question: this one is stale.
       if (pendingTrust !== asked) return {};
       if (choice === 'trust') {
-        const granted = await runCli(productCli(), ['trust', '--yes'], cliEnv());
-        if (!granted.spawned) return { error: granted.detail };
-        if (granted.exitCode !== 0) {
+        const candidate = pendingTrustCandidate;
+        if (candidate === undefined || workspaceFolder === undefined) {
+          return { error: 'The prepared workspace approval is unavailable.' };
+        }
+        try {
+          const { approveDesktopTrustCandidate } = await import('@robota-sdk/agent-cli/desktop-host');
+          if (!await approveDesktopTrustCandidate(productConfig, cliEnv(), asked, candidate)) {
+            return { error: 'Workspace trust could not be confirmed.' };
+          }
+        } catch (error) {
           return {
-            error:
-              granted.stderr.trim() ||
-              granted.stdout.trim() ||
-              `${productConfig.identity.cliName} trust --yes failed (exit ${granted.exitCode ?? 'signal'}).`,
+            error: error instanceof Error ? error.message : 'Workspace trust could not be confirmed.',
           };
         }
+        pendingTrustCandidate = undefined;
       } else {
+        await releasePendingTrustCandidate();
         restricted = true;
         admittedProviderEnvironmentReferences = [];
       }

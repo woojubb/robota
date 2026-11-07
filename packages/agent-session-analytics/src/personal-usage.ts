@@ -25,6 +25,8 @@ export interface IPersonalUsageSnapshot {
   readonly records: readonly IInteractiveSessionRecord[];
   readonly corruptSessionIds?: readonly string[];
   readonly unsupportedSessionIds?: readonly string[];
+  /** Saved sessions that are sealed and could not be opened, so are not in `records`. */
+  readonly lockedSessionCount?: number;
 }
 
 interface IMutableTotals {
@@ -327,6 +329,9 @@ export function summarizePersonalUsage(input: IPersonalUsageSnapshot): IPersonal
       validSessions: input.records.length,
       corruptSessions: input.corruptSessionIds?.length ?? 0,
       unsupportedSessions: input.unsupportedSessionIds?.length ?? 0,
+      ...(input.lockedSessionCount !== undefined && input.lockedSessionCount > 0
+        ? { lockedSessions: input.lockedSessionCount }
+        : {}),
       duplicateObservations: selection.duplicateObservations,
       legacyObservations: selection.legacyObservations,
       unknownModelObservations: selected.filter(

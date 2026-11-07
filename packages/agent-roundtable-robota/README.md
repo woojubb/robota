@@ -1,5 +1,8 @@
 # @robota-sdk/agent-roundtable-robota
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Runs an agent `Session` or a plain `ConversationAgent` as an `@robota-sdk/agent-roundtable` participant,
 and an agent as its selector. `agent-roundtable` stays free of both runtimes; this is the only
 package that imports `@robota-sdk/agent-core` and `@robota-sdk/agent-session` to bridge them in.
@@ -24,7 +27,7 @@ declared fails even though this package's install brought a copy of it in transi
 `@robota-sdk/agent-core` is a peer dependency, and `@robota-sdk/agent-session` an optional one needed
 only by the `/session` subpath. This package runs the `ConversationAgent`/`Session` instances the host
 constructs with them, so the host's copies and this package's must be the same install. See "Version
-and compatibility" below for what version range that peer dependency actually pins to.
+and compatibility" below for the versions it supports.
 
 ## Supported environments
 
@@ -120,17 +123,27 @@ metering every provider call it makes, and mapping its one supported wait shape 
 approval, `robota-session/approval`) onto the roundtable's own wait/resume protocol.
 
 It is imported from the `/session` subpath, not the package root: `sessionParticipant` pulls in
-`@robota-sdk/agent-session` — and, through it, `@robota-sdk/agent-file-authority`'s native binary — a
-cost a consumer of `runtimeParticipant`/`runtimeSelector` alone should never pay:
+`@robota-sdk/agent-session`, a cost a consumer of `runtimeParticipant`/`runtimeSelector` alone should
+never pay. A Node host also passes the session's host ports, as below:
 
 ```typescript
+import { realpathSync } from 'node:fs';
+import { homedir } from 'node:os';
+
 import { sessionParticipant } from '@robota-sdk/agent-roundtable-robota/session';
+import { createNodeWorkspacePathResolver } from '@robota-sdk/agent-session/node';
+import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 const reviewer = sessionParticipant({
   id: 'reviewer',
   runtime: { id: 'product/reviewer', version: '1' },
   createSessionOptions: async () => ({
     cwd: process.cwd(),
+    // Required: the hook handlers this host can run (`[]` runs none); the Session has no default.
+    hookTypeExecutors: [new CommandExecutor(), new HttpExecutor()],
+    homeDirectory: homedir(),
+    resolveInWorkspace: createNodeWorkspacePathResolver(process.cwd()),
+    canonicalizePath: (path) => realpathSync(path),
     provider /* an IAIProvider the host constructs */,
     tools /* the host's own tools */,
     systemMessage: 'Review the proposal and either approve or ask a question.',
@@ -229,13 +242,11 @@ limits should disable that provider SDK's automatic retries.
 
 ## Version and compatibility
 
-This package's own API follows the release's semantic version, same as `@robota-sdk/agent-roundtable`,
-`@robota-sdk/agent-core` and `@robota-sdk/agent-session` in the same release (they are versioned in
-lockstep). Its `peerDependencies` on the latter two are `workspace:*` in source; publishing pins them
-to the **exact** version they release with, not a range — so the host must have `@robota-sdk/agent-core`
-installed at that exact version (npm 7+ refuses to install a different version; pnpm and Yarn
-warn by default, but a mismatch is still unsupported); `@robota-sdk/agent-session` is required at that same exact version only when the host uses
-the `/session` subpath, since that peer is optional.
+This package is versioned in lockstep with `@robota-sdk/agent-roundtable`, `@robota-sdk/agent-core`
+and `@robota-sdk/agent-session`, and is supported with those packages from the same release. Its
+`peerDependencies` on the latter two are `workspace:^` in source and publish as `^<release version>`,
+so a package manager also accepts a later release of the same major line; `@robota-sdk/agent-session`
+is needed only when the host uses the `/session` subpath, since that peer is optional.
 
 That API version is separate from **checkpoint format compatibility**, which this package owns
 independently of any of those three:

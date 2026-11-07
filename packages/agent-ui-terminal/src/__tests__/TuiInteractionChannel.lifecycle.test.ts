@@ -54,6 +54,7 @@ vi.mock('@robota-sdk/agent-framework', async () => {
         }),
         getExecutionWorkspaceSnapshot: vi.fn().mockReturnValue({ entries: [] }),
         shutdown: vi.fn().mockResolvedValue(undefined),
+        releaseSessionClaim: vi.fn(),
         sendAgentJob: vi.fn().mockResolvedValue(undefined),
         readExecutionWorkspaceDetail: vi.fn().mockResolvedValue({}),
       };
@@ -71,6 +72,7 @@ vi.mock('@robota-sdk/agent-framework', async () => {
 
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 import { TUI_SESSION_EVENT_CLASSIFICATION } from '../tui-session-events.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
@@ -79,6 +81,8 @@ import type {
   IInteractiveSession,
   TInteractiveEventName,
 } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -89,6 +93,7 @@ type MockSession = {
   on: ReturnType<typeof vi.fn>;
   off: ReturnType<typeof vi.fn>;
   shutdown: ReturnType<typeof vi.fn>;
+  releaseSessionClaim: ReturnType<typeof vi.fn>;
   resolvePermission: ReturnType<typeof vi.fn>;
   resolveAsk: ReturnType<typeof vi.fn>;
   emit: (event: string, ...args: unknown[]) => void;
@@ -140,6 +145,7 @@ function makeChannel(opts?: {
   onSessionEventDeliveryError?: (error: Error, event: TInteractiveEventName) => void;
 }): TuiInteractionChannel {
   return new TuiInteractionChannel({
+    host: testHost,
     cwd: SESSION_CWD,
     provider: {} as IAIProvider,
     ...opts,
@@ -524,6 +530,21 @@ describe('Group D — teardown hygiene (CLI-075)', () => {
     await vi.advanceTimersByTimeAsync(5_000);
     await done;
     expect(resolved).toBe(true);
+  });
+
+  it('D8: a shutdown that outlasts its bound still lets the session’s record claim go', async () => {
+    const channel = makeChannel();
+    await channel.start();
+    const session = getMockSession(channel);
+    session.shutdown.mockReturnValue(new Promise<void>(() => undefined)); // never resolves
+
+    const done = channel.shutdown({ timeoutMs: 5_000 });
+    await Promise.resolve();
+    expect(session.releaseSessionClaim).not.toHaveBeenCalled();
+
+    await vi.advanceTimersByTimeAsync(5_000);
+    await done;
+    expect(session.releaseSessionClaim).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -92,7 +92,8 @@ export function createWorkspaceMoveAdapter(deps: IWorkspaceMoveAdapterDeps): ICo
         projectAccess,
       });
       const record = withUniqueSessionName(request.record, target.sessionStore);
-      target.sessionStore.save(record);
+      // The copy is the moving session's own state, which its claim's gate let in: the owner's.
+      target.sessionStore.save(record, { provenance: 'owner' });
       const args = buildWorkspaceMoveArgv(deps.argv, {
         resumeId: record.id,
         movedFrom: request.fromCwd,
@@ -102,6 +103,8 @@ export function createWorkspaceMoveAdapter(deps: IWorkspaceMoveAdapterDeps): ICo
       onProcessExit(() => {
         // Synchronous: an `exit` listener may do nothing else. This process waits for the target
         // run and ends with its status, so a shell or supervisor sees one the product session.
+        // The terminal handover's exemption from children in their own session: the target run is
+        // this product, given the terminal the interface has just left.
         const result = runSync(entry.execPath, [...(entry.execArgv ?? []), ...entry.args, ...args], {
           cwd: request.targetCwd,
           stdio: 'inherit',

@@ -167,7 +167,12 @@ describe('TC-06: resume says why a session came back empty', () => {
         'utf-8',
       );
 
-      const restored = loadSessionRecord(store, SESSION_ID, null);
+      const restored = loadSessionRecord(
+        store,
+        SESSION_ID,
+        null,
+        store.load(SESSION_ID, { hold: true }),
+      );
       expect(restored.history).toEqual([]);
       // The empty shape used to be the whole answer. The outcome is what separates "nothing was
       // saved" from "something is here that this build cannot read".
@@ -178,7 +183,12 @@ describe('TC-06: resume says why a session came back empty', () => {
   it('reports missing for a session that genuinely was never saved', async () => {
     const { root } = await projectFixture();
     const store = await createTrustedProjectSessionStoreFixture(root);
-    const restored = loadSessionRecord(store, 'never-saved', null);
+    const restored = loadSessionRecord(
+      store,
+      'never-saved',
+      null,
+      store.load('never-saved', { hold: true }),
+    );
     expect(restored.loadOutcome.status).toBe('missing');
   });
 
@@ -187,7 +197,12 @@ describe('TC-06: resume says why a session came back empty', () => {
     const { root } = await projectFixture();
     const store = await createTrustedProjectSessionStoreFixture(root);
     store.save(record());
-    const restored = loadSessionRecord(store, SESSION_ID, null);
+    const restored = loadSessionRecord(
+      store,
+      SESSION_ID,
+      null,
+      store.load(SESSION_ID, { hold: true }),
+    );
     expect(restored.loadOutcome.status).toBe('valid');
     expect(restored.pendingRestoreMessages?.[0]?.content).toBe('hello');
   });
@@ -303,6 +318,7 @@ describe.runIf(process.platform === 'linux')(
       if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
       new WorkspaceSessionLogSink(
         getWorkspaceProjectStateStorage(access.authority, 'session-logs'),
+        { sealing: 'plain' },
       ).append('log-only', `${lines.join('\n')}\n`);
       return root;
     }

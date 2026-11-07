@@ -22,9 +22,10 @@ import {
   readHandoffIdentity,
   type IHandoffSourceSession,
 } from '../handoff/handoff-host-adapter.js';
-import { createHandoffReceiver } from '../handoff/handoff-receiving.js';
+import { createHandoffReceiver, saveReceivedSession } from '../handoff/handoff-receiving.js';
 import { prepareOutgoingFile } from '../peer-files/outgoing-file.js';
 import { userLocalStorageRoot } from '../product/user-paths.js';
+import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 
 import { announceLocalPeerPresence } from '../remote-control/local-peer-presence.js';
 import { bindLocalPeerStatus } from '../remote-control/local-peer-status.js';
@@ -298,16 +299,18 @@ function startMessaging(
   mesh: TMeshPeers | undefined,
   productRuntime: ICliRuntimeContext,
 ): Promise<IPeerMessaging | undefined> {
-  return start({
-    ...(files !== undefined ? { files } : {}),
-    ...(onHandoff !== undefined ? { onHandoff } : {}),
-    guardedDirectory: presence.guardedDirectory,
-    sessionId: presence.sessionId,
-    list: () => presence.list(),
-    relate: async (sessionId) => (await presence.relate(sessionId))?.relation,
-    report: (message) => report.writeError(message),
-    ingress: sessionPeerIngress(getSession),
-  }).then(
+  return startListener(SECURE_SURFACES['local-peers'], productRuntime, () =>
+    start({
+      ...(files !== undefined ? { files } : {}),
+      ...(onHandoff !== undefined ? { onHandoff } : {}),
+      guardedDirectory: presence.guardedDirectory,
+      sessionId: presence.sessionId,
+      list: () => presence.list(),
+      relate: async (sessionId) => (await presence.relate(sessionId))?.relation,
+      report: (message) => report.writeError(message),
+      ingress: sessionPeerIngress(getSession),
+    }),
+  ).then(
     (messaging) => {
       Object.assign(adapter, peerRoutes(messaging, mesh, productRuntime));
       return messaging;
@@ -483,11 +486,12 @@ function attachHandoff(
     resolveCredential: wiring.hasOwnProvider,
     // Saved into this session's project, where the operator resumes it; the source's path means
     // nothing here. Nothing starts it.
-    persist: (record) => {
-      const cwd = handoffSession(live().session)?.getCwd() ?? record.cwd;
-      wiring.sessionStore.save({ ...record, cwd });
-      return true;
-    },
+    persist: (record) =>
+      saveReceivedSession(
+        wiring.sessionStore,
+        record,
+        handoffSession(live().session)?.getCwd() ?? record.cwd,
+      ),
     deviceLabel: 'this session',
   });
   // A linked device's hand-off reaches the same receiver, asked on the link's own authority.

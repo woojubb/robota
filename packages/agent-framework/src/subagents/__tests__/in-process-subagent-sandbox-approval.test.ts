@@ -14,9 +14,12 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createInProcessSubagentRunner } from '../in-process-subagent-runner.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IInProcessSubagentRunnerDeps } from '../in-process-subagent-runner.js';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
+
+const testHost = createTestFrameworkHost();
 
 const approvingSandbox: ISandboxClient = {
   filesystem: 'shared',
@@ -52,6 +55,7 @@ async function runSubagentBash(sandboxClient?: ISandboxClient): Promise<string[]
     },
   );
   const deps = {
+    host: testHost,
     config: {
       defaultTrustLevel: 'moderate',
       provider: { name: 'scripted', model: 'scripted-model' },

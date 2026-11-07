@@ -16,3 +16,7 @@ export { readSessionCapability } from './session-capability-host.js';
 // `contracts→agent-interface-*, doubles→owner /testing` — and this package owns the contract it
 // doubles. Its previous home is also what held that package at layer 2.
 export { createTestInteractiveSession } from './interactive-session-double.js';
+
+// #3679: every store offers `claim`; a double whose test is not about claims answers it by its own
+// hold read.
+export { withHoldReadClaim } from './session-store-double.js';

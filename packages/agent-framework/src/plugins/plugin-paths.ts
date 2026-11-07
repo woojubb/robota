@@ -1,4 +1,4 @@
-import { isAbsolute, resolve, sep } from 'node:path';
+import { isAbsolutePath, isRootedPath, resolvePath, separatorOf } from '@robota-sdk/agent-core';
 
 import type { IFileSystem } from '@robota-sdk/agent-core';
 
@@ -88,13 +88,23 @@ export function assertSafePluginSegment(value: unknown, field: string): asserts 
  * create-then-check window open, and checking after the write is checking after the damage.
  */
 function canonicalize(path: string, fs: IFileSystem): string {
-  let current = resolve(path);
+  // A relative path would be anchored to the process directory, which is not read here, and its
+  // parent walk would never reach a root.
+  if (!isAbsolutePath(path)) {
+    throw new PluginPathContainmentError(
+      `Refusing to check a plugin path that is not absolute: ${JSON.stringify(path)}.`,
+    );
+  }
+  let current = resolvePath(path, '.');
   const trailing: string[] = [];
-  // Bounded by the component count; `resolve` guarantees we reach the root.
+  // Bounded by the component count; resolving `..` guarantees we reach the root.
   for (;;) {
-    if (fs.existsSync(current)) return resolve(fs.realpathSync(current), ...trailing.reverse());
-    const parent = resolve(current, '..');
-    if (parent === current) return resolve(path);
+    if (fs.existsSync(current)) {
+      const real = resolvePath(fs.realpathSync(current), '.');
+      return trailing.reverse().reduce((base, segment) => resolvePath(base, segment), real);
+    }
+    const parent = resolvePath(current, '..');
+    if (parent === current) return resolvePath(path, '.');
     trailing.push(current.slice(parent.length + 1));
     current = parent;
   }
@@ -118,10 +128,11 @@ export function assertContainedPath(
 ): void {
   const canonicalRoot = canonicalize(root, fs);
   const canonicalCandidate = canonicalize(candidate, fs);
+  const separator = separatorOf(canonicalRoot);
   const contained =
     canonicalCandidate === canonicalRoot ||
     canonicalCandidate.startsWith(
-      canonicalRoot.endsWith(sep) ? canonicalRoot : canonicalRoot + sep,
+      canonicalRoot.endsWith(separator) ? canonicalRoot : canonicalRoot + separator,
     );
   if (!contained) {
     throw new PluginPathContainmentError(
@@ -143,13 +154,13 @@ export function resolveContainedRelative(
   what: string,
   fs: IFileSystem,
 ): string {
-  if (isAbsolute(relative)) {
+  if (isRootedPath(relative)) {
     throw new PluginPathContainmentError(
       `Refusing to ${what} from an absolute path: ${JSON.stringify(relative)}. This field takes a ` +
         'path relative to the plugin root.',
     );
   }
-  const candidate = resolve(root, relative);
+  const candidate = resolvePath(root, relative);
   assertContainedPath(root, candidate, what, fs);
   return candidate;
 }

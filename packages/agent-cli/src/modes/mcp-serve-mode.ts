@@ -11,6 +11,7 @@ import {
 } from '@robota-sdk/agent-transport-mcp';
 
 import { shutdownSession } from './session-shutdown.js';
+import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 import type { TAccessTokenAlgorithm } from '@robota-sdk/agent-interface-transport';
@@ -46,6 +47,7 @@ interface IHttpCarrier<T> {
 
 /** One cleanup path for either HTTP carrier: signal, close or failure all stop, release, shut down. */
 async function serveHttpCarrier<T>(
+  productRuntime: ICliRuntimeContext,
   session: ReturnType<typeof buildRuntimeSession>,
   host: IHttpCarrier<T>,
   announce: (endpoint: T) => Promise<void>,
@@ -59,7 +61,10 @@ async function serveHttpCarrier<T>(
   process.once('SIGINT', signal);
   process.once('SIGTERM', signal);
   try {
-    const endpoint = await Promise.race([host.start(), stopped.then(() => undefined)]);
+    const endpoint = await Promise.race([
+      startListener(SECURE_SURFACES['mcp-http'], productRuntime, () => host.start()),
+      stopped.then(() => undefined),
+    ]);
     if (!endpoint) return;
     await announce(endpoint);
     await Promise.race([host.waitForClose(), stopped]);
@@ -130,6 +135,7 @@ export async function runMcpServeMode(
       throw error;
     }
     return serveHttpCarrier(
+      productRuntime,
       session,
       host,
       async (endpoint) => {
@@ -159,6 +165,7 @@ export async function runMcpServeMode(
     });
     let createdFile: { dev: number; ino: number } | undefined;
     await serveHttpCarrier(
+      productRuntime,
       session,
       host,
       async (endpoint) => {

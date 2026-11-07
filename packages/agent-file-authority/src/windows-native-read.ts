@@ -15,21 +15,29 @@ interface IWindowsFileSnapshot extends IWindowsIdentity {
 }
 
 const FILE_ID_INFO_CLASS = 18;
+const FILE_ID_BYTES = 16;
 const CHUNK_BYTES = 1_048_576;
 const ZERO_SIZE = BigInt('0');
 
 function bytesToHex(value: Uint8Array | number[] | undefined): string {
-  if (value instanceof Uint8Array) return Buffer.from(value).toString('hex');
-  if (Array.isArray(value)) return Buffer.from(value).toString('hex');
-  throw authorityError('UNSUPPORTED_BACKEND', 'decode-file-identity');
+  const bytes = value instanceof Uint8Array || Array.isArray(value) ? value : undefined;
+  if (
+    bytes?.length !== FILE_ID_BYTES ||
+    !Array.from(bytes).every((byte) => Number.isInteger(byte) && byte >= 0 && byte <= 255) ||
+    Array.from(bytes).every((byte) => byte === 0) ||
+    Array.from(bytes).every((byte) => byte === 255)
+  ) {
+    throw authorityError('UNSUPPORTED_BACKEND', 'decode-file-identity');
+  }
+  return Buffer.from(bytes).toString('hex');
 }
 
-export function windowsLastErrorCode(api: IWindowsApi): string {
+export function windowsLastErrorCode(api: Pick<IWindowsApi, 'getLastError'>): string {
   return `WIN32_${api.getLastError()}`;
 }
 
 export function queryWindowsIdentity(
-  api: IWindowsApi,
+  api: Pick<IWindowsApi, 'fileIdInfoType' | 'getFileIdInfo' | 'getLastError'>,
   handle: TNativeHandle,
   operation: string,
 ): IWindowsIdentity {
@@ -39,10 +47,15 @@ export function queryWindowsIdentity(
       hostCode: windowsLastErrorCode(api),
     });
   }
-  return {
-    volume: BigInt(info.VolumeSerialNumber ?? ZERO_SIZE),
-    fileId: bytesToHex(info.FileId),
-  };
+  const serial = info.VolumeSerialNumber;
+  if (
+    (typeof serial !== 'bigint' && typeof serial !== 'number') ||
+    (typeof serial === 'number' && (!Number.isSafeInteger(serial) || serial < 0)) ||
+    (typeof serial === 'bigint' && serial < ZERO_SIZE)
+  ) {
+    throw authorityError('UNSUPPORTED_BACKEND', 'decode-file-identity');
+  }
+  return { volume: BigInt(serial), fileId: bytesToHex(info.FileId) };
 }
 
 export function readWindowsFile(

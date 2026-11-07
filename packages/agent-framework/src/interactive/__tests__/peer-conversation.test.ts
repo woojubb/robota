@@ -7,12 +7,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { loadConfig } from '../../config/config-loader.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IResolvedConfig } from '../../config/config-types.js';
 
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
 import type { ISubmitOptions, TPermissionResultValue } from '@robota-sdk/agent-interface-session';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * A message from another session is instant messaging: text from an untrusted third party that
@@ -76,6 +79,7 @@ function harness(
     file: { path: resolve(workspace, path), size: 42, sha256: 'c'.repeat(64), send: sendFile },
   }));
   const session = new InteractiveSession({
+    host: testHost,
     cwd: options.cwd ?? workspace,
     provider: scripted.provider,
     bare: true,

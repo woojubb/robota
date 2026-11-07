@@ -20,7 +20,6 @@
  */
 
 import { closeObjectSchemas } from './close-object-schemas';
-import { sha256Hex } from './sha256';
 
 import type {
   IObjectParameterSchema,
@@ -36,7 +35,7 @@ export const TOOL_SCHEMA_PROJECTION_MAX_DEPTH = 32;
 export const TOOL_SCHEMA_PROJECTION_MAX_NODES = 2000;
 
 /**
- * Every member `IParameterSchema` declares (CORE-039, `../interfaces/tool-schema.ts:48-63`), derived
+ * Every member `IParameterSchema` declares (CORE-039, `../interfaces/tool-schema.ts`), derived
  * ONCE at the type level rather than hand-typed a second time. `Required<IParameterSchema>` forces
  * this record literal to gain or lose a property whenever the interface does — a missing or
  * extraneous key here is a compile error, not a silent drift.
@@ -53,6 +52,12 @@ const PARAMETER_SCHEMA_KEYWORD_RECORD: TParameterSchemaKeywordRecord = {
   additionalProperties: true,
   minimum: true,
   maximum: true,
+  minLength: true,
+  maxLength: true,
+  minItems: true,
+  maxItems: true,
+  minProperties: true,
+  maxProperties: true,
   pattern: true,
   format: true,
   default: true,
@@ -93,6 +98,16 @@ function anyValueNode(): IParameterSchema {
   };
 }
 
+/**
+ * The `items` handed to a vendor that refuses a bare array, so the node states the least it can. It
+ * cannot offer an array branch, which would need `items` of its own, or an object branch, which
+ * strict closure would reduce to the empty object. Local validation keeps the unprojected schema, so
+ * this limits what the model is shown, never what a call may carry.
+ */
+function anyScalarNode(): IParameterSchema {
+  return { anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] };
+}
+
 /** How one provider's wire format constrains the universal subset it is handed. */
 export interface IToolSchemaProjectionProfile {
   /** Named in the `Schema note` and the quarantine line. */
@@ -107,6 +122,10 @@ export interface IToolSchemaProjectionProfile {
   readonly unknownKeywords: 'adopt' | 'strip' | 'reject';
   /** Subset members this provider's wire type cannot carry — stripped AND recorded (Gemini: `additionalProperties`). */
   readonly unsupportedMembers: readonly (keyof IParameterSchema)[];
+  /** The vendor refuses an array node without `items`, though the subset and JSON Schema allow one. */
+  readonly arraysDeclareItems: boolean;
+  /** The vendor refuses an object node without `properties`, likewise. */
+  readonly objectsDeclareProperties: boolean;
   /** Nesting depth over which a schema is rejected (unbounded complexity). */
   readonly maxDepth: number;
   /** Node count over which a schema is rejected. */
@@ -120,9 +139,9 @@ export interface IToolSchemaProjectionProfile {
 export type TToolSchemaProjectionProfileBase = Omit<IToolSchemaProjectionProfile, 'providerName'>;
 
 /**
- * Anthropic; OpenAI Chat Completions and Responses without `strictTools`; the openai-compatible
- * family (gemma, qwen incl. its Responses surface, deepseek). Standard JSON Schema passes through —
- * stripping it would be lossy for nothing.
+ * Anthropic and the openai-compatible family (gemma, qwen incl. its Responses surface, deepseek).
+ * Standard JSON Schema passes through — stripping it would be lossy for nothing. OpenAI without
+ * `strictTools` starts from this and declares the containers it refuses bare.
  */
 export const PERMISSIVE_TOOL_SCHEMA_PROFILE: TToolSchemaProjectionProfileBase = {
   closedObjects: false,
@@ -130,20 +149,26 @@ export const PERMISSIVE_TOOL_SCHEMA_PROFILE: TToolSchemaProjectionProfileBase = 
   optionalAsNullable: false,
   unknownKeywords: 'adopt',
   unsupportedMembers: [],
+  arraysDeclareItems: false,
+  objectsDeclareProperties: false,
   maxDepth: TOOL_SCHEMA_PROJECTION_MAX_DEPTH,
   maxNodes: TOOL_SCHEMA_PROJECTION_MAX_NODES,
 };
 
 /**
  * OpenAI Responses and Chat Completions with `strictTools: true`. Replaces the converter's own
- * `closeObjectSchemas` call — one closure, in one place.
+ * `closeObjectSchemas` call — one closure, in one place. Strict mode documents `minItems`/`maxItems`
+ * but not the string-length or property-count bounds, and answers `'default' is not permitted`, so
+ * those stay off its wire; the local walk still enforces them against the unprojected schema.
  */
 export const STRICT_TOOL_SCHEMA_PROFILE: TToolSchemaProjectionProfileBase = {
   closedObjects: true,
   requireAllProperties: true,
   optionalAsNullable: true,
   unknownKeywords: 'strip',
-  unsupportedMembers: [],
+  unsupportedMembers: ['minLength', 'maxLength', 'minProperties', 'maxProperties', 'default'],
+  arraysDeclareItems: true,
+  objectsDeclareProperties: true,
   maxDepth: TOOL_SCHEMA_PROJECTION_MAX_DEPTH,
   maxNodes: TOOL_SCHEMA_PROJECTION_MAX_NODES,
 };
@@ -158,8 +183,12 @@ export interface IToolSchemaProjectionChange {
     | 'nullable-added'
     | 'keyword-stripped'
     | 'keyword-replaced'
-    | 'member-stripped';
+    | 'member-stripped'
+    | 'items-declared'
+    | 'properties-declared';
   readonly keyword?: string;
+  /** Recorded, but no constraint went with it: `additionalProperties: true` states the absence of one. */
+  readonly losesNothing?: true;
 }
 
 export interface IToolSchemaProjection {
@@ -323,15 +352,28 @@ function findRejection(
     }
   }
 
+  if (isPlainRecord(node.additionalProperties)) {
+    const rejection = findRejection(
+      node.additionalProperties,
+      childPath(path, 'additionalProperties'),
+      depth + 1,
+      visited,
+      counter,
+      profile,
+    );
+    if (rejection) return rejection;
+  }
+
   visited.delete(node);
   return undefined;
 }
 
 /**
  * The adaptation walk: `unsupportedMembers`, then `unknownKeywords`, at every node; recurses into
- * every route a nested node can arrive by (`properties`, `items`, `anyOf`) so a missed route cannot
- * leave the exact thing this walk exists to fix untouched (the CORE-039 lesson). Closure is NOT done
- * here — it delegates to `closeObjectSchemas` once, afterwards, over the whole result.
+ * every route a nested node can arrive by (`properties`, `items`, `anyOf`, `additionalProperties`) so
+ * a missed route cannot leave the exact thing this walk exists to fix untouched (the CORE-039 lesson).
+ * Closure is NOT done here — it delegates to `closeObjectSchemas` once, afterwards, over the whole
+ * result.
  */
 function adaptNode(
   node: Record<string, unknown>,
@@ -344,9 +386,22 @@ function adaptNode(
   for (const member of profile.unsupportedMembers) {
     const key = member as string;
     if (key in current) {
+      const losesNothing = key === 'additionalProperties' && current[key] === true;
       delete current[key];
-      changes.push({ path, kind: 'member-stripped', keyword: key });
+      changes.push({
+        path,
+        kind: 'member-stripped',
+        keyword: key,
+        ...(losesNothing && { losesNothing }),
+      });
     }
+  }
+
+  // A closed wire has no way to state a map. Closure below makes the node the empty object, and this
+  // says what that cost, since the value schema is a constraint the model is no longer shown.
+  if (profile.closedObjects && isPlainRecord(current.additionalProperties)) {
+    delete current.additionalProperties;
+    changes.push({ path, kind: 'member-stripped', keyword: 'additionalProperties' });
   }
 
   if (profile.unknownKeywords === 'strip') {
@@ -369,7 +424,7 @@ function adaptNode(
           changes.push({ path, kind: 'member-stripped', keyword: key });
         }
       }
-      return replacement;
+      return adaptNode(replacement, path, profile, changes);
     }
     for (const key of foreign) changes.push({ path, kind: 'keyword-stripped', keyword: key });
   }
@@ -405,33 +460,29 @@ function adaptNode(
     );
   }
 
+  if (isPlainRecord(current.additionalProperties)) {
+    current.additionalProperties = adaptNode(
+      current.additionalProperties,
+      childPath(path, 'additionalProperties'),
+      profile,
+      changes,
+    );
+  }
+
+  if (profile.arraysDeclareItems && current.type === 'array' && current.items === undefined) {
+    current.items = anyScalarNode();
+    changes.push({ path, kind: 'items-declared' });
+  }
+  if (
+    profile.objectsDeclareProperties &&
+    current.type === 'object' &&
+    current.properties === undefined
+  ) {
+    current.properties = {};
+    changes.push({ path, kind: 'properties-declared' });
+  }
+
   return current;
-}
-
-/** Canonical, key-sorted JSON — the same schema hashes the same regardless of authored key order. */
-function canonicalize(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(canonicalize);
-  }
-  if (isPlainRecord(value)) {
-    const sorted: Record<string, unknown> = {};
-    for (const key of Object.keys(value).sort()) {
-      sorted[key] = canonicalize(value[key]);
-    }
-    return sorted;
-  }
-  return value;
-}
-
-/**
- * A stable hash of a tool's `parameters`, over canonical key-sorted JSON. Part of the `projectTools`
- * per-tool cache identity (`provider.name` + `model` + `tool.name` + this hash) — a re-registered
- * tool whose schema changed is judged and reported again, one whose schema did not is not re-reported
- * on every turn. The synchronous digest uses the same implementation in Node and browsers while
- * keeping agent-core free of runtime dependencies.
- */
-export function hashToolSchema(parameters: IParameterSchema): string {
-  return sha256Hex(JSON.stringify(canonicalize(parameters)));
 }
 
 /**
@@ -482,6 +533,7 @@ export function projectToolSchema(
       (change.kind === 'keyword-stripped' ||
         change.kind === 'keyword-replaced' ||
         change.kind === 'member-stripped') &&
+      change.losesNothing !== true &&
       !ANNOTATION_ONLY_KEYWORDS.has(change.keyword ?? ''),
   );
 

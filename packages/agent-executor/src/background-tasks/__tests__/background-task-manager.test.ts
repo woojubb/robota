@@ -588,6 +588,22 @@ describe('BackgroundTaskManager', () => {
     expect(manager.get(created.id)?.timeoutReason).toBe('output_limit');
   });
 
+  it('counts the output limit in UTF-8 bytes, not characters', async () => {
+    const controlled = createControllableRunner();
+    const manager = new BackgroundTaskManager({
+      runners: [controlled.runner],
+      agentOutputLimitBytes: 8,
+    });
+
+    const created = await manager.spawn(createAgentRequest('Write too much'));
+    // Three characters, nine bytes: under a character-count limit this would never trip.
+    controlled.started[0]?.emit?.({ type: 'background_task_text_delta', delta: '€€' });
+    controlled.started[0]?.emit?.({ type: 'background_task_text_delta', delta: '€' });
+
+    await expect(manager.wait(created.id)).rejects.toThrow('exceeded output limit');
+    expect(manager.get(created.id)?.timeoutReason).toBe('output_limit');
+  });
+
   it('fails a streaming agent that repeats the same delta', async () => {
     const controlled = createControllableRunner();
     const manager = new BackgroundTaskManager({

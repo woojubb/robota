@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { createNodeWorkspaceProjectFiles } from './node-project-files.js';
 import { WorkspaceTrustService } from './index.js';
 
 import type { IWorkspaceIdentity, IWorkspaceTrustStore } from './index.js';
@@ -25,6 +26,7 @@ class BrokenStore implements IWorkspaceTrustStore {
 describe('WorkspaceTrustService restricted-access cause (OBSERVABILITY-1991 TC-05)', () => {
   it('names the swallowed identity-resolver error on identity-unavailable', async () => {
     const service = new WorkspaceTrustService({
+      projectFiles: createNodeWorkspaceProjectFiles(),
       identityResolver: {
         resolve: () => {
           throw new TypeError('git rev-parse failed');
@@ -42,6 +44,7 @@ describe('WorkspaceTrustService restricted-access cause (OBSERVABILITY-1991 TC-0
 
   it('names the swallowed store error and keeps the display path on store-unavailable', async () => {
     const service = new WorkspaceTrustService({
+      projectFiles: createNodeWorkspaceProjectFiles(),
       identityResolver: { resolve: () => identity },
       store: new BrokenStore(),
     });
@@ -57,6 +60,7 @@ describe('WorkspaceTrustService restricted-access cause (OBSERVABILITY-1991 TC-0
   it('names the error when the trusted re-resolve of the identity throws', async () => {
     let calls = 0;
     const service = new WorkspaceTrustService({
+      projectFiles: createNodeWorkspaceProjectFiles(),
       identityResolver: {
         resolve: () => {
           calls += 1;
@@ -81,6 +85,7 @@ describe('WorkspaceTrustService restricted-access cause (OBSERVABILITY-1991 TC-0
 
   it('carries no cause when the state is a plain trust decision', async () => {
     const service = new WorkspaceTrustService({
+      projectFiles: createNodeWorkspaceProjectFiles(),
       identityResolver: { resolve: () => identity },
       store: {
         inspect: () => Promise.resolve({ state: 'untrusted', generation: 0 }),

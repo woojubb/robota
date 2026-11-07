@@ -29,7 +29,7 @@ export interface IRunContext {
   aiProvider: IAIProvider;
   contextTracker: ContextWindowTracker;
   hooks: Record<string, unknown> | undefined;
-  hookTypeExecutors: IHookTypeExecutor[] | undefined;
+  hookTypeExecutors: readonly IHookTypeExecutor[];
   sessionStartStdout: string;
   log: (event: string, data: TSessionLogData) => void;
   /** RUNTIME-004: abort must not rewrite history. `hookTraceEnv` is the prompt's, for PreCompact. */

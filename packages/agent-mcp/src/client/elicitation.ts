@@ -9,7 +9,7 @@
  * and is never masked: a form-mode elicitation may not ask for a secret, and a masked field would
  * hide what is being sent.
  */
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
 import { isCredentialShapedName } from '../definition/secrecy.js';
 
@@ -198,7 +198,7 @@ export async function bridgeElicitation(input: IBridgeElicitationInput): Promise
       return undefined;
     }
   };
-  const prefix = `mcp-elicitation-${randomUUID()}`;
+  const prefix = `mcp-elicitation-${randomId()}`;
   const first = await ask({
     id: `${prefix}-0`,
     title: `MCP server ${JSON.stringify(serverId)} asks for input`,

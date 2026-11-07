@@ -8,7 +8,10 @@ import {
   readCommandBackgroundTaskLog,
 } from '@robota-sdk/agent-framework';
 
-import type { ICommandHostBackgroundTasks } from '@robota-sdk/agent-framework';
+import { formatBackgroundLogPage } from './log-page-text.js';
+import { registeredUnlockCommand } from '../key-custody/registered-unlock-command.js';
+
+import type { ICommandHostBackgroundTasks, ICommandHostCatalog } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 function parseCommandParts(args: string): string[] {
@@ -16,7 +19,7 @@ function parseCommandParts(args: string): string[] {
 }
 
 export async function executeBackgroundCommand(
-  context: ICommandHostBackgroundTasks,
+  context: ICommandHostBackgroundTasks & Partial<Pick<ICommandHostCatalog, 'listCommands'>>,
   args: string,
 ): Promise<ICommandResult> {
   const [action = 'list', taskId, ...reasonParts] = parseCommandParts(args);
@@ -42,10 +45,8 @@ export async function executeBackgroundCommand(
       taskId,
       parseCommandBackgroundLogCursor(reasonParts[0]),
     );
-    const next = page.nextCursor ? `\nNext offset: ${page.nextCursor.offset}` : '';
     return {
-      message:
-        page.lines.length > 0 ? `${page.lines.join('\n')}${next}` : `No log lines: ${taskId}`,
+      message: formatBackgroundLogPage(taskId, page, registeredUnlockCommand(context)),
       success: true,
       data: { taskId, nextOffset: page.nextCursor?.offset },
     };

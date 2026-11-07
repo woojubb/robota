@@ -6,16 +6,19 @@ import { join } from 'node:path';
 import { createDefaultCommandModules } from '@robota-sdk/agent-command';
 import {
   CommandRegistry,
-  createNodeHostSettingsSource,
-  createNodeHostSettingsStore,
   InteractiveSession,
   readMergedProviderSettings,
   resolveProviderSettingsWriteTarget,
 } from '@robota-sdk/agent-framework';
+import {
+  createNodeHostSettingsSource,
+  createNodeHostSettingsStore,
+} from '@robota-sdk/agent-framework/node';
 import { createHeadlessTransport } from '@robota-sdk/agent-framework';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { startCli } from '../cli.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type {
   IAIProvider,
@@ -28,6 +31,8 @@ import type {
   IProviderCommandSettingsAdapter,
   TProviderSettingsDocument,
 } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 const createProviderSettingsAdapter = (cwd: string): IProviderCommandSettingsAdapter => {
   const userHome = process.env.HOME ?? process.env.USERPROFILE ?? '/';
@@ -130,7 +135,10 @@ describe('default CLI command composition', () => {
     }) as typeof process.stdout.write;
 
     try {
-      await startCli({productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),  providerDefinitions: [] });
+      await startCli({
+        productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
+        providerDefinitions: [],
+      });
       const output = parseJsonObject(writes.join('').trim());
       expect(output['root']).toBe(join(home, '.test-product'));
       const categories = output['categories'];
@@ -173,7 +181,9 @@ describe('default CLI command composition', () => {
 
   it('routes direct user-local memory commands before provider setup', async () => {
     const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-direct-user-local-memory-')));
-    const home = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-direct-user-local-memory-home-')));
+    const home = realpathSync(
+      mkdtempSync(join(tmpdir(), 'test-product-direct-user-local-memory-home-')),
+    );
     const originalArgv = process.argv;
     const originalHome = process.env.HOME;
     const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(cwd);
@@ -200,7 +210,10 @@ describe('default CLI command composition', () => {
     }) as typeof process.stdout.write;
 
     try {
-      await startCli({productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),  providerDefinitions: [] });
+      await startCli({
+        productRuntime: createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
+        providerDefinitions: [],
+      });
       expect(writes.join('')).toContain('Stored user-local memory item view-preference/last-panel');
       expect(existsSync(join(cwd, '.test-product'))).toBe(false);
     } finally {
@@ -220,6 +233,7 @@ describe('default CLI command composition', () => {
   it('runs permissions mode changes through headless slash-command execution', async () => {
     const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'test-product-headless-permissions-')));
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: createFakeProvider(),
       config: {
@@ -251,6 +265,7 @@ describe('default CLI command composition', () => {
 
     try {
       const transport = createHeadlessTransport({
+        output: { stdout: process.stdout, stderr: process.stderr },
         outputFormat: 'json',
         prompt: '/permissions plan',
       });
@@ -290,6 +305,7 @@ describe('default CLI command composition', () => {
       }),
     );
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider: createFakeProvider(),
       config: {
@@ -321,6 +337,7 @@ describe('default CLI command composition', () => {
 
     try {
       const transport = createHeadlessTransport({
+        output: { stdout: process.stdout, stderr: process.stderr },
         outputFormat: 'json',
         prompt: '/provider',
       });

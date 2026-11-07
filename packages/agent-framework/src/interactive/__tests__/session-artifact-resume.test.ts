@@ -2,17 +2,14 @@ import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
-import {
-  NodeSessionStore,
-  deserializeSessionArtifact,
-  serializeSessionArtifact,
-} from '@robota-sdk/agent-session';
+import { deserializeSessionArtifact, serializeSessionArtifact } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { describe, expect, it } from 'vitest';
 
 import { loadSessionRecord } from '../interactive-session-restore.js';
 
 import type { ISessionRecord } from '@robota-sdk/agent-session';
-import type { IInteractiveSessionStore } from '../session-persistence.js';
+import type { IInteractiveSessionStore } from '../session-store-types.js';
 
 /**
  * SELFHOST-014 TC-03 — an imported artifact resumes through the EXISTING `loadSessionRecord` path (no new resume
@@ -65,7 +62,9 @@ function record(id: string): ISessionRecord {
 }
 
 function newStore(): NodeSessionStore {
-  return new NodeSessionStore(realpathSync(mkdtempSync(path.join(tmpdir(), 'artifact-resume-'))));
+  return new NodeSessionStore(realpathSync(mkdtempSync(path.join(tmpdir(), 'artifact-resume-'))), {
+    sealing: 'plain',
+  });
 }
 
 describe('imported session artifact resumes via loadSessionRecord (TC-03)', () => {
@@ -81,6 +80,7 @@ describe('imported session artifact resumes via loadSessionRecord (TC-03)', () =
       store as unknown as IInteractiveSessionStore,
       'sess_resume',
       null,
+      (store as unknown as IInteractiveSessionStore).load('sess_resume', { hold: true }),
     );
 
     // TRANS-006 recorded an asymmetry here — the import decoded and the store did not, so a record

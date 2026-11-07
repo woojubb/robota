@@ -14,6 +14,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import type { ISessionRenamedEvent } from '@robota-sdk/agent-interface-session';
 import { createSessionCommandModule } from '../session-command-module.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 function createRuntimeSession(): Record<string, unknown> {
   return {
@@ -39,6 +42,8 @@ function createRuntimeSession(): Record<string, unknown> {
 describe('CMD-004 TC-10 — /rename persists host-side without any TUI handler', () => {
   it('mutates the session name via executeCommand alone and broadcasts session_renamed', async () => {
     const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: createRuntimeSession() as never,
       commandModules: [createSessionCommandModule()],
     });
@@ -59,6 +64,8 @@ describe('CMD-004 TC-10 — /rename persists host-side without any TUI handler',
 
   it('applies the rename exactly once (single-execution guard)', async () => {
     const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: createRuntimeSession() as never,
       commandModules: [createSessionCommandModule()],
     });

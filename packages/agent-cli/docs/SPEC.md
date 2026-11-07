@@ -55,7 +55,7 @@ and resume bridge. Stop or device revocation withdraws the affected activation a
 late identity, enrollment and reconnect work cannot revive its authority or publish a stale pairing link. The host
 identity key devices pin is kept in the host credential store, never in a plain file; a malformed
 stored key fails closed rather than being replaced.
-The complete public CLI entry and shipped executable share diagnostic, crash and worker-dispatch policy. Each invocation owns the product environment inherited by its child processes. The CLI selects every user- and project-scoped path and identity a session needs — storage root,
+The complete public CLI entry and shipped executable share diagnostic, crash and worker-dispatch policy; only the shipped executables also harden their own processes against inspection by programs of the same user, best effort and from when their entry runs, because that changes the whole process, which a host embedding the entry decides for itself. Each invocation owns the product environment inherited by its child processes. The CLI selects every user- and project-scoped path and identity a session needs — storage root,
 presets, agent-definition roots, project settings layers, project-state layout, context-discovery
 permissions, plugin/skill/command roots, task-context directory, organization policy, keybindings,
 and display name — and passes them explicitly to the neutral SDK and framework packages, preserving
@@ -102,9 +102,10 @@ must not reach the credentials beside a project.
 A session moves to another session or device only when its holder's operator pushes it; nothing
 answers a request for a session. The receiving side takes it only on a grant for that one transfer over
 that channel, signed by a device it already knows, and with its own operator's yes; it keeps the
-payload aside until it matches the manifest, and saves it without starting it. The holder lets go, and
-ends, only on the acknowledgement that the session is saved there, so two processes never run one
-conversation.
+payload aside until it matches the manifest — in memory alone when its stores seal, so no plaintext
+copy lands beside them — and saves it without starting it as a record nothing vouches for, since a
+peer's word is not the owner's, so its first resume asks. The holder lets go, and ends, only on the
+acknowledgement that the session is saved there, so two processes never run one conversation.
 
 A conversation between local peers is bounded, so two agents that always answer cannot message each
 other forever: its depth and this session's answers in it are counted from what this session itself
@@ -156,9 +157,10 @@ person chose Restricted, while a plain start in a folder trusted since is not ha
 because the person who trusted it expects that configuration; a daemon that could not hand over a connection is never left running, and
 the lock that keeps racing starts apart is removed only by the start that took it or by the user. The
 transport's per-launch authentication token is never exposed through the control endpoint or inventory,
-with one exception: a daemon, which receives it only through its environment and removes it from there so
-its tools never inherit it, hands its connection URL to a caller that named its start, so the token
-leaves only as that URL and never in human-readable output.
+with one exception: a daemon, which receives it only over a pipe its launcher hands it, never through its
+environment or command line (a process's initial environment stays readable to every program of the
+same user), hands its connection URL to a caller that named its start, so the token leaves only as that URL
+and never in human-readable output.
 
 Observability has two independently gated paths. `usage export` is an explicit,
 local-only action over the same authorized stores as local usage reporting: its aggregate usage,
@@ -290,6 +292,107 @@ session that stalled long enough for another to take the mesh over closes its ow
 a linked device may do only what the user's settings allow, each file and session it offers put to
 the operator at this terminal.
 
+### Keyring custody (`__PRODUCT_CLI_NAME__ secure`)
+
+The keyring file under `$PRODUCT_USER_STATE_DIR/secure` holds only what a locked process may know: the
+passphrase- and recovery-wrapped master key and the sealing public key. Every program of the same OS
+user can read it, so what protects it is the passphrase, not the mode: the length rule and the refusal
+of trivially repetitive input raise the cost of guessing offline at the key-derivation cost, and no
+rule makes a weak passphrase safe. The mode, the ownership check and the refusal of links and
+non-regular files only keep a file that is not the owner's from being read as the keyring. The file
+is the single copy of the keys and is deliberately never backed up, since an old copy would keep an
+old passphrase slot working; for the same reason a passphrase change, which wraps the same master key
+again, does not revoke a copy of the file someone already took.
+
+Every change to the file is made under one lock beside it and replaces only the keyring it was built
+from. Cooperating writers on this machine, and on other machines that share the home directory, are
+serialized by the lock, and the one that lost is told the file changed. The lock names its holder's
+host, boot and pid namespace: its pid is probed only for a holder on this machine, and any other lock
+is aged on the filesystem's clock, so neither another machine's pid nor a step of the wall clock
+breaks a fresh one. A holder stalled beyond the stale bound may still be overtaken; it checks the file
+and the lock again immediately before it commits and after it reads the result back, which reports
+that as `changed` where it can, and the window those checks leave is narrowed, not closed. A write is
+atomic, durable and read back, and one that reached the file but could not be confirmed is reported
+as most likely in place, never as nothing written.
+
+A passphrase or recovery key is typed at an interactive terminal and comes from nowhere else: not an
+argument, the environment, a pipe or a file. Every command that asks for one therefore refuses
+unless stdin is a terminal, which is also what turns away a program the model starts through its
+shell tool: that process has no controlling terminal and no input. The recovery key is shown once,
+on the secret terminal where it is wiped afterwards, and typed back before anything is saved, so a
+keyring whose key the person never held is not created. Creating a keyring does not turn secure mode
+on. Every conversation store the CLI builds — the workspace composition's and each command's own —
+comes from one factory that states how it seals, from one decision: what a later process reads is
+sealed with the keyring, and what only its own process reads back (a spilled tool result, the edit
+checkpoints of a run that persists no session) with a key made in that process's memory, which seals
+nothing else, opens whatever the keyring's lock state and ends with the process; the two are plain
+exactly together. A person's `/rewind` reads are refused while the keyring is locked whichever key
+sealed the checkpoints, so locked has one meaning for them; what the running turn reads back for
+itself is not. Every SDK store constructor requires that decision, and a lint rule refuses a value
+import of them anywhere else in the product packages, because only the factory knows the process's
+decision: a store built elsewhere could write plaintext beside sealed files. Whether secure mode is
+on is one predicate every decision that depends on it reads: the decision is plain unless it is on,
+and no process is given a key holder while it is off. What every surface may be while it is on is
+one exhaustive table, and every listener a product process opens goes through the one gate that
+reads its row, at the call site that starts it, so the libraries that open listeners keep their
+constructors. Any program of the same user can satisfy an admission by a token it can read, a login
+or "the same user", so in secure mode a listener admitting that way does not start when it reaches a
+session or a token; the control socket opens, its row marking it for owner-link admission, which the
+control endpoint enforces; and the OAuth sign-in callback opens under its own rule (loopback, bound
+by a fresh path or a required state, consumed by its first match, timed out) because it reaches no
+session. Plain mode opens what it always did: while it is off, the children a process starts share
+its terminal session as before. Once it is on, each entry gives every child its own session before
+it starts any, so none can reach the terminal a secret is typed at; only the terminal handover
+(`/editor`, `/keybindings`, `/shell`, the workspace-move re-exec) hands a child the terminal.
+
+Being the one construction point, the factory is also where a process records that it uses the
+stores: the first store it builds (or, for a subagent worker, the grant it binds) creates its
+presence under the state root (owner record and mode, removed when the process ends, swept once its
+owner is gone), and a `secure migrate` or `secure compact` writes its own marker before it looks. So
+whichever comes second sees the first and at least one side refuses, two of them both refuse, and no
+lock file is needed; a compaction holds no store, since writers append to the history by path and it
+catches them up, so only a migration's marker stops a store. A marker whose owner cannot be checked
+counts as running, since a migration that may be running must be treated as one that is; one that
+never got the owner record its creation writes at once, and flushes, is a crash's once that moment
+is past, and counts as gone. A presence that cannot be created is reported, never fatal, and the
+migration's plan says such processes, like those of builds without presence, are invisible to it.
+`secure migrate` and `secure compact` unlock before writing anything, since before an unlock the
+sealing key is whatever the same-user-writable file holds; they run only in secure mode, at a
+terminal, and are never a slash command, a skill or a transport request. A migration marks
+nothing it sealed as the owner's on its own, since any program of the same user could have written
+the plaintext, only what the person at its end says is theirs. A migration writes a
+project only when the trust service says it is trusted now, on a host that can write project state,
+through the authority that service mints: the roots records and the history name are same-user
+writable, so they are candidates, never authority, and every other root is listed and left alone.
+
+There is no `secure unlock` or `secure lock`: unlocked keys live in the memory of the process that
+uses them, in one holder that every lock (the user, inactivity, the last client leaving, a locked
+screen, suspend) ends and that offers operations with the keys rather than the keys themselves —
+opening, and the authorship tag that is the only proof a stored artifact was written by the owner's
+unlocked process, since anything sealed to the public key opens — so after a lock no caller still
+holds one, and each unlock is announced so what was written while locked can be tagged then; a
+short-lived command could only unlock to throw the keys away. A terminal session holding keys is
+unlocked where it runs instead, by the local unlock gate: store reads never say why they read (many
+are not the person's), so the reason lives on the prompt, which opens only for a read the terminal UI
+says the person started — a request its action modules mint from a key press, which the import rule
+keeps every other module from minting and the gate checks against the mint's record, refusing one
+it did not make — or for `/unlock`, a user-only command, and `/lock` drops the keys. The passphrase
+is then asked on the secret terminal while the session has handed the terminal over, one question at
+a time, and never where nobody can answer, so no command or tool the model runs opens the prompt and
+nothing typed there reaches the conversation.
+Unlocking is where a swapped stored sealing key is caught. From the first unlock in a process the
+holder seals to the key that unlock verified, locked or not and even when the repair of the file
+cannot be written; the mismatch is always reported, and the exit status tells a repair that completed
+from one that did not. Before that first unlock a locked writer seals to the key the file holds: that
+is the design's accepted weakness, caught at the next unlock and visible meanwhile through the
+fingerprint. A writer of an append-only store seals one data key per store and reuses it, since a
+public-key operation per line is too slow to read back; it starts a new one as soon as the verified
+key is not the one the old key was sealed to, so once an unlock has caught a swapped key nothing
+written afterwards goes on using a data key sealed to the swapped one. A lock ends every writer's
+key too, wiping it, and the next line starts a new one: a writer's key reads every line sealed under
+it, so it is key material like the data keys an unlocked holder opens to read, which are wiped with
+the keys, even though a locked process reads nothing, not even what it wrote.
+
 ### MCP client composition
 
 `@robota-sdk/agent-mcp` owns definition decoding, precedence, admission policy, and the
@@ -333,8 +436,11 @@ definition.
 
 **Approvals outlive the process.** The CLI keeps activation decisions in an owner-only file in the
 user's storage unless the host supplies its own `IMCPActivationApprovalStore`, and `/mcp approve`
-connects the approved server in the running session. A decision binds to the definition's
-fingerprint and security identity, so a changed definition asks again. A store that cannot be read
+connects the approved server in the running session. A person at a terminal can also add and
+approve a server in one step: `__PRODUCT_CLI_NAME__ mcp add`, or the web search question the first
+interactive start asks before MCP definitions are resolved, so the choice connects in that session.
+No other start asks, and no slash command or model-invocable path adds a server. A decision binds to
+the definition's fingerprint and security identity, so a changed definition asks again. A store that cannot be read
 reads as no decisions: it can only withhold approval, never grant it. Opted-in distributed skill
 content needs separate consent from a known local user, bound to verified instructions, complete
 frontmatter, manifest, origin, workspace and URI, and a live activation remains conditional on
@@ -468,7 +574,8 @@ here because the reasoning differs between them:
 - **Prompt history:** default ON (prompts are already persisted verbatim per session,
   and this is a shell-history analogue). Precedence: `settings.json` `promptHistory: false` ←
   `PRODUCT_PROMPT_HISTORY` env (**env wins**, same direction as memory — a machine-level policy).
-  TUI only; print/serve receive no writer.
+  TUI only; print/serve receive no writer. A run with `--no-session-persistence` writes none,
+  whatever the setting or the environment says.
 - **Advisor:** default OFF. Precedence: `settings.json` `advisorModel` ← `--advisor` flag (**flag
   wins**, a per-run choice like the screen-reader flag), and `PRODUCT_DISABLE_ADVISOR` above both as a
   kill switch nothing inside a session can undo — it is how an operator guarantees that conversation
@@ -484,8 +591,13 @@ here because the reasoning differs between them:
 
 ### Workspace trust and project access
 
-The CLI resolves one host-owned `TWorkspaceProjectAccess`/`WorkspaceTrustService` decision before
-composition. Absence is deterministically **Restricted**: only user contribution/settings sources and
+The CLI resolves one host-owned `TWorkspaceProjectAccess` decision through a live broker before
+composition; a saved grant is history, never a renewed approval. In normal CLI and desktop flows, the
+broker retains the exact folder object approved through the user prompt, and all project file
+operations compare their opened root with it; its same-user IPC cannot authenticate a person, so a
+direct local client can create a new approval. CLI
+and desktop restarts reattach without another approval, while a broker or OS restart requires one new
+approval per root. Absence is deterministically **Restricted**: only user contribution/settings sources and
 the user session store are available, no project memory, and `cwd` alone cannot mint any project
 capability. **Trusted** composition derives project sources plus named state facets from the exact
 runtime-accepted authority, and is refused when the real CLI working directory is outside the
@@ -504,8 +616,27 @@ where someone is: it asks the same trust/Restricted/quit question there instead 
 interactive start asks the person before the project is composed and continues Restricted when they
 decline, because a Restricted session no one mentioned hides why the project's own configuration is
 missing.
-All trust diagnostics expose only state and canonical display path — credentials and
-project-controlled content are never printed.
+Trust diagnostics and approval requests never print credentials or project-controlled content; a
+prepared approval token is retained only until the person answers or the request expires.
+
+### `--no-session-persistence`
+
+The flag promises that a run leaves no conversation-derived data on disk once it exits, apart from
+durable memory: memory is a store the owner turned on to keep across runs, so the flag leaves that
+choice alone. The session record is only one of the stores that would keep the conversation, so the
+flag turns off every store the run could otherwise keep — the session record, prompt history and
+subagent transcripts — not the session store alone. Edit checkpoints are the exception: `/rewind`
+needs the pre-images of the run's own edits, so with the flag they keep working for the run but move
+out of the project into an owner-only per-process directory of the state root, removed when the run
+ends.
+
+The working data a live feature needs — spilled tool results and the `/editor` buffer, and with the
+flag those checkpoints — lives in owner-only per-process directories of the state root, never the
+shared temporary directory: spilled results and the composed message are conversation content whether
+or not the flag is set. Whatever ends a run — an exit, a hangup, an interrupt, a termination
+request or a crash the crash policy rethrows — removes them without changing how the process ends; a
+run killed outright leaves its directory, and the next start removes those whose recorded owner can no
+longer be alive, by the rule `@robota-sdk/agent-core` states for process-scoped directories.
 
 ### Destination-scoped telemetry headers
 
@@ -560,7 +691,12 @@ env var name — never the key value) pointing at `--configure` to persist a pro
 ### Provider profile resolution
 
 The CLI must not branch on provider type names to decide defaults, required fields, setup prompts, or
-constructor behavior — those come from the injected `IProviderDefinition` records. The profile key
+constructor behavior — those come from the injected `IProviderDefinition` records, including the
+product's model-native web search default, which applies wherever a definition declares native web
+search for the profile being built and yields to a profile that sets `nativeWebTools`. The product's definition set is built in one
+place for the parent session and the child-process subagent worker alike; routing it through
+`startCli({ providerDefinitions })` would mark it caller-supplied and make subagents non-reproducible. The
+profile key
 (`currentProvider`) is a stable selection identity independent of provider `type`; resolution order is
 `currentProvider` + `providers[...]`, then legacy `provider`, then the resolved definition's defaults.
 Environment-variable API key references use `$ENV:NAME`; an unresolved `$ENV:NAME` must never be sent
@@ -575,7 +711,12 @@ Alongside the npm/Node package, `agent-cli` can be compiled to a standalone exec
 Node entry path is retained unconditionally. A literal build target must exactly match the current
 host tuple; every unsupported host is refused before compilation, leaving the previously selected
 binary generation unchanged. Native builds require the complete provider capability at build time
-and embed it so hosted execution remains independent of adjacent packages at runtime.
+and embed it, so hosted execution depends neither on adjacent packages nor on what lies where the
+executable starts: it reads no `bunfig.toml`, `.env`, `tsconfig.json` or `package.json` there, because a
+cloned repository's preload or `.env` would otherwise run code or rewrite the environment before
+workspace trust is decided. Bun's runtime variables (`BUN_OPTIONS`, `BUN_BE_BUN`) still let whoever sets
+the process environment run other code through the executable, as `NODE_OPTIONS` does for the npm
+package; that is the same OS user, and no build switch removes them.
 
 A subagent turn re-executes the running binary (`process.execPath`) rather than spawning an external
 `node` against a worker file, so the compiled binary needs no Node install for any path.
@@ -594,6 +735,7 @@ __PRODUCT_CLI_NAME__ open '<__PRODUCT_PROTOCOL_SCHEME__://open?v=1...>' # Open a
 __PRODUCT_CLI_NAME__ trust status | --yes | revoke --yes   # Inspect/grant/revoke workspace trust
 __PRODUCT_CLI_NAME__ doctor [--repair <id> -y]     # Diagnose configuration/runtime readiness (aliases: checkup, diagnose)
 __PRODUCT_CLI_NAME__ usage [--period 30d] [--timezone UTC] [--format json]  # Local personal usage summary
+__PRODUCT_CLI_NAME__ secure setup | status | verify | change-passphrase  # Keyring for secure conversations; secrets are typed at the terminal only
 __PRODUCT_CLI_NAME__ eval ./my-eval.mjs            # Run an evals-as-code definition; exit 1 on a metric breach
 __PRODUCT_CLI_NAME__ -p "prompt"                   # Print mode (one-shot, headless)
 __PRODUCT_CLI_NAME__ --serve                       # Headless runtime host
@@ -618,12 +760,27 @@ startup errors.
 
 ### Session resolution
 
-`--continue`/`-c` resumes the most recent session for the cwd (reusing its id); `--resume [id]`
-resumes an explicit id/name or shows a picker when omitted; `--fork-session` (combined with either)
-creates a fresh id while restoring the resumed context, leaving the original file untouched.
-`-c` with no prior session for the cwd starts a new one — identical in TUI and print mode. Print mode
-requires an explicit `-r <id|name>` (no interactive picker) and rejects `--no-session-persistence`
-combined with `-c`/`-r`.
+`--continue`/`-c` resumes the most recent session for the cwd (reusing its id) that is the owner's,
+and does not go on past a newer one that is not without a person's word; `--resume [id]` resumes an
+explicit id or name, or shows a picker when omitted. What an unverified record says of itself — its
+name, its time — never chooses what runs, so such a record never answers for a name, and a text that
+is both a verified record's name and the id of a record not verified as the owner's is refused as
+ambiguous. `--fork-session` (combined with either) creates a fresh id while restoring the resumed
+context, leaving the original file untouched. `-c` with no prior session for the cwd starts a new
+one — identical in TUI and print mode. Print mode requires an explicit `-r <id|name>` (no
+interactive picker) and rejects `--no-session-persistence` combined with `-c`/`-r`. A sealed session
+whose keys are locked is in no picker and is not what `-c` picks, because there is no record to
+show; so `-r` names the lock for an id, and counts the locked sessions for a name it cannot match,
+instead of reporting the session missing, and every surface that lists or picks sessions says how
+many it left out whenever some are locked — the latest readable session may not be the latest one —
+while `usage export` refuses rather than send a partial snapshot. A served rename or delete of a
+locked session names the lock instead of calling it unknown. Resuming a record that is there but
+cannot be read (locked, corrupt, or from a build this one does not read) is refused rather than
+started empty under its id; one not verified as the owner's is resumed only when a person, shown
+fixed text that carries nothing the record says, accepts exactly the bytes they were shown, and is
+refused wherever no one can be asked. Accepting raises nothing until the session has restored from
+those bytes, so a resume that does not go ahead leaves them as they were. The CLI says so before any
+surface starts, so the terminal UI never meets it in its first render.
 
 ### Destructive actions
 
@@ -667,6 +824,9 @@ commands without explicit user confirmation.
 
 - Korean IME on macOS Terminal.app can crash the terminal (SIGSEGV) during IME composition; use
   iTerm2, or rely on the CLI's blank-line workaround that stabilizes cursor position.
+- The keyring commands check that a secret is typed at an interactive terminal, not that a person
+  types it: a program that allocates a pseudo-terminal of its own and types into it is outside that
+  guard.
 - The Bun single-binary distribution's subagent-spawns-itself path (`process.execPath`) has been
   measured for the worker IPC handshake on Linux; a full end-to-end subagent turn from the compiled
   binary (which additionally needs a model provider in the child) has not been run.

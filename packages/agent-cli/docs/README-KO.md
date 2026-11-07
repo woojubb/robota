@@ -34,9 +34,9 @@ macOS의 Terminal.app에서는 한국어 등 CJK 입력기가 충돌을 일으�
 
 Git 저장소 안에서 `__PRODUCT_CLI_NAME__`를 실행합니다. 먼저 이 폴더를 신뢰할지 묻습니다. 프로젝트 자체의 설정,
 훅, 스킬, 플러그인, MCP 서버는 신뢰한 워크스페이스에서만 불러옵니다. 신뢰하지 않으면 세션은
-**Restricted** 상태로 시작하며, 사용자 설정과 기본 도구만 씁니다. 처음 실행할 때는 이어서 제공자를
-고르고 그 항목(모델, 기본 URL, API 키)을 채우는 과정을 안내한 뒤, 프로필을 `<configured-user-state-dir>/settings.json`에
-저장합니다.
+**Restricted** 상태로 시작하며, 사용자 설정과 기본 도구만 씁니다. 처음 실행할 때는 웹 검색 서버를
+추가할지도 묻고([웹 검색하기](#웹-검색하기) 참고), 이어서 제공자를 고르고 그 항목(모델, 기본 URL, API 키)을 채우는
+과정을 안내한 뒤, 프로필을 `<configured-user-state-dir>/settings.json`에 저장합니다.
 
 ```bash
 cd my-project
@@ -68,9 +68,8 @@ __PRODUCT_CLI_NAME__ trust --yes
 ([키 바인딩 가이드](../../../content/guide/keybindings.md) 참고).
 
 에이전트는 파일·셸 도구(`Read`, `Write`, `Edit`, `Glob`, `Grep`, `Bash`), `WebFetch`,
-`WebSearch`(`BRAVE_API_KEY` 필요), `AskUserQuestion`을 쓰며, 서브에이전트와 백그라운드 작업에 일을 넘길
-수 있습니다. 신뢰한 워크스페이스에서는 프로젝트의 `AGENTS.md`와 `CLAUDE.md`를 컨텍스트로 불러오고,
-프롬프트에 `@path`를 쓰면 프로젝트 파일을 첨부합니다.
+`AskUserQuestion`을 쓰며, 서브에이전트와 백그라운드 작업에 일을 넘길 수 있습니다. 신뢰한 워크스페이스에서는
+프로젝트의 `AGENTS.md`와 `CLAUDE.md`를 컨텍스트로 불러오고, 프롬프트에 `@path`를 쓰면 프로젝트 파일을 첨부합니다.
 
 ```bash
 __PRODUCT_CLI_NAME__                              # 새 세션
@@ -162,11 +161,13 @@ __PRODUCT_CLI_NAME__ daemon stop
 이상하게 동작하면 `__PRODUCT_CLI_NAME__ --safe-mode`로 지시 파일, 스킬, 플러그인, 훅, MCP 서버를 모두 끈 채
 시작해 보세요.
 
-워크스페이스 신뢰는 Git 워크트리 단위로 부여되며 `<configured-user-state-dir>/workspace-trust.json`에 저장됩니다.
+신뢰 관리 프로세스가 실행되는 동안 승인 당시의 실제 폴더에 대한 신뢰가 유지됩니다. CLI를 다시 켜도 재승인할
+필요는 없지만, 관리 프로세스나 컴퓨터를 재시작하면 다시 승인해야 합니다.
+`<configured-user-state-dir>/workspace-trust.json`은 승인 이력만 기록하며 신뢰를 자동 복원하지 않습니다.
 
 ```bash
 __PRODUCT_CLI_NAME__ trust status    # 이 워크스페이스를 신뢰하는가? 신뢰하면 무엇을 불러오는가? (--json: 한 줄 JSON)
-__PRODUCT_CLI_NAME__ trust --yes     # 지금 있는 Git 워크스페이스를 신뢰
+__PRODUCT_CLI_NAME__ trust --yes     # 현재 폴더의 신뢰를 요청하고 터미널에서 확인
 __PRODUCT_CLI_NAME__ trust revoke --yes
 ```
 
@@ -207,6 +208,29 @@ __PRODUCT_CLI_NAME__ trust revoke --yes
 모델이 두 번째 모델에게 조언을 구하게 할 수 있습니다. [제공자](../../../content/guide/providers.md)와
 [로컬 LLM 설정](../../../content/guide/local-llm.md)을 참고하세요.
 
+### 웹 검색하기
+
+웹 검색은 두 가지 방법으로 모델에 닿으며, 둘을 함께 쓸 수 있습니다.
+
+- **모델 자체 검색.** Anthropic과 자체 API의 OpenAI는 기본적으로 서버 측에서 검색하며,
+  검색 비용은 해당 업체가 청구합니다. 끄려면 프로필에
+  `"options": { "nativeWebTools": { "webSearch": false } }`를 지정하세요.
+  `nativeWebTools`를 지정한 프로필은 쓴 그대로 적용됩니다. 이 CLI의 도구와 함께 쓸 수 있는
+  검색 도구를 업체가 제공하지 않는 경우에는 꺼져 있습니다. 사용자 지정 `baseURL`, Chat Completions,
+  `OPENAI_BASE_URL`을 쓰는 OpenAI 프로필과 `gpt-4.1-nano`처럼 웹 검색이 없는 OpenAI 모델이
+  여기에 해당합니다. Anthropic 답변이 웹을 인용하면 끝에 `[Sources]` 목록이 붙습니다.
+  Gemini는 프로필에 `"webSearch": true`를 지정할 때만 검색하며, Gemini 3 이상이 필요합니다.
+  Google [약관](https://ai.google.dev/gemini-api/terms)은 검색 기반 결과를 보여 주고 저장하는 데
+  조건을 두고 있고, 터미널은 약관이 요구하는 검색 제안을 표시할 수 없으니 먼저 읽어 보세요.
+- **직접 고르는 MCP 서버.** 어떤 모델이든 MCP 서버로 검색할 수 있습니다. 처음 대화형으로 시작하면
+  Exa(`https://mcp.exa.ai/mcp`)나 Parallel(`https://mcp.parallel.ai/mcp`)을 추가할지, 건너뛸지 한 번
+  묻습니다. 둘 다 API 키가 필요 없으며, 검색어는 고른 서비스로 전송됩니다. 선택은
+  `<configured-user-state-dir>/settings.json`의 `mcpServers`에 저장되고 승인되어, 그 세션에서 바로 연결됩니다.
+  나중에는 `__PRODUCT_CLI_NAME__ mcp add exa`, `__PRODUCT_CLI_NAME__ mcp add parallel`,
+  `__PRODUCT_CLI_NAME__ mcp add <name> <https-url>`로 묻지 않고 같은 일을 할 수 있습니다. 이 경우 서버는 다음
+  실행에서 연결되며, `/mcp revoke <name>`으로 승인을 거둘 수 있습니다. 아래처럼 `mcpServers`에 검색 서버를
+  직접 선언해도 됩니다.
+
 ### MCP 서버 연결하기, 또는 에이전트 세션을 MCP로 제공하기
 
 원격 MCP 서버는 설정 파일의 `mcpServers` 아래에 선언합니다. 선언한 서버는 승인하기 전까지 연결되지
@@ -214,7 +238,8 @@ __PRODUCT_CLI_NAME__ trust revoke --yes
 실행 중인 세션에서 연결을 시도합니다. 승인은 `<configured-user-state-dir>/mcp-approvals.json`에 저장되어 다음 실행에도
 이어지며, 서버 정의나 프로젝트 신뢰가 바뀌면 다시 승인해야 합니다. OAuth를 쓰는 서버는 로그인도
 필요합니다. 세션 안에서는 `/mcp login <server>`, 터미널에서는 `__PRODUCT_CLI_NAME__ mcp login <server>`를 쓰며,
-승인된 서버는 로그인하면 실행 중인 세션에 연결됩니다.
+승인된 서버는 로그인하면 실행 중인 세션에 연결됩니다. `__PRODUCT_CLI_NAME__ mcp add <name> <https-url>`은 HTTP 서버를
+사용자 설정에 추가하고 한 번에 승인합니다.
 
 ```json
 {
@@ -276,6 +301,21 @@ __PRODUCT_CLI_NAME__ trust revoke --yes
 
 [기기와 원격 제어](../../../content/guide/devices-and-remote.md)를 참고하세요.
 
+### 보안 대화용 키링 만들기
+
+```bash
+__PRODUCT_CLI_NAME__ secure setup              # 키링 생성. 복구 키는 한 번만 보여 줍니다
+__PRODUCT_CLI_NAME__ secure status             # 키링 파일, 슬롯, 키 지문 (패스프레이즈 불필요)
+__PRODUCT_CLI_NAME__ secure verify             # 잠금 해제 후 저장된 키 확인 (--recovery: 복구 키 사용)
+__PRODUCT_CLI_NAME__ secure change-passphrase  # 새 패스프레이즈 설정 (--recovery: 잊은 패스프레이즈 재설정)
+```
+
+패스프레이즈와 복구 키는 요청할 때 터미널에서 직접 입력하며, 인자로 주거나 환경 변수나 파이프에서
+읽지 않으므로 에이전트의 셸 도구처럼 자기 터미널이 없는 프로그램은 대신 실행할 수 없습니다. 내 계정으로
+실행되는 모든 프로그램이 키링 파일을 읽을 수 있으므로, 이 파일을 지키는 것은 패스프레이즈(12자 이상, 짧은
+패턴을 되풀이한 것이 아닌 것)입니다. 키링 파일은 키의 유일한 사본이며, 패스프레이즈를 바꿔도 누군가 이미
+가져간 사본은 막지 못합니다. 키링을 만드는 것만으로는 세션이 저장되는 방식이 바뀌지 않습니다.
+
 ### 설정과 사용량 확인하기
 
 ```bash
@@ -303,13 +343,14 @@ CLI가 `<configured-user-state-dir>/` 아래에 두는 그 밖의 파일:
 
 | 경로                   | 내용                                                               |
 | ---------------------- | ------------------------------------------------------------------ |
-| `workspace-trust.json` | 신뢰한 워크스페이스                                                |
+| `workspace-trust.json` | 승인 이력. 실제 신뢰는 관리 프로세스가 유지                        |
 | `sessions/`            | 저장된 세션 (신뢰한 프로젝트는 `<configured-project-state-dir>/sessions/`에 둘 수도 있음) |
 | `history.jsonl`        | `Ctrl+R`용으로 입력한 프롬프트 (`"promptHistory": false`로 끔)     |
 | `keybindings.json`     | 키 바인딩                                                          |
 | `themes/`              | 직접 만든 `/theme` 테마                                            |
 | `plugins/`             | 설치한 플러그인 (프로젝트는 자체 `<configured-project-state-dir>/plugins/`를 둘 수 있음)  |
 | `mcp-credentials/`     | MCP 서버용 OAuth 토큰, 본인만 읽을 수 있음                         |
+| `secure/keyring.json`  | 보안 대화용 키링, 패스프레이즈와 복구 키로 보호됨                  |
 
 ## 코드에서 쓰기
 

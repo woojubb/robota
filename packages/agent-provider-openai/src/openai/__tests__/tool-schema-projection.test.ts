@@ -30,7 +30,12 @@ vi.mock('openai', () => {
 });
 
 const fixtures = loadToolSchemaProjectionFixtures();
-const PERMISSIVE_PROFILE = { ...PERMISSIVE_TOOL_SCHEMA_PROFILE, providerName: 'openai' };
+const PERMISSIVE_PROFILE = {
+  ...PERMISSIVE_TOOL_SCHEMA_PROFILE,
+  providerName: 'openai',
+  arraysDeclareItems: true,
+  objectsDeclareProperties: true,
+};
 const STRICT_PROFILE = { ...STRICT_TOOL_SCHEMA_PROFILE, providerName: 'openai' };
 
 function recordingSink(): { sink: ILogger; lines: string[] } {
@@ -314,3 +319,32 @@ describe.each([
     });
   },
 );
+
+describe('the containers OpenAI refuses bare', () => {
+  const ANY_SCALAR = { anyOf: [{ type: 'string' }, { type: 'number' }, { type: 'boolean' }] };
+  const bareContainers: IToolSchema = {
+    name: 'bare',
+    description: 'A tool.',
+    parameters: {
+      type: 'object',
+      properties: { list: { type: 'array' }, shape: { type: 'object' } },
+      required: ['list', 'shape'],
+    },
+  };
+
+  it.each([
+    ['without strictTools', false],
+    ['with strictTools', true],
+  ])('Responses declares both on the wire %s', async (_name, strictTools) => {
+    const provider = new OpenAIProvider({ apiKey: 'sk-test', strictTools });
+    const client = fakeClient(provider);
+    respondResponses(client);
+    await provider.chat([createUserMessage('hi')], { model: 'gpt-4o', tools: [bareContainers] });
+    const sent = client.responses.create.mock.calls[0]?.[0] as {
+      tools: { parameters: { properties: Record<string, unknown> } }[];
+    };
+    const properties = sent.tools[0]?.parameters.properties ?? {};
+    expect(JSON.stringify(properties)).toContain(JSON.stringify(ANY_SCALAR));
+    expect(properties['shape']).toHaveProperty('properties', {});
+  });
+});

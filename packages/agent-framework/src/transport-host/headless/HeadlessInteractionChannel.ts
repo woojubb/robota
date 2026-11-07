@@ -5,15 +5,17 @@
  * not in the caller. print-mode.ts constructs this and calls run().
  */
 
-import { createHeadlessRunner, type TOutputFormat } from './headless-runner.js';
+import { createHeadlessRunner, type IHeadlessOutput, type TOutputFormat } from './headless-runner.js';
+import { requireFrameworkHost } from '../../host/require-framework-host.js';
 import { buildRuntimeSession } from '../../runtime/runtime-host.js';
 
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { ICreateSessionOptions } from '../../assembly/create-session-types.js';
-import type { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js';
-import type { INodeHostSettingsSource, IProjectSettingsPath } from '../../config/settings-source.js';
+import type { IEditCheckpointStore } from '../../checkpoints/edit-checkpoint-types.js';
+import type { IHostSettingsSource, IProjectSettingsPath } from '../../config/settings-source.js';
 import type { IResolvedConfig } from '../../config/config-types.js';
 import type { IContributionSource } from '../../contributions/index.js';
+import type { IFrameworkHost } from '../../host/framework-host.js';
 import type { ISkillRootDescriptor } from '../../commands/skill-source.js';
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { ICommandHostAdapters } from '../../command-api/host-adapters.js';
@@ -34,6 +36,8 @@ import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-sessi
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 
 export interface IHeadlessInteractionChannelOptions {
+  /** The platform the session runs on; `{}` is a host with nothing to lend. */
+  host: IFrameworkHost;
   cwd: string;
   livePromptTrace?: ILivePromptTracePort;
   provider: IAIProvider;
@@ -47,13 +51,15 @@ export interface IHeadlessInteractionChannelOptions {
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   environment?: Readonly<Record<string, string | undefined>>;
   baselinePermissionAllow?: readonly string[];
   /** Host-selected task-context root; absent means the framework scans no task directory. */
   taskContext?: IResolvedConfig['taskContext'];
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
+  /** Where results and diagnostics are written; the framework has no streams of its own. */
+  output: IHeadlessOutput;
   outputFormat: TOutputFormat;
   /**
    * CLI-076: the resolved model id (the same value the CLI header displays). Forwarded verbatim to the
@@ -135,7 +141,7 @@ export interface IHeadlessInteractionChannelOptions {
   /** SELFHOST-008 P6: optional per-turn recall policy (absent ⇒ recall OFF, startup-only injection). */
   recallMemory?: IPerTurnRecallConfig;
   /** The run's edit checkpoint store, so a print run's edits can be rewound when it is resumed. */
-  editCheckpointStore?: EditCheckpointStore;
+  editCheckpointStore?: IEditCheckpointStore;
 }
 
 export class HeadlessInteractionChannel {
@@ -143,6 +149,7 @@ export class HeadlessInteractionChannel {
   private exitCode = 0;
 
   constructor(options: IHeadlessInteractionChannelOptions) {
+    requireFrameworkHost(options.host, 'HeadlessInteractionChannel');
     if (typeof options.shellExec !== 'function') {
       throw new Error('Headless shell execution must be provided by the host.');
     }
@@ -153,6 +160,7 @@ export class HeadlessInteractionChannel {
     const session = this.createSession();
     const runner = createHeadlessRunner({
       session,
+      output: this.opts.output,
       outputFormat: this.opts.outputFormat,
       providerErrorGuidance: this.opts.providerErrorGuidance,
       effortResolution: this.opts.effortResolution,
@@ -169,6 +177,7 @@ export class HeadlessInteractionChannel {
     const session = this.createSession();
     const runner = createHeadlessRunner({
       session,
+      output: this.opts.output,
       outputFormat: this.opts.outputFormat,
       providerErrorGuidance: this.opts.providerErrorGuidance,
       effortResolution: this.opts.effortResolution,
@@ -181,6 +190,7 @@ export class HeadlessInteractionChannel {
     // RUNTIME-001: build through the shared construction seam (agent-framework), not a private
     // `buildRuntimeSession` — one recipe kernel across the TUI, print, and --serve.
     return buildRuntimeSession({
+      host: this.opts.host,
       cwd: this.opts.cwd,
       ...(this.opts.livePromptTrace ? { livePromptTrace: this.opts.livePromptTrace } : {}),
       provider: this.opts.provider,

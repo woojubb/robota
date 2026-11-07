@@ -7,7 +7,6 @@
  */
 
 import { GuardrailExecutor } from '@robota-sdk/agent-core';
-import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 import { AgentExecutor } from '../hooks/agent-executor.js';
 import { PromptExecutor } from '../hooks/prompt-executor.js';
@@ -16,12 +15,16 @@ import type { ICreateSessionOptions } from './create-session-types.js';
 import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
 
 /**
- * Build the executor registry, built-ins first.
+ * Build the executor registry, the host's built-ins first.
  *
- * `runHooks` resolves executors as `executors ?? createDefaultExecutors()` — an UNDEFINED-ONLY
- * fallback. An empty array suppresses the built-ins; a non-empty array REPLACES them. So before
- * this seeding, supplying any one of `providerFactory` / `sessionFactory` / `guardrails` /
- * `additionalHookExecutors` made the array non-empty and silently deregistered `command` and
+ * The built-ins are the command and HTTP executors the host builds (`host.createHookExecutors`),
+ * given the shell a product chose for command hooks. A host that lends none (a browser) seeds none,
+ * and `assertConfiguredHookTypesExecutable` then refuses a config that declares a hook only they run.
+ *
+ * The session runs exactly the executors it is given — it has no built-ins of its own: an empty
+ * array runs no hook handler and a non-empty array is the whole registry. So without this seeding,
+ * supplying any one of `providerFactory` / `sessionFactory` / `guardrails` /
+ * `additionalHookExecutors` would make the array non-empty and silently deregister `command` and
  * `http` — two executors the caller never named. Under a fail-open PreToolUse that was a silent
  * skip; once PreToolUse fails closed on an unregistered executor (SEC-016), the same config denies
  * EVERY tool call.
@@ -37,7 +40,11 @@ import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
 export function buildHookTypeExecutors(options: ICreateSessionOptions): IHookTypeExecutor[] {
   const executors: IHookTypeExecutor[] = options.disableBuiltInHookExecutors
     ? []
-    : [new CommandExecutor(options.commandHookShell), new HttpExecutor()];
+    : [
+        ...(options.host.createHookExecutors?.({
+          ...(options.commandHookShell !== undefined ? { shell: options.commandHookShell } : {}),
+        }) ?? []),
+      ];
 
   if (options.providerFactory) {
     executors.push(

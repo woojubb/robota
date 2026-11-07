@@ -49,7 +49,6 @@ export const DEFAULT_TOOL_DESCRIPTIONS = [
   'Glob — find files matching a pattern',
   'Grep — search file contents with regex',
   'WebFetch — fetch URL content as text',
-  'WebSearch — search the internet through the configured local tool',
   'AskUserQuestion — ask the user structured questions (options/multi-select/free text) mid-task',
 ];
 

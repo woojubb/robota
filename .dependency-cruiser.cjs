@@ -48,6 +48,34 @@ module.exports = {
         pathNot: '^packages/agent-provider-(openai|openai-compatible)/',
       },
     },
+
+    // ==========================================================
+    // Secure conversations (#3679 3f, decided design change 5)
+    // ==========================================================
+    {
+      name: 'user-read-request-mint',
+      severity: 'error',
+      comment:
+        'Only a read the person started may ask for the passphrase, and only the terminal UI action ' +
+        'modules listed here may say so: nothing else imports the mint, so no command or tool the ' +
+        'model can run can open the prompt. A new importer is a reviewed edit of this list.',
+      from: {
+        pathNot: '^packages/agent-ui-terminal/src/hooks/useForkAttach\\.ts$',
+      },
+      to: { path: '^packages/agent-ui-terminal/src/key-custody/user-read-request-mint\\.ts$' },
+    },
+    {
+      name: 'user-read-request-record',
+      severity: 'error',
+      comment:
+        'The record of minted requests is the runtime check behind the mint rule: only the mint adds ' +
+        'to it and only the port guard reads it, so nothing else can make a request the holder accepts.',
+      from: {
+        pathNot:
+          '^packages/agent-ui-terminal/src/key-custody/(user-read-request-mint|key-custody-port)\\.ts$',
+      },
+      to: { path: '^packages/agent-ui-terminal/src/key-custody/minted-read-requests\\.ts$' },
+    },
   ],
   options: {
     doNotFollow: {

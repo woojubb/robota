@@ -2,6 +2,10 @@ import 'dotenv/config';
 import { Client, GatewayIntentBits, ChatInputCommandInteraction, Events } from 'discord.js';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+
+const host = createNodeFrameworkHost({ createDefaultTools });
 
 // Anyone who can message this bot talks to the agent, so its sessions have none of the built-in tools
 // that run commands, read or change files, reach the network or send files. Give it your own tools
@@ -16,7 +20,6 @@ const DENIED_TOOLS = [
   'Glob',
   'Grep',
   'WebFetch',
-  'WebSearch',
   'peer_send_file',
 ];
 
@@ -30,6 +33,7 @@ if (!DISCORD_TOKEN || !ANTHROPIC_API_KEY) {
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 
 const runtime = createAgentRuntime({
+  host,
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: ANTHROPIC_API_KEY }),
 });

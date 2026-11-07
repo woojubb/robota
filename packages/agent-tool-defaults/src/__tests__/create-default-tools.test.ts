@@ -7,8 +7,6 @@ import { afterAll, describe, expect, it } from 'vitest';
 
 import { createDefaultTools } from '../create-default-tools.js';
 
-import type { IRetrievalAdapter, IComputerDriver } from '@robota-sdk/agent-tools';
-
 /**
  * ARCH-010 made `cwd` a required field of `ICreateDefaultToolsOptions`. The cases that assert the tool
  * LIST never execute a tool and so never reach a path guard; this root is named once, here, so that
@@ -21,7 +19,7 @@ afterAll(() => rmSync(PRIVATE_BASE, { recursive: true, force: true }));
 const ASSEMBLY_ROOT = join(PRIVATE_BASE, 'create-tools-assembly-root');
 
 describe('createDefaultTools', () => {
-  it('assembles all default local tools and describes web tools as local tools', () => {
+  it('assembles all default local tools', () => {
     expect(createDefaultTools({ cwd: ASSEMBLY_ROOT }).map((tool) => tool.getName())).toEqual([
       'Shell',
       'Bash',
@@ -31,7 +29,6 @@ describe('createDefaultTools', () => {
       'Glob',
       'Grep',
       'WebFetch',
-      'WebSearch',
       'AskUserQuestion',
     ]);
   });
@@ -48,7 +45,6 @@ describe('createDefaultTools', () => {
       'Write',
       'Edit',
       'WebFetch',
-      'WebSearch',
       'AskUserQuestion',
     ]);
   });
@@ -89,55 +85,30 @@ describe('createDefaultTools', () => {
     }
   });
 
-  // MUST 4: `WebFetch`/`WebSearch` used to be the module-level singletons `webFetchTool` /
-  // `webSearchTool` from `@robota-sdk/agent-tools` — the SAME object on every call. Two
-  // concurrently open sessions each built from `createDefaultTools({cwd})` then shared them and
-  // tripped a resource guard's `resource-reused` even though nothing about either tool needs
-  // sharing across sessions. A fresh instance per call is the fix, mirroring Glob/Grep (SEC-007).
-  it('MUST 4: WebFetch and WebSearch are fresh instances per call, not context-free singletons', () => {
+  // MUST 4: `WebFetch` used to be the module-level singleton `webFetchTool` from
+  // `@robota-sdk/agent-tools` — the SAME object on every call. Two concurrently open sessions each
+  // built from `createDefaultTools({cwd})` then shared it and tripped a resource guard's
+  // `resource-reused` even though nothing about the tool needs sharing across sessions. A fresh
+  // instance per call is the fix, mirroring Glob/Grep (SEC-007).
+  it('MUST 4: WebFetch is a fresh instance per call, not a context-free singleton', () => {
     const first = createDefaultTools({ cwd: ASSEMBLY_ROOT });
     const second = createDefaultTools({ cwd: ASSEMBLY_ROOT });
-    for (const name of ['WebFetch', 'WebSearch']) {
-      const a = first.find((tool) => tool.getName() === name);
-      const b = second.find((tool) => tool.getName() === name);
-      expect(a, `${name} must be part of the default set`).toBeDefined();
-      expect(b).toBeDefined();
-      expect(a).not.toBe(b);
+    const a = first.find((tool) => tool.getName() === 'WebFetch');
+    const b = second.find((tool) => tool.getName() === 'WebFetch');
+    expect(a, 'WebFetch must be part of the default set').toBeDefined();
+    expect(b).toBeDefined();
+    expect(a).not.toBe(b);
+  });
+
+  // Web search reaches the model through the provider's native search and MCP servers; the default
+  // set holds only tools that need no external service, credential or adapter, so none of the
+  // adapter-gated tools is in it either.
+  it('holds no web search tool and no adapter-gated tool', () => {
+    const names = createDefaultTools({ cwd: ASSEMBLY_ROOT }).map((tool) => tool.getName());
+    expect(names).not.toContain('WebSearch');
+    for (const adapterGated of ['CodebaseRetrieval', 'ComputerView', 'Computer']) {
+      expect(names).not.toContain(adapterGated);
     }
-  });
-
-  // SELFHOST-003 TC-03: the retrieval adapter is threaded through assembly and the tool is
-  // adapter-gated — absent with no adapter, present (and only then) when an adapter is supplied.
-  it('TC-03: CodebaseRetrieval joins the default set only when a retrieval adapter is supplied', () => {
-    expect(createDefaultTools({ cwd: ASSEMBLY_ROOT }).map((tool) => tool.getName())).not.toContain(
-      'CodebaseRetrieval',
-    );
-
-    const retrievalAdapter: IRetrievalAdapter = {
-      retrieve: async () => ({ symbols: [], totalTokens: 0 }),
-    };
-    expect(
-      createDefaultTools({ retrievalAdapter, cwd: ASSEMBLY_ROOT }).map((tool) => tool.getName()),
-    ).toContain('CodebaseRetrieval');
-  });
-
-  // SELFHOST-010 TC-04: the computer driver is threaded through assembly and the ComputerView/Computer
-  // tools are adapter-gated — ABSENT with no driver (no host fallback), present only when a driver is
-  // supplied.
-  it('TC-04: ComputerView/Computer join the default set only when a computer driver is supplied', () => {
-    const withoutDriver = createDefaultTools({ cwd: ASSEMBLY_ROOT }).map((tool) => tool.getName());
-    expect(withoutDriver).not.toContain('ComputerView');
-    expect(withoutDriver).not.toContain('Computer');
-
-    const computerDriver: IComputerDriver = {
-      screenshot: async () => ({ data: 'x', mediaType: 'image/png' }),
-      act: async () => ({ screenshot: { data: 'x', mediaType: 'image/png' } }),
-    };
-    const withDriver = createDefaultTools({ computerDriver, cwd: ASSEMBLY_ROOT }).map((tool) =>
-      tool.getName(),
-    );
-    expect(withDriver).toContain('ComputerView');
-    expect(withDriver).toContain('Computer');
   });
 });
 
@@ -158,7 +129,7 @@ describe('CLI-1990 TC-11 — default tool residency', () => {
     expect(deferred).toEqual([]);
   });
 
-  it('keeps the ten built-ins ten — the search tool is added by session assembly, not here', () => {
+  it('keeps the nine built-ins nine — the search tool is added by session assembly, not here', () => {
     const names = createDefaultTools({ cwd: ASSEMBLY_ROOT }).map((tool) => tool.getName());
     expect(names).toEqual([
       'Shell',
@@ -169,18 +140,9 @@ describe('CLI-1990 TC-11 — default tool residency', () => {
       'Glob',
       'Grep',
       'WebFetch',
-      'WebSearch',
       'AskUserQuestion',
     ]);
     expect(names).not.toContain('ToolSearch');
-  });
-
-  it('stays resident under the adapter gates too', () => {
-    const retrievalAdapter: IRetrievalAdapter = {
-      retrieve: async () => ({ symbols: [], totalTokens: 0 }),
-    };
-    const withRetrieval = createDefaultTools({ retrievalAdapter, cwd: ASSEMBLY_ROOT });
-    expect(withRetrieval.every((tool) => tool.schema.deferLoading === undefined)).toBe(true);
   });
 });
 

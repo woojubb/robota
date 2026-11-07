@@ -1,5 +1,5 @@
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { lockedSessionMessage, scanSessionStore } from '@robota-sdk/agent-framework';
 import {
   formatPersonalUsageReport,
   summarizePersonalUsage,
@@ -15,7 +15,7 @@ import type {
   IInteractiveSessionStore,
   TSessionLoadOutcome,
 } from '@robota-sdk/agent-interface-session';
-import { userPaths } from '../product/user-paths.js';
+import { createProductUserSessionStore } from '../product/session-stores.js';
 
 export interface IUsageCommandDependencies {
   readonly userSessionStore: IInteractiveSessionStore;
@@ -53,6 +53,13 @@ export interface IEnumeratedUsageSnapshot {
   readonly records: readonly IInteractiveSessionRecord[];
   readonly corruptSessionIds: readonly string[];
   readonly unsupportedSessionIds: readonly string[];
+  /**
+   * Saved sessions that are sealed and cannot be opened right now. A listing leaves them out, so a
+   * total built from listings silently excludes them unless this is carried and said.
+   */
+  readonly lockedSessionCount: number;
+  /** Those of them sealed with keys this process does not have, which no unlock here opens. */
+  readonly noKeysSessionCount: number;
 }
 
 function invalid(message: string): IUsageCommandResult {
@@ -140,18 +147,23 @@ export function enumerateUsageSnapshot(
   const records = new Map<string, IInteractiveSessionRecord>();
   const corrupt = new Set<string>();
   const unsupported = new Set<string>();
-  for (const entry of dependencies.userSessionStore.list()) {
+  const user = scanSessionStore(dependencies.userSessionStore);
+  for (const entry of user.entries) {
     collectOutcome(entry.id, entry.outcome, records, corrupt, unsupported);
   }
   // Project records are authoritative for duplicate ids because they are scoped to the active,
   // already-authorized workspace composition.
-  for (const entry of dependencies.projectSessionStore?.list() ?? []) {
+  const project = scanSessionStore(dependencies.projectSessionStore);
+  for (const entry of project.entries) {
     collectOutcome(entry.id, entry.outcome, records, corrupt, unsupported);
   }
+  const noKeys = (user.noKeys ?? 0) + (project.noKeys ?? 0);
   return {
     records: [...records.values()],
     corruptSessionIds: [...corrupt],
     unsupportedSessionIds: [...unsupported],
+    lockedSessionCount: user.locked + project.locked + noKeys,
+    noKeysSessionCount: noKeys,
   };
 }
 
@@ -159,7 +171,7 @@ export function createPersonalUsageReporter(
   runtime: ICliRuntimeContext,
   projectSessionStore?: IInteractiveSessionStore,
 ): (request: IPersonalUsageRequest) => IPersonalUsageReport {
-  const userSessionStore = createUserSessionStore(userPaths(runtime).sessions);
+  const userSessionStore = createProductUserSessionStore(runtime);
   return (request) =>
     createPersonalUsageReport(request, {
       userSessionStore,
@@ -171,7 +183,7 @@ export function createStoredSessionUsageReporter(
   runtime: ICliRuntimeContext,
   projectSessionStore?: IInteractiveSessionStore,
 ): (sessionId: string) => ReturnType<typeof summarizeUsageBySource> {
-  const userSessionStore = createUserSessionStore(userPaths(runtime).sessions);
+  const userSessionStore = createProductUserSessionStore(runtime);
   return (sessionId) => {
     const projectOutcome = projectSessionStore?.load(sessionId);
     const outcome =
@@ -182,7 +194,9 @@ export function createStoredSessionUsageReporter(
       throw new Error(
         outcome.status === 'missing'
           ? `Session ${sessionId} was not found.`
-          : `Session ${sessionId} cannot be analyzed (${outcome.status}).`,
+          : outcome.status === 'locked'
+            ? lockedSessionMessage(sessionId, outcome.reason ?? 'locked')
+            : `Session ${sessionId} cannot be analyzed (${outcome.status}).`,
       );
     }
     return summarizeUsageBySource(outcome.record);
@@ -219,13 +233,25 @@ export function executeUsageCommand(
     now: dependencies.now ?? new Date(),
     ...snapshot,
   });
+  // The totals cover readable sessions only; sealed ones this process cannot open are not in them,
+  // and the report must not read as the whole picture when part of it is out of reach — the count is
+  // in the report itself, and said on stderr for a person reading the text, with an unlock only for
+  // the ones an unlock would open.
+  const noKeys = snapshot.noKeysSessionCount;
+  const locked = snapshot.lockedSessionCount - noKeys;
   return {
     exitCode: 0,
     stdout:
       args.format === 'json'
         ? `${JSON.stringify(report, null, 2)}\n`
         : `${formatPersonalUsageReport(report)}\n`,
-    stderr: '',
+    stderr:
+      (locked > 0
+        ? `Usage excludes ${locked} saved ${locked === 1 ? 'session that is' : 'sessions that are'} sealed and locked; unlock to include ${locked === 1 ? 'it' : 'them'}.\n`
+        : '') +
+      (noKeys > 0
+        ? `Usage excludes ${noKeys} saved ${noKeys === 1 ? 'session' : 'sessions'} sealed with keys this process does not have.\n`
+        : ''),
   };
 }
 
@@ -235,7 +261,7 @@ export function runUsageCommand(
   projectSessionStore?: IInteractiveSessionStore,
 ): number {
   const result = executeUsageCommand(argv, {
-    userSessionStore: createUserSessionStore(userPaths(runtime).sessions),
+    userSessionStore: createProductUserSessionStore(runtime),
     ...(projectSessionStore ? { projectSessionStore } : {}),
   }, runtime.config.identity.cliName);
   if (result.stdout) process.stdout.write(result.stdout);

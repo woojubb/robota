@@ -2,7 +2,6 @@ import {
   resolveEnvReference,
   normalizeProviderConfig,
   createProviderFromConfig,
-  processEnvResolver,
 } from '@robota-sdk/agent-core';
 
 import type { ISerializableProviderProfile } from '../background-tasks/types.js';
@@ -27,11 +26,13 @@ import type { IAIProvider, IProviderDefinition, TEnvResolver } from '@robota-sdk
  * #2347: BOTH branches go through the injected resolver. Before, the `apiKey` branch used
  * `resolveEnvReference` (a resolver) while the `apiKeyEnv` branch read the ambient environment around
  * it — a fix that reached one of two paths carrying the same value. Neither reads the ambient
- * environment now; the `provider-env-resolution` scan refuses it in this module.
+ * environment now; the `provider-env-resolution` scan refuses it in this module. The resolver is a
+ * required argument for the same reason: a platform-neutral library has no host environment to
+ * default to, so the composition root passes one (`processEnvResolver` on Node).
  */
 export function resolveProfileApiKey(
   profile: ISerializableProviderProfile,
-  resolve: TEnvResolver = processEnvResolver,
+  resolve: TEnvResolver,
 ): string | undefined {
   if (profile.apiKeyRef !== undefined) {
     throw new Error(`Provider ${profile.type} requires resolution by its credential-owning host`);
@@ -49,7 +50,7 @@ export function createProviderFromProfile(
   profile: ISerializableProviderProfile,
   modelOverride: string | undefined,
   providerDefinitions: readonly IProviderDefinition[],
-  resolve: TEnvResolver = processEnvResolver,
+  resolve: TEnvResolver,
 ): IAIProvider {
   return createProviderFromConfig(
     normalizeProviderConfig(
@@ -81,7 +82,7 @@ export function createProviderFromExactProfile(
   profile: ISerializableProviderProfile,
   modelOverride: string | undefined,
   providerDefinitions: readonly IProviderDefinition[],
-  resolve: TEnvResolver = processEnvResolver,
+  resolve: TEnvResolver,
 ): IAIProvider {
   const namesCredential = profile.apiKey !== undefined || profile.apiKeyEnv !== undefined;
   const apiKey = resolveProfileApiKey(profile, resolve);

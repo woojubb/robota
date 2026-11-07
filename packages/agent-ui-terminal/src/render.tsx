@@ -9,6 +9,7 @@ import React from 'react';
 import App from './App.js';
 import { AttentionTracker } from './attention/attention-tracker.js';
 import { FocusReportingStdin } from './attention/focus-input-filter.js';
+import { createTerminalModeHooks } from './terminal-mode-hooks.js';
 import { KeybindingsProvider } from './keybindings/keybindings-context.js';
 import { ProductDisplayNameProvider } from './product-display-name-context.js';
 import { writeScreenReaderAnnouncement } from './screen-reader-announcement.js';
@@ -47,6 +48,7 @@ import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
+  IFrameworkHost,
   IOutputStylePrompt,
   ICommandModule,
   IRemoteCommandPolicy,
@@ -59,14 +61,14 @@ import type {
   IAutomaticMemoryConfig,
   IPerTurnRecallConfig,
   TWorkspaceProjectAccess,
-  EditCheckpointStore,
+  IEditCheckpointStore,
   TInteractiveSessionOptions,
   IOrgPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
   IContributionSource,
   ISkillRootDescriptor,
-  INodeHostSettingsSource,
+  IHostSettingsSource,
   IToolCallHandoffPolicy,
   ICreateSessionOptions,
   ILivePromptTracePort,
@@ -79,6 +81,8 @@ import type {
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 export interface IRenderOptions {
+  /** The platform the TUI's sessions run on; `{}` is a host with nothing to lend. */
+  host: IFrameworkHost;
   cwd: string;
   livePromptTrace?: ILivePromptTracePort;
   /** Product identity for terminal labels, title, and host-facing copy. */
@@ -101,7 +105,7 @@ export interface IRenderOptions {
   taskContext?: { readonly enabled?: boolean; readonly dir?: string };
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
-  userSettingsSources?: readonly INodeHostSettingsSource[];
+  userSettingsSources?: readonly IHostSettingsSource[];
   environment?: Readonly<Record<string, string | undefined>>;
   resolveProviderCredential?: TProviderCredentialResolver;
   /**
@@ -120,7 +124,7 @@ export interface IRenderOptions {
    * session keeps checkpoints. A factory, not a store: a session switch builds the next channel
    * while the old session may still be finishing a turn, and a store holds one turn in progress.
    */
-  createEditCheckpointStore?: () => EditCheckpointStore;
+  createEditCheckpointStore?: () => IEditCheckpointStore;
   /** The host's way to build each external-event grant's verifier; absent, no grant opens. */
   externalEventVerifierFactory?: TInteractiveSessionOptions['externalEventVerifierFactory'];
   /**
@@ -160,6 +164,13 @@ export interface IRenderOptions {
   disableSessionLoops?: boolean;
   resolveDefaultLoopPrompt?: () => string;
   resumeSessionId?: string;
+  /**
+   * The SHA-256 of the stored record bytes the person accepted as theirs for `resumeSessionId`. Over a
+   * store that seals, a resumed record that is not shown to be the owner's is resumed only if it is
+   * exactly these bytes; the product shell sets it once the person has said the record is theirs.
+   * Applies to the startup session only: a later switch carries the digest of its own pick.
+   */
+  acceptedDigest?: string;
   showSessionPickerOnStart?: boolean;
   /** FLOW-2006: text a deep link prefilled into the composer. Never submitted on its own. */
   initialInput?: string;
@@ -269,8 +280,10 @@ export interface IRenderOptions {
 export function toChannelOptions(
   options: IRenderOptions,
   resumeSessionId?: string,
+  acceptedDigest?: string,
 ): ConstructorParameters<typeof TuiInteractionChannel>[0] {
   return {
+    host: options.host,
     cwd: options.cwd,
     ...(options.livePromptTrace ? { livePromptTrace: options.livePromptTrace } : {}),
     provider: options.provider,
@@ -343,6 +356,7 @@ export function toChannelOptions(
     disableSessionLoops: options.disableSessionLoops,
     resolveDefaultLoopPrompt: options.resolveDefaultLoopPrompt,
     resumeSessionId,
+    ...(acceptedDigest !== undefined ? { acceptedDigest } : {}),
     forkSession: options.forkSession,
     sessionName: options.sessionName,
     backgroundTaskRunners: options.backgroundTaskRunners,
@@ -522,6 +536,7 @@ type TAppShellOptions = Pick<
   | 'version'
   | 'sessionStore'
   | 'resumeSessionId'
+  | 'acceptedDigest'
   | 'showSessionPickerOnStart'
   | 'initialInput'
   | 'initialInputOrigin'
@@ -554,7 +569,7 @@ export interface IChannelServices {
 
 /** Where the App's channels come from, and how a session switch and an app end are decided. */
 interface IAppChannelComposition {
-  readonly createChannel: (resumeSessionId?: string) => ITuiAppChannelPort;
+  readonly createChannel: (resumeSessionId?: string, acceptedDigest?: string) => ITuiAppChannelPort;
   /** Present when the host switches sessions and the channel follows it. */
   readonly requestSessionSwitch?: (sessionId: string) => Promise<void>;
   /** Settles when the app ends without the user closing it (the connection closed). */
@@ -568,15 +583,15 @@ interface IAppChannelComposition {
 export function createInProcessChannelFactory(
   options: IRenderOptions,
   services: IChannelServices,
-): (resumeSessionId?: string) => ITuiAppChannelPort {
+): (resumeSessionId?: string, acceptedDigest?: string) => ITuiAppChannelPort {
   // Issue #3081: the move is announced by the FIRST session only — a later switch to another
   // session (a `/fork` attach) did not move anywhere.
   let pendingWorkspaceMovedFrom = options.workspaceMovedFrom;
-  return (resumeSessionId) => {
+  return (resumeSessionId, acceptedDigest) => {
     const workspaceMovedFrom = pendingWorkspaceMovedFrom;
     pendingWorkspaceMovedFrom = undefined;
     const channel = new TuiInteractionChannel({
-      ...toChannelOptions(options, resumeSessionId),
+      ...toChannelOptions(options, resumeSessionId, acceptedDigest),
       ...(options.createEditCheckpointStore !== undefined
         ? { editCheckpointStore: options.createEditCheckpointStore() }
         : {}),
@@ -635,21 +650,12 @@ async function renderStartedApp(
     focusReporting: focusReportingSupported,
     now: Date.now,
   });
-  handoffController.setTerminalModeHooks({
-    preSuspend: async () => {
-      focusReporting.disable();
-      // SCREEN-2670: nothing parked may land on top of the child's output.
-      await parked?.drain();
-    },
-    postResume: () => focusReporting.enable(),
-  });
-
   // Concrete framework creation has one composition boundary. React receives only the bounded port;
   // App owns which narrowed channel is active, while each channel owns its own lifecycle.
   const composition = compose({ terminalHandoff: handoffController, attention });
   let activeChannel: ITuiAppChannelPort | undefined;
-  const createChannel = (resumeSessionId?: string): ITuiAppChannelPort => {
-    activeChannel = composition.createChannel(resumeSessionId);
+  const createChannel = (resumeSessionId?: string, acceptedDigest?: string): ITuiAppChannelPort => {
+    activeChannel = composition.createChannel(resumeSessionId, acceptedDigest);
     return activeChannel;
   };
 
@@ -665,6 +671,15 @@ async function renderStartedApp(
     onFocusOut: () => attention.focusOut(),
     onKeystroke: () => attention.keystroke(),
   });
+  // Registered once the proxy exists, because a handover holds it: what is typed while another
+  // program has the terminal never reaches the composer (#3679 3f).
+  handoffController.setTerminalModeHooks(
+    createTerminalModeHooks({
+      focusReporting,
+      ...(parked === undefined ? {} : { parked }),
+      stdin,
+    }),
+  );
   process.stdin.resume();
   // Requested only now, so a focus event the terminal answers with lands in the proxy, never in
   // the quiet period's keypress wait; the tracker's idle source runs until the first one arrives.
@@ -693,6 +708,7 @@ async function renderStartedApp(
               version={options.version}
               sessionStore={options.sessionStore}
               resumeSessionId={options.resumeSessionId}
+              acceptedDigest={options.acceptedDigest}
               showSessionPickerOnStart={options.showSessionPickerOnStart}
               initialInput={options.initialInput}
               initialInputOrigin={options.initialInputOrigin}

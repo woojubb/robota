@@ -1,9 +1,9 @@
 import { resolveCliRuntimeContext } from './product-bootstrap.js';
 import { restartProductEnvironment } from '../product/restart-environment.js';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { productProviderDefinitions } from '../product/provider-definitions.js';
 import { withholdProviderCredentials } from '../product/command-environment.js';
+import { createProductUserSessionStore } from '../product/session-stores.js';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
 import { realpathSync } from 'node:fs';
 import { isIP } from 'node:net';
 
@@ -14,6 +14,10 @@ import { isDoctorCommandName, runDoctorRoute } from './doctor-route.js';
 import { runtimeVersion } from './version.js';
 import { runSessionAnalyze } from '../session-analyzer/session-analyze-command.js';
 import { runSessionListCommand } from '../session-inventory/session-list-command.js';
+import {
+  productSessionClaimsLocations,
+  runSessionReleaseCommand,
+} from '../session-inventory/session-release-command.js';
 import { launchSupervisedSession } from '../session-inventory/supervised-session-launch.js';
 import {
   resolveSupervisedDirectory,
@@ -42,6 +46,7 @@ import { runSessionAttachCommand } from '../session-inventory/session-attach-com
 import type { TAttachedAppRender } from '../session-inventory/session-attach-command.js';
 import type { ISessionViewCommandOptions } from '../session-inventory/session-view-command.js';
 import { validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
+import { runSecureCommand } from '../secure/secure-command.js';
 import { runUsageCommand } from '../usage/usage-command.js';
 import { runUsageExportCommand } from '../usage/usage-export-command.js';
 import { subcommandHelpFor } from '../utils/cli-help.js';
@@ -51,6 +56,8 @@ import {
   resolveInitialCliWorkspaceProjectAccess,
 } from './workspace-project-composition.js';
 import { runMcpLoginCommand, runMcpLogoutCommand } from './mcp-login-command.js';
+import { runMcpAddCommand } from './mcp-add-server.js';
+import { resolveMcpApprovalStore } from './mcp-approval-file-store.js';
 import { runWorkspaceTrustCommand } from './workspace-trust-command.js';
 import { optionArgv } from '../utils/option-argv.js';
 import {
@@ -60,7 +67,7 @@ import {
 } from './workspace-trust-admission.js';
 import {
   canAskToTrust,
-  grantWorkspaceTrust,
+  prepareWorkspaceTrustApproval,
   trustQuestionFor,
 } from './interactive-trust-prompt.js';
 
@@ -68,6 +75,7 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type { TSettingsSource } from '@robota-sdk/agent-framework';
 
 import type { IStartCliOptions } from './command-setup.js';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 
 const SUBCOMMAND_INDEX = 2;
 const ACTION_INDEX = 3;
@@ -198,6 +206,8 @@ export async function runPreparsedCliCommand(
   telemetryEnvironment: Readonly<Record<string, string>> = {},
   renderSessionView?: ISessionViewCommandOptions['render'],
   attachedAppPresentation?: IAttachedAppPresentation,
+  /** The platform the `eval` route runs its sessions on; the other routes build none. */
+  host?: IFrameworkHost,
 ): Promise<boolean> {
   // Product telemetry settings were removed from process.env at startup; the supervised runtime is
   // the one child that receives them, through its explicit spawn environment.
@@ -215,7 +225,7 @@ export async function runPreparsedCliCommand(
       ...restartProductEnvironment(
         productRuntime,
         sources,
-        options.providerDefinitions ?? createDefaultProviderDefinitions(),
+        options.providerDefinitions ?? productProviderDefinitions(),
       ),
       ...telemetryEnvironment,
     };
@@ -376,24 +386,34 @@ export async function runPreparsedCliCommand(
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'view') {
     const renderAttached = await attachedAppRender();
+    const approvals = new Map<string, Awaited<ReturnType<typeof prepareWorkspaceTrustApproval>>>();
     process.exitCode = await runSessionViewCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
       productRuntime,
       launchCwd: cwd,
       render: renderSessionView,
       ...(renderAttached === undefined ? {} : { renderAttached }),
-      startTrustQuestion: async (targetCwd) =>
-        trustQuestionFor(
-          await resolveInitialCliWorkspaceProjectAccess(targetCwd, { productRuntime }),
-          targetCwd,
-          productRuntime,
-        ),
+      startTrustQuestion: async (targetCwd) => {
+        const access = await resolveInitialCliWorkspaceProjectAccess(targetCwd, { productRuntime });
+        if (canAskToTrust(access)) {
+          const previous = approvals.get(targetCwd);
+          if (previous !== undefined) await previous.release();
+          approvals.set(targetCwd, await prepareWorkspaceTrustApproval(targetCwd, productRuntime));
+        }
+        return trustQuestionFor(access, targetCwd, productRuntime);
+      },
       start: async (targetCwd, choice) => {
         let access = await resolveInitialCliWorkspaceProjectAccess(targetCwd, { productRuntime });
         // A person in the view answered for a folder not trusted yet: trust it, or run it Restricted.
         // A Restricted answer holds even if the folder became trusted meanwhile; it never widens.
         const restricted = choice === 'restricted';
-        if (choice === 'trust' && canAskToTrust(access))
-          access = await grantWorkspaceTrust(targetCwd, productRuntime);
+        const approval = approvals.get(targetCwd);
+        approvals.delete(targetCwd);
+        if (choice === 'trust' && canAskToTrust(access)) {
+          if (approval === undefined) throw new Error('The workspace approval expired.');
+          access = await approval.grant();
+        } else if (approval !== undefined) {
+          await approval.release();
+        }
         if (requiresHeadlessWorkspaceTrust(access) && !(restricted && canAskToTrust(access))) {
           throw new Error(
             formatHeadlessWorkspaceTrustError(
@@ -479,6 +499,16 @@ export async function runPreparsedCliCommand(
     });
     return true;
   }
+  // The keyring belongs to the user, not to a workspace: it is routed before any project composition
+  // and reads no project setting, so a repository can neither start nor shape it.
+  if (argv[SUBCOMMAND_INDEX] === 'secure') {
+    process.exitCode = await runSecureCommand(argv.slice(ACTION_INDEX), {
+      productRuntime,
+      stdout: (text) => process.stdout.write(text),
+      stderr: (text) => process.stderr.write(text),
+    });
+    return true;
+  }
   const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
   const composition = createInitialCliWorkspaceComposition(cwd, {
     ...options,
@@ -488,7 +518,7 @@ export async function runPreparsedCliCommand(
   // the startup snapshot, so the live environment those commands inherit drops it now.
   withholdProviderCredentials(
     composition.settingsSources,
-    options.providerDefinitions ?? createDefaultProviderDefinitions(),
+    options.providerDefinitions ?? productProviderDefinitions(),
   );
   if (
     argv[SUBCOMMAND_INDEX] === 'mcp' &&
@@ -499,6 +529,18 @@ export async function runPreparsedCliCommand(
       settingsSources: composition.settingsSources,
       env: productRuntime.environment,
       productRuntime,
+      stdout: (text) => process.stdout.write(text),
+      stderr: (text) => process.stderr.write(text),
+    });
+    return true;
+  }
+  if (argv[SUBCOMMAND_INDEX] === 'mcp' && argv[ACTION_INDEX] === 'add') {
+    process.exitCode = runMcpAddCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
+      interactive: process.stdin.isTTY === true && process.stdout.isTTY === true,
+      productRuntime,
+      settingsSources: composition.settingsSources,
+      env: productRuntime.environment,
+      approvalStore: resolveMcpApprovalStore(options.mcpApprovalStore, productRuntime),
       stdout: (text) => process.stdout.write(text),
       stderr: (text) => process.stderr.write(text),
     });
@@ -529,8 +571,16 @@ export async function runPreparsedCliCommand(
       argv.slice(SUBCOMMAND_ARGUMENT_INDEX),
       cwd,
       composition.sessionStoreScope === 'project' ? composition.sessionStore : undefined,
-      createUserSessionStore(productRuntime.layout.userPaths.sessions),
+      createProductUserSessionStore(productRuntime),
     );
+    return true;
+  }
+  // The user's own remedy for a writer marker a crashed or planted process left; never model-invocable.
+  if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'release') {
+    process.exitCode = await runSessionReleaseCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
+      cliName: productRuntime.config.identity.cliName,
+      locations: productSessionClaimsLocations(productRuntime, composition.projectAccess),
+    });
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'list') {
@@ -616,6 +666,7 @@ export async function runPreparsedCliCommand(
   }
   if (argv[SUBCOMMAND_INDEX] !== 'eval') return false;
   process.exitCode = await runEvalCommand(argv.slice(ACTION_INDEX), cwd, {
+    ...(host !== undefined ? { host } : {}),
     settingsSources: composition.settingsSources,
     projectAccess: composition.projectAccess,
     environment: productRuntime.environment,

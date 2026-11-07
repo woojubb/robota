@@ -16,8 +16,11 @@ import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js'
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createWorkspaceProjectMutation } from '../../workspace-trust/index.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IAIProvider, IAssistantMessage, TUniversalMessage } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 const TMP_BASE = realpathSync(mkdtempSync(join(tmpdir(), 'agent-interactive-checkpoints-')));
 const ORIGINAL_HOME = process.env.HOME;
@@ -32,6 +35,7 @@ async function createCheckpointStore(cwd: string): Promise<EditCheckpointStore> 
   const access = await createTrustedProjectAccessFixture(cwd);
   if (access.status !== 'trusted') throw new Error('expected trusted project fixture');
   return new EditCheckpointStore({
+    sealing: 'plain',
     authority: access.authority,
     mutation: createWorkspaceProjectMutation(access.authority, {
       status: 'approved',
@@ -106,6 +110,7 @@ describe.runIf(process.platform === 'linux')('InteractiveSession edit checkpoint
       assistantMessage('second done'),
     ]);
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider,
       bare: true,
@@ -150,6 +155,7 @@ describe.runIf(process.platform === 'linux')('InteractiveSession edit checkpoint
       assistantMessage('first done'),
     ]);
     const session = new InteractiveSession({
+      host: testHost,
       cwd,
       provider,
       bare: true,

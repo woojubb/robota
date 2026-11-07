@@ -21,6 +21,7 @@ import { numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { isInteractiveColorTerminal } from './terminal-capabilities.js';
+import { useUnlockCommand } from './tui-cli-adapter-context.js';
 import { usePalette } from './theme/index.js';
 
 import type { IHistorySearchView } from './history-search/useHistorySearch.js';
@@ -44,6 +45,21 @@ function scrollOffset(selectedIndex: number, total: number): number {
 /** `1 unreadable line skipped` / `3 unreadable lines skipped`. */
 function formatSkippedLines(count: number): string {
   return `${count} unreadable ${count === 1 ? 'line' : 'lines'} skipped`;
+}
+
+/** Sealed prompts an unlock would let the search read; names the unlock command where there is one. */
+function formatLockedPrompts(count: number, unlockCommand: string | undefined): string {
+  const unlock = unlockCommand === undefined ? 'unlock' : `run \`${unlockCommand}\``;
+  return count === 1
+    ? `1 prompt is sealed and locked; ${unlock} to search it.`
+    : `${count} prompts are sealed and locked; ${unlock} to search them.`;
+}
+
+/** Sealed prompts no unlock in this process would read, so the notice never says "unlock". */
+function formatNoKeysPrompts(count: number): string {
+  return count === 1
+    ? '1 prompt is sealed; this process has no keys to open it.'
+    : `${count} prompts are sealed; this process has no keys to open them.`;
 }
 
 function MatchRow(props: {
@@ -104,6 +120,21 @@ function StateLine({ view }: { readonly view: IHistorySearchView }): React.React
   return <Text dimColor>{parts.join(' · ')}</Text>;
 }
 
+/** What the search could not open: listed so sealed prompts never read as a shorter history. */
+function SealedPromptsNotice({ view }: { readonly view: IHistorySearchView }): React.ReactElement {
+  const palette = usePalette();
+  const unlockCommand = useUnlockCommand();
+  const { locked, noKeys } = view.unreadable;
+  return (
+    <>
+      {locked > 0 ? (
+        <Text color={palette.text.warning}>{formatLockedPrompts(locked, unlockCommand)}</Text>
+      ) : null}
+      {noKeys > 0 ? <Text color={palette.text.warning}>{formatNoKeysPrompts(noKeys)}</Text> : null}
+    </>
+  );
+}
+
 export default function HistorySearchOverlay({
   view,
 }: {
@@ -144,6 +175,7 @@ export default function HistorySearchOverlay({
         />
       ))}
       <StateLine view={view} />
+      <SealedPromptsNotice view={view} />
       <KeyHintFooter hints={footerHints} />
     </Box>
   );

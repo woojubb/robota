@@ -44,6 +44,12 @@ export interface ISchemaClosureOptions {
    */
   optionalAsNullable?: boolean;
   /**
+   * Keywords the surface refuses outright, dropped from every node on the way out. They go here
+   * rather than through a second walk because a walk that misses a route leaves exactly the nodes it
+   * was written to fix untouched.
+   */
+  omitKeywords?: readonly string[];
+  /**
    * MCP-005: told once per actual structural edit, so a caller (the tool-schema projector) can build
    * a diagnostic without re-deriving this recursion — one walk, not a second copy that could disagree
    * with this one about which route a nested object arrives by.
@@ -105,6 +111,7 @@ function closeObjectSchemasAt(
 
   const record = node as Record<string, unknown>;
   const closed: Record<string, unknown> = { ...record };
+  for (const keyword of options.omitKeywords ?? []) delete closed[keyword];
   const isObjectNode = record.type === 'object';
   const properties =
     record.properties && typeof record.properties === 'object'

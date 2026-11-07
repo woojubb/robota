@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, rmSync, realpathSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createNodeHostSessionStore, loadOrgPolicy } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore, loadOrgPolicy } from '@robota-sdk/agent-framework/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runPrintMode } from '../print-mode.js';
@@ -20,11 +20,14 @@ import {
   buildPresetSurfaceOptions,
   toSessionOptions,
 } from '../../startup/preset-surface-options.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IPrintModeSessionResolution } from '../print-mode.js';
 import type { IParsedCliArgs } from '../../utils/cli-args.js';
 import type { IAIProvider, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { IOrgPolicy } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 const policyHome = vi.hoisted(() => ({ value: '' }));
 
@@ -138,10 +141,12 @@ async function runPrint(
   beforeExit?: () => Promise<void>,
   orgPolicy?: IOrgPolicy,
 ): Promise<number> {
-  const sessionStore = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'));
+  const sessionStore = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
+    sealing: 'plain',
+  });
   try {
     await runPrintMode(
-      createTestProductRuntime(), cwd,
+      createTestProductRuntime(), testHost, cwd,
       makeArgs({ positional: [prompt] }),
       provider,
       sessionStore,
@@ -211,7 +216,9 @@ describe('print mode session resume integration (CLI-063)', () => {
     const exitCode = await runPrint(cwd, 'Remember this number: 42', provider);
 
     expect(exitCode).toBe(0);
-    const store = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'));
+    const store = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    });
     expect(store.list()).toHaveLength(1);
   });
 
@@ -219,7 +226,9 @@ describe('print mode session resume integration (CLI-063)', () => {
     const first = createRecordingProvider('first answer');
     await runPrint(cwd, 'Remember this number: 42', first.provider);
 
-    const store = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'));
+    const store = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    });
     const priorId = store.list()[0]?.id;
     expect(priorId).toBeDefined();
 
@@ -242,7 +251,9 @@ describe('print mode session resume integration (CLI-063)', () => {
     expect(contents).toContain('first answer');
     expect(contents).toContain('What number did I ask you to remember?');
 
-    const ids = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'))
+    const ids = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    })
       .list()
       .map((record) => record.id);
     expect(ids).toEqual([priorId]);
@@ -252,7 +263,9 @@ describe('print mode session resume integration (CLI-063)', () => {
     const first = createRecordingProvider('first answer');
     await runPrint(cwd, 'Remember this number: 42', first.provider);
 
-    const store = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'));
+    const store = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    });
     const priorEntry = store.list()[0];
     if (priorEntry?.outcome.status !== 'valid') {
       throw new Error(
@@ -279,7 +292,9 @@ describe('print mode session resume integration (CLI-063)', () => {
     expect(contents).toContain('And in the fork?');
     expect(contents).toContain('Remember this number: 42');
 
-    const afterEntries = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions')).list();
+    const afterEntries = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    }).list();
     const after = afterEntries.flatMap((e) =>
       e.outcome.status === 'valid' ? [e.outcome.record] : [],
     );
@@ -349,10 +364,12 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
 
   it('print mode: the composed addition arrives on the projection, not from a second helper call', async () => {
     const { provider, lastMessages } = createRecordingProvider('ok');
-    const sessionStore = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'));
+    const sessionStore = createNodeHostSessionStore(join(cwd, '.test-product', 'sessions'), {
+      sealing: 'plain',
+    });
     try {
       await runPrintMode(
-        createTestProductRuntime(), cwd,
+        createTestProductRuntime(), testHost, cwd,
         makeArgs({ positional: ['hello'] }),
         provider,
         sessionStore,
@@ -379,7 +396,7 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
     // `TInteractiveSessionOptions` is a union, and the injected member has no `appendSystemPrompt`
     // because it takes an already-built session. Serve always builds the standard member, so the
     // read is narrowed here rather than by widening the framework's public surface for a test.
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd,
       args: makeArgs({}),
       preset: { cliAppendSystemPrompt: 'SERVED-ADDITION' },
@@ -389,7 +406,7 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
 
   it('serve mode forwards the host live trace port to its session', () => {
     const livePromptTrace = { enqueue: vi.fn() };
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd, args: makeArgs({}), preset: {}, livePromptTrace,
     } as never);
     expect(options.livePromptTrace).toBe(livePromptTrace);
@@ -424,7 +441,7 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
     // ignored under `-p` and `--serve` — the half-applied divergence the item exists to close,
     // reintroduced at two of three shells. The projection test above cannot catch it: it asserts the
     // surfaces ACCEPT the field, which is a compile-time property, not that they READ it.
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd,
       args: makeArgs({ allowedTools: 'FromFlag', deniedTools: 'FromFlag' }),
       preset: { allowedTools: ['FromPreset'], deniedTools: ['DeniedByPreset'] },

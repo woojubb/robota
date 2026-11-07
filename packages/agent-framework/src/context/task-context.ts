@@ -1,6 +1,11 @@
-import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
+import {
+  basenamePath,
+  dirnamePath,
+  isAbsolutePath,
+  joinPath,
+  resolvePath,
+} from '@robota-sdk/agent-core';
 
-import { NodeFileSystem } from '../adapters/node-file-system.js';
 import { assertWorkspaceProjectReader } from '../workspace-trust/index.js';
 
 import type { IWorkspaceProjectReader } from '../workspace-trust/index.js';
@@ -54,7 +59,7 @@ function normalizeStatus(value: string | undefined): TTaskFileStatus {
 
 function extractTitle(content: string, taskPath: string): string {
   const heading = content.split(/\r?\n/).find((line) => /^#\s+/.test(line));
-  return heading?.replace(/^#\s+/, '').trim() || basename(taskPath, MARKDOWN_EXTENSION);
+  return heading?.replace(/^#\s+/, '').trim() || basenamePath(taskPath, MARKDOWN_EXTENSION);
 }
 
 function extractMetadata(content: string, key: string): string | undefined {
@@ -114,10 +119,12 @@ function formatTask(task: ITaskContextFile): string {
 }
 
 function resolveGitDirectory(cwd: string, fs: IFileSystem): string | undefined {
-  let current = resolve(cwd);
+  // A relative `cwd` names a place only the process directory could say, which this code never reads.
+  if (!isAbsolutePath(cwd)) return undefined;
+  let current = resolvePath(cwd, '.');
   let reachedRoot = false;
   while (!reachedRoot) {
-    const gitPath = join(current, '.git');
+    const gitPath = joinPath(current, '.git');
     if (fs.existsSync(gitPath)) {
       const stats = fs.statSync(gitPath);
       if (stats.isDirectory()) return gitPath;
@@ -126,23 +133,25 @@ function resolveGitDirectory(cwd: string, fs: IFileSystem): string | undefined {
       // and a `.git` file with a long space run cost O(n²) (SEC-003). Greedy `\s*` already consumed every
       // leading space, so pinning the capture to start non-space accepts exactly the same (trimmed) content.
       const gitdir = content.match(/^gitdir:\s*(\S.*)$/)?.[1];
-      if (gitdir) return isAbsolute(gitdir) ? gitdir : resolve(current, gitdir);
+      if (gitdir) return isAbsolutePath(gitdir) ? gitdir : resolvePath(current, gitdir);
     }
 
-    const parent = dirname(current);
+    const parent = dirnamePath(current);
     reachedRoot = parent === current;
     current = parent;
   }
   return undefined;
 }
 
-export function readCurrentGitBranchFromNodeHost(
-  cwd: string,
-  fs: IFileSystem = new NodeFileSystem(),
-): string | undefined {
+/**
+ * The branch `HEAD` names, read through `fs` from the nearest `.git` at or above an absolute `cwd`;
+ * `undefined` when there is none, `HEAD` is detached, or `cwd` is not absolute. The file system is a
+ * required argument: the framework has none of its own.
+ */
+export function readCurrentGitBranchFromNodeHost(cwd: string, fs: IFileSystem): string | undefined {
   const gitDir = resolveGitDirectory(cwd, fs);
   if (!gitDir) return undefined;
-  const headPath = join(gitDir, 'HEAD');
+  const headPath = joinPath(gitDir, 'HEAD');
   if (!fs.existsSync(headPath)) return undefined;
 
   const head = fs.readFileSync(headPath, 'utf8').trim();
@@ -158,7 +167,7 @@ export function discoverTaskFiles(reader: IWorkspaceProjectReader, dir: string):
     .map((entry) => entry.name)
     .filter((name) => name !== README_FILENAME && name.endsWith(MARKDOWN_EXTENSION))
     .sort((a, b) => a.localeCompare(b))
-    .map((name) => join(dir, name));
+    .map((name) => joinPath(dir, name));
 }
 
 export function parseTaskFile(taskPath: string, reader: IWorkspaceProjectReader): ITaskContextFile {

@@ -1,3 +1,5 @@
+import { posix, win32 } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -128,5 +130,48 @@ describe('output style registry', () => {
     expect(result.errors).toEqual([
       expect.objectContaining({ error: 'frontmatter: invalid entry at line 2' }),
     ]);
+  });
+});
+
+/**
+ * The style id is the file's name without its extension. It was read with `node:path`; the package
+ * reads the name itself now, and these hold it to what `node:path` gave for every name a directory
+ * listing or a joined path can hand it.
+ */
+describe('output style file names', () => {
+  const parse = (fileName: string) =>
+    parseOutputStyleFile({ fileName, content: ['---', '---', 'Body.'].join('\n') }, 'user');
+  const expected = (flavour: typeof posix, fileName: string) => ({
+    id: flavour.basename(fileName, flavour.extname(fileName)).trim(),
+    name: flavour.basename(fileName, '.md'),
+  });
+
+  it.each([
+    'brief.md',
+    'Brief.md',
+    'a-b.md',
+    ' padded.md',
+    'x/brief.md',
+    'x/y/z-style.md',
+    'x/dir.v2/brief.md',
+  ])('reads %s as node:path reads it', (fileName) => {
+    const { id, name } = expected(posix, fileName);
+    const style = parse(fileName);
+    expect(style.id).toBe(id.toLowerCase());
+    expect(style.name).toBe(name);
+  });
+
+  it.each(['.md', '..md', 'x/.md', 'a.b.md', 'a..md', 'a b.md', 'é.md', '-a.md', 'a_b.md'])(
+    'refuses %s as node:path reads it: its stem is not a slug',
+    (fileName) => {
+      expect(expected(posix, fileName).id).not.toMatch(/^[a-z0-9][a-z0-9-]*$/i);
+      expect(() => parse(fileName)).toThrow('id: expected the Markdown filename stem to be a slug');
+    },
+  );
+
+  it('reads a Windows path joined with a backslash as node:path does on Windows', () => {
+    const fileName = String.raw`styles\brief.md`;
+    expect(win32.basename(fileName, win32.extname(fileName))).toBe('brief');
+    expect(parse(fileName).id).toBe('brief');
   });
 });

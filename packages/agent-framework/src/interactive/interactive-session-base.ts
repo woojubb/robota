@@ -26,9 +26,9 @@ import {
   readWorkspaceDetail,
 } from './interactive-session-workspace.js';
 import { projectHistoryForDisplay } from './interactive-session-history-projection.js';
-import { validateWorkspaceSessionReplayLog as validateReplay } from './workspace-session-replay-validation.js';
 
 import type { ISessionUsageRecord } from '../command-api/session/session-usage.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import type { SessionExecutionController } from './interactive-session-execution-controller.js';
 import type { SessionHistoryTracker } from './interactive-session-history-tracker.js';
@@ -49,8 +49,10 @@ import type {
 } from '../background-tasks/index.js';
 import type {
   IEditCheckpointInspection,
+  IEditCheckpointListing,
   IEditCheckpointRestoreResult,
   IEditCheckpointSummary,
+  IEditCheckpointUnreadableCounts,
 } from '../checkpoints/edit-checkpoint-types.js';
 import type { ICommandSessionReplayValidationReport } from '../command-api/index.js';
 import type {
@@ -72,11 +74,7 @@ import type {
 } from '../context/context-reference-inventory.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
-import type {
-  IHistoryEntry,
-  TUniversalMessage,
-  IContextWindowState,
-} from '@robota-sdk/agent-core';
+import type { IHistoryEntry, TUniversalMessage, IContextWindowState } from '@robota-sdk/agent-core';
 import type { IScheduleEditPatch } from '@robota-sdk/agent-executor';
 import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
 import type {
@@ -103,6 +101,10 @@ export abstract class InteractiveSessionBase {
   protected abstract ensureInitialized(): Promise<void>;
   protected abstract getCwd(): string;
   protected abstract getProjectAccess(): TWorkspaceProjectAccess;
+  /** Whether session `sessionId`'s record may have a writer now, here or in another process (its store's `hasWriter`). */
+  protected abstract sessionRecordHasWriter(sessionId: string): boolean;
+  /** The host's reader for a session's project log; the subclass owns the host. */
+  protected abstract getSessionReplayValidator(): IFrameworkHost['validateSessionReplayLog'];
   /** SCREEN-1992: the parked permission/ask the main thread waits on; the subclass owns the registry. */
   protected abstract getPendingRequest(): IExecutionPendingRequest | undefined;
 
@@ -147,9 +149,21 @@ export abstract class InteractiveSessionBase {
   getSessionUsage(): readonly ISessionUsageRecord[] {
     return readSessionUsageRecords(this.histTracker.getHistory());
   }
-  /** ARCH-029 TC-08: one replay-validation path with no fallback branch. */
+  /**
+   * ARCH-029 TC-08: one replay-validation path with no fallback branch. The reader is the host's
+   * (`validateSessionReplayLog`); the session holds no keys of its own, so a sealed project log is
+   * reported as sealed (`ArtifactLockedError`, `no-keys`) instead of being opened. A host that
+   * supplies no reader leaves the session unable to read its log, and this says so as an error.
+   */
   validateCurrentSessionReplayLog(): ICommandSessionReplayValidationReport {
-    return validateReplay(this.getProjectAccess(), this.getSessionOrThrow().getSessionId());
+    const validate = this.getSessionReplayValidator();
+    if (validate === undefined) {
+      throw new Error(
+        'Session replay validation is unavailable: the host supplies no reader for the session log ' +
+          '(`validateSessionReplayLog`). Pass a host that supplies one, such as `createNodeFrameworkHost`.',
+      );
+    }
+    return validate(this.getProjectAccess(), this.getSessionOrThrow().getSessionId());
   }
 
   getCommandInvocationSource(): TCommandInvocationSource {
@@ -215,6 +229,12 @@ export abstract class InteractiveSessionBase {
   }
   listEditCheckpoints(): IEditCheckpointSummary[] {
     return this.histTracker.listEditCheckpoints();
+  }
+  unreadableEditCheckpoints(): IEditCheckpointUnreadableCounts {
+    return this.histTracker.unreadableEditCheckpoints();
+  }
+  editCheckpointListing(): IEditCheckpointListing {
+    return this.histTracker.editCheckpointListing();
   }
   inspectEditCheckpoint(checkpointId: string): IEditCheckpointInspection {
     return this.histTracker.inspectEditCheckpoint(checkpointId);
@@ -311,6 +331,7 @@ export abstract class InteractiveSessionBase {
         bgTracker: this.bgTracker,
         pendingRequest: () => this.getPendingRequest(),
         selfPacedLoops: () => this.getSelfPacedLoopWorkspaceSummaries(),
+        sessionHasWriter: (sessionId) => this.sessionRecordHasWriter(sessionId),
       },
       options,
     );

@@ -21,7 +21,6 @@ export {
   type TProviderFailureReason,
 } from './provider-failure';
 export * from './periodic-task';
-export * from './platform-shell';
 export {
   buildTraceparent,
   isMintedSpanId,
@@ -36,3 +35,19 @@ export {
 export type { TTimerId } from './timer-types';
 export { ExecutionRecoveryError } from './execution-recovery-error';
 export type { TExecutionRecoveryErrorCode } from './execution-recovery-error';
+export {
+  ArtifactCorruptError,
+  ArtifactLockedError,
+  isArtifactCorruptError,
+  isArtifactLockedError,
+} from './artifact-sealer-errors';
+export type { TArtifactLockedReason, TArtifactSealerErrorCode } from './artifact-sealer-errors';
+export {
+  SEALED_ARTIFACT_LINE_PREFIX,
+  SEALED_ARTIFACT_MAGIC,
+  SEALED_ARTIFACT_MAX_OVERHEAD_BYTES,
+  isCurrentSealedArtifactBytes,
+  isCurrentSealedArtifactLine,
+  isSealedArtifactBytes,
+  isSealedArtifactLine,
+} from './sealed-artifact-framing';

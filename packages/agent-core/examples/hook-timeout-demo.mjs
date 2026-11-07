@@ -11,7 +11,10 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { runHooks } from '../dist/node/index.js';
+import { runHooks } from '../dist/index.js';
+import { CommandExecutor, HttpExecutor } from '../dist/node.js';
+
+const executors = [new CommandExecutor(), new HttpExecutor()];
 
 const EXECUTOR_SRC = new URL('../src/hooks/executors/command-executor.ts', import.meta.url);
 
@@ -49,13 +52,18 @@ const hooksTimedOut = {
 };
 
 const t1start = Date.now();
-const s1result = await runHooks(hooksTimedOut, 'PreToolUse', {
-  session_id: 'demo',
-  cwd: process.cwd(),
-  hook_event_name: 'PreToolUse',
-  tool_name: 'Bash',
-  tool_input: { command: 'echo hello' },
-});
+const s1result = await runHooks(
+  hooksTimedOut,
+  'PreToolUse',
+  {
+    session_id: 'demo',
+    cwd: process.cwd(),
+    hook_event_name: 'PreToolUse',
+    tool_name: 'Bash',
+    tool_input: { command: 'echo hello' },
+  },
+  executors,
+);
 const t1elapsed = Date.now() - t1start;
 
 console.log(`  elapsed: ${t1elapsed}ms`);
@@ -80,13 +88,18 @@ const hooksOk = {
 };
 
 const t2start = Date.now();
-const s2result = await runHooks(hooksOk, 'PreToolUse', {
-  session_id: 'demo',
-  cwd: process.cwd(),
-  hook_event_name: 'PreToolUse',
-  tool_name: 'Bash',
-  tool_input: { command: 'echo hello' },
-});
+const s2result = await runHooks(
+  hooksOk,
+  'PreToolUse',
+  {
+    session_id: 'demo',
+    cwd: process.cwd(),
+    hook_event_name: 'PreToolUse',
+    tool_name: 'Bash',
+    tool_input: { command: 'echo hello' },
+  },
+  executors,
+);
 const t2elapsed = Date.now() - t2start;
 
 console.log(`  elapsed: ${t2elapsed}ms`);

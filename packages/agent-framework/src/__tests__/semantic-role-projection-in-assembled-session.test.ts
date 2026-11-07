@@ -34,7 +34,10 @@ import { deriveContextCapacityHint } from '../assembly/context-capacity-hint.js'
 import { createSession } from '../assembly/create-session.js';
 import { SystemCommandExecutor } from '../commands/system-command-executor.js';
 import { createContributionSourcesForProjectAccess } from '../contributions/initial-contribution-sources.js';
+import { createDefaultUserContributionSources } from '../contributions/node-host-contribution-source.js';
+import { createNodeWorkspaceProjectFiles } from '../workspace-trust/node-project-files.js';
 import { WorkspaceTrustService } from '../workspace-trust/workspace-trust-service.js';
+import { createTestFrameworkHost } from '../testing/framework-host.js';
 
 import type { ISystemCommand, ISystemCommandSemanticRoles } from '../command-api/contracts.js';
 import type { IResolvedConfig } from '../config/config-types.js';
@@ -43,6 +46,8 @@ import type {
   IWorkspaceIdentity,
   IWorkspaceTrustStoreSnapshot,
 } from '../workspace-trust/types.js';
+
+const testHost = createTestFrameworkHost();
 
 const CONFIG: IResolvedConfig = {
   defaultTrustLevel: 'moderate',
@@ -83,6 +88,7 @@ async function trustedProjectAccess(root: string): Promise<ITrustedWorkspaceProj
   };
   const access = await new WorkspaceTrustService({
     identityResolver: { resolve: () => identity },
+    projectFiles: createNodeWorkspaceProjectFiles(),
     store: {
       inspect: async () => trusted,
       grant: async () => trusted,
@@ -97,8 +103,8 @@ let cwd: string;
 /**
  * An EMPTY directory standing in for the user home.
  *
- * `createContributionSourcesForProjectAccess` defaults its second argument to `homedir()`, so
- * without this the suite reads whatever skills the runner happens to have in `~/.claude/skills`.
+ * A suite that built its user sources from the real home would read whatever skills the runner
+ * happens to have in `~/.claude/skills`.
  * That is not hypothetical: the first version of this file omitted both this and the workspace
  * skill below, and passed on a developer machine with 13 unrelated skills installed while failing
  * on CI, where there are none. The assertions were green for a reason that had nothing to do with
@@ -123,9 +129,13 @@ async function assembledSystemMessage(
   commandSemanticRoles?: ISystemCommandSemanticRoles,
 ): Promise<string> {
   const created = await createSession({
+    host: testHost,
     config: CONFIG,
     cwd,
-    contributionSources: createContributionSourcesForProjectAccess(projectAccess, userHome),
+    contributionSources: createContributionSourcesForProjectAccess(
+      projectAccess,
+      createDefaultUserContributionSources(userHome),
+    ),
     skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
     context: { agentsMd: '', projectNotesMd: '' },
     terminal: TERMINAL as never,

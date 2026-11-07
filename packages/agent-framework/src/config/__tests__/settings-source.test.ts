@@ -5,10 +5,10 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
-  createNodeHostSettingsSource,
   createWorkspaceProjectSettingsSources,
   readSettingsSourceText,
 } from '../settings-source.js';
+import { createNodeHostSettingsSource } from '../node-host-settings-source.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { TEST_PROJECT_SETTINGS_PATHS } from '../../testing/project-settings-path-fixture.js';
 import {

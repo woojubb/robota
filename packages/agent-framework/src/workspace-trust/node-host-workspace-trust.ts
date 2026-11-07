@@ -2,8 +2,13 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 
-import { tightenExistingFile, writeOwnerOnlyFile } from '@robota-sdk/agent-core/node';
+import {
+  tightenExistingFile,
+  withChildSession,
+  writeOwnerOnlyFile,
+} from '@robota-sdk/agent-core/node';
 
+import { createNodeWorkspaceProjectFiles } from './node-project-files.js';
 import { WorkspaceTrustService } from './workspace-trust-service.js';
 
 import type {
@@ -37,19 +42,23 @@ interface IPersistedTrustStore {
 
 function runGit(cwd: string, args: readonly string[]): string {
   try {
-    return execFileSync('git', [...args], {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
+    // The trust check runs before trust exists, on a repository's own configuration: in secure mode
+    // git gets its own session.
+    return execFileSync(
+      'git',
+      [...args],
+      withChildSession({ cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }),
+    ).trim();
   } catch (error) {
     throw new Error(`Git workspace identity is unavailable for ${cwd}`, { cause: error });
   }
 }
 
-function canonicalPath(value: string): string {
+function canonicalPath(value: string, expandWindowsAlias = false): string {
   try {
-    return realpathSync(value);
+    return expandWindowsAlias && process.platform === 'win32'
+      ? realpathSync.native(value)
+      : realpathSync(value);
   } catch (error) {
     throw new Error(`Git workspace identity is unavailable for ${value}`, { cause: error });
   }
@@ -179,10 +188,11 @@ export function createNodeWorkspaceIdentityResolver(): IWorkspaceIdentityResolve
     resolve(cwd: string): IWorkspaceIdentity {
       const canonicalCwd = canonicalPath(resolve(cwd));
       const worktreeRoot = canonicalPath(runGit(canonicalCwd, ['rev-parse', '--show-toplevel']));
+      // Keep Git's original cwd: relative GIT_DIR and GIT_WORK_TREE are interpreted from there.
       const commonDirValue = runGit(canonicalCwd, ['rev-parse', '--git-common-dir']);
       const commonDir = canonicalPath(
-        // Git returns a relative common-dir from the command's cwd, which may be below the root.
         isAbsolute(commonDirValue) ? commonDirValue : join(canonicalCwd, commonDirValue),
+        true,
       );
       const repositoryKey = repositoryIdentityKey(commonDir);
       return Object.freeze({
@@ -194,10 +204,10 @@ export function createNodeWorkspaceIdentityResolver(): IWorkspaceIdentityResolve
   });
 }
 
-function readPersistedTrustStore(filePath: string): IPersistedTrustStore {
+function readPersistedTrustStore(filePath: string, tighten: boolean): IPersistedTrustStore {
   if (!existsSync(filePath)) return { version: TRUST_STORE_VERSION, grants: [] };
   try {
-    tightenExistingFile(filePath);
+    if (tighten) tightenExistingFile(filePath);
     const raw = readFileSync(filePath, 'utf8');
     return assertPersistedStore(JSON.parse(raw) as TJsonValue, filePath);
   } catch (error) {
@@ -210,9 +220,23 @@ function writePersistedTrustStore(filePath: string, store: IPersistedTrustStore)
   writeOwnerOnlyFile(filePath, `${JSON.stringify(store, null, 2)}\n`);
 }
 
+/** How a Node trust store reads its file. */
+export interface INodeWorkspaceTrustStoreOptions {
+  /**
+   * `false` reads the file as it is, never narrowing a mode an older version left wide, for a caller
+   * that promises to change nothing on disk (a dry run); grants and revocations still write it
+   * owner-only. Defaults to `true`.
+   */
+  readonly tightenOnRead?: boolean;
+}
+
 /** Create the owner-only, replacement-safe persistent grant store used by the Node host. */
-export function createNodeWorkspaceTrustStore(filePath: string): IWorkspaceTrustStore {
-  const readStore = (): IPersistedTrustStore => readPersistedTrustStore(filePath);
+export function createNodeWorkspaceTrustStore(
+  filePath: string,
+  options: INodeWorkspaceTrustStoreOptions = {},
+): IWorkspaceTrustStore {
+  const readStore = (): IPersistedTrustStore =>
+    readPersistedTrustStore(filePath, options.tightenOnRead !== false);
   const writeStore = (store: IPersistedTrustStore): void =>
     writePersistedTrustStore(filePath, store);
 
@@ -279,7 +303,11 @@ export function createNodeWorkspaceTrustStore(filePath: string): IWorkspaceTrust
   });
 }
 
-/** Compose the default Node resolver, caller-selected persistent store, and authority service. */
+/**
+ * Compose the Node resolver, caller-selected persistent store, Node project file operations and
+ * authority service. This is how a Node host builds a trusted session; a host without a trust
+ * service passes `createRestrictedWorkspaceProjectAccess` instead.
+ */
 export function createNodeWorkspaceTrustService(
   filePath: string,
   projectStateDirectories?: TWorkspaceProjectStateDirectories,
@@ -287,6 +315,7 @@ export function createNodeWorkspaceTrustService(
   return new WorkspaceTrustService({
     identityResolver: createNodeWorkspaceIdentityResolver(),
     store: createNodeWorkspaceTrustStore(filePath),
+    projectFiles: createNodeWorkspaceProjectFiles(),
     ...(projectStateDirectories === undefined ? {} : { projectStateDirectories }),
   });
 }

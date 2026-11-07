@@ -26,7 +26,11 @@ import { injectSavedMessage } from './interactive-session-restore.js';
 import { deriveContextCapacityHint } from '../assembly/context-capacity-hint.js';
 import { createSession } from '../assembly/index.js';
 import { loadHostBundlePluginsFromScopes } from '../plugins/index.js';
-import { sessionPluginDirectories, sessionPluginSettingsPath } from './session-plugin-skills.js';
+import {
+  requireSessionPluginFiles,
+  sessionPluginDirectories,
+  sessionPluginSettingsPath,
+} from './session-plugin-skills.js';
 import {
   mergePluginHooksWithSources,
   mergeHooksIntoConfig,
@@ -38,7 +42,7 @@ import type {
   IInitOptions,
 } from './interactive-session-options.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
-import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import type { IEditCheckpointStore } from '../checkpoints/edit-checkpoint-types.js';
 import type { ICommandResult } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IContextFileEntry } from '../context/context-loader.js';
@@ -101,16 +105,19 @@ export async function createInteractiveSession(
   const effectiveHookSources = options.skipConfiguredHooks === true ? [] : [...hookSources];
 
   // A restricted session still sees user-installed plugins; see `sessionPluginDirectories`.
-  const pluginsDirs = sessionPluginDirectories(options);
+  const pluginFiles = options.host.files?.sync;
+  const pluginsDirs = sessionPluginDirectories({ ...options, fs: pluginFiles });
   // PLG-021 / issue #2025: built through the composition root so a disabled plugin's hooks do not
   // load. The bare constructor defaults the enablement map to `{}`, which reads as "nothing
   // disabled" — indistinguishable from a user who disabled nothing. `pluginsDirs` stays a local
   // because the failure log below names it.
   const pluginSettingsPath = sessionPluginSettingsPath(options);
-  if (pluginSettingsPath !== undefined) {
+  if (pluginSettingsPath !== undefined && pluginsDirs.length > 0) {
+    const fs = requireSessionPluginFiles(pluginFiles);
     try {
       const plugins = loadHostBundlePluginsFromScopes(pluginsDirs, {
         settingsPath: pluginSettingsPath,
+        fs,
       });
       if (plugins.length > 0) {
         const pluginHooks = mergePluginHooksWithSources(plugins);
@@ -211,7 +218,7 @@ export interface IAsyncInitDeps {
   commandSemanticRoles: IInitOptions['commandSemanticRoles'];
   /** The plugin skills the session loaded, so the prompt names the ones the router runs. */
   pluginSkills: readonly ICommand[];
-  setEditCheckpointStore: (store: EditCheckpointStore) => void;
+  setEditCheckpointStore: (store: IEditCheckpointStore) => void;
   /** The session's answer route to a peer (`peer_reply`). */
   peerReply?: IInitOptions['peerReply'];
   /** How the model sends a file to another session (`peer_send_file`). */
@@ -252,6 +259,7 @@ export async function initializeInteractiveSessionAsync(
   if (checkpointStore !== undefined) deps.setEditCheckpointStore(checkpointStore);
 
   const created = await createInteractiveSession({
+    host: options.host,
     cwd: options.cwd,
     provider: options.provider,
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
@@ -336,9 +344,8 @@ export async function initializeInteractiveSessionAsync(
     ...(options.additionalTools ? { additionalTools: options.additionalTools } : {}),
     ...(options.defaultTools ? { defaultTools: options.defaultTools } : {}), // ARCH-006
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
-    // ARCH-013 S3: both extension ports; dropping either here is the defect this stage fixed.
+    // ARCH-013 S3: the extension port; dropping it here is the defect this stage fixed.
     ...(options.guardrails ? { guardrails: options.guardrails } : {}),
-    ...(options.retrievalAdapter ? { retrievalAdapter: options.retrievalAdapter } : {}),
     ...(deps.peerReply !== undefined ? { peerReply: deps.peerReply } : {}),
     ...(deps.peerSendFile !== undefined ? { peerSendFile: deps.peerSendFile } : {}),
     commandDescriptors: deps.commandDescriptors,

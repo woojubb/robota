@@ -18,7 +18,7 @@ import {
   isAppearanceSettingsPatch,
   readAppearanceSettings,
 } from '../command-api/appearance/appearance-command-api.js';
-import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
+import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-format.js';
 import {
   isStatusLineCommandSettingsPatch,
   readStatusLineSettings,

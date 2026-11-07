@@ -13,7 +13,7 @@ import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { NodeSessionStore } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
@@ -105,7 +105,7 @@ describe('buildForkedSessionRecord (CLI-1994)', () => {
 
   beforeEach(() => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-1994-fork-')));
-    store = new NodeSessionStore(join(cwd, 'sessions'));
+    store = new NodeSessionStore(join(cwd, 'sessions'), { sealing: 'plain' });
     store.save(sourceRecord(cwd));
   });
 

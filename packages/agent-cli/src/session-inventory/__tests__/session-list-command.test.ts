@@ -1,3 +1,4 @@
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { createInventoryRuntime as createTestProductRuntime } from './product-runtime.js';
 import {
   chmodSync,
@@ -17,15 +18,23 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   WorkspaceTrustService,
   createRestrictedWorkspaceProjectAccess,
-  createUserSessionStore,
 } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 
 import { productProjectStateDirectories } from '../../product/project-state-directories.js';
 
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
-import { executeSessionListCommand, readLocalPeersForInventory, runSessionListCommand } from '../session-list-command.js';
 import {
-  linkSupervisedPr, parseSupervisedPr, resolveSupervisedDirectory, startSupervisedControl,
+  executeSessionListCommand,
+  readLocalPeersForInventory,
+  runSessionListCommand,
+} from '../session-list-command.js';
+import {
+  linkSupervisedPr,
+  parseSupervisedPr,
+  resolveSupervisedDirectory,
+  startSupervisedControl,
 } from '../supervised-session-control.js';
 
 import type {
@@ -35,12 +44,13 @@ import type {
 } from '@robota-sdk/agent-interface-session';
 
 function store(entries: readonly ISessionListEntry[]): IInteractiveSessionStore {
-  return {
+  const double: Omit<IInteractiveSessionStore, 'claim' | 'lend' | 'hasWriter'> = {
     list: () => entries,
     load: () => ({ status: 'missing' }),
     save: () => undefined,
     delete: () => undefined,
   };
+  return withHoldReadClaim(double);
 }
 
 function valid(id: string): ISessionListEntry {
@@ -76,13 +86,36 @@ describe('read-only local session inventory', () => {
       process.env['HOME'] = home;
       process.env['XDG_RUNTIME_DIR'] = home;
       control = await startSupervisedControl(
-        id, () => undefined, resolveSupervisedDirectory(createTestProductRuntime()), () => 'needs-input',
-        undefined, undefined, () => 'Private session name',
-        undefined, { get: () => pr, set: (value) => { pr = value; } },
+        id,
+        () => undefined,
+        resolveSupervisedDirectory(createTestProductRuntime()),
+        () => 'needs-input',
+        undefined,
+        undefined,
+        () => 'Private session name',
+        undefined,
+        {
+          get: () => pr,
+          set: (value) => {
+            pr = value;
+          },
+        },
       );
-      await linkSupervisedPr(id, 'https://github.com/team/repo/pull/456', resolveSupervisedDirectory(createTestProductRuntime()));
-      const generation = String((JSON.parse(readFileSync(
-        join(resolveSupervisedDirectory(createTestProductRuntime()), id, 'state.json'), 'utf8')) as { generation?: unknown }).generation);
+      await linkSupervisedPr(
+        id,
+        'https://github.com/team/repo/pull/456',
+        resolveSupervisedDirectory(createTestProductRuntime()),
+      );
+      const generation = String(
+        (
+          JSON.parse(
+            readFileSync(
+              join(resolveSupervisedDirectory(createTestProductRuntime()), id, 'state.json'),
+              'utf8',
+            ),
+          ) as { generation?: unknown }
+        ).generation,
+      );
       expect(generation).toMatch(/^[A-Za-z0-9_-]{22}$/u);
       expect(await runSessionListCommand(['--format', 'text'], createTestProductRuntime())).toBe(0);
       const text = output.mock.calls.map(([value]) => String(value)).join('');
@@ -113,7 +146,8 @@ describe('read-only local session inventory', () => {
   });
 
   it('keeps live peers separate from saved records and hides transcript content', () => {
-    const result = executeSessionListCommand(['--format', 'json'], { cliName: 'test-product',
+    const result = executeSessionListCommand(['--format', 'json'], {
+      cliName: 'test-product',
       userSessionStore: store([
         valid('same-id'),
         valid('user-only'),
@@ -149,7 +183,8 @@ describe('read-only local session inventory', () => {
   });
 
   it('makes unavailable peer discovery visible without hiding saved sessions', () => {
-    const result = executeSessionListCommand([], { cliName: 'test-product',
+    const result = executeSessionListCommand([], {
+      cliName: 'test-product',
       userSessionStore: store([valid('saved')]),
       readPeers: () => ({ status: 'unavailable' }),
     });
@@ -162,7 +197,8 @@ describe('read-only local session inventory', () => {
   it('rejects invalid flags before touching stores or peer discovery', () => {
     const list = vi.fn(() => []);
     const readPeers = vi.fn(() => ({ status: 'available' as const, peers: [] }));
-    const result = executeSessionListCommand(['--format', 'yaml'], { cliName: 'test-product',
+    const result = executeSessionListCommand(['--format', 'yaml'], {
+      cliName: 'test-product',
       userSessionStore: { ...store([]), list },
       readPeers,
     });
@@ -201,7 +237,8 @@ describe('read-only local session inventory', () => {
       process.env['HOME'] = home;
       process.env['XDG_RUNTIME_DIR'] = join(home, 'runtime');
       const handled = await runPreparsedCliCommand(
-        { productRuntime: createTestProductRuntime(),
+        {
+          productRuntime: createTestProductRuntime(),
           providerDefinitions: [],
           projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', home),
         },
@@ -238,7 +275,9 @@ describe('read-only local session inventory', () => {
     try {
       process.env['HOME'] = home;
       process.env['XDG_RUNTIME_DIR'] = join(home, 'runtime');
-      createUserSessionStore(createTestProductRuntime().layout.userPaths.sessions).save({
+      createUserSessionStore(createTestProductRuntime().layout.userPaths.sessions, {
+        sealing: 'plain',
+      }).save({
         id: 'user-held-session',
         cwd: workspace,
         createdAt: '2026-09-26T00:00:00.000Z',
@@ -252,6 +291,7 @@ describe('read-only local session inventory', () => {
       };
       const snapshot = { state: 'trusted', generation: 1 } as const;
       const projectAccess = await new WorkspaceTrustService({
+        projectFiles: createNodeWorkspaceProjectFiles(),
         identityResolver: { resolve: () => identity },
         projectStateDirectories: productProjectStateDirectories(createTestProductRuntime()),
         store: {

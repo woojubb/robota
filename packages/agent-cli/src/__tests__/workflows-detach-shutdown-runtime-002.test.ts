@@ -40,7 +40,9 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
 import { buildCommandSetup } from '../startup/command-setup.js';
 import { productProjectStateDirectories } from '../product/project-state-directories.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type {
   ICommandModule,
   IRuntimeHostHandle,
@@ -51,6 +53,8 @@ import type {
 } from '@robota-sdk/agent-framework';
 import type { IAIProvider, IProviderDefinition, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
+
+const testHost = createTestFrameworkHost();
 const PRODUCT_PROJECT_STATE_DIRECTORIES = productProjectStateDirectories(createTestProductRuntime());
 
 
@@ -95,6 +99,7 @@ async function trustedRoot(prefix: string): Promise<{
     grantedAt: '2026-08-22T00:00:00.000Z',
   };
   const access = await new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     store: {
       inspect: async () => trusted,
@@ -204,6 +209,7 @@ describe('RUNTIME-002 (#2845): the served host owns a live detached /workflows r
     const scripted = createScriptedProvider([{ text: 'unused' }]);
     handle = await startRuntimeHost({
       session: {
+        host: testHost,
         provider: scripted.provider,
         cwd: root,
         projectAccess: access,

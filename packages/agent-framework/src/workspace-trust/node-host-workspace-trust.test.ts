@@ -15,12 +15,13 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { WorkspaceTrustService } from './index.js';
 import {
-  WorkspaceTrustService,
   createNodeWorkspaceIdentityResolver,
   createNodeWorkspaceTrustStore,
-} from './index.js';
-import { repositoryKeyFromStats } from './node-host-workspace-trust.js';
+  repositoryKeyFromStats,
+} from './node-host-workspace-trust.js';
+import { createNodeWorkspaceProjectFiles } from './node-project-files.js';
 
 const roots: string[] = [];
 
@@ -39,6 +40,71 @@ afterEach(() => {
 });
 
 describe('Node host workspace trust', () => {
+  it('resolves a relative Git environment from the requested working directory', () => {
+    const root = tempRoot('agent-workspace-relative-git-');
+    gitInit(root);
+    const nested = join(root, 'nested');
+    mkdirSync(nested);
+    const oldDir = process.env['GIT_DIR'];
+    const oldWorkTree = process.env['GIT_WORK_TREE'];
+    process.env['GIT_DIR'] = join('..', '.git');
+    process.env['GIT_WORK_TREE'] = '..';
+    try {
+      const identity = createNodeWorkspaceIdentityResolver().resolve(nested);
+      expect(identity.worktreeRoot).toBe(realpathSync.native(root));
+    } finally {
+      if (oldDir === undefined) delete process.env['GIT_DIR'];
+      else process.env['GIT_DIR'] = oldDir;
+      if (oldWorkTree === undefined) delete process.env['GIT_WORK_TREE'];
+      else process.env['GIT_WORK_TREE'] = oldWorkTree;
+    }
+  });
+
+  it('does not apply a trust grant to another relative Git directory', async () => {
+    const root = tempRoot('agent-workspace-separate-git-');
+    const nested = join(root, 'nested');
+    mkdirSync(nested);
+    execFileSync('git', ['init', '--bare', '--quiet', join(root, 'relgit')]);
+    execFileSync('git', ['init', '--bare', '--quiet', join(nested, 'relgit')]);
+    const store = createNodeWorkspaceTrustStore(join(tempRoot('agent-workspace-separate-store-'), 'trust.json'));
+    const service = new WorkspaceTrustService({
+      identityResolver: createNodeWorkspaceIdentityResolver(),
+      store,
+      projectFiles: createNodeWorkspaceProjectFiles(),
+    });
+    const oldDir = process.env['GIT_DIR'];
+    const oldWorkTree = process.env['GIT_WORK_TREE'];
+    process.env['GIT_DIR'] = 'relgit';
+    process.env['GIT_WORK_TREE'] = root;
+    try {
+      expect(await service.grant(root)).toMatchObject({ status: 'trusted' });
+      expect(await service.inspect(nested)).toMatchObject({ status: 'restricted' });
+    } finally {
+      if (oldDir === undefined) delete process.env['GIT_DIR'];
+      else process.env['GIT_DIR'] = oldDir;
+      if (oldWorkTree === undefined) delete process.env['GIT_WORK_TREE'];
+      else process.env['GIT_WORK_TREE'] = oldWorkTree;
+    }
+  });
+
+  it('keeps the same trusted identity when Git returns another spelling for the worktree root', async () => {
+    const root = tempRoot('agent-workspace-canonical-');
+    gitInit(root);
+    const resolver = createNodeWorkspaceIdentityResolver();
+    const identity = resolver.resolve(root);
+    const canonicalIdentity = resolver.resolve(identity.worktreeRoot);
+    expect(canonicalIdentity).toEqual(identity);
+
+    const store = createNodeWorkspaceTrustStore(join(tempRoot('agent-workspace-grant-'), 'trust.json'));
+    const service = new WorkspaceTrustService({
+      identityResolver: resolver,
+      store,
+      projectFiles: createNodeWorkspaceProjectFiles(),
+    });
+    expect(await service.grant(root)).toMatchObject({ status: 'trusted', identity });
+    expect(await service.inspect(identity.worktreeRoot)).toMatchObject({ status: 'trusted', identity });
+  });
+
   it('resolves the same repository identity from a nested working directory', () => {
     const root = tempRoot('agent-workspace-nested-cwd-');
     gitInit(root);
@@ -57,7 +123,11 @@ describe('Node host workspace trust', () => {
     const storePath = join(tempRoot('agent-workspace-store-'), 'workspace-trust.json');
     const resolver = createNodeWorkspaceIdentityResolver();
     const store = createNodeWorkspaceTrustStore(storePath);
-    const service = new WorkspaceTrustService({ identityResolver: resolver, store });
+    const service = new WorkspaceTrustService({
+      identityResolver: resolver,
+      store,
+      projectFiles: createNodeWorkspaceProjectFiles(),
+    });
 
     const identity = resolver.resolve(root);
     expect(resolver.resolve(alias)).toEqual(identity);
@@ -90,6 +160,7 @@ describe('Node host workspace trust', () => {
     );
     const service = new WorkspaceTrustService({
       identityResolver: createNodeWorkspaceIdentityResolver(),
+      projectFiles: createNodeWorkspaceProjectFiles(),
       store,
     });
 
@@ -145,6 +216,7 @@ describe('Node host workspace trust', () => {
     if (!settleBirthTime(join(root, '.git'))) context.skip();
     const service = new WorkspaceTrustService({
       identityResolver: createNodeWorkspaceIdentityResolver(),
+      projectFiles: createNodeWorkspaceProjectFiles(),
       store: createNodeWorkspaceTrustStore(join(tempRoot('agent-workspace-store-'), 'trust.json')),
     });
     await service.grant(root);
@@ -193,6 +265,7 @@ describe('Node host workspace trust', () => {
     const store = createNodeWorkspaceTrustStore(storePath);
     const service = new WorkspaceTrustService({
       identityResolver: createNodeWorkspaceIdentityResolver(),
+      projectFiles: createNodeWorkspaceProjectFiles(),
       store,
     });
     await expect(service.inspect(root)).resolves.toMatchObject({ trustState: 'untrusted' });
@@ -312,6 +385,7 @@ describe('Node host workspace trust', () => {
     await expect(
       new WorkspaceTrustService({
         identityResolver: resolver,
+        projectFiles: createNodeWorkspaceProjectFiles(),
         store: createNodeWorkspaceTrustStore(storePath),
       }).grant(root),
     ).resolves.toMatchObject({ status: 'trusted' });
@@ -326,6 +400,33 @@ describe('Node host workspace trust', () => {
       },
     );
   });
+
+  it.skipIf(process.platform === 'win32')(
+    'reads a group-readable store as it is when told not to tighten it, and tightens it otherwise',
+    async () => {
+      const root = tempRoot('agent-workspace-readonly-');
+      gitInit(root);
+      const storeRoot = tempRoot('agent-workspace-store-');
+      const storePath = join(storeRoot, 'trust.json');
+      const resolver = createNodeWorkspaceIdentityResolver();
+      await new WorkspaceTrustService({
+        identityResolver: resolver,
+        projectFiles: createNodeWorkspaceProjectFiles(),
+        store: createNodeWorkspaceTrustStore(storePath),
+      }).grant(root);
+      chmodSync(storePath, 0o644);
+
+      const readOnly = createNodeWorkspaceTrustStore(storePath, { tightenOnRead: false });
+      await expect(readOnly.inspect(resolver.resolve(root))).resolves.toMatchObject({
+        state: 'trusted',
+      });
+      await expect(readOnly.listGrants?.()).resolves.toHaveLength(1);
+      expect(statSync(storePath).mode & 0o777).toBe(0o644);
+
+      await createNodeWorkspaceTrustStore(storePath).listGrants?.();
+      expect(statSync(storePath).mode & 0o777).toBe(0o600);
+    },
+  );
 });
 
 describe('repository key', () => {

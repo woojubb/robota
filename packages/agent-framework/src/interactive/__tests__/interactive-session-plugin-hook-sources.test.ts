@@ -6,10 +6,13 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createInteractiveSession } from '../interactive-session-init.js';
-import { createNodeHostSettingsSource } from '../../config/settings-source.js';
+import { createNodeHostSettingsSource } from '../../config/node-host-settings-source.js';
 import { TEST_PROJECT_SETTINGS_PATHS } from '../../testing/project-settings-path-fixture.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
 import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/index.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 let root: string;
 let cwd: string;
@@ -39,6 +42,7 @@ function addPlugin(name: string, type: 'prompt' | 'agent'): string {
 async function start(): Promise<Error | undefined> {
   try {
     await createInteractiveSession({
+      host: testHost,
       cwd,
       projectAccess: await createTrustedProjectAccessFixture(cwd),
       projectSettingsPaths: TEST_PROJECT_SETTINGS_PATHS,
@@ -97,16 +101,23 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
     });
 
     const error = await createInteractiveSession({
+      host: testHost,
       cwd,
       projectAccess: await createTrustedProjectAccessFixture(cwd),
       userSettingsSources: [
         createNodeHostSettingsSource('user', join(home, '.agent', 'settings.json')),
       ],
-      pluginDirectories: { project: join(cwd, 'custom-plugins'), user: join(home, 'custom-plugins') },
+      pluginDirectories: {
+        project: join(cwd, 'custom-plugins'),
+        user: join(home, 'custom-plugins'),
+      },
       provider: createScriptedProvider([]).provider,
       onTextDelta: () => {},
       onToolExecution: () => {},
-    }).then(() => undefined, (failure: unknown) => failure as Error);
+    }).then(
+      () => undefined,
+      (failure: unknown) => failure as Error,
+    );
     expect(error?.message).toContain(selectedHooks);
     expect(error?.message).not.toContain(ambientHooks);
   });
@@ -116,6 +127,7 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
 
     await expect(
       createInteractiveSession({
+        host: testHost,
         cwd,
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
         provider: createScriptedProvider([]).provider,
@@ -130,6 +142,7 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
 
     await expect(
       createInteractiveSession({
+        host: testHost,
         cwd,
         projectAccess: await createTrustedProjectAccessFixture(cwd),
         projectSettingsPaths: TEST_PROJECT_SETTINGS_PATHS,
@@ -150,6 +163,7 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
 
     await expect(
       createInteractiveSession({
+        host: testHost,
         cwd,
         projectAccess: await createTrustedProjectAccessFixture(cwd),
         projectSettingsPaths: TEST_PROJECT_SETTINGS_PATHS,

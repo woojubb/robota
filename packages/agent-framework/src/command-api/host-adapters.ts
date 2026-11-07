@@ -6,7 +6,7 @@ import type {
 import type { IPresetApplicationOptions } from './preset/preset-application-types.js';
 import type { ICommandSessionModel } from './session-roles.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
-import type { IInteractiveSessionRecord } from '../interactive/session-persistence.js';
+import type { IInteractiveSessionRecord } from '../interactive/session-store-types.js';
 import type { IModelEffortResolution, TEffortSelection } from '../effort/effort-resolution.js';
 import type { ICommandAdvisorAdapter } from '../advisor/advisor-spec.js';
 import type {

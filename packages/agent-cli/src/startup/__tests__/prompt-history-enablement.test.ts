@@ -13,8 +13,11 @@ import {
   resolvePromptHistoryProject,
   resolvePromptHistoryRenderFields,
 } from '../prompt-history-enablement.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 const roots: string[] = [];
 afterEach(() => {
@@ -95,6 +98,20 @@ describe('prompt-history composition (SCREEN-1993 TC-07)', () => {
     expect(fields.promptHistorySource).toBe(fields.promptHistory?.writer);
   });
 
+  it('hands a run that persists no session the source to search but no writer, whatever the opt-in says', () => {
+    const fields = resolvePromptHistoryRenderFields({productRuntime: createTestProductRuntime(),
+      settings: { promptHistory: true },
+      env: { PRODUCT_PROMPT_HISTORY: '1' },
+      access: trusted,
+      cwd: '/elsewhere',
+      persist: false,
+    });
+    expect(fields.promptHistory).toBeUndefined();
+    expect('promptHistory' in fields).toBe(false);
+    expect(fields.promptHistorySource).toBeDefined();
+    expect(fields.promptHistoryProject).toBe('/repo/root');
+  });
+
   it('hands the TUI nothing when the kill switch is set', () => {
     expect(
       resolvePromptHistoryRenderFields({productRuntime: createTestProductRuntime(),
@@ -107,7 +124,7 @@ describe('prompt-history composition (SCREEN-1993 TC-07)', () => {
   });
 
   it('the serve projection carries no writer: prompt intake is TUI state', () => {
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: {
         permissionMode: undefined,

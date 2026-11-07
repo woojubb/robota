@@ -16,7 +16,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
@@ -35,7 +35,9 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 /** An isolated temp-file-backed provider settings source, cleaned up when the test ends. */
-function tempProviderSettingsSource(document: TProviderSettingsDocument): ICreateSettingsReporterOptions['settingsSources'][number] {
+function tempProviderSettingsSource(
+  document: TProviderSettingsDocument,
+): ICreateSettingsReporterOptions['settingsSources'][number] {
   const dir = mkdtempSync(join(tmpdir(), 'test-product-settings-reporter-test-'));
   onTestFinished(() => rmSync(dir, { recursive: true, force: true }));
   const path = join(dir, 'settings.json');
@@ -316,7 +318,10 @@ describe('createSettingsReporter (#3282 §4a)', () => {
       if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
       if (name === 'preset' && args === 'list') return listResult({ presets: [] });
       if (name === 'language') {
-        return { success: false, message: "command 'language' is not permitted by the configured remote-command policy" };
+        return {
+          success: false,
+          message: "command 'language' is not permitted by the configured remote-command policy",
+        };
       }
       return null;
     });
@@ -386,7 +391,10 @@ describe('createSettingsReporter (#3282 §4a)', () => {
             if (!list.includes(removal.pattern)) return false;
             userStore.write({
               ...data,
-              permissions: { ...data.permissions, [kind]: list.filter((p) => p !== removal.pattern) },
+              permissions: {
+                ...data.permissions,
+                [kind]: list.filter((p) => p !== removal.pattern),
+              },
             });
             return true;
           },
@@ -476,7 +484,9 @@ describe('createSettingsReporter (#3282 §4a)', () => {
       }
       if (name === 'plugin' && args === 'list') {
         return listResult({
-          plugins: [{ name: 'formatter@test-product', description: 'Formats code.', enabled: true }],
+          plugins: [
+            { name: 'formatter@test-product', description: 'Formats code.', enabled: true },
+          ],
         });
       }
       return null;
@@ -505,7 +515,12 @@ describe('createSettingsReporter (#3282 §4a)', () => {
       },
     ]);
     expect(settings.plugins.plugins).toEqual([
-      { id: 'formatter@test-product', name: 'formatter@test-product', description: 'Formats code.', enabled: true },
+      {
+        id: 'formatter@test-product',
+        name: 'formatter@test-product',
+        description: 'Formats code.',
+        enabled: true,
+      },
     ]);
   });
 
@@ -518,7 +533,13 @@ describe('createSettingsReporter (#3282 §4a)', () => {
       if (name === 'mcp' && args === 'status') {
         return listResult({
           servers: [
-            { serverId: 'events', source: 'user', status: 'approved', allowed: true, toolNames: [] },
+            {
+              serverId: 'events',
+              source: 'user',
+              status: 'approved',
+              allowed: true,
+              toolNames: [],
+            },
           ],
         });
       }
@@ -567,10 +588,18 @@ describe('createSettingsReporter (#3282 §4a)', () => {
     });
     const { session, reporter } = setup({ executeCommand });
 
-    await reporter.updateSettings(session, { field: 'mcpServerEnabled', serverId: 'docs', enabled: true });
+    await reporter.updateSettings(session, {
+      field: 'mcpServerEnabled',
+      serverId: 'docs',
+      enabled: true,
+    });
     expect(executeCommand).toHaveBeenCalledWith('mcp', 'approve docs', 'remote');
 
-    await reporter.updateSettings(session, { field: 'mcpServerEnabled', serverId: 'docs', enabled: false });
+    await reporter.updateSettings(session, {
+      field: 'mcpServerEnabled',
+      serverId: 'docs',
+      enabled: false,
+    });
     expect(executeCommand).toHaveBeenCalledWith('mcp', 'reject docs', 'remote');
   });
 
@@ -595,7 +624,10 @@ describe('createSettingsReporter (#3282 §4a)', () => {
     const executeCommand = vi.fn(async (name: string, args: string) => {
       if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
       if (name === 'preset' && args === 'list') return listResult({ presets: [] });
-      if (name === 'plugin' && (args === 'enable demo@test-product' || args === 'disable demo@test-product')) {
+      if (
+        name === 'plugin' &&
+        (args === 'enable demo@test-product' || args === 'disable demo@test-product')
+      ) {
         return { success: true, message: 'ok' };
       }
       return null;
@@ -610,7 +642,7 @@ describe('createSettingsReporter (#3282 §4a)', () => {
     expect(executeCommand).toHaveBeenCalledWith('plugin', 'disable demo@test-product', 'remote');
   });
 
-  describe('installPlugin/uninstallPlugin forward this connection\'s locality to /plugin, the same rule the command uses (#3282 §4 part b-2)', () => {
+  describe("installPlugin/uninstallPlugin forward this connection's locality to /plugin, the same rule the command uses (#3282 §4 part b-2)", () => {
     it('a local install reaches the plugin command and succeeds', async () => {
       const executeCommand = vi.fn(async (name: string, args: string) => {
         if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
@@ -638,7 +670,7 @@ describe('createSettingsReporter (#3282 §4a)', () => {
       expect(outcome.ok).toBe(true);
     });
 
-    it('a remote install is refused, carrying the command\'s own plain message', async () => {
+    it("a remote install is refused, carrying the command's own plain message", async () => {
       const executeCommand = vi.fn(async (name: string, args: string) => {
         if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
         if (name === 'preset' && args === 'list') return listResult({ presets: [] });
@@ -817,7 +849,10 @@ describe('createSettingsReporter (#3282 §4a)', () => {
     it('"Use" switches through the same /provider switch path (validate, hot-swap, persist)', async () => {
       const executeCommand = vi.fn(async (name: string, args: string) => {
         if (name === 'provider' && args === 'switch backup') {
-          return { success: true, message: 'Switched to backup (claude-haiku-4-5). History preserved.' };
+          return {
+            success: true,
+            message: 'Switched to backup (claude-haiku-4-5). History preserved.',
+          };
         }
         if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
         if (name === 'preset' && args === 'list') return listResult({ presets: [] });
@@ -860,7 +895,10 @@ describe('createSettingsReporter (#3282 §4a)', () => {
     it('"Model" switches to the named profile first, then through the same /model <id> path', async () => {
       const executeCommand = vi.fn(async (name: string, args: string) => {
         if (name === 'provider' && args === 'switch backup') {
-          return { success: true, message: 'Switched to backup (claude-haiku-4-5). History preserved.' };
+          return {
+            success: true,
+            message: 'Switched to backup (claude-haiku-4-5). History preserved.',
+          };
         }
         if (name === 'model' && args === 'claude-haiku-4-5') {
           return { success: true, message: 'Model: Claude Haiku 4.5' };
@@ -904,7 +942,11 @@ describe('createSettingsReporter (#3282 §4a)', () => {
         code: 'refused',
         message: 'Provider profile "ghost" was not found.',
       });
-      expect(executeCommand).not.toHaveBeenCalledWith('model', expect.anything(), expect.anything());
+      expect(executeCommand).not.toHaveBeenCalledWith(
+        'model',
+        expect.anything(),
+        expect.anything(),
+      );
     });
 
     it('"Model" on the already-current profile is a no-op switch, then /model <id>', async () => {
@@ -952,7 +994,11 @@ describe('createSettingsReporter (#3282 §4a)', () => {
       // `--confirmed`: this write already went through the GUI's own ConfirmDialog before reaching
       // here — a modal write has nowhere to render a follow-up ask, unlike a plainly-typed
       // `/provider delete <profile>`, which confirms interactively first (agent-command's own tests).
-      expect(executeCommand).toHaveBeenCalledWith('provider', 'delete anthropic --confirmed', 'remote');
+      expect(executeCommand).toHaveBeenCalledWith(
+        'provider',
+        'delete anthropic --confirmed',
+        'remote',
+      );
       expect(outcome).toEqual({
         ok: false,
         code: 'refused',

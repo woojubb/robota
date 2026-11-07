@@ -6,11 +6,11 @@ import { isDeepStrictEqual } from 'node:util';
 import { AbstractAIProvider } from '@robota-sdk/agent-core';
 import {
   Session,
-  NodeSessionStore,
   type IInteractiveSessionRecord,
   type ISpinner,
   type ITerminalOutput,
 } from '../src/index.js';
+import { NodeSessionStore } from '../src/node.js';
 
 import type { IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
 
@@ -200,12 +200,13 @@ async function main(): Promise<void> {
   let output: Omit<Record<string, unknown>, 'cleanupRemoved'> | undefined;
 
   try {
-    const store = new NodeSessionStore(join(scratchDir, 'sessions'));
+    const store = new NodeSessionStore(join(scratchDir, 'sessions'), { sealing: 'plain' });
     const existing = createExistingRecord();
     store.save(existing);
 
     const session = new Session({
       cwd: scratchDir,
+      hookTypeExecutors: [],
       tools: [],
       provider: new OfflineProvider(),
       systemMessage: 'live system prompt',

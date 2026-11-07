@@ -2,6 +2,7 @@ import { afterEach, describe, it, expect } from 'vitest';
 import { mkdtempSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { NodePluginTextFileStore } from '../../storage/node-text-file-store';
 import { FileHistoryStorage } from '../storages/file-storage';
 import { MemoryHistoryStorage } from '../storages/memory-storage';
 import type { IConversationHistoryEntry } from '../types';
@@ -75,7 +76,10 @@ describe('FileHistoryStorage (PLUGIN-001: real persistence)', () => {
 
   function freshStorage(): { dir: string; storage: FileHistoryStorage } {
     const d = realpathSync(mkdtempSync(join(tmpdir(), 'agent-test-hist-')));
-    return { dir: d, storage: new FileHistoryStorage(join(d, 'history.json')) };
+    return {
+      dir: d,
+      storage: new FileHistoryStorage(join(d, 'history.json'), new NodePluginTextFileStore()),
+    };
   }
 
   afterEach(() => {
@@ -95,8 +99,8 @@ describe('FileHistoryStorage (PLUGIN-001: real persistence)', () => {
   it('survives a new storage instance pointed at the same file', async () => {
     ({ dir, storage } = freshStorage());
     const filePath = join(dir, 'history.json');
-    await new FileHistoryStorage(filePath).save('conv-1', entry);
-    const reopened = new FileHistoryStorage(filePath);
+    await new FileHistoryStorage(filePath, new NodePluginTextFileStore()).save('conv-1', entry);
+    const reopened = new FileHistoryStorage(filePath, new NodePluginTextFileStore());
     expect((await reopened.load('conv-1'))?.conversationId).toBe('conv-1');
   });
 

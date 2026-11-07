@@ -20,7 +20,7 @@ import {
   assertProviderNativeWebToolsAvailable,
   createDefaultProviderCapabilities,
 } from '../interfaces/provider-capabilities';
-import { hashToolSchema, projectToolSchema } from '../schema/project-tool-schema';
+import { projectToolSchema } from '../schema/project-tool-schema';
 import { createLogger, SilentLogger } from '../utils/logger';
 
 import type { IExecutor, IExecutorChatResult, TExecutorStreamEvent } from '../interfaces/executor';
@@ -102,9 +102,8 @@ export abstract class AbstractAIProvider<TConfig = IProviderRuntimeConfig> imple
 
   /**
    * MCP-005 per-tool quarantine memo — instance-scoped (never a module singleton), so one provider
-   * instance's cache cannot silence another's, and a re-registered tool with a CHANGED schema is
-   * judged and reported again while an unchanged one is not re-reported on every turn. Keyed by
-   * `provider.name` + `model` + `tool.name` + `hashToolSchema(tool.parameters)`.
+   * instance's cache cannot silence another's, and a tool refused for a new reason is reported again
+   * while one refused for the same reason is not re-reported on every turn. Keyed by the log line.
    */
   private readonly quarantinedToolSchemas = new Map<string, true>();
 
@@ -267,20 +266,19 @@ export abstract class AbstractAIProvider<TConfig = IProviderRuntimeConfig> imple
         continue;
       }
 
-      const identity = `${this.name} ${model} ${tool.name} ${hashToolSchema(tool.parameters)}`;
-      if (this.quarantinedToolSchemas.has(identity)) {
-        continue;
-      }
-      this.quarantinedToolSchemas.set(identity, true);
-
       const { path, keyword, reason } = projection.rejection ?? {
         path: '',
         keyword: '',
         reason: 'rejected',
       };
-      toolSchemaProjectionLogger.warn(
-        `tool_schema_quarantined provider=${this.name} model=${model} tool=${tool.name} path=${path} keyword=${keyword} reason=${reason}`,
-      );
+      // The line is its own identity. A rejected schema can be cyclic or vast, so nothing here may
+      // walk it, and a tool refused again for the same reason has nothing new to say.
+      const line = `tool_schema_quarantined provider=${this.name} model=${model} tool=${tool.name} path=${path} keyword=${keyword} reason=${reason}`;
+      if (this.quarantinedToolSchemas.has(line)) {
+        continue;
+      }
+      this.quarantinedToolSchemas.set(line, true);
+      toolSchemaProjectionLogger.warn(line);
     }
     return kept;
   }

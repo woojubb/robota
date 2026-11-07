@@ -1,10 +1,15 @@
 # @robota-sdk/agent-product
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 The **product-assembly kernel** for the Robota SDK.
 
 `assembleProduct(profile)` is a **pure, deterministic, IO-free fold** over an `IProductProfile` — the
 composition mechanism a third party imports to build their OWN product on Robota's published runtime.
 Product identity and its runtime settings are supplied by the host; an external repo can define its own profile.
+The package is platform-neutral: it runs in a browser, a Web Worker, Node, Deno and Bun, and has no Node
+adapter, so it has no `./node` subpath.
 
 ## Installation
 
@@ -15,7 +20,9 @@ npm install @robota-sdk/agent-product
 ## Usage
 
 ```ts
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { assembleProduct } from '@robota-sdk/agent-product';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import type { ICapabilityPack } from '@robota-sdk/agent-capability-pack';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
@@ -37,7 +44,9 @@ const product = assembleProduct({
 // The external repo binds product.buildRuntime(...) to ITS OWN presentation/transport.
 // A provider passed in the session options would take precedence over the constructed one.
 if (product.provider === undefined) throw new Error('no provider configured');
-const session = product.buildRuntime({ session: { cwd, provider: product.provider } });
+// The platform the session runs on, and the directory it works in: the kernel assumes neither.
+const host = createNodeFrameworkHost({ createDefaultTools });
+const session = product.buildRuntime({ session: { host, cwd, provider: product.provider } });
 void product.acceptedPacks;
 void product.rejectedCapabilities;
 void product.rejectedPacks;

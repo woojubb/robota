@@ -23,14 +23,15 @@ import {
   formatEvalReport,
   runEval,
 } from '@robota-sdk/agent-framework';
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { productProviderDefinitions } from '../product/provider-definitions.js';
 import { createProviderFromConfig } from '@robota-sdk/agent-core';
 import type { IProviderDefinition, TProviderCredentialResolver } from '@robota-sdk/agent-core';
 
 import type {
   IEvalDefinition,
   IEvalReport,
-  INodeHostSettingsSource,
+  IFrameworkHost,
+  IHostSettingsSource,
   TEvalRunFn,
   TSettingsSource,
   TWorkspaceProjectAccess,
@@ -38,6 +39,8 @@ import type {
 
 /** Injection seams so the exit-code contract test can run without a live provider (TC-03). */
 export interface IRunEvalDeps {
+  /** The platform the default run source's sessions run on; required unless `runFn` is given. */
+  host?: IFrameworkHost;
   /** Override the run source (default: built from the CLI-resolved provider). */
   runFn?: TEvalRunFn;
   /** Override definition loading (default: dynamic `import()` of the module path). */
@@ -108,7 +111,7 @@ async function buildDefaultRunFn(cwd: string, deps: IRunEvalDeps): Promise<TEval
     (() => {
       throw new Error('Eval startup requires explicit host settings sources.');
     })();
-  const definitions = deps.providerDefinitions ?? createDefaultProviderDefinitions();
+  const definitions = deps.providerDefinitions ?? productProviderDefinitions();
   const config = readProviderSettings(settingsSources, {
     providerDefinitions: definitions,
     ...(deps.environment !== undefined ? { env: deps.environment } : {}),
@@ -118,11 +121,17 @@ async function buildDefaultRunFn(cwd: string, deps: IRunEvalDeps): Promise<TEval
       ? config
       : await deps.resolveProviderCredential(config);
   const provider = createProviderFromConfig(resolved, definitions);
+  const host =
+    deps.host ??
+    (() => {
+      throw new Error('Eval startup requires a framework host.');
+    })();
   const runtime = createAgentRuntime({
+    host,
     cwd,
     provider,
     userSettingsSources: settingsSources.filter(
-      (source): source is INodeHostSettingsSource => source.kind === 'host',
+      (source): source is IHostSettingsSource => source.kind === 'host',
     ),
     ...(deps.projectAccess === undefined ? {} : { projectAccess: deps.projectAccess }),
   });

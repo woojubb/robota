@@ -1,13 +1,15 @@
 /**
- * TRANS-010 (issue #2480): the two `ITransportSettingsRepository` implementations this package ships.
+ * TRANS-010 (issue #2480): the file-backed `ITransportSettingsRepository`, a Node adapter exported
+ * from `@robota-sdk/agent-framework/node`.
  *
- * The file-backed one is the ONLY place the transport package touches the framework settings
- * helpers; the settings view and registry see the port. The in-memory one is for tests and for
- * hosts that keep transport settings elsewhere.
+ * It is the ONLY place the transport package touches the framework settings file helpers; the
+ * settings view and registry see the port. The in-memory one lives in
+ * `memory-transport-settings-repository.ts`.
  */
 
-import { readSettings, writeSettings, type TSettingsData } from '../config/settings-io.js';
+import { readSettings, writeSettings } from '../config/settings-io.js';
 
+import type { TSettingsData } from '../config/settings-store-types.js';
 import type {
   ITransportSavedConfig,
   ITransportSettingsRepository,
@@ -45,19 +47,6 @@ export function createFileTransportSettingsRepository(
       transports[name] = { ...(isRecord(transports[name]) ? transports[name] : {}), ...saved };
       settings.transports = transports as TSettingsData;
       writeSettings(settingsPath, settings);
-    },
-  };
-}
-
-/** Holds transport settings in memory — tests, and hosts with no settings file. */
-export function createMemoryTransportSettingsRepository(
-  initial: Record<string, ITransportSavedConfig> = {},
-): ITransportSettingsRepository {
-  const store: Record<string, ITransportSavedConfig> = { ...initial };
-  return {
-    readAll: () => ({ ...store }),
-    write(name, saved) {
-      store[name] = { ...(store[name] ?? {}), ...saved };
     },
   };
 }

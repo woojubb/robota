@@ -90,7 +90,7 @@ export function normalizeStructuredOutput(output: TStructuredOutputSchema): IStr
 
 /**
  * Validate a value against the universal JSON-schema subset (`IParameterSchema`). Covers type,
- * required, enum, items, nested properties, unions and numeric bounds — the full expressible
+ * required, enum, items, nested properties, unions, numeric and size bounds — the full expressible
  * surface of the subset, at every level.
  *
  * CORE-039: this is the ONE complete walk. `parameter-validator` delegates its depth here rather
@@ -101,12 +101,12 @@ export function validateAgainstJsonSchema(
   value: unknown,
   path: string,
 ): string[] {
-  const issues: string[] = [];
+  const issues = sizeBoundIssues(schema, value, path);
   const kind = schema.type;
 
   // A union node carries `anyOf` instead of `type`, so it is answered before the type switch.
   if (schema.anyOf) {
-    return validateAnyOf(schema.anyOf, value, path);
+    return [...issues, ...validateAnyOf(schema.anyOf, value, path)];
   }
 
   switch (kind) {
@@ -211,6 +211,56 @@ export function validateAgainstJsonSchema(
         ? [`${path}: schema node declares neither a type nor anyOf`]
         : [`${path}: unsupported schema type ${String(kind)}`];
   }
+}
+
+/**
+ * The bounds a value's size answers to. JSON Schema applies each pair to values of one kind and
+ * ignores it for any other, so this reads the value rather than the node's `type` — which is what
+ * makes a bound on a union node hold as well as one on a typed node.
+ */
+export function sizeBoundIssues(schema: IParameterSchema, value: unknown, path: string): string[] {
+  if (typeof value === 'string') {
+    if (schema.minLength === undefined && schema.maxLength === undefined) return [];
+    return outOfBounds(
+      [...value].length,
+      ['minLength', schema.minLength],
+      ['maxLength', schema.maxLength],
+      path,
+    );
+  }
+  if (Array.isArray(value)) {
+    return outOfBounds(
+      value.length,
+      ['minItems', schema.minItems],
+      ['maxItems', schema.maxItems],
+      path,
+    );
+  }
+  if (typeof value === 'object' && value !== null) {
+    return outOfBounds(
+      Object.keys(value).length,
+      ['minProperties', schema.minProperties],
+      ['maxProperties', schema.maxProperties],
+      path,
+    );
+  }
+  return [];
+}
+
+function outOfBounds(
+  size: number,
+  [minKeyword, min]: [string, number | undefined],
+  [maxKeyword, max]: [string, number | undefined],
+  path: string,
+): string[] {
+  const issues: string[] = [];
+  if (min !== undefined && size < min) {
+    issues.push(`${path}: size ${size} is below ${minKeyword} ${min}`);
+  }
+  if (max !== undefined && size > max) {
+    issues.push(`${path}: size ${size} is above ${maxKeyword} ${max}`);
+  }
+  return issues;
 }
 
 /**

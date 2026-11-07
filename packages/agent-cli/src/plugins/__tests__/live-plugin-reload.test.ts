@@ -5,10 +5,17 @@ import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { createPluginCommandModule, createSkillsCommandModule } from '@robota-sdk/agent-command';
-import { createNodeHostContributionSource, InteractiveSession } from '@robota-sdk/agent-framework';
+import { InteractiveSession } from '@robota-sdk/agent-framework';
+import {
+  createNodeHostContributionSource,
+  createNodeHostSettingsSource,
+} from '@robota-sdk/agent-framework/node';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createDefaultPluginCommandAdapter } from '../default-plugin-command-adapter.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 describe('production plugin reload', () => {
   it('removes runnable skills and the model catalogue when the real adapter cannot parse settings', async () => {
@@ -29,20 +36,24 @@ describe('production plugin reload', () => {
     const settingsPath = join(home, '.test-product', 'settings.json');
     writeFileSync(settingsPath, '{}');
     const session = new InteractiveSession({
+      host: testHost,
       cwd: home,
       provider: createScriptedProvider([]).provider,
       contributionSources: [createNodeHostContributionSource(home)],
       pluginDirectories: { user: pluginsDir },
-      userSettingsSources: [
-        { kind: 'host', scope: 'user', displayName: 'settings', path: settingsPath },
-      ],
+      userSettingsSources: [createNodeHostSettingsSource('user', settingsPath)],
       commandModules: [
         createPluginCommandModule(),
         createSkillsCommandModule({
           contributionSources: [createNodeHostContributionSource(home)],
         }),
       ],
-      commandHostAdapters: { plugin: createDefaultPluginCommandAdapter(home, createTestProductRuntime('test-product', { HOME: process.env['HOME'] })) },
+      commandHostAdapters: {
+        plugin: createDefaultPluginCommandAdapter(
+          home,
+          createTestProductRuntime('test-product', { HOME: process.env['HOME'] }),
+        ),
+      },
     });
     try {
       await session.whenInitialized();

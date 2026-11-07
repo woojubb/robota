@@ -4,12 +4,14 @@ import {
   liveSandboxSettings,
 } from './execution-containment.js';
 
-import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
+import { productProviderDefinitions } from './provider-definitions.js';
 import { findProviderDefinition } from '@robota-sdk/agent-core';
 import { TRANSPORT_ENVIRONMENT } from '@robota-sdk/agent-executor';
 import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import { createGoalStatusTool, sandboxApprovalFor } from '@robota-sdk/agent-framework';
-import { OsSandboxClient } from '@robota-sdk/agent-tools';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+import { OsSandboxClient } from '@robota-sdk/agent-tools/node';
 import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 import { commandEnvironment, isWithheldFromCommands } from './command-environment.js';
@@ -19,6 +21,8 @@ import { selectProductSubagentRunner } from './subagent-provider-reproduction.js
 import { resolveSelfForkWorkerEntry } from '../subagents/self-fork-worker-entry.js';
 import { createGitWorktreeIsolationAdapter } from '../subagents/git-worktree-isolation-adapter.js';
 import { resolveProductShellExecutable } from './shell.js';
+import { createProductWorkerSealing, resolveProductRunnerSealing } from './session-sealing.js';
+import { declareProductProcessMode, enterProductStores } from './process-presence.js';
 
 import { childProductEnvironment } from './child-environment.js';
 export { childProductEnvironment } from './child-environment.js';
@@ -29,7 +33,8 @@ import type { ISubagentWorkerComposition } from '@robota-sdk/agent-subagent-runn
 import type { TSubagentRunnerFactory } from '@robota-sdk/agent-framework';
 import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 import type { ICodingPackOptions } from '@robota-sdk/pack-coding';
-import type { IOsSandboxSettings, ISandboxClient } from '@robota-sdk/agent-tools';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import type { IOsSandboxSettings } from '@robota-sdk/agent-tools/node';
 import type { IProviderDefinition, IToolWithEventService } from '@robota-sdk/agent-core';
 
 type TProductPack = ReturnType<typeof createProductCapabilityPacks>[number];
@@ -124,11 +129,6 @@ export function assertChildProcessSubagentsCanReproduce(context: IProductPackCon
   );
 }
 
-/** the product's provider registry, in one place for both the parent and its child-process subagents. */
-function productProviderDefinitions(): readonly IProviderDefinition[] {
-  return createDefaultProviderDefinitions();
-}
-
 /**
  * The pack factory this composition derives from.
  *
@@ -159,7 +159,18 @@ export function createProductSubagentComposition(
   providerDefinitions: readonly IProviderDefinition[] = productProviderDefinitions(),
 ): ISubagentWorkerComposition {
   const shellExecutable = resolveProductShellExecutable(productRuntime.environment);
+  // #3679: the worker seals as its parent decided — the grant binds into this runtime's one sealing
+  // decision before anything is built, so `openSessionStore` below seals the same way. Binding it is
+  // also where the worker marks its presence, since its transcript is written whether or not it ever
+  // opens a store: a migration then sees it, and a worker started during one refuses to run.
+  const workerSealing = createProductWorkerSealing(productRuntime);
+  declareProductProcessMode(productRuntime, 'subagent');
   return {
+    host: createNodeFrameworkHost({ createDefaultTools }),
+    bindWriteGrant: (grant) => {
+      enterProductStores(productRuntime);
+      return workerSealing.bindWriteGrant(grant);
+    },
     createHookTypeExecutors: (context) => {
       const sandbox = context.sandboxClient as ISandboxClient | undefined;
       if (sandbox !== undefined && sandbox.filesystem !== 'shared') {
@@ -271,7 +282,8 @@ function createProductChildProcessSubagentRunner(options: {
   readonly packContext: IProductPackContext;
   readonly providerConfig: IProviderDefinitionConfig;
   readonly providerDefinitions: readonly IProviderDefinition[];
-  readonly logsDir: string;
+  /** Absent, the child writes no transcript, so the run leaves no conversation behind. */
+  readonly logsDir?: string;
   readonly workerEntry: Parameters<
     typeof createChildProcessSubagentRunnerFactory
   >[0]['workerEntry'];
@@ -288,7 +300,10 @@ function createProductChildProcessSubagentRunner(options: {
     workerEntry: options.workerEntry,
     providerConfig: options.providerConfig,
     providerDefinitions: options.providerDefinitions,
-    logsDir: options.logsDir,
+    ...(options.logsDir === undefined ? {} : { logsDir: options.logsDir }),
+    // #3679: the children keep their logs as every store of this process keeps its records, and
+    // follow the key this process seals to when an unlock verifies or changes it — one decision.
+    ...resolveProductRunnerSealing(options.productRuntime),
     // The worker drops its credential after building its provider unless the owner let commands see it.
     keepProviderCredential:
       options.providerConfig.apiKeyEnv !== undefined &&
@@ -416,6 +431,11 @@ export function createProductSubagentRunnerFactory(options: {
   readonly providerDefinitions: readonly IProviderDefinition[];
   readonly reproduction: IProviderReproduction;
   readonly notice: (message: string) => void;
+  /**
+   * Whether child-process subagents write their transcripts under the log root. A run that persists
+   * no session (`--no-session-persistence`) turns it off.
+   */
+  readonly persistTranscripts: boolean;
 }): TSubagentRunnerFactory {
   const credentialReference = options.providerConfig.apiKeyEnv;
   const definition = findProviderDefinition(
@@ -445,7 +465,9 @@ export function createProductSubagentRunnerFactory(options: {
         packContext: options.packContext,
         providerConfig: options.providerConfig,
         providerDefinitions: options.providerDefinitions,
-        logsDir: options.productRuntime.config.storage.logRoot,
+        ...(options.persistTranscripts
+          ? { logsDir: options.productRuntime.config.storage.logRoot }
+          : {}),
         workerEntry: resolveSelfForkWorkerEntry(),
         worktreeAdapter: createProductWorktreeAdapter(options.productRuntime),
       }),

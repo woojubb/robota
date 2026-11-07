@@ -1,23 +1,27 @@
 export { InteractiveSession } from './interactive-session.js';
 export type { IInteractiveSession } from './i-interactive-session.js';
 export {
-  createProjectSessionStore,
-  createNodeHostSessionStore,
-  createNodeToolResultSpillStore,
-  createUserSessionStore,
-  createUserPromptHistoryFile,
+  ambiguousSessionNameMessage,
   isSafeSessionId,
+  isSessionLocked,
   listResumableSessionSummaries,
+  listResumableSessions,
   listUnreadableSessions,
   listUnreadableSessionsForWorkspace,
+  lockedSessionMessage,
+  lockedSessionReason,
+  lockedSessionsNotice,
   resolveLatestSessionId,
   resolveReusableEmptySessionId,
   resolveSessionIdByIdOrName,
-  WorkspaceProjectSessionStore,
-  WorkspaceSessionLogSink,
-  WorkspaceSessionLogSource,
+  scanSessionStore,
 } from './session-persistence.js';
-export type { IHostToolResultSpillStore } from './session-persistence.js';
+export type { TSessionIdResolution } from './session-persistence.js';
+export type { IHostToolResultSpillStore } from './session-store-types.js';
+// #3679 step 3e: the one way a session store is decorated, so no view drops a member of the port.
+export { decorateSessionStore } from './session-store-view.js';
+export type { TSessionStoreOverrides } from './session-store-view.js';
+export type { TLockedSessionReason } from './locked-session-wording.js';
 export { generateSessionName } from './session-naming.js';
 export { isLoopStopVerb } from './session-loop-stop-verb.js';
 // What restoring a session does with a stored scheduled task; a host asks it to know whether a
@@ -26,8 +30,17 @@ export { restoredScheduleDisposition } from './schedule-rearm.js';
 export type { TRestoredScheduleDisposition } from './schedule-rearm.js';
 // CLI-1994: the one restore a subagent runner in ANY process performs for a fork job — the id it
 // received becomes the copied conversation here, so no runner re-derives the injection.
-export { restoreSessionRecordIntoSession } from './interactive-session-restore.js';
+export { restoreSessionRecordIntoSession, resumeRefusal } from './interactive-session-restore.js';
 export type { ISessionRecordRestoreResult } from './interactive-session-restore.js';
+// #3679 step 3e: why a resume over a store that seals was refused, for every surface that resumes.
+export {
+  SessionAuthorshipRefusedError,
+  UNVERIFIED_SESSION_QUESTION,
+  isSessionAuthorshipRefusedError,
+  unacceptableSessionMessage,
+  unverifiedSessionNotice,
+} from './session-authorship-gate.js';
+export type { TSessionAuthorshipRefusal } from './session-authorship-gate.js';
 export type { IGenerateSessionNameOptions } from './session-naming.js';
 export type { ILivePromptTracePort } from './interactive-session-live-prompt-trace.js';
 export type {
@@ -39,7 +52,8 @@ export type {
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   IResumableSessionSummary,
-} from './session-persistence.js';
+  TSessionLoadOutcome,
+} from './session-store-types.js';
 export type {
   IToolState,
   IDiffLine,

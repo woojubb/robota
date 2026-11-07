@@ -5,9 +5,12 @@ import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { createReplayProviderFromSource } from '@robota-sdk/agent-provider-replay';
-import { NodeSessionLogSink, NodeSessionLogSource } from '@robota-sdk/agent-session';
+import { NodeSessionLogSink, NodeSessionLogSource } from '@robota-sdk/agent-session/node';
 
 import { InteractiveSession } from '../src/index.js';
+import { createTestFrameworkHost } from '../src/testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const LARGE_RESPONSE = `ARCH_014_LARGE:${'x'.repeat(40 * 1024)}`;
 const SENTINEL_RESPONSE = 'ARCH_014_SENTINEL';
@@ -30,10 +33,13 @@ try {
     { text: SENTINEL_RESPONSE },
   ]).provider;
   sourceSession = new InteractiveSession({
+    host: testHost,
     cwd: sourceWorkspacePath,
     provider: sourceProvider,
     resumeSessionId: 'arch-014-source',
-    sessionLogSink: new NodeSessionLogSink(join(sourceWorkspacePath, 'state', 'logs')),
+    sessionLogSink: new NodeSessionLogSink(join(sourceWorkspacePath, 'state', 'logs'), {
+      sealing: 'plain',
+    }),
     bare: true,
     permissionMode: 'bypassPermissions',
   });
@@ -52,10 +58,13 @@ try {
   if (!sidecarExists)
     throw new Error(`External payload sidecar is missing: ${reference.relativePath}`);
 
-  const replayProvider = createReplayProviderFromSource(new NodeSessionLogSource(transcriptPath));
+  const replayProvider = createReplayProviderFromSource(
+    new NodeSessionLogSource(transcriptPath, { sealing: 'plain' }),
+  );
   replayWorkspace = mkdtempSync(join(tmpdir(), 'agent-arch-014-replay-'));
   const replayWorkspacePath = replayWorkspace;
   replaySession = new InteractiveSession({
+    host: testHost,
     cwd: replayWorkspacePath,
     provider: replayProvider,
     bare: true,

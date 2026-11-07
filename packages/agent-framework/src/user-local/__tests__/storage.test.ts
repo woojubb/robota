@@ -4,12 +4,14 @@ import path from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { NodeFileSystemAsync } from '../../adapters/node-file-system.js';
 import {
   USER_LOCAL_STORAGE_CATEGORIES,
   inspectUserLocalStorage,
   resolveUserLocalStorageRoot,
 } from '../storage.js';
 
+const fsAsync = new NodeFileSystemAsync();
 const tempRoots: string[] = [];
 
 async function createTempRoot(name: string): Promise<string> {
@@ -40,7 +42,7 @@ describe('user-local storage', () => {
     await fs.mkdir(repo);
 
     await expect(
-      resolveUserLocalStorageRoot({ activeRepositoryRoot: repo } as never),
+      resolveUserLocalStorageRoot({ activeRepositoryRoot: repo, fsAsync } as never),
     ).rejects.toThrow('userLocalStorageRoot is required');
   });
 
@@ -53,6 +55,7 @@ describe('user-local storage', () => {
 
     const root = await resolveUserLocalStorageRoot({
       activeRepositoryRoot: repo,
+      fsAsync,
       storageRoot: path.join(home, '.agent'),
     });
 
@@ -67,6 +70,7 @@ describe('user-local storage', () => {
     await expect(
       resolveUserLocalStorageRoot({
         activeRepositoryRoot: repo,
+        fsAsync,
         storageRoot: path.join(repo, '.agent'),
       }),
     ).rejects.toThrow('outside the active repository');
@@ -83,6 +87,7 @@ describe('user-local storage', () => {
     await expect(
       resolveUserLocalStorageRoot({
         activeRepositoryRoot: repo,
+        fsAsync,
         storageRoot: link,
       }),
     ).rejects.toThrow('outside the active repository');
@@ -97,6 +102,7 @@ describe('user-local storage', () => {
 
     const inspection = await inspectUserLocalStorage({
       activeRepositoryRoot: repo,
+      fsAsync,
       storageRoot: path.join(home, '.agent'),
       now: () => new Date('2026-05-09T00:00:00.000Z'),
     });

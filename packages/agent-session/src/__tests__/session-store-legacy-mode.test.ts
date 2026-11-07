@@ -24,7 +24,7 @@ describe.skipIf(process.platform === 'win32')('SessionStore legacy mode repair (
   it('load() tightens a world-readable legacy record to owner-only', () => {
     const baseDir = mkdtempSync(join(tmpdir(), 'agent-store-legacy-'));
     try {
-      const store = new NodeSessionStore(baseDir);
+      const store = new NodeSessionStore(baseDir, { sealing: 'plain' });
       store.save(record);
       const path = join(baseDir, 'legacy.json');
       chmodSync(path, 0o644); // simulate a record written by a pre-SEC-020 build
@@ -42,7 +42,7 @@ describe.skipIf(process.platform === 'win32')('SessionStore legacy mode repair (
   it('list() repairs every legacy record it browses', () => {
     const baseDir = mkdtempSync(join(tmpdir(), 'agent-store-legacy-list-'));
     try {
-      const store = new NodeSessionStore(baseDir);
+      const store = new NodeSessionStore(baseDir, { sealing: 'plain' });
       store.save({ ...record, id: 'a' });
       store.save({ ...record, id: 'b' });
       chmodSync(join(baseDir, 'a.json'), 0o644);

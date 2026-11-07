@@ -29,8 +29,8 @@ identity declared as data in `createSelectedProductProfile()` (`src/product/prod
 
 | Entry                 | What it does                                                             | Used by                                  |
 | --------------------- | ------------------------------------------------------------------------ | ---------------------------------------- |
-| `src/bin.ts`          | `startCli()` → `startCliCore(options, runners, presentation)`            | The `__PRODUCT_CLI_NAME__` binary                      |
-| `src/headless-bin.ts` | `startCliCore({}, runners)` with no presentation; accepts only `--serve` | The desktop app's headless runtime build |
+| `src/bin.ts`          | `startCli()` → `startCliCore(options, host, runners, presentation)`      | The `__PRODUCT_CLI_NAME__` binary                      |
+| `src/headless-bin.ts` | `startCliCore({}, host, runners)` with no presentation; accepts only `--serve` | The desktop app's headless runtime build |
 | `src/index.ts`        | Exports `startCli` and `IStartCliOptions`                                | Code that embeds the CLI                 |
 
 Both binaries first check for the subagent worker flag and, when present, run
@@ -66,7 +66,7 @@ when no hosted deployment is configured.
 flowchart TD
     A["__PRODUCT_CLI_NAME__ open: deep link, may change directory"] --> B["workspace access, pre-parsed subcommands"]
     B --> C["parseCliArgs: --help, --version, --check-update, --reset, user-local"]
-    C --> D["trust prompt, preset, OS sandbox, pack set, MCP clients"]
+    C --> D["trust prompt, preset, OS sandbox, pack set, first-start web search question, MCP clients"]
     D --> E["buildCommandSetup: base command modules, host adapters"]
     E --> F["createCliUsageTransportRegistry"]
     F --> G["routeProjectSetup: init, --configure, provider setup"]
@@ -79,7 +79,7 @@ flowchart TD
     J -->|default| N["renderApp (agent-ui-terminal)"]
 ```
 
-Pre-parsed subcommands (`doctor`, `trust`, `daemon`, `session …`, `usage`, `mcp login|logout`,
+Pre-parsed subcommands (`doctor`, `trust`, `daemon`, `session …`, `usage`, `mcp add|login|logout`,
 `eval`) are routed by `runPreparsedCliCommand()` in `src/startup/preparsed-command-routing.ts` and
 return before the product is assembled. See [`internal-structure.md`](internal-structure.md).
 
@@ -116,7 +116,7 @@ advisor tool are appended to `additionalTools` afterwards.
 ### Runners and the subagent factory
 
 The shell builds the background-task runners (`createDefaultBackgroundTaskRunners()` from
-`@robota-sdk/agent-executor`) and the subagent runner factory (`createProductSubagentRunnerFactory()`),
+`@robota-sdk/agent-executor/node`) and the subagent runner factory (`createProductSubagentRunnerFactory()`),
 passes them into the profile, and reads them back from the assembled product with
 `bindAssembledCollaborators()`. Every mode receives the instances the product holds.
 
@@ -128,7 +128,8 @@ passes them into the profile, and reads them back from the assembled product wit
 - a `TransportRegistry` — the class belongs to `@robota-sdk/agent-framework` — whose saved
   enable/option state lives in the `transports` section of the user settings file;
 - a `WsTransport` from `@robota-sdk/agent-transport-ws`, which takes an optional launch token and
-  port from `PRODUCT_WS_TOKEN` / `PRODUCT_WS_PORT` and removes the token from the environment;
+  port from `PRODUCT_WS_TOKEN` / `PRODUCT_WS_PORT` (a supervised daemon's token instead arrives on a pipe
+  its launcher inherited) and removes the token from the environment;
 - `bindTransports(session)`, which binds the WebSocket transport to a session with
   `bindTransportAdapter()` and registers it, or replaces the earlier binding after a session switch.
 

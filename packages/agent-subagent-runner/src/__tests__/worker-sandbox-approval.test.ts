@@ -47,7 +47,8 @@ function runWorker(
         ...process.env,
         SANDBOX_RECORD_PATH: recordPath,
         SANDBOX_FIXTURE_COMPOSES: composesSandbox ? '1' : '0',
-        SANDBOX_FIXTURE_WAIT_FOR_CHANGE: changeWhileRunning !== undefined && !duringCommand ? '1' : '0',
+        SANDBOX_FIXTURE_WAIT_FOR_CHANGE:
+          changeWhileRunning !== undefined && !duringCommand ? '1' : '0',
         SANDBOX_FIXTURE_CHANGE_DURING_COMMAND: duringCommand ? '1' : '0',
       },
     });

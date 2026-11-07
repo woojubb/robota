@@ -21,6 +21,8 @@ import {
   getWorkspaceProjectReader,
   readSettingsSourceText,
 } from '../src/index.js';
+import { createDefaultUserContributionSources, createNodeWorkspaceProjectFiles } from '../src/node.js';
+import { createTestFrameworkHost } from '../src/testing/framework-host.js';
 
 import type {
   IWorkspaceIdentity,
@@ -29,6 +31,8 @@ import type {
   IWorkspaceTrustStoreSnapshot,
   TWorkspaceProjectAccess,
 } from '../src/index.js';
+
+const testHost = createTestFrameworkHost();
 
 const CONTEXT_CANARY = 'ARCH_042_CONTEXT_CANARY';
 const SETTINGS_CANARY = 'ARCH_042_SETTINGS_CANARY';
@@ -125,7 +129,10 @@ function initializeGitProject(root: string): void {
 
 function observeCanaries(projectAccess: TWorkspaceProjectAccess, userHome: string): string[] {
   const observed: string[] = [];
-  for (const source of createContributionSourcesForProjectAccess(projectAccess, userHome)) {
+  for (const source of createContributionSourcesForProjectAccess(
+    projectAccess,
+    createDefaultUserContributionSources(userHome),
+  )) {
     const text = source.readText('AGENTS.md', 'run ARCH-042 public authority scenario');
     if (text?.includes(CONTEXT_CANARY) === true) observed.push(CONTEXT_CANARY);
   }
@@ -151,6 +158,7 @@ async function main(): Promise<void> {
   const trustService = new WorkspaceTrustService({
     identityResolver: new GitWorkspaceIdentityResolver(),
     store: trustStore,
+    projectFiles: createNodeWorkspaceProjectFiles(),
   });
   const scripted = createScriptedProvider([]);
   let granted = false;
@@ -178,7 +186,11 @@ async function main(): Promise<void> {
       'utf8',
     );
 
-    const restrictedRuntime = createAgentRuntime({ cwd: projectRoot, provider: scripted.provider });
+    const restrictedRuntime = createAgentRuntime({
+      host: testHost,
+      cwd: projectRoot,
+      provider: scripted.provider,
+    });
     assertCondition(
       restrictedRuntime.projectAccess.status === 'restricted',
       'capabilityless runtime construction was not Restricted',
@@ -193,6 +205,7 @@ async function main(): Promise<void> {
       'explicit project grant was not trusted',
     );
     const authorizedRuntime = createAgentRuntime({
+      host: testHost,
       cwd: projectRoot,
       provider: scripted.provider,
       projectAccess: authorizedAccess,

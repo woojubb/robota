@@ -5,8 +5,6 @@
  * used by BundlePluginLoader.
  */
 
-import { NodeFileSystem } from '../adapters/node-file-system.js';
-
 import type { IBundlePluginManifest } from './bundle-plugin-types.js';
 import type { IFileSystem, TUniversalValue } from '@robota-sdk/agent-core';
 
@@ -51,10 +49,7 @@ export function validateManifest(data: unknown): IBundlePluginManifest | null {
  * Get sorted subdirectories from a directory.
  * Returns directory names sorted lexicographically.
  */
-export function getSortedSubdirs(
-  dirPath: string,
-  fs: IFileSystem = new NodeFileSystem(),
-): string[] {
+export function getSortedSubdirs(dirPath: string, fs: IFileSystem): string[] {
   if (!fs.existsSync(dirPath)) return [];
   try {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });

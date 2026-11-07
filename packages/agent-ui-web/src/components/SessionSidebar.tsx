@@ -54,6 +54,19 @@ export function otherClients(session: TListedSession, isCurrent: boolean): numbe
   return others >= 1 ? others : null;
 }
 
+/**
+ * The line for sealed sessions the host cannot open: the listing leaves them out, so without it they
+ * would read as gone. The host's keys may be locked or may not open them at all, and which does not
+ * cross the wire, so it never says to unlock. Same wording as the terminal's for a host's listing,
+ * which this package does not depend on.
+ */
+function lockedSessionsLine(count: number | undefined): string | null {
+  if (count === undefined || count <= 0) return null;
+  return count === 1
+    ? '1 saved session is sealed and not listed here.'
+    : `${count} saved sessions are sealed and not listed here.`;
+}
+
 /** Where a row's context menu opens: the point the mouse or the "More" button gave it. */
 interface IMenuAnchor {
   readonly sessionId: string;
@@ -84,6 +97,7 @@ export function SessionSidebar({
   const listing = state.sessionListing ?? null;
   const current = listing?.currentSessionId ?? null;
   const unreadable = listing?.unreadableSessionIds ?? [];
+  const lockedLine = lockedSessionsLine(listing?.lockedSessionCount);
   const failed = state.sessionsError?.code === 'list_failed' ? state.sessionsError.message : null;
   // #3282 §2 (part 2): session switching is disabled while disconnected, like the status chips and
   // the `/` command menu — a switch could not reach the host either.
@@ -316,6 +330,9 @@ export function SessionSidebar({
                 </ul>
               </details>
             </li>
+          )}
+          {lockedLine !== null && (
+            <li className="px-2.5 py-2 text-[12.5px] text-subtle">{lockedLine}</li>
           )}
         </ul>
       </div>

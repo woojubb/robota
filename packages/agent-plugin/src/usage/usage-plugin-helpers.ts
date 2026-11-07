@@ -6,6 +6,7 @@ import {
   EVENT_EMITTER_EVENTS,
 } from '@robota-sdk/agent-core';
 
+import type { IPluginTextFileStore } from '../storage/text-file-store';
 import type { IUsagePluginOptions } from './types';
 
 const DEFAULT_MAX_ENTRIES = 10000;
@@ -13,8 +14,11 @@ const DEFAULT_BATCH_SIZE = 50;
 const DEFAULT_FLUSH_INTERVAL_MS = 60000;
 const DEFAULT_AGGREGATION_INTERVAL_MS = 300000;
 
-export type TResolvedUsageOptions = Required<Omit<IUsagePluginOptions, 'costRates'>> & {
+export type TResolvedUsageOptions = Required<
+  Omit<IUsagePluginOptions, 'costRates' | 'fileStore'>
+> & {
   costRates?: Record<string, { input: number; output: number }>;
+  fileStore?: IPluginTextFileStore;
 };
 
 export function resolvePluginOptions(options: IUsagePluginOptions): TResolvedUsageOptions {
@@ -22,6 +26,7 @@ export function resolvePluginOptions(options: IUsagePluginOptions): TResolvedUsa
     enabled: options.enabled ?? true,
     strategy: options.strategy,
     filePath: options.filePath ?? './usage-stats.json',
+    ...(options.fileStore && { fileStore: options.fileStore }),
     remoteEndpoint: options.remoteEndpoint ?? '',
     remoteHeaders: options.remoteHeaders ?? {},
     maxEntries: options.maxEntries ?? DEFAULT_MAX_ENTRIES,
@@ -64,6 +69,13 @@ export function validateUsageOptions(options: IUsagePluginOptions): void {
   }
   if (options.strategy === 'file' && !options.filePath) {
     throw new ConfigurationError('File path is required for file usage tracking strategy');
+  }
+  if (options.strategy === 'file' && !options.fileStore) {
+    throw new ConfigurationError(
+      'A `fileStore` is required for the file usage tracking strategy — agent-plugin is ' +
+        'platform-neutral and owns no file system; inject an IPluginTextFileStore ' +
+        '(NodePluginTextFileStore from @robota-sdk/agent-plugin/node).',
+    );
   }
   if (options.strategy === 'remote' && !options.remoteEndpoint) {
     throw new ConfigurationError('Remote endpoint is required for remote usage tracking strategy');

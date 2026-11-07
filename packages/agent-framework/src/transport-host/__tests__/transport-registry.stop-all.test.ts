@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { TransportRegistry } from '../transport-registry';
+import { createFileTransportSettingsRepository } from '../transport-settings-repository.js';
 import { bindTransportAdapter } from '../bind-transport-adapter.js';
 
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
@@ -35,7 +36,9 @@ function register(
 describe('TransportRegistry.stopAll (best-effort, CORE-013)', () => {
   it('stops every transport even when one stop fails, and collects the error', async () => {
     const registry = new TransportRegistry(
-      path.join(realpathSync(mkdtempSync(path.join(tmpdir(), 'registry-'))), 'settings.json'),
+      createFileTransportSettingsRepository(
+        path.join(realpathSync(mkdtempSync(path.join(tmpdir(), 'registry-'))), 'settings.json'),
+      ),
     );
     const stoppedSecond = vi.fn().mockResolvedValue(undefined);
     register(
@@ -55,7 +58,9 @@ describe('TransportRegistry.stopAll (best-effort, CORE-013)', () => {
 
   it('returns an empty error list when all stops succeed', async () => {
     const registry = new TransportRegistry(
-      path.join(realpathSync(mkdtempSync(path.join(tmpdir(), 'registry-'))), 'settings.json'),
+      createFileTransportSettingsRepository(
+        path.join(realpathSync(mkdtempSync(path.join(tmpdir(), 'registry-'))), 'settings.json'),
+      ),
     );
     register(registry, makeTransport('a', vi.fn().mockResolvedValue(undefined)));
 

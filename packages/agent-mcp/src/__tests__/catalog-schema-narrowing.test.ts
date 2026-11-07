@@ -42,13 +42,46 @@ function discoveryWithTools(
 }
 
 describe('CORE-040 narrowing at catalog registration', () => {
+  it.each([
+    'https://json-schema.org/draft/2020-12/schema',
+    'http://json-schema.org/draft-07/schema#',
+  ])('projects a standard dialect declaration (%s) out without reporting it', (dialect) => {
+    const report = vi.fn();
+    const discovery = discoveryWithTools('search', [
+      {
+        name: 'query',
+        inputSchema: {
+          $schema: dialect,
+          type: 'object',
+          properties: { q: { type: 'string' } },
+          required: ['q'],
+        } as never,
+      },
+    ]);
+    const catalog = buildCatalog(
+      [{ serverId: 'search', origin: 'fixture', transport: 'streamable-http', discovery }],
+      { report },
+    );
+    // Nothing was lost, so the tool is adopted as declared rather than adapted.
+    expect(catalog.adapted).toEqual([]);
+    const entry = catalog.adopted.find((entry) => entry.kind === 'tool');
+    if (entry?.kind !== 'tool') throw new Error('Missing portable tool');
+    expect(entry.schema).toEqual({
+      type: 'object',
+      properties: { q: { type: 'string' } },
+      required: ['q'],
+    });
+    expect(entry.unenforceablePaths).toEqual([]);
+    expect(report).not.toHaveBeenCalled();
+  });
+
   it('projects a foreign dialect declaration out of the portable schema and reports it', () => {
     const report = vi.fn();
     const discovery = discoveryWithTools('browser', [
       {
         name: 'observe',
         inputSchema: {
-          $schema: 'https://json-schema.org/draft/2020-12/schema',
+          $schema: 'https://example.test/custom-dialect',
           type: 'object',
           properties: { target: { type: 'string' } },
           required: ['target'],

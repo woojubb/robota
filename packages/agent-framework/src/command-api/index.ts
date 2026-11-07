@@ -1,9 +1,5 @@
 export type { IOrgPolicy } from './org-policy/index.js';
-export {
-  loadOrgPolicy,
-  formatOrgPolicyViolationMessage,
-  isApiKeyPlaintext,
-} from './org-policy/index.js';
+export { formatOrgPolicyViolationMessage, isApiKeyPlaintext } from './org-policy/index.js';
 export type { ICommand, ICommandSource } from './types.js';
 export type { ICommandModule, TCommandModuleSessionRequirement } from './command-module.js';
 export { DuplicateSystemCommandSemanticRoleError } from './contracts.js';
@@ -168,7 +164,7 @@ export {
   probeProviderProfile,
   testProviderProfileCommand,
 } from './provider/provider-command-probe.js';
-export { checkSettingsDocument, checkNodeHostSettingsFile } from './provider/settings-check.js';
+export { checkSettingsDocument } from './provider/settings-check.js';
 export type { TSettingsCheck } from './provider/settings-check.js';
 export {
   applyProviderConfiguration,
@@ -188,6 +184,8 @@ export {
   resolveActiveProvider,
 } from './provider/provider-merge.js';
 export type { IReadProviderSettingsOptions } from './provider/provider-factory.js';
+export { resolveProviderEnvironment } from './provider/provider-environment.js';
+export type { TProviderEnvironment } from './provider/provider-environment.js';
 export {
   createProviderFromSettings,
   ProviderConfigError,
@@ -314,6 +312,7 @@ export {
   buildRewindCommandSubcommands,
   inspectCommandEditCheckpoint,
   listCommandEditCheckpoints,
+  readCommandEditCheckpointListing,
   restoreCommandEditCheckpoint,
   rollbackCommandEditCheckpoint,
   forkCommandEditCheckpoint,

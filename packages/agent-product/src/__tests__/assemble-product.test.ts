@@ -9,11 +9,15 @@ import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
 import { PRODUCT_PROFILE_FIELD_POLICIES, assembleProduct } from '../assemble-product.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IProductProfile } from '../product-profile.js';
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 import type { IPreset } from '@robota-sdk/agent-preset';
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type { IAgentDefinition, ICommandModule } from '@robota-sdk/agent-framework';
+
+const testHost = createTestFrameworkHost();
 
 /**
  * ARCH-005 S1 — `assembleProduct` is a PURE, deterministic, IO-free fold over `IProductProfile`. It
@@ -80,7 +84,7 @@ describe('assembleProduct — capability fold', () => {
       providerDefinitions: [],
       providerErrorGuidance: { authentication: 'Configure product B.' },
     });
-    const session = { session: {} as never };
+    const session = { host: testHost, cwd: process.cwd(), session: {} as never };
 
     expect(first.buildRuntimeOptions({ session }).providerErrorGuidance).toEqual({
       authentication: 'Configure product A.',
@@ -108,7 +112,7 @@ describe('assembleProduct — capability fold', () => {
       },
     });
     const options = acme.buildRuntimeOptions({
-      session: { cwd: '/tmp/acme', provider: testProvider(), bare: true },
+      session: { host: testHost, cwd: '/tmp/acme', provider: testProvider(), bare: true },
     });
     expect(options.promptFileReferenceTag).toBe('acme_file_references');
     expect(options.modelCommandToolPrefix).toBe('acme_command_');
@@ -119,6 +123,7 @@ describe('assembleProduct — capability fold', () => {
 
     const shellOverride = acme.buildRuntimeOptions({
       session: {
+        host: testHost,
         cwd: '/tmp/acme',
         provider: testProvider(),
         bare: true,
@@ -140,6 +145,7 @@ describe('assembleProduct — capability fold', () => {
     try {
       writeFileSync(join(cwd, 'guide.md'), 'ACME product guidance', 'utf8');
       const trust = new WorkspaceTrustService({
+        projectFiles: createNodeWorkspaceProjectFiles(),
         identityResolver: {
           resolve: () => ({ repositoryKey: cwd, displayPath: cwd, worktreeRoot: cwd }),
         },
@@ -179,6 +185,7 @@ describe('assembleProduct — capability fold', () => {
       });
       runtime = product.buildRuntime({
         session: {
+          host: testHost,
           cwd,
           provider: scripted.provider,
           bare: true,
@@ -417,7 +424,7 @@ describe('assembleProduct — instance-scoped preset resolution (R8)', () => {
     });
 
     const options = product.buildRuntimeOptions({
-      session: { cwd: process.cwd(), provider: testProvider() },
+      session: { host: testHost, cwd: process.cwd(), provider: testProvider() },
     });
 
     expect((options as { permissionMode?: string }).permissionMode).toBe('plan');
@@ -436,7 +443,7 @@ describe('assembleProduct — runtime construction delegates to the framework se
 
     const product = assembleProduct(profile);
     const session = product.buildRuntime({
-      session: { cwd: process.cwd(), provider: testProvider() },
+      session: { host: testHost, cwd: process.cwd(), provider: testProvider() },
     });
 
     try {
@@ -539,7 +546,7 @@ describe('assembleProduct — pack subagents reach the runtime seam (owner Decis
     });
 
     const options = product.buildRuntimeOptions({
-      session: { cwd: process.cwd(), provider: testProvider() },
+      session: { host: testHost, cwd: process.cwd(), provider: testProvider() },
     });
 
     expect(
@@ -557,7 +564,7 @@ describe('assembleProduct — pack subagents reach the runtime seam (owner Decis
     });
 
     const options = product.buildRuntimeOptions({
-      session: { cwd: process.cwd(), provider: testProvider() },
+      session: { host: testHost, cwd: process.cwd(), provider: testProvider() },
     });
 
     expect('agentDefinitions' in options).toBe(false);

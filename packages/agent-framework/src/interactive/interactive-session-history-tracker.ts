@@ -1,6 +1,4 @@
-import { randomUUID } from 'node:crypto';
-
-import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
+import { createSystemMessage, messageToHistoryEntry, randomId } from '@robota-sdk/agent-core';
 
 import {
   addInteractiveContextReference,
@@ -17,16 +15,18 @@ import {
   VISIBLE_MEMORY_EVENT_TYPES,
   formatMemoryEventMessage,
 } from '../memory/memory-event-format.js';
+import { EditCheckpointNumberingExhaustedError } from '../checkpoints/edit-checkpoint-errors.js';
 import { EditCheckpointsUnavailableError } from '../checkpoints/edit-checkpoints-unavailable-error.js';
-import { supportsWorkspaceProjectMutation } from '../workspace-trust/index.js';
 
 import type { IHistoryTrackerState } from './session-history-state.js';
-import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
 import type { TEditCheckpointsUnavailableReason } from '../checkpoints/edit-checkpoints-unavailable-error.js';
 import type {
   IEditCheckpointInspection,
+  IEditCheckpointListing,
   IEditCheckpointRestoreResult,
+  IEditCheckpointStore,
   IEditCheckpointSummary,
+  IEditCheckpointUnreadableCounts,
 } from '../checkpoints/edit-checkpoint-types.js';
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
@@ -46,7 +46,7 @@ export type { IHistoryTrackerState } from './session-history-state.js';
 
 export class SessionHistoryTracker {
   private history: IHistoryEntry[] = [];
-  private editCheckpointStore: EditCheckpointStore | null = null;
+  private editCheckpointStore: IEditCheckpointStore | null = null;
   private readonly branchEvents: SessionBranchEvents;
   /**
    * SELFHOST-007: a persisted active-branch pointer restored on resume, before the session (and
@@ -67,8 +67,10 @@ export class SessionHistoryTracker {
     private readonly persistSession: () => void,
     private readonly emitSkillActivation: (event: ISkillActivationEvent) => void,
     private readonly emitMemoryEvent: (event: IMemoryEvent) => void,
-    editCheckpointStore: EditCheckpointStore | null = null,
+    editCheckpointStore: IEditCheckpointStore | null = null,
     emitBranchEvent: (event: IBranchEvent) => void = () => undefined,
+    /** The host's `supportsProjectMutation`; absent, the host cannot keep a checkpoint on disk. */
+    private readonly supportsProjectMutation: boolean | undefined = undefined,
   ) {
     this.editCheckpointStore = editCheckpointStore;
     this.branchEvents = new SessionBranchEvents(
@@ -138,6 +140,14 @@ export class SessionHistoryTracker {
   listEditCheckpoints(): IEditCheckpointSummary[] {
     const sessionId = this.getSessionId();
     return this.getCheckpointStore().list(sessionId);
+  }
+
+  unreadableEditCheckpoints(): IEditCheckpointUnreadableCounts {
+    return this.getCheckpointStore().countUnreadable(this.getSessionId());
+  }
+
+  editCheckpointListing(): IEditCheckpointListing {
+    return this.getCheckpointStore().listing(this.getSessionId());
   }
 
   inspectEditCheckpoint(checkpointId: string): IEditCheckpointInspection {
@@ -246,14 +256,20 @@ export class SessionHistoryTracker {
     // SELFHOST-007: apply any stashed --resume branch pointer now (session is ready) so this turn's
     // parent is the restored HEAD, not the last-by-sequence tip.
     this.applyPendingActiveBranch();
-    await this.editCheckpointStore.beginTurn({ sessionId: this.getSessionId(), prompt });
+    try {
+      await this.editCheckpointStore.beginTurn({ sessionId: this.getSessionId(), prompt });
+    } catch (error) {
+      // The turn runs without a checkpoint, and the person reading it is told why.
+      if (!(error instanceof EditCheckpointNumberingExhaustedError)) throw error;
+      this.history.push(messageToHistoryEntry(createSystemMessage(error.message)));
+    }
   }
 
   async finalizeEditCheckpointTurn(): Promise<void> {
     if (this.editCheckpointStore) await this.branchEvents.finalize();
   }
 
-  setEditCheckpointStore(store: EditCheckpointStore): void {
+  setEditCheckpointStore(store: IEditCheckpointStore): void {
     this.editCheckpointStore = store;
     // SELFHOST-007: do NOT apply the stashed pointer here — this runs during async init BEFORE the
     // underlying session is assigned, so getSessionId() would throw. It is applied lazily on the first
@@ -274,7 +290,7 @@ export class SessionHistoryTracker {
     this.memoryEvents.push(event);
     if (VISIBLE_MEMORY_EVENT_TYPES.has(event.type)) {
       this.history.push({
-        id: randomUUID(),
+        id: randomId(),
         timestamp: new Date(event.at),
         category: 'event',
         type: 'memory-event',
@@ -334,7 +350,7 @@ export class SessionHistoryTracker {
     this.skillActivationEvents.push(event);
     if (appendHistory) {
       this.history.push({
-        id: randomUUID(),
+        id: randomId(),
         timestamp: new Date(event.timestamp),
         category: 'event',
         type: 'skill-activation',
@@ -347,7 +363,7 @@ export class SessionHistoryTracker {
     this.emitSkillActivation(event);
     this.persistSession();
   }
-  private getCheckpointStore(): EditCheckpointStore {
+  private getCheckpointStore(): IEditCheckpointStore {
     if (!this.editCheckpointStore) throw new EditCheckpointsUnavailableError(this.noStoreReason());
     this.applyPendingActiveBranch();
     return this.editCheckpointStore;
@@ -358,7 +374,7 @@ export class SessionHistoryTracker {
    * would not bring checkpoints back, so naming trust there would send the user the wrong way.
    */
   private noStoreReason(): TEditCheckpointsUnavailableReason {
-    if (!supportsWorkspaceProjectMutation()) return 'host-cannot-write-project';
+    if (this.supportsProjectMutation !== true) return 'host-cannot-write-project';
     if (this.workspace.projectAccess.status !== 'trusted') return 'restricted-workspace';
     return 'no-checkpoint-store';
   }

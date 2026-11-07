@@ -18,6 +18,11 @@ export interface IBackgroundJobResultEnvelope {
   status: TBackgroundTaskStatus;
   summary?: string;
   outputRef?: string;
+  /**
+   * `outputRef` is the path of a sealed transcript (the task's `transcriptSealed` when its result was
+   * captured): the path reaches no content, so a summary names the command that reads it.
+   */
+  transcriptSealed?: true;
   error?: IBackgroundTaskError;
   startedAt?: string;
   completedAt?: string;

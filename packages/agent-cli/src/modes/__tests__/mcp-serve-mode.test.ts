@@ -45,8 +45,13 @@ vi.mock('@robota-sdk/agent-transport-mcp', async (importOriginal) => ({
 }));
 
 import { runMcpServeMode } from '../mcp-serve-mode.js';
+import { overrideProductSecureMode } from '../../product/session-sealing.js';
+import { SecureSurfaceRefusedError } from '../../secure/secure-surfaces.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 import type { IMcpRemoteHttpHostOptions } from '@robota-sdk/agent-transport-mcp';
+
+const testHost = createTestFrameworkHost();
 
 const REMOTE = {
   host: '0.0.0.0',
@@ -64,7 +69,7 @@ describe('MCP serve startup lifecycle', () => {
     mock.stop.mockResolvedValue(undefined);
     mock.shutdown.mockResolvedValue(undefined);
     const previous = new Set(process.listeners('SIGTERM'));
-    const running = runMcpServeMode(createTestProductRuntime(), {} as TInteractiveSessionOptions, '1', new PassThrough());
+    const running = runMcpServeMode(createTestProductRuntime(), { host: testHost } as TInteractiveSessionOptions, '1', new PassThrough());
     await vi.waitFor(() => expect(mock.start).toHaveBeenCalledOnce());
     const listener = process.listeners('SIGTERM').find((entry) => !previous.has(entry));
     expect(listener).toBeDefined();
@@ -83,7 +88,7 @@ describe('MCP serve startup lifecycle', () => {
     mock.shutdown.mockResolvedValue(undefined);
     const previous = new Set(process.listeners('SIGTERM'));
     try {
-      const running = runMcpServeMode(createTestProductRuntime(), {} as TInteractiveSessionOptions, '1', new PassThrough(), {
+      const running = runMcpServeMode(createTestProductRuntime(), { host: testHost } as TInteractiveSessionOptions, '1', new PassThrough(), {
         tokenFile,
       });
       await vi.waitFor(async () =>
@@ -113,7 +118,7 @@ describe('MCP serve startup lifecycle', () => {
     mock.httpStop.mockResolvedValue(undefined);
     mock.shutdown.mockResolvedValue(undefined);
     const previous = new Set(process.listeners('SIGTERM'));
-    const running = runMcpServeMode(createTestProductRuntime(), {} as TInteractiveSessionOptions, '1', new PassThrough(), {
+    const running = runMcpServeMode(createTestProductRuntime(), { host: testHost } as TInteractiveSessionOptions, '1', new PassThrough(), {
       tokenFile,
     });
     try {
@@ -144,7 +149,7 @@ describe('MCP serve startup lifecycle', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     const previous = new Set(process.listeners('SIGTERM'));
     try {
-      const running = runMcpServeMode(createTestProductRuntime(), {} as TInteractiveSessionOptions, '1', new PassThrough(), {
+      const running = runMcpServeMode(createTestProductRuntime(), { host: testHost } as TInteractiveSessionOptions, '1', new PassThrough(), {
         port: 8443,
         remote: REMOTE,
       });
@@ -180,7 +185,7 @@ describe('MCP serve startup lifecycle', () => {
   it('refuses the loopback bearer file together with remote authorization', async () => {
     mock.remoteOptions.mockClear();
     await expect(
-      runMcpServeMode(createTestProductRuntime(), {} as TInteractiveSessionOptions, '1', new PassThrough(), {
+      runMcpServeMode(createTestProductRuntime(), { host: testHost } as TInteractiveSessionOptions, '1', new PassThrough(), {
         tokenFile: '/private/token',
         remote: REMOTE,
       }),
@@ -208,7 +213,7 @@ describe('MCP serve startup lifecycle', () => {
       const run = (http: Parameters<typeof runMcpServeMode>[4]) =>
         runMcpServeMode(
           createTestProductRuntime(),
-          {} as TInteractiveSessionOptions,
+          { host: testHost } as TInteractiveSessionOptions,
           '1',
           new PassThrough(),
           http,
@@ -229,4 +234,27 @@ describe('MCP serve startup lifecycle', () => {
       }
     },
   );
+});
+
+describe('MCP over HTTP in secure mode', () => {
+  it('is refused before the host starts, and writes no bearer file', async () => {
+    const root = await mkdtemp(join(tmpdir(), 'test-product-mcp-http-secure-'));
+    const tokenFile = join(root, 'token');
+    mock.httpStart.mockClear();
+    mock.httpStop.mockResolvedValue(undefined);
+    mock.shutdown.mockResolvedValue(undefined);
+    const runtime = createTestProductRuntime();
+    overrideProductSecureMode(runtime, true);
+    try {
+      await expect(
+        runMcpServeMode(runtime, { host: testHost } as TInteractiveSessionOptions, '1', new PassThrough(), {
+          tokenFile,
+        }),
+      ).rejects.toBeInstanceOf(SecureSurfaceRefusedError);
+      expect(mock.httpStart).not.toHaveBeenCalled();
+      await expect(access(tokenFile)).rejects.toThrow();
+    } finally {
+      await rm(root, { recursive: true, force: true });
+    }
+  });
 });

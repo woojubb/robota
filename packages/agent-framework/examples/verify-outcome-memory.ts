@@ -6,6 +6,9 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
 import { createWorkspaceMemoryStore, InteractiveSession, runEval } from '../src/index.js';
 import { createTrustedProjectStateFixture } from '../src/testing/trusted-project-state-fixture.js';
+import { createTestFrameworkHost } from '../src/testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 // Keep the original manual source-edit baseline; public correction/forgetting has separate runtime regressions.
 if (process.platform !== 'linux')
@@ -27,6 +30,7 @@ try {
   await writer.append({ type: 'project', topic: 'build', text: stale });
   const first = createScriptedProvider([{ text: 'Done' }]);
   session = new InteractiveSession({
+    host: testHost,
     cwd: root,
     provider: first.provider,
     bare: true,
@@ -73,6 +77,7 @@ try {
   const reader = createWorkspaceMemoryStore(await createTrustedProjectStateFixture(root, 'memory'));
   const second = createScriptedProvider([{ text: 'Done' }]);
   session = new InteractiveSession({
+    host: testHost,
     cwd: root,
     provider: second.provider,
     bare: true,

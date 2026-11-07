@@ -14,20 +14,42 @@ import { shellArgumentForDisplay } from '@robota-sdk/agent-core';
 
 import {
   MCPOAuthError,
-  createFileOAuthCredentialStore,
-  createFileOAuthRefreshLock,
   createOAuthAuthenticator,
   readMCPOAuthCredentialState,
   runMCPOAuthLogin,
   runMCPOAuthLogout,
 } from '@robota-sdk/agent-mcp';
+import {
+  createFileOAuthCredentialStore,
+  createFileOAuthRefreshLock,
+  createNodeOAuthNetwork,
+  loopbackOAuthCallbackListener,
+} from '@robota-sdk/agent-mcp/node';
 
 import { userLocalStorageRoot } from '../product/user-paths.js';
+import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 import { openInBrowser } from './browser-opener.js';
 
 import type { ICommandMCPOAuthRedirectPrompt } from '@robota-sdk/agent-framework';
-import type { IMCPOAuthNetwork, TMCPOAuthNotice } from '@robota-sdk/agent-mcp';
+import type { IMCPOAuthCallbackListener, TMCPOAuthNotice } from '@robota-sdk/agent-mcp';
+import type { INodeOAuthNetworkOptions } from '@robota-sdk/agent-mcp/node';
 import type { IMcpOAuthHost } from './mcp-client-composition.js';
+
+/** The Node host's loopback sign-in callback, opened under its surface row; both MCP sign-ins use it. */
+export function productOAuthCallbackListener(
+  productRuntime: ICliRuntimeContext,
+): IMCPOAuthCallbackListener {
+  return {
+    listen: (options) =>
+      startListener(SECURE_SURFACES['oauth-callback'], productRuntime, () =>
+        loopbackOAuthCallbackListener.listen(options),
+      ),
+    freePort: () =>
+      startListener(SECURE_SURFACES['oauth-callback'], productRuntime, () =>
+        loopbackOAuthCallbackListener.freePort(),
+      ),
+  };
+}
 
 /** The directory OAuth credentials and their refresh locks are kept in. */
 export function mcpCredentialDirectory(runtime: ICliRuntimeContext): string {
@@ -67,7 +89,8 @@ export const MAX_PASTED_REDIRECT_LENGTH = 16_384;
 
 export function createMcpOAuthHost(options: {
   readonly productRuntime: ICliRuntimeContext;
-  readonly network: IMCPOAuthNetwork;
+  /** The policy, resolver and trusted carrier OAuth requests go through; this host builds the Node network from them. */
+  readonly network: INodeOAuthNetworkOptions;
   readonly reportDiagnostic: (message: string) => void;
   readonly directory?: string;
   /** Defaults to the platform browser; tests inject one. */
@@ -77,6 +100,7 @@ export function createMcpOAuthHost(options: {
   const directory = options.directory ?? mcpCredentialDirectory(options.productRuntime);
   const store = createFileOAuthCredentialStore(directory);
   const lock = createFileOAuthRefreshLock(directory);
+  const network = createNodeOAuthNetwork(options.network);
   const open = options.openBrowser ?? ((url: URL) => openInBrowser(url));
   /** Servers this session was told need a sign-in; nothing stored for them reads as that. */
   const signInAsked = new Set<string>();
@@ -102,7 +126,8 @@ export function createMcpOAuthHost(options: {
         config: definition.oauth ?? {},
         store,
         lock,
-        network: options.network,
+        network,
+        callbackListener: productOAuthCallbackListener(options.productRuntime),
         ...(options.callbackTimeoutMs === undefined
           ? {}
           : { callbackTimeoutMs: options.callbackTimeoutMs }),
@@ -135,7 +160,7 @@ export function createMcpOAuthHost(options: {
         config: definition.oauth ?? {},
         store,
         lock,
-        network: options.network,
+        network,
         notify: (notice) => {
           if (notice.kind === 'login-required') signInAsked.add(request.serverId);
           options.reportDiagnostic(formatMcpOAuthNotice(notice));
@@ -157,7 +182,7 @@ export function createMcpOAuthHost(options: {
         serverUrl: definition.url ?? '',
         store,
         lock,
-        network: options.network,
+        network,
       });
       signInAsked.delete(request.serverId);
       return result;

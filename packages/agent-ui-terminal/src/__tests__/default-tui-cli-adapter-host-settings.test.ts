@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import { afterEach, expect, it } from 'vitest';
 
 import { createDefaultTuiCliAdapter } from '../create-default-tui-cli-adapter.js';
@@ -17,7 +17,10 @@ it('updates the host-selected settings file when changing the active model', () 
   const root = mkdtempSync(join(tmpdir(), 'tui-host-settings-'));
   roots.push(root);
   const settingsPath = join(root, 'product-settings.json');
-  writeFileSync(settingsPath, JSON.stringify({ currentProvider: 'custom', providers: { custom: {} } }));
+  writeFileSync(
+    settingsPath,
+    JSON.stringify({ currentProvider: 'custom', providers: { custom: {} } }),
+  );
 
   const adapter = createDefaultTuiCliAdapter({
     providerDefinitions: [],

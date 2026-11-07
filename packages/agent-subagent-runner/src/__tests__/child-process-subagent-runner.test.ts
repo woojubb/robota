@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 import type { IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
 import type {
   ISubagentJobStart,
@@ -15,6 +16,23 @@ import {
   isSubagentWorkerChildMessage,
   isSubagentWorkerParentMessage,
 } from '../index.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
+
+/** Every child the runner spawns, so a test can ask whether one is still running. */
+const spawned = vi.hoisted(() => ({ children: [] as import('node:child_process').ChildProcess[] }));
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return {
+    ...actual,
+    spawn: (...args: Parameters<typeof actual.spawn>) => {
+      const child = actual.spawn(...args);
+      spawned.children.push(child);
+      return child;
+    },
+  };
+});
 
 // DIST-006: the fixture stands in for the composition root's own entry — the runner now spawns
 // `execPath args… --flag`, so a test worker is named the same way the real one is.
@@ -46,6 +64,7 @@ const STUB_WORKTREE_ADAPTER: ISubagentWorktreeAdapter = {
 
 function createDeps(): IInProcessSubagentRunnerDeps {
   return {
+    host: testHost,
     config: {
       defaultTrustLevel: 'moderate',
       currentProvider: 'openai',
@@ -113,6 +132,7 @@ describe('ChildProcessSubagentRunner', () => {
     'resolves with the child worker result and exposes the child pid',
     async () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
@@ -141,27 +161,28 @@ describe('ChildProcessSubagentRunner', () => {
         messages: [
           {
             id: 'm-1',
-            role: 'user',
+            role: 'user' as const,
             content: 'Remember the child record.',
             timestamp: new Date('2026-08-01T00:00:00.000Z'),
-            state: 'complete',
+            state: 'complete' as const,
           },
         ],
         systemPrompt: 'The copied parent prompt.',
       };
-      mkdirSync(join(cwd, 'sessions'), { recursive: true });
-      writeFileSync(
-        join(cwd, 'sessions', `${resumeSessionId}.json`),
-        JSON.stringify(record),
-        'utf8',
-      );
+      // The parent's own store over the same records: it keeps the fork record and lends it.
+      const parentStore = createUserSessionStore(join(cwd, 'sessions'), { sealing: 'plain' });
+      parentStore.save(record, { handoff: true });
 
       try {
-        const runner = new ChildProcessSubagentRunner(createDeps(), {
-          workerEntry: FORK_PERSISTENCE_WORKER_ENTRY,
-          worktreeAdapter: STUB_WORKTREE_ADAPTER,
-          providerDefinitions: TEST_PROVIDER_DEFINITIONS,
-        });
+        const runner = new ChildProcessSubagentRunner(
+          { ...createDeps(), resumeSessionStore: parentStore },
+          {
+            logSealing: 'plain',
+            workerEntry: FORK_PERSISTENCE_WORKER_ENTRY,
+            worktreeAdapter: STUB_WORKTREE_ADAPTER,
+            providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+          },
+        );
         const result = await runner.start({
           ...createJob(),
           request: {
@@ -171,12 +192,15 @@ describe('ChildProcessSubagentRunner', () => {
             resumeSessionId,
           },
         }).result;
+        // The lease ends once the child has exited and disconnected; the record is free again.
+        await vi.waitFor(() => expect(parentStore.hasWriter(resumeSessionId)).toBe(false));
 
         expect(result.output).toBe('the child process answers');
-        const loaded = JSON.parse(
-          readFileSync(join(cwd, 'sessions', `${resumeSessionId}.json`), 'utf8'),
-        ) as { messages: Array<{ content: unknown }> };
-        const messages = loaded.messages.map((message) => String(message.content));
+        const loaded = parentStore.load(resumeSessionId);
+        const messages =
+          loaded.status === 'valid'
+            ? loaded.record.messages.map((message) => String(message.content))
+            : [];
         expect(messages).toContain('Continue the child record.');
         expect(messages).toContain('the child process answers');
       } finally {
@@ -195,6 +219,7 @@ describe('ChildProcessSubagentRunner', () => {
       // to be bisected by hand. Pointing the entry at a module that does not exist reproduces
       // exactly that shape.
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: {
           execPath: process.execPath,
           args: [join(tmpdir(), 'agent-dist-006-no-such-worker.mjs')],
@@ -240,6 +265,7 @@ describe('ChildProcessSubagentRunner', () => {
       );
 
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: { execPath: process.execPath, args: [noisyWorker], execArgv: [] },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
@@ -267,6 +293,7 @@ describe('ChildProcessSubagentRunner', () => {
       writeFileSync(silentEntry, 'setTimeout(() => {}, 60_000);\n', 'utf8');
 
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: { execPath: process.execPath, args: [silentEntry], execArgv: [] },
         // The production budget is 30s — longer than this file's own test timeout, so a test that
         // relied on it could only ever pass through the REQUEST timeout instead, leaving this
@@ -293,6 +320,7 @@ describe('ChildProcessSubagentRunner', () => {
       // checkout on purpose: it is the value the child must NOT land in.
       const worktreePath = realpathSync(mkdtempSync(join(tmpdir(), 'arch-031-worktree-')));
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         env: { AGENT_FIXTURE_MODE: 'cwd' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
@@ -315,6 +343,7 @@ describe('ChildProcessSubagentRunner', () => {
     'propagates the child worker token usage into the subagent result (ANALYTICS-001 P2)',
     async () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         env: { AGENT_FIXTURE_MODE: 'usage' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
@@ -336,6 +365,7 @@ describe('ChildProcessSubagentRunner', () => {
     async () => {
       const events: TBackgroundTaskRunnerEvent[] = [];
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         env: { AGENT_FIXTURE_MODE: 'progress' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
@@ -368,6 +398,7 @@ describe('ChildProcessSubagentRunner', () => {
       mkdirSync(transcriptDir, { recursive: true });
       writeFileSync(join(transcriptDir, 'agent_1.jsonl'), 'line1\nline2\n', 'utf8');
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         logsDir,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
@@ -389,6 +420,7 @@ describe('ChildProcessSubagentRunner', () => {
     'forwards follow-up prompts through IPC',
     async () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         env: { AGENT_FIXTURE_MODE: 'wait' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
@@ -408,6 +440,7 @@ describe('ChildProcessSubagentRunner', () => {
     'rejects the result when the child worker acknowledges cancellation',
     async () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         env: { AGENT_FIXTURE_MODE: 'wait' },
         killGraceMs: 1_000,
@@ -442,6 +475,7 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
         },
       };
       const runner = new ChildProcessSubagentRunner(deps, {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         env: { AGENT_FIXTURE_MODE: 'permission-request' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
@@ -452,7 +486,9 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
       const result = await handle.result;
 
       expect(result.output).toBe('permission:r1:true');
-      expect(requesters).toEqual([{ kind: 'background-agent', label: 'tester', taskId: 'agent_1' }]);
+      expect(requesters).toEqual([
+        { kind: 'background-agent', label: 'tester', taskId: 'agent_1' },
+      ]);
       expect(result.deniedToolCalls).toBeUndefined();
     },
     TEST_TIMEOUT_MS,
@@ -466,6 +502,7 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
         permissionHandler: async () => false,
       };
       const runner = new ChildProcessSubagentRunner(deps, {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         env: { AGENT_FIXTURE_MODE: 'permission-request' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
@@ -493,6 +530,7 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
     'regression guard: with no approver attached the request is denied immediately, fail-closed',
     async () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         env: { AGENT_FIXTURE_MODE: 'permission-request' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
@@ -537,6 +575,7 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
         },
       };
       const runner = new ChildProcessSubagentRunner(deps, {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         env: { AGENT_FIXTURE_MODE: 'permission-request-wait' },
         killGraceMs: 1_000,
@@ -566,6 +605,7 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
         },
       };
       const runner = new ChildProcessSubagentRunner(deps, {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         env: { AGENT_FIXTURE_MODE: 'permission-request' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
@@ -610,6 +650,7 @@ describe('ChildProcessSubagentRunner forwards a child permission request to the 
         },
       };
       const runner = new ChildProcessSubagentRunner(deps, {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         env: { AGENT_FIXTURE_MODE: 'permission-request-then-result' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
@@ -682,6 +723,7 @@ describe('ChildProcessSubagentRunner — injected built-in agents (ARCH-036)', (
 
   const startWith = (deps: IInProcessSubagentRunnerDeps, agentType: string) => {
     const runner = new ChildProcessSubagentRunner(deps, {
+      logSealing: 'plain',
       workerEntry: FIXTURE_WORKER_ENTRY,
       worktreeAdapter: STUB_WORKTREE_ADAPTER,
       providerDefinitions: TEST_PROVIDER_DEFINITIONS,
@@ -747,6 +789,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
     runner = new ChildProcessSubagentRunner(
       { ...createDeps(), ...extra },
       {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
@@ -824,6 +867,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
       // sent, leaves the child on the settings files the user just overrode.
       let live = { autoAllowBashIfSandboxed: true };
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
@@ -851,6 +895,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
         for (const listener of listeners) listener(settings);
       };
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
@@ -870,7 +915,10 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
 
       expect(JSON.parse((result as { output: string }).output)).toEqual({
         payloadSettings: { autoAllowBashIfSandboxed: true },
-        updates: [{ autoAllowBashIfSandboxed: false }, { autoAllowBashIfSandboxed: true, enabled: false }],
+        updates: [
+          { autoAllowBashIfSandboxed: false },
+          { autoAllowBashIfSandboxed: true, enabled: false },
+        ],
       });
       // The child is gone, so nothing is left watching the parent's sandbox.
       await vi.waitFor(() => expect(listeners.size).toBe(0));
@@ -883,6 +931,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
     async () => {
       const listeners = new Set<() => void>();
       const runner = new ChildProcessSubagentRunner(createDeps(), {
+        logSealing: 'plain',
         workerEntry: { execPath: join(tmpdir(), 'agent-no-such-worker-binary'), args: [] },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
@@ -926,12 +975,69 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
           sandboxType: 'e2b',
         },
         {
+          logSealing: 'plain',
           workerEntry: FIXTURE_WORKER_ENTRY,
           worktreeAdapter: STUB_WORKTREE_ADAPTER,
           providerDefinitions: TEST_PROVIDER_DEFINITIONS,
         },
       );
       await expect(runner.start(createJob()).result).rejects.toThrow(/snapshot unavailable/);
+    },
+    TEST_TIMEOUT_MS,
+  );
+});
+
+describe('ChildProcessSubagentRunner — a payload that cannot be built after the spawn', () => {
+  // The child is spawned before its payload is built, and waits for a `start` that never comes; left
+  // alone it would outlive the job until the parent itself exits.
+  const exited = (child: import('node:child_process').ChildProcess | undefined): boolean =>
+    child !== undefined && (child.exitCode !== null || child.signalCode !== null);
+  const unsnapshottable = {
+    snapshot: async () => {
+      throw new Error('snapshot unavailable');
+    },
+  } as unknown as IInProcessSubagentRunnerDeps['sandboxClient'];
+
+  it(
+    'cancels the child before the job rejects',
+    async () => {
+      spawned.children.length = 0;
+      const runner = new ChildProcessSubagentRunner(
+        { ...createDeps(), sandboxClient: unsnapshottable, sandboxType: 'e2b' },
+        {
+          logSealing: 'plain',
+          workerEntry: FIXTURE_WORKER_ENTRY,
+          worktreeAdapter: STUB_WORKTREE_ADAPTER,
+          providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+          killGraceMs: 200,
+        },
+      );
+
+      await expect(runner.start(createJob()).result).rejects.toThrow(/snapshot unavailable/);
+      expect(spawned.children).toHaveLength(1);
+      expect(exited(spawned.children[0])).toBe(true);
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'cancels the child when start itself throws for it',
+    async () => {
+      spawned.children.length = 0;
+      const runner = new ChildProcessSubagentRunner(
+        { ...createDeps(), customAgentRegistry: () => undefined },
+        {
+          logSealing: 'plain',
+          workerEntry: FIXTURE_WORKER_ENTRY,
+          worktreeAdapter: STUB_WORKTREE_ADAPTER,
+          providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+          killGraceMs: 200,
+        },
+      );
+
+      expect(() => runner.start(createJob())).toThrow(/Unknown agent type: tester/);
+      expect(spawned.children).toHaveLength(1);
+      await vi.waitFor(() => expect(exited(spawned.children[0])).toBe(true), { timeout: 10_000 });
     },
     TEST_TIMEOUT_MS,
   );
@@ -954,6 +1060,7 @@ describe('ChildProcessSubagentRunner — credential on the wire (SEC-009)', () =
     const runner = new ChildProcessSubagentRunner(
       { ...base, config: { ...base.config, provider: { ...base.config.provider, ...provider } } },
       {
+        logSealing: 'plain',
         workerEntry: FIXTURE_WORKER_ENTRY,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,

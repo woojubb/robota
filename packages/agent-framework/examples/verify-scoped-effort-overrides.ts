@@ -44,6 +44,8 @@ async function main(): Promise<void> {
   const provider = new RecordingProvider();
   const session = new Session({
     cwd,
+    // This scenario configures no hooks, so it needs no hook executors.
+    hookTypeExecutors: [],
     tools: [],
     provider,
     systemMessage: 'behavior-009 verification',

@@ -4,11 +4,14 @@
  * missed-wake note is surfaced when its fire time elapsed while the session was closed.
  */
 
-import { BackgroundTaskManager, createScheduledTaskRunner } from '@robota-sdk/agent-executor';
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
+import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
+import { createScheduledTaskRunner } from '@robota-sdk/agent-executor/node';
 import { describe, expect, it, vi } from 'vitest';
 
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type {
   IBackgroundTaskHandle,
@@ -19,6 +22,8 @@ import type { SessionHistoryTracker } from '../interactive-session-history-track
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { Session } from '@robota-sdk/agent-session';
+
+const testHost = createTestFrameworkHost();
 
 function createSessionStub(): Session {
   return {
@@ -109,6 +114,8 @@ function setupWithRecord(
   storeAgentToolDeps(sessionStub, { backgroundTaskManager: manager } as unknown as IAgentToolDeps);
   const store = createStore(record);
   const session = new InteractiveSession({
+    host: testHost,
+    cwd: process.cwd(),
     session: sessionStub,
     sessionStore: store as never,
     resumeSessionId: 'session_resumed',
@@ -146,7 +153,7 @@ function sleepingScheduledRecord(nextFireAt: string): Record<string, unknown> {
 
 function createStore(record: Record<string, unknown>) {
   const map = new Map<string, unknown>([['session_resumed', record]]);
-  return {
+  return withHoldReadClaim({
     load: vi.fn((id: string) => {
       const record = map.get(id);
       return record === undefined ? { status: 'missing' } : { status: 'valid', record };
@@ -156,7 +163,7 @@ function createStore(record: Record<string, unknown>) {
       [...map.entries()].map(([id, record]) => ({ id, outcome: { status: 'valid', record } })),
     ),
     delete: vi.fn((id: string) => map.delete(id)),
-  };
+  });
 }
 
 function history(session: InteractiveSession): IHistoryEntry[] {
@@ -170,6 +177,8 @@ function setup(nextFireAt: string): { started: string[]; session: InteractiveSes
   storeAgentToolDeps(sessionStub, { backgroundTaskManager: manager } as unknown as IAgentToolDeps);
   const store = createStore(sleepingScheduledRecord(nextFireAt));
   const session = new InteractiveSession({
+    host: testHost,
+    cwd: process.cwd(),
     session: sessionStub,
     sessionStore: store as never,
     resumeSessionId: 'session_resumed',
@@ -326,6 +335,8 @@ describe('FLOW-003 resume re-arm + missed-wake', () => {
             expect.objectContaining({ id: rearmed!.id, status: 'cancelled' }),
           ]),
         }),
+        // Every save of the session's own record carries its claim.
+        expect.objectContaining({ claim: expect.anything() }),
       );
     } finally {
       vi.useRealTimers();

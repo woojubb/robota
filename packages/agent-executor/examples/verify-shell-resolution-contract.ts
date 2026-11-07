@@ -1,13 +1,12 @@
 import { createHook } from 'node:async_hooks';
 
-import { UnsupportedShellError } from '@robota-sdk/agent-core';
+import { UnsupportedShellError } from '@robota-sdk/agent-core/node';
+import type { IBackgroundTaskHandle, IBackgroundTaskStart } from '@robota-sdk/agent-executor';
 import {
   createManagedShellProcessRunner,
   createScheduledTaskRunner,
   resolveBackgroundTaskShellCommand,
-  type IBackgroundTaskHandle,
-  type IBackgroundTaskStart,
-} from '@robota-sdk/agent-executor';
+} from '@robota-sdk/agent-executor/node';
 
 function assertCondition(condition: boolean, message: string): asserts condition {
   if (!condition) throw new Error(message);

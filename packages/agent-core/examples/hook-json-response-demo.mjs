@@ -13,7 +13,10 @@
  * Usage: node packages/agent-core/examples/hook-json-response-demo.mjs
  */
 
-import { runHooks } from '../dist/node/index.js';
+import { runHooks } from '../dist/index.js';
+import { CommandExecutor, HttpExecutor } from '../dist/node.js';
+
+const executors = [new CommandExecutor(), new HttpExecutor()];
 
 const PASS = 'YES ✓';
 const FAIL = 'NO ✗';
@@ -44,12 +47,17 @@ const hooksStopAll = {
   ],
 };
 
-const s1result = await runHooks(hooksStopAll, 'UserPromptSubmit', {
-  session_id: 'demo',
-  cwd: process.cwd(),
-  hook_event_name: 'UserPromptSubmit',
-  prompt: 'hello',
-});
+const s1result = await runHooks(
+  hooksStopAll,
+  'UserPromptSubmit',
+  {
+    session_id: 'demo',
+    cwd: process.cwd(),
+    hook_event_name: 'UserPromptSubmit',
+    prompt: 'hello',
+  },
+  executors,
+);
 
 console.log('runHooks result:', JSON.stringify(s1result, null, 2));
 check('blocked === true', s1result.blocked === true);
@@ -73,13 +81,18 @@ const hooksDenyJson = {
   ],
 };
 
-const s2result = await runHooks(hooksDenyJson, 'PreToolUse', {
-  session_id: 'demo',
-  cwd: process.cwd(),
-  hook_event_name: 'PreToolUse',
-  tool_name: 'Bash',
-  tool_input: { command: 'echo hello' },
-});
+const s2result = await runHooks(
+  hooksDenyJson,
+  'PreToolUse',
+  {
+    session_id: 'demo',
+    cwd: process.cwd(),
+    hook_event_name: 'PreToolUse',
+    tool_name: 'Bash',
+    tool_input: { command: 'echo hello' },
+  },
+  executors,
+);
 
 console.log('runHooks result:', JSON.stringify(s2result, null, 2));
 check('blocked === true', s2result.blocked === true);
@@ -103,12 +116,17 @@ const hooksSystemMsg = {
   ],
 };
 
-const s3result = await runHooks(hooksSystemMsg, 'UserPromptSubmit', {
-  session_id: 'demo',
-  cwd: process.cwd(),
-  hook_event_name: 'UserPromptSubmit',
-  prompt: 'hello',
-});
+const s3result = await runHooks(
+  hooksSystemMsg,
+  'UserPromptSubmit',
+  {
+    session_id: 'demo',
+    cwd: process.cwd(),
+    hook_event_name: 'UserPromptSubmit',
+    prompt: 'hello',
+  },
+  executors,
+);
 
 console.log('runHooks result:', JSON.stringify(s3result, null, 2));
 check('blocked === false', s3result.blocked === false);

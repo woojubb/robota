@@ -104,6 +104,9 @@ export {
 } from './mcp-activation-controller.js';
 
 // MCP-002/MCP-2522: one official-SDK client for both protocol eras behind one admit-then-construct transport seam.
+// The stdio adapter and the Node egress of the HTTP transport (resolved-address policy, pinned
+// sockets) are on `@robota-sdk/agent-mcp/node`; this entry takes the egress by injection and has no
+// default of its own.
 export {
   admitHttpEndpoint,
   constructStreamableHttpTransport,
@@ -117,7 +120,13 @@ export {
   type TMCPTransportAdmission,
   type TMCPTransportKind,
 } from './client/transport.js';
-export { MCPTransportEgressRefusedError } from './client/pinned-http-fetch.js';
+export {
+  MCPTransportEgressRefusedError,
+  createWebFetchEgress,
+  type IMCPEgressRefusal,
+  type IMCPHttpCarrier,
+  type IMCPHttpEgress,
+} from './client/http-egress.js';
 // The client authentication port: a host-registered authenticator for one server identity.
 export {
   MCPAuthenticationError,
@@ -145,10 +154,15 @@ export {
   MCPSingleFlightClosedError,
   type IMCPSingleFlightEntry,
 } from './client/single-flight.js';
-export { isExecutionEnvironmentName } from './client/stdio-authority.js';
+export { isExecutionEnvironmentName } from './client/execution-environment.js';
 // OAuth sign-in and the authenticator that sends its tokens; storage and locking are ports.
 export { MCPOAuthError, type TMCPOAuthFailure } from './client/oauth/errors.js';
-export { createOAuthFetch, type IMCPOAuthNetwork } from './client/oauth/network.js';
+export {
+  createOAuthFetch,
+  type IMCPOAuthNetwork,
+  type IMCPOAuthRequestOptions,
+  type TMCPOAuthResponse,
+} from './client/oauth/network.js';
 export {
   canonicalServerUrl,
   discoverMCPOAuthServer,
@@ -157,24 +171,19 @@ export {
 } from './client/oauth/discovery.js';
 export {
   createPastedRedirectAcceptor,
-  startOAuthCallbackServer,
   type IMCPOAuthPastedRedirect,
+  type IMCPOAuthCallbackListener,
   type IMCPOAuthCallbackOptions,
   type IMCPOAuthCallbackResult,
   type IMCPOAuthCallbackServer,
 } from './client/oauth/callback.js';
 export {
-  createFileOAuthCredentialStore,
   oauthCredentialKey,
   type IMCPOAuthCredential,
   type IMCPOAuthCredentialKey,
   type IMCPOAuthCredentialStore,
 } from './client/oauth/store.js';
-export {
-  createFileOAuthRefreshLock,
-  type IFileOAuthRefreshLockOptions,
-  type IMCPOAuthRefreshLock,
-} from './client/oauth/refresh-lock.js';
+export type { IMCPOAuthRefreshLock } from './client/oauth/refresh-lock.js';
 export {
   runMCPOAuthLogin,
   type IMCPOAuthLoginInput,
@@ -196,15 +205,9 @@ export {
   type IMCPOAuthAuthenticatorOptions,
   type TMCPOAuthNotice,
 } from './client/oauth/authenticator.js';
-export {
-  createStdioAdapter,
-  type IMCPAdmittedStdioEndpoint,
-  type IMCPStdioAdapterOptions,
-  type IMCPStdioAuthority,
-  type IMCPStdioExecutable,
-  type IMCPStdioInput,
-} from './client/stdio.js';
-export { MCPStdioError } from './client/stdio-transport.js';
+// A stdio server's failure is typed here because the session and the supervisor classify it; the
+// transport that spawns the child, and the authority that admits it, are on `./node`.
+export { MCPStdioError } from './client/stdio-error.js';
 export {
   MCPSessionError,
   SUPPORTED_MCP_PROTOCOL_VERSIONS,
@@ -287,7 +290,6 @@ export {
 // and to be told about, not one that should only exist inside the catalog builder.
 export {
   narrowToUniversalSubset,
-  ThirdPartySchemaValidator,
   type INarrowedSchema,
   type TUnenforceableSchemaReporter,
 } from './third-party-schema';

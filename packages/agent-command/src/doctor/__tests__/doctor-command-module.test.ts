@@ -86,6 +86,25 @@ describe('/doctor command module (OBSERVABILITY-1991 TC-06)', () => {
     expect(createProvider).not.toHaveBeenCalled();
   });
 
+  it('is listed on a host that supplies no probes, says it is unavailable there, and writes nothing', async () => {
+    const fixture = createDoctorFixture({ env: {} });
+    fixtures.push(fixture);
+    installBrokenHome(fixture);
+    const path = join(fixture.home, '.fixture-product', 'settings.json');
+    const module = createDoctorCommandModule(fixture.inputs, undefined);
+    expect(module.commandSources?.[0]?.getCommands().map((entry) => entry.name)).toEqual(['doctor']);
+    const command = module.systemCommands![0]!;
+    const yes = answering({ type: 'answer', values: ['yes'] });
+
+    for (const args of ['', 'repair settings.user.fixture-product']) {
+      const result = await command.execute(contextWith(yes), args);
+      expect(result.success).toBe(false);
+      expect(result.message).toMatch(/unavailable on this host/);
+    }
+    expect(yes.ask).not.toHaveBeenCalled();
+    expect(readFileSync(path, 'utf8')).toBe('');
+  });
+
   it('renders host-selected product wording in the interactive command', async () => {
     const fixture = createDoctorFixture({ env: {} });
     fixtures.push(fixture);

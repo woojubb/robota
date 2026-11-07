@@ -21,6 +21,7 @@ function fixture(turns: TScriptedTurn[], options: Partial<ISessionOptions> = {})
   const scripted = createScriptedProvider(turns);
   const effect = vi.fn(async () => 'effect result');
   const session = new Session({
+    hookTypeExecutors: [],
     cwd: '/tmp',
     sessionId: 'recovered-session',
     systemMessage: 'Fixture',
@@ -171,6 +172,9 @@ describe('Session execution continuation', () => {
             save,
             load: () => ({ status: 'missing' }),
             list: () => [],
+            claim: () => ({ outcome: { status: 'missing' }, release: () => undefined }),
+            lend: () => ({ nonce: 'lease', end: () => undefined }),
+            hasWriter: () => false,
             delete: () => {},
           },
         },
@@ -190,8 +194,12 @@ describe('Session execution continuation', () => {
         // A fresh run saves its new turn and call intent. Resume reuses the journal's existing
         // intent and needs no new checkpoint. Neither may publish a tool receipt while blocked.
         if (entry === 'run') expect(checkpointCount).toBeGreaterThan(0);
-        expect(save.mock.calls.every(([record]) =>
-          !record.messages.some((message: { role: string }) => message.role === 'tool'))).toBe(true);
+        expect(
+          save.mock.calls.every(
+            ([record]) =>
+              !record.messages.some((message: { role: string }) => message.role === 'tool'),
+          ),
+        ).toBe(true);
         await Promise.resolve();
         expect(save).toHaveBeenCalledTimes(checkpointCount);
       } finally {
@@ -201,8 +209,11 @@ describe('Session execution continuation', () => {
       await closing;
       const settledSaves = save.mock.calls.slice(checkpointCount);
       expect(settledSaves.length).toBeGreaterThan(0);
-      expect(settledSaves.every(([record]) => record.messages.some((message: { role: string }) =>
-        message.role === 'tool'))).toBe(true);
+      expect(
+        settledSaves.every(([record]) =>
+          record.messages.some((message: { role: string }) => message.role === 'tool'),
+        ),
+      ).toBe(true);
       expect(save.mock.calls.at(-1)![0].messages).toEqual(fresh.session.getHistory());
       expect(fresh.effect).toHaveBeenCalledOnce();
       expect(fresh.requests).toHaveLength(entry === 'run' ? 1 : 0);

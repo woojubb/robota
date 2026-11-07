@@ -17,7 +17,10 @@ import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 import { createDoctorCommandModule } from '../../doctor/index.js';
+import { createKeyCustodyCommandModule } from '../../key-custody/index.js';
+import { createEditorCommandModule, openFileInEditor } from '../../editor/index.js';
 import { createKeybindingsCommandModule } from '../../keybindings/index.js';
+import { createShellCommandModule } from '../../shell/index.js';
 import { createThemeCommandModule } from '../../theme/index.js';
 import { createDoctorFixture } from '../../doctor/__tests__/doctor-fixture.js';
 import { createDefaultCommandModules } from '../default-command-modules.js';
@@ -54,7 +57,10 @@ afterEach(() => {
   for (const fixture of fixtures.splice(0)) fixture.cleanup();
 });
 
-/** Every built-in command, including the ones only registered when their host port exists. */
+/**
+ * Every built-in command, including the ones only registered when their host port exists and the
+ * host commands on `./node` (`/shell`, `/editor`) a Node product adds beside the default set.
+ */
 function allBuiltInCommands(): ISystemCommand[] {
   const fixture = createDoctorFixture({ env: {} });
   fixtures.push(fixture);
@@ -71,9 +77,20 @@ function allBuiltInCommands(): ISystemCommand[] {
   );
   return [
     ...withoutPortless,
-    createKeybindingsCommandModule({ ensureFile: async () => '/tmp/keybindings.json' }),
+    createKeybindingsCommandModule(
+      { ensureFile: async () => '/tmp/keybindings.json' },
+      openFileInEditor,
+    ),
     createThemeCommandModule(themeCataloguePort),
     createDoctorCommandModule(fixture.inputs, fixture.deps),
+    // Registered only where the host holds keys (secure mode, a terminal); built here with a stub.
+    createKeyCustodyCommandModule({
+      isUnlocked: () => false,
+      unlock: async () => ({ outcome: 'unlocked', notices: [] }),
+      lock: () => undefined,
+    }),
+    createShellCommandModule(),
+    createEditorCommandModule(),
   ].flatMap((module) => [...(module.systemCommands ?? [])]);
 }
 
@@ -111,6 +128,8 @@ const USER_ONLY_COMMANDS = [
   'events',
   // Account and credential actions.
   'provider',
+  'unlock',
+  'lock',
   // Cost and capability decisions: the person chooses, never the model on its own (#3282 §2).
   'model',
   // Permission widening or permission-mode changes.

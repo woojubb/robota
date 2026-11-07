@@ -69,7 +69,7 @@ import {
 } from '../identity-state.js';
 import { scriptedOperator } from './fake-secret-terminal.js';
 
-import { createUserSessionStore } from '@robota-sdk/agent-framework';
+import { createUserSessionStore } from '@robota-sdk/agent-framework/node';
 
 import type { TReceiveHandoffOutcome } from '../../handoff/handoff-receive.js';
 import type { ICredentialStore } from '@robota-sdk/agent-core';
@@ -520,7 +520,9 @@ describe('device mesh between two HOMEs', () => {
         atDesktop.connect(laptopId),
       ]);
       // The desktop saves what it takes into a session store under its own HOME.
-      const store = createUserSessionStore(join(desktop.home, '.agent-fixture', 'sessions'));
+      const store = createUserSessionStore(join(desktop.home, '.agent-fixture', 'sessions'), {
+        sealing: 'plain',
+      });
       const outcomes: TReceiveHandoffOutcome[] = [];
       const receiverAt = (
         home: IHome,

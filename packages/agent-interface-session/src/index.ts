@@ -112,10 +112,22 @@ export type {
 } from './session-contracts.js';
 export type {
   IInteractiveSessionStore,
+  ISessionAuthorship,
+  ISessionClaim,
+  ISessionClaimOptions,
+  ISessionExportOptions,
+  ISessionLease,
   ISessionListEntry,
+  ISessionLoadOptions,
   ISessionRecordDecodeIssue,
+  ISessionSaveOptions,
+  ISessionStoreScan,
+  TSessionAdoptResult,
   TSessionLoadOutcome,
+  TSessionLockedReason,
+  TSessionProvenance,
 } from './session-store-contracts.js';
+export type { TSessionAuthorship } from './session-authorship-contracts.js';
 export { SESSION_CAPABILITY_MEMBER_KEYS } from './session-capability-contracts.js';
 export type {
   ISessionCapabilityHost,

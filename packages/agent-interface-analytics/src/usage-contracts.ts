@@ -229,6 +229,12 @@ export interface IPersonalUsageCoverage {
   validSessions: number;
   corruptSessions: number;
   unsupportedSessions: number;
+  /**
+   * Saved sessions that are sealed and could not be opened, so nothing in them is counted: those
+   * sealed with keys that are locked now, and those sealed with keys this process does not have at
+   * all. Absent when there are none.
+   */
+  lockedSessions?: number;
   duplicateObservations: number;
   legacyObservations: number;
   unknownModelObservations: number;

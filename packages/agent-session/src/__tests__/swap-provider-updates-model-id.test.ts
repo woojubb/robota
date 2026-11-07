@@ -53,6 +53,7 @@ const MOCK_TERMINAL = {
 
 function buildSession(): Session {
   return new Session({
+    hookTypeExecutors: [],
     cwd: process.cwd(),
     tools: [],
     provider: MOCK_PROVIDER as never,

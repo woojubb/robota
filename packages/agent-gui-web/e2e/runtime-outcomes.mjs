@@ -12,10 +12,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { summarizeRuntimeTiming } from './runtime-timing.mjs';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
-import {
-  createNodeHostSessionStore,
-  createNodeWorkspaceTrustService,
-} from '../../agent-framework/src/index.ts';
+import { createNodeHostSessionStore } from '../../agent-framework/src/node.ts';
+import { createNodeWorkspaceTrustService } from '../../agent-framework/src/node.ts';
 import {
   createTestBinaryEnvironment,
   createTestProductRuntime,
@@ -638,7 +636,7 @@ try {
       : undefined;
   const store =
     workspaceComposition?.sessionStore ??
-    createNodeHostSessionStore(environment.layout.userPaths.sessions);
+    createNodeHostSessionStore(environment.layout.userPaths.sessions, { sealing: 'plain' });
   const records = store.list();
   assert.equal(records.length, 1);
   const loaded = records[0].outcome;

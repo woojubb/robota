@@ -10,6 +10,7 @@ import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transpo
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import type { IConnectionApproval, ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
 import { TransportRegistry } from '@robota-sdk/agent-framework';
+import { createFileTransportSettingsRepository } from '@robota-sdk/agent-framework/node';
 import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,6 +21,7 @@ import type { IHostIdentity } from '../host-identity.js';
 import { RemoteControlController } from '../remote-control-controller.js';
 import { createRemoteControlTransportHost } from '../transport-host-adapter.js';
 import { createTestRuntimeContext } from '../../devices/__tests__/runtime-context-fixture.js';
+import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import type { ITrustedDeviceRecord, ITrustedDeviceStore } from '../trusted-device-store.js';
 
 /**
@@ -37,7 +39,12 @@ const cryptoContext = createIdentityContext('test-agent-domain');
 
 function realRegistry(): TransportRegistry {
   return new TransportRegistry(
-    join(realpathSync(mkdtempSync(join(tmpdir(), 'agent-fixture-rc-registry-'))), 'settings.json'),
+    createFileTransportSettingsRepository(
+      join(
+        realpathSync(mkdtempSync(join(tmpdir(), 'agent-fixture-rc-registry-'))),
+        'settings.json',
+      ),
+    ),
   );
 }
 
@@ -127,9 +134,10 @@ function setup(
     getMessages: () => [],
   });
   const registry = realRegistry();
+  const productRuntime = createTestRuntimeContext('/tmp/remote-control-e4-test');
   const controller = new RemoteControlController({
-    productRuntime: createTestRuntimeContext('/tmp/remote-control-e4-test'),
-    host: createRemoteControlTransportHost(registry),
+    productRuntime,
+    host: createRemoteControlTransportHost(registry, productRuntime),
     readRelayUrl: () => 'ws://relay',
     readClientUrl: () => 'https://client/',
     getSession: () => session,
@@ -175,7 +183,7 @@ function setup(
       return transport;
     },
   });
-  return { controller, created, rendezvouses, ceilings, session, registry };
+  return { controller, created, rendezvouses, ceilings, session, registry, productRuntime };
 }
 
 describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
@@ -227,6 +235,25 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     const reconnectRooms = created.slice(1).map((c) => c.rendezvous);
     expect(reconnectRooms).toContain(await deriveReconnectRendezvous(cryptoContext, seed, 0));
     expect(reconnectRooms).toContain(await deriveReconnectRendezvous(cryptoContext, seed, 1));
+  });
+
+  it('opens no reconnect room once secure mode is on, though the device paired before it', async () => {
+    const store = memoryStore();
+    const { controller, created, productRuntime } = setup(store, await hostIdentity());
+    await controller.enable();
+    (created[0].reconnect as { onEnroll: (id: string, spki: string) => void }).onEnroll(
+      'dev-1',
+      'dev-spki',
+    );
+    created[0].hooks.onPaired({ sessionKey: generatePairingSecret().secret });
+    await waitForSeed(store, 'dev-1');
+
+    overrideProductSecureMode(productRuntime, true);
+    created[0].hooks.onDropped?.();
+    await waitForReconnectRooms(created);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    for (const room of created.slice(1)) expect(room.transport.start).not.toHaveBeenCalled();
   });
 
   it('a confirmed reconnect advances the counter (resync-on-success) and promotes the winner', async () => {

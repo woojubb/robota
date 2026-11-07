@@ -1,3 +1,4 @@
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -6,9 +7,12 @@ import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
-import type { IInteractiveSessionRecord, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSessionRecord, IInteractiveSessionStore, TSessionLoadOutcome } from '@robota-sdk/agent-interface-session';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
+
+const testHost = createTestFrameworkHost();
 
 describe('composed interactive pre-effect persistence', () => {
   it('saves the user turn before the provider and the original tool call before its body', async () => {
@@ -19,14 +23,14 @@ describe('composed interactive pre-effect persistence', () => {
       const record = [...records.values()][0];
       snapshots.push({ at, ...(record ? { record: structuredClone(record) } : {}) });
     };
-    const store: IInteractiveSessionStore = {
-      save: (record) => { records.set(record.id, record); },
-      load: (id) => {
+    const store: IInteractiveSessionStore = withHoldReadClaim({
+      save: (record: IInteractiveSessionRecord) => { records.set(record.id, record); },
+      load: (id: string): TSessionLoadOutcome => {
         const record = records.get(id);
         return record ? { status: 'valid', record } : { status: 'missing' };
       },
-      list: () => [], delete: (id) => { records.delete(id); },
-    };
+      list: () => [], delete: (id: string) => { records.delete(id); },
+    });
     const scripted = createScriptedProvider([
       { toolCalls: [{ name: 'Probe', args: { value: 'once' } }] },
       { text: 'finished' },
@@ -46,7 +50,7 @@ describe('composed interactive pre-effect persistence', () => {
       setEventService: () => {},
       execute: async () => { snapshot('tool'); return { success: true, data: 'done' }; },
     };
-    const session = new InteractiveSession({ cwd, provider, bare: true, permissionMode: 'bypassPermissions',
+    const session = new InteractiveSession({ host: testHost, cwd, provider, bare: true, permissionMode: 'bypassPermissions',
       sessionStore: store, defaultTools: [], additionalTools: [tool] });
     try {
       const turn = await session.submit('run once');
@@ -75,7 +79,7 @@ describe('composed interactive pre-effect persistence', () => {
       validate: () => true, validateParameters: () => ({ isValid: true, errors: [] }),
       setEventService: () => {}, execute,
     };
-    const session = new InteractiveSession({ cwd, provider: scripted.provider, bare: true,
+    const session = new InteractiveSession({ host: testHost, cwd, provider: scripted.provider, bare: true,
       permissionMode: 'bypassPermissions', defaultTools: [], additionalTools: [tool] });
     try {
       const turn = await session.submit('run once');

@@ -1,5 +1,8 @@
 # @robota-sdk/agent-interface-transport
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 The transport contracts of the Robota SDK: the lifecycle every transport adapter follows (HTTP,
 WebSocket, MCP, WebRTC, headless), how transports are configured and registered, the payload
 channels a transport can carry beside its own protocol, and the shape of the admission decisions
@@ -96,8 +99,8 @@ are saved for it, so a saved option is never silently ignored.
 
 Admission is secure by default: an explicit token wins, otherwise one is minted, and a transport
 runs open only when told so with a written reason. This package declares the decision's shape; the
-functions that make it (`resolveAdmission`, `createAccessTokenVerifier`) live in
-`@robota-sdk/agent-transport/node`.
+functions that make it live in `@robota-sdk/agent-transport` (`resolveAdmission`) and
+`@robota-sdk/agent-transport/node` (`createAccessTokenVerifier`).
 
 ## Conformance suite: `@robota-sdk/agent-interface-transport/testing`
 

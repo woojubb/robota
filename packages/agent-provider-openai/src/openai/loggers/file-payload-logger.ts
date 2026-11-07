@@ -1,5 +1,5 @@
-import * as fs from 'fs';
-import * as path from 'path';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 
 import { SilentLogger } from '@robota-sdk/agent-core';
 
@@ -21,7 +21,7 @@ const OWNER_ONLY_DIR_MODE = 0o700;
  *
  * @example
  * ```typescript
- * import { FilePayloadLogger } from '@robota-sdk/agent-provider-openai/loggers';
+ * import { FilePayloadLogger } from '@robota-sdk/agent-provider-openai/node';
  *
  * const logger = new FilePayloadLogger({
  *   logDir: './logs/api-payloads',

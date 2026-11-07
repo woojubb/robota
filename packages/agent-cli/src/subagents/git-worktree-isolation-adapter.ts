@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { withChildSession } from '@robota-sdk/agent-core/node';
 import {
   BackgroundTaskError,
   type IPreparedSubagentWorktree,
@@ -92,12 +93,13 @@ export class GitWorktreeIsolationAdapter implements ISubagentWorktreeAdapter {
 
 function runGit(cwd: string, args: string[], environment: Readonly<Record<string, string | undefined>>): string {
   try {
-    return execFileSync('git', args, {
+    // Its own session in secure mode, like every git the product starts.
+    return execFileSync('git', args, withChildSession({
       cwd,
       encoding: GIT_ENCODING,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: createGitEnvironment(environment),
-    });
+    }));
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new BackgroundTaskError('runner', `git ${args.join(' ')} failed: ${message}`);

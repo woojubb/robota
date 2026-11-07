@@ -1,5 +1,9 @@
 # Running Robota in GitHub Actions
 
+> **Version:** Platform support, entries and host APIs on this page target the 3.1.0 release. Install
+> 3.1.0 or later after it is published, and check the exports in your installed version.
+> The 3.0.7 framework package does not export `@robota-sdk/agent-framework/node`.
+
 To use Robota in a GitHub Actions workflow today, install the CLI in a step and run it in
 print mode (`__PRODUCT_CLI_NAME__ -p`): it answers one prompt, writes the answer to stdout, and exits. The repository
 also contains a packaged GitHub Action, but it is not released yet — see
@@ -53,11 +57,10 @@ What the steps rely on:
 - **An API key as a secret.** With `ANTHROPIC_API_KEY` set, the CLI needs no settings file and uses
   Anthropic's default model; `GEMINI_API_KEY`, `DEEPSEEK_API_KEY` and `DASHSCOPE_API_KEY` (Qwen) work
   the same way. Add `--model <model>` to choose another model.
-- **Workspace trust.** Print mode refuses to start in a Git repository that is not trusted, and a fresh
-  checkout is not. `--safe-mode` starts with every customization off — instruction files, skills,
-  commands, plugins, hooks and MCP servers — and runs Restricted, so it needs no trust. To load the
-  repository's `AGENTS.md`, settings, skills and hooks instead, run `__PRODUCT_CLI_NAME__ trust --yes` before the
-  prompt; do that only for code you trust, because it runs the repository's hooks.
+- **Workspace trust.** A fresh CI checkout has no live approval. The Action uses `--safe-mode`, which
+  runs Restricted without loading the checkout's instruction files, settings, skills, plugins, hooks
+  or MCP servers. Trust requires a person at a terminal; this Action cannot load project configuration
+  in an unattended job.
 - **Permissions.** Print mode uses the `default` permission mode: reads, searches and read-only commands
   such as `git diff` run, and anything that would ask for approval (an edit, another shell command) is
   denied, since no one can answer. Pass `--permission-mode acceptEdits` to allow edits, or
@@ -74,16 +77,21 @@ A script step can call the SDK directly with `createQuery` from `@robota-sdk/age
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 
 const query = createQuery({
+  host: createNodeFrameworkHost({ createDefaultTools }),
+  cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
 });
 const result = await query('Review the changed files in this branch for potential issues');
 console.log(result);
 ```
 
-`createQuery` also runs in the `default` permission mode, and without a `projectAccess` decision it
+`createQuery` needs a `host` and an absolute `cwd`; the tools it works with are the ones the host
+builds (`createDefaultTools` above). It also runs in the `default` permission mode, and without a `projectAccess` decision it
 does not load the repository's instruction files or settings. See [Using the SDK](../guide/sdk.md).
 
 ## The Robota GitHub Action (not released)
@@ -106,9 +114,9 @@ What the checkout can and cannot do:
 - The task reaches the CLI only on stdin, so a task built from issue or pull request text is only
   ever a prompt: it cannot inject shell commands, CLI options or a subcommand. The other inputs are
   separate arguments, never passed through a shell.
-- By default the CLI runs with `--safe-mode`, so the checkout's settings, hooks, skills and MCP
-  servers do not load. Set `load-project: 'true'` to run `__PRODUCT_CLI_NAME__ trust --yes` first and load them
-  instead — only for code you trust, never for a pull request from a fork.
+- The CLI runs with `--safe-mode`, so the checkout's settings, hooks, skills and MCP servers do not
+  load. `load-project: 'true'` fails immediately with an explanation; it is retained as an input so
+  an existing workflow cannot silently lose its requested project configuration.
 
 ### Inputs
 
@@ -119,7 +127,7 @@ What the checkout can and cannot do:
 | `api-key`      | no       | —        | Anthropic API key (pass it from `secrets`)                              |
 | `output`       | no       | `text`   | Output format: `text` \| `json` \| `stream-json`                        |
 | `max-turns`    | no       | —        | Maximum agent turns before stopping                                     |
-| `load-project` | no       | `false`  | Trust the checkout and load its settings, hooks, skills and MCP servers |
+| `load-project` | no       | `false`  | `true` fails: unattended jobs cannot grant workspace trust              |
 | `cli-version`  | no       | `latest` | Exact version or dist-tag of `@robota-sdk/agent-cli` to install         |
 
 ### Outputs

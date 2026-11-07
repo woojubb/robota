@@ -1,3 +1,4 @@
+import { withHoldReadClaim } from '@robota-sdk/agent-interface-session/testing';
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -12,6 +13,9 @@ import type {
 import type { IAgentToolDeps } from '../../tools/agent-tool.js';
 import type { SessionExecutionController } from '../interactive-session-execution-controller.js';
 import { createSessionStub } from './helpers/session-stub.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 function holdForeground(interactive: InteractiveSession): {
   controller: SessionExecutionController;
@@ -66,7 +70,7 @@ function setup(
   } as never);
   storeAgentToolDeps(session, { backgroundTaskManager: manager } as unknown as IAgentToolDeps);
   const records = new Map<string, ITestRecord>();
-  const store = {
+  const store = withHoldReadClaim({
     load: vi.fn((id: string) => {
       const record = records.get(id);
       return record ? { status: 'valid' as const, record } : { status: 'missing' as const };
@@ -77,8 +81,9 @@ function setup(
     }),
     list: vi.fn(() => []),
     delete: vi.fn(),
-  };
+  });
   const interactive = new InteractiveSession({
+    host: testHost,
     session,
     sessionStore: store as never,
     cwd: '/workspace',
@@ -205,6 +210,7 @@ describe('session-loop creation durability', () => {
     await vi.waitFor(() => expect(interactive.listSelfPacedLoops()[0]?.phase).toBe('waiting'));
     const oldTimerCount = manager.list().filter((task) => task.metadata?.['sessionLoopSelfPaced']).length;
     const resumed = new InteractiveSession({
+      host: testHost,
       session: interactive.getSession(),
       sessionStore: store as never,
       resumeSessionId: 'loop_durable',
@@ -252,6 +258,7 @@ describe('session-loop creation durability', () => {
       }] as never,
     });
     const resumed = new InteractiveSession({
+      host: testHost,
       session: interactive.getSession(),
       sessionStore: store as never,
       resumeSessionId: 'loop_durable',
@@ -296,6 +303,8 @@ describe('session-loop creation durability', () => {
         expect.objectContaining({
           sessionLoops: [expect.objectContaining({ loopId: created.loopId, phase: 'pending' })],
         }),
+        // Every save of the session's own record carries its claim.
+        expect.objectContaining({ claim: expect.anything() }),
       );
       await vi.waitFor(() => expect(held.controller.pendingCount()).toBe(1));
     } finally {

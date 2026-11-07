@@ -13,11 +13,11 @@ import { fileURLToPath } from 'node:url';
 
 import {
   WorkspaceTrustService,
-  createNodeHostSettingsSource,
   createRestrictedWorkspaceProjectAccess,
   createWorkspaceProjectSettingsSources,
   getWorkspaceProjectReader,
 } from '@robota-sdk/agent-framework';
+import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createFileMcpApprovalStore } from '../mcp-approval-file-store.js';
@@ -25,6 +25,7 @@ import { composeMcpClientForStartup } from '../mcp-startup.js';
 import { productProjectSettings } from '../../product/project-settings.js';
 import { createProductUserSettingsSources } from '../../product/user-settings.js';
 
+import { createNodeWorkspaceProjectFiles } from '@robota-sdk/agent-framework/node';
 import type {
   IWorkspaceIdentity,
   TSettingsSource,
@@ -57,6 +58,7 @@ async function trustedAccessFor(root: string): Promise<TWorkspaceProjectAccess> 
     worktreeRoot: root,
   };
   const service = new WorkspaceTrustService({
+    projectFiles: createNodeWorkspaceProjectFiles(),
     identityResolver: { resolve: () => identity },
     store: {
       inspect: async () => ({ state: 'trusted', generation: 1 }),
@@ -189,9 +191,10 @@ describe('composeMcpClientForStartup', () => {
         if (tool === undefined) throw new Error('Expected admitted stdio tool');
         const result = await tool.execute({}, { toolName: 'local__ping', parameters: {} });
         expect(result.success).toBe(true);
-        const capabilities = JSON.parse(
-          (result as { data: string }).data,
-        ) as Record<string, unknown>;
+        const capabilities = JSON.parse((result as { data: string }).data) as Record<
+          string,
+          unknown
+        >;
         if (declared) expect(capabilities['elicitation']).toEqual({ form: {} });
         else expect(capabilities).not.toHaveProperty('elicitation');
       } finally {
@@ -250,9 +253,10 @@ describe('composeMcpClientForStartup', () => {
         if (tool === undefined) throw new Error('Expected admitted stdio tool');
         const result = await tool.execute({}, { toolName: 'local__ping', parameters: {} });
         expect(result.success).toBe(true);
-        const capabilities = JSON.parse(
-          (result as { data: string }).data,
-        ) as Record<string, unknown>;
+        const capabilities = JSON.parse((result as { data: string }).data) as Record<
+          string,
+          unknown
+        >;
         if (declared) {
           expect(capabilities['extensions']).toEqual({
             'io.modelcontextprotocol/ui': { mimeTypes: ['text/html;profile=mcp-app'] },

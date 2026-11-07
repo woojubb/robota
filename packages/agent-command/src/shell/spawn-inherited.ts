@@ -2,6 +2,10 @@
  * Pure-Node spawn with the real terminal inherited (interactive input + output). Used inside a
  * terminal-handoff `runWithTerminal(fn)` — the framework/transport own the suspend/restore; this just
  * runs the child attached to the real TTY and resolves with its exit code.
+ *
+ * The one deliberate exception to children in their own session (`withChildSession` in
+ * `@robota-sdk/agent-core/node`): the owner asked for this program to have the terminal, and it runs
+ * only while the interface has given the terminal up, so never during a secret prompt.
  */
 import { spawn } from 'node:child_process';
 import { constants } from 'node:os';

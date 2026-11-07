@@ -1,4 +1,7 @@
-import { installProductProcessEnvironment } from './product/process-environment.js';
+import {
+  installProductChildSessions,
+  installProductProcessEnvironment,
+} from './product/process-environment.js';
 import {
   renderApp,
   renderSupervisedSessionView,
@@ -9,7 +12,9 @@ import {
 import { createThemeSurface } from './startup/theme-surface.js';
 import { installTuiProcessGuards, setLiveChannel } from './process-guards.js';
 import { startCliCore } from './cli-core.js';
-import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor';
+import { createDefaultBackgroundTaskRunners } from '@robota-sdk/agent-executor/node';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { isSubagentWorkerModeArgv, runSubagentWorkerMain } from '@robota-sdk/agent-subagent-runner';
 import { createProductSubagentComposition } from './product/subagent-composition.js';
 import { optionArgv } from './utils/option-argv.js';
@@ -23,6 +28,7 @@ export type { IStartCliOptions };
 export async function startCli(initialOptions: IStartCliOptions = {}): Promise<void> {
   const productRuntime = resolveCliRuntimeContext(initialOptions);
   installProductProcessEnvironment(productRuntime);
+  installProductChildSessions(productRuntime);
   const options = { ...initialOptions, productRuntime };
   // A subagent runs as this process's own entry script started again with the worker flag. An
   // embedder's entry calls this function rather than going through `bin.ts`, so the worker
@@ -34,7 +40,9 @@ export async function startCli(initialOptions: IStartCliOptions = {}): Promise<v
     // code after `await startCli()` (a `process.exit()`, say) from running in the worker child.
     return new Promise<never>(() => undefined);
   }
-  return startCliCore(options, createDefaultBackgroundTaskRunners, {
+  // The process's composition root: the Node host every session, runtime and query below runs on.
+  const host = createNodeFrameworkHost({ createDefaultTools });
+  return startCliCore(options, host, createDefaultBackgroundTaskRunners, {
     renderApp,
     renderSupervisedSessionView,
     renderAttachedApp,

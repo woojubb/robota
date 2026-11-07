@@ -6,11 +6,12 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
 import {
-  WorkspaceTrustService,
   createNodeWorkspaceIdentityResolver,
+  createNodeWorkspaceProjectFiles,
   createNodeWorkspaceTrustStore,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-framework/node';
 
 import { startCli } from '../cli.js';
 import { runWorkspaceTrustCommand } from './workspace-trust-command.js';
@@ -144,6 +145,7 @@ describe('CLI workspace trust admission', () => {
     const storePath = join(tempRoot('test-product-cli-trust-store-'), 'trust.json');
     gitInit(cwd);
     const service = new WorkspaceTrustService({
+      projectFiles: createNodeWorkspaceProjectFiles(),
       identityResolver: createNodeWorkspaceIdentityResolver(),
       store: createNodeWorkspaceTrustStore(storePath),
     });
@@ -165,6 +167,7 @@ describe('CLI workspace trust admission', () => {
     mkdirSync(join(cwd, '.test-product'), { recursive: true });
     writeFileSync(join(cwd, '.test-product', 'settings.json'), 'secret-value-never-print');
     const service = new WorkspaceTrustService({
+      projectFiles: createNodeWorkspaceProjectFiles(),
       identityResolver: createNodeWorkspaceIdentityResolver(),
       store: createNodeWorkspaceTrustStore(storePath),
     });
@@ -203,6 +206,7 @@ describe('CLI workspace trust admission', () => {
     gitInit(root);
     mkdirSync(cwd, { recursive: true });
     const service = new WorkspaceTrustService({
+      projectFiles: createNodeWorkspaceProjectFiles(),
       identityResolver: createNodeWorkspaceIdentityResolver(),
       store: createNodeWorkspaceTrustStore(storePath),
     });

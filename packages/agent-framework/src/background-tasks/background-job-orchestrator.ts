@@ -1,10 +1,12 @@
 import {
   deliverToObservers,
   isTerminalBackgroundTaskStatus,
-  reportObserverFailureAsWarning,
+  reportObserverFailureAsConsoleWarning,
   type IBackgroundTaskManager,
   type TObserverFailureReporter,
 } from '@robota-sdk/agent-executor';
+
+import type { IFrameworkHost } from '../host/framework-host.js';
 
 // Background job-group contracts SSOT relocated to @robota-sdk/agent-interface-execution (DATA-001).
 import type {
@@ -41,7 +43,12 @@ export interface IBackgroundJobOrchestratorOptions {
   initialGroups?: readonly IBackgroundJobGroupState[];
   /** ARCH-053: observer-failure reporter; see `IBackgroundTaskManagerOptions.onObserverFailure`. */
   onObserverFailure?: TObserverFailureReporter<TBackgroundJobGroupEvent>;
-  /** Host-selected process-warning identity used when no custom reporter is supplied. */
+  /**
+   * The host's reporter for a failed observer (`host.reportObserverFailure`), used when no
+   * `onObserverFailure` is supplied. Absent, the executor's own line is written instead.
+   */
+  reportObserverFailure?: IFrameworkHost['reportObserverFailure'];
+  /** Host-selected warning identity passed to the reporter in use. */
   observerFailureWarningCode?: string;
 }
 
@@ -65,9 +72,10 @@ export class BackgroundJobOrchestrator {
     this.manager = options.manager;
     this.now = options.now ?? (() => new Date().toISOString());
     this.idFactory = options.idFactory ?? (() => this.nextGroupId());
+    const report = options.reportObserverFailure ?? reportObserverFailureAsConsoleWarning;
     this.onObserverFailure =
       options.onObserverFailure ??
-      ((failure) => reportObserverFailureAsWarning(failure, options.observerFailureWarningCode));
+      ((failure) => report(failure, options.observerFailureWarningCode));
     this.sequence = options.initialGroups?.length ?? 0;
     for (const group of options.initialGroups ?? []) this.restoreGroup(group);
     this.unsubscribeManager = this.manager.subscribe((event) => this.handleTaskEvent(event));
@@ -212,6 +220,11 @@ function createResultEnvelope(task: IBackgroundTaskState): IBackgroundJobResultE
     ...(task.transcriptPath || task.logPath
       ? { outputRef: task.transcriptPath ?? task.logPath }
       : {}),
+    // The path saved in `outputRef` is only a name for a sealed transcript; the envelope says so, so
+    // a summary of a group restored in a later session still points at the command that reads it.
+    ...(task.transcriptPath && task.transcriptSealed === true
+      ? { transcriptSealed: true as const }
+      : {}),
     ...(task.error ? { error: { ...task.error } } : {}),
     ...(task.startedAt ? { startedAt: task.startedAt } : {}),
     ...(task.completedAt ? { completedAt: task.completedAt } : {}),
@@ -238,7 +251,7 @@ export function summarizeBackgroundJobGroup(
     failed,
     cancelled,
     pending: Math.max(group.taskIds.length - group.results.length, 0),
-    lines: group.results.map((result) => formatResultLine(result)),
+    lines: group.results.map(formatResultLine),
   };
 }
 
@@ -246,9 +259,17 @@ function countResults(group: IBackgroundJobGroupState, status: TBackgroundTaskSt
   return group.results.filter((result) => result.status === status).length;
 }
 
+/**
+ * A sealed transcript's path reaches no content for the user or the model, so its line names the
+ * command that reads it instead.
+ */
 function formatResultLine(result: IBackgroundJobResultEnvelope): string {
   const detail = normalizeResultDetail(result);
-  const output = result.outputRef && result.summary ? ` (output: ${result.outputRef})` : '';
+  const outputRef =
+    result.transcriptSealed === true
+      ? `sealed log; read it with /agent read ${result.taskId}`
+      : result.outputRef;
+  const output = result.outputRef && result.summary ? ` (output: ${outputRef})` : '';
   return `[${result.status}] ${result.label} ${result.taskId}: ${detail}${output}`;
 }
 

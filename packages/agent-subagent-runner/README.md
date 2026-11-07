@@ -1,5 +1,8 @@
 # @robota-sdk/agent-subagent-runner
 
+> **Version:** Platform support and entries described here target SDK 3.1.0. Install that
+> release after publication; published 3.0.7 packages may have different exports and behavior.
+
 Child-process subagent runner for the Robota SDK. It runs each subagent in its own Node.js child
 process, talks to it over a typed IPC protocol, and can wrap each job in worktree isolation and stream
 its logs to disk.
@@ -42,6 +45,7 @@ import type {
   IToolWithEventService,
 } from '@robota-sdk/agent-core';
 import type { ISubagentWorktreeAdapter } from '@robota-sdk/agent-executor';
+import type { IFrameworkHost } from '@robota-sdk/agent-framework';
 
 declare const providerConfig: IProviderDefinitionConfig;
 // The concrete worktree adapter (git/fs I/O) is owned and injected by the composition root.
@@ -50,12 +54,16 @@ declare const worktreeAdapter: ISubagentWorktreeAdapter;
 // Your product's tool surface, built at the CHILD's execution root. This package composes nothing:
 // there is no default tool set or provider registry to fall back to.
 declare const createMyTools: (context: { readonly cwd: string }) => IToolWithEventService[];
+// The platform the child's session runs on; the child is its own process, so it builds its own
+// (`createNodeFrameworkHost` from `@robota-sdk/agent-framework/node` on Node).
+declare const myHost: IFrameworkHost;
 declare const myProviderDefinitions: readonly IProviderDefinition[];
 
 // Your entry is the worker. Dispatch before starting your app, so a subagent child re-enters here
 // instead of booting the whole product.
 if (isSubagentWorkerModeArgv(process.argv)) {
   runSubagentWorkerMain({
+    host: myHost,
     createTools: createMyTools,
     providerDefinitions: myProviderDefinitions,
   });
@@ -69,6 +77,7 @@ const factory = createChildProcessSubagentRunnerFactory({
   providerConfig,
   providerDefinitions: myProviderDefinitions, // required: a job whose provider is not here is refused
   logsDir: hostSelectedLogDirectory,
+  logSealing: 'plain', // required: how the children keep their logs, `{ sealer }` or 'plain'
   worktreeAdapter, // required: no concrete git default — inject the port at the composition root
 });
 ```

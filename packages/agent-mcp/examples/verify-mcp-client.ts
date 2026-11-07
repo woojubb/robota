@@ -31,6 +31,7 @@ const {
   buildCatalog,
   createDiscoveredTool,
 } = await import('../src/index.js');
+const { createNodeHttpEgress } = await import('../src/node.js');
 const { startMockMcpServer, mockTools } = await import('../src/__tests__/mock-mcp-server.js');
 
 function assertCondition(condition: boolean, message: string): asserts condition {
@@ -41,10 +42,12 @@ async function run(): Promise<void> {
   const mock = await startMockMcpServer({ tools: mockTools(2), pageSize: 2 });
 
   try {
-    const adapter = createStreamableHttpAdapter({
-      lookup: async () => ['127.0.0.1'],
-      policy: { allowedHosts: ['127.0.0.1'] },
-    });
+    const adapter = createStreamableHttpAdapter(
+      { egress: createNodeHttpEgress({
+        lookup: async () => ['127.0.0.1'],
+        policy: { allowedHosts: ['127.0.0.1'] },
+      }) },
+    );
 
     const admission = await adapter.admit({ url: mock.url });
     if (!admission.ok) {

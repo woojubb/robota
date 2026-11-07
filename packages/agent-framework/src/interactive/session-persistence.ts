@@ -1,48 +1,21 @@
-import { dirname } from 'node:path';
 
-import {
-  NodePromptHistoryFile,
-  NodeSessionStore,
-  NodeToolResultSpillStore,
-  isSafeSessionId as sessionIsSafeSessionId,
-} from '@robota-sdk/agent-session';
+import { isSafeSessionId as sessionIsSafeSessionId } from '@robota-sdk/agent-session';
 
-import { WorkspaceProjectSessionStore } from './workspace-session-store.js';
+import { lockedReasonOf, sealedSessionState } from './locked-session-wording.js';
 
-// Session persistence contracts SSOT relocated to @robota-sdk/agent-interface-session (DATA-001).
-import type { IWorkspaceProjectStateStorage } from '../workspace-trust/index.js';
-import type { TUniversalMessage } from '@robota-sdk/agent-core';
-import type { IToolResultSpillStore } from '@robota-sdk/agent-core';
+import type { TLockedSessionReason } from './locked-session-wording.js';
 import type {
-  IPromptHistorySource,
-  IPromptHistoryWriter,
   IInteractiveSessionRecord,
   IInteractiveSessionStore,
   IResumableSessionSummary,
   TSessionLoadOutcome,
+} from './session-store-types.js';
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
+import type {
+  ISessionListEntry,
+  ISessionStoreScan,
+  TSessionAuthorship,
 } from '@robota-sdk/agent-interface-session';
-import type { INodeToolResultSpillStoreOptions } from '@robota-sdk/agent-session';
-
-export type {
-  IInteractiveSessionRecord,
-  IInteractiveSessionStore,
-  IResumableSessionSummary,
-  TSessionLoadOutcome,
-};
-export { WorkspaceSessionLogSink, WorkspaceSessionLogSource } from './workspace-session-io.js';
-export { WorkspaceProjectSessionStore } from './workspace-session-store.js';
-
-export interface IHostToolResultSpillStore extends IToolResultSpillStore {
-  read(reference: string): Promise<string>;
-  shutdown(): Promise<void>;
-}
-
-/** Explicit host-owned storage for bounded MCP result references. */
-export function createNodeToolResultSpillStore(
-  options: INodeToolResultSpillStoreOptions = {},
-): IHostToolResultSpillStore {
-  return new NodeToolResultSpillStore(options);
-}
 
 /**
  * Whether an untrusted session selector is safe to use as one filesystem path component.
@@ -54,53 +27,65 @@ export function isSafeSessionId(id: string): boolean {
   return sessionIsSafeSessionId(id);
 }
 
-export function createProjectSessionStore(
-  sessions: IWorkspaceProjectStateStorage,
-  logs: IWorkspaceProjectStateStorage,
-): IInteractiveSessionStore {
-  return new WorkspaceProjectSessionStore(sessions, logs);
-}
-
-/** Explicit host-filesystem session store. This does not establish project trust. */
-export function createNodeHostSessionStore(
-  baseDirectory: string,
-  ownedRoot?: string,
-): IInteractiveSessionStore {
-  return new NodeSessionStore(baseDirectory, ownedRoot);
-}
-
-/**
- * SCREEN-1993: the caller-selected prompt-history file, one object serving
- * both the session-side writer and the surface's newest-first source. SEC-020: the user root is
- * passed as OWNED, exactly as `createUserSessionStore` does, so it is tightened along with the file.
- */
-export function createUserPromptHistoryFile(
-  history: string,
-): IPromptHistoryWriter & IPromptHistorySource {
-  return new NodePromptHistoryFile(history, { ownedRoot: dirname(history) });
-}
-
-/**
- * User-level session store at a caller-selected directory. Symmetric to {@link createProjectSessionStore};
- * there is no user-level replay-log directory, so it reads persisted records only.
- */
-export function createUserSessionStore(sessions: string): IInteractiveSessionStore {
-  // SEC-020: the user store root is passed as OWNED, so it is tightened along with the sessions
-  // directory inside it. The caller owns the layout and supplies this path.
-  // This is the path the restricted-workspace fallback takes, where no other writer may ever run
-  // to tighten the root on its behalf.
-  return new NodeSessionStore(sessions, dirname(sessions));
-}
-
+/** This workspace's resumable sessions, newest first; {@link listResumableSessions} also counts locked ones. */
 export function listResumableSessionSummaries(
   sessionStore: IInteractiveSessionStore | undefined,
   cwd: string,
 ): IResumableSessionSummary[] {
-  return (sessionStore?.list() ?? [])
-    .flatMap((entry) => (entry.outcome.status === 'valid' ? [entry.outcome.record] : []))
-    .filter((session) => session.cwd === cwd)
-    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-    .map((session) => {
+  return listResumableSessions(sessionStore, cwd).sessions;
+}
+
+/**
+ * One pass over a store: what it lists, and how many sealed sessions it left out because they cannot
+ * be opened right now. A store that cannot scan holds no sealed records, so it has none to leave out.
+ */
+export function scanSessionStore(
+  sessionStore: IInteractiveSessionStore | undefined,
+): ISessionStoreScan {
+  if (sessionStore === undefined) return { entries: [], locked: 0 };
+  return sessionStore.scan?.() ?? { entries: sessionStore.list(), locked: 0 };
+}
+
+/** Verified (and plain) records first, then unverified ones; within each, newest first. */
+function compareResumable(
+  left: { readonly record: IInteractiveSessionRecord; readonly authorship?: TSessionAuthorship },
+  right: { readonly record: IInteractiveSessionRecord; readonly authorship?: TSessionAuthorship },
+): number {
+  const rank = (entry: { readonly authorship?: TSessionAuthorship }): number =>
+    entry.authorship === 'unverified' ? 1 : 0;
+  return (
+    rank(left) - rank(right) ||
+    new Date(right.record.updatedAt).getTime() - new Date(left.record.updatedAt).getTime()
+  );
+}
+
+/**
+ * This workspace's resumable sessions, newest first, and how many sealed sessions the store left out
+ * — locked ones and ones sealed with keys this process does not have — from one scan, for a surface
+ * that lists sessions or picks one and must say that they are there (see
+ * {@link lockedSessionsNotice}). A sealed session's workspace cannot be told, so the counts are the
+ * whole store's. A store that seals says whose each one is, and its unverified records come after
+ * every verified one: the time such a record gives is its own word, so it never ranks it among
+ * records the owner wrote.
+ */
+export function listResumableSessions(
+  sessionStore: IInteractiveSessionStore | undefined,
+  cwd: string,
+): {
+  readonly sessions: IResumableSessionSummary[];
+  readonly locked: number;
+  readonly noKeys: number;
+} {
+  const scan = scanSessionStore(sessionStore);
+  const sessions = scan.entries
+    .flatMap((entry) =>
+      entry.outcome.status === 'valid'
+        ? [{ record: entry.outcome.record, authorship: entry.outcome.authorship }]
+        : [],
+    )
+    .filter(({ record }) => record.cwd === cwd)
+    .sort(compareResumable)
+    .map(({ record: session, authorship }) => {
       const title = getFirstUserMessageTitle(session.messages);
       return {
         id: session.id,
@@ -110,8 +95,10 @@ export function listResumableSessionSummaries(
         messageCount: session.messages.length,
         preview: getLastAssistantPreview(session.messages),
         ...(title !== undefined ? { title } : {}),
+        ...(authorship !== undefined ? { authorship } : {}),
       };
     });
+  return { sessions, locked: scan.locked, noKeys: scan.noKeys ?? 0 };
 }
 
 /**
@@ -153,9 +140,86 @@ export function listUnreadableSessionsForWorkspace(
 }
 
 function unreadableOutcomeCwd(outcome: TSessionLoadOutcome): string | undefined {
-  return outcome.status === 'corrupt' || outcome.status === 'unsupported'
-    ? outcome.cwd
-    : undefined;
+  return outcome.status === 'corrupt' || outcome.status === 'unsupported' ? outcome.cwd : undefined;
+}
+
+/**
+ * Why session `id` exists, sealed, and this store cannot open it right now — `undefined` when that is
+ * not so. What a surface asks before it says a session "was not found": a locked session is not in a
+ * listing, but it is there, and the reason decides whether an unlock would open it. An id that is not
+ * a safe session id names no file, so it is never locked. A probe: the store remembers nothing it
+ * read here.
+ */
+export function lockedSessionReason(
+  sessionStore: IInteractiveSessionStore | undefined,
+  id: string,
+): TLockedSessionReason | undefined {
+  if (sessionStore === undefined || !sessionIsSafeSessionId(id)) return undefined;
+  const outcome = sessionStore.load(id);
+  return outcome.status === 'locked' ? lockedReasonOf(outcome) : undefined;
+}
+
+/** Whether session `id` exists, sealed, and this store cannot open it right now; see {@link lockedSessionReason}. */
+export function isSessionLocked(
+  sessionStore: IInteractiveSessionStore | undefined,
+  id: string,
+): boolean {
+  return lockedSessionReason(sessionStore, id) !== undefined;
+}
+
+/**
+ * How a surface says to unlock: by its command where it has one (a terminal holding keys has
+ * `/unlock`), and in plain words where it has none, so no surface names a command it does not offer.
+ */
+function unlockTo(action: string, unlockCommand: string | undefined): string {
+  return unlockCommand === undefined
+    ? `unlock to ${action}`
+    : `run \`${unlockCommand}\` to ${action}`;
+}
+
+/**
+ * The fixed answer for a session that is present but sealed out of reach, saying to unlock only when
+ * that would open it — naming `unlockCommand` when the surface has one.
+ */
+export function lockedSessionMessage(
+  sessionId: string,
+  reason: TLockedSessionReason = 'locked',
+  unlockCommand?: string,
+): string {
+  const state = sealedSessionState(reason);
+  return reason === 'locked'
+    ? `Session ${sessionId} is ${state}; ${unlockTo('open it', unlockCommand)}.`
+    : `Session ${sessionId} is ${state}.`;
+}
+
+/**
+ * The one note every surface adds where it lists sessions or picks one while some are sealed out of
+ * reach — a listing leaves those out, so without it they would read as gone. `locked` are sealed with
+ * the keys locked, which an unlock opens; `noKeys` are sealed with keys this process does not have,
+ * which no unlock here opens. `undefined` when there are none, so a surface says nothing then. A
+ * surface that has an unlock command passes it as `unlockCommand`, and the note names it.
+ */
+export function lockedSessionsNotice(
+  locked: number,
+  noKeys = 0,
+  unlockCommand?: string,
+): string | undefined {
+  const notes: string[] = [];
+  if (locked > 0) {
+    notes.push(
+      locked === 1
+        ? `1 saved session is sealed and locked; ${unlockTo('open it', unlockCommand)}.`
+        : `${locked} saved sessions are sealed and locked; ${unlockTo('open them', unlockCommand)}.`,
+    );
+  }
+  if (noKeys > 0) {
+    notes.push(
+      noKeys === 1
+        ? '1 saved session is sealed with keys this process does not have.'
+        : `${noKeys} saved sessions are sealed with keys this process does not have.`,
+    );
+  }
+  return notes.length === 0 ? undefined : notes.join(' ');
 }
 
 export function resolveLatestSessionId(
@@ -191,6 +255,8 @@ export function resolveReusableEmptySessionId(
 ): string | undefined {
   const candidate = listResumableSessionSummaries(sessionStore, cwd).find(
     (session) =>
+      // An unverified record is not the owner's to land in unasked, however empty it says it is.
+      session.authorship !== 'unverified' &&
       session.messageCount === 0 &&
       session.id !== options.excludeSessionId &&
       (options.otherClientsOf?.(session.id) ?? 0) <= 0 &&
@@ -199,18 +265,76 @@ export function resolveReusableEmptySessionId(
   return candidate?.id;
 }
 
+/** What a run's `-r <id or name>` answers to (see {@link resolveSessionIdByIdOrName}). */
+export type TSessionIdResolution =
+  | { readonly status: 'found'; readonly id: string }
+  /**
+   * The text is a verified record's name and also the id of a record not verified as the owner's — one
+   * nothing vouched for, or one that does not read at all — so neither is taken.
+   */
+  | { readonly status: 'ambiguous'; readonly namedId: string; readonly otherId: string }
+  /** Nothing answers to it; `unverifiedNamed` are the unverified records that give themselves that name. */
+  | { readonly status: 'not-found'; readonly unverifiedNamed: readonly string[] };
+
+/**
+ * The session `idOrName` names, in tiers: a readable record by its exact id when it is verified or
+ * plain, then a verified or plain record by its name, then any other record by its exact id. What an
+ * unverified record says of itself — its name, and the time it sorts by — never decides the answer:
+ * a name it gives itself answers for nothing, and an id that is also a verified record's name is
+ * refused as ambiguous, since a record planted under a name's id would otherwise be offered (or, when
+ * it does not read, refused) in place of the session the person named. Only a verified name refuses
+ * so: a store that never seals vouches for no record over another, so there an exact id answers
+ * before a name, readable or not, and a caller refuses an unreadable one in its own words. A name
+ * lives on the record, so only a readable entry can be matched by name; an unreadable one can still
+ * be matched by its id, which is what a user holding an old id would type. A locked one is not
+ * listed at all, so neither matches; `isSessionLocked` is how a caller says why.
+ */
 export function resolveSessionIdByIdOrName(
   sessionStore: IInteractiveSessionStore | undefined,
   idOrName: string,
-): string | undefined {
-  // A name lives on the record, so only a readable entry can be matched by name. An unreadable one
-  // can still be matched by its id, which is what a user holding an old id would type.
-  const match = (sessionStore?.list() ?? []).find(
+): TSessionIdResolution {
+  const entries = sessionStore?.list() ?? [];
+  const unverified = (entry: ISessionListEntry): boolean =>
+    entry.outcome.status === 'valid' && entry.outcome.authorship === 'unverified';
+  const ownedOrPlain = (entry: ISessionListEntry): boolean =>
+    entry.outcome.status === 'valid' && entry.outcome.authorship !== 'unverified';
+  const byId = entries.find((entry) => entry.id === idOrName);
+  if (byId !== undefined && ownedOrPlain(byId)) return { status: 'found', id: byId.id };
+  const byName = entries.find(
     (entry) =>
-      entry.id === idOrName ||
-      (entry.outcome.status === 'valid' && entry.outcome.record.name === idOrName),
+      ownedOrPlain(entry) &&
+      entry.outcome.status === 'valid' &&
+      entry.outcome.record.name === idOrName,
   );
-  return match?.id;
+  if (byName !== undefined) {
+    if (byId === undefined) return { status: 'found', id: byName.id };
+    return byName.outcome.status === 'valid' && byName.outcome.authorship === 'verified'
+      ? { status: 'ambiguous', namedId: byName.id, otherId: byId.id }
+      : { status: 'found', id: byId.id };
+  }
+  if (byId !== undefined) return { status: 'found', id: byId.id };
+  return {
+    status: 'not-found',
+    unverifiedNamed: entries.flatMap((entry) =>
+      unverified(entry) &&
+      entry.outcome.status === 'valid' &&
+      entry.outcome.record.name === idOrName
+        ? [entry.id]
+        : [],
+    ),
+  };
+}
+
+/**
+ * What `-r` says of a text that is both a verified record's name and the id of a record not verified
+ * as the owner's. Fixed text and ids only.
+ */
+export function ambiguousSessionNameMessage(namedId: string, otherId: string): string {
+  return (
+    `${otherId} is the name of session ${namedId} and also the id of a session not verified as ` +
+    `yours, so it resumes neither; resume ${namedId} by its id to continue it, or pick ${otherId} ` +
+    'in the resume picker when it is listed there.'
+  );
 }
 
 function getLastAssistantPreview(messages: readonly TUniversalMessage[]): string {

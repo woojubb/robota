@@ -1,8 +1,13 @@
 import 'dotenv/config';
 import { join } from 'node:path';
 import { Bot } from 'grammy';
-import { createAgentRuntime, createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import { createAgentRuntime } from '@robota-sdk/agent-framework';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import { createNodeFrameworkHost } from '@robota-sdk/agent-framework/node';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
+
+const host = createNodeFrameworkHost({ createDefaultTools });
 
 // Anyone who can message this bot talks to the agent, so its sessions have none of the built-in tools
 // that run commands, read or change files, reach the network or send files. Give it your own tools
@@ -17,7 +22,6 @@ const DENIED_TOOLS = [
   'Glob',
   'Grep',
   'WebFetch',
-  'WebSearch',
   'peer_send_file',
 ];
 
@@ -32,9 +36,10 @@ if (!BOT_TOKEN || !ANTHROPIC_API_KEY || !STATE_ROOT) {
 const bot = new Bot(BOT_TOKEN);
 
 const runtime = createAgentRuntime({
+  host,
   cwd: process.cwd(),
   provider: new AnthropicProvider({ apiKey: ANTHROPIC_API_KEY }),
-  sessionStore: createNodeHostSessionStore(join(STATE_ROOT, 'sessions')),
+  sessionStore: createNodeHostSessionStore(join(STATE_ROOT, 'sessions'), { sealing: 'plain' }),
 });
 
 const chatSessions = new Map<number, string>();

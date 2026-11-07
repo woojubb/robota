@@ -1,3 +1,4 @@
+import type { IKeyCustodyPort } from './key-custody/key-custody-port.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
 import type { CommandRegistry } from '@robota-sdk/agent-framework';
 
@@ -21,4 +22,9 @@ export interface ITuiCliAdapter {
   getProviderDisplayName(type: string): string;
   /** Optional host-owned command shown when a completed fork can be reopened outside the TUI. */
   formatResumeCommand?: (sessionId: string) => string;
+  /**
+   * The keys' holder in a process whose conversations are sealed, which a read the person started
+   * asks to unlock. Absent while secure mode is off: such reads are then never locked.
+   */
+  keyCustody?: IKeyCustodyPort;
 }

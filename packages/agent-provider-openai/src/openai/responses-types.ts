@@ -43,7 +43,9 @@ export interface IOpenAIResponsesFunctionCallOutputInput {
 export type TOpenAIResponsesInputItem =
   | IOpenAIResponsesMessageInput
   | IOpenAIResponsesFunctionCallInput
-  | IOpenAIResponsesFunctionCallOutputInput;
+  | IOpenAIResponsesFunctionCallOutputInput
+  // A reply's own items go back as they came.
+  | TOpenAIResponsesOutputItem;
 
 export interface IOpenAIResponsesFunctionTool {
   type: 'function';
@@ -53,7 +55,12 @@ export interface IOpenAIResponsesFunctionTool {
   description?: string;
 }
 
-export type TOpenAIResponsesTool = IOpenAIResponsesFunctionTool;
+/** OpenAI's hosted search tool: the model decides when to search, and OpenAI runs it. */
+export interface IOpenAIResponsesWebSearchTool {
+  type: 'web_search';
+}
+
+export type TOpenAIResponsesTool = IOpenAIResponsesFunctionTool | IOpenAIResponsesWebSearchTool;
 
 export interface IOpenAIResponsesTextFormatText {
   type: 'text';
@@ -102,6 +109,8 @@ export interface IOpenAIResponsesRequestStreaming extends IOpenAIResponsesReques
 export interface IOpenAIResponsesTextOutputContent {
   type: 'output_text' | 'text';
   text: string;
+  /** Sources of the text; a hosted web search adds `url_citation` entries. */
+  annotations?: Array<{ type: string; url?: string; title?: string }>;
 }
 
 export interface IOpenAIResponsesRefusalOutputContent {
@@ -133,6 +142,14 @@ export interface IOpenAIResponsesReasoningOutputItem {
   encrypted_content?: string;
 }
 
+/** One step of a hosted web search; only a `search` action is a search, the others read a found page. */
+export interface IOpenAIResponsesWebSearchCallOutputItem {
+  type: 'web_search_call';
+  id?: string;
+  status?: string;
+  action?: { type?: string; query?: string };
+}
+
 export interface IOpenAIResponsesGenericOutputItem {
   type: string;
   id?: string;
@@ -143,6 +160,7 @@ export type TOpenAIResponsesOutputItem =
   | IOpenAIResponsesMessageOutputItem
   | IOpenAIResponsesFunctionCallOutputItem
   | IOpenAIResponsesReasoningOutputItem
+  | IOpenAIResponsesWebSearchCallOutputItem
   | IOpenAIResponsesGenericOutputItem;
 
 export interface IOpenAIResponsesUsage {
@@ -165,6 +183,8 @@ export interface IOpenAIResponsesResponse {
   usage?: IOpenAIResponsesUsage;
   status?: string;
   error?: IOpenAIResponsesErrorBody | null;
+  /** The response says whether it was stored; an unstored one leaves nothing to find later. */
+  store?: boolean;
 }
 
 export interface IOpenAIResponsesTextDeltaEvent {

@@ -160,6 +160,7 @@ export class SubagentManager implements ISubagentManager {
       repetitionWindow: options.repetitionWindow,
       repetitionThreshold: options.repetitionThreshold,
       observerFailureWarningCode: options.observerFailureWarningCode,
+      onObserverFailure: options.onObserverFailure,
     });
   }
 
@@ -252,6 +253,7 @@ function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTas
         pid: subagentHandle.pid,
         logPath: subagentHandle.logPath,
         transcriptPath: subagentHandle.transcriptPath,
+        ...(subagentHandle.transcriptSealed === true ? { transcriptSealed: true as const } : {}),
         result: subagentHandle.result.then((result) => toBackgroundResult(result)),
         cancel: (reason?: string) => subagentHandle.cancel(reason),
       };

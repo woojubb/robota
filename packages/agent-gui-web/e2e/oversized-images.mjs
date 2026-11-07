@@ -10,7 +10,8 @@ import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { chromium } from 'playwright';
 import { preview } from 'vite';
-import { createNodeHostSessionStore, createNodeWorkspaceTrustService } from '../../agent-framework/src/index.ts';
+import { createNodeHostSessionStore } from '../../agent-framework/src/node.ts';
+import { createNodeWorkspaceTrustService } from '../../agent-framework/src/node.ts';
 import { createTestBinaryEnvironment, createTestProductRuntime } from '../../agent-cli/src/__tests__/helpers/product-runtime.ts';
 import { respond, wireReceipts } from '../../agent-cli/src/__tests__/helpers/provider-wire-fixture.ts';
 import { createInitialCliWorkspaceComposition } from '../../agent-cli/src/startup/workspace-project-composition.ts';
@@ -192,7 +193,7 @@ try {
   execFileSync('git', ['init', '--quiet'], { cwd: root, env: createTestBinaryEnvironment(home) });
   const trust = createNodeWorkspaceTrustService(runtime.layout.userPaths.workspaceTrust, runtime.layout.projectStateDirectories);
   if (contribution === 'packaged') assert.equal((await trust.grant(root)).status, 'trusted');
-  store = contribution === 'packaged' ? createInitialCliWorkspaceComposition(root, { productRuntime: runtime, projectAccess: await trust.inspect(root) }).sessionStore : createNodeHostSessionStore(runtime.layout.userPaths.sessions);
+  store = contribution === 'packaged' ? createInitialCliWorkspaceComposition(root, { productRuntime: runtime, projectAccess: await trust.inspect(root) }).sessionStore : createNodeHostSessionStore(runtime.layout.userPaths.sessions, { sealing: 'plain' });
   web = await preview({ root: packageRoot, preview: { port: 0, host: '127.0.0.1' } });
   const launch = async (resumeId) => {
     round = 0; restored = Boolean(resumeId);

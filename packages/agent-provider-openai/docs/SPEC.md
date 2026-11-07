@@ -30,7 +30,7 @@ Schema rewriting for OpenAI's strict tool mode happens in the provider's project
 
 **The lossy part, stated as a contract guarantee:** strict mode cannot express "optional", so an optional property is forced into `required` and compensated with a nullable union. A forced-optional field and a genuinely nullable one are therefore indistinguishable on the wire — this is a known, accepted limitation, not a bug. The model must supply the key; `null` means "not provided". A handler that needs to distinguish an absent key from an explicit null cannot rely on this provider to preserve that distinction.
 
-Because the rewrite is lossy, it only runs when strict mode is actually being sent; with strict tools off, tool parameter schemas are forwarded verbatim.
+Because the rewrite is lossy, it only runs when strict mode is actually being sent. With strict tools off, tool parameter schemas are forwarded as declared, except that a bare array gains `items` and a bare object `properties`: the API refuses those in either mode, and the declared schema still governs local validation.
 
 A tool schema the projector rejects (non-object root, a prototype-key property name, a cycle, or a schema exceeding the shared depth/node ceiling) is dropped from that request alone rather than failing the whole call, and is logged once per cache identity so the omission is auditable.
 
@@ -43,3 +43,7 @@ It does declare whether the configured endpoint is the vendor default, as a bool
 ### Log file permissions
 
 The file-based payload logger writes a summary of each Chat Completions request — request metadata, not prompt or response content — to a caller-supplied log directory. It creates that directory and each log file with owner-only permissions rather than inheriting the process umask, since the directory is caller-supplied and the files record the caller's own request history.
+
+### A searching reply goes back as OpenAI's items, only within its turn
+
+Hosted search results exist only on OpenAI's side, named by a reply's output items, so a reply that searched and called functions is sent back whole on the later requests of its turn that carry the search tool. `previous_response_id` is not used: the conversation held here, which compaction can rewrite, stays what the model is given. Those items belong to the account and model that made them, OpenAI keeps them for a limited time, and it has none for an unstored response, so only the provider instance that recorded a reply sends it back, on the same model, until the next user message, and only on a request that declares the tool, since OpenAI backends are reported to refuse search items otherwise. Everything else is rebuilt from text, because losing the search costs less than failing: a fallback to another model or account, a resumed session and the forced summary must not fail on items they cannot use.

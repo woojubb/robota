@@ -2,13 +2,12 @@ import { createHook } from 'node:async_hooks';
 import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 
-import { UnsupportedShellError, resolvePlatformShell } from '@robota-sdk/agent-core';
+import { UnsupportedShellError, resolvePlatformShell } from '@robota-sdk/agent-core/node';
+import type { IBackgroundTaskHandle, IBackgroundTaskStart } from '@robota-sdk/agent-executor';
 import {
   createManagedShellProcessRunner,
   createScheduledTaskRunner,
-  type IBackgroundTaskHandle,
-  type IBackgroundTaskStart,
-} from '@robota-sdk/agent-executor';
+} from '@robota-sdk/agent-executor/node';
 
 interface IShellCase {
   name: string;

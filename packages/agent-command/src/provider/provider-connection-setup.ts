@@ -9,6 +9,7 @@ import {
   buildProviderSetupPatch,
   formatOrgPolicyViolationMessage,
   mergeProviderPatch,
+  resolveProviderEnvironment,
   suggestProviderProfileName,
 } from '@robota-sdk/agent-framework';
 
@@ -116,7 +117,7 @@ export async function runProviderConnectionSetup(
       }
       if (isEnvReference(apiKey)) {
         const variable = apiKey.slice(ENV_REFERENCE_PREFIX.length).trim();
-        if (!variable || !(options.env ?? process.env)[variable]?.trim()) {
+        if (!variable || !resolveProviderEnvironment(options.env)(variable)?.trim()) {
           description =
             'The environment reference is unset or invalid. Set its variable, then choose API key to try again.';
           continue;

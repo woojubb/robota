@@ -12,10 +12,6 @@ import type { ICliRuntimeContext } from '../product/runtime-context.js';
  * receives a policy; a positive `autoBackgroundMs` in `print` mode is reported once as ignored.
  */
 
-import {
-  createNodeToolResultSpillStore,
-  createNodeWorkspaceTrustStore,
-} from '@robota-sdk/agent-framework';
 import { mcpUnavailableServersNotice } from '@robota-sdk/agent-command';
 import { mkdirSync } from 'node:fs';
 
@@ -27,8 +23,11 @@ import {
   isWorkspaceHelperSource,
   withoutExpansions,
 } from '@robota-sdk/agent-mcp';
-import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
+import { userLocalStorageRoot } from '../product/user-paths.js';
+import { workspaceRootBrokerEndpoint } from './workspace-root-broker-process.js';
+import { requestWorkspaceRootBroker } from './workspace-root-broker.js';
 import { commandEnvironment } from '../product/command-environment.js';
+import { createProductToolResultSpillStore } from '../product/session-stores.js';
 
 import { buildMcpClientTimeouts, createMcpClientComposition } from './mcp-client-composition.js';
 import { describeMcpContribution } from './mcp-contribution-descriptor.js';
@@ -56,9 +55,8 @@ import type { IToolResultAdmissionOptions, TPermissionMode } from '@robota-sdk/a
 import type {
   IMCPActivationApprovalStore,
   IMCPServerDefinitionResolved,
-  IMCPHttpTransportDeps,
-  IMCPStdioAuthority,
 } from '@robota-sdk/agent-mcp';
+import type { IMCPStdioAuthority, INodeHttpEgressOptions } from '@robota-sdk/agent-mcp/node';
 import type { IMcpClientComposition, IMcpHeadersHelperHost } from './mcp-client-composition.js';
 import type { TMCPUserAction, TMCPUserActionSurface } from '@robota-sdk/agent-command';
 
@@ -84,7 +82,7 @@ export interface IComposeMcpClientForStartupInput {
   /** Host execution capabilities supplied independently of settings. */
   readonly stdioAuthorities?: Readonly<Record<string, IMCPStdioAuthority>>;
   readonly approvalStore?: IMCPActivationApprovalStore;
-  readonly httpTransportDeps?: IMCPHttpTransportDeps;
+  readonly httpTransportDeps?: INodeHttpEgressOptions;
   readonly resultAdmissionLimits?: Pick<
     IToolResultAdmissionOptions,
     'warningChars' | 'hardChars' | 'repositoryMaxChars'
@@ -142,7 +140,24 @@ async function inspectRealWorkspaceTrust(
   identity: IWorkspaceIdentity,
   runtime: ICliRuntimeContext,
 ): Promise<IMcpWorkspaceTrustSnapshot> {
-  return createNodeWorkspaceTrustStore(userPaths(runtime).workspaceTrust).inspect(identity);
+  const endpoint = workspaceRootBrokerEndpoint(runtime);
+  let response;
+  try {
+    response = await requestWorkspaceRootBroker(endpoint, {
+      op: 'inspect', root: identity.worktreeRoot,
+    });
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'ENOENT' || code === 'ECONNREFUSED') {
+      return { state: 'untrusted', generation: 0 };
+    }
+    throw error;
+  }
+  if (response.status === 'trusted' || response.status === 'untrusted' ||
+      response.status === 'revoked' || response.status === 'stale/replaced') {
+    return { state: response.status, generation: response.generation };
+  }
+  throw new Error('Live workspace trust could not be confirmed.');
 }
 
 /**
@@ -316,7 +331,7 @@ export async function composeMcpClientForStartup(
     }),
     timeouts: buildMcpClientTimeouts(settings.callTimeoutMs),
     createResultSpillStore: () =>
-      createNodeToolResultSpillStore({
+      createProductToolResultSpillStore(input.productRuntime, {
         onCleanupFailure: (reason) =>
           input.reportDiagnostic(`MCP tool-result retention cleanup failed (${reason})`),
       }),

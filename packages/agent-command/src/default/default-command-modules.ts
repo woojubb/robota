@@ -6,7 +6,6 @@ import { createCompactCommandModule } from '../compact/index.js';
 import { createContextCommandModule } from '../context/index.js';
 import { createDevicesCommandModule } from '../devices/index.js';
 import { createDoctorCommandModule } from '../doctor/index.js';
-import { createEditorCommandModule } from '../editor/index.js';
 import { createAdvisorCommandModule } from '../advisor/index.js';
 import { createEffortCommandModule } from '../effort/index.js';
 import { createExitCommandModule } from '../exit/index.js';
@@ -15,6 +14,7 @@ import { createGitCommandModule } from '../git/index.js';
 import { createGoalCommandModule } from '../goal/index.js';
 import { createHandoffCommandModule } from '../handoff/index.js';
 import { createHelpCommandModule } from '../help/index.js';
+import { createKeyCustodyCommandModule } from '../key-custody/index.js';
 import { createKeybindingsCommandModule } from '../keybindings/index.js';
 import { createLanguageCommandModule } from '../language/index.js';
 import { createMCPActivationCommandModule } from '../mcp-activation/index.js';
@@ -36,32 +36,42 @@ import { createRewindCommandModule } from '../rewind/index.js';
 import { createScheduleCommandModule } from '../schedule/index.js';
 import { createSessionCommandModule } from '../session/index.js';
 import { createSettingsCommandModule } from '../settings/index.js';
-import { createShellCommandModule } from '../shell/index.js';
 import { createSkillsCommandModule } from '../skills/index.js';
 import { createStatusLineCommandModule } from '../statusline/index.js';
 import { createThemeCommandModule } from '../theme/index.js';
 import { createUserLocalCommandModule } from '../user-local/index.js';
 
 import type { IDevicesCommandPort } from '../devices/index.js';
-import type { IDoctorDisplayVocabulary, IDoctorInputs } from '../doctor/index.js';
-import type { IKeybindingsFilePort } from '../keybindings/index.js';
-import type { IProviderDefinition, TProviderCredentialResolver } from '@robota-sdk/agent-core';
+import type { IDoctorDeps, IDoctorDisplayVocabulary, IDoctorInputs } from '../doctor/index.js';
+import type { IKeyCustodyCommandPort } from '../key-custody/index.js';
+import type { IKeybindingsFilePort, TOpenFileInEditor } from '../keybindings/index.js';
+import type {
+  IFileSystemAsync,
+  IProviderDefinition,
+  TProviderCredentialResolver,
+} from '@robota-sdk/agent-core';
 import type {
   IOrgPolicy,
   IContributionSource,
+  IGitProcessPort,
   ISkillRootDescriptor,
   ICommandModule,
   IProviderCommandSettingsAdapter,
   IProviderConnectionHost,
   IUnknownCommandModuleName,
+  TProviderEnvironment,
 } from '@robota-sdk/agent-framework';
 import type { IThemeCataloguePort } from '@robota-sdk/agent-interface-command';
 
 export interface IDefaultCommandModulesOptions {
   cwd: string;
   userLocalStorageRoot: string;
-  /** Product-owned prefix for the interactive editor's temporary directory. */
-  editorTemporaryDirectoryPrefix?: string;
+  /**
+   * The files `/user-local` reads and writes its storage root through; a Node host passes
+   * `new NodeFileSystemAsync()` from `@robota-sdk/agent-framework/node`. Absent, `/user-local` is
+   * registered and says it is unavailable on this host.
+   */
+  userLocalFileSystem?: IFileSystemAsync;
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
   providerDefinitions: readonly IProviderDefinition[];
@@ -77,15 +87,21 @@ export interface IDefaultCommandModulesOptions {
   orgPolicy?: IOrgPolicy;
   /**
    * Where `/provider` and `/model` check a `$ENV:` or default credential variable: the host's startup
-   * snapshot when it withholds its own credentials from `process.env`. Absent, `process.env` is read.
+   * snapshot (a map) when it withholds its own credentials from `process.env`, or a resolver such as
+   * `host.env`. Absent, every reference reads as unset: the commands do not read `process.env`.
    */
-  providerEnvironment?: Readonly<Record<string, string | undefined>>;
+  providerEnvironment?: TProviderEnvironment;
   /** Host-owned connection acquisition and transactional credential persistence. */
   providerConnectionHost?: IProviderConnectionHost;
   /** Host-owned resolution of an opaque saved credential reference. */
   providerCredentialResolver?: TProviderCredentialResolver;
   /** Optional TUI-owned file capability; absent, `/keybindings` says it belongs to an interactive terminal. */
   keybindingsFilePort?: IKeybindingsFilePort;
+  /**
+   * How `/keybindings` opens that file in the user's editor; a Node host passes `openFileInEditor`
+   * from `@robota-sdk/agent-command/node`. Absent, `/keybindings` says it cannot open an editor here.
+   */
+  keybindingsEditor?: TOpenFileInEditor;
   /**
    * SCREEN-2002: the surface's theme catalogue. Absent (print mode, `--serve`), `/theme` is still
    * listed and says it belongs to an interactive terminal, which runs it when attached.
@@ -96,8 +112,24 @@ export interface IDefaultCommandModulesOptions {
    * Absence means `/devices` is not registered: without it the command could do nothing.
    */
   devicesPort?: IDevicesCommandPort;
+  /**
+   * The process's hold on the keys of secure conversations. Absence means `/unlock` and `/lock` are
+   * not registered: a process with secure mode off, or with no terminal to read a passphrase on, has
+   * no keys for them to open or drop.
+   */
+  keyCustodyPort?: IKeyCustodyCommandPort;
+  /**
+   * The process `/git` runs git through; a Node host passes `createGitProcess()` from
+   * `@robota-sdk/agent-framework/node`. Absent, `/git` is registered and says it is unavailable on this host.
+   */
+  gitProcess?: IGitProcessPort;
   /** OBSERVABILITY-1991: host-composed doctor inputs; absence means `/doctor` is not registered. */
   doctorInputs?: IDoctorInputs;
+  /**
+   * The probes and writers `/doctor` runs through; a Node host passes `createNodeDoctorDeps` from
+   * `@robota-sdk/agent-command/node`. Absent, `/doctor` is registered and says it is unavailable.
+   */
+  doctorDeps?: IDoctorDeps;
   /** Product-owned diagnostic wording; absent keeps `/doctor` product-neutral. */
   doctorDisplay?: IDoctorDisplayVocabulary;
   /** Product-owned command to resume a saved fork; absent yields neutral host guidance. */
@@ -147,17 +179,21 @@ export interface IDefaultCommandModulesResult {
 export function createDefaultCommandModules({
   cwd: _cwd,
   userLocalStorageRoot,
-  editorTemporaryDirectoryPrefix,
+  userLocalFileSystem,
   contributionSources,
   skillRoots,
   providerDefinitions,
   providerSettingsAdapter,
   orgPolicy,
   keybindingsFilePort,
+  keybindingsEditor,
   themeCataloguePort,
   devicesPort,
+  keyCustodyPort,
   doctorInputs,
+  doctorDeps,
   doctorDisplay,
+  gitProcess,
   formatForkResumeCommand,
   loopOptions,
   enabledCommandModules,
@@ -184,17 +220,15 @@ export function createDefaultCommandModules({
     createForkCommandModule(formatForkResumeCommand),
     createGoalCommandModule(),
     createPlanCommandModule(),
-    createShellCommandModule(),
-    createEditorCommandModule(editorTemporaryDirectoryPrefix),
-    createGitCommandModule(),
-    createKeybindingsCommandModule(keybindingsFilePort),
+    createGitCommandModule({ port: gitProcess }),
+    createKeybindingsCommandModule(keybindingsFilePort, keybindingsEditor),
     createThemeCommandModule(themeCataloguePort),
     ...(doctorInputs === undefined
       ? []
-      : [createDoctorCommandModule(doctorInputs, undefined, doctorDisplay)]),
+      : [createDoctorCommandModule(doctorInputs, doctorDeps, doctorDisplay)]),
     createMemoryCommandModule(),
     createMCPActivationCommandModule(),
-    createUserLocalCommandModule(userLocalStorageRoot),
+    createUserLocalCommandModule(userLocalStorageRoot, userLocalFileSystem),
     createCompactCommandModule(),
     createContextCommandModule(),
     createExitCommandModule(),
@@ -213,6 +247,7 @@ export function createDefaultCommandModules({
     createHandoffCommandModule(),
     createRemoteControlCommandModule(),
     ...(devicesPort === undefined ? [] : [createDevicesCommandModule(devicesPort)]),
+    ...(keyCustodyPort === undefined ? [] : [createKeyCustodyCommandModule(keyCustodyPort)]),
     createProviderCommandModule({
       providerDefinitions,
       settings: providerSettingsAdapter,

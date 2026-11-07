@@ -94,7 +94,29 @@ export interface ISubagentWorkerStartPayload {
   logsDir?: string;
   /** The owner opted the provider credential variable in for commands; the worker keeps it. */
   keepProviderCredential?: true;
+  /**
+   * The parent seals: its sealer's write grant, which the child binds before it builds anything and
+   * seals its log (and a resumed record) with. Not a secret — it seals and opens nothing — and the
+   * child never reads a keyring of its own. Absent ⇒ the parent keeps its logs plain.
+   */
+  writeGrant?: string;
+  /**
+   * A sealing parent's fork job: the record the parent holds for `request.resumeSessionId`, as the
+   * opaque token its store exported. It crosses because a child never holds the keys that open a
+   * sealed record; it carries the conversation, so only here and never on the request, and at most
+   * {@link RESUME_HELD_MAX_CHARACTERS} characters.
+   */
+  resumeHeld?: string;
+  /**
+   * A fork job, in either mode: the nonce of the lease the parent lent `request.resumeSessionId`
+   * under. The child claims the record with it, taking the parent's writer marker over, so the record
+   * has one writer while the child runs. Not the conversation; it rides only beside the id it resumes.
+   */
+  resumeLease?: string;
 }
+
+/** The most token characters a held record may take on the wire; a larger one fails the job before spawning. */
+export const RESUME_HELD_MAX_CHARACTERS = 32 * 1024 * 1024;
 
 export interface ISubagentWorkerStartMessage {
   type: 'start';
@@ -115,6 +137,16 @@ export interface ISubagentWorkerCancelMessage {
 export interface ISubagentWorkerSandboxSettingsMessage {
   type: 'sandbox_settings';
   settings: TParentSandboxSettings;
+}
+
+/**
+ * The key a sealing parent seals to was verified or changed while the child runs (its first unlock
+ * found the key the child was started with to be another): the child seals to the new grant's key
+ * from now on.
+ */
+export interface ISubagentWorkerSealingKeyMessage {
+  type: 'sealing_key';
+  grant: string;
 }
 
 /**
@@ -140,6 +172,7 @@ export type TSubagentWorkerParentMessage =
   | ISubagentWorkerSendMessage
   | ISubagentWorkerCancelMessage
   | ISubagentWorkerSandboxSettingsMessage
+  | ISubagentWorkerSealingKeyMessage
   | ISubagentWorkerPermissionResponseMessage;
 
 export interface ISubagentWorkerReadyMessage {
@@ -189,16 +222,35 @@ export interface ISubagentWorkerResultMessage {
   output: string;
   /** ANALYTICS-001 (Phase 2): total token usage of the subagent run, forwarded to the parent. */
   usage?: ISessionUsageTotals;
+  /**
+   * A save of the fork record this job was handed was refused, because something the child cannot
+   * verify changed the file. Sent only by a child that was handed a record (`resumeHeld`).
+   */
+  recordSaveRefused?: true;
 }
 
 export interface ISubagentWorkerErrorMessage {
   type: 'error';
   message: string;
+  /** As on {@link ISubagentWorkerResultMessage}: the job ended after a save of its fork record was refused. */
+  recordSaveRefused?: true;
 }
 
 export interface ISubagentWorkerCancelledMessage {
   type: 'cancelled';
   reason?: string;
+}
+
+/**
+ * #3679: a child handed a sealed record (`resumeHeld`) says, after each save of it, which stored bytes
+ * it wrote — the only bytes its parent may then vouch for as the owner's, once the child is gone. A
+ * parent that handed no record over takes it as a message it did not ask for.
+ */
+export interface ISubagentWorkerRecordSavedMessage {
+  type: 'record_saved';
+  sessionId: string;
+  /** The SHA-256 (lowercase hex) of the stored bytes the save wrote. */
+  sha256: string;
 }
 
 export type TSubagentWorkerChildMessage =
@@ -209,7 +261,8 @@ export type TSubagentWorkerChildMessage =
   | ISubagentWorkerPermissionRequestMessage
   | ISubagentWorkerResultMessage
   | ISubagentWorkerErrorMessage
-  | ISubagentWorkerCancelledMessage;
+  | ISubagentWorkerCancelledMessage
+  | ISubagentWorkerRecordSavedMessage;
 
 function isRecord(value: TSubagentWorkerWireValue): value is TSubagentWorkerWireRecord {
   return typeof value === 'object' && value !== null;
@@ -285,6 +338,29 @@ function hasValidOptionalComposedToolNames(value: TSubagentWorkerWireRecord): bo
   return names.every((name) => typeof name === 'string');
 }
 
+/** A present string member must be a non-empty one. */
+function hasOptionalNonEmptyString(value: TSubagentWorkerWireRecord, key: string): boolean {
+  const member = value[key];
+  return member === undefined || (typeof member === 'string' && member.length > 0);
+}
+
+/**
+ * #3679: the grant is a non-empty string; a fork job carries the lease it claims its record with,
+ * and only a fork job does; and a held record is one within its bound that rides only beside the id
+ * it resumes — a record with no id to resume is a payload that put the conversation where nothing
+ * reads it, and the worker must not guess.
+ */
+function hasValidSealingFields(value: TSubagentWorkerWireRecord): boolean {
+  if (!hasOptionalNonEmptyString(value, 'writeGrant')) return false;
+  if (!hasOptionalNonEmptyString(value, 'resumeLease')) return false;
+  const resumes = isRecord(value.request) && hasRequestString(value.request, 'resumeSessionId');
+  if ((value.resumeLease !== undefined) !== resumes) return false;
+  if (value.resumeHeld === undefined) return true;
+  if (!hasOptionalNonEmptyString(value, 'resumeHeld')) return false;
+  if ((value.resumeHeld as string).length > RESUME_HELD_MAX_CHARACTERS) return false;
+  return isRecord(value.request) && hasRequestString(value.request, 'resumeSessionId');
+}
+
 function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWorkerStartPayload {
   if (!isRecord(value)) return false;
   if (!hasPayloadString(value, 'taskId')) return false;
@@ -320,6 +396,7 @@ function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWork
   if (value.parentSandboxSettings !== undefined && !isRecord(value.parentSandboxSettings)) {
     return false;
   }
+  if (!hasValidSealingFields(value)) return false;
   return isConnectionCheck(value.connectionCheck);
 }
 
@@ -336,11 +413,34 @@ export function isSubagentWorkerParentMessage(
       return value.reason === undefined || typeof value.reason === 'string';
     case 'sandbox_settings':
       return isRecord(value.settings);
+    case 'sealing_key':
+      return hasString(value, 'grant') && (value.grant as string).length > 0;
     case 'permission_response':
       return hasString(value, 'requestId') && isPermissionResult(value.result);
     default:
       return false;
   }
+}
+
+const SHA256_HEX = /^[0-9a-f]{64}$/;
+const RECORD_SAVED_KEYS = ['sessionId', 'sha256', 'type'];
+
+/** Exactly a {@link ISubagentWorkerRecordSavedMessage}: these three members and nothing else. */
+function isRecordSavedMessage(value: TSubagentWorkerWireRecord): boolean {
+  const keys = Object.keys(value).sort();
+  return (
+    keys.length === RECORD_SAVED_KEYS.length &&
+    keys.every((key, index) => key === RECORD_SAVED_KEYS[index]) &&
+    hasString(value, 'sessionId') &&
+    (value.sessionId as string).length > 0 &&
+    typeof value.sha256 === 'string' &&
+    SHA256_HEX.test(value.sha256)
+  );
+}
+
+/** `recordSaveRefused` is absent or exactly `true`. */
+function hasValidRefusalFlag(value: TSubagentWorkerWireRecord): boolean {
+  return value.recordSaveRefused === undefined || value.recordSaveRefused === true;
 }
 
 /** A `TSubagentWorkerPermissionResult`: the same three-way answer the session layer allows. */
@@ -364,11 +464,15 @@ export function isSubagentWorkerChildMessage(
     case 'permission_request':
       return hasString(value, 'requestId') && hasString(value, 'toolName');
     case 'result':
-      return hasString(value, 'output') && hasValidOptionalUsage(value);
+      return (
+        hasString(value, 'output') && hasValidOptionalUsage(value) && hasValidRefusalFlag(value)
+      );
     case 'error':
-      return hasString(value, 'message');
+      return hasString(value, 'message') && hasValidRefusalFlag(value);
     case 'cancelled':
       return value.reason === undefined || typeof value.reason === 'string';
+    case 'record_saved':
+      return isRecordSavedMessage(value);
     default:
       return false;
   }

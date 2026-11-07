@@ -1,8 +1,9 @@
 /**
  * Hook runner — executes hooks for lifecycle events using the strategy pattern.
  *
- * Dispatches to registered IHookTypeExecutor implementations by definition type.
- * Default executors: CommandExecutor (shell), HttpExecutor (HTTP POST).
+ * Dispatches to the IHookTypeExecutor implementations the caller registers, by definition type.
+ * There are no default executors: the shell and HTTP executors are Node-only
+ * (`@robota-sdk/agent-core/node`), so the composition root that has a host supplies them.
  *
  * Outcome semantics (SEC-015). Executors return a decoded `THookOutcome`, not an exit code:
  * - `allow` → its stdout is decoded for the response protocol below
@@ -44,30 +45,6 @@ interface ICommandHookTraceExecutor {
     input: IHookInput,
     traceEnv: ISubprocessTraceEnv,
   ): Promise<THookOutcome>;
-}
-
-/**
- * The default executors, loaded only when a caller supplies none (CORE-028).
- *
- * `CommandExecutor` imports `node:child_process`, and a STATIC import of it here put that specifier
- * into the browser build — which declares a `browser` export condition and cannot provide it. The
- * aliasing workaround made that worse rather than better: `child_process` resolved to an empty
- * object, so a build-time contract violation became a deferred `TypeError` in a user's page.
- *
- * A dynamic import keeps them out of the browser graph while leaving Node behaviour identical: this
- * function is reached only on the branch where the caller passed no executors, and `runHooks` was
- * already async, so nothing above changes shape. A browser caller that supplies its own executors
- * never loads them at all; one that does not gets the same failure it would get from
- * `node:child_process` itself, which is the honest outcome rather than a silent empty object.
- */
-async function createDefaultExecutors(): Promise<IHookTypeExecutor[]> {
-  const [{ CommandExecutor }, { HttpExecutor }] = await Promise.all([
-    // eslint-disable-next-line no-restricted-syntax -- CORE-028: keeps `node:child_process` out of the browser build's static graph
-    import('./executors/command-executor.js'),
-    // eslint-disable-next-line no-restricted-syntax -- CORE-028: loaded on the same branch as its sibling above
-    import('./executors/http-executor.js'),
-  ]);
-  return [new CommandExecutor(), new HttpExecutor()];
 }
 
 /** Result of running hooks for an event. */
@@ -115,14 +92,14 @@ export interface IRunHooksResult {
  * @param config - Hooks configuration mapping events to hook groups
  * @param event - The lifecycle event being fired
  * @param input - Hook input data passed to executors
- * @param executors - Optional array of hook type executors (defaults to command + http)
+ * @param executors - The hook type executors to dispatch to; a hook whose type has none is reported in `unknownHookTypes`
  * @param traceEnv - The prompt's trace for command hook children, when the host enabled it
  */
 export async function runHooks(
   config: THooksConfig | undefined,
   event: THookEvent,
   input: IHookInput,
-  executors?: IHookTypeExecutor[],
+  executors: readonly IHookTypeExecutor[],
   traceEnv?: ISubprocessTraceEnv,
 ): Promise<IRunHooksResult> {
   if (!config) return { blocked: false, stdout: '' };
@@ -144,9 +121,8 @@ export async function runHooks(
   const groups = config[event];
   if (!groups || groups.length === 0) return { blocked: false, stdout: '' };
 
-  const resolvedExecutors = executors ?? (await createDefaultExecutors());
   const executorMap = new Map<string, IHookTypeExecutor>();
-  for (const executor of resolvedExecutors) {
+  for (const executor of executors) {
     executorMap.set(executor.type, executor);
   }
 

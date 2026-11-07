@@ -5,6 +5,8 @@
  * and every close — insert, execute or cancel — aborts it. Blocks arrive newest-first and are appended
  * as they land, so the first frame shows the newest prompts before the rest of the file is read. The
  * `session` scope never touches the file: it is the live prompt list the composer already holds.
+ * Sealed prompts the source could not open are counted as blocks land, so the overlay can say how
+ * many there are and whether an unlock would let it search them.
  *
  * The composer's draft is restored by construction, not by copying: the overlay never writes the
  * input while it is open, so a cancel leaves text and cursor exactly as they were.
@@ -45,6 +47,12 @@ export interface IUseHistorySearchOptions {
   readonly onOpenChange?: ((open: boolean) => void) | undefined;
 }
 
+/** Sealed prompts read so far that this process cannot open: `locked` until an unlock, `noKeys` here at all. */
+export interface IHistorySearchUnreadable {
+  readonly locked: number;
+  readonly noKeys: number;
+}
+
 export interface IHistorySearchView {
   readonly open: boolean;
   readonly query: string;
@@ -53,15 +61,44 @@ export interface IHistorySearchView {
   readonly matches: readonly IHistorySearchMatch[];
   readonly loading: boolean;
   readonly skippedLines: number;
+  readonly unreadable: IHistorySearchUnreadable;
   readonly error: string | undefined;
 }
 
-interface ILoadedState {
-  readonly entries: readonly IPromptHistoryEntry[];
-  readonly skippedLines: number;
+/** What one open has read so far, appended in place as blocks land so no block copies the ones before it. */
+interface ILoadAccumulator {
+  readonly entries: IPromptHistoryEntry[];
+  skippedLines: number;
+  locked: number;
+  noKeys: number;
 }
 
-const EMPTY_LOADED: ILoadedState = { entries: [], skippedLines: 0 };
+/**
+ * A published view of the accumulator. `entries` is the accumulator's own array, which keeps
+ * growing; `count` is how much of it this snapshot shows, so a render between two publishes never
+ * shows a block that was not published yet.
+ */
+interface ILoadedState {
+  readonly entries: readonly IPromptHistoryEntry[];
+  readonly count: number;
+  readonly skippedLines: number;
+  readonly unreadable: IHistorySearchUnreadable;
+}
+
+function emptyAccumulator(): ILoadAccumulator {
+  return { entries: [], skippedLines: 0, locked: 0, noKeys: 0 };
+}
+
+function snapshotOf(accumulator: ILoadAccumulator): ILoadedState {
+  return {
+    entries: accumulator.entries,
+    count: accumulator.entries.length,
+    skippedLines: accumulator.skippedLines,
+    unreadable: { locked: accumulator.locked, noKeys: accumulator.noKeys },
+  };
+}
+
+const EMPTY_LOADED: ILoadedState = snapshotOf(emptyAccumulator());
 
 function isPrintable(input: string, key: IKeyInput): boolean {
   const special =
@@ -95,7 +132,8 @@ interface ILoader {
 interface ILoaderRun {
   readonly source: IPromptHistorySource;
   readonly signal: AbortSignal;
-  readonly pending: { current: ILoadedState };
+  /** This open's own accumulator: a cancelled read can never add to the next open's. */
+  readonly accumulator: ILoadAccumulator;
   readonly publishEachBlock: boolean;
   readonly publish: () => void;
   readonly setError: (message: string) => void;
@@ -110,12 +148,13 @@ const yieldToTerminal = (): Promise<void> => new Promise((resolve) => setImmedia
 
 async function runLoader(run: ILoaderRun): Promise<void> {
   try {
+    const { accumulator } = run;
     for await (const block of run.source.read({ signal: run.signal })) {
       if (run.signal.aborted) return;
-      run.pending.current = {
-        entries: [...run.pending.current.entries, ...block.entries],
-        skippedLines: run.pending.current.skippedLines + block.skippedLines,
-      };
+      for (const entry of block.entries) accumulator.entries.push(entry);
+      accumulator.skippedLines += block.skippedLines;
+      accumulator.locked += block.unreadable?.locked ?? 0;
+      accumulator.noKeys += block.unreadable?.noKeys ?? 0;
       if (run.publishEachBlock) {
         run.publish();
         await yieldToTerminal();
@@ -138,8 +177,8 @@ function useHistoryLoader(
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | undefined>(undefined);
   const controller = useRef<AbortController | undefined>(undefined);
-  const pending = useRef<ILoadedState>(EMPTY_LOADED);
-  const publish = useCallback(() => setLoaded(pending.current), []);
+  const pending = useRef<ILoadAccumulator>(emptyAccumulator());
+  const publish = useCallback(() => setLoaded(snapshotOf(pending.current)), []);
   const stop = useCallback(() => {
     controller.current?.abort();
     controller.current = undefined;
@@ -147,7 +186,8 @@ function useHistoryLoader(
   }, []);
   const start = useCallback(() => {
     stop();
-    pending.current = EMPTY_LOADED;
+    const accumulator = emptyAccumulator();
+    pending.current = accumulator;
     setLoaded(EMPTY_LOADED);
     setError(undefined);
     if (surface === undefined) return;
@@ -157,7 +197,7 @@ function useHistoryLoader(
     void runLoader({
       source: surface.source,
       signal: own.signal,
-      pending,
+      accumulator,
       publishEachBlock: !screenReader,
       publish,
       setError,
@@ -224,7 +264,7 @@ function useCandidates(
   surface: IHistorySearchSurface | undefined,
   scope: THistorySearchScope,
   sessionPrompts: readonly string[],
-  entries: readonly IPromptHistoryEntry[],
+  loaded: ILoadedState,
 ): IPromptHistoryEntry[] {
   // Keyed on the surface's values, not its identity: the app rebuilds the object every render.
   const sessionId = surface?.sessionId;
@@ -232,12 +272,16 @@ function useCandidates(
   return useMemo(() => {
     if (!open || sessionId === undefined || project === undefined) return [];
     const context = { sessionId, project };
+    const published =
+      loaded.count === loaded.entries.length
+        ? loaded.entries
+        : loaded.entries.slice(0, loaded.count);
     const scoped =
       scope === 'session'
         ? liveEntries(sessionPrompts, context)
-        : entries.filter((entry) => inScope(entry, scope, context));
+        : published.filter((entry) => inScope(entry, scope, context));
     return collapseToNewest(scoped);
-  }, [entries, open, project, scope, sessionId, sessionPrompts]);
+  }, [loaded, open, project, scope, sessionId, sessionPrompts]);
 }
 
 interface IQueryState {
@@ -308,13 +352,7 @@ export function useHistorySearch(options: IUseHistorySearchOptions): {
     options.onOpenChange,
   );
 
-  const candidates = useCandidates(
-    open,
-    surface,
-    scope,
-    options.sessionPrompts,
-    loader.loaded.entries,
-  );
+  const candidates = useCandidates(open, surface, scope, options.sessionPrompts, loader.loaded);
   const matches = useMemo(() => filterPrompts(candidates, query), [candidates, query]);
   const selected = Math.min(state.selectedIndex, Math.max(0, matches.length - 1));
   useHistorySearchKeys({
@@ -332,5 +370,9 @@ export function useHistorySearch(options: IUseHistorySearchOptions): {
 
   const { loading, error, loaded } = loader;
   const view = { ...state, open, selectedIndex: selected, matches, loading, error };
-  return { view: { ...view, skippedLines: loaded.skippedLines }, openSearch, closeSearch };
+  return {
+    view: { ...view, skippedLines: loaded.skippedLines, unreadable: loaded.unreadable },
+    openSearch,
+    closeSearch,
+  };
 }

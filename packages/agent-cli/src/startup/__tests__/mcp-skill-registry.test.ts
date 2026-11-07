@@ -9,10 +9,11 @@ import {
   InMemoryMCPActivationApprovalStore,
   MCPDefinitionRegistry,
 } from '@robota-sdk/agent-mcp';
+import { createNodeHttpEgress } from '@robota-sdk/agent-mcp/node';
 import { createMemoryMcpSkillApprovalStore, McpSkillRegistry } from '../mcp-skill-registry.js';
 import { createMcpClientComposition } from '../mcp-client-composition.js';
 import { executeMCPActivationCommand } from '@robota-sdk/agent-command';
-import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
+import { createTestCommandHost, createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -20,6 +21,8 @@ import { createFileMcpSkillApprovalStore } from '../mcp-skill-approval-file-stor
 import { buildCommandSetup } from '../command-setup.js';
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
 import { parseCliArgs } from '../../utils/cli-args.js';
+
+const testHost = createTestFrameworkHost();
 
 const uri = 'skill://same/demo/SKILL.md';
 const childUri = 'skill://same/demo/child/SKILL.md';
@@ -173,7 +176,7 @@ async function fixture(serverId = 'server-a', viaComposition = false) {
   }
   const admitted = await admitHttpEndpoint(
     { url: `http://127.0.0.1:${address.port}` },
-    { policy: { allowedHosts: ['127.0.0.1'] } },
+    { egress: createNodeHttpEgress({ policy: { allowedHosts: ['127.0.0.1'] } }) },
   );
   if (!admitted.ok) throw new Error(admitted.reason);
   const session = await openMcpSession({
@@ -239,6 +242,7 @@ it('routes discovered approved MCP instructions into actual user and model turns
     '0.0.0-test',
   );
   const session = new InteractiveSession({
+    host: testHost,
     cwd: directory,
     commandHostAdapters: setup.commandHostAdapters,
     commandModules: setup.baseCommandModules,

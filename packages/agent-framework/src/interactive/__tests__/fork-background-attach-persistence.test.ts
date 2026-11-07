@@ -10,10 +10,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { NodeSessionStore } from '@robota-sdk/agent-session';
+import { NodeSessionStore } from '@robota-sdk/agent-session/node';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createAgentRuntime } from '../../runtime/session-runtime.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
+
+const testHost = createTestFrameworkHost();
 
 const PARENT_ID = 'session_cli-1994-parent';
 const FORK_ID = 'session_cli-1994-fork';
@@ -30,7 +33,7 @@ describe('background fork persistence for attach (BEHAVIOR-2675)', () => {
 
   it('updates the fork record while leaving the parent record separate', async () => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'agent-2675-')));
-    const store = new NodeSessionStore(join(cwd, 'sessions'));
+    const store = new NodeSessionStore(join(cwd, 'sessions'), { sealing: 'plain' });
     const copiedMessages = [
       {
         id: 'copied-user',
@@ -59,6 +62,7 @@ describe('background fork persistence for attach (BEHAVIOR-2675)', () => {
     const parentBefore = store.load(PARENT_ID);
     const scripted = createScriptedProvider([{ text: RESPONSE }]);
     const runtime = createAgentRuntime({
+      host: testHost,
       cwd,
       provider: scripted.provider,
       sessionStore: store,

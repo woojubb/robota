@@ -19,10 +19,11 @@ import { join } from 'node:path';
 
 import { pluginScopeDirs } from '../plugins/default-plugin-command-source-loader.js';
 import { productUserSettingsPath } from '../product/user-settings.js';
+import { loadHostBundlePluginsFromScopes } from '@robota-sdk/agent-framework';
 import {
   createNodeHostContributionSource,
-  loadHostBundlePluginsFromScopes,
-} from '@robota-sdk/agent-framework';
+  NodeFileSystem,
+} from '@robota-sdk/agent-framework/node';
 import {
   escapeThemeText,
   parseThemeDocument,
@@ -174,6 +175,7 @@ function installedPlugins(
   try {
     return loadHostBundlePluginsFromScopes(scopes, {
       settingsPath: productUserSettingsPath(runtime),
+      fs: new NodeFileSystem(),
     }).map((plugin) => ({
       name: plugin.manifest.name,
       pluginDir: plugin.pluginDir,

@@ -1,10 +1,16 @@
 import {
+  SessionAuthorshipRefusedError,
   buildRuntimeSession,
+  isSessionAuthorshipRefusedError,
   isSessionBusy,
-  listUnreadableSessionsForWorkspace,
+  lockedSessionMessage,
+  lockedSessionReason,
   restoredScheduleDisposition,
+  scanSessionStore,
+  claimedSessionMessage,
   SessionSlot,
 } from '@robota-sdk/agent-framework';
+import { isSessionClaimedError } from '@robota-sdk/agent-session';
 import { createAcpTransport } from '@robota-sdk/agent-transport-acp';
 
 import { runAcpSlashCommand } from './acp-command-port.js';
@@ -14,7 +20,7 @@ import { shutdownSession } from './session-shutdown.js';
 import type { IEditorFileSlot } from '../product/editor-file-slot.js';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 import type {
-  EditCheckpointStore,
+  IEditCheckpointStore,
   InteractiveSession,
   TInteractiveSessionOptions,
 } from '@robota-sdk/agent-framework';
@@ -33,7 +39,7 @@ export interface IAcpModeOptions {
   readonly output: Writable;
   readonly admitWorkspace: () => TAcpWorkspaceAdmission;
   /** Builds a loaded session's own edit checkpoint store, as each served session has its own. */
-  readonly createEditCheckpointStore?: () => EditCheckpointStore;
+  readonly createEditCheckpointStore?: () => IEditCheckpointStore;
   /** Where the session's file tools look for the editor's file system; the transport fills it. */
   readonly editorFiles?: IEditorFileSlot;
 }
@@ -69,6 +75,19 @@ function runsOnItsOwn(
   );
 }
 
+/** What `session/load` says of a stored session that would start work on its own once loaded. */
+function runsOnItsOwnMessage(sessionId: string): string {
+  return (
+    `Session ${sessionId} has a goal, loop or schedule that would run on its own; ` +
+    'resume it in the terminal to stop that first.'
+  );
+}
+
+/** A load refused while the session was being built from its claimed record. Fixed text only. */
+class AcpLoadRefusedError extends Error {
+  override readonly name = 'AcpLoadRefusedError';
+}
+
 interface ISessionLoader {
   readonly load: (sessionId: string) => Promise<TAcpSessionLoad>;
   /** Stop accepting loads and wait for one in progress, so teardown shuts the session it left current. */
@@ -97,31 +116,61 @@ function createSessionLoader(
     if (isSessionBusy(slot.current)) {
       return refuse('The current session has work in progress; load another once it finishes.');
     }
-    if (listUnreadableSessionsForWorkspace(store, options.cwd).some((e) => e.id === sessionId)) {
+    // One read of the store decides it: a listed entry says everything, and only an id the listing
+    // does not show is probed, since a sealed session whose keys are locked is not listed.
+    const outcome = scanSessionStore(store).entries.find(
+      (entry) => entry.id === sessionId,
+    )?.outcome;
+    if (
+      (outcome?.status === 'corrupt' || outcome?.status === 'unsupported') &&
+      outcome.cwd === options.cwd
+    ) {
       return refuse(`Session ${sessionId} was saved in a form this version cannot read.`);
     }
-    const record = store
-      .list()
-      .flatMap((entry) => (entry.outcome.status === 'valid' ? [entry.outcome.record] : []))
-      .find((candidate) => candidate.id === sessionId && candidate.cwd === options.cwd);
+    const lockedReason = outcome === undefined ? lockedSessionReason(store, sessionId) : undefined;
+    if (lockedReason !== undefined) return refuse(lockedSessionMessage(sessionId, lockedReason));
+    const record =
+      outcome?.status === 'valid' && outcome.record.cwd === options.cwd
+        ? outcome.record
+        : undefined;
     if (record === undefined) return refuse(`No session ${sessionId} in this workspace.`);
-    if (runsOnItsOwn(record, Date.now(), options.sessionOptions.disableSessionLoops ?? false)) {
-      return refuse(
-        `Session ${sessionId} has a goal, loop or schedule that would run on its own; ` +
-          'resume it in the terminal to stop that first.',
-      );
+    // An editor has no way yet to ask whether a record nobody vouched for is the owner's.
+    if (outcome?.status === 'valid' && outcome.authorship === 'unverified') {
+      return refuse(new SessionAuthorshipRefusedError(sessionId, 'unverified').message);
     }
-    const next = buildRuntimeSession(
-      buildPooledSessionOptions(
-        options.sessionOptions,
-        { createEditCheckpointStore: options.createEditCheckpointStore },
-        sessionId,
-      ),
-    );
+    const disableSessionLoops = options.sessionOptions.disableSessionLoops ?? false;
+    if (runsOnItsOwn(record, Date.now(), disableSessionLoops))
+      return refuse(runsOnItsOwnMessage(sessionId));
+    let next: InteractiveSession;
+    try {
+      next = buildRuntimeSession({
+        ...buildPooledSessionOptions(
+          options.sessionOptions,
+          { createEditCheckpointStore: options.createEditCheckpointStore },
+          sessionId,
+        ),
+        // The listing above was a look at the file; the record the session restores from is the
+        // claim's own read, and it is judged again on that.
+        checkRestoredRecord: (restored) => {
+          if (runsOnItsOwn(restored, Date.now(), disableSessionLoops)) {
+            throw new AcpLoadRefusedError(runsOnItsOwnMessage(sessionId));
+          }
+        },
+      });
+    } catch (error) {
+      // The session this connection just left still holds the record while it shuts down, or a
+      // subagent of a fork runs on it: the store's words say which.
+      if (isSessionClaimedError(error)) return refuse(claimedSessionMessage(error));
+      if (error instanceof AcpLoadRefusedError || isSessionAuthorshipRefusedError(error)) {
+        return refuse(error.message);
+      }
+      throw error;
+    }
     try {
       await next.whenInitialized();
     } catch (error) {
       await shutdownSession(next, 'ACP session load failed', 'ACP');
+      if (isSessionClaimedError(error)) return refuse(claimedSessionMessage(error));
       throw error;
     }
     // The editor went away while the stored session started: it is not served, so it is shut down.

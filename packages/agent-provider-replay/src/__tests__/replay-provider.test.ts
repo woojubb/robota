@@ -6,10 +6,8 @@ import { join } from 'node:path';
 import { describe, it, expect } from 'vitest';
 
 import { ReplayProvider } from '../replay-provider.js';
-import {
-  NodeExternalPayloadSource,
-  SessionLogPayloadResolutionError,
-} from '@robota-sdk/agent-session';
+import { SessionLogPayloadResolutionError } from '@robota-sdk/agent-session';
+import { NodeExternalPayloadSource } from '@robota-sdk/agent-session/node';
 
 interface IRecordedToolCall {
   id: string;
@@ -221,7 +219,7 @@ describe('ReplayProvider (INFRA-017)', () => {
 
         const provider = new ReplayProvider({
           entries,
-          externalPayloadSource: new NodeExternalPayloadSource(baseDirectory),
+          externalPayloadSource: new NodeExternalPayloadSource(baseDirectory, { sealing: 'plain' }),
         });
 
         await expect(provider.chat([])).resolves.toEqual(

@@ -16,16 +16,17 @@
  * demonstrably executed, stdout carried zero lines mentioning `tool`. Deriving `toolCalls()` from
  * stdout therefore returned `[]` for a run whose tool ran, so the binary fidelity disagreed with the
  * in-process one SILENTLY, by returning an empty array rather than failing. The record the run writes
- * carries the calls and their results, so that is what this reads. `appendStreamJsonLine` is
- * unchanged: stdout keeps meaning exactly what it means today.
+ * carries the calls and their results, so that is what this reads — through the same session store
+ * the product builds (#3679), never by parsing the file, so the driver reads a record exactly as the
+ * product would, sealed or not. `appendStreamJsonLine` is unchanged: stdout keeps meaning exactly
+ * what it means today.
  */
 
 import { childProductEnvironment } from '../product/child-environment.js';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
+import { createProductUserSessionStore } from '../product/session-stores.js';
 
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
@@ -37,6 +38,7 @@ import {
 
 import type {
   IAgentDriver,
+  IInteractiveSessionStore,
   IToolCallObservation,
   InteractionEvent,
 } from '@robota-sdk/agent-interface-session';
@@ -147,19 +149,24 @@ function parseToolArguments(raw: string | undefined): IToolCallObservation['args
  * If the record is absent — session persistence off, or a trusted project that stores elsewhere —
  * no tool event is appended. That is the accurate answer and NOT a fallback: the record is the
  * source, and stdout is not a substitute for it (SEC-022 `## Fallback & Degradation Declaration`).
+ * A record that is there and cannot be read is an `error` event, not an empty list.
  */
 function appendRecordedToolEvents(
-  sessionsDirectory: string,
+  store: IInteractiveSessionStore,
   sessionId: string | undefined,
   events: InteractionEvent[],
 ): void {
-  if (sessionId === undefined || sessionsDirectory.length === 0) return;
-  const file = join(sessionsDirectory, `${sessionId}.json`);
-  if (!existsSync(file)) return;
-  const envelope = JSON.parse(readFileSync(file, 'utf8')) as {
-    record?: { messages?: readonly IRecordedMessage[] };
-  };
-  for (const message of envelope.record?.messages ?? []) {
+  if (sessionId === undefined) return;
+  const outcome = store.load(sessionId);
+  if (outcome.status === 'missing') return;
+  if (outcome.status !== 'valid') {
+    events.push({
+      type: 'error',
+      error: new Error(`The run's session record could not be read (${outcome.status}).`),
+    });
+    return;
+  }
+  for (const message of outcome.record.messages as readonly IRecordedMessage[]) {
     if (message.role === 'assistant' && Array.isArray(message.toolCalls)) {
       for (const call of message.toolCalls) {
         events.push({
@@ -185,8 +192,8 @@ export function createBinaryAgentDriver(options: ICreateBinaryAgentDriverOptions
   const events: InteractionEvent[] = [];
   const binPath = options.binPath ?? DEFAULT_BIN;
   const childEnv = { ...childProductEnvironment(options.productRuntime), ...options.env };
-  // Where the run's own record lands: `the configured user root/sessions` is resolved from the CHILD's HOME.
-  const sessionsDirectory = options.productRuntime.layout.userPaths.sessions;
+  // Where the run's own record lands: the user store of the runtime the CHILD resolves from its HOME.
+  const sessionStore = createProductUserSessionStore(options.productRuntime);
 
   const runPrint = (text: string): Promise<void> =>
     new Promise<void>((resolve, reject) => {
@@ -215,7 +222,7 @@ export function createBinaryAgentDriver(options: ICreateBinaryAgentDriverOptions
         // Tool events first, then the stdout-derived ones: in `-p` print mode only the FINAL
         // assistant text reaches stdout, so its `assistant-done` terminates the turn and every tool
         // the record carries ran before it.
-        appendRecordedToolEvents(sessionsDirectory, readSessionId(stdout), events);
+        appendRecordedToolEvents(sessionStore, readSessionId(stdout), events);
         for (const line of stdout.split('\n')) appendStreamJsonLine(line, events);
         resolve();
       });

@@ -15,12 +15,14 @@ import {
   selectCommandModules,
 } from '@robota-sdk/agent-framework';
 import { TransportRegistry, bindTransportAdapter } from '@robota-sdk/agent-framework';
+import { createFileTransportSettingsRepository } from '@robota-sdk/agent-framework/node';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
+  IFrameworkHost,
   ICreateSessionOptions,
   ICommandModule,
   IProviderErrorGuidance,
@@ -31,6 +33,7 @@ import { PACKS_OWN_TOOL_SURFACE } from './product-profile.js';
 import type { ICliRuntimeContext } from './runtime-context.js';
 import { productUserSettingsPath } from './user-settings.js';
 import { withholdEnvironmentVariables } from './command-environment.js';
+import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 
 import type { IAssembledProduct } from '@robota-sdk/agent-product';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
@@ -79,6 +82,8 @@ export function createDefaultTransportRegistry(
   sessionBinder?: import('@robota-sdk/agent-interface-session').ISessionBinder<IProtocolSession>,
   /** #3282 §4a: host-owned read/write for the GUI Settings screen. */
   settingsReporter?: ISessionMessageHandlerOptions['settingsReporter'],
+  /** A token the host handed over outside the environment (a supervised daemon's pipe); it wins over `PRODUCT_WS_TOKEN`. */
+  transportToken?: string,
 ): {
   registry: TransportRegistry;
   wsTransport: WsTransport;
@@ -88,12 +93,14 @@ export function createDefaultTransportRegistry(
     'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
   >;
 } {
-  const registry = new TransportRegistry(productUserSettingsPath(productRuntime));
+  const registry = new TransportRegistry(
+    createFileTransportSettingsRepository(productUserSettingsPath(productRuntime)),
+  );
   // GUI-002: when a host (e.g. the agent-gui Electron shell) spawns this CLI as a loopback sidecar, it
   // passes PRODUCT_WS_TOKEN (a per-launch nonce) + optional PRODUCT_WS_PORT via env. The token makes the WS
   // transport reject any unauthenticated connection before emitting session data. If absent,
   // WsTransport auto-mints a distinct authenticated launch token; neither token is persisted here.
-  const wsToken = productRuntime.environment['PRODUCT_WS_TOKEN'];
+  const wsToken = transportToken ?? productRuntime.environment['PRODUCT_WS_TOKEN'];
   // The transport holds the token from here on. Left in the environment, every tool subprocess
   // this runtime starts would inherit the credential that admits a WebSocket client.
   withholdEnvironmentVariables([
@@ -117,7 +124,15 @@ export function createDefaultTransportRegistry(
   });
   let registered = false;
   const bindTransports = (session: IInteractiveSession): void => {
-    const bound = bindTransportAdapter(wsTransport, session);
+    const adapter = bindTransportAdapter(wsTransport, session);
+    // The TUI, `--serve`, a daemon and the desktop sidecar all start this listener through the
+    // registry, so its row gates the start of the adapter the registry holds; every other field the
+    // registry and `/transport` read stays the adapter's own.
+    const bound = {
+      ...adapter,
+      start: () =>
+        startListener(SECURE_SURFACES['websocket-transport'], productRuntime, () => adapter.start()),
+    };
     if (registered) registry.replace(bound);
     else {
       registry.register(bound);
@@ -220,6 +235,8 @@ export function reportUnknownPresetModules(
 export interface IProductRuntimeSeamInput {
   /** The assembled product whose overlay lays the product-owned materials on top. */
   product: IAssembledProduct;
+  /** The platform the product's sessions run on. */
+  host: IFrameworkHost;
   cwd: string;
   provider: IAIProvider;
   /** The shell's already-narrowed module selection (merged superset filtered by the preset delta). */
@@ -280,6 +297,7 @@ export function buildProductRuntimeOptions(
     createRestrictedWorkspaceProjectAccess('identity-unavailable', input.cwd);
   const options = input.product.buildRuntimeOptions({
     session: {
+      host: input.host,
       cwd: input.cwd,
       provider: input.provider,
       commandModules: input.selectedCommandModules,

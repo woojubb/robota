@@ -22,18 +22,20 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { createOAuthAuthenticator } from '../client/oauth/authenticator.js';
 import { MCPOAuthError } from '../client/oauth/errors.js';
-import { createFileOAuthRefreshLock } from '../client/oauth/refresh-lock.js';
-import {
-  createFileOAuthCredentialStore,
-  credentialKeyDigest,
-  oauthCredentialKey,
-} from '../client/oauth/store.js';
+import { oauthCredentialKey } from '../client/oauth/store.js';
 import { createStreamableHttpAdapter } from '../client/transport.js';
 import { AS_URL, MCP_URL, createFakeOAuthServer } from './fixtures/fake-oauth-server.js';
 
 import type { TMCPOAuthNotice } from '../client/oauth/authenticator.js';
 import type { IMCPOAuthCredential } from '../client/oauth/store.js';
 import type { IFakeOAuthServer } from './fixtures/fake-oauth-server.js';
+import { createNodeHttpEgress } from '../node/http-egress.js';
+import {
+  createFileOAuthCredentialStore,
+  credentialKeyDigest,
+} from '../node/oauth-file-store.js';
+import { createNodeOAuthNetwork } from '../node/oauth-network.js';
+import { createFileOAuthRefreshLock } from '../node/oauth-refresh-lock.js';
 
 const directories: string[] = [];
 afterEach(() => {
@@ -78,7 +80,7 @@ function setup(
     config: {},
     store,
     lock: createFileOAuthRefreshLock(directory, { pollMs: 5 }),
-    network: { fetch: server.fetch, lookup: server.lookup },
+    network: createNodeOAuthNetwork({ fetch: server.fetch, lookup: server.lookup }),
     notify: (notice) => notices.push(notice),
     now,
   });
@@ -238,7 +240,7 @@ describe('OAuth authenticator', () => {
           : {}),
       });
     }) as typeof globalThis.fetch;
-    const adapter = createStreamableHttpAdapter({ lookup: server.lookup, fetch: mcpFetch });
+    const adapter = createStreamableHttpAdapter({ egress: createNodeHttpEgress({ lookup: server.lookup, fetch: mcpFetch }) });
     const admitted = await adapter.admit({
       url: MCP_URL,
       authenticationRequired: true,

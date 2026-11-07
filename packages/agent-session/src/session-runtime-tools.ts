@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomId } from '@robota-sdk/agent-core';
 
 import type { TurnClaim } from './turn-claim.js';
 import type {
@@ -36,7 +36,7 @@ export class SessionRuntimeTools {
       this.execution = this.agent.invokeRuntimeTool(name, parameters, {
         toolName: name,
         parameters,
-        executionId: options?.executionId ?? randomUUID(),
+        executionId: options?.executionId ?? randomId(),
         sessionId: this.sessionId,
         signal: controller.signal,
         // A caller nobody is watching must not park on a prompt, so asking is the caller's choice;

@@ -38,6 +38,15 @@ const SCHEMA_KINDS = [
   'null',
 ] as const satisfies readonly TJSONSchemaKind[];
 
+const SIZE_BOUND_KEYS = [
+  'minLength',
+  'maxLength',
+  'minItems',
+  'maxItems',
+  'minProperties',
+  'maxProperties',
+] as const;
+
 const PARAMETER_SCHEMA_KEYS = [
   'type',
   'description',
@@ -49,6 +58,7 @@ const PARAMETER_SCHEMA_KEYS = [
   'additionalProperties',
   'minimum',
   'maximum',
+  ...SIZE_BOUND_KEYS,
   'pattern',
   'format',
   'default',
@@ -73,6 +83,13 @@ function decodeDefaultValue(
 ): TParameterDefaultValue | undefined {
   if (value === null) return null;
   return decodeEnumMember(value, path, issues);
+}
+
+/** JSON Schema declares every size bound a non-negative integer: it counts something. */
+function decodeSizeBound(value: unknown, path: string, issues: TDecodeIssues): number | undefined {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 0) return value;
+  addIssue(issues, path, `expected a non-negative integer, received ${describeValue(value)}`);
+  return undefined;
 }
 
 /**
@@ -164,6 +181,9 @@ function decodeParameterSchema(
     'maximum',
     decodeOptional(raw['maximum'], atKey(path, 'maximum'), issues, decodeNumber),
   );
+  for (const key of SIZE_BOUND_KEYS) {
+    setOptional(schema, key, decodeOptional(raw[key], atKey(path, key), issues, decodeSizeBound));
+  }
   setOptional(
     schema,
     'pattern',

@@ -64,6 +64,7 @@ export interface ISubagentJobState extends Pick<
   | 'parentWorktreeStatus'
   | 'logPath'
   | 'transcriptPath'
+  | 'transcriptSealed'
   | 'startedAt'
   | 'updatedAt'
   | 'completedAt'

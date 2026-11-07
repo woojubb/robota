@@ -9,8 +9,7 @@ import {
   removePermissionRule,
 } from '../permission-rule-layers.js';
 
-import type { ISettingsDocumentStore } from '../settings-store-types.js';
-import type { TSettingsData } from '../settings-io.js';
+import type { ISettingsDocumentStore, TSettingsData } from '../settings-store-types.js';
 
 function createStore(
   scope: ISettingsDocumentStore['scope'],
@@ -89,9 +88,9 @@ describe('removePermissionRule (#3282 §4a)', () => {
 
     const userStore = createStore('user', { permissions: { deny: ['Bash(rm -rf *)'] } });
     const withStores = createSettingsPermissionRulesAdapter([], [userStore]);
-    expect(withStores.removeRule?.({ scope: 'user', kind: 'deny', pattern: 'Bash(rm -rf *)' })).toBe(
-      true,
-    );
+    expect(
+      withStores.removeRule?.({ scope: 'user', kind: 'deny', pattern: 'Bash(rm -rf *)' }),
+    ).toBe(true);
     expect(userStore.read()).toEqual({ permissions: { deny: [] } });
   });
 });

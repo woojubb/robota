@@ -17,6 +17,7 @@ import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { createSubagentLogger, resolveSubagentLogDir } from '../assembly/subagent-logger.js';
 import { createNodeHostContributionSourcesFixture } from '../testing/contribution-source-fixture.js';
 import { storeAgentToolDeps, retrieveAgentToolDeps } from '../tools/agent-tool.js';
+import { createTestFrameworkHost } from '../testing/framework-host.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IResolvedConfig } from '../config/config-types.js';
@@ -39,13 +40,17 @@ vi.mock('@robota-sdk/agent-session', () => ({
       // no-op
     }
   },
-  NodeSessionLogSink: class MockNodeSessionLogSink {
-    constructor(public readonly logDir: string) {}
-  },
   SilentSessionLogger: class MockSilentSessionLogger {
     log(): void {
       // no-op
     }
+  },
+}));
+
+vi.mock('@robota-sdk/agent-session/node', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@robota-sdk/agent-session/node')>()),
+  NodeSessionLogSink: class MockNodeSessionLogSink {
+    constructor(public readonly logDir: string) {}
   },
 }));
 
@@ -60,6 +65,8 @@ import type {
   THooksConfig,
 } from '@robota-sdk/agent-core';
 import type { ITerminalOutput } from '@robota-sdk/agent-session';
+
+const testHost = createTestFrameworkHost();
 
 function makeTool(name: string): IToolWithEventService {
   return {
@@ -125,6 +132,7 @@ describe('Subagent integration', () => {
       PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'echo unexpected' }] }],
     };
     createSubagentSession({
+      host: testHost,
       agentDefinition: getBuiltInAgent('general-purpose')!,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -137,7 +145,7 @@ describe('Subagent integration', () => {
     });
 
     const childOptions = mockSessionConstructor.mock.calls[0]![0] as {
-      hookTypeExecutors?: IHookTypeExecutor[];
+      hookTypeExecutors: IHookTypeExecutor[];
     };
     expect(childOptions.hookTypeExecutors).toEqual([]);
     const result = await runHooks(
@@ -164,6 +172,7 @@ describe('Subagent integration', () => {
 
     const depsKey = {}; // opaque key for this test
     const agentToolDeps = {
+      host: testHost,
       config,
       context,
       tools,
@@ -181,6 +190,7 @@ describe('Subagent integration', () => {
 
     // Create session with that definition
     createSubagentSession({
+      host: testHost,
       agentDefinition: exploreDef!,
       parentConfig: config,
       parentContext: context,
@@ -213,6 +223,7 @@ describe('Subagent integration', () => {
     expect(exploreDef!.disallowedTools).toEqual(['Write', 'Edit']);
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: exploreDef!,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -253,6 +264,7 @@ describe('Subagent integration', () => {
     expect(generalDef).toBeDefined();
 
     createSubagentSession({
+      host: testHost,
       agentDefinition: generalDef!,
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
@@ -283,6 +295,7 @@ describe('Subagent integration', () => {
     for (const agentDef of BUILT_IN_AGENTS) {
       vi.clearAllMocks();
       createSubagentSession({
+        host: testHost,
         agentDefinition: agentDef,
         parentConfig: makeParentConfig(),
         parentContext: makeParentContext(),
@@ -382,7 +395,7 @@ describe('Subagent transcript logger', () => {
   });
 
   it('createSubagentLogger creates directory and returns logger', () => {
-    const logger = createSubagentLogger('session-123', 'agent-abc', tmpDir);
+    const logger = createSubagentLogger('session-123', 'agent-abc', tmpDir, { sealing: 'plain' });
     expect(logger).toBeDefined();
 
     // Verify the subagent directory was created

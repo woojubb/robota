@@ -84,24 +84,25 @@ describe('SessionStore atomic persistence (CORE-019)', () => {
         },
       ],
     });
-    new NodeSessionStore(baseDir).save(record);
-    const loaded = loadedOrMissing(new NodeSessionStore(baseDir), record.id);
+    new NodeSessionStore(baseDir, { sealing: 'plain' }).save(record);
+    const loaded = loadedOrMissing(new NodeSessionStore(baseDir, { sealing: 'plain' }), record.id);
     expect(loaded?.messages).toStrictEqual(record.messages);
   });
 
   it('save() roundtrips and leaves no temp-file residue', () => {
-    const store = new NodeSessionStore(baseDir);
+    const store = new NodeSessionStore(baseDir, { sealing: 'plain' });
     store.save(createRecord());
 
     const loaded = loadedOrMissing(store, 'core-019-atomic');
     expect(loaded?.messages[0]?.content).toBe('original');
 
-    const files = readdirSync(baseDir);
+    // The claims directory beside the records holds the writer markers, not records.
+    const files = readdirSync(baseDir).filter((name) => name !== 'claims');
     expect(files).toEqual(['core-019-atomic.json']);
   });
 
   it('save() over an existing record replaces it atomically', () => {
-    const store = new NodeSessionStore(baseDir);
+    const store = new NodeSessionStore(baseDir, { sealing: 'plain' });
     store.save(createRecord());
     store.save(
       createRecord({
@@ -119,11 +120,13 @@ describe('SessionStore atomic persistence (CORE-019)', () => {
 
     const raw = readFileSync(join(baseDir, 'core-019-atomic.json'), 'utf-8');
     expect(JSON.parse(raw).record.messages[0].content).toBe('updated');
-    expect(readdirSync(baseDir)).toEqual(['core-019-atomic.json']);
+    expect(readdirSync(baseDir).filter((name) => name !== 'claims')).toEqual([
+      'core-019-atomic.json',
+    ]);
   });
 
   it('a failed save leaves the previous record untouched', () => {
-    const store = new NodeSessionStore(baseDir);
+    const store = new NodeSessionStore(baseDir, { sealing: 'plain' });
     store.save(createRecord());
 
     // Fault injection: a circular record makes JSON.stringify throw before any bytes
@@ -136,6 +139,8 @@ describe('SessionStore atomic persistence (CORE-019)', () => {
 
     const loaded = loadedOrMissing(store, 'core-019-atomic');
     expect(loaded?.messages[0]?.content).toBe('original');
-    expect(readdirSync(baseDir)).toEqual(['core-019-atomic.json']);
+    expect(readdirSync(baseDir).filter((name) => name !== 'claims')).toEqual([
+      'core-019-atomic.json',
+    ]);
   });
 });

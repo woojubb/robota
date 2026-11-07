@@ -5,6 +5,7 @@
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { describe, it, expect, vi } from 'vitest';
+import { decodeFrame, decodeServerMessage } from '../message-decoders.js';
 import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createSessionMessageHandler } from '../session-message-handler.js';
 import { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from '../session-events.js';
@@ -394,6 +395,39 @@ describe('WebSocket Transport Handler', () => {
       taskId: 'task_1',
       page: backgroundTaskLogPage,
     });
+  });
+
+  // #3679 step 3b: a sealed transcript's page says how many records it could not show; the field
+  // rides the wire to a client unchanged, and a page without it carries no such field.
+  it('carries unreadable counts to the client, and a plain page byte for byte', async () => {
+    const { onMessage, sent, session } = setup();
+    const sealedPage: IBackgroundTaskLogPage = {
+      taskId: 'task_1',
+      cursor: { offset: 0 },
+      nextCursor: { offset: 4 },
+      lines: ['[4 sealed log records; the keys are locked]'],
+      unreadable: { locked: 4, noKeys: 0, doesNotOpen: 0 },
+    };
+    const read = (session as unknown as { readBackgroundTaskLog: ReturnType<typeof vi.fn> })
+      .readBackgroundTaskLog;
+    read.mockResolvedValueOnce(sealedPage);
+
+    onMessage(JSON.stringify({ type: 'read-background-task-log', taskId: 'task_1' }));
+    onMessage(JSON.stringify({ type: 'read-background-task-log', taskId: 'task_1' }));
+    await new Promise((r) => setTimeout(r, 10));
+
+    const [sealed, plain] = sent.map((message) => {
+      const decoded = decodeFrame(JSON.stringify(message), decodeServerMessage);
+      if (!decoded.ok) throw new Error(decoded.reason);
+      return decoded.message;
+    });
+    expect(sealed).toEqual({ type: 'background_task_log', taskId: 'task_1', page: sealedPage });
+    const plainMessage = {
+      type: 'background_task_log',
+      taskId: 'task_1',
+      page: backgroundTaskLogPage,
+    };
+    expect(JSON.stringify(plain)).toBe(JSON.stringify(plainMessage));
   });
 
   it('command executes via session.executeCommand() tagged as a remote origin (REMOTE-003)', async () => {

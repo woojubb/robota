@@ -15,6 +15,8 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { attachHostAdapters, attachLocalPeerMessaging } from '../host-action-adapters.js';
+import { overrideProductSecureMode } from '../../product/session-sealing.js';
+import { SECURE_SURFACES } from '../../secure/secure-surfaces.js';
 
 vi.mock('../../remote-control/local-peer-messaging.js', () => ({
   startLocalPeerMessaging: vi.fn(async () => ({
@@ -239,6 +241,23 @@ describe('PEER-006 — messaging is attached separately from discovery', () => {
     expect(adapters.localPeers?.list).toBeTypeOf('function');
     expect(adapters.localPeers?.send).toBeUndefined();
     expect(messages.join('\n')).toContain('though discovery is on');
+  });
+
+  it('in secure mode never binds the peer socket, and says why', async () => {
+    const adapters: ICommandHostAdapters = {};
+    const messages: string[] = [];
+    const report = { writeError: (message: string) => messages.push(message) };
+    const runtime = createTestProductRuntime();
+    overrideProductSecureMode(runtime, true);
+    attachHostAdapters(adapters, CONTROLLER, reporter(), runtime, () => PRESENCE);
+    const start = vi.fn(() => Promise.resolve({}));
+    const { secure } = SECURE_SURFACES['local-peers'];
+
+    await attachLocalPeerMessaging(adapters, PRESENCE, () => ({}) as never, report, runtime, start as never);
+
+    expect(start).not.toHaveBeenCalled();
+    expect(adapters.localPeers?.send).toBeUndefined();
+    expect(messages.join('\n')).toContain(secure.admit === 'none' ? secure.reason : 'a reason');
   });
 
   it('does nothing when discovery never came up', async () => {

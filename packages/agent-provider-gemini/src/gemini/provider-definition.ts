@@ -1,3 +1,5 @@
+import { readNativeWebSearchOption } from '@robota-sdk/agent-core';
+
 import {
   GEMINI_MODEL_LAST_VERIFIED_AT,
   GEMINI_MODEL_SOURCE_URL,
@@ -34,6 +36,8 @@ export function createGeminiProviderDefinition(): IProviderDefinition {
     displayName: 'Gemini',
     description: 'Google Gemini series — free tier available.',
     category: 'cloud-free',
+    // Google Search is not declared for a host's default, though a profile can ask for it: Google's
+    // terms attach conditions to showing and storing grounded results that only the host can meet.
     // Interim provider-level cost (ARCH-PROVIDER-003), migrated from the former llm-text-gemini node.
     costPerTokenUsd: 0.0005,
     defaults: {
@@ -85,6 +89,7 @@ export function createGeminiProviderDefinition(): IProviderDefinition {
       new GeminiProvider({
         apiKey: requireApiKey(config.apiKey),
         defaultModel: config.model,
+        ...(readNativeWebSearchOption('gemini', config.options) && { enableWebTools: true }),
       }),
   };
 }

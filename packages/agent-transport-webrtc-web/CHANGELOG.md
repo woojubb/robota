@@ -1,5 +1,26 @@
 # @robota-sdk/agent-transport-webrtc-web
 
+## 3.1.0
+### Minor Changes
+
+- b56b5a9: Ship one build per package. The platform-neutral entries moved from `dist/node` to `dist`, and the second
+  `dist/browser` build of `@robota-sdk/agent-core`, `@robota-sdk/agent-transport`,
+  `@robota-sdk/agent-ui-web` and `@robota-sdk/agent-transport-webrtc-web` is gone: a neutral entry runs
+  unchanged in every runtime, so a subpath's `exports` map `import` and `require` to the same files and no
+  longer a `node` or `browser` condition (a Node-only subpath keeps `"browser": null`). Import specifiers
+  and the code behind them are unchanged; only a deep import of `dist/node/*` or `dist/browser/*` breaks.
+  `@robota-sdk/agent-transport/client` also ships a CommonJS build now.
+
+### Patch Changes
+
+- Updated dependencies [bc8de21]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [437ca9e]
+- Updated dependencies [b56b5a9]
+  - @robota-sdk/agent-ui-web@3.1.0
+  - @robota-sdk/agent-transport@3.1.0
+  - @robota-sdk/agent-remote-pairing@3.1.0
+
 ## 3.0.7
 ### Patch Changes
 

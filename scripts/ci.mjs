@@ -41,6 +41,20 @@ export function workspaces(cwd, selectors = []) {
     });
 }
 
+/** Documents that are inputs to a check, so a change to one runs the full plan. */
+const FULL_PLAN_DOCUMENTS = new Map([
+  // `pnpm lint` checks every manifest against its runtime-platform lists.
+  ['ARCHITECTURE.md', 'runtime-platform lists: ARCHITECTURE.md'],
+]);
+
+/** A developer document: a change to it alone needs no workspace check. */
+export function isDeveloperDocument(file) {
+  if (FULL_PLAN_DOCUMENTS.has(file)) return false;
+  return /^[^/]+\.md$/.test(file) || /^\.changeset\/[^/]+\.md$/.test(file) ||
+    /^(?:\.agents|\.claude)\/.*\.md$/.test(file) ||
+    /^(?:packages|examples)\/[^/]+\/(?:README\.md|CHANGELOG\.md|docs\/.*\.md)$/.test(file);
+}
+
 export function selectScope({
   cwd = process.cwd(),
   event,
@@ -72,9 +86,8 @@ export function selectScope({
     for (let index = 0; index < changes.length - 1; index += 2) {
       const status = changes[index];
       const file = changes[index + 1];
-      if (/^[^/]+\.md$/.test(file) || /^\.changeset\/[^/]+\.md$/.test(file) ||
-          /^(?:\.agents|\.claude)\/.*\.md$/.test(file) ||
-          /^(?:packages|examples)\/[^/]+\/(?:README\.md|CHANGELOG\.md|docs\/.*\.md)$/.test(file)) {
+      if (FULL_PLAN_DOCUMENTS.has(file)) return full(FULL_PLAN_DOCUMENTS.get(file));
+      if (isDeveloperDocument(file)) {
         developerDocs = true;
         continue;
       }
@@ -116,9 +129,12 @@ export function selectScope({
     const affected = workspaces(cwd, selectors);
     if (!affected.length || [...changed].some((dir) => !affected.some((p) => p.dir === dir)))
       return full('incomplete selection');
+    // The unconditional script tests load the CLI's product fixture through this package's dist export.
+    const scriptFixture = all.find((p) => p.name === '@robota-sdk/product-config');
+    if (!scriptFixture) return full('missing script fixture package');
     const dependencies = workspaces(
       cwd,
-      affected.flatMap((p) => ['--filter', `{${p.dir}}...`]),
+      [...affected, scriptFixture].flatMap((p) => ['--filter', `{${p.dir}}...`]),
     );
     if (affected.some((p) => !p.dir.startsWith('examples/') && p.dir !== 'apps/docs'))
       release = true;
@@ -253,16 +269,15 @@ async function main() {
     run('lint');
     run('deps:check');
     if (plan.docs) run('--filter', './apps/docs', 'build');
-  } else if (kind === 'tests') {
-    run(
-      '-r',
-      ...filters(plan.checks),
-      '--no-sort',
-      '--workspace-concurrency=2',
-      '--if-present',
-      'run',
-      'test',
-    );
+  } else if (kind === 'tests-cli-1' || kind === 'tests-cli-2') {
+    if (plan.checks.includes('packages/agent-cli'))
+      run('--filter', './packages/agent-cli', 'exec', 'vitest', 'run', '--passWithNoTests',
+        `--shard=${kind === 'tests-cli-1' ? '1/2' : '2/2'}`);
+  } else if (kind === 'tests-rest') {
+    const remaining = plan.checks.filter((dir) => dir !== 'packages/agent-cli');
+    if (remaining.length)
+      run('-r', ...filters(remaining), '--no-sort', '--workspace-concurrency=2',
+        '--if-present', 'run', 'test');
     run('test:scripts');
   } else throw new Error(`Unknown CI job: ${kind}`);
 }

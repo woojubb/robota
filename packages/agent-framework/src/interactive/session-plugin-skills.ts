@@ -1,20 +1,40 @@
-import { existsSync, realpathSync } from 'node:fs';
-import { isAbsolute, relative, resolve, sep } from 'node:path';
+import { relativeSegments, resolvePath } from '@robota-sdk/agent-core';
 
 import { PluginCommandSource } from '../commands/plugin-source.js';
 import { loadHostBundlePluginsFromScopes } from '../plugins/index.js';
 import { getWorkspaceProjectIdentity } from '../workspace-trust/workspace-authority.js';
 
 import type { ICommand } from '../command-api/types.js';
-import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
+import type { IHostSettingsSource } from '../config/settings-source.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
+import type { IFileSystem } from '@robota-sdk/agent-core';
 
 /** What decides which bundle plugins a session loads. */
 export interface ISessionPluginScope {
   readonly bare?: boolean;
   readonly projectAccess?: TWorkspaceProjectAccess;
   readonly pluginDirectories?: { readonly user?: string; readonly project?: string };
-  readonly userSettingsSources?: readonly INodeHostSettingsSource[];
+  readonly userSettingsSources?: readonly IHostSettingsSource[];
+  /**
+   * The files plugin directories are read through (`host.files?.sync`); `undefined` when the host
+   * lends none. Required rather than optional so a caller that forgets it does not compile: a scope
+   * built without it would admit no project plugin folder and say nothing.
+   */
+  readonly fs: IFileSystem | undefined;
+}
+
+/**
+ * The files plugin directories are read through. A session that names plugin directories needs a
+ * host that lends files, and says so when it is built rather than loading no plugin at all.
+ */
+export function requireSessionPluginFiles(fs: IFileSystem | undefined): IFileSystem {
+  if (fs === undefined) {
+    throw new Error(
+      '`pluginDirectories` need file access, and the session host supplies none (`host.files`). ' +
+        'Pass a host that lends files, such as `createNodeFrameworkHost`, or omit `pluginDirectories`.',
+    );
+  }
+  return fs;
 }
 
 /**
@@ -24,12 +44,18 @@ export interface ISessionPluginScope {
 function insideTrustedWorktree(
   directory: string,
   access: Extract<TWorkspaceProjectAccess, { status: 'trusted' }>,
+  fs: IFileSystem,
 ): boolean {
   try {
-    const root = realpathSync(getWorkspaceProjectIdentity(access.authority).worktreeRoot);
-    const target = existsSync(directory) ? realpathSync(directory) : resolve(directory);
-    const remainder = relative(root, target);
-    return remainder !== '..' && !remainder.startsWith(`..${sep}`) && !isAbsolute(remainder);
+    const root = fs.realpathSync(getWorkspaceProjectIdentity(access.authority).worktreeRoot);
+    // A folder that does not exist yet is judged by its own text; a relative one names a place only
+    // the process directory could say, so it has no answer and is not admitted.
+    const target = fs.existsSync(directory)
+      ? fs.realpathSync(directory)
+      : resolvePath(directory, '.');
+    // No path from the root to the target (another drive, a relative form) is not containment.
+    const segments = relativeSegments(root, target);
+    return segments !== undefined && segments[0] !== '..';
   } catch {
     // An authority that no longer resolves cannot admit executable project plugin content.
     return false;
@@ -39,15 +65,18 @@ function insideTrustedWorktree(
 /**
  * The plugin directories a session may load, most specific first. Project plugins may contain
  * executable hooks, so that scope is included only after the host has granted workspace trust, and
- * only when it lies inside the trusted worktree.
+ * only when it lies inside the trusted worktree. A host that lends no files cannot show that, so it
+ * never admits the project scope.
  */
 export function sessionPluginDirectories(scope: ISessionPluginScope): string[] {
   const access = scope.projectAccess;
   const project = scope.pluginDirectories?.project;
+  const fs = scope.fs;
   return [
     ...(access?.status === 'trusted' &&
     project !== undefined &&
-    insideTrustedWorktree(project, access)
+    fs !== undefined &&
+    insideTrustedWorktree(project, access, fs)
       ? [project]
       : []),
     ...(scope.pluginDirectories?.user !== undefined ? [scope.pluginDirectories.user] : []),
@@ -55,7 +84,9 @@ export function sessionPluginDirectories(scope: ISessionPluginScope): string[] {
 }
 
 /** The user settings file that records which plugins are enabled; absent means no plugins load. */
-export function sessionPluginSettingsPath(scope: ISessionPluginScope): string | undefined {
+export function sessionPluginSettingsPath(
+  scope: Pick<ISessionPluginScope, 'bare' | 'userSettingsSources'>,
+): string | undefined {
   if (scope.bare === true) return undefined;
   return scope.userSettingsSources?.find((source) => source.scope === 'user')?.path;
 }
@@ -64,9 +95,12 @@ export function sessionPluginSettingsPath(scope: ISessionPluginScope): string | 
 export function loadSessionPluginSkills(scope: ISessionPluginScope): readonly ICommand[] {
   const settingsPath = sessionPluginSettingsPath(scope);
   if (settingsPath === undefined) return [];
+  const directories = sessionPluginDirectories(scope);
+  if (directories.length === 0) return [];
+  const fs = requireSessionPluginFiles(scope.fs);
   try {
     return new PluginCommandSource(
-      loadHostBundlePluginsFromScopes(sessionPluginDirectories(scope), { settingsPath }),
+      loadHostBundlePluginsFromScopes(directories, { settingsPath, fs }),
     ).getCommands();
   } catch {
     // allow-fallback: plugin discovery failing leaves the session's own skills working.

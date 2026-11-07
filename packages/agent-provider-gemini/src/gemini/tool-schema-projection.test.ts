@@ -52,6 +52,7 @@ const GEMINI_PROFILE = {
   providerName: 'gemini',
   unknownKeywords: 'strip' as const,
   unsupportedMembers: ['additionalProperties'] as const,
+  arraysDeclareItems: true,
 };
 
 function recordingSink(): { sink: ILogger; lines: string[] } {
@@ -253,5 +254,56 @@ describe('MCP-005 TC-10 — Gemini conformance over shared fixtures', () => {
       'good_tool_one',
       'good_tool_two',
     ]);
+  });
+});
+
+describe('the array Gemini refuses bare', () => {
+  it('reaches the request with typed items, and a bare object stays as declared', async () => {
+    generateContentMock.mockReset();
+    generateContentMock.mockResolvedValue(makeTextResponse('done'));
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+    await provider.chat([createUserMessage('hi')], {
+      model: 'gemini-2.5-flash',
+      tools: [
+        {
+          name: 'bare',
+          description: 'A tool.',
+          parameters: {
+            type: 'object',
+            properties: { list: { type: 'array' }, shape: { type: 'object' } },
+          },
+        },
+      ],
+    });
+    const parameters = sentFunctionDeclarations()[0]?.parameters as {
+      properties: Record<string, unknown>;
+    };
+    expect(parameters.properties['list']).toEqual({
+      type: 'ARRAY',
+      items: { anyOf: [{ type: 'STRING' }, { type: 'NUMBER' }, { type: 'BOOLEAN' }] },
+    });
+    expect(parameters.properties['shape']).toEqual({ type: 'OBJECT' });
+  });
+});
+
+describe('a tool whose root named no properties', () => {
+  it('reaches Gemini with its description untouched and no parameters', async () => {
+    generateContentMock.mockReset();
+    generateContentMock.mockResolvedValue(makeTextResponse('done'));
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+    await provider.chat([createUserMessage('hi')], {
+      model: 'gemini-2.5-flash',
+      tools: [
+        {
+          name: 'bare_root',
+          description: 'Lists things.',
+          parameters: { type: 'object', properties: {}, additionalProperties: true },
+        },
+      ],
+    });
+    expect(sentFunctionDeclarations()[0]).toEqual({
+      name: 'bare_root',
+      description: 'Lists things.',
+    });
   });
 });

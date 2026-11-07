@@ -1,3 +1,4 @@
+import { base64UrlDecode, utf8ByteLength, utf8Decode } from '@robota-sdk/agent-core';
 import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
 
 import { DEFAULT_PEER_TURN_RATE_WINDOWS, PeerTurnRateLimiter } from './peer-turn-rate-limit.js';
@@ -171,7 +172,7 @@ function spendableClaims(
   if (payload === undefined) return undefined;
   let claims: unknown;
   try {
-    claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+    claims = JSON.parse(utf8Decode(base64UrlDecode(payload)));
   } catch {
     return undefined;
   }
@@ -195,7 +196,7 @@ function readMessage(event: unknown): IMessage | 'malformed-event' | 'oversize' 
   const { conversationId, content, claimedName } = event;
   if (!validIdentity(conversationId) || typeof content !== 'string') return 'malformed-event';
   if (claimedName !== undefined && !validIdentity(claimedName)) return 'malformed-event';
-  if (Buffer.byteLength(content, 'utf8') > MAX_EVENT_BYTES) return 'oversize';
+  if (utf8ByteLength(content) > MAX_EVENT_BYTES) return 'oversize';
   return { conversationId, content, ...(claimedName !== undefined ? { claimedName } : {}) };
 }
 

@@ -3,18 +3,18 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import {
-  EditCheckpointStore,
-  InteractiveSession,
-  createNodeHostSessionStore,
-  createWorkspaceProjectMutation,
-} from '@robota-sdk/agent-framework';
+import { InteractiveSession, createWorkspaceProjectMutation } from '@robota-sdk/agent-framework';
+import { EditCheckpointStore } from '@robota-sdk/agent-framework/node';
+import { createNodeHostSessionStore } from '@robota-sdk/agent-framework/node';
 import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 
 import { createSessionEventDeliveryProjectAccess } from './session-event-delivery-project-access.js';
 import { createTestProductRuntime } from '../src/__tests__/helpers/product-runtime.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { TServerMessage } from '@robota-sdk/agent-transport';
+
+const testHost = createTestFrameworkHost();
 
 // Contained — ARCH-047. Project mutation (the Write tool that produces edit checkpoints) is
 // available only on Linux (project-relative-writer.ts refuses other hosts by design), so this
@@ -57,8 +57,9 @@ async function main(): Promise<void> {
   const productRuntime = createTestProductRuntime('test-product', { HOME: cwd });
   const projectAccess = await createSessionEventDeliveryProjectAccess(cwd, productRuntime);
   assertCondition(projectAccess.status === 'trusted', 'scenario project access was not trusted');
-  const store = createNodeHostSessionStore(join(cwd, productRuntime.layout.projectStateDirectories.sessions));
+  const store = createNodeHostSessionStore(join(cwd, productRuntime.layout.projectStateDirectories.sessions), { sealing: 'plain' });
   const editCheckpointStore = new EditCheckpointStore({
+    sealing: 'plain',
     authority: projectAccess.authority,
     mutation: createWorkspaceProjectMutation(projectAccess.authority, {
       status: 'approved',
@@ -66,6 +67,7 @@ async function main(): Promise<void> {
     }),
   });
   const session = new InteractiveSession({
+    host: testHost,
     cwd,
     provider: script.provider,
     projectAccess,

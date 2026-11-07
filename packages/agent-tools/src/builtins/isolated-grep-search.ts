@@ -2,6 +2,9 @@ import { spawn } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { tmpdir } from 'node:os';
 import { Worker } from 'node:worker_threads';
+
+import { endWithProcess, signalChildGroup, withChildSession } from '@robota-sdk/agent-core/node';
+
 import { searchFile } from './grep-search.js';
 
 type TMode = 'files_with_matches' | 'content' | 'count';
@@ -40,11 +43,12 @@ parentPort.on('message', (request) => {
 
 // Bun cannot use Node's eval Worker consistently; keep the same pure operation in a child process.
 class GrepProcessWorker extends EventEmitter implements IGrepWorker {
-  private readonly child = spawn(
-    process.execPath,
-    [
-      '-e',
-      `
+  private readonly child = endWithProcess(
+    spawn(
+      process.execPath,
+      [
+        '-e',
+        `
 const searchFile = ${searchFile.toString()};
 const readline = require('node:readline');
 let outputBytes = 0;
@@ -60,15 +64,16 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
   } catch (error) { process.stdout.write(JSON.stringify({ id: request.id, error: error?.message === 'byte limit' ? 'Grep search exceeded its byte limit' : 'Invalid grep regex execution' }) + String.fromCharCode(10)); }
 });
 `,
-    ],
-    {
-      env: {
-        BUN_BE_BUN: '1',
-        ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
-      },
-      cwd: tmpdir(),
-      stdio: 'pipe',
-    },
+      ],
+      withChildSession({
+        env: {
+          BUN_BE_BUN: '1',
+          ...(process.env.SystemRoot ? { SystemRoot: process.env.SystemRoot } : {}),
+        },
+        cwd: tmpdir(),
+        stdio: 'pipe',
+      }),
+    ),
   );
   private readonly closed: Promise<void>;
   public constructor() {
@@ -106,7 +111,8 @@ readline.createInterface({ input: process.stdin }).on('line', line => {
     this.child.stdin.write(JSON.stringify(request) + '\n');
   }
   public async terminate(): Promise<void> {
-    if (this.child.exitCode === null && this.child.signalCode === null) this.child.kill('SIGKILL');
+    if (this.child.exitCode === null && this.child.signalCode === null)
+      signalChildGroup(this.child, 'SIGKILL');
     await this.closed;
   }
 }

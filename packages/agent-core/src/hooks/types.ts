@@ -149,6 +149,12 @@ export interface IHookInput {
   agent_type?: string;
   /** Subagent transcript path when available (SubagentStop only) */
   agent_transcript_path?: string;
+  /**
+   * The transcript at `transcript_path` / `agent_transcript_path` is sealed: its bytes are
+   * ciphertext without the keys, and a hook is never given plaintext (SubagentStart/SubagentStop
+   * only). `last_assistant_message` still carries a subagent's final output.
+   */
+  transcript_sealed?: true;
   /** Permission mode at the time of the event (e.g. "default", "plan", "acceptEdits", "bypassPermissions", "auto") */
   permission_mode?: string;
   /**

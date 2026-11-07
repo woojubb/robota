@@ -60,7 +60,15 @@ describe('usage-plugin-helpers', () => {
 
     it('passes for valid file options', () => {
       expect(() =>
-        validateUsageOptions({ strategy: 'file', filePath: '/tmp/usage.json' }),
+        validateUsageOptions({
+          strategy: 'file',
+          filePath: '/tmp/usage.json',
+          fileStore: {
+            readText: async () => undefined,
+            writeText: async () => {},
+            appendText: async () => {},
+          },
+        }),
       ).not.toThrow();
     });
 

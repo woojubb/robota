@@ -1,11 +1,14 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { InMemorySandboxClient } from '@robota-sdk/agent-tools';
 import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
+
+const testHost = createTestFrameworkHost();
 
 const mockLoadConfigWithHookSources = vi.fn().mockResolvedValue({
   config: {
@@ -85,6 +88,7 @@ describe('createInteractiveSession — workspace manifest', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
+      host: testHost,
       cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
@@ -97,11 +101,39 @@ describe('createInteractiveSession — workspace manifest', () => {
     expect(sandboxClient.getFile('/workspace/task.md')).toBe('Prepare the workspace.\n');
   });
 
+  it('reads the manifest local entries from the session working directory', async () => {
+    mkdirSync(join(SESSION_CWD, 'fixture'), { recursive: true });
+    writeFileSync(join(SESSION_CWD, 'task.md'), 'From the host.\n');
+    writeFileSync(join(SESSION_CWD, 'fixture', 'a.txt'), 'A\n');
+    const sandboxClient = new InMemorySandboxClient();
+    const { createInteractiveSession } = await import('../interactive-session-init.js');
+
+    await createInteractiveSession({
+      host: testHost,
+      cwd: SESSION_CWD,
+      provider: createMockProvider(),
+      bare: true,
+      onTextDelta: NOOP_DELTA,
+      onToolExecution: NOOP_TOOL,
+      sandboxClient,
+      workspaceManifest: {
+        entries: {
+          'task.md': { type: 'localFile', src: 'task.md' },
+          src: { type: 'localDir', src: 'fixture' },
+        },
+      },
+    });
+
+    expect(sandboxClient.getFile('/workspace/task.md')).toBe('From the host.\n');
+    expect(sandboxClient.getFile('/workspace/src/a.txt')).toBe('A\n');
+  });
+
   it('requires a sandbox client when a workspace manifest is provided', async () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await expect(
       createInteractiveSession({
+        host: testHost,
         cwd: SESSION_CWD,
         provider: createMockProvider(),
         bare: true,

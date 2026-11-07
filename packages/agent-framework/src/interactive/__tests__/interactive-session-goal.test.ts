@@ -12,8 +12,11 @@ import { InteractiveSession } from '../interactive-session.js';
 import type { IGoalEvent } from '@robota-sdk/agent-interface-session';
 import type { ICommandResult } from '../../commands/index.js';
 import { createSessionStub as createSharedSessionStub } from './helpers/session-stub.js';
+import { createTestFrameworkHost } from '../../testing/framework-host.js';
 
 import type { SessionExecutionController } from '../interactive-session-execution-controller.js';
+
+const testHost = createTestFrameworkHost();
 
 const tick = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 5));
 
@@ -31,6 +34,8 @@ function holdExecution(execCtrl: SessionExecutionController): void {
 describe('InteractiveSession goal wiring (GOAL-001)', () => {
   it('setGoal seeds an active goal, emits goal_started, and schedules the first agent-wakeup turn', async () => {
     const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
     });
     const execCtrl = getExecCtrl(session);
@@ -53,6 +58,8 @@ describe('InteractiveSession goal wiring (GOAL-001)', () => {
 
   it('#3201: a goal turn shows the objective and iteration, not the instruction to the model', async () => {
     const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
     });
     const execCtrl = getExecCtrl(session);
@@ -70,6 +77,8 @@ describe('InteractiveSession goal wiring (GOAL-001)', () => {
 
   it('cancelGoal stops an active goal and emits goal_stopped', async () => {
     const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
     });
     holdExecution(getExecCtrl(session));
@@ -87,6 +96,8 @@ describe('InteractiveSession goal wiring (GOAL-001)', () => {
 
   it('setGoal rejects an empty objective', async () => {
     const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
     });
     await expect(session.setGoal('   ')).rejects.toThrow(/non-empty/);
@@ -101,6 +112,8 @@ describe('InteractiveSession goal wiring (GOAL-001)', () => {
 describe('InteractiveSession goal cancel as a mid-turn control action (#3280 §2)', () => {
   it('cancels the goal, aborts the turn, and drops the already-queued next iteration', async () => {
     const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
     });
     const execCtrl = getExecCtrl(session);
@@ -124,6 +137,8 @@ describe('InteractiveSession goal cancel as a mid-turn control action (#3280 §2
 
   it('cancels via the "stop" spelling too', async () => {
     const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
     });
     const execCtrl = getExecCtrl(session);
@@ -138,6 +153,8 @@ describe('InteractiveSession goal cancel as a mid-turn control action (#3280 §2
 
   it('a goal cancel with no active goal keeps the ordinary mid-turn refusal', async () => {
     const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
     });
     holdExecution(getExecCtrl(session));
@@ -152,6 +169,8 @@ describe('InteractiveSession goal cancel as a mid-turn control action (#3280 §2
 
   it('an ordinary command is still refused while a turn runs', async () => {
     const session = new InteractiveSession({
+      host: testHost,
+      cwd: process.cwd(),
       session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
     });
     const execCtrl = getExecCtrl(session);

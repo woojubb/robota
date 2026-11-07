@@ -34,9 +34,12 @@ import {
 import { productDefaultAgentName } from '../product/preset-defaults.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
 import { resolveShellPreset } from '../startup/preset-selection.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
+
+const testHost = createTestFrameworkHost();
 const PRODUCT_DEFAULT_AGENT_NAME = productDefaultAgentName(createTestProductRuntime());
 
 
@@ -48,7 +51,7 @@ const PRODUCT_PACK_COMMAND_MODULE_NAMES = packCommandModuleNames(PRODUCT_PACKS);
 
 const MINIMAL_ARGS = { noUpdateCheck: true } as unknown as IParsedCliArgs;
 
-/** The ten coding tools `pack-coding` contributes — pinned so a drift fails here, not silently. */
+/** The nine coding tools `pack-coding` contributes — pinned so a drift fails here, not silently. */
 const CODING_TOOL_NAMES = [
   'Shell',
   'Bash',
@@ -58,7 +61,6 @@ const CODING_TOOL_NAMES = [
   'Glob',
   'Grep',
   'WebFetch',
-  'WebSearch',
   'AskUserQuestion',
 ];
 
@@ -115,6 +117,7 @@ function runtimeFixtureOptions(overrides: IProbeOverrides = {}) {
   const { product, fixedCommandModules } = productFixture(overrides);
 
   return buildProductRuntimeOptions({
+    host: testHost,
     product,
     cwd: SEAM_CWD,
     provider: createScriptedProvider([{ text: 'ok' }]).provider,
@@ -156,7 +159,7 @@ describe('ARCH-007 — the kernel overlay is test-product’s single assembly pa
 
   it('SUPPRESSES the framework default tier so the packs are the SOLE source of tools (ARCH-006)', () => {
     // `defaultTools: []` REPLACES `createDefaultTools()`. Without it the framework would still contribute
-    // its own ten tools and the pack's would merely dedupe away — the pack would be decorative.
+    // its own nine tools and the pack's would merely dedupe away — the pack would be decorative.
     expect(runtimeFixtureOptions().toolOptions.defaultTools).toEqual([]);
   });
 

@@ -7,15 +7,18 @@ import { describe, expect, it } from 'vitest';
 
 import { toChannelOptions } from '../render.js';
 import { buildTuiSessionOptions } from '../tui-session-options.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IRenderOptions } from '../render.js';
+
+const testHost = createTestFrameworkHost();
 
 type TSandboxClient = NonNullable<IRenderOptions['sandboxClient']>;
 
 const sandboxClient = { filesystem: 'shared', autoApproves: () => true } as unknown as TSandboxClient;
 
 function renderOptions(extra: Partial<IRenderOptions> = {}): IRenderOptions {
-  return { cwd: '/work', provider: {} as never, ...extra } as IRenderOptions;
+  return { host: testHost, cwd: '/work', provider: {} as never, ...extra } as IRenderOptions;
 }
 
 describe('the TUI projection carries the sandbox client', () => {

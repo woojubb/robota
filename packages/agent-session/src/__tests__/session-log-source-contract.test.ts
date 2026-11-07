@@ -3,8 +3,9 @@ import { describe, expect, it } from 'vitest';
 
 import * as externalPayloadReferenceValidation from '../external-payload-file-reader.js';
 import { loadSessionLogEntries } from '../session-log-replay.js';
+import { createSessionLogExternalPayloadReference } from '../session-log-sinks.js';
 
-import type { IExternalPayloadSource, ISessionLogSource } from '../session-log-sources.js';
+import type { IExternalPayloadSource, ISessionLogSource } from '../external-payload-source-types.js';
 
 describe('session log source contract', () => {
   it('keeps the reference validator module free of pathname-opening authority', () => {
@@ -12,6 +13,19 @@ describe('session log source contract', () => {
       'isValidSessionLogExternalPayloadReference',
       'validateExternalPayloadReference',
     ]);
+  });
+
+  it('writes the payload path with `/` and measures UTF-8 bytes, on any host (issue #3693)', () => {
+    const serialized = JSON.stringify({ text: '\u{1F600} \ud55c\uad6d\uc5b4' });
+    const sha256 = createHash('sha256').update(serialized).digest('hex');
+
+    expect(createSessionLogExternalPayloadReference('session-1', sha256, serialized)).toEqual({
+      kind: 'external-payload',
+      encoding: 'json',
+      sha256,
+      byteLength: Buffer.byteLength(serialized),
+      relativePath: `session-1.payloads/${sha256}.json`,
+    });
   });
 
   it('loads and hydrates through explicit neutral sources', () => {

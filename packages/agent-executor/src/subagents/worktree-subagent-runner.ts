@@ -43,7 +43,11 @@ export interface IWorktreeSubagentRunnerOptions {
   runner: ISubagentRunner;
   worktreeAdapter: ISubagentWorktreeAdapter;
   hooks?: THooksConfig;
-  hookTypeExecutors?: IHookTypeExecutor[];
+  /**
+   * Runs the `WorktreeCreate` / `WorktreeRemove` hooks. Required: the executors that run a hook
+   * need a host (a shell, the network), so the composition root supplies them.
+   */
+  hookTypeExecutors: readonly IHookTypeExecutor[];
 }
 
 export function createWorktreeSubagentRunner(
@@ -53,19 +57,25 @@ export function createWorktreeSubagentRunner(
 }
 
 export class WorktreeSubagentRunner implements ISubagentRunner {
-  constructor(private readonly options: IWorktreeSubagentRunnerOptions) {}
+  private readonly hookTypeExecutors: readonly IHookTypeExecutor[];
+
+  constructor(private readonly options: IWorktreeSubagentRunnerOptions) {
+    this.hookTypeExecutors = options.hookTypeExecutors;
+  }
 
   start(job: ISubagentJobStart): ISubagentJobHandle {
     if (job.request.isolation !== 'worktree') {
       return this.options.runner.start(job);
     }
 
+    // What the inner runner would refuse, it refuses before a worktree exists or a hook fires.
+    this.options.runner.preflight?.(job);
     const worktree = this.options.worktreeAdapter.prepare({
       taskId: job.taskId,
       cwd: job.request.cwd,
     });
-    const lifecycle = createWorktreeLifecycle(this.options, worktree, job);
-    fireWorktreeHook(this.options, 'WorktreeCreate', job, worktree, false);
+    const lifecycle = createWorktreeLifecycle(this.options, this.hookTypeExecutors, worktree, job);
+    fireWorktreeHook(this.options, this.hookTypeExecutors, 'WorktreeCreate', job, worktree, false);
     const handle = this.startWrappedRunner(job, worktree, lifecycle);
 
     return this.createHandle(handle, job, worktree, lifecycle);
@@ -90,9 +100,14 @@ export class WorktreeSubagentRunner implements ISubagentRunner {
     worktree: IPreparedSubagentWorktree,
     lifecycle: IWorktreeLifecycle,
   ): ISubagentJobHandle {
+    // The transcript lives where the inner runner put it, whatever directory the job ran in, so the
+    // paths, the paged read and the sealedness of the inner handle are this handle's too.
     const wrapped: ISubagentJobHandle = {
       taskId: handle.taskId,
       ...(handle.pid !== undefined ? { pid: handle.pid } : {}),
+      ...(handle.logPath !== undefined ? { logPath: handle.logPath } : {}),
+      ...(handle.transcriptPath !== undefined ? { transcriptPath: handle.transcriptPath } : {}),
+      ...(handle.transcriptSealed === true ? { transcriptSealed: true as const } : {}),
       result: handle.result
         .then((result) => finalizeWorktreeResult(result, this.options, worktree, lifecycle))
         .catch((error) => {
@@ -107,6 +122,8 @@ export class WorktreeSubagentRunner implements ISubagentRunner {
     };
     const send = handle.send;
     if (send) wrapped.send = (prompt) => send(prompt);
+    const readLog = handle.readLog;
+    if (readLog) wrapped.readLog = (cursor) => readLog(cursor);
     return wrapped;
   }
 }
@@ -177,6 +194,7 @@ interface IWorktreeLifecycle {
 
 function createWorktreeLifecycle(
   options: IWorktreeSubagentRunnerOptions,
+  hookTypeExecutors: readonly IHookTypeExecutor[],
   worktree: IPreparedSubagentWorktree,
   job: ISubagentJobStart,
 ): IWorktreeLifecycle {
@@ -187,7 +205,7 @@ function createWorktreeLifecycle(
       if (!options.worktreeAdapter.isClean(worktree)) return false;
       options.worktreeAdapter.remove(worktree);
       removed = true;
-      fireWorktreeHook(options, 'WorktreeRemove', job, worktree, true);
+      fireWorktreeHook(options, hookTypeExecutors, 'WorktreeRemove', job, worktree, true);
       return true;
     },
   };
@@ -231,6 +249,7 @@ function withOptionalMetadata(
 
 function fireWorktreeHook(
   options: IWorktreeSubagentRunnerOptions,
+  hookTypeExecutors: readonly IHookTypeExecutor[],
   event: THookEvent,
   job: ISubagentJobStart,
   worktree: IPreparedSubagentWorktree,
@@ -253,7 +272,7 @@ function fireWorktreeHook(
   // that ran. Fire-and-forget is deliberate — these are notifications, not vetoes
   // (packages/agent-cli/docs/design/subagent-wiring.md) — so the result stays unawaited, but the
   // failure is now sayable. Same shape as the session hooks in agent-session.
-  void runHooks(options.hooks, event, input, options.hookTypeExecutors).catch((error: unknown) => {
+  void runHooks(options.hooks, event, input, hookTypeExecutors).catch((error: unknown) => {
     logger.warn('worktree hook failed', {
       event,
       taskId: job.taskId,

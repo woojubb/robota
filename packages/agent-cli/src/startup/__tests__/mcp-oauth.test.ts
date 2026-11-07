@@ -554,6 +554,7 @@ describe('/mcp login inside a session', () => {
       reportDiagnostic: (message) => diagnostics.push(message),
     });
     const session = new Session({
+      hookTypeExecutors: [],
       cwd: userHome,
       tools: [...(options.sessionTools ?? []), ...(await composition.connect())],
       provider: {
@@ -872,7 +873,7 @@ describe('MCP OAuth notices and browser', () => {
     const calls: [string, readonly string[]][] = [];
     await openInBrowser(url, {
       platform: 'linux',
-      execFile: (command, args, callback) => {
+      start: (command, args, callback) => {
         calls.push([command, args]);
         callback(null);
       },

@@ -302,6 +302,7 @@ background session, `__PRODUCT_CLI_NAME__ session events list <id>` and `__PRODU
 | `/mcp revoke <server>`                                     | Withdraw an earlier approval.                                                                     |
 | `/mcp login <server> [--no-browser]`                       | Sign in to an OAuth server and connect it in this session.                                        |
 | `/mcp logout <server>`                                     | Sign out and revoke the tokens.                                                                   |
+| `__PRODUCT_CLI_NAME__ mcp add <exa\|parallel>`, `__PRODUCT_CLI_NAME__ mcp add <name> <https-url>` | Add an HTTP server to your user settings and approve it in one step; it connects at the next start. `exa` and `parallel` are keyless web search servers. |
 | `__PRODUCT_CLI_NAME__ mcp login <name> [--client-secret] [--no-browser]` | Sign in from a terminal; tokens are kept for later sessions.                                      |
 | `__PRODUCT_CLI_NAME__ mcp logout <name>`                                 | Sign out from a terminal.                                                                         |
 | `__PRODUCT_CLI_NAME__ mcp serve [options]`                               | Serve one session over stdio, loopback HTTP or remote HTTP.                                       |

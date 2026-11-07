@@ -2,10 +2,13 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 import { describe, expect, it } from 'vitest';
 
 import { buildServeSessionOptions } from '../serve-mode.js';
+import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
+
+const testHost = createTestFrameworkHost();
 
 describe('served session naming', () => {
   it('builds sessions that name themselves, so a daemon and its pool name their own sessions', () => {
-    const options = buildServeSessionOptions({productRuntime: createTestProductRuntime(),
+    const options = buildServeSessionOptions({ host: testHost,productRuntime: createTestProductRuntime(),
       cwd: '/work',
       args: { noSessionPersistence: true } as never,
       preset: {},

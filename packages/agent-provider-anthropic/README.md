@@ -52,27 +52,52 @@ claims no effort support there.
 ```typescript
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
-const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
-provider.configureNativeWebTools({ webSearch: true }); // or: provider.enableWebTools = true
+const provider = new AnthropicProvider({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+  enableWebTools: true,
+});
 ```
 
-Once enabled, Anthropic's `web_search` server tool is included in requests; the API runs it, so no
-local tool is registered. A call with `toolChoice: 'none'` leaves it out. Web fetch is not offered
-by this provider.
+With `enableWebTools` on, Anthropic's `web_search` server tool is included in requests; the API runs
+it, so no local tool is registered. A call with `toolChoice: 'none'` leaves it out. Web fetch is not
+offered by this provider.
+
+`chat()` writes the search into the reply text: a search marker, a `[Web Search Results]` list, and at
+the end a `[Sources]` list of what the reply cites, one per address. Anthropic's documentation asks for
+citations to be shown with the output, and they otherwise arrive beside the text. Titles and addresses
+come from web pages, so control characters and markdown link syntax are removed from titles, and only
+`http(s)` addresses are listed, with brackets and backticks encoded.
+`chatStream()` carries neither list.
+
+The choice is made when the provider is built and nothing switches it on afterwards, so a session or
+a provider swap never changes it. A provider profile built through `createAnthropicProviderDefinition()`
+turns it on with the profile option `nativeWebTools`:
+
+```json
+{
+  "type": "anthropic",
+  "model": "claude-sonnet-4-6",
+  "options": { "nativeWebTools": { "webSearch": true } }
+}
+```
+
+Without the option, search stays off. `webSearch` must be a boolean; `webFetch` may only be `false`.
+Any other key or value is an error rather than a silently disabled search.
 
 ## Options
 
 `new AnthropicProvider(options: IAnthropicProviderOptions)`. One of `apiKey`, `client` or
 `executor` is required; the constructor throws otherwise.
 
-| Option         | Type        | Description                                                                                                            |
-| -------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `apiKey`       | `string`    | Anthropic API key used to create the SDK client.                                                                       |
-| `baseURL`      | `string`    | Endpoint base URL (default: Anthropic's official endpoint). Any endpoint that speaks the Anthropic Messages API works. |
-| `timeout`      | `number`    | Request timeout in milliseconds.                                                                                       |
-| `defaultModel` | `string`    | Model to request when a call names none.                                                                               |
-| `client`       | `Anthropic` | A pre-built `@anthropic-ai/sdk` client, used instead of `apiKey` (for authentication set up outside the API-key flow). |
-| `executor`     | `IExecutor` | Delegates chat calls to an executor instead of calling the API directly.                                               |
+| Option           | Type        | Description                                                                                                            |
+| ---------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `apiKey`         | `string`    | Anthropic API key used to create the SDK client.                                                                       |
+| `baseURL`        | `string`    | Endpoint base URL (default: Anthropic's official endpoint). Any endpoint that speaks the Anthropic Messages API works. |
+| `timeout`        | `number`    | Request timeout in milliseconds.                                                                                       |
+| `defaultModel`   | `string`    | Model to request when a call names none.                                                                               |
+| `client`         | `Anthropic` | A pre-built `@anthropic-ai/sdk` client, used instead of `apiKey` (for authentication set up outside the API-key flow). |
+| `executor`       | `IExecutor` | Delegates chat calls to an executor instead of calling the API directly.                                               |
+| `enableWebTools` | `boolean`   | Attach Anthropic's server-side `web_search` tool to requests (default: off). See above.                                |
 
 For OpenAI-protocol gateways (Vercel AI Gateway, LiteLLM, OpenRouter), use
 `@robota-sdk/agent-provider-openai` with the gateway's `baseURL` and model slug instead.

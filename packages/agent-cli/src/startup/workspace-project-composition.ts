@@ -2,26 +2,25 @@ import { realpathSync } from 'node:fs';
 import { isAbsolute, relative, sep } from 'node:path';
 
 import {
-  EditCheckpointStore,
   WorkspaceAuthorityRequiredError,
   createWorkspaceProjectContributionSource,
-  createNodeHostContributionSource,
-  createNodeHostSettingsStore,
-  createNodeWorkspaceTrustService,
-  createProjectSessionStore,
   createRestrictedWorkspaceProjectAccess,
-  createUserSessionStore,
   createWorkspaceProjectSettingsSources,
   createWorkspaceProjectSettingsStore,
   createWorkspaceMemoryStore,
-  createWorkspaceProjectMutation,
   getWorkspaceProjectIdentity,
   getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
-  supportsWorkspaceProjectMutation,
 } from '@robota-sdk/agent-framework';
+import {
+  createNodeHostContributionSource,
+  createNodeHostSettingsStore,
+  supportsWorkspaceProjectMutation,
+} from '@robota-sdk/agent-framework/node';
+import { BrokeredWorkspaceTrustService } from './brokered-workspace-trust.js';
 
 import type {
+  IEditCheckpointStore,
   IContributionSource,
   IMemoryStore,
   ISettingsDocumentStore,
@@ -33,6 +32,11 @@ import type {
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 import type { ICliRuntimeContext } from '../product/runtime-context.js';
 
+import {
+  createProductEditCheckpointStoreFactory,
+  createProductProjectSessionStore,
+  createProductUserSessionStore,
+} from '../product/session-stores.js';
 import { createProductUserSettingsSources } from '../product/user-settings.js';
 import { optionArgv } from '../utils/option-argv.js';
 
@@ -46,6 +50,12 @@ export interface ICreateCliWorkspaceCompositionOptions {
   readonly safeMode?: boolean;
   /** The host platform, which decides whether a trusted workspace's state can live in it. */
   readonly platform?: NodeJS.Platform;
+  /**
+   * A run that persists no session (`--no-session-persistence`): edit checkpoints still work for the
+   * run, but their pre-images and manifests live in an owner-only per-process directory under the
+   * user's state root, removed at exit, and nothing is written under the project.
+   */
+  readonly ephemeralEditCheckpoints?: boolean;
 }
 
 export interface ICliWorkspaceComposition {
@@ -64,13 +74,15 @@ export interface ICliWorkspaceComposition {
    * A factory, not a store: a store holds its session's turn in progress, so sessions that run at
    * the same time each need their own.
    */
-  readonly createEditCheckpointStore?: () => EditCheckpointStore;
+  readonly createEditCheckpointStore?: () => IEditCheckpointStore;
 }
 
-export type TCliWorkspaceCompositionOverrides = Partial<Pick<
-  ICreateCliWorkspaceCompositionOptions,
-  'projectAccess' | 'projectSettingsWriter' | 'safeMode' | 'productRuntime'
->>;
+export type TCliWorkspaceCompositionOverrides = Partial<
+  Pick<
+    ICreateCliWorkspaceCompositionOptions,
+    'projectAccess' | 'projectSettingsWriter' | 'safeMode' | 'productRuntime'
+  >
+>;
 
 /**
  * A run that must start Restricted: set by `/cd` into a Restricted folder (issue #3081), and for a
@@ -120,11 +132,15 @@ export async function resolveInitialCliWorkspaceProjectAccess(
 ): Promise<TWorkspaceProjectAccess> {
   if (options.projectAccess !== undefined) return options.projectAccess;
   const runtime = options.productRuntime;
-  if (runtime === undefined) throw new Error('Workspace admission requires an explicit CLI runtime context.');
-  return createNodeWorkspaceTrustService(
-    runtime.layout.userPaths.workspaceTrust,
-    runtime.layout.projectStateDirectories,
-  ).inspect(cwd);
+  if (runtime === undefined)
+    throw new Error('Workspace admission requires an explicit CLI runtime context.');
+  try {
+    return await (await BrokeredWorkspaceTrustService.create(runtime)).inspect(cwd);
+  } catch (error) {
+    return createRestrictedWorkspaceProjectAccess(
+      'store-unavailable', cwd, error instanceof Error ? error : new Error(String(error)),
+    );
+  }
 }
 
 function createTrustedCliWorkspaceComposition(
@@ -178,14 +194,11 @@ function trustedEditCheckpointStore(
 ): Pick<ICliWorkspaceComposition, 'createEditCheckpointStore'> {
   if (!supportsWorkspaceProjectMutation(options.platform)) return {};
   return {
-    createEditCheckpointStore: () =>
-      new EditCheckpointStore({
-        authority,
-        mutation: createWorkspaceProjectMutation(authority, {
-          status: 'approved',
-          purpose: 'restore files from an edit checkpoint',
-        }),
-      }),
+    createEditCheckpointStore: createProductEditCheckpointStoreFactory(
+      authority,
+      options.productRuntime,
+      { ephemeral: options.ephemeralEditCheckpoints === true },
+    ),
   };
 }
 
@@ -207,7 +220,8 @@ function trustedMemoryStore(
 /**
  * Where a host cannot prove a project write stays under the trusted root, the project store would
  * refuse every save; the workspace's sessions go to the user's store instead, where listing finds
- * them by their working directory. Nothing is written under the project root either way.
+ * them by their working directory. Nothing is written under the project root either way. Both stores
+ * come from the product factory, so both seal exactly as every other store of this process does.
  */
 function trustedSessionStore(
   authority: ITrustedWorkspaceProjectAccess['authority'],
@@ -215,15 +229,12 @@ function trustedSessionStore(
 ): Pick<ICliWorkspaceComposition, 'sessionStore' | 'sessionStoreScope'> {
   if (!supportsWorkspaceProjectMutation(options.platform)) {
     return {
-      sessionStore: createUserSessionStore(options.productRuntime.layout.userPaths.sessions),
+      sessionStore: createProductUserSessionStore(options.productRuntime),
       sessionStoreScope: 'user',
     };
   }
   return {
-    sessionStore: createProjectSessionStore(
-      getWorkspaceProjectStateStorage(authority, 'sessions'),
-      getWorkspaceProjectStateStorage(authority, 'session-logs'),
-    ),
+    sessionStore: createProductProjectSessionStore(authority, options.productRuntime),
     sessionStoreScope: 'project',
   };
 }
@@ -232,7 +243,11 @@ export function createInitialCliWorkspaceComposition(
   cwd: string,
   overrides: TCliWorkspaceCompositionOverrides,
 ): ICliWorkspaceComposition {
-  return createCliWorkspaceComposition({ cwd, ...overrides, productRuntime: requiredProductRuntime(overrides.productRuntime) });
+  return createCliWorkspaceComposition({
+    cwd,
+    ...overrides,
+    productRuntime: requiredProductRuntime(overrides.productRuntime),
+  });
 }
 
 export function createCliWorkspaceComposition(
@@ -279,7 +294,7 @@ export function createCliWorkspaceComposition(
       skillRoots: options.productRuntime.layout.skillRoots,
       settingsSources: createProductUserSettingsSources(options.productRuntime),
       settingsStores: [userSettingsStore],
-      sessionStore: createUserSessionStore(options.productRuntime.layout.userPaths.sessions),
+      sessionStore: createProductUserSessionStore(options.productRuntime),
       sessionStoreScope: 'user',
     };
   }
@@ -288,30 +303,58 @@ export function createCliWorkspaceComposition(
 }
 
 /** Product user roots are independent of the workspace state directory and third-party home roots. */
-export function createProductContributionSources(projectAccess: TWorkspaceProjectAccess, runtime: ICliRuntimeContext): readonly IContributionSource[] {
-  const projectSources = projectAccess.status === 'trusted' ? [createWorkspaceProjectContributionSource(
-    getWorkspaceProjectReader(projectAccess.authority), getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot,
-  )] : [];
+export function createProductContributionSources(
+  projectAccess: TWorkspaceProjectAccess,
+  runtime: ICliRuntimeContext,
+): readonly IContributionSource[] {
+  const projectSources =
+    projectAccess.status === 'trusted'
+      ? [
+          createWorkspaceProjectContributionSource(
+            getWorkspaceProjectReader(projectAccess.authority),
+            getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot,
+          ),
+        ]
+      : [];
   const owned = createNodeHostContributionSource(runtime.layout.userRoot);
-  const compatibility = runtime.userHome === undefined ? undefined : createNodeHostContributionSource(runtime.userHome);
+  const compatibility =
+    runtime.userHome === undefined ? undefined : createNodeHostContributionSource(runtime.userHome);
   const prefix = `${runtime.layout.projectDirectory}/`;
   const route = (path: string): { source: IContributionSource; path: string } | undefined => {
     const normalized = path.replace(/\\/gu, '/');
-    if (normalized.startsWith(prefix)) return { source: owned, path: normalized.slice(prefix.length) };
-    if (/^\.(?:agents|claude)\//u.test(normalized) && compatibility !== undefined) return { source: compatibility, path: normalized };
+    if (normalized.startsWith(prefix))
+      return { source: owned, path: normalized.slice(prefix.length) };
+    if (/^\.(?:agents|claude)\//u.test(normalized) && compatibility !== undefined)
+      return { source: compatibility, path: normalized };
     return undefined;
   };
   const user: IContributionSource = Object.freeze({
-    kind: 'host', displayName: runtime.layout.userRoot,
-    readText: (path: string, purpose: string) => { const entry = route(path); return entry?.source.readText(entry.path, purpose); },
-    listDirectory: (path: string, purpose: string) => { const entry = route(path); return entry?.source.listDirectory(entry.path, purpose) ?? []; },
-    inspectKind: (path: string, purpose: string) => { const entry = route(path); return entry?.source.inspectKind(entry.path, purpose); },
-    locate: (path: string) => { const entry = route(path); if (entry?.source.locate === undefined) throw new Error('Unconfigured host contribution path.'); return entry.source.locate(entry.path); },
+    kind: 'host',
+    displayName: runtime.layout.userRoot,
+    readText: (path: string, purpose: string) => {
+      const entry = route(path);
+      return entry?.source.readText(entry.path, purpose);
+    },
+    listDirectory: (path: string, purpose: string) => {
+      const entry = route(path);
+      return entry?.source.listDirectory(entry.path, purpose) ?? [];
+    },
+    inspectKind: (path: string, purpose: string) => {
+      const entry = route(path);
+      return entry?.source.inspectKind(entry.path, purpose);
+    },
+    locate: (path: string) => {
+      const entry = route(path);
+      if (entry?.source.locate === undefined)
+        throw new Error('Unconfigured host contribution path.');
+      return entry.source.locate(entry.path);
+    },
   });
   return [...projectSources, user];
 }
 
 function requiredProductRuntime(runtime: ICliRuntimeContext | undefined): ICliRuntimeContext {
-  if (runtime === undefined) throw new Error('Workspace composition requires an explicit CLI runtime context.');
+  if (runtime === undefined)
+    throw new Error('Workspace composition requires an explicit CLI runtime context.');
   return runtime;
 }

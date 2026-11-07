@@ -45,6 +45,7 @@ function createTerminal() {
 
 function createSession(provider: IAIProvider, onTextDelta: (delta: string) => void): Session {
   return new Session({
+    hookTypeExecutors: [],
     cwd: process.cwd(),
     tools: [],
     provider,
@@ -122,6 +123,7 @@ describe('Session provider callback isolation', () => {
       };
     });
     const session = new Session({
+      hookTypeExecutors: [],
       cwd: process.cwd(),
       tools: [],
       provider,

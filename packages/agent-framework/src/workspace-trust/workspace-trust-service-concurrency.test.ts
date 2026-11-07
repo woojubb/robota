@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { createNodeWorkspaceProjectFiles } from './node-project-files.js';
 import { WorkspaceTrustService, assertWorkspaceProjectAuthority } from './index.js';
 
 import type {
@@ -66,6 +67,7 @@ describe('WorkspaceTrustService concurrent inspection', () => {
     };
     const store = new ControlledTrustStore();
     const service = new WorkspaceTrustService({
+      projectFiles: createNodeWorkspaceProjectFiles(),
       identityResolver: { resolve: () => identity },
       store,
     });

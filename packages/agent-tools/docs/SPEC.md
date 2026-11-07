@@ -5,7 +5,7 @@
 Owns the tool factory constructors, tool result types, sandbox execution ports, and sandbox
 workspace manifest contracts for the Robota SDK: ergonomic tool-construction factories that build
 `@robota-sdk/agent-core`'s `FunctionTool`, plus a set of built-in CLI tools (shell, bash, read,
-write, edit, glob, grep, web-fetch, web-search, ask-user-question) used by the agent CLI.
+write, edit, glob, grep, web-fetch, ask-user-question) used by the agent CLI.
 
 ## Boundaries
 
@@ -18,11 +18,19 @@ write, edit, glob, grep, web-fetch, web-search, ask-user-question) used by the a
   sandbox adapters are structural adapters an application opts into.
 - Does not own CLI manifest file parsing — YAML/JSON parsing belongs to the CLI composition layer
   and must converge into this package's workspace manifest contract.
-- The browser entry point is a deliberately separate, minimal import graph that excludes every
-  Node-only builtin by construction, so the browser build cannot pull in `node:`-only code even
-  transitively.
+- Owns no host default. The main entry is platform-neutral: it runs in a browser, a Web Worker, Node,
+  Deno and Bun. What touches a host (processes, the file system, the network egress policy, the OS
+  sandbox) is on `./node`, and a neutral entry takes a host's pieces by injection.
 
 ## Contract
+
+### No host default on the neutral entry
+
+Absent a port, a capability is absent, and the code says so plainly. A workspace manifest reads the
+host only through an injected host-files port; without one, a `localFile` or `localDir` entry is
+refused before the first entry is applied, so a refused manifest leaves nothing half-built — the
+same failure direction as a requested control the applicator cannot enforce. The Node adapter for the
+port is on `./node`, and a composition root passes it.
 
 ### Built-in tool factories, not shared instances
 
@@ -146,12 +154,10 @@ never happened.
   file tools'; a nested repository or build script it writes is workspace content, and the sandbox
   does not make running host tools over it safe.
 - `IWorkspaceManifest` / its applicator declare fresh-session sandbox contents (inline/local files,
-  directories, Git clones) through `ISandboxClient`; provider-specific storage mounts are
+  directories, Git clones) through `ISandboxClient`, reading local files through the injected host
+  files; provider-specific storage mounts are
   represented in the contract but report an explicit "unsupported" status until an adapter
   supplies native mount capability, rather than failing silently or faking success.
-- `IWebSearchProvider` is a duck-typed port; the default adapter is the only module holding a
-  vendor endpoint, so the tool layer itself carries no vendor URL literal and provider failures
-  surface as structured tool-result errors rather than being swallowed.
 
 ## Error handling
 

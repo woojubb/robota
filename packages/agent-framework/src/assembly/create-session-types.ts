@@ -13,10 +13,11 @@ import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { IPeerReplyPort } from '../tools/peer-reply-tool.js';
 import type { IPeerSendFilePort } from '../tools/peer-send-file-tool.js';
 import type { IContributionSource } from '../contributions/index.js';
+import type { IFrameworkHost } from '../host/framework-host.js';
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { TSessionFactory } from '../hooks/agent-executor.js';
 import type { TProviderFactory } from '../hooks/prompt-executor.js';
-import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
+import type { IInteractiveSessionStore } from '../interactive/session-store-types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/in-process-subagent-runner.js';
 import type {
@@ -42,7 +43,7 @@ import type {
   ISessionLogger,
   TAutoCompactThreshold as TSessionAutoCompactThreshold,
 } from '@robota-sdk/agent-session';
-import type { ISandboxClient, IRetrievalAdapter } from '@robota-sdk/agent-tools';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IToolCallHandoffPolicy } from './tool-call-handoff-types.js';
 
 /**
@@ -73,6 +74,8 @@ export type {
 
 /** Options for the createSession factory */
 export interface ICreateSessionOptions {
+  /** The platform this session runs on; `{}` is a host with nothing to lend. See `IFrameworkHost`. */
+  host: IFrameworkHost;
   readonly pathProtection?: IPathProtectionPolicy;
   /** Additive response style; it never replaces framework, project, permission, or capability sections. */
   outputStyle?: IOutputStylePrompt;
@@ -80,8 +83,8 @@ export interface ICreateSessionOptions {
   config: IResolvedConfig;
   /** Host-selected permission patterns independent of config and the active preset. */
   baselinePermissionAllow?: readonly string[];
-  /** Working directory used for project context, skills, and agent definitions. */
-  cwd?: string;
+  /** The absolute working directory used for project context, skills, and agent definitions. */
+  cwd: string;
   /** Explicit contribution sources; absence means no skill or agent-definition file access. */
   contributionSources?: readonly IContributionSource[];
   /** Ordered skill and legacy-command roots selected by the host; absence disables file discovery. */
@@ -137,10 +140,10 @@ export interface ICreateSessionOptions {
   /** Host-selected resource/dependency policy, independent of permission admission. */
   toolExecutionPolicy?: ISessionOptions['toolExecutionPolicy'];
   /**
-   * ARCH-006: REPLACES the framework's `createDefaultTools()` tier for this session; `[]` suppresses every
-   * framework default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's
-   * `builtInAgents` seam for subagents. Absent ⇒ the framework tier is constructed as before
-   * (byte-identical). The injected tools are used as given — the framework cannot re-bind the session
+   * ARCH-006: REPLACES the host's default tool tier (`host.createDefaultTools`) for this session; `[]`
+   * suppresses every default so a product's capability packs can own the whole tool surface. Mirrors
+   * NEUT-003's `builtInAgents` seam for subagents. Absent ⇒ the tier the host builds for the session,
+   * or none when the host lends no `createDefaultTools`. The injected tools are used as given — the framework cannot re-bind the session
    * context (`cwd`/`sandboxClient`) onto an already-constructed tool, so an injected replacement for a
    * context-sensitive default must carry that context itself.
    */
@@ -316,11 +319,6 @@ export interface ICreateSessionOptions {
    * child run un-sandboxed while looking sandboxed.
    */
   sandboxType?: string;
-  /**
-   * SELFHOST-003: optional codebase-retrieval adapter (built from a surface-supplied source parser +
-   * corpus). When present, the adapter-gated `CodebaseRetrieval` tool joins the default set; absent otherwise.
-   */
-  retrievalAdapter?: IRetrievalAdapter;
   /** Name reported to the underlying ConversationAgent agent config. Defaults to 'agent'. */
   agentName?: string;
   /** Active preset id selected at startup (PRESET-011 runtime state). Defaults to 'default'. */

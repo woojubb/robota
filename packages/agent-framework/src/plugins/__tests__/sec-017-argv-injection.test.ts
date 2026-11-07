@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { beforeEach, afterEach, describe, expect, it, vi, type Mock } from 'vitest';
 
+import { NodeFileSystem } from '../../adapters/node-file-system.js';
 import { MarketplaceClient } from '../marketplace-client.js';
 
 import type { TExecFn } from '../marketplace-types.js';
@@ -28,7 +29,11 @@ describe('SEC-017 — hostile marketplace input reaches the port as a literal ar
   beforeEach(() => {
     pluginsDir = realpathSync(mkdtempSync(join(tmpdir(), 'sec-017-')));
     mockExec = vi.fn().mockReturnValue('');
-    client = new MarketplaceClient({ pluginsDir, exec: mockExec as unknown as TExecFn });
+    client = new MarketplaceClient({
+      pluginsDir,
+      exec: mockExec as unknown as TExecFn,
+      fs: new NodeFileSystem(),
+    });
   });
 
   afterEach(() => {
