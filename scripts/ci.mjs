@@ -41,15 +41,11 @@ export function workspaces(cwd, selectors = []) {
     });
 }
 
-/** Documents that are inputs to a check, so a change to one runs the full plan. */
-const FULL_PLAN_DOCUMENTS = new Map([
-  // `pnpm lint` checks every manifest against its runtime-platform lists.
-  ['ARCHITECTURE.md', 'runtime-platform lists: ARCHITECTURE.md'],
-]);
+const FULL_PLAN_DOCUMENT = 'ARCHITECTURE.md';
 
 /** A developer document: a change to it alone needs no workspace check. */
 export function isDeveloperDocument(file) {
-  if (FULL_PLAN_DOCUMENTS.has(file)) return false;
+  if (file === FULL_PLAN_DOCUMENT) return false;
   return /^[^/]+\.md$/.test(file) || /^\.changeset\/[^/]+\.md$/.test(file) ||
     /^(?:\.agents|\.claude)\/.*\.md$/.test(file) ||
     /^(?:packages|examples)\/[^/]+\/(?:README\.md|CHANGELOG\.md|docs\/.*\.md)$/.test(file);
@@ -86,7 +82,7 @@ export function selectScope({
     for (let index = 0; index < changes.length - 1; index += 2) {
       const status = changes[index];
       const file = changes[index + 1];
-      if (FULL_PLAN_DOCUMENTS.has(file)) return full(FULL_PLAN_DOCUMENTS.get(file));
+      if (file === FULL_PLAN_DOCUMENT) return full('runtime-platform lists: ARCHITECTURE.md');
       if (isDeveloperDocument(file)) {
         developerDocs = true;
         continue;
@@ -270,12 +266,14 @@ async function main() {
     if (plan.checks.includes('packages/agent-cli'))
       run('--filter', './packages/agent-cli', 'exec', 'vitest', 'run', '--passWithNoTests',
         `--shard=${kind === 'tests-cli-1' ? '1/2' : '2/2'}`);
-  } else if (kind === 'tests-rest') {
-    const remaining = plan.checks.filter((dir) => dir !== 'packages/agent-cli');
+  } else if (/^tests-rest-[123]$/.test(kind)) {
+    const shard = Number(kind.at(-1)) - 1;
+    const remaining = plan.checks.filter((dir) => dir !== 'packages/agent-cli')
+      .filter((_, index) => index % 3 === shard);
     if (remaining.length)
       run('-r', ...filters(remaining), '--no-sort', '--workspace-concurrency=2',
         '--if-present', 'run', 'test');
-    if (plan.full) run('test:scripts');
+    if (plan.full && shard === 0) run('test:scripts');
   } else throw new Error(`Unknown CI job: ${kind}`);
 }
 
