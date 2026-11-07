@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, lstatSync, mkdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { join, parse, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { requestWorkspaceRootBroker } from './workspace-root-broker.js';
@@ -69,11 +69,12 @@ export async function ensureWorkspaceRootBroker(runtime: ICliRuntimeContext): Pr
     : !compiledBun && process.argv[1] !== undefined && existsSync(process.argv[1]) &&
         resolve(process.argv[1]) !== resolve(process.execPath)
       ? [process.argv[1]] : [];
+  // A persistent child must not pin a disposable workspace or user-state tree as its cwd on Windows.
   const child = spawn(process.execPath, [
     ...(source || compiledBun ? [] : process.execArgv), ...script,
     '--internal-root-broker', endpoint, directory,
     runtime.layout.userPaths.workspaceTrust,
-  ], { cwd: directory, detached: true, stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
+  ], { cwd: parse(process.execPath).root, detached: true, stdio: ['ignore', 'ignore', 'pipe', 'ipc'] });
   let startupError = '';
   child.stderr?.on('data', (chunk: Buffer) => {
     startupError = `${startupError}${chunk.toString('utf8')}`.slice(0, 2_048);
