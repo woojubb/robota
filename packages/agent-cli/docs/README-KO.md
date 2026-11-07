@@ -161,11 +161,13 @@ __PRODUCT_CLI_NAME__ daemon stop
 이상하게 동작하면 `__PRODUCT_CLI_NAME__ --safe-mode`로 지시 파일, 스킬, 플러그인, 훅, MCP 서버를 모두 끈 채
 시작해 보세요.
 
-워크스페이스 신뢰는 Git 워크트리 단위로 부여되며 `<configured-user-state-dir>/workspace-trust.json`에 저장됩니다.
+신뢰 관리 프로세스가 실행되는 동안 승인 당시의 실제 폴더에 대한 신뢰가 유지됩니다. CLI를 다시 켜도 재승인할
+필요는 없지만, 관리 프로세스나 컴퓨터를 재시작하면 다시 승인해야 합니다.
+`<configured-user-state-dir>/workspace-trust.json`은 승인 이력만 기록하며 신뢰를 자동 복원하지 않습니다.
 
 ```bash
 __PRODUCT_CLI_NAME__ trust status    # 이 워크스페이스를 신뢰하는가? 신뢰하면 무엇을 불러오는가? (--json: 한 줄 JSON)
-__PRODUCT_CLI_NAME__ trust --yes     # 지금 있는 Git 워크스페이스를 신뢰
+__PRODUCT_CLI_NAME__ trust --yes     # 현재 폴더의 신뢰를 요청하고 터미널에서 확인
 __PRODUCT_CLI_NAME__ trust revoke --yes
 ```
 
@@ -341,7 +343,7 @@ CLI가 `<configured-user-state-dir>/` 아래에 두는 그 밖의 파일:
 
 | 경로                   | 내용                                                               |
 | ---------------------- | ------------------------------------------------------------------ |
-| `workspace-trust.json` | 신뢰한 워크스페이스                                                |
+| `workspace-trust.json` | 승인 이력. 실제 신뢰는 관리 프로세스가 유지                        |
 | `sessions/`            | 저장된 세션 (신뢰한 프로젝트는 `<configured-project-state-dir>/sessions/`에 둘 수도 있음) |
 | `history.jsonl`        | `Ctrl+R`용으로 입력한 프롬프트 (`"promptHistory": false`로 끔)     |
 | `keybindings.json`     | 키 바인딩                                                          |
