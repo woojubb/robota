@@ -41,7 +41,7 @@ export function productSecureMode(runtime: ICliRuntimeContext): boolean {
 export function assertProductConversationLaunch(runtime: ICliRuntimeContext, argv: readonly string[]): void {
   if (runtime.conversationMode !== 'preparing') return;
   if (argv[2] === 'secure') return;
-  throw new Error(`Secure conversation preparation is incomplete; run \`${runtime.vocabulary.cliName} secure status\` and resume or cancel it before starting a session.`);
+  throw new Error(`Secure conversation preparation is incomplete; run \`${runtime.vocabulary.cliName} secure enable\` to finish it before starting a session.`);
 }
 
 /** Test seam; product code never calls it. */

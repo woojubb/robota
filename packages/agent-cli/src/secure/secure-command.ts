@@ -1,5 +1,5 @@
 /**
- * `the product secure setup | status | disable | verify | change-passphrase`: manage the
+ * `the product secure setup | status | enable | disable | verify | change-passphrase`: manage the
  * conversation choice and the keyring that secure conversations are sealed to.
  *
  * A passphrase or recovery key is typed at an interactive terminal and comes from nowhere else: not
@@ -13,7 +13,7 @@
  * There is no `unlock` here: unlocked keys live in the process that uses them. `lock` asks each
  * reachable secure runtime to discard its keys and needs no secret.
  *
- * This command never turns secure mode on for sessions; creating a keyring is all `setup` does.
+ * Creating a keyring is all `setup` does; only a confirmed `enable` turns secure mode on.
  * `migrate` and `compact` (`secure-migrate.ts`) run only once secure mode is on, and until then
  * refuse with a fixed message; they are left out of the usage while they cannot run.
  */
@@ -54,6 +54,7 @@ import {
 } from './secure-conversations.js';
 import {
   runSecureCompact,
+  runSecureEnable,
   runSecureMigrate,
   type ISecureMigrateOptions,
 } from './secure-migrate.js';
@@ -75,6 +76,7 @@ export interface ISecureCommandOptions extends ISecureMigrateOptions {
 type TSecureAction =
   | { readonly action: 'setup' }
   | { readonly action: 'status' }
+  | { readonly action: 'enable' }
   | { readonly action: 'disable' }
   | { readonly action: 'lock' }
   | { readonly action: 'verify'; readonly credential: TCredentialKind }
@@ -85,6 +87,7 @@ type TSecureAction =
 export const SECURE_USAGE = (cliName: string): string =>
   `Usage: ${cliName} secure setup\n` +
   `       ${cliName} secure status\n` +
+  `       ${cliName} secure enable\n` +
   `       ${cliName} secure disable\n` +
   `       ${cliName} secure lock\n` +
   `       ${cliName} secure verify [--recovery]\n` +
@@ -94,7 +97,7 @@ export const SECURE_USAGE = (cliName: string): string =>
 /** The action the arguments name, or `undefined` for anything else; what was typed is never echoed. */
 function parseSecureArgs(args: readonly string[]): TSecureAction | undefined {
   const [action, ...flags] = args;
-  if (action === 'setup' || action === 'status' || action === 'lock' || action === 'disable') return flags.length === 0 ? { action } : undefined;
+  if (action === 'setup' || action === 'status' || action === 'lock' || action === 'enable' || action === 'disable') return flags.length === 0 ? { action } : undefined;
   if (action === 'verify' || action === 'change-passphrase') {
     if (flags.length > 1 || (flags.length === 1 && flags[0] !== '--recovery')) return undefined;
     return { action, credential: flags.length === 1 ? 'recoveryKey' : 'passphrase' };
@@ -116,6 +119,7 @@ type TSecureActionName = TSecureAction['action'];
 const CANCELLED: Readonly<Record<TSecureActionName, string>> = {
   setup: 'Cancelled. No keyring was created.',
   status: 'Cancelled.',
+  enable: 'Cancelled. Secure conversations remain off.',
   disable: 'Cancelled. Secure conversations remain on.',
   lock: 'Cancelled.',
   verify: 'Cancelled.',
@@ -497,6 +501,9 @@ export async function runSecureCommand(
     if (parsed.action === 'setup') return await runSetup(store, terminalSession, options);
     if (parsed.action === 'migrate') {
       return await runSecureMigrate(store, terminalSession, parsed.dryRun, options);
+    }
+    if (parsed.action === 'enable') {
+      return await runSecureEnable(store, terminalSession, options);
     }
     if (parsed.action === 'compact') return await runSecureCompact(store, terminalSession, options);
     return parsed.action === 'verify'

@@ -1,7 +1,7 @@
 /**
  * `secure migrate [--dry-run]` and `secure compact` (#3679), driven as a person at a terminal would:
  * a scripted secret terminal for the passphrase and a scripted answer to the plan. Secure mode is
- * turned on through the predicate's own seam, since the persistent switch does not exist yet; real
+ * turned on through the predicate's own seam for legacy migration tests; real
  * child processes stand in for the other product processes a migration must see.
  */
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
@@ -47,6 +47,7 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
+import { resolveCliRuntimeContext } from '../../startup/product-bootstrap.js';
 import { compactProductPromptHistory } from '../../product/session-stores.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
@@ -212,13 +213,13 @@ function seedHistory(): string[] {
 }
 
 /** The history read back by a newly unlocked process, and how many data keys that cost. */
-async function readBack(): Promise<{ texts: string[]; keyOpenings: number }> {
+async function readBack(path = historyPath()): Promise<{ texts: string[]; keyOpenings: number }> {
   const holder = new KeyHolder({ store: fileStore(), policy: { idleMs: 0 } });
   await holder.unlock({ type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
   const sealer = new KeyHolderArtifactSealer(holder);
   keyOpenings.mockClear();
   const texts: string[] = [];
-  const file = new NodePromptHistoryFile(historyPath(), { sealing: { sealer } });
+  const file = new NodePromptHistoryFile(path, { sealing: { sealer } });
   for await (const block of file.read({ signal: new AbortController().signal })) {
     expect(block.skippedLines).toBe(0);
     texts.push(...block.entries.map((item) => item.text));
@@ -385,6 +386,35 @@ describe('secure migrate and secure compact while secure mode is off', () => {
 });
 
 describe.skipIf(posixOnly)('secure migrate', () => {
+  it('enables by importing sealed history and merges a later plain interval without duplicate prompts', async () => {
+    await installFixtureKeyring();
+    const texts = seedHistory();
+    const archive = join(runtime.layout.userRoot, 'secure-v1', 'history.jsonl');
+
+    const first = await secure(['enable'], 'y', undefined, { interactive: false });
+    expect(first.code).toBe(0);
+    expect(resolveCliRuntimeContext({
+      productConfig: runtime.config,
+      environment: runtime.environment,
+    }).conversationMode).toBe('secure');
+    expect((await readBack(archive)).texts).toEqual(texts);
+    expect(readFileSync(historyPath(), 'utf8')).not.toContain(CANARY);
+    expect(readFileSync(archive, 'utf8')).not.toContain(CANARY);
+
+    const selected = resolveCliRuntimeContext({
+      productConfig: runtime.config,
+      environment: runtime.environment,
+    });
+    expect((await secure(['disable'], 'yes', undefined, { productRuntime: selected })).code).toBe(0);
+    new NodePromptHistoryFile(historyPath(), { sealing: 'plain' }).append(entry(6));
+
+    const second = await secure(['enable'], 'y', undefined, { interactive: false });
+    expect(second.code).toBe(0);
+    expect((await readBack(archive)).texts).toEqual([...texts, entry(6).text]);
+    expect(readFileSync(historyPath(), 'utf8')).not.toContain(CANARY);
+    expect(readFileSync(archive, 'utf8')).not.toContain(CANARY);
+  });
+
   it('unlocks, prints the plan and the caveat on stdout, asks, and seals the history under one key', async () => {
     await installFixtureKeyring();
     const texts = seedHistory();
@@ -428,7 +458,7 @@ describe.skipIf(posixOnly)('secure migrate', () => {
     expect(existsSync(presence())).toBe(false);
   });
 
-  it('warns as verify does before anything else, and exits 2, when the stored sealing key was swapped', async () => {
+  it('warns and remains incomplete when a swapped sealing key made stored history unreadable', async () => {
     const keyring = await fixtureKeyring();
     const stranger = await createKeyring({ passphrase: OTHER_PASSPHRASE });
     stranger.unlocked.lock();
@@ -437,13 +467,14 @@ describe.skipIf(posixOnly)('secure migrate', () => {
 
     const { code } = await secure(['migrate'], 'y');
 
-    expect(code).toBe(2);
+    expect(code, `${out()}\n${err()}`).toBe(4);
     expect(log[0]?.[0]).toBe('err');
     expect(log[0]?.[1]).toMatch(
       /^WARNING: the sealing public key in the keyring file was changed/u,
     );
     expect(err()).toContain(fingerprint(getSealingPublicKey(stranger.keyring)));
-    expect(out()).toContain('test-product secure migrate: done');
+    expect(out()).toContain('test-product secure migrate: incomplete');
+    expect(out()).toContain('3 that do not open here');
     expect(readFileSync(historyPath(), 'utf8')).not.toContain(CANARY);
   });
 

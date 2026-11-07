@@ -178,6 +178,7 @@ describe('the help router hands --help to commands with their own help', () => {
     for (const entry of [
       'test-product secure setup',
       'test-product secure status',
+      'test-product secure enable',
       'test-product secure disable',
       'test-product secure lock',
       'test-product secure verify [--recovery]',

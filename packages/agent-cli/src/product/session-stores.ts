@@ -181,6 +181,14 @@ export function createProductPromptHistoryFile(
   });
 }
 
+/** The migration marker, rather than process presence, guards this one-off sealed archive import. */
+export function createProductArchivePromptHistoryFile(
+  path: string,
+  sealer: IArtifactSealer,
+): IPromptHistoryWriter & IPromptHistorySource {
+  return createUserPromptHistoryFile(path, { sealing: { sealer } });
+}
+
 /**
  * Where this run spills oversized tool results: a directory of its own in the owner-only state
  * root, never the shared temporary directory.

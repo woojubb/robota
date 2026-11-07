@@ -426,6 +426,74 @@ describe('secure disable', () => {
   });
 });
 
+describe('secure enable', () => {
+  it('turns on secure conversations only after the owner confirms an empty-state plan', async () => {
+    await installFixtureKeyring();
+    const plain = runtime();
+    const selected = resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment });
+
+    const cancelled = await secure(['enable'], { passphrase: FIXTURE_PASSPHRASE }, {
+      productRuntime: selected,
+      confirm: async () => 'no',
+      migrationSteps: [],
+    });
+    expect(cancelled.code).toBe(1);
+    expect(resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment }).conversationMode).toBe('plain');
+
+    const accepted = await secure(['enable'], { passphrase: FIXTURE_PASSPHRASE }, {
+      productRuntime: selected,
+      confirm: async () => 'yes',
+      migrationSteps: [],
+    });
+    expect(accepted.code).toBe(0);
+    expect(resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment }).conversationMode).toBe('secure');
+  });
+
+  it('keeps incomplete preparation blocked and resumes it on another invocation', async () => {
+    await installFixtureKeyring();
+    const plain = runtime();
+    const selected = resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment });
+    const incomplete = await secure(['enable'], { passphrase: FIXTURE_PASSPHRASE }, {
+      productRuntime: selected,
+      confirm: async () => 'yes',
+      migrationSteps: [{
+        title: 'a held legacy record',
+        plan: () => ({ lines: ['One record remains.'], complete: false }),
+        run: async () => ({ lines: ['One record remains.'], complete: false }),
+      }],
+    });
+    expect(incomplete.code).toBe(5);
+    const preparing = resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment });
+    expect(preparing.conversationMode).toBe('preparing');
+
+    const resumed = await secure(['enable'], { passphrase: FIXTURE_PASSPHRASE }, {
+      productRuntime: preparing,
+      confirm: async () => 'yes',
+      migrationSteps: [],
+    });
+    expect(resumed.code).toBe(0);
+    expect(resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment }).conversationMode).toBe('secure');
+  });
+
+  it('refuses an uncertain process before changing the mode choice', async () => {
+    await installFixtureKeyring();
+    const plain = runtime();
+    mkdirSync(join(plain.layout.userPaths.presence, 'process-4242-Unknow'), {
+      recursive: true,
+      mode: 0o700,
+    });
+    const selected = resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment });
+    const result = await secure(['enable'], { passphrase: FIXTURE_PASSPHRASE }, {
+      productRuntime: selected,
+      confirm: async () => 'yes',
+      migrationSteps: [],
+    });
+    expect(result.code).toBe(1);
+    expect(resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment }).conversationMode).toBe('plain');
+    expect(err()).toContain('active or uncertain');
+  });
+});
+
 describe('secure verify', () => {
   it('unlocks with the passphrase and reports the sealing key verified', async () => {
     const { keyring } = await installFixtureKeyring();

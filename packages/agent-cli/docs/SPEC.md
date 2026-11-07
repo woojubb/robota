@@ -322,7 +322,10 @@ unless stdin is a terminal, which is also what turns away a program the model st
 shell tool: that process has no controlling terminal and no input. The recovery key is shown once,
 on the secret terminal where it is wiped afterwards, and typed back before anything is saved, so a
 keyring whose key the person never held is not created. Creating a keyring does not turn secure mode
-on. Every conversation store the CLI builds — the workspace composition's and each command's own —
+on; the person's separate activation seals and imports legacy conversations into a dedicated area
+before it permits new sealed sessions, and an interrupted activation blocks all sessions until
+resumed. Turning the mode off retains the sealed archive and makes only future conversations plain.
+Every conversation store the CLI builds — the workspace composition's and each command's own —
 comes from one factory that states how it seals, from one decision: what a later process reads is
 sealed with the keyring, and what only its own process reads back (a spilled tool result, the edit
 checkpoints of a run that persists no session) with a key made in that process's memory, which seals
@@ -344,7 +347,8 @@ by a fresh path or a required state, consumed by its first match, timed out) bec
 session. Plain mode opens what it always did: while it is off, the children a process starts share
 its terminal session as before. Once it is on, each entry gives every child its own session before
 it starts any, so none can reach the terminal a secret is typed at; only the terminal handover
-(`/editor`, `/keybindings`, `/shell`, the workspace-move re-exec) hands a child the terminal.
+(`/keybindings`, `/shell`, the workspace-move re-exec) hands a child the terminal; the external
+editor is unavailable for a secure conversation because it would put a plaintext draft on disk.
 
 Being the one construction point, the factory is also where a process records that it uses the
 stores: the first store it builds (or, for a subagent worker, the grant it binds) creates its
@@ -355,8 +359,8 @@ lock file is needed; a compaction holds no store, since writers append to the hi
 catches them up, so only a migration's marker stops a store. A marker whose owner cannot be checked
 counts as running, since a migration that may be running must be treated as one that is; one that
 never got the owner record its creation writes at once, and flushes, is a crash's once that moment
-is past, and counts as gone. A presence that cannot be created is reported, never fatal, and the
-migration's plan says such processes, like those of builds without presence, are invisible to it.
+is past, and counts as gone. A presence that cannot be created prevents the store from opening;
+otherwise a migration could miss a writer. Builds without presence remain invisible to it.
 `secure migrate` and `secure compact` unlock before writing anything, since before an unlock the
 sealing key is whatever the same-user-writable file holds; they run only in secure mode, at a
 terminal, and are never a slash command, a skill or a transport request. A migration marks

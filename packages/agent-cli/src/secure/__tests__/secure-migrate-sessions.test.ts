@@ -20,6 +20,8 @@ import { createTestProductRuntime } from '../../__tests__/helpers/product-runtim
 import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
 import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
+import { resolveCliRuntimeContext } from '../../startup/product-bootstrap.js';
+import { writeProductConversationMode } from '../conversation-mode-state.js';
 import { overrideProductSecureMode } from '../../product/session-sealing.js';
 import { KeyHolderArtifactSealer } from '../artifact-sealer.js';
 import { KeyHolder } from '../key-holder.js';
@@ -174,6 +176,53 @@ describe('the sessions a migration sealed from plaintext', () => {
     });
     return { code, questions };
   }
+
+  it('imports verified sealed user records before enabling the dedicated store', async () => {
+    await installFixtureKeyring();
+    seedPlainSessions();
+
+    const { code } = await secure(['enable'], 'y', { interactive: false });
+
+    expect(code, `${out()}\n${err()}`).toBe(0);
+    expect(resolveCliRuntimeContext({
+      productConfig: runtime.config,
+      environment: runtime.environment,
+    }).conversationMode).toBe('secure');
+    for (const id of ['plain_one', 'plain_two']) {
+      const source = readFileSync(join(runtime.layout.userPaths.sessions, `${id}.json`));
+      const archive = readFileSync(join(runtime.layout.userRoot, 'secure-v1', 'sessions', `${id}.json`));
+      expect(archive).toEqual(source);
+      expect(archive.toString('utf8')).not.toContain(id);
+    }
+  });
+
+  it('keeps both copies and preparation state on an archive collision, then resumes', async () => {
+    await installFixtureKeyring();
+    seedPlainSessions();
+    writeProductConversationMode(runtime.layout.userRoot, 'plain', 'plain');
+    const target = join(runtime.layout.userRoot, 'secure-v1', 'sessions', 'plain_one.json');
+    mkdirSync(dirname(target), { recursive: true, mode: 0o700 });
+    writeFileSync(target, 'different existing bytes', { mode: 0o600 });
+
+    const first = await secure(['enable'], 'y', { interactive: false });
+
+    expect(first.code).toBe(5);
+    expect(resolveCliRuntimeContext({
+      productConfig: runtime.config,
+      environment: runtime.environment,
+    }).conversationMode).toBe('preparing');
+    expect(readFileSync(target, 'utf8')).toBe('different existing bytes');
+    expect(readFileSync(join(runtime.layout.userPaths.sessions, 'plain_one.json'), 'utf8')).not.toContain('plain_one');
+
+    rmSync(target);
+    const preparing = resolveCliRuntimeContext({
+      productConfig: runtime.config,
+      environment: runtime.environment,
+    });
+    const resumed = await secure(['enable'], 'y', { interactive: false, productRuntime: preparing });
+    expect(resumed.code, `${out()}\n${err()}`).toBe(0);
+    expect(readFileSync(target)).toEqual(readFileSync(join(runtime.layout.userPaths.sessions, 'plain_one.json')));
+  });
 
   it('are offered once, at the end of a finished run, and a yes marks exactly them as yours', async () => {
     await installFixtureKeyring();
