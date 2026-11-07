@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { once } from 'node:events';
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { createConnection } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -32,7 +32,7 @@ afterEach(async () => {
   for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 25 });
 });
 
-it('starts the real secure CLI runtime and admits its spawner on the control socket', async () => {
+it.skipIf(process.platform === 'win32')('starts the real secure CLI runtime and admits its spawner on the control socket', async () => {
   const temporaryRoot = process.platform === 'win32' ? tmpdir() : realpathSync('/tmp');
   const root = realpathSync(mkdtempSync(join(temporaryRoot, 'sa-')));
   roots.push(root);
@@ -87,3 +87,19 @@ it('starts the real secure CLI runtime and admits its spawner on the control soc
   spawnerKey.wipe();
   await stopped;
 }, 60_000);
+
+it.runIf(process.platform === 'win32')('refuses secure conversation before starting a workspace broker', async () => {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'sa-')));
+  roots.push(root);
+  const env = createTestBinaryEnvironment(root, { PRODUCT_TELEMETRY_ENABLED: '0' });
+  const child = spawn(process.execPath, ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source', fixture], {
+    cwd: root, env, stdio: ['ignore', 'ignore', 'pipe'],
+  });
+  children.push(child);
+  let stderr = '';
+  child.stderr?.on('data', (part: Buffer) => { stderr += part.toString(); });
+  const [code] = await once(child, 'exit');
+  expect(code).toBe(1);
+  expect(stderr).toContain('Secure conversations are unavailable on Windows');
+  expect(existsSync(join(root, '.test-product', 'root-broker'))).toBe(false);
+}, 30_000);

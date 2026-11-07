@@ -39,6 +39,9 @@ export function productSecureMode(runtime: ICliRuntimeContext): boolean {
 
 /** An interrupted mode change admits only the owner's `secure` recovery commands. */
 export function assertProductConversationLaunch(runtime: ICliRuntimeContext, argv: readonly string[]): void {
+  if (process.platform === 'win32' && productSecureMode(runtime) && argv[2] !== 'secure') {
+    throw new Error('Secure conversations are unavailable on Windows in this release. Run `secure disable` to use plaintext conversations.');
+  }
   if (runtime.conversationMode !== 'preparing') return;
   if (argv[2] === 'secure') return;
   throw new Error(`Secure conversation preparation is incomplete; run \`${runtime.vocabulary.cliName} secure enable\` to finish it before starting a session.`);

@@ -460,6 +460,9 @@ Secure conversations are optional. After `secure setup`, run `secure enable` at 
 terminal with all Robota sessions closed. It verifies the keyring, migrates supported existing
 conversation data, and refuses activation if plaintext conversation data remains. Resolve anything
 it reports before trying again; it never silently discards a conversation or a forked worktree.
+Secure CLI conversations are available on macOS and Linux in this release. Windows keeps plaintext
+CLI conversations; `secure enable` and secure session startup refuse there. Secure desktop
+conversations are available on macOS.
 While secure mode is on, new conversations use the dedicated `secure-v1` storage area. The desktop
 app requires **File → Unlock Secure Conversation…** after opening; closing or reloading its window
 locks the session and discards unsent drafts and attachment paths. `secure disable` requires terminal

@@ -71,6 +71,7 @@ See [the workspace daemon](./sessions-and-daemon.md#walkthrough-the-workspace-da
 
 Secure conversations are optional. Enable them from an interactive terminal with
 `__PRODUCT_CLI_NAME__ secure setup` and `__PRODUCT_CLI_NAME__ secure enable` after closing Robota sessions.
+The secure desktop window is available on macOS in this release.
 The app then opens on a locked screen. Choose **File → Unlock Secure Conversation…** and enter the
 passphrase in the native window. Reloading or closing the window locks the conversation; an unsent
 draft and attachment paths are discarded. To return to plaintext for **new** conversations, close
