@@ -83,8 +83,7 @@ questions and ideas, use [GitHub Discussions](__PROJECT_REPOSITORY_URL__/discuss
 
 ## Commit messages
 
-Commits follow [Conventional Commits](https://www.conventionalcommits.org/), checked by commitlint
-with `@commitlint/config-conventional`:
+Commits should follow [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
 <type>(<optional scope>): <subject>

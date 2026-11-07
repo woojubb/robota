@@ -6,5 +6,3 @@ if [ "${ALLOW_PROTECTED_COMMIT:-0}" != "1" ] && [ ! -f "$(git rev-parse --git-di
   echo "[pre-commit] Blocked: do not commit directly to main. Create a branch first." >&2
   exit 1
 fi
-
-NODE_OPTIONS="--max-old-space-size=8192" pnpm lint:fix:staged

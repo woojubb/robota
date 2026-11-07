@@ -101,7 +101,7 @@ The apps:
   non-goals; what the code already shows stays out of it.
 - **Dependencies point one way.** `pnpm deps:check` enforces the dependency rules between packages,
   including no circular imports.
-- **Conventional commits**, checked by commitlint — `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, …
+- **Conventional commits** — `feat:`, `fix:`, `docs:`, `refactor:`, `chore:`, …
 
 [CONTRIBUTING.md](../../CONTRIBUTING.md) has the full workflow, and
 [AGENTS.md](../../AGENTS.md) the working rules for coding agents in this repository.
