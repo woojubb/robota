@@ -1,25 +1,10 @@
 #!/usr/bin/env node
 
 /**
- * The "Runtime platforms" rule in ARCHITECTURE.md, enforced on every workspace package.
- *
- * An export subpath is Node-only exactly when its `exports` entry maps `"browser": null` ahead of any
- * condition a browser resolver matches. Every other subpath is platform-neutral, and what it loads —
- * static and dynamic imports, followed through workspace packages by their `source` files — may not
- * include a workspace module that imports a Node built-in (also type-only), references a Node global
- * or the `NodeJS` namespace, or imports another package's Node-only subpath. Outside the Browser (DOM)
- * packages it may not reference a DOM-only global either. A third-party module may not import a Node
- * built-in unless it is reached only through dynamic imports inside third-party code; globals inside
- * third-party code are not checked.
- *
- * A neutral subpath is one file for every runtime, so it may not map a `node` or `browser` condition at
- * any depth: a build per runtime is exactly what a neutral entry makes unnecessary.
- *
- * The check reads source only, never build output, so it gives the same answer in every checkout.
- * Every package appears in exactly one ARCHITECTURE.md list, and the lists agree with the manifests.
- *
- * The half that runs the same bundles in a realm with only web-standard globals is
- * `browser-runtime-proof.mjs`, next to this file.
+ * Enforce the ARCHITECTURE.md runtime-platform boundaries on workspace source.
+ * Node-only subpaths map `browser` to null; neutral exports must not reach Node built-ins or globals,
+ * or DOM globals outside browser packages. Third-party dynamic imports are allowed.
+ * `browser-runtime-proof.mjs` complements this check by loading the bundles.
  */
 
 import { existsSync, readFileSync, realpathSync } from 'node:fs';

@@ -49,9 +49,12 @@ const NATIVE_WORKSPACES = new Set([
   'packages/agent-keyring',
   'packages/agent-transport-link',
 ]);
+const WINDOWS_WORKSPACES = new Set([...NATIVE_WORKSPACES,
+  ...['agent-executor', 'agent-local-host', 'agent-node-lock', 'agent-process', 'agent-tools',
+    'agent-ui-terminal'].map((name) => `packages/${name}`)]);
 const needsNative = (plan) => plan.full || plan.checks.some((dir) => NATIVE_WORKSPACES.has(dir));
+const needsWindows = (plan) => plan.full || plan.windows === true;
 
-/** A developer document: a change to it alone needs no workspace check. */
 export function isDeveloperDocument(file) {
   if (file === FULL_PLAN_DOCUMENT) return false;
   return /^[^/]+\.md$/.test(file) || /^\.changeset\/[^/]+\.md$/.test(file) ||
@@ -73,7 +76,7 @@ export function selectScope({
     build: all.filter((p) => p.dir.startsWith('packages/') && p.scripts?.build).map((p) => p.dir),
     docs: true,
   });
-  if (event !== 'pull_request') return full('push or manual dispatch');
+  if (event !== 'pull_request' && event !== 'push') return full('manual dispatch');
   try {
     if (process.env.CI_REUSE_MAIN === 'true') {
       const main = git(cwd, 'rev-parse', 'refs/remotes/origin/main');
@@ -91,8 +94,10 @@ export function selectScope({
       true,
     ).split('\0');
     const changed = new Set();
+    const changedFiles = [];
     let docs = false;
     let developerDocs = false;
+    let windows = false;
     for (let index = 0; index < changes.length - 1; index += 2) {
       const status = changes[index];
       const file = changes[index + 1];
@@ -107,6 +112,8 @@ export function selectScope({
       }
       const project = all.find((p) => file.startsWith(`${p.dir}/`));
       if (!project) return full(`unmapped input: ${file}`);
+      windows ||= WINDOWS_WORKSPACES.has(project.dir) || /(?:windows|win32)/i.test(file);
+      changedFiles.push(`:(literal)${file}`);
       if (file === `${project.dir}/package.json`) {
         // The eval example adds a test script; dependency/identity changes need the old graph too.
         if (status !== 'M' || !project.dir.startsWith('examples/') || !project.private)
@@ -119,6 +126,13 @@ export function selectScope({
       }
       changed.add(project.dir);
       if (project.dir === 'apps/docs' || /^packages\/.*\/docs\//.test(file)) docs = true;
+    }
+    if (!windows && changedFiles.length) {
+      const scan = spawnSync('git', ['grep', '-iqIE',
+        '(^|[^[:alnum:]_])(windows|win32|powershell)([^[:alnum:]_]|$)|process[.]platform|os[.]platform',
+        comparison, 'HEAD', '--', ...changedFiles], { cwd });
+      if (scan.status === 0) windows = true;
+      else if (scan.status !== 1) return full('Windows scope scan failed');
     }
     if (docs) {
       if (!all.some((p) => p.dir === 'apps/docs')) return full('missing docs consumer');
@@ -146,6 +160,7 @@ export function selectScope({
       developerDocs: false,
       reason: 'affected workspaces and docs consumer',
       checks: affected.map((p) => p.dir),
+      windows,
       build: dependencies
         .filter((p) => p.dir.startsWith('packages/') && p.scripts?.build)
         .map((p) => p.dir),
@@ -160,8 +175,7 @@ export function assertGate(needs) {
   if (needs.scope?.result !== 'success') throw new Error('Scope selection did not succeed.');
   const plan = JSON.parse(needs.scope.outputs.plan);
   if (typeof plan.full !== 'boolean' || !Array.isArray(plan.checks)) throw new Error('Invalid scope plan.');
-  assertDeveloperDocs(plan);
-  assertReuseMain(plan);
+  assertSkippedPlan(plan);
   for (const job of ['workspace-build', 'static-checks', 'tests']) {
     const omitted = plan.developerDocs === true || plan.reuseMain === true;
     const expected = omitted ? 'skipped' : 'success';
@@ -175,32 +189,20 @@ export function assertNativeGate(needs) {
   const plan = JSON.parse(needs.scope.outputs.plan);
   if (typeof plan.developerDocs !== 'boolean' || typeof plan.full !== 'boolean' || !Array.isArray(plan.checks))
     throw new Error('Invalid native scope plan.');
-  assertDeveloperDocs(plan);
-  assertReuseMain(plan);
+  assertSkippedPlan(plan);
   const expected = needsNative(plan) ? 'success' : 'skipped';
   if (needs['build-bun']?.result !== expected)
     throw new Error(`Native builds: expected ${expected}, received ${needs['build-bun']?.result}`);
 }
 
-function assertDeveloperDocs(plan) {
-  if (plan.developerDocs === undefined || plan.developerDocs === false) return;
-  if (
-    plan.developerDocs !== true ||
-    plan.full !== false ||
-    plan.docs !== false ||
-    !Array.isArray(plan.checks) ||
-    plan.checks.length ||
-    !Array.isArray(plan.build) ||
-    plan.build.length
-  )
+function assertSkippedPlan(plan) {
+  if (plan.developerDocs !== undefined && typeof plan.developerDocs !== 'boolean')
     throw new Error('Invalid developer document selection.');
-}
-
-function assertReuseMain(plan) {
-  if (plan.reuseMain !== true) return;
-  if (plan.full !== false || plan.developerDocs !== false || plan.docs !== false ||
-      plan.checks?.length || plan.build?.length)
-    throw new Error('Invalid reviewed-main reuse selection.');
+  if (plan.developerDocs !== true && plan.reuseMain !== true) return;
+  if ((plan.reuseMain === true && plan.developerDocs !== false) || plan.full !== false ||
+      plan.docs !== false || !Array.isArray(plan.checks) || plan.checks.length ||
+      !Array.isArray(plan.build) || plan.build.length)
+    throw new Error('Invalid skipped-check selection.');
 }
 
 export function assertBuild(metadata, plan, sha, cwd = process.cwd()) {
@@ -225,16 +227,15 @@ async function main() {
       event: process.env.CI_EVENT,
       base: process.env.CI_BASE,
     });
+    let followup = true;
+    try {
+      followup = process.env.CI_EVENT !== 'push' || !/\n  schedule:\s*\n/.test(git(cwd, 'show', 'refs/remotes/origin/main:.github/workflows/native-windows-ci.yml'));
+    } catch { /* Keep develop validation until the schedule is available on main. */ }
     appendFileSync(
       process.env.GITHUB_OUTPUT,
-      `plan=${JSON.stringify(plan)}\nnative=${needsNative(plan)}\ndeveloper_docs=${plan.developerDocs}\nreuse_main=${plan.reuseMain === true}\n`,
+      `plan=${JSON.stringify(plan)}\nnative=${needsNative(plan)}\nwindows=${needsWindows(plan)}\nfollowup=${followup}\ndeveloper_docs=${plan.developerDocs}\nreuse_main=${plan.reuseMain === true}\n`,
     );
     console.log(JSON.stringify(plan, null, 2));
-    if (process.env.GITHUB_STEP_SUMMARY)
-      appendFileSync(
-        process.env.GITHUB_STEP_SUMMARY,
-        `Scope: ${plan.reason}\n\nChecks: ${plan.checks.join(', ')}\n\nBuild: ${plan.build.join(', ')}\n\nDocs: ${plan.docs}; native: ${needsNative(plan)}\n`,
-      );
     return;
   }
   if (kind === 'gate') {
@@ -247,7 +248,7 @@ async function main() {
   }
   const plan = JSON.parse(process.env.CI_PLAN);
   const run = (...args) => command(pnpm, args, cwd, false, 20 * 60_000);
-  assertDeveloperDocs(plan);
+  assertSkippedPlan(plan);
   const archive = path.join(process.env.RUNNER_TEMP, 'workspace-build.tgz');
   if (kind === 'build') {
     if (plan.build.length) run('-r', ...filters(plan.build), 'run', 'build');
