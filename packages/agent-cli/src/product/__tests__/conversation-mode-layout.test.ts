@@ -61,6 +61,19 @@ describe('conversation mode storage layout', () => {
     expect(productSecureMode(runtime)).toBe(false);
   });
 
+  it('refuses a store selected before the conversation mode changed', () => {
+    const userHome = home();
+    const plain = createTestProductRuntime('test-product', { HOME: userHome });
+    const selected = resolveCliRuntimeContext({
+      productConfig: plain.config,
+      environment: plain.environment,
+    });
+    writeProductConversationMode(plain.layout.userRoot, 'plain', 'preparing');
+    writeProductConversationMode(plain.layout.userRoot, 'preparing', 'secure');
+
+    expect(() => createProductUserSessionStore(selected)).toThrow(/conversation mode changed/i);
+  });
+
   it('selects versioned conversation artifacts while retaining base configuration and owner paths', () => {
     const userHome = home();
     const plain = createTestProductRuntime('test-product', { HOME: userHome });

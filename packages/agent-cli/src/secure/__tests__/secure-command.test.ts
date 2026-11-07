@@ -394,6 +394,38 @@ describe('secure status', () => {
   });
 });
 
+describe('secure disable', () => {
+  it('requires an explicit terminal choice and retains the sealed archive', async () => {
+    const plain = runtime();
+    const root = plain.layout.userRoot;
+    writeProductConversationMode(root, 'plain', 'preparing');
+    writeProductConversationMode(root, 'preparing', 'secure');
+    const archive = join(root, 'secure-v1', 'sessions');
+    mkdirSync(archive, { recursive: true, mode: 0o700 });
+    writeFileSync(join(archive, 'sealed-record'), 'sealed bytes', { mode: 0o600 });
+    const selected = resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment });
+
+    const cancelled = await secure(['disable'], {}, { productRuntime: selected, confirm: async () => 'no' });
+    expect(cancelled.code).toBe(1);
+    expect(resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment }).conversationMode).toBe('secure');
+
+    const accepted = await secure(['disable'], {}, { productRuntime: selected, confirm: async () => 'yes' });
+    expect(accepted.code).toBe(0);
+    expect(resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment }).conversationMode).toBe('plain');
+    expect(readFileSync(join(archive, 'sealed-record'), 'utf8')).toBe('sealed bytes');
+    expect(out()).toContain('New conversations will be saved in plaintext');
+  });
+
+  it('refuses to turn an unfinished preparation into ordinary mode', async () => {
+    const plain = runtime();
+    writeProductConversationMode(plain.layout.userRoot, 'plain', 'preparing');
+    const selected = resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment });
+    const { code } = await secure(['disable'], {}, { productRuntime: selected, confirm: async () => 'yes' });
+    expect(code).toBe(1);
+    expect(resolveCliRuntimeContext({ productConfig: plain.config, environment: plain.environment }).conversationMode).toBe('preparing');
+  });
+});
+
 describe('secure verify', () => {
   it('unlocks with the passphrase and reports the sealing key verified', async () => {
     const { keyring } = await installFixtureKeyring();

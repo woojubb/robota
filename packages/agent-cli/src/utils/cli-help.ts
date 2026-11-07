@@ -174,6 +174,8 @@ Commands:
   {{cli}} secure setup              Create the keyring that secure conversations are sealed to; shows the
                                   recovery key once (your terminal only; the passphrase is typed, never an argument)
   {{cli}} secure status             Show the keyring file, its slots and its sealing key fingerprint (no unlock)
+  {{cli}} secure disable            Turn secure conversations off after every current-version session exits;
+                                  retain the sealed archive while new conversations become plaintext
   {{cli}} secure lock               Ask all live runtimes to discard keys without a prompt; reports unconfirmed requests
                                   (requests return unverified: open replies cannot prove identity or lock state)
   {{cli}} secure verify [--recovery]

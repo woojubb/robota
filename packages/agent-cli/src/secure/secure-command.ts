@@ -1,6 +1,6 @@
 /**
- * `the product secure setup | status | verify | change-passphrase`: create and inspect the keyring that
- * secure conversations will be sealed to, and keep its passphrase.
+ * `the product secure setup | status | disable | verify | change-passphrase`: manage the
+ * conversation choice and the keyring that secure conversations are sealed to.
  *
  * A passphrase or recovery key is typed at an interactive terminal and comes from nowhere else: not
  * an argument, not the environment, not a pipe, not a file. That is why there is no environment or
@@ -26,8 +26,11 @@ import {
 } from '@robota-sdk/agent-keyring';
 
 import { SecretInputCancelled } from '../devices/secret-terminal.js';
+import { writeProductMigrationMarker } from '../product/process-presence.js';
 import { productSecureMode } from '../product/session-sealing.js';
 import { userPaths } from '../product/user-paths.js';
+import { writeProductConversationMode } from './conversation-mode-state.js';
+import { createInterface } from 'node:readline/promises';
 import { listSupervisedSessions, lockSupervisedSession, resolveSupervisedDirectory } from '../session-inventory/supervised-session-control.js';
 import { KeyHolder, SealingKeyMismatchError } from './key-holder.js';
 import { KeyringStoreError, createKeyringFileStore, type IKeyringStore } from '@robota-sdk/agent-local-host';
@@ -72,6 +75,7 @@ export interface ISecureCommandOptions extends ISecureMigrateOptions {
 type TSecureAction =
   | { readonly action: 'setup' }
   | { readonly action: 'status' }
+  | { readonly action: 'disable' }
   | { readonly action: 'lock' }
   | { readonly action: 'verify'; readonly credential: TCredentialKind }
   | { readonly action: 'change-passphrase'; readonly credential: TCredentialKind }
@@ -81,6 +85,7 @@ type TSecureAction =
 export const SECURE_USAGE = (cliName: string): string =>
   `Usage: ${cliName} secure setup\n` +
   `       ${cliName} secure status\n` +
+  `       ${cliName} secure disable\n` +
   `       ${cliName} secure lock\n` +
   `       ${cliName} secure verify [--recovery]\n` +
   `       ${cliName} secure change-passphrase [--recovery]\n` +
@@ -89,7 +94,7 @@ export const SECURE_USAGE = (cliName: string): string =>
 /** The action the arguments name, or `undefined` for anything else; what was typed is never echoed. */
 function parseSecureArgs(args: readonly string[]): TSecureAction | undefined {
   const [action, ...flags] = args;
-  if (action === 'setup' || action === 'status' || action === 'lock') return flags.length === 0 ? { action } : undefined;
+  if (action === 'setup' || action === 'status' || action === 'lock' || action === 'disable') return flags.length === 0 ? { action } : undefined;
   if (action === 'verify' || action === 'change-passphrase') {
     if (flags.length > 1 || (flags.length === 1 && flags[0] !== '--recovery')) return undefined;
     return { action, credential: flags.length === 1 ? 'recoveryKey' : 'passphrase' };
@@ -111,6 +116,7 @@ type TSecureActionName = TSecureAction['action'];
 const CANCELLED: Readonly<Record<TSecureActionName, string>> = {
   setup: 'Cancelled. No keyring was created.',
   status: 'Cancelled.',
+  disable: 'Cancelled. Secure conversations remain on.',
   lock: 'Cancelled.',
   verify: 'Cancelled.',
   'change-passphrase': 'Cancelled. The passphrase was not changed.',
@@ -205,6 +211,49 @@ function runStatus(store: IKeyringStore, options: ISecureCommandOptions): number
   );
   options.stdout(`${lines.join('\n')}\n`);
   return EXIT_OK;
+}
+
+async function runDisable(options: ISecureCommandOptions): Promise<number> {
+  const runtime = options.productRuntime;
+  if (runtime.conversationMode === 'preparing') {
+    options.stderr(`Secure conversation preparation is incomplete; resume \`${runtime.vocabulary.cliName} secure enable\` before turning it off.\n`);
+    return EXIT_FAILED;
+  }
+  if (runtime.conversationMode === 'plain') {
+    options.stdout('Secure conversations are already off. New conversations are saved in plaintext.\n');
+    return EXIT_OK;
+  }
+  if (!(options.stdinIsTTY ?? process.stdin.isTTY === true)) {
+    options.stderr(`\`${runtime.vocabulary.cliName} secure disable\` needs an interactive terminal.\n`);
+    return EXIT_FAILED;
+  }
+  const answer = options.confirm === undefined
+    ? await (async (): Promise<string> => {
+        const prompt = createInterface({ input: process.stdin, output: process.stderr });
+        try {
+          return await prompt.question('Turn off secure conversations? New conversations will be saved in plaintext. [y/N] ');
+        } finally {
+          prompt.close();
+        }
+      })()
+    : await options.confirm('Turn off secure conversations? New conversations will be saved in plaintext. [y/N] ');
+  if (!/^y(es)?$/iu.test(answer.trim())) {
+    options.stderr('Cancelled. Secure conversations remain on.\n');
+    return EXIT_FAILED;
+  }
+  const marker = writeProductMigrationMarker(runtime, { mode: 'secure migrate' });
+  try {
+    const others = marker.others();
+    if (others.length > 0) {
+      options.stderr(`Could not turn secure conversations off while ${others.length} product process(es) or migration(s) remain active or uncertain. Close them and try again.\n`);
+      return EXIT_FAILED;
+    }
+    writeProductConversationMode(runtime.layout.userRoot, 'secure', 'plain');
+    options.stdout('Secure conversations are off. New conversations will be saved in plaintext. The sealed archive and keyring remain in place.\n');
+    return EXIT_OK;
+  } finally {
+    marker.release();
+  }
 }
 
 async function runSetup(
@@ -407,6 +456,7 @@ export async function runSecureCommand(
     });
   try {
     if (parsed.action === 'status') return runStatus(store, options);
+    if (parsed.action === 'disable') return await runDisable(options);
     if (parsed.action === 'lock') {
       const root = resolveSupervisedDirectory(options.productRuntime);
       const rows = await listSupervisedSessions(root, undefined, { includeGeneration: true });
