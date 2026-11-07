@@ -142,7 +142,7 @@ jobs:
 
       - name: Build workspace
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
-        run: pnpm install --frozen-lockfile && pnpm build
+        run: pnpm install --frozen-lockfile && pnpm -r --filter "{apps/agent-app}^..." run build
 
       - name: Verify Windows native control transport
         working-directory: ${{ env.PRODUCT_WORKSPACE }}
