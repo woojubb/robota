@@ -229,12 +229,14 @@ function describeCompaction(
 /** Compacts the prompt history: what `secure compact` does alone and the first thing a migration does. */
 const promptHistoryStep: IMigrationStep = {
   title: 'the prompt history',
-  plan: (context) => ({
-    lines: describeInspection(
-      inspectProductPromptHistory(context.productRuntime, context.holder),
-      userPaths(context.productRuntime).history,
-    ),
-  }),
+  plan: (context) => {
+    const inspection = inspectProductPromptHistory(context.productRuntime, context.holder);
+    return {
+      lines: describeInspection(inspection, userPaths(context.productRuntime).history),
+      complete: inspection.status === 'missing' ||
+        (inspection.status === 'present' && inspection.unreadableLines === 0),
+    };
+  },
   run: async (context) => {
     const path = userPaths(context.productRuntime).history;
     const result = await compactProductPromptHistory(context.productRuntime, context.holder, {
@@ -411,12 +413,14 @@ async function dryRun(
   );
   if (reports === EXIT_FAILED) return EXIT_FAILED;
   options.stdout(renderPlan(options, reports, others, true));
+  const incomplete = reports.some((report) => report.complete === false);
   options.stdout(
-    repaired
+    `${incomplete ? 'Migration would remain incomplete. ' : ''}` +
+    (repaired
       ? 'Dry run: nothing else was changed; unlocking repaired the keyring file, as the warning says.\n'
-      : 'Dry run: nothing was changed.\n',
+      : 'Dry run: nothing was changed.\n'),
   );
-  return EXIT_OK;
+  return incomplete ? EXIT_INCOMPLETE : EXIT_OK;
 }
 
 /** The sessions one step sealed from plaintext, and the step's title, which names them when they cannot be marked. */

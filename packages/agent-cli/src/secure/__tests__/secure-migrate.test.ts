@@ -492,9 +492,25 @@ describe.skipIf(posixOnly)('secure migrate', () => {
 
     const { code } = await secure(['migrate', '--dry-run']);
 
-    expect(code, out() + err()).toBe(0);
+    expect(code, out() + err()).toBe(process.platform === 'linux' ? 0 : EXIT_INCOMPLETE);
     expect(tree()).toEqual(before);
     expect(statSync(runtime.layout.userPaths.workspaceTrust).mode & 0o777).toBe(0o644);
+  });
+
+  it('--dry-run reports incomplete without writing when a plain record cannot be converted', async () => {
+    await installFixtureKeyring();
+    const sessions = runtime.layout.userPaths.sessions;
+    mkdirSync(sessions, { recursive: true });
+    const unsafe = join(sessions, 'not an id.json');
+    writeFileSync(unsafe, CANARY);
+    const before = tree();
+
+    const { code } = await secure(['migrate', '--dry-run']);
+
+    expect(code, out()).toBe(EXIT_INCOMPLETE);
+    expect(out()).toContain(`Left as they are, since their names are not session ids: ${unsafe}.`);
+    expect(out()).toContain('Migration would remain incomplete. Dry run: nothing was changed.');
+    expect(tree()).toEqual(before);
   });
 
   it('--dry-run says the unlock repaired a swapped sealing key, the one write it made', async () => {
@@ -506,7 +522,8 @@ describe.skipIf(posixOnly)('secure migrate', () => {
 
     const { code } = await secure(['migrate', '--dry-run']);
 
-    expect(code).toBe(2);
+    expect(code).toBe(4);
+    expect(out()).toContain('Migration would remain incomplete.');
     expect(out()).not.toContain('Dry run: nothing was changed.');
     expect(out()).toContain(
       'Dry run: nothing else was changed; unlocking repaired the keyring file, as the warning says.',

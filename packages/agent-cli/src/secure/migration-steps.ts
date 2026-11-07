@@ -300,14 +300,13 @@ function sessionRecordsStep(): IMigrationStep {
     `Session records (${runtime.layout.userPaths.sessions})`;
   return {
     title: 'the session records',
-    plan: async (context) => ({
-      lines: describeRecords(
-        label(context.productRuntime),
-        await convert(context, false),
-        'plan',
-        context.mayDeleteLeftovers,
-      ),
-    }),
+    plan: async (context) => {
+      const result = await convert(context, false);
+      return {
+        lines: describeRecords(label(context.productRuntime), result, 'plan', context.mayDeleteLeftovers),
+        complete: finished(result, context.mayDeleteLeftovers),
+      };
+    },
     run: async (context) => {
       const result = await convert(context, true);
       const sessions = context.productRuntime.layout.userPaths.sessions;
@@ -340,14 +339,13 @@ function subagentTranscriptsStep(): IMigrationStep {
     `Subagent transcripts (${runtime.config.storage.logRoot})`;
   return {
     title: 'the subagent transcripts',
-    plan: async (context) => ({
-      lines: describeLogs(
-        label(context.productRuntime),
-        await convert(context, false),
-        'plan',
-        context.mayDeleteLeftovers,
-      ),
-    }),
+    plan: async (context) => {
+      const result = await convert(context, false);
+      return {
+        lines: describeLogs(label(context.productRuntime), result, 'plan', context.mayDeleteLeftovers),
+        complete: finished(result, context.mayDeleteLeftovers),
+      };
+    },
     run: async (context) => {
       const result = await convert(context, true);
       return {
@@ -506,7 +504,7 @@ function projectsStep(options: IStoreMigrationStepOptions): IMigrationStep {
     });
   return {
     title: 'the project state',
-    plan: async (context) => ({ lines: (await survey(context, false)).lines }),
+    plan: async (context) => survey(context, false),
     run: (context) => survey(context, true),
   };
 }
@@ -561,7 +559,10 @@ function leftoversStep(options: IStoreMigrationStepOptions): IMigrationStep {
   };
   return {
     title: 'the leftover files',
-    plan: (context) => ({ lines: survey(context, false).lines }),
+    plan: (context) => {
+      const { lines, leftInPlace } = survey(context, false);
+      return { lines, complete: !leftInPlace };
+    },
     run: async (context) => {
       context.recheckPresence();
       const { lines, leftInPlace } = survey(context, true);
