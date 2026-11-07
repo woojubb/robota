@@ -103,6 +103,8 @@ export interface IRuntimeLinkClient {
 export interface IOwnerRuntimeLinkClient extends IRuntimeLinkClient {
   /** Seals the owner's read keys for this runtime and sends them. */
   unlock(): Promise<TGrantOutcome>;
+  /** Synchronously retire every owner/session operation except lock and close. */
+  revokeToCleanup(): void;
 }
 
 type TExpectedReply = TRuntimeMessage['op'];
@@ -132,7 +134,7 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
   readonly session: ILinkSessionChannel;
   readonly #stream: Duplex;
   readonly #link: IInitiatorLink;
-  readonly #handover: IOwnerHandover | undefined;
+  #handover: IOwnerHandover | undefined;
   readonly #pending = new Map<string, IPendingRequest>();
   readonly #custodyListeners = new Set<(state: IRuntimeCustodyState) => void>();
   readonly #sessionListeners = new Set<(message: TServerMessage) => void>();
@@ -140,6 +142,7 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
   #requests = 0;
   #grants = 0;
   #ended = false;
+  #cleanupOnly = false;
   #resolveClosed!: () => void;
 
   constructor(
@@ -158,6 +161,7 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
     this.session = {
       send: (message) => this.#sendSession(message),
       onMessage: (listener) => {
+        if (this.#cleanupOnly) throw new OwnerLinkClosedError();
         this.#sessionListeners.add(listener);
         return () => {
           this.#sessionListeners.delete(listener);
@@ -183,6 +187,7 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
   }
 
   onCustody(listener: (state: IRuntimeCustodyState) => void): () => void {
+    if (this.#cleanupOnly) return () => {};
     this.#custodyListeners.add(listener);
     return () => {
       this.#custodyListeners.delete(listener);
@@ -194,7 +199,7 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
   }
 
   async lock(reason: TRequestedLockReason): Promise<void> {
-    await this.#request((requestId) => ({ op: 'lock', requestId, reason }), 'done');
+    await this.#request((requestId) => ({ op: 'lock', requestId, reason }), 'done', true);
   }
 
   async question(sessionId: string): Promise<TOwnerSessionQuestion> {
@@ -225,6 +230,7 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
   }
 
   async unlock(): Promise<TGrantOutcome> {
+    if (this.#cleanupOnly) throw new OwnerLinkClosedError();
     if (this.#handover === undefined) {
       throw new OwnerRequestRefusedError('not-owner', 'Only an owner link can unlock the runtime.');
     }
@@ -241,6 +247,16 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
     this.#stream.destroy();
   }
 
+  revokeToCleanup(): void {
+    if (this.#cleanupOnly) return;
+    this.#cleanupOnly = true;
+    this.#handover = undefined;
+    this.#sessionListeners.clear();
+    this.#custodyListeners.clear();
+    for (const pending of this.#pending.values()) pending.reject(new OwnerLinkClosedError());
+    this.#pending.clear();
+  }
+
   /** One frame from the runtime; anything that is not exactly what it may send ends the link. */
   receive(frame: Uint8Array): void {
     const kind = linkFrameKind(frame);
@@ -248,6 +264,7 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
     if (kind === 'grant' || frame.length > bound + LINK_FRAME_OVERHEAD_BYTES) {
       throw new RangeError('The runtime sent a frame it may not.');
     }
+    if (kind === 'session' && this.#cleanupOnly) return;
     const { plaintext } = this.#link.open(frame);
     if (kind === 'session') {
       const decoded = decodeFrame(textDecoder.decode(plaintext), decodeServerMessage);
@@ -261,10 +278,11 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
       throw new RangeError('The runtime sent a message outside the vocabulary.');
     if (message.op === 'custody') {
       this.#custody = message.state;
-      notify(this.#custodyListeners, message.state);
+      if (!this.#cleanupOnly) notify(this.#custodyListeners, message.state);
       return;
     }
     const pending = this.#pending.get(message.requestId);
+    if (pending === undefined && this.#cleanupOnly) return;
     if (pending === undefined || (message.op !== pending.expects && message.op !== 'refused')) {
       throw new RangeError('The runtime answered a request that was not asked.');
     }
@@ -285,6 +303,7 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
   }
 
   #sendSession(message: TClientMessage): void {
+    if (this.#cleanupOnly) throw new OwnerLinkClosedError();
     const bytes = textEncoder.encode(JSON.stringify(message));
     if (bytes.length > SESSION_FRAME_MAX_BYTES) {
       throw new RangeError('A session message over the frame bound.');
@@ -296,7 +315,9 @@ class RuntimeLinkClient implements IOwnerRuntimeLinkClient {
   #request(
     build: (requestId: string) => TOwnerRequest,
     expects: TExpectedReply,
+    cleanupAllowed = false,
   ): Promise<TRuntimeMessage> {
+    if (this.#cleanupOnly && !cleanupAllowed) return Promise.reject(new OwnerLinkClosedError());
     const requestId = `r${this.#requests + 1}`;
     // Encoding first, so a request outside the vocabulary is the caller's error and never reaches the link.
     const bytes = encodeOwnerRequest(build(requestId));

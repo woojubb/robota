@@ -12,7 +12,7 @@ import type { TOwnerSessionQuestion } from '@robota-sdk/agent-interface-session'
 import type { IReadKeys, ITrustRoot } from '@robota-sdk/agent-keyring';
 
 /** What a client may ask a runtime to lock for; idle and last-link-closed are the runtime's own. */
-export type TRequestedLockReason = 'explicit' | 'screen-lock' | 'suspend';
+export type TRequestedLockReason = 'explicit' | 'screen-lock' | 'suspend' | 'fault';
 
 /**
  * How a read grant went. `mismatch`: the keyring file's sealing public key is not the granted one;

@@ -31,17 +31,25 @@ function setup() {
     custody: { certified: true, unlocked: false },
     session,
     closed: closed.promise,
-    close: vi.fn(),
+    close: vi.fn(() => closed.resolve()),
+    revokeToCleanup: vi.fn(),
     onCustody: vi.fn((listener: (value: { certified: boolean; unlocked: boolean }) => void) => { custody = listener; return () => { custody = undefined; }; }),
     control: vi.fn(async (request: { command: string }): Promise<Readonly<Record<string, unknown>>> => request.command === 'status'
       ? { status: 'running', daemon: true, cwd: '/synthetic/workspace' }
+      : request.command === 'owner-detach' ? { status: 'detached' }
       : { status: 'attached', driverId: 'driver-a' }),
+    question: vi.fn(async () => ({ kind: 'open' as const })),
+    cancelQuestion: vi.fn(async () => {}),
+    openAccepted: vi.fn(async () => {}),
     unlock: vi.fn(async () => 'verified' as const),
     lock: vi.fn(async () => {}),
   };
   const release = vi.fn();
   const selected = { runtimeId: 'runtime-a', generation: 'generation-a' };
-  const openOwner = vi.fn(async () => ({ link, release, selected }));
+  const openOwner = vi.fn(async (): Promise<{
+    link: typeof link; release: typeof release; selected: typeof selected;
+    assertWorkspace?: () => void;
+  }> => ({ link, release, selected }));
   const requestSecret = vi.fn(async () => ({ type: 'passphrase' as const, value: 'synthetic' }));
   const observed: TServerMessage[] = [];
   const relayDispose = vi.fn();
@@ -74,9 +82,10 @@ describe('main-only desktop owner session boundary', () => {
     expect(result).not.toHaveProperty('link');
     expect(result).not.toHaveProperty('secret');
     if (result.kind === 'open') await result.close();
-    expect(s.link.lock).toHaveBeenCalledWith('explicit');
+    expect(s.link.lock).not.toHaveBeenCalled();
+    expect(s.link.revokeToCleanup).toHaveBeenCalledOnce();
     expect(s.link.close).toHaveBeenCalledOnce();
-    expect(s.release).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(s.release).toHaveBeenCalledOnce());
   });
 
   it('accepts the binding authenticated by the provider after the secret is requested', async () => {
@@ -167,7 +176,7 @@ describe('main-only desktop owner session boundary', () => {
     expect(s.session.send).not.toHaveBeenCalled();
     expect(s.observed).toEqual([]);
     expect(s.link.lock).toHaveBeenCalledOnce();
-    expect(s.link.close).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(s.link.close).toHaveBeenCalledOnce());
     expect(s.relayDispose).toHaveBeenCalledOnce();
   });
 
@@ -180,6 +189,21 @@ describe('main-only desktop owner session boundary', () => {
     expect(s.observed).toEqual([]);
     expect(s.link.lock).toHaveBeenCalledOnce();
   });
+
+  it('drops an outbound plaintext frame and locks every grant after workspace trust is revoked', async () => {
+    const s = setup();
+    let trusted = true;
+    s.openOwner.mockResolvedValueOnce({ link: s.link, release: s.release, selected: s.selected,
+      assertWorkspace: () => { if (!trusted) throw new Error('Trust generation changed.'); } });
+    expect((await s.coordinator.open({ signal: s.controller.signal, isCurrent: () => true })).kind).toBe('open');
+    trusted = false;
+    s.receive({ type: 'error', message: 'private response' });
+    expect(s.observed).toEqual([]);
+    await vi.waitFor(() => expect(s.link.lock).toHaveBeenCalledExactlyOnceWith('fault'));
+    expect(s.link.revokeToCleanup).toHaveBeenCalledOnce();
+    await vi.waitFor(() => expect(s.release).toHaveBeenCalledOnce());
+  });
+
 
   it('does not admit a changed workspace supplied while status is pending', async () => {
     const s = setup();
@@ -227,7 +251,7 @@ describe('main-only desktop owner session boundary', () => {
     await vi.waitFor(() => expect(s.link.unlock).toHaveBeenCalledOnce());
     s.controller.abort();
     expect((await result).kind).toBe('lock-unconfirmed');
-    expect(s.link.lock).toHaveBeenCalledWith('explicit');
+    expect(s.link.lock).toHaveBeenCalledWith('fault');
     expect(s.link.close).toHaveBeenCalledOnce();
     expect(s.release).toHaveBeenCalledOnce();
     pending.resolve('verified');
@@ -314,7 +338,7 @@ describe('main-only desktop owner session boundary', () => {
     });
     if (result.kind === 'open') await result.close();
     expect(s.relayDispose).toHaveBeenCalledOnce();
-    expect(s.link.lock).toHaveBeenCalledOnce();
+    expect(s.link.lock).not.toHaveBeenCalled();
     expect(s.link.close).toHaveBeenCalledOnce();
     expect(s.release).toHaveBeenCalledOnce();
   });
@@ -404,8 +428,8 @@ describe('main-only desktop owner session boundary', () => {
         const controller = new AbortController();
         const link = {
           standing: 'owner', binding: { runtimeId: 'r', generation: 'g' }, custody: { certified: true, unlocked: false },
-          closed: new Promise(() => {}), session: { send() {}, onMessage() { return () => {}; } },
-          onCustody() { return () => {}; }, close() {}, unlock: async () => 'verified', lock: async () => {},
+          closed: Promise.resolve(), session: { send() {}, onMessage() { return () => {}; } },
+          onCustody() { return () => {}; }, close() {}, revokeToCleanup() {}, unlock: async () => 'verified', lock: async () => {},
           control() { controller.abort(); return Promise.reject(new Error('synthetic')); },
         };
         const owner = createDesktopOwnerCoordinator({
@@ -517,7 +541,7 @@ describe('main-only desktop owner session boundary', () => {
     vi.useFakeTimers();
     try {
       if (result.kind !== 'open') throw new Error('Expected an open session.');
-      const closing = result.close();
+      const closing = result.close('explicit');
       const rejected = expect(closing).rejects.toThrow('The runtime lock could not be confirmed.');
       await vi.advanceTimersByTimeAsync(5_000);
       await rejected;

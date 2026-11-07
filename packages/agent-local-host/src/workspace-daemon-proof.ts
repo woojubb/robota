@@ -106,6 +106,7 @@ async function scanWorkspaceDaemon(
     if (!candidates.length) return undefined;
     timer = setTimeout(() => cancel('timed out'), options.timeoutMs ?? 5_000);
     let found: IProvenWorkspaceDaemon | undefined;
+    let ambiguous = false;
     for (const row of candidates) {
       if (row.liveness === 'dead') continue;
       if (row.liveness !== 'alive' || (row.control !== 'available' && row.control !== 'unprobed') || !row.id || !row.generation) {
@@ -157,8 +158,9 @@ async function scanWorkspaceDaemon(
               (result.restricted !== undefined && result.restricted !== true)) {
             throw new Error('The authenticated runtime returned an incomplete status.');
           }
-          if (result.daemon === true && result.cwd === workspace && found === undefined) {
-            found = { ...row, generation: row.generation, control: 'available', daemon: true, cwd: workspace,
+          if (result.daemon === true && result.cwd === workspace) {
+            if (found !== undefined) ambiguous = true;
+            else found = { ...row, generation: row.generation, control: 'available', daemon: true, cwd: workspace,
               ...(result.restricted === true ? { restricted: true as const } : {}) };
           }
         } finally {
@@ -175,6 +177,7 @@ async function scanWorkspaceDaemon(
       }
     }
     if (controller.signal.aborted) throw abortError();
+    if (ambiguous) throw new Error('Ambiguous secure daemons serve this workspace. Stop the duplicates before attaching.');
     return found;
   } finally {
     if (timer !== undefined) clearTimeout(timer);

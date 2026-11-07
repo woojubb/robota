@@ -211,6 +211,18 @@ export function parseTrustStatusOutput(stdout: string): ITrustQuestion | undefin
   };
 }
 
+/** The CLI's resolved root is also the Restricted choice when project trust cannot be offered. */
+export function parseTrustWorkspaceRoot(stdout: string): string | undefined {
+  const lines = stdout.split(/\r?\n/u).filter((line) => line.trim() !== '');
+  if (lines.length !== 1) return undefined;
+  try {
+    const value: unknown = JSON.parse(lines[0]!);
+    if (typeof value !== 'object' || value === null || !('workspace' in value)) return undefined;
+    const root = value.workspace;
+    return typeof root === 'string' && root.trim() !== '' ? root : undefined;
+  } catch { return undefined; }
+}
+
 /** The native main process retains the prepared root token; the renderer receives only the question. */
 export function parseTrustCandidate(stdout: string): string | undefined {
   const lines = stdout.split(/\r?\n/u).filter((line) => line.trim() !== '');

@@ -24,6 +24,13 @@ interface IAdmissionOptions extends Pick<TOwnerOptions, 'expected' | 'requestSec
  */
 export function registerDesktopSessionAdmission(options: IAdmissionOptions): {
   openFromNativeAction(): Promise<TResult>;
+  listUnverifiedFromNativeAction(): Promise<readonly string[]>;
+  questionFromNativeAction(sessionId: string): Promise<Awaited<ReturnType<Extract<TOwnerResult, { kind: 'open' }>['question']>>>;
+  acceptFromNativeAction(sessionId: string, digest: string, questionId: string): Promise<void>;
+  cancelQuestionFromNativeAction(): Promise<void>;
+  isCurrent(): boolean;
+  recordNativeActivity(): void;
+  revokeGlobal(reason: 'explicit' | 'screen-lock' | 'suspend'): Promise<void>;
   dispose(): Promise<void>;
 } {
   const { sender, ipc } = options;
@@ -34,6 +41,7 @@ export function registerDesktopSessionAdmission(options: IAdmissionOptions): {
   let active: Extract<TOwnerResult, { kind: 'open' }> | undefined;
   let opening: Promise<TResult> | undefined;
   let disposing: Promise<void> | undefined;
+  let globalLockReason: 'explicit' | 'screen-lock' | 'suspend' | undefined;
   let reportedUnconfirmed = false;
   let hadOpen = false;
   let navigating = false;
@@ -89,7 +97,7 @@ export function registerDesktopSessionAdmission(options: IAdmissionOptions): {
     void (async () => {
       const result = opening ? await opening : active;
       if (result?.kind === 'open') {
-        try { await result.close(); } catch { reportUnconfirmed(); throw new Error('The runtime lock could not be confirmed.'); }
+        try { await result.close(globalLockReason); } catch { reportUnconfirmed(); throw new Error('The runtime lock could not be confirmed.'); }
       }
       if (result?.kind === 'lock-unconfirmed') { reportUnconfirmed(); throw new Error('The runtime lock could not be confirmed.'); }
       if (cleanupError) throw cleanupError;
@@ -113,6 +121,41 @@ export function registerDesktopSessionAdmission(options: IAdmissionOptions): {
   register(() => { sender.on('did-start-navigation', onNavigation); }, () => { sender.removeListener('did-start-navigation', onNavigation); });
   if (valid()) { try { frame.send(REQUEST_READY_CHANNEL); } catch { stop(); } }
   return {
+    isCurrent: valid,
+    listUnverifiedFromNativeAction(): Promise<readonly string[]> {
+      if (!valid() || active?.kind !== 'open') throw new Error('The secure session is unavailable.');
+      return active.listUnverified().then((answer) => {
+        if (!valid()) throw new Error('The secure session closed during review.');
+        return answer;
+      });
+    },
+    questionFromNativeAction(sessionId) {
+      if (!valid() || active?.kind !== 'open') throw new Error('The secure session is unavailable.');
+      return active.question(sessionId).then((answer) => {
+        if (!valid()) throw new Error('The secure session closed during review.');
+        return answer;
+      });
+    },
+    acceptFromNativeAction(sessionId, digest, questionId) {
+      if (!valid() || active?.kind !== 'open') throw new Error('The secure session is unavailable.');
+      return active.accept(sessionId, digest, questionId).then(() => {
+        if (!valid()) throw new Error('The secure session closed during review.');
+      });
+    },
+    cancelQuestionFromNativeAction() {
+      if (!valid() || active?.kind !== 'open') return Promise.resolve();
+      return active.cancelQuestion();
+    },
+    recordNativeActivity(): void {
+      if (valid() && active?.kind === 'open') active.activity();
+    },
+    revokeGlobal(reason): Promise<void> {
+      globalLockReason = reason;
+      if (!lifetime.signal.aborted) lifetime.abort(reason);
+      const escalated = active?.kind === 'open' ? active.close(reason) : undefined;
+      const pending = dispose();
+      return escalated ? Promise.all([escalated, pending]).then(() => undefined) : pending;
+    },
     async openFromNativeAction(): Promise<TResult> {
       if (!source || !valid() || source.senderFrame !== frame) return { kind: 'not-ready' };
       if (opening || active) return { kind: 'busy' };

@@ -419,6 +419,7 @@ describe.skipIf(process.platform === 'win32')('owner decisions over a real link'
     await expect(client.openAccepted(attached.driverId, regrantId, oldQuestion.digest, oldQuestion.questionId)).rejects.toBeDefined();
     expect(store.load(regrantId)).toMatchObject({ status: 'valid', authorship: 'unverified' });
     await client.cancelQuestion();
+    expect(await replacementOwner.control({ command: 'owner-detach', fields: {} })).toEqual({ status: 'detached' });
     replacementOwner.close();
 
     const swappedQuestion = await client.question(swappedId);
@@ -450,7 +451,9 @@ describe.skipIf(process.platform === 'win32')('owner decisions over a real link'
     await opening;
     const claim = store.claim(delayedId);
     claim.release();
-    await client.unlock();
+    const resumed = await ownerLink(started);
+    await resumed.unlock();
+    const resumedAttached = await attach(resumed, 'drive') as { driverId: string };
     releaseRestore();
     await expect(delayedSession?.whenInitialized()).rejects.toBeDefined();
     expect(readFileSync(join(records, `${delayedId}.json`)).equals(adopted)).toBe(true);
@@ -460,14 +463,14 @@ describe.skipIf(process.platform === 'win32')('owner decisions over a real link'
     expect(heard.frames.some((frame) => frame.type === 'session_switched' && frame.event.sessionId === delayedId)).toBe(false);
 
     const other = await ownerLink(started);
-    const closeQuestion = await client.question(closeId);
+    const closeQuestion = await resumed.question(closeId);
     if (closeQuestion.kind !== 'accept') throw new Error('Expected close owner question');
     const closeOriginal = readFileSync(join(records, `${closeId}.json`));
-    const closing = client.openAccepted(attached.driverId, closeId, closeQuestion.digest, closeQuestion.questionId).catch(() => undefined);
+    const closing = resumed.openAccepted(resumedAttached.driverId, closeId, closeQuestion.digest, closeQuestion.questionId).catch(() => undefined);
     await closeRestoring;
     const closeAdopted = readFileSync(join(records, `${closeId}.json`));
     expect(closeAdopted.equals(closeOriginal)).toBe(true);
-    client.close();
+    resumed.close();
     await closing;
     await vi.waitFor(() => {
       const released = store.claim(closeId);
@@ -507,7 +510,8 @@ describe.skipIf(process.platform === 'win32')('owner decisions over a real link'
     await opening;
     expect(signal.aborted).toBe(true);
     expect(invalidate).toHaveBeenCalled();
-    await first.unlock();
+    const fresh = await ownerLink(started);
+    await fresh.unlock();
     expect(signal.aborted).toBe(true);
   });
 
@@ -539,6 +543,7 @@ describe.skipIf(process.platform === 'win32')('owner decisions over a real link'
     const opening = first.openAccepted(attached.driverId, 'sess_test', digest, 'q1').catch(() => undefined);
     await vi.waitFor(() => expect(openAccepted).toHaveBeenCalledTimes(1));
     const signal = openAccepted.mock.calls[0]![3];
+    expect(await first.control({ command: 'owner-detach', fields: {} })).toEqual({ status: 'detached' });
     first.close();
     await opening;
     await vi.waitFor(() => expect(signal.aborted).toBe(true));
@@ -874,7 +879,23 @@ describe.skipIf(process.platform === 'win32')('what the custody reports of its l
 });
 
 describe.skipIf(process.platform === 'win32')('what locks a runtime', () => {
-  it('blocks session input and output while a connected owner is locked, then resumes after a new grant', async () => {
+  it('fences a grant queued on another owner link before acknowledging a global lock', async () => {
+    const started = await certified();
+    const locking = await ownerLink(started);
+    const stale = await ownerLink(started);
+    await locking.unlock();
+
+    await locking.lock('explicit');
+    await expect(stale.unlock()).rejects.toBeDefined();
+    expect(started.holder.isUnlocked).toBe(false);
+
+    const fresh = await ownerLink(started);
+    await fresh.unlock();
+    expect(started.holder.isUnlocked).toBe(true);
+    fresh.close();
+  });
+
+  it('blocks session input and output after lock, then resumes on a new owner link', async () => {
     const started = await certified();
     const client = await ownerLink(started);
     await client.unlock();
@@ -885,20 +906,24 @@ describe.skipIf(process.platform === 'win32')('what locks a runtime', () => {
     await vi.waitFor(() => expect(client.custody.unlocked).toBe(false));
     const framesBefore = heard.frames.length;
     client.session.send({ type: 'submit', prompt: 'must stay locked' });
-    client.session.send({ type: 'get-messages' });
-    await client.control({ command: 'status', fields: {} });
+    await client.closed;
+    const proof = await ownerLink(started);
+    await proof.control({ command: 'status', fields: {} });
     await new Promise<void>((resolve) => setImmediate(resolve));
     expect(started.runtime.run).not.toHaveBeenCalled();
     expect(heard.frames).toHaveLength(framesBefore);
 
-    await client.unlock();
-    client.session.send({ type: 'submit', prompt: 'owner returned' });
-    await heard.waitFor('complete');
+    const fresh = await ownerLink(started);
+    await fresh.unlock();
+    await attach(fresh, 'drive');
+    const freshHeard = hear(fresh);
+    fresh.session.send({ type: 'submit', prompt: 'owner returned' });
+    await freshHeard.waitFor('complete');
     expect(started.runtime.run).toHaveBeenCalledTimes(1);
   });
 
   it.each(['explicit', 'screen-lock', 'suspend'] as const)(
-    'locks on an owner request for %s, and keeps the link open',
+    'locks on an owner request for %s, and retires the old link',
     async (reason) => {
       const started = await certified();
       const client = await ownerLink(started);
@@ -909,7 +934,9 @@ describe.skipIf(process.platform === 'win32')('what locks a runtime', () => {
       expect(started.holder.isUnlocked).toBe(false);
       expect(started.locks).toEqual([reason]);
       await vi.waitFor(() => expect(client.custody.unlocked).toBe(false));
-      expect(await client.control({ command: 'status', fields: {} })).toMatchObject({ status: 'running' });
+      await client.closed;
+      const fresh = await ownerLink(started);
+      expect(await fresh.control({ command: 'status', fields: {} })).toMatchObject({ status: 'running' });
     },
   );
 
@@ -922,12 +949,14 @@ describe.skipIf(process.platform === 'win32')('what locks a runtime', () => {
     expect(await attach(first, 'drive')).toMatchObject({ status: 'attached' });
     expect(await attach(second, 'observe')).toMatchObject({ status: 'attached' });
 
+    expect(await first.control({ command: 'owner-detach', fields: {} })).toEqual({ status: 'detached' });
     first.close();
     await first.closed;
     await vi.waitFor(() => expect(started.released).toHaveBeenCalledTimes(1));
     expect(started.holder.isUnlocked).toBe(true);
     expect(started.locks).toEqual([]);
 
+    expect(await second.control({ command: 'owner-detach', fields: {} })).toEqual({ status: 'detached' });
     second.close();
     await second.closed;
     await vi.waitFor(() => expect(started.released).toHaveBeenCalledTimes(2));
@@ -936,12 +965,41 @@ describe.skipIf(process.platform === 'win32')('what locks a runtime', () => {
     await vi.waitFor(() => expect(proofOnly.custody.unlocked).toBe(false));
   });
 
+  it('globally locks another attached owner when an owner disappears without detach acknowledgement', async () => {
+    const started = await certified();
+    const first = await ownerLink(started);
+    const second = await ownerLink(started);
+    await first.unlock();
+    expect(await attach(first, 'drive')).toMatchObject({ status: 'attached' });
+    expect(await attach(second, 'observe')).toMatchObject({ status: 'attached' });
+    first.close();
+    await first.closed;
+    await vi.waitFor(() => expect(started.locks).toEqual(['fault']));
+    expect(started.holder.isUnlocked).toBe(false);
+    await second.closed;
+  });
+
+  it('keeps a fresh owner unlocked after the old epoch retires', async () => {
+    const started = await certified();
+    const old = await ownerLink(started);
+    await old.unlock();
+    await attach(old, 'drive');
+    await old.lock('explicit');
+    const fresh = await ownerLink(started);
+    await fresh.unlock();
+    await attach(fresh, 'drive');
+    await old.closed;
+    expect(started.holder.isUnlocked).toBe(true);
+    expect(started.locks).toEqual(['explicit']);
+  });
+
   it('locks a grant-only control link when it closes while a proof-only link remains', async () => {
     const started = await certified();
     const control = await ownerLink(started);
     const proofOnly = await ownerLink(started);
     await control.unlock();
 
+    expect(await control.control({ command: 'owner-detach', fields: {} })).toEqual({ status: 'detached' });
     control.close();
     await control.closed;
     await vi.waitFor(() => expect(started.holder.isUnlocked).toBe(false));
@@ -982,7 +1040,33 @@ describe.skipIf(process.platform === 'win32')('what locks a runtime', () => {
 
     expect(started.locks).toEqual(['idle']);
     await vi.waitFor(() => expect(client.custody.unlocked).toBe(false));
-    expect(await client.control({ command: 'status', fields: {} })).toMatchObject({ status: 'running' });
+    await client.closed;
+    const fresh = await ownerLink(started);
+    expect(await fresh.control({ command: 'status', fields: {} })).toMatchObject({ status: 'running' });
+  });
+
+  it('ignores desktop renderer frames for idle activity but accepts the main-owned activity signal', async () => {
+    const started = await certified();
+    const client = await ownerLink(started);
+    await client.unlock();
+    expect(await client.control({ command: 'desktop-activity-mode', fields: {} })).toMatchObject({ status: 'native' });
+    await attach(client, 'drive');
+    const heard = hear(client);
+
+    started.timers.advance(IDLE_MS - 60_000);
+    client.session.send({ type: 'submit', prompt: 'renderer traffic' });
+    await heard.waitFor('complete');
+    started.timers.advance(60_000);
+    expect(started.holder.isUnlocked).toBe(false);
+
+    const fresh = await ownerLink(started);
+    await fresh.unlock();
+    expect(await fresh.control({ command: 'desktop-activity-mode', fields: {} })).toMatchObject({ status: 'native' });
+    await attach(fresh, 'drive');
+    started.timers.advance(IDLE_MS - 60_000);
+    expect(await fresh.control({ command: 'desktop-activity', fields: {} })).toMatchObject({ status: 'recorded' });
+    started.timers.advance(60_000);
+    expect(started.holder.isUnlocked).toBe(true);
   });
 
   it.each([
@@ -1115,6 +1199,7 @@ describe.skipIf(process.platform === 'win32')('the session protocol over a link'
     const extra = await ownerLink(started);
 
     expect(await attach(extra, 'observe')).toEqual({ status: 'refused', reason: 'attach-limit' });
+    expect(await bound[0]!.control({ command: 'owner-detach', fields: {} })).toEqual({ status: 'detached' });
     bound[0]!.close();
     await bound[0]!.closed;
     await vi.waitFor(async () => expect(await attach(extra, 'observe')).toMatchObject({ status: 'attached' }));
@@ -1130,7 +1215,7 @@ describe.skipIf(process.platform === 'win32')('the session protocol over a link'
     await client.closed;
 
     await vi.waitFor(() => expect(started.holder.isUnlocked).toBe(false));
-    expect(started.locks).toEqual(['last-client-detached']);
+    expect(started.locks).toEqual(['fault']);
     expect(started.released).toHaveBeenCalledTimes(1);
   });
 

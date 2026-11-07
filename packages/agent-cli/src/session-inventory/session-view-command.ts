@@ -24,6 +24,7 @@ import {
   type TAttachedAppRender,
 } from './session-attach-command.js';
 import { openSecureAttach } from './secure-attach-client.js';
+import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-process.js';
 import { secureOwnerControl } from './secure-owner-control.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
@@ -233,7 +234,7 @@ export async function runSessionViewCommand(
         continue;
       }
       // The yes was given in the view for this row's process start; the attach holds it to that start.
-      const rows = await listSupervisedSessions(root, undefined, { includeName: true }).catch(() => []);
+      const rows = await listSupervisedSessions(root, undefined, { includeName: true, includeCwd: true }).catch(() => []);
       const { mode } = ended;
       const sessionLabel = rows.find((row) => row.id === ended.id)?.name ?? ended.id;
       if (productSecureMode(options.productRuntime)) {
@@ -254,7 +255,10 @@ export async function runSessionViewCommand(
             id: ended.id, mode, generation: ended.generation, root,
             open: async (id, selectedMode, selectedRoot, generation) => {
               if (generation === undefined) throw new Error('Secure attach needs a runtime generation.');
+              const selectedWorkspace = rows.find((row) => row.id === id)?.cwd;
+              if (!selectedWorkspace) throw new Error('The secure runtime workspace is unavailable.');
               return openSecureAttach({ id, mode: selectedMode, root: selectedRoot, generation, handover,
+                workspace: selectedWorkspace, brokerEndpoint: await ensureWorkspaceRootBroker(product),
                 onMismatch: () => process.stderr.write('Warning: the runtime keyring sealing key differs from the unlocked key. Run secure verify to investigate.\n') });
             },
             render: (open) => renderAttached({ ...open, mode, sessionLabel: ended.id, screenReaderFlag: flag, announce: false }),

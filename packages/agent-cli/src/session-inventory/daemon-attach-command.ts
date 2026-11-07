@@ -20,6 +20,7 @@ import { findWorkspaceDaemon } from './daemon-command.js';
 import { proveWorkspaceDaemon } from './prove-workspace-daemon.js';
 import { runConfirmedAttach, type TAttachedAppRender } from './session-attach-command.js';
 import { openSecureAttach } from './secure-attach-client.js';
+import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-process.js';
 import { listSupervisedSessions, resolveSupervisedDirectory } from './supervised-session-control.js';
 
 import type { openSupervisedAttach } from './supervised-attach-client.js';
@@ -162,6 +163,7 @@ export async function runDaemonAttachCommand(
         open: async (selectedId, mode, selectedRoot, selectedGeneration) => {
           if (selectedGeneration === undefined) throw new Error('Secure attach needs a runtime generation.');
           return openSecureAttach({ id: selectedId, mode, root: selectedRoot, generation: selectedGeneration, handover,
+            workspace, brokerEndpoint: await ensureWorkspaceRootBroker(product),
             onMismatch: () => process.stderr.write('Warning: the runtime keyring sealing key differs from the unlocked key. Run secure verify to investigate.\n') });
         },
         render: (open) => render({ ...open, mode: 'drive', sessionLabel: id, screenReaderFlag: parsed.screenReader }),

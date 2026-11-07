@@ -4,9 +4,12 @@ import { openOwnerHandover, serializeKeyring } from '@robota-sdk/agent-keyring';
 import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 
 import { createCliRuntimeContext } from './product/runtime-context.js';
+import { SecureWorkspaceRootFence } from './secure/workspace-root-fence.js';
+import { secureWorkspaceRoot } from './secure/workspace-root-selection.js';
+import { ensureWorkspaceRootBroker } from './startup/workspace-root-broker-process.js';
 import { readProductConversationMode } from './secure/conversation-mode-state.js';
 import { launchCertifiedRuntime } from './session-inventory/certified-runtime-launch.js';
-import { openRegisteredOwnerLink } from './session-inventory/owner-link-client.js';
+import { openPreparedOwnerLink } from './session-inventory/owner-link-client.js';
 import { proveWorkspaceDaemon } from './session-inventory/prove-workspace-daemon.js';
 import {
   acquireSupervisedDaemonStartLock,
@@ -25,6 +28,7 @@ export interface IDesktopSecureOwnerOptions {
   readonly environment: TConfigEnvironment;
   readonly workspace: string;
   readonly restricted: boolean;
+  readonly restrictedHold?: string;
   readonly secret: TDesktopSecureSecret;
   readonly signal: AbortSignal;
   readonly childEnvironment: NodeJS.ProcessEnv;
@@ -46,6 +50,10 @@ export async function openDesktopSecureOwner(options: IDesktopSecureOwnerOptions
   }
   if (options.signal.aborted) throw new Error('The desktop window is no longer available.');
   const workspace = realpathSync(options.workspace);
+  const fencedRoot = secureWorkspaceRoot(workspace);
+  if (options.restricted && !options.restrictedHold) {
+    throw new Error('A live native Restricted folder choice is required.');
+  }
   const runtime = createCliRuntimeContext(options.config, options.environment, undefined, 'secure');
   const store = createKeyringFileStore({
     path: runtime.layout.userPaths.keyring,
@@ -58,7 +66,12 @@ export async function openDesktopSecureOwner(options: IDesktopSecureOwnerOptions
     ? { type: 'passphrase' as const, passphrase: options.secret.value }
     : { type: 'recoveryKey' as const, recoveryKey: options.secret.value };
   const handover = await openOwnerHandover(loaded.keyring, credential);
+  let workspaceFence: SecureWorkspaceRootFence | undefined;
   try {
+    workspaceFence = new SecureWorkspaceRootFence(
+      fencedRoot,
+      await ensureWorkspaceRootBroker(runtime), !options.restricted, options.restrictedHold,
+    );
     const current = store.load();
     if (options.signal.aborted || desktopConversationMode(options.config) !== 'secure' ||
         current.status !== 'present' || serializeKeyring(current.keyring) !== snapshot) {
@@ -94,14 +107,35 @@ export async function openDesktopSecureOwner(options: IDesktopSecureOwnerOptions
       releaseStart();
     }
     if (options.signal.aborted) throw new Error('The desktop window is no longer available.');
-    const link = await openRegisteredOwnerLink({ root, ...selected, handover, signal: options.signal });
+    const { link, grantNeeded } = await openPreparedOwnerLink({
+      root, ...selected, handover, signal: options.signal,
+    });
     if (options.signal.aborted) {
       link.close();
       throw new Error('The desktop window is no longer available.');
     }
-    return { link, selected: { runtimeId: selected.id, generation: selected.generation }, release: () => handover.dispose() };
+    try {
+      const proof = await link.control({ command: 'workspace-root-proof', fields: {} });
+      const localProof = workspaceFence.proof();
+      if (proof.status !== 'root-proof' || proof.tag !== localProof.tag ||
+          proof.generation !== localProof.generation || proof.trustTag !== localProof.trustTag) {
+        throw new Error('The secure runtime workspace root does not match the desktop root.');
+      }
+      const activity = await link.control({ command: 'desktop-activity-mode', fields: {} });
+      if (activity.status !== 'native') throw new Error('The runtime did not accept native desktop activity.');
+    } catch (error) {
+      link.close();
+      throw error;
+    }
+    return { link, grantNeeded, selected: { runtimeId: selected.id, generation: selected.generation },
+      assertWorkspace: () => workspaceFence?.assertCurrent(),
+      release: () => {
+        try { workspaceFence?.close(); }
+        finally { handover.dispose(); }
+      } };
   } catch (error) {
-    handover.dispose();
+    try { workspaceFence?.close(); }
+    finally { handover.dispose(); }
     throw error;
   }
 }

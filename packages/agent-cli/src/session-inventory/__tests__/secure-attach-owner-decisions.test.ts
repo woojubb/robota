@@ -1,12 +1,17 @@
 import { expect, it, vi } from 'vitest';
 
-import { openRegisteredOwnerLink } from '../owner-link-client.js';
+import { openPreparedOwnerLink } from '../owner-link-client.js';
 import { openSecureAttach } from '../secure-attach-client.js';
 
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
-import type { IOwnerRuntimeLinkClient, IRuntimeCustodyState } from '@robota-sdk/agent-transport-link';
+import type { IOwnerRuntimeLinkClient, IRuntimeCustodyState, TOwnerControlResult } from '@robota-sdk/agent-transport-link';
 
-vi.mock('../owner-link-client.js', () => ({ openRegisteredOwnerLink: vi.fn() }));
+vi.mock('../owner-link-client.js', () => ({ openPreparedOwnerLink: vi.fn() }));
+vi.mock('../../secure/workspace-root-fence.js', () => ({ SecureWorkspaceRootFence: class {
+  proof() { return { tag: 'fixture', generation: 1, trustTag: 'untrusted' }; }
+  assertCurrent() {}
+  close() {}
+} }));
 
 it('binds owner decisions to the driver returned by this exact link and signals closure', async () => {
   let finishClose!: () => void;
@@ -27,13 +32,18 @@ it('binds owner decisions to the driver returned by this exact link and signals 
     question,
     cancelQuestion,
     openAccepted,
-    control: async () => ({ status: 'attached', driverId: 'attach:exact' }),
+    control: async (request): Promise<TOwnerControlResult> => {
+      if (request.command === 'workspace-root-proof') return { status: 'root-proof', tag: 'fixture', generation: 1, trustTag: 'untrusted' };
+      return { status: 'attached', driverId: 'attach:exact' };
+    },
     session: { send: vi.fn(), onMessage: () => () => undefined },
     closed,
+    revokeToCleanup: vi.fn(),
     close: finishClose,
   };
-  vi.mocked(openRegisteredOwnerLink).mockResolvedValue(link);
-  const attach = await openSecureAttach({ root: '/tmp', id: 'runtime', generation: 'generation', mode: 'drive', handover: {} as IOwnerHandover });
+  vi.mocked(openPreparedOwnerLink).mockResolvedValue({ link, grantNeeded: true });
+  const attach = await openSecureAttach({ root: '/tmp', workspace: '/tmp', brokerEndpoint: '/tmp/broker',
+    id: 'runtime', generation: 'generation', mode: 'drive', handover: {} as IOwnerHandover });
   const owner = attach.ownerSessions;
   expect(owner).toBeDefined();
   if (owner === undefined) throw new Error('Missing owner-only decisions');

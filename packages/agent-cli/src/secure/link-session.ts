@@ -42,6 +42,7 @@ export interface ILinkSessionOptions {
   /** The owner did something a person does. */
   readonly onOwnerInput: () => void;
   readonly ownerUnlocked: () => boolean;
+  readonly workspaceCurrent?: () => boolean;
 }
 
 interface IBound {
@@ -188,8 +189,8 @@ export class LinkSession implements ILinkSessionSink {
   receive(data: string): void {
     const bound = this.#bound;
     if (bound === undefined || !this.#canCarrySession()) return;
-    if (bound.countsInput && isOwnerInput(data)) this.#options.onOwnerInput();
     try {
+      if (bound.countsInput && isOwnerInput(data)) this.#options.onOwnerInput();
       bound.handler.onMessage(data);
     } catch {
       // allow-fallback: a frame the handler cannot take ends this link, as it ends an attached terminal's connection.
@@ -199,6 +200,7 @@ export class LinkSession implements ILinkSessionSink {
 
   #canCarrySession(): boolean {
     return !this.#ended && !this.#revoked &&
+      (this.#options.workspaceCurrent?.() ?? true) &&
       (this.#standing === 'spawner' || this.#options.ownerUnlocked());
   }
 

@@ -22,12 +22,14 @@ import {
   ipcMain,
   MessageChannelMain,
   Menu,
+  powerMonitor,
   session,
   shell,
   type MenuItemConstructorOptions,
   type WebContents,
 } from 'electron';
 import { registerDesktopSessionAdmission } from './desktop-session-admission.js';
+import { selectedFolderWithinTrustRoot } from './desktop-trust-root.js';
 import { openSecretWindow } from './secret-window.js';
 
 import {
@@ -43,6 +45,7 @@ import {
   parseRecentFolders,
   parseTrustCandidate,
   parseTrustStatusOutput,
+  parseTrustWorkspaceRoot,
   parseTrustedProviderEnvironmentReferences,
   rememberRecentFolder,
   resolveOpenPathTarget,
@@ -95,17 +98,30 @@ let conversationMode: 'plain' | 'preparing' | 'secure' = 'plain';
 let desktopAdmission: ReturnType<typeof registerDesktopSessionAdmission> | undefined;
 let secureLockUnconfirmed = false;
 let secureLockPending = false;
+let secureDisposalPromise: Promise<void> | undefined;
+let secureDisposalAdmission: ReturnType<typeof registerDesktopSessionAdmission> | undefined;
+let secureTrustReady = false;
+let securePowerEpoch = 0;
+const secureDesktopSupported = process.platform === 'darwin';
 
-async function disposeDesktopAdmission(): Promise<void> {
+async function disposeDesktopAdmission(reason?: 'explicit' | 'screen-lock' | 'suspend'): Promise<void> {
+  if (secureDisposalPromise) {
+    if (!reason || !secureDisposalAdmission) return secureDisposalPromise;
+    return Promise.all([secureDisposalPromise, secureDisposalAdmission.revokeGlobal(reason)]).then(() => undefined);
+  }
   const admission = desktopAdmission;
   if (!admission) return;
   desktopAdmission = undefined;
+  secureDisposalAdmission = admission;
   secureLockPending = true;
-  try {
-    await admission.dispose();
-  } finally {
+  const pending = reason === undefined ? admission.dispose() : admission.revokeGlobal(reason);
+  secureDisposalPromise = pending.finally(() => {
+    secureDisposalPromise = undefined;
+    secureDisposalAdmission = undefined;
     secureLockPending = false;
-  }
+    refreshMenu();
+  });
+  return secureDisposalPromise;
 }
 
 async function readConversationMode(): Promise<typeof conversationMode> {
@@ -207,6 +223,18 @@ const cliEnv = (): Record<string, string> => buildDaemonStartSpawn('', trustEnvi
  * one after Reconnect included.
  */
 let restricted = false;
+let restrictedHold: string | undefined;
+let restrictedHoldRoot: string | undefined;
+let pendingTrustRestrictedOnly = false;
+
+async function releaseRestrictedHold(): Promise<void> {
+  const hold = restrictedHold;
+  restrictedHold = undefined;
+  restrictedHoldRoot = undefined;
+  if (!hold) return;
+  const { releaseDesktopRestrictedRoot } = await import('@robota-sdk/agent-cli/desktop-host');
+  await releaseDesktopRestrictedRoot(productConfig, cliEnv(), hold);
+}
 
 /** Run the daemon start command and read its answer. */
 async function startDaemon(): Promise<TDaemonStart> {
@@ -261,19 +289,103 @@ async function startDaemon(): Promise<TDaemonStart> {
  */
 async function readTrustQuestion(): Promise<ITrustQuestion | undefined> {
   if (remoteMode) return undefined;
+  if (conversationMode === 'secure' && restrictedHold) {
+    try {
+      if (!restrictedHoldRoot || !workspaceFolder ||
+          !selectedFolderWithinTrustRoot(workspaceFolder, restrictedHoldRoot)) {
+        throw new Error('The selected Restricted folder changed.');
+      }
+      const { assertDesktopRestrictedRoot } = await import('@robota-sdk/agent-cli/desktop-host');
+      await assertDesktopRestrictedRoot(productConfig, cliEnv(), restrictedHoldRoot, restrictedHold);
+      restricted = true;
+      secureTrustReady = true;
+      admittedProviderEnvironmentReferences = [];
+      return undefined;
+    } catch { await releaseRestrictedHold().catch(() => {}); }
+  }
   const run = await runCli(productCli(), ['trust', 'status', '--json'], cliEnv());
   admittedProviderEnvironmentReferences =
     run.spawned && run.exitCode === 0
       ? (parseTrustedProviderEnvironmentReferences(run.stdout) ?? [])
       : [];
+  secureTrustReady = run.spawned && run.exitCode === 0 &&
+    parseTrustedProviderEnvironmentReferences(run.stdout) !== undefined;
   pendingTrustCandidate =
     run.spawned && run.exitCode === 0 ? parseTrustCandidate(run.stdout) : undefined;
-  return run.spawned && run.exitCode === 0 ? parseTrustStatusOutput(run.stdout) : undefined;
+  pendingTrustRestrictedOnly = false;
+  const question = run.spawned && run.exitCode === 0 ? parseTrustStatusOutput(run.stdout) : undefined;
+  if (question || conversationMode !== 'secure' || secureTrustReady || !run.spawned ||
+      run.exitCode !== 0 || !workspaceFolder) return question;
+  const restrictedRoot = parseTrustWorkspaceRoot(run.stdout);
+  if (!restrictedRoot || !selectedFolderWithinTrustRoot(workspaceFolder, restrictedRoot)) return undefined;
+  const { prepareDesktopRestrictedRoot } = await import('@robota-sdk/agent-cli/desktop-host');
+  const candidate = await prepareDesktopRestrictedRoot(productConfig, cliEnv(), restrictedRoot);
+  if (!candidate) return undefined;
+  pendingTrustCandidate = candidate;
+  pendingTrustRestrictedOnly = true;
+  return { folder: restrictedRoot, loads: [] };
 }
 
 /** Asked and not answered yet: no daemon starts until the person answers (issue #3268). */
 let pendingTrust: ITrustQuestion | undefined;
 let pendingTrustCandidate: string | undefined;
+
+/** Only a native dialog in main may turn a secure folder decision into owner authority. */
+async function resolveSecureWorkspaceTrust(win: BrowserWindow): Promise<boolean> {
+  const asked = pendingTrust;
+  const candidate = pendingTrustCandidate;
+  const restrictedOnly = pendingTrustRestrictedOnly;
+  const folder = workspaceFolder;
+  const powerEpoch = securePowerEpoch;
+  if (!asked || !folder || !selectedFolderWithinTrustRoot(folder, asked.folder) || !candidate) return false;
+  const decisionCurrent = (): boolean => pendingTrust === asked && workspaceFolder === folder &&
+    selectedFolderWithinTrustRoot(folder, asked.folder) && securePowerEpoch === powerEpoch &&
+    conversationMode === 'secure' && !win.isDestroyed();
+  const answer = await dialog.showMessageBox({
+    type: 'question',
+    message: 'Open this folder for a secure conversation?',
+    detail: `${asked.folder}\n\nProject sources that Trust would load:\n${asked.loads.join('\n') || '(none)'}`,
+    buttons: restrictedOnly ? ['Open Restricted', 'Quit'] : ['Trust Folder', 'Open Restricted', 'Quit'],
+    defaultId: restrictedOnly ? 1 : 2,
+    cancelId: restrictedOnly ? 1 : 2,
+    noLink: true,
+  });
+  if (!decisionCurrent() || pendingTrustCandidate !== candidate ||
+      pendingTrustRestrictedOnly !== restrictedOnly) return false;
+  if (answer.response === (restrictedOnly ? 1 : 2)) {
+    await releasePendingTrustCandidate();
+    app.quit();
+    return false;
+  }
+  if (answer.response === (restrictedOnly ? 0 : 1)) {
+    const { retainDesktopRestrictedRoot } = await import('@robota-sdk/agent-cli/desktop-host');
+    const hold = await retainDesktopRestrictedRoot(productConfig, cliEnv(), asked.folder, candidate);
+    if (!hold) { await releasePendingTrustCandidate(); return false; }
+    pendingTrustCandidate = undefined;
+    if (!decisionCurrent()) {
+      const { releaseDesktopRestrictedRoot } = await import('@robota-sdk/agent-cli/desktop-host');
+      await releaseDesktopRestrictedRoot(productConfig, cliEnv(), hold);
+      return false;
+    }
+    restrictedHold = hold;
+    restrictedHoldRoot = asked.folder;
+    restricted = true;
+    admittedProviderEnvironmentReferences = [];
+    secureTrustReady = true;
+  } else if (!restrictedOnly && answer.response === 0) {
+    const { approveDesktopTrustCandidate } = await import('@robota-sdk/agent-cli/desktop-host');
+    if (!(await approveDesktopTrustCandidate(productConfig, cliEnv(), asked, candidate))) return false;
+    pendingTrustCandidate = undefined;
+    if (!decisionCurrent()) return false;
+    await readTrustQuestion();
+    if (!decisionCurrent()) { secureTrustReady = false; return false; }
+    if (pendingTrust !== asked && pendingTrust !== undefined) return false;
+    if (!secureTrustReady) return false;
+  } else return false;
+  pendingTrust = undefined;
+  pendingTrustRestrictedOnly = false;
+  return true;
+}
 
 async function releasePendingTrustCandidate(): Promise<void> {
   const candidate = pendingTrustCandidate;
@@ -398,7 +510,7 @@ function unlockSecureMenuItem(): MenuItemConstructorOptions {
   return {
     id: 'unlock-secure-conversation',
     label: 'Unlock Secure Conversation…',
-    enabled: !secureLockUnconfirmed,
+    enabled: secureDesktopSupported && secureTrustReady && !secureLockUnconfirmed && !secureLockPending,
     click: () => {
       const admission = desktopAdmission;
       if (!admission) return;
@@ -420,6 +532,88 @@ function unlockSecureMenuItem(): MenuItemConstructorOptions {
   };
 }
 
+let secureReviewBusy = false;
+function reviewSecureMenuItem(): MenuItemConstructorOptions {
+  return {
+    id: 'review-secure-stored-session',
+    label: 'Review Imported Secure Conversation…',
+    enabled: secureDesktopSupported && secureTrustReady && !secureLockUnconfirmed && !secureLockPending,
+    click: () => {
+      const win = liveWindow();
+      const admission = desktopAdmission;
+      if (!win || !admission || secureReviewBusy) return;
+      secureReviewBusy = true;
+      const powerEpoch = securePowerEpoch;
+      const folder = workspaceFolder;
+      const reviewCurrent = (): boolean => !win.isDestroyed() && desktopAdmission === admission &&
+        admission.isCurrent() && securePowerEpoch === powerEpoch && workspaceFolder === folder;
+      void (async () => {
+        const ids = await admission.listUnverifiedFromNativeAction();
+        if (!reviewCurrent()) return;
+        if (ids.length === 0) {
+          await dialog.showMessageBox(win, { type: 'info', message: 'There are no imported conversations awaiting review.' });
+          return;
+        }
+        let page = 0;
+        let selected: string | undefined;
+        while (selected === undefined) {
+          const visible = ids.slice(page * 4, page * 4 + 4);
+          const more = (page + 1) * 4 < ids.length;
+          const buttons = [
+            ...visible.map((id, index) => `Conversation ${page * 4 + index + 1}: ${id.slice(0, 32)}`),
+            ...(more ? ['Next'] : []),
+            'Cancel',
+          ];
+          const choice = await dialog.showMessageBox(win, {
+            type: 'question',
+            message: 'Choose an imported conversation to review',
+            detail: 'These records have not yet been accepted as yours. Their content will stay closed until you review one.',
+            buttons,
+            defaultId: buttons.length - 1,
+            cancelId: buttons.length - 1,
+            noLink: true,
+          });
+          if (!reviewCurrent()) return;
+          if (choice.response < visible.length) selected = visible[choice.response];
+          else if (more && choice.response === visible.length) page += 1;
+          else return;
+        }
+        const question = await admission.questionFromNativeAction(selected);
+        if (!reviewCurrent()) return;
+        if (question.kind === 'refused') throw new Error(question.message);
+        if (question.kind === 'open') {
+          await dialog.showMessageBox(win, { type: 'info', message: 'This conversation is already verified.' });
+          return;
+        }
+        const answer = await dialog.showMessageBox(win, {
+          type: 'warning',
+          message: question.question,
+          detail: question.notice,
+          buttons: ['Accept This Conversation', 'Cancel'],
+          defaultId: 1,
+          cancelId: 1,
+          noLink: true,
+        });
+        if (!reviewCurrent()) return;
+        if (answer.response !== 0) {
+          await admission.cancelQuestionFromNativeAction();
+          return;
+        }
+        await admission.acceptFromNativeAction(selected, question.digest, question.questionId);
+        if (!reviewCurrent()) return;
+        await dialog.showMessageBox(win, { type: 'info', message: 'The imported conversation was accepted.' });
+      })().catch((error: unknown) => {
+        if (!reviewCurrent()) return;
+        void dialog.showMessageBox(win, {
+          type: 'error',
+          message: 'The imported conversation could not be reviewed.',
+          detail: error instanceof Error ? error.message : undefined,
+        });
+      }).finally(() => { secureReviewBusy = false; });
+    },
+  };
+}
+
 /** The File menu's folder items; a remote task has no local folder to open. */
 function folderMenuItems(): MenuItemConstructorOptions[] {
   return remoteMode
@@ -428,7 +622,7 @@ function folderMenuItems(): MenuItemConstructorOptions[] {
         openFolderMenuItem(),
         openRecentMenuItem(),
         ...(conversationMode === 'secure'
-          ? [{ type: 'separator' } as const, unlockSecureMenuItem()]
+          ? [{ type: 'separator' } as const, unlockSecureMenuItem(), reviewSecureMenuItem()]
           : []),
       ];
 }
@@ -558,12 +752,14 @@ async function openFolder(folder: string): Promise<void> {
     }
     await releasePendingTrustCandidate();
     pendingTrust = undefined;
+    secureTrustReady = false;
     restricted = false;
     admittedProviderEnvironmentReferences = [];
     // A start still running belongs to the previous folder; let it settle before asking for this one.
     await daemon.current()?.catch(() => undefined);
     if (conversationMode === 'secure') {
       await disposeDesktopAdmission();
+      await releaseRestrictedHold();
     }
     useFolder(folder);
     const win = liveWindow();
@@ -597,10 +793,13 @@ async function createWindow(): Promise<void> {
     useFolder(initial);
   }
   conversationMode = await readConversationMode();
+  const openingPowerEpoch = securePowerEpoch;
 
   // In a folder not trusted yet the daemon would be refused; the person in front is asked first.
   const started = inFolderOrder(() =>
-    readTrustQuestion().then((question) => {
+    (conversationMode === 'secure' && !secureDesktopSupported
+      ? Promise.resolve(undefined)
+      : readTrustQuestion()).then((question) => {
       pendingTrust = question;
       return question === undefined && conversationMode !== 'secure' ? daemon.start() : undefined;
     }),
@@ -648,17 +847,33 @@ async function createWindow(): Promise<void> {
   });
 
   if (conversationMode === 'secure') {
+    win.webContents.on('before-input-event', (_event, input) => {
+      if (input.type === 'keyDown' && !input.isAutoRepeat) desktopAdmission?.recordNativeActivity();
+    });
+    win.webContents.on('before-mouse-event', (_event, input) => {
+      if (input.type === 'mouseDown') desktopAdmission?.recordNativeActivity();
+    });
     win.webContents.on('did-finish-load', () => {
       void (async () => {
         await disposeDesktopAdmission();
+        if (!secureDesktopSupported) {
+          reportFatal(win.webContents, 'Secure desktop conversations require a supported screen-lock and workspace-root adapter. Use the secure CLI on supported systems.');
+          return;
+        }
+        if (!secureTrustReady && pendingTrust === undefined) {
+          reportFatal(win.webContents, 'The folder trust state could not be verified for a secure conversation.');
+          return;
+        }
         if (
           secureLockUnconfirmed ||
           win.isDestroyed() ||
           pendingTrust !== undefined ||
+          !secureTrustReady ||
           workspaceFolder === undefined
         )
           return;
         const workspace = workspaceFolder;
+        const powerEpoch = securePowerEpoch;
         const admission = registerDesktopSessionAdmission({
           sender: win.webContents,
           ipc: ipcMain,
@@ -671,6 +886,7 @@ async function createWindow(): Promise<void> {
               environment: hostEnvironment,
               workspace,
               restricted,
+              ...(restrictedHold ? { restrictedHold } : {}),
               secret,
               signal,
               childEnvironment: desktopDaemonEnvironment(productConfig, hostEnvironment, {
@@ -683,6 +899,7 @@ async function createWindow(): Promise<void> {
           },
           isCurrent: () =>
             !secureLockUnconfirmed &&
+            securePowerEpoch === powerEpoch &&
             conversationMode === 'secure' &&
             workspaceFolder === workspace,
           createChannel: () => new MessageChannelMain(),
@@ -715,6 +932,15 @@ async function createWindow(): Promise<void> {
   // start still loads the page: it shows the fatal screen with the CLI's reason. A pending trust
   // question loads it with no socket reachable; the answer reloads it.
   await started;
+  if (conversationMode === 'secure' && pendingTrust !== undefined) {
+    const ready = await inFolderOrder(() => resolveSecureWorkspaceTrust(win));
+    if (!ready) {
+      if (!win.isDestroyed()) win.destroy();
+      if (securePowerEpoch === openingPowerEpoch) app.quit();
+      return;
+    }
+  }
+  refreshMenu();
   installCsp();
   await win.loadFile(join(__dirname, '../renderer/index.html'));
 }
@@ -747,13 +973,9 @@ ipcMain.handle('agent-gui:endpoint', async (event): Promise<string | null> => {
  */
 ipcMain.handle('agent-gui:restart', (event): Promise<void> =>
   inFolderOrder(async () => {
+    if (conversationMode === 'secure') return;
     // Nothing starts before the trust question is answered.
     if (pendingTrust !== undefined) return;
-    if (conversationMode === 'secure') {
-      await disposeDesktopAdmission();
-      if (!event.sender.isDestroyed()) event.sender.reload();
-      return;
-    }
     if (restricted) {
       admittedProviderEnvironmentReferences = [];
     } else {
@@ -765,7 +987,8 @@ ipcMain.handle('agent-gui:restart', (event): Promise<void> =>
 );
 
 /** The question the page shows before anything starts, or `null` when there is none. */
-ipcMain.handle('agent-gui:trust-question', (): ITrustQuestion | null => pendingTrust ?? null);
+ipcMain.handle('agent-gui:trust-question', (): ITrustQuestion | null =>
+  conversationMode === 'secure' ? null : pendingTrust ?? null);
 
 /**
  * The composer's attach button (#3282 §4d): a native multi-file dialog, scoped to this window so it
@@ -817,6 +1040,7 @@ ipcMain.handle(
 ipcMain.handle(
   'agent-gui:trust-answer',
   async (event, choice: unknown): Promise<{ error?: string }> => {
+    if (conversationMode === 'secure') return { error: 'Secure folder approval requires a native decision.' };
     // The answer is about the question on screen when it was given; it applies to nothing else.
     const asked = pendingTrust;
     if (asked === undefined || !isTrustChoice(choice)) return {};
@@ -870,9 +1094,42 @@ function reportFatal(sender: WebContents, detail: string | undefined): void {
 // fails the app has no window and, before this, no message either — the process just sat there. `.catch`
 // after `.then`, not `.then(fn, onRejected)`, because the second argument handles a rejection of
 // `whenReady()` alone and would let a `createWindow` failure float on unchanged.
+function installSecurePowerEvents(): void {
+  const revoke = (reason: 'screen-lock' | 'suspend'): void => {
+    securePowerEpoch += 1;
+    if (conversationMode !== 'secure') return;
+    const win = liveWindow();
+    if (win && !win.isDestroyed()) win.hide();
+    const pending = disposeDesktopAdmission(reason);
+    void pending.then(
+      () => {
+        if (win && !win.isDestroyed()) win.destroy();
+        if (app.isReady() && !liveWindow()) {
+          void createWindow().catch((error: unknown) => console.error('[agent-app] secure window recovery failed:', error));
+        }
+      },
+      (error: unknown) => {
+        secureLockUnconfirmed = true;
+        console.error('[agent-app] secure runtime lock could not be confirmed:', error);
+        if (win && !win.isDestroyed()) {
+          win.destroy();
+          void dialog.showMessageBox({
+            type: 'error',
+            message: 'The secure runtime lock could not be confirmed.',
+            detail: 'Stop the secure runtime before reopening the app.',
+          });
+        }
+        refreshMenu();
+      },
+    );
+  };
+  if (secureDesktopSupported) powerMonitor.on('lock-screen', () => revoke('screen-lock'));
+  powerMonitor.on('suspend', () => revoke('suspend'));
+}
+
 app
   .whenReady()
-  .then(createWindow)
+  .then(() => { installSecurePowerEvents(); return createWindow(); })
   .catch((error) => {
     console.error('[agent-app] failed to create the main window:', error);
     app.quit();
@@ -880,9 +1137,20 @@ app
 
 let closingRemote = false;
 let closingSecure = false;
+let closingRestricted = false;
 app.on('before-quit', (event) => {
   if (secureLockUnconfirmed || secureLockPending) {
     event.preventDefault();
+    return;
+  }
+  if (!desktopAdmission && restrictedHold && !closingRestricted) {
+    event.preventDefault();
+    closingRestricted = true;
+    void releaseRestrictedHold().then(() => app.quit(), (error: unknown) => {
+      closingRestricted = false;
+      console.error('[agent-app] Restricted folder hold could not be released:', error);
+      app.quit();
+    });
     return;
   }
   if (!desktopAdmission || closingSecure) return;

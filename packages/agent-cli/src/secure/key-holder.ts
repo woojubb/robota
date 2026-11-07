@@ -51,7 +51,7 @@ import { KeyringStoreError, type IKeyringStore } from '@robota-sdk/agent-local-h
 
 import type { IArtifactContext } from '@robota-sdk/agent-core';
 
-export type TLockReason = 'explicit' | 'idle' | 'last-client-detached' | 'screen-lock' | 'suspend';
+export type TLockReason = 'explicit' | 'idle' | 'last-client-detached' | 'screen-lock' | 'suspend' | 'fault';
 
 /** `verified`: the stored sealing public key was the one the keys derive. `repaired`: it was not, and the file now holds the right one. */
 export type TSealingKeyOutcome = 'verified' | 'repaired';

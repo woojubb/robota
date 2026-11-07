@@ -59,6 +59,18 @@ vi.mock('../../session-inventory/supervised-session-control.js', () => ({
   },
 }));
 
+// This suite checks serve-mode wiring; the broker and physical-root contract have dedicated suites.
+vi.mock('../../startup/workspace-root-broker-process.js', () => ({
+  ensureWorkspaceRootBroker: async () => '/test-broker',
+}));
+vi.mock('../../secure/workspace-root-fence.js', () => ({
+  SecureWorkspaceRootFence: class {
+    assertCurrent() {}
+    proof() { return { tag: 'test-root', generation: 1, trustTag: 'untrusted' }; }
+    close() {}
+  },
+}));
+
 const { runServeMode } = await import('../serve-mode.js');
 
 const realSend = process.send;

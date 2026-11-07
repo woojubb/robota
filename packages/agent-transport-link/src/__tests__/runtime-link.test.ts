@@ -423,6 +423,25 @@ describe('a session message at and over the bound the receiving decoder applies'
 });
 
 describe('an owner link', () => {
+  it('revokes raw owner operations immediately while retaining only a lock confirmation channel', async () => {
+    const { runtime, port } = await startCertifiedRuntime();
+    runtime.record.gateUnlock = true;
+    const client = await openOwnerLink(await connect(port), owner);
+    const pending = client.unlock();
+    await until(() => runtime.record.gates.length === 1);
+
+    client.revokeToCleanup();
+    await expect(pending).rejects.toBeDefined();
+    await expect(client.unlock()).rejects.toBeDefined();
+    await expect(client.control({ command: 'status', fields: {} })).rejects.toBeDefined();
+    expect(() => client.session.send({ type: 'get-messages' })).toThrow();
+
+    runtime.record.gates.shift()!();
+    await client.lock('screen-lock');
+    expect(runtime.record.calls).toContainEqual(['lock', 'screen-lock']);
+    client.close();
+  });
+
   it('admits the owner of a certified runtime and unlocks it with a read grant', async () => {
     const { runtime, port } = await startCertifiedRuntime();
     const client = await openOwnerLink(await connect(port), owner);

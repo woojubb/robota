@@ -14,6 +14,7 @@ import { createKeyringFileStore } from '@robota-sdk/agent-local-host';
 import { openOwnerAtTerminal } from '../secure/owner-at-terminal.js';
 import { openSecureTerminal } from '../secure/secure-terminal.js';
 import { openSecureAttach } from './secure-attach-client.js';
+import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-process.js';
 import { openSupervisedAttach, type ISupervisedAttachConnection } from './supervised-attach-client.js';
 import { listSupervisedSessions, resolveSupervisedDirectory } from './supervised-session-control.js';
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
@@ -157,7 +158,7 @@ export async function runSessionAttachCommand(
   const root = options.root ?? resolveSupervisedDirectory(options.productRuntime);
   let row;
   try {
-    row = (await listSupervisedSessions(root, undefined, { includeName: true, includeGeneration: true }))
+    row = (await listSupervisedSessions(root, undefined, { includeName: true, includeCwd: true, includeGeneration: true }))
       .find((candidate) => candidate.id === id);
   } catch {
     row = undefined;
@@ -184,7 +185,9 @@ export async function runSessionAttachCommand(
         id, mode, generation: row.generation, root,
         open: async (selectedId, selectedMode, selectedRoot, generation) => {
           if (generation === undefined) throw new Error('Secure attach needs a runtime generation.');
+          if (!row.cwd) throw new Error('The secure runtime workspace is unavailable.');
           return openSecureAttach({ id: selectedId, mode: selectedMode, root: selectedRoot, generation, handover,
+            workspace: row.cwd, brokerEndpoint: await ensureWorkspaceRootBroker(product),
             onMismatch: () => process.stderr.write('Warning: the runtime keyring sealing key differs from the unlocked key. Run secure verify to investigate.\n') });
         },
         render: (open) => render({ ...open, mode, sessionLabel: id, screenReaderFlag }),

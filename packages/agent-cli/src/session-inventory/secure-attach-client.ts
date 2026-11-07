@@ -1,4 +1,8 @@
-import { openRegisteredOwnerLink } from './owner-link-client.js';
+import { realpathSync } from 'node:fs';
+
+import { SecureWorkspaceRootFence } from '../secure/workspace-root-fence.js';
+import { secureWorkspaceRoot } from '../secure/workspace-root-selection.js';
+import { openPreparedOwnerLink } from './owner-link-client.js';
 import { MAX_EARLY_FRAMES, type ISupervisedAttachConnection } from './supervised-attach-client.js';
 
 import type { IOwnerHandover } from '@robota-sdk/agent-keyring';
@@ -11,15 +15,35 @@ export async function openSecureAttach(options: {
   readonly root: string;
   readonly id: string;
   readonly generation: string;
+  readonly workspace: string;
+  readonly brokerEndpoint: string;
   readonly mode: 'drive' | 'observe';
   readonly handover: IOwnerHandover;
   readonly onMismatch?: () => void;
 }): Promise<ISupervisedAttachConnection> {
-  const link = await openRegisteredOwnerLink(options);
+  const root = secureWorkspaceRoot(realpathSync(options.workspace));
+  const fence = new SecureWorkspaceRootFence(root, options.brokerEndpoint, false);
+  let prepared: Awaited<ReturnType<typeof openPreparedOwnerLink>>;
+  try { prepared = await openPreparedOwnerLink(options); }
+  catch (error) { fence.close(); throw error; }
+  const { link, grantNeeded } = prepared;
+  let faultBarrier: Promise<void> | undefined;
+  let detaching = false;
+  let unlockAttempted = false;
+  let unlockCompleted = false;
+  const assertFence = (): void => {
+    try { fence.assertCurrent(); }
+    catch (error) {
+      faultBarrier ??= lockAndClose(true);
+      void faultBarrier.catch(() => {});
+      throw error;
+    }
+  };
   const listeners = new Set<(message: TServerMessage) => void>();
   const early: TServerMessage[] = [];
   let earlyBytes = 0;
   const unsubscribe = link.session.onMessage((message) => {
+    try { assertFence(); } catch { return; }
     if (listeners.size > 0) {
       for (const listener of [...listeners]) listener(message);
     } else {
@@ -32,32 +56,73 @@ export async function openSecureAttach(options: {
   const closedListeners = new Set<() => void>();
   void link.closed.then(() => {
     closed = true;
+    fence.close();
     unsubscribe();
     for (const listener of [...closedListeners]) listener();
     closedListeners.clear();
   });
   let timer: ReturnType<typeof setTimeout> | undefined;
-  let unlockAttempted = false;
-  let unlockCompleted = false;
   let cancelled = false;
-  const lockAndClose = async (): Promise<void> => {
+  async function lockAndClose(global: boolean): Promise<void> {
+    if (closed) { fence.close(); return; }
+    if (!global && !link.custody.unlocked) {
+      link.revokeToCleanup();
+      link.close();
+      await link.closed;
+      fence.close();
+      return;
+    }
     let deadline: ReturnType<typeof setTimeout> | undefined;
+    let failed = false;
+    detaching = true;
+    listeners.clear();
+    early.length = 0;
     try {
-      await Promise.race([link.lock('explicit'), new Promise<never>((_resolve, reject) => {
-        deadline = setTimeout(() => reject(new Error('Secure detach timed out.')), 5_000);
-      })]);
+      if (global) {
+        link.revokeToCleanup();
+        await Promise.race([link.lock('fault'), new Promise<never>((_resolve, reject) => {
+          deadline = setTimeout(() => reject(new Error('Secure detach timed out.')), 5_000);
+        })]);
+      } else {
+        const answer = await Promise.race([link.control({ command: 'owner-detach', fields: {} }),
+          new Promise<never>((_resolve, reject) => {
+            deadline = setTimeout(() => reject(new Error('Secure detach timed out.')), 5_000);
+          })]);
+        if (answer.status !== 'detached') throw new Error('The runtime did not confirm owner detach.');
+      }
     } catch {
-      throw new Error('Secure detach could not confirm the runtime is locked.');
+      failed = true;
     } finally {
       if (deadline !== undefined) clearTimeout(deadline);
+      link.revokeToCleanup();
       link.close();
+      fence.close();
     }
-  };
+    try {
+      await Promise.race([link.closed, new Promise<never>((_resolve, reject) => {
+        deadline = setTimeout(() => reject(new Error('Secure link closure timed out.')), 5_000);
+      })]);
+    } catch { failed = true; }
+    finally { if (deadline !== undefined) clearTimeout(deadline); }
+    if (failed) throw new Error('Secure detach could not confirm the runtime disposition.');
+  }
   try {
+    const remote = await link.control({ command: 'workspace-root-proof', fields: {} });
+    const local = fence.proof();
+    if (remote.status !== 'root-proof' || remote.tag !== local.tag ||
+        remote.generation !== local.generation || remote.trustTag !== local.trustTag) {
+      throw new Error('The secure runtime workspace root does not match this terminal.');
+    }
     const attached = await Promise.race([(async () => {
-      unlockAttempted = true;
-      const outcome = await link.unlock();
-      unlockCompleted = true;
+      assertFence();
+      let outcome: 'verified' | 'mismatch' = 'verified';
+      if (grantNeeded) {
+        unlockAttempted = true;
+        outcome = await link.unlock();
+        unlockCompleted = true;
+      } else if (!link.custody.unlocked) {
+        throw new Error('The shared secure runtime locked before attach.');
+      }
       if (cancelled) throw new Error('Secure attach was cancelled.');
       if (outcome === 'mismatch') {
         if (options.onMismatch === undefined) throw new Error('The runtime sealing key differs from the unlocked key.');
@@ -76,7 +141,7 @@ export async function openSecureAttach(options: {
       ...(options.mode === 'drive' ? {
         ownerSessions: {
           directory: {
-            question: (sessionId: string) => link.question(sessionId),
+            question: (sessionId: string) => { assertFence(); return link.question(sessionId); },
             cancelQuestion: async () => {
               try {
                 await link.cancelQuestion();
@@ -85,8 +150,10 @@ export async function openSecureAttach(options: {
                 throw error;
               }
             },
-            openAccepted: (sessionId: string, digest: string, questionId: string) =>
-              link.openAccepted(driverId, sessionId, digest, questionId),
+            openAccepted: (sessionId: string, digest: string, questionId: string) => {
+              assertFence();
+              return link.openAccepted(driverId, sessionId, digest, questionId);
+            },
           },
           onInvalidate: (listener: () => void) => {
             let active = true;
@@ -97,12 +164,15 @@ export async function openSecureAttach(options: {
           },
         },
       } : {}),
-      send: (message) => link.session.send(message),
+      send: (message) => { if (detaching) throw new Error('Secure attach is closing.'); assertFence(); link.session.send(message); },
       subscribe: (listener) => {
+        if (detaching) throw new Error('Secure attach is closing.');
         listeners.add(listener);
         if (listeners.size === 1) {
           earlyBytes = 0;
-          for (const message of early.splice(0)) listener(message);
+          try {
+            for (const message of early.splice(0)) { assertFence(); listener(message); }
+          } catch (error) { listeners.delete(listener); throw error; }
         }
         return () => { listeners.delete(listener); };
       },
@@ -111,16 +181,20 @@ export async function openSecureAttach(options: {
         closedListeners.add(listener);
         return () => { closedListeners.delete(listener); };
       },
-      detach: lockAndClose,
+      detach: () => faultBarrier ?? lockAndClose(false),
     };
   } catch (error) {
     cancelled = true;
+    if (faultBarrier) {
+      await faultBarrier;
+      throw error;
+    }
     if (unlockAttempted) {
       const unlockWasPending = !unlockCompleted;
-      await lockAndClose();
+      await lockAndClose(unlockWasPending);
       if (unlockWasPending) throw new Error('Secure attach could not confirm the runtime is locked.');
     }
-    else link.close();
+    else { link.close(); fence.close(); }
     throw error;
   } finally {
     if (timer !== undefined) clearTimeout(timer);

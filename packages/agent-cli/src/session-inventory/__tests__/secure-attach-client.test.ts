@@ -13,6 +13,8 @@ import { FIXTURE_PASSPHRASE, fixtureKeyring } from '../../secure/__tests__/helpe
 import { launchCertifiedRuntime } from '../certified-runtime-launch.js';
 import { openRegisteredOwnerLink } from '../owner-link-client.js';
 import { openSecureAttach } from '../secure-attach-client.js';
+import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
+import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
 import { runSessionAttachCommand } from '../session-attach-command.js';
 import { runSessionViewCommand } from '../session-view-command.js';
 import { resolveSupervisedDirectory, stopSupervisedSession } from '../supervised-session-control.js';
@@ -22,6 +24,9 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
   const home = realpathSync(mkdtempSync(join(process.platform === 'win32' ? tmpdir() : realpathSync('/tmp'), 'sat-')));
   const env = createTestBinaryEnvironment(home, { PRODUCT_TELEMETRY_ENABLED: '0' });
   const runtime = createTestProductRuntime('test-product', env);
+  const brokerEndpoint = workspaceRootBrokerEndpoint(runtime);
+  mkdirSync(dirname(brokerEndpoint), { recursive: true, mode: 0o700 });
+  const broker = await startTestBroker(brokerEndpoint, dirname(brokerEndpoint), runtime.layout.userPaths.workspaceTrust);
   const root = resolveSupervisedDirectory(runtime);
   const { keyring } = await fixtureKeyring();
   mkdirSync(dirname(runtime.layout.userPaths.keyring), { recursive: true, mode: 0o700 });
@@ -32,10 +37,10 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
     started = await launchCertifiedRuntime(home, { productRuntime: runtime, env, root, restricted: true, handover,
       entrypoint: fileURLToPath(new URL('../../testing/secure-runtime-entry.ts', import.meta.url)),
       execArgs: ['--import', pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href, '--conditions=source'] });
-    const attach = await openSecureAttach({ ...started, root, mode: 'observe', handover });
+    const attach = await openSecureAttach({ ...started, root, workspace: home, brokerEndpoint, mode: 'observe', handover });
     expect(attach.driverId).toMatch(/^attach:/u);
     expect(attach.ownerSessions).toBeUndefined();
-    const otherLink = await openRegisteredOwnerLink({ ...started, root, handover });
+    let otherLink = await openRegisteredOwnerLink({ ...started, root, handover });
     try {
       expect(otherLink.custody.unlocked).toBe(true);
       const locked = new Promise<void>((resolve, reject) => {
@@ -45,7 +50,9 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
       await attach.detach();
       await locked;
       expect(otherLink.custody.unlocked).toBe(false);
-      const driver = await openSecureAttach({ ...started, root, mode: 'drive', handover });
+      otherLink.close();
+      const driver = await openSecureAttach({ ...started, root, workspace: home, brokerEndpoint, mode: 'drive', handover });
+      otherLink = await openRegisteredOwnerLink({ ...started, root, handover });
       expect(driver.ownerSessions).toBeDefined();
       const invalidated = vi.fn();
       const unsubscribe = driver.ownerSessions!.onInvalidate(invalidated);
@@ -69,17 +76,16 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
       }
       const states: boolean[] = [];
       surfaces[0]!.onCustody((state) => states.push(state.unlocked));
-      await expect(openSecureAttach({ ...started, root, mode: 'observe', handover })).rejects.toThrow();
-      await vi.waitFor(() => {
-        expect(states).toContain(true);
-        expect(surfaces[0]!.custody.unlocked).toBe(false);
-      }, { timeout: 2_000 });
+      const replacement = await openSecureAttach({ ...started, root, workspace: home, brokerEndpoint, mode: 'observe', handover });
+      await Promise.all(surfaces.map((link) => link.closed));
+      expect(states).toContain(false);
+      await replacement.detach();
     } finally { for (const link of surfaces) link.close(); }
     const other = await createKeyring({ passphrase: 'another strong passphrase' });
     other.unlocked.lock();
     const stranger = await openOwnerHandover(other.keyring, { type: 'passphrase', passphrase: 'another strong passphrase' });
     try {
-      await expect(openSecureAttach({ ...started, root, mode: 'drive', handover: stranger })).rejects.toThrow();
+      await expect(openSecureAttach({ ...started, root, workspace: home, brokerEndpoint, mode: 'drive', handover: stranger })).rejects.toThrow();
     } finally { stranger.dispose(); }
     overrideProductSecureMode(runtime, true);
     const terminalOwner = await openOwnerHandover(keyring, { type: 'passphrase', passphrase: FIXTURE_PASSPHRASE });
@@ -127,9 +133,20 @@ it('attaches an owner over the verified link and unlocks before detaching', asyn
     });
     expect(await runSessionViewCommand([], { productRuntime: runtime, root, isTTY: true, settings: {}, render: deferredView, start, launchCwd: home })).toBe(0);
     expect(start).toHaveBeenCalledExactlyOnceWith(home, 'restricted');
+    const active = await openSecureAttach({ ...started, root,
+      workspace: home, brokerEndpoint, mode: 'observe', handover });
+    const activeClosed = new Promise<void>((resolve) => active.onClose(resolve));
+    const crashed = await openRegisteredOwnerLink({ ...started, root, handover });
+    expect((await crashed.control({ command: 'attach', fields: { mode: 'drive' } })).status).toBe('attached');
+    crashed.close();
+    const recovered = await openSecureAttach({ ...started, root,
+      workspace: home, brokerEndpoint, mode: 'observe', handover });
+    await activeClosed;
+    await recovered.detach();
   } finally {
     handover.dispose();
     if (started) await stopSupervisedSession(started.id, root, started.generation);
+    await broker.close();
     rmSync(home, { recursive: true, force: true });
   }
 }, 60_000);

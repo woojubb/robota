@@ -29,10 +29,11 @@ app.whenReady().then(async () => {
       ready();
     }
   });
+  let resolveClosed;
   const link = {
     standing: 'owner', binding: { runtimeId: 'fixture', generation: 'generation' },
-    custody: { certified: true, unlocked: false }, closed: new Promise(() => {}),
-    onCustody: () => () => {}, close: () => { closed++; },
+    custody: { certified: true, unlocked: false }, closed: new Promise((resolve) => { resolveClosed = resolve; }),
+    onCustody: () => () => {}, close: () => { closed++; resolveClosed(); }, revokeToCleanup: () => {},
     lock: async () => { locked++; }, unlock: async () => 'verified',
     control: async (request) => request.command === 'status'
       ? { status: 'running', daemon: true, cwd: '/synthetic/workspace' }

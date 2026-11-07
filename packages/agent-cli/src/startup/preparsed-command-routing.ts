@@ -580,6 +580,13 @@ export async function runPreparsedCliCommand(
     }
     return true;
   }
+  // Trust inspection must work while the secure key holder is locked; it composes no session store.
+  if (argv[SUBCOMMAND_INDEX] === 'trust') {
+    process.exitCode = await runWorkspaceTrustCommand(
+      argv.slice(ACTION_INDEX), cwd, productRuntime, undefined, options.providerDefinitions,
+    );
+    return true;
+  }
   const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
   const composition = createInitialCliWorkspaceComposition(cwd, {
     ...options,
@@ -615,16 +622,6 @@ export async function runPreparsedCliCommand(
       stdout: (text) => process.stdout.write(text),
       stderr: (text) => process.stderr.write(text),
     });
-    return true;
-  }
-  if (argv[SUBCOMMAND_INDEX] === 'trust') {
-    process.exitCode = await runWorkspaceTrustCommand(
-      argv.slice(ACTION_INDEX),
-      cwd,
-      productRuntime,
-      undefined,
-      options.providerDefinitions,
-    );
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'usage') {

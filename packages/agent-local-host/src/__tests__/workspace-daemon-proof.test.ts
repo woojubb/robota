@@ -61,6 +61,18 @@ describe('authenticated workspace daemon proof', () => {
     expect(second.close).toHaveBeenCalledOnce();
   });
 
+  it.each([['first', 'second'], ['second', 'first']] as const)(
+    'refuses two independently proved daemons in %s then %s order', async (firstId, secondId) => {
+      const first = link();
+      const second = link();
+      const open = vi.fn().mockResolvedValueOnce(first).mockResolvedValueOnce(second);
+      await expect(proveWorkspaceDaemon({ workspace: '/workspace', open,
+        candidates: [{ ...row, id: firstId }, { ...row, id: secondId }] })).rejects.toThrow(/ambiguous/i);
+      expect(first.close).toHaveBeenCalledOnce();
+      expect(second.close).toHaveBeenCalledOnce();
+    },
+  );
+
   it('refuses incomplete status even after a matching candidate', async () => {
     const first = link();
     const second = link();

@@ -48,6 +48,9 @@ import type { IServeSessionDirectory } from './serve-session-directory.js';
 import { startServeHttpHost, type IServeHttpHost } from './serve-http-host.js';
 import { SECURE_SURFACES, startListener } from '../secure/secure-surfaces.js';
 import { RuntimeCustody } from '../secure/runtime-custody.js';
+import { SecureWorkspaceRootFence } from '../secure/workspace-root-fence.js';
+import { secureWorkspaceRoot } from '../secure/workspace-root-selection.js';
+import { ensureWorkspaceRootBroker } from '../startup/workspace-root-broker-process.js';
 import { armUncertifiedStop } from '../secure/uncertified-stop.js';
 import { secureServeRefusal } from './secure-serve-refusal.js';
 import type { ISecureServeRuntime } from '../startup/secure-runtime-startup.js';
@@ -524,6 +527,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     if (error.code !== 'EPIPE') throw error;
   };
   if (args.supervisedSessionId !== undefined) process.stderr.on('error', onStderrError);
+  let secureWorkspaceFence: SecureWorkspaceRootFence | undefined;
   try {
     const runtimeOptions =
       args.supervisedExternalEventGrants === true && opts.externalEventGrantHistory === undefined
@@ -732,6 +736,13 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         if (args.daemon === true && opts.getMonitorWsUrl?.() === undefined)
           throw new DaemonNoEndpointError();
         const supervisedCwd = realpathSync(opts.cwd);
+        if (secureRuntime !== undefined) {
+          const endpoint = await ensureWorkspaceRootBroker(opts.productRuntime);
+          secureWorkspaceFence = new SecureWorkspaceRootFence(
+            secureWorkspaceRoot(supervisedCwd, opts.projectAccess?.identity),
+            endpoint, opts.projectAccess?.status === 'trusted',
+          );
+        }
         let linkedPr: ISupervisedPr | undefined;
         let custody: RuntimeCustody | undefined;
         // Every grant the launcher handed over is open before readiness, or the start fails.
@@ -792,6 +803,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
                 identity: secureRuntime.identity,
                 holder: secureRuntime.holder,
                 attachTarget,
+                ...(secureWorkspaceFence ? { workspaceFence: secureWorkspaceFence } : {}),
                 restricted: opts.projectAccess?.status === 'restricted',
               });
         supervisedControl = await startListener(SECURE_SURFACES['control-socket'], opts.productRuntime, () =>
@@ -897,6 +909,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     }
     await lifetime;
   } finally {
+    secureWorkspaceFence?.close();
     process.off('SIGTERM', onSignal);
     process.off('SIGINT', onSignal);
     if (args.supervisedSessionId !== undefined) process.stderr.off('error', onStderrError);

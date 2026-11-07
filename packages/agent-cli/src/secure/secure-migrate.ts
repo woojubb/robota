@@ -705,6 +705,10 @@ export async function runSecureEnable(
   options: ISecureMigrateOptions,
 ): Promise<number> {
   const runtime = options.productRuntime;
+  if (process.platform !== 'darwin' && process.platform !== 'linux') {
+    options.stderr('Secure conversations require a supported workspace-root adapter on this platform.\n');
+    return EXIT_FAILED;
+  }
   if (runtime.conversationMode === 'secure') {
     options.stdout('Secure conversations are already on.\n');
     return EXIT_OK;

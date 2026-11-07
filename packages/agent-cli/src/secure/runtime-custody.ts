@@ -49,6 +49,7 @@ import type {
 } from '../session-inventory/runtime-admission.js';
 import type { TSupervisedAttachTarget } from '../session-inventory/supervised-attach.js';
 import type { KeyHolder } from './key-holder.js';
+import type { SecureWorkspaceRootFence } from './workspace-root-fence.js';
 
 export interface IRuntimeCustodyOptions {
   /** This runtime's identity, whose spawner exchange has already run. */
@@ -56,6 +57,7 @@ export interface IRuntimeCustodyOptions {
   readonly holder: KeyHolder;
   /** What a bound link reaches: the host's sessions through a binder, or the one session. */
   readonly attachTarget: TSupervisedAttachTarget;
+  readonly workspaceFence?: SecureWorkspaceRootFence;
   /** It runs without the project's own configuration. */
   readonly restricted?: boolean;
   readonly handshakeTimeoutMs?: number;
@@ -82,14 +84,16 @@ export class RuntimeCustody implements IRuntimeAdmission {
   #surfaces = 0;
   #drivers = 0;
   #seenSpawner = false;
+  /** A global lock retires every link admitted before this generation. */
+  #grantEpoch = 0;
+  /** The lock requester's reply is flushed before its link is retired. */
+  #lockRequester: IAdmittedRuntimeLink | undefined;
 
   constructor(options: IRuntimeCustodyOptions) {
     this.#options = options;
     // Every change of what the keys can do is told to every link, whoever caused it.
     options.holder.onLock(() => {
-      this.#grantOwners.clear();
-      for (const session of this.#ownerSessions) session.invalidateOwnerDecisions();
-      this.#announce();
+      this.#retireGrantEpoch();
     });
     options.holder.onUnlock(() => {
       for (const session of this.#ownerSessions) session.invalidateOwnerDecisions();
@@ -121,7 +125,7 @@ export class RuntimeCustody implements IRuntimeAdmission {
   }
 
   lock(): void {
-    this.#options.holder.lock('explicit');
+    this.#barrier('explicit');
   }
 
   status(): IRuntimeAdmissionStatus {
@@ -183,6 +187,39 @@ export class RuntimeCustody implements IRuntimeAdmission {
     }
   }
 
+  /** The holder has dropped its keys; no older link can install a delayed grant. */
+  #retireGrantEpoch(): void {
+    this.#grantEpoch += 1;
+    this.#grantOwners.clear();
+    for (const session of this.#ownerSessions) session.invalidateOwnerDecisions();
+    this.#announce();
+    const requester = this.#lockRequester;
+    for (const link of [...this.#links]) {
+      if (link !== requester) link.close();
+    }
+    if (requester !== undefined) setImmediate(() => requester.close());
+  }
+
+  #barrier(reason: 'explicit' | 'screen-lock' | 'suspend' | 'last-client-detached' | 'fault', requester?: IAdmittedRuntimeLink): void {
+    const prior = this.#grantEpoch;
+    this.#lockRequester = requester;
+    try {
+      this.#options.holder.lock(reason);
+      // A lock while already locked still retires old links and pending grants.
+      if (this.#grantEpoch === prior) this.#retireGrantEpoch();
+    } finally {
+      this.#lockRequester = undefined;
+    }
+  }
+
+  #assertWorkspace(): void {
+    try { this.#options.workspaceFence?.assertCurrent(); }
+    catch {
+      this.#barrier('fault');
+      throw new OwnerRequestRefusedError('root-changed', 'The live workspace root or trust generation changed.');
+    }
+  }
+
   #acquireSurface(): (() => void) | undefined {
     if (this.#surfaces >= MAX_ATTACHED_SURFACES) return undefined;
     this.#surfaces += 1;
@@ -195,17 +232,23 @@ export class RuntimeCustody implements IRuntimeAdmission {
   }
 
   #admit(link: IAdmittedRuntimeLink, context: IRuntimeAdmissionContext): IRuntimeLinkPorts {
+    const grantEpoch = this.#grantEpoch;
+    let nativeActivity = false;
     const session = new LinkSession({
       link,
       target: this.#options.attachTarget,
       acquireSurface: () => this.#acquireSurface(),
       nextDriverId: () => `attach:${(this.#drivers += 1)}`,
-      onOwnerInput: () => this.#options.holder.touch(),
+      onOwnerInput: () => { this.#assertWorkspace(); if (!nativeActivity) this.#options.holder.touch(); },
       ownerUnlocked: () => this.#options.holder.isUnlocked,
+      workspaceCurrent: () => {
+        try { this.#assertWorkspace(); return true; }
+        catch { return false; }
+      },
     });
     const ports = {
-      desk: this.#deskOf(link, session, context),
-      sessions: this.#sessionsOf(link, session),
+      desk: this.#deskOf(link, session, context, grantEpoch, () => { nativeActivity = true; }, () => nativeActivity),
+      sessions: this.#sessionsOf(link, session, grantEpoch),
       session,
     };
     // Counted only once its ports exist: a link counted here is one whose `closed` will be called.
@@ -219,14 +262,31 @@ export class RuntimeCustody implements IRuntimeAdmission {
     return ports;
   }
 
-  #deskOf(link: IAdmittedRuntimeLink, session: LinkSession, context: IRuntimeAdmissionContext): IOwnerLinkDesk {
+  #deskOf(
+    link: IAdmittedRuntimeLink,
+    session: LinkSession,
+    context: IRuntimeAdmissionContext,
+    grantEpoch: number,
+    requireNativeActivity: () => void,
+    isNativeActivity: () => boolean,
+  ): IOwnerLinkDesk {
     const isOwner = link.standing === 'owner';
+    let detached = false;
+    let driving = false;
+    const requireCurrent = (): void => {
+      if (detached) throw new OwnerRequestRefusedError('owner-detached', 'This owner has detached.');
+      if (grantEpoch !== this.#grantEpoch) {
+        throw new OwnerRequestRefusedError('stale-epoch', 'This owner link was retired by a runtime lock.');
+      }
+    };
     const requireOwner = (): void => {
       if (!isOwner) throw notAllowed();
+      requireCurrent();
     };
     return {
       custody: () => this.#state(),
       installTrustRoot: (root) => {
+        requireCurrent();
         if (link.standing !== 'spawner') {
           throw new OwnerRequestRefusedError('not-allowed', 'Only the spawner installs a trust root.');
         }
@@ -234,36 +294,101 @@ export class RuntimeCustody implements IRuntimeAdmission {
       },
       unlock: (keys) => {
         requireOwner();
+        requireCurrent();
+        this.#assertWorkspace();
         const outcome = this.#unlock(keys);
         this.#grantOwners.add(session);
         return outcome;
       },
       lock: (reason) => {
-        requireOwner();
-        this.#options.holder.lock(reason);
+        if (!isOwner) throw notAllowed();
+        // A detached owner retains only the ability to narrow authority. This lets an OS lock
+        // overtake an in-flight owner-detach without keeping its handover or read grant alive.
+        if (grantEpoch !== this.#grantEpoch) {
+          throw new OwnerRequestRefusedError('stale-epoch', 'This owner link was retired by a runtime lock.');
+        }
+        this.#barrier(reason, link);
       },
       control: (request) => {
+        requireCurrent();
+        if (request.command === 'owner-detach') {
+          requireOwner();
+          this.#assertWorkspace();
+          detached = true;
+          const wasAttached = this.#attachedOwners.delete(session);
+          const hadGrant = this.#grantOwners.delete(session);
+          try { session.revoke(); session.end(); }
+          finally {
+            if (this.#options.holder.isUnlocked && this.#attachedOwners.size === 0 &&
+                (wasAttached || hadGrant)) {
+              this.#barrier('last-client-detached', link);
+            }
+          }
+          return { status: 'detached' };
+        }
+        if (request.command === 'workspace-root-proof') {
+          requireOwner();
+          this.#assertWorkspace();
+          const proof = this.#options.workspaceFence?.proof();
+          if (!proof) throw notAllowed();
+          return { status: 'root-proof', tag: proof.tag, generation: proof.generation, trustTag: proof.trustTag };
+        }
+        if (request.command === 'custody-membership') {
+          requireOwner();
+          this.#assertWorkspace();
+          return {
+            status: 'membership',
+            unlocked: this.#options.holder.isUnlocked,
+            attachedOwners: this.#attachedOwners.size,
+            epoch: this.#grantEpoch,
+          };
+        }
+        if (request.command === 'desktop-activity-mode') {
+          requireOwner();
+          this.#assertWorkspace();
+          if (this.#attachedOwners.has(session)) throw notAllowed();
+          requireNativeActivity();
+          return { status: 'native' };
+        }
+        if (request.command === 'desktop-activity') {
+          requireOwner();
+          this.#assertWorkspace();
+          if (!isNativeActivity() || !this.#attachedOwners.has(session) || !this.#options.holder.isUnlocked) {
+            throw notAllowed();
+          }
+          this.#options.holder.touch();
+          return { status: 'recorded' };
+        }
         // Binding a session is what a spawner is admitted for; every other command is the owner's.
         if (request.command === 'attach') {
+          this.#assertWorkspace();
           const result = session.bind(request.fields['mode']);
-          if (isOwner && result.status === 'attached') this.#attachedOwners.add(session);
+          if (isOwner && result.status === 'attached') {
+            this.#attachedOwners.add(session);
+            driving = request.fields['mode'] === 'drive';
+          }
           return { ...result };
         }
         requireOwner();
+        this.#assertWorkspace();
         if (isOwnerControlAct(request.command)) this.#options.holder.touch();
         return answerOf(context, request);
       },
       closed: () => {
+        // No queued grant may install keys after this transport disappears.
+        const safeDetach = detached;
+        detached = true;
         this.#links.delete(link);
         this.#spawnerSessions.delete(session);
         const wasAttached = this.#attachedOwners.delete(session);
-        this.#grantOwners.delete(session);
+        const hadGrant = this.#grantOwners.delete(session);
         try {
+          if (!safeDetach && grantEpoch === this.#grantEpoch && (driving || hadGrant)) this.#barrier('fault');
           // A status/proof link is not a read lease. The last attached owner leaves before
           // host cleanup, so a slow release cannot keep read keys open.
-          if (this.#options.holder.isUnlocked && this.#attachedOwners.size === 0 &&
+          if (grantEpoch === this.#grantEpoch && this.#options.holder.isUnlocked && this.#attachedOwners.size === 0 &&
               (wasAttached || this.#grantOwners.size === 0)) {
-            this.#options.holder.lock('last-client-detached');
+            this.#barrier('last-client-detached');
           }
           session.end();
         } finally {
@@ -274,17 +399,28 @@ export class RuntimeCustody implements IRuntimeAdmission {
     };
   }
 
-  #sessionsOf(link: IAdmittedRuntimeLink, session: LinkSession): IOwnerLinkSessions {
+  #sessionsOf(link: IAdmittedRuntimeLink, session: LinkSession, grantEpoch: number): IOwnerLinkSessions {
+    const requireCurrent = (): void => {
+      if (grantEpoch !== this.#grantEpoch) {
+        throw new OwnerRequestRefusedError('stale-epoch', 'This owner link was retired by a runtime lock.');
+      }
+    };
     return {
       question: (sessionId) => {
+        requireCurrent();
+        this.#assertWorkspace();
         if (link.standing !== 'owner') throw notAllowed();
         return session.question(sessionId);
       },
       cancelQuestion: () => {
+        requireCurrent();
+        this.#assertWorkspace();
         if (link.standing !== 'owner') throw notAllowed();
         session.cancelQuestion();
       },
       openAccepted: (bindingId, sessionId, digest, questionId) => {
+        requireCurrent();
+        this.#assertWorkspace();
         if (link.standing !== 'owner') throw notAllowed();
         return session.openAccepted(bindingId, sessionId, digest, questionId);
       },

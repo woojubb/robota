@@ -87,6 +87,7 @@ const LOCK_REASONS: ReadonlySet<string> = new Set<TRequestedLockReason>([
   'explicit',
   'screen-lock',
   'suspend',
+  'fault',
 ]);
 const GRANT_OUTCOMES: ReadonlySet<string> = new Set<TGrantOutcome>(['verified', 'mismatch']);
 
