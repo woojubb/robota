@@ -1,5 +1,340 @@
 # @robota-sdk/agent-command
 
+## 3.1.0
+### Minor Changes
+
+- d46727b: The local unlock gate for secure conversations (issue #3679), dormant until secure mode can be turned
+  on: no product process is given a key holder yet, so nothing below runs and nothing reads differently.
+
+  - `@robota-sdk/agent-ui-terminal` exports the key custody port types (`IKeyCustodyPort`,
+    `TUserReadRequest`, `TReadPurpose`, `TReadability`) and `isUserReadRequest`, which answers whether
+    the UI's own mint made a request: an object of the same shape made by a cast is not one.
+    `ITuiCliAdapter` gains an optional `keyCustody`. Attaching to a fork sealed while the keys are
+    locked asks the port to unlock for it, only when the attach would be honoured. While the terminal
+    is handed over to another program, the composer's stdin proxy now forwards nothing.
+  - `@robota-sdk/agent-command` adds `/unlock` and `/lock` (`createKeyCustodyCommandModule`,
+    `IKeyCustodyCommandPort`), user-only, registered by `createDefaultCommandModules` only when given a
+    `keyCustodyPort`.
+  - `@robota-sdk/agent-framework`: `lockedSessionMessage` and `lockedSessionsNotice` take an optional
+    `unlockCommand` and name it for locked keys, and `editCheckpointsLockedMessage` words a locked
+    rewind the same way; without one the wording is unchanged. The TUI passes `/unlock` where it has
+    the key custody, in the resume picker, Ctrl+R and fork attach; `/rewind`, `/validate-session`,
+    `/agent read` and `/background read` name it where the session registered it.
+  - `@robota-sdk/agent-cli` composes the gate for the TUI in secure mode: the passphrase is asked on the
+    secret terminal inside the terminal handoff, one question at a time, never where nobody can answer.
+
+  What to do: nothing.
+- bc8de21: Edit checkpoints can be sealed, and every `EditCheckpointStore` now states how it keeps them.
+
+  - `EditCheckpointStore` requires `sealing`: `{ sealer }` seals every manifest and pre-image, bound to
+    its session, turn and pre-image number so one moved elsewhere does not open there; `'plain'` keeps
+    them as they are. `stateStorage` only says where they live (the project's checkpoint directory when
+    omitted), and `sealedOnly: true` is for state made for one process, which never held a plain
+    checkpoint. A sealed store numbers new checkpoints from directory names alone and refuses with
+    `EditCheckpointNumberingExhaustedError` at the highest number, after which an interactive turn runs
+    without a checkpoint and its history says why.
+  - `IEditCheckpointStateStorage` requires `replaceBytes(path, content, purpose)`, which replaces a file
+    whole; `createDirectoryEditCheckpointState` and the project's checkpoint state have it.
+  - A checkpoint that cannot be read (damaged, written by a newer build, or sealed and locked) is
+    reported instead of failing the whole read: `EditCheckpointsLockedError` (an `ArtifactLockedError`
+    with its `reason`) for locked keys or no keys, `EditCheckpointUnreadableError` for a restore or
+    rollback range holding one, refused before any project file is written. The store takes an optional
+    `keysLocked` gate, and `countUnreadable()` and `listing()` say how many `list()` left out. `/rewind
+  list` prints that count and `/rewind inspect` marks a recorded size and a plan that would be refused.
+  - The branch head moves to a new checkpoint only once its manifest is written; a failed write used to
+    leave the head on the unwritten checkpoint, so the next turn became its own parent and walking its
+    ancestors never ended. `CheckpointTree.ancestors` (`@robota-sdk/agent-session`) also stops where
+    parent edges loop back.
+
+  What to do: pass `sealing: 'plain'` to every `new EditCheckpointStore(...)` that does not seal, and add
+  `replaceBytes` to a storage of your own.
+- bc8de21: `secure migrate`, still reserved for secure mode (which cannot be turned on yet), now converts every
+  conversation store after the prompt history: the user's session records, the subagent transcripts,
+  and the state of each trusted project on a host that can write project state (session records, replay
+  logs with their payload files, edit checkpoints, and pending memory candidates, which are deleted). It
+  then deletes what earlier runs left behind: temp files of crashed writes, sessions kept aside during a
+  hand-off, `/editor` buffers in the shared temporary directory and the scratch directories of
+  processes that are gone. What it cannot seal safely (a link or a file with another hard link,
+  untrusted and non-Linux projects, the SDK's spill directories, anything that does not open with the
+  keyring) is listed and left as it is. `--dry-run` shows exactly what a run would do and changes
+  nothing. A run that leaves plaintext which a rerun or moving a file aside would remove ends
+  incomplete (exit 5) and says what to do; plaintext it can never seal (a project record or log past
+  the project read limit once sealed, checkpoint turns kept plain) is listed, and the run still ends
+  done. A run stopped part-way finishes when started again. `/rewind` names `<cli> secure migrate`
+  for a checkpoint whose sealed copy is still waiting.
+
+  `@robota-sdk/agent-session` adds `migrateNodeSessionStore`, `readSessionStoreWorkingDirectories`,
+  `migrateSessionLogDirectory`, `readPromptHistoryProjects` and the format helpers they share.
+  `@robota-sdk/agent-framework` adds `migrateWorkspaceProjectSessionRecords`,
+  `migrateWorkspaceProjectSessionLogs`, `migrateWorkspaceEditCheckpoints` and
+  `migrateSubagentTranscripts`; `EditCheckpointUnreadableError` gains `unfinishedMigration`; and
+  `createNodeWorkspaceTrustStore(path, { tightenOnRead: false })` reads a trust store without narrowing
+  its mode. Nothing calls the converters outside a migration.
+
+  What to do: nothing.
+- bc8de21: Every store that keeps conversation content now states how it seals (`TArtifactSealing`, from
+  `@robota-sdk/agent-core`), and has no plain default: a store left plain beside sealed ones would
+  write plaintext next to them. `{ sealing: { sealer } }`
+  seals with an `IArtifactSealer` (bound to the record, line or file it belongs to), and
+  `{ sealing: 'plain' }` writes plain JSON, lines and files as before. A store that seals reads plain
+  content too and seals what it rewrites; a store that does not seal meets a sealed file as `locked`.
+
+  What breaks, and what to do: the `sealing` option is required (omitting it is a compile error and a
+  `TypeError` at run time) wherever a store is built or read, so pass `{ sealing: 'plain' }` to keep
+  what you have.
+
+  - `@robota-sdk/agent-session`: `NodeSessionStore(baseDir, { sealing, ownedRoot? })`, where `ownedRoot`
+    moves from a positional argument into the options; `NodePromptHistoryFile`, `NodeSessionLogSink`,
+    `NodeSessionLogSource`, `NodeExternalPayloadSource` (with an optional `ownerId`) and
+    `NodeToolResultSpillStore` take it in their options.
+  - `@robota-sdk/agent-framework`: `createUserSessionStore(dir, { sealing })`,
+    `createNodeHostSessionStore(dir, { sealing, ownedRoot? })` (same move of `ownedRoot`),
+    `createProjectSessionStore(sessions, logs, { sealing })`, `WorkspaceProjectSessionStore`,
+    `createUserPromptHistoryFile`, `WorkspaceSessionLogSink`, `WorkspaceSessionLogSource` and
+    `createNodeToolResultSpillStore`. `IWorkspaceProjectStateStorage.replaceBytes` is required: the
+    project session store replaces a record whole through it, so a storage of your own implements it
+    (the framework's storage does).
+
+  A sealing append store writes each append as one sealed line and each log sidecar sealed under a
+  random name. The log sources gain `readStoredLines()`, which returns every line as readable, locked,
+  not opening, or sealed by a newer build, while `readText()` stays strict and throws
+  `ArtifactLockedError`, `ArtifactCorruptError` or `SessionLogDecodeError`. `StoredLines`,
+  `StoredPayloads` and `splitStoredLines` are exported for hosts that build their own append stores.
+  `IPromptHistoryBlock` gains an optional `unreadable: { locked, noKeys }`, and the terminal's Ctrl+R
+  search says how many prompts are sealed and whether an unlock would let it search them. A project
+  store reads its replay logs with its own sealing and reports a log it cannot read as `locked`,
+  `corrupt` or `unsupported`; a plain log whose payload file is missing or does not match is now
+  `corrupt` too, where `load` and `list` used to throw, and `/validate-session` says when the log is
+  sealed instead of failing with an error.
+
+  A sealing spill store writes each result sealed and bound to its reference as `<token>.sealed` and
+  answers `read-failed` for one that does not open. In either mode a result whose file is already gone
+  when it expires or at shutdown now counts as removed, where that cleanup used to fail with
+  `cleanup-failed` every time, and with it every later write.
+- bc8de21: Subagent transcripts and fork jobs work with sealed conversation stores.
+
+  What breaks, and what to do:
+
+  - `createChildProcessSubagentRunnerFactory` and `ChildProcessSubagentRunner` require `logSealing`:
+    how the children keep their logs, `{ sealer }` or `'plain'`. A host that seals passes its sealer
+    and implements `bindWriteGrant(grant)` in its worker composition; any other host passes `'plain'`.
+  - `createSubagentLogger(parentSessionId, agentId, baseLogsDir, { sealing }, fs?)` requires `sealing`
+    as its fourth argument, ahead of the optional file system; pass `'plain'` for a plain log.
+  - `TSubagentWorkerParentMessage` gains `{ type: 'sealing_key'; grant }`, which
+    `isSubagentWorkerParentMessage` accepts: a worker of your own handles it by binding the new grant,
+    or stops when it cannot seal to it.
+
+  What is new:
+
+  - A fork job's log is now read from the file the child writes. The child names its log after the
+    session it runs (the forked record, else the task) and the parent read `<taskId>.jsonl`, so
+    `/agent read` on a fork job showed "No log lines", and with worktree isolation (the default for
+    `/fork`) the read was not offered at all. `resolveSubagentLogSessionId`,
+    `resolveSubagentTranscriptPath` and `readSubagentTranscriptPage(path, { sealing })`
+    (`@robota-sdk/agent-framework`) are the one rule both sides use.
+  - In a sealed log a page's offset counts stored records, so it names the same record whether or not
+    the keys are locked. `IBackgroundTaskLogPage` gains an optional `unreadable` count of records the
+    page could not show (`locked`, `noKeys`, `doesNotOpen`); a run of locked records shows as one fixed
+    line, and `/agent read` and `/background read` say whether an unlock would read them.
+  - `IInteractiveSessionStore.save` takes optional `{ handoff }`, and the store port gains optional
+    `exportHeld(id, { keep })` and `importHeld(id, token)`, implemented by `NodeSessionStore` and
+    `WorkspaceProjectSessionStore`: a record written for a fork job is kept apart from the sessions a
+    sealing store runs and handed to the job once. A fork job restores from a read made the way a
+    writer reads, so an in-process fork job restores the fork `/fork` just wrote while the keys are
+    locked. A sealed record a write-only store cannot open loads as
+    `{ status: 'locked', reason: 'no-keys' }`.
+  - `@robota-sdk/agent-subagent-runner`: with a sealer, the start payload carries the write grant (no
+    secret) the sealer issues when the payload is sent and, for a fork job, the parent's held record as
+    `resumeHeld` (at most 32 MiB; the job is refused before anything is made for it when none can be
+    handed over, naming "unlock" only when locked keys are why). A child already sent its payload gets
+    a newer grant as a `sealing_key` message, and one that cannot follow it stops. `bindWriteGrant`
+    must return a sealer whose `writeGrant()` equals the grant, or the job fails. `ISubagentRunner`
+    gains optional `preflight(job)`, which refuses what `start` would and changes nothing; the worktree
+    runner calls it before it prepares a worktree. A job whose start payload cannot be built or sent
+    after its child was spawned now cancels the child before it rejects.
+  - Job handles may say `transcriptSealed`, and the manager projects it into the task state beside
+    `transcriptPath` (`IBackgroundTaskState`, `ISubagentJobState`), where the session record codec
+    accepts it. A job-group result gets `transcriptSealed` too. SubagentStart/Stop hooks get
+    `transcript_sealed: true` beside the transcript path, and `summarizeBackgroundJobGroup` points at
+    `/agent read <taskId>` instead of the path, also for a group restored in a later session.
+- a2d36ea: Move what touches a host out of the main entries of `@robota-sdk/agent-command` and `@robota-sdk/agent-preset` into new Node-only `./node` subpaths (`"browser": null`), so neither main entry names a Node module of its own. Both stay Node-only until the packages they import go neutral.
+
+  - `@robota-sdk/agent-command/node` (new) holds `/shell` and `/editor` (`createShellCommandModule`, `createEditorCommandModule` and their sources, entries, `execute*`, `resolveShell`, `resolveEditor` and `spawnInherited`), `createTerminalClientCommands` (an attached terminal runs `/shell` and `/editor` itself), `createNodeDoctorDeps` and `resolveCommandOnPath`, and the new `openFileInEditor`. Import these from `/node`.
+  - `createDefaultCommandModules` no longer builds `/shell` and `/editor`, and its `editorTemporaryDirectoryPrefix` option is gone: a Node product adds the two modules beside the default set, as `@robota-sdk/pack-coding` already does. The CLI's command list is unchanged.
+  - `/doctor` takes its probes and writers by injection. `createDoctorCommandModule(inputs, deps, display)` has no default for `deps` (pass `createNodeDoctorDeps` from `/node`), `IDoctorDeps` gains `ensureOwnerOnlyDirectory` and `writeSettings` for the confirmed repairs and a required `files: IFileSystem` that the plugin and skill probes read installed extensions through, and `createDefaultCommandModules` takes `doctorDeps`. Absent, `/doctor` is still listed and answers that it is unavailable on this host; nothing is probed or written.
+  - `/git` runs through an injected process. `createGitCommandModule({ port })` has no default `createGitProcess()` any more and `createDefaultCommandModules` takes `gitProcess`; absent, `/git` is still listed and answers that it is unavailable on this host, and no process starts. `@robota-sdk/agent-command` no longer re-exports `createGitProcess`, `gitEnvironment`, `ICreateGitProcessOptions`, `IGitProcessPort`, `IGitProcessRunOptions`, `TGitProcessFailureReason` or `TGitProcessOutcome`: import `createGitProcess`, `gitEnvironment` and `ICreateGitProcessOptions` from `@robota-sdk/agent-framework/node`, and the port and outcome types (`IGitProcessPort`, `IGitProcessRunOptions`, `TGitProcessFailureReason`, `TGitProcessOutcome`) from `@robota-sdk/agent-framework`, which owns them. `@robota-sdk/agent-cli` and `@robota-sdk/pack-coding` pass `createGitProcess()`.
+  - `/keybindings` opens its file through an injected `TOpenFileInEditor`: `createKeybindingsCommandModule(file, openInEditor)` and the new `keybindingsEditor` option of `createDefaultCommandModules` (pass `openFileInEditor` from `/node`). Absent, `/keybindings` answers that the editor is unavailable here and creates no file.
+  - `/provider` and `/model` read a `$ENV:` credential reference from the host's `env` snapshot only. Absent, the reference reads as unset (the setup says so and asks again); the live process environment is no longer consulted by the command itself.
+  - `/loop` takes its ids and per-loop offset from `randomId` and `sha256Hex` in `@robota-sdk/agent-core`; both read exactly as before.
+  - The `/doctor` check ids (`settings.<scope>.<family>`) read a project-relative path a Windows host joined with `\` as they read one joined with `/`.
+  - `@robota-sdk/agent-preset/node` (new) holds `loadExternalPresetsFromDir`. The main entry gains `loadExternalPresetsFromFiles` (`IExternalPresetFile` list of `{ fileName, read }`), which has the same per-file error rules over files a host hands it; only `*.json` names are read. Output-style file ids are read from the file name without `node:path`.
+  - `@robota-sdk/agent-cli` passes `createNodeDoctorDeps` and `openFileInEditor`, and reads the preset directory and runs the attached terminal's commands through the `/node` entries, so every command behaves as before. `@robota-sdk/pack-coding` and `@robota-sdk/agent-ui-terminal` (tests) import `/shell` and `/editor` from `@robota-sdk/agent-command/node`; `@robota-sdk/agent-ui-web` only has a test comment updated.
+- ee7f7ef: Make the main entries of `@robota-sdk/agent-tools`, `@robota-sdk/agent-framework`, `@robota-sdk/agent-command`, `@robota-sdk/agent-preset` and `@robota-sdk/agent-product` platform-neutral. They run unchanged in a browser, a Web Worker, Node, Deno and Bun, and no longer map `"browser": null` on `.`. Every package is now in exactly one of ARCHITECTURE.md's three platform lists; the "Not yet neutral" list is gone.
+
+  - `@robota-sdk/agent-tools` no longer re-exports `GrepIsolationError`, `ReadByteLimitError`, `ReadCancelledError`, `createBashTool`, `createEditTool`, `createGlobTool`, `createGrepTool`, `createReadTool`, `createShellTool`, `createWriteTool` and `webFetchTool` from its main entry. They are on `@robota-sdk/agent-tools/node` only, which is where `@robota-sdk/workflows` 0.0.4 imports them.
+  - The five packages build once into `dist` (not `dist/node`) and their `exports` map `import` and `require` only. A Node-only subpath keeps `"browser": null`: `./node` on `agent-tools`, `agent-framework`, `agent-command` and `agent-preset`, and `./testing` on `agent-framework`. Specifiers and the code behind them are unchanged; only a deep import of `dist/node/*` breaks.
+  - `/user-local` and `executeUserLocalDirectCommand` read and write their storage root through an injected file system, as `/doctor` does through `doctorDeps`: `createUserLocalCommandModule(storageRoot, fsAsync)`, the `userLocalFileSystem` option of `createDefaultCommandModules` and the `fsAsync` option of `executeUserLocalDirectCommand`. They no longer import `NodeFileSystemAsync` themselves, and absent a file system the command is listed and answers that it is unavailable on this host; nothing is read or written.
+  - `@robota-sdk/agent-cli` passes `new NodeFileSystemAsync()` from `@robota-sdk/agent-framework/node` for both, so `/user-local` and `agent user-local` behave as before.
+- 7ce5e73: Add the framework host and make `host` and `cwd` required wherever the framework builds a session. The host is passed and accepted but nothing reads it yet, so behaviour is unchanged.
+
+  - `@robota-sdk/agent-framework`: `IFrameworkHost` lists what a platform lends the framework (home directory, workspace resolver, path canonicalizer, exit flush, environment, files, git, git remotes, hook executors, background task runners, default tools, observer failure report, async scope, project mutation support). Every member is optional and an absent one means the capability is off, so `{}` is a valid host. `IAsyncScope` is the port behind `createAsyncScope`.
+  - `@robota-sdk/agent-framework/node` (new, `"browser": null`) exports `createNodeFrameworkHost({ createDefaultTools })`, which fills every member for a Node process. The composition root names `createDefaultTools` from `@robota-sdk/agent-tool-defaults`; pass `() => []` for sessions with no default tier. `@robota-sdk/agent-framework/testing` exports `createTestFrameworkHost(overrides?)`, the same host with the real default tools, where an override replaces a member and an explicit `undefined` removes it.
+  - `host` is required on `InteractiveSession` (both construction shapes, so on `buildRuntimeSession` and `startRuntimeHost` too), `createSession`, `createSubagentSession`, `createQuery`, `createAgentRuntime` and `createStatelessRuntime`, and on the options of `createInteractiveRuntime`, `createProgrammaticAgent`, `HeadlessInteractionChannel` and an in-process subagent runner. A missing `host` throws at construction, naming `createNodeFrameworkHost`.
+  - `cwd` is required, and absolute as it already had to be, on `createSession`, `createQuery`, `createStatelessRuntime` and an injected-session `InteractiveSession`. The `process.cwd()` fallback is gone: a caller that relied on it passes `process.cwd()` itself.
+  - `@robota-sdk/agent-cli`: `startCliCore` takes the host as its second argument and `runPrintMode` as its second after the product runtime; `startCli` and the headless entry build it with `createNodeFrameworkHost`. `IRunEvalDeps.host` is required unless `runFn` is given.
+  - `@robota-sdk/agent-subagent-runner`: `ISubagentWorkerComposition.host` is required; the worker builds its child session on it, and the product's composition supplies it.
+  - `@robota-sdk/agent-ui-terminal`: `IRenderOptions` and `ITuiInteractionChannelOptions` take `host`.
+  - `@robota-sdk/agent-command`, `@robota-sdk/agent-product`: their tests and scenario scripts pass a host; no published surface changes.
+- a2d36ea: Make `InteractiveSession`, the git reads, the headless output and the task context read their platform from the host instead of from the process they run in. Where the Node host supplies a capability, behaviour is as before; where a host leaves it out, the code says so.
+
+  - `@robota-sdk/agent-framework`, session: the session reads `host.git`, `host.files`, `host.canonicalizePath`, `host.homeDirectory`, `host.registerExitFlush`, `host.supportsProjectMutation` and `host.createAsyncScope`. Without `git`, `readProjectStatus` and `readProjectDiff` return `failed`; without `files` a project diff is refused (containment cannot be proven), an Edit diff carries no context lines from the file, `pluginDirectories` makes the constructor throw, and a workspace manifest's local entries are refused by name; without `files` or `canonicalizePath` `/cd` refuses, and `/cd ~` refuses without `homeDirectory`; without `supportsProjectMutation` "allow for project" is not offered and checkpoints report `host-cannot-write-project`; without `registerExitFlush` the session log is not flushed at an abnormal exit. Session ids, loop ids and history entry ids use `randomId`.
+  - `@robota-sdk/agent-framework`, commands: a host without `createAsyncScope` (a browser) cannot tell overlapping commands apart, so the skill router stays strictly nested. It runs one user or remote command at a time and answers a second with `Another command is already running on this host`; it admits a model command only when no such command runs or that command has started its own turn, and refuses any other the same way; and it refuses a forked skill before it starts, in a message naming `createAsyncScope`, because a fork's resource window needs a scope that follows the fork's own calls. The Node host's `createAsyncScope` keeps every command's scope and every fork's resource window on its own call chain, as before.
+  - `@robota-sdk/agent-framework`, git: `createGitProcess`, `gitEnvironment`, `GIT_DEFAULT_TIMEOUT_MS`, `GIT_ENV_DENYLIST`, `GIT_MAX_OUTPUT_BYTES` and `ICreateGitProcessOptions` move from the main entry to `@robota-sdk/agent-framework/node`. `gitFailureMessage`, the port types and the status and diff readers stay on the main entry. `readProjectGitDiff` takes the host's `files` as a required fourth argument.
+  - `@robota-sdk/agent-framework`, headless: `createHeadlessRunner`, `createHeadlessTransport` and `HeadlessInteractionChannel` take a required `output` (`IHeadlessOutput`: `stdout` and `stderr`, each anything with `write(text)`), and write nothing to `process`. `readCurrentGitBranchFromNodeHost` takes its file system as a required second argument; a relative `cwd` has no branch.
+  - `@robota-sdk/agent-framework`, internal signatures: `buildDiffState` and `applyToolEnd` take the host's `files` instead of defaulting to the Node file system.
+  - `@robota-sdk/agent-cli`: print mode passes `{ stdout: process.stdout, stderr: process.stderr }` as the headless `output`, and the open-invocation host takes `createGitProcess` from `@robota-sdk/agent-framework/node`.
+  - `@robota-sdk/agent-command`: `createGitProcess`, `gitEnvironment` and `ICreateGitProcessOptions` are no longer re-exported; import them from `@robota-sdk/agent-framework/node`.
+- be32d9b: Make the provider, org-policy, plugin and user-local modules of the framework platform-neutral. They no longer reach for the process environment, the process streams or the file system; each takes what it needs from its caller, and an absent one means the capability is off.
+
+  - Provider environment: `$ENV:` references and a definition's default credential variable are read against the `env` the caller passes, which is either a map or a resolver function (`readProviderSettings`, `createProviderFromSettings`, `resolveEnvDefaultProvider`, `resolveActiveProvider`, `validateProviderProfile`, `buildProviderProfile`, `buildProviderSetupPatch`, `checkSettingsDocument`, `buildProviderProfilesSnapshot`, `testProviderProfileCommand`). With none, every reference reads as unset instead of falling back to `process.env`: `resolveEnvDefaultProvider` finds no provider, `readProviderSettings` throws `ProviderConfigError`, and a profile whose credential is an unset reference fails its credential check. `TProviderEnvironment` and `resolveProviderEnvironment` are exported for a host that builds its own. A session reads its `environment` option, then `host.env`. `@robota-sdk/agent-cli` always passes its environment snapshot; a host that passed none to the workflows commands gets the unset behaviour.
+  - Org policy and settings check: `loadOrgPolicy` and `checkNodeHostSettingsFile` read files, so they moved to `@robota-sdk/agent-framework/node`. `formatOrgPolicyViolationMessage`, `isApiKeyPlaintext` and `checkSettingsDocument` stay on the main entry.
+  - Plugins: `fs` is required, with no `NodeFileSystem` default, on `BundlePluginLoader` (third argument, after `enabledPlugins`, which may be `undefined`), `BundlePluginInstaller`, `MarketplaceClient`, `NodeHostPluginSettingsStore`, `createHostBundlePluginLoader`, `loadHostBundlePluginsFromScopes` and `loadHostBundlePluginInspectionFromScopes`, whose options are now required. Each refuses at construction without it, naming `NodeFileSystem`. A registry record refused as outside the plugin root was written to `process.stderr`; it goes to the new `onWarning` option, or the library logger when there is none. `TExecFn` returns `string | Uint8Array` instead of `string | Buffer`. A session whose `pluginDirectories` are set needs `host.files`, and throws at construction without it.
+  - User-local: `fsAsync` is required on the memory and storage functions, and `activeRepositoryRoot` must be absolute (a relative one used to be resolved against the process directory). A storage root inside a repository directory whose name starts with two dots is now refused. The absolute check accepts either platform's spelling (`/x`, `C:\x`, `\\srv\share`) and does not know which one this host is, so a Node root resolves its path first, as `@robota-sdk/agent-cli` now does; a Windows `\x` otherwise takes its drive from the process and is refused as relative, and on POSIX `C:\x` is accepted as the absolute path it spells.
+  - `@robota-sdk/agent-framework/node` exports `NodeFileSystem` and `NodeFileSystemAsync`.
+  - `@robota-sdk/agent-command`: the provider commands (`IProviderCommandModuleOptions.env`, `providerEnvironment` of the default command modules, the startup `env`) take a map or a resolver, and no longer read `process.env` when there is none; `/provider add` with a `$ENV:` key now checks it against the same environment `buildProviderSetupPatch` does.
+  - `@robota-sdk/agent-cli`, `@robota-sdk/agent-command`: pass `NodeFileSystem`, `NodeFileSystemAsync` and a stderr `onWarning` where they compose these modules, so their behaviour is unchanged; the user-local storage root is resolved against the platform before the framework sees it.
+- a2d36ea: Make the settings, contribution-root and transport-settings modules of the framework platform-neutral. Settings layers and stores on the main entry no longer open a settings file; they ask the host for text and for a store, and the file-backed halves moved to `@robota-sdk/agent-framework/node`. Plugin enablement still works on the user settings file by the source's `path`, through an `IFileSystem`, so a user source with no `path` enables no plugins.
+
+  - Settings sources: a host source is now `IHostSettingsSource` (replacing `INodeHostSettingsSource`) with `kind`, `scope`, `displayName`, an optional `path` and a required `read()` that returns the document's text, `undefined` when it does not exist, and throws when it exists but cannot be read. `readSettingsSourceText` and every settings layer read through it, so an absent, empty, corrupt or unreadable layer is classified and refused exactly as a file layer is. A host with no file system passes its own sources and stores. `createNodeHostSettingsSource` and `createNodeHostSettingsStore` moved to `/node`; the Node source reads the file the way it always did, and the store still writes owner-only.
+  - Settings files: `readSettings`, `writeSettings`, `updateModelInSettings`, `deleteSettings` and `resetUserConfig` (with `IResetUserConfigResult`) moved to `/node`, unchanged. `TSettingsData` is exported from the module that defines `ISettingsDocumentStore`, and `TSettingsScope` from the scope types; both stay on the main entry.
+  - `applyStatusLineSettings` and `applyAppearanceSettings` take an `ISettingsDocumentStore` instead of a settings file path, so they read and write through whatever store the host built. `@robota-sdk/agent-cli` passes a `createNodeHostSettingsStore` over the product's user settings file.
+  - Contribution roots: `createNodeHostContributionSource` and `createDefaultUserContributionSources` moved to `/node`. `createContributionSourcesForProjectAccess(access, userSources)` takes the user `IContributionSource[]` the caller built, where it took a home directory and built the Node source itself; with none, a session has the trusted project's sources only.
+  - Transport settings: `TransportRegistry` takes an `ITransportSettingsRepository` only. A file path string is no longer accepted; pass `createFileTransportSettingsRepository(path)` from `/node`. `createMemoryTransportSettingsRepository` stays on the main entry.
+  - `readPackageVersion` moved to `/node`.
+  - `@robota-sdk/agent-command`: the doctor names a host settings source that has no `path` by a slug of its `displayName` (`settings.<scope>.<slug>`, `settings.user.unnamed` when the name has no letters or digits), labels the check with that name, reports no path for it and never offers a repair for it. A source with a `path` is unchanged.
+  - `@robota-sdk/agent-cli`, `@robota-sdk/agent-ui-terminal`: import the moved symbols from `/node`; behaviour is unchanged.
+
+### Patch Changes
+
+- fab48ad: The CLI keeps spilled tool results and the `/editor` buffer in owner-only, per-process directories of its state root instead of the shared operating-system temporary directory. They are removed when the run ends, including on a hangup, interrupt or termination, and the next start removes those a killed run left behind.
+
+  `NodeToolResultSpillStore` and `createNodeToolResultSpillStore` take a `parentDirectory`: an existing owner-only directory the host owns, used as it is. A store there records its owner, is removed when the process ends without `shutdown()`, and can be cleaned up after a kill with the new `sweepStaleToolResultSpillDirectories(parent)`. The process-scoped directory helpers behind this are exported from `@robota-sdk/agent-core/node`.
+- Updated dependencies [bc8de21]
+- Updated dependencies [51ad6a4]
+- Updated dependencies [d46727b]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [82663df]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [04c3233]
+- Updated dependencies [9bc13f9]
+- Updated dependencies [830d3d2]
+- Updated dependencies [0a677e9]
+- Updated dependencies [a8c9e25]
+- Updated dependencies [5b46d43]
+- Updated dependencies [fab48ad]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [ea0e424]
+- Updated dependencies [ee7f7ef]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [0fec62f]
+- Updated dependencies [7ce5e73]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [0fec62f]
+- Updated dependencies [be32d9b]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [b7b6cd0]
+- Updated dependencies [8069d0e]
+- Updated dependencies [f5e3057]
+- Updated dependencies [d8cb04f]
+- Updated dependencies [42d595e]
+- Updated dependencies [0a677e9]
+- Updated dependencies [44e9640]
+- Updated dependencies [b56b5a9]
+- Updated dependencies [1c19435]
+- Updated dependencies [4e4c92a]
+- Updated dependencies [6ba10ef]
+  - @robota-sdk/agent-core@3.1.0
+  - @robota-sdk/agent-framework@3.1.0
+  - @robota-sdk/agent-interface-session@3.1.0
+  - @robota-sdk/agent-interface-execution@3.1.0
+  - @robota-sdk/agent-preset@3.1.0
+  - @robota-sdk/agent-interface-command@3.1.0
+
+## 3.0.7
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-framework@3.0.7
+  - @robota-sdk/agent-preset@3.0.7
+  - @robota-sdk/agent-core@3.0.7
+  - @robota-sdk/agent-interface-command@3.0.7
+  - @robota-sdk/agent-interface-execution@3.0.7
+  - @robota-sdk/agent-interface-session@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+  - @robota-sdk/agent-framework@3.0.6
+  - @robota-sdk/agent-preset@3.0.6
+  - @robota-sdk/agent-core@3.0.6
+  - @robota-sdk/agent-interface-command@3.0.6
+  - @robota-sdk/agent-interface-execution@3.0.6
+  - @robota-sdk/agent-interface-session@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+  - @robota-sdk/agent-framework@3.0.5
+  - @robota-sdk/agent-interface-command@3.0.5
+  - @robota-sdk/agent-interface-execution@3.0.5
+  - @robota-sdk/agent-interface-session@3.0.5
+  - @robota-sdk/agent-preset@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.4
+  - @robota-sdk/agent-framework@3.0.4
+  - @robota-sdk/agent-interface-command@3.0.4
+  - @robota-sdk/agent-interface-execution@3.0.4
+  - @robota-sdk/agent-interface-session@3.0.4
+  - @robota-sdk/agent-preset@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.3
+  - @robota-sdk/agent-framework@3.0.3
+  - @robota-sdk/agent-interface-command@3.0.3
+  - @robota-sdk/agent-interface-execution@3.0.3
+  - @robota-sdk/agent-interface-session@3.0.3
+  - @robota-sdk/agent-preset@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+  - @robota-sdk/agent-framework@3.0.2
+  - @robota-sdk/agent-interface-command@3.0.2
+  - @robota-sdk/agent-interface-execution@3.0.2
+  - @robota-sdk/agent-interface-session@3.0.2
+  - @robota-sdk/agent-preset@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

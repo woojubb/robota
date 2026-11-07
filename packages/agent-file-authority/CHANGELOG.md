@@ -1,5 +1,29 @@
 # @robota-sdk/agent-file-authority
 
+## 3.1.0
+### Minor Changes
+
+- 4e4c92a: Enumerate trusted Windows project directories through retained, root-relative directory handles while refusing links and changed directory identities. Windows network, UNC and device paths are refused until their ancestor and identity guarantees are verified.
+
+### Patch Changes
+
+- 830d3d2: Bind CLI and desktop workspace approval to a live root broker and route project file operations through its retained folder authority.
+
+## 3.0.7
+
+## 3.0.6
+### Patch Changes
+
+- 7c4eb0d: Commit Windows root-relative writes through `NtSetInformationFile`, so atomic replacement (and the Write and Edit tools built on it) works on Windows instead of failing with `WIN32_87`.
+
+## 3.0.5
+
+## 3.0.4
+
+## 3.0.3
+
+## 3.0.2
+
 ## 3.0.1
 
 ## 3.0.0

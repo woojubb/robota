@@ -1,5 +1,137 @@
 # @robota-sdk/agent-product
 
+## 3.1.0
+### Minor Changes
+
+- ee7f7ef: Make the main entries of `@robota-sdk/agent-tools`, `@robota-sdk/agent-framework`, `@robota-sdk/agent-command`, `@robota-sdk/agent-preset` and `@robota-sdk/agent-product` platform-neutral. They run unchanged in a browser, a Web Worker, Node, Deno and Bun, and no longer map `"browser": null` on `.`. Every package is now in exactly one of ARCHITECTURE.md's three platform lists; the "Not yet neutral" list is gone.
+
+  - `@robota-sdk/agent-tools` no longer re-exports `GrepIsolationError`, `ReadByteLimitError`, `ReadCancelledError`, `createBashTool`, `createEditTool`, `createGlobTool`, `createGrepTool`, `createReadTool`, `createShellTool`, `createWriteTool` and `webFetchTool` from its main entry. They are on `@robota-sdk/agent-tools/node` only, which is where `@robota-sdk/workflows` 0.0.4 imports them.
+  - The five packages build once into `dist` (not `dist/node`) and their `exports` map `import` and `require` only. A Node-only subpath keeps `"browser": null`: `./node` on `agent-tools`, `agent-framework`, `agent-command` and `agent-preset`, and `./testing` on `agent-framework`. Specifiers and the code behind them are unchanged; only a deep import of `dist/node/*` breaks.
+  - `/user-local` and `executeUserLocalDirectCommand` read and write their storage root through an injected file system, as `/doctor` does through `doctorDeps`: `createUserLocalCommandModule(storageRoot, fsAsync)`, the `userLocalFileSystem` option of `createDefaultCommandModules` and the `fsAsync` option of `executeUserLocalDirectCommand`. They no longer import `NodeFileSystemAsync` themselves, and absent a file system the command is listed and answers that it is unavailable on this host; nothing is read or written.
+  - `@robota-sdk/agent-cli` passes `new NodeFileSystemAsync()` from `@robota-sdk/agent-framework/node` for both, so `/user-local` and `agent user-local` behave as before.
+- 7ce5e73: Add the framework host and make `host` and `cwd` required wherever the framework builds a session. The host is passed and accepted but nothing reads it yet, so behaviour is unchanged.
+
+  - `@robota-sdk/agent-framework`: `IFrameworkHost` lists what a platform lends the framework (home directory, workspace resolver, path canonicalizer, exit flush, environment, files, git, git remotes, hook executors, background task runners, default tools, observer failure report, async scope, project mutation support). Every member is optional and an absent one means the capability is off, so `{}` is a valid host. `IAsyncScope` is the port behind `createAsyncScope`.
+  - `@robota-sdk/agent-framework/node` (new, `"browser": null`) exports `createNodeFrameworkHost({ createDefaultTools })`, which fills every member for a Node process. The composition root names `createDefaultTools` from `@robota-sdk/agent-tool-defaults`; pass `() => []` for sessions with no default tier. `@robota-sdk/agent-framework/testing` exports `createTestFrameworkHost(overrides?)`, the same host with the real default tools, where an override replaces a member and an explicit `undefined` removes it.
+  - `host` is required on `InteractiveSession` (both construction shapes, so on `buildRuntimeSession` and `startRuntimeHost` too), `createSession`, `createSubagentSession`, `createQuery`, `createAgentRuntime` and `createStatelessRuntime`, and on the options of `createInteractiveRuntime`, `createProgrammaticAgent`, `HeadlessInteractionChannel` and an in-process subagent runner. A missing `host` throws at construction, naming `createNodeFrameworkHost`.
+  - `cwd` is required, and absolute as it already had to be, on `createSession`, `createQuery`, `createStatelessRuntime` and an injected-session `InteractiveSession`. The `process.cwd()` fallback is gone: a caller that relied on it passes `process.cwd()` itself.
+  - `@robota-sdk/agent-cli`: `startCliCore` takes the host as its second argument and `runPrintMode` as its second after the product runtime; `startCli` and the headless entry build it with `createNodeFrameworkHost`. `IRunEvalDeps.host` is required unless `runFn` is given.
+  - `@robota-sdk/agent-subagent-runner`: `ISubagentWorkerComposition.host` is required; the worker builds its child session on it, and the product's composition supplies it.
+  - `@robota-sdk/agent-ui-terminal`: `IRenderOptions` and `ITuiInteractionChannelOptions` take `host`.
+  - `@robota-sdk/agent-command`, `@robota-sdk/agent-product`: their tests and scenario scripts pass a host; no published surface changes.
+
+### Patch Changes
+
+- Updated dependencies [bc8de21]
+- Updated dependencies [51ad6a4]
+- Updated dependencies [d46727b]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [82663df]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [04c3233]
+- Updated dependencies [9bc13f9]
+- Updated dependencies [830d3d2]
+- Updated dependencies [0a677e9]
+- Updated dependencies [a8c9e25]
+- Updated dependencies [5b46d43]
+- Updated dependencies [fab48ad]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [ea0e424]
+- Updated dependencies [ee7f7ef]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [0fec62f]
+- Updated dependencies [7ce5e73]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [0fec62f]
+- Updated dependencies [be32d9b]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [a2d36ea]
+- Updated dependencies [b7b6cd0]
+- Updated dependencies [8069d0e]
+- Updated dependencies [f5e3057]
+- Updated dependencies [d8cb04f]
+- Updated dependencies [42d595e]
+- Updated dependencies [437ca9e]
+- Updated dependencies [0a677e9]
+- Updated dependencies [44e9640]
+- Updated dependencies [b56b5a9]
+- Updated dependencies [1c19435]
+- Updated dependencies [4e4c92a]
+- Updated dependencies [6ba10ef]
+  - @robota-sdk/agent-core@3.1.0
+  - @robota-sdk/agent-framework@3.1.0
+  - @robota-sdk/agent-preset@3.1.0
+  - @robota-sdk/agent-interface-transport@3.1.0
+  - @robota-sdk/agent-capability-pack@3.1.0
+
+## 3.0.7
+### Patch Changes
+
+- Updated dependencies
+  - @robota-sdk/agent-framework@3.0.7
+  - @robota-sdk/agent-capability-pack@3.0.7
+  - @robota-sdk/agent-preset@3.0.7
+  - @robota-sdk/agent-core@3.0.7
+  - @robota-sdk/agent-interface-transport@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+  - @robota-sdk/agent-framework@3.0.6
+  - @robota-sdk/agent-capability-pack@3.0.6
+  - @robota-sdk/agent-preset@3.0.6
+  - @robota-sdk/agent-core@3.0.6
+  - @robota-sdk/agent-interface-transport@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-capability-pack@3.0.5
+  - @robota-sdk/agent-core@3.0.5
+  - @robota-sdk/agent-framework@3.0.5
+  - @robota-sdk/agent-interface-transport@3.0.5
+  - @robota-sdk/agent-preset@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-capability-pack@3.0.4
+  - @robota-sdk/agent-core@3.0.4
+  - @robota-sdk/agent-framework@3.0.4
+  - @robota-sdk/agent-interface-transport@3.0.4
+  - @robota-sdk/agent-preset@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-capability-pack@3.0.3
+  - @robota-sdk/agent-core@3.0.3
+  - @robota-sdk/agent-framework@3.0.3
+  - @robota-sdk/agent-interface-transport@3.0.3
+  - @robota-sdk/agent-preset@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-capability-pack@3.0.2
+  - @robota-sdk/agent-core@3.0.2
+  - @robota-sdk/agent-framework@3.0.2
+  - @robota-sdk/agent-interface-transport@3.0.2
+  - @robota-sdk/agent-preset@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

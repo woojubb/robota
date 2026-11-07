@@ -592,8 +592,10 @@ here because the reasoning differs between them:
 ### Workspace trust and project access
 
 The CLI resolves one host-owned `TWorkspaceProjectAccess` decision through a live broker before
-composition; a saved grant is history, never a renewed approval. The broker retains the exact folder
-object the person approved, and all project file operations compare their opened root with it. CLI
+composition; a saved grant is history, never a renewed approval. In normal CLI and desktop flows, the
+broker retains the exact folder object approved through the user prompt, and all project file
+operations compare their opened root with it; its same-user IPC cannot authenticate a person, so a
+direct local client can create a new approval. CLI
 and desktop restarts reattach without another approval, while a broker or OS restart requires one new
 approval per root. Absence is deterministically **Restricted**: only user contribution/settings sources and
 the user session store are available, no project memory, and `cwd` alone cannot mint any project

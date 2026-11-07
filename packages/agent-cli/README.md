@@ -220,11 +220,13 @@ withheld from the next start.
 When something misbehaves, `robota --safe-mode` starts with instruction files, skills, plugins, hooks
 and MCP servers all off.
 
-Workspace trust is granted per Git worktree and kept in `<configured-user-state-dir>/workspace-trust.json`:
+The trust manager holds approval for the exact folder while it runs. Reopening the CLI does not
+require another approval, but restarting the manager or computer does. The
+`<configured-user-state-dir>/workspace-trust.json` file records history and does not restore approval:
 
 ```bash
 robota trust status    # is this workspace trusted, and what would trust load? (--json: one line)
-robota trust --yes     # trust the Git workspace you are in
+robota trust --yes     # request trust for this folder; confirm at the terminal
 robota trust revoke --yes
 ```
 
@@ -479,7 +481,7 @@ Other files the CLI keeps under `<configured-user-state-dir>/`:
 
 | Path                   | Contents                                                                                       |
 | ---------------------- | ---------------------------------------------------------------------------------------------- |
-| `workspace-trust.json` | workspaces you have trusted                                                                    |
+| `workspace-trust.json` | approval history; live grants stay with the trust manager                                     |
 | `sessions/`            | saved sessions (a trusted project may keep them in `<configured-project-state-dir>/sessions/`) |
 | `history.jsonl`        | prompts you typed, for `Ctrl+R` (`"promptHistory": false` turns it off)                        |
 | `keybindings.json`     | key bindings                                                                                   |

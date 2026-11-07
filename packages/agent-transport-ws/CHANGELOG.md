@@ -1,5 +1,102 @@
 # @robota-sdk/agent-transport-ws
 
+## 3.1.0
+### Minor Changes
+
+- 437ca9e: Make the HTTP transport platform-neutral.
+
+  - `@robota-sdk/agent-transport`: `resolveAdmission`, `bearerCredential`, `credentialMatches` and `mintTransportToken` moved from `@robota-sdk/agent-transport/node` to the main entry, and `./node` no longer exports them. Minting uses `randomHex` and comparing uses `constantTimeEqual` from `@robota-sdk/agent-core` instead of `node:crypto`, so every refusal and the idempotence of `resolveAdmission` are unchanged; a credential is now compared as the string it is, where it used to be compared as UTF-8 bytes (a lone surrogate no longer matches another).
+  - `@robota-sdk/agent-transport-http`: the main entry reaches no Node built-in or Node global, so its `exports` no longer map `"browser": null`.
+  - `@robota-sdk/agent-transport-mcp`, `@robota-sdk/agent-transport-webrtc`, `@robota-sdk/agent-transport-ws`, `@robota-sdk/agent-cli` import the four admission helpers from `@robota-sdk/agent-transport`. `@robota-sdk/agent-interface-transport` only corrects where its comments and README say the admission machinery lives.
+
+### Patch Changes
+
+- Updated dependencies [bc8de21]
+- Updated dependencies [51ad6a4]
+- Updated dependencies [bc8de21]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [eabce48]
+- Updated dependencies [eabce48]
+- Updated dependencies [bc8de21]
+- Updated dependencies [82663df]
+- Updated dependencies [bc8de21]
+- Updated dependencies [04c3233]
+- Updated dependencies [9bc13f9]
+- Updated dependencies [0a677e9]
+- Updated dependencies [5b46d43]
+- Updated dependencies [fab48ad]
+- Updated dependencies [ea0e424]
+- Updated dependencies [0fec62f]
+- Updated dependencies [b7b6cd0]
+- Updated dependencies [8069d0e]
+- Updated dependencies [f5e3057]
+- Updated dependencies [d8cb04f]
+- Updated dependencies [437ca9e]
+- Updated dependencies [44e9640]
+- Updated dependencies [b56b5a9]
+- Updated dependencies [1c19435]
+  - @robota-sdk/agent-core@3.1.0
+  - @robota-sdk/agent-interface-session@3.1.0
+  - @robota-sdk/agent-interface-analytics@3.1.0
+  - @robota-sdk/agent-transport@3.1.0
+  - @robota-sdk/agent-interface-transport@3.1.0
+
+## 3.0.7
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.7
+  - @robota-sdk/agent-interface-analytics@3.0.7
+  - @robota-sdk/agent-interface-session@3.0.7
+  - @robota-sdk/agent-interface-transport@3.0.7
+  - @robota-sdk/agent-transport@3.0.7
+
+## 3.0.6
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.6
+  - @robota-sdk/agent-interface-analytics@3.0.6
+  - @robota-sdk/agent-interface-session@3.0.6
+  - @robota-sdk/agent-interface-transport@3.0.6
+  - @robota-sdk/agent-transport@3.0.6
+
+## 3.0.5
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.5
+  - @robota-sdk/agent-interface-analytics@3.0.5
+  - @robota-sdk/agent-interface-session@3.0.5
+  - @robota-sdk/agent-interface-transport@3.0.5
+  - @robota-sdk/agent-transport@3.0.5
+
+## 3.0.4
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.4
+  - @robota-sdk/agent-interface-analytics@3.0.4
+  - @robota-sdk/agent-interface-session@3.0.4
+  - @robota-sdk/agent-interface-transport@3.0.4
+  - @robota-sdk/agent-transport@3.0.4
+
+## 3.0.3
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.3
+  - @robota-sdk/agent-interface-analytics@3.0.3
+  - @robota-sdk/agent-interface-session@3.0.3
+  - @robota-sdk/agent-interface-transport@3.0.3
+  - @robota-sdk/agent-transport@3.0.3
+
+## 3.0.2
+### Patch Changes
+
+  - @robota-sdk/agent-core@3.0.2
+  - @robota-sdk/agent-interface-analytics@3.0.2
+  - @robota-sdk/agent-interface-session@3.0.2
+  - @robota-sdk/agent-interface-transport@3.0.2
+  - @robota-sdk/agent-transport@3.0.2
+
 ## 3.0.1
 ### Patch Changes
 

@@ -270,7 +270,7 @@ const { response } = await turn.completed;
 # 인터랙티브 TUI
 __PRODUCT_CLI_NAME__
 
-# 원샷(print 모드. Git 저장소에서는 먼저 `__PRODUCT_CLI_NAME__ trust --yes`로 신뢰하세요)
+# 원샷(print 모드. Git 저장소에서는 터미널에서 신뢰를 승인하거나 --safe-mode를 사용하세요)
 __PRODUCT_CLI_NAME__ -p "이 프로젝트의 모든 TODO 주석을 나열해줘"
 
 # 모델 오버라이드
@@ -305,5 +305,5 @@ Terminal.app에서 시작하면 경고를 표시합니다.
 `__PRODUCT_CLI_NAME__ --configure`를 실행해 안내를 따르세요.
 
 **"Workspace trust is required before headless startup"**: print 모드(`__PRODUCT_CLI_NAME__ -p`)는 신뢰하지 않은 Git
-저장소에서 시작하지 않습니다. 그 저장소에서 `__PRODUCT_CLI_NAME__ trust --yes`를 실행하거나, `--safe-mode`를 붙여 모든
+저장소에서 시작하지 않습니다. 터미널에서 `__PRODUCT_CLI_NAME__ trust --yes`를 실행하고 직접 승인하거나, `--safe-mode`를 붙여 모든
 사용자 정의(지침 파일, 스킬, 플러그인, 훅, MCP 서버)를 끈 채로 실행하세요.

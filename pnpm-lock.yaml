@@ -164,7 +164,7 @@ importers:
         version: 0.3.1
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
       yaml:
         specifier: 2.9.0
         version: 2.9.0
@@ -179,7 +179,7 @@ importers:
         version: 22.19.21
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   apps/agent-app:
     dependencies:
@@ -213,7 +213,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   apps/agent-web:
     dependencies:
@@ -420,7 +420,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
       wrangler:
         specifier: ^4.123.0
         version: 4.123.0
@@ -460,7 +460,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   apps/starter-nextjs:
     dependencies:
@@ -500,7 +500,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   apps/www:
     dependencies:
@@ -549,7 +549,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
       wrangler:
         specifier: ^4.123.0
         version: 4.123.0
@@ -585,19 +585,19 @@ importers:
         specifier: workspace:*
         version: link:../../../packages/agent-core
       '@robota-sdk/agent-framework':
-        specifier: ^3.0.1
+        specifier: ^3.1.0
         version: link:../../../packages/agent-framework
       '@robota-sdk/agent-mcp':
         specifier: workspace:*
         version: link:../../../packages/agent-mcp
       '@robota-sdk/agent-provider-anthropic':
-        specifier: ^3.0.1
+        specifier: ^3.1.0
         version: link:../../../packages/agent-provider-anthropic
       '@robota-sdk/agent-provider-replay':
         specifier: workspace:*
         version: link:../../../packages/agent-provider-replay
       '@robota-sdk/agent-tool-defaults':
-        specifier: ^3.0.1
+        specifier: ^3.1.0
         version: link:../../../packages/agent-tool-defaults
     devDependencies:
       '@types/node':
@@ -1016,7 +1016,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-capability-pack:
     dependencies:
@@ -1038,7 +1038,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-cli:
     dependencies:
@@ -1322,7 +1322,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-command:
     dependencies:
@@ -1359,7 +1359,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-core:
     dependencies:
@@ -1402,7 +1402,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-executor:
     dependencies:
@@ -1436,7 +1436,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-file-authority:
     dependencies:
@@ -1455,7 +1455,7 @@ importers:
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-framework:
     dependencies:
@@ -1534,7 +1534,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-gui-web:
     dependencies:
@@ -1592,7 +1592,7 @@ importers:
         version: 6.4.3(@types/node@20.19.43)(tsx@4.23.1)(yaml@2.9.0)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-interface-analytics:
     devDependencies:
@@ -1604,7 +1604,7 @@ importers:
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-interface-command:
     dependencies:
@@ -1620,7 +1620,7 @@ importers:
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-interface-execution:
     dependencies:
@@ -1636,7 +1636,7 @@ importers:
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-interface-session:
     dependencies:
@@ -1661,7 +1661,7 @@ importers:
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-interface-session-mobility:
     dependencies:
@@ -1680,7 +1680,7 @@ importers:
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-interface-transport:
     dependencies:
@@ -1699,7 +1699,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-interface-tui:
     devDependencies:
@@ -1714,7 +1714,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-keyring:
     devDependencies:
@@ -1729,7 +1729,7 @@ importers:
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-mcp:
     dependencies:
@@ -1766,7 +1766,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-organization:
     devDependencies:
@@ -1784,7 +1784,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-organization-host:
     dependencies:
@@ -1806,7 +1806,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-plugin:
     dependencies:
@@ -1831,7 +1831,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-preset:
     dependencies:
@@ -1850,7 +1850,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-process:
     devDependencies:
@@ -1868,7 +1868,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-product:
     dependencies:
@@ -1899,7 +1899,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-provider-anthropic:
     dependencies:
@@ -1924,7 +1924,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-provider-bytedance:
     dependencies:
@@ -1946,7 +1946,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-provider-gemini:
     dependencies:
@@ -1971,7 +1971,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-provider-openai:
     dependencies:
@@ -1999,7 +1999,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-provider-openai-compatible:
     dependencies:
@@ -2024,7 +2024,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-provider-replay:
     dependencies:
@@ -2049,7 +2049,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-remote-pairing:
     dependencies:
@@ -2068,7 +2068,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-roundtable:
     devDependencies:
@@ -2077,7 +2077,7 @@ importers:
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-roundtable-robota:
     dependencies:
@@ -2099,7 +2099,7 @@ importers:
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-session:
     dependencies:
@@ -2133,7 +2133,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-session-analytics:
     dependencies:
@@ -2158,7 +2158,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-subagent-runner:
     dependencies:
@@ -2192,7 +2192,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-telemetry-otel:
     dependencies:
@@ -2223,7 +2223,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-tool-defaults:
     dependencies:
@@ -2245,7 +2245,7 @@ importers:
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-tools:
     dependencies:
@@ -2279,7 +2279,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-transport:
     dependencies:
@@ -2322,7 +2322,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-transport-acp:
     dependencies:
@@ -2359,7 +2359,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-transport-http:
     dependencies:
@@ -2387,7 +2387,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-transport-link:
     dependencies:
@@ -2409,7 +2409,7 @@ importers:
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-transport-mcp:
     dependencies:
@@ -2443,7 +2443,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-transport-webrtc:
     dependencies:
@@ -2492,7 +2492,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-transport-webrtc-web:
     dependencies:
@@ -2529,7 +2529,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-transport-ws:
     dependencies:
@@ -2569,7 +2569,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-ui-terminal:
     dependencies:
@@ -2645,7 +2645,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-ui-web:
     dependencies:
@@ -2706,7 +2706,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/pack-coding:
     dependencies:
@@ -2737,7 +2737,7 @@ importers:
         version: 6.0.3
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/product-config:
     devDependencies:
@@ -2746,7 +2746,7 @@ importers:
         version: 0.22.14(@typescript/native-preview@7.0.0-dev.20260707.2)(publint@0.3.24)(tsx@4.23.1)(typescript@6.0.3)(unrun@0.3.1)
       vitest:
         specifier: ^3.2.6
-        version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+        version: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   scratch:
     dependencies:
@@ -4591,7 +4591,6 @@ packages:
     cpu: [ppc64]
     os: [aix]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/android-arm64@0.28.1:
@@ -4608,7 +4607,6 @@ packages:
     cpu: [arm64]
     os: [android]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/android-arm@0.28.1:
@@ -4625,7 +4623,6 @@ packages:
     cpu: [arm]
     os: [android]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/android-x64@0.28.1:
@@ -4642,7 +4639,6 @@ packages:
     cpu: [x64]
     os: [android]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/darwin-arm64@0.28.1:
@@ -4659,7 +4655,6 @@ packages:
     cpu: [arm64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/darwin-x64@0.28.1:
@@ -4676,7 +4671,6 @@ packages:
     cpu: [x64]
     os: [darwin]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/freebsd-arm64@0.28.1:
@@ -4693,7 +4687,6 @@ packages:
     cpu: [arm64]
     os: [freebsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/freebsd-x64@0.28.1:
@@ -4710,7 +4703,6 @@ packages:
     cpu: [x64]
     os: [freebsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-arm64@0.28.1:
@@ -4727,7 +4719,6 @@ packages:
     cpu: [arm64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-arm@0.28.1:
@@ -4744,7 +4735,6 @@ packages:
     cpu: [arm]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-ia32@0.28.1:
@@ -4761,7 +4751,6 @@ packages:
     cpu: [ia32]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-loong64@0.28.1:
@@ -4778,7 +4767,6 @@ packages:
     cpu: [loong64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-mips64el@0.28.1:
@@ -4795,7 +4783,6 @@ packages:
     cpu: [mips64el]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-ppc64@0.28.1:
@@ -4812,7 +4799,6 @@ packages:
     cpu: [ppc64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-riscv64@0.28.1:
@@ -4829,7 +4815,6 @@ packages:
     cpu: [riscv64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-s390x@0.28.1:
@@ -4846,7 +4831,6 @@ packages:
     cpu: [s390x]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/linux-x64@0.28.1:
@@ -4863,7 +4847,6 @@ packages:
     cpu: [x64]
     os: [linux]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/netbsd-arm64@0.28.1:
@@ -4880,7 +4863,6 @@ packages:
     cpu: [arm64]
     os: [netbsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/netbsd-x64@0.28.1:
@@ -4897,7 +4879,6 @@ packages:
     cpu: [x64]
     os: [netbsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/openbsd-arm64@0.28.1:
@@ -4914,7 +4895,6 @@ packages:
     cpu: [arm64]
     os: [openbsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/openbsd-x64@0.28.1:
@@ -4931,7 +4911,6 @@ packages:
     cpu: [x64]
     os: [openbsd]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/openharmony-arm64@0.28.1:
@@ -4948,7 +4927,6 @@ packages:
     cpu: [arm64]
     os: [openharmony]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/sunos-x64@0.28.1:
@@ -4965,7 +4943,6 @@ packages:
     cpu: [x64]
     os: [sunos]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/win32-arm64@0.28.1:
@@ -4982,7 +4959,6 @@ packages:
     cpu: [arm64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/win32-ia32@0.28.1:
@@ -4999,7 +4975,6 @@ packages:
     cpu: [ia32]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@esbuild/win32-x64@0.28.1:
@@ -5016,7 +4991,6 @@ packages:
     cpu: [x64]
     os: [win32]
     requiresBuild: true
-    dev: false
     optional: true
 
   /@eslint-community/eslint-utils@4.9.1(eslint@8.57.1):
@@ -8867,7 +8841,7 @@ packages:
       '@stryker-mutator/util': 9.6.1
       semver: 7.8.5
       tslib: 2.8.1
-      vitest: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+      vitest: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
     dev: true
 
   /@swc/core-darwin-arm64@1.15.46:
@@ -10300,7 +10274,7 @@ packages:
       std-env: 3.10.0
       test-exclude: 7.0.2
       tinyrainbow: 2.0.0
-      vitest: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
+      vitest: 3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
     transitivePeerDependencies:
       - supports-color
     dev: true
@@ -10329,7 +10303,7 @@ packages:
       '@vitest/spy': 3.2.6
       estree-walker: 3.0.3
       magic-string: 0.30.21
-      vite: 8.0.16(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.0.16(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
     dev: true
 
   /@vitest/pretty-format@3.2.6:
@@ -13297,7 +13271,6 @@ packages:
       '@esbuild/win32-arm64': 0.28.2
       '@esbuild/win32-ia32': 0.28.2
       '@esbuild/win32-x64': 0.28.2
-    dev: false
 
   /escalade@3.2.0:
     resolution: {integrity: sha512-WUj2qlxaQtO4g6Pq5c29GTcWGDyd8itL8zTlipgECz3JesAiiOKotd8JU6otB3PACgG6xkJUyVhboMS+bje/jA==}
@@ -21728,7 +21701,7 @@ packages:
       '@types/unist': 3.0.3
       vfile-message: 4.0.3
 
-  /vite-node@3.2.4(@types/node@20.19.43)(tsx@4.23.1)(yaml@2.9.0):
+  /vite-node@3.2.4(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0):
     resolution: {integrity: sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     hasBin: true
@@ -21737,7 +21710,7 @@ packages:
       debug: 4.4.3
       es-module-lexer: 1.7.0
       pathe: 2.0.3
-      vite: 8.0.16(@types/node@20.19.43)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.0.16(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
     transitivePeerDependencies:
       - '@types/node'
       - '@vitejs/devtools'
@@ -21754,7 +21727,7 @@ packages:
       - yaml
     dev: true
 
-  /vite-node@3.2.4(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0):
+  /vite-node@3.2.4(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0):
     resolution: {integrity: sha512-EbKSKh+bh1E1IFxeO0pg1n4dvoOTt0UDiXMd/qn++r98+jPO1xtJilvXldeuQ8giIB5IkpjCgMleHMNEsGH6pg==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     hasBin: true
@@ -21763,7 +21736,7 @@ packages:
       debug: 4.4.3
       es-module-lexer: 1.7.0
       pathe: 2.0.3
-      vite: 8.0.16(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.0.16(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
     transitivePeerDependencies:
       - '@types/node'
       - '@vitejs/devtools'
@@ -21833,7 +21806,7 @@ packages:
       fsevents: 2.3.3
     dev: true
 
-  /vite@8.0.16(@types/node@20.19.43)(tsx@4.23.1)(yaml@2.9.0):
+  /vite@8.0.16(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0):
     resolution: {integrity: sha512-h9bXPmJichP5fLmVQo3PyaGSDE2n3aPuomeAlVRm0JLmt4rY6zmPKd59HYI4LNW8oTK7tlTsuC7l/m7awx9Jcw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
@@ -21877,6 +21850,7 @@ packages:
         optional: true
     dependencies:
       '@types/node': 20.19.43
+      esbuild: 0.28.2
       lightningcss: 1.32.0
       picomatch: 4.0.5
       postcss: 8.5.28
@@ -21888,7 +21862,7 @@ packages:
       fsevents: 2.3.3
     dev: true
 
-  /vite@8.0.16(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0):
+  /vite@8.0.16(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0):
     resolution: {integrity: sha512-h9bXPmJichP5fLmVQo3PyaGSDE2n3aPuomeAlVRm0JLmt4rY6zmPKd59HYI4LNW8oTK7tlTsuC7l/m7awx9Jcw==}
     engines: {node: ^20.19.0 || >=22.12.0}
     hasBin: true
@@ -21932,6 +21906,7 @@ packages:
         optional: true
     dependencies:
       '@types/node': 22.19.21
+      esbuild: 0.28.2
       lightningcss: 1.32.0
       picomatch: 4.0.5
       postcss: 8.5.28
@@ -22010,7 +21985,7 @@ packages:
       vite: 8.3.5(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
     dev: false
 
-  /vitest@3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0):
+  /vitest@3.2.6(@types/node@20.19.43)(esbuild@0.28.2)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0):
     resolution: {integrity: sha512-xejya+bT/j/+R/AGa1XOfRxLmNUlLtlwjRsFUILF+xHfzElmGcmFydy2gqqIrd62ptIEfwVMofd19uNWD9L7Nw==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     hasBin: true
@@ -22060,8 +22035,8 @@ packages:
       tinyglobby: 0.2.17
       tinypool: 1.1.1
       tinyrainbow: 2.0.0
-      vite: 8.0.16(@types/node@20.19.43)(tsx@4.23.1)(yaml@2.9.0)
-      vite-node: 3.2.4(@types/node@20.19.43)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.0.16(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
+      vite-node: 3.2.4(@types/node@20.19.43)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - '@vitejs/devtools'
@@ -22079,7 +22054,7 @@ packages:
       - yaml
     dev: true
 
-  /vitest@3.2.6(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0):
+  /vitest@3.2.6(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0):
     resolution: {integrity: sha512-xejya+bT/j/+R/AGa1XOfRxLmNUlLtlwjRsFUILF+xHfzElmGcmFydy2gqqIrd62ptIEfwVMofd19uNWD9L7Nw==}
     engines: {node: ^18.0.0 || ^20.0.0 || >=22.0.0}
     hasBin: true
@@ -22128,8 +22103,8 @@ packages:
       tinyglobby: 0.2.17
       tinypool: 1.1.1
       tinyrainbow: 2.0.0
-      vite: 8.0.16(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
-      vite-node: 3.2.4(@types/node@22.19.21)(tsx@4.23.1)(yaml@2.9.0)
+      vite: 8.0.16(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
+      vite-node: 3.2.4(@types/node@22.19.21)(esbuild@0.28.2)(tsx@4.23.1)(yaml@2.9.0)
       why-is-node-running: 2.3.0
     transitivePeerDependencies:
       - '@vitejs/devtools'
