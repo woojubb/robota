@@ -103,6 +103,7 @@ let broker: Awaited<ReturnType<typeof startTestBroker>> | undefined;
 
 beforeEach(() => {
   home = realpathSync(mkdtempSync(join(tmpdir(), 'secure-migrate-')));
+  mkdirSync(join(home, 'shared-tmp'));
   runtime = createTestProductRuntime('test-product', { HOME: home });
   overrideProductSecureMode(runtime, true);
   log = [];
@@ -386,6 +387,23 @@ describe('secure migrate and secure compact while secure mode is off', () => {
 });
 
 describe.skipIf(posixOnly)('secure migrate', () => {
+  it('keeps activation incomplete while an unattributed SDK spill can contain plaintext', async () => {
+    await installFixtureKeyring();
+    const spill = join(home, 'shared-tmp', 'agent-tool-results-XyZ987');
+    mkdirSync(spill);
+    writeFileSync(join(spill, 'result.json'), CANARY);
+
+    const { code } = await secure(['enable'], 'y', undefined, { interactive: false });
+
+    expect(code, out()).toBe(EXIT_INCOMPLETE);
+    expect(resolveCliRuntimeContext({
+      productConfig: runtime.config,
+      environment: runtime.environment,
+    }).conversationMode).toBe('preparing');
+    expect(out()).toContain(spill);
+    expect(readFileSync(join(spill, 'result.json'), 'utf8')).toBe(CANARY);
+  });
+
   it('enables by importing sealed history and merges a later plain interval without duplicate prompts', async () => {
     await installFixtureKeyring();
     const texts = seedHistory();

@@ -1,17 +1,20 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { createRequire } from 'node:module';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { getWorkspaceProjectIdentity } from '@robota-sdk/agent-framework';
-import { createNodeWorkspaceTrustService } from '@robota-sdk/agent-framework/node';
 import { createTestFrameworkHost } from '@robota-sdk/agent-framework/testing';
 import { ChildProcessSubagentRunner } from '@robota-sdk/agent-subagent-runner';
 import { afterEach, expect, it, vi } from 'vitest';
 
 import { createTestProductRuntime } from '../../__tests__/helpers/product-runtime.js';
+import { approveTestWorkspace } from '../../__tests__/helpers/approve-test-workspace.js';
+import { startTestBroker } from '../../__tests__/helpers/test-workspace-root-broker.js';
+import { BrokeredWorkspaceTrustService } from '../../startup/brokered-workspace-trust.js';
+import { workspaceRootBrokerEndpoint } from '../../startup/workspace-root-broker-process.js';
 import { createCliWorkspaceComposition } from '../../startup/workspace-project-composition.js';
 import type { IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
 
@@ -29,9 +32,15 @@ vi.mock('node:child_process', async (importOriginal) => {
 });
 
 const roots: string[] = [];
-afterEach(() => {
+let broker: Awaited<ReturnType<typeof startTestBroker>> | undefined;
+let trust: BrokeredWorkspaceTrustService | undefined;
+afterEach(async () => {
   for (const child of children.current.splice(0))
     if (child.exitCode === null) child.kill('SIGKILL');
+  trust?.close();
+  trust = undefined;
+  await broker?.close();
+  broker = undefined;
   for (const root of roots.splice(0))
     rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 25 });
 });
@@ -44,10 +53,12 @@ it.runIf(process.platform === 'linux')(
     const cwd = join(root, 'project');
     execFileSync('git', ['init', '-q', cwd]);
     const runtime = createTestProductRuntime('test-product', { HOME: root });
-    const access = await createNodeWorkspaceTrustService(
-      runtime.layout.userPaths.workspaceTrust,
-      runtime.layout.projectStateDirectories,
-    ).grant(cwd);
+    const endpoint = workspaceRootBrokerEndpoint(runtime);
+    mkdirSync(dirname(endpoint), { recursive: true, mode: 0o700 });
+    broker = await startTestBroker(endpoint, dirname(endpoint), runtime.layout.userPaths.workspaceTrust);
+    if (await approveTestWorkspace(cwd, runtime) !== 0) throw new Error('Expected a live trust grant');
+    trust = await BrokeredWorkspaceTrustService.create(runtime);
+    const access = await trust.inspect(cwd);
     if (access.status !== 'trusted') throw new Error('Expected a trusted fixture');
     const identity = getWorkspaceProjectIdentity(access.authority);
     const parent = createCliWorkspaceComposition({

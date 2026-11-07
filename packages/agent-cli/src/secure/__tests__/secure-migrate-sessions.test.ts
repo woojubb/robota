@@ -46,6 +46,7 @@ let broker: Awaited<ReturnType<typeof startTestBroker>> | undefined;
 
 beforeEach(() => {
   home = realpathSync(mkdtempSync(join(tmpdir(), 'secure-migrate-sessions-')));
+  mkdirSync(join(home, 'shared-tmp'));
   runtime = createTestProductRuntime('test-product', { HOME: home });
   overrideProductSecureMode(runtime, true);
   log = [];

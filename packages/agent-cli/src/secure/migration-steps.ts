@@ -554,6 +554,7 @@ function leftoversStep(options: IStoreMigrationStepOptions): IMigrationStep {
         (!context.mayDeleteLeftovers &&
           leftovers.handoffFiles + leftovers.editorDirectories + leftovers.deadProcessDirectories > 0) ||
         leftovers.recentEditorDirectories > 0 ||
+        leftovers.sdkSpillDirectories.length > 0 ||
         leftovers.refused.length > 0,
     };
   };
