@@ -28,7 +28,7 @@ import { runCli } from '../src/node-io.mjs';
 const MARKER_NAME = 'PWNED';
 const PAYLOAD = `hello; touch ${MARKER_NAME} #`;
 
-const ARGS = { model: '', output: 'text', maxTurns: '', loadProject: false };
+const ARGS = { model: '', output: 'text', maxTurns: '' };
 
 describe('SEC-006: action inputs must never reach a shell', () => {
   let dir: string;
