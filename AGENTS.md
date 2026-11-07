@@ -41,6 +41,6 @@ merged PR heads covered above, changing CI permissions or repository settings, a
 
 ## Keeping the harness small
 
-Correct causes and remove obsolete requirements before adding guidance or checks. Chain prerequisites by events,
-give jobs evidence-based timeouts, and record reusable evidence in the issue or PR. Measure elapsed delivery time
-after a workflow change; revise it if the expected benefit or necessary coverage does not hold.
+Delete obsolete checks, scripts and instructions before adding to the harness. A harness change must reduce
+total lines and required work; a necessary exception needs a reproduced failure and the owner's decision.
+Reuse existing CI and release evidence.
