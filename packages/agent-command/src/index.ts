@@ -2,8 +2,6 @@ export * from './agent/index.js';
 export * from './default/index.js';
 export * from './background/index.js';
 export * from './goal/index.js';
-// HANDOFF-001 (issue #1864). Named rather than `export *`: the star form is frozen pre-existing
-// debt in this barrel, and `sdk-public-surface` lets it shrink but never grow.
 export {
   HandoffCommandSource,
   createHandoffCommandEntry,
@@ -21,7 +19,6 @@ export {
   type IGitCommandModuleOptions,
   type TGitCommandContext,
 } from './git/index.js';
-// OBSERVABILITY-1991: named rather than `export *` — the star form is frozen debt in this barrel.
 export {
   STORAGE_REPAIR_ID,
   doctorRepairAllowlist,

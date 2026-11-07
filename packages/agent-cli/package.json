@@ -82,7 +82,6 @@
     "build:bun:linux-x64": "bun scripts/build-bun.mjs linux-x64",
     "build:bun:linux-arm64": "bun scripts/build-bun.mjs linux-arm64",
     "build:bun:windows-x64": "bun scripts/build-bun.mjs windows-x64",
-    "test:bun": "node scripts/e2e-bun-binary.mjs",
     "scenario:verify": "pnpm exec tsx --conditions=source examples/verify-session-event-delivery.ts",
     "scenario:usage:verify": "pnpm exec tsx --conditions=source examples/verify-personal-usage.ts",
     "scenario:verify:mcp-background": "pnpm exec tsx --conditions=source examples/verify-mcp-background.ts",
