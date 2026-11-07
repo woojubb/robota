@@ -54,7 +54,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        kind: [tests-cli-1, tests-cli-2, tests-rest-1, tests-rest-2, tests-rest-3]
+        kind: [tests-cli-1, tests-cli-2, tests-cli-3, tests-cli-4, tests-rest-1, tests-rest-2, tests-rest-3]
     uses: ./.github/workflows/ci-check.yml
     with:
       kind: ${{ matrix.kind }}
