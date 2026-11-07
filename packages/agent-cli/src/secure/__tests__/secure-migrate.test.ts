@@ -1112,6 +1112,24 @@ describe.skipIf(posixOnly)('secure compact', () => {
     expect(out()).toMatch(/1 plain line reached it meanwhile/u);
   });
 
+  it('exits 5 when history keeps a line whose contents cannot be verified', async () => {
+    await installFixtureKeyring();
+    compactions.mockResolvedValueOnce({
+      status: 'compacted',
+      entries: 1,
+      fromPlain: 0,
+      caughtUp: 0,
+      carriedOver: 1,
+      droppedTail: false,
+      plainLinesAfter: 0,
+    });
+
+    const { code } = await secure(['compact']);
+
+    expect(code).toBe(EXIT_INCOMPLETE);
+    expect(out()).toContain('1 line that do not open here kept as they are.');
+  });
+
   it('says the history was removed, and puts nothing back, when it is deleted while being compacted', async () => {
     await installFixtureKeyring();
     seedHistory();

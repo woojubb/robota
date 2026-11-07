@@ -222,7 +222,7 @@ function describeCompaction(
   }
   return {
     lines,
-    complete: result.plainLinesAfter === 0 && result.catchUpFailed === undefined,
+    complete: result.carriedOver === 0 && result.plainLinesAfter === 0 && result.catchUpFailed === undefined,
   };
 }
 
